@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "status": "BLOCKED_RUNTIME",
+  "checked_at": "2026-09-22",
+  "runtime_authority": "MiniPC",
+  "model": "antigravity/gemini-3.8-flash-tiered",
+  "production_runtime": {
+    "product": "OmniRoute",
+    "version": "3.8.50",
+    "artifact_class": "official"
+  },
+  "observations": {
+    "healthz": "HTTP_200",
+    "model_in_live_catalog": true,
+    "minimal_exact_ok_canary": "HTTP_200",
+    "nontrivial_chat_request": "HTTP_400_OR_TIMEOUT",
+    "live_benchmark_completed": false
+  },
+  "historical_evidence": {
+    "healthy_tiered_requests_existed": true,
+    "healthy_combo_step": "policy-antigravity-gemini-3.8-flash-primary",
+    "current_failed_requests_show_combo_step": false
+  },
+  "governance": {
+    "local_fork_accepted_as_production_fix": false,
+    "vendor_source_modified": false,
+    "required_resolution": "Official OmniRoute artifact containing or superseding the tiered Flash routing/quota fix"
+  },
+  "benchmark": {
+    "ground_truth_claims": 36,
+    "harness": "poc/dichiarazioni_pubbliche/claim_extraction_benchmark.py",
+    "raw_model_output": null,
+    "precision": null,
+    "recall": null,
+    "reason": "No successful non-trivial end-to-end model response; metrics must not be fabricated."
+  }
+}

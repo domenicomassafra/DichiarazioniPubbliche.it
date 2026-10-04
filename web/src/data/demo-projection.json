@@ -1,0 +1,349 @@
+{
+  "dataset_sha256": "64ec6aff21f595896e63b37539ce50ad3e092bfb8b5cffcedf4d0b73892c53eb",
+  "dossier_count": 3,
+  "dossiers": [
+    {
+      "claim": "La spesa di manutenzione è aumentata del 12% rispetto all'anno precedente.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1
+      },
+      "claim_id": "claim:demo:maintenance",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Il rendiconto mostra un aumento nominale vicino al valore dichiarato rispetto all'esercizio precedente.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance"
+      },
+      "finding_id": "finding:demo:maintenance",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "end_ms": 1000,
+            "segment_id": "segment:demo:maintenance",
+            "segment_index": 0,
+            "start_ms": 0,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      }
+    },
+    {
+      "claim": "Gli interventi sulla rete hanno dimezzato i tempi medi di percorrenza.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:mobility"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1
+      },
+      "claim_id": "claim:demo:mobility",
+      "claim_type": "DISTRIBUTIONAL_CLAIM",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "evidence_review_ids": [
+            "review:evidence:demo:mobility:1"
+          ],
+          "id": "evidence:demo:mobility:1",
+          "observation_review_ids": [
+            "review:observation:demo:mobility:1"
+          ],
+          "observed_at": "2026-09-14T18:30:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/mobility/1",
+          "verification_observation_ids": [
+            "observation:demo:mobility:1"
+          ]
+        },
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:mobility:2"
+          ],
+          "id": "evidence:demo:mobility:2",
+          "observation_review_ids": [
+            "review:observation:demo:mobility:2"
+          ],
+          "observed_at": "2026-09-14T18:30:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/mobility/2",
+          "verification_observation_ids": [
+            "observation:demo:mobility:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "FACTUALLY_FALSE",
+        "created_at": "2026-09-14T18:30:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:mobility"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-14T18:30:00+00:00",
+        "rationale": "Il monitoraggio mostra un miglioramento, ma non un dimezzamento dei tempi medi nel periodo confrontabile.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:mobility"
+      },
+      "finding_id": "finding:demo:mobility",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:mobility",
+        "published_at": "2026-09-14T18:30:00+00:00",
+        "segments": [
+          {
+            "end_ms": 1000,
+            "segment_id": "segment:demo:mobility",
+            "segment_index": 0,
+            "start_ms": 0,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:mobility",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:mobility"
+              }
+            ]
+          }
+        ],
+        "title": "Intervista sulla mobilità",
+        "url": "https://example.test/demo/mobility"
+      },
+      "speaker": {
+        "id": "person:demo:mobility",
+        "name": "Marco Neri",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:mobility",
+            "review_event_ids": [
+              "review:speaker:demo:mobility"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      }
+    },
+    {
+      "claim": "Il nuovo programma ha finanziato 8.000 borse di studio nel periodo previsto.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:study"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1
+      },
+      "claim_id": "claim:demo:study",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "evidence_review_ids": [
+            "review:evidence:demo:study:1"
+          ],
+          "id": "evidence:demo:study:1",
+          "observation_review_ids": [
+            "review:observation:demo:study:1"
+          ],
+          "observed_at": "2026-09-16T10:00:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/study/1",
+          "verification_observation_ids": [
+            "observation:demo:study:1"
+          ]
+        },
+        {
+          "content_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "evidence_review_ids": [
+            "review:evidence:demo:study:2"
+          ],
+          "id": "evidence:demo:study:2",
+          "observation_review_ids": [
+            "review:observation:demo:study:2"
+          ],
+          "observed_at": "2026-09-16T10:00:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/study/2",
+          "verification_observation_ids": [
+            "observation:demo:study:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-16T10:00:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:study"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-16T10:00:00+00:00",
+        "rationale": "Il rendiconto pubblicato riporta un numero di borse coerente con la dichiarazione per il periodo indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:study"
+      },
+      "finding_id": "finding:demo:study",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:study",
+        "published_at": "2026-09-16T10:00:00+00:00",
+        "segments": [
+          {
+            "end_ms": 1000,
+            "segment_id": "segment:demo:study",
+            "segment_index": 0,
+            "start_ms": 0,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:study",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:study"
+              }
+            ]
+          }
+        ],
+        "title": "Presentazione del programma studio",
+        "url": "https://example.test/demo/study"
+      },
+      "speaker": {
+        "id": "person:demo:study",
+        "name": "Elena Valli",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:study",
+            "review_event_ids": [
+              "review:speaker:demo:study"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      }
+    }
+  ],
+  "generated_at": "2026-09-23T20:50:00+00:00",
+  "methodology": {
+    "aggregate_person_score": false,
+    "claim_level_only": true,
+    "requires_approved_evidence": true,
+    "requires_publication_gate": true,
+    "requires_resolved_transcript": true
+  },
+  "omitted_count": 2,
+  "schema_version": "dichiarazioni-pubbliche-public-v2"
+}

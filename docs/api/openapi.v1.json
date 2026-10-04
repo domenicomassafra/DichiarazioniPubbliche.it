@@ -1,0 +1,3174 @@
+{
+  "components": {
+    "parameters": {
+      "Assessment": {
+        "description": "Comma-separated claim-level assessment codes.",
+        "examples": {
+          "supported": {
+            "value": "SUPPORTED"
+          }
+        },
+        "in": "query",
+        "name": "assessment",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Content": {
+        "description": "Comma-separated stable content identifiers.",
+        "in": "query",
+        "name": "content",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Cursor": {
+        "description": "Opaque continuation cursor from `meta.next_cursor`. It is version-checked and bound to the request's filter set: reusing it with different filters is a 400, never a silently reinterpreted page.",
+        "in": "query",
+        "name": "cursor",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Limit": {
+        "description": "Page size. Default 25, maximum 100.",
+        "in": "query",
+        "name": "limit",
+        "required": false,
+        "schema": {
+          "default": 25,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "Person": {
+        "description": "Comma-separated stable speaker identifiers.",
+        "in": "query",
+        "name": "person",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublishedFrom": {
+        "description": "Inclusive ISO 8601 lower bound on publication time, with timezone.",
+        "in": "query",
+        "name": "published_from",
+        "required": false,
+        "schema": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "PublishedTo": {
+        "description": "Inclusive ISO 8601 upper bound on publication time, with timezone.",
+        "in": "query",
+        "name": "published_to",
+        "required": false,
+        "schema": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "Status": {
+        "description": "Comma-separated public publication-status codes.",
+        "examples": {
+          "publish": {
+            "value": "PUBLISH"
+          }
+        },
+        "in": "query",
+        "name": "status",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Topic": {
+        "description": "Comma-separated claim-type topic codes from the public schema vocabulary. Served facets are the codes actually present in the projection.",
+        "examples": {
+          "numericStatistic": {
+            "value": "NUMERIC_STATISTIC"
+          }
+        },
+        "in": "query",
+        "name": "topic",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "invalidCursor": {
+                "summary": "Cursor issued for another filter set or contract version",
+                "value": {
+                  "error": {
+                    "code": "INVALID_CURSOR",
+                    "message": "Cursor was issued for a different filter set.",
+                    "request_id": "a1b2c3d4e5f60718"
+                  }
+                }
+              },
+              "unknownParameter": {
+                "summary": "Unknown query parameter (typed 400, never a silent empty page)",
+                "value": {
+                  "error": {
+                    "code": "UNSUPPORTED_PARAMETER",
+                    "message": "Unsupported query parameter(s): colour",
+                    "request_id": "a1b2c3d4e5f60718"
+                  }
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "Malformed path or query, unsupported parameter, or invalid cursor."
+      },
+      "InternalError": {
+        "content": {
+          "application/json": {
+            "example": {
+              "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "Unexpected server error.",
+                "request_id": "a1b2c3d4e5f60718"
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "Generic failure with a request id only. No stack trace, no SQL."
+      },
+      "MethodNotAllowed": {
+        "content": {
+          "application/json": {
+            "example": {
+              "error": {
+                "code": "METHOD_NOT_ALLOWED",
+                "message": "This API is read-only.",
+                "request_id": "a1b2c3d4e5f60718"
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "Write and unsafe methods are rejected with Allow: GET, HEAD.",
+        "headers": {
+          "Allow": {
+            "description": "Always exactly `GET, HEAD`.",
+            "schema": {
+              "const": "GET, HEAD"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "error": {
+                "code": "RESOURCE_NOT_FOUND",
+                "message": "Resource is not available in the public record.",
+                "request_id": "a1b2c3d4e5f60718"
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "The resource is unknown, private, unsafe, or not projectable. The response is identical in every case and never reveals whether an operational record exists."
+      },
+      "ProjectionUnavailable": {
+        "content": {
+          "application/json": {
+            "example": {
+              "error": {
+                "code": "PUBLIC_PROJECTION_UNAVAILABLE",
+                "message": "The public projection is missing, invalid, stale, or contract-incompatible.",
+                "request_id": "a1b2c3d4e5f60718"
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "The public projection is missing, invalid, stale, or contract-incompatible. The API fails closed: no partial data and no fabricated record."
+      }
+    },
+    "schemas": {
+      "Dossier": {
+        "description": "A published finding version, exactly as emitted by the public projection. Contains no raw transcript body, no evidence body, no provider receipt, and no person-level score or ranking.",
+        "properties": {
+          "claim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "claim_contract": {
+            "properties": {
+              "check_worthy": {
+                "type": "boolean"
+              },
+              "source_segment_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "source_text_provenance_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "speaker_approval_required": {
+                "const": true
+              },
+              "temporal_scope": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "version": {
+                "const": 1
+              }
+            },
+            "required": [
+              "check_worthy",
+              "speaker_approval_required",
+              "source_segment_ids",
+              "source_text_provenance_ids",
+              "temporal_scope",
+              "version"
+            ],
+            "type": "object"
+          },
+          "claim_id": {
+            "type": "string"
+          },
+          "claim_type": {
+            "enum": [
+              "ARITHMETIC",
+              "CAUSAL_CLAIM",
+              "CURRENT_FOREIGN_POLICY",
+              "CURRENT_POLICY",
+              "CURRENT_POLICY_POSITION",
+              "DISTRIBUTIONAL_CLAIM",
+              "ELECTION_PREDICTION",
+              "FISCAL_INFERENCE",
+              "GROUP_MOTIVE",
+              "HISTORICAL_ATTRIBUTION",
+              "HISTORICAL_CLAIM",
+              "HISTORICAL_POLITICAL",
+              "LEGAL_POLICY_STATUS",
+              "LEGAL_QUOTE",
+              "MOTIVE_ATTRIBUTION",
+              "NUMERIC_STATISTIC",
+              "POLICY_DIFFERENCE",
+              "POLICY_SCOPE",
+              "POLITICAL_ATTRIBUTION",
+              "PRICE_STATISTIC",
+              "QUOTE_ATTRIBUTION",
+              "RHETORICAL_GENERALIZATION",
+              "SYSTEMIC_CLAIM",
+              "SYSTEMIC_INFERENCE",
+              "TAX_RATE",
+              "VALUE_JUDGMENT"
+            ],
+            "type": "string"
+          },
+          "corrections": {
+            "description": "Append-only corrections with an explicit review approval.",
+            "items": {
+              "properties": {
+                "changed_fields": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "created_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "finding_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "previous_finding_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "finding_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "evidence": {
+            "description": "Approved evidence metadata only: identifiers, URL, dates, and review identifiers. No evidence body or excerpt.",
+            "items": {
+              "properties": {
+                "content_sha256": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "evidence_review_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "observation_review_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "observed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "publication_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "publisher": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reference_period": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "relation": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rights_status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "url": {
+                  "format": "uri",
+                  "type": "string"
+                },
+                "verification_observation_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "id",
+                "url"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "finding": {
+            "properties": {
+              "assessment": {
+                "description": "Claim-level assessment. Never a person score.",
+                "enum": [
+                  "FACTUALLY_FALSE",
+                  "OUTDATED_DATA",
+                  "SUPPORTED"
+                ],
+                "type": "string"
+              },
+              "created_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "policy_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "publication_review_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "publication_status": {
+                "enum": [
+                  "CORRECTED",
+                  "DISPUTED",
+                  "PUBLISH",
+                  "RETRACTED"
+                ],
+                "type": "string"
+              },
+              "published_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rationale": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "supersedes_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verification_run_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "assessment",
+              "publication_status",
+              "publication_review_ids",
+              "verification_run_id"
+            ],
+            "type": "object"
+          },
+          "finding_id": {
+            "type": "string"
+          },
+          "relations": {
+            "description": "Reviewed longitudinal relations. A relation is never an accusation of intent.",
+            "items": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "rationale_codes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "related_claim": {
+                  "type": "string"
+                },
+                "related_claim_id": {
+                  "type": "string"
+                },
+                "related_statement_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "relation_type": {
+                  "enum": [
+                    "NO_RELATION",
+                    "RELATED_TOPIC",
+                    "SAME_PROPOSITION",
+                    "POSITION_CHANGE_CANDIDATE",
+                    "CONTRADICTION_CANDIDATE"
+                  ],
+                  "type": "string"
+                },
+                "relation_version": {
+                  "type": "string"
+                },
+                "review_event_id": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "status": {
+                  "const": "APPROVED"
+                }
+              },
+              "required": [
+                "id",
+                "relation_type",
+                "status",
+                "review_event_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "rights_of_reply": {
+            "description": "Only replies that passed their own publication review. A pending or private reply is never projected.",
+            "items": {
+              "properties": {
+                "body": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "evidence_urls": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "const": "PUBLISHED"
+                },
+                "submitted_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "submitter_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "submitter_role": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "status"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "properties": {
+                  "segments": {
+                    "minItems": 1
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "text_provenance": {
+                    "minItems": 1
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "content_id": {
+                "type": "string"
+              },
+              "published_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "segments": {
+                "items": {
+                  "properties": {
+                    "end_ms": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "segment_id": {
+                      "type": "string"
+                    },
+                    "segment_index": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "start_ms": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "transcript_candidates": {
+                      "items": {
+                        "properties": {
+                          "provider_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "segment_id": {
+                            "type": "string"
+                          },
+                          "source_kind": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "transcript_sha256": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "variant_id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "segment_id",
+                          "variant_id"
+                        ],
+                        "type": "object"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "end_ms",
+                    "segment_id",
+                    "segment_index",
+                    "start_ms",
+                    "transcript_candidates"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "text_provenance": {
+                "items": {
+                  "properties": {
+                    "attribution_method": {
+                      "enum": [
+                        "SOURCE_BYLINE",
+                        "SOURCE_QUOTE",
+                        "ACCOUNT_OWNER",
+                        "OFFICIAL_RECORD",
+                        "MANUAL_REVIEW"
+                      ],
+                      "type": "string"
+                    },
+                    "attribution_version": {
+                      "const": "text-source-provenance-v1"
+                    },
+                    "end_char": {
+                      "minimum": 1,
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "quote_sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": "string"
+                    },
+                    "review_event_ids": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "selector_type": {
+                      "enum": [
+                        "TEXT_QUOTE_HASH",
+                        "TEXT_POSITION_HASH"
+                      ],
+                      "type": "string"
+                    },
+                    "source_sha256": {
+                      "pattern": "^[0-9a-f]{64}$",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "start_char": {
+                      "minimum": 0,
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "attribution_method",
+                    "attribution_version",
+                    "id",
+                    "quote_sha256",
+                    "review_event_ids",
+                    "selector_type"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "url": {
+                "format": "uri",
+                "type": "string"
+              }
+            },
+            "required": [
+              "content_id",
+              "segments",
+              "text_provenance",
+              "url"
+            ],
+            "type": "object"
+          },
+          "speaker": {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "provenance": {
+                "items": {
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "provenance_kind": {
+                      "enum": [
+                        "TIMED_SPEAKER",
+                        "TEXT_ATTRIBUTION"
+                      ],
+                      "type": "string"
+                    },
+                    "review_event_ids": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "candidate_id",
+                    "provenance_kind",
+                    "review_event_ids"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "public_role": {
+                "deprecated": true,
+                "description": "Legacy timeless role. Prefer public_roles, which are dated and review-backed.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "public_roles": {
+                "items": {
+                  "$ref": "#/components/schemas/PublicRole"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "provenance"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "claim",
+          "claim_contract",
+          "claim_id",
+          "claim_type",
+          "corrections",
+          "evidence",
+          "finding",
+          "finding_id",
+          "rights_of_reply",
+          "source",
+          "speaker"
+        ],
+        "type": "object"
+      },
+      "Error": {
+        "properties": {
+          "error": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "INVALID_QUERY",
+                  "INVALID_PARAMETER",
+                  "INVALID_PARAMETER_VALUE",
+                  "INVALID_CURSOR",
+                  "UNSUPPORTED_PARAMETER",
+                  "METHOD_NOT_ALLOWED",
+                  "RESOURCE_NOT_FOUND",
+                  "PUBLIC_PROJECTION_UNAVAILABLE",
+                  "INTERNAL_ERROR"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "request_id"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "FindingSummary": {
+        "description": "Bounded public summary of one published finding version. Contains no score, no ranking, and no transcript or evidence body.",
+        "properties": {
+          "assessment": {
+            "enum": [
+              "FACTUALLY_FALSE",
+              "OUTDATED_DATA",
+              "SUPPORTED"
+            ],
+            "type": "string"
+          },
+          "claim": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "claim_id": {
+            "type": "string"
+          },
+          "claim_type": {
+            "enum": [
+              "ARITHMETIC",
+              "CAUSAL_CLAIM",
+              "CURRENT_FOREIGN_POLICY",
+              "CURRENT_POLICY",
+              "CURRENT_POLICY_POSITION",
+              "DISTRIBUTIONAL_CLAIM",
+              "ELECTION_PREDICTION",
+              "FISCAL_INFERENCE",
+              "GROUP_MOTIVE",
+              "HISTORICAL_ATTRIBUTION",
+              "HISTORICAL_CLAIM",
+              "HISTORICAL_POLITICAL",
+              "LEGAL_POLICY_STATUS",
+              "LEGAL_QUOTE",
+              "MOTIVE_ATTRIBUTION",
+              "NUMERIC_STATISTIC",
+              "POLICY_DIFFERENCE",
+              "POLICY_SCOPE",
+              "POLITICAL_ATTRIBUTION",
+              "PRICE_STATISTIC",
+              "QUOTE_ATTRIBUTION",
+              "RHETORICAL_GENERALIZATION",
+              "SYSTEMIC_CLAIM",
+              "SYSTEMIC_INFERENCE",
+              "TAX_RATE",
+              "VALUE_JUDGMENT"
+            ],
+            "type": "string"
+          },
+          "content_id": {
+            "type": "string"
+          },
+          "content_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correction_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "finding_id": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "person_id": {
+            "type": "string"
+          },
+          "person_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publication_status": {
+            "enum": [
+              "CORRECTED",
+              "DISPUTED",
+              "PUBLISH",
+              "RETRACTED"
+            ],
+            "type": "string"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_right_of_reply_count": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "finding_id",
+          "claim_id",
+          "claim_type",
+          "assessment",
+          "publication_status"
+        ],
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "api_version": {
+            "const": "v1"
+          },
+          "dataset_fingerprint": {
+            "type": "string"
+          },
+          "domain_vocabulary_version": {
+            "type": "string"
+          },
+          "dossier_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "omitted_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "projection_generated_at": {
+            "type": "string"
+          },
+          "public_schema_version": {
+            "const": "dichiarazioni-pubbliche-public-v2"
+          },
+          "status": {
+            "const": "ok"
+          }
+        },
+        "required": [
+          "status",
+          "api_version",
+          "public_schema_version"
+        ],
+        "type": "object"
+      },
+      "Meta": {
+        "properties": {
+          "api_version": {
+            "const": "v1"
+          },
+          "contract_status": {
+            "description": "DRAFT until contract/release ratification. The same-origin MiniPC read path has already been runtime-proved.",
+            "type": "string"
+          },
+          "count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dataset_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "link": {
+            "type": "string"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "projection_generated_at": {
+            "type": "string"
+          },
+          "public_schema_version": {
+            "const": "dichiarazioni-pubbliche-public-v2"
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "api_version",
+          "public_schema_version",
+          "dataset_fingerprint",
+          "projection_generated_at"
+        ],
+        "type": "object"
+      },
+      "PersonSummary": {
+        "description": "A public figure appearing in the public record. This is a disambiguation identity, never a score or a ranking.",
+        "properties": {
+          "finding_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "person_id": {
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "person_id",
+          "finding_count"
+        ],
+        "type": "object"
+      },
+      "PublicBundle": {
+        "description": "The fail-closed public projection bundle, exactly as the static build consumes it.",
+        "properties": {
+          "dataset_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "dossier_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dossiers": {
+            "items": {
+              "$ref": "#/components/schemas/Dossier"
+            },
+            "type": "array"
+          },
+          "generated_at": {
+            "type": "string"
+          },
+          "methodology": {
+            "properties": {
+              "aggregate_person_score": {
+                "const": false
+              },
+              "claim_level_only": {
+                "const": true
+              },
+              "requires_approved_evidence": {
+                "type": "boolean"
+              },
+              "requires_publication_gate": {
+                "type": "boolean"
+              },
+              "requires_resolved_transcript": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "claim_level_only",
+              "aggregate_person_score"
+            ],
+            "type": "object"
+          },
+          "omitted_count": {
+            "description": "Records the publication gate held. It is an aggregate count, never a record.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "dichiarazioni-pubbliche-public-v2"
+          }
+        },
+        "required": [
+          "schema_version",
+          "generated_at",
+          "dataset_sha256",
+          "methodology",
+          "dossier_count",
+          "omitted_count",
+          "dossiers"
+        ],
+        "type": "object"
+      },
+      "PublicRole": {
+        "properties": {
+          "end_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "review_event_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "role": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "organization_id",
+          "role",
+          "review_event_ids"
+        ],
+        "type": "object"
+      },
+      "Record": {
+        "properties": {
+          "finding_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingSummary"
+            },
+            "type": "array"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_id": {
+            "type": "string"
+          },
+          "segment_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "record_id",
+          "slug",
+          "findings"
+        ],
+        "type": "object"
+      },
+      "Topic": {
+        "properties": {
+          "finding_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "people": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "topic": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "finding_count"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {}
+  },
+  "info": {
+    "description": "Dichiarazioni Pubbliche is an open public-record system for verifiable public statements. This API serves only what the publication gate already approved, with provenance identifiers, assessment, and correction/right-of-reply history.\n\nIt is a pure reader over a pre-built projection bundle: no database, no provider, and no LLM is used in the request path, and the product remains fully readable while every model provider is offline. The API is read-only (GET/HEAD only), unauthenticated, and designed to be deployed next to a static host.\n\nSemantics that a consumer must not flatten: retrieved evidence is not approved evidence; approved evidence is not a verified claim; a verified claim is not a published finding; a false claim is not a deliberate falsehood; a position change is not a lie; a contradiction is not proof of intent. There is no person score, no ranking, and no political recommendation, and the API will never return one.",
+    "summary": "Stable, read-only, cacheable access to the fail-closed public projection of published finding versions.",
+    "title": "Dichiarazioni Pubbliche public read-only API",
+    "version": "v1",
+    "x-dichiarazioni-pubbliche": {
+      "api_contract_status": "DRAFT",
+      "api_major_version": 1,
+      "authentication": null,
+      "domain_vocabulary_version": "dichiarazioni-pubbliche-domain-vocabulary-v1",
+      "llm_in_request_path": false,
+      "public_schema_version": "dichiarazioni-pubbliche-public-v2",
+      "publication_guarantees": [
+        "A finding is served only because it is already in the fail-closed public projection.",
+        "The API never re-implements, relaxes, or bypasses the publication gate.",
+        "A non-PUBLISH dossier is not in the bundle and therefore is not served.",
+        "The API returns 503 rather than partial data when the projection is missing, stale, or incompatible.",
+        "Raw transcript bodies, evidence bodies, provider receipts, secrets, and private replies are never returned."
+      ],
+      "rate_limiting": {
+        "contract": {
+          "429": {
+            "error_code": "RATE_LIMITED",
+            "note": "Reserved for a future release. Clients should handle 429 defensively even though this implementation never emits it.",
+            "retry_after": "Retry-After header, seconds"
+          }
+        },
+        "expectation": "Requests are served from cache and are expected to be infrequent. No rate-limit enforcement or authentication is present in this deployment; clients must not treat the absence of a 429 as unlimited throughput.",
+        "status": "contract defined, enforcement not implemented (DP-508)"
+      },
+      "read_only": true
+    },
+    "x-deprecation-policy": {
+      "backward_compatible": [
+        "adding an optional response field",
+        "adding a new endpoint documented in this document",
+        "relaxing a documented default limit"
+      ],
+      "breaking": [
+        "renaming a field",
+        "changing the meaning or unit of a field",
+        "making an optional field required",
+        "removing a field",
+        "changing identifier semantics",
+        "changing an assessment, relation, or publication-status meaning"
+      ],
+      "contract_gate": "This document describes the v1 HTTP contract over the dichiarazioni-pubbliche-public-v2 public projection. The URL major version and the projection schema version are independent axes; a future projection schema that is not backward compatible requires a new URL major version.",
+      "current_contract_status": "DRAFT: served and cacheable, but not yet announced as stable. The same-origin MiniPC read path has been runtime-proved; the remaining gate is contract/release ratification, not transport reachability.",
+      "enum_values": "New assessment, publication-status, relation, and claim-type values are owned by the public schema contract, not by this document, and are never added silently where an existing consumer could read them as a safety or policy decision.",
+      "sunset": "A deprecation announces the replacement endpoint, a first deprecation date, and a sunset date no earlier than 90 days later. Deprecated endpoints emit the Deprecation and Sunset headers and stay readable until sunset. No endpoint is ever removed silently.",
+      "version_boundary": "The URL major version (/api/v1) is the compatibility boundary. A breaking change is served under a new major version."
+    }
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/findings": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate.",
+        "operationId": "findings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Topic"
+          },
+          {
+            "$ref": "#/components/parameters/Assessment"
+          },
+          {
+            "$ref": "#/components/parameters/Status"
+          },
+          {
+            "$ref": "#/components/parameters/Person"
+          },
+          {
+            "$ref": "#/components/parameters/Content"
+          },
+          {
+            "$ref": "#/components/parameters/PublishedFrom"
+          },
+          {
+            "$ref": "#/components/parameters/PublishedTo"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "assessment": "SUPPORTED",
+                      "claim": "Fictional example: the published register records a figure close to the stated one.",
+                      "claim_id": "claim:fictional:1",
+                      "claim_type": "NUMERIC_STATISTIC",
+                      "content_id": "content:fictional:1",
+                      "content_url": "https://example.test/fictional-source",
+                      "correction_count": 0,
+                      "finding_id": "finding:fictional:1",
+                      "link": "/api/v1/findings/finding:fictional:1",
+                      "person_id": "person:fictional:1",
+                      "person_name": "Fictional public figure",
+                      "publication_status": "PUBLISH",
+                      "published_at": "2026-01-20T08:00:00+00:00",
+                      "published_right_of_reply_count": 0
+                    }
+                  ],
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "count": 1,
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "limit": 25,
+                    "link": "/api/v1/findings",
+                    "next_cursor": null,
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2",
+                    "total": 1
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": {
+                            "items": {
+                              "$ref": "#/components/schemas/FindingSummary"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bounded, deterministic collection of published finding versions.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "Bounded, deterministic collection of published finding versions."
+      },
+      "head": {
+        "operationId": "findings_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD /api/v1/findings: same status, headers, and validators as GET, without a body."
+      }
+    },
+    "/api/v1/findings/{finding_id}": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate. The id is the opaque projection finding_id; a display name is never used to resolve a record.",
+        "operationId": "get_finding",
+        "parameters": [
+          {
+            "description": "Stable opaque finding identifier from the projection.",
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "claim": "Fictional example: the published register records a figure close to the stated one.",
+                    "claim_contract": {
+                      "check_worthy": true,
+                      "source_segment_ids": [
+                        "segment:fictional:1"
+                      ],
+                      "source_text_provenance_ids": [],
+                      "speaker_approval_required": true,
+                      "temporal_scope": {
+                        "statement_date": "2026-01-15"
+                      },
+                      "version": 1
+                    },
+                    "claim_id": "claim:fictional:1",
+                    "claim_type": "NUMERIC_STATISTIC",
+                    "corrections": [],
+                    "evidence": [
+                      {
+                        "content_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                        "evidence_review_ids": [
+                          "review:fictional:evidence:1"
+                        ],
+                        "id": "evidence:fictional:1",
+                        "observation_review_ids": [
+                          "review:fictional:observation:1"
+                        ],
+                        "observed_at": "2026-01-20T08:00:00+00:00",
+                        "publication_date": "2026-01-10",
+                        "publisher": "Fictional official register",
+                        "reference_period": "2025",
+                        "relation": "VERIFICATION_INPUT",
+                        "rights_status": "PUBLIC_OFFICIAL",
+                        "source_type": "PRIMARY_OFFICIAL",
+                        "url": "https://example.test/fictional-evidence",
+                        "verification_observation_ids": [
+                          "observation:fictional:1"
+                        ]
+                      }
+                    ],
+                    "finding": {
+                      "assessment": "SUPPORTED",
+                      "created_at": "2026-01-20T08:00:00+00:00",
+                      "policy_version": "policy-v1",
+                      "publication_review_ids": [
+                        "review:fictional:finding:1"
+                      ],
+                      "publication_status": "PUBLISH",
+                      "published_at": "2026-01-20T08:00:00+00:00",
+                      "rationale": "Fictional example. The published official register shows a figure close to the one stated, for the reference period covered by the claim.",
+                      "supersedes_id": null,
+                      "verification_run_id": "verification:fictional:1"
+                    },
+                    "finding_id": "finding:fictional:1",
+                    "relations": [],
+                    "rights_of_reply": [],
+                    "source": {
+                      "content_id": "content:fictional:1",
+                      "published_at": "2026-01-15T12:00:00+00:00",
+                      "segments": [
+                        {
+                          "end_ms": 8000,
+                          "segment_id": "segment:fictional:1",
+                          "segment_index": 0,
+                          "start_ms": 1000,
+                          "transcript_candidates": [
+                            {
+                              "provider_id": "platform-captions",
+                              "segment_id": "segment:raw:fictional:1",
+                              "source_kind": "PLATFORM_CAPTION",
+                              "transcript_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                              "variant_id": "transcript:fictional:1"
+                            }
+                          ]
+                        }
+                      ],
+                      "text_provenance": [],
+                      "title": "Fictional public statement",
+                      "url": "https://example.test/fictional-source"
+                    },
+                    "speaker": {
+                      "id": "person:fictional:1",
+                      "name": "Fictional public figure",
+                      "provenance": [
+                        {
+                          "candidate_id": "speaker-candidate:fictional:1",
+                          "provenance_kind": "TIMED_SPEAKER",
+                          "review_event_ids": [
+                            "review:fictional:speaker:1"
+                          ]
+                        }
+                      ],
+                      "public_role": "Fictional public role",
+                      "public_roles": [
+                        {
+                          "end_date": null,
+                          "organization_id": "org:fictional:1",
+                          "organization_name": "Fictional organization",
+                          "review_event_ids": [
+                            "review:fictional:role:1"
+                          ],
+                          "role": "Fictional public role",
+                          "start_date": "2025-01-01"
+                        }
+                      ]
+                    }
+                  },
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/findings/finding:fictional:1",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Dossier"
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Published finding version with approved provenance identifiers.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "One immutable published finding version."
+      },
+      "head": {
+        "operationId": "get_finding_head",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD for one finding version."
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate.",
+        "operationId": "health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "api_version": "v1",
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "domain_vocabulary_version": "dichiarazioni-pubbliche-domain-vocabulary-v1",
+                    "dossier_count": 0,
+                    "omitted_count": 0,
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2",
+                    "status": "ok"
+                  },
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/health",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Health"
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Liveness plus the served projection fingerprint and vocabulary versions.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "Liveness plus the served projection fingerprint and vocabulary versions."
+      },
+      "head": {
+        "operationId": "health_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD /api/v1/health: same status, headers, and validators as GET, without a body."
+      }
+    },
+    "/api/v1/index.json": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate. This is the same fail-closed artifact the static bundle is built from, re-serialized deterministically (sorted keys, no whitespace drift), so its canonical bytes are stable for a given dataset fingerprint.",
+        "operationId": "get_index",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "dataset_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+                  "dossier_count": 1,
+                  "dossiers": [
+                    {
+                      "claim": "Fictional example: the published register records a figure close to the stated one.",
+                      "claim_contract": {
+                        "check_worthy": true,
+                        "source_segment_ids": [
+                          "segment:fictional:1"
+                        ],
+                        "source_text_provenance_ids": [],
+                        "speaker_approval_required": true,
+                        "temporal_scope": {
+                          "statement_date": "2026-01-15"
+                        },
+                        "version": 1
+                      },
+                      "claim_id": "claim:fictional:1",
+                      "claim_type": "NUMERIC_STATISTIC",
+                      "corrections": [],
+                      "evidence": [
+                        {
+                          "content_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                          "evidence_review_ids": [
+                            "review:fictional:evidence:1"
+                          ],
+                          "id": "evidence:fictional:1",
+                          "observation_review_ids": [
+                            "review:fictional:observation:1"
+                          ],
+                          "observed_at": "2026-01-20T08:00:00+00:00",
+                          "publication_date": "2026-01-10",
+                          "publisher": "Fictional official register",
+                          "reference_period": "2025",
+                          "relation": "VERIFICATION_INPUT",
+                          "rights_status": "PUBLIC_OFFICIAL",
+                          "source_type": "PRIMARY_OFFICIAL",
+                          "url": "https://example.test/fictional-evidence",
+                          "verification_observation_ids": [
+                            "observation:fictional:1"
+                          ]
+                        }
+                      ],
+                      "finding": {
+                        "assessment": "SUPPORTED",
+                        "created_at": "2026-01-20T08:00:00+00:00",
+                        "policy_version": "policy-v1",
+                        "publication_review_ids": [
+                          "review:fictional:finding:1"
+                        ],
+                        "publication_status": "PUBLISH",
+                        "published_at": "2026-01-20T08:00:00+00:00",
+                        "rationale": "Fictional example. The published official register shows a figure close to the one stated, for the reference period covered by the claim.",
+                        "supersedes_id": null,
+                        "verification_run_id": "verification:fictional:1"
+                      },
+                      "finding_id": "finding:fictional:1",
+                      "relations": [],
+                      "rights_of_reply": [],
+                      "source": {
+                        "content_id": "content:fictional:1",
+                        "published_at": "2026-01-15T12:00:00+00:00",
+                        "segments": [
+                          {
+                            "end_ms": 8000,
+                            "segment_id": "segment:fictional:1",
+                            "segment_index": 0,
+                            "start_ms": 1000,
+                            "transcript_candidates": [
+                              {
+                                "provider_id": "platform-captions",
+                                "segment_id": "segment:raw:fictional:1",
+                                "source_kind": "PLATFORM_CAPTION",
+                                "transcript_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                                "variant_id": "transcript:fictional:1"
+                              }
+                            ]
+                          }
+                        ],
+                        "text_provenance": [],
+                        "title": "Fictional public statement",
+                        "url": "https://example.test/fictional-source"
+                      },
+                      "speaker": {
+                        "id": "person:fictional:1",
+                        "name": "Fictional public figure",
+                        "provenance": [
+                          {
+                            "candidate_id": "speaker-candidate:fictional:1",
+                            "provenance_kind": "TIMED_SPEAKER",
+                            "review_event_ids": [
+                              "review:fictional:speaker:1"
+                            ]
+                          }
+                        ],
+                        "public_role": "Fictional public role",
+                        "public_roles": [
+                          {
+                            "end_date": null,
+                            "organization_id": "org:fictional:1",
+                            "organization_name": "Fictional organization",
+                            "review_event_ids": [
+                              "review:fictional:role:1"
+                            ],
+                            "role": "Fictional public role",
+                            "start_date": "2025-01-01"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "generated_at": "2026-01-01T00:00:00+00:00",
+                  "methodology": {
+                    "aggregate_person_score": false,
+                    "claim_level_only": true,
+                    "requires_approved_evidence": true,
+                    "requires_publication_gate": true,
+                    "requires_resolved_transcript": true
+                  },
+                  "omitted_count": 0,
+                  "schema_version": "dichiarazioni-pubbliche-public-v2"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/PublicBundle"
+                }
+              }
+            },
+            "description": "The fail-closed public projection bundle.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "The whole public projection bundle, byte-stable and CDN-cacheable."
+      },
+      "head": {
+        "operationId": "get_index_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD for the projection bundle."
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "description": "Self-describing service description; no second field vocabulary.",
+        "operationId": "get_openapi",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "info": {
+                    "title": "Dichiarazioni Pubbliche public API (self-reference)"
+                  },
+                  "openapi": "3.1.0"
+                },
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The served OpenAPI document.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "This OpenAPI 3.1 document."
+      },
+      "head": {
+        "operationId": "get_openapi_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD for this document."
+      }
+    },
+    "/api/v1/people": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate.",
+        "operationId": "people",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "finding_count": 1,
+                      "name": "Fictional public figure",
+                      "person_id": "person:fictional:1",
+                      "topics": [
+                        "NUMERIC_STATISTIC"
+                      ]
+                    }
+                  ],
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "count": 1,
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/people",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": {
+                            "items": {
+                              "$ref": "#/components/schemas/PersonSummary"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Public figures actually present in the projection, with counts.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "Public figures actually present in the projection, with counts."
+      },
+      "head": {
+        "operationId": "people_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD /api/v1/people: same status, headers, and validators as GET, without a body."
+      }
+    },
+    "/api/v1/records/{slug}": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate. The slug is derived from the projection's own stable content_id, not from a display title.",
+        "operationId": "get_record",
+        "parameters": [
+          {
+            "description": "Lowercase slug of the stable content identifier.",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9-]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "finding_count": 1,
+                    "findings": [
+                      {
+                        "assessment": "SUPPORTED",
+                        "claim": "Fictional example: the published register records a figure close to the stated one.",
+                        "claim_id": "claim:fictional:1",
+                        "claim_type": "NUMERIC_STATISTIC",
+                        "content_id": "content:fictional:1",
+                        "content_url": "https://example.test/fictional-source",
+                        "correction_count": 0,
+                        "finding_id": "finding:fictional:1",
+                        "link": "/api/v1/findings/finding:fictional:1",
+                        "person_id": "person:fictional:1",
+                        "person_name": "Fictional public figure",
+                        "publication_status": "PUBLISH",
+                        "published_at": "2026-01-20T08:00:00+00:00",
+                        "published_right_of_reply_count": 0
+                      }
+                    ],
+                    "published_at": "2026-01-15T12:00:00+00:00",
+                    "record_id": "content-fictional-1",
+                    "segment_count": 1,
+                    "slug": "content-fictional-1",
+                    "title": "Fictional public statement",
+                    "url": "https://example.test/fictional-source"
+                  },
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/records/content-fictional-1",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/Record"
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "One public record with its published finding versions.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "One public record (the content of a statement) and its published finding versions."
+      },
+      "head": {
+        "operationId": "get_record_head",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD for one public record."
+      }
+    },
+    "/api/v1/schema": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate.",
+        "operationId": "schema",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "api_version": "v1",
+                    "domain_vocabulary_version": "dichiarazioni-pubbliche-domain-vocabulary-v1",
+                    "guarantees": {
+                      "database_in_request_path": false,
+                      "llm_in_request_path": false,
+                      "person_score": false,
+                      "publication_gate": "the fail-closed public projection is the only input",
+                      "ranking": false,
+                      "read_only": true
+                    },
+                    "pagination": {
+                      "cursor": "opaque, versioned, bound to the request filter set",
+                      "default_limit": 25,
+                      "max_limit": 100,
+                      "order": "published_at desc, finding_id asc"
+                    },
+                    "public_finding_statuses": [
+                      "CORRECTED",
+                      "DISPUTED",
+                      "PUBLISH",
+                      "RETRACTED"
+                    ],
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2",
+                    "publishable_assessments": [
+                      "FACTUALLY_FALSE",
+                      "OUTDATED_DATA",
+                      "SUPPORTED"
+                    ],
+                    "vocabulary_versions": {
+                      "claim_type": "atomic-claim-v1",
+                      "finding_publication_status": "finding-publication-v1",
+                      "relation_candidate": "claim-relation-v1",
+                      "verification_assessment": "deterministic-verification-v2"
+                    }
+                  },
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/schema",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": {
+                            "additionalProperties": true,
+                            "type": "object"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "The public contract descriptor: vocabularies, bounds, facets, and guarantees.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "The public contract descriptor: vocabularies, bounds, facets, and guarantees."
+      },
+      "head": {
+        "operationId": "schema_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD /api/v1/schema: same status, headers, and validators as GET, without a body."
+      }
+    },
+    "/api/v1/topics": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate.",
+        "operationId": "topics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "finding_count": 1,
+                      "people": [
+                        "person:fictional:1"
+                      ],
+                      "topic": "NUMERIC_STATISTIC"
+                    }
+                  ],
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "count": 1,
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/topics",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": {
+                            "items": {
+                              "$ref": "#/components/schemas/Topic"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Topic facets actually present in the projection, with counts.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "Topic facets actually present in the projection, with counts."
+      },
+      "head": {
+        "operationId": "topics_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD /api/v1/topics: same status, headers, and validators as GET, without a body."
+      }
+    }
+  },
+  "security": [],
+  "servers": [
+    {
+      "description": "Same-origin base. The API is designed to sit next to the static public site; see the DP-401 hosting contract for the selected adapter.",
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "description": "Contract, health, and discovery documents.",
+      "name": "contract"
+    },
+    {
+      "description": "Published finding versions.",
+      "name": "findings"
+    },
+    {
+      "description": "Topics, people, and public records.",
+      "name": "facets"
+    }
+  ]
+}

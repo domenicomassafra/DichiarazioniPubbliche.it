@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a product, data, or engineering capability
+title: "proposal: "
+labels: ["proposal"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem needs solving?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe behavior, not an implementation mandate.
+    validations:
+      required: true
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Relevant invariants
+      description: Which PRODUCT.md / ADR constraints matter?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What observable evidence would make this complete?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Scope checks
+      options:
+        - label: This does not require a person-level political/reliability score.
+          required: true
+        - label: This does not require biometric identity matching.
+          required: true
+        - label: I have not included secrets/private raw data in this issue.
+          required: true

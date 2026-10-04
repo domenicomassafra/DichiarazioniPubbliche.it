@@ -1,0 +1,15 @@
+[Unit]
+Description=Dichiarazioni Pubbliche daily full-source registry poll
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/src/DichiarazioniPubbliche.it
+EnvironmentFile=-%h/.config/dichiarazioni-pubbliche/runtime.env
+Environment=PYTHONPATH=poc
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m dichiarazioni_pubbliche.scheduler_daemon --full-source
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes

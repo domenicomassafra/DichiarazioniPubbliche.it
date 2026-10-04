@@ -1,0 +1,176 @@
+# DP-408 — Discrepancy and position-change comparison UI
+
+Status: READY
+
+Milestone: M4 — public product/API
+Depends on: DP-104, DP-105, DP-413
+
+## Problem
+
+Readers need to compare reviewed longitudinal relations without mistaking a candidate
+relationship for an accusation. The comparison surface must show the statements, dates,
+context, relation type, and evidence trail while preserving the product rule that
+contradiction does not prove deception or malicious intent.
+
+DP-104 defines the relation publication policy but the public relation resource,
+identifier, and stable comparison grouping are not yet ratified by DP-105.
+
+## Outcome
+
+Implement a public comparison view for two or more published finding versions connected
+by an approved longitudinal relation. The view supports same-proposition, clarification,
+update, position-change, and contradiction contexts without generating a person score,
+ranking, or intent claim.
+
+## Contract gate
+
+- **DP-104** is the hard relation-policy gate: candidate and published relation states,
+  review provenance, temporal compatibility, and reanalysis behavior must be settled;
+- **DP-105** is the hard public resource/identifier/schema gate;
+- **DP-413** is the IA gate; **DP-412** is the final visual-token/component gate;
+- if the relation is not approved, current, and present in the public projection, the
+  comparison must be unavailable rather than inferred from text similarity.
+
+## Scope
+
+### Public route and rendering
+
+The canonical route is `/compare/{relation_id}/` (or the exact alias ratified by DP-105).
+The page renders:
+
+1. the relation title/type and a neutral explanation of what the relation means;
+2. each participating published finding version, with statement time, source, speaker,
+   and claim-first wording;
+3. the relation's public context, limitations, and temporal scope;
+4. a side-by-side or stacked comparison with a stable reading order;
+5. links to each Fact-check, ContentAudit, evidence source, correction, and approved
+   right of reply;
+6. reviewed relation/reanalysis metadata in a secondary disclosure when policy allows.
+
+The comparison must not infer a relation from shared keywords, embeddings, topic
+similarity, or a model answer. The only relation data rendered is the approved public
+relation from DP-104/DP-105.
+
+### Relation semantics
+
+Allowed public relation types are those ratified by DP-104, such as same proposition,
+clarification, update, position-change candidate after approval, and contradiction. The
+UI must preserve the exact domain label and explanation supplied by the public contract.
+
+- “Contradiction” means the reviewed statements do not align under the stated scope; it
+  does not mean “lie”, “deception”, or malicious intent;
+- a position change is a temporal change, not automatically an error;
+- a relation candidate remains hidden until explicit review and publication;
+- reanalysis, correction, or reply that changes the relation must update the link target
+  without rewriting the old finding;
+- a participant that is no longer public/projectable is omitted and the comparison fails
+  closed rather than showing stale text.
+
+### Responsive and comparison behavior
+
+- desktop may use a two-column comparison with an explicit reading order;
+- mobile stacks participants in chronological order, with a comparison summary before
+  details and no horizontal scroll;
+- each participant has a stable heading and link back to its Fact-check;
+- source/evidence context remains close to the statement it supports;
+- a visual diff is optional and must have a text/table equivalent;
+- no node graph, political party color, leaderboard, or aggregate verdict display.
+
+### Required states
+
+| State | Required behavior |
+|---|---|
+| Two or more approved participants | Show relation type, context, statements, and evidence paths. |
+| One participant is no longer public | Omit it and explain that the comparison cannot be completed; do not use stale data. |
+| Relation is candidate or unreviewed | Return a deliberate unavailable/private state; do not show a guessed comparison. |
+| No participants match filters | Show an empty state and a reset action; do not imply a relation was disproved. |
+| Projection/schema is stale or invalid | Fail closed with bounded navigation and no cached unsafe record. |
+| Correction/reply changes a participant | Link the version-aware history and preserve the original participant. |
+| Comparison loading | Keep participant headings and state labels stable; never animate fake analysis. |
+
+## Non-goals
+
+- automatic relation inference, semantic similarity, or contradiction detection in the
+  frontend;
+- intent, deceit, lie, reliability, ideology, or political ranking inference;
+- a graph database, node-graph visualization, or social network analysis;
+- a comparison of private, held, or unreviewed records;
+- an LLM explanation or live model call in the public request path;
+- public submission, relation approval, or publication controls;
+- a separate visual system for comparison (use the shared Fact-check/Record grammar and
+  DP-412 tokens);
+- a new domain relation vocabulary outside DP-104/DP-105.
+
+## Dependencies and gates
+
+- **DP-104:** hard relation approval, temporal, reanalysis, and no-intent policy;
+- **DP-105:** hard public relation resource and identifier contract;
+- **DP-413:** comparison belongs to the five public templates, not a new top-level
+  product;
+- **DP-412:** final shared token/component contract;
+- **DP-402/DP-403:** stable read route/examples if relation resources are served over
+  HTTP;
+- **DP-407:** ContentAudit links for media participants;
+- **ADR 0001/0002:** projection-only public reads and no LLM request path.
+
+## Acceptance criteria
+
+- [ ] `AC-408.1`: Given an approved relation with two or more public finding versions,
+  when a reader opens the comparison, then each statement, date, source, relation type,
+  and evidence path is visible in a stable reading order.
+- [ ] `AC-408.2`: Given the relation is a contradiction or position-change context, when
+  the page explains it, then it does not infer intent, deceit, lie, reliability, or a
+  political conclusion and preserves the exact DP-104 label.
+- [ ] `AC-408.3`: Given a relation candidate, stale review, incompatible scope, or
+  non-projectable participant, when the page is requested, then it fails closed and
+  does not render a guessed or stale comparison.
+- [ ] `AC-408.4`: Given a correction, reply, or reanalysis, when a participant changes,
+  then the page links the new version and preserves the original finding/history without
+  overwriting it.
+- [ ] `AC-408.5`: Given desktop and mobile layouts, when the comparison is navigated by
+  keyboard, at 200% zoom, and with a screen reader, then each participant, relation
+  explanation, source link, and state is perceivable and operable with visible focus.
+- [ ] `AC-408.6`: Given the visual implementation, when compared with UX v2 and
+  DP-412, then it uses typography, whitespace, rows, and optional one evidence visual
+  only when useful; it does not add a dashboard, graph, or color-coded person history.
+- [ ] `AC-408.7`: Given providers are offline, when an approved comparison projection
+  is served, then it remains readable and no LLM, provider, or operational DB request
+  occurs.
+- [ ] `AC-408.8`: Given the collision/dependency audit runs, then DP-408 owns the
+  comparison route and DP-104/DP-105 remain the only relation/schema owners.
+
+## Validation / proof
+
+The implementation receipt must include:
+
+```bash
+python3 -m compileall -q poc tests
+PYTHONPATH=poc python3 -m unittest discover -s tests -v
+cd web && npm run check && npm run build
+cd .. && git diff --check
+```
+
+The comparison fixture matrix must cover every approved relation type plus candidate,
+stale-review, incompatible-scope, one-participant-omitted, correction, reply, empty
+filter, missing projection, and invalid schema states. Exercise desktop and mobile
+layouts, keyboard-only traversal, 200% zoom, reduced motion, grayscale, and a screen
+reader. Inspect output for intent words, person scores, raw content, and private relation
+candidates.
+
+Runtime-affecting completion requires the comparison route and relation projection to be
+served from the MiniPC deployment mirror through DP-401 with an DP-104-reviewed canary.
+Record the relation ID, review-event provenance, projection fingerprint, representative
+comparison output, and fail-closed stale/tampered result.
+
+## Documentation, data, and migration impact
+
+- document the public relation resource and no-intent language only after DP-104/DP-105
+  settle it;
+- update shared Fact-check/Record components through DP-412;
+- no migration is introduced by the UI ticket;
+- do not edit `PLAN.md`.
+
+## Completion receipt
+
+Pending DP-104/DP-105 and implementation. A static mock comparison is not proof that
+relation publication or fail-closed behavior works.

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "youtube-pulp-podcast",
+      "name": "Pulp Podcast",
+      "kind": "youtube_channel",
+      "priority": "high",
+      "channel_id": "UCY99TnBJ8xyat2lpeN_hcEA",
+      "channel_url": "https://www.youtube.com/channel/UCY99TnBJ8xyat2lpeN_hcEA",
+      "discovery_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCY99TnBJ8xyat2lpeN_hcEA",
+      "poll_minutes": 30,
+      "content_policy": {
+        "ingest_every_new_public_episode": true,
+        "metadata_first": true,
+        "ignore_youtube_shorts_by_default": true,
+        "prefer_longform_title_contains": "Pulp Podcast #",
+        "manual_captions_first": true,
+        "auto_captions_second": true,
+        "download_media_only_if_transcript_missing_or_low_confidence": true,
+        "prefer_audio_only_when_visual_analysis_not_required": true,
+        "full_video_is_ephemeral": true
+      },
+      "proof": {
+        "checked_at": "2026-09-21",
+        "example_video_id": "QaE00l6JZ8w",
+        "example_title": "Beppe Grillo a Pulp Podcast. | Pulp Podcast #64",
+        "example_upload_date": "2026-09-21",
+        "example_duration_seconds": 4683,
+        "manual_subtitles_available": false,
+        "automatic_caption_language": "it-orig",
+        "caption_probe": "yt-dlp --list-subs on MiniPC, 2026-09-21",
+        "caption_candidate_bytes": 1350090,
+        "caption_candidate_sha256": "0784246cc9f4f3b658e076c7e86854f93b10726492119831df545f4629023e35",
+        "media_download_required_for_initial_transcript": false,
+        "minipc_watcher_poc": "PASS",
+        "caption_probe_latest_format": "json3",
+        "caption_probe_latest_note": "Initial MiniPC JSON3 proof; platform auto-caption candidates are versioned by capture hash/time.",
+        "caption_recapture_2026_09_22": {
+          "bytes": 1350090,
+          "sha256": "22d319cf58d4df9d042b0bf56553b8c551bf974c3c683d4c8156207b9876663c",
+          "normalized_segments_sha256": "9bfc7d71c43bb061a4a487f3f5a9f90adf2524ae47d2cced42d69f2c04c60633",
+          "segment_count": 1981,
+          "text_characters": 67821,
+          "coverage_seconds": 4683.56,
+          "sensitive_segment_count": 352,
+          "matches_initial_sha256": false,
+          "policy": "VERSION_PLATFORM_CAPTION_CANDIDATES_BY_HASH_AND_CAPTURE_TIME"
+        }
+      }
+    },
+    {
+      "id": "podcast-pulp-podcast",
+      "name": "Pulp Podcast (podcast RSS)",
+      "kind": "podcast_rss",
+      "priority": "high",
+      "discovery_url": "https://feeds.megaphone.fm/SONY4300078217",
+      "poll_minutes": 30
+    },
+    {
+      "id": "social-raffagiulians",
+      "name": "Raffaele Giuliani",
+      "kind": "public_creator_accounts",
+      "priority": "medium",
+      "handles": {
+        "instagram": "raffagiulians",
+        "tiktok": "raffagiulians"
+      },
+      "public_metadata_fixture": "research/source-candidates/2026-09-25-raffagiulians-public-posts.json",
+      "content_policy": {
+        "discover_public_posts": true,
+        "deduplicate_cross_posts": true,
+        "video_is_ephemeral": true,
+        "persist_canonical_transcript": true
+      },
+      "proof": {
+        "checked_at": "2026-09-21",
+        "example_instagram_reel": "DdZseq2tjn4",
+        "example_tiktok_video": "7686596204074896672"
+      }
+    }
+  ]
+}

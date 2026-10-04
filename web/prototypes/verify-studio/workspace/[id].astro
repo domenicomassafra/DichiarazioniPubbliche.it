@@ -1,0 +1,19 @@
+---
+import BaseLayout from "../../../src/layouts/BaseLayout.astro";
+import StudioWorkspaceClient from "../../../src/components/StudioWorkspaceClient";
+import { studioWorkspace } from "../../../src/data/studio";
+
+export function getStaticPaths() {
+  return [{ params: { id: studioWorkspace.id } }];
+}
+---
+
+<BaseLayout title={studioWorkspace.title} studio>
+  <div class="studio-shell">
+    <div class="workspace-topline">
+      <strong>{studioWorkspace.title}</strong>
+      <span>{studioWorkspace.pipeline}</span>
+    </div>
+    <StudioWorkspaceClient client:load />
+  </div>
+</BaseLayout>

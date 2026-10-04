@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Dichiarazioni Pubbliche processing worker periodically
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+RandomizedDelaySec=10s
+Persistent=true
+Unit=dichiarazioni-pubbliche-worker.service
+
+[Install]
+WantedBy=timers.target

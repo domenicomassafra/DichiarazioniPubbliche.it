@@ -1,0 +1,72 @@
+{
+  "passed": 5,
+  "total": 5,
+  "pass_rate": 1.0,
+  "cases": [
+    {
+      "case_id": "rocca-employment-july-2026-supported",
+      "subject": "Francesco Rocca",
+      "verdict": "SUPPORTED",
+      "publication": "PUBLISH",
+      "expected_verdict": "SUPPORTED",
+      "expected_publication": "PUBLISH",
+      "pass": true,
+      "rationale": "Primary evidence reports 63.2 percent for 2026-07.",
+      "reason_codes": [
+        "GATE_PASSED"
+      ]
+    },
+    {
+      "case_id": "fdi-youth-unemployment-historical-minimum-contradicted",
+      "subject": "Fratelli d'Italia brochure",
+      "verdict": "FACTUALLY_FALSE",
+      "publication": "PUBLISH",
+      "expected_verdict": "FACTUALLY_FALSE",
+      "expected_publication": "PUBLISH",
+      "pass": true,
+      "rationale": "The claim calls 18.4 a historical minimum, but evidence already records a lower value (15.1) in 2026-05.",
+      "reason_codes": [
+        "GATE_PASSED"
+      ]
+    },
+    {
+      "case_id": "fdi-employment-rate-peak-outdated",
+      "subject": "Fratelli d'Italia brochure",
+      "verdict": "OUTDATED_DATA",
+      "publication": "PUBLISH",
+      "expected_verdict": "OUTDATED_DATA",
+      "expected_publication": "PUBLISH",
+      "pass": true,
+      "rationale": "The claim calls 62.9 the historical peak, but a higher published value (63.2) exists for 2026-07.",
+      "reason_codes": [
+        "GATE_PASSED"
+      ]
+    },
+    {
+      "case_id": "meloni-bollo-2016-2026-no-contradiction",
+      "subject": "Giorgia Meloni",
+      "verdict": "NO_CONTRADICTION_ESTABLISHED",
+      "publication": "NO_FINDING",
+      "expected_verdict": "NO_CONTRADICTION_ESTABLISHED",
+      "expected_publication": "NO_FINDING",
+      "pass": true,
+      "rationale": "The records are related in topic, but the earlier record does not establish an opposite stance on the same proposition.",
+      "reason_codes": [
+        "NO_MATERIAL_CONTRADICTION"
+      ]
+    },
+    {
+      "case_id": "synthetic-control-wrong-july-employment-rate",
+      "subject": "Synthetic control",
+      "verdict": "FACTUALLY_FALSE",
+      "publication": "POLICY_HOLD",
+      "expected_verdict": "FACTUALLY_FALSE",
+      "expected_publication": "POLICY_HOLD",
+      "pass": true,
+      "rationale": "Claimed value 99.0 does not match fetched evidence (63.2 percent, 2026-07).",
+      "reason_codes": [
+        "SYNTHETIC_BENCHMARK_CASE"
+      ]
+    }
+  ]
+}

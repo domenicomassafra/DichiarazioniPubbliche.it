@@ -1,0 +1,227 @@
+{
+  "case_recall": 1.0,
+  "cases": [
+    {
+      "elapsed_ms": 48.396,
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci"
+      ],
+      "id": "dna-unghie-sempio",
+      "passed": true,
+      "query": "DNA ungueali Sempio",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci",
+        "claim:garlasco:bruzzone:2025-04-03:dna-not-diriment-transfer-possible"
+      ]
+    },
+    {
+      "elapsed_ms": 46.825,
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-03-16:tappetini-no-sangue"
+      ],
+      "id": "tappetini-sangue-scarpe",
+      "passed": true,
+      "query": "tappetini sangue scarpe",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:bruzzone:2025-03-16:tappetini-no-sangue"
+      ]
+    },
+    {
+      "elapsed_ms": 45.54,
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-05-21:impronta33-tests-negative",
+        "claim:garlasco:lucarelli:2025-06-07:impronta33-non-sangue"
+      ],
+      "id": "impronta-33-sangue",
+      "passed": true,
+      "query": "impronta 33 sangue",
+      "requires_trigram": false,
+      "returned_ids": [
+        "content:garlasco:bruzzone:2025-05-21-impronta33",
+        "claim:garlasco:lucarelli:2025-06-07:impronta33-non-sangue",
+        "claim:garlasco:bruzzone:2025-05-21:impronta33-tests-negative",
+        "claim:garlasco:bruzzone:2025-07-15:impronta33-six-seven-minutiae",
+        "content:garlasco:bruzzone:2025-07-15-minuzie"
+      ]
+    },
+    {
+      "elapsed_ms": 46.63,
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-05-21:impronta33-tests-negative",
+        "claim:garlasco:lucarelli:2025-06-07:impronta33-non-sangue"
+      ],
+      "id": "impronta-33-typo",
+      "passed": true,
+      "query": "impronta 33 sangie",
+      "requires_trigram": true,
+      "returned_ids": [
+        "claim:garlasco:bruzzone:2025-07-15:impronta33-six-seven-minutiae",
+        "content:garlasco:bruzzone:2025-07-15-minuzie",
+        "claim:garlasco:lucarelli:2025-06-07:impronta33-non-sangue",
+        "content:garlasco:lucarelli:2025-06-07-accordi",
+        "claim:garlasco:bruzzone:2025-05-21:impronta33-tests-negative"
+      ]
+    },
+    {
+      "elapsed_ms": 47.339,
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-03-27:cromosoma-y-non-completo",
+        "claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci"
+      ],
+      "id": "cromosoma-y-typo",
+      "passed": true,
+      "query": "cromosma Y Sempio",
+      "requires_trigram": true,
+      "returned_ids": [
+        "claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci",
+        "claim:garlasco:bruzzone:2025-03-27:cromosoma-y-non-completo",
+        "claim:garlasco:bruzzone:2025-04-03:dna-not-diriment-transfer-possible",
+        "claim:garlasco:bruzzone:2025-03-27:destefano-comparazione-non-affidabile",
+        "claim:garlasco:lucarelli:2026-05-10:frammenti-audio-appiccicati"
+      ]
+    },
+    {
+      "elapsed_ms": 47.234,
+      "expected_any_ids": [
+        "claim:garlasco:lucarelli:2025-06-07:pena-24-ridotta-16"
+      ],
+      "id": "pena-rito-abbreviato",
+      "passed": true,
+      "query": "24 anni 16 rito abbreviato",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:lucarelli:2025-06-07:pena-24-ridotta-16"
+      ]
+    },
+    {
+      "elapsed_ms": 48.947,
+      "expected_any_ids": [
+        "claim:garlasco:lucarelli:2026-05-14:pc-poggi-off-since-10aug"
+      ],
+      "id": "pc-poggi-10-agosto",
+      "passed": true,
+      "query": "computer Poggi 10 agosto",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:lucarelli:2026-05-14:pc-poggi-off-since-10aug",
+        "claim:garlasco:lucarelli:2026-05-03:procura-teoria-sempio-autore-solo",
+        "content:garlasco:lucarelli:2025-05-21-bestiario",
+        "claim:garlasco:lucarelli:2026-05-14:stasi-computer-quote",
+        "claim:garlasco:lucarelli:2026-05-14:stasi-lied-computer-version"
+      ]
+    },
+    {
+      "elapsed_ms": 49.89,
+      "expected_any_ids": [
+        "claim:garlasco:lucarelli:2026-05-10:frammenti-audio-appiccicati"
+      ],
+      "id": "frammenti-audio",
+      "passed": true,
+      "query": "frammenti audio Sempio",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:lucarelli:2026-05-10:frammenti-audio-appiccicati",
+        "content:garlasco:lucarelli:2026-05-10-auto-confessa"
+      ]
+    },
+    {
+      "elapsed_ms": 46.584,
+      "expected_any_ids": [
+        "claim:garlasco:lucarelli:2026-05-03:procura-aggravante-crudelta"
+      ],
+      "id": "aggravante-crudelta",
+      "passed": true,
+      "query": "aggravante crudeltà Procura",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:lucarelli:2026-05-03:procura-aggravante-crudelta"
+      ]
+    },
+    {
+      "elapsed_ms": 50.792,
+      "expected_any_ids": [
+        "claim:garlasco:lucarelli:2025-07-12:pasti-con-chiara-stasi"
+      ],
+      "id": "pasti-chiara-stasi",
+      "passed": true,
+      "query": "pasti Chiara Stasi",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:lucarelli:2025-07-12:pasti-con-chiara-stasi",
+        "claim:garlasco:lucarelli:2026-05-03:procura-movente-approccio-sessuale",
+        "claim:garlasco:lucarelli:2026-05-03:procura-teoria-sempio-autore-solo",
+        "claim:garlasco:lucarelli:2025-10-21:cappa-mai-formalmente-coinvolte",
+        "claim:garlasco:lucarelli:2025-05-21:poggi-da-vittime-a-bersagli"
+      ]
+    },
+    {
+      "elapsed_ms": 46.967,
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-10-07:previsione-rinvio-giudizio"
+      ],
+      "id": "rinvio-giudizio-sempio",
+      "passed": true,
+      "query": "rinvio giudizio Sempio",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:bruzzone:2025-10-07:previsione-rinvio-giudizio",
+        "content:garlasco:bruzzone:2025-10-07-open",
+        "claim:garlasco:lucarelli:2026-02-01:niente-concreto-contro-sempio",
+        "claim:garlasco:lucarelli:2026-02-01:stasi-colpevole-piu-probabile",
+        "claim:garlasco:lucarelli:2026-02-01:stasi-dubbio-ragionevole"
+      ]
+    },
+    {
+      "elapsed_ms": 47.562,
+      "expected_any_ids": [
+        "person:roberta-bruzzone"
+      ],
+      "id": "person-bruzzone",
+      "passed": true,
+      "query": "Roberta Bruzzone",
+      "requires_trigram": false,
+      "returned_ids": [
+        "content:garlasco:bruzzone:2026-07-10-corriere",
+        "content:garlasco:bruzzone:2026-01-25-verissimo",
+        "content:garlasco:bruzzone:2025-10-07-open",
+        "content:garlasco:bruzzone:2025-05-18-quotidiano",
+        "person:roberta-bruzzone"
+      ]
+    },
+    {
+      "elapsed_ms": 46.471,
+      "expected_any_ids": [
+        "person:selvaggia-lucarelli"
+      ],
+      "id": "person-lucarelli",
+      "passed": true,
+      "query": "Selvaggia Lucarelli",
+      "requires_trigram": false,
+      "returned_ids": [
+        "claim:garlasco:lucarelli:2026-05-14:stasi-computer-quote",
+        "person:selvaggia-lucarelli",
+        "content:garlasco:lucarelli:2025-06-07-accordi",
+        "claim:garlasco:lucarelli:2026-05-14:stasi-lied-computer-version",
+        "content:garlasco:lucarelli:2026-05-14-computer"
+      ]
+    }
+  ],
+  "meets_gate": true,
+  "minimum_case_recall": 0.9,
+  "p95_ms": 50.792,
+  "passed": 13,
+  "runtime": {
+    "commit": "0a3ad6a",
+    "database": "dichiarazioni_pubbliche",
+    "date": "2026-09-29",
+    "embeddings": "DISABLED_NO_MEASURED_GAP",
+    "host": "MiniPC",
+    "retrieval": "PostgreSQL italian FTS + pg_trgm",
+    "search_contract": "corpus-search-v1"
+  },
+  "total": 13,
+  "trigram_plan": "Limit\n  ->  Sort\n        Sort Key: (word_similarity('impronta 33 sangie'::text, normalized_claim)) DESC\n        ->  Bitmap Heap Scan on atomic_claim\n              Filter: ('impronta 33 sangie'::text <% normalized_claim)\n              ->  Bitmap Index Scan on atomic_claim_text_trgm_idx\n                    Index Cond: (normalized_claim %> 'impronta 33 sangie'::text)",
+  "version": "corpus-search-benchmark-v1"
+}

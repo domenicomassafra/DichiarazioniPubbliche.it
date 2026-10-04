@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "name": "evidence-requirements-v1",
+  "contract_version": "evidence-requirements-v1",
+  "profile_groups": [
+    {
+      "name": "numeric-official",
+      "claim_types": ["NUMERIC_STATISTIC", "PRICE_STATISTIC", "DISTRIBUTIONAL_CLAIM", "TAX_RATE", "ARITHMETIC"],
+      "automatic_sufficiency_allowed": true,
+      "manual_review_required": false,
+      "rules": [
+        {"kind": "ROLE_ANY", "required": true, "parameters": {"roles": ["OFFICIAL_STATISTICS", "PRIMARY_RECORD"]}, "coverage_need_enabled": true, "rationale_code": "PRIMARY_OR_OFFICIAL_STATISTICS_REQUIRED"},
+        {"kind": "FIELD_MATCH", "required": true, "parameters": {"fields": ["metric", "unit", "population", "geography", "reference_period"]}, "coverage_need_enabled": true, "rationale_code": "STATISTICAL_SCOPE_MATCH_REQUIRED"},
+        {"kind": "TEMPORAL_CUTOFF", "required": true, "parameters": {"allow_post_statement": false}, "coverage_need_enabled": true, "rationale_code": "TEMPORAL_APPLICABILITY_REQUIRED"},
+        {"kind": "MIN_INDEPENDENT_LINEAGES", "required": true, "parameters": {"minimum": 1}, "coverage_need_enabled": true, "rationale_code": "INDEPENDENT_LINEAGE_REQUIRED"},
+        {"kind": "CONFLICT_CHECK", "required": true, "parameters": {}, "coverage_need_enabled": false, "rationale_code": "QUALIFIED_EVIDENCE_CONFLICT_CHECK"}
+      ]
+    },
+    {
+      "name": "legal-authentic",
+      "claim_types": ["LEGAL_POLICY_STATUS", "LEGAL_QUOTE"],
+      "automatic_sufficiency_allowed": true,
+      "manual_review_required": false,
+      "rules": [
+        {"kind": "ROLE_ANY", "required": true, "parameters": {"roles": ["AUTHENTIC_LEGAL_TEXT"]}, "coverage_need_enabled": true, "rationale_code": "AUTHENTIC_LEGAL_TEXT_REQUIRED"},
+        {"kind": "AUTHORITY_SCOPE", "required": true, "parameters": {"match": ["jurisdiction"]}, "coverage_need_enabled": true, "rationale_code": "LEGAL_AUTHORITY_SCOPE_REQUIRED"},
+        {"kind": "TEMPORAL_CUTOFF", "required": true, "parameters": {"allow_post_statement": false}, "coverage_need_enabled": true, "rationale_code": "APPLICABLE_LEGAL_VERSION_REQUIRED"},
+        {"kind": "CONFLICT_CHECK", "required": true, "parameters": {}, "coverage_need_enabled": false, "rationale_code": "QUALIFIED_EVIDENCE_CONFLICT_CHECK"}
+      ]
+    },
+    {
+      "name": "attribution-original",
+      "claim_types": ["QUOTE_ATTRIBUTION", "POLITICAL_ATTRIBUTION", "HISTORICAL_ATTRIBUTION", "CURRENT_POLICY_POSITION", "ELECTION_PREDICTION"],
+      "automatic_sufficiency_allowed": true,
+      "manual_review_required": false,
+      "rules": [
+        {"kind": "ROLE_ANY", "required": true, "parameters": {"roles": ["FIRST_PARTY_STATEMENT", "PRIMARY_RECORD"]}, "coverage_need_enabled": true, "rationale_code": "ORIGINAL_ATTRIBUTABLE_SOURCE_REQUIRED"},
+        {"kind": "TEMPORAL_CUTOFF", "required": true, "parameters": {"allow_post_statement": false}, "coverage_need_enabled": true, "rationale_code": "ORIGINAL_DATED_SOURCE_REQUIRED"},
+        {"kind": "MIN_INDEPENDENT_LINEAGES", "required": true, "parameters": {"minimum": 1}, "coverage_need_enabled": true, "rationale_code": "ORIGINAL_LINEAGE_REQUIRED"}
+      ]
+    },
+    {
+      "name": "policy-record",
+      "claim_types": ["CURRENT_POLICY", "CURRENT_FOREIGN_POLICY", "POLICY_SCOPE", "POLICY_DIFFERENCE"],
+      "automatic_sufficiency_allowed": false,
+      "manual_review_required": true,
+      "rules": [
+        {"kind": "ROLE_ANY", "required": true, "parameters": {"roles": ["PRIMARY_RECORD", "OFFICIAL_PROCEDURAL_RECORD", "AUTHENTIC_LEGAL_TEXT"]}, "coverage_need_enabled": true, "rationale_code": "POLICY_PRIMARY_RECORD_REQUIRED"},
+        {"kind": "TEMPORAL_CUTOFF", "required": true, "parameters": {"allow_post_statement": false}, "coverage_need_enabled": true, "rationale_code": "POLICY_TEMPORAL_SCOPE_REQUIRED"},
+        {"kind": "HUMAN_REVIEW", "required": true, "parameters": {}, "coverage_need_enabled": false, "rationale_code": "POLICY_CONTEXT_REVIEW_REQUIRED"}
+      ]
+    },
+    {
+      "name": "historical-context",
+      "claim_types": ["HISTORICAL_CLAIM", "HISTORICAL_POLITICAL"],
+      "automatic_sufficiency_allowed": false,
+      "manual_review_required": true,
+      "rules": [
+        {"kind": "ROLE_ANY", "required": true, "parameters": {"roles": ["PRIMARY_RECORD", "EXPERT_SYNTHESIS"]}, "coverage_need_enabled": true, "rationale_code": "HISTORICAL_PRIMARY_OR_SYNTHESIS_REQUIRED"},
+        {"kind": "MIN_INDEPENDENT_LINEAGES", "required": true, "parameters": {"minimum": 1}, "coverage_need_enabled": true, "rationale_code": "HISTORICAL_LINEAGE_REQUIRED"},
+        {"kind": "HUMAN_REVIEW", "required": true, "parameters": {}, "coverage_need_enabled": false, "rationale_code": "HISTORICAL_CONTEXT_REVIEW_REQUIRED"}
+      ]
+    },
+    {
+      "name": "inference-high-context",
+      "claim_types": ["CAUSAL_CLAIM", "MOTIVE_ATTRIBUTION", "GROUP_MOTIVE", "SYSTEMIC_CLAIM", "SYSTEMIC_INFERENCE", "FISCAL_INFERENCE"],
+      "automatic_sufficiency_allowed": false,
+      "manual_review_required": true,
+      "rules": [
+        {"kind": "ROLE_ANY", "required": true, "parameters": {"roles": ["PRIMARY_RECORD", "OFFICIAL_STATISTICS", "EXPERT_SYNTHESIS"]}, "coverage_need_enabled": true, "rationale_code": "INFERENCE_PREMISES_REQUIRED"},
+        {"kind": "MIN_INDEPENDENT_LINEAGES", "required": true, "parameters": {"minimum": 1}, "coverage_need_enabled": true, "rationale_code": "INFERENCE_LINEAGE_REQUIRED"},
+        {"kind": "CONFLICT_CHECK", "required": true, "parameters": {}, "coverage_need_enabled": false, "rationale_code": "INFERENCE_CONFLICT_CHECK"},
+        {"kind": "HUMAN_REVIEW", "required": true, "parameters": {"retain_alternatives": true, "disconfirming_conditions": true}, "coverage_need_enabled": false, "rationale_code": "INFERENCE_ASSUMPTIONS_REVIEW_REQUIRED"}
+      ]
+    },
+    {
+      "name": "non-factual",
+      "claim_types": ["RHETORICAL_GENERALIZATION", "VALUE_JUDGMENT"],
+      "automatic_sufficiency_allowed": false,
+      "manual_review_required": true,
+      "rules": [
+        {"kind": "HUMAN_REVIEW", "required": true, "parameters": {"verification_not_automatic": true}, "coverage_need_enabled": false, "rationale_code": "NON_FACTUAL_CLAIM_REVIEW_ONLY"}
+      ]
+    }
+  ]
+}

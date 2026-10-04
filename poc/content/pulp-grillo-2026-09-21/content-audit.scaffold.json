@@ -1,0 +1,2054 @@
+{
+  "schema_version": 1,
+  "audit_id": "pulp-grillo-2026-09-21",
+  "content": {
+    "source_id": "youtube-pulp-podcast",
+    "platform": "youtube",
+    "external_id": "QaE00l6JZ8w",
+    "canonical_url": "https://www.youtube.com/watch?v=QaE00l6JZ8w",
+    "title": "Beppe Grillo a Pulp Podcast | Pulp Podcast #64",
+    "published_at": "2026-09-21T11:00:00",
+    "duration_seconds": 4919
+  },
+  "transcript_provenance": {
+    "source_kind": "YOUTUBE_AUTO_CAPTION",
+    "language": "it-orig",
+    "public_full_transcript_committed": false,
+    "private_runtime_dir": "~/.local/share/dichiarazioni-pubbliche/transcripts/pulp-grillo-2026-09-21",
+    "raw_caption_format": "json3",
+    "raw_caption_sha256": "22d319cf58d4df9d042b0bf56553b8c551bf974c3c683d4c8156207b9876663c",
+    "raw_caption_bytes": 1350090,
+    "normalized_segments_sha256": "9bfc7d71c43bb061a4a487f3f5a9f90adf2524ae47d2cced42d69f2c04c60633",
+    "segment_count": 1981,
+    "text_characters": 67821,
+    "coverage_seconds": 4683.56,
+    "sensitive_segment_count": 352,
+    "acquired_at": "2026-09-22T08:20:03.137677+00:00",
+    "source_mutability": {
+      "registry_proof_sha256": "0784246cc9f4f3b658e076c7e86854f93b10726492119831df545f4629023e35",
+      "matches_registry_proof": false,
+      "policy": "VERSION_EACH_PLATFORM_CAPTION_CAPTURE_BY_HASH_AND_TIME"
+    }
+  },
+  "chapters": [
+    {
+      "chapter_index": 0,
+      "start_seconds": 0,
+      "title": "introduzione ospite"
+    },
+    {
+      "chapter_index": 1,
+      "start_seconds": 99,
+      "title": "sigla"
+    },
+    {
+      "chapter_index": 2,
+      "start_seconds": 126,
+      "title": "piccolo inconveniente"
+    },
+    {
+      "chapter_index": 3,
+      "start_seconds": 140,
+      "title": "ADV"
+    },
+    {
+      "chapter_index": 4,
+      "start_seconds": 211,
+      "title": "ritorno in pubblico"
+    },
+    {
+      "chapter_index": 5,
+      "start_seconds": 283,
+      "title": "la memoria"
+    },
+    {
+      "chapter_index": 6,
+      "start_seconds": 510,
+      "title": "fondazione nuovo partito"
+    },
+    {
+      "chapter_index": 7,
+      "start_seconds": 527,
+      "title": "Religione"
+    },
+    {
+      "chapter_index": 8,
+      "start_seconds": 729,
+      "title": "Futuro?"
+    },
+    {
+      "chapter_index": 9,
+      "start_seconds": 885,
+      "title": "Vannacci e ritorno del Nazionalismo"
+    },
+    {
+      "chapter_index": 10,
+      "start_seconds": 1128,
+      "title": "la storia di Beppe Grillo"
+    },
+    {
+      "chapter_index": 11,
+      "start_seconds": 1219,
+      "title": "il Grillo comico e Censura"
+    },
+    {
+      "chapter_index": 12,
+      "start_seconds": 1410,
+      "title": "il Grillo venditore e cabarettista"
+    },
+    {
+      "chapter_index": 13,
+      "start_seconds": 1639,
+      "title": "la cancellazione di Grillo"
+    },
+    {
+      "chapter_index": 14,
+      "start_seconds": 1885,
+      "title": "il Grillo politico"
+    },
+    {
+      "chapter_index": 15,
+      "start_seconds": 1993,
+      "title": "Casaleggio e nascita Movimento5S"
+    },
+    {
+      "chapter_index": 16,
+      "start_seconds": 2340,
+      "title": "la politica ha cambiato il M5S, non l’opposto"
+    },
+    {
+      "chapter_index": 17,
+      "start_seconds": 2599,
+      "title": "Giuseppe Conte e cacciata dal M5S"
+    },
+    {
+      "chapter_index": 18,
+      "start_seconds": 2693,
+      "title": "Draghi"
+    },
+    {
+      "chapter_index": 19,
+      "start_seconds": 2941,
+      "title": "Grillo ha paura o è speranzoso?"
+    },
+    {
+      "chapter_index": 20,
+      "start_seconds": 3348,
+      "title": "il Movimento oggi è altra cosa"
+    },
+    {
+      "chapter_index": 21,
+      "start_seconds": 3513,
+      "title": "il pubblico e abbandono dei teatri"
+    },
+    {
+      "chapter_index": 22,
+      "start_seconds": 3656,
+      "title": "Fatto Quotidiano"
+    },
+    {
+      "chapter_index": 23,
+      "start_seconds": 3735,
+      "title": "il giornalismo oggi"
+    },
+    {
+      "chapter_index": 24,
+      "start_seconds": 3956,
+      "title": "vivere il Qui e Ora"
+    },
+    {
+      "chapter_index": 25,
+      "start_seconds": 4065,
+      "title": "candidarmi? + Servizio Pubblico"
+    },
+    {
+      "chapter_index": 26,
+      "start_seconds": 4382,
+      "title": "li hai fatti vincere…"
+    },
+    {
+      "chapter_index": 27,
+      "start_seconds": 4652,
+      "title": "fine"
+    }
+  ],
+  "claim_candidate_windows": {
+    "strategy": "chapter-aware bounded windows",
+    "max_window_seconds": 45,
+    "window_count": 114,
+    "priority_counts": {
+      "HIGH": 100,
+      "MEDIUM": 10,
+      "LOW": 4
+    },
+    "contains_text": false,
+    "windows": [
+      {
+        "window_index": 0,
+        "chapter_index": 0,
+        "start_ms": 199,
+        "end_ms": 49719,
+        "first_segment_index": 0,
+        "last_segment_index": 22,
+        "segment_count": 23,
+        "text_characters": 816,
+        "text_sha256": "d072231a7bb8f5677d22399cc67c2e452d5fdb59498a7130d29fbf4893e17085",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 1,
+        "chapter_index": 0,
+        "start_ms": 47320,
+        "end_ms": 96479,
+        "first_segment_index": 23,
+        "last_segment_index": 45,
+        "segment_count": 23,
+        "text_characters": 786,
+        "text_sha256": "bf3f007431bb300737533ca5a979f53f10d7b46f97df2e33d203144bb4a2369a",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 2,
+        "chapter_index": 0,
+        "start_ms": 94600,
+        "end_ms": 100119,
+        "first_segment_index": 46,
+        "last_segment_index": 47,
+        "segment_count": 2,
+        "text_characters": 56,
+        "text_sha256": "d337da2f68951239588935cc81a37261793786e7cbf913aee4ae7676a4d4a5e5",
+        "sensitive_signature": [],
+        "cue_score": 0,
+        "priority": "LOW"
+      },
+      {
+        "window_index": 3,
+        "chapter_index": 1,
+        "start_ms": 105759,
+        "end_ms": 122880,
+        "first_segment_index": 48,
+        "last_segment_index": 53,
+        "segment_count": 6,
+        "text_characters": 204,
+        "text_sha256": "ab1e5f5509a5fc1bb087ed682c99d587c2c771cd7c1631c5521b18854df688b2",
+        "sensitive_signature": [],
+        "cue_score": 1,
+        "priority": "LOW"
+      },
+      {
+        "window_index": 4,
+        "chapter_index": 2,
+        "start_ms": 127071,
+        "end_ms": 141760,
+        "first_segment_index": 54,
+        "last_segment_index": 56,
+        "segment_count": 3,
+        "text_characters": 68,
+        "text_sha256": "bc1c34734ac7003d0654f3cd3a6fb5002d3e957c6cfb04cf42bce7b39a3e4479",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 5,
+        "chapter_index": 3,
+        "start_ms": 142680,
+        "end_ms": 190959,
+        "first_segment_index": 57,
+        "last_segment_index": 81,
+        "segment_count": 25,
+        "text_characters": 775,
+        "text_sha256": "ee7b3c282d33c9ee978284ca2625d3f1681a377a534663151cdf5f878d636d3b",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 6,
+        "chapter_index": 3,
+        "start_ms": 188959,
+        "end_ms": 210760,
+        "first_segment_index": 82,
+        "last_segment_index": 92,
+        "segment_count": 11,
+        "text_characters": 327,
+        "text_sha256": "e115c41a198bc60614e0bd4bea34e9bec920e5052beb5bc72e6c9ecab929e277",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 7,
+        "chapter_index": 4,
+        "start_ms": 211799,
+        "end_ms": 260079,
+        "first_segment_index": 93,
+        "last_segment_index": 115,
+        "segment_count": 23,
+        "text_characters": 731,
+        "text_sha256": "113f60d7a8266b7572eea3b819708dbc290dd8a97cc80c17ad547c22f485f6d6",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 8,
+        "chapter_index": 4,
+        "start_ms": 257840,
+        "end_ms": 288039,
+        "first_segment_index": 116,
+        "last_segment_index": 125,
+        "segment_count": 10,
+        "text_characters": 386,
+        "text_sha256": "d985c7a0a40f2287e4c719e3ba62aa0e5e6f1f58e1c1431c8c6bf9fdf2314be8",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 9,
+        "chapter_index": 5,
+        "start_ms": 285080,
+        "end_ms": 333759,
+        "first_segment_index": 126,
+        "last_segment_index": 146,
+        "segment_count": 21,
+        "text_characters": 743,
+        "text_sha256": "d1d20a28d1dfdc88f04397377eeca7ab86061e7bba5d910a86a9e80cd19ece37",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 10,
+        "chapter_index": 5,
+        "start_ms": 330400,
+        "end_ms": 380960,
+        "first_segment_index": 147,
+        "last_segment_index": 166,
+        "segment_count": 20,
+        "text_characters": 709,
+        "text_sha256": "8a3e0bb8acc2ed17df253f95279a20a133412346feff84bccf388c00dc860353",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 11,
+        "chapter_index": 5,
+        "start_ms": 377919,
+        "end_ms": 427280,
+        "first_segment_index": 167,
+        "last_segment_index": 187,
+        "segment_count": 21,
+        "text_characters": 768,
+        "text_sha256": "3b5bfbb773af50c16c3cd2b2842f98dad20c9de36507ff087ac8e0761df70c07",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 12,
+        "chapter_index": 5,
+        "start_ms": 425000,
+        "end_ms": 472360,
+        "first_segment_index": 188,
+        "last_segment_index": 208,
+        "segment_count": 21,
+        "text_characters": 773,
+        "text_sha256": "2217f3753327326ab8772671dc19dd5010524f3c12640f759cb7e7f7b28ecea4",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 13,
+        "chapter_index": 5,
+        "start_ms": 470240,
+        "end_ms": 516240,
+        "first_segment_index": 209,
+        "last_segment_index": 225,
+        "segment_count": 17,
+        "text_characters": 632,
+        "text_sha256": "bb92fddfe992056dba344da29c14696955bc92529c1f0fc1c2c3f20466a647ab",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 14,
+        "chapter_index": 6,
+        "start_ms": 513000,
+        "end_ms": 531240,
+        "first_segment_index": 226,
+        "last_segment_index": 231,
+        "segment_count": 6,
+        "text_characters": 225,
+        "text_sha256": "576deefc0b4289d24f8181ae53ab6a2ad418ed3b6b49859562196828f22467d9",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 3,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 15,
+        "chapter_index": 7,
+        "start_ms": 529200,
+        "end_ms": 577600,
+        "first_segment_index": 232,
+        "last_segment_index": 249,
+        "segment_count": 18,
+        "text_characters": 584,
+        "text_sha256": "2911eede2c5714b29451bf009249611721088ab5b9fa897133289ff36efb4b25",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 16,
+        "chapter_index": 7,
+        "start_ms": 575200,
+        "end_ms": 623399,
+        "first_segment_index": 250,
+        "last_segment_index": 267,
+        "segment_count": 18,
+        "text_characters": 658,
+        "text_sha256": "772896a08799cde409942d0c88197cc691c673c7f4a811c2ce986b65c599792a",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 17,
+        "chapter_index": 7,
+        "start_ms": 621760,
+        "end_ms": 672160,
+        "first_segment_index": 268,
+        "last_segment_index": 286,
+        "segment_count": 19,
+        "text_characters": 646,
+        "text_sha256": "fe510f35d704ac56c8b3a882b302089ed30c796f2c30bcf6f524fa0f8ec25a1c",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 18,
+        "chapter_index": 7,
+        "start_ms": 670200,
+        "end_ms": 718360,
+        "first_segment_index": 287,
+        "last_segment_index": 302,
+        "segment_count": 16,
+        "text_characters": 585,
+        "text_sha256": "88cd03833bb3804bff91fdecda65cedc15d359f050fa960537e64f211ec964dd",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 19,
+        "chapter_index": 7,
+        "start_ms": 715600,
+        "end_ms": 731079,
+        "first_segment_index": 303,
+        "last_segment_index": 307,
+        "segment_count": 5,
+        "text_characters": 176,
+        "text_sha256": "beb50f28adf620f17dab93fd0827dec9540fddcc0a03492330483ce0bbf23634",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 20,
+        "chapter_index": 8,
+        "start_ms": 729480,
+        "end_ms": 778880,
+        "first_segment_index": 308,
+        "last_segment_index": 328,
+        "segment_count": 21,
+        "text_characters": 666,
+        "text_sha256": "38e8c2c845ffe142d6cb9f8adc5c00ca1638ef6a0a4e5e249612f567ce4e3563",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 21,
+        "chapter_index": 8,
+        "start_ms": 775519,
+        "end_ms": 825800,
+        "first_segment_index": 329,
+        "last_segment_index": 345,
+        "segment_count": 17,
+        "text_characters": 591,
+        "text_sha256": "18ccf5d25b5db12e2cecdf355ae2148581edba9b90ccd4b08b1ce0676276080b",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 22,
+        "chapter_index": 8,
+        "start_ms": 822320,
+        "end_ms": 870519,
+        "first_segment_index": 346,
+        "last_segment_index": 364,
+        "segment_count": 19,
+        "text_characters": 695,
+        "text_sha256": "70a2fd1c27ca06baa377a16cfdb157c49cf61be2d344605394d50ff5c67b79bb",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 23,
+        "chapter_index": 8,
+        "start_ms": 867880,
+        "end_ms": 888000,
+        "first_segment_index": 365,
+        "last_segment_index": 371,
+        "segment_count": 7,
+        "text_characters": 271,
+        "text_sha256": "4f8fd51d9ea02778903857ec7813d459967da2b5cad1b475b755c904c8ea23f7",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 24,
+        "chapter_index": 9,
+        "start_ms": 885079,
+        "end_ms": 934880,
+        "first_segment_index": 372,
+        "last_segment_index": 391,
+        "segment_count": 20,
+        "text_characters": 726,
+        "text_sha256": "1b7ee1935ca1aa73e9bf91e9f8920d0a99befe2fc6ccafdc332ad67831bc3df7",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 25,
+        "chapter_index": 9,
+        "start_ms": 932040,
+        "end_ms": 982279,
+        "first_segment_index": 392,
+        "last_segment_index": 409,
+        "segment_count": 18,
+        "text_characters": 654,
+        "text_sha256": "f034181c869884dfd1a436e992dbe1c00a49e1fdae74ab1184c57f5b0ecad28e",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 26,
+        "chapter_index": 9,
+        "start_ms": 978959,
+        "end_ms": 1026280,
+        "first_segment_index": 410,
+        "last_segment_index": 427,
+        "segment_count": 18,
+        "text_characters": 656,
+        "text_sha256": "97dae29e898189a1a5791642ef6811848c01b998a09871c4ef6367e6ee57d3b3",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 27,
+        "chapter_index": 9,
+        "start_ms": 1024559,
+        "end_ms": 1072360,
+        "first_segment_index": 428,
+        "last_segment_index": 446,
+        "segment_count": 19,
+        "text_characters": 682,
+        "text_sha256": "cf4116ea4ed8a6fc453db16b90c3d4c6b4d9ddc562114f6e0618deeb33072891",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 28,
+        "chapter_index": 9,
+        "start_ms": 1070559,
+        "end_ms": 1118919,
+        "first_segment_index": 447,
+        "last_segment_index": 464,
+        "segment_count": 18,
+        "text_characters": 626,
+        "text_sha256": "d2a1d63fb271cc318f9395c5cb1d7f9607bb46ce2569a508ca63c8391458a86e",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 29,
+        "chapter_index": 9,
+        "start_ms": 1117159,
+        "end_ms": 1132000,
+        "first_segment_index": 465,
+        "last_segment_index": 468,
+        "segment_count": 4,
+        "text_characters": 125,
+        "text_sha256": "5f4b3fa502775d6daa2fb682d5889df3d247eea0d7624ceede794345927b55c4",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 3,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 30,
+        "chapter_index": 10,
+        "start_ms": 1130120,
+        "end_ms": 1178760,
+        "first_segment_index": 469,
+        "last_segment_index": 488,
+        "segment_count": 20,
+        "text_characters": 712,
+        "text_sha256": "b040612025766084dc831191c1973f232458d1b0152d2286b8ad62e9a43622e4",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 31,
+        "chapter_index": 10,
+        "start_ms": 1176880,
+        "end_ms": 1222720,
+        "first_segment_index": 489,
+        "last_segment_index": 506,
+        "segment_count": 18,
+        "text_characters": 601,
+        "text_sha256": "7e8eb23d12a673b3f8d9ab5d3476602e343e614efcee638670da10a0abe4b8dd",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 32,
+        "chapter_index": 11,
+        "start_ms": 1219760,
+        "end_ms": 1268720,
+        "first_segment_index": 507,
+        "last_segment_index": 525,
+        "segment_count": 19,
+        "text_characters": 729,
+        "text_sha256": "a34805e63f90575da5d96fcb4c6749de56752e58383fd15b06305fa8fe1c8b8b",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 33,
+        "chapter_index": 11,
+        "start_ms": 1266000,
+        "end_ms": 1314200,
+        "first_segment_index": 526,
+        "last_segment_index": 546,
+        "segment_count": 21,
+        "text_characters": 750,
+        "text_sha256": "737d1e91ce5b9aaf4f3fab94472ce0d404bf7d17aa5cefa0d38274aec8be4abe",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 34,
+        "chapter_index": 11,
+        "start_ms": 1312799,
+        "end_ms": 1362000,
+        "first_segment_index": 547,
+        "last_segment_index": 567,
+        "segment_count": 21,
+        "text_characters": 730,
+        "text_sha256": "943bb52b84d801ee9c45da546b44e1b5beba3eabe63805c35d6a142320bf7488",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 35,
+        "chapter_index": 11,
+        "start_ms": 1358679,
+        "end_ms": 1408559,
+        "first_segment_index": 568,
+        "last_segment_index": 585,
+        "segment_count": 18,
+        "text_characters": 687,
+        "text_sha256": "5eda4add1a8e924b9971e2cd8ad26413dca3186185a33f8bd2f78f31c79f3a6f",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 36,
+        "chapter_index": 11,
+        "start_ms": 1406360,
+        "end_ms": 1412720,
+        "first_segment_index": 586,
+        "last_segment_index": 587,
+        "segment_count": 2,
+        "text_characters": 71,
+        "text_sha256": "0bc129c05b1d4aad59e22a390a1aa18eb51c645bd952f680a11c6c2b5def8871",
+        "sensitive_signature": [],
+        "cue_score": 1,
+        "priority": "LOW"
+      },
+      {
+        "window_index": 37,
+        "chapter_index": 12,
+        "start_ms": 1410960,
+        "end_ms": 1458360,
+        "first_segment_index": 588,
+        "last_segment_index": 606,
+        "segment_count": 19,
+        "text_characters": 727,
+        "text_sha256": "61d5fb1a733fb49e61fac54442ecc4dda5f46fa341ac89b2f5a1dcaa896cd27f",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 38,
+        "chapter_index": 12,
+        "start_ms": 1456840,
+        "end_ms": 1504480,
+        "first_segment_index": 607,
+        "last_segment_index": 625,
+        "segment_count": 19,
+        "text_characters": 728,
+        "text_sha256": "de456d10bd3ae4f279927965dcde86d494cfee7c19d373aa12e8709a3bf5b039",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 39,
+        "chapter_index": 12,
+        "start_ms": 1503039,
+        "end_ms": 1552367,
+        "first_segment_index": 626,
+        "last_segment_index": 644,
+        "segment_count": 19,
+        "text_characters": 694,
+        "text_sha256": "380e6bc195289c62be0e1150e5bbf8b39b932ffb839c5606aa7993d7c2965610",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 40,
+        "chapter_index": 12,
+        "start_ms": 1549679,
+        "end_ms": 1597399,
+        "first_segment_index": 645,
+        "last_segment_index": 664,
+        "segment_count": 20,
+        "text_characters": 704,
+        "text_sha256": "6c313e4eef698c4cb43f29007942f9b991932de4c35e52873f4a436f61963687",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 41,
+        "chapter_index": 12,
+        "start_ms": 1595679,
+        "end_ms": 1642399,
+        "first_segment_index": 665,
+        "last_segment_index": 684,
+        "segment_count": 20,
+        "text_characters": 642,
+        "text_sha256": "d842955c2939c1ae97938bd7cc308df14d46b9593a312c903fe4dda66c7c3703",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 42,
+        "chapter_index": 13,
+        "start_ms": 1640399,
+        "end_ms": 1687480,
+        "first_segment_index": 685,
+        "last_segment_index": 708,
+        "segment_count": 24,
+        "text_characters": 806,
+        "text_sha256": "88b036635014d2beec6d614fe75e0b7f88bb50eb04c1e1b5ac37496c9b535896",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 43,
+        "chapter_index": 13,
+        "start_ms": 1685559,
+        "end_ms": 1736559,
+        "first_segment_index": 709,
+        "last_segment_index": 728,
+        "segment_count": 20,
+        "text_characters": 721,
+        "text_sha256": "bb60a041fae9410354420390878d6872ff1241f4fa375702fa5ec318f9e7acc6",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 44,
+        "chapter_index": 13,
+        "start_ms": 1734039,
+        "end_ms": 1781600,
+        "first_segment_index": 729,
+        "last_segment_index": 746,
+        "segment_count": 18,
+        "text_characters": 612,
+        "text_sha256": "acc733fb894921ac158203c53a9ddac508760b05d74912348833700b5c48bc6f",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 45,
+        "chapter_index": 13,
+        "start_ms": 1779600,
+        "end_ms": 1829840,
+        "first_segment_index": 747,
+        "last_segment_index": 766,
+        "segment_count": 20,
+        "text_characters": 689,
+        "text_sha256": "6a6bb90142ec8e8295091ecdcbd94310f244b31f1d0fded5ff90d84ec62a9518",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 46,
+        "chapter_index": 13,
+        "start_ms": 1827120,
+        "end_ms": 1876279,
+        "first_segment_index": 767,
+        "last_segment_index": 785,
+        "segment_count": 19,
+        "text_characters": 618,
+        "text_sha256": "33e9e26f817573f2f3dcaad6b28200c44972c71e597c4ba8096b480c918400bf",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 47,
+        "chapter_index": 13,
+        "start_ms": 1873679,
+        "end_ms": 1889120,
+        "first_segment_index": 786,
+        "last_segment_index": 789,
+        "segment_count": 4,
+        "text_characters": 142,
+        "text_sha256": "4be7fffc4cd9907770bfa8065b0ea4d983c4c9d3d4b5a16a009ed7d47a02e340",
+        "sensitive_signature": [],
+        "cue_score": 1,
+        "priority": "LOW"
+      },
+      {
+        "window_index": 48,
+        "chapter_index": 14,
+        "start_ms": 1885840,
+        "end_ms": 1934880,
+        "first_segment_index": 790,
+        "last_segment_index": 810,
+        "segment_count": 21,
+        "text_characters": 775,
+        "text_sha256": "fda0016a5c580bef760d703b8d1810a7d361a30f907dbcc0341389f0e73f3609",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 49,
+        "chapter_index": 14,
+        "start_ms": 1933240,
+        "end_ms": 1982120,
+        "first_segment_index": 811,
+        "last_segment_index": 832,
+        "segment_count": 22,
+        "text_characters": 732,
+        "text_sha256": "2990ea4ce7fbca72e651c85db3414889ba316140efa976da441e3da83505d867",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 50,
+        "chapter_index": 14,
+        "start_ms": 1979960,
+        "end_ms": 1996720,
+        "first_segment_index": 833,
+        "last_segment_index": 840,
+        "segment_count": 8,
+        "text_characters": 237,
+        "text_sha256": "db42b860c5d1742999d15353ad270a6012ab909586d606fa8b2ba65740145d7e",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 51,
+        "chapter_index": 15,
+        "start_ms": 1993720,
+        "end_ms": 2041320,
+        "first_segment_index": 841,
+        "last_segment_index": 859,
+        "segment_count": 19,
+        "text_characters": 642,
+        "text_sha256": "50f5bc69864418ba89863fa6f12aeda504046efb1899040dd6afae54f73fab07",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 52,
+        "chapter_index": 15,
+        "start_ms": 2039200,
+        "end_ms": 2087480,
+        "first_segment_index": 860,
+        "last_segment_index": 879,
+        "segment_count": 20,
+        "text_characters": 673,
+        "text_sha256": "c14743f33980610dd87e9b884026b259455ce6bc8115614d54fe4062b719266a",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 53,
+        "chapter_index": 15,
+        "start_ms": 2084679,
+        "end_ms": 2134000,
+        "first_segment_index": 880,
+        "last_segment_index": 898,
+        "segment_count": 19,
+        "text_characters": 698,
+        "text_sha256": "d51ab949bb125b172d7d8776fb6d63d44365113e63a5f61e05474247fb48c7a2",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 54,
+        "chapter_index": 15,
+        "start_ms": 2130800,
+        "end_ms": 2179400,
+        "first_segment_index": 899,
+        "last_segment_index": 915,
+        "segment_count": 17,
+        "text_characters": 634,
+        "text_sha256": "49e4d4b626dce0257f2c4a307bfdb0fd8a37de859d021e04ff3df18284bb46d5",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 55,
+        "chapter_index": 15,
+        "start_ms": 2178040,
+        "end_ms": 2225560,
+        "first_segment_index": 916,
+        "last_segment_index": 934,
+        "segment_count": 19,
+        "text_characters": 662,
+        "text_sha256": "9c8d51fcf820f968ae92a9e761ed03360a25517f777a4a051711242f1dbeab1a",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 56,
+        "chapter_index": 15,
+        "start_ms": 2223400,
+        "end_ms": 2272440,
+        "first_segment_index": 935,
+        "last_segment_index": 950,
+        "segment_count": 16,
+        "text_characters": 579,
+        "text_sha256": "94b8e2a256be1cabeda8e9a8b33be13bc05cd95587a56a2bbc29d062fd5ac271",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 57,
+        "chapter_index": 15,
+        "start_ms": 2269720,
+        "end_ms": 2317400,
+        "first_segment_index": 951,
+        "last_segment_index": 969,
+        "segment_count": 19,
+        "text_characters": 711,
+        "text_sha256": "9cd680b82d5cf39563294e6305c4aa1aa2971fbca0a931d3229e36f13d199557",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 58,
+        "chapter_index": 15,
+        "start_ms": 2315599,
+        "end_ms": 2343160,
+        "first_segment_index": 970,
+        "last_segment_index": 981,
+        "segment_count": 12,
+        "text_characters": 433,
+        "text_sha256": "aa16353eb5a238dd31785fe50ef80f9763168486ed7affd4c15b07ba70ce88a9",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 59,
+        "chapter_index": 16,
+        "start_ms": 2341000,
+        "end_ms": 2388400,
+        "first_segment_index": 982,
+        "last_segment_index": 1001,
+        "segment_count": 20,
+        "text_characters": 734,
+        "text_sha256": "f21703cf6d0863586e60db2183c4ae10bc4140544855d6f8ebce1eb406c01d3e",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 60,
+        "chapter_index": 16,
+        "start_ms": 2386720,
+        "end_ms": 2436160,
+        "first_segment_index": 1002,
+        "last_segment_index": 1023,
+        "segment_count": 22,
+        "text_characters": 715,
+        "text_sha256": "030db854d9720632009879db660ac4ae9d981768fb95d54987298fccc9922bbd",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 61,
+        "chapter_index": 16,
+        "start_ms": 2432280,
+        "end_ms": 2480680,
+        "first_segment_index": 1024,
+        "last_segment_index": 1041,
+        "segment_count": 18,
+        "text_characters": 643,
+        "text_sha256": "09bf1f4da9802e93d3f1ed802b3000b7625bf4b013da581541f8d5b8b70d06fd",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 62,
+        "chapter_index": 16,
+        "start_ms": 2478680,
+        "end_ms": 2528240,
+        "first_segment_index": 1042,
+        "last_segment_index": 1060,
+        "segment_count": 19,
+        "text_characters": 702,
+        "text_sha256": "91155b448c5e1adc16bead562266be22fbc4c8d3ded6b638dab1727afb97d33b",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 63,
+        "chapter_index": 16,
+        "start_ms": 2525400,
+        "end_ms": 2573240,
+        "first_segment_index": 1061,
+        "last_segment_index": 1079,
+        "segment_count": 19,
+        "text_characters": 718,
+        "text_sha256": "4915a3c3572d8e68ac7628835ebd930b4527c8182c5d0c01d356ab2bc10c56c2",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 64,
+        "chapter_index": 16,
+        "start_ms": 2571480,
+        "end_ms": 2604079,
+        "first_segment_index": 1080,
+        "last_segment_index": 1091,
+        "segment_count": 12,
+        "text_characters": 461,
+        "text_sha256": "0d100387a4d6cb9a3c880561512eb5b6cbd8aae597769c4125960db5deeaa696",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 65,
+        "chapter_index": 17,
+        "start_ms": 2601359,
+        "end_ms": 2652200,
+        "first_segment_index": 1092,
+        "last_segment_index": 1109,
+        "segment_count": 18,
+        "text_characters": 693,
+        "text_sha256": "8e61386c735347b8d756ee55fd9925d37582964dc0bc70b5e367d4f8036ba9bf",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 66,
+        "chapter_index": 17,
+        "start_ms": 2648520,
+        "end_ms": 2696640,
+        "first_segment_index": 1110,
+        "last_segment_index": 1126,
+        "segment_count": 17,
+        "text_characters": 639,
+        "text_sha256": "b4c2e4d41709ef2ec4702f1d0a251260ff5fd5c62a3d6e2456a0b08c71e64dbf",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 67,
+        "chapter_index": 18,
+        "start_ms": 2694480,
+        "end_ms": 2743760,
+        "first_segment_index": 1127,
+        "last_segment_index": 1146,
+        "segment_count": 20,
+        "text_characters": 712,
+        "text_sha256": "4d418136746891e210113718eb6fc11830a9b9d0ba2eabdef6ea9e8eb3f0c8b8",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 68,
+        "chapter_index": 18,
+        "start_ms": 2741160,
+        "end_ms": 2789440,
+        "first_segment_index": 1147,
+        "last_segment_index": 1165,
+        "segment_count": 19,
+        "text_characters": 648,
+        "text_sha256": "c1f5e3e8a401556cab0314e729f37b30fc26efa209ed2adf67b45cac77a09033",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 69,
+        "chapter_index": 18,
+        "start_ms": 2786680,
+        "end_ms": 2836200,
+        "first_segment_index": 1166,
+        "last_segment_index": 1184,
+        "segment_count": 19,
+        "text_characters": 678,
+        "text_sha256": "56a2ed360934a57694dfec0f43673c5dc2f62a3a99102e91cca1ae353154bd67",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 70,
+        "chapter_index": 18,
+        "start_ms": 2832760,
+        "end_ms": 2880920,
+        "first_segment_index": 1185,
+        "last_segment_index": 1205,
+        "segment_count": 21,
+        "text_characters": 783,
+        "text_sha256": "10963186e9898ace66560d571d88a152eba3f4110bb4c172eaec1c6e6754b52c",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 71,
+        "chapter_index": 18,
+        "start_ms": 2879200,
+        "end_ms": 2927720,
+        "first_segment_index": 1206,
+        "last_segment_index": 1224,
+        "segment_count": 19,
+        "text_characters": 693,
+        "text_sha256": "1ca62464cd893515069118d2d1a143ff3fb9958dffec6070cd74e98dfbaee4a1",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 72,
+        "chapter_index": 18,
+        "start_ms": 2925599,
+        "end_ms": 2945040,
+        "first_segment_index": 1225,
+        "last_segment_index": 1232,
+        "segment_count": 8,
+        "text_characters": 265,
+        "text_sha256": "6e821782b40982cae2062e422c898ebf973a492d10197466c555822b5b30a242",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 73,
+        "chapter_index": 19,
+        "start_ms": 2942559,
+        "end_ms": 2991520,
+        "first_segment_index": 1233,
+        "last_segment_index": 1250,
+        "segment_count": 18,
+        "text_characters": 638,
+        "text_sha256": "e0bd3bf61a51b31044c19b23a6521fa2e054a0a870e5500b3201b3e459f6ac2b",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 74,
+        "chapter_index": 19,
+        "start_ms": 2989559,
+        "end_ms": 3037000,
+        "first_segment_index": 1251,
+        "last_segment_index": 1269,
+        "segment_count": 19,
+        "text_characters": 681,
+        "text_sha256": "0b7a69684360c2d53215b4db7b1953f0ad220f7b3f25b5ded09124eb3d8b884b",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 75,
+        "chapter_index": 19,
+        "start_ms": 3035079,
+        "end_ms": 3083240,
+        "first_segment_index": 1270,
+        "last_segment_index": 1287,
+        "segment_count": 18,
+        "text_characters": 627,
+        "text_sha256": "57f44f1db141d830bbfcd334f077559b302da464b637854e73e1aed97adcde16",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 76,
+        "chapter_index": 19,
+        "start_ms": 3080559,
+        "end_ms": 3129599,
+        "first_segment_index": 1288,
+        "last_segment_index": 1305,
+        "segment_count": 18,
+        "text_characters": 651,
+        "text_sha256": "807819ce0a4ca189b578de6b5a82825a858dd0ef68d94433e180df8d020c5a46",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 77,
+        "chapter_index": 19,
+        "start_ms": 3127400,
+        "end_ms": 3176920,
+        "first_segment_index": 1306,
+        "last_segment_index": 1323,
+        "segment_count": 18,
+        "text_characters": 650,
+        "text_sha256": "54f5bd883338aaa7bd7cff2442d25b6d640f147bb9aabe0cb72da1c54a2622e3",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 78,
+        "chapter_index": 19,
+        "start_ms": 3173599,
+        "end_ms": 3220480,
+        "first_segment_index": 1324,
+        "last_segment_index": 1344,
+        "segment_count": 21,
+        "text_characters": 685,
+        "text_sha256": "d9eba388a1366cc7f6f59a7028f112b815b8aeb8d4df55f281f222cecd7b4774",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 79,
+        "chapter_index": 19,
+        "start_ms": 3218680,
+        "end_ms": 3265480,
+        "first_segment_index": 1345,
+        "last_segment_index": 1365,
+        "segment_count": 21,
+        "text_characters": 660,
+        "text_sha256": "4981715f2802f2c6224037c63e939659629ef0d0ed0f696196dc4c0d47cdf645",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 80,
+        "chapter_index": 19,
+        "start_ms": 3263880,
+        "end_ms": 3312200,
+        "first_segment_index": 1366,
+        "last_segment_index": 1385,
+        "segment_count": 20,
+        "text_characters": 695,
+        "text_sha256": "ce2496533aa643feacb12ef89895aa1211dfdf087e653c2090ebb18d2e15ba93",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 81,
+        "chapter_index": 19,
+        "start_ms": 3310680,
+        "end_ms": 3352280,
+        "first_segment_index": 1386,
+        "last_segment_index": 1401,
+        "segment_count": 16,
+        "text_characters": 519,
+        "text_sha256": "3d529742da253cc4be71ab8467ca7959b0531d39c2fbb0d0c23863494115bd49",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 82,
+        "chapter_index": 20,
+        "start_ms": 3350559,
+        "end_ms": 3401160,
+        "first_segment_index": 1402,
+        "last_segment_index": 1425,
+        "segment_count": 24,
+        "text_characters": 848,
+        "text_sha256": "7758b3ef567120e6e4d5259995f6148c7a5e55c11d95114ed45cebb005ee00aa",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 83,
+        "chapter_index": 20,
+        "start_ms": 3397400,
+        "end_ms": 3444160,
+        "first_segment_index": 1426,
+        "last_segment_index": 1446,
+        "segment_count": 21,
+        "text_characters": 734,
+        "text_sha256": "2c4793809255e5b287a28ace82fe82aba6bd38d4601b4b8360c8fa610befdec9",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 84,
+        "chapter_index": 20,
+        "start_ms": 3442559,
+        "end_ms": 3492799,
+        "first_segment_index": 1447,
+        "last_segment_index": 1463,
+        "segment_count": 17,
+        "text_characters": 615,
+        "text_sha256": "42b3a850925489f5e8c8f0d35b53edacf7fb91a5d9fe6d2e64c6df03db720c3a",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 85,
+        "chapter_index": 20,
+        "start_ms": 3490319,
+        "end_ms": 3515079,
+        "first_segment_index": 1464,
+        "last_segment_index": 1471,
+        "segment_count": 8,
+        "text_characters": 293,
+        "text_sha256": "45ccbabffecfe1c9f543de3c98babfc31445007d5085fe56c336fe64bbc6567b",
+        "sensitive_signature": [],
+        "cue_score": 2,
+        "priority": "MEDIUM"
+      },
+      {
+        "window_index": 86,
+        "chapter_index": 21,
+        "start_ms": 3513079,
+        "end_ms": 3562559,
+        "first_segment_index": 1472,
+        "last_segment_index": 1489,
+        "segment_count": 18,
+        "text_characters": 690,
+        "text_sha256": "0e783103cf39859f1d74f0885da68c5153a3299978240936ea03a669ba5e3700",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 87,
+        "chapter_index": 21,
+        "start_ms": 3560359,
+        "end_ms": 3607880,
+        "first_segment_index": 1490,
+        "last_segment_index": 1508,
+        "segment_count": 19,
+        "text_characters": 693,
+        "text_sha256": "278cd9d992f9750aa0d4c9e8ceada0b91461bac80749550309a3278de0ef1f9a",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 88,
+        "chapter_index": 21,
+        "start_ms": 3605520,
+        "end_ms": 3653640,
+        "first_segment_index": 1509,
+        "last_segment_index": 1525,
+        "segment_count": 17,
+        "text_characters": 618,
+        "text_sha256": "588c139519149cb8c91dcef1cdbc9db35a9a8888428cfd0bb815ebdb2e9a0f96",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 89,
+        "chapter_index": 21,
+        "start_ms": 3650520,
+        "end_ms": 3660200,
+        "first_segment_index": 1526,
+        "last_segment_index": 1528,
+        "segment_count": 3,
+        "text_characters": 113,
+        "text_sha256": "2fe54af6cd2184b62aaf089887ade3a418d95e6eb0ec319ae4a0ad07a4334f2c",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 90,
+        "chapter_index": 22,
+        "start_ms": 3658400,
+        "end_ms": 3705440,
+        "first_segment_index": 1529,
+        "last_segment_index": 1544,
+        "segment_count": 16,
+        "text_characters": 611,
+        "text_sha256": "ea7e1e47eb113716a61a2177ec56d0c8b6d7c452c941f450c2aa622bc2e6894c",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 91,
+        "chapter_index": 22,
+        "start_ms": 3703559,
+        "end_ms": 3739640,
+        "first_segment_index": 1545,
+        "last_segment_index": 1560,
+        "segment_count": 16,
+        "text_characters": 524,
+        "text_sha256": "31916454fb9dba539d8a5cfbb365d9792742d04c953e6c690ed901848db2a910",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 92,
+        "chapter_index": 23,
+        "start_ms": 3737039,
+        "end_ms": 3784160,
+        "first_segment_index": 1561,
+        "last_segment_index": 1582,
+        "segment_count": 22,
+        "text_characters": 808,
+        "text_sha256": "eaf52eb28a576f7d6ed3469911080b7060106ebfeb467f99a44c6de29ac04449",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 93,
+        "chapter_index": 23,
+        "start_ms": 3782079,
+        "end_ms": 3829240,
+        "first_segment_index": 1583,
+        "last_segment_index": 1603,
+        "segment_count": 21,
+        "text_characters": 729,
+        "text_sha256": "23d467fbcf8a032a0d0b0d72e4d04bc00b73611a4be47986980babe56a0beec1",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 94,
+        "chapter_index": 23,
+        "start_ms": 3827119,
+        "end_ms": 3876520,
+        "first_segment_index": 1604,
+        "last_segment_index": 1619,
+        "segment_count": 16,
+        "text_characters": 581,
+        "text_sha256": "c37ab097dbc482b01ff695879116cb66e9cfe11eeac34c8435a3902bd9e959f4",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 95,
+        "chapter_index": 23,
+        "start_ms": 3873839,
+        "end_ms": 3920119,
+        "first_segment_index": 1620,
+        "last_segment_index": 1639,
+        "segment_count": 20,
+        "text_characters": 675,
+        "text_sha256": "bc7b32f68e3abfd02476f298fab87781c6eb1be0af21636338e97650822b2ab3",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 96,
+        "chapter_index": 23,
+        "start_ms": 3920359,
+        "end_ms": 3959480,
+        "first_segment_index": 1640,
+        "last_segment_index": 1658,
+        "segment_count": 19,
+        "text_characters": 581,
+        "text_sha256": "b0c1df7c7ea1ebee1c4973ac40e55ec916d7774c48a164da62b20072a645693a",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 97,
+        "chapter_index": 24,
+        "start_ms": 3957240,
+        "end_ms": 4005160,
+        "first_segment_index": 1659,
+        "last_segment_index": 1676,
+        "segment_count": 18,
+        "text_characters": 652,
+        "text_sha256": "4a6205bcb7673294fdcd8d167a9310eb76427b0bf5c3b8bdbc3939329aabe40a",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 98,
+        "chapter_index": 24,
+        "start_ms": 4002359,
+        "end_ms": 4050880,
+        "first_segment_index": 1677,
+        "last_segment_index": 1695,
+        "segment_count": 19,
+        "text_characters": 704,
+        "text_sha256": "4bc4eef74e06ede5612eefef917b5f946b2c27966e310d4a87583b6c1c1e1e2c",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 99,
+        "chapter_index": 24,
+        "start_ms": 4048119,
+        "end_ms": 4069039,
+        "first_segment_index": 1696,
+        "last_segment_index": 1702,
+        "segment_count": 7,
+        "text_characters": 269,
+        "text_sha256": "7f002151812adf821f53581edbc3a5e273b0bed54ed162c0d0ef930a8befad1f",
+        "sensitive_signature": [
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 100,
+        "chapter_index": 25,
+        "start_ms": 4066400,
+        "end_ms": 4112719,
+        "first_segment_index": 1703,
+        "last_segment_index": 1722,
+        "segment_count": 20,
+        "text_characters": 656,
+        "text_sha256": "12095c7a045456dd734d15f22ab2ea8a79026fbf94f92bad4c5d29285d9a39e2",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 101,
+        "chapter_index": 25,
+        "start_ms": 4112400,
+        "end_ms": 4162199,
+        "first_segment_index": 1723,
+        "last_segment_index": 1748,
+        "segment_count": 26,
+        "text_characters": 821,
+        "text_sha256": "045687a58c6af250977a1decddc177268d8e420643aa7de7b1a147fe0dad07f9",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 102,
+        "chapter_index": 25,
+        "start_ms": 4159319,
+        "end_ms": 4206320,
+        "first_segment_index": 1749,
+        "last_segment_index": 1769,
+        "segment_count": 21,
+        "text_characters": 740,
+        "text_sha256": "1a55729e23d8be9f6ff0360e1865f7f6c92bfc9a66d4b429ce680c4702e8f0a2",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 103,
+        "chapter_index": 25,
+        "start_ms": 4205148,
+        "end_ms": 4254320,
+        "first_segment_index": 1770,
+        "last_segment_index": 1788,
+        "segment_count": 19,
+        "text_characters": 692,
+        "text_sha256": "639f75f83d200b838a0cd5993e63e91a7471ec684a996ce0bc6b71e0c96d146b",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 104,
+        "chapter_index": 25,
+        "start_ms": 4252000,
+        "end_ms": 4299760,
+        "first_segment_index": 1789,
+        "last_segment_index": 1808,
+        "segment_count": 20,
+        "text_characters": 732,
+        "text_sha256": "69eaef40bcbb1c44b74e6946735eed31a29a148fa12e4abe7c82f012e4eb3bcf",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 105,
+        "chapter_index": 25,
+        "start_ms": 4298400,
+        "end_ms": 4347840,
+        "first_segment_index": 1809,
+        "last_segment_index": 1837,
+        "segment_count": 29,
+        "text_characters": 977,
+        "text_sha256": "cb1d6f7bcdfc7a768fc9fc4c879fc4b07856c26c450fea2c4f996bf8617a98a5",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 106,
+        "chapter_index": 25,
+        "start_ms": 4345760,
+        "end_ms": 4384719,
+        "first_segment_index": 1838,
+        "last_segment_index": 1858,
+        "segment_count": 21,
+        "text_characters": 673,
+        "text_sha256": "9807a93d40e5bcae025a5a519c5f4062aa9885a32d6c2b8e5d78359ac6c64aa5",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 107,
+        "chapter_index": 26,
+        "start_ms": 4382920,
+        "end_ms": 4429960,
+        "first_segment_index": 1859,
+        "last_segment_index": 1877,
+        "segment_count": 19,
+        "text_characters": 732,
+        "text_sha256": "b198aa914b2b2ab1de1d2506d725dc219d8adba7f91c4bf9721fde90e9d28cc3",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 108,
+        "chapter_index": 26,
+        "start_ms": 4428159,
+        "end_ms": 4477480,
+        "first_segment_index": 1878,
+        "last_segment_index": 1895,
+        "segment_count": 18,
+        "text_characters": 636,
+        "text_sha256": "a834c6954c4a0e4cfbccb09f5af220905b518440338927e637611eeda4d5c7d3",
+        "sensitive_signature": [
+          "NEGATION",
+          "NUMBER"
+        ],
+        "cue_score": 5,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 109,
+        "chapter_index": 26,
+        "start_ms": 4474000,
+        "end_ms": 4523760,
+        "first_segment_index": 1896,
+        "last_segment_index": 1913,
+        "segment_count": 18,
+        "text_characters": 622,
+        "text_sha256": "26bd745330c1ad2775ae764a351ae9933f4e2fc7fc0f19814f9fc526389ae042",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 110,
+        "chapter_index": 26,
+        "start_ms": 4520960,
+        "end_ms": 4569000,
+        "first_segment_index": 1914,
+        "last_segment_index": 1932,
+        "segment_count": 19,
+        "text_characters": 697,
+        "text_sha256": "cb44d90403d623da0b04a8ab75337813ea2cf8604180215901edad7933247b8f",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 111,
+        "chapter_index": 26,
+        "start_ms": 4566760,
+        "end_ms": 4616920,
+        "first_segment_index": 1933,
+        "last_segment_index": 1951,
+        "segment_count": 19,
+        "text_characters": 724,
+        "text_sha256": "0357c795deccb81d853a0cdcdd995a8193ebf0bed3808695eb6513e2e25f6d2e",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 112,
+        "chapter_index": 26,
+        "start_ms": 4613360,
+        "end_ms": 4653228,
+        "first_segment_index": 1952,
+        "last_segment_index": 1970,
+        "segment_count": 19,
+        "text_characters": 589,
+        "text_sha256": "4b02a452cb359e2815578511e7d95b108fbe616320f248d18eda44e53ba06432",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      },
+      {
+        "window_index": 113,
+        "chapter_index": 27,
+        "start_ms": 4653400,
+        "end_ms": 4683560,
+        "first_segment_index": 1971,
+        "last_segment_index": 1980,
+        "segment_count": 10,
+        "text_characters": 290,
+        "text_sha256": "c59ec6878c0a8d9787e1c6d1a78aa024fce9782cbff33bf7b3c7da8930407d28",
+        "sensitive_signature": [
+          "NEGATION"
+        ],
+        "cue_score": 4,
+        "priority": "HIGH"
+      }
+    ]
+  },
+  "pipeline": {
+    "discovery": "DONE",
+    "platform_caption_acquisition": "DONE",
+    "caption_normalization": "DONE",
+    "claim_candidate_windowing": "DONE",
+    "claim_extraction": "BLOCKED",
+    "claim_extraction_blocker": "Official OmniRoute 3.8.50 production route antigravity/gemini-3.8-flash-tiered rejects non-trivial chat requests; local-fork runtime is not permitted by runtime policy.",
+    "secondary_asr": "NOT_STARTED_UNTIL_MATERIAL_CLAIMS_EXIST",
+    "evidence_retrieval": "NOT_STARTED",
+    "verification": "NOT_STARTED",
+    "publication": "POLICY_HOLD"
+  },
+  "claims": [],
+  "findings": [],
+  "policy": {
+    "aggregate_person_score": false,
+    "overall_person_verdict": false,
+    "no_finding_without_claim_extraction": true,
+    "sensitive_span_requires_independent_transcript_check": true
+  }
+}

@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68.0,<81.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dichiarazioni-pubbliche"
+version = "0.0.1"
+description = "Deterministic POC for evidence receipts and publication gates."
+requires-python = ">=3.11,<4.0"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Dichiarazioni Pubbliche contributors" }]
+keywords = ["fact-checking", "provenance", "public-record", "open-data"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+# The deterministic contributor profile is stdlib-only on purpose: an install must
+# never silently add a provider client, a database driver, or an HTTP stack.
+# See DP-601 and docs/release/development-environment.md.
+dependencies = []
+
+[project.optional-dependencies]
+# backend-postgres profile. The runtime reaches PostgreSQL through the `psql` CLI,
+# not a Python driver, so this profile intentionally declares no Python package.
+postgres = []
+# Development-only tooling. Every bound is an upper bound so that a future
+# breaking release of a checker cannot silently change a contributor's results.
+dev = [
+  "build>=1.2,<2.0",
+  "packaging>=24.0,<26.0",
+  "pip>=24.0,<26.0",
+  "setuptools>=68.0,<81.0",
+  "wheel>=0.44,<0.46",
+]
+
+[project.urls]
+Documentation = "https://dichiarazionipubbliche.it/docs"
+Repository = "https://github.com/domenicomassafra/DichiarazioniPubbliche.it"
+Issues = "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues"
+
+[project.scripts]
+# Names are derived from the existing technical module identity. No brand-facing
+# or renamed entry point is introduced (DP-106/DP-701 own that decision).
+dichiarazioni-pubbliche-benchmark = "dichiarazioni_pubbliche.benchmark:main"
+dichiarazioni-pubbliche-public-projection = "dichiarazioni_pubbliche.public_projection:main"
+dichiarazioni-pubbliche-source-watcher = "dichiarazioni_pubbliche.source_watcher:main"
+dichiarazioni-pubbliche-worker-daemon = "dichiarazioni_pubbliche.worker_daemon:main"
+dichiarazioni-pubbliche-review-admin = "dichiarazioni_pubbliche.review_admin:main"
+dichiarazioni-pubbliche-scheduler-daemon = "dichiarazioni_pubbliche.scheduler_daemon:main"
+dichiarazioni-pubbliche-health-digest = "dichiarazioni_pubbliche.health_digest:main"
+
+[tool.setuptools]
+# `poc` is a source root, not a public top-level package. Ship the canonical
+# package and its two real subpackages so a wheel is behaviorally equivalent to
+# `PYTHONPATH=poc` for supported imports. See DP-601.
+packages = [
+  "dichiarazioni_pubbliche",
+  "dichiarazioni_pubbliche.ops",
+  "dichiarazioni_pubbliche.policy",
+]
+include-package-data = false
+
+[tool.setuptools.package-dir]
+dichiarazioni_pubbliche = "poc/dichiarazioni_pubbliche"
+"dichiarazioni_pubbliche.ops" = "poc/dichiarazioni_pubbliche/ops"
+"dichiarazioni_pubbliche.policy" = "poc/dichiarazioni_pubbliche/policy"

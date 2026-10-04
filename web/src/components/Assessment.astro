@@ -1,0 +1,15 @@
+---
+import { assessmentLabel, assessmentTone } from "../lib/format";
+import type { AssessmentCode } from "../lib/types";
+
+interface Props {
+  code: AssessmentCode;
+  compact?: boolean;
+}
+const { code, compact = false } = Astro.props;
+---
+
+<span class:list={["assessment", `assessment-${assessmentTone(code)}`, compact && "assessment-compact"]}>
+  <span class="assessment-mark" aria-hidden="true"></span>
+  <span>{assessmentLabel(code)}</span>
+</span>

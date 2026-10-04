@@ -1,0 +1,17 @@
+---
+import { formatDate } from "../lib/format";
+import type { PublicEvidence } from "../lib/types";
+
+interface Props { evidence: PublicEvidence; index?: number }
+const { evidence, index } = Astro.props;
+---
+
+<a class="source-row" href={evidence.url} rel="noreferrer">
+  <span class="source-index">{index ? `[${index}]` : "↗"}</span>
+  <span class="source-main">
+    <strong>{evidence.publisher}</strong>
+    <span>{evidence.source_type.replaceAll("_", " ").toLowerCase()}</span>
+  </span>
+  <span class="source-date">{formatDate(evidence.publication_date)}</span>
+  <span class="source-arrow" aria-hidden="true">↗</span>
+</a>

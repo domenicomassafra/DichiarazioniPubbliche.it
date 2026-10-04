@@ -1,0 +1,53 @@
+---
+interface Props { studio?: boolean }
+const { studio = false } = Astro.props;
+const path = Astro.url.pathname;
+const active = (prefix: string) => path === prefix || path.startsWith(prefix + "/");
+const factCheckMode = active("/fact-check") ||
+  (active("/esplora") && Astro.url.searchParams.get("tipo") === "fact-check");
+const exploreMode = active("/esplora") && !factCheckMode;
+---
+
+<header class:list={["site-header", studio && "studio-header"]}>
+  <div class="shell header-inner">
+    <a class="brand" href={studio ? "/studio/sessioni/" : "/"} aria-label="Dichiarazioni Pubbliche home">
+      <span class="brand-mark" aria-hidden="true">A/A</span>
+      <span class="brand-name">Dichiarazioni Pubbliche</span>
+      {studio && <small>Verify Studio</small>}
+    </a>
+
+    {studio ? (
+      <nav class="main-nav" aria-label="Verify Studio">
+        <a class:list={[active("/studio/sessioni") && "is-active"]} href="/studio/sessioni/">Sessioni</a>
+        <a href="/studio/sessioni/#nuova">Nuova verifica</a>
+      </nav>
+    ) : (
+      <nav class="main-nav" aria-label="Navigazione principale">
+        <a class:list={[factCheckMode && "is-active"]} href="/esplora/?tipo=fact-check">Fact-check</a>
+        <a class:list={[exploreMode && "is-active"]} href="/esplora/">Esplora</a>
+        <a class:list={[active("/metodo") && "is-active"]} href="/metodo/">Metodo</a>
+      </nav>
+    )}
+
+    <a class="header-search" href={studio ? "/studio/sessioni/" : "/esplora/"}>
+      <span aria-hidden="true">⌕</span>
+      <span>{studio ? "Cerca sessioni" : "Cerca"}</span>
+    </a>
+    {!studio && (
+      <details class="mobile-nav">
+        <summary>Menu</summary>
+        <nav aria-label="Navigazione mobile">
+          <a href="/esplora/?tipo=fact-check">Fact-check</a>
+          <a href="/esplora/">Esplora</a>
+          <a href="/metodo/">Metodo</a>
+        </nav>
+      </details>
+    )}
+  </div>
+  {!studio && (
+    <div class="shell masthead-note">
+      <span>Registro pubblico delle dichiarazioni</span>
+      <span>Fonti · tempo · correzioni</span>
+    </div>
+  )}
+</header>

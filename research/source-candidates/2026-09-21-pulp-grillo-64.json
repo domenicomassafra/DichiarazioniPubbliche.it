@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "source_id": "youtube-pulp-podcast",
+  "content_id": "youtube:QaE00l6JZ8w",
+  "title": "Beppe Grillo a Pulp Podcast. | Pulp Podcast #64",
+  "published_date": "2026-09-21",
+  "primary_guest": "Beppe Grillo",
+  "youtube_video_id": "QaE00l6JZ8w",
+  "youtube_duration_seconds": 4683,
+  "podcast_distribution_duration_seconds": 4919,
+  "language": "it",
+  "discovery": {
+    "youtube_channel_id": "UCY99TnBJ8xyat2lpeN_hcEA",
+    "podcast_rss": "https://feeds.megaphone.fm/SONY4300078217",
+    "discovered_on_minipc": true
+  },
+  "transcript_availability": {
+    "manual_subtitles": false,
+    "automatic_caption_language": "it-orig",
+    "json3_probe_bytes": 1350090,
+    "video_download_required_for_first_pass": false,
+    "full_audio_stt_required_for_first_pass": false,
+    "parsed_caption_segments": 1981,
+    "parsed_caption_text_characters": 67821,
+    "parsed_caption_duration_ms": 4683560,
+    "heuristic_sensitive_segments_before_claim_extraction": 365,
+    "sensitive_segment_note": "Over-inclusive prefilter only. Secondary ASR is triggered after claim extraction when a material finding depends on sensitive tokens."
+  },
+  "triage": {
+    "tracked_public_figure": true,
+    "long_form": true,
+    "chapters_available": true,
+    "content_audit_candidate": true,
+    "priority": "HIGH",
+    "status": "DISCOVERED_TRANSCRIPT_AVAILABLE"
+  },
+  "policy": {
+    "first_pass": "CAPTION_ONLY",
+    "secondary_audio": "ONLY_FOR_SENSITIVE_OR_UNCERTAIN_SPANS",
+    "full_video_retention": "NEVER_BY_DEFAULT"
+  }
+}

@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+var/
+data/private/
+*.mp4
+*.m4a
+*.mp3
+*.wav
+*.webm
+
+# Python build/packaging artifacts (DP-601). Never required inputs to a clean clone.
+build/
+dist/
+*.egg-info/
+.venv-*/
+
+.DS_Store
+
+# Raw media/transcripts are local evidence, not repository content.
+poc/content/*/raw/
+
+# Local visual QA captures; canonical mockups live under prototypes/final-hybrid/.
+web/.tmp-design/

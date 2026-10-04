@@ -1,0 +1,21 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ExploreClient from "../components/ExploreClient";
+import { loadPublicProjection } from "../lib/projection";
+
+const projection = await loadPublicProjection();
+---
+
+<BaseLayout title="Esplora" description="Cerca dichiarazioni, persone, temi e contenuti nel record pubblico di Dichiarazioni Pubbliche.">
+  <section class="shell explore-header">
+    <div class="section-number" aria-hidden="true">R</div>
+    <div>
+      <p class="eyebrow">Indice del record</p>
+      <h1 class="page-title">Esplora le dichiarazioni</h1>
+      <p class="lede">Un solo indice per statement, fonte, tempo ed esito. Inizia da una parola; aggiungi filtri solo quando servono.</p>
+    </div>
+  </section>
+  <div class="shell">
+    <ExploreClient dossiers={projection.dossiers} client:load />
+  </div>
+</BaseLayout>

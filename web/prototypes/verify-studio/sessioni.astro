@@ -1,0 +1,39 @@
+---
+import BaseLayout from "../../src/layouts/BaseLayout.astro";
+import { studioSessions } from "../../src/data/studio";
+
+const inProgress = studioSessions.filter((session) => session.group === "In corso");
+const recent = studioSessions.filter((session) => session.group === "Recenti");
+---
+
+<BaseLayout title="Sessioni" studio>
+  <section class="studio-shell studio-page">
+    <div class="studio-page-title">
+      <div><div class="eyebrow">Verify Studio</div><h1>Sessioni</h1></div>
+      <div class="studio-toolbar" id="nuova"><button class="primary-button" type="button">+ Nuova verifica</button></div>
+    </div>
+    <div class="search-field search-field-compact" style="max-width: 640px; margin-bottom: 34px;">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input type="search" placeholder="Cerca sessioni…" aria-label="Cerca sessioni" />
+      <button type="button" aria-label="Cerca">→</button>
+    </div>
+    <div class="session-groups">
+      {[{ name: "In corso", items: inProgress }, { name: "Recenti", items: recent }].map((group) => (
+        <section class="session-group">
+          <h2>{group.name}</h2>
+          <div class="session-table">
+            {group.items.map((session) => (
+              <a class="session-row" href={session.id === "session-servizi" ? "/studio/workspace/session-servizi/" : "#"}>
+                <strong>{session.title}</strong>
+                <span>{session.type}</span>
+                <span>{session.state}</span>
+                <span>{session.updated}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

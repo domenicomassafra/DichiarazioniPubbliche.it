@@ -1,0 +1,187 @@
+# Dichiarazioni Pubbliche
+
+> Open, Italy-first public records of verifiable public statements. Read-only API over the `dichiarazioni-pubbliche-public-v2` public projection. Contract status: DRAFT.
+
+CONTRACT GATE: this document describes the `/api/v1` HTTP contract over the
+`dichiarazioni-pubbliche-public-v2` public projection. Per DP-105, the public projection
+schema version and the URL major version are independent axes, and no
+stable-v1 compatibility decision is ratified yet: the `/api/v1` URL segment
+is not a stability promise. This compatibility gate is not ratified. Read
+this document as accurate about what the API returns, and as carrying no
+ratified compatibility guarantee. The same-origin MiniPC read path is
+runtime-proved; stability/release ratification remains separate.
+
+## 1. What this is
+
+
+Dichiarazioni Pubbliche is an open, Italy-first public-record system for verifiable public
+statements. It preserves what a public figure said, when and where they said it,
+the source and wording supporting the attribution, the evidence relevant to a
+checkable claim, and the history of later review, correction, reply, or change.
+
+It is not a leaderboard, not a "who is trustworthy" service, and not a political
+recommendation engine. It is a provenance record you can audit yourself.
+
+Everything you can read publicly has already passed the publication gate. There
+is no endpoint, parameter, or key that exposes a draft, a held record, or a
+private reply.
+
+## 2. Public surfaces
+
+
+- Human-readable dossier pages, one per public statement.
+- Public JSON and JSON-LD, derived from the same fail-closed read model.
+- A read-only HTTP API described below, served from that same read model.
+
+The web pages and the API are two renderings of one artifact. They cannot
+disagree about what is published.
+
+## 3. Contract and discovery
+
+
+- API base path: /api/v1 (same-origin with the static site)
+- OpenAPI 3.1 document: /api/v1/openapi.json
+- Contract descriptor: /api/v1/schema
+- Health, dataset fingerprint, vocabulary versions: /api/v1/health
+- Bounded finding collection: /api/v1/findings
+- One published finding version: /api/v1/findings/{finding_id}
+- One public record (statement) and its findings: /api/v1/records/{slug}
+- Topic facets present in the projection: /api/v1/topics
+- Public figures present in the projection: /api/v1/people
+- The full fail-closed projection bundle: /api/v1/index.json
+- This document: /llms.txt
+
+The API is unauthenticated and read-only: GET and HEAD only, no key, no
+registration. Every response carries ETag, Last-Modified, and Cache-Control, so
+a correctly behaving client revalidates instead of refetching.
+
+## 4. Vocabulary and the publication boundary
+
+
+These distinctions are load-bearing. Collapsing any of them produces a wrong
+answer, not merely an imprecise one:
+
+- retrieved evidence != approved evidence
+- approved evidence != verified claim
+- verified claim != published finding
+- false claim != deliberate falsehood
+- position change != lie
+- contradiction != proof of intent
+- speaker appearance != approved segment attribution
+- public projection != operational database
+
+An `assessment` is a claim-level result, never a score attached to a person. A
+`publication_status` records the editorial state of one specific finding version.
+There is no field anywhere in this API for a person score, a rank, a ranking, or a
+political recommendation, and there never will be.
+
+## 5. Provenance, time, corrections, and replies
+
+
+- Every served finding version carries approved speaker provenance, source
+  segment identifiers, transcript variant hashes, a verification run identifier,
+  and publication review identifiers.
+- Raw transcript text, canonical transcript bodies, and evidence bodies are
+  private operational data and are never returned.
+- A finding is versioned. A correction never overwrites history: a superseding
+  finding links back through `supersedes_id` and `corrections[].previous_finding_id`.
+- A right of reply begins private, is re-analysed, and appears only after its own
+  publication review. A pending or private reply is not projected at all.
+- A published record is not judged with evidence that only became available
+  later, unless the finding explicitly concerns a later outcome.
+
+## 6. Request and response shapes (fictional)
+
+
+All identifiers and URLs below are fictional. `example.test` is reserved for
+documentation and never resolves. These are shapes, not claims about anyone.
+
+Request:
+
+    GET /api/v1/findings?topic=NUMERIC_STATISTIC&assessment=SUPPORTED&limit=25
+
+Response (truncated):
+
+    {
+      "data": [
+        {
+          "finding_id": "finding:fictional:1",
+          "claim_id": "claim:fictional:1",
+          "claim": "Fictional example: the published register records a figure close to the stated one.",
+          "claim_type": "NUMERIC_STATISTIC",
+          "assessment": "SUPPORTED",
+          "publication_status": "PUBLISH",
+          "published_at": "2026-01-20T08:00:00+00:00",
+          "person_id": "person:fictional:1",
+          "person_name": "Fictional public figure",
+          "content_id": "content:fictional:1",
+          "content_url": "https://example.test/fictional-source",
+          "correction_count": 0,
+          "published_right_of_reply_count": 0,
+          "link": "/api/v1/findings/finding:fictional:1"
+        }
+      ],
+      "meta": {
+        "api_version": "v1",
+        "public_schema_version": "dichiarazioni-pubbliche-public-v2",
+        "dataset_fingerprint": "sha256 of the served dataset",
+        "count": 1, "limit": 25, "total": 1, "next_cursor": null
+      }
+    }
+
+An empty collection is a success, not a failure:
+
+    {"data": [], "meta": {"count": 0, "total": 0, "next_cursor": null}}
+
+An unknown, private, or held resource is a 404 that never reveals whether an
+operational record exists:
+
+    {"error": {"code": "RESOURCE_NOT_FOUND", "message": "Resource is not available in the public record.", "request_id": "..."}}
+
+Filtering is fail-closed: an unknown parameter or an unknown enum value is a
+typed 400, never a silently empty page.
+
+    GET /api/v1/findings?colour=blue
+    -> 400 {"error": {"code": "UNSUPPORTED_PARAMETER", ...}}
+
+## 7. Limits, unsupported states, and safe failure behavior
+
+
+- No full-text, semantic, or vector search. Collection access is bounded and
+  deterministic: default limit 25, maximum limit 100, ordered by publication
+  time descending with the finding id as a stable tie-breaker.
+- Pagination uses an opaque cursor. Reusing a cursor with a different filter set
+  is a 400, not a reinterpreted page.
+- If the projection is missing, stale, tampered, or built against an incompatible
+  schema, every endpoint returns 503. It never serves partial data and never
+  invents a placeholder record.
+- Assessments are limited to the publishable set: SUPPORTED, FACTUALLY_FALSE,
+  OUTDATED_DATA. INSUFFICIENT_EVIDENCE and UNRESOLVED are not publishable and so
+  never appear in a public response.
+- An empty public dataset means "nothing has been published yet", not "no records
+  exist". Absence is not a finding.
+
+## 8. What an agent must not do with this API
+
+
+- Do not call a model to decide whether a statement is true. The assessment in
+  the record is the output of a deterministic verification run, already made.
+- Do not infer speaker identity from voice, face, or appearance. Attribution is
+  non-biometric by design and rests on approved review events.
+- Do not treat a candidate relation as an accusation. Only reviewed, approved
+  relations are published, and a contradiction is not proof of intent.
+- Do not present a person-level score, a ranking, or a political recommendation.
+  The record contains no such field; deriving one is a misuse of it.
+- Do not publish, approve evidence, or submit a reply through this API. It is
+  read-only by construction: POST, PUT, PATCH, and DELETE return 405.
+- Do not use a model-generated URL or query as evidence. Every evidence URL here
+  was fetched and observed by the pipeline, never invented.
+
+## 9. Contract identity
+
+- public projection schema: dichiarazioni-pubbliche-public-v2
+- domain vocabulary: dichiarazioni-pubbliche-domain-vocabulary-v1
+- API contract version: v1 (contract status: DRAFT)
+- served dataset fingerprint: unavailable
+- projection generated at: unavailable
+- document fingerprint (sha256 of this text, excluding this line): 42f3d6cfa84082345be28d8a4ba9701d6a1862c532de07b8bfa587f5d58907e7

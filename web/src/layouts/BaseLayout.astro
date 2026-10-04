@@ -1,0 +1,62 @@
+---
+import "@fontsource-variable/newsreader";
+import "@fontsource-variable/ibm-plex-sans";
+import "@fontsource/ibm-plex-mono/400.css";
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  studio?: boolean;
+  canonicalPath?: string;
+}
+
+const {
+  title = "Dichiarazioni Pubbliche",
+  description = "Fact-checking di dichiarazioni, video, podcast e articoli. Con le fonti.",
+  studio = false,
+  canonicalPath
+} = Astro.props;
+const pageTitle = title === "Dichiarazioni Pubbliche" ? title : `${title} — Dichiarazioni Pubbliche`;
+const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
+const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-projection.json");
+---
+
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f4f5f2" />
+    {canonicalPath && <link rel="canonical" href={canonicalPath} />}
+    <title>{pageTitle}</title>
+  </head>
+  <body class:list={[studio && "is-studio"]}>
+    <a class="dp-skip-link" href="#main">Vai al contenuto</a>
+    {usingDemoProjection && (
+      <div class="demo-banner" role="note">
+        Ambiente dimostrativo: i contenuti visibili sono fittizi e servono solo a validare il prodotto.
+      </div>
+    )}
+    <SiteHeader studio={studio} />
+    <main id="main">
+      <slot />
+    </main>
+    {!studio && (
+      <footer class="site-footer shell">
+        <div>
+          <strong>Dichiarazioni Pubbliche</strong>
+          <p>Record pubblici verificabili, fonti e cronologia.</p>
+        </div>
+        <nav aria-label="Link footer">
+          <a href="/metodo/">Metodo</a>
+          <a href="/esplora/">Esplora</a>
+          <a href="/api/v1/openapi.json">API</a>
+        </nav>
+      </footer>
+    )}
+  </body>
+</html>

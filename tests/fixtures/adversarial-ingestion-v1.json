@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "duplicate-exact", "class": "duplicate", "expected": "IDEMPOTENT"},
+    {"id": "near-duplicate-title", "class": "near_duplicate", "expected": "CLUSTER_WHEN_SAME_DAY"},
+    {"id": "conflicting-authoritative-values", "class": "conflicting_sources", "expected": "UNRESOLVED"},
+    {"id": "mutable-url-new-hash", "class": "changed_page", "expected": "NEW_EVIDENCE_VERSION"},
+    {"id": "source-now-404", "class": "deleted_page", "expected": "NO_AUTO_DELETE_PRIOR_EVIDENCE"},
+    {"id": "missing-published-at", "class": "missing_timestamp", "expected": "NO_FALSE_DEDUP"},
+    {"id": "two-speaker-candidates", "class": "speaker_ambiguity", "expected": "NO_PUBLICATION_WITHOUT_APPROVAL"},
+    {"id": "candidate-from-other-content", "class": "clip_transcript_mismatch", "expected": "NO_PUBLIC_TRANSCRIPT_PROVENANCE"},
+    {"id": "stale-correction-chain", "class": "out_of_order_correction", "expected": "REFUSED"},
+    {"id": "short-body-content-length-10", "class": "partial_fetch", "expected": "REFUSED"},
+    {"id": "same-job-second-delivery", "class": "replayed_job", "expected": "NO_PROVENANCE_MUTATION"}
+  ]
+}

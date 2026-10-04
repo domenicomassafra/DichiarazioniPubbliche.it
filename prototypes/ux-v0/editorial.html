@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dichiarazioni Pubbliche — Editorial prototype</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    .editorial { max-width: 1180px; margin: 0 auto; padding: 54px 28px 90px; }
+    .hero { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(270px,.55fr); gap: 56px; padding: 38px 0 52px; border-bottom: 1px solid var(--line); }
+    h1 { font: 700 clamp(2.8rem,7vw,6.8rem)/.9 Georgia,serif; letter-spacing: -.06em; margin: 14px 0 24px; max-width: 820px; }
+    .deck { max-width: 720px; font: 1.12rem/1.6 Georgia,serif; color: #3e3b36; }
+    .hero aside { align-self: end; border-top: 3px solid var(--ink); padding-top: 16px; }
+    .statline { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); }
+    .section { display:grid; grid-template-columns: 220px 1fr; gap:48px; padding: 44px 0; border-bottom:1px solid var(--line); }
+    .section h2 { margin:0; font: 700 1.35rem/1.1 Georgia,serif; }
+    .claim-list { display:grid; gap: 12px; }
+    .claim { display:grid; grid-template-columns: 68px 1fr auto; gap:18px; align-items:center; padding:17px 0; border-top:1px solid var(--line); }
+    .claim:first-child { border-top:0; padding-top:0; }
+    .claim strong { display:block; font-size:1rem; }
+    .claim p { margin:3px 0 0; color:var(--muted); font-size:.85rem; }
+    .time { font:700 1.05rem/1 ui-monospace,monospace; }
+    .pulp { background:var(--ink); color:#f7f3ea; padding:34px; border-radius:20px; display:grid; grid-template-columns:1fr auto; gap:28px; }
+    .pulp h3 { margin:7px 0 10px; font:700 2rem/1.05 Georgia,serif; max-width:680px; }
+    .pulp .muted { color:#bdb7ab; }
+    .pulp-metrics { display:grid; grid-template-columns:repeat(2,110px); gap:12px; align-content:center; }
+    .pulp-metrics div { border-left:1px solid #57534c; padding-left:14px; }
+    .pulp-metrics strong { display:block; font-size:1.35rem; }
+    @media(max-width:760px){ .editorial{padding:28px 16px 60px}.hero,.section{grid-template-columns:1fr;gap:24px}.claim{grid-template-columns:54px 1fr}.claim .chip{grid-column:2}.pulp{grid-template-columns:1fr}.pulp-metrics{grid-template-columns:repeat(2,1fr)} }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wordmark">Dichiarazioni Pubbliche <small>prototype v0</small></div>
+    <nav class="topnav" aria-label="Prototipi">
+      <a href="editorial.html" aria-current="page">Editoriale</a>
+      <a href="evidence-graph.html">Evidence graph</a>
+      <a href="media-timeline.html">Media timeline</a>
+    </nav>
+  </header>
+  <div class="prototype-note">Direzione A · newsroom/editoriale. Priorità: comprensione, contesto, fonte e cronologia. Nessun punteggio complessivo sulla persona.</div>
+  <main class="editorial">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Dossier · audit di contenuto</div>
+        <h1>Una memoria pubblica, non una pagella.</h1>
+        <p class="deck">Ogni dichiarazione resta collegata al punto del contenuto, alle fonti usate, alle incertezze e alle revisioni successive. Il lettore vede il record; il sistema non comprime una persona in un voto.</p>
+      </div>
+      <aside id="audit-stats"></aside>
+    </section>
+    <section class="section">
+      <div><div class="eyebrow">Nel contenuto</div><h2>Dichiarazioni atomiche</h2></div>
+      <div class="claim-list" id="claim-list"></div>
+    </section>
+    <section class="section">
+      <div><div class="eyebrow">Long-form</div><h2>Pipeline in corso</h2></div>
+      <article class="pulp" id="pulp-card"></article>
+    </section>
+  </main>
+  <script src="demo-data.js"></script>
+  <script>
+    const d = window.DICHIARAZIONI_PUBBLICHE_DEMO;
+    document.querySelector('#audit-stats').innerHTML = `
+      <div class="eyebrow">${d.audit.id}</div>
+      <div class="statline"><span>Dichiarazioni</span><strong class="metric">${d.audit.claimCount}</strong></div>
+      <div class="statline"><span>Fonti</span><strong class="metric">${d.audit.evidenceCount}</strong></div>
+      <div class="statline"><span>Segmenti coperti</span><strong class="metric">${d.audit.segmentCount}/${d.audit.segmentCount}</strong></div>
+      <div class="statline"><span>Score persona</span><strong>mai</strong></div>`;
+    document.querySelector('#claim-list').innerHTML = d.claims.slice(0,6).map(c => `
+      <article class="claim">
+        <div class="time">${c.time}</div>
+        <div><strong>${c.id} · ${c.type}</strong><p>${c.evidence} font${c.evidence === 1 ? 'e' : 'i'} collegat${c.evidence === 1 ? 'a' : 'e'} · apri transcript span e provenance</p></div>
+        <span class="chip" data-state="${c.assessment}">${c.assessment.replaceAll('_',' ')}</span>
+      </article>`).join('');
+    document.querySelector('#pulp-card').innerHTML = `
+      <div><div class="eyebrow" style="color:#b9d6cc">Content pipeline</div><h3>${d.pulp.title}</h3><p class="muted">${d.pulp.state.replaceAll('_',' ')} · ${d.pulp.transcript}. Nessun finding mostrato finché claim extraction non è stabile.</p></div>
+      <div class="pulp-metrics"><div><strong>${d.pulp.duration}</strong><span class="muted">durata</span></div><div><strong>${d.pulp.segments}</strong><span class="muted">segmenti</span></div><div><strong>${d.pulp.characters.toLocaleString('it-IT')}</strong><span class="muted">caratteri</span></div><div><strong>${d.pulp.sensitivePrefilter}</strong><span class="muted">prefilter</span></div></div>`;
+  </script>
+</body>
+</html>

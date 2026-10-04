@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-21",
+  "cases": [
+    {
+      "case_id": "rocca-employment-july-2026-supported",
+      "subject": "Francesco Rocca",
+      "statement_date": "2026-09-04",
+      "claim_text": "A luglio 2026 gli occupati erano 24,37 milioni e il tasso di occupazione era 63,2%.",
+      "claim_source_url": "https://www.ansa.it/lazio/notizie/2026/09/04/rocca-a-bari-orgoglioso-di-rappresentare-nel-lazio-la-stessa-maggioranza_02d0f9c3-2c23-40c2-876c-1e0c1b5ac816.html",
+      "claim_source_type": "SECONDARY_REPORT",
+      "rule": {
+        "kind": "numeric_exact",
+        "metric": "employment_rate_pct",
+        "reference_period": "2026-07",
+        "value": 63.2,
+        "tolerance": 0.0
+      },
+      "evidence": [
+        {
+          "evidence_id": "istat-july-2026-employment-rate",
+          "source_url": "https://www.istat.it/comunicato-stampa/occupati-e-disoccupati-dati-provvisori-luglio-2026/",
+          "publisher": "ISTAT",
+          "source_type": "PRIMARY_OFFICIAL",
+          "publication_date": "2026-09-01",
+          "observed_at": "2026-09-21",
+          "reference_period": "2026-07",
+          "metric": "employment_rate_pct",
+          "value": 63.2,
+          "unit": "percent",
+          "independence_group": "istat-labour-force",
+          "quote_or_fact": "ISTAT reports an employment rate of 63.2% for July 2026."
+        }
+      ],
+      "expected_evaluation_outcome": "SUPPORTED",
+      "expected_publication": "PUBLISH",
+      "notes": "Simple primary-source numeric verification."
+    },
+    {
+      "case_id": "fdi-youth-unemployment-historical-minimum-contradicted",
+      "subject": "Fratelli d'Italia brochure",
+      "statement_date": "2026-09-03",
+      "claim_text": "Il 18,4% di disoccupazione giovanile è un minimo storico.",
+      "claim_source_url": "https://www.ansa.it/sito/notizie/politica/2026/09/04/il-governo-meloni-supera-il-berlusconi-ii-il-record-di-longevita-e-la-festa_70bfd96c-a438-41fc-ba4b-3108938afbc8.html",
+      "claim_source_type": "SECONDARY_REPORT",
+      "rule": {
+        "kind": "historical_minimum",
+        "metric": "youth_unemployment_rate_pct",
+        "value": 18.4
+      },
+      "evidence": [
+        {
+          "evidence_id": "istat-may-2026-youth-unemployment",
+          "source_url": "https://www.istat.it/comunicato-stampa/occupati-e-disoccupati-dati-provvisori-maggio-2026/",
+          "publisher": "ISTAT",
+          "source_type": "PRIMARY_OFFICIAL",
+          "publication_date": "2026-07-02",
+          "observed_at": "2026-09-21",
+          "reference_period": "2026-05",
+          "metric": "youth_unemployment_rate_pct",
+          "value": 15.1,
+          "unit": "percent",
+          "independence_group": "istat-labour-force",
+          "quote_or_fact": "ISTAT reports youth unemployment at 15.1% in May 2026."
+        },
+        {
+          "evidence_id": "istat-june-2026-youth-unemployment",
+          "source_url": "https://www.istat.it/comunicato-stampa/occupati-e-disoccupati-dati-provvisori-giugno-2026/",
+          "publisher": "ISTAT",
+          "source_type": "PRIMARY_OFFICIAL",
+          "publication_date": "2026-07-30",
+          "observed_at": "2026-09-21",
+          "reference_period": "2026-06",
+          "metric": "youth_unemployment_rate_pct",
+          "value": 18.4,
+          "unit": "percent",
+          "independence_group": "istat-labour-force",
+          "quote_or_fact": "ISTAT reports youth unemployment at 18.4% in June 2026."
+        }
+      ],
+      "expected_evaluation_outcome": "FACTUALLY_FALSE",
+      "expected_publication": "PUBLISH",
+      "notes": "A lower official value (15.1%) had already been published, so 18.4% cannot be a historical minimum."
+    },
+    {
+      "case_id": "fdi-employment-rate-peak-outdated",
+      "subject": "Fratelli d'Italia brochure",
+      "statement_date": "2026-09-03",
+      "claim_text": "Il 62,9% è il picco storico del tasso di occupazione.",
+      "claim_source_url": "https://www.ansa.it/sito/notizie/politica/2026/09/04/il-governo-meloni-supera-il-berlusconi-ii-il-record-di-longevita-e-la-festa_70bfd96c-a438-41fc-ba4b-3108938afbc8.html",
+      "claim_source_type": "SECONDARY_REPORT",
+      "rule": {
+        "kind": "historical_peak",
+        "metric": "employment_rate_pct",
+        "value": 62.9
+      },
+      "evidence": [
+        {
+          "evidence_id": "istat-june-2026-employment-rate",
+          "source_url": "https://www.istat.it/comunicato-stampa/occupati-e-disoccupati-dati-provvisori-giugno-2026/",
+          "publisher": "ISTAT",
+          "source_type": "PRIMARY_OFFICIAL",
+          "publication_date": "2026-07-30",
+          "observed_at": "2026-09-21",
+          "reference_period": "2026-06",
+          "metric": "employment_rate_pct",
+          "value": 62.9,
+          "unit": "percent",
+          "independence_group": "istat-labour-force",
+          "quote_or_fact": "ISTAT reports 62.9% for June 2026."
+        },
+        {
+          "evidence_id": "istat-july-2026-employment-rate",
+          "source_url": "https://www.istat.it/comunicato-stampa/occupati-e-disoccupati-dati-provvisori-luglio-2026/",
+          "publisher": "ISTAT",
+          "source_type": "PRIMARY_OFFICIAL",
+          "publication_date": "2026-09-01",
+          "observed_at": "2026-09-21",
+          "reference_period": "2026-07",
+          "metric": "employment_rate_pct",
+          "value": 63.2,
+          "unit": "percent",
+          "independence_group": "istat-labour-force",
+          "quote_or_fact": "ISTAT reports 63.2% for July 2026."
+        }
+      ],
+      "expected_evaluation_outcome": "OUTDATED_DATA",
+      "expected_publication": "PUBLISH",
+      "notes": "The July release was published before the reported brochure/event and already exceeded 62.9%."
+    },
+    {
+      "case_id": "meloni-bollo-2016-2026-no-contradiction",
+      "subject": "Giorgia Meloni",
+      "statement_date": "2026-09-17",
+      "claim_text": "A 2016 criticism of Renzi's bollo announcement is treated as a candidate contradiction with the 2026 abolition policy.",
+      "claim_source_url": "https://www.ansa.it/sito/notizie/topnews/2026/09/17/scintille-renzi-meloni-sul-bollo-mi-davi-del-venditore-di-pentole-io-realizzo_0a91935b-177a-435d-8556-73162787cb10.html",
+      "claim_source_type": "SECONDARY_REPORT",
+      "rule": {
+        "kind": "temporal_stance",
+        "same_proposition": false,
+        "prior_stance": null,
+        "later_stance": "supports_abolition"
+      },
+      "evidence": [
+        {
+          "evidence_id": "ansa-meloni-2016-tweet-context",
+          "source_url": "https://www.ansa.it/sito/notizie/topnews/2026/09/17/scintille-renzi-meloni-sul-bollo-mi-davi-del-venditore-di-pentole-io-realizzo_0a91935b-177a-435d-8556-73162787cb10.html",
+          "publisher": "ANSA",
+          "source_type": "SECONDARY_REPORT",
+          "publication_date": "2026-09-17",
+          "observed_at": "2026-09-21",
+          "independence_group": "ansa-bollo-2026",
+          "quote_or_fact": "ANSA reports that the 2016 post criticized the timing/announcement and called Renzi a seller of pots."
+        },
+        {
+          "evidence_id": "ansa-meloni-2026-bollo-policy",
+          "source_url": "https://www.ansa.it/sito/notizie/politica/2026/09/16/meloni-abolizione-del-bollo-pensata-per-chi-usa-auto-e-moto_bcdb3555-3127-4c38-80c1-df662326f108.html",
+          "publisher": "ANSA",
+          "source_type": "SECONDARY_REPORT",
+          "publication_date": "2026-09-16",
+          "observed_at": "2026-09-21",
+          "independence_group": "ansa-bollo-2026",
+          "quote_or_fact": "ANSA reports Meloni supporting the 2026 abolition for eligible vehicles."
+        }
+      ],
+      "expected_evaluation_outcome": "NO_CONTRADICTION_ESTABLISHED",
+      "expected_publication": "NO_FINDING",
+      "notes": "False-positive suppression: criticism of an opponent's announcement/timing is not automatically opposition to the underlying policy."
+    },
+    {
+      "case_id": "synthetic-control-wrong-july-employment-rate",
+      "subject": "Synthetic control",
+      "statement_date": "2026-09-04",
+      "claim_text": "A luglio 2026 il tasso di occupazione era 99%.",
+      "claim_source_url": "synthetic://benchmark/wrong-july-employment-rate",
+      "claim_source_type": "SYNTHETIC",
+      "rule": {
+        "kind": "numeric_exact",
+        "metric": "employment_rate_pct",
+        "reference_period": "2026-07",
+        "value": 99.0,
+        "tolerance": 0.0
+      },
+      "evidence": [
+        {
+          "evidence_id": "istat-july-2026-employment-rate",
+          "source_url": "https://www.istat.it/comunicato-stampa/occupati-e-disoccupati-dati-provvisori-luglio-2026/",
+          "publisher": "ISTAT",
+          "source_type": "PRIMARY_OFFICIAL",
+          "publication_date": "2026-09-01",
+          "observed_at": "2026-09-21",
+          "reference_period": "2026-07",
+          "metric": "employment_rate_pct",
+          "value": 63.2,
+          "unit": "percent",
+          "independence_group": "istat-labour-force",
+          "quote_or_fact": "ISTAT reports 63.2% for July 2026."
+        }
+      ],
+      "expected_evaluation_outcome": "FACTUALLY_FALSE",
+      "expected_publication": "POLICY_HOLD",
+      "notes": "Synthetic sanity control; never intended as a public finding."
+    }
+  ]
+}

@@ -1,0 +1,445 @@
+/* ==========================================================================
+   Dichiarazioni Pubbliche — Design System v1 · token layer
+   Frozen design system of record. See DESIGN.md and docs/ux/design-system-v1.md.
+
+   CONTRACT
+   This file is the ONLY place in web/src where a literal color value may appear.
+   Every other stylesheet and component must reference a token. A hardcoded hex
+   outside this file is a contract violation, not a style choice.
+
+   Every color token below carries its measured contrast ratio against the
+   grounds it is permitted on, in the form `--x-dp-on: <ratio>`; the contract
+   that ratio serves is named in the adjacent comment. Ratios were computed with
+   the WCAG 2.1 relative-luminance formula. The full table lives in
+   docs/ux/design-system-v1.md.
+
+   PRODUCT INVARIANTS ENCODED HERE
+   - Status is text-first. Hue is a secondary reinforcement only. Removing all
+     hue from this system must leave every state readable and distinguishable.
+   - No token encodes a person, party, or entity identity. The four finding
+     states are about the claim/evidence relation, never about who spoke.
+   - Selection and focus share one hue (cobalt) so that "you are here" and
+     "your keyboard is here" are never confused.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. GROUNDS
+   Three levels of ground, separated by a deliberate luminance gap so that
+   nesting surfaces never collapses into one another in grayscale.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Primary reading ground. Every text token is measured against this. */
+  --paper-0: #f4f5f2;
+  /* Grouped/secondary band. Adjacent to paper-0, not equal to it. */
+  --paper-1: #e9ebe6;
+  /* Recessed band: table headers, code/time gutters, Studio pane wells. */
+  --paper-2: #dfe2dc;
+  /* Resting selection ground. Cobalt-tinted so selection reads as a distinct
+     plane even before the hairline and the mark are drawn. */
+  --paper-selected: #d3e0f7;
+  /* Bounded/elevated object ground (sheet, dialog, bounded evidence). */
+  --paper-raised: #ffffff;
+
+  /* Inverse ground. Used for the one high-emphasis band in the system: the
+     focus spotlight and the Studio selected-pane header. Never a page mode. */
+  --ink-inverse: #0e1524;
+}
+
+/* --------------------------------------------------------------------------
+   2. INK
+   Three steps only. `ink-500` is the last step permitted to carry body text;
+   below it, text becomes non-compliant or becomes metadata, which is banned
+   as a crutch.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Primary ink. 16.67:1 on paper-0. The voice of the product. */
+  --ink-900: #0e1524;
+  /* Secondary ink: supporting prose, ledes, source descriptions. 10.10:1. */
+  --ink-700: #333c4f;
+  /* Tertiary ink: timestamps, captions, dense Studio metadata. 6.56:1 —
+     still ADP-grade for body and 3:1 for large text. */
+  --ink-500: #4e5869;
+
+  /* Ink on the inverse ground. 16.67:1 and 10.19:1 respectively. */
+  --ink-inverse-100: #f4f5f2;
+  --ink-inverse-300: #b9c2d4;
+}
+
+/* --------------------------------------------------------------------------
+   3. HAIRLINES
+   The system has exactly three rule weights and no shadows. Rules are
+   structural, not decorative: a rule exists where content groups or where an
+   object has a real boundary.
+
+   --rule-hairline (300) is a *content* separator. It is intentionally below
+   3:1 because WCAG 1.4.11 exempts purely decorative and text-adjacent
+   separators; it must NEVER be the only boundary of an interactive control.
+   --rule-control (600) IS the control boundary and is contractually >= 3:1
+   (3.83:1 on paper-0, 3.49:1 on paper-1).
+   -------------------------------------------------------------------------- */
+:root {
+  --rule-hairline: #c4c9c1;      /* 1.54:1 — content separator only */
+  --rule-hairline-strong: #a8afa6; /* 2.05:1 — emphasised separator, still not a control edge */
+  --rule-control: #767e74;       /* 3.83:1 — the only legal control border */
+  --rule-control-strong: #666e64; /* 4.82:1 — hovered/pressed control border */
+  --rule-ink: #0e1524;           /* structural rule where ink itself draws the line */
+  --rule-on-inverse: #333c4f;
+}
+
+/* --------------------------------------------------------------------------
+   4. COBALT — selection, focus, and the brand gesture
+   One hue, four jobs. It is never a status hue.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Interactive accent. 5.65:1 on paper-0 — AA body text. */
+  --cobalt-600: #1457d9;
+  /* Link/hover/pressed. 7.61:1 on paper-0. */
+  --cobalt-700: #0f46b0;
+  /* Active/pressed text. 9.68:1 on paper-0. */
+  --cobalt-800: #0b3890;
+  /* Selection ground. Gray gap of 22 from paper-0, so selection is visible in
+     grayscale without relying on the hairline. */
+  --cobalt-100: #d3e0f7;
+  /* Focus ring and inverse-ground accent. 10.58:1 on ink-inverse. */
+  --cobalt-200: #a8c6ff;
+  /* The pressed state fills with this. Paper text on it: 5.65:1. */
+  --cobalt-on: #f4f5f2;
+}
+
+/* --------------------------------------------------------------------------
+   5. FOCUS
+   Focus is a three-part structure, never a single outline: a ring, an offset,
+   and a brightness change. This guarantees the indicator survives both a
+   light ground and a crowded dense surface, and it gives a non-color cue
+   (the offset) so focus is never color-only.
+   -------------------------------------------------------------------------- */
+:root {
+  --focus-ring-color: #0b3890;    /* 9.68:1 on paper-0, 3:1+ against ink-inverse */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-inset: 3px;        /* inner companion ring for the inverse ground */
+  --focus-ring-color-inverse: #a8c6ff;
+}
+
+/* --------------------------------------------------------------------------
+   6. FINDING STATE SCALES
+   Four states, four scales, all contrast-validated. These describe the
+   relation between a claim and the evidence about it. They are attached to a
+   claim row, never to a person, party, or entity.
+
+   Invariant: the -700 step is the only step permitted to render status TEXT.
+   The -600 step is for marks and hairlines (>= 3:1, non-text UI). The -100
+   step is a resting background and never carries text alone.
+   -------------------------------------------------------------------------- */
+:root {
+  /* SUPPORTED — the evidence supports the statement as stated. */
+  --support-700: #0f5c41;  /* 7.30:1 on paper-0 — status text */
+  --support-600: #0f5c41;
+  --support-100: #c9e5d8;  /* gray gap 25 from paper-0 */
+  --support-200: #8fd6b6;  /* 10.82:1 on ink-inverse */
+  --support-on: #0e1524;   /* 15.36:1 on support-100 */
+
+  /* CONTRADICTED — the evidence contradicts the statement as stated.
+     A contradiction is a fact about two texts. It is never a finding about
+     intent, and no component may present it as one. */
+  --contradict-700: #8e2028; /* 8.04:1 on paper-0 — status text */
+  --contradict-600: #8e2028;
+  --contradict-100: #f2d2d4; /* gray gap 25 from paper-0 */
+  --contradict-200: #f0a9ad; /* 9.54:1 on ink-inverse */
+  --contradict-on: #0e1524;  /* 12.98:1 on contradict-100 */
+
+  /* IMPRECISE — the statement is directionally defensible but not accurate
+     as worded, or rests on outdated data. */
+  --imprecise-700: #6b4700; /* 7.60:1 on paper-0 — status text */
+  --imprecise-600: #6b4700;
+  --imprecise-100: #eddfbe; /* gray gap 21 from paper-0 */
+  --imprecise-200: #e3c88a; /* 11.20:1 on ink-inverse */
+  --imprecise-on: #0e1524;  /* 13.81:1 on imprecise-100 */
+
+  /* UNRESOLVED — the evidence is insufficient or still under review. This is
+     a first-class, deliberate state. It is never rendered as an empty slot or
+     silently omitted. */
+  --unresolved-700: #34506b; /* 7.66:1 on paper-0 — status text */
+  --unresolved-600: #34506b;
+  --unresolved-100: #d4dee9; /* gray gap 24 from paper-0 */
+  --unresolved-200: #a8c0d8; /* 9.72:1 on ink-inverse */
+  --unresolved-on: #0e1524;  /* 13.40:1 on unresolved-100 */
+}
+
+/* --------------------------------------------------------------------------
+   7. TYPEFACES
+   Three roles, deliberately not three decorative families.
+   The public record is read by citizens and researchers: the serif carries
+   every claim, answer, and title because those are the words being examined.
+   The sans carries structure, controls, and the word UI itself. The mono is
+   permitted only for time, identifiers, and tabular measurement — the three
+   cases where a reader compares characters column-wise.
+
+   BANNED: mono as a general "technical credibility" texture; the serif as a
+   UI label; the sans as the display voice of a claim.
+   -------------------------------------------------------------------------- */
+:root {
+  --font-claim: "Newsreader Variable", "Iowan Old Style", Georgia, serif;
+  --font-ui: "IBM Plex Sans Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Optical correction for the serif at display sizes. */
+  --tracking-display: -0.022em;
+  --tracking-heading: -0.014em;
+  --tracking-body: 0;
+  --tracking-label: 0.005em;
+  --tracking-time: 0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   8. TYPE SCALE
+   Fluid via clamp(). A strict ratio holds across the whole range: the
+   displayed steps grow by ~1.2x, and no step ever lands between two others.
+
+   Upper bound is 6rem. A display step larger than that is a poster, not a
+   record.
+   -------------------------------------------------------------------------- */
+:root {
+  --text-display: clamp(2.75rem, 1.35rem + 5.6vw, 5rem);
+  --leading-display: 0.98;
+
+  --text-title: clamp(2rem, 1.25rem + 3.1vw, 3.125rem);
+  --leading-title: 1.03;
+
+  --text-headline: clamp(1.5rem, 1.2rem + 1.25vw, 2rem);
+  --leading-headline: 1.08;
+
+  --text-subhead: clamp(1.25rem, 1.1rem + 0.62vw, 1.5rem);
+  --leading-subhead: 1.18;
+
+  --text-lede: clamp(1.125rem, 1.02rem + 0.44vw, 1.3125rem);
+  --leading-lede: 1.42;
+
+  --text-body: clamp(1rem, 0.97rem + 0.14vw, 1.0625rem);
+  --leading-body: 1.6;
+
+  --text-body-quiet: 0.9375rem; /* Studio dense reading */
+  --leading-body-quiet: 1.5;
+
+  --text-label: 0.875rem;
+  --leading-label: 1.3;
+
+  --text-meta: 0.8125rem;  /* the metadata floor. 13px, never 11px. */
+  --leading-meta: 1.35;
+
+  --weight-regular: 400;
+  --weight-medium: 520;
+  --weight-semibold: 620;
+  --weight-claim: 560;    /* claim text: present, not shouted */
+
+  --measure-claim: 34ch;  /* a checked statement is read, not scanned */
+  --measure-prose: 68ch;  /* explanatory prose sits inside the AA band */
+  --measure-brief: 46ch;  /* lede / answer */
+  --measure-data: 92ch;   /* genuinely tabular content */
+}
+
+/* --------------------------------------------------------------------------
+   9. SPACING
+   Base 4. Every margin and padding resolves to a listed step; a raw px value
+   is a spacing bug.
+
+   Conceptual layering (the reason the scale is not uniform):
+   - within a control: 4–12
+   - within a row: 12–24
+   - between rows in a group: 24–32
+   - between conceptual sections: 48–80
+   - between top-level bands: 96–160
+   More space above a heading than below it, always.
+   -------------------------------------------------------------------------- */
+:root {
+  --space-0: 0;
+  --space-1: 0.25rem;  /*  4 */
+  --space-2: 0.5rem;   /*  8 */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.5rem;   /* 24 */
+  --space-6: 2rem;     /* 32 */
+  --space-7: 3rem;     /* 48 */
+  --space-8: 4rem;     /* 64 */
+  --space-9: 5rem;     /* 80 */
+  --space-10: 7.5rem;  /* 120 */
+  --space-11: 10rem;   /* 160 */
+}
+
+/* --------------------------------------------------------------------------
+   10. GEOMETRY
+   Near-square by design. Rounding is a signal that an object is a bounded
+   surface you can act on; applying it universally is what makes a product
+   look like a template. Radii stay at 0–4px because the visual world is
+   editorial and printed, not plastic.
+   -------------------------------------------------------------------------- */
+:root {
+  --radius-none: 0;
+  --radius-mark: 1px;   /* the finding-state mark: a square of ink */
+  --radius-control: 3px; /* inputs, buttons, sheets, bounded objects */
+
+  /* There is deliberately no pill radius. An earlier draft carried one for
+     "small controls"; nothing in the built system used it, so it was cut
+     under the DP-412 deletion test. A pill radius is the first step toward
+     the rounded-card texture this system exists to avoid. */
+
+  /* Minimum standalone touch target. 44px is the WCAG 2.2 AA floor. */
+  --target-min: 2.75rem;
+
+  /* Focus sits outside the box, so the ring must not be clipped by it. */
+  --control-outline: 1px solid var(--rule-control);
+  --control-outline-hover: 1px solid var(--rule-control-strong);
+  --control-outline-selected: 1px solid var(--cobalt-700);
+}
+
+/* --------------------------------------------------------------------------
+   11. ELEVATION
+   There is no shadow scale. The system has exactly two depth registers:
+   the paper ground, and an object lifted by a hairline plus a change of ground.
+   Elevation is announced by `paper-raised`, never by blur or offset.
+   -------------------------------------------------------------------------- */
+:root {
+  --elevation-none: none;
+  /* A hairline is the entire depth system. */
+  --elevation-hairline: 0 0 0 1px var(--rule-control);
+  --elevation-hairline-selected: 0 0 0 1px var(--cobalt-700);
+  /* Overlays (dialog, sheet) are the single exception: they take the inverse
+     ground behind a hairline so they separate from any content beneath. */
+  --elevation-overlay: 0 0 0 1px var(--rule-on-inverse);
+}
+
+/* --------------------------------------------------------------------------
+   12. LAYOUT WIDTHS
+   Three widths, each with a job. Nothing else may set a max-width.
+   -------------------------------------------------------------------------- */
+:root {
+  /* Public shell: the full asymmetric ledger. */
+  --width-shell: 78rem;      /* 1248px */
+  /* Reading column: prose, answers, rationale. Holds the 65–75ch measure. */
+  --width-reading: 44rem;    /*  704px */
+  /* Margin rail: evidence, sources, chronology beside a reading column. */
+  --width-rail: 19rem;       /*  304px */
+  /* Prose in a rail-free document (Metodo). */
+  --width-document: 48rem;   /*  768px */
+  /* Studio shell: wider, because the workspace earns its columns. */
+  --width-studio-shell: 93.75rem; /* 1500px */
+
+  /* Grid */
+  --grid-columns: 12;
+  --grid-gutter: var(--space-5);
+  --grid-gutter-dense: var(--space-3);
+  /* Page inset. This is the one responsive value in the system. */
+  --page-inset: var(--space-3);
+}
+
+/* --------------------------------------------------------------------------
+   13. DENSITY
+   Two densities, one language. Every spacing/height decision in the system
+   resolves through these variables, so Public stays spacious and Studio stays
+   dense without either becoming a separate visual brand.
+
+   Density changes rhythm and target size. It never changes type family,
+   type scale, palette, geometry, or motion budget.
+   -------------------------------------------------------------------------- */
+:root,
+[data-density='public'] {
+  --density-name: 'public';
+  --density-row-pad-y: var(--space-4);
+  --density-row-pad-x: var(--space-4);
+  --density-row-min: 3.75rem;   /* 60 */
+  --density-block-gap: var(--space-5);
+  --density-section-gap: var(--space-8);
+  --density-band-gap: var(--space-10);
+  --density-control-min: 2.75rem; /* 44 */
+  --density-row-gap: var(--space-0);
+  --density-cell-pad-y: var(--space-3);
+  --density-type-body: var(--text-body);
+  --density-type-label: var(--text-label);
+  --density-type-meta: var(--text-meta);
+  --density-measure: var(--measure-prose);
+}
+
+[data-density='studio'] {
+  --density-name: 'studio';
+  --density-row-pad-y: var(--space-2);
+  --density-row-pad-x: var(--space-3);
+  --density-row-min: 2.5rem;    /* 40 — dense scanning, still >= 32 floor */
+  --density-block-gap: var(--space-3);
+  --density-section-gap: var(--space-5);
+  --density-band-gap: var(--space-6);
+  --density-control-min: 2rem;  /* 32 — desktop pointer, documented exception
+                                   to the 44px touch floor; see design-system-v1 */
+  --density-row-gap: 0;
+  --density-cell-pad-y: var(--space-2);
+  --density-type-body: var(--text-body-quiet);
+  --density-type-label: var(--text-meta);
+  --density-type-meta: var(--text-meta);
+  --density-measure: var(--measure-data);
+}
+
+/* --------------------------------------------------------------------------
+   14. MOTION
+   Motion explains a state change. It never performs, celebrates, or
+   narrates. Three durations, one easing pair, no bounce, no spring, no
+   opacity fade-in from nothing (content is visible by default).
+   -------------------------------------------------------------------------- */
+:root {
+  --duration-fast: 120ms;   /* press, hover, hairline change */
+  --duration-standard: 180ms; /* selection move, disclosure, sheet enter */
+  --duration-slow: 260ms;   /* dialog enter, large surface change */
+
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-move: cubic-bezier(0.2, 0, 0, 1);
+
+  /* The one authored transition in the system: the finding-state mark and
+     selection plane move to a newly selected claim. */
+  --transition-select:
+    background-color var(--duration-standard) var(--ease-move),
+    box-shadow var(--duration-standard) var(--ease-move),
+    color var(--duration-fast) var(--ease-move);
+  --transition-control:
+    border-color var(--duration-fast) var(--ease-exit),
+    background-color var(--duration-fast) var(--ease-exit),
+    color var(--duration-fast) var(--ease-exit);
+  --transition-overlay:
+    opacity var(--duration-standard) var(--ease-enter),
+    transform var(--duration-standard) var(--ease-enter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    /* Reduced motion keeps the SAME end state, reached with no interpolation.
+       No token is redefined to a different visual outcome — only to a
+       duration of 1ms, so nothing is lost. */
+    --duration-fast: 1ms;
+    --duration-standard: 1ms;
+    --duration-slow: 1ms;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   15. Z-INDEX
+   Named scale. A component may not invent a z-index.
+   -------------------------------------------------------------------------- */
+:root {
+  --z-base: 0;
+  --z-raised: 10;      /* sticky headers, sticky rails */
+  --z-overlay: 100;    /* dialog, sheet */
+  --z-skip-link: 200;  /* must clear a focused overlay */
+}
+
+/* --------------------------------------------------------------------------
+   16. PRINT
+   The product is a public record and people print it. On paper the grounds
+   collapse to white, the ink to black, and every tint becomes a gray chosen
+   for toner rather than for a screen. These are declared here rather than
+   inline in the print block because they are still design values, and the
+   "no literal outside tokens.css" contract applies to them too.
+   -------------------------------------------------------------------------- */
+:root {
+  --print-ground: #ffffff;
+  --print-ink: #000000;
+  --print-muted: #333333;
+  --print-rule: #767676;
+}

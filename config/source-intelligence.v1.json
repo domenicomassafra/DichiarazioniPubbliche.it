@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "name": "source-intelligence-v1",
+  "contract_version": "source-intelligence-v1",
+  "evidence_sources": [
+    {
+      "registry_source_id": "istat-sdmx",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_STATISTICS"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_STATISTICS",
+          "jurisdiction": "IT",
+          "record_type": "OFFICIAL_STATISTICAL_DATASET",
+          "dataset_class": "ISTAT_SDMX",
+          "authenticity_basis": "ISTAT_OFFICIAL_API",
+          "canonical_locator": {"registry_source_id": "istat-sdmx"},
+          "supersession_policy": "USE_EXPLICIT_DATASET_RELEASE_OR_REVISION",
+          "limitations": "Authority is limited to the metric, population, geography, period and revision actually returned by the dataset."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "istat-publications",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_STATISTICS"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_STATISTICS",
+          "jurisdiction": "IT",
+          "record_type": "OFFICIAL_STATISTICAL_RELEASE",
+          "dataset_class": "ISTAT_PUBLICATION",
+          "authenticity_basis": "ISTAT_OFFICIAL_PUBLICATION",
+          "canonical_locator": {"registry_source_id": "istat-publications"},
+          "supersession_policy": "PREFER_LATEST_APPLICABLE_OFFICIAL_REVISION",
+          "limitations": "A publication is authoritative only for the measures and reference periods it actually reports."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "eurostat-api",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_STATISTICS"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_STATISTICS",
+          "jurisdiction": "EU",
+          "record_type": "OFFICIAL_STATISTICAL_DATASET",
+          "dataset_class": "EUROSTAT_API",
+          "authenticity_basis": "EUROSTAT_OFFICIAL_API",
+          "canonical_locator": {"registry_source_id": "eurostat-api"},
+          "supersession_policy": "USE_EXPLICIT_DATASET_RELEASE_OR_REVISION",
+          "limitations": "Authority is limited to the returned dataset scope, geography, period and revision."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "normattiva-opendata",
+      "roles": ["SECONDARY_REFERENCE"],
+      "authority_scopes": [
+        {
+          "role": "SECONDARY_REFERENCE",
+          "jurisdiction": "IT",
+          "record_type": "LEGAL_INFORMATIONAL_CONSOLIDATION",
+          "authenticity_basis": "OFFICIAL_INFORMATIONAL_NON_AUTHENTIC",
+          "canonical_locator": {"registry_source_id": "normattiva-opendata"},
+          "supersession_policy": "FOLLOW_CONSOLIDATED_VERSION_METADATA",
+          "limitations": "Informational legal access; not a substitute for the authentic promulgated text when authenticity is required.",
+          "required_companion_role": "AUTHENTIC_LEGAL_TEXT"
+        }
+      ]
+    },
+    {
+      "registry_source_id": "gazzetta-ufficiale",
+      "roles": ["PRIMARY_RECORD", "AUTHENTIC_LEGAL_TEXT"],
+      "authority_scopes": [
+        {
+          "role": "AUTHENTIC_LEGAL_TEXT",
+          "jurisdiction": "IT",
+          "record_type": "PROMULGATED_LEGAL_TEXT",
+          "authenticity_basis": "GAZZETTA_UFFICIALE_AUTHENTIC_PUBLICATION",
+          "canonical_locator": {"registry_source_id": "gazzetta-ufficiale"},
+          "supersession_policy": "RESOLVE_EFFECTIVE_TEXT_AND_LATER_AMENDMENTS",
+          "limitations": "The applicable version and effective date must match the proposition being assessed."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "camera-linked-data",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_PROCEDURAL_RECORD"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_PROCEDURAL_RECORD",
+          "jurisdiction": "IT",
+          "organization": "Camera dei deputati",
+          "record_type": "PARLIAMENTARY_PROCEDURAL_RECORD",
+          "authenticity_basis": "CAMERA_OFFICIAL_LINKED_DATA",
+          "canonical_locator": {"registry_source_id": "camera-linked-data"},
+          "supersession_policy": "FOLLOW_OFFICIAL_PROCEDURAL_VERSION",
+          "limitations": "Scope is the parliamentary record represented by the returned dataset."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "camera-publications",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_PROCEDURAL_RECORD"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_PROCEDURAL_RECORD",
+          "jurisdiction": "IT",
+          "organization": "Camera dei deputati",
+          "record_type": "PARLIAMENTARY_PUBLICATION",
+          "authenticity_basis": "CAMERA_OFFICIAL_PUBLICATION",
+          "canonical_locator": {"registry_source_id": "camera-publications"},
+          "supersession_policy": "FOLLOW_OFFICIAL_PROCEDURAL_VERSION",
+          "limitations": "Scope is limited to the proceeding, act or vote actually documented."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "senato-linked-data",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_PROCEDURAL_RECORD"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_PROCEDURAL_RECORD",
+          "jurisdiction": "IT",
+          "organization": "Senato della Repubblica",
+          "record_type": "PARLIAMENTARY_PROCEDURAL_RECORD",
+          "authenticity_basis": "SENATO_OFFICIAL_LINKED_DATA",
+          "canonical_locator": {"registry_source_id": "senato-linked-data"},
+          "supersession_policy": "FOLLOW_OFFICIAL_PROCEDURAL_VERSION",
+          "limitations": "Scope is the parliamentary record represented by the returned dataset."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "senato-publications",
+      "roles": ["PRIMARY_RECORD", "OFFICIAL_PROCEDURAL_RECORD"],
+      "authority_scopes": [
+        {
+          "role": "OFFICIAL_PROCEDURAL_RECORD",
+          "jurisdiction": "IT",
+          "organization": "Senato della Repubblica",
+          "record_type": "PARLIAMENTARY_PUBLICATION",
+          "authenticity_basis": "SENATO_OFFICIAL_PUBLICATION",
+          "canonical_locator": {"registry_source_id": "senato-publications"},
+          "supersession_policy": "FOLLOW_OFFICIAL_PROCEDURAL_VERSION",
+          "limitations": "Scope is limited to the proceeding, act or vote actually documented."
+        }
+      ]
+    },
+    {
+      "registry_source_id": "eurlex-cellar",
+      "roles": ["PRIMARY_RECORD", "AUTHENTIC_LEGAL_TEXT"],
+      "authority_scopes": [
+        {
+          "role": "AUTHENTIC_LEGAL_TEXT",
+          "jurisdiction": "EU",
+          "record_type": "EU_LEGAL_TEXT",
+          "authenticity_basis": "EU_PUBLICATIONS_OFFICE_OFFICIAL_RECORD",
+          "canonical_locator": {"registry_source_id": "eurlex-cellar"},
+          "supersession_policy": "RESOLVE_APPLICABLE_CONSOLIDATED_OR_AUTHENTIC_VERSION",
+          "limitations": "The legal instrument, language/version and effective date must match the proposition."
+        }
+      ]
+    }
+  ]
+}

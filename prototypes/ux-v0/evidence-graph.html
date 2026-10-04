@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dichiarazioni Pubbliche — Evidence graph prototype</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    body { background:#101211; color:#f1efe9; }
+    .topbar { background:rgba(16,18,17,.88); border-color:#303430; }
+    .topnav a[aria-current="page"], .topnav a:hover { background:#242724; color:#fff; }
+    .wordmark small,.muted { color:#969d97; }
+    .graph-shell { display:grid; grid-template-columns: 290px 1fr 330px; min-height:calc(100vh - 64px); }
+    .rail { padding:24px; border-right:1px solid #303430; }
+    .rail.right { border-right:0; border-left:1px solid #303430; }
+    .rail h2 { margin:6px 0 22px; font:700 1.35rem/1.1 Georgia,serif; }
+    .filter { display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid #272a27; font-size:.82rem; }
+    .filter b { font-variant-numeric:tabular-nums; }
+    .canvas { position:relative; overflow:hidden; min-height:720px; background-image:radial-gradient(#343a35 1px,transparent 1px); background-size:24px 24px; }
+    .edge { position:absolute; height:1px; background:#546258; transform-origin:left center; opacity:.75; }
+    .node { position:absolute; width:150px; min-height:78px; padding:12px; border:1px solid #4a514b; border-radius:12px; background:#181b19; box-shadow:0 12px 35px rgba(0,0,0,.18); cursor:pointer; }
+    .node:hover,.node.active { border-color:#9fc2b5; background:#1e2521; }
+    .node.claim { width:180px; }
+    .node.evidence { border-radius:999px; width:130px; min-height:auto; text-align:center; background:#151816; }
+    .node.finding { border-color:#786b4e; }
+    .node strong { display:block; font-size:.82rem; }
+    .node small { color:#939b94; font-size:.68rem; }
+    .inspector { margin-top:24px; padding:18px; border:1px solid #333833; border-radius:14px; background:#171917; }
+    .inspector h3 { margin:6px 0 14px; font:700 1.25rem/1.15 Georgia,serif; }
+    .kv { padding:8px 0; border-top:1px solid #2d312e; display:flex; justify-content:space-between; gap:20px; font-size:.78rem; }
+    .legend { position:absolute; left:24px; bottom:24px; display:flex; gap:8px; flex-wrap:wrap; }
+    .legend span { border:1px solid #343a35; border-radius:999px; padding:6px 9px; background:#151715; font-size:.7rem; color:#aab1ab; }
+    .prototype-note { border-color:#343a35; color:#949b95; }
+    @media(max-width:900px){ .graph-shell{grid-template-columns:1fr}.rail.right{border-left:0;border-top:1px solid #303430}.rail:first-child{display:none}.canvas{min-height:620px}.node{transform:scale(.9);transform-origin:top left} }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wordmark">Dichiarazioni Pubbliche <small>prototype v0</small></div>
+    <nav class="topnav"><a href="editorial.html">Editoriale</a><a href="evidence-graph.html" aria-current="page">Evidence graph</a><a href="media-timeline.html">Media timeline</a></nav>
+  </header>
+  <div class="prototype-note">Direzione B · evidence graph. Priorità: relazione claim ↔ segmento ↔ evidence ↔ finding, con ispezione della provenance invece di una classifica.</div>
+  <main class="graph-shell">
+    <aside class="rail">
+      <div class="eyebrow">Dossier attivo</div><h2 id="graph-title"></h2>
+      <div id="filters"></div>
+    </aside>
+    <section class="canvas" id="canvas" aria-label="Grafo dimostrativo delle relazioni di evidenza">
+      <div class="legend"><span>▣ Claim</span><span>○ Evidence</span><span>◇ Finding</span><span>— Provenance edge</span></div>
+    </section>
+    <aside class="rail right">
+      <div class="eyebrow">Inspector</div>
+      <div class="inspector" id="inspector"></div>
+    </aside>
+  </main>
+  <script src="demo-data.js"></script>
+  <script>
+    const d=window.DICHIARAZIONI_PUBBLICHE_DEMO;
+    document.querySelector('#graph-title').textContent=`${d.audit.creator} · ${d.audit.duration}`;
+    document.querySelector('#filters').innerHTML=d.assessmentCounts.slice(0,7).map(([k,v])=>`<div class="filter"><span>${k.replaceAll('_',' ')}</span><b>${v}</b></div>`).join('');
+    const canvas=document.querySelector('#canvas');
+    const nodes=[
+      {id:'C02',kind:'claim',x:13,y:18,label:'C02 · Current policy',sub:'0:07 · 1 evidence'},
+      {id:'C04',kind:'claim',x:38,y:39,label:'C04 · Legal status',sub:'0:34 · 2 evidence'},
+      {id:'C07',kind:'claim',x:17,y:65,label:'C07 · Numeric',sub:'1:44 · sensitive'},
+      {id:'E01',kind:'evidence',x:68,y:16,label:'E01',sub:'primary source'},
+      {id:'E02',kind:'evidence',x:71,y:43,label:'E02',sub:'primary source'},
+      {id:'E03',kind:'evidence',x:65,y:71,label:'E03',sub:'official data'},
+      {id:'F04',kind:'finding',x:43,y:14,label:'F04 · versioned',sub:'policy gate passed'}
+    ];
+    const edges=[['C02','E01'],['C02','F04'],['C04','E01'],['C04','E02'],['C07','E03']];
+    const els={};
+    nodes.forEach(n=>{ const el=document.createElement('button'); el.className=`node ${n.kind}`; el.style.left=n.x+'%';el.style.top=n.y+'%';el.innerHTML=`<strong>${n.label}</strong><small>${n.sub}</small>`;el.onclick=()=>inspect(n,el);canvas.appendChild(el);els[n.id]=el; });
+    function drawEdges(){
+      canvas.querySelectorAll('.edge').forEach(e=>e.remove());
+      edges.forEach(([a,b])=>{const A=els[a],B=els[b],ar=A.getBoundingClientRect(),br=B.getBoundingClientRect(),cr=canvas.getBoundingClientRect();const ax=ar.left-cr.left+ar.width/2,ay=ar.top-cr.top+ar.height/2,bx=br.left-cr.left+br.width/2,by=br.top-cr.top+br.height/2,len=Math.hypot(bx-ax,by-ay),ang=Math.atan2(by-ay,bx-ax)*180/Math.PI;const e=document.createElement('div');e.className='edge';e.style.left=ax+'px';e.style.top=ay+'px';e.style.width=len+'px';e.style.transform=`rotate(${ang}deg)`;canvas.insertBefore(e,canvas.firstChild);});
+    }
+    requestAnimationFrame(drawEdges);
+    window.addEventListener('resize',drawEdges);
+    function inspect(n,el){ document.querySelectorAll('.node').forEach(x=>x.classList.remove('active'));el.classList.add('active'); const claim=d.claims.find(c=>c.id===n.id); document.querySelector('#inspector').innerHTML=`<div class="eyebrow">${n.kind}</div><h3>${n.label}</h3>${claim?`<div class="kv"><span>Timestamp</span><b>${claim.time}</b></div><div class="kv"><span>Audit state</span><b>${claim.assessment}</b></div><div class="kv"><span>Evidence link</span><b>${claim.evidence}</b></div>`:`<div class="kv"><span>Record</span><b>${n.id}</b></div>`}<p class="muted">Aprendo un nodo, la UI mostrerebbe excerpt breve, fonte, retrieval time, hash e version history. Il prototipo non incorpora testo integrale.</p>`; }
+    inspect(nodes[1],els[nodes[1].id]);
+  </script>
+</body>
+</html>

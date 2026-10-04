@@ -1,0 +1,201 @@
+name: ci
+
+# DP-602 — deterministic contributor acceptance.
+#
+# This workflow never publishes, releases, deploys, or contacts a production
+# database, a paid provider, or a MiniPC host. It is read-only on the repository
+# and runs only checks that are a pure function of the committed tree: no network
+# data source, no credentials, no PostgreSQL.
+#
+# The canonical GitHub remote now runs this workflow on push and pull request.
+# Local `python3 tools/check_contributor_acceptance.py` remains the deterministic
+# contributor-side equivalent for repository-contract checks.
+
+on:
+  push:
+  pull_request:
+
+# Least privilege. No write, no packages, no issues, no deployments.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-minimal:
+    name: backend ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Two commits so `git diff --check` has a base; see the first-commit policy
+          # in tools/check_contributor_acceptance.py.
+          fetch-depth: 2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Record tool versions
+        run: |
+          python -VV
+          uname -a
+          git --version
+
+      - name: Build the distribution (proves the packaging contract)
+        run: |
+          python -m pip install --upgrade "pip<26" "build<2" "setuptools<81"
+          python -m build --outdir dist-ci
+
+      - name: Install into a fresh environment and smoke the import/CLI contract
+        run: |
+          python -m venv .venv-ci
+          .venv-ci/bin/python -m pip install --upgrade "pip<26"
+          .venv-ci/bin/python -m pip install dist-ci/*.whl
+          .venv-ci/bin/python -c "import dichiarazioni_pubbliche; print('import ok:', dichiarazioni_pubbliche.__file__)"
+          # Every module must import from the install, with no repo on sys.path.
+          .venv-ci/bin/python -c "import importlib, pkgutil, dichiarazioni_pubbliche; \
+            [importlib.import_module('dichiarazioni_pubbliche.'+m.name) for m in pkgutil.iter_modules(dichiarazioni_pubbliche.__path__)]; \
+            print('all modules import ok')"
+          # Data-backed commands take an explicit path outside the install.
+          .venv-ci/bin/python -m dichiarazioni_pubbliche.benchmark --fixtures "$PWD/poc/fixtures/italian_cases.json"
+          .venv-ci/bin/dichiarazioni-pubbliche-review-admin --help > /dev/null
+          echo "console script ok"
+
+      - name: Compile
+        run: python -m compileall -q poc tests
+
+      - name: Unit and regression tests
+        run: PYTHONPATH=poc python -m unittest discover -s tests -v
+
+      - name: Deterministic benchmark
+        run: PYTHONPATH=poc python -m dichiarazioni_pubbliche.benchmark
+
+      - name: Deterministic contributor acceptance (repository + licensing + version)
+        run: python3 tools/check_contributor_acceptance.py
+
+      - name: Reject whitespace errors
+        run: |
+          git diff --check
+          # With fetch-depth 2 the range base exists; fall back to the working tree
+          # for a single-commit repository (first-commit policy).
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^ HEAD
+          else
+            echo "single-commit checkout: base-diff whitespace check skipped, working-tree check ran"
+          fi
+
+      - name: Assert the tree was not modified by the build
+        run: |
+          # Generated output must never land in the source tree.
+          status=$(git status --porcelain --untracked-files=normal | \
+            grep -Ev '^\?\? (\.venv-ci|dist-ci|web/node_modules)/' || true)
+          if [ -n "$status" ]; then
+            echo "::error::setup/build modified the source tree:"
+            echo "$status"
+            exit 1
+          fi
+
+  web:
+    name: web static frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Record tool versions
+        run: |
+          node -v
+          npm -v
+
+      - name: Install frontend dependencies from the lockfile
+        working-directory: web
+        run: npm ci
+
+      - name: Type and Astro checks
+        working-directory: web
+        run: npm run check
+
+      - name: Static build (fictional demo projection)
+        working-directory: web
+        env:
+          DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: "1"
+        run: npm run build
+
+      - name: Explicit public-projection build fails closed
+        working-directory: web
+        env:
+          DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: /nonexistent/invalid-projection.json
+        # A wrong/missing explicit projection must NOT silently fall back to the demo
+        # fixture; the frontend is fail-closed. This asserts the guard exists.
+        run: |
+          if DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH="$DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH" npm run build >/dev/null 2>&1; then
+            echo "::error::build accepted an explicit but invalid projection; fail-closed guard is missing"
+            exit 1
+          fi
+          echo "invalid explicit projection correctly rejected"
+
+  repository-contract:
+    name: repository contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Ticket graph, links, JSON, templates, hygiene, license
+        run: python3 tools/check_repository_contract.py
+
+      - name: Fixture/data licensing inventory (DP-603)
+        run: |
+          python3 tools/check_licensing_inventory.py --check-hashes
+          # The inventory must not be stale relative to the real tree.
+          python3 tools/generate_fixture_inventory.py --check
+
+      - name: Version and changelog consistency (DP-604)
+        run: python3 tools/check_version_consistency.py --allow-no-release
+
+  clean-clone:
+    name: detached clean-clone smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Independent of the job's working tree: proves the committed tree alone is
+    # sufficient for the deterministic backend profile. Uses a local source clone
+    # because this repository has no configured remote.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone to a scratch directory and run the backend profile
+        run: |
+          set -euo pipefail
+          SCRATCH="$(mktemp -d)"
+          COMMIT="$(git rev-parse HEAD)"
+          git clone --no-hardlinks --quiet . "$SCRATCH/clone"
+          cd "$SCRATCH/clone"
+          git checkout --detach --quiet "$COMMIT"
+          echo "commit: $(git rev-parse HEAD)"
+          test -z "$(git status --porcelain)" || { echo "clean-clone tree is dirty"; exit 1; }
+          python3 -m compileall -q poc tests
+          PYTHONPATH=poc python3 -m unittest discover -s tests
+          PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark
+          python3 tools/check_contributor_acceptance.py
+          echo "clean-clone backend profile OK"

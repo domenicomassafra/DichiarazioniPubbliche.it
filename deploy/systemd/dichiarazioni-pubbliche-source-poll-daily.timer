@@ -1,0 +1,11 @@
+[Unit]
+Description=Dichiarazioni Pubbliche daily full-source registry poll
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+Unit=dichiarazioni-pubbliche-source-poll-daily.service
+
+[Install]
+WantedBy=timers.target

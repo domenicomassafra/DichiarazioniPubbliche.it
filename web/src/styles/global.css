@@ -1,0 +1,31 @@
+/* ==========================================================================
+   Dichiarazioni Pubbliche — Design System v1 · stylesheet manifest
+   ------------------------------------------------------------------------
+   This file is intentionally four imports long. It replaces the previous
+   557-line page-stylesheet, and the replacement is the deliverable.
+
+   LAYER ORDER IS A CONTRACT. Each layer may only depend on the ones above it:
+
+     tokens.css       literal values. The ONLY file that may contain a hex,
+                      px radius, duration or font stack. Frozen.
+     base.css         reset, document typography, density scope, browser
+                      surfaces (scrollbars, caret, selection, placeholder,
+                      autofill), print. No literal colors.
+     primitives.css   the shared design-system components: the Segno, rows,
+                      StatusText, rail, disclosure, dialog/sheet, segmented
+                      control, buttons, fields, skeleton, states, evidence
+                      tape. No literal colors.
+     legacy.css       TEMPORARY. Re-expresses the class names the existing
+                      Astro/React pages already use, in tokens, so the whole
+                      product adopts the new visual world with no edits to
+                      files owned by other lanes. Delete per page as it
+                      migrates. See docs/ux/design-system-v1.md § Migration.
+
+   Consumable by components/design/** (React) and by any .astro page.
+   The machine-readable mirror of this layer is web/src/lib/tokens.ts.
+   ========================================================================== */
+
+@import "./tokens.css";
+@import "./base.css";
+@import "./primitives.css";
+@import "./legacy.css";

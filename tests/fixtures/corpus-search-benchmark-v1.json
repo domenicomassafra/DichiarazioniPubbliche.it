@@ -1,0 +1,84 @@
+{
+  "version": "corpus-search-benchmark-v1",
+  "description": "Italian lexical/trigram benchmark grounded in the 2026-09-29 Garlasco corpus.",
+  "top_k": 5,
+  "minimum_case_recall": 0.90,
+  "cases": [
+    {
+      "id": "dna-unghie-sempio",
+      "query": "DNA ungueali Sempio",
+      "expected_any_ids": ["claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci"]
+    },
+    {
+      "id": "tappetini-sangue-scarpe",
+      "query": "tappetini sangue scarpe",
+      "expected_any_ids": ["claim:garlasco:bruzzone:2025-03-16:tappetini-no-sangue"]
+    },
+    {
+      "id": "impronta-33-sangue",
+      "query": "impronta 33 sangue",
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-05-21:impronta33-tests-negative",
+        "claim:garlasco:lucarelli:2025-06-07:impronta33-non-sangue"
+      ]
+    },
+    {
+      "id": "impronta-33-typo",
+      "query": "impronta 33 sangie",
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-05-21:impronta33-tests-negative",
+        "claim:garlasco:lucarelli:2025-06-07:impronta33-non-sangue"
+      ],
+      "requires_trigram": true
+    },
+    {
+      "id": "cromosoma-y-typo",
+      "query": "cromosma Y Sempio",
+      "expected_any_ids": [
+        "claim:garlasco:bruzzone:2025-03-27:cromosoma-y-non-completo",
+        "claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci"
+      ],
+      "requires_trigram": true
+    },
+    {
+      "id": "pena-rito-abbreviato",
+      "query": "24 anni 16 rito abbreviato",
+      "expected_any_ids": ["claim:garlasco:lucarelli:2025-06-07:pena-24-ridotta-16"]
+    },
+    {
+      "id": "pc-poggi-10-agosto",
+      "query": "computer Poggi 10 agosto",
+      "expected_any_ids": ["claim:garlasco:lucarelli:2026-05-14:pc-poggi-off-since-10aug"]
+    },
+    {
+      "id": "frammenti-audio",
+      "query": "frammenti audio Sempio",
+      "expected_any_ids": ["claim:garlasco:lucarelli:2026-05-10:frammenti-audio-appiccicati"]
+    },
+    {
+      "id": "aggravante-crudelta",
+      "query": "aggravante crudeltà Procura",
+      "expected_any_ids": ["claim:garlasco:lucarelli:2026-05-03:procura-aggravante-crudelta"]
+    },
+    {
+      "id": "pasti-chiara-stasi",
+      "query": "pasti Chiara Stasi",
+      "expected_any_ids": ["claim:garlasco:lucarelli:2025-07-12:pasti-con-chiara-stasi"]
+    },
+    {
+      "id": "rinvio-giudizio-sempio",
+      "query": "rinvio giudizio Sempio",
+      "expected_any_ids": ["claim:garlasco:bruzzone:2025-10-07:previsione-rinvio-giudizio"]
+    },
+    {
+      "id": "person-bruzzone",
+      "query": "Roberta Bruzzone",
+      "expected_any_ids": ["person:roberta-bruzzone"]
+    },
+    {
+      "id": "person-lucarelli",
+      "query": "Selvaggia Lucarelli",
+      "expected_any_ids": ["person:selvaggia-lucarelli"]
+    }
+  ]
+}

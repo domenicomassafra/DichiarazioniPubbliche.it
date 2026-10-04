@@ -1,0 +1,26 @@
+---
+interface Props {
+  action?: string;
+  name?: string;
+  placeholder?: string;
+  value?: string;
+  compact?: boolean;
+  label?: string;
+}
+
+const {
+  action = "/esplora/",
+  name = "q",
+  placeholder = "Cerca una verifica",
+  value = "",
+  compact = false,
+  label = "Cerca nel record pubblico"
+} = Astro.props;
+---
+
+<form class:list={["search-field", compact && "search-field-compact"]} action={action} method="get" role="search">
+  <label class="dp-visually-hidden" for={`search-${name}`}>{label}</label>
+  <span class="search-icon" aria-hidden="true">⌕</span>
+  <input id={`search-${name}`} type="search" name={name} placeholder={placeholder} value={value} />
+  <button type="submit" aria-label="Avvia la ricerca">→</button>
+</form>

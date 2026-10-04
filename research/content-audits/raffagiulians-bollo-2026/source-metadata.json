@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "audit_id": "raffagiulians-bollo-2026",
+  "audited_at": "2026-09-21",
+  "content": {
+    "creator": "Raffaele Giuliani",
+    "handle": "raffagiulians",
+    "instagram_url": "https://www.instagram.com/raffagiulians/reel/DdZseq2tjn4/",
+    "tiktok_url": "https://www.tiktok.com/@raffagiulians/video/7686596204074896672",
+    "tiktok_id": "7686596204074896672",
+    "duration_seconds": 444.84,
+    "title": "Gioggia ha “abolito” (sospeso) il bollo. Cosa cambia? Nulla."
+  },
+  "transcript_provenance": {
+    "full_transcript_committed": false,
+    "local_raw_path": "poc/content/raffagiulians-bollo-2026/raw/transcript.txt",
+    "lifeos_receipt_key": "286f07461f241155b4d59ea669a5b2742c7547f6678da0d7dafdd172c1aee645",
+    "method": "omniroute-stt",
+    "model": "groq/whisper-large-v3-turbo",
+    "request_id": "req_01m32mzcgge14vh25f1rj8ynmt",
+    "content_sha256": "06ab8ecac12f71145834b559495a691cd669ff3636b73b8b3d6120a6c761b212",
+    "video_sha256": "68aec3f321ebb4f571b6ebbac3958d048487fe82c903edd58e26bfcf73fdbb86",
+    "audio_sha256": "59c40a770eed14197d39a9eef6d7faf00562b7bb4db35ab713b12e0962d7af12",
+    "transcript_artifact_sha256": "b5abb8fb312e3d29b32452c8fd84664886e4799f34e1e5cee510bb6372e7a52e",
+    "capture_note": "Final validated capture path: MiniPC owner-local Chrome profile authenticated on TikTok; yt-dlp used that MiniPC Chrome profile via --cookies-from-browser to download the full 444.84s media; the resulting local MP4 was passed to LifeOS/watchthis on the MiniPC for audio extraction and OmniRoute/Groq transcription. No Mac browser/session is part of the final validated capture path.",
+    "secondary_asr_receipt": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+    "primary_public_capture": {
+      "lifeos_receipt_key": "d4bdb28e35eebced53de15d2b3e9b23491ce2c036f94b11ee184c9004385e8ec",
+      "video_sha256": "033faaf5e396c04080cf235d17bab23f325e0a4c0e8b61790f523ec6be8f7844",
+      "transcript_sha256": "090516965f6cae38c25b005fe16617769cccf96832cf77e53d13c5041b469675",
+      "capture_method": "public TikTok embed player media URL -> local MP4 -> LifeOS media pipeline on MiniPC",
+      "login_used": false,
+      "cookies_used": false
+    },
+    "audit_transcript_capture": {
+      "lifeos_receipt_key": "286f07461f241155b4d59ea669a5b2742c7547f6678da0d7dafdd172c1aee645",
+      "video_sha256": "68aec3f321ebb4f571b6ebbac3958d048487fe82c903edd58e26bfcf73fdbb86",
+      "transcript_sha256": "b5abb8fb312e3d29b32452c8fd84664886e4799f34e1e5cee510bb6372e7a52e",
+      "duration_seconds": 444.84
+    },
+    "numeric_secondary_asr": {
+      "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+      "duration_seconds": 27.233008,
+      "confirmed_spoken_values": [
+        "7.5 billion euro",
+        "2.3 billion euro",
+        "5.2 billion euro"
+      ],
+      "model": "groq/whisper-large-v3-turbo"
+    }
+  },
+  "policy": {
+    "aggregate_person_score": false,
+    "overall_creator_verdict": false,
+    "opinions_not_forced_into_true_false": true,
+    "predictions_not_treated_as_current_facts": true,
+    "motive_attributions_require_independent_evidence": true
+  }
+}

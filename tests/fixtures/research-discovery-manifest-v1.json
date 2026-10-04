@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "manifest:dp209:creator-canary:v1",
+  "collection_id": "collection:dp209:canary",
+  "date_window": {},
+  "limits": {
+    "max_results": 4,
+    "max_results_per_host": 2,
+    "cost_cap_usd": "0.000000"
+  },
+  "seeds": [
+    {"kind": "source_id", "value": "social-raffagiulians"}
+  ],
+  "source_families": ["public_creator_accounts"],
+  "queries": [
+    {
+      "id": "query:dp209:creator-public-posts",
+      "query": "creator public posts",
+      "source_families": ["public_creator_accounts"],
+      "adapter_ids": ["configured_registry"],
+      "seeds": [
+        {"kind": "source_id", "value": "social-raffagiulians"}
+      ],
+      "max_results": 4,
+      "metadata": {"fixture": "metadata-only"}
+    }
+  ],
+  "metadata": {
+    "purpose": "DP-209 runtime canary",
+    "no_media_download": true
+  }
+}

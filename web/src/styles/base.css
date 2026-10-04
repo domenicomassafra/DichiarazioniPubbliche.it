@@ -1,0 +1,394 @@
+/* ==========================================================================
+   Dichiarazioni Pubbliche — Design System v1 · base layer
+   Reset, document typography, density scope, and browser-surface theming.
+   Depends on tokens.css. Owns no literal color values.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-family: var(--font-ui);
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* The caret is part of the product. */
+  caret-color: var(--cobalt-600);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-family: var(--font-ui);
+  font-size: var(--density-type-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+  text-rendering: optimizeLegibility;
+  /* Editorial rhythm: tighter inside a heading's own block, generous between
+     blocks. Type does the vertical work, so body leading stays open. */
+  --leading-body: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   Density scope
+   `:root` is Public by default. Studio sets [data-density='studio'] on a
+   wrapper. Nothing else in the system may branch on density.
+   -------------------------------------------------------------------------- */
+body {
+  --density-name: 'public';
+  --density-row-pad-y: var(--space-4);
+  --density-row-pad-x: var(--space-4);
+  --density-row-min: 3.75rem;
+  --density-block-gap: var(--space-5);
+  --density-section-gap: var(--space-8);
+  --density-band-gap: var(--space-10);
+  --density-control-min: 2.75rem;
+  --density-cell-pad-y: var(--space-3);
+  --density-type-body: var(--text-body);
+  --density-type-label: var(--text-label);
+  --density-type-meta: var(--text-meta);
+  --density-measure: var(--measure-prose);
+}
+
+[data-density='studio'],
+[data-density='studio'] body {
+  --density-name: 'studio';
+  --density-row-pad-y: var(--space-2);
+  --density-row-pad-x: var(--space-3);
+  --density-row-min: 2.5rem;
+  --density-block-gap: var(--space-3);
+  --density-section-gap: var(--space-5);
+  --density-band-gap: var(--space-6);
+  --density-control-min: 2rem;
+  --density-cell-pad-y: var(--space-2);
+  --density-type-body: var(--text-body-quiet);
+  --density-type-label: var(--text-meta);
+  --density-measure: var(--measure-data);
+}
+
+/* --------------------------------------------------------------------------
+   Headings
+   Real document headings, real hierarchy. The serif is the voice of the
+   record; the sans is the voice of the interface. Display and claim-bearing
+   levels are serif; UI-level headings are sans.
+   -------------------------------------------------------------------------- */
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 var(--space-3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-headline);
+  text-wrap: balance;
+}
+
+h1,
+h2 {
+  font-family: var(--font-claim);
+  letter-spacing: var(--tracking-heading);
+}
+
+/* More space above a heading than below it. */
+h1 {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+}
+
+h2 {
+  font-size: var(--text-headline);
+  line-height: var(--leading-headline);
+}
+
+h3 {
+  font-family: var(--font-ui);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-semibold);
+}
+
+h4 {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-semibold);
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  max-width: var(--density-measure);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+ul,
+ol {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-5);
+  max-width: var(--density-measure);
+}
+
+li + li {
+  margin-top: var(--space-1);
+}
+
+strong,
+b {
+  font-weight: var(--weight-semibold);
+}
+
+small {
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--font-data);
+  font-size: 0.9em;
+  /* Mono is legitimate for code, and only for code. */
+  font-variant-numeric: tabular-nums;
+}
+
+hr {
+  height: 0;
+  margin: var(--space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--rule-hairline);
+}
+
+/* --------------------------------------------------------------------------
+   Links
+   A link is a link: underlined, cobalt, with a real offset. Underline as a
+   permanent property (not a hover effect) is what makes dense record pages
+   navigable by scan. The underline thickens on hover; it never disappears.
+   -------------------------------------------------------------------------- */
+a {
+  color: var(--cobalt-700);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, var(--cobalt-700) 45%, transparent);
+  transition: text-decoration-color var(--duration-fast) var(--ease-exit);
+}
+
+a:hover {
+  color: var(--cobalt-800);
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--cobalt-800);
+}
+
+/* A link that IS a heading or a whole row keeps its own color. */
+a:has(> h1),
+a:has(> h2),
+a:has(> h3) {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   Focus
+   One focus structure for the whole system. `:focus-visible` only, so a mouse
+   user never sees it but a keyboard user always does.
+   -------------------------------------------------------------------------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-control);
+}
+
+/* On the inverse ground the ring must invert too, or it disappears. */
+[data-surface='inverse'] :focus-visible,
+.on-inverse :focus-visible {
+  outline-color: var(--focus-ring-color-inverse);
+}
+
+/* --------------------------------------------------------------------------
+   Selection
+   The reading selection is part of the product: cobalt, on both grounds.
+   -------------------------------------------------------------------------- */
+::selection {
+  background: var(--cobalt-100);
+  color: var(--ink-900);
+}
+
+[data-surface='inverse'] ::selection,
+.on-inverse ::selection {
+  background: var(--cobalt-200);
+  color: var(--ink-inverse);
+}
+
+/* --------------------------------------------------------------------------
+   Browser surfaces that ship with no design system
+   These are the cheapest signals that a page was built rather than assembled.
+   They are themed from the same palette, never from a system default.
+   -------------------------------------------------------------------------- */
+
+/* Scrollbars: visible, thin, palette-derived. Studio panes scroll the most,
+   so the bar is sized to the density. */
+* {
+  scrollbar-color: var(--rule-control) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper-0);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rule-control);
+  border: 3px solid var(--paper-0);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rule-control-strong);
+}
+
+[data-density='studio'] ::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Tabular data: numerals that actually align in a column. */
+[role='table'],
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+time,
+[datetime],
+.time {
+  font-family: var(--font-data);
+  font-size: var(--density-type-meta);
+  letter-spacing: var(--tracking-time);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Placeholder must clear 4.5:1 — a gray placeholder is the single most
+   common invisible a11y failure. */
+::placeholder {
+  color: var(--ink-500);
+  opacity: 1;
+}
+
+/* Autofill must not repaint a field blue. */
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink-900);
+  box-shadow: 0 0 0 1000px var(--paper-raised) inset;
+  transition: background-color 100000s linear 0s;
+}
+
+/* Form controls inherit our geometry, not the platform's. */
+input,
+select,
+textarea {
+  background: var(--paper-raised);
+  border: var(--control-outline);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--density-control-min);
+}
+
+select {
+  appearance: none;
+  padding-right: var(--space-6);
+  background-image: none;
+  cursor: pointer;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   Anything that still animates must reach the same end state instantly.
+   The end state is never removed, so no information is lost.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Print
+   The product is a public record. It should print as one: paper ground,
+   rules instead of fills, and URLs that still mean something on paper.
+   -------------------------------------------------------------------------- */
+@media print {
+  /* Grounds collapse to paper, ink to black, and every state tint to a gray
+     chosen for toner. Only the words survive: a printed page must be readable
+     with no color at all, which is the same test as a grayscale screen. */
+  :root {
+    --paper-0: var(--print-ground);
+    --paper-1: var(--print-ground);
+    --paper-2: var(--print-ground);
+    --paper-raised: var(--print-ground);
+    --paper-selected: var(--print-ground);
+    --ink-900: var(--print-ink);
+    --ink-700: var(--print-ink);
+    --ink-500: var(--print-muted);
+    --rule-hairline: var(--print-rule);
+    --rule-hairline-strong: var(--print-rule);
+    --rule-control: var(--print-rule);
+  }
+
+  body {
+    background: var(--print-ground);
+    color: var(--print-ink);
+  }
+
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-family: var(--font-data);
+    font-size: 0.8em;
+    word-break: break-all;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Dichiarazioni Pubbliche private runtime health digest
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=dichiarazioni-pubbliche-health.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,102 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Assessment from "../../components/Assessment.astro";
+import SourceRow from "../../components/SourceRow.astro";
+import { dossierSlug, formatDate } from "../../lib/format";
+import { loadPublicProjection } from "../../lib/projection";
+import type { PublicDossier } from "../../lib/types";
+
+export async function getStaticPaths() {
+  const projection = await loadPublicProjection();
+  return projection.dossiers.map((dossier) => ({
+    params: { slug: dossierSlug(dossier) },
+    props: { dossier }
+  }));
+}
+
+interface Props { dossier: PublicDossier }
+const { dossier } = Astro.props;
+const published = formatDate(dossier.finding.published_at ?? dossier.source.published_at);
+const sourceMoment = dossier.source.segments?.[0];
+---
+
+<BaseLayout title={dossier.claim} description={dossier.finding.rationale}>
+  <header class="fact-header">
+    <div class="shell fact-header-grid">
+      <div>
+        <div class="eyebrow">Fact-check · {dossier.claim_type.replaceAll("_", " ")}</div>
+        <h1 class="claim-title">“{dossier.claim}”</h1>
+        <div class="fact-meta">
+          <span>{dossier.speaker.name}</span>
+          <span aria-hidden="true">·</span>
+          <a href={dossier.source.url}>{dossier.source.title}</a>
+          <span aria-hidden="true">·</span>
+          <span>{published}</span>
+        </div>
+      </div>
+      <div class="fact-status">
+        <div class="eyebrow">Esito della verifica</div>
+        <Assessment code={dossier.finding.assessment} />
+      </div>
+    </div>
+  </header>
+
+  <div class="shell fact-body">
+    <article class="prose">
+      <p class="fact-answer">{dossier.finding.rationale}</p>
+
+      <h2>Perché</h2>
+      <p>
+        La valutazione deriva dal confronto tra la formulazione pubblicata, il contesto della fonte originale
+        e le evidenze approvate disponibili nel record. <a class="evidence-marker" href="#fonti">[1]</a>
+      </p>
+      <p>
+        Dichiarazioni Pubbliche distingue sempre ciò che è stato detto dal modo in cui viene normalizzato e verificato,
+        mantenendo fonti e revisione tracciabili senza trasformare la pagina in un pannello tecnico.
+      </p>
+
+      <h2 id="fonti">Fonti principali</h2>
+      <div class="source-stack">
+        {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
+      </div>
+
+      <h2>Momento originale</h2>
+      <p>
+        <a class="text-link" href={dossier.source.url}>{dossier.source.title} ↗</a><br />
+        {sourceMoment && <>Segmento verificato: {Math.floor((sourceMoment.start_ms ?? 0) / 1000)}s–{Math.ceil((sourceMoment.end_ms ?? 0) / 1000)}s.</>}
+      </p>
+
+      <div class="details-list">
+        <details>
+          <summary>Contesto e limiti</summary>
+          <div>La pagina pubblica espone soltanto i dati approvati per la pubblicazione. Materiale operativo e trascrizioni grezze restano fuori dalla vista pubblica.</div>
+        </details>
+        <details>
+          <summary>Metodo e provenienza</summary>
+          <div>L’esito è pubblicato solo dopo i controlli di provenienza, evidenza, verifica e revisione previsti dal prodotto.</div>
+        </details>
+        <details>
+          <summary>Correzioni e repliche</summary>
+          <div>{dossier.corrections.length === 0 && dossier.rights_of_reply.length === 0 ? "Nessuna correzione o replica pubblicata per questa versione." : "Sono presenti aggiornamenti pubblicati nel record."}</div>
+        </details>
+      </div>
+    </article>
+
+    <aside class="fact-rail" aria-label="Contesto della verifica">
+      <div class="rail-block">
+        <div class="eyebrow">Fonte originale</div>
+        <h3>{dossier.source.title}</h3>
+        <p>{published}</p>
+      </div>
+      <div class="rail-block">
+        <div class="eyebrow">Persona</div>
+        <h3>{dossier.speaker.name}</h3>
+        <p>{dossier.speaker.public_role}</p>
+      </div>
+      <nav class="rail-links" aria-label="Sezioni della pagina">
+        <a href="#fonti">Vai alle fonti</a>
+        <a href="/metodo/">Leggi il metodo</a>
+      </nav>
+    </aside>
+  </div>
+</BaseLayout>

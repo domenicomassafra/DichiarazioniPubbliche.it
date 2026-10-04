@@ -1,0 +1,20 @@
+[Unit]
+Description=Dichiarazioni Pubbliche same-origin public web/API preview
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/src/DichiarazioniPubbliche.it
+ExecStart=/usr/bin/env PYTHONPATH=poc /usr/bin/python3 -m dichiarazioni_pubbliche.public_api --projection-path %h/.local/share/dichiarazioni-pubbliche/public/v1/index.json --static-dir %h/src/DichiarazioniPubbliche.it/web/dist --host 127.0.0.1 --port 18090
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=%h/src/DichiarazioniPubbliche.it/web/dist %h/.local/share/dichiarazioni-pubbliche/public/v1
+RestrictAddressFamilies=AF_UNIX AF_INET
+
+[Install]
+WantedBy=default.target

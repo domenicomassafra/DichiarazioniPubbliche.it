@@ -1,0 +1,46 @@
+Dichiarazioni Pubbliche / DichiarazioniPubbliche.it
+Copyright 2026 Dichiarazioni Pubbliche contributors
+
+This product includes software developed by contributors to the Dichiarazioni Pubbliche project.
+
+The Apache License, Version 2.0 applies to repository code unless a file or directory
+states otherwise. Third-party content, source material, evidence, media, datasets,
+trademarks, and external services remain subject to their own rights and terms.
+
+--------------------------------------------------------------------------------
+Third-party dependencies distributed with the Python package
+--------------------------------------------------------------------------------
+
+The Python runtime is stdlib-only: the distribution declares no runtime dependency.
+Development-only tooling is declared in pyproject.toml under
+[project.optional-dependencies].dev (build, packaging, pip, setuptools, wheel) and is
+used only to build and validate the distribution. The web frontend depends on the npm
+packages pinned in web/package-lock.json (Astro, React, @astrojs/react, @astrojs/check,
+TypeScript, @types/*, and the @fontsource variable/self-hosted font packages, which are
+distributed under the SIL Open Font License and are not relicensed by Apache-2.0).
+
+Third-party actions referenced by .github/workflows/ci.yml are the official
+actions/checkout, actions/setup-python, and actions/setup-node actions, each used under
+the GitHub Terms of Service for Actions.
+
+--------------------------------------------------------------------------------
+Fixtures, datasets, and third-party-derived artifacts
+--------------------------------------------------------------------------------
+
+Fixtures, datasets, generated mockups, and visual references are NOT covered by the
+Apache-2.0 code license. Every tracked such artifact has a row in the versioned
+inventory at docs/licensing/fixture-inventory.v1.json, with a human-readable summary at
+docs/licensing/README.md. Each row records provenance, license or terms evidence,
+required attribution, modifications, personal-data class, and redistribution status.
+
+Rows whose rights evidence is unresolved are held at redistribution status
+`pending-review` or `blocked` and must not be included in a release artifact or a
+public projection until the recorded owner and legal review (DP-304, DP-305, DP-306,
+DP-307) are complete. The Apache License 2.0 is not a grant for media, transcripts,
+evidence bodies, datasets, or platform content.
+
+At the current review date, real public-source material collected from Instagram,
+TikTok, and YouTube (Raffaele Giuliani and Beppe Grillo content) is `blocked` for
+redistribution: public availability is not a permission, and those platforms' terms
+reserve rights. Visual references under docs/ux/reference/p6.2/ have unknown origin and
+are `pending-review`.

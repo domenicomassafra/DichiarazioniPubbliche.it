@@ -1,0 +1,20 @@
+{
+  "posts": [
+    {
+      "platform": "instagram",
+      "post_id": "DdZseq2tjn4",
+      "canonical_url": "https://www.instagram.com/raffagiulians/reel/DdZseq2tjn4/",
+      "title": "",
+      "media_type": "video",
+      "approved": true
+    },
+    {
+      "platform": "tiktok",
+      "post_id": "7686596204074896672",
+      "canonical_url": "https://www.tiktok.com/@raffagiulians/video/7686596204074896672",
+      "title": "",
+      "media_type": "video",
+      "approved": true
+    }
+  ]
+}

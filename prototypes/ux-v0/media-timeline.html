@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dichiarazioni Pubbliche — Media timeline prototype</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    body{background:#f3f4f1}
+    .media-shell{max-width:1280px;margin:0 auto;padding:26px 28px 80px}
+    .media-head{display:flex;justify-content:space-between;gap:24px;align-items:end;padding:24px 0 26px}
+    .media-head h1{font:700 clamp(2rem,5vw,4.5rem)/.95 Georgia,serif;letter-spacing:-.05em;margin:8px 0;max-width:850px}
+    .statusbox{min-width:250px;padding:14px;border:1px solid #cfd2cb;border-radius:12px;background:#fff}
+    .workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,.75fr);gap:18px}
+    .player{background:#151716;color:#fff;border-radius:18px;overflow:hidden;min-height:390px;display:grid;place-items:center;position:relative}
+    .player::before{content:"";width:94px;height:94px;border:1px solid #444b45;border-radius:50%;position:absolute}
+    .play{font:700 1rem/1 ui-monospace,monospace;z-index:2;letter-spacing:.12em}
+    .player-meta{position:absolute;left:22px;right:22px;bottom:18px;display:flex;justify-content:space-between;color:#aeb4ae;font-size:.78rem}
+    .panel{background:#fff;border:1px solid #d6d9d2;border-radius:18px;padding:20px}
+    .panel h2{font:700 1.35rem/1.1 Georgia,serif;margin:5px 0 18px}
+    .timeline{margin-top:18px;background:#fff;border:1px solid #d6d9d2;border-radius:18px;padding:20px}
+    .track{height:42px;position:relative;margin:18px 0 8px;border-radius:8px;background:#edf0eb;overflow:hidden}
+    .tick{position:absolute;top:0;bottom:0;width:3px;background:var(--accent);cursor:pointer}
+    .tick.sensitive{background:#8b5a20;width:5px}
+    .rows{display:grid;gap:8px;margin-top:18px}
+    .row{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:12px;border-radius:10px;background:#f6f7f4;border:1px solid transparent;cursor:pointer}
+    .row:hover,.row.active{border-color:#9bb3aa;background:#eef4f1}
+    .row strong{font-size:.86rem}.row small{display:block;color:var(--muted)}
+    .evidence-item{padding:13px 0;border-top:1px solid #e1e3de}.evidence-item:first-of-type{border-top:0}.evidence-item b{display:block}.evidence-item span{font-size:.78rem;color:var(--muted)}
+    .guardrail{margin-top:18px;padding:14px;border-radius:11px;background:#f5eee1;color:#62461f;font-size:.8rem}
+    @media(max-width:840px){.media-shell{padding:18px 16px 60px}.media-head{display:block}.statusbox{margin-top:18px}.workspace{grid-template-columns:1fr}.player{min-height:300px}.row{grid-template-columns:54px 1fr}.row .chip{grid-column:2}}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="wordmark">Dichiarazioni Pubbliche <small>prototype v0</small></div><nav class="topnav"><a href="editorial.html">Editoriale</a><a href="evidence-graph.html">Evidence graph</a><a href="media-timeline.html" aria-current="page">Media timeline</a></nav></header>
+  <div class="prototype-note">Direzione C · interactive media timeline. Priorità: partire dal contenuto originale, saltare al timestamp del claim e aprire evidence/provenance senza perdere il contesto temporale.</div>
+  <main class="media-shell">
+    <section class="media-head"><div><div class="eyebrow">Content audit · 7:24</div><h1 id="media-title"></h1><div class="muted" id="media-byline"></div></div><div class="statusbox"><div class="eyebrow">Coverage</div><strong class="metric" style="font-size:1.9rem">84 / 84</strong><div class="muted">segmenti classificati</div></div></section>
+    <section class="workspace">
+      <div>
+        <div class="player"><div class="play">00:34 · PAUSED</div><div class="player-meta"><span>media non incorporato nel prototipo</span><span>hash + provenance disponibili</span></div></div>
+        <div class="timeline"><div class="eyebrow">Claim track</div><div class="track" id="track"></div><div class="rows" id="rows"></div></div>
+      </div>
+      <aside class="panel"><div class="eyebrow">Evidence drawer</div><h2 id="drawer-title">C04 · Legal policy status</h2><div id="drawer"></div><div class="guardrail">Il drawer mostra fonti e stato del finding, non uno score della persona. Prediction, opinioni e attribuzioni di intenzione restano classi distinte e possono non produrre un finding pubblicabile.</div></aside>
+    </section>
+  </main>
+  <script src="demo-data.js"></script>
+  <script>
+    const d=window.DICHIARAZIONI_PUBBLICHE_DEMO;
+    document.querySelector('#media-title').textContent=d.audit.title;
+    document.querySelector('#media-byline').textContent=`${d.audit.creator} · ${d.audit.handle} · audit ${d.audit.auditedAt}`;
+    const track=document.querySelector('#track');
+    d.claims.forEach((c,i)=>{const t=document.createElement('button');t.className='tick'+(c.sensitive?' sensitive':'');t.style.left=`${Math.min(96,(i+1)*10.7)}%`;t.title=`${c.id} · ${c.time}`;t.onclick=()=>select(c);track.appendChild(t)});
+    const rows=document.querySelector('#rows');
+    rows.innerHTML=d.claims.map(c=>`<article class="row" data-id="${c.id}"><b class="mono">${c.time}</b><div><strong>${c.id} · ${c.type}</strong><small>${c.evidence} evidence link · ${c.sensitive?'secondary-ASR sensitive':'standard transcript path'}</small></div><span class="chip" data-state="${c.assessment}">${c.assessment.replaceAll('_',' ')}</span></article>`).join('');
+    rows.querySelectorAll('.row').forEach(el=>el.onclick=()=>select(d.claims.find(c=>c.id===el.dataset.id)));
+    function select(c){ rows.querySelectorAll('.row').forEach(x=>x.classList.toggle('active',x.dataset.id===c.id));document.querySelector('#drawer-title').textContent=`${c.id} · ${c.type}`;document.querySelector('#drawer').innerHTML=`<div class="evidence-item"><b>${c.assessment.replaceAll('_',' ')}</b><span>stato dell'audit corrente · versionabile</span></div><div class="evidence-item"><b>${c.evidence} evidence link</b><span>publisher, URL canonica, data, retrieval receipt</span></div><div class="evidence-item"><b>Transcript @ ${c.time}</b><span>apri candidate transcript + eventuale secondary ASR</span></div><div class="evidence-item"><b>History</b><span>finding precedente, correction e right-of-reply restano consultabili</span></div>`; }
+    select(d.claims[3]);
+  </script>
+</body>
+</html>

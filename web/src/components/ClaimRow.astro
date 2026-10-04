@@ -1,0 +1,27 @@
+---
+import Assessment from "./Assessment.astro";
+import { dossierSlug, formatDate } from "../lib/format";
+import type { PublicDossier } from "../lib/types";
+
+interface Props {
+  dossier: PublicDossier;
+  showTopic?: boolean;
+}
+const { dossier, showTopic = true } = Astro.props;
+const date = formatDate(dossier.finding.published_at ?? dossier.source.published_at);
+---
+
+<article class="claim-row">
+  <div class="claim-row-date">{date}</div>
+  <div class="claim-row-main">
+    {showTopic && <div class="eyebrow">{dossier.claim_type.replaceAll("_", " ")}</div>}
+    <a class="claim-row-claim" href={`/fact-check/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
+    <div class="claim-row-meta">
+      <span>{dossier.speaker.name}</span>
+      <span aria-hidden="true">·</span>
+      <span>{dossier.source.title}</span>
+    </div>
+  </div>
+  <div class="claim-row-status"><Assessment code={dossier.finding.assessment} compact /></div>
+  <span class="claim-row-arrow" aria-hidden="true">→</span>
+</article>

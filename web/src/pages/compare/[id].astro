@@ -1,0 +1,76 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Assessment from "../../components/Assessment.astro";
+import { dossierSlug, formatDate, relationSlug } from "../../lib/format";
+import { loadPublicProjection } from "../../lib/projection";
+import type { PublicDossier } from "../../lib/types";
+
+interface Comparison {
+  id: string;
+  relationType: string;
+  reviewEventId: string;
+  participants: PublicDossier[];
+}
+
+const relationCopy: Record<string, string> = {
+  SAME_PROPOSITION: "Le dichiarazioni sono state collegate come formulazioni della stessa proposizione nel perimetro revisionato.",
+  CLARIFICATION: "La relazione segnala una chiarificazione successiva nel perimetro revisionato.",
+  UPDATE: "La relazione segnala un aggiornamento successivo nel perimetro revisionato.",
+  POSITION_CHANGE_CANDIDATE: "La relazione approvata segnala un cambiamento di posizione nel tempo. Questo non implica intenzione o inganno.",
+  CONTRADICTION_CANDIDATE: "La relazione approvata segnala dichiarazioni non allineate nel perimetro revisionato. Questo non implica intenzione o inganno."
+};
+
+export async function getStaticPaths() {
+  const projection = await loadPublicProjection();
+  const byClaim = new Map(projection.dossiers.map((dossier) => [dossier.claim_id, dossier]));
+  const comparisons = new Map<string, Comparison>();
+  for (const dossier of projection.dossiers) {
+    for (const relation of dossier.relations ?? []) {
+      if (relation.status !== "APPROVED" || !relation.review_event_id) continue;
+      const related = byClaim.get(relation.related_claim_id);
+      if (!related) continue;
+      const current = comparisons.get(relation.id) ?? {
+        id: relation.id,
+        relationType: relation.relation_type,
+        reviewEventId: relation.review_event_id,
+        participants: []
+      };
+      for (const participant of [dossier, related]) {
+        if (!current.participants.some((item) => item.finding_id === participant.finding_id)) current.participants.push(participant);
+      }
+      comparisons.set(relation.id, current);
+    }
+  }
+  return [...comparisons.values()]
+    .filter((item) => item.participants.length >= 2)
+    .map((comparison) => ({ params: { id: relationSlug(comparison.id) }, props: { comparison } }));
+}
+
+interface Props { comparison: Comparison }
+const { comparison } = Astro.props;
+const participants = [...comparison.participants].sort((a, b) => Date.parse(a.source.published_at ?? a.finding.published_at ?? "1970-01-01") - Date.parse(b.source.published_at ?? b.finding.published_at ?? "1970-01-01"));
+const explanation = relationCopy[comparison.relationType] ?? "Relazione longitudinale approvata tra dichiarazioni pubbliche, mostrata senza inferenze sull'intenzione.";
+---
+
+<BaseLayout title="Confronto tra dichiarazioni" description={explanation} canonicalPath={`/compare/${relationSlug(comparison.id)}/`}>
+  <header class="record-header"><div class="shell">
+    <div class="eyebrow">Confronto revisionato · {comparison.relationType.replaceAll("_", " ")}</div>
+    <h1 class="page-title">Dichiarazioni nel tempo</h1>
+    <p class="lede">{explanation}</p>
+  </div></header>
+  <section class="shell page-section-tight">
+    <div class="comparison-grid">
+      {participants.map((dossier, index) => (
+        <article class="prose comparison-card">
+          <div class="eyebrow">{index + 1} · {formatDate(dossier.source.published_at ?? dossier.finding.published_at)}</div>
+          <h2>“{dossier.claim}”</h2>
+          <p>{dossier.speaker.name} · <a href={dossier.source.url}>{dossier.source.title}</a></p>
+          <Assessment code={dossier.finding.assessment} />
+          <p>{dossier.finding.rationale}</p>
+          <a class="text-link" href={`/fact-check/${dossierSlug(dossier)}/`}>Apri il fact-check →</a>
+        </article>
+      ))}
+    </div>
+    <details class="comparison-review"><summary>Provenienza della relazione</summary><p>Relazione {comparison.id}; review event {comparison.reviewEventId}. La presenza in questa pagina deriva esclusivamente dalla proiezione pubblica approvata.</p></details>
+  </section>
+</BaseLayout>

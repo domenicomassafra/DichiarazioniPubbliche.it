@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "name": "transcription-policy-v0",
+  "principles": {
+    "single_asr_is_never_source_of_truth": true,
+    "preserve_raw_candidates": true,
+    "canonical_transcript_is_derived": true,
+    "semantic_llm_may_flag_but_not_silently_rewrite_audio_evidence": true,
+    "unresolved_audio_disagreement_blocks_publication": true
+  },
+  "ingest_order": [
+    "platform_manual_captions",
+    "platform_auto_captions",
+    "remote_primary_asr",
+    "local_or_remote_second_opinion",
+    "accuracy_escalation"
+  ],
+  "providers": [
+    {
+      "id": "groq-whisper-large-v3-turbo",
+      "role": "remote_primary_asr",
+      "route": "groq/whisper-large-v3-turbo",
+      "timestamp_support": true,
+      "italian": true,
+      "proven_in_owner_runtime": true,
+      "list_price_usd_per_audio_hour": 0.04,
+      "notes": "Primary price/performance lane. Chunk inputs to provider file limits.",
+      "documented_free_limits": {
+        "rpm": 20,
+        "rpd": 2000,
+        "audio_seconds_per_hour": 7200,
+        "audio_seconds_per_day": 28800,
+        "free_upload_mb": 25
+      },
+      "documented_dev_upload_mb": 100,
+      "documented_audio_hours_per_day_free": 8
+    },
+    {
+      "id": "groq-whisper-large-v3",
+      "role": "accuracy_escalation",
+      "route": "groq/whisper-large-v3",
+      "timestamp_support": true,
+      "italian": true,
+      "proven_in_owner_runtime": false,
+      "list_price_usd_per_audio_hour": 0.111,
+      "notes": "Escalate only ambiguous or high-risk spans."
+    },
+    {
+      "id": "cohere-transcribe-03-2026",
+      "role": "remote_second_opinion",
+      "route": "cohere/cohere-transcribe-03-2026",
+      "timestamp_support": false,
+      "italian": true,
+      "proven_in_owner_runtime": true,
+      "notes": "Provider-diverse second opinion. Convert source to supported audio format first."
+    },
+    {
+      "id": "faster-whisper-small-local",
+      "role": "local_second_opinion",
+      "route": "local/faster-whisper-small",
+      "timestamp_support": true,
+      "italian": true,
+      "proven_in_owner_runtime": true,
+      "benchmark": {
+        "sample_audio_seconds": 27.2,
+        "warm_elapsed_seconds": 9.6,
+        "approx_max_rss_mb": 640,
+        "sensitive_numbers_preserved": true
+      },
+      "notes": "Cheap CPU fallback or second opinion on MiniPC. Not treated as editorial truth."
+    },
+    {
+      "id": "faster-whisper-large-v3-turbo-local",
+      "role": "local_accuracy_fallback",
+      "route": "local/faster-whisper-large-v3-turbo",
+      "timestamp_support": true,
+      "italian": true,
+      "proven_in_owner_runtime": false,
+      "notes": "Not retained on MiniPC: initial model download/cache was aborted and purged. Benchmark only if future evidence justifies the disk/CPU cost."
+    },
+    {
+      "id": "qwen3-asr-family",
+      "role": "future_provider_or_local_candidate",
+      "route": "qwen/qwen3-asr",
+      "timestamp_support": "with forced aligner/toolkit",
+      "italian": true,
+      "proven_in_owner_runtime": false,
+      "notes": "Source-proven family but current owner entitlement and runtime route are not yet proven."
+    }
+  ],
+  "sensitive_span_triggers": [
+    "numbers_or_percentages",
+    "money_amounts",
+    "dates_or_years",
+    "proper_names",
+    "institution_names",
+    "law_or_article_numbers",
+    "direct_quotes",
+    "negation",
+    "comparatives_or_superlatives",
+    "claim_depends_on_single_word",
+    "asr_candidates_disagree",
+    "low_confidence_or_acoustic_noise"
+  ],
+  "reconciliation": {
+    "exact_token_classes": [
+      "number",
+      "currency",
+      "date",
+      "proper_noun",
+      "negation",
+      "legal_identifier"
+    ],
+    "agreement_required_for_sensitive_tokens": true,
+    "llm_context_cleanup_allowed": true,
+    "llm_audio_fact_invention_allowed": false,
+    "unresolved_status": "TRANSCRIPT_UNCERTAIN",
+    "unresolved_publication_action": "POLICY_HOLD"
+  },
+  "retention": {
+    "persist_full_canonical_transcript": true,
+    "persist_asr_receipts": true,
+    "persist_candidate_transcripts_for_sensitive_spans": true,
+    "persist_downloaded_video": false,
+    "persist_extracted_audio": false,
+    "persist_sampled_frames_by_default": false,
+    "delete_media_after_successful_persistence": true,
+    "failed_job_media_ttl_hours": 24
+  },
+  "quota_policy": {
+    "quota_aware_routing": true,
+    "respect_retry_after_headers": true,
+    "provider_circuit_breakers": true,
+    "daily_budget_cap_required": true,
+    "credential_rotation_must_respect_provider_terms": true,
+    "never_use_multiple_accounts_to_evade_provider_limits": true
+  }
+}

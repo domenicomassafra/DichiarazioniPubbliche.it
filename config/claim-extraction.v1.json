@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "name": "claim-extraction-v1",
+  "model": "antigravity/gemini-3.8-flash-tiered",
+  "prompt_version": "claim-extract-v1",
+  "max_claims_per_window": 48,
+  "max_output_tokens": 2048,
+  "request_timeout_seconds": 60,
+  "max_response_bytes": 1048576,
+  "allowed_claim_types": [
+    "ARITHMETIC",
+    "CAUSAL_CLAIM",
+    "CURRENT_FOREIGN_POLICY",
+    "CURRENT_POLICY",
+    "CURRENT_POLICY_POSITION",
+    "DISTRIBUTIONAL_CLAIM",
+    "ELECTION_PREDICTION",
+    "FISCAL_INFERENCE",
+    "GROUP_MOTIVE",
+    "HISTORICAL_ATTRIBUTION",
+    "HISTORICAL_CLAIM",
+    "HISTORICAL_POLITICAL",
+    "LEGAL_POLICY_STATUS",
+    "LEGAL_QUOTE",
+    "MOTIVE_ATTRIBUTION",
+    "NUMERIC_STATISTIC",
+    "POLICY_DIFFERENCE",
+    "POLICY_SCOPE",
+    "POLITICAL_ATTRIBUTION",
+    "PRICE_STATISTIC",
+    "QUOTE_ATTRIBUTION",
+    "RHETORICAL_GENERALIZATION",
+    "SYSTEMIC_CLAIM",
+    "SYSTEMIC_INFERENCE",
+    "TAX_RATE",
+    "VALUE_JUDGMENT"
+  ],
+  "cost_policy": {
+    "pre_dispatch_estimate_required": true,
+    "rate_env": "DICHIARAZIONI_PUBBLICHE_CLAIM_MAX_USD_PER_1K_TOTAL_TOKENS",
+    "zero_is_allowed_when_operator_has_verified_zero_marginal_cost": true
+  }
+}

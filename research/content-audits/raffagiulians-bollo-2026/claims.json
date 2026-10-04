@@ -1,0 +1,469 @@
+{
+  "schema_version": 1,
+  "audit_id": "raffagiulians-bollo-2026",
+  "claims": [
+    {
+      "id": "C01",
+      "timestamp": "0:00",
+      "speaker": "Raffaele Giuliani",
+      "type": "HISTORICAL_ATTRIBUTION",
+      "assessment": "MISSING_CONTEXT",
+      "normalized_claim": "Meloni in 2025 mocked the Calabria regional bollo promise in a Cetto La Qualunque comparison.",
+      "reason": "The quote is real, but it concerned a bundle of regional campaign promises and does not establish that Meloni opposed a national bollo exemption in principle.",
+      "evidence_ids": [
+        "E01",
+        "E02"
+      ]
+    },
+    {
+      "id": "C02",
+      "timestamp": "0:07",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_POLICY",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Meloni announced that the government had abolished/exempted bollo for eligible small/medium cars and motorcycles.",
+      "reason": "The announcement is documented; the legal scope is handled separately in C04.",
+      "evidence_ids": [
+        "E03"
+      ]
+    },
+    {
+      "id": "C03",
+      "timestamp": "0:28",
+      "speaker": "Raffaele Giuliani",
+      "type": "MOTIVE_ATTRIBUTION",
+      "assessment": "UNSUBSTANTIATED",
+      "normalized_claim": "Government figures deliberately use the word 'abolished' to confuse voters.",
+      "reason": "The wording can be compared with the law, but deliberate intent to deceive is not established by the available evidence.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C04",
+      "timestamp": "0:34",
+      "speaker": "Raffaele Giuliani",
+      "type": "LEGAL_POLICY_STATUS",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "The enacted legal exemption currently applies to 2027 rather than being permanently funded in the decree.",
+      "reason": "DL 162/2026 limits the operative exemption to 2027. The government simultaneously states an objective to make it structural with later budget coverage.",
+      "evidence_ids": [
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "id": "C05",
+      "timestamp": "0:53",
+      "speaker": "Raffaele Giuliani",
+      "type": "MOTIVE_ATTRIBUTION",
+      "assessment": "UNSUBSTANTIATED",
+      "normalized_claim": "The 2027 timing was chosen because of the expected parliamentary-election calendar.",
+      "reason": "The temporal coincidence is observable and political opponents made the same allegation, but the causal motive is not demonstrated.",
+      "evidence_ids": [
+        "E22"
+      ]
+    },
+    {
+      "id": "C06",
+      "timestamp": "1:04",
+      "speaker": "Raffaele Giuliani",
+      "type": "ELECTION_PREDICTION",
+      "assessment": "PREDICTION_PENDING",
+      "normalized_claim": "The centre-right will win the next national election and include or ally with Vannacci.",
+      "reason": "This is a future electoral prediction and is not treated as a current fact.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C07",
+      "timestamp": "1:44",
+      "speaker": "Raffaele Giuliani",
+      "type": "NUMERIC_STATISTIC",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Annual automobile-tax revenue is about 7.5 billion euro.",
+      "reason": "ACI reports 7.5bn euro in 2024.",
+      "evidence_ids": [
+        "E06"
+      ],
+      "numeric_sensitive": true,
+      "asr_verification": {
+        "status": "CONFIRMED",
+        "method": "second bounded LifeOS/Groq transcription of 01:38-02:05 audio",
+        "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+        "confirmed_values": [
+          "7.5 billion euro",
+          "2.3 billion euro",
+          "5.2 billion euro"
+        ]
+      }
+    },
+    {
+      "id": "C08",
+      "timestamp": "1:44",
+      "speaker": "Raffaele Giuliani",
+      "type": "NUMERIC_STATISTIC",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The 2027 bollo measure has an estimated revenue reduction/compensation of about 2.3 billion euro.",
+      "reason": "The decree provides 2,293.5m euro to compensate the revenue reduction caused by the exemption.",
+      "evidence_ids": [
+        "E04",
+        "E07"
+      ],
+      "numeric_sensitive": true,
+      "asr_verification": {
+        "status": "CONFIRMED",
+        "method": "second bounded LifeOS/Groq transcription of 01:38-02:05 audio",
+        "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+        "confirmed_values": [
+          "7.5 billion euro",
+          "2.3 billion euro",
+          "5.2 billion euro"
+        ]
+      }
+    },
+    {
+      "id": "C09",
+      "timestamp": "1:57",
+      "speaker": "Raffaele Giuliani",
+      "type": "ARITHMETIC",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "7.5 billion minus 2.3 billion equals 5.2 billion.",
+      "reason": "The arithmetic is correct; a second ASR confirmed the spoken decimals that the first full-video ASR dropped.",
+      "evidence_ids": [
+        "E06",
+        "E04"
+      ],
+      "numeric_sensitive": true,
+      "asr_verification": {
+        "status": "CONFIRMED",
+        "method": "second bounded LifeOS/Groq transcription of 01:38-02:05 audio",
+        "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+        "confirmed_values": [
+          "7.5 billion euro",
+          "2.3 billion euro",
+          "5.2 billion euro"
+        ]
+      }
+    },
+    {
+      "id": "C10",
+      "timestamp": "1:57",
+      "speaker": "Raffaele Giuliani",
+      "type": "FISCAL_INFERENCE",
+      "assessment": "CONTRADICTED",
+      "normalized_claim": "The subtraction leaves a 5.2 billion euro funding hole for the regions.",
+      "reason": "The 7.5bn figure is total bollo revenue across the whole tax base. The decree estimates the reduction from the eligible exemption at 2,293.5m and provides a transfer for that same amount. The 5.2bn remainder is not the measure's uncovered shortfall.",
+      "evidence_ids": [
+        "E04",
+        "E06",
+        "E23"
+      ]
+    },
+    {
+      "id": "C11",
+      "timestamp": "2:02",
+      "speaker": "Raffaele Giuliani",
+      "type": "CAUSAL_CLAIM",
+      "assessment": "UNSUPPORTED_INFERENCE",
+      "normalized_claim": "A supposed 5.2 billion euro shortfall will necessarily fall on citizens through higher cost of living.",
+      "reason": "The premise that the measure creates a 5.2bn uncovered shortfall is not supported, and the causal effect is not established.",
+      "evidence_ids": [
+        "E04",
+        "E23"
+      ]
+    },
+    {
+      "id": "C12",
+      "timestamp": "2:35",
+      "speaker": "Raffaele Giuliani",
+      "type": "QUOTE_ATTRIBUTION",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "Boccia made the quoted comparison about media treatment of divisions on the left versus the right.",
+      "reason": "The exact source statement was not identified in this v1 audit; it remains a follow-up item rather than being forced into a verdict.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C13",
+      "timestamp": "2:53",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLITICAL_ATTRIBUTION",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Forza Italia and Tajani claimed political paternity for the bollo measure and linked it to Berlusconi's tax-cutting tradition.",
+      "reason": "Contemporaneous reporting documents this claim of paternity.",
+      "evidence_ids": [
+        "E07"
+      ]
+    },
+    {
+      "id": "C14",
+      "timestamp": "3:01",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLITICAL_ATTRIBUTION",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "Meloni, Salvini and Forza Italia figures each publicly claimed credit or support for the bollo measure.",
+      "reason": "Public statements document overlapping claims of credit; the video then adds rhetorical interpretation of coalition positioning.",
+      "evidence_ids": [
+        "E03",
+        "E07"
+      ]
+    },
+    {
+      "id": "C15",
+      "timestamp": "3:09",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_DIFFERENCE",
+      "assessment": "PARTIALLY_SUPPORTED",
+      "normalized_claim": "Forza Italia and Lega/Giorgetti hold materially different positions on taxation of extraordinary profits.",
+      "reason": "A concrete disagreement exists on windfall-profit taxation, though the video's broader labels about their entire tax philosophies are rhetorical.",
+      "evidence_ids": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "C16",
+      "timestamp": "3:35",
+      "speaker": "Raffaele Giuliani",
+      "type": "PRICE_STATISTIC",
+      "assessment": "MISSING_CONTEXT",
+      "normalized_claim": "Diesel in Italy reaches 3 euro per litre.",
+      "reason": "Individual reported stations/outlier products exceeded 3 €/l, but the national motorway self-service average on 17 Sep was 2.346 €/l. The statement is true as an existence claim, misleading as a representative price.",
+      "evidence_ids": [
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "id": "C17",
+      "timestamp": "3:51",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_POLICY",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The reduced diesel-excise measure remains in force, with reduced support, through 5 October 2026.",
+      "reason": "Contemporaneous reporting and DL 162/2026 describe the decalage through 5 October.",
+      "evidence_ids": [
+        "E10",
+        "E04"
+      ]
+    },
+    {
+      "id": "C18",
+      "timestamp": "3:58",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_POLICY_POSITION",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Giorgetti/Italy had been pushing for EU discussion of windfall-profit taxation before this video.",
+      "reason": "Italy was among six states that requested the EU discussion in August.",
+      "evidence_ids": [
+        "E11"
+      ]
+    },
+    {
+      "id": "C19",
+      "timestamp": "4:13",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_DIFFERENCE",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Tajani/Forza Italia opposed a windfall-profit tax while Giorgetti/Italy supported EU discussion of such a measure.",
+      "reason": "The two positions are directly documented.",
+      "evidence_ids": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "C20",
+      "timestamp": "4:21",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_DIFFERENCE",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "Forza Italia and Lega have material differences on Russia/Ukraine policy.",
+      "reason": "Recent votes and statements document differences, including FI voting for a Russia-attribution resolution while Lega abstained and Lega figures discussing renewed Russian hydrocarbon imports. 'An abyss' remains rhetoric.",
+      "evidence_ids": [
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "id": "C21",
+      "timestamp": "4:32",
+      "speaker": "Raffaele Giuliani",
+      "type": "HISTORICAL_POLITICAL",
+      "assessment": "PARTIALLY_SUPPORTED",
+      "normalized_claim": "Salvini and Orbán were both part of Steve Bannon's The Movement project.",
+      "reason": "Salvini formally joined. Orbán publicly welcomed Bannon's anti-EU project, but the evidence used here does not establish equivalent formal membership. 'Destroy Europe' is stronger rhetoric than the sourced organizational relationship.",
+      "evidence_ids": [
+        "E15",
+        "E16"
+      ]
+    },
+    {
+      "id": "C22",
+      "timestamp": "4:49",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_FOREIGN_POLICY",
+      "assessment": "CONTRADICTED",
+      "normalized_claim": "Hungary had already approved a wealth tax on multimillionaires/billionaires by the date of the video.",
+      "reason": "As of 17 Sep 2026 specialist reporting described the measure as still in legislative preparation, with details not yet final.",
+      "evidence_ids": [
+        "E17"
+      ]
+    },
+    {
+      "id": "C23",
+      "timestamp": "5:04",
+      "speaker": "Raffaele Giuliani",
+      "type": "QUOTE_ATTRIBUTION",
+      "assessment": "MISATTRIBUTED",
+      "normalized_claim": "Tajani called a tax on multimillionaires 'Soviet Union' style.",
+      "reason": "Tajani's documented remark referred to taxes on windfall profits, especially in the hydrocarbons context, not a general wealth tax on multimillionaires.",
+      "evidence_ids": [
+        "E12"
+      ]
+    },
+    {
+      "id": "C24",
+      "timestamp": "5:18",
+      "speaker": "Raffaele Giuliani",
+      "type": "LEGAL_QUOTE",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Article 53 of the Italian Constitution says the tax system is informed by criteria of progressivity.",
+      "reason": "This is the constitutional text.",
+      "evidence_ids": [
+        "E18"
+      ]
+    },
+    {
+      "id": "C25",
+      "timestamp": "5:24",
+      "speaker": "Raffaele Giuliani",
+      "type": "TAX_RATE",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "Many financial returns are taxed at 26%, while Italian government-bond returns receive a 12.5% rate.",
+      "reason": "Bank of Italy states this comparison; it should not be generalized to every form of capital income.",
+      "evidence_ids": [
+        "E19"
+      ]
+    },
+    {
+      "id": "C26",
+      "timestamp": "5:39",
+      "speaker": "Raffaele Giuliani",
+      "type": "TAX_RATE",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The top national IRPEF rate in 2026 is 43%.",
+      "reason": "The Chamber's 2026 tax summary lists 23%, 33%, and 43% brackets.",
+      "evidence_ids": [
+        "E20"
+      ]
+    },
+    {
+      "id": "C27",
+      "timestamp": "5:44",
+      "speaker": "Raffaele Giuliani",
+      "type": "SYSTEMIC_INFERENCE",
+      "assessment": "UNSUPPORTED_INFERENCE",
+      "normalized_claim": "The cited 26%/12.5% financial rates versus 43% IRPEF prove that the Italian tax system is not genuinely progressive.",
+      "reason": "The component rates are real, but comparing selected taxes on different bases does not by itself establish the progressivity or regressivity of the tax system as a whole.",
+      "evidence_ids": [
+        "E18",
+        "E19",
+        "E20"
+      ]
+    },
+    {
+      "id": "C28",
+      "timestamp": "5:52",
+      "speaker": "Raffaele Giuliani",
+      "type": "DISTRIBUTIONAL_CLAIM",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "Multimillionaires and billionaires pay proportionally less tax than ordinary workers.",
+      "reason": "No population, tax-base definition, period, or effective-tax-rate dataset is specified in the video, so this broad claim is not verifiable as stated.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C29",
+      "timestamp": "6:10",
+      "speaker": "Raffaele Giuliani",
+      "type": "SYSTEMIC_CLAIM",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "Tax evasion is an enormous national problem.",
+      "reason": "The claim is directionally measurable but lacks a defined metric or period in the video; a production audit should attach official tax-gap data rather than label the rhetoric true/false.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C30",
+      "timestamp": "6:15",
+      "speaker": "Raffaele Giuliani",
+      "type": "GROUP_MOTIVE",
+      "assessment": "UNSUBSTANTIATED",
+      "normalized_claim": "Many lower-income people oppose wealth taxes because they fear the tax will hit them.",
+      "reason": "This attributes a motive to a broad group without survey evidence in the video.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C31",
+      "timestamp": "6:21",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_SCOPE",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "The wealth-tax proposal being discussed would affect only 1% of the population.",
+      "reason": "No specific Italian proposal, threshold, tax base, or legislative text is identified in the segment.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C32",
+      "timestamp": "6:34",
+      "speaker": "Raffaele Giuliani",
+      "type": "RHETORICAL_GENERALIZATION",
+      "assessment": "NOT_FACT_CHECKABLE",
+      "normalized_claim": "The American self-made-man ideal has always been a lie.",
+      "reason": "This is an absolute ideological/generalizing statement, not a sufficiently scoped factual proposition.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C33",
+      "timestamp": "6:40",
+      "speaker": "Raffaele Giuliani",
+      "type": "VALUE_JUDGMENT",
+      "assessment": "NOT_FACT_CHECKABLE",
+      "normalized_claim": "Meritocracy is an abstract capitalist concept.",
+      "reason": "This is theoretical/political argument rather than a bounded factual claim.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C34",
+      "timestamp": "6:54",
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "type": "HISTORICAL_ATTRIBUTION",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The inserted clip is Meloni's Atreju 2025 remark linking Marche/Palestine and Calabria/bollo campaign promises to a Cetto La Qualunque comparison.",
+      "reason": "The contemporaneous report documents the remark.",
+      "evidence_ids": [
+        "E01"
+      ]
+    },
+    {
+      "id": "C35",
+      "timestamp": "6:59",
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "type": "HISTORICAL_CLAIM",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Matteo Ricci had pledged that a Marche regional government/council under him would recognize the State of Palestine.",
+      "reason": "The campaign pledge is documented.",
+      "evidence_ids": [
+        "E21"
+      ]
+    },
+    {
+      "id": "C36",
+      "timestamp": "7:04",
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "type": "HISTORICAL_CLAIM",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Pasquale Tridico had proposed abolishing/exempting the bollo during the Calabria regional campaign.",
+      "reason": "The campaign proposal and later political dispute are documented.",
+      "evidence_ids": [
+        "E02"
+      ]
+    }
+  ]
+}

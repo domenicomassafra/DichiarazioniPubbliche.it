@@ -1,0 +1,1493 @@
+{
+  "schema_version": 1,
+  "audit_id": "raffagiulians-bollo-2026",
+  "audited_at": "2026-09-21",
+  "content": {
+    "creator": "Raffaele Giuliani",
+    "handle": "raffagiulians",
+    "instagram_url": "https://www.instagram.com/raffagiulians/reel/DdZseq2tjn4/",
+    "tiktok_url": "https://www.tiktok.com/@raffagiulians/video/7686596204074896672",
+    "tiktok_id": "7686596204074896672",
+    "duration_seconds": 444.84,
+    "title": "Gioggia ha “abolito” (sospeso) il bollo. Cosa cambia? Nulla."
+  },
+  "transcript_provenance": {
+    "full_transcript_committed": false,
+    "local_raw_path": "poc/content/raffagiulians-bollo-2026/raw/transcript.txt",
+    "lifeos_receipt_key": "286f07461f241155b4d59ea669a5b2742c7547f6678da0d7dafdd172c1aee645",
+    "method": "omniroute-stt",
+    "model": "groq/whisper-large-v3-turbo",
+    "request_id": "req_01m32mzcgge14vh25f1rj8ynmt",
+    "content_sha256": "06ab8ecac12f71145834b559495a691cd669ff3636b73b8b3d6120a6c761b212",
+    "video_sha256": "68aec3f321ebb4f571b6ebbac3958d048487fe82c903edd58e26bfcf73fdbb86",
+    "audio_sha256": "59c40a770eed14197d39a9eef6d7faf00562b7bb4db35ab713b12e0962d7af12",
+    "transcript_artifact_sha256": "b5abb8fb312e3d29b32452c8fd84664886e4799f34e1e5cee510bb6372e7a52e",
+    "capture_note": "Final validated capture path: MiniPC owner-local Chrome profile authenticated on TikTok; yt-dlp used that MiniPC Chrome profile via --cookies-from-browser to download the full 444.84s media; the resulting local MP4 was passed to LifeOS/watchthis on the MiniPC for audio extraction and OmniRoute/Groq transcription. No Mac browser/session is part of the final validated capture path.",
+    "secondary_asr_receipt": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+    "primary_public_capture": {
+      "lifeos_receipt_key": "d4bdb28e35eebced53de15d2b3e9b23491ce2c036f94b11ee184c9004385e8ec",
+      "video_sha256": "033faaf5e396c04080cf235d17bab23f325e0a4c0e8b61790f523ec6be8f7844",
+      "transcript_sha256": "090516965f6cae38c25b005fe16617769cccf96832cf77e53d13c5041b469675",
+      "capture_method": "public TikTok embed player media URL -> local MP4 -> LifeOS media pipeline on MiniPC",
+      "login_used": false,
+      "cookies_used": false
+    },
+    "audit_transcript_capture": {
+      "lifeos_receipt_key": "286f07461f241155b4d59ea669a5b2742c7547f6678da0d7dafdd172c1aee645",
+      "video_sha256": "68aec3f321ebb4f571b6ebbac3958d048487fe82c903edd58e26bfcf73fdbb86",
+      "transcript_sha256": "b5abb8fb312e3d29b32452c8fd84664886e4799f34e1e5cee510bb6372e7a52e",
+      "duration_seconds": 444.84
+    },
+    "numeric_secondary_asr": {
+      "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+      "duration_seconds": 27.233008,
+      "confirmed_spoken_values": [
+        "7.5 billion euro",
+        "2.3 billion euro",
+        "5.2 billion euro"
+      ],
+      "model": "groq/whisper-large-v3-turbo"
+    }
+  },
+  "policy": {
+    "aggregate_person_score": false,
+    "overall_creator_verdict": false,
+    "opinions_not_forced_into_true_false": true,
+    "predictions_not_treated_as_current_facts": true,
+    "motive_attributions_require_independent_evidence": true
+  },
+  "evidence": [
+    {
+      "id": "E01",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2025-12-14",
+      "url": "https://www.ansa.it/sito/notizie/politica/2025/12/14/meloni-chiude-atreju-al-referendum-fregatevene-di-me-tanto-il-governo-durera-votate-per_fdaf0f2a-1c93-4029-b665-dd53cba3b70c.html",
+      "supports": "Atreju 2025 quote and campaign-promise context."
+    },
+    {
+      "id": "E02",
+      "publisher": "RaiNews",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-06-13",
+      "url": "https://www.rainews.it/tgr/calabria/video/2026/06/fa-discutere-la-proposta-di-roberto-occhiuto-sull-abolizione-del-bollo-auto-a-livello-nazionale-f73ab7ab-5209-4ebb-8f94-8545294b63cc.html",
+      "supports": "Tridico had proposed bollo abolition in Calabria; Occhiuto distinguished regional from national competence."
+    },
+    {
+      "id": "E03",
+      "publisher": "ANSA",
+      "source_type": "PRIMARY_STATEMENT_REPORT",
+      "published": "2026-09-16",
+      "url": "https://www.ansa.it/sito/notizie/politica/2026/09/16/meloni-altri-parlano-di-patrimoniali-noi-aboliamo-una-tassa-sulla-proprieta_049f16fb-3916-47c8-b97c-e527c3211684.html",
+      "supports": "Meloni announced abolition/exemption for one vehicle up to 80 kW and motorcycles."
+    },
+    {
+      "id": "E04",
+      "publisher": "Gazzetta Ufficiale",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "2026-09-17",
+      "url": "https://www.gazzettaufficiale.it/atto/serie_generale/caricaArticolo?art.codiceRedazionale=26G00181&art.dataPubblicazioneGazzetta=2026-09-17&art.flagTipoArticolo=0&art.idArticolo=2&art.idGruppo=1&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.progressivo=0&art.versione=1",
+      "supports": "DL 162/2026 art. 2: 2027-only exemption and 2,293.5m euro transfer compensating the estimated revenue reduction."
+    },
+    {
+      "id": "E05",
+      "publisher": "MIT",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "2026-09-17",
+      "url": "https://www.mit.gov.it/index.php/comunicazione/news/auto-e-moto-il-bollo",
+      "supports": "2027 exemption and stated objective to make it structural with the next budget law."
+    },
+    {
+      "id": "E06",
+      "publisher": "ACI",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "2025-05-08",
+      "url": "https://aci.gov.it/comunicati-stampa/annuario-statistico-2025-tutti-i-numeri-delle-auto-in-italia/",
+      "supports": "2024 automobile-tax revenue was 7.5bn euro."
+    },
+    {
+      "id": "E07",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-09-17",
+      "url": "https://www.ansa.it/canale_motori/notizie/istituzioni/2026/09/17/la-mossa-di-meloni-addio-al-bollo-per-le-auto-piccole-e-medie_cb12208d-db01-44ea-a5b5-7535dd0d2550.html",
+      "supports": "2.3bn cost/coverage and Tajani/FI claim of political paternity."
+    },
+    {
+      "id": "E08",
+      "publisher": "MIMIT",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "2026-09-17",
+      "url": "https://www.mimit.gov.it/index.php/it/prezzo-medio-carburanti/autostrade",
+      "supports": "17 Sep motorway self-service diesel average 2.346 €/l."
+    },
+    {
+      "id": "E09",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-09-19",
+      "url": "https://www.ansa.it/sito/notizie/economia/2026/09/19/allarme-codacons-gasolio-sfiora-29-in-autostrada-fino-a-31-euro-per-il-servito_845a1f48-499e-4a82-be96-ea0e56c03a0f.html",
+      "supports": "Rare/outlier diesel prices above 3 €/l existed; not representative averages."
+    },
+    {
+      "id": "E10",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-09-16",
+      "url": "https://www.ansa.it/canale_motori/notizie/istituzioni/2026/09/16/il-cdm-approva-il-decreto-via-il-bollo-sulle-auto-piccole-e-medie-e-sui_cb12208d-db01-44ea-a5b5-7535dd0d2550.html",
+      "supports": "Diesel excise reduction extended, with decalage, through 5 October."
+    },
+    {
+      "id": "E11",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-08-22",
+      "url": "https://www.ansa.it/sito/notizie/economia/2026/08/22/sei-paesi-ue-chiedono-tassa-su-extraprofitti-compagnie-petrolifere-anche-litalia_a10d0422-ce65-485d-b139-da5300b4b04e.html",
+      "supports": "Italy was among six countries requesting EU discussion of oil-company windfall taxes."
+    },
+    {
+      "id": "E12",
+      "publisher": "ANSA",
+      "source_type": "PRIMARY_STATEMENT_REPORT",
+      "published": "2026-08-25",
+      "url": "https://www.ansa.it/sito/notizie/politica/2026/08/25/tajani-nessuno-strappo-con-gli-usa-il-legame-prescinde-dai-singoli_045c6738-7c7e-4c0b-b101-7182eff52f55.html",
+      "supports": "Tajani used 'Unione Sovietica' specifically about windfall-profit taxes."
+    },
+    {
+      "id": "E13",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-09-16",
+      "url": "https://www.ansa.it/europa/notizie/rubriche/voceeurodeputati/2026/09/16/italiani-divisi-al-pe-sulle-minacce-russe-fdi-a-favore-fn-e-m5s-contrari_ae90a281-fe81-4f6a-b9cd-af09c852a200.html",
+      "supports": "FI voted for a Russia-attribution resolution while Lega abstained."
+    },
+    {
+      "id": "E14",
+      "publisher": "ANSA",
+      "source_type": "PRIMARY_STATEMENT_REPORT",
+      "published": "2026-09-16",
+      "url": "https://www.ansa.it/europa/notizie/rubriche/voceeurodeputati/2026/09/16/borchia-lega-riflettere-su-ripresa-dellimport-del-gas-russo_84e38c0c-e249-44d2-95ae-807c24b08d38.html",
+      "supports": "Lega delegation called for discussion of resuming Russian hydrocarbon imports."
+    },
+    {
+      "id": "E15",
+      "publisher": "Internazionale",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2019-04-17",
+      "url": "https://www.internazionale.it/notizie/alessio-marchionna/2019/04/17/steve-bannon-avventura-europea",
+      "supports": "Salvini joined The Movement; article describes more limited/uncertain involvement of other actors."
+    },
+    {
+      "id": "E16",
+      "publisher": "Euronews/Reuters",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2018-07-27",
+      "url": "https://www.euronews.com/2018/07/27/hungarian-pm-welcomes-bannons-anti-eu-project-as-diversity-in-thinking",
+      "supports": "Orbán welcomed Bannon's project; does not establish formal membership equivalent to Salvini's."
+    },
+    {
+      "id": "E17",
+      "publisher": "RSM Hungary",
+      "source_type": "SPECIALIST_SECONDARY",
+      "published": "2026-09-16",
+      "url": "https://www.rsm.hu/blog/csaladi-vallalat/vagyonado-2026-2027-magyarorszagon",
+      "supports": "Hungarian wealth tax still in legislative-preparation stage as of 17 Sep 2026."
+    },
+    {
+      "id": "E18",
+      "publisher": "Senato della Repubblica",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "",
+      "url": "https://www.senato.it/istituzione/la-costituzione/parte-i/titolo-iv/articolo-53",
+      "supports": "Constitution Article 53 text."
+    },
+    {
+      "id": "E19",
+      "publisher": "Banca d'Italia",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "",
+      "url": "https://economiapertutti.bancaditalia.it/notizie-e-rubriche/in-parole-semplici/btp/index.html?com.dotmarketing.htmlpage.language=1",
+      "supports": "Government-bond returns 12.5%; other bonds/financial activities generally 26%."
+    },
+    {
+      "id": "E20",
+      "publisher": "Camera dei deputati",
+      "source_type": "PRIMARY_OFFICIAL",
+      "published": "2026",
+      "url": "https://temi.camera.it/leg19/temi/19_tl18_irpef",
+      "supports": "2026 IRPEF brackets 23%, 33%, 43%."
+    },
+    {
+      "id": "E21",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2025-08-01",
+      "url": "https://www.ansa.it/marche/notizie/2025/08/01/ricci-con-me-le-marche-riconosceranno-lo-stato-di-palestina_a368cbb4-d96c-40c8-b0b0-b0fabecb4a12.html",
+      "supports": "Ricci pledged that the Marche regional council would recognize Palestine if elected."
+    },
+    {
+      "id": "E22",
+      "publisher": "ANSA",
+      "source_type": "SECONDARY_REPORT",
+      "published": "2026-09-16",
+      "url": "https://www.ansa.it/sito/notizie/politica/2026/09/16/bollo-auto-le-opposizioni-spiazzate-ma-ce-laffondo-da-meloni-mossa-elettorale_62848eb9-1579-4cb0-ba43-32270a1a7674.html",
+      "supports": "Opposition figures argued electoral timing; this supports existence of allegation, not the motive itself."
+    },
+    {
+      "id": "E23",
+      "publisher": "ANSA",
+      "source_type": "PRIMARY_STATEMENT_REPORT",
+      "published": "2026-09-16",
+      "url": "https://videoembed.ansa.it/sito/notizie/topnews/2026/09/16/cirio-taglio-bollo-non-sara-un-onere-delle-regioni_2a9b35a9-4188-4c9b-a255-28c7a8686937.html",
+      "supports": "Cirio said Giorgetti assured the regional share would be fully covered by state transfer."
+    }
+  ],
+  "claims": [
+    {
+      "id": "C01",
+      "timestamp": "0:00",
+      "speaker": "Raffaele Giuliani",
+      "type": "HISTORICAL_ATTRIBUTION",
+      "assessment": "MISSING_CONTEXT",
+      "normalized_claim": "Meloni in 2025 mocked the Calabria regional bollo promise in a Cetto La Qualunque comparison.",
+      "reason": "The quote is real, but it concerned a bundle of regional campaign promises and does not establish that Meloni opposed a national bollo exemption in principle.",
+      "evidence_ids": [
+        "E01",
+        "E02"
+      ]
+    },
+    {
+      "id": "C02",
+      "timestamp": "0:07",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_POLICY",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Meloni announced that the government had abolished/exempted bollo for eligible small/medium cars and motorcycles.",
+      "reason": "The announcement is documented; the legal scope is handled separately in C04.",
+      "evidence_ids": [
+        "E03"
+      ]
+    },
+    {
+      "id": "C03",
+      "timestamp": "0:28",
+      "speaker": "Raffaele Giuliani",
+      "type": "MOTIVE_ATTRIBUTION",
+      "assessment": "UNSUBSTANTIATED",
+      "normalized_claim": "Government figures deliberately use the word 'abolished' to confuse voters.",
+      "reason": "The wording can be compared with the law, but deliberate intent to deceive is not established by the available evidence.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C04",
+      "timestamp": "0:34",
+      "speaker": "Raffaele Giuliani",
+      "type": "LEGAL_POLICY_STATUS",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "The enacted legal exemption currently applies to 2027 rather than being permanently funded in the decree.",
+      "reason": "DL 162/2026 limits the operative exemption to 2027. The government simultaneously states an objective to make it structural with later budget coverage.",
+      "evidence_ids": [
+        "E04",
+        "E05"
+      ]
+    },
+    {
+      "id": "C05",
+      "timestamp": "0:53",
+      "speaker": "Raffaele Giuliani",
+      "type": "MOTIVE_ATTRIBUTION",
+      "assessment": "UNSUBSTANTIATED",
+      "normalized_claim": "The 2027 timing was chosen because of the expected parliamentary-election calendar.",
+      "reason": "The temporal coincidence is observable and political opponents made the same allegation, but the causal motive is not demonstrated.",
+      "evidence_ids": [
+        "E22"
+      ]
+    },
+    {
+      "id": "C06",
+      "timestamp": "1:04",
+      "speaker": "Raffaele Giuliani",
+      "type": "ELECTION_PREDICTION",
+      "assessment": "PREDICTION_PENDING",
+      "normalized_claim": "The centre-right will win the next national election and include or ally with Vannacci.",
+      "reason": "This is a future electoral prediction and is not treated as a current fact.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C07",
+      "timestamp": "1:44",
+      "speaker": "Raffaele Giuliani",
+      "type": "NUMERIC_STATISTIC",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Annual automobile-tax revenue is about 7.5 billion euro.",
+      "reason": "ACI reports 7.5bn euro in 2024.",
+      "evidence_ids": [
+        "E06"
+      ],
+      "numeric_sensitive": true,
+      "asr_verification": {
+        "status": "CONFIRMED",
+        "method": "second bounded LifeOS/Groq transcription of 01:38-02:05 audio",
+        "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+        "confirmed_values": [
+          "7.5 billion euro",
+          "2.3 billion euro",
+          "5.2 billion euro"
+        ]
+      }
+    },
+    {
+      "id": "C08",
+      "timestamp": "1:44",
+      "speaker": "Raffaele Giuliani",
+      "type": "NUMERIC_STATISTIC",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The 2027 bollo measure has an estimated revenue reduction/compensation of about 2.3 billion euro.",
+      "reason": "The decree provides 2,293.5m euro to compensate the revenue reduction caused by the exemption.",
+      "evidence_ids": [
+        "E04",
+        "E07"
+      ],
+      "numeric_sensitive": true,
+      "asr_verification": {
+        "status": "CONFIRMED",
+        "method": "second bounded LifeOS/Groq transcription of 01:38-02:05 audio",
+        "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+        "confirmed_values": [
+          "7.5 billion euro",
+          "2.3 billion euro",
+          "5.2 billion euro"
+        ]
+      }
+    },
+    {
+      "id": "C09",
+      "timestamp": "1:57",
+      "speaker": "Raffaele Giuliani",
+      "type": "ARITHMETIC",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "7.5 billion minus 2.3 billion equals 5.2 billion.",
+      "reason": "The arithmetic is correct; a second ASR confirmed the spoken decimals that the first full-video ASR dropped.",
+      "evidence_ids": [
+        "E06",
+        "E04"
+      ],
+      "numeric_sensitive": true,
+      "asr_verification": {
+        "status": "CONFIRMED",
+        "method": "second bounded LifeOS/Groq transcription of 01:38-02:05 audio",
+        "receipt_key": "fe7b89e0fdd7d20ed74ffa14c14aa581fd02c56bb19afb75f0d29b0f40eefc6c",
+        "confirmed_values": [
+          "7.5 billion euro",
+          "2.3 billion euro",
+          "5.2 billion euro"
+        ]
+      }
+    },
+    {
+      "id": "C10",
+      "timestamp": "1:57",
+      "speaker": "Raffaele Giuliani",
+      "type": "FISCAL_INFERENCE",
+      "assessment": "CONTRADICTED",
+      "normalized_claim": "The subtraction leaves a 5.2 billion euro funding hole for the regions.",
+      "reason": "The 7.5bn figure is total bollo revenue across the whole tax base. The decree estimates the reduction from the eligible exemption at 2,293.5m and provides a transfer for that same amount. The 5.2bn remainder is not the measure's uncovered shortfall.",
+      "evidence_ids": [
+        "E04",
+        "E06",
+        "E23"
+      ]
+    },
+    {
+      "id": "C11",
+      "timestamp": "2:02",
+      "speaker": "Raffaele Giuliani",
+      "type": "CAUSAL_CLAIM",
+      "assessment": "UNSUPPORTED_INFERENCE",
+      "normalized_claim": "A supposed 5.2 billion euro shortfall will necessarily fall on citizens through higher cost of living.",
+      "reason": "The premise that the measure creates a 5.2bn uncovered shortfall is not supported, and the causal effect is not established.",
+      "evidence_ids": [
+        "E04",
+        "E23"
+      ]
+    },
+    {
+      "id": "C12",
+      "timestamp": "2:35",
+      "speaker": "Raffaele Giuliani",
+      "type": "QUOTE_ATTRIBUTION",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "Boccia made the quoted comparison about media treatment of divisions on the left versus the right.",
+      "reason": "The exact source statement was not identified in this v1 audit; it remains a follow-up item rather than being forced into a verdict.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C13",
+      "timestamp": "2:53",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLITICAL_ATTRIBUTION",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Forza Italia and Tajani claimed political paternity for the bollo measure and linked it to Berlusconi's tax-cutting tradition.",
+      "reason": "Contemporaneous reporting documents this claim of paternity.",
+      "evidence_ids": [
+        "E07"
+      ]
+    },
+    {
+      "id": "C14",
+      "timestamp": "3:01",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLITICAL_ATTRIBUTION",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "Meloni, Salvini and Forza Italia figures each publicly claimed credit or support for the bollo measure.",
+      "reason": "Public statements document overlapping claims of credit; the video then adds rhetorical interpretation of coalition positioning.",
+      "evidence_ids": [
+        "E03",
+        "E07"
+      ]
+    },
+    {
+      "id": "C15",
+      "timestamp": "3:09",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_DIFFERENCE",
+      "assessment": "PARTIALLY_SUPPORTED",
+      "normalized_claim": "Forza Italia and Lega/Giorgetti hold materially different positions on taxation of extraordinary profits.",
+      "reason": "A concrete disagreement exists on windfall-profit taxation, though the video's broader labels about their entire tax philosophies are rhetorical.",
+      "evidence_ids": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "C16",
+      "timestamp": "3:35",
+      "speaker": "Raffaele Giuliani",
+      "type": "PRICE_STATISTIC",
+      "assessment": "MISSING_CONTEXT",
+      "normalized_claim": "Diesel in Italy reaches 3 euro per litre.",
+      "reason": "Individual reported stations/outlier products exceeded 3 €/l, but the national motorway self-service average on 17 Sep was 2.346 €/l. The statement is true as an existence claim, misleading as a representative price.",
+      "evidence_ids": [
+        "E08",
+        "E09"
+      ]
+    },
+    {
+      "id": "C17",
+      "timestamp": "3:51",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_POLICY",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The reduced diesel-excise measure remains in force, with reduced support, through 5 October 2026.",
+      "reason": "Contemporaneous reporting and DL 162/2026 describe the decalage through 5 October.",
+      "evidence_ids": [
+        "E10",
+        "E04"
+      ]
+    },
+    {
+      "id": "C18",
+      "timestamp": "3:58",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_POLICY_POSITION",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Giorgetti/Italy had been pushing for EU discussion of windfall-profit taxation before this video.",
+      "reason": "Italy was among six states that requested the EU discussion in August.",
+      "evidence_ids": [
+        "E11"
+      ]
+    },
+    {
+      "id": "C19",
+      "timestamp": "4:13",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_DIFFERENCE",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Tajani/Forza Italia opposed a windfall-profit tax while Giorgetti/Italy supported EU discussion of such a measure.",
+      "reason": "The two positions are directly documented.",
+      "evidence_ids": [
+        "E11",
+        "E12"
+      ]
+    },
+    {
+      "id": "C20",
+      "timestamp": "4:21",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_DIFFERENCE",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "Forza Italia and Lega have material differences on Russia/Ukraine policy.",
+      "reason": "Recent votes and statements document differences, including FI voting for a Russia-attribution resolution while Lega abstained and Lega figures discussing renewed Russian hydrocarbon imports. 'An abyss' remains rhetoric.",
+      "evidence_ids": [
+        "E13",
+        "E14"
+      ]
+    },
+    {
+      "id": "C21",
+      "timestamp": "4:32",
+      "speaker": "Raffaele Giuliani",
+      "type": "HISTORICAL_POLITICAL",
+      "assessment": "PARTIALLY_SUPPORTED",
+      "normalized_claim": "Salvini and Orbán were both part of Steve Bannon's The Movement project.",
+      "reason": "Salvini formally joined. Orbán publicly welcomed Bannon's anti-EU project, but the evidence used here does not establish equivalent formal membership. 'Destroy Europe' is stronger rhetoric than the sourced organizational relationship.",
+      "evidence_ids": [
+        "E15",
+        "E16"
+      ]
+    },
+    {
+      "id": "C22",
+      "timestamp": "4:49",
+      "speaker": "Raffaele Giuliani",
+      "type": "CURRENT_FOREIGN_POLICY",
+      "assessment": "CONTRADICTED",
+      "normalized_claim": "Hungary had already approved a wealth tax on multimillionaires/billionaires by the date of the video.",
+      "reason": "As of 17 Sep 2026 specialist reporting described the measure as still in legislative preparation, with details not yet final.",
+      "evidence_ids": [
+        "E17"
+      ]
+    },
+    {
+      "id": "C23",
+      "timestamp": "5:04",
+      "speaker": "Raffaele Giuliani",
+      "type": "QUOTE_ATTRIBUTION",
+      "assessment": "MISATTRIBUTED",
+      "normalized_claim": "Tajani called a tax on multimillionaires 'Soviet Union' style.",
+      "reason": "Tajani's documented remark referred to taxes on windfall profits, especially in the hydrocarbons context, not a general wealth tax on multimillionaires.",
+      "evidence_ids": [
+        "E12"
+      ]
+    },
+    {
+      "id": "C24",
+      "timestamp": "5:18",
+      "speaker": "Raffaele Giuliani",
+      "type": "LEGAL_QUOTE",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Article 53 of the Italian Constitution says the tax system is informed by criteria of progressivity.",
+      "reason": "This is the constitutional text.",
+      "evidence_ids": [
+        "E18"
+      ]
+    },
+    {
+      "id": "C25",
+      "timestamp": "5:24",
+      "speaker": "Raffaele Giuliani",
+      "type": "TAX_RATE",
+      "assessment": "SUPPORTED_WITH_CONTEXT",
+      "normalized_claim": "Many financial returns are taxed at 26%, while Italian government-bond returns receive a 12.5% rate.",
+      "reason": "Bank of Italy states this comparison; it should not be generalized to every form of capital income.",
+      "evidence_ids": [
+        "E19"
+      ]
+    },
+    {
+      "id": "C26",
+      "timestamp": "5:39",
+      "speaker": "Raffaele Giuliani",
+      "type": "TAX_RATE",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The top national IRPEF rate in 2026 is 43%.",
+      "reason": "The Chamber's 2026 tax summary lists 23%, 33%, and 43% brackets.",
+      "evidence_ids": [
+        "E20"
+      ]
+    },
+    {
+      "id": "C27",
+      "timestamp": "5:44",
+      "speaker": "Raffaele Giuliani",
+      "type": "SYSTEMIC_INFERENCE",
+      "assessment": "UNSUPPORTED_INFERENCE",
+      "normalized_claim": "The cited 26%/12.5% financial rates versus 43% IRPEF prove that the Italian tax system is not genuinely progressive.",
+      "reason": "The component rates are real, but comparing selected taxes on different bases does not by itself establish the progressivity or regressivity of the tax system as a whole.",
+      "evidence_ids": [
+        "E18",
+        "E19",
+        "E20"
+      ]
+    },
+    {
+      "id": "C28",
+      "timestamp": "5:52",
+      "speaker": "Raffaele Giuliani",
+      "type": "DISTRIBUTIONAL_CLAIM",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "Multimillionaires and billionaires pay proportionally less tax than ordinary workers.",
+      "reason": "No population, tax-base definition, period, or effective-tax-rate dataset is specified in the video, so this broad claim is not verifiable as stated.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C29",
+      "timestamp": "6:10",
+      "speaker": "Raffaele Giuliani",
+      "type": "SYSTEMIC_CLAIM",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "Tax evasion is an enormous national problem.",
+      "reason": "The claim is directionally measurable but lacks a defined metric or period in the video; a production audit should attach official tax-gap data rather than label the rhetoric true/false.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C30",
+      "timestamp": "6:15",
+      "speaker": "Raffaele Giuliani",
+      "type": "GROUP_MOTIVE",
+      "assessment": "UNSUBSTANTIATED",
+      "normalized_claim": "Many lower-income people oppose wealth taxes because they fear the tax will hit them.",
+      "reason": "This attributes a motive to a broad group without survey evidence in the video.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C31",
+      "timestamp": "6:21",
+      "speaker": "Raffaele Giuliani",
+      "type": "POLICY_SCOPE",
+      "assessment": "UNVERIFIABLE_AS_STATED",
+      "normalized_claim": "The wealth-tax proposal being discussed would affect only 1% of the population.",
+      "reason": "No specific Italian proposal, threshold, tax base, or legislative text is identified in the segment.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C32",
+      "timestamp": "6:34",
+      "speaker": "Raffaele Giuliani",
+      "type": "RHETORICAL_GENERALIZATION",
+      "assessment": "NOT_FACT_CHECKABLE",
+      "normalized_claim": "The American self-made-man ideal has always been a lie.",
+      "reason": "This is an absolute ideological/generalizing statement, not a sufficiently scoped factual proposition.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C33",
+      "timestamp": "6:40",
+      "speaker": "Raffaele Giuliani",
+      "type": "VALUE_JUDGMENT",
+      "assessment": "NOT_FACT_CHECKABLE",
+      "normalized_claim": "Meritocracy is an abstract capitalist concept.",
+      "reason": "This is theoretical/political argument rather than a bounded factual claim.",
+      "evidence_ids": []
+    },
+    {
+      "id": "C34",
+      "timestamp": "6:54",
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "type": "HISTORICAL_ATTRIBUTION",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "The inserted clip is Meloni's Atreju 2025 remark linking Marche/Palestine and Calabria/bollo campaign promises to a Cetto La Qualunque comparison.",
+      "reason": "The contemporaneous report documents the remark.",
+      "evidence_ids": [
+        "E01"
+      ]
+    },
+    {
+      "id": "C35",
+      "timestamp": "6:59",
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "type": "HISTORICAL_CLAIM",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Matteo Ricci had pledged that a Marche regional government/council under him would recognize the State of Palestine.",
+      "reason": "The campaign pledge is documented.",
+      "evidence_ids": [
+        "E21"
+      ]
+    },
+    {
+      "id": "C36",
+      "timestamp": "7:04",
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "type": "HISTORICAL_CLAIM",
+      "assessment": "SUPPORTED",
+      "normalized_claim": "Pasquale Tridico had proposed abolishing/exempting the bollo during the Calabria regional campaign.",
+      "reason": "The campaign proposal and later political dispute are documented.",
+      "evidence_ids": [
+        "E02"
+      ]
+    }
+  ],
+  "segment_coverage": [
+    {
+      "index": 0,
+      "timestamp": "0:00",
+      "start_seconds": 0,
+      "speaker": "Raffaele Giuliani",
+      "kind": "HISTORICAL_CLAIM",
+      "claim_ids": [
+        "C01"
+      ]
+    },
+    {
+      "index": 1,
+      "timestamp": "0:07",
+      "start_seconds": 7,
+      "speaker": "Raffaele Giuliani",
+      "kind": "FACTUAL_CLAIM",
+      "claim_ids": [
+        "C02"
+      ]
+    },
+    {
+      "index": 2,
+      "timestamp": "0:11",
+      "start_seconds": 11,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 3,
+      "timestamp": "0:15",
+      "start_seconds": 15,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 4,
+      "timestamp": "0:20",
+      "start_seconds": 20,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_APPEAL",
+      "claim_ids": []
+    },
+    {
+      "index": 5,
+      "timestamp": "0:26",
+      "start_seconds": 26,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_PREFERENCE",
+      "claim_ids": []
+    },
+    {
+      "index": 6,
+      "timestamp": "0:28",
+      "start_seconds": 28,
+      "speaker": "Raffaele Giuliani",
+      "kind": "MOTIVE_ATTRIBUTION",
+      "claim_ids": [
+        "C03"
+      ]
+    },
+    {
+      "index": 7,
+      "timestamp": "0:34",
+      "start_seconds": 34,
+      "speaker": "Raffaele Giuliani",
+      "kind": "LEGAL_CLAIM",
+      "claim_ids": [
+        "C04"
+      ]
+    },
+    {
+      "index": 8,
+      "timestamp": "0:39",
+      "start_seconds": 39,
+      "speaker": "Raffaele Giuliani",
+      "kind": "LEGAL_CLAIM",
+      "claim_ids": [
+        "C04"
+      ]
+    },
+    {
+      "index": 9,
+      "timestamp": "0:45",
+      "start_seconds": 45,
+      "speaker": "Raffaele Giuliani",
+      "kind": "DEFINITION",
+      "claim_ids": [
+        "C04"
+      ]
+    },
+    {
+      "index": 10,
+      "timestamp": "0:53",
+      "start_seconds": 53,
+      "speaker": "Raffaele Giuliani",
+      "kind": "MOTIVE_ATTRIBUTION",
+      "claim_ids": [
+        "C04",
+        "C05"
+      ]
+    },
+    {
+      "index": 11,
+      "timestamp": "1:04",
+      "start_seconds": 64,
+      "speaker": "Raffaele Giuliani",
+      "kind": "PREDICTION",
+      "claim_ids": [
+        "C06"
+      ]
+    },
+    {
+      "index": 12,
+      "timestamp": "1:16",
+      "start_seconds": 76,
+      "speaker": "Raffaele Giuliani",
+      "kind": "PREDICTION",
+      "claim_ids": [
+        "C06"
+      ]
+    },
+    {
+      "index": 13,
+      "timestamp": "1:34",
+      "start_seconds": 94,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_PREFERENCE",
+      "claim_ids": []
+    },
+    {
+      "index": 14,
+      "timestamp": "1:38",
+      "start_seconds": 98,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_PREFERENCE",
+      "claim_ids": []
+    },
+    {
+      "index": 15,
+      "timestamp": "1:44",
+      "start_seconds": 104,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C07",
+        "C08"
+      ]
+    },
+    {
+      "index": 16,
+      "timestamp": "1:57",
+      "start_seconds": 117,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C09",
+        "C10"
+      ]
+    },
+    {
+      "index": 17,
+      "timestamp": "2:02",
+      "start_seconds": 122,
+      "speaker": "Raffaele Giuliani",
+      "kind": "CAUSAL_INFERENCE",
+      "claim_ids": [
+        "C11"
+      ]
+    },
+    {
+      "index": 18,
+      "timestamp": "2:06",
+      "start_seconds": 126,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 19,
+      "timestamp": "2:08",
+      "start_seconds": 128,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 20,
+      "timestamp": "2:12",
+      "start_seconds": 132,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 21,
+      "timestamp": "2:16",
+      "start_seconds": 136,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 22,
+      "timestamp": "2:21",
+      "start_seconds": 141,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 23,
+      "timestamp": "2:25",
+      "start_seconds": 145,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": [
+        "C04"
+      ]
+    },
+    {
+      "index": 24,
+      "timestamp": "2:31",
+      "start_seconds": 151,
+      "speaker": "Raffaele Giuliani",
+      "kind": "VALUE_JUDGMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 25,
+      "timestamp": "2:33",
+      "start_seconds": 153,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 26,
+      "timestamp": "2:35",
+      "start_seconds": 155,
+      "speaker": "Raffaele Giuliani",
+      "kind": "QUOTE_ATTRIBUTION",
+      "claim_ids": [
+        "C12"
+      ]
+    },
+    {
+      "index": 27,
+      "timestamp": "2:40",
+      "start_seconds": 160,
+      "speaker": "Raffaele Giuliani",
+      "kind": "QUOTE_ATTRIBUTION",
+      "claim_ids": [
+        "C12"
+      ]
+    },
+    {
+      "index": 28,
+      "timestamp": "2:47",
+      "start_seconds": 167,
+      "speaker": "Raffaele Giuliani",
+      "kind": "MEDIA_CRITIQUE",
+      "claim_ids": []
+    },
+    {
+      "index": 29,
+      "timestamp": "2:51",
+      "start_seconds": 171,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 30,
+      "timestamp": "2:53",
+      "start_seconds": 173,
+      "speaker": "Raffaele Giuliani",
+      "kind": "QUOTE_ATTRIBUTION",
+      "claim_ids": [
+        "C13"
+      ]
+    },
+    {
+      "index": 31,
+      "timestamp": "3:01",
+      "start_seconds": 181,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ATTRIBUTION",
+      "claim_ids": [
+        "C14",
+        "C18"
+      ]
+    },
+    {
+      "index": 32,
+      "timestamp": "3:09",
+      "start_seconds": 189,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": [
+        "C15"
+      ]
+    },
+    {
+      "index": 33,
+      "timestamp": "3:20",
+      "start_seconds": 200,
+      "speaker": "Raffaele Giuliani",
+      "kind": "VALUE_JUDGMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 34,
+      "timestamp": "3:27",
+      "start_seconds": 207,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 35,
+      "timestamp": "3:29",
+      "start_seconds": 209,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": [
+        "C15"
+      ]
+    },
+    {
+      "index": 36,
+      "timestamp": "3:33",
+      "start_seconds": 213,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 37,
+      "timestamp": "3:35",
+      "start_seconds": 215,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C16"
+      ]
+    },
+    {
+      "index": 38,
+      "timestamp": "3:51",
+      "start_seconds": 231,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C17"
+      ]
+    },
+    {
+      "index": 39,
+      "timestamp": "3:58",
+      "start_seconds": 238,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C18"
+      ]
+    },
+    {
+      "index": 40,
+      "timestamp": "4:03",
+      "start_seconds": 243,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C18"
+      ]
+    },
+    {
+      "index": 41,
+      "timestamp": "4:05",
+      "start_seconds": 245,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 42,
+      "timestamp": "4:08",
+      "start_seconds": 248,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": [
+        "C18"
+      ]
+    },
+    {
+      "index": 43,
+      "timestamp": "4:10",
+      "start_seconds": 250,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C18"
+      ]
+    },
+    {
+      "index": 44,
+      "timestamp": "4:13",
+      "start_seconds": 253,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C19"
+      ]
+    },
+    {
+      "index": 45,
+      "timestamp": "4:16",
+      "start_seconds": 256,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 46,
+      "timestamp": "4:18",
+      "start_seconds": 258,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": [
+        "C19"
+      ]
+    },
+    {
+      "index": 47,
+      "timestamp": "4:21",
+      "start_seconds": 261,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C20"
+      ]
+    },
+    {
+      "index": 48,
+      "timestamp": "4:23",
+      "start_seconds": 263,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_POSITION",
+      "claim_ids": [
+        "C20"
+      ]
+    },
+    {
+      "index": 49,
+      "timestamp": "4:25",
+      "start_seconds": 265,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": [
+        "C20"
+      ]
+    },
+    {
+      "index": 50,
+      "timestamp": "4:28",
+      "start_seconds": 268,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 51,
+      "timestamp": "4:29",
+      "start_seconds": 269,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 52,
+      "timestamp": "4:32",
+      "start_seconds": 272,
+      "speaker": "Raffaele Giuliani",
+      "kind": "HISTORICAL_CLAIM",
+      "claim_ids": [
+        "C21"
+      ]
+    },
+    {
+      "index": 53,
+      "timestamp": "4:49",
+      "start_seconds": 289,
+      "speaker": "Raffaele Giuliani",
+      "kind": "FACTUAL_CLAIM",
+      "claim_ids": [
+        "C22"
+      ]
+    },
+    {
+      "index": 54,
+      "timestamp": "4:58",
+      "start_seconds": 298,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 55,
+      "timestamp": "5:04",
+      "start_seconds": 304,
+      "speaker": "Raffaele Giuliani",
+      "kind": "QUOTE_ATTRIBUTION",
+      "claim_ids": [
+        "C23"
+      ]
+    },
+    {
+      "index": 56,
+      "timestamp": "5:11",
+      "start_seconds": 311,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": [
+        "C24"
+      ]
+    },
+    {
+      "index": 57,
+      "timestamp": "5:16",
+      "start_seconds": 316,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 58,
+      "timestamp": "5:18",
+      "start_seconds": 318,
+      "speaker": "Raffaele Giuliani",
+      "kind": "LEGAL_CLAIM",
+      "claim_ids": [
+        "C24"
+      ]
+    },
+    {
+      "index": 59,
+      "timestamp": "5:24",
+      "start_seconds": 324,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C25"
+      ]
+    },
+    {
+      "index": 60,
+      "timestamp": "5:39",
+      "start_seconds": 339,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C26"
+      ]
+    },
+    {
+      "index": 61,
+      "timestamp": "5:44",
+      "start_seconds": 344,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SYSTEMIC_INFERENCE",
+      "claim_ids": [
+        "C27"
+      ]
+    },
+    {
+      "index": 62,
+      "timestamp": "5:52",
+      "start_seconds": 352,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SYSTEMIC_INFERENCE",
+      "claim_ids": [
+        "C28"
+      ]
+    },
+    {
+      "index": 63,
+      "timestamp": "5:59",
+      "start_seconds": 359,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SYSTEMIC_INFERENCE",
+      "claim_ids": [
+        "C28"
+      ]
+    },
+    {
+      "index": 64,
+      "timestamp": "6:03",
+      "start_seconds": 363,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_PREFERENCE",
+      "claim_ids": []
+    },
+    {
+      "index": 65,
+      "timestamp": "6:10",
+      "start_seconds": 370,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SYSTEMIC_CLAIM",
+      "claim_ids": [
+        "C29"
+      ]
+    },
+    {
+      "index": 66,
+      "timestamp": "6:15",
+      "start_seconds": 375,
+      "speaker": "Raffaele Giuliani",
+      "kind": "MOTIVE_ATTRIBUTION",
+      "claim_ids": [
+        "C30"
+      ]
+    },
+    {
+      "index": 67,
+      "timestamp": "6:21",
+      "start_seconds": 381,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C31"
+      ]
+    },
+    {
+      "index": 68,
+      "timestamp": "6:28",
+      "start_seconds": 388,
+      "speaker": "Raffaele Giuliani",
+      "kind": "NUMERIC_CLAIM",
+      "claim_ids": [
+        "C31"
+      ]
+    },
+    {
+      "index": 69,
+      "timestamp": "6:30",
+      "start_seconds": 390,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLICY_SCOPE",
+      "claim_ids": [
+        "C31"
+      ]
+    },
+    {
+      "index": 70,
+      "timestamp": "6:34",
+      "start_seconds": 394,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORICAL_GENERALIZATION",
+      "claim_ids": [
+        "C32"
+      ]
+    },
+    {
+      "index": 71,
+      "timestamp": "6:40",
+      "start_seconds": 400,
+      "speaker": "Raffaele Giuliani",
+      "kind": "VALUE_JUDGMENT",
+      "claim_ids": [
+        "C33"
+      ]
+    },
+    {
+      "index": 72,
+      "timestamp": "6:46",
+      "start_seconds": 406,
+      "speaker": "Raffaele Giuliani",
+      "kind": "POLITICAL_ARGUMENT",
+      "claim_ids": []
+    },
+    {
+      "index": 73,
+      "timestamp": "6:51",
+      "start_seconds": 411,
+      "speaker": "Raffaele Giuliani",
+      "kind": "RHETORIC",
+      "claim_ids": []
+    },
+    {
+      "index": 74,
+      "timestamp": "6:53",
+      "start_seconds": 413,
+      "speaker": "Raffaele Giuliani",
+      "kind": "TRANSITION",
+      "claim_ids": []
+    },
+    {
+      "index": 75,
+      "timestamp": "6:54",
+      "start_seconds": 414,
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "kind": "HISTORICAL_CLAIM",
+      "claim_ids": [
+        "C34"
+      ]
+    },
+    {
+      "index": 76,
+      "timestamp": "6:59",
+      "start_seconds": 419,
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "kind": "HISTORICAL_CLAIM",
+      "claim_ids": [
+        "C35"
+      ]
+    },
+    {
+      "index": 77,
+      "timestamp": "7:04",
+      "start_seconds": 424,
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "kind": "HISTORICAL_CLAIM",
+      "claim_ids": [
+        "C36"
+      ]
+    },
+    {
+      "index": 78,
+      "timestamp": "7:10",
+      "start_seconds": 430,
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "kind": "HISTORICAL_CLAIM",
+      "claim_ids": [
+        "C34",
+        "C36"
+      ]
+    },
+    {
+      "index": 79,
+      "timestamp": "7:14",
+      "start_seconds": 434,
+      "speaker": "Giorgia Meloni (inserted clip)",
+      "kind": "HISTORICAL_COMMENTARY",
+      "claim_ids": [
+        "C34"
+      ]
+    },
+    {
+      "index": 80,
+      "timestamp": "7:18",
+      "start_seconds": 438,
+      "speaker": "Raffaele Giuliani",
+      "kind": "COMMENTARY",
+      "claim_ids": []
+    },
+    {
+      "index": 81,
+      "timestamp": "7:21",
+      "start_seconds": 441,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SIGN_OFF",
+      "claim_ids": []
+    },
+    {
+      "index": 82,
+      "timestamp": "7:22",
+      "start_seconds": 442,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SIGN_OFF",
+      "claim_ids": []
+    },
+    {
+      "index": 83,
+      "timestamp": "7:23",
+      "start_seconds": 443,
+      "speaker": "Raffaele Giuliani",
+      "kind": "SIGN_OFF",
+      "claim_ids": []
+    }
+  ]
+}

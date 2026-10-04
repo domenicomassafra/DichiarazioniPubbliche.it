@@ -1,0 +1,1219 @@
+/* ==========================================================================
+   Dichiarazioni Pubbliche — Design System v1 · primitive layer
+   The shared, direction-specific components. Depends on tokens.css + base.css.
+   Owns no literal color values.
+
+   THE BRAND GESTURE — IL SEGNO
+   A 2px cobalt rail drawn at the left edge of whatever currently has
+   attention: the selected claim row, the focus-within field, the open
+   disclosure, the active moment on the tape. It is one geometric element
+   doing four jobs (selected / focused-within / active / reading-here), so a
+   reader learns it once.
+
+   It is deliberately COBALT, never a finding-state hue. A brand selection
+   cue that borrowed verdict color would let a reader mistake "you are here"
+   for a verdict — the exact confusion the product's neutrality rules forbid.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Surface — the only container primitive. A card is a decision, not a default.
+   -------------------------------------------------------------------------- */
+.dp-surface {
+  position: relative;
+  background: var(--paper-0);
+  min-width: 0;
+}
+
+.dp-surface[data-variant='ground'] {
+  background: var(--paper-0);
+}
+
+.dp-surface[data-variant='band'] {
+  background: var(--paper-1);
+}
+
+.dp-surface[data-variant='well'] {
+  background: var(--paper-2);
+}
+
+/* The only bounded object in the system: raised ground + a control-grade
+   hairline. Used for a sheet, a dialog, and a genuinely self-contained
+   evidence object. Not for lists of things. */
+.dp-surface[data-variant='raised'],
+.dp-surface[data-bounded='true'] {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius-control);
+}
+
+.dp-surface[data-variant='inverse'] {
+  background: var(--ink-inverse);
+  color: var(--ink-inverse-100);
+}
+
+.dp-surface[data-selected='true'] {
+  background: var(--paper-selected);
+}
+
+/* The Segno: the selection rail. Painted on the surface edge, never inset
+   from it, so it aligns into a continuous vertical line down a list. */
+.dp-surface[data-selected='true']::before,
+.dp-row[data-selected='true']::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--focus-ring-width);
+  background: var(--cobalt-700);
+}
+
+/* --------------------------------------------------------------------------
+   Hairline — elevation is a rule, not a shadow. Three weights, named jobs.
+   -------------------------------------------------------------------------- */
+.dp-hairline {
+  border: 0;
+  height: 1px;
+  margin: 0;
+  background: var(--rule-hairline);
+  flex: none;
+}
+
+.dp-hairline[data-weight='strong'] {
+  background: var(--rule-hairline-strong);
+}
+
+.dp-hairline[data-weight='ink'] {
+  background: var(--rule-ink);
+  height: 2px;
+}
+
+.dp-hairline[data-weight='control'] {
+  background: var(--rule-control);
+}
+
+.dp-hairline[data-orientation='vertical'] {
+  width: 1px;
+  height: auto;
+  align-self: stretch;
+}
+
+/* --------------------------------------------------------------------------
+   Shell and page frame
+   -------------------------------------------------------------------------- */
+.dp-shell {
+  width: min(calc(100% - (var(--page-inset) * 2)), var(--width-shell));
+  margin-inline: auto;
+}
+
+.dp-shell[data-width='reading'] {
+  width: min(calc(100% - (var(--page-inset) * 2)), var(--width-reading));
+}
+
+.dp-shell[data-width='document'] {
+  width: min(calc(100% - (var(--page-inset) * 2)), var(--width-document));
+}
+
+[data-density='studio'] .dp-shell {
+  width: min(calc(100% - (var(--space-4) * 2)), var(--width-studio-shell));
+}
+
+/* --------------------------------------------------------------------------
+   Row — the primary repeated object. Never a card. A row is a hairline and
+   a reading order, and it takes its rhythm from the density tokens.
+   -------------------------------------------------------------------------- */
+.dp-row {
+  position: relative;
+  display: grid;
+  align-items: baseline;
+  gap: var(--space-4) var(--density-block-gap);
+  padding: var(--density-row-pad-y) var(--density-row-pad-x);
+  min-height: var(--density-row-min);
+  border-bottom: 1px solid var(--rule-hairline);
+  color: inherit;
+  text-decoration: none;
+  transition: var(--transition-select);
+}
+
+.dp-row:first-child {
+  border-top: 1px solid var(--rule-hairline);
+}
+
+/* A row is a link, so it must show hover and focus, not only selection. */
+.dp-row:hover {
+  background: var(--paper-1);
+}
+
+.dp-row:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+  border-radius: 0;
+}
+
+.dp-row:active {
+  background: var(--paper-2);
+}
+
+.dp-row[data-selected='true'] {
+  background: var(--paper-selected);
+}
+
+/* When a row is selected AND hovered, the selection must still win. */
+.dp-row[data-selected='true']:hover {
+  background: color-mix(in srgb, var(--cobalt-100) 78%, var(--paper-1));
+}
+
+.dp-row[data-interactive='false'] {
+  cursor: default;
+}
+
+.dp-row[data-interactive='false']:hover {
+  background: transparent;
+}
+
+/* Segno sits flush to the row's leading edge. */
+.dp-row::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--focus-ring-width);
+  background: transparent;
+  transition: background-color var(--duration-standard) var(--ease-move);
+}
+
+.dp-row[data-selected='true']::before {
+  background: var(--cobalt-700);
+}
+
+/* The claim column carries the serif voice; it is the thing being examined. */
+.dp-row__claim {
+  display: block;
+  min-width: 0;
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-claim);
+  letter-spacing: var(--tracking-heading);
+  color: var(--ink-900);
+  max-width: var(--measure-claim);
+  text-wrap: pretty;
+}
+
+.dp-row__claim-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The whole row is the hit target, so the link must cover it, but the link
+   text must stay the accessible name and stay selectable. */
+.dp-row__claim-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.dp-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--ink-500);
+  font-size: var(--density-type-meta);
+  line-height: var(--leading-meta);
+}
+
+.dp-row__meta > * + *::before {
+  content: '·';
+  margin-inline-end: var(--space-3);
+  color: var(--rule-control);
+}
+
+.dp-row__action {
+  justify-self: end;
+  color: var(--cobalt-700);
+  font-size: var(--density-type-label);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   StatusText — text-first finding state.
+   The word is the state. The mark reinforces it; it never carries it. A
+   component that renders StatusText with an empty label renders nothing at
+   all — a state with no word is not a state.
+   -------------------------------------------------------------------------- */
+.dp-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--ink-700);
+  font-size: var(--density-type-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-semibold);
+  text-wrap: nowrap;
+}
+
+/* The mark is a square of ink, not a dot, not a pill, not a badge. */
+.dp-status__mark {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: currentColor;
+  border-radius: var(--radius-mark);
+  transform: translateY(-0.0625rem);
+}
+
+.dp-status[data-state='supported'] {
+  color: var(--support-700);
+}
+
+.dp-status[data-state='contradicted'] {
+  color: var(--contradict-700);
+}
+
+.dp-status[data-state='imprecise'] {
+  color: var(--imprecise-700);
+}
+
+.dp-status[data-state='unresolved'] {
+  color: var(--unresolved-700);
+}
+
+/* An unresolved state is deliberately quiet: it is a hole in the record, not
+   a result. It reads as a held note, not a missing one. */
+.dp-status[data-state='unresolved'] .dp-status__mark {
+  background: transparent;
+  border: 2px solid currentColor;
+  box-sizing: border-box;
+}
+
+/* Inside a raised/sheet context the state steps up for the inverse ground. */
+[data-surface='inverse'] .dp-status[data-state='supported'] {
+  color: var(--support-200);
+}
+
+[data-surface='inverse'] .dp-status[data-state='contradicted'] {
+  color: var(--contradict-200);
+}
+
+[data-surface='inverse'] .dp-status[data-state='imprecise'] {
+  color: var(--imprecise-200);
+}
+
+[data-surface='inverse'] .dp-status[data-state='unresolved'] {
+  color: var(--unresolved-200);
+}
+
+.dp-status--quiet {
+  font-weight: var(--weight-regular);
+  color: var(--ink-500);
+}
+
+/* --------------------------------------------------------------------------
+   Label — the system's only uppercase treatment, and it is never a crutch.
+   It names a field or a state. It is not a section kicker.
+   -------------------------------------------------------------------------- */
+.dp-label {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: var(--density-type-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+}
+
+.dp-label[data-tone='quiet'] {
+  font-weight: var(--weight-regular);
+}
+
+/* --------------------------------------------------------------------------
+   Rail / SectionIndex — the margin index of a long document.
+   It is navigation only. It has no numbers unless the sequence carries
+   information the reader needs; otherwise it is a titled link list.
+   -------------------------------------------------------------------------- */
+.dp-rail {
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+  min-width: 0;
+}
+
+.dp-rail__heading {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--density-type-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-500);
+  letter-spacing: var(--tracking-label);
+}
+
+.dp-rail__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-hairline);
+  max-width: none;
+}
+
+.dp-rail__list li {
+  margin: 0;
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.dp-rail__link {
+  display: block;
+  padding: var(--space-2) 0;
+  font-size: var(--density-type-meta);
+  line-height: var(--leading-meta);
+  color: var(--ink-700);
+  text-decoration: none;
+  border-left: var(--focus-ring-width) solid transparent;
+  padding-inline-start: var(--space-3);
+  transition: var(--transition-control);
+}
+
+.dp-rail__link:hover {
+  color: var(--ink-900);
+  border-left-color: var(--rule-control);
+}
+
+/* The reader's position in the document is the Segno again. */
+.dp-rail__link[aria-current='true'] {
+  color: var(--cobalt-800);
+  border-left-color: var(--cobalt-700);
+  font-weight: var(--weight-semibold);
+}
+
+.dp-rail__numbered {
+  display: grid;
+  grid-template-columns: 1.75rem 1fr;
+  gap: var(--space-1);
+  align-items: baseline;
+}
+
+.dp-rail__number {
+  font-family: var(--font-data);
+  font-size: var(--density-type-meta);
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Disclosure — real <details>, so keyboard and screen-reader behavior is
+   native and cannot regress. The summary is a control and looks like one.
+   -------------------------------------------------------------------------- */
+.dp-disclosure {
+  border-bottom: 1px solid var(--rule-hairline);
+  position: relative;
+}
+
+.dp-disclosure__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--density-control-min);
+  padding: var(--space-3) var(--space-4) var(--space-3) 0;
+  cursor: pointer;
+  font-size: var(--density-type-label);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-900);
+  list-style: none;
+  transition: color var(--duration-fast) var(--ease-exit);
+}
+
+.dp-disclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.dp-disclosure__summary:hover {
+  color: var(--cobalt-800);
+}
+
+.dp-disclosure__summary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+  border-radius: 0;
+}
+
+/* The chevron is a drawn affordance, not a glyph. */
+.dp-disclosure__chevron {
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-inline-end: 1.5px solid currentColor;
+  border-block-end: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-0.125rem, -0.125rem);
+  transition: transform var(--duration-standard) var(--ease-move);
+}
+
+.dp-disclosure[open] .dp-disclosure__chevron {
+  transform: rotate(225deg) translate(-0.125rem, -0.125rem);
+}
+
+.dp-disclosure__body {
+  padding: 0 0 var(--space-5);
+  color: var(--ink-700);
+  max-width: var(--density-measure);
+}
+
+.dp-disclosure[open] .dp-disclosure__body {
+  animation: dp-disclosure-enter var(--duration-standard) var(--ease-enter);
+}
+
+@keyframes dp-disclosure-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dp-disclosure[open] .dp-disclosure__body {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Dialog / Sheet — native <dialog> with real focus containment.
+   `showModal()` gives the focus trap, the inert background, Escape dismissal,
+   and the top-layer stacking for free. We add naming, placement, and the
+   Segno, and we restore focus on close.
+   -------------------------------------------------------------------------- */
+.dp-overlay {
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius-control);
+  background: var(--paper-raised);
+  color: var(--ink-900);
+  padding: 0;
+  max-width: min(100% - (var(--space-5) * 2), var(--width-reading));
+  width: 100%;
+  max-height: calc(100dvh - (var(--space-7) * 2));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.dp-overlay::backdrop {
+  background: color-mix(in srgb, var(--ink-inverse) 52%, transparent);
+}
+
+/* Enter: a short scale-and-fade. The element is never hidden at rest. */
+.dp-overlay[open] {
+  animation: dp-overlay-enter var(--duration-standard) var(--ease-enter);
+}
+
+@keyframes dp-overlay-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dp-overlay[open] {
+    animation: none;
+  }
+}
+
+.dp-overlay__header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--paper-raised);
+  border-bottom: 1px solid var(--rule-hairline);
+  z-index: var(--z-raised);
+}
+
+.dp-overlay__title {
+  margin: 0;
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-heading);
+}
+
+.dp-overlay__body {
+  padding: var(--space-5);
+}
+
+.dp-overlay__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--paper-raised);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+/* A sheet is the same object docked to an edge. It is the mobile Filter
+   and source-detail form of the dialog, never a different component. */
+.dp-sheet {
+  margin: auto auto 0;
+  max-width: none;
+  width: 100%;
+  max-height: 88dvh;
+  border-inline: 0;
+  border-block-end: 0;
+  border-start-start-radius: var(--radius-control);
+  border-start-end-radius: var(--radius-control);
+}
+
+.dp-sheet[open] {
+  animation: dp-sheet-enter var(--duration-standard) var(--ease-enter);
+}
+
+@keyframes dp-sheet-enter {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dp-sheet[open] {
+    animation: none;
+  }
+}
+
+@media (min-width: 48rem) {
+  .dp-sheet {
+    margin: auto;
+    max-width: min(100% - (var(--space-5) * 2), var(--width-rail));
+    border-radius: var(--radius-control);
+    border: 1px solid var(--rule-control);
+    max-height: calc(100dvh - (var(--space-7) * 2));
+  }
+}
+
+/* --------------------------------------------------------------------------
+   SegmentedControl — a real radiogroup. Arrow keys move, Home/End jump, and
+   the selected segment is announced by aria-checked, not only by paint.
+   -------------------------------------------------------------------------- */
+.dp-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius-control);
+  background: var(--paper-raised);
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.dp-segmented__option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--density-control-min);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--ink-700);
+  font-size: var(--density-type-label);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  transition: var(--transition-control);
+}
+
+.dp-segmented__option + .dp-segmented__option {
+  border-inline-start: 1px solid var(--rule-hairline);
+}
+
+.dp-segmented__option:hover:not([data-checked='true']) {
+  background: var(--paper-1);
+  color: var(--ink-900);
+}
+
+.dp-segmented__option[data-checked='true'] {
+  background: var(--paper-selected);
+  color: var(--cobalt-800);
+  font-weight: var(--weight-semibold);
+}
+
+/* The Segno again, rotated to the horizontal: the selected segment is
+   underlined in cobalt. */
+.dp-segmented__option[data-checked='true']::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: var(--focus-ring-width);
+  background: var(--cobalt-700);
+}
+
+.dp-segmented__option:focus-within {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+  border-radius: 0;
+}
+
+.dp-segmented__option:has(:disabled) {
+  color: var(--ink-500);
+  background: var(--paper-1);
+}
+
+.dp-segmented__count {
+  color: var(--ink-500);
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The SegmentedControl option is a <label> wrapping a visually hidden radio,
+   so its focus ring is painted via :focus-within above. With :focus-visible
+   alone the group would be keyboard-operable with no visible indicator. */
+.dp-fieldset-reset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.dp-focus-group[data-focus-within='true'] {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.dp-status__count {
+  color: var(--ink-500);
+  font-weight: var(--weight-regular);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons — three intents, one shape. Nothing is a pill.
+   -------------------------------------------------------------------------- */
+.dp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--density-control-min);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-900);
+  font-size: var(--density-type-label);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  transition: var(--transition-control);
+}
+
+.dp-button[data-intent='primary'] {
+  background: var(--ink-900);
+  border-color: var(--ink-900);
+  color: var(--ink-inverse-100);
+}
+
+.dp-button[data-intent='primary']:hover {
+  background: var(--cobalt-800);
+  border-color: var(--cobalt-800);
+  color: var(--cobalt-on);
+}
+
+.dp-button[data-intent='secondary'] {
+  background: var(--paper-raised);
+  border-color: var(--rule-control);
+  color: var(--ink-900);
+}
+
+.dp-button[data-intent='secondary']:hover {
+  border-color: var(--rule-control-strong);
+  background: var(--paper-1);
+}
+
+.dp-button[data-intent='quiet'] {
+  color: var(--cobalt-700);
+  padding-inline: 0;
+}
+
+.dp-button[data-intent='quiet']:hover {
+  color: var(--cobalt-800);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.dp-button:active:not(:disabled) {
+  background: var(--paper-2);
+}
+
+.dp-button[data-intent='primary']:active:not(:disabled) {
+  background: var(--ink-inverse);
+}
+
+.dp-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.dp-button:disabled,
+.dp-button[aria-disabled='true'] {
+  color: var(--ink-500);
+  background: var(--paper-1);
+  border-color: var(--rule-hairline);
+}
+
+/* A disabled control that is still focusable must still explain itself. */
+.dp-button[aria-disabled='true']:hover {
+  cursor: not-allowed;
+}
+
+.dp-button[data-busy='true'] {
+  cursor: progress;
+  color: var(--ink-500);
+}
+
+.dp-button[data-full='true'] {
+  width: 100%;
+}
+
+/* The busy indicator is a hairline sweep in the brand hue — it states that
+   work is in flight, which is a genuine state change, and it never loops
+   forever under reduced motion. */
+.dp-button__spinner {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 1.5px solid var(--rule-control);
+  border-top-color: var(--cobalt-700);
+  border-radius: 50%;
+  animation: dp-spin 700ms linear infinite;
+}
+
+@keyframes dp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dp-button__spinner {
+    animation: none;
+    border-top-color: var(--rule-control-strong);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   TextField — the search control. Bordered on all sides with a control-grade
+   hairline so it reads as a control, and focus-within paints the Segno.
+   -------------------------------------------------------------------------- */
+.dp-field {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--density-control-min);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius-control);
+  padding-inline: var(--space-3);
+  transition: var(--transition-control);
+}
+
+.dp-field:focus-within {
+  border-color: var(--cobalt-700);
+  box-shadow: inset var(--focus-ring-width) 0 0 0 var(--cobalt-700);
+}
+
+.dp-field__icon {
+  flex: none;
+  color: var(--ink-500);
+  width: 1rem;
+  height: 1rem;
+}
+
+.dp-field__input {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: var(--space-3) 0;
+  background: transparent;
+  font-size: var(--text-body);
+  color: var(--ink-900);
+}
+
+.dp-field__input:focus {
+  outline: none;
+}
+
+.dp-field__submit {
+  flex: none;
+  min-height: 100%;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-inline-start: 1px solid var(--rule-hairline);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-700);
+  font-weight: var(--weight-semibold);
+  font-size: var(--density-type-label);
+  transition: var(--transition-control);
+}
+
+.dp-field__submit:hover {
+  background: var(--cobalt-700);
+  color: var(--cobalt-on);
+}
+
+.dp-field[data-invalid='true'] {
+  border-color: var(--contradict-700);
+}
+
+.dp-field__error {
+  margin: var(--space-1) 0 0;
+  color: var(--contradict-700);
+  font-size: var(--density-type-meta);
+}
+
+/* --------------------------------------------------------------------------
+   Skeleton — a state, not a decoration. It occupies the exact box the real
+   content will take, so nothing shifts when data arrives. Under reduced
+   motion the sweep stops and a static fill remains.
+   -------------------------------------------------------------------------- */
+.dp-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-2);
+  border-radius: var(--radius-mark);
+  min-height: 1em;
+}
+
+.dp-skeleton::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 34%;
+  transform: translateX(-100%);
+  /* A travelling tint band, not a gradient. The system ships no gradient
+     anywhere: a loading state is a moving plane and nothing more. */
+  background: color-mix(in srgb, var(--paper-0) 72%, transparent);
+  animation: dp-skeleton-sweep 1200ms var(--ease-move) infinite;
+}
+
+@keyframes dp-skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dp-skeleton::after {
+    animation: none;
+    transform: none;
+    background: color-mix(in srgb, var(--paper-0) 45%, transparent);
+  }
+}
+
+.dp-skeleton[data-lines='3'] {
+  min-height: 4.5em;
+}
+
+/* --------------------------------------------------------------------------
+   EmptyState / ErrorState — states that teach the interface.
+   Neither fabricates content. An empty state names what would be here and
+   what to do; an error state names the problem and the recovery.
+   -------------------------------------------------------------------------- */
+.dp-state {
+  padding: var(--space-8) 0;
+  border-top: 1px solid var(--rule-hairline);
+  border-bottom: 1px solid var(--rule-hairline);
+  max-width: var(--measure-brief);
+}
+
+.dp-state__title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-heading);
+  color: var(--ink-900);
+}
+
+.dp-state__body {
+  margin: 0 0 var(--space-4);
+  color: var(--ink-700);
+  max-width: var(--measure-brief);
+}
+
+/* An error names itself with the same rule that carries a contradiction:
+   a hairline, not a red fill. */
+.dp-state[data-state='error'] {
+  border-inline-start: var(--focus-ring-width) solid var(--contradict-700);
+  padding-inline-start: var(--space-4);
+}
+
+.dp-state[data-state='error'] .dp-state__title {
+  color: var(--contradict-700);
+}
+
+.dp-state[data-state='blocked'] {
+  border-inline-start: var(--focus-ring-width) solid var(--unresolved-700);
+  padding-inline-start: var(--space-4);
+}
+
+.dp-state[data-state='blocked'] .dp-state__title {
+  color: var(--unresolved-700);
+}
+
+.dp-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* --------------------------------------------------------------------------
+   EvidenceTape — the signature temporal component.
+   A navigation rail, not a causal graph. Marks are neutral until one is
+   selected; only then does it expose its finding state, and only locally.
+   -------------------------------------------------------------------------- */
+.dp-tape {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-width: none;
+}
+
+.dp-tape__track {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+.dp-tape__track::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0.3125rem;
+  height: 1px;
+  background: var(--rule-hairline-strong);
+}
+
+.dp-tape__mark {
+  position: relative;
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding-top: 0;
+  background: transparent;
+  border: 0;
+  color: var(--ink-500);
+  min-height: var(--target-min);
+  min-width: var(--target-min);
+  transition: var(--transition-select);
+}
+
+.dp-tape__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-top: 0.0625rem;
+  background: var(--paper-0);
+  border: 1px solid var(--rule-control);
+  border-radius: 50%;
+  transition: var(--transition-select);
+}
+
+.dp-tape__label {
+  font-family: var(--font-data);
+  font-size: var(--density-type-meta);
+  letter-spacing: var(--tracking-time);
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+.dp-tape__mark:hover {
+  color: var(--ink-900);
+}
+
+.dp-tape__mark:hover .dp-tape__dot {
+  border-color: var(--rule-control-strong);
+}
+
+.dp-tape__mark[aria-current='true'] {
+  color: var(--cobalt-800);
+  font-weight: var(--weight-semibold);
+}
+
+/* The evidence cursor: the selected mark gets a filled cobalt dot plus a
+   ring. Filled-vs-hollow is the non-color cue. */
+.dp-tape__mark[aria-current='true'] .dp-tape__dot {
+  background: var(--cobalt-700);
+  border-color: var(--cobalt-700);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--paper-selected);
+}
+
+.dp-tape__mark:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-width);
+  border-radius: var(--radius-mark);
+}
+
+/* --------------------------------------------------------------------------
+   Section band — the vertical rhythm of the document.
+   More space above a heading than below it, always.
+   -------------------------------------------------------------------------- */
+.dp-band {
+  padding-block: var(--density-section-gap);
+}
+
+.dp-band[data-tone='tight'] {
+  padding-block: var(--density-section-gap);
+}
+
+.dp-band[data-tone='loose'] {
+  padding-block: var(--density-band-gap);
+}
+
+.dp-band + .dp-band {
+  border-top: 1px solid var(--rule-hairline);
+}
+
+.dp-band__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+/* --------------------------------------------------------------------------
+   Reading prose — the Fact-check body. The measure is enforced here, once.
+   -------------------------------------------------------------------------- */
+.dp-prose {
+  max-width: var(--measure-prose);
+  color: var(--ink-700);
+}
+
+.dp-prose > * + * {
+  margin-top: var(--space-4);
+}
+
+.dp-prose h2 {
+  margin-top: var(--space-8);
+  margin-bottom: 0;
+}
+
+.dp-prose h3 {
+  margin-top: var(--space-6);
+  margin-bottom: 0;
+}
+
+/* The concise answer is the dominant prose object on a Fact-check: larger
+   measure of ink, ink not ink-700, so it wins without being a headline. */
+.dp-answer {
+  margin: 0 0 var(--space-7);
+  max-width: var(--measure-brief);
+  font-size: var(--text-lede);
+  line-height: var(--leading-lede);
+  font-weight: var(--weight-medium);
+  color: var(--ink-900);
+  text-wrap: pretty;
+}
+
+/* --------------------------------------------------------------------------
+   Grid helpers — two only. The system does not ship a grid framework.
+   -------------------------------------------------------------------------- */
+.dp-split {
+  display: grid;
+  grid-template-columns: minmax(0, var(--width-reading)) minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .dp-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+}
+
+.dp-sticky-rail {
+  position: sticky;
+  top: var(--space-5);
+}
+
+/* --------------------------------------------------------------------------
+   Utility
+   -------------------------------------------------------------------------- */
+.dp-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dp-skip-link {
+  position: fixed;
+  inset-inline-start: var(--space-4);
+  top: var(--space-3);
+  z-index: var(--z-skip-link);
+  transform: translateY(-200%);
+  padding: var(--space-3) var(--space-4);
+  background: var(--ink-inverse);
+  color: var(--ink-inverse-100);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  border-radius: var(--radius-control);
+  transition: transform var(--duration-fast) var(--ease-enter);
+}
+
+.dp-skip-link:focus {
+  transform: none;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color-inverse);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* --------------------------------------------------------------------------
+   Theme color
+   `BaseLayout.astro` owns a hardcoded `theme-color` meta that this lane does
+   not own. Rather than edit another lane's file, the correct value is
+   published here as a token so the migration is a one-line change on the
+   owner's side, and so a drift between the two is visible in review:
+
+       <meta name="theme-color" content="var(--theme-color-paper)" />
+
+   --theme-color-paper is --paper-0, NOT the incumbent cream: the ground was
+   extended for contrast, and browser chrome colored to the old value would
+   visibly disagree with the page.
+   -------------------------------------------------------------------------- */
+:root {
+  --theme-color-paper: var(--paper-0);
+  --theme-color-inverse: var(--ink-inverse);
+}

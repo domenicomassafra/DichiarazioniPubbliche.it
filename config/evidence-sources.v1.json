@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "name": "evidence-sources-v1",
+  "defaults": {
+    "connect_timeout_seconds": 8,
+    "read_timeout_seconds": 20,
+    "max_response_bytes": 8388608,
+    "cache_ttl_seconds": 3600,
+    "redirect_limit": 4,
+    "user_agent": "DichiarazioniPubbliche/0.1 evidence-retrieval (+DichiarazioniPubbliche.it)"
+  },
+  "sources": [
+    {
+      "id": "istat-sdmx",
+      "publisher": "ISTAT",
+      "evidence_class": "PRIMARY_OFFICIAL_STATISTICS",
+      "authoritative": true,
+      "allowed_hosts": ["esploradati.istat.it"],
+      "allowed_path_prefixes": ["/SDMXWS/"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://esploradati.istat.it/SDMXWS/rest/",
+      "rate_limit": {"requests": 4, "window_seconds": 60},
+      "cache_ttl_seconds": 21600,
+      "accepted_content_types": [
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "text/csv",
+        "application/vnd.sdmx"
+      ],
+      "notes": "Keep below ISTAT's documented 5 queries/minute per-IP limit."
+    },
+    {
+      "id": "istat-publications",
+      "publisher": "ISTAT",
+      "evidence_class": "PRIMARY_OFFICIAL_STATISTICS",
+      "authoritative": true,
+      "allowed_hosts": ["www.istat.it", "istat.it"],
+      "allowed_path_prefixes": [
+        "/comunicato-stampa/",
+        "/produzione-editoriale/",
+        "/statistiche-per-temi/"
+      ],
+      "allowed_methods": ["GET"],
+      "base_url": "https://www.istat.it/",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 21600,
+      "accepted_content_types": ["text/html", "application/pdf"]
+    },
+    {
+      "id": "eurostat-api",
+      "publisher": "Eurostat",
+      "evidence_class": "PRIMARY_OFFICIAL_STATISTICS",
+      "authoritative": true,
+      "allowed_hosts": ["ec.europa.eu"],
+      "allowed_path_prefixes": ["/eurostat/api/"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://ec.europa.eu/eurostat/api/",
+      "rate_limit": {"requests": 20, "window_seconds": 60},
+      "cache_ttl_seconds": 21600,
+      "accepted_content_types": [
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "text/csv",
+        "text/tab-separated-values",
+        "application/vnd.sdmx"
+      ]
+    },
+    {
+      "id": "normattiva-opendata",
+      "publisher": "Normattiva Open Data",
+      "evidence_class": "OFFICIAL_LEGAL_INFORMATIONAL",
+      "authoritative": false,
+      "allowed_hosts": ["api.normattiva.it"],
+      "allowed_path_prefixes": ["/t/normattiva.api/"],
+      "allowed_methods": ["GET", "POST"],
+      "base_url": "https://api.normattiva.it/t/normattiva.api/",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 3600,
+      "accepted_content_types": [
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "text/html",
+        "application/akn+xml"
+      ],
+      "legal_authenticity": "INFORMATIONAL_NON_AUTHENTIC; GAZZETTA_UFFICIALE_PREVAILS"
+    },
+    {
+      "id": "gazzetta-ufficiale",
+      "publisher": "Gazzetta Ufficiale",
+      "evidence_class": "PRIMARY_OFFICIAL_LEGAL",
+      "authoritative": true,
+      "allowed_hosts": ["www.gazzettaufficiale.it", "gazzettaufficiale.it"],
+      "allowed_path_prefixes": ["/atto/", "/do/", "/eli/"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://www.gazzettaufficiale.it/",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 86400,
+      "accepted_content_types": ["text/html", "application/pdf", "application/xml", "text/xml"]
+    },
+    {
+      "id": "camera-linked-data",
+      "publisher": "Camera dei deputati",
+      "evidence_class": "PRIMARY_OFFICIAL_PARLIAMENTARY",
+      "authoritative": true,
+      "allowed_hosts": ["dati.camera.it"],
+      "allowed_path_prefixes": ["/sparql"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://dati.camera.it/sparql",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 3600,
+      "accepted_content_types": [
+        "application/sparql-results+json",
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "text/html",
+        "text/csv"
+      ]
+    },
+    {
+      "id": "camera-publications",
+      "publisher": "Camera dei deputati",
+      "evidence_class": "PRIMARY_OFFICIAL_PARLIAMENTARY",
+      "authoritative": true,
+      "allowed_hosts": ["temi.camera.it", "www.camera.it", "camera.it"],
+      "allowed_path_prefixes": ["/leg", "/temiap/", "/"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://www.camera.it/",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 3600,
+      "accepted_content_types": ["text/html", "application/pdf", "application/xml", "text/xml"]
+    },
+    {
+      "id": "senato-linked-data",
+      "publisher": "Senato della Repubblica",
+      "evidence_class": "PRIMARY_OFFICIAL_PARLIAMENTARY",
+      "authoritative": true,
+      "allowed_hosts": ["dati.senato.it"],
+      "allowed_path_prefixes": ["/sparql"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://dati.senato.it/sparql",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 3600,
+      "accepted_content_types": [
+        "application/sparql-results+json",
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "text/html",
+        "text/csv"
+      ]
+    },
+    {
+      "id": "senato-publications",
+      "publisher": "Senato della Repubblica",
+      "evidence_class": "PRIMARY_OFFICIAL_PARLIAMENTARY",
+      "authoritative": true,
+      "allowed_hosts": ["www.senato.it", "senato.it", "www.parlamento.it", "parlamento.it"],
+      "allowed_path_prefixes": ["/istituzione/", "/sito/", "/leg/", "/"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://www.senato.it/",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 3600,
+      "accepted_content_types": ["text/html", "application/pdf", "application/xml", "text/xml"]
+    },
+    {
+      "id": "eurlex-cellar",
+      "publisher": "Publications Office of the European Union / EUR-Lex",
+      "evidence_class": "PRIMARY_OFFICIAL_EU_LEGAL",
+      "authoritative": true,
+      "allowed_hosts": ["eur-lex.europa.eu", "publications.europa.eu"],
+      "allowed_path_prefixes": ["/content/", "/legal-content/", "/resource/cellar/"],
+      "allowed_methods": ["GET"],
+      "base_url": "https://publications.europa.eu/resource/cellar/",
+      "rate_limit": {"requests": 12, "window_seconds": 60},
+      "cache_ttl_seconds": 86400,
+      "accepted_content_types": [
+        "application/xml",
+        "application/rdf+xml",
+        "text/html",
+        "application/pdf",
+        "application/json"
+      ]
+    }
+  ]
+}

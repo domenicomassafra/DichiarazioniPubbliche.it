@@ -1,0 +1,289 @@
+import sys
+import unittest
+from dataclasses import replace
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "poc"))
+
+from dichiarazioni_pubbliche.domain_vocabulary import ClaimType  # noqa: E402
+from dichiarazioni_pubbliche.source_intelligence import (  # noqa: E402
+    EVIDENCE_ROLES,
+    EvidenceItem,
+    SourceIntelligenceContract,
+    SourceRelation,
+    assess_evidence_set,
+    evidence_item_from_row,
+    load_source_intelligence_contract,
+)
+
+
+class SourceIntelligenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.contract = load_source_intelligence_contract()
+
+    def item(
+        self,
+        source_id,
+        *,
+        evidence_id="e:1",
+        value=63.2,
+        publication_date="2026-09-01",
+        reference_period="2026-07",
+        metric="employment_rate_pct",
+        unit="percent",
+        dimensions=None,
+        independence_group=None,
+        rights_status="UNKNOWN",
+    ):
+        return evidence_item_from_row(
+            {
+                "evidence_id": evidence_id,
+                "source_id": source_id,
+                "publication_date": publication_date,
+                "reference_period": reference_period,
+                "metric": metric,
+                "unit": unit,
+                "dimensions": dimensions or {},
+                "value_numeric": value if isinstance(value, (int, float)) else None,
+                "value_text": value if isinstance(value, str) else None,
+                "independence_group": independence_group or source_id,
+                "rights_status": rights_status,
+                "status": "APPROVED",
+                "metadata": {"evidence_source_id": source_id},
+            },
+            self.contract,
+        )
+
+    def assess(self, evidence, **overrides):
+        values = {
+            "target_type": "ATOMIC_CLAIM",
+            "target_id": "claim:test",
+            "claim_type": "NUMERIC_STATISTIC",
+            "statement_date": "2026-09-04",
+            "claim_requirements": {
+                "metric": "employment_rate_pct",
+                "unit": "percent",
+                "reference_period": "2026-07",
+            },
+            "evidence": evidence,
+            "contract": self.contract,
+        }
+        values.update(overrides)
+        return assess_evidence_set(**values)
+
+    def test_contract_covers_every_claim_type_and_registry_source(self):
+        self.assertEqual(
+            set(self.contract.requirements_by_claim_type),
+            {item.value for item in ClaimType},
+        )
+        evidence_registry = __import__("json").loads(
+            (ROOT / "config" / "evidence-sources.v1.json").read_text()
+        )
+        self.assertEqual(
+            set(self.contract.evidence_profiles_by_registry_id),
+            {row["id"] for row in evidence_registry["sources"]},
+        )
+        self.assertEqual(len(self.contract.profiles), 13)
+
+    def test_same_source_can_have_multiple_roles_without_global_rating(self):
+        profile = self.contract.evidence_profiles_by_registry_id["istat-sdmx"]
+        self.assertEqual(set(profile.roles), {"PRIMARY_RECORD", "OFFICIAL_STATISTICS"})
+        self.assertTrue(set(profile.roles) <= set(EVIDENCE_ROLES))
+        self.assertFalse(hasattr(profile, "trust_score"))
+        self.assertFalse(hasattr(profile, "reliability_score"))
+
+    def test_istat_numeric_exact_period_is_sufficient(self):
+        result = self.assess([self.item("istat-sdmx")])
+        self.assertEqual(result.status, "SUFFICIENT_FOR_RULE")
+        self.assertEqual(result.qualifying_evidence_ids, ("e:1",))
+        self.assertFalse(result.coverage_need_candidates)
+
+    def test_istat_wrong_period_is_temporal_mismatch(self):
+        result = self.assess(
+            [self.item("istat-sdmx", reference_period="2026-06")]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertTrue(result.coverage_need_candidates)
+
+    def test_future_evidence_is_temporal_mismatch(self):
+        result = self.assess(
+            [self.item("istat-sdmx", publication_date="2026-09-05")]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+
+    def test_gazzetta_legal_scope_succeeds_normattiva_alone_does_not(self):
+        legal_kwargs = dict(
+            target_type="ATOMIC_CLAIM",
+            target_id="claim:legal",
+            claim_type="LEGAL_POLICY_STATUS",
+            statement_date="2026-09-04",
+            claim_requirements={"jurisdiction": "IT"},
+            contract=self.contract,
+        )
+        gazzetta = self.item(
+            "gazzetta-ufficiale",
+            metric=None,
+            unit=None,
+            reference_period=None,
+            value="vigente",
+        )
+        result = assess_evidence_set(evidence=[gazzetta], **legal_kwargs)
+        self.assertEqual(result.status, "SUFFICIENT_FOR_RULE")
+        informational = self.item(
+            "normattiva-opendata",
+            metric=None,
+            unit=None,
+            reference_period=None,
+            value="vigente",
+        )
+        result = assess_evidence_set(evidence=[informational], **legal_kwargs)
+        self.assertEqual(result.status, "INSUFFICIENT_PRIMARY_SOURCE")
+        self.assertIn("AUTHENTIC_LEGAL_TEXT", result.coverage_need_candidates[0].required_roles)
+
+    def test_gazzetta_wrong_jurisdiction_is_scope_mismatch(self):
+        result = assess_evidence_set(
+            target_type="ATOMIC_CLAIM",
+            target_id="claim:legal-eu",
+            claim_type="LEGAL_POLICY_STATUS",
+            statement_date="2026-09-04",
+            claim_requirements={"jurisdiction": "EU"},
+            evidence=[
+                self.item(
+                    "gazzetta-ufficiale",
+                    metric=None,
+                    unit=None,
+                    reference_period=None,
+                    value="vigente",
+                )
+            ],
+            contract=self.contract,
+        )
+        self.assertEqual(result.status, "SCOPE_MISMATCH")
+
+    def test_first_party_statement_does_not_corroborate_numeric_content(self):
+        first_party = EvidenceItem(
+            evidence_id="e:first-party",
+            registry_source_id="manual:first-party",
+            source_profile_id="profile:first-party",
+            roles=("FIRST_PARTY_STATEMENT",),
+            authority_scopes=(),
+            publication_date="2026-09-01",
+            reference_period="2026-07",
+            rights_status="UNKNOWN",
+            access_status="AVAILABLE",
+            independence_group="first-party",
+            metric="employment_rate_pct",
+            unit="percent",
+            value_numeric=63.2,
+            status="APPROVED",
+        )
+        result = self.assess([first_party])
+        self.assertEqual(result.status, "INSUFFICIENT_PRIMARY_SOURCE")
+
+    def test_conflicting_qualified_primary_records_hold(self):
+        result = self.assess(
+            [
+                self.item("istat-sdmx", evidence_id="e:a", value=63.2),
+                self.item(
+                    "istat-publications",
+                    evidence_id="e:b",
+                    value=63.1,
+                    independence_group="istat-release-b",
+                ),
+            ]
+        )
+        self.assertEqual(result.status, "CONFLICTING_EVIDENCE")
+        self.assertEqual(len(result.conflict_groups), 1)
+
+    def test_missing_primary_emits_coverage_need_candidate(self):
+        result = self.assess([])
+        self.assertEqual(result.status, "INSUFFICIENT_PRIMARY_SOURCE")
+        self.assertTrue(
+            any(need.requirement_kind == "ROLE_ANY" for need in result.coverage_need_candidates)
+        )
+
+    def test_two_syndicated_items_do_not_satisfy_two_independent_lineages(self):
+        base = self.contract.requirements_by_claim_type["NUMERIC_STATISTIC"]
+        rules = []
+        for rule in base.rules:
+            if rule.kind == "MIN_INDEPENDENT_LINEAGES":
+                rules.append(replace(rule, parameters={"minimum": 2}))
+            else:
+                rules.append(rule)
+        strict = replace(base, id=base.id + ":two", rules=tuple(rules))
+        contract = SourceIntelligenceContract(
+            source_version=self.contract.source_version,
+            requirement_version=self.contract.requirement_version,
+            profiles=self.contract.profiles,
+            requirement_profiles=tuple(
+                strict if item.claim_type == strict.claim_type else item
+                for item in self.contract.requirement_profiles
+            ),
+        )
+        first = self.item(
+            "istat-sdmx", evidence_id="e:a", independence_group="agency-release"
+        )
+        second = self.item(
+            "istat-publications", evidence_id="e:b", independence_group="copy-b"
+        )
+        relation = SourceRelation(
+            from_profile_id=second.source_profile_id,
+            to_profile_id=first.source_profile_id,
+            relation_type="SYNDICATED_FROM",
+            status="APPROVED",
+            evidence_basis={"derivation_candidate_id": "derivation:test"},
+        )
+        result = self.assess(
+            [first, second], contract=contract, relations=[relation]
+        )
+        self.assertEqual(result.status, "INSUFFICIENT_INDEPENDENCE")
+
+    def test_rights_hold_fails_closed(self):
+        result = self.assess(
+            [self.item("istat-sdmx", rights_status="RIGHTS_HOLD")]
+        )
+        self.assertEqual(result.status, "ACCESS_OR_RIGHTS_BLOCKED")
+
+    def test_unknown_source_identity_fails_closed(self):
+        unknown = self.item("istat-sdmx")
+        unknown = replace(
+            unknown,
+            registry_source_id="unknown",
+            source_profile_id=None,
+            roles=(),
+            authority_scopes=(),
+        )
+        result = self.assess([unknown])
+        self.assertEqual(result.status, "UNRESOLVED_SOURCE_IDENTITY")
+
+    def test_high_context_inference_never_auto_suffices(self):
+        evidence = EvidenceItem(
+            evidence_id="e:expert",
+            registry_source_id="manual:expert",
+            source_profile_id="profile:expert",
+            roles=("EXPERT_SYNTHESIS",),
+            authority_scopes=(),
+            publication_date="2026-09-01",
+            reference_period=None,
+            rights_status="UNKNOWN",
+            access_status="AVAILABLE",
+            independence_group="expert-a",
+            status="APPROVED",
+        )
+        result = assess_evidence_set(
+            target_type="ATOMIC_CLAIM",
+            target_id="claim:causal",
+            claim_type="CAUSAL_CLAIM",
+            statement_date="2026-09-04",
+            claim_requirements={},
+            evidence=[evidence],
+            contract=self.contract,
+        )
+        self.assertEqual(result.status, "NEEDS_REVIEW")
+
+
+if __name__ == "__main__":
+    unittest.main()
