@@ -2,7 +2,7 @@
 
 Status: FUTURE
 Milestone: M3 — Editorial, correction, privacy, and legal policy
-Depends on: DP-215, DP-216..DP-223, DP-301..DP-305
+Depends on: DP-215, DP-216..DP-224, DP-301..DP-305
 
 ## Problem
 
@@ -32,6 +32,7 @@ For the relevant record type, the gate must be able to require:
 - DP-220 context-integrity approval;
 - DP-221 wording/translation type integrity;
 - DP-222 stable Person identity/role-at-time integrity;
+- DP-224 material-assertion citation assurance;
 - DP-215 evidence suitability and independence requirements;
 - DP-304 privacy/minimization decision;
 - DP-305 rights/excerpt decision;

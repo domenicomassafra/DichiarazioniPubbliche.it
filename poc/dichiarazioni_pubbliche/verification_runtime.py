@@ -135,6 +135,106 @@ def _numeric_values(
     return output
 
 
+def _numeric_input(
+    request: VerificationRequest,
+    evidence: Iterable[VerificationEvidence],
+    *,
+    metric: str,
+    reference_period: str | None,
+) -> tuple[str, VerificationEvidence | None, float | None, tuple[str, ...], str | None]:
+    cutoff = _parse_date(request.statement_date, "STATEMENT_DATE")
+    matched = [
+        item
+        for item in _approved(evidence)
+        if item.metric == metric
+        and item.value_numeric is not None
+        and (reference_period is None or item.reference_period == reference_period)
+    ]
+    before = [
+        item
+        for item in matched
+        if _parse_date(item.publication_date, "EVIDENCE_PUBLICATION_DATE") <= cutoff
+    ]
+    if not before:
+        reason = "POST_STATEMENT_EVIDENCE_ONLY" if matched else "NO_APPROVED_MATCHING_EVIDENCE"
+        return "INSUFFICIENT", None, None, _evidence_ids(matched), reason
+    suitable = [item for item in before if item.suitable]
+    if not suitable:
+        return "INSUFFICIENT", None, None, _evidence_ids(before), "NO_SUITABLE_EVIDENCE"
+    distinct = {
+        (round(float(item.value_numeric), 12), str(item.unit or ""))
+        for item in suitable
+    }
+    if len(distinct) != 1:
+        return "CONFLICT", None, None, _evidence_ids(suitable), "CONFLICTING_NUMERIC_INPUT"
+    selected = sorted(suitable, key=lambda item: (item.evidence_id, item.observation_id or ""))[0]
+    return "OK", selected, float(selected.value_numeric), _evidence_ids(suitable), None
+
+
+def _numeric_pair_inputs(
+    request: VerificationRequest,
+    evidence: Iterable[VerificationEvidence],
+    *,
+    left_metric: str,
+    right_metric: str,
+    left_reference_period: str | None,
+    right_reference_period: str | None,
+) -> tuple[
+    VerificationEvidence | None,
+    float | None,
+    VerificationEvidence | None,
+    float | None,
+    VerificationResult | None,
+]:
+    left_state, left_item, left_value, left_ids, left_reason = _numeric_input(
+        request,
+        evidence,
+        metric=left_metric,
+        reference_period=left_reference_period,
+    )
+    right_state, right_item, right_value, right_ids, right_reason = _numeric_input(
+        request,
+        evidence,
+        metric=right_metric,
+        reference_period=right_reference_period,
+    )
+    combined_ids = tuple(dict.fromkeys((*left_ids, *right_ids)))
+    if left_state == "CONFLICT" or right_state == "CONFLICT":
+        return None, None, None, None, VerificationResult(
+            request.claim_id,
+            VerificationAssessment.UNRESOLVED,
+            combined_ids,
+            tuple(
+                reason
+                for reason in (left_reason, right_reason)
+                if reason is not None
+            ),
+            tuple(
+                reason
+                for reason in (left_reason, right_reason)
+                if reason is not None
+            ),
+            {},
+            request.statement_date,
+        )
+    if left_state != "OK" or right_state != "OK":
+        reasons = tuple(
+            dict.fromkeys(
+                reason
+                for reason in (left_reason, right_reason)
+                if reason is not None
+            )
+        )
+        blocker = reasons[0] if reasons else "NUMERIC_PAIR_INPUT_REQUIRED"
+        return None, None, None, None, _insufficient(
+            request,
+            blocker,
+            evidence_ids=combined_ids,
+            result={"input_blockers": list(reasons)},
+        )
+    return left_item, left_value, right_item, right_value, None
+
+
 def _evidence_ids(
     evidence: Iterable[VerificationEvidence],
 ) -> tuple[str, ...]:
@@ -320,6 +420,156 @@ def verify_numeric_range(
     )
 
 
+def verify_numeric_delta(
+    request: VerificationRequest,
+    evidence: Iterable[VerificationEvidence],
+) -> VerificationResult:
+    left_metric = str(request.rule.get("left_metric") or "").strip()
+    right_metric = str(request.rule.get("right_metric") or "").strip()
+    if not left_metric or not right_metric:
+        raise ValueError("NUMERIC_DELTA_METRICS_REQUIRED")
+    left, left_value, right, right_value, blocked = _numeric_pair_inputs(
+        request,
+        evidence,
+        left_metric=left_metric,
+        right_metric=right_metric,
+        left_reference_period=(
+            str(request.rule["left_reference_period"])
+            if request.rule.get("left_reference_period") is not None
+            else None
+        ),
+        right_reference_period=(
+            str(request.rule["right_reference_period"])
+            if request.rule.get("right_reference_period") is not None
+            else None
+        ),
+    )
+    if blocked is not None:
+        return blocked
+    assert left is not None and right is not None
+    assert left_value is not None and right_value is not None
+    if str(left.unit or "") != str(right.unit or ""):
+        return _insufficient(
+            request,
+            "NUMERIC_UNIT_MISMATCH",
+            evidence_ids=_evidence_ids((left, right)),
+            result={"left_unit": left.unit, "right_unit": right.unit},
+        )
+    expected = float(request.rule["value"])
+    tolerance = float(request.rule.get("tolerance", 0.0))
+    if tolerance < 0:
+        raise ValueError("NEGATIVE_TOLERANCE")
+    observed = left_value - right_value
+    assessment = (
+        VerificationAssessment.SUPPORTED
+        if abs(observed - expected) <= tolerance
+        else VerificationAssessment.FACTUALLY_FALSE
+    )
+    return VerificationResult(
+        request.claim_id,
+        assessment,
+        _evidence_ids((left, right)),
+        (),
+        ("NUMERIC_DELTA_MATCH" if assessment == VerificationAssessment.SUPPORTED else "NUMERIC_DELTA_MISMATCH",),
+        {
+            "expected": expected,
+            "observed": observed,
+            "tolerance": tolerance,
+            "left_metric": left_metric,
+            "right_metric": right_metric,
+            "unit": left.unit,
+        },
+        request.statement_date,
+    )
+
+
+def verify_numeric_ratio(
+    request: VerificationRequest,
+    evidence: Iterable[VerificationEvidence],
+    *,
+    percent_change: bool = False,
+) -> VerificationResult:
+    if percent_change:
+        left_metric = str(request.rule.get("current_metric") or "").strip()
+        right_metric = str(request.rule.get("baseline_metric") or "").strip()
+        left_period_key = "current_reference_period"
+        right_period_key = "baseline_reference_period"
+    else:
+        left_metric = str(request.rule.get("numerator_metric") or "").strip()
+        right_metric = str(request.rule.get("denominator_metric") or "").strip()
+        left_period_key = "numerator_reference_period"
+        right_period_key = "denominator_reference_period"
+    if not left_metric or not right_metric:
+        raise ValueError("NUMERIC_RATIO_METRICS_REQUIRED")
+    left, left_value, right, right_value, blocked = _numeric_pair_inputs(
+        request,
+        evidence,
+        left_metric=left_metric,
+        right_metric=right_metric,
+        left_reference_period=(
+            str(request.rule[left_period_key])
+            if request.rule.get(left_period_key) is not None
+            else None
+        ),
+        right_reference_period=(
+            str(request.rule[right_period_key])
+            if request.rule.get(right_period_key) is not None
+            else None
+        ),
+    )
+    if blocked is not None:
+        return blocked
+    assert left is not None and right is not None
+    assert left_value is not None and right_value is not None
+    if right_value == 0:
+        return _insufficient(
+            request,
+            "NUMERIC_DENOMINATOR_ZERO",
+            evidence_ids=_evidence_ids((left, right)),
+        )
+    if percent_change and str(left.unit or "") != str(right.unit or ""):
+        return _insufficient(
+            request,
+            "NUMERIC_UNIT_MISMATCH",
+            evidence_ids=_evidence_ids((left, right)),
+            result={"current_unit": left.unit, "baseline_unit": right.unit},
+        )
+    expected = float(request.rule["value"])
+    tolerance = float(request.rule.get("tolerance", 0.0))
+    if tolerance < 0:
+        raise ValueError("NEGATIVE_TOLERANCE")
+    scale = 100.0 if percent_change else float(request.rule.get("scale", 1.0))
+    if not percent_change and scale <= 0:
+        raise ValueError("NUMERIC_RATIO_SCALE_INVALID")
+    observed = (
+        ((left_value - right_value) / right_value) * 100.0
+        if percent_change
+        else (left_value / right_value) * scale
+    )
+    assessment = (
+        VerificationAssessment.SUPPORTED
+        if abs(observed - expected) <= tolerance
+        else VerificationAssessment.FACTUALLY_FALSE
+    )
+    code = "NUMERIC_PERCENT_CHANGE" if percent_change else "NUMERIC_RATIO"
+    return VerificationResult(
+        request.claim_id,
+        assessment,
+        _evidence_ids((left, right)),
+        (),
+        (f"{code}_MATCH" if assessment == VerificationAssessment.SUPPORTED else f"{code}_MISMATCH",),
+        {
+            "expected": expected,
+            "observed": observed,
+            "tolerance": tolerance,
+            "left_metric": left_metric,
+            "right_metric": right_metric,
+            "scale": scale,
+        },
+        request.statement_date,
+    )
+
+
 def verify_historical_extreme(
     request: VerificationRequest,
     evidence: Iterable[VerificationEvidence],
@@ -459,6 +709,12 @@ def verify(
         return verify_numeric_exact(request, evidence)
     if request.kind == "numeric_range":
         return verify_numeric_range(request, evidence)
+    if request.kind == "numeric_delta":
+        return verify_numeric_delta(request, evidence)
+    if request.kind == "numeric_ratio":
+        return verify_numeric_ratio(request, evidence)
+    if request.kind == "numeric_percent_change":
+        return verify_numeric_ratio(request, evidence, percent_change=True)
     if request.kind == "historical_minimum":
         return verify_historical_extreme(request, evidence, mode="minimum")
     if request.kind == "historical_peak":

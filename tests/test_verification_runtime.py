@@ -242,6 +242,89 @@ class VerificationRuntimeTests(unittest.TestCase):
         )
         self.assertNotEqual(left, right)
 
+    def test_numeric_delta_uses_two_suitable_inputs_and_same_unit(self):
+        request = VerificationRequest(
+            "claim:delta",
+            "2026-09-04",
+            "numeric_delta",
+            {
+                "left_metric": "employment_rate_pct",
+                "right_metric": "employment_rate_pct_previous",
+                "left_reference_period": "2026-07",
+                "right_reference_period": "2025-07",
+                "value": 1.5,
+                "tolerance": 0.01,
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(63.5, evidence_id="current"),
+                evidence(
+                    62.0,
+                    evidence_id="previous",
+                    metric="employment_rate_pct_previous",
+                    reference_period="2025-07",
+                ),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
+        self.assertAlmostEqual(result.result["observed"], 1.5)
+
+    def test_numeric_percent_change_fails_closed_on_zero_baseline(self):
+        request = VerificationRequest(
+            "claim:pct",
+            "2026-09-04",
+            "numeric_percent_change",
+            {
+                "current_metric": "spending",
+                "baseline_metric": "spending_previous",
+                "current_reference_period": "2026",
+                "baseline_reference_period": "2025",
+                "value": 10.0,
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(
+                    10.0,
+                    evidence_id="current",
+                    metric="spending",
+                    reference_period="2026",
+                ),
+                evidence(
+                    0.0,
+                    evidence_id="baseline",
+                    metric="spending_previous",
+                    reference_period="2025",
+                ),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.INSUFFICIENT_EVIDENCE)
+        self.assertIn("NUMERIC_DENOMINATOR_ZERO", result.blockers)
+
+    def test_numeric_ratio_detects_mismatch(self):
+        request = VerificationRequest(
+            "claim:ratio",
+            "2026-09-04",
+            "numeric_ratio",
+            {
+                "numerator_metric": "part",
+                "denominator_metric": "whole",
+                "value": 0.6,
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(30.0, evidence_id="part", metric="part"),
+                evidence(100.0, evidence_id="whole", metric="whole"),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.FACTUALLY_FALSE)
+        self.assertAlmostEqual(result.result["observed"], 0.3)
+
 
 if __name__ == "__main__":
     unittest.main()

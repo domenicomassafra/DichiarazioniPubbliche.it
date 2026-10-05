@@ -2,7 +2,7 @@
 
 Status: FUTURE
 Milestone: M2 — Live pipeline readiness and source coverage
-Depends on: DP-216..DP-222; coordinate with DP-602 and DP-704
+Depends on: DP-216..DP-222, DP-224; coordinate with DP-602 and DP-704
 
 ## Problem
 
@@ -40,6 +40,7 @@ At minimum include:
 - syndicated articles repeating one upstream quote;
 - source page updated after capture;
 - stale speaker/context/quote review after source-version change;
+- Finding rationale assertion backed only by unrelated/context/contradictory evidence;
 - direct database/status/person/quote tampering;
 - rights hold or unavailable source body;
 - model output containing a plausible sentence absent from every source span.
@@ -75,6 +76,8 @@ public attribution for higher recall.
   attributions and **zero** fabricated direct quotes.
 - [ ] **AC-223.4:** A failure in quote, transcript, speaker, identity, context, rights or
   review provenance produces `HELD/OMITTED/UNRESOLVED`, never a guessed fallback.
+- [ ] **AC-223.4A:** A material Finding assertion without a compatible DP-224 approved
+  citation is omitted/held and cannot borrow unrelated Finding-level evidence membership.
 - [ ] **AC-223.5:** Benchmark output reports separate counts, not one composite score.
 - [ ] **AC-223.6:** Direct persistence tampering is included; helper-layer validation alone
   is insufficient.

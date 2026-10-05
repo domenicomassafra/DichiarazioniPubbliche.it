@@ -189,7 +189,16 @@ without manual DB surgery.
 | DP-220 | FUTURE | Context-integrity / semantic-clipping guard for public statements | DP-216, DP-217, DP-219 |
 | DP-221 | FUTURE | Original wording vs paraphrase/summary/translation separation | DP-216 |
 | DP-222 | FUTURE | Public-attribution Person identity + same-name/role-at-time gate | DP-101, DP-114, DP-216, DP-218 |
-| DP-223 | FUTURE | False-attribution/fabricated-quote adversarial benchmark; zero known public escapes | DP-216..222 |
+| DP-223 | FUTURE | False-attribution/fabricated-quote adversarial benchmark; zero known public escapes | DP-216..222, DP-224 |
+| DP-224 | IN PROGRESS | Material-assertion citation assurance over approved evidence/passages | DP-215, DP-210; coordinate DP-216/DP-308 |
+| DP-225 | IN PROGRESS | Reviewed original-source resolver over approved derivation families | DP-115, DP-215 |
+| DP-226 | IN PROGRESS | Compound numerical verification: delta/ratio/percent change + unit/denominator policy | DP-215 |
+| DP-227 | IN PROGRESS | Effective-time, validity-interval and supersession verification | DP-215, DP-210 |
+| DP-228 | IN PROGRESS | Claim-specific research-plan compiler with bounded specialist retrieval lanes | DP-213, DP-215, DP-209 |
+| DP-229 | FUTURE | Bounded adversarial challenger/counter-case packet | DP-228, DP-215 |
+| DP-230 | IN PROGRESS | Canonical provider-operation receipt + reconstructable cost ledger v2 | DP-209, DP-211, DP-506 |
+| DP-231 | READY | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
+| DP-232 | FUTURE | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never
@@ -197,6 +206,9 @@ used as biometric identity; evidence suitability is contextual and inspectable r
 a global source score; direct quotations are source-span bound rather than model-authored;
 speaker/person/context/wording derivation are fail-closed and reviewable; the adversarial
 attribution benchmark has zero known public false-attribution/fabricated-quote escapes; and
+material Finding assertions are citation-audited; original-source derivation and compound
+numeric/effective-time verification are deterministic; research work compiles from evidence
+requirements into bounded lanes rather than open-ended agents; and
 the corpus-native path has one real bounded collection that can be replayed without
 duplicate records or public side effects.
 
@@ -216,7 +228,7 @@ handled before opening the product to users.
 | DP-305 | IN PROGRESS | Copyright/transcript excerpt publication policy | M0 |
 | DP-306 | READY | Legal research closure checklist for Italy/EU launch | DP-301..305 |
 | DP-307 | FUTURE | Qualified legal review and resulting ADR/policy changes | DP-306 |
-| DP-308 | FUTURE | Publication evidence invariants + fail-closed safety profile; no confidence score | DP-215, DP-216..223, DP-301..305 |
+| DP-308 | FUTURE | Publication evidence invariants + fail-closed safety profile; no confidence score | DP-215, DP-216..224, DP-301..305 |
 | DP-309 | FUTURE | High-risk assertion/legal-status escalation gate | DP-215, DP-304, DP-306, DP-308; DP-307 for launch |
 | DP-310 | FUTURE | Independent/dual-control publication review for HIGH/LEGAL records | DP-308, DP-309 |
 
