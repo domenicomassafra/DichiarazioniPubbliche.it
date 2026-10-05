@@ -1,6 +1,6 @@
 # DP-229 — Bounded adversarial challenger / counter-case packet
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-228, DP-215; coordinate with DP-110 and DP-308
 
@@ -18,11 +18,15 @@ overrides deterministic verification.
 
 ## Acceptance criteria
 
-- [ ] Challenger has separate operation identity/budget from the main research lane.
+- [x] Pure challenger packet has a deterministic identity distinct from verification and
+  Finding identity.
 - [ ] It may request missing counterevidence through DP-228/DP-213 but cannot fabricate it.
-- [ ] Packet records strongest contradicting evidence, limitations, alternative
-  explanations and unresolved questions.
-- [ ] Absence of discovered counterevidence is not proof of truth.
+- [x] Packet keeps approved/suitable CONTRADICT, LIMITATION, CONTEXT and UPDATE evidence
+  separate and retains independence groups/rationale codes.
+- [x] Unapproved/unsuitable counterevidence is ignored with an explicit blocker.
+- [x] Absence of discovered counterevidence creates no assessment/verdict and is not proof
+  of truth.
+- [x] Incomplete challenger research remains INCOMPLETE rather than ready.
 - [ ] Material challenger gain stales readiness/review until incorporated.
 - [ ] High-risk DP-309 cases require the challenger step unless qualified policy says
   otherwise.
@@ -30,4 +34,5 @@ overrides deterministic verification.
 
 ## Completion receipt
 
-Pending DP-228.
+Local counter-case packet + focused tests added 2026-10-05. DP-228 execution, persistence,
+readiness invalidation, DP-309 integration and MiniPC proof remain open.

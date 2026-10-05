@@ -195,10 +195,10 @@ without manual DB surgery.
 | DP-226 | IN PROGRESS | Compound numerical verification: delta/ratio/percent change + unit/denominator policy | DP-215 |
 | DP-227 | IN PROGRESS | Effective-time, validity-interval and supersession verification | DP-215, DP-210 |
 | DP-228 | IN PROGRESS | Claim-specific research-plan compiler with bounded specialist retrieval lanes | DP-213, DP-215, DP-209 |
-| DP-229 | FUTURE | Bounded adversarial challenger/counter-case packet | DP-228, DP-215 |
+| DP-229 | IN PROGRESS | Bounded adversarial challenger/counter-case packet | DP-228, DP-215 |
 | DP-230 | IN PROGRESS | Canonical provider-operation receipt + reconstructable cost ledger v2 | DP-209, DP-211, DP-506 |
-| DP-231 | READY | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
-| DP-232 | FUTURE | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
+| DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
+| DP-232 | IN PROGRESS | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never

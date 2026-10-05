@@ -15,6 +15,7 @@ from dichiarazioni_pubbliche.capture_pipeline import (  # noqa: E402
     CapturePipelineError,
     StdlibVisibleTextParser,
     capture_content,
+    extract_source_metadata,
     verify_passage_roundtrip,
 )
 from dichiarazioni_pubbliche.source_watcher import FetchedBytes  # noqa: E402
@@ -174,6 +175,60 @@ class PendingArchive:
 
 
 class CapturePipelineTests(unittest.TestCase):
+    def test_source_metadata_extracts_canonical_social_jsonld_and_oembed(self):
+        html = """
+        <html><head>
+          <link rel="canonical" href="/canonical">
+          <link rel="alternate" type="application/json+oembed" href="https://embed.example.test/oembed">
+          <meta property="og:title" content="Titolo OG">
+          <meta name="author" content="Autore">
+          <script type="application/ld+json">
+            {"@type":"NewsArticle","headline":"Titolo JSON-LD",
+             "author":{"@type":"Person","name":"Mario Rossi"},
+             "publisher":{"@type":"Organization","name":"Editore"},
+             "articleBody":"PRIVATE BODY MUST NOT BE COPIED"}
+          </script>
+        </head><body><p>Visible text.</p></body></html>
+        """
+        metadata = extract_source_metadata(
+            html,
+            base_url="https://example.test/article",
+        )
+        self.assertEqual(
+            metadata["canonical_url_candidates"],
+            ["https://example.test/canonical"],
+        )
+        self.assertEqual(metadata["meta"]["og:title"], "Titolo OG")
+        self.assertEqual(metadata["meta"]["author"], "Autore")
+        self.assertEqual(
+            metadata["oembed_candidates"][0]["url"],
+            "https://embed.example.test/oembed",
+        )
+        self.assertEqual(
+            metadata["jsonld_identity"][0]["author"]["name"],
+            "Mario Rossi",
+        )
+        self.assertNotIn("articleBody", metadata["jsonld_identity"][0])
+
+    def test_source_metadata_rejects_non_https_identity_urls(self):
+        metadata = extract_source_metadata(
+            '<link rel="canonical" href="http://example.test/insecure">'
+            '<link rel="alternate" type="application/json+oembed" href="javascript:alert(1)">',
+            base_url="https://example.test/article",
+        )
+        self.assertEqual(metadata["canonical_url_candidates"], [])
+        self.assertEqual(metadata["oembed_candidates"], [])
+
+    def test_parse_result_carries_source_metadata_without_changing_visible_text(self):
+        body = (
+            b'<html><head><meta property="og:title" content="Metadata title"></head>'
+            b'<body><article><p>Actual visible statement.</p></article></body></html>'
+        )
+        result = StdlibVisibleTextParser().parse(fetched(body))
+        self.assertEqual(result.status, "SUCCEEDED")
+        self.assertEqual(result.canonical_text, "Actual visible statement.")
+        self.assertEqual(result.metadata["meta"]["og:title"], "Metadata title")
+
     def test_changed_bytes_create_new_capture_same_content(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = FakeCaptureStore()

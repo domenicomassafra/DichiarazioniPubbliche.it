@@ -6,12 +6,12 @@ import json
 import os
 import re
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from dichiarazioni_pubbliche.corpus_repository import (
     ContentCaptureRecord,
@@ -76,6 +76,7 @@ class ParseResult:
     canonical_text: str = ""
     spans: tuple[ParsedSpan, ...] = ()
     error_category: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -249,6 +250,146 @@ class _VisibleTextHTMLParser(HTMLParser):
         return "\n\n".join(blocks)
 
 
+class _SourceMetadataHTMLParser(HTMLParser):
+    _MAX_META_VALUE = 4096
+    _MAX_JSON_LD_BLOCKS = 8
+    _MAX_JSON_LD_CHARS = 32_768
+
+    def __init__(self, base_url: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.base_url = base_url
+        self.meta: dict[str, str] = {}
+        self.canonical_candidates: list[str] = []
+        self.oembed_candidates: list[dict[str, str]] = []
+        self.jsonld_blocks: list[str] = []
+        self._jsonld_depth = 0
+        self._jsonld_fragments: list[str] = []
+
+    @staticmethod
+    def _attrs(attrs: list[tuple[str, str | None]]) -> dict[str, str]:
+        return {
+            str(key).casefold(): str(value or "").strip()
+            for key, value in attrs
+            if str(key or "").strip()
+        }
+
+    def _url(self, value: str) -> str | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        absolute = urljoin(self.base_url, raw)
+        parsed = urlsplit(absolute)
+        if (
+            parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return None
+        return absolute[:4096]
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        clean = tag.casefold()
+        values = self._attrs(attrs)
+        if clean == "meta":
+            key = values.get("property") or values.get("name")
+            content = values.get("content")
+            if key and content:
+                normalized = key.casefold()[:256]
+                if normalized not in self.meta:
+                    self.meta[normalized] = content[: self._MAX_META_VALUE]
+        elif clean == "link":
+            rel = {value.casefold() for value in values.get("rel", "").split() if value}
+            href = self._url(values.get("href", ""))
+            if href and "canonical" in rel:
+                self.canonical_candidates.append(href)
+            media_type = values.get("type", "").casefold()
+            if href and "alternate" in rel and media_type in {
+                "application/json+oembed",
+                "text/xml+oembed",
+            }:
+                self.oembed_candidates.append({"url": href, "type": media_type})
+        elif clean == "script" and values.get("type", "").casefold() == "application/ld+json":
+            if len(self.jsonld_blocks) < self._MAX_JSON_LD_BLOCKS:
+                self._jsonld_depth = 1
+                self._jsonld_fragments = []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.casefold() == "script" and self._jsonld_depth:
+            raw = "".join(self._jsonld_fragments).strip()
+            if raw:
+                self.jsonld_blocks.append(raw[: self._MAX_JSON_LD_CHARS])
+            self._jsonld_depth = 0
+            self._jsonld_fragments = []
+
+    def handle_data(self, data: str) -> None:
+        if self._jsonld_depth and data:
+            current = sum(len(value) for value in self._jsonld_fragments)
+            remaining = max(0, self._MAX_JSON_LD_CHARS - current)
+            if remaining:
+                self._jsonld_fragments.append(data[:remaining])
+
+
+def _jsonld_identity(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, list):
+        items = [item for item in (_jsonld_identity(row) for row in value[:32]) if item]
+        return {"items": items} if items else None
+    if not isinstance(value, Mapping):
+        return None
+    allowed_scalar = {
+        "@type",
+        "@id",
+        "url",
+        "name",
+        "headline",
+        "datePublished",
+        "dateModified",
+    }
+    output: dict[str, Any] = {}
+    for key in allowed_scalar:
+        raw = value.get(key)
+        if isinstance(raw, (str, int, float)) and not isinstance(raw, bool):
+            output[key] = str(raw)[:4096]
+    for key in ("author", "publisher"):
+        raw = value.get(key)
+        if isinstance(raw, Mapping):
+            nested = {
+                nested_key: str(raw[nested_key])[:4096]
+                for nested_key in ("@type", "@id", "name", "url")
+                if isinstance(raw.get(nested_key), (str, int, float))
+                and not isinstance(raw.get(nested_key), bool)
+            }
+            if nested:
+                output[key] = nested
+        elif isinstance(raw, str):
+            output[key] = raw[:4096]
+    return output or None
+
+
+def extract_source_metadata(html_text: str, *, base_url: str) -> dict[str, Any]:
+    parser = _SourceMetadataHTMLParser(base_url)
+    try:
+        parser.feed(html_text)
+        parser.close()
+    except Exception as exc:
+        raise CapturePipelineError("PARSER_METADATA_HTML_ERROR") from exc
+    jsonld: list[dict[str, Any]] = []
+    for raw in parser.jsonld_blocks:
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        identity = _jsonld_identity(decoded)
+        if identity:
+            jsonld.append(identity)
+    return {
+        "canonical_url_candidates": list(dict.fromkeys(parser.canonical_candidates))[:8],
+        "oembed_candidates": parser.oembed_candidates[:8],
+        "meta": dict(sorted(parser.meta.items())),
+        "jsonld_identity": jsonld[:8],
+    }
+
+
 def _split_canonical_text(text: str) -> tuple[ParsedSpan, ...]:
     spans: list[ParsedSpan] = []
     if len(text) > MAX_PARSED_TEXT_CHARS:
@@ -303,9 +444,10 @@ class StdlibVisibleTextParser:
             blocks = [re.sub(r"\s+", " ", part).strip() for part in re.split(r"\n\s*\n+", raw)]
             canonical = "\n\n".join(part for part in blocks if part)
         elif media_type in {"text/html", "application/xhtml+xml"}:
+            decoded = _decode(fetched.body, fetched.charset)
             parser = _VisibleTextHTMLParser()
             try:
-                parser.feed(_decode(fetched.body, fetched.charset))
+                parser.feed(decoded)
                 parser.close()
             except Exception:
                 return ParseResult(
@@ -315,6 +457,10 @@ class StdlibVisibleTextParser:
                     error_category="PARSER_HTML_ERROR",
                 )
             canonical = parser.text()
+            try:
+                metadata = extract_source_metadata(decoded, base_url=fetched.final_url)
+            except CapturePipelineError:
+                metadata = {"metadata_parse_status": "FAILED"}
         else:
             return ParseResult(
                 status="FAILED",
@@ -351,6 +497,7 @@ class StdlibVisibleTextParser:
             parser_version=self.parser_version,
             canonical_text=canonical,
             spans=spans,
+            metadata=(metadata if media_type in {"text/html", "application/xhtml+xml"} else {}),
         )
 
 
@@ -782,6 +929,7 @@ def _capture_record(
             "last_modified": fetched.last_modified,
             "parse_status": parse.status,
             "parse_error_category": parse.error_category,
+            "source_metadata": parse.metadata,
         },
     )
 
@@ -1098,6 +1246,7 @@ __all__ = [
     "MAX_PASSAGES",
     "ParseResult",
     "ParsedSpan",
+    "extract_source_metadata",
     "ParserAdapter",
     "STDLIB_HTML_PARSER_VERSION",
     "StdlibVisibleTextParser",
