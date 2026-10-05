@@ -106,7 +106,6 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
       const events = [...workspace.querySelectorAll('[data-trace-event]')];
       for (const event of events) {
         const button = event.querySelector('[data-trace-select]');
-        const detail = event.querySelector('[data-trace-detail]');
         button?.addEventListener('click', () => {
           for (const other of events) {
             const otherButton = other.querySelector('[data-trace-select]');
