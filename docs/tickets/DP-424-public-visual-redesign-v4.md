@@ -1,6 +1,6 @@
 # DP-424 — Public visual redesign v4 concept selection
 
-Status: FUTURE  
+Status: DONE
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-423, DP-412
 
@@ -56,4 +56,18 @@ Update the maintained prototype direction only after selection. No runtime/data 
 
 ## Completion receipt
 
-Pending implementation.
+- Compared three materially different composition directions in
+  `docs/38-public-visual-redesign-v4-selection.md`: Ledger Spine, Index Ledger and Source
+  Window.
+- Selected **Ledger Spine** because it makes discovery primary on Home, tightens the
+  Statement reading path and turns Trace into a recognisable longitudinal interaction
+  using the existing Segno grammar rather than a new visual brand.
+- Desktop proof exists for Home, Statement and Trace under
+  `prototypes/v4-ledger-spine/*-desktop.png`.
+- Phone proof exists for Home, Statement and Trace under
+  `prototypes/v4-ledger-spine/*-mobile.png`; the phone composition keeps the dominant
+  reading task first and places selected Trace detail immediately after the active event.
+- The selected prototype uses the frozen paper/ink/cobalt palette, Newsreader + IBM Plex,
+  the cobalt square/Segno geometry, hairlines and text-first findings; it adds no shadow,
+  gradient, ranking, person score or verdict-colored chronology.
+- `git diff --check` passes for the completed ticket change set.
