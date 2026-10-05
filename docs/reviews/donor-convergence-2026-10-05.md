@@ -40,10 +40,10 @@ requirements for this project.
 | Pender concrete archive callbacks | Protocol/state machine exists; source-specific real adapters remain intentionally absent | DP-231, rights/policy gated |
 | Alegre similarity service | PostgreSQL lexical/trigram path exists; no reason yet to add Elasticsearch/Kibana/Redis | KEEP; embeddings only if DP-116 benchmark justifies |
 | ClaimReview JSON-LD | Implemented in public projection | KEEP |
-| CIMPLE URI/RDF projection | Not implemented; optional interoperability layer, not primary storage | post-core M4 follow-up |
+| CIMPLE URI/RDF projection | Not implemented; optional interoperability layer, not primary storage | DP-433 |
 | Google/existing fact-check lookup | Bounded Google Fact Check Tools normalizer/client exists with secret-safe receipt; DP-228 persistence/execution remains | DP-232 IN PROGRESS |
-| Open Parliament speech/video alignment | Camera/Senato SPARQL querying exists; speech/video/source alignment is not a first-class adapter | future source-family ticket after Trust & Evidence core |
-| DVNS structured evidence intermediary | Architectural contract documented, no direct adapter yet | future structured-provider ticket after claim-specific planner |
+| Open Parliament speech/video alignment | Camera/Senato structured querying exists; speech/video/source alignment is not a first-class adapter | DP-233 READY |
+| DVNS structured evidence intermediary | Architectural contract documented, no direct adapter yet | DP-234 FUTURE; external contract required |
 | Community Notes transparent status/reason history | Append-only reviews/reason codes already align; consensus ranking is intentionally not adopted as truth authority | KEEP |
 
 ## Why the missing pieces matter
@@ -107,6 +107,9 @@ without solving a demonstrated gap.
 7. DP-230 canonical paid-operation/cost ledger.
 8. DP-231 metadata/archive adapter enrichment.
 9. DP-232 existing fact-check lookup.
+10. DP-233 parliamentary source alignment.
+11. DP-234 DVNS structured adapter when an approved external contract exists.
+12. DP-433 linked-data/RDF projection after public resources stabilize.
 
 DP-223 and DP-308 remain the release-facing adversarial/publication gates that consume the
 results of this donor convergence work.

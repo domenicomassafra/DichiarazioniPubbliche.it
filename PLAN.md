@@ -199,6 +199,8 @@ without manual DB surgery.
 | DP-230 | IN PROGRESS | Canonical provider-operation receipt + reconstructable cost ledger v2 | DP-209, DP-211, DP-506 |
 | DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
 | DP-232 | IN PROGRESS | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
+| DP-233 | READY | Parliamentary official speech/transcript/video alignment adapter | DP-206, DP-217, DP-218, DP-231 |
+| DP-234 | FUTURE | DVNS/read-only structured evidence adapter | DP-215, DP-228, external contract/API |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never
@@ -280,6 +282,7 @@ LLM in the request path.
 | DP-430 | READY | First-class public Topic resource contract | DP-105, DP-114 |
 | DP-431 | FUTURE | Correction/retraction propagation across all public pages/API/search/metadata | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429 |
 | DP-432 | FUTURE | Public trust/provenance disclosure integration for Statement + Method | DP-216..223, DP-308, DP-427, DP-428 |
+| DP-433 | FUTURE | Stable-URI + linked-data/RDF interoperability projection | DP-105, DP-403, DP-430, DP-432 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
 providers offline, expose provenance/correction history without private raw content, and
