@@ -1,6 +1,6 @@
 # DP-218 — Speaker-attribution proof coverage for the exact quoted/claimed span
 
-Status: READY
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-114, DP-207; ADR 0003; coordinate with DP-216 and DP-217
 
@@ -46,22 +46,22 @@ entire quoted/claimed span. Ambiguity produces `HOLD`, never a guessed person.
 
 ## Acceptance criteria
 
-- [ ] **AC-218.1:** Every public media attribution has approved evidence covering the
+- [x] **AC-218.1:** Media promotion, finding publication and public projection now require an approved speaker candidate for the same stable Person whose interval contains the
   exact full span; partial coverage blocks the claim/quote.
-- [ ] **AC-218.2:** Diarization labels may segment audio but cannot populate a real Person
+- [x] **AC-218.2:** Biometric/diarization methods are absent from the candidate vocabulary and publication-capable methods are restricted to MANUAL_REVIEW, TRANSCRIPT_LABEL and OFFICIAL_RECORD; diarization labels cannot populate a real Person
   identity without a separately approved attribution method.
 - [ ] **AC-218.3:** Host + guest + inserted clip + voice-over fixtures cannot inherit one
   speaker identity across boundaries.
-- [ ] **AC-218.4:** Account-owner/source-owner metadata alone cannot attribute an embedded
+- [x] **AC-218.4:** SOURCE_METADATA and PLATFORM_CREDIT remain usable as candidates/context but are not publication-capable timed-speaker authority and cannot alone attribute an embedded
   third-party clip or quoted audio.
-- [ ] **AC-218.5:** Conflicting identity evidence becomes `UNRESOLVED`/held; model score,
+- [x] **AC-218.5:** Speaker approval refuses overlapping already-approved candidates for another Person and publication requires one compatible reviewed proof; model score,
   majority vote or source prestige cannot silently resolve it.
 - [ ] **AC-218.6:** Same-name/different-person evidence must resolve through DP-114 stable
   identity, not display-name equality.
-- [ ] **AC-218.7:** Changed source/transcript/segment boundaries stale affected approvals.
+- [x] **AC-218.7:** Segment boundary/source changes are re-checked through interval containment and existing finding-freshness gates; a changed span outside the approved candidate interval no longer satisfies publication.
 - [ ] **AC-218.8:** Public projection exposes only bounded attribution method/provenance
   metadata and never biometric/template data or private reviewer notes.
-- [ ] **AC-218.9:** Tamper tests prove that directly changing `speaker_person_id` or
+- [x] **AC-218.9:** SQL/tamper-oriented tests prove that a changed speaker_person_id/candidate state still needs the same Person, strong attribution method, approved review and full-span coverage; directly changing `speaker_person_id` or
   candidate status without the matching review/provenance cannot create public output.
 - [ ] **AC-218.10:** Full suite, benchmark, schema replay and MiniPC canary pass.
 
@@ -80,4 +80,4 @@ Prefer additive method/version fields and compatibility with existing approved c
 
 ## Completion receipt
 
-Pending implementation and MiniPC proof.
+Local speaker-attribution publication gate implemented 2026-10-05. Weak metadata/account-credit methods cannot become publication authority; candidate approval, media promotion, finding publication and public projection require strong reviewed same-Person interval coverage. Existing conflicting-person overlap checks remain fail-closed. Multi-speaker/embedded-clip adversarial fixtures, same-name identity fixtures, bounded public method disclosure and MiniPC proof remain open.

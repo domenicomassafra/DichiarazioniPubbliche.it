@@ -214,6 +214,9 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("trigger.status = 'PROCESSED'", store.sql)
         self.assertIn("'OFFICIAL_TRANSCRIPT'", store.sql)
         self.assertIn("'HUMAN_AUDIO_VERIFIED'", store.sql)
+        self.assertIn("'MANUAL_REVIEW'", store.sql)
+        self.assertIn("'TRANSCRIPT_LABEL'", store.sql)
+        self.assertIn("'OFFICIAL_RECORD'", store.sql)
         self.assertIn(
             "candidate_link.canonical_segment_id =",
             store.sql,

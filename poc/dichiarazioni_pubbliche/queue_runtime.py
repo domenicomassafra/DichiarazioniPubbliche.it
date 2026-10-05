@@ -702,6 +702,12 @@ class QueueRuntimeStore(PsqlRuntime):
                 SELECT c.*
                 FROM candidate c
                 WHERE
+                    c.attribution_method IN (
+                        'MANUAL_REVIEW',
+                        'TRANSCRIPT_LABEL',
+                        'OFFICIAL_RECORD'
+                    )
+                    AND
                     EXISTS (
                         SELECT 1
                         FROM canonical_transcript_segment segment
@@ -1054,6 +1060,11 @@ class QueueRuntimeStore(PsqlRuntime):
                                             AND speaker.person_id =
                                                 claim.speaker_person_id
                                             AND speaker.status = 'APPROVED'
+                                            AND speaker.attribution_method IN (
+                                                'MANUAL_REVIEW',
+                                                'TRANSCRIPT_LABEL',
+                                                'OFFICIAL_RECORD'
+                                            )
                                             AND EXISTS (
                                                 SELECT 1
                                                 FROM review_event speaker_review

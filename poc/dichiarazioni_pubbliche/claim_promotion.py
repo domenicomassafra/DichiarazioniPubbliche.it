@@ -140,7 +140,31 @@ WITH candidate AS (
             JOIN transcript_variant variant
               ON variant.id = candidate_segment.variant_id
             WHERE candidate_link.canonical_segment_id = segment.id
-        ) AS segment_verbatim_method
+        ) AS segment_verbatim_method,
+        EXISTS (
+            SELECT 1
+            FROM speaker_identity_candidate speaker
+            WHERE
+                speaker.content_id = segment.content_id
+                AND speaker.person_id = c.speaker_person_id
+                AND speaker.status = 'APPROVED'
+                AND speaker.attribution_method IN (
+                    'MANUAL_REVIEW',
+                    'TRANSCRIPT_LABEL',
+                    'OFFICIAL_RECORD'
+                )
+                AND segment.start_ms >= speaker.start_ms
+                AND segment.end_ms <= speaker.end_ms
+                AND EXISTS (
+                    SELECT 1
+                    FROM review_event speaker_review
+                    WHERE
+                        speaker_review.entity_type =
+                            'SPEAKER_IDENTITY_CANDIDATE'
+                        AND speaker_review.entity_id = speaker.id
+                        AND speaker_review.action = 'APPROVED'
+                )
+        ) AS segment_speaker_provenance_ok
     FROM candidate c
     JOIN statement_candidate_passage link
       ON link.statement_candidate_id = c.statement_candidate_id
@@ -174,7 +198,8 @@ WITH candidate AS (
                 'segment_status', segment_status,
                 'segment_publication_blocked', segment_publication_blocked,
                 'segment_speaker_person_id', segment_speaker_person_id,
-                'segment_verbatim_method', segment_verbatim_method
+                'segment_verbatim_method', segment_verbatim_method,
+                'segment_speaker_provenance_ok', segment_speaker_provenance_ok
             ) ORDER BY passage_id
         ), '[]'::jsonb) AS passages
     FROM passage_rows
@@ -697,6 +722,8 @@ def promote_claim_candidate(
             "HUMAN_AUDIO_VERIFIED",
         }:
             return _blocked(request, "PROMOTION_MEDIA_VERBATIM_NOT_ELIGIBLE")
+        if passage.get("segment_speaker_provenance_ok") is not True:
+            return _blocked(request, "PROMOTION_MEDIA_SPEAKER_PROOF_MISSING")
 
     duplicate_ids = tuple(str(x) for x in (context.get("duplicate_target_ids") or []))
     if len(set(duplicate_ids)) > 1:

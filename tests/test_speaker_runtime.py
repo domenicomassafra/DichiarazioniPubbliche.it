@@ -7,8 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.speaker_runtime import (  # noqa: E402
+    PUBLICATION_CAPABLE_ATTRIBUTION_METHODS,
     deterministic_speaker_candidate_id,
     make_speaker_candidate,
+    speaker_method_is_publication_capable,
 )
 
 
@@ -45,6 +47,30 @@ class SpeakerRuntimeTests(unittest.TestCase):
                 start_ms=2000,
                 end_ms=1000,
                 attribution_method="MANUAL_REVIEW",
+            )
+
+    def test_only_strong_reviewed_methods_are_publication_capable(self):
+        self.assertEqual(
+            PUBLICATION_CAPABLE_ATTRIBUTION_METHODS,
+            frozenset({"MANUAL_REVIEW", "TRANSCRIPT_LABEL", "OFFICIAL_RECORD"}),
+        )
+        for method in ("MANUAL_REVIEW", "TRANSCRIPT_LABEL", "OFFICIAL_RECORD"):
+            self.assertTrue(speaker_method_is_publication_capable(method))
+        for method in ("SOURCE_METADATA", "PLATFORM_CREDIT", "DIARIZATION_CLUSTER"):
+            self.assertFalse(speaker_method_is_publication_capable(method))
+
+    def test_weak_metadata_methods_can_be_candidates_but_not_publication_authority(self):
+        for method in ("SOURCE_METADATA", "PLATFORM_CREDIT"):
+            candidate = make_speaker_candidate(
+                content_id="content:a",
+                person_id="person:a",
+                start_ms=0,
+                end_ms=1000,
+                attribution_method=method,
+            )
+            self.assertEqual(candidate.attribution_method, method)
+            self.assertFalse(
+                speaker_method_is_publication_capable(candidate.attribution_method)
             )
 
 

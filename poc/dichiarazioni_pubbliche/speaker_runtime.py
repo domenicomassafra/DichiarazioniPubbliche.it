@@ -14,6 +14,17 @@ ALLOWED_ATTRIBUTION_METHODS = {
     "PLATFORM_CREDIT",
     "OFFICIAL_RECORD",
 }
+PUBLICATION_CAPABLE_ATTRIBUTION_METHODS = frozenset(
+    {
+        "MANUAL_REVIEW",
+        "TRANSCRIPT_LABEL",
+        "OFFICIAL_RECORD",
+    }
+)
+
+
+def speaker_method_is_publication_capable(method: str) -> bool:
+    return str(method or "").strip() in PUBLICATION_CAPABLE_ATTRIBUTION_METHODS
 
 
 @dataclass(frozen=True)

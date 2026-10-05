@@ -124,6 +124,7 @@ def media_context():
             "segment_publication_blocked": False,
             "segment_speaker_person_id": "person:1",
             "segment_verbatim_method": "OFFICIAL_TRANSCRIPT",
+            "segment_speaker_provenance_ok": True,
         }
     ]
     return raw
@@ -306,6 +307,28 @@ class ClaimPromotionTests(unittest.TestCase):
             self.request("MEDIA"),
         )
         self.assertTrue(receipt.promoted)
+
+    def test_media_promotion_requires_exact_approved_speaker_proof(self):
+        context = media_context()
+        context["passages"][0]["segment_speaker_provenance_ok"] = False
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request("MEDIA"),
+        )
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_MEDIA_SPEAKER_PROOF_MISSING",
+        )
+
+    def test_media_context_sql_requires_strong_speaker_method_and_full_span(self):
+        self.assertIn("FROM speaker_identity_candidate speaker", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("'MANUAL_REVIEW'", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("'TRANSCRIPT_LABEL'", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("'OFFICIAL_RECORD'", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("segment.start_ms >= speaker.start_ms", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("segment.end_ms <= speaker.end_ms", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("'SPEAKER_IDENTITY_CANDIDATE'", PROMOTION_CONTEXT_SQL_V1)
 
     def test_single_reviewed_duplicate_links_existing_with_receipt(self):
         context = written_context()

@@ -407,6 +407,11 @@ class PublicProjectionStore(PsqlRuntime):
                             speaker_candidate.content_id = content.id
                             AND speaker_candidate.person_id = claim.speaker_person_id
                             AND speaker_candidate.status = 'APPROVED'
+                            AND speaker_candidate.attribution_method IN (
+                                'MANUAL_REVIEW',
+                                'TRANSCRIPT_LABEL',
+                                'OFFICIAL_RECORD'
+                            )
                             AND EXISTS (
                                 SELECT 1
                                 FROM review_event speaker_review
@@ -793,6 +798,11 @@ class PublicProjectionStore(PsqlRuntime):
                                             AND speaker_candidate.person_id =
                                                 claim.speaker_person_id
                                             AND speaker_candidate.status = 'APPROVED'
+                                            AND speaker_candidate.attribution_method IN (
+                                                'MANUAL_REVIEW',
+                                                'TRANSCRIPT_LABEL',
+                                                'OFFICIAL_RECORD'
+                                            )
                                             AND EXISTS (
                                                 SELECT 1
                                                 FROM review_event speaker_review
