@@ -243,7 +243,7 @@ LLM in the request path.
 | DP-405 | DONE | Person archive UI | DP-105, DP-425 |
 | DP-406 | FUTURE | Topic dossier UI | DP-430, DP-425 |
 | DP-407 | FUTURE | Content/source-locator UI | DP-207, DP-105, DP-425 |
-| DP-408 | READY | Trace/longitudinal relation UI | DP-104, DP-105, DP-425 |
+| DP-408 | BLOCKED | Trace/longitudinal relation UI; implementation complete, real reviewed runtime canary unavailable | DP-104, DP-105, DP-425 |
 | DP-409 | FUTURE | Public search/indexing without new infra by default | DP-405..408, DP-425 |
 | DP-410 | FUTURE | Accessibility/performance/SEO acceptance | DP-405..409, DP-422, DP-425..429 |
 | DP-411 | DONE | Generate and compare five researched visual systems against UX v2 | DP-413 |

@@ -1,0 +1,125 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Assessment from "./Assessment.astro";
+import { dossierSlug, formatDate } from "../lib/format";
+import type { PublicTrace } from "../lib/relations";
+import type { PublicDossier } from "../lib/types";
+
+interface Props { trace: PublicTrace }
+const { trace } = Astro.props;
+const relationCopy: Record<string, { label: string; copy: string }> = {
+  SAME_PROPOSITION: {
+    label: "Stessa proposizione",
+    copy: "Le dichiarazioni sono state collegate come formulazioni della stessa proposizione nel perimetro revisionato."
+  },
+  CLARIFICATION: {
+    label: "Chiarimento",
+    copy: "La relazione revisionata segnala un chiarimento successivo. Il rapporto descrive i testi e il tempo, non l’intenzione della persona."
+  },
+  UPDATE: {
+    label: "Aggiornamento",
+    copy: "La relazione revisionata segnala un aggiornamento successivo. Ogni dichiarazione conserva il proprio esito e la propria fonte."
+  },
+  POSITION_CHANGE_CANDIDATE: {
+    label: "Cambiamento di posizione revisionato",
+    copy: "La relazione approvata segnala un cambiamento di posizione nel tempo. Descrive una variazione tra testi e date senza attribuire intenzioni."
+  },
+  CONTRADICTION_CANDIDATE: {
+    label: "Contraddizione revisionata",
+    copy: "La relazione approvata segnala dichiarazioni non allineate nel perimetro revisionato. Descrive il rapporto tra i testi senza attribuire intenzioni."
+  }
+};
+const relation = relationCopy[trace.relationType] ?? {
+  label: "Relazione revisionata",
+  copy: "Relazione longitudinale approvata tra dichiarazioni pubbliche. La pagina descrive testi, fonti e sequenza temporale senza inferire intenzioni."
+};
+const dateOf = (dossier: PublicDossier) => dossier.source.published_at ?? dossier.finding.published_at;
+const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
+---
+
+<BaseLayout title={relationTitle} description={relation.copy} canonicalPath={`/tracce/${trace.slug}/`}>
+  <header class="record-header dp-trace-header">
+    <div class="shell">
+      <div class="eyebrow">Traccia nel tempo</div>
+      <h1 class="page-title">{relationTitle}</h1>
+      <p class="lede">{relation.copy}</p>
+    </div>
+  </header>
+
+  <main class="shell page-section-tight">
+    <div class="dp-trace-relation-note">
+      <strong>{relation.label}</strong>
+      <span>{trace.participants.length} dichiarazioni pubbliche · gli esiti restano propri di ciascuna dichiarazione.</span>
+    </div>
+
+    <section class="dp-trace-workspace" aria-labelledby="trace-chronology-heading" data-trace-workspace>
+      <h2 class="dp-visually-hidden" id="trace-chronology-heading">Cronologia revisionata</h2>
+      <ol class="dp-trace-chronology">
+        {trace.participants.map((dossier, index) => (
+          <li class:list={["dp-trace-event", index === 0 && "is-current"]} data-trace-event>
+            <button
+              type="button"
+              class="dp-trace-event__button"
+              data-trace-select
+              aria-current={index === 0 ? "true" : undefined}
+              aria-expanded={index === 0 ? "true" : "false"}
+              aria-controls={`trace-detail-${index}`}
+            >
+              <span class="dp-trace-event__date">{formatDate(dateOf(dossier))}</span>
+              <span class="dp-trace-event__claim">“{dossier.claim}”</span>
+              <span class="dp-trace-event__meta">{dossier.speaker.name} · {dossier.source.title}</span>
+            </button>
+
+            <article id={`trace-detail-${index}`} class="dp-trace-event__detail" data-trace-detail hidden={index !== 0}>
+              <div class="eyebrow">Evento selezionato · {formatDate(dateOf(dossier))}</div>
+              <blockquote>“{dossier.claim}”</blockquote>
+              <p class="dp-trace-event__source">{dossier.speaker.name} · <a href={dossier.source.url} rel="noreferrer">{dossier.source.title} ↗</a></p>
+              <div class="dp-trace-event__finding">
+                <Assessment code={dossier.finding.assessment} />
+                <p>{dossier.finding.rationale}</p>
+              </div>
+              <div class="dp-trace-event__paths">
+                <a href={`/dichiarazioni/${dossierSlug(dossier)}/`}>Apri la dichiarazione →</a>
+                <a href={dossier.source.url} rel="noreferrer">Apri la fonte originale ↗</a>
+                {(dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0) && (
+                  <a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Correzioni e repliche →</a>
+                )}
+              </div>
+            </article>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <details class="comparison-review dp-trace-provenance">
+      <summary>Provenienza della relazione</summary>
+      <p>Tipo dominio: <code>{trace.relationType}</code>. Versione: <code>{trace.relationVersion}</code>. Review event: <code>{trace.reviewEventId}</code>.</p>
+      {trace.rationaleCodes.length > 0 && <p>Codici di razionale revisionati: {trace.rationaleCodes.join(", ")}.</p>}
+      <p>La presenza della relazione deriva esclusivamente dalla projection pubblica approvata. La pagina non ricostruisce relazioni da keyword, embedding o output di modello.</p>
+    </details>
+  </main>
+
+  <script is:inline>
+    (() => {
+      const workspace = document.querySelector('[data-trace-workspace]');
+      if (!workspace) return;
+      const events = [...workspace.querySelectorAll('[data-trace-event]')];
+      for (const event of events) {
+        const button = event.querySelector('[data-trace-select]');
+        const detail = event.querySelector('[data-trace-detail]');
+        button?.addEventListener('click', () => {
+          for (const other of events) {
+            const otherButton = other.querySelector('[data-trace-select]');
+            const otherDetail = other.querySelector('[data-trace-detail]');
+            const current = other === event;
+            other.classList.toggle('is-current', current);
+            if (current) otherButton?.setAttribute('aria-current', 'true');
+            else otherButton?.removeAttribute('aria-current');
+            otherButton?.setAttribute('aria-expanded', current ? 'true' : 'false');
+            if (otherDetail) otherDetail.hidden = !current;
+          }
+        });
+      }
+    })();
+  </script>
+</BaseLayout>

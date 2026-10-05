@@ -1,6 +1,6 @@
 # DP-408 — Trace / longitudinal relation UI
 
-Status: READY
+Status: BLOCKED
 
 Milestone: M4 — public product/API
 Depends on: DP-104, DP-105, DP-425
@@ -177,5 +177,38 @@ comparison output, and fail-closed stale/tampered result.
 
 ## Completion receipt
 
-Pending implementation. DP-104, DP-105 and DP-425 are complete; a static mock comparison
-is still not proof that relation publication or fail-closed behavior works.
+- Implemented the canonical `/tracce/{relation-id}/` static route and moved the legacy
+  `/compare/{id}/` surface onto the same `TraceRecord.astro` implementation with canonical
+  metadata pointing to `/tracce/`; DP-422 still owns eventual redirect/removal of the
+  legacy alias.
+- `collectPublicTraces()` consumes only relations already present in the approved public
+  projection, requires `status=APPROVED`, a review event, a projectable related claim and
+  at least two public participants, and orders participants by public statement time with
+  a deterministic finding-ID tie-breaker.
+- The v4 chronology is neutral: event buttons never borrow finding-state colors. Only the
+  selected event receives `paper-selected` + the cobalt Segno and `aria-current`; the
+  event's own finding remains local inside its detail region.
+- On narrow screens the selected detail is in the DOM immediately after its event button;
+  the implementation does not use CSS reordering or a duplicated mobile detail tree.
+- Relation copy avoids deception/intent conclusions, exposes exact domain type/version and
+  review provenance only in secondary disclosure, and never reconstructs a relation from
+  keyword similarity, embeddings or model output.
+- Local deterministic canary: a temporary projection derived from the existing demo
+  fixture with one structurally APPROVED `UPDATE` relation emitted both
+  `/tracce/relation-demo-maintenance-mobility/` and its legacy Compare alias. Desktop and
+  phone receipts are stored under `prototypes/v4-implementation/dp408/` and were manually
+  inspected. This fixture proves rendering only and is **not** claimed as DP-104 runtime
+  approval evidence.
+- Local validation shared with DP-405: full Python suite **986/986 PASS**, restore
+  verification PASS, `npm run check:design` PASS, Astro check 0 diagnostics, explicit
+  projection build PASS, and `git diff --check` PASS.
+- MiniPC fail-closed proof on 2026-10-05: production projection fingerprint
+  `8c430c1bb36ad8135c313247d6cf276ffc6fea6c2f998e31f9d55aa02da85383` contains **0**
+  public relations; PostgreSQL contains **0** `claim_relation` rows and no approved
+  `claim_relation_candidate` row. The production build therefore emits no Trace route and
+  the same-origin service returns HTTP 404 for an unprojected Trace ID, as required.
+- **Remaining blocker:** the ticket's runtime DONE gate requires a real DP-104-reviewed
+  relation canary with projectable participants. None exists in the runtime authority, so
+  no synthetic database row or fabricated approval was created merely to make the ticket
+  green. Once one reviewed relation is available, rebuild on MiniPC and attach its route,
+  review-event provenance, projection fingerprint and representative HTML receipt.
