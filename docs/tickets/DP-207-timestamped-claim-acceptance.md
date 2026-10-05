@@ -1,6 +1,6 @@
 # DP-207 — Timestamped claim acceptance across real content
 
-Status: READY  
+Status: DONE
 Milestone: M2  
 Depends on: DP-202 for the live extraction lane, or the approved deterministic fixture path; DP-205 is required only when the accepted real item is newly discovered through the full-source path
 
@@ -237,12 +237,44 @@ successful extraction or a fabricated timestamp.
 
 ## Completion receipt
 
-To be filled only after implementation and proof:
-
-- implementation commit and MiniPC mirror hash:
-- fixture and transcript SHA-256 values:
-- accepted/rejected/held claim and segment counts:
-- timestamp-clock and replay proof:
-- provider/live-lane blocker status:
-- focused/full tests, benchmark, and `git diff --check`:
-- MiniPC database canary receipt and residual risks:
+- Deterministic timestamp acceptance implementation is present in
+  `poc/dichiarazioni_pubbliche/timestamp_acceptance.py` (file SHA-256
+  `3ceb1110f88a0cc666ad0c3ecedb03e7fb4c28428e131780a1c618a33a344168`). The
+  implementation originated in baseline commit `cdf4e061`; real PostgreSQL execution on
+  2026-10-05 exposed and fixed one SQL type bug in `QueueRuntimeStore.insert_atomic_claims`
+  via `91b6851`, with the exact regression assertion updated in `4c5e668`.
+- Fixture SHA-256:
+  `content-audit.json = aea03c8b1f607b219c43d33b9db094738fd1717b3de2265813fb66a5095bf3b3`;
+  `raw/transcript.json = cba86393f725eedd22fe81595843ccbd2374a0874db2394b113f3f13ea4e53ad`;
+  accepted transcript-content SHA-256
+  `06ab8ecac12f71145834b559495a691cd669ff3636b73b8b3d6120a6c761b212`.
+- Fixture acceptance: exactly **84** canonical segments, **36** atomic claims and **57**
+  claim-segment edges; duration **444,840 ms**; numeric-sensitive C07/C08/C09 retained;
+  inserted-clip segment indexes 75–79 remain attributed to
+  `Giorgia Meloni (inserted clip)`; provider call count is **0**.
+- Missing/malformed/out-of-window timestamps fail closed in focused tests; every accepted
+  claim carries `timestamp_validation=ACCEPTED` and
+  `timestamp_tolerance_ms=500`. No missing timestamp is defaulted to `0:00`.
+- MiniPC code/fixture hashes match the Mac byte-for-byte for the acceptance module and both
+  fixture files. Because the MiniPC role cannot create databases, the DB canary used a
+  dedicated temporary PostgreSQL schema with an isolated `search_path`; it was dropped
+  after read-back (`cleanup=true`). No production table was used for fixture rows.
+- MiniPC isolated-schema canary: first insert **36**, replay **36**, claims **36**, segments
+  **84**, variant candidates **84**, claim-segment edges **57**, findings **0**, published
+  findings **0**, provider receipts **0**, media range **0–444840 ms**, verdict **PASS**.
+- Distinct clock proof from persisted rows: content `published_at` =
+  `2026-09-21 02:00:00+02`; transcript-variant observation/creation time =
+  `2026-09-21 20:52:13+02`; media positions remain numeric millisecond ranges. The three
+  clocks are not overwritten by one another.
+- Persisted inserted-clip read-back for 414–434s returns only
+  `Giorgia Meloni (inserted clip)`; all 36 claims carry accepted timestamp metadata and the
+  500ms tolerance.
+- Focused MiniPC tests: **19/19 PASS** (`test_queue_runtime` +
+  `test_timestamp_acceptance`). MiniPC full suite: **986/986 PASS**. Current Mac working
+  tree full suite, including concurrently landed backend tests: **1063/1063 PASS**.
+  Deterministic benchmark: **5/5 PASS (100%)**. Compile check and `git diff --check` pass
+  for the DP-207 changes.
+- Live claim extraction remains intentionally `BLOCKED_BY_DP_202`; no OmniRoute/provider
+  call, approved evidence, finding, publication, person score, or public raw transcript was
+  created by this acceptance lane. Closing DP-207 means the deterministic timestamp
+  acceptance contract is proven; it does **not** claim the live provider lane is proven.

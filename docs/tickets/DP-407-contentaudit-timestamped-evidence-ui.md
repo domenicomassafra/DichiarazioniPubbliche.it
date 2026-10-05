@@ -1,6 +1,6 @@
 # DP-407 — Content page and source-locator UI
 
-Status: FUTURE
+Status: READY
 
 Milestone: M4 — public product/API
 Depends on: DP-207, DP-105, DP-425

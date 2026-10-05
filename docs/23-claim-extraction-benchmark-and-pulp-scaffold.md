@@ -48,6 +48,36 @@ Per questo il repository conserva un diagnostic receipt, non un report di precis
 
 Riprendere il run live soltanto dopo il cutover a un artefatto OmniRoute ufficiale che include/supersede il fix del tiered path.
 
+### Timestamp acceptance deterministica — DP-207 chiuso il 5 ottobre 2026
+
+La fixture Giuliani è ora anche il percorso eseguibile di acceptance per la provenienza
+temporale, indipendente dal provider live. `timestamp_acceptance.py` valida senza chiamate
+esterne:
+
+- 84 segmenti canonici su 444,84 secondi;
+- 36 claim e 57 edge claim→segmento;
+- timestamp sorgente contenuto nel range dei segmenti con tolleranza documentata massima
+  di 500 ms;
+- C07/C08/C09 ancora marcati numeric-sensitive;
+- segmenti 414–434s attribuiti a `Giorgia Meloni (inserted clip)`, non al narratore;
+- timestamp mancante, malformato o fuori range respinto/held invece di diventare `0:00`;
+- claim ID stabili al replay, senza provider call e senza finding/pubblicazione collaterale.
+
+Il canary PostgreSQL isolato sul MiniPC persiste 36 claim, 84 segmenti e 57 edge e al
+secondo inserimento restituisce ancora 36 record idempotenti. Il read-back mantiene
+separati publication time, observation time e media offsets; produce 0 finding e 0
+provider receipt. Il canary viene eseguito in uno schema temporaneo e rimosso integralmente
+dopo il test.
+
+Hash fixture accettati:
+
+- audit: `aea03c8b1f607b219c43d33b9db094738fd1717b3de2265813fb66a5095bf3b3`;
+- transcript file: `cba86393f725eedd22fe81595843ccbd2374a0874db2394b113f3f13ea4e53ad`;
+- transcript content: `06ab8ecac12f71145834b559495a691cd669ff3636b73b8b3d6120a6c761b212`.
+
+Il **live claim-extraction resta bloccato da DP-202**. La chiusura di DP-207 certifica il
+contratto timestamp/segmento e il percorso fixture, non il funzionamento del provider live.
+
 ## 2. Pulp #64: preparazione long-form completata fino al gate LLM
 
 Contenuto:

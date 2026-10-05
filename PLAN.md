@@ -173,7 +173,7 @@ without manual DB surgery.
 | DP-204 | BLOCKED | First live remote-ASR receipt and fallback acceptance | Groq credential |
 | DP-205 | DONE | Daily/full-source polling mode with bounded coverage | M0 |
 | DP-206 | DONE | Add second and third source families without code duplication | DP-205 |
-| DP-207 | READY | Timestamped claim acceptance across real content | DP-202 or deterministic fixture path |
+| DP-207 | DONE | Timestamped claim acceptance across real content | DP-202 or deterministic fixture path |
 | DP-208 | FUTURE | Diarization benchmark and go/no-go decision | DP-204, DP-207 |
 | DP-209 | DONE | Bounded research discovery runs + query manifests | DP-113, DP-205, DP-206 |
 | DP-210 | DONE | Capture/preservation/parser pipeline | DP-113, DP-118, DP-209 |
@@ -256,7 +256,7 @@ LLM in the request path.
 | DP-404 | DONE | `llms.txt` and agent-oriented public data documentation | DP-403 |
 | DP-405 | DONE | Person archive UI | DP-105, DP-425 |
 | DP-406 | READY | Topic dossier UI | DP-430, DP-425 |
-| DP-407 | FUTURE | Content/source-locator UI | DP-207, DP-105, DP-425 |
+| DP-407 | READY | Content/source-locator UI | DP-207, DP-105, DP-425 |
 | DP-408 | BLOCKED | Trace/longitudinal relation UI; implementation complete, real reviewed runtime canary unavailable | DP-104, DP-105, DP-425 |
 | DP-409 | FUTURE | Public search/indexing without new infra by default | DP-405..408, DP-425 |
 | DP-410 | FUTURE | Accessibility/performance/SEO acceptance | DP-405..409, DP-422, DP-425..429 |
