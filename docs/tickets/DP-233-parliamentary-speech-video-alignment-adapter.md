@@ -1,6 +1,6 @@
 # DP-233 — Parliamentary speech/transcript/video alignment adapter
 
-Status: READY
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-206, DP-217, DP-218, DP-231
 
@@ -20,13 +20,16 @@ with available media locators without biometric identity.
 
 ## Acceptance criteria
 
-- [ ] Official sitting/session, intervention, speaker and source record IDs are preserved.
-- [ ] Speaker identity derives from official record metadata + DP-114/DP-218 review, never
+- [x] Pure intervention contract preserves official session/intervention/speaker refs,
+  source URL/version and source transcript hash.
+- [x] Speaker identity is emitted only when an external DP-114/DP-218-style resolution is
+  explicitly approved; the alignment module performs no
   face/voice matching.
 - [ ] Official transcript wording remains a source version and does not overwrite platform
   captions/ASR variants.
-- [ ] When official media timing exists, locators bind directly to it; otherwise alignment
-  is a reviewable candidate and cannot invent a timestamp.
+- [x] Official media timing becomes a direct official locator; without it, exact normalized
+  transcript alignment creates only a REVIEW_CANDIDATE.
+- [x] Missing or ambiguous text alignment never invents a timestamp.
 - [ ] Agenda/item/session context is preserved separately from the quoted statement.
 - [ ] Corrections or amended parliamentary records create new versions/supersession and
   trigger DP-227/DP-511 revalidation.
@@ -44,4 +47,6 @@ with available media locators without biometric identity.
 
 ## Completion receipt
 
-Pending implementation.
+Local official-intervention/alignment contract + focused tests added 2026-10-05. Camera/
+Senato ingestion, persistence, source-version/reanalysis integration and MiniPC canary
+remain open.

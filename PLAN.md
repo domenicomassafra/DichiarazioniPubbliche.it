@@ -199,7 +199,7 @@ without manual DB surgery.
 | DP-230 | IN PROGRESS | Canonical provider-operation receipt + reconstructable cost ledger v2 | DP-209, DP-211, DP-506 |
 | DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
 | DP-232 | IN PROGRESS | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
-| DP-233 | READY | Parliamentary official speech/transcript/video alignment adapter | DP-206, DP-217, DP-218, DP-231 |
+| DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video alignment adapter | DP-206, DP-217, DP-218, DP-231 |
 | DP-234 | FUTURE | DVNS/read-only structured evidence adapter | DP-215, DP-228, external contract/API |
 
 Exit criteria: at least three source families run through the same contracts; provider

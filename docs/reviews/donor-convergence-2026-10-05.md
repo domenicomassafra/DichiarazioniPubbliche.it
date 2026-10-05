@@ -42,7 +42,7 @@ requirements for this project.
 | ClaimReview JSON-LD | Implemented in public projection | KEEP |
 | CIMPLE URI/RDF projection | Not implemented; optional interoperability layer, not primary storage | DP-433 |
 | Google/existing fact-check lookup | Bounded Google Fact Check Tools normalizer/client exists with secret-safe receipt; DP-228 persistence/execution remains | DP-232 IN PROGRESS |
-| Open Parliament speech/video alignment | Camera/Senato structured querying exists; speech/video/source alignment is not a first-class adapter | DP-233 READY |
+| Open Parliament speech/video alignment | Pure official-intervention/media alignment now exists; Camera/Senato ingestion/persistence remains | DP-233 IN PROGRESS |
 | DVNS structured evidence intermediary | Architectural contract documented, no direct adapter yet | DP-234 FUTURE; external contract required |
 | Community Notes transparent status/reason history | Append-only reviews/reason codes already align; consensus ranking is intentionally not adopted as truth authority | KEEP |
 
