@@ -3,7 +3,7 @@
 Status: FUTURE
 
 Milestone: M4 — public product/API
-Depends on: DP-405, DP-406, DP-407, DP-408, DP-409, DP-412
+Depends on: DP-405, DP-406, DP-407, DP-408, DP-409, DP-422, DP-425, DP-426, DP-427, DP-428, DP-429
 
 ## Problem
 
@@ -12,7 +12,7 @@ and operable with keyboard, touch, assistive technology, zoom, reduced motion, s
 networks, and provider outages. It must also expose crawlable, honest metadata without
 turning Studio fixtures or private operational state into public search results.
 
-This ticket is a quality gate across the five public templates. It is not a cosmetic
+This ticket is a quality gate across the canonical v3 public template family. It is not a cosmetic
 polish pass and does not authorize a new hosting, analytics, or search service.
 
 ## Outcome
@@ -32,9 +32,9 @@ passed this gate.
 ## Contract gate
 
 - **DP-105** must close the public schema and v1/v2 compatibility decision;
-- **DP-405..DP-409** must provide the real route/fixture surfaces; this ticket may define
+- **DP-405..DP-409, DP-426..DP-428** must provide the real route/fixture surfaces; this ticket may define
   quality criteria before they are implemented but cannot certify placeholders;
-- **DP-412** must provide the consolidated token/component contract;
+- **DP-425** must provide the selected v4 consolidated token/component contract;
 - **DP-401** must provide the static/read adapter used for runtime proof;
 - current `dichiarazioni-pubbliche-public-v2` fixtures are development inputs only until DP-105 closes.
 
@@ -138,11 +138,18 @@ The acceptance matrix must include a rendered-output inspection for:
 ## Dependencies and gates
 
 - **DP-405..DP-409:** real public routes and states;
-- **DP-412:** consolidated tokens/components, including focus, status, and motion;
+- **DP-425:** consolidated v4 tokens/components, including focus, status, and motion;
 - **DP-401:** static/read adapter and hosting proof;
 - **DP-402..DP-404:** HTTP, OpenAPI, and discovery metadata;
 - **DP-105:** public contract and fail-closed data boundary;
 - **ADR 0001/0002:** projection-only public reads, no LLM request path.
+
+## Traceability & constraints
+
+- **Traces to:** US-36-07, AC-36.8, AC-36.10 and the acceptance criteria of every
+  page-owner ticket in the v4 implementation map.
+- **Constraints:** WCAG 2.2 AA target, static-first public request path, honest metadata,
+  no private/raw leakage, no quality claim based on automated tooling alone.
 
 ## Acceptance criteria
 
@@ -213,6 +220,6 @@ exercised remains `PENDING`, not passed.
 
 ## Completion receipt
 
-Pending implementation of the public surfaces and DP-105/DP-412 closure. This ticket is
+Pending implementation of the public surfaces and DP-105/DP-425 closure. This ticket is
 not complete because a visual prototype looks good; it is complete only when the real
 route/state matrix and MiniPC proof pass.

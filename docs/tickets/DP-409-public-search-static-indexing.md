@@ -3,7 +3,7 @@
 Status: FUTURE
 
 Milestone: M4 — public product/API
-Depends on: DP-402, DP-403, DP-405, DP-406, DP-407, DP-408
+Depends on: DP-402, DP-403, DP-405, DP-406, DP-407, DP-408, DP-425
 
 ## Problem
 
@@ -30,7 +30,7 @@ infrastructure.
 - **DP-402/DP-403** must define any public resource links and version metadata;
 - **DP-405..DP-408** must establish the record and route vocabulary before the index
   duplicates it;
-- **DP-412** owns the final shared presentation tokens; search must use the same
+- **DP-425** owns the final v4 shared presentation tokens; search must use the same
   `SearchField`, `ClaimRow`, `Assessment`, and `SourceRow` contracts.
 
 The current operational projection is `dichiarazioni-pubbliche-public-v2`; no index may be published
@@ -113,10 +113,16 @@ as the artifact and must not become a new data source.
 - **DP-105:** hard public fields, IDs, safety, and compatibility gate;
 - **DP-402/DP-403:** resource links, examples, and version metadata;
 - **DP-405..DP-408:** canonical result vocabulary and route ownership;
-- **DP-412:** shared search/result component and token contract;
+- **DP-425:** shared v4 search/result component and token contract;
 - **DP-401:** static asset hosting and freshness proof;
 - **DP-410:** cross-surface accessibility, performance, and SEO gate;
 - **ADR 0001/0002:** projection-only reads and no LLM request path.
+
+## Traceability & constraints
+
+- **Traces to:** US-36-05, US-36-07, DEC-36-06, AC-36.6, AC-36.8, AC-36.10.
+- **Constraints:** deterministic public-safe local retrieval; no hosted search/vector/LLM
+  dependency by default; no private/raw fields; canonical route targets only.
 
 ## Acceptance criteria
 

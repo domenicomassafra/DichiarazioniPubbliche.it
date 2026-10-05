@@ -1,9 +1,9 @@
-# DP-408 — Discrepancy and position-change comparison UI
+# DP-408 — Trace / longitudinal relation UI
 
-Status: READY
+Status: FUTURE
 
 Milestone: M4 — public product/API
-Depends on: DP-104, DP-105, DP-413
+Depends on: DP-104, DP-105, DP-425
 
 ## Problem
 
@@ -17,17 +17,17 @@ identifier, and stable comparison grouping are not yet ratified by DP-105.
 
 ## Outcome
 
-Implement a public comparison view for two or more published finding versions connected
-by an approved longitudinal relation. The view supports same-proposition, clarification,
-update, position-change, and contradiction contexts without generating a person score,
-ranking, or intent claim.
+Implement the v3 chronology-first Trace view for two or more published statements
+connected by an approved longitudinal relation. The page supports same-proposition,
+clarification, update, position-change and contradiction contexts without generating a
+person score, ranking or intent claim. Side-by-side comparison is secondary and user-invoked.
 
 ## Contract gate
 
 - **DP-104** is the hard relation-policy gate: candidate and published relation states,
   review provenance, temporal compatibility, and reanalysis behavior must be settled;
 - **DP-105** is the hard public resource/identifier/schema gate;
-- **DP-413** is the IA gate; **DP-412** is the final visual-token/component gate;
+- public architecture v3 is the IA gate; **DP-425** is the final v4 visual-token/component gate;
 - if the relation is not approved, current, and present in the public projection, the
   comparison must be unavailable rather than inferred from text similarity.
 
@@ -35,15 +35,16 @@ ranking, or intent claim.
 
 ### Public route and rendering
 
-The canonical route is `/compare/{relation_id}/` (or the exact alias ratified by DP-105).
+The canonical route is `/tracce/{relation_id}/` (or a deterministic slug form).
 The page renders:
 
 1. the relation title/type and a neutral explanation of what the relation means;
 2. each participating published finding version, with statement time, source, speaker,
    and claim-first wording;
 3. the relation's public context, limitations, and temporal scope;
-4. a side-by-side or stacked comparison with a stable reading order;
-5. links to each Fact-check, ContentAudit, evidence source, correction, and approved
+4. a chronological evidence rail as the primary composition;
+5. optional two-item comparison only after explicit user selection;
+6. links to each Statement, Content, evidence source, correction, and approved
    right of reply;
 6. reviewed relation/reanalysis metadata in a secondary disclosure when policy allows.
 
@@ -68,10 +69,9 @@ UI must preserve the exact domain label and explanation supplied by the public c
 
 ### Responsive and comparison behavior
 
-- desktop may use a two-column comparison with an explicit reading order;
-- mobile stacks participants in chronological order, with a comparison summary before
-  details and no horizontal scroll;
-- each participant has a stable heading and link back to its Fact-check;
+- desktop uses chronology first; optional selected-pair comparison remains secondary;
+- mobile keeps participants in chronological order with no horizontal page scroll;
+- each participant has a stable heading and link back to its Statement;
 - source/evidence context remains close to the statement it supports;
 - a visual diff is optional and must have a text/table equivalent;
 - no node graph, political party color, leaderboard, or aggregate verdict display.
@@ -97,26 +97,30 @@ UI must preserve the exact domain label and explanation supplied by the public c
 - a comparison of private, held, or unreviewed records;
 - an LLM explanation or live model call in the public request path;
 - public submission, relation approval, or publication controls;
-- a separate visual system for comparison (use the shared Fact-check/Record grammar and
-  DP-412 tokens);
+- a separate visual system for Trace (use the shared v4 design-system/Segno grammar);
 - a new domain relation vocabulary outside DP-104/DP-105.
 
 ## Dependencies and gates
 
 - **DP-104:** hard relation approval, temporal, reanalysis, and no-intent policy;
 - **DP-105:** hard public relation resource and identifier contract;
-- **DP-413:** comparison belongs to the five public templates, not a new top-level
-  product;
-- **DP-412:** final shared token/component contract;
+- **Public architecture v3:** Trace is the canonical longitudinal page job;
+- **DP-425:** final shared v4 token/component contract;
 - **DP-402/DP-403:** stable read route/examples if relation resources are served over
   HTTP;
-- **DP-407:** ContentAudit links for media participants;
+- **DP-407:** Content links for media participants;
 - **ADR 0001/0002:** projection-only public reads and no LLM request path.
+
+## Traceability & constraints
+
+- **Traces to:** US-36-04, US-36-07, DEC-36-05, AC-36.4, AC-36.8, AC-36.10.
+- **Constraints:** chronology first; reviewed relation data only; no intent/deception
+  inference; no person score; side-by-side comparison is secondary and explicitly invoked.
 
 ## Acceptance criteria
 
 - [ ] `AC-408.1`: Given an approved relation with two or more public finding versions,
-  when a reader opens the comparison, then each statement, date, source, relation type,
+  when a reader opens the Trace, then each statement, date, source, relation type,
   and evidence path is visible in a stable reading order.
 - [ ] `AC-408.2`: Given the relation is a contradiction or position-change context, when
   the page explains it, then it does not infer intent, deceit, lie, reliability, or a
@@ -130,14 +134,14 @@ UI must preserve the exact domain label and explanation supplied by the public c
 - [ ] `AC-408.5`: Given desktop and mobile layouts, when the comparison is navigated by
   keyboard, at 200% zoom, and with a screen reader, then each participant, relation
   explanation, source link, and state is perceivable and operable with visible focus.
-- [ ] `AC-408.6`: Given the visual implementation, when compared with UX v2 and
-  DP-412, then it uses typography, whitespace, rows, and optional one evidence visual
-  only when useful; it does not add a dashboard, graph, or color-coded person history.
+- [ ] `AC-408.6`: Given the visual implementation, when compared with architecture v3
+  and DP-425, then chronology and the Segno evidence rail are primary; side-by-side
+  comparison is secondary; no dashboard, graph, or color-coded person history appears.
 - [ ] `AC-408.7`: Given providers are offline, when an approved comparison projection
   is served, then it remains readable and no LLM, provider, or operational DB request
   occurs.
 - [ ] `AC-408.8`: Given the collision/dependency audit runs, then DP-408 owns the
-  comparison route and DP-104/DP-105 remain the only relation/schema owners.
+  Trace route and DP-104/DP-105 remain the only relation/schema owners.
 
 ## Validation / proof
 
@@ -166,7 +170,7 @@ comparison output, and fail-closed stale/tampered result.
 
 - document the public relation resource and no-intent language only after DP-104/DP-105
   settle it;
-- update shared Fact-check/Record components through DP-412;
+- update shared Statement/Trace components through DP-425;
 - no migration is introduced by the UI ticket;
 - do not edit `PLAN.md`.
 

@@ -1,9 +1,9 @@
-# DP-406 — Topic record UI
+# DP-406 — Topic dossier UI
 
-Status: READY
+Status: FUTURE
 
 Milestone: M4 — public product/API
-Depends on: DP-105, DP-413
+Depends on: DP-105, DP-425
 
 ## Problem
 
@@ -14,17 +14,15 @@ while DP-105 remains open.
 
 ## Outcome
 
-Implement the Topic half of the shared Record template from UX v2. A reader can
-understand what a topic covers, scan a chronological set of public finding versions,
-filter the record, and open a fact-check or reviewed comparison without inferring a
-political position or person-level score.
+Implement the v3 Topic dossier. A reader can understand what the topic covers, scan
+published statements, follow reviewed traces and important source/content paths, and
+navigate related people without inferring a political position or person-level score.
 
 ## Contract gate
 
 - DP-105 is the hard data and identifier gate;
-- DP-413 is the frozen information-architecture gate;
-- DP-412 is the final visual-token/component gate; fixture work may use the current
-  candidate system, but production acceptance must use the consolidated contract;
+- `docs/35-public-product-architecture-v3.md` is the canonical information-architecture gate;
+- DP-425 is the final v4 visual-token/component gate;
 - a topic must come from the approved public contract. The frontend must not create,
   merge, or rename topics from model output or a generic keyword.
 
@@ -32,18 +30,17 @@ political position or person-level score.
 
 ### Public route and rendering
 
-The canonical route is `/record/topic/{topic_id}/` (or the exact alias ratified by
-DP-105). It renders:
+The canonical route is `/temi/{slug-or-id}/` with deterministic identifier mapping. It renders:
 
 1. topic name and an approved one-line scope/definition when available;
-2. a neutral chronological list of public finding versions;
-3. topic, date, claim-type, and media/source filters defined by the shared Record
-  grammar;
-4. links to Fact-check, ContentAudit, and reviewed longitudinal relations when present;
-5. correction/right-of-reply links through the linked finding history.
+2. a neutral list of published statements with bounded filtering;
+3. reviewed Trace threads relevant to the topic;
+4. important Content/source items from which published statements come;
+5. a contextual/alphabetical Person index and approved related/sub-topic navigation;
+6. correction/right-of-reply links through linked finding history when relevant.
 
-Topic and Person share the Record layout, row anatomy, filter behavior, and responsive
-composition. They differ only in the header contract and entity link target.
+Topic and Person may share row anatomy, tokens and low-level controls, but must not share
+the same information architecture. Topic is a research dossier; Person is a chronology.
 
 ### Topic semantics and chronology
 
@@ -85,12 +82,18 @@ composition. They differ only in the header contract and entity link target.
 
 - **DP-105:** hard public Topic resource, identifier, scope, relation, and compatibility
   gate;
-- **DP-413:** shared Record IA and neutrality rules;
-- **DP-412:** final token/component contract;
+- **Public architecture v3:** Topic dossier IA and neutrality rules;
+- **DP-425:** final v4 token/component contract;
 - **DP-402/DP-403:** stable read resource and examples, if the page is not built directly
   from the static projection;
 - **DP-408:** reviewed relation semantics and comparison route;
 - **ADR 0001/0002:** projection-only reads and no LLM request path.
+
+## Traceability & constraints
+
+- **Traces to:** US-36-05, US-36-07, DEC-36-03, AC-36.5, AC-36.8, AC-36.10.
+- **Constraints:** Topic is a dossier, not a Person chronology or second Explore page;
+  no political/person ranking; approved topic identity only; public projection only.
 
 ## Acceptance criteria
 
@@ -112,9 +115,9 @@ composition. They differ only in the header contract and entity link target.
 - [ ] `AC-406.6`: Given any state, when viewed without color, at 200% zoom, and with
   keyboard/screen-reader navigation, then scope, chronology, filters, links, and finding
   states remain understandable and operable.
-- [ ] `AC-406.7`: Given the visual implementation, when compared with DP-405, Person and
-  Topic demonstrably share the Record grammar and the page has one dominant task with no
-  dashboard/KPI/scorecard additions.
+- [ ] `AC-406.7`: Given the visual implementation, when compared with DP-405, Topic is
+  visibly a dossier rather than a Person chronology while both reuse system components;
+  the page has one dominant task with no dashboard/KPI/scorecard additions.
 - [ ] `AC-406.8`: Given the collision/dependency audit runs, then DP-406 owns only the
   Topic route and shared Record ownership is not duplicated.
 
@@ -141,7 +144,7 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 ## Documentation, data, and migration impact
 
 - document the public Topic resource and scope semantics only after DP-105 ratifies them;
-- update the shared Record/component contract through DP-412, not a Topic-only appendix;
+- update the shared component contract through DP-425, not a Topic-only appendix;
 - no migration is introduced by the UI ticket; topic persistence/schema changes belong
   to their domain tickets;
 - do not edit `PLAN.md`.
