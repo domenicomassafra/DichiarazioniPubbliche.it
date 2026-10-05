@@ -1,0 +1,32 @@
+---
+import TopicRecord from "../../components/TopicRecord.astro";
+import { loadPublicProjection } from "../../lib/projection";
+import type { PublicDossier, PublicTopic } from "../../lib/types";
+
+export async function getStaticPaths() {
+  const projection = await loadPublicProjection();
+  const dossiersByFinding = new Map(projection.dossiers.map((dossier) => [dossier.finding_id, dossier]));
+  return (projection.topics ?? []).map((topic) => {
+    const dossiers: PublicDossier[] = [];
+    const seen = new Set<string>();
+    for (const membership of topic.memberships) {
+      for (const findingId of membership.finding_ids) {
+        const dossier = dossiersByFinding.get(findingId);
+        if (!dossier || seen.has(dossier.finding_id)) continue;
+        dossiers.push(dossier);
+        seen.add(dossier.finding_id);
+      }
+    }
+    return { params: { slug: topic.slug }, props: { topic, dossiers } };
+  });
+}
+
+interface Props {
+  topic: PublicTopic;
+  dossiers: PublicDossier[];
+}
+
+const { topic, dossiers } = Astro.props;
+---
+
+<TopicRecord topic={topic} dossiers={dossiers} />

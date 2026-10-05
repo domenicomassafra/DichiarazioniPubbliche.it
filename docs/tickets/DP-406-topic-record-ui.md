@@ -1,6 +1,6 @@
 # DP-406 — Topic dossier UI
 
-Status: READY
+Status: BLOCKED
 
 Milestone: M4 — public product/API
 Depends on: DP-430, DP-425
@@ -153,5 +153,54 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 
 ## Completion receipt
 
-Pending DP-430 and implementation. A fixture assembled from `claim_type` facets is not
-proof of a public Topic resource and must not be used to call this ticket DONE.
+Implementation complete; runtime DONE remains blocked on one real approved Topic canary.
+
+- Added canonical `/temi/{slug}/` static routes sourced **only** from
+  `projection.topics[].memberships[].finding_ids`. There is no fallback to `claim_type`,
+  keyword matching, model labels, or display-name lookup.
+- Added `TopicRecord.astro` as a dossier IA distinct from Person chronology: approved Topic
+  name/scope, claim-first public Statement stream, bounded date/type/source filters,
+  alphabetical Person index, original-source index, reviewed Trace links, correction/reply
+  paths, and secondary Topic identity/review provenance.
+- Topic labels are never merged. Static paths are keyed by the approved stable slug carried
+  by the Topic resource; a similarly named Topic produces its own route, and an unknown
+  slug remains a normal public 404.
+- Empty approved Topics render an explicit public-data boundary with Explore/Method paths;
+  no private membership, hidden omission count, placeholder finding, or inferred statement
+  is exposed.
+- A finding may appear in more than one Topic only when each reviewed membership exists in
+  DP-430 data. The UI deduplicates finding versions only within one Topic route.
+- Relation links require already-public `APPROVED` relations with review provenance;
+  correction/reply links preserve the canonical Statement/version history route.
+- Mobile filters reuse the shared Record controls, expose result count via `aria-live`,
+  carry URL state, support explicit close and Escape, and restore focus to the trigger.
+- The responsive row grammar was tightened at the 60rem boundary so the Statement finding
+  state does not clip in a 720 CSS-pixel viewport (the effective width of a 1440px layout
+  at 200% zoom). Reduced-motion behavior remains inherited from the global design system.
+- Local demo fixtures are explicitly fictional and now cover: populated Topic, empty Topic,
+  two very similar labels that remain distinct, one finding with multiple Topic
+  memberships, correction history, and one reviewed relation. They are used only when
+  `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1` is explicitly enabled.
+- Static proof verified all three demo Topic routes, correction/source/Trace links,
+  multi-membership, stable Topic ID, distinct similar-label routes, and absence of
+  `person_score`, `reliability_score`, `leaderboard`, `raw_text`, `transcript_text`, and
+  `evidence_body`. Unknown demo Topic returns HTTP 404.
+- Visual receipts under `prototypes/v4-implementation/dp406/`: populated desktop/mobile,
+  empty desktop/mobile, multi-membership mobile, and 720px 200%-zoom-equivalent proof.
+  Representative populated, empty, mobile and zoom receipts were manually inspected.
+- Local validation: `python3 -m compileall -q poc tests` PASS; full Python suite
+  **1063/1063 PASS** (including concurrently landed backend tests); `npm run check:design`
+  PASS; Astro check **0 errors / 0 warnings / 0 hints**; explicit demo build PASS with
+  `/temi/servizi-pubblici/`, `/temi/servizio-pubblico/`, and `/temi/mobilita-urbana/`;
+  `git diff --check` PASS.
+- MiniPC fail-closed proof on 2026-10-05: production projection fingerprint
+  `d2a10bbe824cf7b1c2d301b13b6116e3c2ff6d58c9be1f9cff3a3f6c341cc904` contains
+  `topics: []`. A production build with the real projection emitted **zero** `/temi/*`
+  files; the same-origin service stayed active, Home returned HTTP 200, and
+  `/temi/servizi-pubblici/` returned HTTP 404. The fictional demo projection was not
+  synchronized as runtime data.
+- **Remaining blocker:** AC/runtime completion requires at least one real Topic whose Topic
+  review and claim membership review are approved in the runtime authority. None exists
+  yet. No Topic or membership was auto-approved or fabricated merely to turn this ticket
+  green. Once one reviewed canary exists, rebuild on MiniPC and attach its canonical route,
+  projection fingerprint and representative no-score/raw-content HTML receipt.

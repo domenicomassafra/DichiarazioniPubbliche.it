@@ -1,0 +1,236 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ClaimRow from "./ClaimRow.astro";
+import SearchField from "./SearchField.astro";
+import { claimTypeLabel, dossierSlug, formatDate, publicIdSlug, relationSlug } from "../lib/format";
+import type { PublicDossier, PublicTopic } from "../lib/types";
+
+interface Props {
+  topic: PublicTopic;
+  dossiers: PublicDossier[];
+}
+
+const { topic, dossiers } = Astro.props;
+const canonical = `/temi/${topic.slug}/`;
+const ordered = [...dossiers].sort((a, b) => {
+  const left = Date.parse(a.source.published_at ?? a.finding.published_at ?? "1970-01-01");
+  const right = Date.parse(b.source.published_at ?? b.finding.published_at ?? "1970-01-01");
+  return right - left || a.finding_id.localeCompare(b.finding_id);
+});
+const sourceOptions = [...new Set(ordered.map((item) => item.source.title))].sort((a, b) => a.localeCompare(b, "it"));
+const typeOptions = [...new Set(ordered.map((item) => item.claim_type))].sort();
+const people = [...new Map(ordered.map((item) => [item.speaker.id, item.speaker])).values()]
+  .sort((a, b) => a.name.localeCompare(b.name, "it"));
+const sources = [...new Map(ordered.map((item) => [item.source.content_id, item.source])).values()]
+  .sort((a, b) => {
+    const left = Date.parse(a.published_at ?? "1970-01-01");
+    const right = Date.parse(b.published_at ?? "1970-01-01");
+    return right - left || a.title.localeCompare(b.title, "it");
+  });
+const relationIds = [...new Set(
+  ordered.flatMap((item) => (item.relations ?? [])
+    .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
+    .map((relation) => relation.id))
+)].sort();
+const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossier.finding.published_at ?? null;
+---
+
+<BaseLayout
+  title={topic.canonical_name}
+  description={topic.scope_text ?? `Dossier pubblico verificabile sul tema ${topic.canonical_name}.`}
+  canonicalPath={canonical}
+>
+  <header class="record-header topic-header">
+    <div class="shell topic-header-grid">
+      <div>
+        <div class="eyebrow">Tema</div>
+        <h1 class="page-title">{topic.canonical_name}</h1>
+        {topic.scope_text ? (
+          <p class="lede">{topic.scope_text}</p>
+        ) : (
+          <p class="topic-scope-missing">Definizione pubblica non disponibile. Il dossier mostra soltanto appartenenze al Tema già approvate.</p>
+        )}
+      </div>
+      <div class="topic-header-search">
+        <SearchField action="/esplora/" name="q" placeholder="Cerca nel record pubblico" compact />
+        <p>Questo dossier non classifica persone o posizioni politiche: raccoglie solo dichiarazioni pubbliche già collegate a questo Topic approvato.</p>
+      </div>
+    </div>
+  </header>
+
+  {ordered.length === 0 ? (
+    <main class="shell page-section-tight topic-empty">
+      <section class="dp-utility-empty">
+        <div class="eyebrow">Archivio pubblico</div>
+        <h2>Nessuna dichiarazione pubblica disponibile per questo Tema.</h2>
+        <p>Il Topic esiste nel contratto pubblico, ma questo snapshot non contiene finding pubblici approvati collegati. Non vengono mostrati record privati, candidati o appartenenze inferite.</p>
+        <p><a href="/esplora/">Esplora il registro →</a> · <a href="/metodo/">Come funziona il metodo →</a></p>
+      </section>
+    </main>
+  ) : (
+    <main class="shell topic-dossier">
+      <section class="topic-primary" aria-labelledby="topic-statements-heading">
+        <div class="record-filter-toolbar">
+          <button type="button" class="record-filter-toggle" data-topic-filter-toggle aria-expanded="false" aria-controls="topic-filters">Filtri</button>
+          <span aria-live="polite" data-topic-count>{ordered.length} dichiarazioni pubbliche</span>
+        </div>
+
+        <form class="record-filters topic-filters" id="topic-filters" data-topic-filters data-mobile-hidden="true" aria-label="Filtri dichiarazioni del Tema">
+          <label>Tipo di dichiarazione
+            <select name="type">
+              <option value="">Tutti</option>
+              {typeOptions.map((value) => <option value={value}>{claimTypeLabel(value)}</option>)}
+            </select>
+          </label>
+          <label>Fonte
+            <select name="source">
+              <option value="">Tutte</option>
+              {sourceOptions.map((value) => <option value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label>Dal <input name="from" type="date" /></label>
+          <label>Al <input name="to" type="date" /></label>
+          <button type="reset">Azzera</button>
+          <button type="button" class="record-filter-close" data-topic-filter-close>Chiudi filtri</button>
+        </form>
+
+        <div class="section-heading topic-section-heading">
+          <div class="section-heading-copy">
+            <div class="eyebrow">Record del Tema</div>
+            <h2 class="section-title section-title-sm" id="topic-statements-heading">Dichiarazioni pubblicate</h2>
+            <p>Ordine cronologico inverso. Ogni esito resta legato alla singola dichiarazione e non viene aggregato a livello di Tema.</p>
+          </div>
+        </div>
+
+        <div class="claim-list" data-topic-list>
+          {ordered.map((dossier) => {
+            const hasHistory = dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0;
+            const traces = [...new Set((dossier.relations ?? [])
+              .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
+              .map((relation) => relation.id))];
+            return (
+              <article
+                class="topic-record-item"
+                data-topic-row
+                data-type={dossier.claim_type}
+                data-source={dossier.source.title}
+                data-date={(rowDate(dossier) ?? "").slice(0, 10)}
+              >
+                <ClaimRow dossier={dossier} showTopic={false} />
+                <nav class="topic-record-links" aria-label={`Percorsi collegati: ${dossier.claim}`}>
+                  <a href={`/dichiarazioni/${dossierSlug(dossier)}/#fonti`}>Fonti ed evidenze →</a>
+                  {traces.map((id) => <a href={`/tracce/${relationSlug(id)}/`}>Traccia revisionata →</a>)}
+                  {hasHistory && <a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Correzioni e repliche →</a>}
+                </nav>
+              </article>
+            );
+          })}
+        </div>
+
+        <section class="dp-utility-empty" data-topic-empty hidden>
+          <h2>Nessuna dichiarazione corrisponde ai filtri.</h2>
+          <p>Modifica i filtri oppure <a href="/esplora/">esplora tutto il registro</a>.</p>
+        </section>
+      </section>
+
+      <aside class="topic-context" aria-label="Contesto del Tema">
+        <section class="topic-context-section">
+          <div class="eyebrow">Persone nel dossier</div>
+          <h2>Indice alfabetico</h2>
+          <p>Presenza nel dossier, non posizione sul Tema.</p>
+          <ul class="topic-person-index">
+            {people.map((person) => (
+              <li><a href={`/persone/${publicIdSlug(person.id)}/`}>{person.name}</a></li>
+            ))}
+          </ul>
+        </section>
+
+        <section class="topic-context-section">
+          <div class="eyebrow">Fonti nel dossier</div>
+          <h2>Contenuti originali</h2>
+          <ol class="topic-source-index">
+            {sources.map((source) => (
+              <li>
+                <a href={source.url} rel="noreferrer">{source.title} ↗</a>
+                {source.published_at && <span>{formatDate(source.published_at)}</span>}
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section class="topic-context-section">
+          <div class="eyebrow">Tracce</div>
+          <h2>Relazioni revisionate</h2>
+          {relationIds.length > 0 ? (
+            <ul class="topic-trace-index">
+              {relationIds.map((id) => <li><a href={`/tracce/${relationSlug(id)}/`}>Apri la traccia →</a></li>)}
+            </ul>
+          ) : (
+            <p>Nessuna relazione longitudinale pubblica e revisionata in questo snapshot.</p>
+          )}
+        </section>
+
+        <details class="topic-provenance">
+          <summary>Identità e provenienza del Tema</summary>
+          <p>ID pubblico: <code>{topic.topic_id}</code></p>
+          <p>Contratto entità: <code>{topic.entity_version}</code></p>
+          <p>Review pubbliche: {topic.review_event_ids.length}.</p>
+          <p>Il nome e l’appartenenza delle dichiarazioni provengono dalla projection pubblica; questa pagina non genera o rinomina Topic.</p>
+        </details>
+      </aside>
+    </main>
+  )}
+
+  <script is:inline>
+    (() => {
+      const form = document.querySelector('[data-topic-filters]');
+      if (!form) return;
+      const rows = [...document.querySelectorAll('[data-topic-row]')];
+      const count = document.querySelector('[data-topic-count]');
+      const empty = document.querySelector('[data-topic-empty]');
+      const toggle = document.querySelector('[data-topic-filter-toggle]');
+      const close = document.querySelector('[data-topic-filter-close]');
+      const params = new URLSearchParams(location.search);
+      for (const key of ['type', 'source', 'from', 'to']) {
+        const field = form.elements.namedItem(key);
+        if (field && params.has(key)) field.value = params.get(key) || '';
+      }
+      const setMobileOpen = (open) => {
+        form.dataset.mobileHidden = open ? 'false' : 'true';
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      const apply = () => {
+        const values = Object.fromEntries(new FormData(form).entries());
+        let visible = 0;
+        for (const row of rows) {
+          const ok = (!values.type || row.dataset.type === values.type)
+            && (!values.source || row.dataset.source === values.source)
+            && (!values.from || (row.dataset.date && row.dataset.date >= values.from))
+            && (!values.to || (row.dataset.date && row.dataset.date <= values.to));
+          row.hidden = !ok;
+          if (ok) visible += 1;
+        }
+        if (count) count.textContent = `${visible} dichiarazioni pubbliche`;
+        if (empty) empty.hidden = visible !== 0;
+        const next = new URLSearchParams();
+        for (const [key, value] of Object.entries(values)) if (value) next.set(key, value);
+        history.replaceState(null, '', `${location.pathname}${next.size ? `?${next}` : ''}`);
+      };
+      toggle?.addEventListener('click', () => {
+        const open = form.dataset.mobileHidden === 'true';
+        setMobileOpen(open);
+        if (open) form.querySelector('select, input, button')?.focus();
+      });
+      close?.addEventListener('click', () => { setMobileOpen(false); toggle?.focus(); });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && form.dataset.mobileHidden === 'false') {
+          setMobileOpen(false);
+          toggle?.focus();
+        }
+      });
+      form.addEventListener('input', apply);
+      form.addEventListener('reset', () => setTimeout(apply));
+      apply();
+    })();
+  </script>
+</BaseLayout>

@@ -1,5 +1,5 @@
 {
-  "dataset_sha256": "64ec6aff21f595896e63b37539ce50ad3e092bfb8b5cffcedf4d0b73892c53eb",
+  "dataset_sha256": "00ede66707f085e8bbf773652f4912d9dadd5bd23c0b36571631560f13cb7e69",
   "dossier_count": 3,
   "dossiers": [
     {
@@ -15,7 +15,18 @@
       },
       "claim_id": "claim:demo:maintenance",
       "claim_type": "NUMERIC_STATISTIC",
-      "corrections": [],
+      "corrections": [
+        {
+          "id": "correction:demo:maintenance:1",
+          "finding_id": "finding:demo:maintenance",
+          "previous_finding_id": "finding:demo:maintenance:previous",
+          "reason": "Esempio fittizio: aggiornata la formulazione del razionale senza cambiare la fonte primaria.",
+          "changed_fields": {
+            "rationale": "updated"
+          },
+          "created_at": "2026-09-23T10:00:00+00:00"
+        }
+      ],
       "evidence": [
         {
           "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
@@ -111,7 +122,23 @@
         ],
         "public_role": null,
         "public_roles": []
-      }
+      },
+      "relations": [
+        {
+          "id": "relation:demo:public-services-update",
+          "relation_type": "UPDATE",
+          "relation_version": "relation-v1",
+          "status": "APPROVED",
+          "role": "SOURCE",
+          "related_claim_id": "claim:demo:mobility",
+          "related_claim": "Gli interventi sulla rete hanno dimezzato i tempi medi di percorrenza.",
+          "related_statement_date": "2026-09-14T18:30:00+00:00",
+          "rationale_codes": [
+            "TEMPORAL_UPDATE"
+          ],
+          "review_event_id": "review:demo:relation-public-services-update"
+        }
+      ]
     },
     {
       "claim": "Gli interventi sulla rete hanno dimezzato i tempi medi di percorrenza.",
@@ -345,5 +372,75 @@
     "requires_resolved_transcript": true
   },
   "omitted_count": 2,
-  "schema_version": "dichiarazioni-pubbliche-public-v2"
+  "schema_version": "dichiarazioni-pubbliche-public-v2",
+  "topics": [
+    {
+      "topic_id": "topic:demo:public-services",
+      "slug": "servizi-pubblici",
+      "canonical_name": "Servizi pubblici",
+      "scope_text": "Esempio fittizio: organizzazione, accesso e tempi dei servizi pubblici.",
+      "entity_version": "knowledge-entity-v1",
+      "review_event_ids": [
+        "review:demo:topic-public-services"
+      ],
+      "memberships": [
+        {
+          "membership_id": "membership:demo:public-services:1",
+          "claim_id": "claim:demo:maintenance",
+          "finding_ids": [
+            "finding:demo:maintenance"
+          ],
+          "review_event_ids": [
+            "review:demo:topic-membership:1"
+          ],
+          "source_resolution_candidate_id": null
+        },
+        {
+          "membership_id": "membership:demo:public-services:2",
+          "claim_id": "claim:demo:mobility",
+          "finding_ids": [
+            "finding:demo:mobility"
+          ],
+          "review_event_ids": [
+            "review:demo:topic-membership:2"
+          ],
+          "source_resolution_candidate_id": null
+        }
+      ]
+    },
+    {
+      "topic_id": "topic:demo:public-service-singular",
+      "slug": "servizio-pubblico",
+      "canonical_name": "Servizio pubblico",
+      "scope_text": "Esempio fittizio: Topic distinto con etichetta volutamente simile, senza finding pubblici in questo snapshot.",
+      "entity_version": "knowledge-entity-v1",
+      "review_event_ids": [
+        "review:demo:topic-public-service-singular"
+      ],
+      "memberships": []
+    },
+    {
+      "topic_id": "topic:demo:urban-mobility",
+      "slug": "mobilita-urbana",
+      "canonical_name": "Mobilità urbana",
+      "scope_text": "Esempio fittizio: servizi, infrastrutture e accesso alla mobilità urbana.",
+      "entity_version": "knowledge-entity-v1",
+      "review_event_ids": [
+        "review:demo:topic-urban-mobility"
+      ],
+      "memberships": [
+        {
+          "membership_id": "membership:demo:urban-mobility:1",
+          "claim_id": "claim:demo:mobility",
+          "finding_ids": [
+            "finding:demo:mobility"
+          ],
+          "review_event_ids": [
+            "review:demo:topic-membership:urban-mobility:1"
+          ],
+          "source_resolution_candidate_id": null
+        }
+      ]
+    }
+  ]
 }
