@@ -779,6 +779,10 @@ class PublicProjectionStore(PsqlRuntime):
                         )
                     )
                     AND claim.speaker_person_id IS NOT NULL
+                    AND COALESCE(
+                        claim.metadata->>'speech_mode',
+                        'DIRECT_UTTERANCE'
+                    ) = 'DIRECT_UTTERANCE'
                     AND NOT EXISTS (
                             SELECT 1
                             FROM claim_segment link

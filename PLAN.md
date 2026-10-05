@@ -185,7 +185,7 @@ without manual DB surgery.
 | DP-216 | IN PROGRESS | Exact quote/source-span binding; model output can never be quotation authority | DP-111, DP-210; coordinate DP-207/DP-305 |
 | DP-217 | IN PROGRESS | Transcript reliability tiers + human/audio verbatim review gate | DP-204/DP-207 where live; fixture lane independent |
 | DP-218 | IN PROGRESS | Speaker-attribution proof must cover the exact quoted/claimed span | DP-114, DP-207, ADR 0003 |
-| DP-219 | FUTURE | Reported speech/nested quotation + original-quote-origin separation | DP-216, DP-218, DP-211 |
+| DP-219 | IN PROGRESS | Reported speech/nested quotation + original-quote-origin separation | DP-216, DP-218, DP-211 |
 | DP-220 | FUTURE | Context-integrity / semantic-clipping guard for public statements | DP-216, DP-217, DP-219 |
 | DP-221 | FUTURE | Original wording vs paraphrase/summary/translation separation | DP-216 |
 | DP-222 | FUTURE | Public-attribution Person identity + same-name/role-at-time gate | DP-101, DP-114, DP-216, DP-218 |

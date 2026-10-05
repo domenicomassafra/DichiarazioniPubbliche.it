@@ -304,6 +304,7 @@ WITH lock_row AS (
     CROSS JOIN lock_row
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
+      AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (
@@ -404,6 +405,7 @@ WITH lock_row AS (
     CROSS JOIN lock_row
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
+      AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
@@ -519,6 +521,7 @@ WITH lock_row AS (
     CROSS JOIN lock_row
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
+      AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
@@ -725,6 +728,15 @@ def promote_claim_candidate(
         if passage.get("segment_speaker_provenance_ok") is not True:
             return _blocked(request, "PROMOTION_MEDIA_SPEAKER_PROOF_MISSING")
 
+    candidate_metadata = context.get("candidate_metadata") or {}
+    if not isinstance(candidate_metadata, Mapping):
+        return _blocked(request, "PROMOTION_METADATA_INVALID")
+    speech_mode = str(
+        candidate_metadata.get("speech_mode") or "DIRECT_UTTERANCE"
+    ).strip()
+    if speech_mode != "DIRECT_UTTERANCE":
+        return _blocked(request, "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED")
+
     duplicate_ids = tuple(str(x) for x in (context.get("duplicate_target_ids") or []))
     if len(set(duplicate_ids)) > 1:
         return _blocked(request, "PROMOTION_AMBIGUOUS_DUPLICATE")
@@ -774,10 +786,6 @@ def promote_claim_candidate(
     temporal_scope = context.get("temporal_scope") or {}
     if not isinstance(temporal_scope, Mapping):
         return _blocked(request, "PROMOTION_TEMPORAL_SCOPE_INVALID")
-    candidate_metadata = context.get("candidate_metadata") or {}
-    if not isinstance(candidate_metadata, Mapping):
-        return _blocked(request, "PROMOTION_METADATA_INVALID")
-
     if request.provenance_channel == "WRITTEN":
         selector_type = (
             "TEXT_POSITION_HASH"

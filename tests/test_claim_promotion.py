@@ -11,6 +11,9 @@ from dichiarazioni_pubbliche.claim_promotion import (  # noqa: E402
     PROMOTION_CONTEXT_SQL_V1,
     PROMOTION_VERSION,
     PromotionRequest,
+    _LINK_EXISTING_SQL,
+    _PROMOTE_MEDIA_NEW_SQL,
+    _PROMOTE_WRITTEN_NEW_SQL,
     deterministic_promoted_claim_id,
     deterministic_promotion_id,
     deterministic_promotion_key,
@@ -348,6 +351,41 @@ class ClaimPromotionTests(unittest.TestCase):
         receipt = promote_claim_candidate(store, self.request())
         self.assertEqual(receipt.reason_code, "PROMOTION_AMBIGUOUS_DUPLICATE")
         self.assertEqual([c[0] for c in store.calls], ["context"])
+
+    def test_reported_speech_cannot_promote_or_link_existing_without_origin(self):
+        for duplicate_targets in ([], ["claim:existing"]):
+            with self.subTest(duplicate_targets=duplicate_targets):
+                context = written_context()
+                context["candidate_metadata"] = {
+                    "speech_mode": "REPORTED_SPEECH",
+                    "reported_origin_required": True,
+                }
+                context["duplicate_target_ids"] = duplicate_targets
+                store = FakePromotionStore(context)
+                receipt = promote_claim_candidate(store, self.request())
+                self.assertFalse(receipt.promoted)
+                self.assertEqual(
+                    receipt.reason_code,
+                    "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED",
+                )
+                self.assertFalse(
+                    any(
+                        call[0] in {"link_existing", "create_written"}
+                        for call in store.calls
+                    )
+                )
+
+    def test_all_mutation_sql_refuses_non_direct_speech_mode(self):
+        guard = (
+            "COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')="
+            "'DIRECT_UTTERANCE'"
+        )
+        for sql in (
+            _LINK_EXISTING_SQL,
+            _PROMOTE_WRITTEN_NEW_SQL,
+            _PROMOTE_MEDIA_NEW_SQL,
+        ):
+            self.assertIn(guard, sql)
 
     def test_existing_promotion_replays_same_receipt(self):
         context = written_context()

@@ -1,6 +1,6 @@
 # DP-219 — Reported speech, nested quotation, and quote-origin separation
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216, DP-218, DP-211
 
@@ -44,9 +44,9 @@ recovered and approved.
 
 ## Acceptance criteria
 
-- [ ] **AC-219.1:** `X says "Y said Z"` produces X as the current utterer and Y only as a
+- [x] **AC-219.1:** Candidate extraction now preserves DIRECT_UTTERANCE / REPORTED_SPEECH / NESTED_QUOTATION / EMBEDDED_MEDIA separately; the current media segment speaker remains the utterer while a reported speaker is only an offset-bound mention/coverage hint, and `X says "Y said Z"` keeps Y only as a
   reported speaker/coverage target; Y cannot receive a public Statement from this source.
-- [ ] **AC-219.2:** A journalist/moderator reading another person's quote cannot be
+- [x] **AC-219.2:** Written sources naming another speaker are conservatively classified as reported occurrence; Python promotion plus all mutation SQL refuse non-direct speech mode, so a journalist/moderator reading another person's quote cannot be
   converted into the quoted person's direct occurrence without original-source proof.
 - [ ] **AC-219.3:** Embedded old clips retain their own Content/source/span and speaker
   provenance instead of inheriting the surrounding narrator's source context.
@@ -54,9 +54,9 @@ recovered and approved.
   lineage and do not create N independent attributions.
 - [ ] **AC-219.5:** Finding a verified original source can satisfy the Coverage Need and
   link the reported occurrence without mutating the historical reporting source.
-- [ ] **AC-219.6:** Nested quote depth/boundaries survive replay and public-safe metadata;
+- [ ] **AC-219.6:** Nested/reported mode and exact reported-speaker mention offsets survive candidate persistence; add normalized depth/origin-link representation and public-safe disclosure before marking complete; private source text is not leaked.
   private source text is not leaked.
-- [ ] **AC-219.7:** Adversarial fixtures with ambiguous quotation marks, indirect speech,
+- [ ] **AC-219.7:** Focused fixtures now cover explicit nested quotation, written indirect/reporting source and mutation-gate bypass; add ambiguous quotation marks, repost commentary and quoted-tweet corpus cases before closure; indirect speech,
   repost commentary and quoted tweets fail closed rather than guessing origin.
 - [ ] **AC-219.8:** Full suite, benchmark and MiniPC canary prove zero cross-person public
   attribution in the fixture set.
@@ -75,4 +75,4 @@ vocabulary after implementation.
 
 ## Completion receipt
 
-Pending DP-216/DP-218 and implementation.
+First fail-closed reported-speech layer implemented 2026-10-05. Candidate extraction carries a bounded speech_mode and offset-bound reported-speaker mention without identity IDs; written speaker mentions are conservatively reported-source occurrences; ClaimCandidate metadata carries an ATTRIBUTION_GAP hint; promotion Python and all mutation SQL refuse non-direct speech; finding publication and public projection also require DIRECT_UTTERANCE metadata. Persistent CoverageNeed creation, independently reviewed original-occurrence linking, normalized nesting depth/lineage, adversarial corpus and MiniPC proof remain open.
