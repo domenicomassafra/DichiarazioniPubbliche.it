@@ -18,9 +18,10 @@ interface Props { dossier: PublicDossier }
 const { dossier } = Astro.props;
 const published = formatDate(dossier.finding.published_at ?? dossier.source.published_at);
 const sourceMoment = dossier.source.segments?.[0];
+const canonical = `/dichiarazioni/${dossierSlug(dossier)}/`;
 ---
 
-<BaseLayout title={dossier.claim} description={dossier.finding.rationale}>
+<BaseLayout title={dossier.claim} description={dossier.finding.rationale} canonicalPath={canonical}>
   <header class="fact-header">
     <div class="shell fact-header-grid">
       <div>

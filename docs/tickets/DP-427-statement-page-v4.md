@@ -1,6 +1,6 @@
 # DP-427 — Canonical Statement page v4
 
-Status: READY
+Status: DONE
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-425, DP-105
 
@@ -54,4 +54,26 @@ Update canonical route references and Statement mockup. Redirect ownership remai
 
 ## Completion receipt
 
-Pending implementation.
+- Added the canonical `/dichiarazioni/{slug}/` static route backed only by the approved
+  public projection. Legacy `/fact-check/{slug}/` remains available for DP-422 cutover but
+  now declares the canonical Statement URL.
+- The first viewport binds exact wording, speaker, source/date/locator, written finding
+  state and concise rationale. Timed sources expose a bounded time locator; approved
+  written-source provenance is represented by the public selector rather than a fake
+  timestamp.
+- Added the v4 source-first reading path: verification, reviewed evidence links, original
+  source context, reviewed Trace links, correction/reply history, and technical
+  provenance behind progressive disclosure.
+- Public reply/correction rendering consumes only records that already survived the
+  projection publication gate; no raw transcript/model output is exposed.
+- Internal Statement links in `ClaimRow`, Explore, Content moments and legacy Compare now
+  point to `/dichiarazioni/`; Compare copy no longer says “Apri il fact-check”.
+- Extended the web `PublicDossier` type with the already-ratified public
+  `source.text_provenance` shape so written-source locators can render without inventing
+  fields.
+- Visual receipts: `prototypes/v4-implementation/dp427/statement-desktop.png` and
+  `statement-mobile.png`; both were manually inspected after a real static build.
+- Validation: `python3 -m compileall -q poc tests` PASS; 44 focused public-schema /
+  public-projection tests PASS; `npm run check:design` PASS; `npm run check` 0
+  errors/warnings/hints; explicit demo-projection static build PASS with all three
+  `/dichiarazioni/` routes emitted; `git diff --check` PASS.

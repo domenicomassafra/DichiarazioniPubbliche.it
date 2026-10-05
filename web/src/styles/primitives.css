@@ -1361,3 +1361,193 @@
     gap: var(--space-2);
   }
 }
+
+/* --------------------------------------------------------------------------
+   Public v4 composite — canonical Statement
+   -------------------------------------------------------------------------- */
+.dp-statement-header {
+  padding-block: var(--space-8) 0;
+  border-bottom: 1px solid var(--rule-ink);
+}
+
+.dp-statement-header h1 {
+  max-width: 23ch;
+  margin: var(--space-2) 0 var(--space-5);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+
+.dp-statement-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-6);
+  color: var(--ink-700);
+  font-size: var(--text-label);
+}
+
+.dp-statement-meta a,
+.dp-source-path a,
+.dp-statement-relations a,
+.dp-public-reply a {
+  color: var(--cobalt-700);
+  text-underline-offset: var(--space-1);
+}
+
+.dp-finding-summary {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr) 10rem;
+  gap: var(--space-6);
+  align-items: start;
+  padding-block: var(--space-5);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+.dp-finding-summary > p {
+  margin: 0;
+  max-width: var(--measure-brief);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-medium);
+}
+
+.dp-finding-summary__version {
+  color: var(--ink-500);
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  text-align: end;
+}
+
+.dp-statement-body {
+  display: grid;
+  grid-template-columns: minmax(0, var(--width-reading)) minmax(16rem, var(--width-rail));
+  gap: var(--space-9);
+  align-items: start;
+  padding-block: var(--space-7) var(--space-9);
+}
+
+.dp-statement-body .prose h2 {
+  color: var(--ink-900);
+}
+
+.dp-statement-relations {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+.dp-statement-relations ul,
+.dp-public-reply ul {
+  padding-inline-start: var(--space-5);
+}
+
+.dp-source-path {
+  position: sticky;
+  top: var(--space-6);
+  border-top: 1px solid var(--rule-ink);
+}
+
+.dp-source-path > h2 {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-semibold);
+}
+
+.dp-source-path > p,
+.dp-source-path__current p,
+.dp-source-path__person p {
+  color: var(--ink-700);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+}
+
+.dp-source-path__current {
+  position: relative;
+  margin-top: var(--space-4);
+  padding: var(--space-5) 0 var(--space-5) var(--space-5);
+  border-block: 1px solid var(--rule-hairline);
+}
+
+.dp-source-path__current::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--focus-ring-width);
+  background: var(--cobalt-700);
+}
+
+.dp-source-path__current h3,
+.dp-source-path__person h3 {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+  font-weight: var(--weight-semibold);
+}
+
+.dp-source-path__person {
+  margin-block: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.dp-public-reply {
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+.dp-public-reply p {
+  margin-block: var(--space-2);
+}
+
+.details-list code {
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+}
+
+@media (max-width: 60rem) {
+  .dp-statement-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .dp-source-path {
+    position: static;
+  }
+}
+
+@media (max-width: 40rem) {
+  .dp-statement-header {
+    padding-top: var(--space-7);
+  }
+
+  .dp-statement-header h1 {
+    max-width: none;
+  }
+
+  .dp-finding-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .dp-finding-summary__version {
+    text-align: start;
+  }
+
+  .dp-statement-body {
+    padding-block: var(--space-6) var(--space-7);
+  }
+}

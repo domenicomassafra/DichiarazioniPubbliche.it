@@ -1,8 +1,8 @@
 # Dichiarazioni Pubbliche — Master Plan to Stable v1
 
 Status: canonical  
-Plan version: 1.1
-Last updated: 2026-10-03
+Plan version: 1.2
+Last updated: 2026-10-05
 
 This is the single ordered execution map for the project. Detailed implementation specs
 live in `docs/tickets/`. Historical roadmap files are evidence, not competing backlogs.
@@ -182,12 +182,23 @@ without manual DB surgery.
 | DP-215 | IN_PROGRESS | Source Intelligence + contextual evidence suitability/requirements; no global source scores | DP-102, DP-113, DP-115, DP-118, DP-209, DP-210 |
 | DP-213 | DONE | Coverage-needs planner for missing primary/original/independent material | DP-211, DP-212, DP-215 |
 | DP-214 | FUTURE | Garlasco Research Collection tracer-bullet corpus | DP-209..213, DP-215, DP-117 |
+| DP-216 | READY | Exact quote/source-span binding; model output can never be quotation authority | DP-111, DP-210; coordinate DP-207/DP-305 |
+| DP-217 | READY | Transcript reliability tiers + human/audio verbatim review gate | DP-204/DP-207 where live; fixture lane independent |
+| DP-218 | READY | Speaker-attribution proof must cover the exact quoted/claimed span | DP-114, DP-207, ADR 0003 |
+| DP-219 | FUTURE | Reported speech/nested quotation + original-quote-origin separation | DP-216, DP-218, DP-211 |
+| DP-220 | FUTURE | Context-integrity / semantic-clipping guard for public statements | DP-216, DP-217, DP-219 |
+| DP-221 | FUTURE | Original wording vs paraphrase/summary/translation separation | DP-216 |
+| DP-222 | FUTURE | Public-attribution Person identity + same-name/role-at-time gate | DP-101, DP-114, DP-216, DP-218 |
+| DP-223 | FUTURE | False-attribution/fabricated-quote adversarial benchmark; zero known public escapes | DP-216..222 |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never
 used as biometric identity; evidence suitability is contextual and inspectable rather than
-a global source score; and the corpus-native path has one real bounded collection that can
-be replayed without duplicate records or public side effects.
+a global source score; direct quotations are source-span bound rather than model-authored;
+speaker/person/context/wording derivation are fail-closed and reviewable; the adversarial
+attribution benchmark has zero known public false-attribution/fabricated-quote escapes; and
+the corpus-native path has one real bounded collection that can be replayed without
+duplicate records or public side effects.
 
 ---
 
@@ -205,10 +216,15 @@ handled before opening the product to users.
 | DP-305 | IN PROGRESS | Copyright/transcript excerpt publication policy | M0 |
 | DP-306 | READY | Legal research closure checklist for Italy/EU launch | DP-301..305 |
 | DP-307 | FUTURE | Qualified legal review and resulting ADR/policy changes | DP-306 |
+| DP-308 | FUTURE | Publication evidence invariants + fail-closed safety profile; no confidence score | DP-215, DP-216..223, DP-301..305 |
+| DP-309 | FUTURE | High-risk assertion/legal-status escalation gate | DP-215, DP-304, DP-306, DP-308; DP-307 for launch |
+| DP-310 | FUTURE | Independent/dual-control publication review for HIGH/LEGAL records | DP-308, DP-309 |
 
 Exit criteria: public submission and publication behavior have explicit policy, abuse,
-privacy, retention, and appeal rules; unresolved legal questions are either closed or
-documented as launch blockers.
+privacy, retention, appeal and evidence-safety rules; high-risk assertions cannot bypass
+stronger evidence/review gates; publication eligibility is an inspectable conjunction of
+required proofs rather than model confidence; unresolved legal questions are either closed
+or documented as launch blockers.
 
 ---
 
@@ -246,13 +262,17 @@ LLM in the request path.
 | DP-424 | DONE | Public visual redesign v4 concept selection | DP-423, DP-412 |
 | DP-425 | DONE | Public design system v2 + component contract | DP-424 |
 | DP-426 | READY | Home + public shell v4 | DP-425 |
-| DP-427 | READY | Canonical Statement page v4 | DP-425, DP-105 |
+| DP-427 | DONE | Canonical Statement page v4 | DP-425, DP-105 |
 | DP-428 | DONE | Method + trust/utility document pages v4 | DP-425 |
 | DP-429 | FUTURE | Explore page v4 | DP-409, DP-425 |
 | DP-430 | READY | First-class public Topic resource contract | DP-105, DP-114 |
+| DP-431 | FUTURE | Correction/retraction propagation across all public pages/API/search/metadata | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429 |
+| DP-432 | FUTURE | Public trust/provenance disclosure integration for Statement + Method | DP-216..223, DP-308, DP-427, DP-428 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
-providers offline, and expose provenance/correction history without private raw content.
+providers offline, expose provenance/correction history without private raw content, and
+cannot serve stale attribution/wording from a derived page, index or metadata surface after
+a correction/hold.
 The Studio exit additionally requires the corpus/query/candidate workflow to operate on
 persisted records rather than demo-only state.
 
@@ -273,9 +293,13 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-507 | FUTURE | AuthN/AuthZ/CSRF design for any future admin HTTP surface | only when such surface exists |
 | DP-508 | FUTURE | Public intake rate limiting/spam controls runtime | DP-302, public intake implementation |
 | DP-509 | DONE | Harden claim/ASR/verification provenance inputs | M0 baseline |
+| DP-510 | FUTURE | Targeted provenance quarantine + emergency public hold/unhold | DP-308; coordinate DP-501/504/505/431 |
+| DP-511 | FUTURE | Source drift/supersession/rights-expiry revalidation watch | DP-210, DP-215, DP-308, DP-510 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
-observable, budget cannot explode, and public/admin trust boundaries have tests.
+observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad
+provenance dependency can be quarantined without destroying history, and material source
+drift/supersession cannot silently leave stale public output online.
 
 ---
 
@@ -306,7 +330,7 @@ Goal: first release that can be operated publicly without calling the code a pro
 | Ticket | Status | Description | Depends on |
 |---|---|---|---|
 | DP-701 | IN PROGRESS | Dichiarazioni Pubbliche naming + technical rename approved locally; external clearance/runtime proof open | M4 |
-| DP-702 | FUTURE | Pre-launch legal/security/privacy review closure | M3, M5 |
+| DP-702 | FUTURE | Pre-launch legal/security/privacy/evidence-safety review closure | DP-301..310, DP-501..511 |
 | DP-703 | FUTURE | Production dataset/source launch set and disclosure | M2, M3 |
 | DP-704 | FUTURE | End-to-end launch rehearsal from source to correction | M2..M6 |
 | DP-705 | FUTURE | v1.0.0 release and public deployment | DP-701..704 |

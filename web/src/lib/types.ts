@@ -74,6 +74,17 @@ export interface PublicDossier {
       start_ms?: number | null;
       end_ms?: number | null;
     }>;
+    text_provenance?: Array<{
+      id: string;
+      selector_type: "TEXT_QUOTE_HASH" | "TEXT_POSITION_HASH";
+      quote_sha256: string;
+      source_sha256?: string | null;
+      start_char?: number | null;
+      end_char?: number | null;
+      attribution_method: string;
+      attribution_version: string;
+      review_event_ids: string[];
+    }>;
   };
   finding: {
     assessment: AssessmentCode;

@@ -92,7 +92,7 @@ export default function ExploreClient({ dossiers }: Props) {
             <div className="claim-row-date">{formatDate(dossier.finding.published_at)}</div>
             <div className="claim-row-main">
               <div className="eyebrow">{dossier.claim_type.replaceAll("_", " ")}</div>
-              <a className="claim-row-claim" href={`/fact-check/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
+              <a className="claim-row-claim" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
               <div className="claim-row-meta">
                 <span>{dossier.speaker.name}</span><span aria-hidden="true">·</span><span>{dossier.source.title}</span>
               </div>

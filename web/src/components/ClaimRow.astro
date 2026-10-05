@@ -15,7 +15,7 @@ const date = formatDate(dossier.finding.published_at ?? dossier.source.published
   <div class="claim-row-date">{date}</div>
   <div class="claim-row-main">
     {showTopic && <div class="eyebrow">{dossier.claim_type.replaceAll("_", " ")}</div>}
-    <a class="claim-row-claim" href={`/fact-check/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
+    <a class="claim-row-claim" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
     <div class="claim-row-meta">
       <span>{dossier.speaker.name}</span>
       <span aria-hidden="true">·</span>

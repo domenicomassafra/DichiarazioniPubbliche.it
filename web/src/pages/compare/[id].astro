@@ -67,7 +67,7 @@ const explanation = relationCopy[comparison.relationType] ?? "Relazione longitud
           <p>{dossier.speaker.name} · <a href={dossier.source.url}>{dossier.source.title}</a></p>
           <Assessment code={dossier.finding.assessment} />
           <p>{dossier.finding.rationale}</p>
-          <a class="text-link" href={`/fact-check/${dossierSlug(dossier)}/`}>Apri il fact-check →</a>
+          <a class="text-link" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>Apri la dichiarazione →</a>
         </article>
       ))}
     </div>

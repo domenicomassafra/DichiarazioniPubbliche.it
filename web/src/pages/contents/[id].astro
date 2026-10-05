@@ -42,7 +42,7 @@ const timestamp = (ms?: number | null) => {
           <article class="moment-row" id={`moment-${index + 1}`}>
             <a class="moment-time" href={`${source.url}${segment?.start_ms !== undefined && segment?.start_ms !== null ? `#t=${Math.floor(segment.start_ms / 1000)}` : ""}`}>{timestamp(segment?.start_ms)}</a>
             <div>
-              <a class="moment-claim" href={`/fact-check/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
+              <a class="moment-claim" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
               <p>{dossier.finding.rationale}</p>
               <small>{dossier.evidence.length} fonti pubbliche approvate</small>
             </div>

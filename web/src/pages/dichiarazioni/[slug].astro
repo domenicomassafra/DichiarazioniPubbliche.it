@@ -1,0 +1,172 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Assessment from "../../components/Assessment.astro";
+import SourceRow from "../../components/SourceRow.astro";
+import { dossierSlug, formatDate, relationSlug } from "../../lib/format";
+import { loadPublicProjection } from "../../lib/projection";
+import type { PublicDossier } from "../../lib/types";
+
+export async function getStaticPaths() {
+  const projection = await loadPublicProjection();
+  return projection.dossiers.map((dossier) => ({
+    params: { slug: dossierSlug(dossier) },
+    props: { dossier }
+  }));
+}
+
+interface Props { dossier: PublicDossier }
+const { dossier } = Astro.props;
+const slug = dossierSlug(dossier);
+const published = formatDate(dossier.source.published_at ?? dossier.finding.published_at);
+const sourceMoment = dossier.source.segments?.[0];
+const textProvenance = dossier.source.text_provenance?.[0];
+const seconds = (ms?: number | null) => {
+  if (ms === null || ms === undefined) return null;
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+};
+const start = seconds(sourceMoment?.start_ms);
+const end = seconds(sourceMoment?.end_ms);
+const locator = sourceMoment
+  ? `Momento ${start ?? "non disponibile"}${end ? `–${end}` : ""}`
+  : textProvenance?.selector_type === "TEXT_POSITION_HASH" && textProvenance.start_char !== null && textProvenance.start_char !== undefined
+    ? `Passaggio testuale · caratteri ${textProvenance.start_char}–${textProvenance.end_char}`
+    : textProvenance
+      ? "Passaggio testuale verificato"
+      : "Locator non disponibile";
+const relations = [...(dossier.relations ?? [])]
+  .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
+  .filter((relation, index, list) => list.findIndex((item) => item.id === relation.id) === index);
+---
+
+<BaseLayout
+  title={dossier.claim}
+  description={dossier.finding.rationale}
+  canonicalPath={`/dichiarazioni/${slug}/`}
+>
+  <header class="dp-statement-header">
+    <div class="shell">
+      <div class="eyebrow">Dichiarazione</div>
+      <h1>“{dossier.claim}”</h1>
+      <div class="dp-statement-meta">
+        <strong>{dossier.speaker.name}</strong>
+        <span aria-hidden="true">·</span>
+        <a href={dossier.source.url} rel="noreferrer">{dossier.source.title}</a>
+        <span aria-hidden="true">·</span>
+        <span>{published}</span>
+        <span aria-hidden="true">·</span>
+        <span>{locator}</span>
+      </div>
+
+      <section class="dp-finding-summary" aria-labelledby="finding-heading">
+        <div>
+          <div class="eyebrow" id="finding-heading">In breve</div>
+          <Assessment code={dossier.finding.assessment} />
+        </div>
+        <p>{dossier.finding.rationale}</p>
+        <div class="dp-finding-summary__version">
+          {dossier.finding.supersedes_id ? "Versione corretta" : "Versione pubblicata"}<br />
+          {formatDate(dossier.finding.published_at)}
+        </div>
+      </section>
+    </div>
+  </header>
+
+  <div class="shell dp-statement-body">
+    <article class="prose">
+      <h2>Verifica</h2>
+      <p>{dossier.finding.rationale}</p>
+
+      <h2 id="fonti">Fonti ed evidenze</h2>
+      <div class="source-stack">
+        {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
+      </div>
+
+      {relations.length > 0 && (
+        <section class="dp-statement-relations" aria-labelledby="tracce-heading">
+          <h2 id="tracce-heading">Tracce nel tempo</h2>
+          <p>Questa dichiarazione compare in relazioni longitudinali revisionate. La relazione descrive testi e sequenza temporale; non attribuisce intenzioni.</p>
+          <ul>
+            {relations.map((relation) => (
+              <li>
+                <a href={`/tracce/${relationSlug(relation.id)}/`}>
+                  {relation.relation_type.replaceAll("_", " ")} · apri la traccia
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div class="details-list">
+        <details>
+          <summary>Correzioni, versioni e repliche</summary>
+          <div>
+            {dossier.corrections.length === 0 && dossier.rights_of_reply.length === 0 ? (
+              <p>Nessuna correzione o replica pubblicata per questa versione.</p>
+            ) : (
+              <>
+                {dossier.corrections.length > 0 && (
+                  <section>
+                    <h3>Correzioni pubblicate</h3>
+                    <ul>
+                      {dossier.corrections.map((correction) => (
+                        <li>
+                          {String(correction.reason ?? "Correzione pubblicata")}
+                          {correction.created_at ? ` · ${formatDate(String(correction.created_at))}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                {dossier.rights_of_reply.length > 0 && (
+                  <section>
+                    <h3>Repliche pubblicate</h3>
+                    {dossier.rights_of_reply.map((reply) => (
+                      <article class="dp-public-reply">
+                        <p><strong>{String(reply.submitter_name ?? "Replica pubblicata")}</strong>{reply.submitter_role ? ` · ${String(reply.submitter_role)}` : ""}</p>
+                        {reply.submitted_at && <p>{formatDate(String(reply.submitted_at))}</p>}
+                        {reply.body && <p>{String(reply.body)}</p>}
+                        {Array.isArray(reply.evidence_urls) && reply.evidence_urls.length > 0 && (
+                          <ul>{reply.evidence_urls.map((url) => <li><a href={String(url)} rel="noreferrer">Fonte allegata ↗</a></li>)}</ul>
+                        )}
+                      </article>
+                    ))}
+                  </section>
+                )}
+              </>
+            )}
+          </div>
+        </details>
+
+        <details>
+          <summary>Metodo e provenienza tecnica</summary>
+          <div>
+            <p>Finding: <code>{dossier.finding_id}</code></p>
+            <p>Claim: <code>{dossier.claim_id}</code></p>
+            <p>Policy: <code>{dossier.finding.policy_version ?? "non pubblicata"}</code></p>
+            <p>{locator}. La pagina espone soltanto provenienza ed evidenze già ammesse nella projection pubblica.</p>
+            <p><a href="/metodo/">Leggi il metodo completo</a></p>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <aside class="dp-source-path" aria-labelledby="source-path-heading">
+      <h2 id="source-path-heading">Contesto originale</h2>
+      <p>La fonte rimane parte del percorso di lettura, non una nota tecnica separata.</p>
+      <div class="dp-source-path__current">
+        <div class="eyebrow">Momento selezionato</div>
+        <h3>{dossier.source.title}</h3>
+        <p>{published} · {locator}</p>
+        <a href={dossier.source.url} rel="noreferrer">Apri la fonte originale ↗</a>
+      </div>
+      <div class="dp-source-path__person">
+        <div class="eyebrow">Persona</div>
+        <h3>{dossier.speaker.name}</h3>
+        {dossier.speaker.public_role && <p>{dossier.speaker.public_role}</p>}
+      </div>
+      <a href="/correzioni/">Registro delle correzioni →</a>
+    </aside>
+  </div>
+</BaseLayout>
