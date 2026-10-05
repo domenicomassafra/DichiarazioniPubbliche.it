@@ -165,9 +165,10 @@ visual anchor.
 
 ### Home signature move
 
-The **search spine**: the primary search surface is marked by the cobalt Segno and sits in
-the main reading flow immediately after the one-sentence promise. No competing CTA is
-allowed in the same hierarchy.
+The **search spine**: the primary search surface sits in the main reading flow immediately
+after the one-sentence promise and receives the cobalt Segno when focus enters it. Scale,
+placement and whitespace keep it dominant at rest; the Segno remains a real attention
+state rather than decoration. No competing CTA is allowed in the same hierarchy.
 
 ### Statement signature move
 

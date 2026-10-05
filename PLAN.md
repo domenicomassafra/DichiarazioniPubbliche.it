@@ -224,10 +224,10 @@ LLM in the request path.
 | DP-402 | DONE | Read-only HTTP API implementation over public schema v1 | DP-105, DP-401 |
 | DP-403 | DONE | OpenAPI + examples + API versioning/deprecation policy | DP-402 |
 | DP-404 | DONE | `llms.txt` and agent-oriented public data documentation | DP-403 |
-| DP-405 | FUTURE | Person archive UI | DP-105, DP-425 |
-| DP-406 | FUTURE | Topic dossier UI | DP-105, DP-425 |
+| DP-405 | READY | Person archive UI | DP-105, DP-425 |
+| DP-406 | READY | Topic dossier UI | DP-105, DP-425 |
 | DP-407 | FUTURE | Content/source-locator UI | DP-207, DP-105, DP-425 |
-| DP-408 | FUTURE | Trace/longitudinal relation UI | DP-104, DP-105, DP-425 |
+| DP-408 | READY | Trace/longitudinal relation UI | DP-104, DP-105, DP-425 |
 | DP-409 | FUTURE | Public search/indexing without new infra by default | DP-405..408, DP-425 |
 | DP-410 | FUTURE | Accessibility/performance/SEO acceptance | DP-405..409, DP-422, DP-425..429 |
 | DP-411 | DONE | Generate and compare five researched visual systems against UX v2 | DP-413 |
@@ -244,10 +244,10 @@ LLM in the request path.
 | DP-422 | FUTURE | Public Product Architecture v3 route/template migration + legacy cutover integration | DP-405..409, DP-426..429 |
 | DP-423 | DONE | Public product-marketing + brand context | DP-400, DP-413 |
 | DP-424 | DONE | Public visual redesign v4 concept selection | DP-423, DP-412 |
-| DP-425 | READY | Public design system v2 + component contract | DP-424 |
-| DP-426 | FUTURE | Home + public shell v4 | DP-425 |
-| DP-427 | FUTURE | Canonical Statement page v4 | DP-425, DP-105 |
-| DP-428 | FUTURE | Method + trust/utility document pages v4 | DP-425 |
+| DP-425 | DONE | Public design system v2 + component contract | DP-424 |
+| DP-426 | READY | Home + public shell v4 | DP-425 |
+| DP-427 | READY | Canonical Statement page v4 | DP-425, DP-105 |
+| DP-428 | READY | Method + trust/utility document pages v4 | DP-425 |
 | DP-429 | FUTURE | Explore page v4 | DP-409, DP-425 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with

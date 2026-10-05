@@ -1,6 +1,6 @@
 # DP-427 — Canonical Statement page v4
 
-Status: FUTURE  
+Status: READY
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-425, DP-105
 

@@ -1,6 +1,6 @@
 # DP-405 — Person archive UI
 
-Status: FUTURE
+Status: READY
 
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-425

@@ -1,6 +1,6 @@
 # DP-428 — Method + trust/utility document pages v4
 
-Status: FUTURE  
+Status: READY
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-425
 

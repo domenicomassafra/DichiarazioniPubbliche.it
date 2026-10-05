@@ -1,14 +1,16 @@
-# Dichiarazioni Pubbliche — Design System v1
+# Dichiarazioni Pubbliche — Design System
 
-Status: **frozen — design system of record**
-Date: 2026-09-26
+Status: **frozen foundation + Public v2 composition contract**
+Date: 2026-10-05
 Supersedes: Design System Candidate v0.2 (2026-09-23)
 
-The consumable contract — every token value, every component state matrix, the
-contrast table, the migration map — is
-**[`docs/ux/design-system-v1.md`](docs/ux/design-system-v1.md)**. This file
-states the durable visual decisions and the reasoning behind them. It is the
-authority a reviewer reads; the contract is the authority a builder reads.
+The consumable foundation — every token value, primitive state matrix, contrast table and
+migration rule — remains **[`docs/ux/design-system-v1.md`](docs/ux/design-system-v1.md)**.
+The Public v4 composition and composite-component contract is
+**[`docs/ux/design-system-v2.md`](docs/ux/design-system-v2.md)**. v2 adds no token values;
+it defines how the frozen foundation composes the canonical Public architecture selected
+by DP-424. This file states the durable visual decisions and reasoning. Builders use v1
+for primitives/tokens and v2 for Public composition.
 
 `PRODUCT.md` and `docs/35-public-product-architecture-v3.md` are authoritative for
 product truth and public information architecture. `docs/32-public-ux-architecture-v2.md`

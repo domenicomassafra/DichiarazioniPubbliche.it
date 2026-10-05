@@ -1,6 +1,6 @@
 # DP-425 — Public design system v2 + component contract
 
-Status: FUTURE  
+Status: DONE
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-424
 
@@ -55,4 +55,20 @@ May update `DESIGN.md`/consumable design-system docs only where the selected v4 
 
 ## Completion receipt
 
-Pending implementation.
+- Frozen the Public v4 composition/component contract in
+  `docs/ux/design-system-v2.md`, while keeping the DP-412/v1 token, primitive,
+  accessibility, contrast, motion and Studio contracts authoritative.
+- Reconciled Ledger Spine with the existing system with **zero new tokens**. The Home
+  search Segno is now focus-within only; Statement/Trace keep it only for actual current
+  selection/open state.
+- Defined Entry/index, Record and Trust-document archetypes plus reusable contracts for
+  PublicHeader, SearchStage, StatementRow, FindingSummary, SourceEvidenceItem,
+  SourcePath, ChronologyIndex, EvidenceTape, Disclosure, FilterSheet and UtilityDocument.
+- Defined desktop/phone DOM-order rules and the relevant default, hover, focus-visible,
+  active, selected/open, disabled, loading, empty and error states.
+- Attached the component inventory and mapped it to the DP-424 Home/Statement/Trace
+  desktop/phone visual proofs under `prototypes/v4-ledger-spine/`.
+- Validation: `npm run check:design` PASS; `npm run check` PASS with 0 errors/warnings;
+  the fail-closed build correctly refused to run without a public projection, then
+  `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build` PASS for the explicit
+  local demo path; staged `git diff --check` PASS.
