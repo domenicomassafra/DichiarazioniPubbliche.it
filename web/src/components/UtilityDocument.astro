@@ -1,0 +1,20 @@
+---
+interface Props {
+  eyebrow: string;
+  title: string;
+  lede: string;
+}
+
+const { eyebrow, title, lede } = Astro.props;
+---
+
+<article class="shell dp-utility-document">
+  <header class="dp-utility-document__header">
+    <div class="eyebrow">{eyebrow}</div>
+    <h1>{title}</h1>
+    <p class="lede">{lede}</p>
+  </header>
+  <div class="dp-utility-document__body">
+    <slot />
+  </div>
+</article>

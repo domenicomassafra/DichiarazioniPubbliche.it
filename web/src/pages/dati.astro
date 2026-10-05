@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import UtilityDocument from "../components/UtilityDocument.astro";
+---
+
+<BaseLayout title="Dati & API" description="Risorse machine-readable, schema pubblico e API di Dichiarazioni Pubbliche." canonicalPath="/dati/">
+  <UtilityDocument eyebrow="Dati & API" title="Lo stesso record pubblico, in forma machine-readable." lede="Le interfacce pubbliche derivano dalla stessa proiezione fail-closed usata dal sito. Non espongono trascrizioni grezze, materiale privato o punteggi sulle persone.">
+    <section class="dp-utility-section">
+      <h2>Risorse pubbliche</h2>
+      <ul class="dp-resource-list">
+        <li><a href="/api/v1/openapi.json">OpenAPI JSON</a> — descrizione machine-readable delle route pubbliche.</li>
+        <li><a href="/api/v1/schema">Schema</a> — versioni e vocabolari del contratto pubblico.</li>
+        <li><a href="/api/v1/findings">Findings</a> — record di verifica pubblicati.</li>
+        <li><a href="/api/v1/index.json">Indice JSON</a> — indice pubblico derivato dalla projection.</li>
+      </ul>
+    </section>
+    <section class="dp-utility-section">
+      <h2>Versionamento</h2>
+      <p>L’URL API e la versione della projection sono assi separati. Il runtime pubblico attuale usa il contratto <code>dichiarazioni-pubbliche-public-v2</code>; una modifica incompatibile richiede una decisione esplicita di compatibilità/versionamento.</p>
+    </section>
+    <section class="dp-utility-section">
+      <h2>Licenza e diritti</h2>
+      <p>Il codice del repository è distribuito con licenza Apache-2.0. Questa licenza non estende automaticamente i propri termini a fonti, media, dataset o contenuti di terzi, che mantengono i rispettivi diritti e vincoli.</p>
+    </section>
+  </UtilityDocument>
+</BaseLayout>

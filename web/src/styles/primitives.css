@@ -1217,3 +1217,147 @@
   --theme-color-paper: var(--paper-0);
   --theme-color-inverse: var(--ink-inverse);
 }
+
+/* --------------------------------------------------------------------------
+   Public v4 composite — UtilityDocument
+   Shared document grammar for Metodo / Correzioni / Dati & API / Progetto.
+   -------------------------------------------------------------------------- */
+.dp-utility-document {
+  max-width: var(--width-document);
+  padding-block: var(--space-9) var(--space-8);
+}
+
+.dp-utility-document__header {
+  padding-bottom: var(--space-7);
+  border-bottom: 1px solid var(--rule-ink);
+}
+
+.dp-utility-document__header h1 {
+  margin: var(--space-2) 0 var(--space-5);
+  max-width: var(--measure-brief);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+
+.dp-utility-document__header .lede {
+  max-width: var(--measure-brief);
+}
+
+.dp-utility-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.dp-utility-index a,
+.dp-resource-list a,
+.dp-utility-section a,
+.dp-utility-empty a,
+.dp-correction-item a {
+  color: var(--cobalt-700);
+  text-underline-offset: var(--space-1);
+}
+
+.dp-utility-section {
+  padding-block: var(--space-7);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.dp-utility-section h2,
+.dp-utility-empty h2,
+.dp-correction-item h2 {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-headline);
+  line-height: var(--leading-headline);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-heading);
+}
+
+.dp-utility-section p,
+.dp-utility-section li,
+.dp-utility-empty p,
+.dp-correction-item p {
+  max-width: var(--measure-prose);
+  color: var(--ink-700);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+.dp-utility-section code {
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+  color: var(--ink-900);
+}
+
+.dp-resource-list {
+  display: grid;
+  gap: var(--space-3);
+  padding-inline-start: var(--space-5);
+}
+
+.dp-utility-empty {
+  padding-block: var(--space-7);
+}
+
+.dp-correction-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-ink);
+}
+
+.dp-correction-item {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-5);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.dp-correction-item__date,
+.dp-correction-item__version,
+.dp-correction-item__meta {
+  font-size: var(--text-meta);
+}
+
+.dp-correction-item__date,
+.dp-correction-item__version {
+  color: var(--ink-500);
+  font-family: var(--font-data);
+  letter-spacing: var(--tracking-time);
+}
+
+.dp-correction-item__meta {
+  margin-top: calc(var(--space-1) * -1);
+  color: var(--ink-500);
+}
+
+@media (max-width: 40rem) {
+  .dp-utility-document {
+    padding-block: var(--space-7) var(--space-6);
+  }
+
+  .dp-utility-document__header h1 {
+    font-size: var(--text-title);
+    line-height: var(--leading-title);
+  }
+
+  .dp-utility-index {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .dp-correction-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+}

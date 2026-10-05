@@ -1,6 +1,6 @@
 # DP-428 — Method + trust/utility document pages v4
 
-Status: READY
+Status: DONE
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-425
 
@@ -52,4 +52,23 @@ Adds canonical trust/utility public routes. No data migration unless existing pu
 
 ## Completion receipt
 
-Pending implementation.
+- Added one shared `UtilityDocument.astro` grammar and reused it for `/metodo/`,
+  `/correzioni/`, `/dati/`, and `/progetto/`; no page-specific visual system or token set
+  was introduced.
+- Method now documents publication gates, provenance/source paths, statement-local
+  findings, uncertainty, append-only corrections/replies, reviewed longitudinal
+  relations, AI/automation boundaries, and public data/code paths.
+- Corrections reads only the approved public projection, sorts projected correction
+  records chronologically, links back to canonical Statement routes, and has a deliberate
+  empty-snapshot state rather than a fake feed.
+- Data & API links only to implemented public API resources (`openapi.json`, schema,
+  findings, index) and states the code/content-rights boundary.
+- Project uses repository facts already present in the repo (canonical GitHub remote and
+  Apache-2.0 code license) and explicitly leaves unresolved responsibility/funding/contact
+  disclosures unresolved instead of inventing them.
+- Visual receipts: `prototypes/v4-implementation/dp428/` contains desktop and phone
+  screenshots for all four routes; representative desktop/mobile receipts were manually
+  inspected.
+- Validation: `npm run check:design` PASS; `npm run check` 0 errors/warnings/hints;
+  `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build` PASS with all four
+  routes emitted; `git diff --check` PASS.

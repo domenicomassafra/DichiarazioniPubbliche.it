@@ -1,23 +1,60 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
-<BaseLayout title="Metodo" description="Come Dichiarazioni Pubbliche tratta fonti, evidenza, verifica, revisione e correzioni.">
-  <article class="shell method-page">
-    <div class="eyebrow">Metodo</div>
-    <h1>Una verifica deve poter essere ripercorsa.</h1>
-    <p class="lede">Dichiarazioni Pubbliche separa acquisizione, evidenza, verifica, revisione e pubblicazione. Una fase completata non autorizza automaticamente la successiva.</p>
+<BaseLayout
+  title="Metodo"
+  description="Come Dichiarazioni Pubbliche tratta fonti, evidenza, verifica, revisione, correzioni e relazioni nel tempo."
+  canonicalPath="/metodo/"
+>
+  <UtilityDocument
+    eyebrow="Metodo"
+    title="Una verifica deve poter essere ripercorsa."
+    lede="Dichiarazioni Pubbliche separa acquisizione, evidenza, verifica, revisione e pubblicazione. Una fase completata non autorizza automaticamente la successiva."
+  >
+    <nav class="dp-utility-index" aria-label="Sezioni del metodo">
+      <a href="#pubblicazione">Pubblicazione</a>
+      <a href="#provenienza">Provenienza</a>
+      <a href="#esiti">Esiti</a>
+      <a href="#incertezza">Incertezza</a>
+      <a href="#correzioni">Correzioni e repliche</a>
+      <a href="#tracce">Relazioni nel tempo</a>
+      <a href="#automazione">AI e automazione</a>
+      <a href="#dati">Dati e codice</a>
+    </nav>
 
-    <h2>Fonti e contesto</h2>
-    <p>Le fonti ufficiali o primarie sono preferite quando sono autorevoli per la domanda. Ogni record pubblico conserva un percorso verificabile verso la fonte originale e le evidenze approvate.</p>
-
-    <h2>Valutazioni senza punteggi sulle persone</h2>
-    <p>La valutazione appartiene alla singola dichiarazione verificata. Dichiarazioni Pubbliche non produce classifiche, percentuali di affidabilità o punteggi complessivi di politici, partiti o altre figure pubbliche.</p>
-
-    <h2>Tempo e correzioni</h2>
-    <p>Le prove devono essere appropriate al momento della dichiarazione. Correzioni e repliche pubblicate restano versionate e non cancellano silenziosamente il record precedente.</p>
-
-    <h2>Quando mancano elementi</h2>
-    <p>Quando provenienza, evidenza o revisione non sono sufficienti, il risultato sicuro è non pubblicare o mostrare uno stato irrisolto: non produrre una conclusione più debole solo per completare il flusso.</p>
-  </article>
+    <section id="pubblicazione" class="dp-utility-section">
+      <h2>Pubblicazione</h2>
+      <p>Un contenuto raccolto non è automaticamente una dichiarazione pubblicabile. Recupero, approvazione dell’evidenza, verifica e pubblicazione sono passaggi distinti. Se uno dei gate richiesti manca, il record pubblico non viene completato per inerzia.</p>
+    </section>
+    <section id="provenienza" class="dp-utility-section">
+      <h2>Provenienza e fonte originale</h2>
+      <p>Ogni dichiarazione pubblicata conserva un percorso verso la fonte originale e verso le evidenze approvate usate nella verifica. La formulazione attribuita, la persona, la data e il locator del contenuto devono essere supportati dalla provenienza pubblica disponibile.</p>
+    </section>
+    <section id="esiti" class="dp-utility-section">
+      <h2>Esiti senza punteggi sulle persone</h2>
+      <p>L’esito appartiene alla singola dichiarazione verificata. Il prodotto non calcola percentuali di affidabilità, classifiche o punteggi complessivi di persone, partiti o organizzazioni.</p>
+    </section>
+    <section id="incertezza" class="dp-utility-section">
+      <h2>Incertezza</h2>
+      <p>Quando provenienza, evidenza o revisione non sono sufficienti, il risultato corretto è dichiarare il limite o non pubblicare. L’assenza di una conclusione forte non viene riempita con una risposta generata.</p>
+    </section>
+    <section id="correzioni" class="dp-utility-section">
+      <h2>Correzioni, repliche e versioni</h2>
+      <p>Le modifiche materiali non riscrivono silenziosamente la storia. Correzioni e repliche approvate restano collegate alla versione del finding a cui si riferiscono. Il registro pubblico globale è disponibile nella pagina <a href="/correzioni/">Correzioni</a>.</p>
+    </section>
+    <section id="tracce" class="dp-utility-section">
+      <h2>Relazioni nel tempo</h2>
+      <p>Una Traccia mostra dichiarazioni collegate da una relazione revisionata e la loro sequenza temporale. Una contraddizione o un cambiamento di posizione descrivono testi e tempo: non sono, da soli, una prova di intenzione o inganno.</p>
+    </section>
+    <section id="automazione" class="dp-utility-section">
+      <h2>AI e automazione</h2>
+      <p>L’automazione può assistere raccolta, normalizzazione e ricerca, ma l’output di un modello non è una fonte né una pubblicazione. Il percorso pubblico legge record già approvati e non richiede una chiamata live a un modello per mostrare una verifica.</p>
+    </section>
+    <section id="dati" class="dp-utility-section">
+      <h2>Dati e codice</h2>
+      <p>Il sito e l’API pubblica derivano dallo stesso contratto di proiezione fail-closed. Le risorse machine-readable sono raccolte in <a href="/dati/">Dati &amp; API</a>; il contesto del progetto e del repository è in <a href="/progetto/">Progetto</a>.</p>
+    </section>
+  </UtilityDocument>
 </BaseLayout>

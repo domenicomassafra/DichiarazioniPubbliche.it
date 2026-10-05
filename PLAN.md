@@ -247,7 +247,7 @@ LLM in the request path.
 | DP-425 | DONE | Public design system v2 + component contract | DP-424 |
 | DP-426 | READY | Home + public shell v4 | DP-425 |
 | DP-427 | READY | Canonical Statement page v4 | DP-425, DP-105 |
-| DP-428 | READY | Method + trust/utility document pages v4 | DP-425 |
+| DP-428 | DONE | Method + trust/utility document pages v4 | DP-425 |
 | DP-429 | FUTURE | Explore page v4 | DP-409, DP-425 |
 | DP-430 | READY | First-class public Topic resource contract | DP-105, DP-114 |
 

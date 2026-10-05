@@ -1,0 +1,41 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import UtilityDocument from "../components/UtilityDocument.astro";
+import { dossierSlug, formatDate } from "../lib/format";
+import { loadPublicProjection } from "../lib/projection";
+
+const projection = await loadPublicProjection();
+const entries = projection.dossiers
+  .flatMap((dossier) => dossier.corrections.map((correction) => ({ dossier, correction })))
+  .sort((a, b) => {
+    const left = String(a.correction.created_at ?? a.dossier.finding.published_at ?? "");
+    const right = String(b.correction.created_at ?? b.dossier.finding.published_at ?? "");
+    return right.localeCompare(left);
+  });
+---
+
+<BaseLayout title="Correzioni" description="Registro cronologico delle correzioni pubblicate da Dichiarazioni Pubbliche." canonicalPath="/correzioni/">
+  <UtilityDocument eyebrow="Correzioni" title="Le modifiche materiali restano visibili." lede="Questo registro mostra soltanto correzioni già approvate nella proiezione pubblica. Una nuova versione non cancella silenziosamente quella precedente.">
+    {entries.length === 0 ? (
+      <section class="dp-utility-empty" aria-labelledby="correzioni-vuote">
+        <h2 id="correzioni-vuote">Nessuna correzione pubblicata in questo snapshot.</h2>
+        <p>Il registro viene popolato solo quando una correzione supera i gate di revisione e pubblicazione. L’assenza di voci non implica l’assenza di controlli interni.</p>
+        <p><a href="/metodo/#correzioni">Come funzionano correzioni e versioni</a></p>
+      </section>
+    ) : (
+      <ol class="dp-correction-list">
+        {entries.map(({ dossier, correction }) => (
+          <li class="dp-correction-item">
+            <div class="dp-correction-item__date">{formatDate(String(correction.created_at ?? dossier.finding.published_at ?? ""))}</div>
+            <div>
+              <h2><a href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a></h2>
+              <p class="dp-correction-item__meta">{dossier.speaker.name} · {dossier.source.title}</p>
+              {correction.reason && <p>{String(correction.reason)}</p>}
+              <p class="dp-correction-item__version">Versione precedente: {String(correction.previous_finding_id ?? "non indicata")} · versione corrente: {String(correction.finding_id ?? dossier.finding_id)}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    )}
+  </UtilityDocument>
+</BaseLayout>
