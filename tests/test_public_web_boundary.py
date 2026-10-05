@@ -26,10 +26,14 @@ class PublicWebBoundaryTests(unittest.TestCase):
         self.assertNotIn("/studio/", layout)
         self.assertNotIn("demoContentAudit", home)
 
-    def test_demo_content_route_requires_explicit_demo_opt_in(self):
+    def test_canonical_content_route_is_projection_backed_not_demo_only(self):
         source = (WEB / "src" / "pages" / "contenuti" / "[slug].astro").read_text()
-        self.assertIn('DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION !== "1"', source)
-        self.assertIn("return [];", source)
+        self.assertIn("loadPublicProjection", source)
+        self.assertIn("contentSlug", source)
+        self.assertIn("projection.dossiers", source)
+        self.assertNotIn("demoContentAudit", source)
+        self.assertNotIn("ContentAuditClient", source)
+        self.assertNotIn("DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION", source)
 
 
 if __name__ == "__main__":

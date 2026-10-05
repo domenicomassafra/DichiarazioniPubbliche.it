@@ -1,0 +1,289 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Assessment from "./Assessment.astro";
+import SourceRow from "./SourceRow.astro";
+import { contentSlug, dossierSlug, formatDate, relationSlug } from "../lib/format";
+import type { PublicDossier } from "../lib/types";
+
+interface Props {
+  dossiers: PublicDossier[];
+}
+
+const { dossiers } = Astro.props;
+const source = dossiers[0].source;
+const canonical = `/contenuti/${contentSlug(dossiers[0])}/`;
+
+const msLabel = (ms?: number | null) => {
+  if (ms === null || ms === undefined || !Number.isFinite(ms)) return null;
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+};
+
+const momentLocator = (dossier: PublicDossier) => {
+  const segments = dossier.source.segments ?? [];
+  const bounded = segments.filter((item) =>
+    item.start_ms !== null && item.start_ms !== undefined &&
+    item.end_ms !== null && item.end_ms !== undefined
+  );
+  if (bounded.length > 0) {
+    const startMs = Math.min(...bounded.map((item) => Number(item.start_ms)));
+    const endMs = Math.max(...bounded.map((item) => Number(item.end_ms)));
+    return {
+      kind: "timed" as const,
+      label: `${msLabel(startMs)}–${msLabel(endMs)}`,
+      startMs,
+      endMs,
+      sourceHref: `${source.url}#t=${Math.floor(startMs / 1000)}`,
+      detail: `${bounded.length} ${bounded.length === 1 ? "segmento pubblico" : "segmenti pubblici"}`
+    };
+  }
+
+  const provenance = dossier.source.text_provenance?.[0];
+  if (provenance) {
+    const positioned = provenance.start_char !== null && provenance.start_char !== undefined &&
+      provenance.end_char !== null && provenance.end_char !== undefined;
+    return {
+      kind: "written" as const,
+      label: positioned
+        ? `Passaggio ${provenance.start_char}–${provenance.end_char}`
+        : "Passaggio testuale verificato",
+      startMs: null,
+      endMs: null,
+      sourceHref: source.url,
+      detail: provenance.selector_type === "TEXT_POSITION_HASH"
+        ? "Posizione testuale verificata"
+        : "Citazione verificata per hash"
+    };
+  }
+
+  return {
+    kind: "unavailable" as const,
+    label: "Locator non disponibile",
+    startMs: null,
+    endMs: null,
+    sourceHref: source.url,
+    detail: "Nessuna posizione pubblica approvata"
+  };
+};
+
+const moments = [...dossiers]
+  .map((dossier) => ({ dossier, locator: momentLocator(dossier) }))
+  .sort((a, b) => {
+    if (a.locator.startMs !== null && b.locator.startMs !== null) {
+      return a.locator.startMs - b.locator.startMs || a.dossier.finding_id.localeCompare(b.dossier.finding_id);
+    }
+    if (a.locator.startMs !== null) return -1;
+    if (b.locator.startMs !== null) return 1;
+    return String(a.dossier.finding.published_at ?? "").localeCompare(String(b.dossier.finding.published_at ?? "")) ||
+      a.dossier.finding_id.localeCompare(b.dossier.finding_id);
+  });
+
+const timedMoments = moments.filter((item) => item.locator.kind === "timed");
+const writtenMoments = moments.filter((item) => item.locator.kind === "written");
+const unsafeLocatorCount = moments.filter((item) => item.locator.kind === "unavailable").length;
+const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
+  (dossier.relations ?? [])
+    .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
+    .map((relation) => relation.id)
+))];
+---
+
+<BaseLayout
+  title={source.title}
+  description={`Fonte pubblica e dichiarazioni verificate collegate a ${source.title}.`}
+  canonicalPath={canonical}
+>
+  <header class="record-header content-record-header">
+    <div class="shell content-record-header__grid">
+      <div>
+        <div class="eyebrow">Contenuto</div>
+        <h1 class="page-title">{source.title}</h1>
+        <div class="content-record-meta">
+          {source.published_at && <span>{formatDate(source.published_at)}</span>}
+          <span>{moments.length} {moments.length === 1 ? "dichiarazione pubblicata" : "dichiarazioni pubblicate"}</span>
+          {timedMoments.length > 0 && <span>{timedMoments.length} con locator temporale</span>}
+          {writtenMoments.length > 0 && <span>{writtenMoments.length} con locator testuale</span>}
+        </div>
+      </div>
+      <div class="content-record-source">
+        <div class="eyebrow">Fonte originale</div>
+        <a href={source.url} rel="noreferrer">Apri il contenuto originale ↗</a>
+        <p>Il contratto pubblico corrente non espone un URL media/embed separato e autorizzato: questa pagina non costruisce quindi un player fittizio.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell content-record">
+    <section class="content-context" aria-labelledby="content-context-heading">
+      <div>
+        <div class="eyebrow">Contesto sorgente</div>
+        <h2 id="content-context-heading">Torna sempre all’originale.</h2>
+        <p>I momenti qui sotto derivano esclusivamente da locator già ammessi nella proiezione pubblica. La trascrizione operativa, il testo canonico dei segmenti e gli output dei provider non sono esposti.</p>
+      </div>
+      <a class="content-source-action" href={source.url} rel="noreferrer">Apri fonte originale ↗</a>
+    </section>
+
+    {timedMoments.length > 1 && (
+      <nav class="dp-tape content-tape" aria-label="Posizioni temporali pubblicate">
+        <ol class="dp-tape__track">
+          {timedMoments.map(({ dossier, locator }, index) => (
+            <li>
+              <button
+                type="button"
+                class="dp-tape__mark"
+                data-content-select={dossier.finding_id}
+                aria-current={index === 0 ? "true" : undefined}
+                aria-controls={`content-detail-${dossierSlug(dossier)}`}
+              >
+                <span class="dp-tape__dot" aria-hidden="true"></span>
+                <span class="dp-tape__label">{msLabel(locator.startMs)}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    )}
+
+    <section class="content-workspace" data-content-workspace aria-labelledby="content-moments-heading">
+      <div class="content-moment-column">
+        <div class="section-heading content-moment-heading">
+          <div class="section-heading-copy">
+            <div class="eyebrow">Nel contenuto</div>
+            <h2 class="section-title section-title-sm" id="content-moments-heading">Momenti pubblicati</h2>
+            <p>La posizione viene dal locator pubblico, non dall’ordine di visualizzazione.</p>
+          </div>
+        </div>
+
+        <ol class="content-moment-list">
+          {moments.map(({ dossier, locator }, index) => {
+            const slug = dossierSlug(dossier);
+            const hasHistory = dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0;
+            const relations = [...new Set((dossier.relations ?? [])
+              .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
+              .map((relation) => relation.id))];
+            return (
+              <li class:list={["content-moment", index === 0 && "is-current"]} data-content-event>
+                <button
+                  type="button"
+                  class="content-moment__button"
+                  data-content-select={dossier.finding_id}
+                  aria-current={index === 0 ? "true" : undefined}
+                  aria-expanded={index === 0 ? "true" : "false"}
+                  aria-controls={`content-detail-${slug}`}
+                >
+                  <span class="content-moment__locator">{locator.label}</span>
+                  <span class="content-moment__claim">“{dossier.claim}”</span>
+                  <span class="content-moment__person">{dossier.speaker.name}</span>
+                  <Assessment code={dossier.finding.assessment} compact />
+                </button>
+
+                <article
+                  id={`content-detail-${slug}`}
+                  class="content-moment__detail"
+                  data-content-detail={dossier.finding_id}
+                  hidden={index !== 0}
+                  aria-live="polite"
+                >
+                  <div class="eyebrow">Momento selezionato · {locator.label}</div>
+                  <h3>“{dossier.claim}”</h3>
+                  <div class="content-detail-finding">
+                    <Assessment code={dossier.finding.assessment} />
+                    <p>{dossier.finding.rationale}</p>
+                  </div>
+
+                  <div class="content-detail-locator">
+                    <div>
+                      <strong>Locator pubblico</strong>
+                      <span>{locator.label} · {locator.detail}</span>
+                    </div>
+                    <a href={locator.sourceHref} rel="noreferrer">Apri alla fonte ↗</a>
+                  </div>
+
+                  <section class="content-detail-sources" aria-labelledby={`sources-${slug}`}>
+                    <h4 id={`sources-${slug}`}>Evidenze pubbliche</h4>
+                    {dossier.evidence.length > 0 ? (
+                      <div class="source-stack">
+                        {dossier.evidence.map((evidence, sourceIndex) => <SourceRow evidence={evidence} index={sourceIndex + 1} />)}
+                      </div>
+                    ) : (
+                      <p class="content-no-evidence">Nessuna evidenza pubblica approvata è esposta per questa versione. Non viene inventata una fonte sostitutiva.</p>
+                    )}
+                  </section>
+
+                  <nav class="content-detail-paths" aria-label={`Percorsi collegati: ${dossier.claim}`}>
+                    <a href={`/dichiarazioni/${slug}/`}>Apri la dichiarazione →</a>
+                    {relations.map((id) => <a href={`/tracce/${relationSlug(id)}/`}>Traccia revisionata →</a>)}
+                    {hasHistory && <a href={`/dichiarazioni/${slug}/#storia`}>Correzioni e repliche →</a>}
+                  </nav>
+                </article>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
+
+    {unsafeLocatorCount > 0 && (
+      <section class="dp-state content-locator-warning" data-state="blocked">
+        <h2 class="dp-state__title">Alcune posizioni non sono pubblicamente disponibili.</h2>
+        <p class="dp-state__body">{unsafeLocatorCount} {unsafeLocatorCount === 1 ? "dichiarazione è pubblicata" : "dichiarazioni sono pubblicate"}, ma il relativo locator non è esposto in forma pubblica approvata. La pagina non ricostruisce la posizione.</p>
+      </section>
+    )}
+
+    {allRelations.length > 0 && (
+      <section class="content-related-traces">
+        <div class="eyebrow">Tracce nel tempo</div>
+        <h2>Relazioni revisionate da questo contenuto</h2>
+        <ul>{allRelations.map((id) => <li><a href={`/tracce/${relationSlug(id)}/`}>Apri la traccia →</a></li>)}</ul>
+      </section>
+    )}
+  </main>
+
+  <script is:inline>
+    (() => {
+      const workspace = document.querySelector('[data-content-workspace]');
+      if (!workspace) return;
+      const selects = [...document.querySelectorAll('[data-content-select]')];
+      const details = [...workspace.querySelectorAll('[data-content-detail]')];
+      const events = [...workspace.querySelectorAll('[data-content-event]')];
+      const validIds = new Set(details.map((detail) => detail.dataset.contentDetail));
+
+      const select = (id, { updateUrl = true, focusDetail = false } = {}) => {
+        if (!id || !validIds.has(id)) return;
+        for (const control of selects) {
+          const current = control.dataset.contentSelect === id;
+          if (current) control.setAttribute('aria-current', 'true');
+          else control.removeAttribute('aria-current');
+          if (control.hasAttribute('aria-expanded')) {
+            control.setAttribute('aria-expanded', current ? 'true' : 'false');
+          }
+        }
+        for (const detail of details) detail.hidden = detail.dataset.contentDetail !== id;
+        for (const event of events) {
+          const button = event.querySelector('[data-content-select]');
+          event.classList.toggle('is-current', button?.dataset.contentSelect === id);
+        }
+        if (updateUrl) {
+          const params = new URLSearchParams(location.search);
+          params.set('momento', id);
+          history.replaceState(null, '', `${location.pathname}?${params}${location.hash}`);
+        }
+        if (focusDetail) {
+          const detail = details.find((item) => item.dataset.contentDetail === id);
+          detail?.querySelector('a')?.focus({ preventScroll: true });
+        }
+      };
+
+      for (const control of selects) {
+        control.addEventListener('click', () => select(control.dataset.contentSelect, { focusDetail: false }));
+      }
+      const requested = new URLSearchParams(location.search).get('momento');
+      if (requested && validIds.has(requested)) select(requested, { updateUrl: false });
+    })();
+  </script>
+</BaseLayout>

@@ -1,7 +1,6 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import Assessment from "../../components/Assessment.astro";
-import { contentSlug, dossierSlug, formatDate } from "../../lib/format";
+import ContentRecord from "../../components/ContentRecord.astro";
+import { contentSlug } from "../../lib/format";
 import { loadPublicProjection } from "../../lib/projection";
 import type { PublicDossier } from "../../lib/types";
 
@@ -17,39 +16,6 @@ export async function getStaticPaths() {
 
 interface Props { dossiers: PublicDossier[] }
 const { dossiers } = Astro.props;
-const source = dossiers[0].source;
-const moments = [...dossiers].sort((a, b) => (a.source.segments?.[0]?.start_ms ?? Number.MAX_SAFE_INTEGER) - (b.source.segments?.[0]?.start_ms ?? Number.MAX_SAFE_INTEGER));
-const timestamp = (ms?: number | null) => {
-  if (ms === null || ms === undefined) return "Posizione non pubblicata";
-  const total = Math.floor(ms / 1000);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-};
 ---
 
-<BaseLayout title={source.title} description={`ContentAudit pubblico di ${source.title}.`} canonicalPath={`/contents/${contentSlug(dossiers[0])}/`}>
-  <header class="shell audit-header">
-    <div class="eyebrow">ContentAudit · Record pubblico</div>
-    <h1 class="page-title">{source.title}</h1>
-    <div class="audit-meta"><span>{formatDate(source.published_at)}</span><span aria-hidden="true">·</span><a href={source.url}>Apri la fonte originale ↗</a></div>
-    <p class="audit-description">Momenti pubblicati e verificati per questo contenuto. La trascrizione operativa e i materiali non approvati non sono esposti.</p>
-  </header>
-  <section class="shell page-section-tight">
-    <div class="section-heading"><div class="section-heading-copy"><h2 class="section-title section-title-sm">Momenti verificati</h2><p>{moments.length} finding pubblicati nella proiezione corrente.</p></div></div>
-    <div class="moment-list" aria-label="Momenti verificati nel contenuto">
-      {moments.map((dossier, index) => {
-        const segment = dossier.source.segments?.[0];
-        return (
-          <article class="moment-row" id={`moment-${index + 1}`}>
-            <a class="moment-time" href={`${source.url}${segment?.start_ms !== undefined && segment?.start_ms !== null ? `#t=${Math.floor(segment.start_ms / 1000)}` : ""}`}>{timestamp(segment?.start_ms)}</a>
-            <div>
-              <a class="moment-claim" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
-              <p>{dossier.finding.rationale}</p>
-              <small>{dossier.evidence.length} fonti pubbliche approvate</small>
-            </div>
-            <Assessment code={dossier.finding.assessment} compact />
-          </article>
-        );
-      })}
-    </div>
-  </section>
-</BaseLayout>
+<ContentRecord dossiers={dossiers} />

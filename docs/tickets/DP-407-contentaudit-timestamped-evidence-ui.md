@@ -1,6 +1,6 @@
 # DP-407 — Content page and source-locator UI
 
-Status: READY
+Status: BLOCKED
 
 Milestone: M4 — public product/API
 Depends on: DP-207, DP-105, DP-425
@@ -182,5 +182,55 @@ representative media-less and populated states, and the no-private-content inspe
 
 ## Completion receipt
 
-Pending DP-105, DP-207, DP-425, and implementation. A demo Content interaction is not a
-production acceptance receipt.
+Implementation complete for the currently ratified dossier-derived Content surface; final
+DONE is blocked only by DP-434 first-class Content publication semantics.
+
+- Replaced the canonical `/contenuti/{slug}/` demo-only page with a projection-backed
+  `ContentRecord.astro`. The legacy `/contents/{id}/` route reuses the same component and
+  declares `/contenuti/` as canonical; DP-422 still owns final redirect/removal.
+- Route identity is deterministic from the stable public `source.content_id`; grouping never
+  uses title/display text.
+- Timed locators are calculated only from public segment `start_ms`/`end_ms`; written
+  locators use only approved `source.text_provenance`. The UI never derives a timestamp from
+  list position, transcript text, or model output.
+- The source-first page includes original-source context, a neutral EvidenceTape for timed
+  positions, ordered public moments, local finding state/rationale, approved evidence,
+  canonical Statement links, reviewed Trace links, and correction/reply history links.
+- Moment selection is keyboard-operable, `aria-current`/`aria-expanded` aware and shareable
+  through `?momento={finding_id}`. On narrow screens the selected detail remains immediately
+  after its event in DOM order; no duplicated mobile detail tree or CSS `order` is used.
+- No autoplay/player is fabricated. The current public contract exposes a canonical source
+  URL but no separately reviewed public media/embed URL or media kind; the page states that
+  limitation and remains text-first.
+- Added a dedicated **public-schema-valid** `web/src/data/dp407-content-projection.json`
+  with a 12-moment timed Content fixture, all fictional, plus a separate written-source
+  locator fixture. Keeping it separate avoids changing cardinality assumptions in the
+  small default demo projection. It also exercises
+  SUPPORTED/FACTUALLY_FALSE/OUTDATED_DATA, correction history, reply history and reviewed
+  relation links. The fixture remains gated by explicit demo opt-in.
+- Static rendered HTML for timed and written fixtures contains none of:
+  `raw_text`, `transcript_text`, `canonical_text`, `provider_receipt`, `evidence_body`,
+  `transcript_candidates`, `person_score`, or `leaderboard`. The timed fixture emits 12
+  public moments; the written fixture renders `Passaggio 420–612`; selection state code is
+  present and no network/provider fetch is added by the component.
+- Visual receipts: `prototypes/v4-implementation/dp407/` contains populated timed desktop /
+  mobile, written desktop/mobile, and a 720px 200%-zoom-equivalent viewport. Representative
+  receipts were manually inspected.
+- Local validation: full Python suite **1090/1090 PASS**; the DP-407 fixture passes
+  `validate_public_bundle`; design check PASS; Astro check **0 errors / 0 warnings / 0
+  hints**; explicit fixture static build PASS with
+  canonical and legacy Content routes; `git diff --check` PASS.
+- MiniPC proof on 2026-10-05 against real projection fingerprint
+  `d2a10bbe824cf7b1c2d301b13b6116e3c2ff6d58c9be1f9cff3a3f6c341cc904`: two canonical
+  `/contenuti/*` and two legacy `/contents/*` routes emitted; design/Astro checks pass;
+  same-origin canonical and legacy routes return HTTP 200; representative HTML includes
+  source context and moments, has no fake player, and contains none of the raw/private/score
+  tokens above.
+- **Remaining contract blocker:** DP-105/public-v2 currently exposes Content only as fields
+  nested in projectable dossiers. Therefore a public source item with **zero** public
+  moments cannot exist as a route/API resource, and no reviewed media kind/duration/embed
+  can be represented independently. Likewise the schema requires non-empty approved
+  evidence for every projectable dossier, so DP-407 cannot honestly manufacture a
+  “published moment with no approved public evidence” case. DP-434 owns the additive
+  first-class Content resource and publication gate needed to close these states. Until it
+  lands, DP-407 remains BLOCKED rather than faking data.

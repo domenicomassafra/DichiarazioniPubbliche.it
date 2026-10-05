@@ -1,27 +1,21 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import ContentAuditClient from "../../components/ContentAuditClient";
-import { demoContentAudit } from "../../data/content-audit";
-import { formatDate } from "../../lib/format";
+import ContentRecord from "../../components/ContentRecord.astro";
+import { contentSlug } from "../../lib/format";
+import { loadPublicProjection } from "../../lib/projection";
+import type { PublicDossier } from "../../lib/types";
 
-export function getStaticPaths() {
-  if (process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION !== "1") {
-    return [];
+export async function getStaticPaths() {
+  const projection = await loadPublicProjection();
+  const groups = new Map<string, PublicDossier[]>();
+  for (const dossier of projection.dossiers) {
+    const slug = contentSlug(dossier);
+    groups.set(slug, [...(groups.get(slug) ?? []), dossier]);
   }
-  return [{ params: { slug: demoContentAudit.slug } }];
+  return [...groups.entries()].map(([slug, dossiers]) => ({ params: { slug }, props: { dossiers } }));
 }
+
+interface Props { dossiers: PublicDossier[] }
+const { dossiers } = Astro.props;
 ---
 
-<BaseLayout title={demoContentAudit.title} description={demoContentAudit.description}>
-  <header class="shell audit-header">
-    <div class="eyebrow">Analisi del contenuto</div>
-    <h1 class="page-title">{demoContentAudit.title}</h1>
-    <div class="audit-meta">
-      <span>{demoContentAudit.source}</span><span aria-hidden="true">·</span><span>{formatDate(demoContentAudit.date)}</span><span aria-hidden="true">·</span><span>{demoContentAudit.duration}</span>
-    </div>
-    <p class="audit-description">{demoContentAudit.description}</p>
-  </header>
-  <section class="shell page-section-tight">
-    <ContentAuditClient audit={demoContentAudit} client:load />
-  </section>
-</BaseLayout>
+<ContentRecord dossiers={dossiers} />

@@ -1,0 +1,1701 @@
+{
+  "dataset_sha256": "a29f65eec1f6f913a18af23575ae3a311401123671b5eb80bb5860a98cc0c220",
+  "dossier_count": 14,
+  "dossiers": [
+    {
+      "claim": "La spesa di manutenzione è aumentata del 12% rispetto all'anno precedente.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1
+      },
+      "claim_id": "claim:demo:maintenance",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [
+        {
+          "id": "correction:demo:maintenance:1",
+          "finding_id": "finding:demo:maintenance",
+          "previous_finding_id": "finding:demo:maintenance:previous",
+          "reason": "Esempio fittizio: aggiornata la formulazione del razionale senza cambiare la fonte primaria.",
+          "changed_fields": {
+            "rationale": "updated"
+          },
+          "created_at": "2026-09-23T10:00:00+00:00"
+        }
+      ],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Il rendiconto mostra un aumento nominale vicino al valore dichiarato rispetto all'esercizio precedente.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance"
+      },
+      "finding_id": "finding:demo:maintenance",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "end_ms": 1000,
+            "segment_id": "segment:demo:maintenance",
+            "segment_index": 0,
+            "start_ms": 0,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": [
+        {
+          "id": "relation:demo:public-services-update",
+          "relation_type": "UPDATE",
+          "relation_version": "relation-v1",
+          "status": "APPROVED",
+          "role": "SOURCE",
+          "related_claim_id": "claim:demo:mobility",
+          "related_claim": "Gli interventi sulla rete hanno dimezzato i tempi medi di percorrenza.",
+          "related_statement_date": "2026-09-14T18:30:00+00:00",
+          "rationale_codes": [
+            "TEMPORAL_UPDATE"
+          ],
+          "review_event_id": "review:demo:relation-public-services-update"
+        }
+      ]
+    },
+    {
+      "claim": "Gli interventi programmati hanno coperto quattro quartieri nel primo trimestre.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:02"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-02",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative sono coerenti con la formulazione nel perimetro indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-02"
+      },
+      "finding_id": "finding:demo:maintenance-moment-02",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:02",
+            "segment_index": 1,
+            "start_ms": 30000,
+            "end_ms": 42000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:02",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "La spesa corrente è scesa del 9% nello stesso periodo.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:03"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-03",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "FACTUALLY_FALSE",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative riportano un valore o un’estensione diversa da quella dichiarata.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-03"
+      },
+      "finding_id": "finding:demo:maintenance-moment-03",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:03",
+            "segment_index": 2,
+            "start_ms": 60000,
+            "end_ms": 72000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:03",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Il nuovo appalto è entrato in vigore prima dell’estate.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:04"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-04",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative sono coerenti con la formulazione nel perimetro indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-04"
+      },
+      "finding_id": "finding:demo:maintenance-moment-04",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:04",
+            "segment_index": 3,
+            "start_ms": 90000,
+            "end_ms": 102000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:04",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Il costo medio per intervento usa ancora il valore dell’anno precedente.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:05"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-05",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "OUTDATED_DATA",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "La formulazione usa un dato superato da un aggiornamento già disponibile nel perimetro temporale.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-05"
+      },
+      "finding_id": "finding:demo:maintenance-moment-05",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:05",
+            "segment_index": 4,
+            "start_ms": 120000,
+            "end_ms": 132000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:05",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Le squadre operative sono aumentate da sei a otto.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:06"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-06",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative sono coerenti con la formulazione nel perimetro indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-06"
+      },
+      "finding_id": "finding:demo:maintenance-moment-06",
+      "rights_of_reply": [
+        {
+          "id": "reply:demo:maintenance:06",
+          "submitter_name": "Ufficio dimostrativo",
+          "submitter_role": "Responsabile dati",
+          "submitted_at": "2026-09-24T12:00:00+00:00",
+          "body": "Replica fittizia pubblicata per verificare il collegamento alla storia della dichiarazione.",
+          "evidence_urls": [
+            "https://example.test/demo/reply"
+          ],
+          "status": "PUBLISHED"
+        }
+      ],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:06",
+            "segment_index": 5,
+            "start_ms": 150000,
+            "end_ms": 162000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:06",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Il tempo medio di chiusura è stato dimezzato.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:07"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-07",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "FACTUALLY_FALSE",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative riportano un valore o un’estensione diversa da quella dichiarata.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-07"
+      },
+      "finding_id": "finding:demo:maintenance-moment-07",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:07",
+            "segment_index": 6,
+            "start_ms": 180000,
+            "end_ms": 192000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:07",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Il rendiconto include gli interventi straordinari del trimestre.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:08"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-08",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative sono coerenti con la formulazione nel perimetro indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-08"
+      },
+      "finding_id": "finding:demo:maintenance-moment-08",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:08",
+            "segment_index": 7,
+            "start_ms": 210000,
+            "end_ms": 222000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:08",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Il dato sui costi energetici è quello più recente disponibile nel documento.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:09"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-09",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "OUTDATED_DATA",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "La formulazione usa un dato superato da un aggiornamento già disponibile nel perimetro temporale.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-09"
+      },
+      "finding_id": "finding:demo:maintenance-moment-09",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:09",
+            "segment_index": 8,
+            "start_ms": 240000,
+            "end_ms": 252000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:09",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Tre cantieri risultano conclusi nel periodo indicato.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:10"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-10",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative sono coerenti con la formulazione nel perimetro indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-10"
+      },
+      "finding_id": "finding:demo:maintenance-moment-10",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:10",
+            "segment_index": 9,
+            "start_ms": 270000,
+            "end_ms": 282000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:10",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "La manutenzione preventiva rappresenta oltre metà degli interventi.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:11"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-11",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "FACTUALLY_FALSE",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative riportano un valore o un’estensione diversa da quella dichiarata.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-11"
+      },
+      "finding_id": "finding:demo:maintenance-moment-11",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:11",
+            "segment_index": 10,
+            "start_ms": 300000,
+            "end_ms": 312000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:11",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Il cronoprogramma aggiornato sposta due interventi al trimestre successivo.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:maintenance:12"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": []
+      },
+      "claim_id": "claim:demo:maintenance-moment-12",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:1"
+          ],
+          "id": "evidence:demo:maintenance:1",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:1"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/1",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:1"
+          ]
+        },
+        {
+          "content_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "evidence_review_ids": [
+            "review:evidence:demo:maintenance:2"
+          ],
+          "id": "evidence:demo:maintenance:2",
+          "observation_review_ids": [
+            "review:observation:demo:maintenance:2"
+          ],
+          "observed_at": "2026-09-12T11:15:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/maintenance/2",
+          "verification_observation_ids": [
+            "observation:demo:maintenance:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-12T11:15:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:maintenance"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "rationale": "Le fonti pubbliche dimostrative sono coerenti con la formulazione nel perimetro indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:maintenance-moment-12"
+      },
+      "finding_id": "finding:demo:maintenance-moment-12",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:maintenance",
+        "published_at": "2026-09-12T11:15:00+00:00",
+        "segments": [
+          {
+            "segment_id": "segment:demo:maintenance:12",
+            "segment_index": 11,
+            "start_ms": 330000,
+            "end_ms": 342000,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:maintenance:12",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:maintenance"
+              }
+            ]
+          }
+        ],
+        "title": "Relazione sul bilancio",
+        "url": "https://example.test/demo/maintenance"
+      },
+      "speaker": {
+        "id": "person:demo:maintenance",
+        "name": "Giulia Riva",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:maintenance",
+            "review_event_ids": [
+              "review:speaker:demo:maintenance"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      },
+      "relations": []
+    },
+    {
+      "claim": "Gli interventi sulla rete hanno dimezzato i tempi medi di percorrenza.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [
+          "segment:demo:mobility"
+        ],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1
+      },
+      "claim_id": "claim:demo:mobility",
+      "claim_type": "DISTRIBUTIONAL_CLAIM",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "evidence_review_ids": [
+            "review:evidence:demo:mobility:1"
+          ],
+          "id": "evidence:demo:mobility:1",
+          "observation_review_ids": [
+            "review:observation:demo:mobility:1"
+          ],
+          "observed_at": "2026-09-14T18:30:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/mobility/1",
+          "verification_observation_ids": [
+            "observation:demo:mobility:1"
+          ]
+        },
+        {
+          "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "evidence_review_ids": [
+            "review:evidence:demo:mobility:2"
+          ],
+          "id": "evidence:demo:mobility:2",
+          "observation_review_ids": [
+            "review:observation:demo:mobility:2"
+          ],
+          "observed_at": "2026-09-14T18:30:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/mobility/2",
+          "verification_observation_ids": [
+            "observation:demo:mobility:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "FACTUALLY_FALSE",
+        "created_at": "2026-09-14T18:30:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:mobility"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-14T18:30:00+00:00",
+        "rationale": "Il monitoraggio mostra un miglioramento, ma non un dimezzamento dei tempi medi nel periodo confrontabile.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:mobility"
+      },
+      "finding_id": "finding:demo:mobility",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:mobility",
+        "published_at": "2026-09-14T18:30:00+00:00",
+        "segments": [
+          {
+            "end_ms": 1000,
+            "segment_id": "segment:demo:mobility",
+            "segment_index": 0,
+            "start_ms": 0,
+            "transcript_candidates": [
+              {
+                "provider_id": "youtube",
+                "segment_id": "segment:raw:demo:mobility",
+                "source_kind": "PLATFORM_CAPTION",
+                "transcript_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "variant_id": "transcript:demo:mobility"
+              }
+            ]
+          }
+        ],
+        "title": "Intervista sulla mobilità",
+        "url": "https://example.test/demo/mobility"
+      },
+      "speaker": {
+        "id": "person:demo:mobility",
+        "name": "Marco Neri",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:mobility",
+            "review_event_ids": [
+              "review:speaker:demo:mobility"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      }
+    },
+    {
+      "claim": "Il nuovo programma ha finanziato 8.000 borse di studio nel periodo previsto.",
+      "claim_contract": {
+        "check_worthy": true,
+        "source_segment_ids": [],
+        "speaker_approval_required": true,
+        "temporal_scope": {},
+        "version": 1,
+        "source_text_provenance_ids": [
+          "text-provenance:demo:study:1"
+        ]
+      },
+      "claim_id": "claim:demo:study",
+      "claim_type": "NUMERIC_STATISTIC",
+      "corrections": [],
+      "evidence": [
+        {
+          "content_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "evidence_review_ids": [
+            "review:evidence:demo:study:1"
+          ],
+          "id": "evidence:demo:study:1",
+          "observation_review_ids": [
+            "review:observation:demo:study:1"
+          ],
+          "observed_at": "2026-09-16T10:00:00+00:00",
+          "publication_date": "2026-09-01",
+          "publisher": "Fonte pubblica dimostrativa",
+          "reference_period": "2026",
+          "relation": "VERIFICATION_INPUT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/study/1",
+          "verification_observation_ids": [
+            "observation:demo:study:1"
+          ]
+        },
+        {
+          "content_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+          "evidence_review_ids": [
+            "review:evidence:demo:study:2"
+          ],
+          "id": "evidence:demo:study:2",
+          "observation_review_ids": [
+            "review:observation:demo:study:2"
+          ],
+          "observed_at": "2026-09-16T10:00:00+00:00",
+          "publication_date": "2026-08-15",
+          "publisher": "Ufficio statistico dimostrativo",
+          "reference_period": "2025–2026",
+          "relation": "CONTEXT",
+          "rights_status": "UNKNOWN",
+          "source_type": "PRIMARY_OFFICIAL",
+          "url": "https://example.test/evidence/study/2",
+          "verification_observation_ids": [
+            "observation:demo:study:2"
+          ]
+        }
+      ],
+      "finding": {
+        "assessment": "SUPPORTED",
+        "created_at": "2026-09-16T10:00:00+00:00",
+        "policy_version": "policy-v1",
+        "publication_review_ids": [
+          "review:finding:demo:study"
+        ],
+        "publication_status": "PUBLISH",
+        "published_at": "2026-09-16T10:00:00+00:00",
+        "rationale": "Il rendiconto pubblicato riporta un numero di borse coerente con la dichiarazione per il periodo indicato.",
+        "supersedes_id": null,
+        "verification_run_id": "verification:demo:study"
+      },
+      "finding_id": "finding:demo:study",
+      "rights_of_reply": [],
+      "source": {
+        "content_id": "content:demo:study",
+        "published_at": "2026-09-16T10:00:00+00:00",
+        "segments": [],
+        "title": "Presentazione del programma studio",
+        "url": "https://example.test/demo/study",
+        "text_provenance": [
+          {
+            "id": "text-provenance:demo:study:1",
+            "selector_type": "TEXT_POSITION_HASH",
+            "quote_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "source_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "start_char": 420,
+            "end_char": 612,
+            "attribution_method": "MANUAL_REVIEW",
+            "attribution_version": "text-provenance-v1",
+            "review_event_ids": [
+              "review:demo:text-provenance:study:1"
+            ]
+          }
+        ]
+      },
+      "speaker": {
+        "id": "person:demo:study",
+        "name": "Elena Valli",
+        "provenance": [
+          {
+            "candidate_id": "speaker-candidate:demo:study",
+            "review_event_ids": [
+              "review:speaker:demo:study"
+            ]
+          }
+        ],
+        "public_role": null,
+        "public_roles": []
+      }
+    }
+  ],
+  "generated_at": "2026-09-23T20:50:00+00:00",
+  "methodology": {
+    "aggregate_person_score": false,
+    "claim_level_only": true,
+    "requires_approved_evidence": true,
+    "requires_publication_gate": true,
+    "requires_resolved_transcript": true
+  },
+  "omitted_count": 2,
+  "schema_version": "dichiarazioni-pubbliche-public-v2",
+  "topics": [
+    {
+      "topic_id": "topic:demo:public-services",
+      "slug": "servizi-pubblici",
+      "canonical_name": "Servizi pubblici",
+      "scope_text": "Esempio fittizio: organizzazione, accesso e tempi dei servizi pubblici.",
+      "entity_version": "knowledge-entity-v1",
+      "review_event_ids": [
+        "review:demo:topic-public-services"
+      ],
+      "memberships": [
+        {
+          "membership_id": "membership:demo:public-services:1",
+          "claim_id": "claim:demo:maintenance",
+          "finding_ids": [
+            "finding:demo:maintenance"
+          ],
+          "review_event_ids": [
+            "review:demo:topic-membership:1"
+          ],
+          "source_resolution_candidate_id": null
+        },
+        {
+          "membership_id": "membership:demo:public-services:2",
+          "claim_id": "claim:demo:mobility",
+          "finding_ids": [
+            "finding:demo:mobility"
+          ],
+          "review_event_ids": [
+            "review:demo:topic-membership:2"
+          ],
+          "source_resolution_candidate_id": null
+        }
+      ]
+    },
+    {
+      "topic_id": "topic:demo:public-service-singular",
+      "slug": "servizio-pubblico",
+      "canonical_name": "Servizio pubblico",
+      "scope_text": "Esempio fittizio: Topic distinto con etichetta volutamente simile, senza finding pubblici in questo snapshot.",
+      "entity_version": "knowledge-entity-v1",
+      "review_event_ids": [
+        "review:demo:topic-public-service-singular"
+      ],
+      "memberships": []
+    },
+    {
+      "topic_id": "topic:demo:urban-mobility",
+      "slug": "mobilita-urbana",
+      "canonical_name": "Mobilità urbana",
+      "scope_text": "Esempio fittizio: servizi, infrastrutture e accesso alla mobilità urbana.",
+      "entity_version": "knowledge-entity-v1",
+      "review_event_ids": [
+        "review:demo:topic-urban-mobility"
+      ],
+      "memberships": [
+        {
+          "membership_id": "membership:demo:urban-mobility:1",
+          "claim_id": "claim:demo:mobility",
+          "finding_ids": [
+            "finding:demo:mobility"
+          ],
+          "review_event_ids": [
+            "review:demo:topic-membership:urban-mobility:1"
+          ],
+          "source_resolution_candidate_id": null
+        }
+      ]
+    }
+  ]
+}
