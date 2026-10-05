@@ -282,7 +282,7 @@ LLM in the request path.
 | DP-430 | DONE | First-class public Topic resource contract | DP-105, DP-114 |
 | DP-431 | FUTURE | Correction/retraction propagation across all public pages/API/search/metadata | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429 |
 | DP-432 | FUTURE | Public trust/provenance disclosure integration for Statement + Method | DP-216..223, DP-308, DP-427, DP-428 |
-| DP-433 | FUTURE | Stable-URI + linked-data/RDF interoperability projection | DP-105, DP-403, DP-430, DP-432 |
+| DP-433 | IN PROGRESS | Stable-URI + linked-data/RDF interoperability projection | DP-105, DP-403, DP-430, DP-432 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
 providers offline, expose provenance/correction history without private raw content, and

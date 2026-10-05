@@ -40,7 +40,7 @@ requirements for this project.
 | Pender concrete archive callbacks | Protocol/state machine exists; source-specific real adapters remain intentionally absent | DP-231, rights/policy gated |
 | Alegre similarity service | PostgreSQL lexical/trigram path exists; no reason yet to add Elasticsearch/Kibana/Redis | KEEP; embeddings only if DP-116 benchmark justifies |
 | ClaimReview JSON-LD | Implemented in public projection | KEEP |
-| CIMPLE URI/RDF projection | Not implemented; optional interoperability layer, not primary storage | DP-433 |
+| CIMPLE URI/RDF projection | Stable HTTPS identities + deterministic N-Triples export now exist over the validated public bundle; static artifact wiring remains | DP-433 IN PROGRESS |
 | Google/existing fact-check lookup | Bounded Google Fact Check Tools normalizer/client exists with secret-safe receipt; DP-228 persistence/execution remains | DP-232 IN PROGRESS |
 | Open Parliament speech/video alignment | Pure official-intervention/media alignment now exists; Camera/Senato ingestion/persistence remains | DP-233 IN PROGRESS |
 | DVNS structured evidence intermediary | Provider-neutral zero/missing/date/schema-drift contract now exists; real external adapter remains blocked on approved contract | DP-234 IN PROGRESS |

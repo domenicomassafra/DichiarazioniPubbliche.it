@@ -275,7 +275,7 @@ class PublicProjectionTests(unittest.TestCase):
             [
                 {
                     "@type": "Organization",
-                    "id": "urn:dichiarazioni-pubbliche:org:a",
+                    "id": "https://dichiarazionipubbliche.it/id/organization/org%3Aa",
                     "name": "Organization A",
                 }
             ],
@@ -483,11 +483,21 @@ class PublicProjectionTests(unittest.TestCase):
             write_public_bundle(root, payload)
             self.assertTrue((root / "index.json").is_file())
             self.assertTrue((root / "index.jsonld").is_file())
+            self.assertTrue((root / "index.nt").is_file())
+            self.assertTrue((root / "linked-data-receipt.json").is_file())
             self.assertEqual(len(list((root / "claims").glob("*.json"))), 1)
             self.assertEqual(len(list((root / "claims").glob("*.html"))), 1)
             self.assertEqual(len(list((root / "claims").glob("*.jsonld"))), 1)
             text = (root / "index.json").read_text()
             self.assertNotIn("must never escape", text)
+            linked = (root / "index.nt").read_text()
+            self.assertNotIn("transcript_sha256", linked)
+            receipt = json.loads((root / "linked-data-receipt.json").read_text())
+            self.assertEqual(
+                receipt["projection_fingerprint"],
+                payload["dataset_sha256"],
+            )
+            self.assertGreater(receipt["triple_count"], 0)
 
     def test_multiple_finding_versions_of_same_claim_do_not_overwrite(self):
         old = valid_row()
@@ -514,11 +524,21 @@ class PublicProjectionTests(unittest.TestCase):
             (root / "claims" / "stale.html").write_text("old")
             (root / "claims" / "stale.jsonld").write_text("{}")
             (root / "claims" / "keep.txt").write_text("not projection-owned")
+            (root / "index.nt").write_text("<old> <old> <old> .\n")
+            (root / "linked-data-receipt.json").write_text('{"old":true}')
             write_public_bundle(root, payload)
             self.assertFalse(stale.exists())
             self.assertFalse((root / "claims" / "stale.html").exists())
             self.assertFalse((root / "claims" / "stale.jsonld").exists())
             self.assertTrue((root / "claims" / "keep.txt").exists())
+            self.assertNotIn(
+                "<old>",
+                (root / "index.nt").read_text(),
+            )
+            self.assertNotIn(
+                '"old"',
+                (root / "linked-data-receipt.json").read_text(),
+            )
 
     def test_dossier_contract_violation_is_omitted_fail_closed(self):
         invalid_row = valid_row()

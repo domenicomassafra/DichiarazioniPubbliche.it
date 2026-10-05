@@ -25,6 +25,11 @@ from dichiarazioni_pubbliche.public_schema import (
     validate_public_bundle,
     validate_topic,
 )
+from dichiarazioni_pubbliche.linked_data import (
+    projection_linked_data_receipt,
+    projection_ntriples,
+    public_resource_uri,
+)
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.text_provenance import (
     ALLOWED_ATTRIBUTION_METHODS as TEXT_ATTRIBUTION_METHODS,
@@ -1338,11 +1343,11 @@ def dossier_jsonld(dossier: dict[str, Any]) -> dict[str, Any]:
 
     reviewed_claim = {
         "@type": "Claim",
-        "@id": f"urn:dichiarazioni-pubbliche:{dossier['claim_id']}",
+        "@id": public_resource_uri("statement", dossier["claim_id"]),
         "text": dossier["claim"],
         "author": {
             "@type": "Person",
-            "@id": f"urn:dichiarazioni-pubbliche:{speaker['id']}",
+            "@id": public_resource_uri("person", speaker["id"]),
             "name": speaker.get("name") or speaker["id"],
         },
         "appearance": {
@@ -1358,14 +1363,17 @@ def dossier_jsonld(dossier: dict[str, Any]) -> dict[str, Any]:
             reviewed_claim["author"].setdefault("worksFor", []).append(
                 {
                     "@type": "Organization",
-                    "id": f"urn:dichiarazioni-pubbliche:{role['organization_id']}",
+                    "id": public_resource_uri(
+                        "organization",
+                        role["organization_id"],
+                    ),
                     "name": role.get("organization_name") or role["organization_id"],
                 }
             )
     return {
         "@context": "https://schema.org",
         "@type": "ClaimReview",
-        "@id": f"urn:dichiarazioni-pubbliche:{dossier['finding_id']}",
+        "@id": public_resource_uri("finding", dossier["finding_id"]),
         "claimReviewed": dossier["claim"],
         "itemReviewed": reviewed_claim,
         "author": {
@@ -1529,6 +1537,22 @@ def write_public_bundle(output_dir: Path, payload: dict[str, Any]) -> None:
             + "\n"
         ).encode(),
     )
+    _atomic_write(
+        output_dir / "index.nt",
+        projection_ntriples(payload).encode("utf-8"),
+    )
+    _atomic_write(
+        output_dir / "linked-data-receipt.json",
+        (
+            json.dumps(
+                projection_linked_data_receipt(payload),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8"),
+    )
     for dossier in payload.get("dossiers") or []:
         # A claim may have multiple published finding versions. Filenames must
         # therefore be finding-versioned or a correction would overwrite the
@@ -1573,6 +1597,10 @@ def main() -> None:
                 "dossier_count": payload["dossier_count"],
                 "omitted_count": payload["omitted_count"],
                 "dataset_sha256": payload["dataset_sha256"],
+                "linked_data": {
+                    "artifact": "index.nt",
+                    "receipt": "linked-data-receipt.json",
+                },
             },
             indent=2,
         )

@@ -1,6 +1,6 @@
 # DP-433 — Linked-data/RDF interoperability projection
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-105, DP-403, DP-430, DP-432
 
@@ -19,21 +19,31 @@ artifact, not a second database or a reason to introduce Virtuoso.
 
 ## Acceptance criteria
 
-- [ ] Stable public URI rules exist for Person, Statement, Topic, Source/Content and
-  versioned Finding resources.
-- [ ] Existing ClaimReview JSON-LD maps to the same canonical Statement/Finding identities.
-- [ ] RDF export represents provenance/correction/supersession without exposing private
+- [x] Stable HTTPS URI rules exist for Person, Statement, Topic, Content, Evidence,
+  Organization, Correction, Dataset and Finding resources.
+- [x] Existing ClaimReview JSON-LD now uses the same canonical Statement/Finding/Person/
+  Organization identities as the linked-data export.
+- [x] Deterministic N-Triples export represents evidence citation and finding
+  correction/supersession without exposing private
   transcript/evidence bodies or internal review notes.
-- [ ] Vocabulary reuses schema.org and an explicit small provenance mapping; custom terms
+- [x] Vocabulary reuses schema.org + PROV-O with a small versioned project vocabulary for
+  assessment/publication/evidence metadata; custom terms
   are versioned and documented only where necessary.
-- [ ] Export is deterministic from one projection fingerprint and can be regenerated
+- [x] Export is deterministic from one validated projection fingerprint and can be regenerated
   offline without provider/LLM/database access on the public request path.
-- [ ] A validation fixture proves URI stability, no person scores, no raw private data and
+- [x] Validation fixtures prove URI stability, no person scores, no raw transcript/review
+  fields, topic links and
   correction versioning.
-- [ ] No SPARQL server, triplestore or new always-on infrastructure is required for v1.
+- [x] No SPARQL server, triplestore or new always-on infrastructure is required for v1.
 - [ ] If a public SPARQL service is ever proposed, it requires a separate measured ticket
   and security/cost review.
+- [x] Static public bundle now writes index.nt plus a fingerprinted
+  linked-data-receipt.json; rebuild overwrites stale top-level linked-data artifacts.
+- [ ] Add web-host content type/discoverability metadata (application/n-triples,
+  sitemap/data page or Link relation) and one deployed read-back before DONE.
 
 ## Completion receipt
 
-Pending core public-resource stabilization.
+Pure linked-data projection, stable URI contract, ClaimReview identity convergence and
+static index.nt + receipt build wiring added 2026-10-05. Web-host content type/
+discoverability and deployed read-back remain open.
