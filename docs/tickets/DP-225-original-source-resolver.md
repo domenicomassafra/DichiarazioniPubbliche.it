@@ -23,11 +23,16 @@ Source Intelligence and Coverage Needs can consume.
 - [x] UNKNOWN_DERIVATION cannot be promoted to original-source proof.
 - [x] Cycles fail closed.
 - [x] Family scoping prevents cross-family resolution.
-- [ ] Integrate the resolver into DP-215 original-source/derivation assessment and DP-213
-  Coverage Needs.
+- [x] PRIMARY_SOURCE / ORIGINAL_MEDIA / ATTRIBUTION_GAP Coverage Need satisfaction performs
+  a runtime preflight against approved derivation families before accepting a Content link.
+- [x] A reviewed derived copy resolves to its root but is refused as the satisfying Content;
+  no approved family means unresolved rather than self-original by absence of evidence.
+- [ ] Feed resolved original-root/path receipts into DP-215 assessment metadata and Studio
+  inspection.
 - [ ] Add database-backed/MiniPC canary using approved derivation rows.
 
 ## Implementation receipt
 
-Local pure resolver plus focused tests added 2026-10-05. Runtime/DB integration and MiniPC
-proof remain open, so the ticket is not DONE.
+Local resolver + QueueRuntime Coverage Need original-source gate + focused tests added
+2026-10-05. DP-215 metadata/Studio surfacing and a real PostgreSQL/MiniPC proof remain
+open, so the ticket is not DONE.

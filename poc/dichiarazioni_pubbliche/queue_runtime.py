@@ -8,6 +8,14 @@ from datetime import date
 from typing import Any
 from urllib.parse import urlsplit
 
+from dichiarazioni_pubbliche.citation_assurance import (
+    assertion_text_sha256,
+    finding_assertion_id,
+)
+from dichiarazioni_pubbliche.original_source_resolver import (
+    resolve_reviewed_original_source,
+)
+
 
 @dataclass(frozen=True)
 class ProcessingJob:
@@ -2152,6 +2160,9 @@ class QueueRuntimeStore(PsqlRuntime):
                 'source_type', evidence.source_type,
                 'publisher', evidence.publisher,
                 'publication_date', evidence.publication_date::text,
+                'valid_from', evidence.valid_from::text,
+                'valid_until', evidence.valid_until::text,
+                'record_status', evidence.status,
                 'metric', observation.metric,
                 'value_numeric', observation.value_numeric,
                 'value_text', observation.value_text,
@@ -2493,6 +2504,18 @@ class QueueRuntimeStore(PsqlRuntime):
     ) -> str:
         if not any((content_id, evidence_id, source_profile_id)):
             raise ValueError("COVERAGE_NEED_SATISFACTION_LINK_REQUIRED")
+        if content_id:
+            preflight = self.coverage_need_original_source_preflight(
+                coverage_need_id=coverage_need_id,
+                content_id=content_id,
+            )
+            if preflight["required"] and not preflight["accepted"]:
+                blocker = str(preflight.get("blocker") or "ORIGINAL_SOURCE_REQUIRED")
+                root = str(preflight.get("root_content_id") or "")
+                suffix = f":{root}" if root else ""
+                raise ValueError(
+                    f"COVERAGE_NEED_ORIGINAL_SOURCE_REFUSED:{blocker}{suffix}"
+                )
         raw = self.run(
             """
             WITH current AS (
@@ -2535,6 +2558,99 @@ class QueueRuntimeStore(PsqlRuntime):
             reason=reason,
         )
         return raw
+
+    def coverage_need_original_source_preflight(
+        self,
+        *,
+        coverage_need_id: str,
+        content_id: str,
+    ) -> dict[str, Any]:
+        need_raw = self.run(
+            """
+            SELECT COALESCE(json_build_object(
+                'id', id,
+                'need_type', need_type,
+                'status', status
+            )::text, '')
+            FROM coverage_need
+            WHERE id=:'coverage_need_id';
+            """,
+            coverage_need_id=coverage_need_id,
+        )
+        if not need_raw:
+            return {
+                "required": False,
+                "accepted": True,
+                "status": "NOT_FOUND",
+            }
+        need = json.loads(need_raw)
+        need_type = str(need.get("need_type") or "")
+        if need_type not in {"PRIMARY_SOURCE", "ORIGINAL_MEDIA", "ATTRIBUTION_GAP"}:
+            return {
+                "required": False,
+                "accepted": True,
+                "status": "NOT_APPLICABLE",
+            }
+
+        context_raw = self.run(
+            """
+            WITH matching_family AS (
+              SELECT DISTINCT family.id, family.root_content_id, family.status
+              FROM content_derivation_family family
+              LEFT JOIN content_derivation_candidate edge
+                ON edge.family_id=family.id
+              WHERE family.status='APPROVED'
+                AND (
+                  family.root_content_id=:'content_id'
+                  OR edge.derived_content_id=:'content_id'
+                  OR edge.origin_content_id=:'content_id'
+                )
+            )
+            SELECT json_build_object(
+              'families', COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', family.id,
+                  'root_content_id', family.root_content_id,
+                  'status', family.status
+                ) ORDER BY family.id)
+                FROM matching_family family
+              ), '[]'::json),
+              'edges', COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', edge.id,
+                  'family_id', edge.family_id,
+                  'derived_content_id', edge.derived_content_id,
+                  'origin_content_id', edge.origin_content_id,
+                  'relation_type', edge.relation_type,
+                  'status', edge.status
+                ) ORDER BY edge.family_id, edge.id)
+                FROM content_derivation_candidate edge
+                JOIN matching_family family ON family.id=edge.family_id
+                WHERE edge.status IN ('CANDIDATE','APPROVED')
+              ), '[]'::json)
+            )::text;
+            """,
+            content_id=content_id,
+        )
+        context = json.loads(context_raw or '{"families":[],"edges":[]}')
+        resolution = resolve_reviewed_original_source(
+            content_id,
+            families=context.get("families") or [],
+            edges=context.get("edges") or [],
+        )
+        blocker = resolution.blockers[0] if resolution.blockers else None
+        accepted = resolution.resolved and resolution.root_content_id == content_id
+        if resolution.resolved and not accepted:
+            blocker = "DERIVED_CONTENT_NOT_ORIGINAL_ROOT"
+        return {
+            "required": True,
+            "accepted": accepted,
+            "status": resolution.status,
+            "root_content_id": resolution.root_content_id,
+            "path_content_ids": list(resolution.path_content_ids),
+            "path_edge_ids": list(resolution.path_edge_ids),
+            "blocker": blocker,
+        }
 
     def block_coverage_need(
         self,
@@ -2691,10 +2807,13 @@ class QueueRuntimeStore(PsqlRuntime):
             ensure_ascii=False,
             separators=(",", ":"),
         )
+        rationale = str(draft["rationale"])
+        assertion_id = finding_assertion_id(draft["finding_id"], rationale)
+        assertion_sha256 = assertion_text_sha256(rationale)
         raw = self.run(
             """
             WITH eligible AS (
-                SELECT 1
+                SELECT verification.observation_ids
                 FROM verification_run verification
                 WHERE
                     verification.id = :'verification_run_id'
@@ -2721,6 +2840,57 @@ class QueueRuntimeStore(PsqlRuntime):
                 ON CONFLICT (id) DO NOTHING
                 RETURNING id
             ),
+            existing_exact AS (
+                SELECT finding.id
+                FROM finding
+                CROSS JOIN eligible
+                WHERE
+                    finding.id = :'finding_id'
+                    AND finding.claim_id = :'claim_id'
+                    AND finding.assessment = :'assessment'
+                    AND finding.assessment_version = 'deterministic-verification-v2'
+                    AND finding.rationale = :'rationale'
+                    AND finding.publication_status = :'publication_status'
+                    AND finding.publication_status_version = 'finding-publication-v1'
+                    AND finding.policy_version = :'policy_version'
+                    AND finding.model_bundle = :'model_bundle'::jsonb
+                    AND finding.verification_run_id = :'verification_run_id'
+                    AND finding.supersedes_id IS NOT DISTINCT FROM
+                        NULLIF(:'supersedes_id','')
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements_text(
+                            :'evidence_ids'::jsonb
+                        ) expected(evidence_id)
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM finding_evidence existing_link
+                            WHERE
+                                existing_link.finding_id = finding.id
+                                AND existing_link.evidence_id =
+                                    expected.evidence_id
+                                AND existing_link.relation =
+                                    'VERIFICATION_INPUT'
+                        )
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM finding_evidence existing_link
+                        WHERE
+                            existing_link.finding_id = finding.id
+                            AND existing_link.relation =
+                                'VERIFICATION_INPUT'
+                            AND NOT (
+                                :'evidence_ids'::jsonb ?
+                                existing_link.evidence_id
+                            )
+                    )
+            ),
+            finding_current AS (
+                SELECT id FROM inserted
+                UNION ALL
+                SELECT id FROM existing_exact
+            ),
             linked AS (
                 INSERT INTO finding_evidence (finding_id, evidence_id, relation)
                 SELECT inserted.id, evidence_id_row.value, 'VERIFICATION_INPUT'
@@ -2731,13 +2901,80 @@ class QueueRuntimeStore(PsqlRuntime):
                 JOIN evidence source ON source.id = evidence_id_row.value
                 ON CONFLICT DO NOTHING
                 RETURNING finding_id
+            ),
+            assertion_inserted AS (
+                INSERT INTO finding_assertion (
+                    id, finding_id, assertion_text, assertion_text_sha256,
+                    assertion_type, material, required_relation,
+                    assertion_version, metadata
+                )
+                SELECT
+                    :'assertion_id', current.id, :'rationale',
+                    :'assertion_sha256', 'RATIONALE_MATERIAL', true,
+                    'SUPPORT', 'finding-assertion-v1',
+                    jsonb_build_object(
+                        'verification_run_id', :'verification_run_id'
+                    )
+                FROM finding_current current
+                ON CONFLICT (id) DO NOTHING
+                RETURNING id
+            ),
+            assertion_current AS (
+                SELECT id FROM assertion_inserted
+                UNION ALL
+                SELECT assertion.id
+                FROM finding_assertion assertion
+                JOIN finding_current current
+                  ON current.id = assertion.finding_id
+                WHERE
+                    assertion.id = :'assertion_id'
+                    AND assertion.assertion_text = :'rationale'
+                    AND assertion.assertion_text_sha256 =
+                        :'assertion_sha256'
+                    AND assertion.assertion_type =
+                        'RATIONALE_MATERIAL'
+                    AND assertion.material = true
+                    AND assertion.required_relation = 'SUPPORT'
+                    AND assertion.assertion_version =
+                        'finding-assertion-v1'
+            ),
+            citation_inserted AS (
+                INSERT INTO finding_assertion_citation (
+                    id, assertion_id, evidence_id, observation_id,
+                    passage_id, relation, citation_version, metadata
+                )
+                SELECT
+                    assertion.id || '|citation|' ||
+                        evidence_id_row.value || '|' || observation.id,
+                    assertion.id,
+                    evidence_id_row.value,
+                    observation.id,
+                    NULL,
+                    'SUPPORT',
+                    'finding-citation-v1',
+                    jsonb_build_object(
+                        'verification_run_id', :'verification_run_id'
+                    )
+                FROM assertion_current assertion
+                CROSS JOIN eligible
+                CROSS JOIN LATERAL jsonb_array_elements_text(
+                    :'evidence_ids'::jsonb
+                ) evidence_id_row(value)
+                JOIN evidence_observation observation
+                  ON observation.evidence_id=evidence_id_row.value
+                 AND eligible.observation_ids ? observation.id
+                 AND observation.status='APPROVED'
+                ON CONFLICT DO NOTHING
+                RETURNING assertion_id
             )
             SELECT EXISTS(SELECT 1 FROM inserted)::text;
             """,
             finding_id=draft["finding_id"],
             claim_id=draft["claim_id"],
             assessment=draft["assessment"],
-            rationale=draft["rationale"],
+            rationale=rationale,
+            assertion_id=assertion_id,
+            assertion_sha256=assertion_sha256,
             publication_status=draft["publication_status"],
             policy_version=draft["policy_version"],
             model_bundle=json.dumps(

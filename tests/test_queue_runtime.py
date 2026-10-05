@@ -314,6 +314,14 @@ class QueueRuntimeTests(unittest.TestCase):
             ":'evidence_ids'::jsonb @> verification.evidence_ids",
             store.sql,
         )
+        self.assertIn("INSERT INTO finding_assertion (", store.sql)
+        self.assertIn("INSERT INTO finding_assertion_citation (", store.sql)
+        self.assertIn("existing_exact AS (", store.sql)
+        self.assertIn("finding_current AS (", store.sql)
+        self.assertIn("assertion_current AS (", store.sql)
+        self.assertIn("finding.model_bundle = :'model_bundle'::jsonb", store.sql)
+        self.assertIn("eligible.observation_ids ? observation.id", store.sql)
+        self.assertIn("'SUPPORT'", store.sql)
         self.assertIn("FROM inserted", store.sql)
         self.assertNotIn("SELECT id FROM finding", store.sql)
 

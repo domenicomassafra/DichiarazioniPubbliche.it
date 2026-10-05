@@ -81,6 +81,8 @@ LOAD_BEARING_TABLES = (
     "review_event",
     "finding",
     "finding_evidence",
+    "finding_assertion",
+    "finding_assertion_citation",
     "provider_receipt",
     "processing_job",
 )

@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
+from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256  # noqa: E402
 from dichiarazioni_pubbliche.public_projection import (  # noqa: E402
     PublicProjectionStore,
     build_public_projection,
@@ -27,11 +28,13 @@ class FakeSource:
 
 
 def valid_row():
+    rationale = "Supported by the approved record."
     return {
         "finding_id": "finding:a",
         "claim_id": "claim:a",
         "assessment": "SUPPORTED",
-        "rationale": "Supported by the approved record.",
+        "rationale": rationale,
+        "finding_assertion_sha256": assertion_text_sha256(rationale),
         "publication_status": "PUBLISH",
         "policy_version": "policy-v1",
         "verification_run_id": "verification:a",
@@ -211,6 +214,14 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("trigger.status = 'PROCESSED'", store.sql)
         self.assertIn("'CLAIM_TEXT_PROVENANCE'", store.sql)
         self.assertIn("FROM claim_text_provenance provenance", store.sql)
+        self.assertIn("FROM finding_assertion assertion", store.sql)
+        self.assertIn("FROM finding_assertion_citation citation", store.sql)
+        self.assertIn("assertion.assertion_text = finding.rationale", store.sql)
+        self.assertIn("AS finding_assertion_sha256", store.sql)
+        self.assertIn(
+            "citation.relation =\n                                        assertion.required_relation",
+            store.sql,
+        )
 
     def test_projection_exposes_no_raw_transcript_or_evidence_excerpt(self):
         payload = build_public_projection(
@@ -223,6 +234,13 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertNotIn("excerpt", encoded)
         self.assertNotIn("raw_text", encoded)
         self.assertFalse(payload["methodology"]["aggregate_person_score"])
+
+    def test_rationale_assertion_hash_mismatch_is_omitted_fail_closed(self):
+        row = valid_row()
+        row["finding_assertion_sha256"] = "0" * 64
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
 
     def test_public_claim_contract_is_bounded_and_private_free(self):
         payload = build_public_projection(

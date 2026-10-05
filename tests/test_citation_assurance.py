@@ -10,6 +10,7 @@ from dichiarazioni_pubbliche.citation_assurance import (  # noqa: E402
     CitationBinding,
     FindingAssertion,
     assure_material_assertions,
+    finding_assertion_id,
 )
 
 
@@ -101,6 +102,15 @@ class CitationAssuranceTests(unittest.TestCase):
             approved_evidence_ids=[],
         )
         self.assertTrue(result.passed)
+
+    def test_finding_assertion_id_is_text_and_finding_versioned(self):
+        first = finding_assertion_id("finding:1", "Rationale A")
+        same = finding_assertion_id("finding:1", "Rationale A")
+        changed_text = finding_assertion_id("finding:1", "Rationale B")
+        changed_finding = finding_assertion_id("finding:2", "Rationale A")
+        self.assertEqual(first, same)
+        self.assertNotEqual(first, changed_text)
+        self.assertNotEqual(first, changed_finding)
 
 
 if __name__ == "__main__":

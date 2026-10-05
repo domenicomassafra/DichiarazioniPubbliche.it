@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.research_plan import (  # noqa: E402
     compile_research_assignments,
+    discovery_manifest_from_assignments,
     lanes_for_need,
 )
 
@@ -97,6 +98,98 @@ class ResearchPlanTests(unittest.TestCase):
         )
         self.assertNotIn("CHALLENGER", {row.lane for row in without})
         self.assertIn("CHALLENGER", {row.lane for row in with_challenger})
+
+    def test_ready_assignments_compile_into_existing_discovery_manifest(self):
+        assignments = compile_research_assignments(
+            need(),
+            lane_adapters={
+                "OFFICIAL_STRUCTURED": ["istat"],
+                "EXISTING_FACT_CHECK": ["google-factcheck"],
+            },
+            max_results=8,
+            max_results_per_host=2,
+            cost_cap_usd=Decimal("0.10"),
+        )
+        manifest = discovery_manifest_from_assignments(
+            assignments,
+            collection_id="collection:1",
+            lane_source_families={
+                "OFFICIAL_STRUCTURED": ["official_structured"],
+                "EXISTING_FACT_CHECK": ["fact_check"],
+            },
+        )
+        self.assertEqual(manifest.coverage_need_ids, ("coverage-need:1",))
+        self.assertEqual(manifest.max_results, 16)
+        self.assertEqual(manifest.max_results_per_host, 2)
+        self.assertEqual(manifest.cost_cap_usd, Decimal("0.20"))
+        self.assertEqual(
+            [query.adapter_ids for query in manifest.queries],
+            [("istat",), ("google-factcheck",)],
+        )
+        self.assertEqual(
+            [query.metadata["lane"] for query in manifest.queries],
+            ["OFFICIAL_STRUCTURED", "EXISTING_FACT_CHECK"],
+        )
+
+    def test_manifest_compiler_refuses_blocked_assignment_instead_of_fallback(self):
+        assignments = compile_research_assignments(
+            need(),
+            lane_adapters={"OFFICIAL_STRUCTURED": ["istat"]},
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "RESEARCH_PLAN_BLOCKED_ASSIGNMENT_REFUSED",
+        ):
+            discovery_manifest_from_assignments(
+                assignments,
+                collection_id="collection:1",
+                lane_source_families={
+                    "OFFICIAL_STRUCTURED": ["official_structured"],
+                    "EXISTING_FACT_CHECK": ["fact_check"],
+                },
+            )
+
+    def test_manifest_compiler_never_expands_adapter_or_result_budget(self):
+        assignments = compile_research_assignments(
+            need(need_type="OFFICIAL_RECORD"),
+            lane_adapters={
+                "OFFICIAL_STRUCTURED": ["istat"],
+                "EXISTING_FACT_CHECK": ["factcheck"],
+            },
+            max_results=5,
+            max_results_per_host=1,
+            cost_cap_usd=Decimal("0.05"),
+        )
+        manifest = discovery_manifest_from_assignments(
+            assignments,
+            collection_id="collection:1",
+            lane_source_families={
+                "OFFICIAL_STRUCTURED": ["official_structured"],
+                "EXISTING_FACT_CHECK": ["fact_check"],
+            },
+        )
+        for assignment, query in zip(assignments, manifest.queries):
+            self.assertEqual(query.adapter_ids, assignment.adapter_ids)
+            self.assertEqual(query.max_results, assignment.max_results)
+        self.assertEqual(manifest.max_results, 10)
+        self.assertEqual(manifest.cost_cap_usd, Decimal("0.10"))
+
+    def test_manifest_compiler_requires_explicit_lane_source_family(self):
+        assignments = compile_research_assignments(
+            need(need_type="PRIMARY_SOURCE", required_roles=["FIRST_PARTY_STATEMENT"]),
+            lane_adapters={
+                "PRIMARY_SOURCE": ["web-primary"],
+                "EXISTING_FACT_CHECK": ["factcheck"],
+            },
+        )
+        with self.assertRaisesRegex(ValueError, "RESEARCH_PLAN_SOURCE_FAMILY_REQUIRED"):
+            discovery_manifest_from_assignments(
+                assignments,
+                collection_id="collection:1",
+                lane_source_families={
+                    "EXISTING_FACT_CHECK": ["fact_check"],
+                },
+            )
 
 
 if __name__ == "__main__":

@@ -185,6 +185,9 @@ class EvidenceItem:
     rights_status: str
     access_status: str
     independence_group: str
+    valid_from: str | None = None
+    valid_until: str | None = None
+    record_status: str = "ACTIVE"
     metric: str | None = None
     unit: str | None = None
     dimensions: dict[str, Any] = field(default_factory=dict)
@@ -537,6 +540,9 @@ def evidence_item_from_row(
         rights_status=str(row.get("rights_status") or "UNKNOWN").strip() or "UNKNOWN",
         access_status=profile.access_status if profile else "UNKNOWN",
         independence_group=independence_group,
+        valid_from=str(row.get("valid_from") or "").strip() or None,
+        valid_until=str(row.get("valid_until") or "").strip() or None,
+        record_status=str(row.get("record_status") or "ACTIVE").strip() or "ACTIVE",
         metric=str(row.get("metric") or "").strip() or None,
         unit=str(row.get("unit") or "").strip() or None,
         dimensions=dict(dimensions),
@@ -821,22 +827,54 @@ def assess_evidence_set(
         elif rule.kind == "TEMPORAL_CUTOFF":
             cutoff = _iso_date(statement_date)
             if cutoff is not None and not bool(rule.parameters.get("allow_post_statement")):
-                before = [
-                    item
-                    for item in qualified
-                    if _iso_date(item.publication_date) is not None
-                    and _iso_date(item.publication_date) <= cutoff
-                ]
+                before: list[EvidenceItem] = []
+                temporal_rejections: list[tuple[EvidenceItem, str]] = []
+                for item in qualified:
+                    published = _iso_date(item.publication_date)
+                    if published is None or published > cutoff:
+                        temporal_rejections.append(
+                            (item, "POST_STATEMENT_EVIDENCE")
+                        )
+                        continue
+                    valid_from = _iso_date(item.valid_from)
+                    valid_until = _iso_date(item.valid_until)
+                    if valid_from is not None and cutoff < valid_from:
+                        temporal_rejections.append(
+                            (item, "VERSION_NOT_YET_EFFECTIVE")
+                        )
+                        continue
+                    # DP-227 uses [valid_from, valid_until) semantics.
+                    if valid_until is not None and cutoff >= valid_until:
+                        temporal_rejections.append(
+                            (item, "VERSION_NO_LONGER_EFFECTIVE")
+                        )
+                        continue
+                    if (
+                        item.record_status in {"SUPERSEDED", "RETIRED"}
+                        and valid_until is None
+                    ):
+                        temporal_rejections.append(
+                            (item, "SUPERSEDED_VERSION_WITHOUT_VALID_UNTIL")
+                        )
+                        continue
+                    before.append(item)
                 rule_ok = bool(before)
                 if rule_ok:
                     qualified = before
                 else:
+                    for item, reason in temporal_rejections:
+                        rejected.append(
+                            {"evidence_id": item.evidence_id, "reason": reason}
+                        )
                     if rule.coverage_need_enabled:
                         needs.append(
                             CoverageNeedCandidate(
                                 requirement_kind=rule.kind,
                                 reason=rule.rationale_code,
-                                temporal_constraints={"not_after": cutoff.isoformat()},
+                                temporal_constraints={
+                                    "not_after": cutoff.isoformat(),
+                                    "effective_at": cutoff.isoformat(),
+                                },
                             )
                         )
                     if status is None:

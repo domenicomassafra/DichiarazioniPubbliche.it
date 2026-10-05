@@ -83,6 +83,7 @@ evidence_requirement_profile evidence_requirement_rule evidence_set_assessment \
 appearance transcript_variant transcript_segment canonical_transcript_segment \
 atomic_claim claim_segment claim_text_provenance evidence claim_evidence_candidate \
 evidence_observation verification_run inference_candidate review_event finding finding_evidence \
+finding_assertion finding_assertion_citation \
 coverage_need coverage_need_event \
 provider_receipt processing_job speaker_identity_candidate"
 

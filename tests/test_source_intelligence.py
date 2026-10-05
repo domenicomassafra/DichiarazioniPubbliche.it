@@ -37,6 +37,9 @@ class SourceIntelligenceTests(unittest.TestCase):
         dimensions=None,
         independence_group=None,
         rights_status="UNKNOWN",
+        valid_from=None,
+        valid_until=None,
+        record_status="ACTIVE",
     ):
         return evidence_item_from_row(
             {
@@ -51,6 +54,9 @@ class SourceIntelligenceTests(unittest.TestCase):
                 "value_text": value if isinstance(value, str) else None,
                 "independence_group": independence_group or source_id,
                 "rights_status": rights_status,
+                "valid_from": valid_from,
+                "valid_until": valid_until,
+                "record_status": record_status,
                 "status": "APPROVED",
                 "metadata": {"evidence_source_id": source_id},
             },
@@ -113,6 +119,65 @@ class SourceIntelligenceTests(unittest.TestCase):
             [self.item("istat-sdmx", publication_date="2026-09-05")]
         )
         self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+
+    def test_version_not_yet_effective_is_temporal_mismatch(self):
+        result = self.assess(
+            [
+                self.item(
+                    "istat-sdmx",
+                    valid_from="2026-09-05",
+                )
+            ]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn(
+            "VERSION_NOT_YET_EFFECTIVE",
+            {row["reason"] for row in result.rejected_evidence},
+        )
+
+    def test_expired_version_is_temporal_mismatch_with_end_exclusive_semantics(self):
+        result = self.assess(
+            [
+                self.item(
+                    "istat-sdmx",
+                    valid_from="2026-01-01",
+                    valid_until="2026-09-04",
+                )
+            ]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn(
+            "VERSION_NO_LONGER_EFFECTIVE",
+            {row["reason"] for row in result.rejected_evidence},
+        )
+
+    def test_superseded_version_without_valid_until_fails_closed(self):
+        result = self.assess(
+            [
+                self.item(
+                    "istat-sdmx",
+                    record_status="SUPERSEDED",
+                )
+            ]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn(
+            "SUPERSEDED_VERSION_WITHOUT_VALID_UNTIL",
+            {row["reason"] for row in result.rejected_evidence},
+        )
+
+    def test_superseded_version_with_historical_interval_can_prove_past_statement(self):
+        result = self.assess(
+            [
+                self.item(
+                    "istat-sdmx",
+                    record_status="SUPERSEDED",
+                    valid_from="2026-01-01",
+                    valid_until="2026-10-01",
+                )
+            ]
+        )
+        self.assertEqual(result.status, "SUFFICIENT_FOR_RULE")
 
     def test_gazzetta_legal_scope_succeeds_normattiva_alone_does_not(self):
         legal_kwargs = dict(

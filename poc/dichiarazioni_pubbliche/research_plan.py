@@ -7,6 +7,13 @@ from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
 from dichiarazioni_pubbliche.coverage_needs import CoverageNeedSpec
+from dichiarazioni_pubbliche.research_discovery import (
+    MAX_COST_USD,
+    MAX_QUERY_RESULTS,
+    MAX_TOTAL_RESULTS,
+    DiscoveryManifest,
+    load_discovery_manifest,
+)
 
 
 RESEARCH_PLAN_VERSION = "research-plan-v1"
@@ -202,10 +209,122 @@ def compile_research_assignments(
     return tuple(assignments)
 
 
+def discovery_manifest_from_assignments(
+    assignments: Sequence[ResearchAssignment],
+    *,
+    collection_id: str,
+    lane_source_families: Mapping[str, Sequence[str]],
+    date_from: str | None = None,
+    date_to: str | None = None,
+    seeds: Sequence[Mapping[str, str]] = (),
+) -> DiscoveryManifest:
+    """Compile bounded donor-style assignments into the existing DP-209 manifest.
+
+    This is intentionally a one-way narrowing adapter: it may not add adapters, increase
+    per-query result limits, invent source families, or execute BLOCKED assignments.
+    Coverage-need retries remain outside the manifest and continue to be owned by the
+    existing Coverage Need state machine.
+    """
+
+    rows = tuple(assignments)
+    if not rows:
+        raise ValueError("RESEARCH_PLAN_ASSIGNMENTS_REQUIRED")
+    if any(row.status != "READY" for row in rows):
+        raise ValueError("RESEARCH_PLAN_BLOCKED_ASSIGNMENT_REFUSED")
+    if len({row.coverage_need_id for row in rows}) > 64:
+        raise ValueError("RESEARCH_PLAN_TOO_MANY_COVERAGE_NEEDS")
+    collection = str(collection_id or "").strip()
+    if not collection:
+        raise ValueError("RESEARCH_PLAN_COLLECTION_REQUIRED")
+
+    queries: list[dict[str, Any]] = []
+    manifest_families: list[str] = []
+    total_results = 0
+    total_cost = Decimal("0")
+    per_host_caps: list[int] = []
+
+    for ordinal, row in enumerate(rows):
+        families = tuple(
+            dict.fromkeys(
+                str(value).strip()
+                for value in lane_source_families.get(row.lane, ())
+                if str(value).strip()
+            )
+        )
+        if not families:
+            raise ValueError(f"RESEARCH_PLAN_SOURCE_FAMILY_REQUIRED:{row.lane}")
+        if row.max_results > MAX_QUERY_RESULTS:
+            raise ValueError("RESEARCH_PLAN_QUERY_RESULT_CAP_EXCEEDED")
+        total_results += row.max_results
+        total_cost += row.cost_cap_usd
+        per_host_caps.append(row.max_results_per_host)
+        manifest_families.extend(families)
+        queries.append(
+            {
+                "id": row.assignment_id,
+                "query": row.question,
+                "source_families": list(families),
+                "adapter_ids": list(row.adapter_ids),
+                "max_results": row.max_results,
+                "metadata": {
+                    "research_assignment_id": row.assignment_id,
+                    "coverage_need_id": row.coverage_need_id,
+                    "lane": row.lane,
+                    "plan_version": row.plan_version,
+                    "remaining_attempts": row.max_queries,
+                    "authority_scope": dict(row.authority_scope),
+                    "temporal_constraints": dict(row.temporal_constraints),
+                    "stop_conditions": list(row.stop_conditions),
+                    "ordinal": ordinal,
+                },
+            }
+        )
+
+    if total_results > MAX_TOTAL_RESULTS:
+        raise ValueError("RESEARCH_PLAN_MANIFEST_RESULT_CAP_EXCEEDED")
+    if total_cost > MAX_COST_USD:
+        raise ValueError("RESEARCH_PLAN_MANIFEST_COST_CAP_EXCEEDED")
+    max_per_host = min(per_host_caps)
+    max_per_host = min(max_per_host, total_results)
+    coverage_need_ids = tuple(dict.fromkeys(row.coverage_need_id for row in rows))
+    identity_material = {
+        "collection_id": collection,
+        "assignment_ids": [row.assignment_id for row in rows],
+        "coverage_need_ids": list(coverage_need_ids),
+        "date_from": date_from,
+        "date_to": date_to,
+        "version": RESEARCH_PLAN_VERSION,
+    }
+    manifest_id = "research-plan-manifest:" + hashlib.sha256(
+        _stable_json(identity_material).encode("utf-8")
+    ).hexdigest()
+    raw = {
+        "schema_version": 1,
+        "id": manifest_id,
+        "collection_id": collection,
+        "date_window": {"from": date_from, "to": date_to},
+        "limits": {
+            "max_results": total_results,
+            "max_results_per_host": max_per_host,
+            "cost_cap_usd": str(total_cost),
+        },
+        "seeds": [dict(seed) for seed in seeds],
+        "source_families": list(dict.fromkeys(manifest_families)),
+        "coverage_need_ids": list(coverage_need_ids),
+        "queries": queries,
+        "metadata": {
+            "compiled_from": RESEARCH_PLAN_VERSION,
+            "assignment_count": len(rows),
+        },
+    }
+    return load_discovery_manifest(raw)
+
+
 __all__ = [
     "LANES",
     "RESEARCH_PLAN_VERSION",
     "ResearchAssignment",
     "compile_research_assignments",
+    "discovery_manifest_from_assignments",
     "lanes_for_need",
 ]

@@ -26,13 +26,16 @@ ACADEMIC_EXPERT, ORIGINAL_MEDIA and CHALLENGER.
 - [x] Missing lane adapters are explicit BLOCKED assignments, never silent fallback.
 - [x] Assignment identity is deterministic under identical inputs.
 - [x] Exhausted Coverage Needs create no more assignments.
-- [ ] Model query suggestions cannot expand host/tool permissions once query-generation is
-  wired to the planner.
+- [x] Assignment-to-DP-209 compiler cannot add adapters, source families or result/cost
+  budget beyond the explicit assignment inputs; source-family mapping is mandatory.
+- [ ] Model query suggestions cannot expand host/tool permissions once model-assisted query
+  generation is wired to the planner.
 - [ ] Provider failure leaves the need explicit and blocked/deferred in the persisted path.
-- [ ] Existing DP-209 manifests execute assignments rather than a second scheduler.
+- [x] READY assignments compile directly into the existing DP-209 DiscoveryManifest;
+  BLOCKED assignments are refused rather than falling back to a generic search.
 - [ ] No lane can directly approve evidence, verify a claim or publish.
 
 ## Completion receipt
 
-Local pure planner + focused tests added 2026-10-05. DP-209 manifest persistence/execution
-integration and MiniPC proof remain open.
+Local planner + DP-209 DiscoveryManifest compiler + focused tests added 2026-10-05.
+Persisted execution/attempt-state integration and MiniPC proof remain open.

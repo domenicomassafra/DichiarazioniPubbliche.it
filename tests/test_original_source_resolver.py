@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.original_source_resolver import (  # noqa: E402
     DerivationEdge,
     resolve_original_source,
+    resolve_reviewed_original_source,
 )
 
 
@@ -103,6 +104,67 @@ class OriginalSourceResolverTests(unittest.TestCase):
         )
         self.assertFalse(result.resolved)
         self.assertEqual(result.blockers, ("EXPECTED_ROOT_NOT_REACHED",))
+
+    def test_reviewed_resolution_requires_approved_family(self):
+        result = resolve_reviewed_original_source(
+            "content:a",
+            families=[],
+            edges=[],
+        )
+        self.assertFalse(result.resolved)
+        self.assertEqual(result.blockers, ("NO_APPROVED_DERIVATION_FAMILY",))
+
+    def test_reviewed_family_root_is_self_original(self):
+        result = resolve_reviewed_original_source(
+            "content:root",
+            families=[
+                {
+                    "id": "family:1",
+                    "root_content_id": "content:root",
+                    "status": "APPROVED",
+                }
+            ],
+            edges=[],
+        )
+        self.assertTrue(result.resolved)
+        self.assertEqual(result.status, "SELF_ORIGINAL")
+
+    def test_reviewed_derived_content_resolves_but_is_not_root(self):
+        result = resolve_reviewed_original_source(
+            "content:copy",
+            families=[
+                {
+                    "id": "family:1",
+                    "root_content_id": "content:root",
+                    "status": "APPROVED",
+                }
+            ],
+            edges=[
+                {
+                    "id": "edge:1",
+                    "family_id": "family:1",
+                    "derived_content_id": "content:copy",
+                    "origin_content_id": "content:root",
+                    "relation_type": "REPUBLICATION",
+                    "status": "APPROVED",
+                }
+            ],
+        )
+        self.assertTrue(result.resolved)
+        self.assertEqual(result.root_content_id, "content:root")
+        self.assertNotEqual(result.content_id, result.root_content_id)
+
+    def test_conflicting_reviewed_family_roots_fail_closed(self):
+        result = resolve_reviewed_original_source(
+            "content:copy",
+            families=[
+                {"id": "f1", "root_content_id": "content:a", "status": "APPROVED"},
+                {"id": "f2", "root_content_id": "content:b", "status": "APPROVED"},
+            ],
+            edges=[],
+        )
+        self.assertFalse(result.resolved)
+        self.assertEqual(result.blockers, ("CONFLICTING_APPROVED_FAMILY_ROOTS",))
 
 
 if __name__ == "__main__":

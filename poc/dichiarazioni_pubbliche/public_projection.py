@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
+from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256
 from dichiarazioni_pubbliche.domain_vocabulary import (
     ClaimType,
     FindingPublicationStatus,
@@ -54,6 +55,18 @@ class PublicProjectionStore(PsqlRuntime):
                     finding.claim_id,
                     finding.assessment,
                     finding.rationale,
+                    (
+                        SELECT assertion.assertion_text_sha256
+                        FROM finding_assertion assertion
+                        WHERE
+                            assertion.finding_id = finding.id
+                            AND assertion.material = true
+                            AND assertion.assertion_type = 'RATIONALE_MATERIAL'
+                            AND assertion.required_relation = 'SUPPORT'
+                            AND assertion.assertion_text = finding.rationale
+                        ORDER BY assertion.created_at DESC, assertion.id DESC
+                        LIMIT 1
+                    ) AS finding_assertion_sha256,
                     finding.publication_status,
                     finding.policy_version,
                     finding.verification_run_id,
@@ -585,6 +598,51 @@ class PublicProjectionStore(PsqlRuntime):
                         FROM finding_evidence source_link
                         WHERE source_link.finding_id = finding.id
                     )
+                    AND EXISTS (
+                        SELECT 1
+                        FROM finding_assertion assertion
+                        WHERE
+                            assertion.finding_id = finding.id
+                            AND assertion.material = true
+                            AND assertion.assertion_type = 'RATIONALE_MATERIAL'
+                            AND assertion.required_relation = 'SUPPORT'
+                            AND assertion.assertion_text = finding.rationale
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM finding_assertion assertion
+                        WHERE
+                            assertion.finding_id = finding.id
+                            AND assertion.material = true
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM finding_assertion_citation citation
+                                JOIN finding_evidence source_link
+                                  ON source_link.finding_id = finding.id
+                                 AND source_link.evidence_id = citation.evidence_id
+                                JOIN evidence_observation observation
+                                  ON observation.id = citation.observation_id
+                                 AND observation.evidence_id = citation.evidence_id
+                                WHERE
+                                    citation.assertion_id = assertion.id
+                                    AND citation.relation =
+                                        assertion.required_relation
+                                    AND observation.status = 'APPROVED'
+                                    AND verification.observation_ids ?
+                                        observation.id
+                                    AND EXISTS (
+                                        SELECT 1
+                                        FROM review_event observation_review
+                                        WHERE
+                                            observation_review.entity_type =
+                                                'EVIDENCE_OBSERVATION'
+                                            AND observation_review.entity_id =
+                                                observation.id
+                                            AND observation_review.action =
+                                                'APPROVED'
+                                    )
+                            )
+                    )
                     AND NOT EXISTS (
                         SELECT 1
                         FROM finding_evidence source_link
@@ -850,6 +908,12 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
         VerificationAssessment.UNRESOLVED,
     }:
         raise ValueError("non-publishable assessment cannot enter public projection")
+    rationale = str(row.get("rationale") or "").strip()
+    if not rationale:
+        raise ValueError("public finding rationale is missing")
+    assertion_sha = _sha256_hex(row.get("finding_assertion_sha256"))
+    if assertion_sha != assertion_text_sha256(rationale):
+        raise ValueError("public finding rationale assertion hash mismatch")
     source_url = _safe_http_url(str(row.get("source_url") or ""))
     evidence_rows = []
     for item in row.get("evidence") or []:
@@ -1167,7 +1231,7 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
         "finding": {
             "assessment": assessment.value,
             "publication_status": publication_status.value,
-            "rationale": _bounded(row.get("rationale"), 8000),
+            "rationale": _bounded(rationale, 8000),
             "policy_version": _bounded(row.get("policy_version"), 200),
             "verification_run_id": str(row["verification_run_id"]),
             "created_at": _bounded(row.get("created_at"), 64),

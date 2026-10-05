@@ -25,13 +25,13 @@ requirements for this project.
 | Donor pattern | Current repository state | Disposition |
 |---|---|---|
 | Claim decomposition / check-worthiness | Implemented through bounded Statement/Claim Candidate extraction and explicit non-factual holds | KEEP |
-| Query-planning boundary | Pure bounded research-plan compiler now exists; DP-209 persistence/execution integration remains | DP-228 IN PROGRESS |
+| Query-planning boundary | Bounded assignments now compile directly into the existing DP-209 DiscoveryManifest without adapter/budget expansion; persisted execution receipt integration remains | DP-228 IN PROGRESS |
 | Evidence families / independence | Implemented by DP-115 + DP-215 Source Intelligence | KEEP |
-| Original-source resolution | Family/edge persistence exists; deterministic root resolver was missing | DP-225; runtime started 2026-10-05 |
+| Original-source resolution | Deterministic reviewed-root resolver now gates PRIMARY_SOURCE / ORIGINAL_MEDIA / ATTRIBUTION_GAP Coverage Need satisfaction; DB/MiniPC canary + Studio surfacing remain | DP-225 IN PROGRESS |
 | Deterministic judgment/publication policy | Implemented in multiple fail-closed seams; DP-308 will unify the final safety profile | KEEP / DP-308 |
-| Citation assurance | Pure material-assertion/evidence binding audit now exists; persistence + projection enforcement remain | DP-224 IN PROGRESS |
+| Citation assurance | Finding rationale assertions/citations are persisted, replay-backfillable, backup/restore load-bearing and enforced fail-closed by public projection; exact Passage binding remains for unstructured evidence | DP-224 IN PROGRESS |
 | Numerical verification | Exact/range/historical verification exists; compound delta/ratio/percent-change was missing | DP-226; runtime started 2026-10-05 |
-| Temporal verification | Pure effective-version selector now handles intervals, overlap conflict, supersession and publication cutoff; evidence integration remains | DP-227 IN PROGRESS |
+| Temporal verification | Source Intelligence now consumes persisted evidence valid_from/valid_until/status and blocks not-yet-effective, expired or unsafe superseded versions before verification | DP-227 IN PROGRESS |
 | Defender/challenger | Pure counter-case packet now separates contradict/limitation/context/update evidence without creating a verdict; execution/persistence remain | DP-229 IN PROGRESS |
 | Paid-operation receipts/idempotency | Implemented for discovery/extraction/provider work, but cost/usage aggregation is fragmented | DP-230 |
 | Canonical investigation cost ledger | Pure stable operation identity + measured/estimated/external-plan/unknown aggregation exists; persistence adapters remain | DP-230 IN PROGRESS |
@@ -50,24 +50,26 @@ requirements for this project.
 
 ### Citation assurance is different from evidence membership
 
-The current public projection can prove that a Finding references approved Evidence and
-Observations. It does not yet prove that every material sentence or structured assertion
-in a Finding rationale is supported by one or more exact approved passages/observations.
-DP-224 closes that gap.
+The public projection now requires a versioned material rationale assertion whose exact
+text hash matches the Finding and whose SUPPORT citation points to approved Evidence and
+an approved Observation in the same verification run. This closes the structured-evidence
+path. DP-224 still has one deliberate gap: assertions grounded in unstructured material
+must additionally bind to exact Passage/source hashes rather than only an Observation.
 
 ### Original-source resolution is different from independence grouping
 
-DP-115 can say that ten articles share one derivation family. DP-225 adds the deterministic,
-review-only operation that walks approved derivation edges back to an original/root Content,
-failing closed on conflicts, cycles and unknown derivation.
+DP-115 can say that ten articles share one derivation family. DP-225 now walks approved
+derivation edges back to an original/root Content and the Coverage Need runtime refuses a
+derived copy as satisfaction for PRIMARY_SOURCE / ORIGINAL_MEDIA / ATTRIBUTION_GAP. Missing
+or conflicting reviewed roots fail closed.
 
 ### Research planning should compile from evidence requirements
 
-Coverage Needs say what is missing. DP-228 will compile those needs into bounded,
-provider-neutral retrieval lanes such as primary source, official structured data,
-independent reporting, existing fact-check, academic/expert, original media and challenger,
-each with explicit budget and stop conditions. This ports the useful specialist-role
-architecture without importing a multi-agent framework.
+Coverage Needs say what is missing. DP-228 now compiles them into bounded provider-neutral
+assignments and then into the existing DP-209 DiscoveryManifest. Adapter lists, source
+families, result limits and cost caps can only stay equal or narrow during that conversion;
+a BLOCKED lane never falls back to generic web search. This ports the useful specialist-role
+architecture without importing a multi-agent framework or a second scheduler.
 
 ### Challenger is a role, not a vote
 

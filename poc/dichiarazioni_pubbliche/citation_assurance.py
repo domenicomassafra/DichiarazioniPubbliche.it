@@ -17,6 +17,15 @@ def assertion_text_sha256(text: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def finding_assertion_id(finding_id: str, text: str) -> str:
+    finding = str(finding_id or "").strip()
+    if not finding:
+        raise ValueError("FINDING_ID_REQUIRED")
+    return "finding-assertion:" + hashlib.sha256(
+        (finding + "\x1f" + assertion_text_sha256(text)).encode("utf-8")
+    ).hexdigest()
+
+
 @dataclass(frozen=True)
 class FindingAssertion:
     assertion_id: str
@@ -188,4 +197,5 @@ __all__ = [
     "FindingAssertion",
     "assertion_text_sha256",
     "assure_material_assertions",
+    "finding_assertion_id",
 ]

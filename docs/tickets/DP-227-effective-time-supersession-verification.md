@@ -25,11 +25,15 @@ temporally inapplicable.
 - [ ] Publication date, observation date, effective interval and reference period remain
   separate.
 - [x] Conflicting overlapping approved versions become UNRESOLVED.
-- [ ] DP-215 requirement profiles can require effective-version-at-time.
+- [x] DP-215 TEMPORAL_CUTOFF now consumes persisted evidence valid_from/valid_until and
+  applies start-inclusive/end-exclusive version-at-time semantics before verification.
+- [x] SUPERSEDED/RETIRED evidence without a reliable valid_until fails closed rather than
+  being treated as current merely because its publication date is old enough.
 - [ ] Reanalysis is triggered when a load-bearing source receives a reviewed supersession.
 - [ ] Full suite and MiniPC canary cover law, policy and statistical fixtures.
 
 ## Completion receipt
 
-Local effective-version selector + focused tests added 2026-10-05. Source Intelligence,
-evidence persistence, reanalysis and MiniPC integration remain open.
+Local effective-version selector plus real Source Intelligence/verification-path
+valid_from/valid_until integration added 2026-10-05. Supersession-triggered reanalysis and
+MiniPC production fixtures remain open.

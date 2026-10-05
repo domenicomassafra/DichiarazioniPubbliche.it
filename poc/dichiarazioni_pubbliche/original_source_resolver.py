@@ -186,9 +186,65 @@ def resolve_original_source(
             )
 
 
+def resolve_reviewed_original_source(
+    content_id: str,
+    *,
+    families: Iterable[Mapping[str, Any]],
+    edges: Iterable[Mapping[str, Any] | DerivationEdge],
+) -> OriginalSourceResolution:
+    """Resolve only when an approved derivation family establishes the root."""
+
+    start = str(content_id or "").strip()
+    if not start:
+        raise ValueError("ORIGINAL_SOURCE_CONTENT_REQUIRED")
+    approved_families = [
+        dict(row)
+        for row in families
+        if str(row.get("status") or "") == "APPROVED"
+    ]
+    if not approved_families:
+        return OriginalSourceResolution(
+            content_id=start,
+            status="UNRESOLVED",
+            root_content_id=None,
+            path_content_ids=(start,),
+            path_edge_ids=(),
+            blockers=("NO_APPROVED_DERIVATION_FAMILY",),
+        )
+    roots = {
+        str(row.get("root_content_id") or "").strip()
+        for row in approved_families
+        if str(row.get("root_content_id") or "").strip()
+    }
+    if len(roots) != 1:
+        return OriginalSourceResolution(
+            content_id=start,
+            status="UNRESOLVED",
+            root_content_id=None,
+            path_content_ids=(start,),
+            path_edge_ids=(),
+            blockers=("CONFLICTING_APPROVED_FAMILY_ROOTS",),
+        )
+    root = next(iter(roots))
+    if start == root:
+        return OriginalSourceResolution(
+            content_id=start,
+            status="SELF_ORIGINAL",
+            root_content_id=root,
+            path_content_ids=(start,),
+            path_edge_ids=(),
+        )
+    return resolve_original_source(
+        start,
+        edges,
+        family_root_content_id=root,
+    )
+
+
 __all__ = [
     "DerivationEdge",
     "OriginalSourceResolution",
     "RESOLVING_RELATIONS",
     "resolve_original_source",
+    "resolve_reviewed_original_source",
 ]

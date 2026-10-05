@@ -39,10 +39,19 @@ a deterministic fail-closed audit. An unsupported material assertion blocks publ
 - [x] Tampering with assertion text stales the binding.
 - [x] Non-material navigation/method copy is not forced into the Finding assertion ledger.
 - [ ] DP-223 includes unsupported/incorrect-citation adversarial cases.
-- [ ] Persist Finding Assertion/binding records, connect exact passage/source hashes, wire
-  projection-time DP-308 enforcement, then run migration/projection/MiniPC proof.
+- [x] Finding creation now persists one versioned RATIONALE_MATERIAL assertion plus SUPPORT
+  citation bindings to the exact evidence/approved observation IDs of the same verification
+  run.
+- [x] Public SQL projection requires the exact current rationale assertion and rejects any
+  material assertion without a compatible Finding evidence + approved verification
+  observation citation.
+- [x] New assertion/citation tables are included in backup/restore load-bearing inventory.
+- [ ] Extend citation bindings to exact Passage/source hashes where the Finding assertion
+  depends on unstructured evidence rather than structured observations.
+- [ ] Run migration/replay and MiniPC database proof before DONE.
 
 ## Completion receipt
 
-Local pure assurance contract + focused tests added 2026-10-05. Persistence, exact
-passage/source-hash binding, projection integration and MiniPC proof remain open.
+Local assurance contract, persistent rationale assertion/citation schema, transactional
+Finding insertion, projection-time fail-closed gate and backup/restore inventory added
+2026-10-05. Passage/source-hash enrichment and real PostgreSQL/MiniPC proof remain open.
