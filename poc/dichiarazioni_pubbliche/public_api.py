@@ -24,9 +24,10 @@ Contract decisions (DP-402 gate 1 and 2)
 * Stable public identifiers are the opaque strings already in the projection
   (``finding_id``, ``claim_id``, ``speaker.id``, ``source.content_id``). Nothing
   resolves a resource by a display name.
-* Topics are a derived read-only facet keyed by the projection's own
-  ``claim_type`` taxonomy. The projection carries no topic table, so inventing a
-  second topic vocabulary in the API layer would create a second data contract.
+* DP-430 first-class subject Topics come only from the optional, reviewed
+  ``topics`` collection in the projection. ``topic=`` on ``/findings`` is kept
+  temporarily as the draft-contract compatibility alias for ``claim_type=``;
+  the ``/topics`` resource never derives subject identity from claim type.
 """
 
 from __future__ import annotations
@@ -90,6 +91,10 @@ _LIST_TOKEN_RE = re.compile(r"^[A-Za-z0-9 ._:'\"/-]{1,200}$")
 # Filter name -> the kind of validation the value must pass. Anything not in this
 # map is an unknown parameter and therefore a typed 400, never a silent no-op.
 FILTER_ENUM_SOURCES: dict[str, frozenset[str]] = {
+    "claim_type": frozenset(item.value for item in ClaimType),
+    # Compatibility alias retained while the draft v1 API migrates away from
+    # using the word "topic" for the claim-type taxonomy. First-class subject
+    # Topics are served by /topics and are never inferred from claim_type.
     "topic": frozenset(item.value for item in ClaimType),
     "assessment": frozenset(PUBLISHABLE_ASSESSMENTS),
     "status": frozenset(PUBLIC_FINDING_STATUSES),
@@ -103,7 +108,11 @@ DATE_FILTERS = ("published_from", "published_to")
 
 # Public query name -> FindingEntry field. `status` is the public vocabulary
 # term; the entry keeps the fully qualified `publication_status`.
-STRING_FILTER_FIELDS = {"topic": "claim_type", "status": "publication_status"}
+STRING_FILTER_FIELDS = {
+    "claim_type": "claim_type",
+    "topic": "claim_type",
+    "status": "publication_status",
+}
 
 ALLOWED_QUERY_PARAMS = frozenset({"limit", "cursor"}) | frozenset(STRING_FILTERS) | frozenset(
     LIST_FILTERS
@@ -309,27 +318,61 @@ def build_index(bundle: dict[str, Any], *, source_path: str = "", mtime: float =
                 "person_id": entry.person_id,
                 "name": entry.person_name,
                 "finding_count": 0,
-                "topics": set(),
+                "claim_types": set(),
+                "topic_ids": set(),
             },
         )
         person["finding_count"] += 1
-        person["topics"].add(entry.claim_type)
-
-        topic = topics.setdefault(
-            entry.claim_type,
-            {
-                "topic": entry.claim_type,
-                "finding_count": 0,
-                "people": set(),
-            },
-        )
-        topic["finding_count"] += 1
-        topic["people"].add(entry.person_id)
+        person["claim_types"].add(entry.claim_type)
 
     for person in people.values():
-        person["topics"] = sorted(person["topics"])
-    for topic in topics.values():
-        topic["people"] = sorted(topic["people"])
+        person["claim_types"] = sorted(person["claim_types"])
+
+    # DP-430: first-class public subject Topics. Older public-v2 bundles do not
+    # carry the optional collection and therefore expose zero subject Topics;
+    # there is deliberately no fallback to claim_type.
+    for raw_topic in bundle.get("topics") or []:
+        topic_id = str(raw_topic["topic_id"])
+        memberships: list[dict[str, Any]] = []
+        finding_ids: set[str] = set()
+        people_ids: set[str] = set()
+        for membership in raw_topic.get("memberships") or []:
+            public_finding_ids = []
+            for finding_id in membership.get("finding_ids") or []:
+                entry = findings_by_id.get(str(finding_id))
+                if entry is None:
+                    continue
+                public_finding_ids.append(entry.finding_id)
+                finding_ids.add(entry.finding_id)
+                people_ids.add(entry.person_id)
+                if entry.person_id in people:
+                    people[entry.person_id]["topic_ids"].add(topic_id)
+            if public_finding_ids:
+                memberships.append(
+                    {
+                        "membership_id": str(membership["membership_id"]),
+                        "claim_id": str(membership["claim_id"]),
+                        "finding_ids": sorted(public_finding_ids),
+                        "review_event_ids": list(membership["review_event_ids"]),
+                        "source_resolution_candidate_id": membership.get(
+                            "source_resolution_candidate_id"
+                        ),
+                    }
+                )
+        topics[topic_id] = {
+            "topic_id": topic_id,
+            "slug": str(raw_topic["slug"]),
+            "canonical_name": str(raw_topic["canonical_name"]),
+            "scope_text": raw_topic.get("scope_text"),
+            "entity_version": str(raw_topic["entity_version"]),
+            "review_event_ids": list(raw_topic["review_event_ids"]),
+            "memberships": memberships,
+            "finding_ids": sorted(finding_ids),
+            "people": sorted(people_ids),
+        }
+
+    for person in people.values():
+        person["topic_ids"] = sorted(person["topic_ids"])
 
     return PublicIndex(
         schema_version=str(bundle["schema_version"]),
@@ -622,7 +665,11 @@ def list_people(index: PublicIndex) -> list[dict[str, Any]]:
             "person_id": person_id,
             "name": person["name"],
             "finding_count": person["finding_count"],
-            "topics": person["topics"],
+            # `topics` is the compatibility alias from the draft pre-DP-430
+            # contract; it means claim-type codes and is explicitly deprecated.
+            "topics": person["claim_types"],
+            "claim_types": person["claim_types"],
+            "subject_topic_ids": person["topic_ids"],
         }
         for person_id, person in index.people.items()
     ]
@@ -631,15 +678,22 @@ def list_people(index: PublicIndex) -> list[dict[str, Any]]:
 
 
 def list_topics(index: PublicIndex) -> list[dict[str, Any]]:
-    rows = [
-        {
-            "topic": topic["topic"],
-            "finding_count": topic["finding_count"],
-            "people": topic["people"],
-        }
-        for topic in index.topics.values()
-    ]
-    rows.sort(key=lambda row: row["topic"])
+    rows = []
+    for topic in index.topics.values():
+        rows.append(
+            {
+                "topic_id": topic["topic_id"],
+                "slug": topic["slug"],
+                "canonical_name": topic["canonical_name"],
+                "scope_text": topic["scope_text"],
+                "entity_version": topic["entity_version"],
+                "review_event_ids": topic["review_event_ids"],
+                "memberships": topic["memberships"],
+                "finding_count": len(topic["finding_ids"]),
+                "people": topic["people"],
+            }
+        )
+    rows.sort(key=lambda row: (row["canonical_name"].casefold(), row["topic_id"]))
     return rows
 
 
@@ -683,7 +737,11 @@ def schema_payload(index: PublicIndex) -> dict[str, Any]:
         "bundle_allowed_keys": sorted(PROJECTION_BUNDLE_ALLOWED_KEYS),
         "methodology": index.methodology,
         "facets": {
-            "topic": "projection claim_type",
+            "topic": (
+                "DEPRECATED compatibility alias for projection claim_type; "
+                "first-class subject Topics are the /topics resource"
+            ),
+            "claim_type": "projection claim_type",
             "person": "projection speaker.id",
             "content": "projection source.content_id",
         },

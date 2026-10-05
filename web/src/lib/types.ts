@@ -113,6 +113,24 @@ export interface PublicDossier {
   }>;
 }
 
+export interface PublicTopicMembership {
+  membership_id: string;
+  claim_id: string;
+  finding_ids: string[];
+  review_event_ids: string[];
+  source_resolution_candidate_id?: string | null;
+}
+
+export interface PublicTopic {
+  topic_id: string;
+  slug: string;
+  canonical_name: string;
+  scope_text?: string | null;
+  entity_version: string;
+  review_event_ids: string[];
+  memberships: PublicTopicMembership[];
+}
+
 export interface PublicProjection {
   schema_version: "dichiarazioni-pubbliche-public-v2";
   generated_at: string;
@@ -127,6 +145,8 @@ export interface PublicProjection {
   dossier_count: number;
   omitted_count: number;
   dossiers: PublicDossier[];
+  /** Optional for pre-DP-430 public-v2 bundles; never derived from claim_type. */
+  topics?: PublicTopic[];
 }
 
 export interface ContentAuditMoment {

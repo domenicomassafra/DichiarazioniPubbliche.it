@@ -352,9 +352,23 @@ def fictional_schema() -> dict[str, Any]:
 def fictional_topics() -> list[dict[str, Any]]:
     return [
         {
+            "topic_id": "topic:fictional:health-policy",
+            "slug": "politiche-sanitarie",
+            "canonical_name": "Politiche sanitarie",
+            "scope_text": "Decisioni pubbliche relative all'organizzazione dei servizi sanitari.",
+            "entity_version": "knowledge-entity-v1",
+            "review_event_ids": ["review:topic:fictional:1"],
+            "memberships": [
+                {
+                    "membership_id": "topic-membership:fictional:1",
+                    "claim_id": "claim:fictional:1",
+                    "finding_ids": ["finding:fictional:1"],
+                    "review_event_ids": ["review:topic-membership:fictional:1"],
+                    "source_resolution_candidate_id": None,
+                }
+            ],
             "finding_count": 1,
             "people": ["person:fictional:1"],
-            "topic": "NUMERIC_STATISTIC",
         }
     ]
 
@@ -366,6 +380,8 @@ def fictional_people() -> list[dict[str, Any]]:
             "name": "Fictional public figure",
             "person_id": "person:fictional:1",
             "topics": ["NUMERIC_STATISTIC"],
+            "claim_types": ["NUMERIC_STATISTIC"],
+            "subject_topic_ids": ["topic:fictional:health-policy"],
         }
     ]
 
@@ -792,9 +808,38 @@ def _components() -> dict[str, Any]:
             },
             "Topic": {
                 "type": "object",
-                "required": ["topic", "finding_count"],
+                "description": (
+                    "A first-class reviewed public subject Topic. It is never inferred "
+                    "from claim_type or generated from free text in the HTTP layer."
+                ),
+                "required": [
+                    "topic_id", "slug", "canonical_name", "entity_version",
+                    "review_event_ids", "memberships", "finding_count", "people"
+                ],
                 "properties": {
-                    "topic": {"type": "string"},
+                    "topic_id": {"type": "string"},
+                    "slug": {"type": "string"},
+                    "canonical_name": {"type": "string"},
+                    "scope_text": {"type": ["string", "null"]},
+                    "entity_version": {"type": "string"},
+                    "review_event_ids": {"type": "array", "items": {"type": "string"}},
+                    "memberships": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "membership_id", "claim_id", "finding_ids",
+                                "review_event_ids", "source_resolution_candidate_id"
+                            ],
+                            "properties": {
+                                "membership_id": {"type": "string"},
+                                "claim_id": {"type": "string"},
+                                "finding_ids": {"type": "array", "items": {"type": "string"}},
+                                "review_event_ids": {"type": "array", "items": {"type": "string"}},
+                                "source_resolution_candidate_id": {"type": ["string", "null"]},
+                            },
+                        },
+                    },
                     "finding_count": {"type": "integer", "minimum": 0},
                     "people": {"type": "array", "items": {"type": "string"}},
                 },
@@ -810,7 +855,14 @@ def _components() -> dict[str, Any]:
                     "person_id": {"type": "string"},
                     "name": {"type": ["string", "null"]},
                     "finding_count": {"type": "integer", "minimum": 0},
-                    "topics": {"type": "array", "items": {"type": "string"}},
+                    "topics": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "deprecated": True,
+                        "description": "Deprecated pre-DP-430 alias containing claim-type codes.",
+                    },
+                    "claim_types": {"type": "array", "items": {"type": "string"}},
+                    "subject_topic_ids": {"type": "array", "items": {"type": "string"}},
                 },
             },
             "Health": {
@@ -970,11 +1022,19 @@ def _components() -> dict[str, Any]:
                 "name": "topic",
                 "in": "query",
                 "required": False,
+                "deprecated": True,
                 "description": (
-                    "Comma-separated claim-type topic codes from the public schema "
-                    "vocabulary. Served facets are the codes actually present in the "
-                    "projection."
+                    "Deprecated compatibility alias for `claim_type`. It filters the "
+                    "claim-type vocabulary and does not select first-class subject Topics."
                 ),
+                "schema": {"type": "string"},
+                "examples": {"numericStatistic": {"value": "NUMERIC_STATISTIC"}},
+            },
+            "ClaimType": {
+                "name": "claim_type",
+                "in": "query",
+                "required": False,
+                "description": "Comma-separated canonical claim-type codes.",
                 "schema": {"type": "string"},
                 "examples": {"numericStatistic": {"value": "NUMERIC_STATISTIC"}},
             },
@@ -1064,6 +1124,7 @@ _CACHE_HEADERS = {
 _COLLECTION_PARAM_NAMES = (
     "Limit",
     "Cursor",
+    "ClaimType",
     "Topic",
     "Assessment",
     "Status",
@@ -1191,7 +1252,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
                 "health": "Liveness plus the served projection fingerprint and vocabulary versions.",
                 "schema": "The public contract descriptor: vocabularies, bounds, facets, and guarantees.",
                 "findings": "Bounded, deterministic collection of published finding versions.",
-                "topics": "Topic facets actually present in the projection, with counts.",
+                "topics": "First-class reviewed public subject Topics present in the projection.",
                 "people": "Public figures actually present in the projection, with counts.",
             }[route.name]
             path_item: dict[str, Any] = {
@@ -1607,7 +1668,7 @@ disagree about what is published.
 - Bounded finding collection: /api/v1/findings
 - One published finding version: /api/v1/findings/{finding_id}
 - One public record (statement) and its findings: /api/v1/records/{slug}
-- Topic facets present in the projection: /api/v1/topics
+- First-class reviewed subject Topics present in the projection: /api/v1/topics
 - Public figures present in the projection: /api/v1/people
 - The full fail-closed projection bundle: /api/v1/index.json
 - This document: /llms.txt
@@ -1662,7 +1723,7 @@ documentation and never resolves. These are shapes, not claims about anyone.
 
 Request:
 
-    GET /api/v1/findings?topic=NUMERIC_STATISTIC&assessment=SUPPORTED&limit=25
+    GET /api/v1/findings?claim_type=NUMERIC_STATISTIC&assessment=SUPPORTED&limit=25
 
 Response (truncated):
 
@@ -1839,7 +1900,7 @@ Point both at the same bundle and the API and the static site cannot diverge.
 | GET, HEAD | `/api/v1/findings` | Bounded, deterministic collection of published finding versions |
 | GET, HEAD | `/api/v1/findings/{{finding_id}}` | One immutable published finding version |
 | GET, HEAD | `/api/v1/records/{{slug}}` | One public record (statement) and its published findings |
-| GET, HEAD | `/api/v1/topics` | Topic facets present in the projection |
+| GET, HEAD | `/api/v1/topics` | First-class reviewed subject Topics present in the projection |
 | GET, HEAD | `/api/v1/people` | Public figures present in the projection |
 | GET, HEAD | `/api/v1/openapi.json` | This API as an OpenAPI 3.1 document |
 | GET, HEAD | `/api/v1/index.json` | The full fail-closed projection bundle |
@@ -1851,10 +1912,13 @@ Point both at the same bundle and the API and the static site cannot diverge.
   to the request's filter set; reusing one with different filters is a `400`.
 - Order: `published_at` descending, `finding_id` ascending as a stable
   tie-breaker. Deterministic for a given dataset fingerprint.
-- Filters, all optional, all comma-separated and AND-combined: `topic`
-  (claim-type code), `assessment`, `status`, `person` (speaker id), `content`
+- Filters, all optional, all comma-separated and AND-combined: `claim_type`
+  (canonical claim-type code), `assessment`, `status`, `person` (speaker id), `content`
   (content id), `published_from`, `published_to` (ISO 8601 with an explicit
   timezone).
+- `topic` remains a deprecated compatibility alias for `claim_type` in the draft
+  v1 contract. It never selects the first-class subject resources served by
+  `/api/v1/topics`.
 - An empty collection is `200` with `data: []`. It never fabricates a record.
 - An unknown or malformed parameter is a typed `400`, never a silent empty page.
 

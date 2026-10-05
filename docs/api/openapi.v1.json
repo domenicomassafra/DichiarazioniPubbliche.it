@@ -15,6 +15,20 @@
           "type": "string"
         }
       },
+      "ClaimType": {
+        "description": "Comma-separated canonical claim-type codes.",
+        "examples": {
+          "numericStatistic": {
+            "value": "NUMERIC_STATISTIC"
+          }
+        },
+        "in": "query",
+        "name": "claim_type",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
       "Content": {
         "description": "Comma-separated stable content identifiers.",
         "in": "query",
@@ -89,7 +103,8 @@
         }
       },
       "Topic": {
-        "description": "Comma-separated claim-type topic codes from the public schema vocabulary. Served facets are the codes actually present in the projection.",
+        "deprecated": true,
+        "description": "Deprecated compatibility alias for `claim_type`. It filters the claim-type vocabulary and does not select first-class subject Topics.",
         "examples": {
           "numericStatistic": {
             "value": "NUMERIC_STATISTIC"
@@ -1103,6 +1118,12 @@
       "PersonSummary": {
         "description": "A public figure appearing in the public record. This is a disambiguation identity, never a score or a ranking.",
         "properties": {
+          "claim_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "finding_count": {
             "minimum": 0,
             "type": "integer"
@@ -1116,7 +1137,15 @@
           "person_id": {
             "type": "string"
           },
+          "subject_topic_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "topics": {
+            "deprecated": true,
+            "description": "Deprecated pre-DP-430 alias containing claim-type codes.",
             "items": {
               "type": "string"
             },
@@ -1283,10 +1312,56 @@
         "type": "object"
       },
       "Topic": {
+        "description": "A first-class reviewed public subject Topic. It is never inferred from claim_type or generated from free text in the HTTP layer.",
         "properties": {
+          "canonical_name": {
+            "type": "string"
+          },
+          "entity_version": {
+            "type": "string"
+          },
           "finding_count": {
             "minimum": 0,
             "type": "integer"
+          },
+          "memberships": {
+            "items": {
+              "properties": {
+                "claim_id": {
+                  "type": "string"
+                },
+                "finding_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "membership_id": {
+                  "type": "string"
+                },
+                "review_event_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "source_resolution_candidate_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "membership_id",
+                "claim_id",
+                "finding_ids",
+                "review_event_ids",
+                "source_resolution_candidate_id"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
           "people": {
             "items": {
@@ -1294,13 +1369,34 @@
             },
             "type": "array"
           },
-          "topic": {
+          "review_event_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "scope_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "topic_id": {
             "type": "string"
           }
         },
         "required": [
-          "topic",
-          "finding_count"
+          "topic_id",
+          "slug",
+          "canonical_name",
+          "entity_version",
+          "review_event_ids",
+          "memberships",
+          "finding_count",
+          "people"
         ],
         "type": "object"
       }
@@ -1312,6 +1408,26 @@
     "summary": "Stable, read-only, cacheable access to the fail-closed public projection of published finding versions.",
     "title": "Dichiarazioni Pubbliche public read-only API",
     "version": "v1",
+    "x-deprecation-policy": {
+      "backward_compatible": [
+        "adding an optional response field",
+        "adding a new endpoint documented in this document",
+        "relaxing a documented default limit"
+      ],
+      "breaking": [
+        "renaming a field",
+        "changing the meaning or unit of a field",
+        "making an optional field required",
+        "removing a field",
+        "changing identifier semantics",
+        "changing an assessment, relation, or publication-status meaning"
+      ],
+      "contract_gate": "This document describes the v1 HTTP contract over the dichiarazioni-pubbliche-public-v2 public projection. The URL major version and the projection schema version are independent axes; a future projection schema that is not backward compatible requires a new URL major version.",
+      "current_contract_status": "DRAFT: served and cacheable, but not yet announced as stable. The same-origin MiniPC read path has been runtime-proved; the remaining gate is contract/release ratification, not transport reachability.",
+      "enum_values": "New assessment, publication-status, relation, and claim-type values are owned by the public schema contract, not by this document, and are never added silently where an existing consumer could read them as a safety or policy decision.",
+      "sunset": "A deprecation announces the replacement endpoint, a first deprecation date, and a sunset date no earlier than 90 days later. Deprecated endpoints emit the Deprecation and Sunset headers and stay readable until sunset. No endpoint is ever removed silently.",
+      "version_boundary": "The URL major version (/api/v1) is the compatibility boundary. A breaking change is served under a new major version."
+    },
     "x-dichiarazioni-pubbliche": {
       "api_contract_status": "DRAFT",
       "api_major_version": 1,
@@ -1338,26 +1454,6 @@
         "status": "contract defined, enforcement not implemented (DP-508)"
       },
       "read_only": true
-    },
-    "x-deprecation-policy": {
-      "backward_compatible": [
-        "adding an optional response field",
-        "adding a new endpoint documented in this document",
-        "relaxing a documented default limit"
-      ],
-      "breaking": [
-        "renaming a field",
-        "changing the meaning or unit of a field",
-        "making an optional field required",
-        "removing a field",
-        "changing identifier semantics",
-        "changing an assessment, relation, or publication-status meaning"
-      ],
-      "contract_gate": "This document describes the v1 HTTP contract over the dichiarazioni-pubbliche-public-v2 public projection. The URL major version and the projection schema version are independent axes; a future projection schema that is not backward compatible requires a new URL major version.",
-      "current_contract_status": "DRAFT: served and cacheable, but not yet announced as stable. The same-origin MiniPC read path has been runtime-proved; the remaining gate is contract/release ratification, not transport reachability.",
-      "enum_values": "New assessment, publication-status, relation, and claim-type values are owned by the public schema contract, not by this document, and are never added silently where an existing consumer could read them as a safety or policy decision.",
-      "sunset": "A deprecation announces the replacement endpoint, a first deprecation date, and a sunset date no earlier than 90 days later. Deprecated endpoints emit the Deprecation and Sunset headers and stay readable until sunset. No endpoint is ever removed silently.",
-      "version_boundary": "The URL major version (/api/v1) is the compatibility boundary. A breaking change is served under a new major version."
     }
   },
   "openapi": "3.1.0",
@@ -1372,6 +1468,9 @@
           },
           {
             "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/ClaimType"
           },
           {
             "$ref": "#/components/parameters/Topic"
@@ -1489,15 +1588,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -1554,15 +1653,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -1770,15 +1869,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -1940,15 +2039,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2005,15 +2104,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2200,15 +2299,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2329,15 +2428,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2401,9 +2500,15 @@
                 "example": {
                   "data": [
                     {
+                      "claim_types": [
+                        "NUMERIC_STATISTIC"
+                      ],
                       "finding_count": 1,
                       "name": "Fictional public figure",
                       "person_id": "person:fictional:1",
+                      "subject_topic_ids": [
+                        "topic:fictional:health-policy"
+                      ],
                       "topics": [
                         "NUMERIC_STATISTIC"
                       ]
@@ -2477,15 +2582,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2542,15 +2647,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2679,15 +2784,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2878,15 +2983,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2943,15 +3048,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -2982,11 +3087,31 @@
                 "example": {
                   "data": [
                     {
+                      "canonical_name": "Politiche sanitarie",
+                      "entity_version": "knowledge-entity-v1",
                       "finding_count": 1,
+                      "memberships": [
+                        {
+                          "claim_id": "claim:fictional:1",
+                          "finding_ids": [
+                            "finding:fictional:1"
+                          ],
+                          "membership_id": "topic-membership:fictional:1",
+                          "review_event_ids": [
+                            "review:topic-membership:fictional:1"
+                          ],
+                          "source_resolution_candidate_id": null
+                        }
+                      ],
                       "people": [
                         "person:fictional:1"
                       ],
-                      "topic": "NUMERIC_STATISTIC"
+                      "review_event_ids": [
+                        "review:topic:fictional:1"
+                      ],
+                      "scope_text": "Decisioni pubbliche relative all'organizzazione dei servizi sanitari.",
+                      "slug": "politiche-sanitarie",
+                      "topic_id": "topic:fictional:health-policy"
                     }
                   ],
                   "meta": {
@@ -3025,7 +3150,7 @@
                 }
               }
             },
-            "description": "Topic facets actually present in the projection, with counts.",
+            "description": "First-class reviewed public subject Topics present in the projection.",
             "headers": {
               "Cache-Control": {
                 "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
@@ -3057,15 +3182,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }
@@ -3084,7 +3209,7 @@
           }
         },
         "security": [],
-        "summary": "Topic facets actually present in the projection, with counts."
+        "summary": "First-class reviewed public subject Topics present in the projection."
       },
       "head": {
         "operationId": "topics_head",
@@ -3122,15 +3247,15 @@
                   "type": "string"
                 }
               },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
               "X-Dichiarazioni-Pubbliche-Api-Version": {
                 "description": "Contract major version served.",
                 "schema": {
                   "type": "string"
-                }
-              },
-              "X-Content-Type-Options": {
-                "schema": {
-                  "const": "nosniff"
                 }
               }
             }

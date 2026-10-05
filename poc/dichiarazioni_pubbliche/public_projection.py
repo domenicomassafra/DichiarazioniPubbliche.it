@@ -5,6 +5,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,7 @@ from dichiarazioni_pubbliche.public_schema import (
     PUBLIC_SCHEMA_VERSION,
     validate_dossier,
     validate_public_bundle,
+    validate_topic,
 )
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.text_provenance import (
@@ -726,6 +728,65 @@ class PublicProjectionStore(PsqlRuntime):
         )
         return json.loads(raw or "[]")
 
+    def projectable_topics(self) -> list[dict[str, Any]]:
+        raw = self.run(
+            """
+            SELECT COALESCE(json_agg(row_data ORDER BY canonical_name, topic_id)::text, '[]')
+            FROM (
+                SELECT
+                    topic.id AS topic_id,
+                    topic.slug,
+                    topic.canonical_name,
+                    topic.scope_text,
+                    topic.entity_version,
+                    COALESCE((
+                        SELECT json_agg(review.id ORDER BY review.created_at, review.id)
+                        FROM review_event review
+                        WHERE review.entity_type = 'TOPIC'
+                          AND review.entity_id = topic.id
+                          AND review.action = 'APPROVED'
+                    ), '[]'::json) AS review_event_ids,
+                    COALESCE((
+                        SELECT json_agg(json_build_object(
+                            'membership_id', membership.id,
+                            'claim_id', membership.claim_id,
+                            'source_resolution_candidate_id',
+                                membership.source_resolution_candidate_id,
+                            'review_event_ids', COALESCE((
+                                SELECT json_agg(review.id ORDER BY review.created_at, review.id)
+                                FROM review_event review
+                                WHERE review.entity_type = 'CLAIM_TOPIC_MEMBERSHIP'
+                                  AND review.entity_id = membership.id
+                                  AND review.action = 'APPROVED'
+                            ), '[]'::json)
+                        ) ORDER BY membership.created_at, membership.id)
+                        FROM claim_topic_membership membership
+                        WHERE membership.topic_id = topic.id
+                          AND membership.status = 'APPROVED'
+                          AND (
+                              SELECT review.action
+                              FROM review_event review
+                              WHERE review.entity_type = 'CLAIM_TOPIC_MEMBERSHIP'
+                                AND review.entity_id = membership.id
+                              ORDER BY review.created_at DESC, review.id DESC
+                              LIMIT 1
+                          ) = 'APPROVED'
+                    ), '[]'::json) AS memberships
+                FROM topic
+                WHERE topic.status = 'ACTIVE'
+                  AND (
+                      SELECT review.action
+                      FROM review_event review
+                      WHERE review.entity_type = 'TOPIC'
+                        AND review.entity_id = topic.id
+                      ORDER BY review.created_at DESC, review.id DESC
+                      LIMIT 1
+                  ) = 'APPROVED'
+            ) row_data;
+            """
+        )
+        return json.loads(raw or "[]")
+
 
 def _safe_http_url(value: str) -> str:
     parsed = urlsplit(str(value).strip())
@@ -1118,6 +1179,68 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
         dossier["source_methodology"] = source_methodology
     return validate_dossier(dossier)
 
+
+_PUBLIC_TOPIC_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _sanitize_topic_row(
+    row: dict[str, Any],
+    public_findings_by_claim: dict[str, list[str]],
+) -> dict[str, Any]:
+    topic_id = _bounded(row.get("topic_id"), 300)
+    slug = _bounded(row.get("slug"), 200)
+    canonical_name = _bounded(row.get("canonical_name"), 500)
+    scope_text = _bounded(row.get("scope_text"), 4000)
+    entity_version = _bounded(row.get("entity_version"), 200)
+    if not topic_id or not slug or not canonical_name or not entity_version:
+        raise ValueError("public topic identity is incomplete")
+    if not _PUBLIC_TOPIC_SLUG_RE.fullmatch(slug):
+        raise ValueError("public topic slug is not canonical")
+    if entity_version != "knowledge-entity-v1":
+        raise ValueError("public topic entity version is unsupported")
+
+    topic_review_ids = _bounded_ids(row.get("review_event_ids"))
+    memberships: list[dict[str, Any]] = []
+    seen_claims: set[str] = set()
+    for membership in row.get("memberships") or []:
+        if not isinstance(membership, dict):
+            raise ValueError("invalid public topic membership")
+        membership_id = _bounded(membership.get("membership_id"), 300)
+        claim_id = _bounded(membership.get("claim_id"), 300)
+        if not membership_id or not claim_id:
+            raise ValueError("public topic membership identity is incomplete")
+        if claim_id in seen_claims:
+            raise ValueError("duplicate public topic claim membership")
+        finding_ids = sorted(public_findings_by_claim.get(claim_id, []))
+        if not finding_ids:
+            # Membership may be reviewed in the knowledge layer while the claim
+            # itself is private/non-projectable. The public projection omits the
+            # membership rather than leaking that operational existence.
+            continue
+        memberships.append(
+            {
+                "membership_id": membership_id,
+                "claim_id": claim_id,
+                "finding_ids": finding_ids,
+                "review_event_ids": _bounded_ids(membership.get("review_event_ids")),
+                "source_resolution_candidate_id": _bounded(
+                    membership.get("source_resolution_candidate_id"), 300
+                ),
+            }
+        )
+        seen_claims.add(claim_id)
+
+    topic = {
+        "topic_id": topic_id,
+        "slug": slug,
+        "canonical_name": canonical_name,
+        "scope_text": scope_text,
+        "entity_version": entity_version,
+        "review_event_ids": topic_review_ids,
+        "memberships": memberships,
+    }
+    return validate_topic(topic)
+
 def build_public_projection(
     source: ProjectionSource,
     *,
@@ -1131,8 +1254,26 @@ def build_public_projection(
         except (KeyError, TypeError, ValueError):
             omitted += 1
     dossiers.sort(key=lambda item: (item["claim_id"], item["finding_id"]))
+    public_findings_by_claim: dict[str, list[str]] = {}
+    for dossier in dossiers:
+        public_findings_by_claim.setdefault(str(dossier["claim_id"]), []).append(
+            str(dossier["finding_id"])
+        )
+
+    topics: list[dict[str, Any]] = []
+    projectable_topics = getattr(source, "projectable_topics", None)
+    if callable(projectable_topics):
+        for row in projectable_topics():
+            try:
+                topics.append(_sanitize_topic_row(row, public_findings_by_claim))
+            except (KeyError, TypeError, ValueError):
+                # Topic publication is independently fail-closed. An invalid
+                # public Topic must not make otherwise-valid Statement records
+                # unavailable.
+                continue
+    topics.sort(key=lambda item: (item["canonical_name"].casefold(), item["topic_id"]))
     canonical = json.dumps(
-        dossiers,
+        {"dossiers": dossiers, "topics": topics},
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -1152,6 +1293,7 @@ def build_public_projection(
         "dossier_count": len(dossiers),
         "omitted_count": omitted,
         "dossiers": dossiers,
+        "topics": topics,
     }
     return validate_public_bundle(bundle)
 
@@ -1257,7 +1399,7 @@ def dossier_jsonld(dossier: dict[str, Any]) -> dict[str, Any]:
 
 
 def projection_jsonld(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
+    document = {
         "@context": "https://schema.org",
         "@type": "ItemList",
         "name": "Dichiarazioni Pubbliche — ClaimReview",
@@ -1274,6 +1416,19 @@ def projection_jsonld(payload: dict[str, Any]) -> dict[str, Any]:
             )
         ],
     }
+    topics = payload.get("topics") or []
+    if topics:
+        document["about"] = [
+            {
+                "@type": "Thing",
+                "identifier": topic["topic_id"],
+                "name": topic["canonical_name"],
+                "description": topic.get("scope_text"),
+                "url": f"/temi/{topic['slug']}/",
+            }
+            for topic in topics
+        ]
+    return document
 
 
 def _json_for_html(value: dict[str, Any]) -> str:

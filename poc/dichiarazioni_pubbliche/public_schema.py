@@ -83,8 +83,35 @@ PROJECTION_BUNDLE_ALLOWED_KEYS = frozenset(
         "dossier_count",
         "omitted_count",
         "dossiers",
+        "topics",
     }
 )
+
+TOPIC_REQUIRED_KEYS = frozenset(
+    {
+        "topic_id",
+        "slug",
+        "canonical_name",
+        "scope_text",
+        "entity_version",
+        "review_event_ids",
+        "memberships",
+    }
+)
+
+TOPIC_ALLOWED_KEYS = TOPIC_REQUIRED_KEYS
+
+TOPIC_MEMBERSHIP_REQUIRED_KEYS = frozenset(
+    {
+        "membership_id",
+        "claim_id",
+        "finding_ids",
+        "review_event_ids",
+        "source_resolution_candidate_id",
+    }
+)
+
+TOPIC_MEMBERSHIP_ALLOWED_KEYS = TOPIC_MEMBERSHIP_REQUIRED_KEYS
 
 FORBIDDEN_KEY_SUBSTRINGS = (
     "ratingvalue",
@@ -308,6 +335,82 @@ def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
     return dossier
 
 
+def validate_topic(topic: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(topic, dict):
+        raise PublicSchemaValidationError("topic must be a dictionary")
+    unknown = set(topic) - TOPIC_ALLOWED_KEYS
+    if unknown:
+        raise PublicSchemaValidationError(
+            f"unknown topic key(s): {', '.join(sorted(unknown))}"
+        )
+    missing = [
+        key
+        for key in TOPIC_REQUIRED_KEYS
+        if key not in topic or (key != "scope_text" and topic[key] is None)
+    ]
+    if missing:
+        raise PublicSchemaValidationError(
+            f"missing topic key(s): {', '.join(sorted(missing))}"
+        )
+    for key in ("topic_id", "slug", "canonical_name", "entity_version"):
+        if not isinstance(topic[key], str) or not topic[key].strip():
+            raise PublicSchemaValidationError(f"topic.{key} must be a non-empty string")
+    if topic["scope_text"] is not None and not isinstance(topic["scope_text"], str):
+        raise PublicSchemaValidationError("topic.scope_text must be a string or None")
+    if not isinstance(topic["review_event_ids"], list) or not topic["review_event_ids"]:
+        raise PublicSchemaValidationError("topic.review_event_ids must be a non-empty list")
+    if not all(isinstance(item, str) and item.strip() for item in topic["review_event_ids"]):
+        raise PublicSchemaValidationError("topic.review_event_ids contains an invalid id")
+    if not isinstance(topic["memberships"], list):
+        raise PublicSchemaValidationError("topic.memberships must be a list")
+    seen_memberships: set[str] = set()
+    for membership in topic["memberships"]:
+        if not isinstance(membership, dict):
+            raise PublicSchemaValidationError("topic membership must be a dictionary")
+        unknown_membership = set(membership) - TOPIC_MEMBERSHIP_ALLOWED_KEYS
+        if unknown_membership:
+            raise PublicSchemaValidationError(
+                "unknown topic membership key(s): "
+                + ", ".join(sorted(unknown_membership))
+            )
+        missing_membership = [
+            key
+            for key in TOPIC_MEMBERSHIP_REQUIRED_KEYS
+            if key not in membership
+        ]
+        if missing_membership:
+            raise PublicSchemaValidationError(
+                "missing topic membership key(s): "
+                + ", ".join(sorted(missing_membership))
+            )
+        membership_id = membership["membership_id"]
+        claim_id = membership["claim_id"]
+        if not isinstance(membership_id, str) or not membership_id.strip():
+            raise PublicSchemaValidationError("topic membership id must be non-empty")
+        if membership_id in seen_memberships:
+            raise PublicSchemaValidationError("duplicate topic membership id")
+        seen_memberships.add(membership_id)
+        if not isinstance(claim_id, str) or not claim_id.strip():
+            raise PublicSchemaValidationError("topic membership claim_id must be non-empty")
+        if not isinstance(membership["finding_ids"], list) or not membership["finding_ids"]:
+            raise PublicSchemaValidationError("topic membership finding_ids must be non-empty")
+        if not all(isinstance(item, str) and item.strip() for item in membership["finding_ids"]):
+            raise PublicSchemaValidationError("topic membership finding_ids contains an invalid id")
+        if not isinstance(membership["review_event_ids"], list) or not membership["review_event_ids"]:
+            raise PublicSchemaValidationError("topic membership review_event_ids must be non-empty")
+        if not all(isinstance(item, str) and item.strip() for item in membership["review_event_ids"]):
+            raise PublicSchemaValidationError("topic membership review_event_ids contains an invalid id")
+        source_resolution = membership["source_resolution_candidate_id"]
+        if source_resolution is not None and (
+            not isinstance(source_resolution, str) or not source_resolution.strip()
+        ):
+            raise PublicSchemaValidationError(
+                "topic membership source_resolution_candidate_id must be a string or None"
+            )
+    _scan_forbidden_tokens(topic)
+    return topic
+
+
 def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(bundle, dict):
         raise PublicSchemaValidationError("bundle must be a dictionary")
@@ -356,6 +459,35 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     for dossier in bundle["dossiers"]:
         validate_dossier(dossier)
 
+    topics = bundle.get("topics", [])
+    if not isinstance(topics, list):
+        raise PublicSchemaValidationError("bundle topics must be a list")
+    finding_to_claim = {
+        str(dossier["finding_id"]): str(dossier["claim_id"])
+        for dossier in bundle["dossiers"]
+    }
+    seen_topic_ids: set[str] = set()
+    seen_topic_slugs: set[str] = set()
+    for topic in topics:
+        validate_topic(topic)
+        if topic["topic_id"] in seen_topic_ids:
+            raise PublicSchemaValidationError("duplicate public topic_id")
+        if topic["slug"] in seen_topic_slugs:
+            raise PublicSchemaValidationError("duplicate public topic slug")
+        seen_topic_ids.add(topic["topic_id"])
+        seen_topic_slugs.add(topic["slug"])
+        for membership in topic["memberships"]:
+            for finding_id in membership["finding_ids"]:
+                claim_id = finding_to_claim.get(finding_id)
+                if claim_id is None:
+                    raise PublicSchemaValidationError(
+                        "topic membership references a non-public finding"
+                    )
+                if claim_id != membership["claim_id"]:
+                    raise PublicSchemaValidationError(
+                        "topic membership finding/claim mismatch"
+                    )
+
     return bundle
 
 
@@ -367,7 +499,12 @@ __all__ = [
     "PUBLIC_FINDING_STATUSES",
     "PUBLIC_SCHEMA_VERSION",
     "PUBLISHABLE_ASSESSMENTS",
+    "TOPIC_ALLOWED_KEYS",
+    "TOPIC_MEMBERSHIP_ALLOWED_KEYS",
+    "TOPIC_MEMBERSHIP_REQUIRED_KEYS",
+    "TOPIC_REQUIRED_KEYS",
     "PublicSchemaValidationError",
     "validate_dossier",
     "validate_public_bundle",
+    "validate_topic",
 ]

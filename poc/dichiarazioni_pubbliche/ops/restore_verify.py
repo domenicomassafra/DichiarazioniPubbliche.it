@@ -50,6 +50,7 @@ LOAD_BEARING_TABLES = (
     "organization_alias",
     "entity_identifier",
     "entity_resolution_candidate",
+    "claim_topic_membership",
     "passage",
     "statement_candidate",
     "statement_candidate_passage",

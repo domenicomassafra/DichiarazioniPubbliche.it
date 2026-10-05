@@ -1,6 +1,6 @@
 # DP-430 — First-class public Topic resource contract
 
-Status: READY
+Status: DONE
 
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-114
@@ -102,4 +102,42 @@ requires the normal MiniPC/deployment-mirror proof from `AGENTS.md`.
 
 ## Completion receipt
 
-Pending implementation.
+- Added the additive `claim_topic_membership` persistence contract and migration
+  `20261005-add-public-topic-memberships.sql`. An ACTIVE knowledge Topic is still private
+  by default: public projection requires the latest `TOPIC` review event to be APPROVED,
+  and each claim membership independently requires an APPROVED
+  `CLAIM_TOPIC_MEMBERSHIP` review event.
+- Extended `dichiarazioni-pubbliche-public-v2` with an **optional** top-level `topics`
+  collection. Pre-DP-430 v2 bundles without the key remain valid; new builders always emit
+  it. This additive compatibility decision is recorded in
+  `docs/release/versioning-policy.md`.
+- Topic resources contain stable Topic ID, deterministic slug, canonical name, optional
+  approved scope, entity version, Topic review IDs, and reviewed claim memberships.
+  Memberships are emitted only when their claim has a projectable public finding; private
+  claim existence is therefore not leaked through Topic membership.
+- New projection fingerprints cover both `dossiers` and `topics`; bundle verification
+  keeps the legacy dossiers-only hash algorithm only when the optional `topics` key is
+  absent.
+- `/api/v1/topics` now represents first-class reviewed subject Topics and never falls back
+  to `claim_type`. The draft `topic=` findings filter remains only as an explicitly
+  deprecated compatibility alias; `claim_type=` is the canonical filter. Person API
+  summaries distinguish deprecated claim-type aliases from `subject_topic_ids`.
+- Updated generated OpenAPI/LLM API documentation and the web projection runtime type/
+  fail-closed validator. Malformed Topic identity, review provenance, membership, or
+  finding/claim linkage is rejected rather than inferred.
+- Backup/restore inventories include `claim_topic_membership`.
+- Added `tests/test_public_topics.py` covering reviewed publication, old-v2 compatibility,
+  similar labels, private/non-projectable membership omission, malformed Topic failure,
+  API resource semantics, filter compatibility, and schema/migration/backup coverage.
+- Local gates: full Python suite **1039/1039 PASS**, restore verification PASS,
+  `npm run check:design` PASS, Astro check **0 errors / 0 warnings / 0 hints**, explicit
+  demo build PASS, `git diff --check` PASS.
+- MiniPC gate on 2026-10-05: pre-migration database backup saved at
+  `/tmp/dp430-pre-migration.sql`; additive migration applied successfully;
+  `claim_topic_membership` exists with 0 rows and there are currently 0 approved Topic /
+  membership reviews. A fresh real-DB projection verified successfully with
+  `topics: []`, was installed after confirming claim artifacts were unchanged, and is
+  served by the same-origin service with fingerprint
+  `d2a10bbe824cf7b1c2d301b13b6116e3c2ff6d58c9be1f9cff3a3f6c341cc904`.
+  `/api/v1/topics` returns HTTP 200 with an empty array instead of synthesizing
+  claim-type facets. The live bundle passes `verify_projection_bundle.py`.

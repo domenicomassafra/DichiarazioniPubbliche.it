@@ -46,7 +46,7 @@ disagree about what is published.
 - Bounded finding collection: /api/v1/findings
 - One published finding version: /api/v1/findings/{finding_id}
 - One public record (statement) and its findings: /api/v1/records/{slug}
-- Topic facets present in the projection: /api/v1/topics
+- First-class reviewed subject Topics present in the projection: /api/v1/topics
 - Public figures present in the projection: /api/v1/people
 - The full fail-closed projection bundle: /api/v1/index.json
 - This document: /llms.txt
@@ -98,7 +98,7 @@ documentation and never resolves. These are shapes, not claims about anyone.
 
 Request:
 
-    GET /api/v1/findings?topic=NUMERIC_STATISTIC&assessment=SUPPORTED&limit=25
+    GET /api/v1/findings?claim_type=NUMERIC_STATISTIC&assessment=SUPPORTED&limit=25
 
 Response (truncated):
 
@@ -184,4 +184,4 @@ typed 400, never a silently empty page.
 - API contract version: v1 (contract status: DRAFT)
 - served dataset fingerprint: unavailable
 - projection generated at: unavailable
-- document fingerprint (sha256 of this text, excluding this line): 42f3d6cfa84082345be28d8a4ba9701d6a1862c532de07b8bfa587f5d58907e7
+- document fingerprint (sha256 of this text, excluding this line): 55248227ee42c4d1768a57867235052530928b721fe1f2418478828c35589743

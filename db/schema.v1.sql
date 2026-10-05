@@ -833,6 +833,29 @@ CREATE TABLE IF NOT EXISTS atomic_claim (
     )
 );
 
+-- DP-430: reviewed public-subject membership. Knowledge topics remain private
+-- until both the Topic and this claim->Topic membership receive explicit
+-- review_event APPROVED decisions.
+CREATE TABLE IF NOT EXISTS claim_topic_membership (
+    id                              text PRIMARY KEY,
+    claim_id                        text NOT NULL REFERENCES atomic_claim(id) ON DELETE CASCADE,
+    topic_id                        text NOT NULL REFERENCES topic(id) ON DELETE CASCADE,
+    source_resolution_candidate_id  text REFERENCES entity_resolution_candidate(id),
+    membership_version              text NOT NULL DEFAULT 'claim-topic-v1',
+    status                          text NOT NULL DEFAULT 'CANDIDATE',
+    metadata                        jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at                      timestamptz NOT NULL DEFAULT now(),
+    CHECK (membership_version = 'claim-topic-v1'),
+    CHECK (status IN ('CANDIDATE', 'APPROVED', 'REJECTED', 'SUPERSEDED')),
+    CHECK (jsonb_typeof(metadata) = 'object')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS claim_topic_membership_approved_unique
+    ON claim_topic_membership(claim_id, topic_id)
+    WHERE status = 'APPROVED';
+CREATE INDEX IF NOT EXISTS claim_topic_membership_topic_idx
+    ON claim_topic_membership(topic_id, status, created_at);
+
 CREATE TABLE IF NOT EXISTS claim_segment (
     claim_id        text NOT NULL REFERENCES atomic_claim(id) ON DELETE CASCADE,
     segment_id      text NOT NULL
@@ -1618,6 +1641,8 @@ CREATE TABLE IF NOT EXISTS review_event (
             'CONTENT_DERIVATION_FAMILY',
             'CONTENT_DERIVATION_CANDIDATE',
             'CANDIDATE_MATCH_RESULT',
+            'TOPIC',
+            'CLAIM_TOPIC_MEMBERSHIP',
             'FINDING',
             'SPEAKER_IDENTITY_CANDIDATE',
             'PERSON_ROLE_INTERVAL',

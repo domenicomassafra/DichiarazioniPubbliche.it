@@ -45,6 +45,22 @@ patch number is unchanged. `dichiarazioni-pubbliche-public-v2` is emitted by the
 today; DP-105 has not ratified the stable public v1 decision, so the package version
 must not be read as a public-contract version.
 
+### DP-430 additive Topic compatibility decision
+
+DP-430 adds an optional top-level `topics` collection to
+`dichiarazioni-pubbliche-public-v2`. This remains **v2** because existing consumers may
+ignore the new field and pre-DP-430 v2 bundles without `topics` remain valid. New builders
+always emit the collection, including `[]`, and include it in `dataset_sha256`; bundle
+verification keeps the legacy dossiers-only digest algorithm only when the `topics` key is
+absent.
+
+This does **not** authorize Topic inference from `claim_type`. `/api/v1/topics` is corrected
+before stable API release to represent the reviewed first-class Topic resource. The draft
+`topic=` findings filter is retained as an explicitly deprecated compatibility alias for
+`claim_type=`; clients must migrate to `claim_type=`. Because the HTTP contract remains
+pre-release/DRAFT, this semantic correction is recorded here rather than pretending that a
+public 90-day deprecation window had already begun.
+
 ### The web component version is independent
 
 `web/package.json` reports `0.1.0` while `VERSION` reports `0.0.1`. This divergence is

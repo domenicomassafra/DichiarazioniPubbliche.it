@@ -45,7 +45,7 @@ Point both at the same bundle and the API and the static site cannot diverge.
 | GET, HEAD | `/api/v1/findings` | Bounded, deterministic collection of published finding versions |
 | GET, HEAD | `/api/v1/findings/{{finding_id}}` | One immutable published finding version |
 | GET, HEAD | `/api/v1/records/{{slug}}` | One public record (statement) and its published findings |
-| GET, HEAD | `/api/v1/topics` | Topic facets present in the projection |
+| GET, HEAD | `/api/v1/topics` | First-class reviewed subject Topics present in the projection |
 | GET, HEAD | `/api/v1/people` | Public figures present in the projection |
 | GET, HEAD | `/api/v1/openapi.json` | This API as an OpenAPI 3.1 document |
 | GET, HEAD | `/api/v1/index.json` | The full fail-closed projection bundle |
@@ -57,10 +57,13 @@ Point both at the same bundle and the API and the static site cannot diverge.
   to the request's filter set; reusing one with different filters is a `400`.
 - Order: `published_at` descending, `finding_id` ascending as a stable
   tie-breaker. Deterministic for a given dataset fingerprint.
-- Filters, all optional, all comma-separated and AND-combined: `topic`
-  (claim-type code), `assessment`, `status`, `person` (speaker id), `content`
+- Filters, all optional, all comma-separated and AND-combined: `claim_type`
+  (canonical claim-type code), `assessment`, `status`, `person` (speaker id), `content`
   (content id), `published_from`, `published_to` (ISO 8601 with an explicit
   timezone).
+- `topic` remains a deprecated compatibility alias for `claim_type` in the draft
+  v1 contract. It never selects the first-class subject resources served by
+  `/api/v1/topics`.
 - An empty collection is `200` with `data: []`. It never fabricates a record.
 - An unknown or malformed parameter is a typed `400`, never a silent empty page.
 

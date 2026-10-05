@@ -54,10 +54,17 @@ def dossier_filename(finding_id: str) -> str:
 PROJECTION_SERVE_EXTENSIONS = {".json", ".jsonld", ".html"}
 
 
-def recompute_dataset_sha256(dossiers: list[dict]) -> str:
-    """Recompute the digest the same way public_projection.build_public_projection does."""
+def recompute_dataset_sha256(dossiers: list[dict], topics: list[dict] | None = None) -> str:
+    """Recompute the projection digest.
+
+    Older ``public-v2`` bundles hashed only the dossiers array. DP-430 adds an
+    optional, backward-compatible top-level ``topics`` collection; when that
+    key is present the digest covers both collections so Topic changes cannot
+    leave the public fingerprint unchanged.
+    """
+    value: object = dossiers if topics is None else {"dossiers": dossiers, "topics": topics}
     canonical = json.dumps(
-        dossiers, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()
     return hashlib.sha256(canonical).hexdigest()
 
@@ -99,8 +106,13 @@ def verify(bundle: Path, expect_sha256: str | None) -> tuple[int, list[str]]:
         problems.append("index.json has no dossiers array")
         dossiers = []
 
+    raw_topics = payload.get("topics") if "topics" in payload else None
+    if raw_topics is not None and not isinstance(raw_topics, list):
+        problems.append("index.json topics is not an array")
+        raw_topics = []
+
     if recorded and not problems:
-        actual = recompute_dataset_sha256(dossiers)
+        actual = recompute_dataset_sha256(dossiers, raw_topics)
         if actual != recorded:
             problems.append(
                 f"dataset_sha256 mismatch: recorded={recorded} recomputed={actual}"
