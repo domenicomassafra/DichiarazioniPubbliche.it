@@ -200,7 +200,7 @@ without manual DB surgery.
 | DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
 | DP-232 | IN PROGRESS | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
 | DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video alignment adapter | DP-206, DP-217, DP-218, DP-231 |
-| DP-234 | FUTURE | DVNS/read-only structured evidence adapter | DP-215, DP-228, external contract/API |
+| DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter | DP-215, DP-228, external contract/API |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never

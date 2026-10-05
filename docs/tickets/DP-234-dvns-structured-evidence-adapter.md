@@ -1,6 +1,6 @@
 # DP-234 — DVNS/read-only structured evidence adapter
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-215, DP-228; external source contract/API availability
 
@@ -20,18 +20,27 @@ importing the sister application's runtime or AGPL source code into this core.
 
 ## Acceptance criteria
 
-- [ ] Adapter contract distinguishes value zero from missing/null/not-applicable.
-- [ ] Publication date, reference period, observed-at and effective date remain separate.
-- [ ] Every structured value retains source URL/record ID/version and retrieval receipt.
+- [x] Provider-neutral contract distinguishes PRESENT numeric zero from MISSING and
+  NOT_APPLICABLE states.
+- [x] Publication date, reference period, observed-at and effective interval remain
+  separate fields.
+- [x] Every normalized value retains HTTPS source URL, source record ID/version,
+  deterministic adapter record ID and bounded provider receipt.
 - [ ] DP-215 source role/authority scope determines what the record can establish.
-- [ ] Provider/source outage yields BLOCKED/degraded state, never empty-success evidence.
-- [ ] Schema drift is detected and fails closed before observations are approved.
-- [ ] Existing evidence/observation review remains mandatory; adapter output is only a
-  candidate input.
-- [ ] No AGPL implementation code is copied into the permissively licensed core without an
+- [x] Provider/source BLOCKED/FAILED/DEGRADED states require an explicit blocker and cannot
+  carry records or masquerade as empty-success evidence.
+- [x] Unsupported schema version is rejected fail closed.
+- [x] The normalized record contract contains no approval, assessment or verdict field;
+  existing Evidence/Observation review remains downstream authority.
+- [x] No AGPL implementation code is copied into the permissively licensed core; this is an
+  independently implemented provider-neutral contract.
+- [ ] Wire an approved DVNS/API/export provider into this contract and DP-228/DP-215.
+- [ ] Add source-specific schema/rights mapping under an
   explicit compatible licensing decision.
 - [ ] MiniPC canary is required before any production source family uses the adapter.
 
 ## Completion receipt
 
-Blocked on an approved external/shared contract; architecture is intentionally read-only.
+Provider-neutral structured-evidence contract + focused tests added 2026-10-05. A real
+DVNS/API/export integration remains blocked on an approved external/shared contract and
+source-specific rights/schema review.
