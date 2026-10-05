@@ -398,6 +398,10 @@ class CandidateExtractionTests(unittest.TestCase):
             batch.claims[0].metadata["coverage_need_hint"]["need_type"],
             "ATTRIBUTION_GAP",
         )
+        self.assertEqual(
+            batch.claims[0].metadata["context_integrity"]["state"],
+            "NEEDS_CONTEXT_REVIEW",
+        )
 
     def test_explicit_nested_quote_preserves_reported_speaker_span(self):
         payload = valid_payload()
@@ -457,6 +461,10 @@ class CandidateExtractionTests(unittest.TestCase):
         self.assertEqual(batch.statements[0].statement.passage_ids, (context.passage_id,))
         self.assertEqual(batch.statements[0].statement.speaker_person_id, "person:speaker")
         self.assertEqual(batch.statements[0].statement.attribution_method, "CANONICAL_SEGMENT_SPEAKER")
+        self.assertEqual(
+            batch.claims[0].metadata["context_integrity"]["state"],
+            "CLEAR_AUTOMATIC",
+        )
 
     def test_success_keeps_value_judgment_searchable_but_non_checkworthy(self):
         store = FakeStore(aliases=self.aliases())

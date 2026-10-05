@@ -219,6 +219,9 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("'OFFICIAL_RECORD'", store.sql)
         self.assertIn("claim.metadata->>'speech_mode'", store.sql)
         self.assertIn("'DIRECT_UTTERANCE'", store.sql)
+        self.assertIn("claim.metadata#>>'{context_integrity,state}'", store.sql)
+        self.assertIn("'CLEAR_AUTOMATIC'", store.sql)
+        self.assertIn("'APPROVED_CURATED'", store.sql)
         self.assertIn(
             "candidate_link.canonical_segment_id =",
             store.sql,

@@ -11,6 +11,7 @@ from dichiarazioni_pubbliche.claim_promotion import (
     PromotionRequest,
     promote_claim_candidate,
 )
+from dichiarazioni_pubbliche.context_integrity import curated_context_approval
 from dichiarazioni_pubbliche.corpus_repository import (
     ClaimCandidateRecord,
     ContentCaptureRecord,
@@ -618,6 +619,12 @@ def _prepare_promotion_candidate_records(
         raise ValueError("CURATED_PROMOTION_CAPTURE_REQUIRED")
     if claim.quote_start_char is None or claim.quote_end_char is None:
         raise ValueError("CURATED_PROMOTION_QUOTE_POSITION_REQUIRED")
+    context_integrity = curated_context_approval(
+        source_sha256=capture.content_sha256,
+        quote_sha256=claim.quote_sha256,
+        quote_start=claim.quote_start_char,
+        quote_end=claim.quote_end_char,
+    )
     passage_id = deterministic_corpus_id(
         "passage",
         content.content_id,
@@ -638,7 +645,12 @@ def _prepare_promotion_candidate_records(
         language="it",
         extraction_method="CURATED_SOURCE_QUOTE",
         extraction_version=batch.extraction_version,
-        metadata={"intake_batch": batch.batch_id, "legacy_requested_claim_id": claim.claim_id},
+        metadata={
+            "intake_batch": batch.batch_id,
+            "legacy_requested_claim_id": claim.claim_id,
+            "speech_mode": "DIRECT_UTTERANCE",
+            "context_integrity": context_integrity,
+        },
     )
     statement_id = deterministic_corpus_id(
         "statement-candidate", content.content_id, passage.id, claim.quote_sha256
@@ -671,7 +683,12 @@ def _prepare_promotion_candidate_records(
         extraction_model=batch.extraction_model,
         extraction_version=batch.extraction_version,
         status="CANDIDATE",
-        metadata={**claim.metadata, "legacy_requested_claim_id": claim.claim_id},
+        metadata={
+            **claim.metadata,
+            "legacy_requested_claim_id": claim.claim_id,
+            "speech_mode": "DIRECT_UTTERANCE",
+            "context_integrity": context_integrity,
+        },
     )
     return passage, statement, candidate
 

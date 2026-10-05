@@ -31,6 +31,7 @@ class ReportedSpeechGateTests(unittest.TestCase):
         )
         self.assertIn("claim.metadata->>'speech_mode'", store.sql)
         self.assertIn("'DIRECT_UTTERANCE'", store.sql)
+        self.assertIn("claim.metadata#>>'{context_integrity,state}'", store.sql)
 
 
 if __name__ == "__main__":

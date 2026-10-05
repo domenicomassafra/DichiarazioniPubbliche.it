@@ -783,6 +783,10 @@ class PublicProjectionStore(PsqlRuntime):
                         claim.metadata->>'speech_mode',
                         'DIRECT_UTTERANCE'
                     ) = 'DIRECT_UTTERANCE'
+                    AND claim.metadata#>>'{context_integrity,state}' IN (
+                        'CLEAR_AUTOMATIC',
+                        'APPROVED_CURATED'
+                    )
                     AND NOT EXISTS (
                             SELECT 1
                             FROM claim_segment link

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from dichiarazioni_pubbliche.claim_contract import ClaimType, NON_FACTUAL_CLAIM_TYPES
+from dichiarazioni_pubbliche.context_integrity import assess_context_integrity
 from dichiarazioni_pubbliche.corpus_repository import (
     ClaimCandidateRecord,
     PassageRecord,
@@ -798,6 +799,14 @@ def prepare_extraction_batch(
             if media_speaker:
                 attribution_method = "CANONICAL_SEGMENT_SPEAKER"
 
+        context_integrity = assess_context_integrity(
+            source_text=context.text,
+            source_sha256=context.text_sha256,
+            quote_start=start,
+            quote_end=end,
+            speech_mode=speech_mode,
+        ).to_metadata()
+
         statement_id = _deterministic_id(
             "statement-candidate",
             run_id,
@@ -825,6 +834,7 @@ def prepare_extraction_batch(
                 "speaker_mention": raw.get("speaker_mention"),
                 "reported_speaker_mention": reported_speaker,
                 "speech_mode": speech_mode,
+                "context_integrity": context_integrity,
                 "quote_local_start_char": start,
                 "quote_local_end_char": end,
             },
@@ -886,6 +896,7 @@ def prepare_extraction_batch(
                     "speech_mode": speech_mode,
                     "reported_speaker_mention": reported_speaker,
                     "reported_origin_required": speech_mode != "DIRECT_UTTERANCE",
+                    "context_integrity": context_integrity,
                     "coverage_need_hint": (
                         {
                             "need_type": "ATTRIBUTION_GAP",

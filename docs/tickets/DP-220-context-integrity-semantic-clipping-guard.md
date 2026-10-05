@@ -1,6 +1,6 @@
 # DP-220 — Context integrity and semantic-clipping guard
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216, DP-217, DP-219
 
@@ -47,13 +47,13 @@ ambiguous cases.
 
 ## Acceptance criteria
 
-- [ ] **AC-220.1:** Every public direct quotation/statement occurrence has a recorded
+- [x] **AC-220.1:** New candidate/promotion paths carry a versioned context-integrity state with source/quote/context hashes and offsets, and promotion/finding/public gates require CLEAR_AUTOMATIC or APPROVED_CURATED; every public direct quotation/statement occurrence has a recorded
   context-integrity state tied to the exact source/span version.
-- [ ] **AC-220.2:** A fixture where removing `non` reverses meaning is blocked even if the
+- [x] **AC-220.2:** A deterministic fixture where removing `non` reverses meaning is held by NEGATION_NEAR_BOUNDARY_OMITTED even if the
   remaining words form a grammatically plausible quote.
-- [ ] **AC-220.3:** A yes/no answer whose meaning depends on the preceding question retains
+- [x] **AC-220.3:** A yes/no answer whose meaning depends on the preceding question remains NEEDS_CONTEXT_REVIEW via ANSWER_REQUIRES_QUESTION_CONTEXT until a reviewed context decision retains
   the question link or remains held.
-- [ ] **AC-220.4:** Conditional/hypothetical and immediate-qualification fixtures cannot be
+- [x] **AC-220.4:** Conditional/hypothetical and immediate-qualification fixtures are held by explicit signal codes and cannot be
   flattened into unconditional public assertions without review.
 - [ ] **AC-220.5:** Discontinuous excerpts disclose every omission and cannot concatenate
   clauses across a source boundary invisibly.
@@ -61,7 +61,7 @@ ambiguous cases.
   and source spans; one speaker cannot inherit another speaker's surrounding context.
 - [ ] **AC-220.7:** A reviewer decision is append-only/versioned and becomes stale when any
   covered source/transcript/span hash changes.
-- [ ] **AC-220.8:** Public context metadata is bounded and does not leak raw private bodies.
+- [x] **AC-220.8:** Context metadata is bounded to hashes, offsets, state/version and signal codes; raw surrounding source text is not persisted in the context decision or projected publicly.
 - [ ] **AC-220.9:** Adversarial context fixtures produce zero known misleading public
   excerpts; uncertainty results in under-publication rather than a guessed clearance.
 - [ ] **AC-220.10:** Full suite, benchmark and MiniPC canary pass.
@@ -80,4 +80,4 @@ rights/public-body policy in DP-305.
 
 ## Completion receipt
 
-Pending prerequisites and implementation.
+First fail-closed context-integrity layer implemented 2026-10-05. The extractor binds context decisions to the exact source hash, quote hash/range and bounded context-window hash; deterministic risk signals cover negation near a clipping boundary, conditional/hypothetical wording, short Q/A-dependent answers, immediate qualifications, ellipsis/omission markers, dependent pronouns and incomplete boundaries. Candidate promotion, all promotion mutation SQL, finding publication and public projection require CLEAR_AUTOMATIC or APPROVED_CURATED. Curated written intake records an explicit hash-bound CURATED_SOURCE_REVIEW approval without storing raw context text. General append-only context review events/staleness, discontinuous excerpts, cross-talk/montage fixtures, full DP-223 adversarial corpus and MiniPC proof remain open.

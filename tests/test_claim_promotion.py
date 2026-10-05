@@ -60,7 +60,14 @@ def written_context():
         "check_worthy": True,
         "extraction_model": "test-model",
         "extraction_version": "claim-candidate-v1",
-        "candidate_metadata": {"test": True},
+        "candidate_metadata": {
+            "test": True,
+            "speech_mode": "DIRECT_UTTERANCE",
+            "context_integrity": {
+                "state": "CLEAR_AUTOMATIC",
+                "version": "context-integrity-v1",
+            },
+        },
         "promoted_claim_id": None,
         "statement_candidate_id": "statement:1",
         "statement_status": "APPROVED",
@@ -386,6 +393,45 @@ class ClaimPromotionTests(unittest.TestCase):
             _PROMOTE_MEDIA_NEW_SQL,
         ):
             self.assertIn(guard, sql)
+
+    def test_all_mutation_sql_requires_context_clearance(self):
+        guard = (
+            "cc.metadata#>>'{context_integrity,state}' IN "
+            "('CLEAR_AUTOMATIC','APPROVED_CURATED')"
+        )
+        for sql in (
+            _LINK_EXISTING_SQL,
+            _PROMOTE_WRITTEN_NEW_SQL,
+            _PROMOTE_MEDIA_NEW_SQL,
+        ):
+            self.assertIn(guard, sql)
+
+    def test_context_risk_blocks_before_any_mutation(self):
+        context = written_context()
+        context["candidate_metadata"]["context_integrity"] = {
+            "state": "NEEDS_CONTEXT_REVIEW",
+            "signal_codes": ["NEGATION_NEAR_BOUNDARY_OMITTED"],
+        }
+        store = FakePromotionStore(context)
+        receipt = promote_claim_candidate(store, self.request())
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_CONTEXT_INTEGRITY_REVIEW_REQUIRED",
+        )
+        self.assertEqual([call[0] for call in store.calls], ["context"])
+
+    def test_missing_context_state_fails_closed(self):
+        context = written_context()
+        context["candidate_metadata"].pop("context_integrity")
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request(),
+        )
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_CONTEXT_INTEGRITY_MISSING",
+        )
 
     def test_existing_promotion_replays_same_receipt(self):
         context = written_context()

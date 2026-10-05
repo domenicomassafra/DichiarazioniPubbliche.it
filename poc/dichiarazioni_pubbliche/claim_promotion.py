@@ -305,6 +305,7 @@ WITH lock_row AS (
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
       AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
+      AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (
@@ -406,6 +407,7 @@ WITH lock_row AS (
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
       AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
+      AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
@@ -522,6 +524,7 @@ WITH lock_row AS (
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
       AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
+      AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
@@ -736,6 +739,14 @@ def promote_claim_candidate(
     ).strip()
     if speech_mode != "DIRECT_UTTERANCE":
         return _blocked(request, "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED")
+    context_integrity = candidate_metadata.get("context_integrity")
+    if not isinstance(context_integrity, Mapping):
+        return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_MISSING")
+    if str(context_integrity.get("state") or "") not in {
+        "CLEAR_AUTOMATIC",
+        "APPROVED_CURATED",
+    }:
+        return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_REVIEW_REQUIRED")
 
     duplicate_ids = tuple(str(x) for x in (context.get("duplicate_target_ids") or []))
     if len(set(duplicate_ids)) > 1:

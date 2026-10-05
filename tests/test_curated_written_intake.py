@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -71,6 +72,7 @@ class FakePromotionStore:
         self.calls = []
         self.duplicate_target = duplicate_target
         self.last_candidate_id = None
+        self.candidate_metadata = {}
 
     def run(self, sql, **variables):
         self.calls.append((sql, variables))
@@ -86,6 +88,7 @@ class FakePromotionStore:
             return "INSERTED"
         if "INSERT INTO claim_candidate (" in sql:
             self.last_candidate_id = variables["id"]
+            self.candidate_metadata = json.loads(variables["metadata"])
             return "INSERTED"
         if "SET status='APPROVED'" in sql:
             return "APPROVED"
@@ -106,7 +109,7 @@ class FakePromotionStore:
             "check_worthy": True,
             "extraction_model": "test-model",
             "extraction_version": "test-v1",
-            "candidate_metadata": {"intake_batch": "test-batch"},
+            "candidate_metadata": dict(self.candidate_metadata),
             "promoted_claim_id": None,
             "statement_candidate_id": "statement:compat",
             "statement_status": "APPROVED",
@@ -236,6 +239,10 @@ class CuratedWrittenIntakeTests(unittest.TestCase):
         store = FakePromotionStore(duplicate_target=True)
         receipt = apply_curated_written_batch_via_promotion(store, batch, actor_ref="reviewer")
         claim = receipt["contents"][0]["claims"][0]
+        self.assertEqual(
+            store.candidate_metadata["context_integrity"]["state"],
+            "APPROVED_CURATED",
+        )
         self.assertEqual(receipt["mode"], "CLAIM_CANDIDATE_PROMOTION_V1")
         self.assertEqual(claim["legacy_requested_claim_id"], "claim:test:one")
         self.assertEqual(claim["target_claim_id"], "claim:test:one")
@@ -248,6 +255,10 @@ class CuratedWrittenIntakeTests(unittest.TestCase):
         store = FakePromotionStore(duplicate_target=False)
         receipt = apply_curated_written_batch_via_promotion(store, batch, actor_ref="reviewer")
         claim = receipt["contents"][0]["claims"][0]
+        self.assertEqual(
+            store.candidate_metadata["context_integrity"]["state"],
+            "APPROVED_CURATED",
+        )
         self.assertEqual(claim["promotion_action"], "CREATED")
         self.assertEqual(claim["promotion_reason_code"], "PROMOTION_CREATED")
         self.assertTrue(str(claim["target_claim_id"]).startswith("claim:promoted:"))
