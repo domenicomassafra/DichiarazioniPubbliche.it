@@ -261,7 +261,7 @@ class QueueRuntimeTests(unittest.TestCase):
         self.assertIn("replayed AS (", store.sql)
         self.assertIn("FROM rejected", store.sql)
         self.assertNotIn("RETURNING id\n            ),\n            blocked", store.sql)
-        self.assertIn("WHEN (SELECT has_rejected FROM blocked) = 1 THEN 0", store.sql)
+        self.assertIn("WHEN (SELECT has_rejected FROM blocked) = 1 THEN '0'", store.sql)
         self.assertIn("(SELECT count(*) FROM inserted)", store.sql)
         self.assertIn("(SELECT count(*) FROM replayed)", store.sql)
         self.assertNotIn("content.published_at::date::text", self.store_sql_claim_context())
