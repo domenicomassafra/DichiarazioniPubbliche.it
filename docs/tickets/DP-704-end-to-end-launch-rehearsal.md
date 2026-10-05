@@ -10,8 +10,9 @@ Launch state: BLOCKED until a full MiniPC rehearsal, failure-path proof, and rol
 Individual pipeline tests and historical runtime receipts do not prove that one accepted
 candidate can traverse the complete provenance chain without a manual database edit:
 
-`source -> content -> transcript -> speaker provenance -> atomic claim -> evidence ->
-observation -> verification -> finding -> review -> public projection -> correction/reanalysis`
+`source -> content -> transcript -> speaker provenance -> verbatim/context/wording integrity ->
+atomic claim -> evidence -> observation -> verification -> finding -> review -> public
+projection -> correction/reanalysis`
 
 A launch rehearsal must be more than a happy-path fixture. It must prove replay,
 idempotency, provider/source failure, provenance tampering, stale review, budget
@@ -99,6 +100,8 @@ The rehearsal must exercise, in order, the following observable contract:
 | Transcript acquisition | provider/source variant ID, hash, acquisition time, segment ranges, uncertainty markers | provider failure, partial response, sensitive disagreement, or missing provenance holds material use |
 | Canonical transcript | canonical variant/segment IDs, timebase, source-variant links, replay result | changed input, ambiguous sensitive token, or missing segment mapping blocks claims |
 | Speaker provenance | candidate method, source/official/manual provenance, review event, per-segment coverage | missing/ambiguous/biometric identity blocks publication |
+| Verbatim/source-span integrity | DP-216 source/capture/span IDs, exact quote hash, selector/version and DP-217 verbatim eligibility | model-authored/unbound/stale quote or unverified transcript span blocks direct-quote publication |
+| Origin/context/wording integrity | DP-219 reported-speech origin, DP-220 context state, DP-221 wording type, DP-222 Person identity/role-at-time | nested/reported quote, clipping ambiguity, translation/paraphrase confusion or identity ambiguity holds publication |
 | Atomic claim | claim ID, type, temporal scope, segment edges, extraction receipt, replay result | free-form/out-of-window timestamp or missing edge rejects/holds the claim |
 | Evidence | candidate/approved evidence IDs, fetched/observed URL/hash, approval and review events | unapproved, unfetched, ambiguous, unsafe, or future-only evidence cannot verify |
 | Observation | observation IDs, typed values, source/evidence linkage, extraction receipt | missing observation, conflicting observation, or stale extraction blocks verification |
@@ -121,6 +124,11 @@ The rehearsal must exercise each row below and record the actual resulting state
 | Remote ASR credential absent or provider outage | ASR-dependent content held; caption/transcript path may continue; no guessed transcript | blocked job, source health, cost/provider receipt |
 | Transcript disagreement around number, negation, date, or name | `TRANSCRIPT_UNCERTAIN`/hold; no material publication | candidate hashes, segment flags, projection omission |
 | Speaker identity missing/ambiguous | claim remains private; no person ID or public attribution | candidate/review/projection read-back |
+| Model/extractor invents plausible quote text absent from source span | quote candidate rejected/held; no direct quote in any public serializer | DP-216 source-span/hash check + projection read-back |
+| Reported/nested speech is attributed to the reported person without original source | reported person remains unverified/held; Coverage Need may be created | DP-219 origin relation + no false public occurrence |
+| Context clipping changes meaning (negation/qualification/question dependency) | `NEEDS_CONTEXT_REVIEW`/hold | DP-220 context receipt + projection omission |
+| Paraphrase/translation is serialized as direct quote | serializer/policy rejects or labels the derived wording; no quote-equivalent fallback | DP-221 wording type + API/HTML/JSON-LD read-back |
+| Same-name/stale-role person mapping | attribution held/role omitted until DP-222 identity proof passes | entity-resolution + role-at-time + projection read-back |
 | Unsafe or partial evidence fetch | candidate rejected/held; no approved evidence or stronger verdict | fetch policy/error category, no body/secret leakage |
 | Missing or conflicting observation | `NEEDS_MORE_EVIDENCE`/unresolved; no finding publication | observation and verification state |
 | Future evidence used for an earlier statement | verification rejected or explicit later-outcome analysis only | cutoff test and policy receipt |
@@ -133,7 +141,8 @@ The rehearsal must exercise each row below and record the actual resulting state
 | Public-host/API projection mismatch or cache staleness | fail closed with bounded error/omission; no operational data fallback | schema/fingerprint/ETag/error read-back |
 
 At least one failure must be injected at each boundary: acquisition, transcript,
-speaker, claim, evidence, verification, review, projection, correction, and operations.
+speaker, verbatim/origin/context/wording/identity, claim, evidence, verification, review,
+projection, correction, and operations.
 The rehearsal must not weaken a gate to make an injected failure pass.
 
 ### 4. Correction and reanalysis rehearsal
@@ -200,10 +209,10 @@ rehearsal can be signed.
 
 | ID | Blocker | Exact unblock action | Evidence required | Owner/state |
 |---|---|---|---|---|
-| B-704-01 | M2 provider gate is open | Close DP-201..204 for every launch-set path or hold/exclude affected sources through DP-703. | Live receipts, cost/quality/fallback proof, queue state. | Runtime/provider owner; `EXTERNAL` |
-| B-704-02 | M3 policy/legal gate is open | Close DP-301..307 decisions and update policy/ADR/test contracts before rehearsal sign-off. | Decision IDs, policy versions, accepted public wording/rights. | Owner/counsel; `EXTERNAL` |
+| B-704-01 | M2 provider/attribution-integrity gate is open | Close DP-201..204 for every required live launch-set path or hold/exclude affected sources through DP-703; close DP-216..DP-223 for public-attribution paths. | Live receipts where applicable, DP-223 zero-false-attribution/fabricated-quote receipt, queue/projection state. | Runtime/provider/maintainer owner; `BLOCKED/EXTERNAL` |
+| B-704-02 | M3 policy/legal/evidence-safety gate is open | Close DP-301..DP-310 decisions/controls and update policy/ADR/test contracts before rehearsal sign-off. | Decision IDs, DP-308 safety-profile receipt, DP-309 high-risk state, DP-310 review-separation proof, accepted public wording/rights. | Owner/counsel; `EXTERNAL/BLOCKED` |
 | B-704-03 | M4 public contract is unresolved | Close DP-105 and the required DP-401..410 acceptance path, including public schema and projection fingerprint. | Schema/API/UI/build/runtime receipts. | Maintainer; `BLOCKED` |
-| B-704-04 | M5 controls are incomplete | Implement/prove DP-501..506 and conditional DP-507/508 decisions. | Security, restore, retention, SLO, alert, cost, and failure receipts. | Operator; `BLOCKED` |
+| B-704-04 | M5 controls are incomplete | Implement/prove DP-501..506, conditional DP-507/508 decisions, and DP-510/DP-511 quarantine/revalidation behavior. | Security, restore, retention, SLO, alert, cost, quarantine/source-drift and failure receipts. | Operator; `BLOCKED` |
 | B-704-05 | M6 release inputs are incomplete | Close DP-601..605 as applicable, including clean-clone, CI, licensing, and release-policy gates. | Reproducibility, inventory, version/changelog, and owner receipts. | Maintainer; `BLOCKED` |
 | B-704-06 | Launch decisions are open | Obtain DP-701 identity and DP-702 closure packet plus DP-703 source/disclosure decision. | Signed decision IDs and safe defaults. | Product owner; `PENDING-OWNER` |
 | B-704-07 | No isolated canary boundary | Approve schema/source/fixture, permissions, cleanup, and production non-mutation boundary. | Canary manifest and operator sign-off. | Runtime owner; `PENDING-OWNER` |
@@ -243,6 +252,10 @@ rehearsal can be signed.
 - [ ] **AC-704.12 — No false launch claim:** The ticket cannot be marked complete while
   any required provider/legal/brand/data/security gate is open, and it does not authorize
   a public release by itself.
+- [ ] **AC-704.13 — Attribution integrity release gate:** The same release candidate runs
+  DP-223 with zero known false public person attributions and zero fabricated direct quotes;
+  DP-308 publication-safety evaluation is active; and all injected reported-speech,
+  context, translation/paraphrase, identity and stale-provenance cases remain held/omitted.
 
 ## Validation / proof
 

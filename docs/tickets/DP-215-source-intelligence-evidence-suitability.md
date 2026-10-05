@@ -98,7 +98,10 @@ that specifies permitted/preferred evidence roles and minimum review conditions.
 - legal-status claims require the applicable authentic/official legal record and temporal
   validity rather than a generic article summarizing it;
 - quote/statement attribution requires the original attributable source or an approved
-  provenance path;
+  provenance path. Source Intelligence only says what kind of source/evidence is required;
+  DP-216..DP-222 own exact wording, transcript-verbatim eligibility, speaker/origin,
+  context, derived wording and Person-identity integrity. A `FIRST_PARTY_STATEMENT` role by
+  itself never proves that a particular quoted span was actually spoken by the named Person;
 - historical claims may require contemporaneous primary records and/or independent
   scholarship depending on the question;
 - causal or motive claims cannot become deterministic fact findings merely from correlation

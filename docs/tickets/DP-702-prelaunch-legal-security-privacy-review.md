@@ -2,7 +2,7 @@
 
 Status: FUTURE
 Milestone: M7 — stable v1 launch
-Depends on: M3 (DP-301..DP-307) and M5 (DP-501..DP-508); coordinate with DP-105, DP-401, and DP-603
+Depends on: M3 (DP-301..DP-310), M5 (DP-501..DP-511), and DP-223; coordinate with DP-105, DP-401, DP-431/DP-432, and DP-603
 Launch state: BLOCKED until qualified legal decisions, security/privacy controls, and MiniPC acceptance close every required launch surface
 
 ## Problem
@@ -26,6 +26,8 @@ explicit launch decision. The packet must:
 
 - carry every required DP-301..DP-307 legal/privacy/rights decision to a dated owner and
   qualified-reviewer disposition;
+- prove the Trust & Evidence publication boundary: DP-223 adversarial attribution benchmark,
+  DP-308 evidence-safety profile, DP-309 high-risk escalation, and DP-310 review separation;
 - prove the M5 security, restore, retention, SLO, alert, cost, and outage controls that
   apply to the chosen deployment;
 - define the public/private trust boundaries, intake status, incident path, and rollback
@@ -46,12 +48,16 @@ appoint counsel, decide a lawful basis, or authorize a public launch.
   separate from operational tables; ADR 0004 makes MiniPC the runtime authority.
 - DP-301..DP-305 contain safe defaults and qualified questions, not legal decisions.
   DP-306 is a closure register and DP-307 is the required qualified-review handoff.
+  DP-308..DP-310 are additional fail-closed publication controls and do not substitute
+  for DP-307's qualified legal dispositions.
 - [`docs/04-legal-safety-research.md`](../04-legal-safety-research.md) is preliminary
   research and explicitly says qualified review is required before public launch.
-- The plan assigns M5 to DP-501..DP-509. DP-501..DP-508 now have local ticket/control
+- The plan assigns M5 to DP-501..DP-511. DP-501..DP-508 now have local ticket/control
   surfaces, but DP-501..DP-506 still require the fresh MiniPC receipts specified by
   their tickets; their existence is not an assumed pass. DP-507/DP-508 remain
   conditional FUTURE surfaces and must be re-reviewed before any admin/intake exposure.
+  DP-510/DP-511 add targeted quarantine and source-drift/supersession revalidation and
+  likewise require their own runtime receipts before launch.
 - The current runtime baseline reports private processing and zero public dossiers, with
   OmniRoute claim extraction blocked and Groq ASR blocked. Those provider states remain
   visible in the launch packet.
@@ -99,10 +105,30 @@ For the selected v1 deployment, the packet must link evidence for:
 - **DP-507:** AuthN/AuthZ/CSRF design and tests only if a public admin surface exists; and
 - **DP-508:** public-intake rate limiting, spam controls, privacy review, and rollback if
   a public intake surface exists.
+- **DP-510:** targeted provenance quarantine/hold with reviewed release and projection
+  cleanup for a known-bad dependency; and
+- **DP-511:** source drift/supersession/rights-expiry revalidation with bounded alerts and
+  no silent evidence/source replacement.
 
 If a conditional ticket is not applicable, the owner must record why the surface does not
 exist, the evidence that it is not reachable, and the re-review trigger. “Not built yet”
 alone is not a closure decision.
+
+### 2A. Trust & Evidence closure
+
+Before any public launch candidate is accepted, the packet must also prove:
+
+- DP-223 runs against the candidate and reports zero known false public person
+  attributions and zero fabricated direct quotations;
+- DP-308 projection-time safety evaluation is enabled for every public Statement/Finding
+  class in the launch set and has no fail-open warning mode;
+- DP-309 high-risk/legal-status cases either satisfy the accepted stronger evidence/review
+  policy or remain held; and
+- DP-310 review-separation requirements are enforced for every risk class that requires
+  dual control, with no self-approval fallback when a second reviewer is unavailable.
+
+These are technical/editorial controls, not legal clearance. Any unresolved qualified
+question still follows DP-306/DP-307 and blocks the affected surface.
 
 ### 3. Deployment trust-boundary decision
 
@@ -188,6 +214,7 @@ The packet is an input to DP-704 and DP-705, not permission to deploy.
 | B-702-05 | Deployment profile and public contact path are unowned | Freeze the MiniPC/static/API topology, operator roles, security/privacy/complaint contact, and incident owner. | Approved topology/profile, public policy documents, contact/runbook references. | Product owner; `PENDING-OWNER` |
 | B-702-06 | Failure behavior is not proven end to end | Run the failure matrix on the MiniPC using isolated/canary data and verify blocked/omitted outcomes and receipts. | Sanitized receipts, actual read-back, queue/projection state, no publication. | Operator; `BLOCKED` |
 | B-702-07 | Rights/retention/incident decisions are stale or missing | Re-review affected data classes, source families, public notices, and operational changes. | New decision IDs, policy versions, implementation receipts, and owner acceptance. | Owner/counsel; `EXTERNAL` |
+| B-702-08 | Attribution/evidence safety gate is incomplete or fails | Close DP-216..DP-223 and DP-308..DP-310 for launch-set surfaces; rerun DP-223 on the candidate and keep any failing class held. | Zero-false-attribution/fabricated-quote benchmark receipt, safety-profile read-back, high-risk and review-separation receipts. | Maintainer/editorial owner; `BLOCKED` |
 
 No row may be closed by deleting the blocker text, changing a status string, or adding a
 generic “compliant” label.
@@ -227,6 +254,10 @@ generic “compliant” label.
   blocker, missing M5 proof, or unresolved owner/external decision remains.
 - [ ] **AC-702-13 — Handoff:** DP-704 consumes the packet and DP-705 can cite exact
   decision/control IDs without treating technical tests as legal approval.
+- [ ] **AC-702-14 — Attribution/evidence safety:** DP-223 passes on the release candidate
+  with zero known false public attribution/fabricated quote; DP-308 is active; applicable
+  DP-309/DP-310 gates are satisfied; and unresolved cases remain held rather than downgraded
+  to warnings or confidence-based publication.
 
 ## Validation / proof
 

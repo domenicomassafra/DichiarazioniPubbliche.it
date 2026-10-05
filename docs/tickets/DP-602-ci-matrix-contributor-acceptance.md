@@ -28,6 +28,8 @@ Define a least-privilege, reproducible CI contract that:
 - validates migrations in an isolated database when a ticket requires them;
 - checks repository hygiene, relative links, license/data inventory, version/changelog
   consistency, and ticket completeness/collisions; and
+- runs the credential-free DP-223 false-attribution/fabricated-quote regression once that
+  benchmark is implemented, without network/provider calls; and
 - produces sanitized, inspectable receipts without exposing raw data or secrets.
 
 The workflow may run on a future remote, but this ticket does not create one.
@@ -55,7 +57,7 @@ The implementation must provide named jobs with explicit inputs and outputs:
 
 | Job | Matrix/entry condition | Required checks | Failure meaning |
 |---|---|---|---|
-| `backend-minimal` | Python 3.11 and 3.12 on a supported Ubuntu runner | package build/install, compile, unit/regression, deterministic benchmark, import/CLI smoke, whitespace | contributor baseline is broken |
+| `backend-minimal` | Python 3.11 and 3.12 on a supported Ubuntu runner | package build/install, compile, unit/regression, deterministic benchmark, DP-223 trust/evidence benchmark once implemented, import/CLI smoke, whitespace | contributor baseline or attribution-integrity regression is broken |
 | `web` | the Node version pinned by `web/package.json` and the lockfile | `npm ci`, `npm run check`, `npm run build`, explicit public-projection build when fixtures are available | frontend contract/build is broken |
 | `repository-contract` | every push and pull request | relative-link audit, JSON/YAML/template parse checks, ticket completeness/collision audit, license/data inventory gate, secret-pattern scan | documentation, rights, or graph contract is broken |
 | `migration-canary` | only tickets that declare a persistent migration or explicitly request it | isolated PostgreSQL schema, `ON_ERROR_STOP`, ordered migration apply, replay, rollback/forward compatibility checks | migration claim is unproven or unsafe |
@@ -194,6 +196,11 @@ labelled development evidence.
 - [ ] **AC-602.11 — No remote assumption:** The specification and local validation do
   not require a remote URL, issue, PR, or hosted runner; a hosted result is classified
   `PENDING-REMOTE` until a canonical remote is confirmed.
+- [ ] **AC-602.12 — Trust & Evidence regression:** Once DP-223 is implemented, every
+  release-facing deterministic backend run executes it without network/provider access and
+  fails on any known false public person attribution or fabricated direct quotation. False
+  holds/abstentions remain separately reported and cannot be traded for a false-publication
+  pass through a composite score.
 
 ## Validation / proof
 
