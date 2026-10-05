@@ -1,6 +1,6 @@
 # DP-405 — Person archive UI
 
-Status: READY
+Status: DONE
 
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-425
@@ -178,5 +178,32 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 
 ## Completion receipt
 
-Pending implementation. DP-105 and DP-425 are complete; runtime-affecting DONE still
-requires the validation and MiniPC/public-projection proof above.
+- Added canonical `/persone/{slug}/` static routes and moved both legacy Person aliases
+  onto the same `PersonRecord.astro` implementation with canonical metadata pointing to
+  `/persone/`; DP-422 still owns eventual redirect/removal of the aliases.
+- Person is chronology-first and score-free. Rows link to canonical Statements and expose
+  approved Trace/history paths only when those records exist in the public projection.
+- Approved dated `public_roles` are used only when an interval covers the row's relevant
+  public date; if no approved interval applies, role context is omitted rather than
+  inferred from the legacy timeless role string.
+- Added bounded source/type/date filters with shareable URL state and an announced result
+  count. Desktop uses the inline filter bar; narrow screens expose one `Filtri` control and
+  a bounded sheet-like panel with an explicit close action.
+- Public claim-type codes are rendered through human Italian labels instead of exposing
+  raw underscore taxonomy in the repeated row/filter UI.
+- Unknown/private-only people remain indistinguishable at the static route boundary: no
+  route is emitted without at least one projectable public dossier. Contract-invalid or
+  stale projection state still fails the static build through the existing loader.
+- Local visual receipts: `prototypes/v4-implementation/dp405/person-desktop.png` and
+  `person-mobile.png`, manually inspected against the real component tree.
+- Local validation: full Python suite **986/986 PASS**, restore verification PASS,
+  `npm run check:design` PASS, `npm run check` 0 diagnostics, explicit projection builds
+  PASS, and `git diff --check` PASS.
+- MiniPC proof on 2026-10-05: authoritative source was synchronized without deleting
+  runtime-local state; `compileall`, `npm ci`, design check and Astro check passed; a
+  production build against projection fingerprint
+  `8c430c1bb36ad8135c313247d6cf276ffc6fea6c2f998e31f9d55aa02da85383` emitted
+  `/persone/person-selvaggia-lucarelli/`; the active same-origin service returned HTTP 200.
+  Representative HTML contains the Person name, chronology heading and explicit no-score
+  boundary, while `person_score`, `reliability_score`, `leaderboard`, `raw_text`,
+  `transcript_text`, and `evidence_body` are absent.

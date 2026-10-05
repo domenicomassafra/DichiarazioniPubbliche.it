@@ -1,23 +1,25 @@
 ---
 import Assessment from "./Assessment.astro";
-import { dossierSlug, formatDate } from "../lib/format";
+import { claimTypeLabel, dossierSlug, formatDate } from "../lib/format";
 import type { PublicDossier } from "../lib/types";
 
 interface Props {
   dossier: PublicDossier;
   showTopic?: boolean;
+  roleContext?: string | null;
 }
-const { dossier, showTopic = true } = Astro.props;
+const { dossier, showTopic = true, roleContext = null } = Astro.props;
 const date = formatDate(dossier.finding.published_at ?? dossier.source.published_at);
 ---
 
 <article class="claim-row">
   <div class="claim-row-date">{date}</div>
   <div class="claim-row-main">
-    {showTopic && <div class="eyebrow">{dossier.claim_type.replaceAll("_", " ")}</div>}
+    {showTopic && <div class="eyebrow">{claimTypeLabel(dossier.claim_type)}</div>}
     <a class="claim-row-claim" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
     <div class="claim-row-meta">
       <span>{dossier.speaker.name}</span>
+      {roleContext && <><span aria-hidden="true">·</span><span>{roleContext}</span></>}
       <span aria-hidden="true">·</span>
       <span>{dossier.source.title}</span>
     </div>

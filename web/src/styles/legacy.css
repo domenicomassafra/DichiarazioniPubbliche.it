@@ -2106,3 +2106,127 @@ body:not(.is-studio) .main-nav {
     gap: var(--space-2);
   }
 }
+
+/* --------------------------------------------------------------------------
+   DP-405 — Person archive v4
+   -------------------------------------------------------------------------- */
+.person-header .record-header-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
+}
+
+.person-boundary {
+  max-width: var(--measure-brief);
+  margin: var(--space-4) 0 0;
+  color: var(--ink-700);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+.record-filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  min-height: var(--target-min);
+  margin-bottom: var(--space-3);
+}
+
+.record-filter-toolbar [data-record-count] {
+  color: var(--ink-500);
+  font-size: var(--text-meta);
+}
+
+.record-filter-toggle,
+.record-filter-close {
+  display: none;
+}
+
+.person-section-heading {
+  margin-top: var(--space-6);
+}
+
+.person-record-item {
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.person-record-item > .claim-row {
+  border-bottom: 0;
+}
+
+.person-record-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: 0 var(--density-row-pad-x) var(--space-4) calc(6.5rem + var(--density-row-pad-x) + var(--space-4));
+  font-size: var(--text-meta);
+}
+
+.person-record-links a {
+  color: var(--cobalt-700);
+  text-underline-offset: var(--space-1);
+}
+
+@media (max-width: 60rem) {
+  .person-header .record-header-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 40rem) {
+  .record-filter-toolbar {
+    justify-content: space-between;
+  }
+
+  .record-filter-toggle,
+  .record-filter-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--target-min);
+    padding-inline: var(--space-4);
+    border: 1px solid var(--rule-control);
+    background: var(--paper-raised);
+    color: var(--ink-900);
+    font-size: var(--text-label);
+    font-weight: var(--weight-semibold);
+  }
+
+  .record-filters {
+    position: fixed;
+    z-index: var(--z-overlay);
+    inset-inline: var(--page-inset);
+    inset-block-end: var(--page-inset);
+    max-height: calc(100dvh - (var(--page-inset) * 2));
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--space-3);
+    margin: 0;
+    padding: var(--space-5);
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-control);
+  }
+
+  .record-filters[data-mobile-hidden='true'] {
+    display: none;
+  }
+
+  .record-filters label,
+  .record-filters select,
+  .record-filters input,
+  .record-filters button {
+    width: 100%;
+  }
+
+  .person-section-heading,
+  .person-section-heading .section-heading-copy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .person-record-links {
+    padding: 0 var(--density-row-pad-x) var(--space-4);
+  }
+}

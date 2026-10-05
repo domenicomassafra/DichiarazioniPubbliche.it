@@ -240,7 +240,7 @@ LLM in the request path.
 | DP-402 | DONE | Read-only HTTP API implementation over public schema v1 | DP-105, DP-401 |
 | DP-403 | DONE | OpenAPI + examples + API versioning/deprecation policy | DP-402 |
 | DP-404 | DONE | `llms.txt` and agent-oriented public data documentation | DP-403 |
-| DP-405 | READY | Person archive UI | DP-105, DP-425 |
+| DP-405 | DONE | Person archive UI | DP-105, DP-425 |
 | DP-406 | FUTURE | Topic dossier UI | DP-430, DP-425 |
 | DP-407 | FUTURE | Content/source-locator UI | DP-207, DP-105, DP-425 |
 | DP-408 | READY | Trace/longitudinal relation UI | DP-104, DP-105, DP-425 |

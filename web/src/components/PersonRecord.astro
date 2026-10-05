@@ -1,0 +1,159 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SearchField from "./SearchField.astro";
+import ClaimRow from "./ClaimRow.astro";
+import { claimTypeLabel, dossierSlug, formatDate, relationSlug, speakerSlug } from "../lib/format";
+import type { PublicDossier } from "../lib/types";
+
+interface Props { dossiers: PublicDossier[] }
+const { dossiers } = Astro.props;
+const speaker = dossiers[0].speaker;
+const canonical = `/persone/${speakerSlug(dossiers[0])}/`;
+const ordered = [...dossiers].sort((a, b) => {
+  const ad = Date.parse(a.source.published_at ?? a.finding.published_at ?? "1970-01-01");
+  const bd = Date.parse(b.source.published_at ?? b.finding.published_at ?? "1970-01-01");
+  return bd - ad || a.finding_id.localeCompare(b.finding_id);
+});
+const roles = [...(speaker.public_roles ?? [])].sort((a, b) =>
+  String(b.start_date ?? "").localeCompare(String(a.start_date ?? ""))
+);
+const sourceOptions = [...new Set(ordered.map((item) => item.source.title))].sort();
+const typeOptions = [...new Set(ordered.map((item) => item.claim_type))].sort();
+const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossier.finding.published_at ?? null;
+const roleAt = (dossier: PublicDossier) => {
+  const date = rowDate(dossier)?.slice(0, 10);
+  if (!date) return null;
+  const applicable = roles.filter((role) =>
+    (!role.start_date || role.start_date.slice(0, 10) <= date) &&
+    (!role.end_date || role.end_date.slice(0, 10) >= date)
+  );
+  const role = applicable[0];
+  if (!role) return null;
+  return role.organization_name ? `${role.role} · ${role.organization_name}` : role.role;
+};
+---
+
+<BaseLayout title={speaker.name} description={`Cronologia pubblica verificabile delle dichiarazioni di ${speaker.name}.`} canonicalPath={canonical}>
+  <header class="record-header person-header">
+    <div class="shell record-header-grid">
+      <div>
+        <div class="eyebrow">Persona</div>
+        <h1 class="page-title">{speaker.name}</h1>
+        {roles.length > 0 && (
+          <div class="record-role" aria-label="Ruoli pubblici approvati">
+            {roles.map((role) => (
+              <div>
+                <strong>{role.role}</strong>{role.organization_name ? ` · ${role.organization_name}` : ""}
+                {(role.start_date || role.end_date) && <small> · {role.start_date ? formatDate(role.start_date) : "inizio non disponibile"}–{role.end_date ? formatDate(role.end_date) : "in corso"}</small>}
+              </div>
+            ))}
+          </div>
+        )}
+        <p class="person-boundary">Cronologia di dichiarazioni già pubblicate nel record. Gli esiti appartengono alle singole dichiarazioni: non esiste un punteggio della persona.</p>
+      </div>
+      <SearchField action="/esplora/" name="q" placeholder="Cerca nel record pubblico" compact />
+    </div>
+  </header>
+
+  <section class="shell page-section-tight person-chronology">
+    <div class="record-filter-toolbar">
+      <button type="button" class="record-filter-toggle" data-record-filter-toggle aria-expanded="false" aria-controls="person-filters">Filtri</button>
+      <span aria-live="polite" data-record-count>{ordered.length} dichiarazioni pubbliche</span>
+    </div>
+    <form class="record-filters" id="person-filters" data-record-filters data-mobile-hidden="true">
+      <label>Tipo di dichiarazione
+        <select name="type">
+          <option value="">Tutti</option>
+          {typeOptions.map((value) => <option value={value}>{claimTypeLabel(value)}</option>)}
+        </select>
+      </label>
+      <label>Fonte
+        <select name="source">
+          <option value="">Tutte</option>
+          {sourceOptions.map((value) => <option value={value}>{value}</option>)}
+        </select>
+      </label>
+      <label>Dal <input name="from" type="date" /></label>
+      <label>Al <input name="to" type="date" /></label>
+      <button type="reset">Azzera</button>
+      <button type="button" class="record-filter-close" data-record-filter-close>Chiudi filtri</button>
+    </form>
+
+    <div class="section-heading person-section-heading">
+      <div class="section-heading-copy">
+        <h2 class="section-title section-title-sm">Dichiarazioni nel tempo</h2>
+        <p>Ordine cronologico inverso, con fonte e ruolo approvato valido alla data quando disponibile.</p>
+      </div>
+    </div>
+    <div class="claim-list" data-record-list>
+      {ordered.map((dossier) => {
+        const relationIds = [...new Set((dossier.relations ?? []).filter((item) => item.status === "APPROVED").map((item) => item.id))];
+        const hasHistory = dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0;
+        return (
+          <article
+            class="person-record-item"
+            data-record-row
+            data-type={dossier.claim_type}
+            data-source={dossier.source.title}
+            data-date={(rowDate(dossier) ?? "").slice(0, 10)}
+          >
+            <ClaimRow dossier={dossier} roleContext={roleAt(dossier)} />
+            {(relationIds.length > 0 || hasHistory) && (
+              <nav class="person-record-links" aria-label={`Percorsi collegati: ${dossier.claim}`}>
+                {relationIds.map((id) => <a href={`/tracce/${relationSlug(id)}/`}>Traccia nel tempo →</a>)}
+                {hasHistory && <a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Correzioni e repliche →</a>}
+              </nav>
+            )}
+          </article>
+        );
+      })}
+    </div>
+    <section class="dp-utility-empty" data-record-empty hidden>
+      <h2>Nessuna dichiarazione pubblica corrisponde ai filtri.</h2>
+      <p>Modifica i filtri, <a href="/esplora/">esplora il record</a> oppure <a href="/metodo/">leggi il metodo</a>.</p>
+    </section>
+  </section>
+
+  <script is:inline>
+    (() => {
+      const form = document.querySelector('[data-record-filters]');
+      if (!form) return;
+      const rows = [...document.querySelectorAll('[data-record-row]')];
+      const count = document.querySelector('[data-record-count]');
+      const empty = document.querySelector('[data-record-empty]');
+      const toggle = document.querySelector('[data-record-filter-toggle]');
+      const close = document.querySelector('[data-record-filter-close]');
+      const params = new URLSearchParams(location.search);
+      for (const key of ['type', 'source', 'from', 'to']) {
+        const field = form.elements.namedItem(key);
+        if (field && params.has(key)) field.value = params.get(key) || '';
+      }
+      const setMobileOpen = (open) => {
+        form.dataset.mobileHidden = open ? 'false' : 'true';
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      const apply = () => {
+        const values = Object.fromEntries(new FormData(form).entries());
+        let visible = 0;
+        for (const row of rows) {
+          const ok = (!values.type || row.dataset.type === values.type)
+            && (!values.source || row.dataset.source === values.source)
+            && (!values.from || (row.dataset.date && row.dataset.date >= values.from))
+            && (!values.to || (row.dataset.date && row.dataset.date <= values.to));
+          row.hidden = !ok;
+          if (ok) visible += 1;
+        }
+        if (count) count.textContent = `${visible} dichiarazioni pubbliche`;
+        if (empty) empty.hidden = visible !== 0;
+        const next = new URLSearchParams();
+        for (const [key, value] of Object.entries(values)) if (value) next.set(key, value);
+        history.replaceState(null, '', `${location.pathname}${next.size ? `?${next}` : ''}`);
+      };
+      toggle?.addEventListener('click', () => setMobileOpen(form.dataset.mobileHidden === 'true'));
+      close?.addEventListener('click', () => { setMobileOpen(false); toggle?.focus(); });
+      form.addEventListener('input', apply);
+      form.addEventListener('reset', () => setTimeout(apply));
+      apply();
+    })();
+  </script>
+</BaseLayout>
