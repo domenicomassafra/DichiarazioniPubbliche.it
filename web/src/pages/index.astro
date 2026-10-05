@@ -3,7 +3,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import SearchField from "../components/SearchField.astro";
 import ClaimRow from "../components/ClaimRow.astro";
 import MediaFeature from "../components/MediaFeature.astro";
-import { contentSlug } from "../lib/format";
 import { loadPublicProjection } from "../lib/projection";
 
 const projection = await loadPublicProjection();
@@ -13,64 +12,68 @@ const recent = [...projection.dossiers]
 const featuredContent = recent[0];
 ---
 
-<BaseLayout title="Dichiarazioni Pubbliche">
-  <section class="shell home-hero">
-    <div class="hero-index" aria-hidden="true">01</div>
-    <div class="hero-copy">
-      <p class="eyebrow">Archivio pubblico verificabile</p>
-      <h1 class="display-title">La parola lascia<br /> una traccia.</h1>
-      <p class="lede">Dichiarazioni Pubbliche mette in relazione dichiarazioni, fonti e tempo. Non stabilisce chi sia affidabile: rende leggibile perché una verifica regge.</p>
-      <a class="hero-action" href="/esplora/">Esplora il record <span aria-hidden="true">→</span></a>
+<BaseLayout title="Dichiarazioni Pubbliche" canonicalPath="/">
+  <section class="shell home-hero home-hero-v4">
+    <div class="hero-copy hero-copy-v4">
+      <p class="eyebrow">Memoria verificabile delle dichiarazioni pubbliche</p>
+      <h1 class="display-title">Trova cosa è stato detto. Risali alla fonte. Segui cosa cambia.</h1>
+      <p class="lede">Parole esatte, fonti, verifiche, cambi e correzioni in un record consultabile e versionato — senza punteggi alle persone.</p>
+
+      <div class="hero-search hero-search-v4" aria-label="Ricerca principale">
+        <strong>Cerca nel registro</strong>
+        <SearchField placeholder="Dichiarazione, persona, tema o contenuto…" />
+        <p class="search-note">Cerca ciò che è già pubblicato nel record oppure <a href="/esplora/">esplora tutto →</a></p>
+      </div>
     </div>
-    <aside class="hero-search" aria-label="Ricerca principale">
-      <p class="eyebrow">Parti da una dichiarazione</p>
-      <SearchField placeholder="Cerca una dichiarazione, una persona, un tema…" />
-      <p class="search-note">Ogni risultato conserva esito, fonti, data e percorso di revisione.</p>
-    </aside>
   </section>
 
-  <section class="shell page-section-tight">
+  <section class="shell page-section-tight home-recent">
     <div class="section-heading ruled-heading">
-      <div class="section-number" aria-hidden="true">02</div>
       <div class="section-heading-copy">
-        <h2 class="section-title">Ultime verifiche</h2>
-        <p>Il margine dell’archivio. Le più recenti, in ordine di pubblicazione.</p>
+        <h2 class="section-title">Dichiarazioni recenti</h2>
+        <p>Il record parte sempre dalle parole e dalla fonte.</p>
       </div>
-      <a class="text-link" href="/esplora/">Vedi tutte <span aria-hidden="true">→</span></a>
+      <a class="text-link" href="/esplora/">Esplora tutto <span aria-hidden="true">→</span></a>
     </div>
-    <div class="claim-list">
-      {recent.map((dossier) => <ClaimRow dossier={dossier} />)}
-    </div>
+    {recent.length > 0 ? (
+      <div class="claim-list">
+        {recent.map((dossier) => <ClaimRow dossier={dossier} showTopic={false} />)}
+      </div>
+    ) : (
+      <div class="dp-utility-empty">
+        <h2>Nessuna dichiarazione pubblicata in questo snapshot.</h2>
+        <p>La navigazione e il Metodo restano disponibili anche quando la projection non contiene record pubblicabili.</p>
+      </div>
+    )}
   </section>
 
   {featuredContent && (
-    <section class="shell page-section-tight">
+    <section class="shell page-section-tight home-source">
       <div class="section-heading ruled-heading">
-        <div class="section-number" aria-hidden="true">03</div>
-        <div class="section-heading-copy"><h2 class="section-title">Dentro la fonte</h2><p>Dal contenuto originale ai singoli momenti verificati.</p></div>
+        <div class="section-heading-copy">
+          <h2 class="section-title">Dentro la fonte</h2>
+          <p>Un esempio del percorso che riporta il record al contenuto originale.</p>
+        </div>
       </div>
-      <MediaFeature title={featuredContent.source.title} description="Apri il ContentAudit per vedere i finding pubblicati legati allo stesso contenuto e alle loro posizioni nella fonte." href={`/contents/${contentSlug(featuredContent)}/`} duration="Fonte originale" />
+      <MediaFeature
+        title={featuredContent.source.title}
+        description={`Da questa fonte pubblica proviene una dichiarazione attribuita a ${featuredContent.speaker.name}. Il record conserva il collegamento all'originale e le evidenze approvate.`}
+        href={featuredContent.source.url}
+        duration="Fonte originale"
+      />
     </section>
   )}
 
-  <section class="shell page-section-tight home-manifesto">
-    <div class="section-number" aria-hidden="true">04</div>
-    <div class="home-paths">
-      <a class="home-path" href="/esplora/">
-        <span class="path-index">A</span>
-        <strong>Il record</strong>
-        <p>Dichiarazioni, esiti e fonti nello stesso indice. Nessun punteggio per le persone.</p>
-      </a>
-      <a class="home-path" href="/metodo/">
-        <span class="path-index">B</span>
-        <strong>Il metodo</strong>
-        <p>Come Dichiarazioni Pubbliche separa evidenza, verifica, revisione e pubblicazione.</p>
-      </a>
-      <a class="home-path" href="/api/v1/openapi.json">
-        <span class="path-index">C</span>
-        <strong>Dati e API</strong>
-        <p>Lo stesso record pubblico, in forma machine-readable e senza punteggi sulle persone.</p>
-      </a>
+  <section class="shell home-trust-path">
+    <div>
+      <div class="eyebrow">Come fidarsi del percorso</div>
+      <h2>Non chiediamo di fidarti di un punteggio.</h2>
+      <p>Apri la dichiarazione, torna alla fonte, leggi le evidenze e controlla come gestiamo limiti e correzioni.</p>
     </div>
+    <nav aria-label="Percorsi di fiducia">
+      <a href="/metodo/">Metodo →</a>
+      <a href="/correzioni/">Correzioni →</a>
+      <a href="/dati/">Dati &amp; API →</a>
+    </nav>
   </section>
 </BaseLayout>

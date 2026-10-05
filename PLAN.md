@@ -261,7 +261,7 @@ LLM in the request path.
 | DP-423 | DONE | Public product-marketing + brand context | DP-400, DP-413 |
 | DP-424 | DONE | Public visual redesign v4 concept selection | DP-423, DP-412 |
 | DP-425 | DONE | Public design system v2 + component contract | DP-424 |
-| DP-426 | READY | Home + public shell v4 | DP-425 |
+| DP-426 | DONE | Home + public shell v4 | DP-425 |
 | DP-427 | DONE | Canonical Statement page v4 | DP-425, DP-105 |
 | DP-428 | DONE | Method + trust/utility document pages v4 | DP-425 |
 | DP-429 | FUTURE | Explore page v4 | DP-409, DP-425 |

@@ -14,7 +14,7 @@ interface Props {
 
 const {
   title = "Dichiarazioni Pubbliche",
-  description = "Fact-checking di dichiarazioni, video, podcast e articoli. Con le fonti.",
+  description = "Dichiarazioni pubbliche, fonti, contesto, verifiche, cambi e correzioni in un record consultabile e versionato.",
   studio = false,
   canonicalPath
 } = Astro.props;
@@ -49,12 +49,14 @@ const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-pro
       <footer class="site-footer shell">
         <div>
           <strong>Dichiarazioni Pubbliche</strong>
-          <p>Record pubblici verificabili, fonti e cronologia.</p>
+          <p>Memoria verificabile delle dichiarazioni pubbliche.</p>
         </div>
         <nav aria-label="Link footer">
           <a href="/metodo/">Metodo</a>
-          <a href="/esplora/">Esplora</a>
-          <a href="/api/v1/openapi.json">API</a>
+          <a href="/correzioni/">Correzioni</a>
+          <a href="/dati/">Dati &amp; API</a>
+          <a href="/progetto/">Progetto</a>
+          <a href="https://github.com/domenicomassafra/DichiarazioniPubbliche.it" rel="noreferrer">GitHub ↗</a>
         </nav>
       </footer>
     )}

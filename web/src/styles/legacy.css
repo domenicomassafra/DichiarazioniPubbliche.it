@@ -1888,3 +1888,221 @@ body.is-studio {
     gap: var(--space-2);
   }
 }
+
+/* --------------------------------------------------------------------------
+   DP-426 — Public shell + Home v4 (Ledger Spine)
+   These overrides retire the old poster/two-column Home without changing Studio.
+   -------------------------------------------------------------------------- */
+body:not(.is-studio) .masthead-note {
+  padding-block: var(--space-2);
+  border-top: 0;
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+body:not(.is-studio) .header-inner {
+  min-height: var(--space-9);
+}
+
+.brand {
+  align-items: center;
+}
+
+.brand-mark {
+  display: block;
+  width: var(--space-4);
+  height: var(--space-4);
+  overflow: visible;
+  background: var(--cobalt-700);
+  color: transparent;
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.brand-name {
+  line-height: 0.9;
+}
+
+body:not(.is-studio) .main-nav {
+  justify-content: center;
+}
+
+.home-hero-v4 {
+  display: block;
+  padding-block: var(--space-8) var(--space-7);
+}
+
+.hero-copy-v4 {
+  max-width: 64rem;
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+
+.hero-copy-v4 .display-title {
+  max-width: 20ch;
+  margin-top: var(--space-3);
+}
+
+.hero-copy-v4 > .lede {
+  max-width: var(--measure-prose);
+  margin-top: var(--space-5);
+}
+
+.hero-search-v4 {
+  max-width: 56rem;
+  margin-top: var(--space-7);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule-hairline-strong);
+}
+
+.hero-search-v4 > strong {
+  display: block;
+  margin-bottom: var(--space-3);
+  color: var(--ink-900);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+}
+
+.hero-search-v4 .search-field {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  padding-inline: 0;
+  min-height: var(--space-8);
+}
+
+.hero-search-v4 .search-icon {
+  display: none;
+}
+
+.hero-search-v4 .search-field input {
+  min-height: var(--space-8);
+  padding-inline: var(--space-4);
+}
+
+.hero-search-v4 .search-field button {
+  min-height: var(--space-8);
+  padding-inline: var(--space-6);
+  background: var(--ink-inverse);
+  color: var(--ink-inverse-100);
+  border-inline-start: 1px solid var(--rule-control);
+}
+
+.hero-search-v4 .search-field button:hover {
+  background: var(--cobalt-800);
+  color: var(--ink-inverse-100);
+}
+
+.hero-search-v4 .search-note a {
+  color: var(--cobalt-700);
+}
+
+.home-trust-path {
+  display: grid;
+  grid-template-columns: minmax(0, var(--width-reading)) minmax(14rem, 1fr);
+  gap: var(--space-8);
+  align-items: start;
+  padding-block: var(--space-8);
+  border-top: 1px solid var(--rule-ink);
+}
+
+.home-trust-path h2 {
+  margin: var(--space-2) 0 var(--space-3);
+  color: var(--ink-900);
+  font-family: var(--font-claim);
+  font-size: var(--text-headline);
+  line-height: var(--leading-headline);
+  font-weight: var(--weight-semibold);
+}
+
+.home-trust-path p {
+  max-width: var(--measure-brief);
+  color: var(--ink-700);
+}
+
+.home-trust-path nav {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+.home-trust-path nav a {
+  min-height: var(--target-min);
+  display: flex;
+  align-items: center;
+  color: var(--cobalt-700);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+}
+
+@media (max-width: 40rem) {
+  body:not(.is-studio) .header-inner {
+    min-height: var(--space-8);
+    gap: var(--space-3);
+  }
+
+  .brand {
+    gap: var(--space-2);
+    font-size: var(--text-subhead);
+  }
+
+  .brand-mark {
+    width: var(--space-3);
+    height: var(--space-3);
+  }
+
+  .home-hero-v4 {
+    padding-block: var(--space-7) var(--space-6);
+  }
+
+  .hero-copy-v4 {
+    padding-inline-start: 0;
+  }
+
+  .hero-copy-v4 .display-title {
+    max-width: none;
+    font-size: var(--text-title);
+    line-height: var(--leading-title);
+  }
+
+  .hero-search-v4 {
+    margin-top: var(--space-6);
+  }
+
+  .hero-search-v4 .search-field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-search-v4 .search-field button {
+    border-inline-start: 0;
+    border-top: 1px solid var(--rule-control);
+  }
+
+  .home-trust-path {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    padding-block: var(--space-7);
+  }
+}
+
+@media (max-width: 40rem) {
+  .home-recent .section-heading,
+  .home-source .section-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: start;
+  }
+
+  .home-recent .section-heading > .text-link,
+  .home-source .section-heading > .text-link {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 40rem) {
+  .home-recent .section-heading-copy,
+  .home-source .section-heading-copy {
+    display: grid;
+    gap: var(--space-2);
+  }
+}

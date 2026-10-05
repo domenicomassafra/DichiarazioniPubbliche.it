@@ -9,15 +9,15 @@ const { title, description, href, duration = "32:15" } = Astro.props;
 ---
 
 <article class="media-feature">
-  <a class="media-poster" href={href} aria-label={`Apri ContentAudit: ${title}`}>
-    <span class="media-kicker">CONTENTAUDIT</span>
+  <a class="media-poster" href={href} aria-label={`Apri la fonte originale: ${title}`} rel="noreferrer">
+    <span class="media-kicker">Fonte pubblica</span>
     <span class="media-play" aria-hidden="true">▶</span>
     <span class="media-duration">{duration}</span>
   </a>
   <div class="media-copy">
-    <div class="eyebrow">Sotto la lente</div>
-    <h3><a href={href}>{title}</a></h3>
+    <div class="eyebrow">Contesto originale</div>
+    <h3><a href={href} rel="noreferrer">{title}</a></h3>
     <p>{description}</p>
-    <a class="text-link" href={href}>Esplora l'analisi <span aria-hidden="true">→</span></a>
+    <a class="text-link" href={href} rel="noreferrer">Apri la fonte <span aria-hidden="true">↗</span></a>
   </div>
 </article>

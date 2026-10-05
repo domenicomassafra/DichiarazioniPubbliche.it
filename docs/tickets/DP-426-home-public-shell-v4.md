@@ -1,6 +1,6 @@
 # DP-426 — Home + public shell v4
 
-Status: READY
+Status: DONE
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-425
 
@@ -52,4 +52,24 @@ Update Home/public-shell mockup receipt and affected navigation docs. No data mi
 
 ## Completion receipt
 
-Pending implementation.
+- Rebuilt the public shell around the v3 navigation hierarchy: cobalt-square Segno mark,
+  `Esplora`, `Metodo`, compact `Cerca`, and a footer limited to Method, Corrections,
+  Data & API, Project and the confirmed canonical GitHub repository. The permanent
+  `Fact-check` nav item is removed; Studio navigation remains separate.
+- Rebuilt Home against Ledger Spine: one product-purpose statement, one dominant public
+  search stage, recent Statement rows, one original-source example, and a restrained
+  trust path. The old numbered/poster composition and three-column marketing path grid
+  are no longer used by Home.
+- Home Statement rows now point to the canonical `/dichiarazioni/` route and suppress raw
+  `claim_type` taxonomy labels in the public recent stream.
+- The source example links to the actual original source already in the public projection;
+  it no longer exposes the internal `ContentAudit` label or invents a Content route before
+  DP-407 is ready.
+- Search remains a real GET form over already-published records; its submit action is
+  explicit text and its focus-within state uses the existing Segno/focus grammar.
+- Added a deliberate no-record Home state. Public usefulness remains projection-only and
+  no provider/LLM request path was added.
+- Visual receipts: `prototypes/v4-implementation/dp426/home-desktop.png` and
+  `home-mobile.png`; desktop and narrow/mobile compositions were manually inspected.
+- Validation: `npm run check:design` PASS; `npm run check` 0 errors/warnings/hints;
+  explicit demo-projection static build PASS; `git diff --check` PASS.
