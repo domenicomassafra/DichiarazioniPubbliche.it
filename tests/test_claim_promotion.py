@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import sys
 import unittest
 from pathlib import Path
@@ -43,11 +44,13 @@ class FakePromotionStore:
 
 
 def written_context():
+    exact_quote = "I test sull'impronta 33 diedero esito negativo."
+    exact_hash = hashlib.sha256(exact_quote.encode("utf-8")).hexdigest()
     return {
         "candidate_id": "candidate:1",
         "candidate_status": "CANDIDATE",
         "content_id": "content:1",
-        "normalized_claim": "I test sull'impronta 33 diedero esito negativo.",
+        "normalized_claim": exact_quote,
         "proposed_claim_type": "HISTORICAL_CLAIM",
         "claim_type_version": "atomic-claim-v1",
         "temporal_scope": {"statement_date": "2025-05-21"},
@@ -62,7 +65,7 @@ def written_context():
         "claim_candidate_reviewed": True,
         "speaker_person_id": "person:1",
         "speaker_is_public": True,
-        "statement_text_hash": "a" * 64,
+        "statement_text_hash": exact_hash,
         "statement_at": "2025-05-21T12:00:00+02:00",
         "attribution_method": "SOURCE_QUOTE",
         "canonical_url": "https://example.test/article",
@@ -76,10 +79,11 @@ def written_context():
                 "passage_id": "passage:1",
                 "selector_type": "TEXT_POSITION",
                 "start_char": 10,
-                "end_char": 80,
+                "end_char": 10 + len(exact_quote),
                 "page_start": None,
                 "page_end": None,
-                "text_sha256": "b" * 64,
+                "text_sha256": exact_hash,
+                "private_text": exact_quote,
                 "capture_id": "capture:1",
                 "capture_sha256": "c" * 64,
                 "capture_final_url": "https://example.test/article",
@@ -109,6 +113,7 @@ def media_context():
             "page_start": None,
             "page_end": None,
             "text_sha256": "d" * 64,
+            "private_text": None,
             "capture_id": None,
             "capture_sha256": None,
             "capture_final_url": None,
@@ -151,8 +156,58 @@ class ClaimPromotionTests(unittest.TestCase):
         self.assertEqual(variables["candidate_id"], "candidate:1")
         self.assertEqual(variables["selector_type"], "TEXT_POSITION_HASH")
         self.assertEqual(variables["start_char"], 10)
-        self.assertEqual(variables["end_char"], 80)
+        self.assertEqual(
+            variables["end_char"],
+            10 + len("I test sull'impronta 33 diedero esito negativo."),
+        )
         self.assertTrue(str(variables["provenance_id"]).startswith("text-provenance:"))
+
+    def test_written_quote_must_match_exact_passage_hash(self):
+        context = written_context()
+        context["statement_text_hash"] = hashlib.sha256(
+            b"I test sull'impronta 33 diedero esito positivo."
+        ).hexdigest()
+        receipt = promote_claim_candidate(FakePromotionStore(context), self.request())
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_STATEMENT_NOT_EXACT_PASSAGE",
+        )
+
+    def test_tampered_private_passage_text_is_blocked(self):
+        context = written_context()
+        changed = "I test sull'impronta 33 diedero esito positivo."
+        context["passages"][0]["private_text"] = changed
+        context["passages"][0]["end_char"] = (
+            context["passages"][0]["start_char"] + len(changed)
+        )
+        receipt = promote_claim_candidate(FakePromotionStore(context), self.request())
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_PASSAGE_TEXT_HASH_MISMATCH",
+        )
+
+    def test_off_by_one_written_quote_span_is_blocked(self):
+        context = written_context()
+        context["passages"][0]["end_char"] += 1
+        receipt = promote_claim_candidate(FakePromotionStore(context), self.request())
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_QUOTE_POSITION_LENGTH_MISMATCH",
+        )
+
+    def test_non_exact_written_selector_is_blocked(self):
+        context = written_context()
+        context["passages"][0]["selector_type"] = "PAGE_RANGE"
+        context["passages"][0]["start_char"] = None
+        context["passages"][0]["end_char"] = None
+        context["passages"][0]["page_start"] = 1
+        context["passages"][0]["page_end"] = 1
+        receipt = promote_claim_candidate(FakePromotionStore(context), self.request())
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_QUOTE_SELECTOR_NOT_EXACT",
+        )
 
     def test_media_candidate_creates_segment_link_not_text_provenance(self):
         store = FakePromotionStore(media_context())

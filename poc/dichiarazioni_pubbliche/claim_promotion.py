@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from dichiarazioni_pubbliche.claim_contract import validate_atomic_claim
+from dichiarazioni_pubbliche.quote_binding import verify_written_quote_binding
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.text_provenance import make_text_provenance_candidate
 
@@ -104,6 +105,7 @@ WITH candidate AS (
         p.page_start,
         p.page_end,
         p.text_sha256,
+        p.private_text,
         p.capture_id,
         capture.content_sha256 AS capture_sha256,
         capture.final_url AS capture_final_url,
@@ -136,6 +138,7 @@ WITH candidate AS (
                 'page_start', page_start,
                 'page_end', page_end,
                 'text_sha256', text_sha256,
+                'private_text', private_text,
                 'capture_id', capture_id,
                 'capture_sha256', capture_sha256,
                 'capture_final_url', capture_final_url,
@@ -639,6 +642,20 @@ def promote_claim_candidate(
             return _blocked(request, "PROMOTION_CAPTURE_HOLD")
         if str(passage.get("capture_status") or "") not in {"CAPTURED", "PURGED_BODY"}:
             return _blocked(request, "PROMOTION_CAPTURE_UNUSABLE")
+        try:
+            quote_binding = verify_written_quote_binding(
+                statement_text_sha256=str(context.get("statement_text_hash") or ""),
+                passage_text_sha256=str(passage.get("text_sha256") or ""),
+                private_text=str(passage.get("private_text") or ""),
+                selector_type=str(passage.get("selector_type") or ""),
+                start_char=passage.get("start_char"),
+                end_char=passage.get("end_char"),
+                source_sha256=str(passage.get("capture_sha256") or ""),
+            )
+        except (TypeError, ValueError):
+            return _blocked(request, "PROMOTION_QUOTE_BINDING_INVALID")
+        if not quote_binding.verified:
+            return _blocked(request, f"PROMOTION_{quote_binding.reason_code}")
     else:
         if int(context.get("media_count") or 0) != 1 or passage.get("canonical_segment_id") is None:
             return _blocked(request, "PROMOTION_CHANNEL_MISMATCH")
@@ -661,6 +678,9 @@ def promote_claim_candidate(
         "promotion_version": PROMOTION_VERSION,
         "claim_candidate_id": request.candidate_id,
     }
+    if request.provenance_channel == "WRITTEN":
+        metadata["quote_binding_version"] = quote_binding.version
+        metadata["quote_binding_reason"] = quote_binding.reason_code
     provenance_refs: tuple[str, ...]
 
     if duplicate_ids:

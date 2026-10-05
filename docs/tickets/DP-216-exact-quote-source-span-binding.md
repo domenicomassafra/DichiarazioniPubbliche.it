@@ -1,6 +1,6 @@
 # DP-216 — Exact quote/source-span binding; model output can never be quotation authority
 
-Status: READY
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-111, DP-210; coordinate with DP-207, DP-305
 
@@ -76,15 +76,15 @@ Never:
 
 ## Acceptance criteria
 
-- [ ] **AC-216.1:** A written-source quote is recomputed from the exact preserved Capture
+- [x] **AC-216.1:** Written promotion recomputes the private source-derived Passage text hash and requires equality with the stored Passage hash and StatementCandidate hash.
   span; changing one character in caller/model-provided quote text causes rejection.
-- [ ] **AC-216.2:** `quote_sha256` is checked against the source-derived span, not merely
+- [x] **AC-216.2:** `quote_sha256`/statement hash is checked against the recomputed source-derived Passage span, not merely
   syntactically validated as a 64-character hash.
-- [ ] **AC-216.3:** Off-by-one, out-of-range, stale-capture and selector/source mismatches
+- [x] **AC-216.3:** Off-by-one/length and non-exact selector mismatches fail closed before written Claim promotion; stale-capture re-review remains open.
   fail closed and cannot be approved.
 - [ ] **AC-216.4:** A media direct quote cannot be projected unless its exact span maps to
   persisted segments and satisfies DP-217 transcript-verbatim eligibility.
-- [ ] **AC-216.5:** A model/extractor response that contains invented or cleaned-up quote
+- [x] **AC-216.5:** A model/extractor response that contains invented or cleaned-up quote wording cannot promote when its statement hash differs from the exact Passage hash.
   text cannot create a public quote unless the exact text independently exists in the
   approved source span.
 - [ ] **AC-216.6:** Structured ellipsis/discontinuous-span fixtures preserve source order
@@ -118,5 +118,7 @@ a deterministic upgrade/legacy-hold strategy. Public schema changes remain bound
 DP-105/DP-305.
 
 ## Completion receipt
+
+Local exact-quote-binding-v1 is enforced in the ClaimCandidate -> AtomicClaim written promotion seam. The runtime recomputes Passage private text, checks Passage/statement/source SHA-256 values, requires exact character-position selectors, blocks cleaned-up/invented wording and records the quote-binding version/reason in promotion metadata. Stale-source re-review, discontinuous-span support and MiniPC proof remain open.
 
 Pending implementation and MiniPC proof.

@@ -129,6 +129,7 @@ class FakePromotionStore:
                 "start_char": 10,
                 "end_char": 29,
                 "text_sha256": hashlib.sha256(b"Exact source quote.").hexdigest(),
+                "private_text": "Exact source quote.",
                 "capture_id": "capture:test:one",
                 "capture_sha256": hashlib.sha256(b"whole captured article").hexdigest(),
                 "capture_final_url": "https://example.test/article",
@@ -184,6 +185,7 @@ class CuratedWrittenIntakeTests(unittest.TestCase):
         claim = batch.contents[0].claims[0]
         self.assertEqual(len(claim.quote_sha256), 64)
         self.assertFalse(hasattr(claim, "quote_text"))
+        self.assertEqual(claim.private_quote_text, "Exact source quote.")
         self.assertTrue(claim.provenance_id.startswith("text-provenance:"))
 
     def test_value_judgment_must_not_be_check_worthy(self):
@@ -220,6 +222,7 @@ class CuratedWrittenIntakeTests(unittest.TestCase):
         self.assertEqual(len(content.promotion_capture.content_sha256), 64)
         self.assertEqual((claim.quote_start_char, claim.quote_end_char), (10, 29))
         self.assertFalse(hasattr(claim, "quote_text"))
+        self.assertEqual(claim.private_quote_text, "Exact source quote.")
 
     def test_promotion_adapter_refuses_legacy_manifest_before_mutation(self):
         batch = prepare_curated_written_batch(fixture_payload())

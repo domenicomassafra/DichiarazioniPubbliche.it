@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
@@ -55,6 +55,7 @@ class PreparedClaim:
     provenance_id: str
     source_ref: dict[str, Any]
     metadata: dict[str, Any]
+    private_quote_text: str = field(repr=False, compare=False, default="")
     quote_start_char: int | None = None
     quote_end_char: int | None = None
 
@@ -250,6 +251,7 @@ def prepare_curated_written_batch(payload: Mapping[str, Any]) -> PreparedBatch:
                     provenance_id=provenance.candidate_id,
                     source_ref=source_ref,
                     metadata=claim_metadata,
+                    private_quote_text=quote_text,
                     quote_start_char=quote_start_char,
                     quote_end_char=quote_end_char,
                 )
@@ -632,7 +634,7 @@ def _prepare_promotion_candidate_records(
         start_char=claim.quote_start_char,
         end_char=claim.quote_end_char,
         text_sha256=claim.quote_sha256,
-        private_text=None,
+        private_text=claim.private_quote_text,
         language="it",
         extraction_method="CURATED_SOURCE_QUOTE",
         extraction_version=batch.extraction_version,
