@@ -1,16 +1,18 @@
 # DP-406 — Topic dossier UI
 
-Status: READY
+Status: FUTURE
 
 Milestone: M4 — public product/API
-Depends on: DP-105, DP-425
+Depends on: DP-430, DP-425
 
 ## Problem
 
 A Topic record is the neutral archive for claims and evidence around a subject over time.
 It must not become a people leaderboard, a partisan taxonomy, or a second Explore page.
-The public resource, topic identifier, scope, and relation semantics are not yet stable
-while DP-105 remains open.
+DP-105 is complete, but its authoritative projection deliberately contains no first-class
+Topic resource: the current API derives a `topic` facet from `claim_type`. DP-430 must
+publish stable Topic identity, scope and approved Statement membership before this route
+can be implemented without inventing a second taxonomy in the frontend.
 
 ## Outcome
 
@@ -20,7 +22,7 @@ navigate related people without inferring a political position or person-level s
 
 ## Contract gate
 
-- DP-105 is the hard data and identifier gate;
+- DP-430 is the hard first-class public Topic resource and identifier gate;
 - `docs/35-public-product-architecture-v3.md` is the canonical information-architecture gate;
 - DP-425 is the final v4 visual-token/component gate;
 - a topic must come from the approved public contract. The frontend must not create,
@@ -80,7 +82,7 @@ the same information architecture. Topic is a research dossier; Person is a chro
 
 ## Dependencies and gates
 
-- **DP-105:** hard public Topic resource, identifier, scope, relation, and compatibility
+- **DP-430:** hard public Topic resource, identifier, scope, membership and compatibility
   gate;
 - **Public architecture v3:** Topic dossier IA and neutrality rules;
 - **DP-425:** final v4 token/component contract;
@@ -143,7 +145,7 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 
 ## Documentation, data, and migration impact
 
-- document the public Topic resource and scope semantics only after DP-105 ratifies them;
+- consume the public Topic resource and scope semantics only after DP-430 ratifies them;
 - update the shared component contract through DP-425, not a Topic-only appendix;
 - no migration is introduced by the UI ticket; topic persistence/schema changes belong
   to their domain tickets;
@@ -151,5 +153,5 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 
 ## Completion receipt
 
-Pending implementation. The route is not DONE while DP-105 is unresolved, even if a
-fixture-based Topic page renders in development.
+Pending DP-430 and implementation. A fixture assembled from `claim_type` facets is not
+proof of a public Topic resource and must not be used to call this ticket DONE.

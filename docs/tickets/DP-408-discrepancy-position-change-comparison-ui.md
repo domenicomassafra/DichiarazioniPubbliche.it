@@ -12,8 +12,9 @@ relationship for an accusation. The comparison surface must show the statements,
 context, relation type, and evidence trail while preserving the product rule that
 contradiction does not prove deception or malicious intent.
 
-DP-104 defines the relation publication policy but the public relation resource,
-identifier, and stable comparison grouping are not yet ratified by DP-105.
+DP-104 and DP-105 are complete. The implementation must consume only their approved
+relation/public-projection semantics and must fail closed when a relation is absent,
+stale, private or unreviewed.
 
 ## Outcome
 
@@ -168,13 +169,13 @@ comparison output, and fail-closed stale/tampered result.
 
 ## Documentation, data, and migration impact
 
-- document the public relation resource and no-intent language only after DP-104/DP-105
-  settle it;
+- consume the ratified DP-104/DP-105 relation/public-schema contract; any new relation
+  vocabulary belongs to those domain owners rather than this UI ticket;
 - update shared Statement/Trace components through DP-425;
 - no migration is introduced by the UI ticket;
 - do not edit `PLAN.md`.
 
 ## Completion receipt
 
-Pending DP-104/DP-105 and implementation. A static mock comparison is not proof that
-relation publication or fail-closed behavior works.
+Pending implementation. DP-104, DP-105 and DP-425 are complete; a static mock comparison
+is still not proof that relation publication or fail-closed behavior works.

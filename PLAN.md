@@ -225,7 +225,7 @@ LLM in the request path.
 | DP-403 | DONE | OpenAPI + examples + API versioning/deprecation policy | DP-402 |
 | DP-404 | DONE | `llms.txt` and agent-oriented public data documentation | DP-403 |
 | DP-405 | READY | Person archive UI | DP-105, DP-425 |
-| DP-406 | READY | Topic dossier UI | DP-105, DP-425 |
+| DP-406 | FUTURE | Topic dossier UI | DP-430, DP-425 |
 | DP-407 | FUTURE | Content/source-locator UI | DP-207, DP-105, DP-425 |
 | DP-408 | READY | Trace/longitudinal relation UI | DP-104, DP-105, DP-425 |
 | DP-409 | FUTURE | Public search/indexing without new infra by default | DP-405..408, DP-425 |
@@ -249,6 +249,7 @@ LLM in the request path.
 | DP-427 | READY | Canonical Statement page v4 | DP-425, DP-105 |
 | DP-428 | READY | Method + trust/utility document pages v4 | DP-425 |
 | DP-429 | FUTURE | Explore page v4 | DP-409, DP-425 |
+| DP-430 | READY | First-class public Topic resource contract | DP-105, DP-114 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
 providers offline, and expose provenance/correction history without private raw content.

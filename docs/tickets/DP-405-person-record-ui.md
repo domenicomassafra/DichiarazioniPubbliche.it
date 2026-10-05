@@ -13,9 +13,9 @@ current frontend has a basic route, but the public resource, dated Role Interval
 semantics, complete state behavior, and accessibility proof are not yet a stable product
 contract.
 
-The current operational projection is `dichiarazioni-pubbliche-public-v2`; DP-105 must decide how its
-legacy `public_role` field maps to dated Role Intervals before this route can be called
-stable.
+DP-105 ratified `dichiarazioni-pubbliche-public-v2`. The route must prefer approved dated
+`public_roles` when present and treat legacy `public_role` as compatibility input only;
+the frontend must not infer a missing interval.
 
 ## Outcome
 
@@ -37,10 +37,9 @@ from the approved public projection/API and remains useful when all providers ar
 
 ### Public route and rendering
 
-The existing `/record/<person>/` route is a demo/baseline alias. It must not be removed
-or silently redirected until DP-105 and DP-401 ratify the canonical person identifier and
-redirect policy. The new route must preserve safe links without creating duplicate public
-records.
+The existing `/record/<person>/` route is a demo/baseline alias. DP-105 and DP-401 are
+complete; preserve safe legacy links until DP-422 performs the canonical route cutover so
+this ticket does not create duplicate public records or ad-hoc redirects.
 
 The canonical route is `/persone/{slug-or-id}/` with deterministic identifier mapping.
 The route renders:
@@ -170,8 +169,8 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 
 ## Documentation, data, and migration impact
 
-- document the public Person resource and role-time semantics only after DP-105 ratifies
-  them;
+- consume the ratified DP-105 public Person/role fields; any new role-time schema belongs
+  to the domain/public-schema owner, not this UI ticket;
 - update the shared component contract through DP-425, not a Person-only CSS
   appendix;
 - no migration is introduced by the UI ticket; role migrations belong to DP-101/DP-105;
@@ -179,5 +178,5 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
 
 ## Completion receipt
 
-Pending implementation. The route is not DONE while DP-105 is unresolved, even if the
-current demo projection renders successfully.
+Pending implementation. DP-105 and DP-425 are complete; runtime-affecting DONE still
+requires the validation and MiniPC/public-projection proof above.
