@@ -1,6 +1,6 @@
 # DP-423 — Public product marketing + brand context
 
-Status: READY  
+Status: DONE
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-400, DP-413
 
@@ -54,4 +54,14 @@ Documentation only. No runtime/data migration.
 
 ## Completion receipt
 
-Pending implementation.
+- Canonical bounded context created at `docs/37-public-marketing-brand-context.md`.
+- The artifact explicitly defines audiences, jobs/triggers, differentiation, objections,
+  anti-fit, proof hierarchy, public voice, Home message hierarchy, the primary conversion
+  and trust paths.
+- Assumptions and missing evidence are explicitly separated from supported product claims;
+  no testimonials, usage metrics or customer evidence were fabricated.
+- Cross-checked against `PRODUCT.md`, `DESIGN.md`, `docs/11-product-positioning-marketing.md`,
+  `docs/21-brand-naming-v0.md`, `docs/30-competitive-ux-research-v1.md`,
+  `docs/31-implementable-ia-design-spec-v1.md`, `docs/35-public-product-architecture-v3.md`
+  and `docs/36-public-redesign-v4.md`.
+- `git diff --check` passes.

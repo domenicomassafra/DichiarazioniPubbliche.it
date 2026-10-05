@@ -242,8 +242,8 @@ LLM in the request path.
 | DP-420 | FUTURE | Garlasco operator usability and search-recall acceptance | DP-214, DP-415..419 |
 | DP-421 | FUTURE | Public case/collection view contract decision | DP-214, M3, DP-420 |
 | DP-422 | FUTURE | Public Product Architecture v3 route/template migration + legacy cutover integration | DP-405..409, DP-426..429 |
-| DP-423 | READY | Public product-marketing + brand context | DP-400, DP-413 |
-| DP-424 | FUTURE | Public visual redesign v4 concept selection | DP-423, DP-412 |
+| DP-423 | DONE | Public product-marketing + brand context | DP-400, DP-413 |
+| DP-424 | READY | Public visual redesign v4 concept selection | DP-423, DP-412 |
 | DP-425 | FUTURE | Public design system v2 + component contract | DP-424 |
 | DP-426 | FUTURE | Home + public shell v4 | DP-425 |
 | DP-427 | FUTURE | Canonical Statement page v4 | DP-425, DP-105 |
