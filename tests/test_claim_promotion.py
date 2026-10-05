@@ -123,6 +123,7 @@ def media_context():
             "segment_status": "RESOLVED",
             "segment_publication_blocked": False,
             "segment_speaker_person_id": "person:1",
+            "segment_verbatim_method": "OFFICIAL_TRANSCRIPT",
         }
     ]
     return raw
@@ -276,6 +277,35 @@ class ClaimPromotionTests(unittest.TestCase):
             context["passages"][0][key] = value
             receipt = promote_claim_candidate(FakePromotionStore(context), self.request("MEDIA"))
             self.assertEqual(receipt.reason_code, "PROMOTION_MEDIA_PROVENANCE_UNRESOLVED")
+
+    def test_machine_transcripts_are_not_direct_quote_authority(self):
+        for method in (
+            "PLATFORM_CAPTION",
+            "SINGLE_ASR",
+            "MULTI_ASR_AGREEMENT",
+            "UNVERIFIED",
+        ):
+            with self.subTest(method=method):
+                context = media_context()
+                context["passages"][0]["segment_verbatim_method"] = method
+                receipt = promote_claim_candidate(
+                    FakePromotionStore(context),
+                    self.request("MEDIA"),
+                )
+                self.assertFalse(receipt.promoted)
+                self.assertEqual(
+                    receipt.reason_code,
+                    "PROMOTION_MEDIA_VERBATIM_NOT_ELIGIBLE",
+                )
+
+    def test_human_audio_review_can_make_media_verbatim_eligible(self):
+        context = media_context()
+        context["passages"][0]["segment_verbatim_method"] = "HUMAN_AUDIO_VERIFIED"
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request("MEDIA"),
+        )
+        self.assertTrue(receipt.promoted)
 
     def test_single_reviewed_duplicate_links_existing_with_receipt(self):
         context = written_context()

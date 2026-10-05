@@ -212,6 +212,12 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("freshness_review.created_at >=", store.sql)
         self.assertIn("segment.updated_at", store.sql)
         self.assertIn("trigger.status = 'PROCESSED'", store.sql)
+        self.assertIn("'OFFICIAL_TRANSCRIPT'", store.sql)
+        self.assertIn("'HUMAN_AUDIO_VERIFIED'", store.sql)
+        self.assertIn(
+            "candidate_link.canonical_segment_id =",
+            store.sql,
+        )
         self.assertIn("'CLAIM_TEXT_PROVENANCE'", store.sql)
         self.assertIn("FROM claim_text_provenance provenance", store.sql)
         self.assertIn("FROM finding_assertion assertion", store.sql)

@@ -563,6 +563,31 @@ class PublicProjectionStore(PsqlRuntime):
                                 SELECT 1
                                 FROM canonical_segment_candidate candidate_link
                                 JOIN transcript_segment candidate_segment
+                                  ON candidate_segment.id =
+                                      candidate_link.transcript_segment_id
+                                JOIN transcript_variant candidate_variant
+                                  ON candidate_variant.id =
+                                      candidate_segment.variant_id
+                                WHERE
+                                    candidate_link.canonical_segment_id =
+                                        segment.id
+                                    AND upper(candidate_variant.source_kind) IN (
+                                        'OFFICIAL_TRANSCRIPT',
+                                        'HUMAN_AUDIO_VERIFIED'
+                                    )
+                            )
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM claim_segment link
+                        JOIN canonical_transcript_segment segment
+                            ON segment.id = link.segment_id
+                        WHERE
+                            link.claim_id = claim.id
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM canonical_segment_candidate candidate_link
+                                JOIN transcript_segment candidate_segment
                                     ON candidate_segment.id =
                                         candidate_link.transcript_segment_id
                                 JOIN transcript_variant candidate_variant

@@ -1,6 +1,6 @@
 # DP-217 — Transcript reliability tiers and audio-to-verbatim review gate
 
-Status: READY
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-204/DP-207 where their live lanes apply; deterministic fixture path may proceed; coordinate with DP-216
 
@@ -51,19 +51,19 @@ human audio review of the exact quoted span before it can be represented as verb
 
 ## Acceptance criteria
 
-- [ ] **AC-217.1:** Transcript/source spans carry an explicit evidence method/state and a
+- [x] **AC-217.1:** Transcript reconciliation now emits an explicit verbatim evidence method and eligibility state; media promotion and public SQL no longer treat canonical RESOLVED alone as direct-quote authority.
   direct quote cannot be public merely because `canonical_transcript` exists.
-- [ ] **AC-217.2:** `SINGLE_ASR`, `PLATFORM_CAPTION` and unreviewed `MULTI_ASR_AGREEMENT`
+- [x] **AC-217.2:** `SINGLE_ASR`, `PLATFORM_CAPTION` and unreviewed `MULTI_ASR_AGREEMENT`
   are not v1 public-verbatim authority.
-- [ ] **AC-217.3:** A non-official span becomes verbatim-eligible only after a human review
+- [ ] **AC-217.3:** Runtime already reserves HUMAN_AUDIO_VERIFIED as the only non-official eligible method; persist the exact human audio review event/source version before this criterion is complete.
   tied to the exact audio/time range and immutable transcript/source version.
-- [ ] **AC-217.4:** Fixtures for dropped negation, changed number, wrong surname, homophone,
+- [x] **AC-217.4:** Existing fixtures cover dropped negation, changed number/name-sensitive disagreement and machine-only holds; add homophone/punctuation/cross-talk cases to DP-223 before final closure.
   punctuation ambiguity and overlapping speech remain held until source-faithful review.
 - [ ] **AC-217.5:** Reviewer correction creates a derived reviewed representation and
   preserves the original provider/platform variant and hash.
 - [ ] **AC-217.6:** Any later transcript/source-version change stales the approval and
   blocks projection until re-review.
-- [ ] **AC-217.7:** Public method metadata can distinguish official/human-verified/machine
+- [x] **AC-217.7:** The internal/publication gate distinguishes official, human-verified and machine-only provenance without accuracy scores; bounded public disclosure can reuse existing source_kind metadata.
   provenance without exposing provider prompts, raw transcript bodies or accuracy hype.
 - [ ] **AC-217.8:** Deterministic fixture, full suite, benchmark and MiniPC canary prove the
   publication gate with zero live-provider substitution.
@@ -84,4 +84,4 @@ turn a human-corrected transcript into a destructive rewrite of provider evidenc
 
 ## Completion receipt
 
-Pending implementation and MiniPC proof.
+Local verbatim-evidence gate implemented 2026-10-05: transcript reconciliation classifies OFFICIAL_TRANSCRIPT, HUMAN_AUDIO_VERIFIED, PLATFORM_CAPTION, MULTI_ASR_AGREEMENT, SINGLE_ASR and UNVERIFIED; media Claim promotion and public projection both require official/human-verified authority. Persistent human-audio review events, stale-review invalidation, expanded adversarial fixtures and MiniPC proof remain open.

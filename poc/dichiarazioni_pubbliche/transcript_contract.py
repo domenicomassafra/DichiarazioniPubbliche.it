@@ -12,6 +12,15 @@ class TranscriptStatus(StrEnum):
     TRANSCRIPT_UNCERTAIN = "TRANSCRIPT_UNCERTAIN"
 
 
+class VerbatimEvidenceMethod(StrEnum):
+    OFFICIAL_TRANSCRIPT = "OFFICIAL_TRANSCRIPT"
+    HUMAN_AUDIO_VERIFIED = "HUMAN_AUDIO_VERIFIED"
+    PLATFORM_CAPTION = "PLATFORM_CAPTION"
+    MULTI_ASR_AGREEMENT = "MULTI_ASR_AGREEMENT"
+    SINGLE_ASR = "SINGLE_ASR"
+    UNVERIFIED = "UNVERIFIED"
+
+
 @dataclass(frozen=True)
 class TranscriptCandidate:
     candidate_id: str
@@ -31,6 +40,8 @@ class CanonicalTranscriptSegment:
     candidate_ids: tuple[str, ...]
     sensitive_signatures: tuple[tuple[str, ...], ...]
     publication_blocked: bool
+    verbatim_evidence_method: VerbatimEvidenceMethod
+    verbatim_eligible: bool
 
 
 _NUMBER = re.compile(r"(?<!\w)\d+(?:[.,]\d+)?(?:\s*%|\s*(?:miliardi?|milioni?|euro))?", re.I)
@@ -76,6 +87,24 @@ def sensitive_signature(
     return tuple(signature)
 
 
+def verbatim_evidence_method(
+    candidates: tuple[TranscriptCandidate, ...],
+) -> VerbatimEvidenceMethod:
+    kinds = {str(candidate.source_kind or "").strip().upper() for candidate in candidates}
+    if "HUMAN_AUDIO_VERIFIED" in kinds:
+        return VerbatimEvidenceMethod.HUMAN_AUDIO_VERIFIED
+    if "OFFICIAL_TRANSCRIPT" in kinds:
+        return VerbatimEvidenceMethod.OFFICIAL_TRANSCRIPT
+    if len(candidates) > 1:
+        return VerbatimEvidenceMethod.MULTI_ASR_AGREEMENT
+    only = next(iter(kinds), "")
+    if only in {"PLATFORM_CAPTION", "YOUTUBE_AUTO_CAPTION"}:
+        return VerbatimEvidenceMethod.PLATFORM_CAPTION
+    if len(candidates) == 1:
+        return VerbatimEvidenceMethod.SINGLE_ASR
+    return VerbatimEvidenceMethod.UNVERIFIED
+
+
 def reconcile_candidates(
     candidates: tuple[TranscriptCandidate, ...],
     *,
@@ -91,6 +120,11 @@ def reconcile_candidates(
         sensitive_signature(candidate.text, gazetteer_terms=gazetteer_terms)
         for candidate in candidates
     )
+    evidence_method = verbatim_evidence_method(candidates)
+    verbatim_eligible = evidence_method in {
+        VerbatimEvidenceMethod.OFFICIAL_TRANSCRIPT,
+        VerbatimEvidenceMethod.HUMAN_AUDIO_VERIFIED,
+    }
 
     # A single transcript candidate is useful for ordinary text, but it must
     # never silently become publication-grade truth when a material claim
@@ -106,6 +140,8 @@ def reconcile_candidates(
             candidate_ids=(candidates[0].candidate_id,),
             sensitive_signatures=signatures,
             publication_blocked=True,
+            verbatim_evidence_method=evidence_method,
+            verbatim_eligible=verbatim_eligible,
         )
 
     if len(set(normalized)) == 1:
@@ -117,6 +153,8 @@ def reconcile_candidates(
             candidate_ids=tuple(candidate.candidate_id for candidate in candidates),
             sensitive_signatures=signatures,
             publication_blocked=False,
+            verbatim_evidence_method=evidence_method,
+            verbatim_eligible=verbatim_eligible,
         )
 
     if len(set(signatures)) > 1:
@@ -128,6 +166,8 @@ def reconcile_candidates(
             candidate_ids=tuple(candidate.candidate_id for candidate in candidates),
             sensitive_signatures=signatures,
             publication_blocked=True,
+            verbatim_evidence_method=evidence_method,
+            verbatim_eligible=verbatim_eligible,
         )
 
     # We deliberately keep the first raw candidate rather than synthesizing a
@@ -141,4 +181,6 @@ def reconcile_candidates(
         candidate_ids=tuple(candidate.candidate_id for candidate in candidates),
         sensitive_signatures=signatures,
         publication_blocked=False,
+        verbatim_evidence_method=evidence_method,
+        verbatim_eligible=verbatim_eligible,
     )

@@ -114,7 +114,33 @@ WITH candidate AS (
         p.canonical_segment_id,
         segment.transcript_status AS segment_status,
         segment.publication_blocked AS segment_publication_blocked,
-        segment.speaker_person_id AS segment_speaker_person_id
+        segment.speaker_person_id AS segment_speaker_person_id,
+        (
+            SELECT CASE
+                WHEN bool_or(upper(variant.source_kind)='HUMAN_AUDIO_VERIFIED')
+                    THEN 'HUMAN_AUDIO_VERIFIED'
+                WHEN bool_or(upper(variant.source_kind)='OFFICIAL_TRANSCRIPT')
+                    THEN 'OFFICIAL_TRANSCRIPT'
+                WHEN count(*) > 1
+                    THEN 'MULTI_ASR_AGREEMENT'
+                WHEN bool_or(
+                    variant.is_platform_caption
+                    OR upper(variant.source_kind) IN (
+                        'PLATFORM_CAPTION','YOUTUBE_AUTO_CAPTION'
+                    )
+                )
+                    THEN 'PLATFORM_CAPTION'
+                WHEN count(*) = 1
+                    THEN 'SINGLE_ASR'
+                ELSE 'UNVERIFIED'
+            END
+            FROM canonical_segment_candidate candidate_link
+            JOIN transcript_segment candidate_segment
+              ON candidate_segment.id = candidate_link.transcript_segment_id
+            JOIN transcript_variant variant
+              ON variant.id = candidate_segment.variant_id
+            WHERE candidate_link.canonical_segment_id = segment.id
+        ) AS segment_verbatim_method
     FROM candidate c
     JOIN statement_candidate_passage link
       ON link.statement_candidate_id = c.statement_candidate_id
@@ -147,7 +173,8 @@ WITH candidate AS (
                 'canonical_segment_id', canonical_segment_id,
                 'segment_status', segment_status,
                 'segment_publication_blocked', segment_publication_blocked,
-                'segment_speaker_person_id', segment_speaker_person_id
+                'segment_speaker_person_id', segment_speaker_person_id,
+                'segment_verbatim_method', segment_verbatim_method
             ) ORDER BY passage_id
         ), '[]'::jsonb) AS passages
     FROM passage_rows
@@ -665,6 +692,11 @@ def promote_claim_candidate(
             or str(passage.get("segment_speaker_person_id") or "") != speaker_id
         ):
             return _blocked(request, "PROMOTION_MEDIA_PROVENANCE_UNRESOLVED")
+        if str(passage.get("segment_verbatim_method") or "") not in {
+            "OFFICIAL_TRANSCRIPT",
+            "HUMAN_AUDIO_VERIFIED",
+        }:
+            return _blocked(request, "PROMOTION_MEDIA_VERBATIM_NOT_ELIGIBLE")
 
     duplicate_ids = tuple(str(x) for x in (context.get("duplicate_target_ids") or []))
     if len(set(duplicate_ids)) > 1:
