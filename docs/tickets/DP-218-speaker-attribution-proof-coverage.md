@@ -1,7 +1,7 @@
 # DP-218 — Speaker-attribution proof coverage for the exact quoted/claimed span
 
-Status: READY  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: READY
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-114, DP-207; ADR 0003; coordinate with DP-216 and DP-217
 
 ## Problem
@@ -81,4 +81,3 @@ Prefer additive method/version fields and compatibility with existing approved c
 ## Completion receipt
 
 Pending implementation and MiniPC proof.
-

@@ -1,7 +1,7 @@
 # DP-309 — High-risk assertion and legal-status escalation gate
 
-Status: FUTURE  
-Milestone: M3 — Editorial, correction, privacy, and legal policy  
+Status: FUTURE
+Milestone: M3 — Editorial, correction, privacy, and legal policy
 Depends on: DP-215, DP-304, DP-306; DP-307 required for final launch decisions; DP-308
 
 Launch state: BLOCKED for final public enablement until applicable DP-306/DP-307 decisions
@@ -84,4 +84,3 @@ privileged material belongs in Git.
 ## Completion receipt
 
 Pending DP-306/DP-307 policy closure and implementation.
-

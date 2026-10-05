@@ -1,7 +1,7 @@
 # DP-511 — Source drift, supersession, and provenance revalidation watch
 
-Status: FUTURE  
-Milestone: M5 — Reliability, security, operations, and data lifecycle  
+Status: FUTURE
+Milestone: M5 — Reliability, security, operations, and data lifecycle
 Depends on: DP-210, DP-215, DP-308, DP-510; coordinate with DP-505
 
 ## Problem
@@ -77,4 +77,3 @@ source-launch-set metadata when implemented.
 ## Completion receipt
 
 Pending prerequisites and implementation.
-

@@ -1,7 +1,7 @@
 # DP-223 — False-attribution and fabricated-quote adversarial benchmark
 
-Status: FUTURE  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: FUTURE
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216..DP-222; coordinate with DP-602 and DP-704
 
 ## Problem
@@ -99,4 +99,3 @@ to Git solely for this benchmark. DP-602 owns CI wiring; DP-704 owns launch rehe
 ## Completion receipt
 
 Pending DP-216..DP-222 and implementation.
-

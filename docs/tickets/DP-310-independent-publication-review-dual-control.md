@@ -1,7 +1,7 @@
 # DP-310 — Independent publication review and dual-control for high-risk records
 
-Status: FUTURE  
-Milestone: M3 — Editorial, correction, privacy, and legal policy  
+Status: FUTURE
+Milestone: M3 — Editorial, correction, privacy, and legal policy
 Depends on: DP-308, DP-309; coordinate with DP-301..DP-307
 
 ## Problem
@@ -72,4 +72,3 @@ prematurely building DP-507's future admin auth surface.
 ## Completion receipt
 
 Pending DP-308/DP-309 and implementation.
-

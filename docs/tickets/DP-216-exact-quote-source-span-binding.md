@@ -1,7 +1,7 @@
 # DP-216 — Exact quote/source-span binding; model output can never be quotation authority
 
-Status: READY  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: READY
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-111, DP-210; coordinate with DP-207, DP-305
 
 ## Problem
@@ -120,4 +120,3 @@ DP-105/DP-305.
 ## Completion receipt
 
 Pending implementation and MiniPC proof.
-

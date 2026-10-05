@@ -1,7 +1,7 @@
 # DP-432 — Public trust/provenance disclosure integration for Statement and Method
 
-Status: FUTURE  
-Milestone: M4 — Public product, API, and hosting  
+Status: FUTURE
+Milestone: M4 — Public product, API, and hosting
 Depends on: DP-216..DP-223, DP-308, DP-427, DP-428
 
 ## Problem
@@ -76,4 +76,3 @@ contracts are implemented. No new operational data becomes public solely for thi
 ## Completion receipt
 
 Pending upstream Trust & Evidence implementation.
-

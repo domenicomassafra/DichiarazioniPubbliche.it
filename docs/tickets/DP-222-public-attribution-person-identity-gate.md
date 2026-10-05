@@ -1,7 +1,7 @@
 # DP-222 — Public attribution person-identity and same-name gate
 
-Status: FUTURE  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: FUTURE
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-101, DP-114, DP-216, DP-218
 
 ## Problem
@@ -70,4 +70,3 @@ docs after implementation; public schema changes remain under DP-105.
 ## Completion receipt
 
 Pending prerequisites and implementation.
-

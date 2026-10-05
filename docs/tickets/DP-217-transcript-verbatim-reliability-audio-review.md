@@ -1,7 +1,7 @@
 # DP-217 — Transcript reliability tiers and audio-to-verbatim review gate
 
-Status: READY  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: READY
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-204/DP-207 where their live lanes apply; deterministic fixture path may proceed; coordinate with DP-216
 
 ## Problem
@@ -85,4 +85,3 @@ turn a human-corrected transcript into a destructive rewrite of provider evidenc
 ## Completion receipt
 
 Pending implementation and MiniPC proof.
-

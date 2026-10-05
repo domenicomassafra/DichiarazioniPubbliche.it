@@ -1,7 +1,7 @@
 # DP-219 — Reported speech, nested quotation, and quote-origin separation
 
-Status: FUTURE  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: FUTURE
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216, DP-218, DP-211
 
 ## Problem
@@ -76,4 +76,3 @@ vocabulary after implementation.
 ## Completion receipt
 
 Pending DP-216/DP-218 and implementation.
-

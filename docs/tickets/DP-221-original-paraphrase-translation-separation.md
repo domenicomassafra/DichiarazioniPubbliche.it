@@ -1,7 +1,7 @@
 # DP-221 — Original wording, paraphrase, summary and translation separation
 
-Status: FUTURE  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: FUTURE
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216; coordinate with DP-219, DP-220, DP-305
 
 ## Problem
@@ -74,4 +74,3 @@ Atomic Claim models. Public schema changes require DP-105/DP-403 compatibility u
 ## Completion receipt
 
 Pending DP-216 and implementation.
-

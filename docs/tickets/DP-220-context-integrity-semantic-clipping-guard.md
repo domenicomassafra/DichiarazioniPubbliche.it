@@ -1,7 +1,7 @@
 # DP-220 — Context integrity and semantic-clipping guard
 
-Status: FUTURE  
-Milestone: M2 — Live pipeline readiness and source coverage  
+Status: FUTURE
+Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216, DP-217, DP-219
 
 ## Problem
@@ -81,4 +81,3 @@ rights/public-body policy in DP-305.
 ## Completion receipt
 
 Pending prerequisites and implementation.
-

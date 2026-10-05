@@ -1,7 +1,7 @@
 # DP-308 — Publication evidence invariants and fail-closed safety profile
 
-Status: FUTURE  
-Milestone: M3 — Editorial, correction, privacy, and legal policy  
+Status: FUTURE
+Milestone: M3 — Editorial, correction, privacy, and legal policy
 Depends on: DP-215, DP-216..DP-223, DP-301..DP-305
 
 ## Problem
@@ -98,4 +98,3 @@ append-only/versioned and must not become a shortcut around projection revalidat
 ## Completion receipt
 
 Pending DP-216..DP-223 and M3 policy integration.
-

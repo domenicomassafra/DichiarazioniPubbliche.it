@@ -1,7 +1,7 @@
 # DP-431 — Correction/retraction propagation across every public surface
 
-Status: FUTURE  
-Milestone: M4 — Public product, API, and hosting  
+Status: FUTURE
+Milestone: M4 — Public product, API, and hosting
 Depends on: DP-303, DP-402, DP-403, DP-405..DP-409, DP-422, DP-427..DP-429
 
 ## Problem
@@ -79,4 +79,3 @@ and DP-428 Corrections documentation when implemented.
 ## Completion receipt
 
 Pending public route implementation and DP-303 integration.
-

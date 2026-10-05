@@ -1,7 +1,7 @@
 # DP-510 — Provenance quarantine and emergency publication hold
 
-Status: FUTURE  
-Milestone: M5 — Reliability, security, operations, and data lifecycle  
+Status: FUTURE
+Milestone: M5 — Reliability, security, operations, and data lifecycle
 Depends on: DP-308; coordinate with DP-501, DP-504, DP-505, DP-431
 
 ## Problem
@@ -75,4 +75,3 @@ private reason bodies publicly. Update incident/recovery docs and DP-704 rehears
 ## Completion receipt
 
 Pending DP-308 and implementation.
-
