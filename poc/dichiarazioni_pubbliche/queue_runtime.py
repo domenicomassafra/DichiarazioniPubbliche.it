@@ -1670,7 +1670,7 @@ class QueueRuntimeStore(PsqlRuntime):
                 RETURNING claim_id
             )
             SELECT CASE
-                WHEN (SELECT has_rejected FROM blocked) = 1 THEN 0
+                WHEN (SELECT has_rejected FROM blocked) = 1 THEN '0'
                 ELSE (
                     (SELECT count(*) FROM inserted) +
                     (SELECT count(*) FROM replayed)
