@@ -129,3 +129,14 @@ than publishing a mixed bundle. This local evidence closes AC-431.2, AC-431.3 an
 AC-431.1/.4/.6/.7/.8 remain open for API/structured-metadata convergence where applicable,
 historical-view/private-history proof, and the MiniPC/static-host rehearsal with the same
 fingerprint across every public surface.
+
+### MiniPC rebuild rehearsal — 2026-10-06
+
+The same rebuild guard was exercised on the synchronized MiniPC after moving its temporary
+acceptance workspace onto the web filesystem (avoiding cross-filesystem `EXDEV` rename
+failures). It passes the correction and hold scenario with fingerprints
+`00ede66707f0 -> 7f1ef323b7d0` and `8c932ddf05a5`, removes stale
+Statement/Person/Topic/Content/Trace/search/static artifacts and keeps all four injected
+partial failures fail-closed. This runtime proof closes the DP-431 integration dependency
+used by DP-510, but DP-431 itself remains IN PROGRESS because AC-431.1/.4/.6/.7/.8 still
+require the broader API/metadata/history convergence stated above.

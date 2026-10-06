@@ -126,9 +126,9 @@ Goal: stabilize the core temporal public-record model before public API/frontend
 | DP-103 | DONE | Finding/assessment/publication vocabulary convergence | DP-102 |
 | DP-104 | DONE | Longitudinal relation approval/publication policy | DP-102, DP-103 |
 | DP-105 | DONE | Public schema v1 compatibility contract | DP-101..104 |
-| DP-106 | IN PROGRESS | Migration strategy from `*.v0` schema/config names; v1 primary, v0 config fallback window through at least 2026-10-04 | DP-101..105 |
-| DP-107 | IN PROGRESS | Deep PostgreSQL persistence locally converged: queue lifecycle + DP-230-aware cost/ledger, transcript/canonical, claim/evidence/observation/source-assessment/Coverage Need, and review/finding/reanalysis/reply/correction contract methods are owned by narrow stores; atomic cross-ledger approval transactions stay co-located and aggregate callers remain on the compatibility store where they cross domains; repository restore-inventory integration + MiniPC acceptance pending | DP-101..106 |
-| DP-108 | IN PROGRESS | Production `ProcessingWorker.process` dispatches into three cohesive handler families while queue/budget lifecycle stays centralized; failed claim canaries remain fail-closed with zero fallback/fan-out; local focused tests + benchmark green, repository restore-inventory integration + MiniPC production acceptance pending | DP-107 |
+| DP-106 | DONE | Migration from `*.v0` config/schema names completed; MiniPC cutover is v1-only with zero legacy fallback events | DP-101..105 |
+| DP-107 | DONE | Deep PostgreSQL persistence converged into narrow domain stores; 92-table restore integration and MiniPC worker/review/runtime acceptance green | DP-101..106 |
+| DP-108 | DONE | ProcessingWorker orchestration separated into three cohesive handler families; MiniPC queue/cost/block/review acceptance green | DP-107 |
 | DP-110 | DONE | Evidence-based reasoned inference candidates, private/review-only | DP-102, DP-103 |
 | DP-111 | DONE | First-class written-source claim provenance without fake timestamps | DP-102, DP-105 |
 
@@ -196,7 +196,7 @@ without manual DB surgery.
 | DP-227 | DONE | Effective-time/validity/supersession verification; selectors + reviewed supersession -> persisted reanalysis consumer proven with law/policy/statistical MiniPC canary | DP-215, DP-210 |
 | DP-228 | IN PROGRESS | Claim-specific research-plan compiler with bounded specialist retrieval lanes | DP-213, DP-215, DP-209 |
 | DP-229 | IN PROGRESS | Bounded adversarial challenger/counter-case packet | DP-228, DP-215 |
-| DP-230 | IN PROGRESS | Canonical provider-operation receipt + reconstructable cost ledger v2 | DP-209, DP-211, DP-506 |
+| DP-230 | DONE | Canonical provider-operation receipt + reconstructable cost ledger v2; MiniPC restart/replay canary green | DP-209, DP-211, DP-506 |
 | DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
 | DP-232 | IN PROGRESS | Existing fact-check adapter; bounded DP-228→DP-209 runtime + append-only mirror lineage/replay and fail-closed UNKNOWN rights proven, canonical public metadata/link surface still pending | DP-228, DP-215 |
 | DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video adapter; fixture execution distinguishes NEW/REPLAY/AMENDED and delegates amended records to DP-511/DP-227 with DP-305 fail-closed rights; approved official source-family MiniPC canary pending | DP-206, DP-217, DP-218, DP-231 |
@@ -283,7 +283,7 @@ LLM in the request path.
 | DP-430 | DONE | First-class public Topic resource contract | DP-105, DP-114 |
 | DP-431 | IN PROGRESS | Correction/retraction propagation across public pages/API/search/metadata; pure multi-artifact fingerprint/orphan/current-vs-historical checker implemented, rebuild/cleanup/MiniPC integration pending | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429, DP-434 |
 | DP-432 | IN PROGRESS | Public trust/provenance disclosure integration for Statement + Method; wording/attribution/source-role/abstention disclosure implemented, correction propagation + manual/MiniPC acceptance pending | DP-216..223, DP-308, DP-427, DP-428 |
-| DP-433 | IN PROGRESS | Stable-URI + linked-data/RDF interoperability projection, including zero-finding first-class Content | DP-105, DP-403, DP-430, DP-432, DP-434 |
+| DP-433 | DONE | Stable-URI + linked-data/RDF interoperability projection; deployed `/index.nt` read-back and discovery green | DP-105, DP-403, DP-430, DP-432, DP-434 |
 | DP-434 | DONE | First-class reviewed public Content resource independent of published findings; projection/API/web/RDF + isolated MiniPC migration/same-origin canary complete | DP-105, DP-210, DP-401, DP-403 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
@@ -302,16 +302,16 @@ Goal: make unattended operation and recovery boring and measurable.
 | Ticket | Status | Description | Depends on |
 |---|---|---|---|
 | DP-501 | IN PROGRESS | Threat model and security regression matrix | M0 |
-| DP-502 | IN PROGRESS | Backup/restore drill for PostgreSQL + public projection | DP-501 |
+| DP-502 | DONE | Backup/restore drill complete with 92-table MiniPC disposable restore receipt | DP-501 |
 | DP-503 | IN PROGRESS | Retention matrix for raw media/transcripts/evidence/cache | DP-304, DP-305 |
-| DP-504 | IN PROGRESS | Operational SLOs and health/error taxonomy | M0 |
-| DP-505 | IN PROGRESS | Alert/digest acceptance and operator runbook | DP-504 |
-| DP-506 | IN PROGRESS | Cost budget policy + provider outage drills | DP-504 |
+| DP-504 | DONE | Operational SLO/taxonomy + real MiniPC private health read-back complete | M0 |
+| DP-505 | DONE | Alert/digest runbook + MiniPC PAGE/NO_PAGE matrix complete | DP-504 |
+| DP-506 | DONE | Cost budget policy + real isolated MiniPC provider-outage drill complete | DP-504 |
 | DP-507 | FUTURE | AuthN/AuthZ/CSRF design for any future admin HTTP surface | only when such surface exists |
 | DP-508 | FUTURE | Public intake rate limiting/spam controls runtime | DP-302, public intake implementation |
 | DP-509 | DONE | Harden claim/ASR/verification provenance inputs | M0 baseline |
-| DP-510 | IN PROGRESS | Targeted provenance quarantine + emergency public hold/unhold; durable append-only dependency/hold authority, exact-binding revalidation and fail-closed production projection are implemented and locally proven; DP-431 stale-artifact propagation (AC-510.5) and MiniPC incident canary (AC-510.9) remain | DP-308; coordinate DP-501/504/505/431 |
-| DP-511 | IN PROGRESS | Source drift/supersession/rights-expiry revalidation watch; additive immutable Capture/source observations, durable revalidation history, DP-510 hold bridge, bounded alerts and fail-closed production projection are locally proven; MiniPC canary (AC-511.9) remains | DP-210, DP-215, DP-308, DP-510 |
+| DP-510 | DONE | Durable targeted provenance quarantine/hold + DP-431 cleanup + MiniPC restart/revalidation incident canary complete | DP-308; coordinate DP-501/504/505/431 |
+| DP-511 | DONE | Source drift/supersession/rights-expiry revalidation watch + durable MiniPC canary complete | DP-210, DP-215, DP-308, DP-510 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
 observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad

@@ -1,6 +1,6 @@
 # DP-433 — Linked-data/RDF interoperability projection
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-105, DP-403, DP-430, DP-432, DP-434
 
@@ -42,7 +42,7 @@ artifact, not a second database or a reason to introduce Virtuoso.
 - [x] First-class DP-434 Content is emitted directly from the reviewed `contents` collection,
   including approved Content with zero published findings; RDF does not require inventing a
   Statement or leaking Content review-event IDs.
-- [ ] Add web-host content type/discoverability metadata (application/n-triples,
+- [x] Add web-host content type/discoverability metadata (application/n-triples,
   sitemap/data page or Link relation) and one deployed read-back before DONE.
 
 ## Completion receipt
@@ -62,3 +62,11 @@ Focused local proof: `tests.test_public_api` 73/73 PASS, including real same-ori
 GET/HEAD/content negotiation/discovery plus missing/stale/tampered artifact cases;
 `tests.test_public_web_boundary` 4/4 PASS; scoped `git diff --check` PASS. The final acceptance
 checkbox remains open because the required deployed read-back has not been performed.
+
+### Deployed MiniPC read-back — 2026-10-06
+
+The production host now returns `200` for `/index.nt` with
+`Content-Type: application/n-triples`, ETag and Last-Modified validators; the artifact is
+984 bytes in the current empty-safe projection. `/api/v1/index.json` also returns `200` and
+advertises `</index.nt>; rel="alternate"; type="application/n-triples"` in its `Link`
+header. This closes the final hosting/discoverability/read-back criterion.

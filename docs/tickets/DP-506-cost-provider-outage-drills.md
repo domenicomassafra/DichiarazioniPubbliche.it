@@ -1,6 +1,6 @@
 # DP-506 — Cost budget policy and provider outage drills
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5
 Depends on: DP-504
 
@@ -25,3 +25,11 @@ Fail closed on unpriced paid work, enforce cost circuit breakers, and prove prov
 - Threat regression binds the budget/outage guards to real worker code.
 
 Development tests are green. Remaining acceptance is a real isolated MiniPC outage drill and sanitized receipt. Provider failure must remain a blocker; no alternate model/provider is an acceptable shortcut.
+
+## MiniPC completion receipt — 2026-10-06
+
+The isolated MiniPC provider-outage drill used the real worker path and produced
+`CLAIM_EXTRACTION_CANARY_FAILED:OMNIROUTE_API_KEY_MISSING`. The claim job ended `BLOCKED`;
+atomic claims stayed 0→0, successful provider receipts 0→0, published findings 0→0,
+provider cost remained 0 and model invocations remained 0. The drill reported PASS and did
+not switch provider/model/quality tier. This satisfies the required sanitized outage canary.

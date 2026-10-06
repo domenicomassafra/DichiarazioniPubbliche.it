@@ -1,6 +1,6 @@
 # DP-108 — Separate worker orchestration from domain job handlers
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M1  
 Depends on: DP-107
 
@@ -99,3 +99,13 @@ ingestion/transcript deep family rather than creating a fourth shallow handler f
 handler accepts only `ingest_action=DISCOVERY_ONLY`, performs no network/provider/transcript/
 claim work, preserves the content's `DISCOVERED` processing state, and records only bounded
 metadata that the metadata-only triage completed. Any other action fails closed.
+
+## Final MiniPC acceptance — 2026-10-06
+
+After the restore inventory and metadata-only `CONTENT_TRIAGE` compatibility fixes landed,
+the synchronized MiniPC passes the combined queue/store/dispatch/worker/review/ledger/threat
+matrix **141/141**. All five production timers/services are active and the public host returns
+HTTP 200. Queue lifecycle remains centralized in `ProcessingWorker.run`, the fifteen job
+types route through the three deep handler families, provider/cost blockers remain
+fail-closed, and no fallback provider/model path was introduced. The final runtime acceptance
+criterion is satisfied.

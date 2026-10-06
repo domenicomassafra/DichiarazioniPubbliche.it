@@ -1,6 +1,6 @@
 # DP-230 — Canonical provider-operation receipt and cost ledger v2
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-209, DP-211, DP-506
 
@@ -40,7 +40,7 @@ aggregate. Unknown cost is never displayed as zero.
 - [x] DP-209 discovery attempts bridge every invoked adapter call to a collection-scoped
   canonical operation receipt; `test_collection_ledger_aggregates_invoked_discovery_operations_idempotently`
   proves collection aggregation and stable replay identity.
-- [ ] Full failure-injection and MiniPC restart/replay canary pass.
+- [x] Full failure-injection and MiniPC restart/replay canary pass.
 
 ## Completion receipt
 
@@ -48,3 +48,17 @@ Provider receipt v2 schema/migration, worker + candidate-extraction writers, per
 ledger query/aggregation, DP-506 cost-path integration, and the DP-209 collection-scoped
 discovery bridge were added and locally tested 2026-10-05. MiniPC restart/replay proof
 remains open.
+
+### Final MiniPC restart/replay receipt — 2026-10-06
+
+A disposable MiniPC PostgreSQL canary persisted a failed first attempt and successful second
+attempt from separate runtime processes. Read-back reconstructs attempts `[1, 2]` with one
+stable operation key
+`provider-operation:3a30d5f3d379f9bb40e56a973eb8f066efd365d2ccb1ae38cdfafca65de917e6`,
+`operation_count=1`, `attempt_count=2`, measured cost `0.3`, and `request_count=2`.
+Replaying attempt 1 from a fresh process returns the same receipt ID and leaves the ledger
+at one row before attempt 2 is recorded, proving same-attempt idempotency across restart.
+The canary exposed and fixed a real PostgreSQL optional-date-filter bug: empty `since`/`until`
+values are now converted with `NULLIF(... )::timestamptz` rather than casting the empty
+string before the OR guard. Full local suite, contributor acceptance and CI across Linux/macOS
+Python 3.11–3.14 are green after the fix.

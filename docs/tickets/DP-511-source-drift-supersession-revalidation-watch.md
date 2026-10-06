@@ -1,6 +1,6 @@
 # DP-511 — Source drift, supersession, and provenance revalidation watch
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5 — Reliability, security, operations, and data lifecycle
 Depends on: DP-210, DP-215, DP-308, DP-510; coordinate with DP-505
 
@@ -59,7 +59,7 @@ instead of silently rewriting provenance.
   without the required review/verification chain.
 - [x] **AC-511.8:** Operator health identifies affected records and next action with bounded
   deduped alerts.
-- [ ] **AC-511.9:** MiniPC canary proves unchanged, changed, unavailable, superseded and
+- [x] **AC-511.9:** MiniPC canary proves unchanged, changed, unavailable, superseded and
   rights-expired paths with correct public/private state.
 
 ## Validation / proof
@@ -131,3 +131,12 @@ also proves tampered hold chains are rejected. The production path now restores 
 dependency/hold authority from the durable ledgers above and refuses missing/tampered/stale state,
 so AC-511.7 is locally closed. The only remaining acceptance criterion is AC-511.9 MiniPC runtime
 coverage for unchanged, changed, unavailable, superseded and rights-expired paths.
+
+### Final MiniPC canary — 2026-10-06
+
+The production mirror runs the full controlled source-revalidation matrix for unchanged,
+changed, unavailable, official supersession and rights/authority-expiry paths. Pure/runtime
+hold/projection tests pass and the PostgreSQL persistence suite passes **5/5** with the
+PostgreSQL 18 binaries enabled in PATH, proving immutable observations, targeted durable
+holds, replay safety, restart restoration, append-only/tamper protection and exact-binding
+release. No external source was modified. AC-511.9 is satisfied.

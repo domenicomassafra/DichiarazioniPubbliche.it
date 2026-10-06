@@ -1,6 +1,6 @@
 # DP-502 — Backup/restore drill
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5
 Depends on: DP-501
 
@@ -50,3 +50,12 @@ Development tests prove fail-closed comparison behavior. Remaining acceptance is
 
 These are local safety proofs only. The required MiniPC backup→restore round trip and
 sanitized runtime receipt remain open, so DP-502 stays IN PROGRESS.
+
+## MiniPC completion receipt — 2026-10-06
+
+The production MiniPC created backup set `20261006T185552Z` with a readable PostgreSQL dump
+(10,892,638 bytes) and the configured public bundle. The dump was restored into disposable
+DB `dp_restore_accept_20261006_1856`; the drill verified **92/92** table-data entries and
+reported `RESULT: PASS (restored state matches backup exactly)` plus `DRILL PASS`. The
+disposable DB was then dropped. The canonical production database was never used as a
+restore target and no credential/private payload was copied into the sanitized receipt.

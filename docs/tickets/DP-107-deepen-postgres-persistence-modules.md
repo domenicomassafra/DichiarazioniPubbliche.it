@@ -1,6 +1,6 @@
 # DP-107 — Deepen PostgreSQL persistence modules
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M1
 Depends on: DP-101..DP-106
 
@@ -281,3 +281,14 @@ work and is not changed by DP-107.
 DP-107 remains **IN PROGRESS** until the repository-wide restore-inventory integration is green
 and the required MiniPC worker/review/runtime acceptance is executed. No Mac-only local proof
 is treated as MiniPC acceptance.
+
+## Final MiniPC acceptance — 2026-10-06
+
+The restore-inventory integration is green at 92 durable tables and the final production
+mirror is synchronized from `main`. On the MiniPC, a focused worker/review/runtime matrix
+covering queue/store compatibility, worker dispatch/handlers, review admin, publication
+review control and PostgreSQL persistence, reviewer identity authority, operation-ledger
+semantics and the threat matrix passes **141/141**. The separate DP-230 real PostgreSQL
+restart/replay canary also reconstructs attempts `[1, 2]` under one stable operation key.
+All acceptance criteria are now met; aggregate cross-domain callers remain aggregate by
+design rather than being forced behind an artificial repository abstraction.

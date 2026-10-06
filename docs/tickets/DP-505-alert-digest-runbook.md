@@ -1,6 +1,6 @@
 # DP-505 — Alert/digest acceptance and operator runbook
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5
 Depends on: DP-504
 
@@ -38,3 +38,13 @@ The health digest now emits `blocker_actions` and SLO page candidates from the D
 Remaining acceptance: exercise this exact matrix against a real MiniPC health digest and
 preserve the sanitized result. Until that runtime receipt exists the ticket remains
 IN PROGRESS.
+
+## MiniPC completion receipt — 2026-10-06
+
+A disposable MiniPC runtime matrix exercised both paging and non-paging states through the
+real health digest. `CLAIM_EXTRACTION_CANARY_FAILED` and `OMNIROUTE_HTTP_500` produced PAGE
+actions; missing OmniRoute/Groq credentials and `COST` produced NO_PAGE actions. A deliberately
+stale/queued scenario produced PAGE candidates for public freshness, oldest queued work and
+queue drain. Privacy flags remained false, and the executable taxonomy/runbook contract passed
+**27/27** on the MiniPC. The documented incident owner/contact and forbidden-remedy rules are
+therefore backed by runtime evidence.

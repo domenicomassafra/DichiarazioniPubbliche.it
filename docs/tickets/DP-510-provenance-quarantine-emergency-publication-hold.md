@@ -1,6 +1,6 @@
 # DP-510 — Provenance quarantine and emergency publication hold
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5 — Reliability, security, operations, and data lifecycle
 Depends on: DP-308; coordinate with DP-501, DP-504, DP-505, DP-431
 
@@ -50,7 +50,7 @@ eligibility by precise dependency scope and regenerate the public projection fai
   not substitute for the required event.
 - [x] **AC-510.4:** Release/unhold requires explicit revalidation against current source,
   provenance, policy and review versions.
-- [ ] **AC-510.5:** Stale public files/index entries are cleaned through DP-431; partial
+- [x] **AC-510.5:** Stale public files/index entries are cleaned through DP-431; partial
   cleanup failure leaves the affected surface fail-closed and alerts the operator.
 - [x] **AC-510.6:** Emergency hold/unhold operations never delete Capture, transcript,
   evidence, review or correction history.
@@ -58,7 +58,7 @@ eligibility by precise dependency scope and regenerate the public projection fai
   before activation for test/canary cases.
 - [x] **AC-510.8:** Security regression proves an unauthorized/public caller cannot create
   or clear holds.
-- [ ] **AC-510.9:** MiniPC incident canary proves hold -> projection omission -> reviewed
+- [x] **AC-510.9:** MiniPC incident canary proves hold -> projection omission -> reviewed
   revalidation -> safe restore with exact before/after fingerprints.
 
 ## Validation / proof
@@ -98,3 +98,14 @@ proven AC-510.2/.3/.7/.8. Remaining: AC-510.5 requires the DP-431 stale-artifact
 to be proven end to end, and AC-510.9 requires the MiniPC incident canary. The new durable suite is
 5/5 PASS, the DP-510/511 regression set is 48/48 PASS, and the public projection/schema regression
 set is 104/104 PASS.
+
+### Final MiniPC incident receipt — 2026-10-06
+
+The synchronized MiniPC passes the persistent hold/revalidation PostgreSQL suite **5/5**:
+holds survive restart, reviewed-unhold remains non-projectable until exact current binding
+revalidation, changed bindings fail closed again, the durable ledgers are append-only and
+tamper detection blocks publication. The production-projection/source-revalidation regression
+matrix also passes. DP-431's MiniPC rebuild canary now passes with correction fingerprint
+`00ede66707f0 -> 7f1ef323b7d0` and hold fingerprint `8c932ddf05a5`; stale
+Statement/Person/Topic/Content/Trace/search/static artifacts are removed and four injected
+partial failures remain in HOLD. This closes AC-510.5 and AC-510.9.

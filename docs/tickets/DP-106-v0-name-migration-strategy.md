@@ -1,6 +1,6 @@
 # DP-106 — Migration strategy from v0 schema/config names
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M1  
 Depends on: DP-101..DP-105
 
@@ -307,3 +307,14 @@ Local proof after the cleanup:
 Status remains **IN PROGRESS** until this exact cleanup is synchronized to the MiniPC and
 the post-sync daemon/read-back acceptance proves v1-only startup there. No database or DDL
 change is part of this closure.
+
+## Final MiniPC cutover receipt — 2026-10-06
+
+The compatibility window is closed on the production MiniPC. After the final `main` sync,
+`config/source-registry.v0.json` and `config/transcription-policy.v0.json` are absent, both
+v1 files are present, `config/transcription-policy.v1.json` reports
+`transcription-policy-v1`, the active runtime modules contain zero legacy-fallback branches,
+and the worker/source-poll journal since 2026-09-27 contains zero
+`legacy v0 config fallback` events. The source-poll timers, worker timer, health timer and
+web service are all active, the public host returns HTTP 200, and the production database
+remains healthy at 92 public tables. This satisfies the final runtime/cutover acceptance.
