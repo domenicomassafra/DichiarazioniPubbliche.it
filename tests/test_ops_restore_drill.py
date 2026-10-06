@@ -160,6 +160,10 @@ class RestoreVerificationTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("refusing canonical production database", proc.stderr)
 
+    def test_restore_inventory_comparisons_use_bytewise_sort(self):
+        text = RESTORE_SCRIPT.read_text()
+        self.assertGreaterEqual(text.count("LC_ALL=C sort"), 2)
+
     def test_restore_driver_refuses_nonempty_target(self):
         proc = self._run_restore_driver_with_psql(
             'case "$*" in\n'

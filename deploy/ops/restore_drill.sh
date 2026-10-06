@@ -177,8 +177,8 @@ if ! RESTORED_TABLES=$(psql --dbname="$RESTORE_URL" --no-align --tuples-only --c
     FAIL=1
     RESTORED_TABLES=""
 fi
-RESTORED_TABLES=$(printf '%s\n' "$RESTORED_TABLES" | sed '/^[[:space:]]*$/d')
-MANIFEST_TABLES=$(printf '%s\n' $TABLES | sort)
+RESTORED_TABLES=$(printf '%s\n' "$RESTORED_TABLES" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort)
+MANIFEST_TABLES=$(printf '%s\n' $TABLES | LC_ALL=C sort)
 if [ "$RESTORED_TABLES" != "$MANIFEST_TABLES" ]; then
     echo "DRILL FAILED: restored durable table inventory differs from backup manifest" >&2
     FAIL=1
