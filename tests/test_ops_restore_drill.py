@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RESTORE_SCRIPT = ROOT / "deploy" / "ops" / "restore_drill.sh"
+VERIFY_BUNDLE_SCRIPT = ROOT / "deploy" / "ops" / "verify_projection_bundle.py"
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.ops.restore_drill import main as restore_main  # noqa: E402
@@ -22,6 +23,7 @@ from dichiarazioni_pubbliche.ops.restore_verify import (  # noqa: E402
     read_dataset_sha256,
     validate_drill,
 )
+from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256  # noqa: E402
 
 
 class RestoreVerificationTests(unittest.TestCase):
@@ -80,6 +82,32 @@ class RestoreVerificationTests(unittest.TestCase):
             self.assertEqual(read_dataset_sha256(str(path)), "abc")
             path.write_text("{not-json")
             self.assertIsNone(read_dataset_sha256(str(path)))
+
+    def test_projection_bundle_verifier_hashes_first_class_contents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp)
+            payload = {
+                "schema_version": "dichiarazioni-pubbliche-public-v2",
+                "generated_at": "2026-10-06T12:00:00+00:00",
+                "dataset_sha256": "",
+                "dossier_count": 0,
+                "omitted_count": 0,
+                "methodology": {"aggregate_person_score": False},
+                "dossiers": [],
+                "topics": [],
+                "contents": [],
+            }
+            payload["dataset_sha256"] = projection_dataset_sha256(payload)
+            (bundle / "index.json").write_text(json.dumps(payload))
+
+            proc = subprocess.run(
+                [sys.executable, str(VERIFY_BUNDLE_SCRIPT), str(bundle)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn("BUNDLE VERIFY: OK", proc.stdout)
 
     def test_backup_and_restore_inventory_include_research_corpus(self):
         from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES

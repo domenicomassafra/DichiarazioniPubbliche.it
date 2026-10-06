@@ -54,15 +54,26 @@ def dossier_filename(finding_id: str) -> str:
 PROJECTION_SERVE_EXTENSIONS = {".json", ".jsonld", ".html"}
 
 
-def recompute_dataset_sha256(dossiers: list[dict], topics: list[dict] | None = None) -> str:
+def recompute_dataset_sha256(
+    dossiers: list[dict],
+    topics: list[dict] | None = None,
+    contents: list[dict] | None = None,
+) -> str:
     """Recompute the projection digest.
 
     Older ``public-v2`` bundles hashed only the dossiers array. DP-430 adds an
-    optional, backward-compatible top-level ``topics`` collection; when that
-    key is present the digest covers both collections so Topic changes cannot
-    leave the public fingerprint unchanged.
+    optional, backward-compatible top-level ``topics`` collection. DP-434 adds
+    optional first-class ``contents``. When either additive collection exists,
+    the digest covers every collection present so Topic or Content changes
+    cannot leave the public fingerprint unchanged.
     """
-    value: object = dossiers if topics is None else {"dossiers": dossiers, "topics": topics}
+    if contents is not None:
+        value: object = {"dossiers": dossiers}
+        if topics is not None:
+            value["topics"] = topics
+        value["contents"] = contents
+    else:
+        value = dossiers if topics is None else {"dossiers": dossiers, "topics": topics}
     canonical = json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()
@@ -111,8 +122,13 @@ def verify(bundle: Path, expect_sha256: str | None) -> tuple[int, list[str]]:
         problems.append("index.json topics is not an array")
         raw_topics = []
 
+    raw_contents = payload.get("contents") if "contents" in payload else None
+    if raw_contents is not None and not isinstance(raw_contents, list):
+        problems.append("index.json contents is not an array")
+        raw_contents = []
+
     if recorded and not problems:
-        actual = recompute_dataset_sha256(dossiers, raw_topics)
+        actual = recompute_dataset_sha256(dossiers, raw_topics, raw_contents)
         if actual != recorded:
             problems.append(
                 f"dataset_sha256 mismatch: recorded={recorded} recomputed={actual}"
