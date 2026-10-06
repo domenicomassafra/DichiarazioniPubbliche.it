@@ -274,7 +274,9 @@ def check_hygiene() -> list[str]:
                 problems.append(f"whitespace: {line}")
     # Conflict markers + secret-shaped strings in tracked text.
     for rel in tracked_files():
-        normalized_rel = f"/{rel.lower().replace('\\', '/')}"
+        # Keep this Python 3.11-compatible: backslashes inside an f-string
+        # expression are a SyntaxError on the oldest supported interpreter.
+        normalized_rel = "/" + rel.lower().replace("\\", "/")
         if any(marker in normalized_rel for marker in PRIVATE_AUTHORITY_PATH_MARKERS):
             problems.append(
                 f"{rel}: private reviewer-authority credential/receipt must not be tracked"

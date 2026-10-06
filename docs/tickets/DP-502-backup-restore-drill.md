@@ -33,8 +33,17 @@ Development tests prove fail-closed comparison behavior. Remaining acceptance is
   `db/schema.v1.sql` or the ordered migrations, including identity/role, correction/reply,
   rights/privacy, challenge/high-risk review, source-health/polling, and fact-check mirror
   state added after the original DP-502 implementation.
-- `tests/test_ops_restore_drill.py` fails when a persistent table is missing from either
-  inventory, so schema growth cannot silently weaken restore verification.
+- The current inventory covers all 92 durable public tables, including the source-span review
+  ledgers and provenance hold/source-revalidation ledgers added by concurrent migrations.
+- `ops/table_inventory.py` derives the expected inventory from `schema.v1.sql` plus all ordered
+  migrations. `backup.sh` fails closed unless its checked-in inventory matches both that
+  repository declaration and PostgreSQL's live permanent public-table catalog; the restore
+  drill likewise requires the restored catalog to match the backed-up manifest before row-count
+  comparison.
+- `tests/test_ops_restore_drill.py` compares the checked-in backup inventory, the restore
+  verifier inventory, and the repository-derived inventory without depending on shell-block
+  layout. Local proof on 2026-10-06: 13/13 restore tests PASS, `compileall` PASS, and
+  `git diff --check` PASS.
 - The drill now refuses the canonical production database name and any restore target that
   already contains user relations before `pg_restore` runs. Cleanup resets only the
   disposable target's `public` schema.

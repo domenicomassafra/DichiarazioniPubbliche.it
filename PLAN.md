@@ -310,8 +310,8 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-507 | FUTURE | AuthN/AuthZ/CSRF design for any future admin HTTP surface | only when such surface exists |
 | DP-508 | FUTURE | Public intake rate limiting/spam controls runtime | DP-302, public intake implementation |
 | DP-509 | DONE | Harden claim/ASR/verification provenance inputs | M0 baseline |
-| DP-510 | IN PROGRESS | Targeted provenance quarantine + emergency public hold/unhold; bounded append-only domain plus production Finding projection hold/revalidation binding implemented locally; authoritative hold persistence, DP-431 propagation and MiniPC canary pending | DP-308; coordinate DP-501/504/505/431 |
-| DP-511 | IN PROGRESS | Source drift/supersession/rights-expiry revalidation watch; re-observation, DP-510 hold bridge, bounded alerts and local production projection suppression/revalidation are implemented; Capture/authoritative persisted hold state/MiniPC pending | DP-210, DP-215, DP-308, DP-510 |
+| DP-510 | IN PROGRESS | Targeted provenance quarantine + emergency public hold/unhold; durable append-only dependency/hold authority, exact-binding revalidation and fail-closed production projection are implemented and locally proven; DP-431 stale-artifact propagation (AC-510.5) and MiniPC incident canary (AC-510.9) remain | DP-308; coordinate DP-501/504/505/431 |
+| DP-511 | IN PROGRESS | Source drift/supersession/rights-expiry revalidation watch; additive immutable Capture/source observations, durable revalidation history, DP-510 hold bridge, bounded alerts and fail-closed production projection are locally proven; MiniPC canary (AC-511.9) remains | DP-210, DP-215, DP-308, DP-510 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
 observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad

@@ -23,6 +23,9 @@ from dichiarazioni_pubbliche.ops.restore_verify import (  # noqa: E402
     read_dataset_sha256,
     validate_drill,
 )
+from dichiarazioni_pubbliche.ops.table_inventory import (  # noqa: E402
+    repository_persistent_tables,
+)
 from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256  # noqa: E402
 
 
@@ -137,23 +140,18 @@ class RestoreVerificationTests(unittest.TestCase):
     def test_backup_and_restore_inventory_cover_all_persistent_tables(self):
         from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES
 
-        sql_paths = [ROOT / "db" / "schema.v1.sql", *sorted((ROOT / "db" / "migrations").glob("*.sql"))]
-        create_table = re.compile(
-            r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
-            re.IGNORECASE,
-        )
-        persistent_tables: set[str] = set()
-        for path in sql_paths:
-            persistent_tables.update(create_table.findall(path.read_text()))
+        persistent_tables = set(repository_persistent_tables(ROOT))
 
         backup_text = (ROOT / "deploy" / "ops" / "backup.sh").read_text()
-        match = re.search(r'TABLES="(.*?)"\n', backup_text, re.DOTALL)
+        match = re.search(r'^TABLES="(.*?)"$', backup_text, re.DOTALL | re.MULTILINE)
         self.assertIsNotNone(match, "backup.sh TABLES inventory is not parseable")
         backup_tables = set(re.findall(r"\b[a-z][a-z0-9_]+\b", match.group(1)))
         restore_tables = set(LOAD_BEARING_TABLES)
 
         self.assertEqual(backup_tables, restore_tables)
-        self.assertEqual(persistent_tables - backup_tables, set())
+        self.assertEqual(persistent_tables, backup_tables)
+        self.assertIn("checked-in table inventory drifted from schema+migrations", backup_text)
+        self.assertIn("live durable table inventory drifted from schema+migrations", backup_text)
 
     def test_restore_driver_refuses_canonical_production_database(self):
         proc = self._run_restore_driver_with_psql("echo dichiarazioni_pubbliche\n")
