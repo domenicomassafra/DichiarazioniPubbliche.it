@@ -103,7 +103,7 @@ DECLARED_TABLES=$(PYTHONPATH="$REPO_ROOT/poc" python3 -m \
     echo "BACKUP FAILED: could not derive durable table inventory from repository SQL" >&2
     exit 1
 }
-STATIC_TABLES=$(printf '%s\n' $TABLES | sort)
+STATIC_TABLES=$(printf '%s\n' $TABLES | LC_ALL=C sort)
 if [ "$STATIC_TABLES" != "$DECLARED_TABLES" ]; then
     echo "BACKUP FAILED: checked-in table inventory drifted from schema+migrations" >&2
     exit 1
@@ -120,7 +120,7 @@ if ! LIVE_TABLES=$(psql --dbname="$DATABASE_URL" --no-align --tuples-only --comm
     echo "BACKUP FAILED: could not inspect live durable table inventory" >&2
     exit 1
 fi
-LIVE_TABLES=$(printf '%s\n' "$LIVE_TABLES" | sed '/^[[:space:]]*$/d')
+LIVE_TABLES=$(printf '%s\n' "$LIVE_TABLES" | sed '/^[[:space:]]*$/d' | LC_ALL=C sort)
 if [ "$LIVE_TABLES" != "$DECLARED_TABLES" ]; then
     echo "BACKUP FAILED: live durable table inventory drifted from schema+migrations" >&2
     exit 1

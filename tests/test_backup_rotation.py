@@ -118,6 +118,11 @@ class BackupRotationTests(unittest.TestCase):
         self.assertIn("current dump unreadable after rotation", text)
         self.assertIn('if [ "$dir" = "$SET_DIR" ]', text)
 
+    def test_table_inventory_comparisons_use_bytewise_sort(self):
+        text = SCRIPT.read_text()
+        self.assertIn("LC_ALL=C sort", text)
+        self.assertGreaterEqual(text.count("LC_ALL=C sort"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
