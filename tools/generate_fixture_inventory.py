@@ -102,6 +102,21 @@ ROW_DECISIONS: dict[str, dict] = {
         public_projection_status="internal adversarial benchmark; never itself a public finding or projection artifact",
         blocker=None,
     ),
+    "tests/fixtures/numeric-structured-providers-v1.json": dict(
+        artifact_kind="synthetic",
+        origin="Dichiarazioni Pubbliche contributors",
+        source_reference="authored in-repo for deterministic DP-226 structured numeric verification across ISTAT/EUROSTAT/DVNS-shaped provider families",
+        retrieved_at="2026-10-06",
+        review_date="2026-10-06",
+        license_or_terms=FIXTURE_POLICY,
+        license_evidence="docs/licensing/README.md#synthetic-fixture-policy",
+        attribution="No external attribution required. Provider-family labels exercise synthetic structured numeric shapes only; no third-party dataset, text, or API response is copied.",
+        modifications="Project-authored synthetic metrics, dimensions, values and expected delta/percent-change/ratio outcomes.",
+        personal_data="none",
+        redistribution_status="allowed",
+        public_projection_status="internal numeric-verification test fixture; never itself a public finding or source record",
+        blocker=None,
+    ),
     "tests/fixtures/correction-propagation-v1.json": dict(
         artifact_kind="synthetic",
         origin="Dichiarazioni Pubbliche contributors",
@@ -491,7 +506,7 @@ def build_rows() -> list[dict]:
             "owner_and_review": {
                 "owner": OWNER,
                 "reviewer": OWNER,
-                "review_date": REVIEW_DATE,
+                "review_date": decision.get("review_date", REVIEW_DATE),
                 "re_review_trigger": (
                     "any change to the artifact hash, source reference, or platform terms; "
                     "and at each release gate"

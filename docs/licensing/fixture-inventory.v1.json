@@ -5,7 +5,7 @@
   "generated_on": "2026-10-06",
   "code_license": "Apache-2.0",
   "note": "Machine-readable fixture/data licensing inventory (DP-603). Rights are curated human decisions, not inferred from the Apache-2.0 code license. UNKNOWN license rows are blocked/pending-review and must NOT be shipped in a release or public projection until owner/legal review. Enforced by tools/check_licensing_inventory.py.",
-  "asset_count": 44,
+  "asset_count": 45,
   "assets": [
     {
       "asset_id": "docs:ux:prototypes-v3:generated-style-02:index.html",
@@ -877,6 +877,29 @@
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:numeric-structured-providers-v1.json",
+      "path_or_locator": "tests/fixtures/numeric-structured-providers-v1.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for deterministic DP-226 structured numeric verification across ISTAT/EUROSTAT/DVNS-shaped provider families",
+      "retrieved_at": "2026-10-06",
+      "content_hash": "a9bec826f4190baaabe8e86bf3078631513c8db000e117fca9b05208fee97d77",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "No external attribution required. Provider-family labels exercise synthetic structured numeric shapes only; no third-party dataset, text, or API response is copied.",
+      "modifications": "Project-authored synthetic metrics, dimensions, values and expected delta/percent-change/ratio outcomes.",
+      "personal_data": "none",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal numeric-verification test fixture; never itself a public finding or source record",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-10-06",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
       "blocker": null
