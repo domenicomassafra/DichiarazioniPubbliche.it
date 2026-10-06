@@ -273,12 +273,16 @@ temporary Chrome 154 profile applies per-host zoom factor `2.0`, and the checker
 `visualViewport.scale=1`, no horizontal overflow, a 44 px filter target and a visible search field.
 This proves the 200% browser-zoom layout behavior without claiming screen-reader or manual visual
 acceptance; MiniPC Chrome 150 independently reports `innerWidth=640`, `outerWidth=1280`, DPR `2`,
-`visualViewport.scale=1`, `scrollWidth=635` and the same 44 px target. AC-410.4/.5 remain open at
-runtime because the running DP-401 service is deployment-drifted: static search fingerprint
-`00ede66707f0...` serves 12 demo records while its API reads the approved empty projection
-fingerprint `501348d9638e...`, and the live host returns `404` for
-`/linked-data-receipt.json`. The isolated current-tree build against that approved projection is
-internally consistent (`501348d9638e...` for projection/search/API) but is not the currently served
-static bundle. AC-410.8 also remains open because the requested dependency audit finds at least one
-bookkeeping contradiction outside this ticket: `DP-404` is marked `DONE` while AC-404.1..8 remain
-unchecked. Dependency owners DP-409/DP-429 and the remaining public-surface gates stay authoritative.
+`visualViewport.scale=1`, `scrollWidth=635` and the same 44 px target.
+
+The final 2026-10-06 MiniPC production promotion removes the previously recorded DP-401 drift:
+API health, static search and the internal linked-data receipt now share approved fingerprint
+`501348d9638e...`, while `/index.nt` is served as validated N-Triples. The real empty-approved
+production build passes `check-public-quality` with 6 sitemap URLs, `index,follow`, no demo/private
+routes and the JavaScript budget intact; the cold MiniPC performance checker also passes with zero
+external requests. The route/browser fixture checkers intentionally assume at least one populated
+Statement/correction fixture, so they are not treated as proof for an empty production dataset.
+AC-410.4/.5 therefore stay unchecked until the complete populated-route/provider-offline matrix is
+exercised; the old live-static convergence blocker itself is closed. AC-410.1/.2 remain manual
+AT/visual judgment, and AC-410.8 remains open because the dependency audit still finds historical
+DONE-ticket checkbox bookkeeping contradictions outside this ticket.

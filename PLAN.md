@@ -259,8 +259,8 @@ LLM in the request path.
 | DP-406 | DONE | Topic dossier UI | DP-430, DP-425 |
 | DP-407 | DONE | Content/source-locator UI | DP-207, DP-105, DP-425 |
 | DP-408 | BLOCKED | Trace/longitudinal relation UI; implementation complete, real reviewed runtime canary unavailable | DP-104, DP-105, DP-425 |
-| DP-409 | IN PROGRESS | Public search/indexing without new infra; deterministic static artifact/UI, browser/mobile/reduced-motion/exact-200%-zoom and isolated MiniPC approved-projection proof green; actual screen-reader/manual accessibility, live static promotion and DP-408 dependency remain | DP-405..408, DP-425 |
-| DP-410 | IN PROGRESS | Accessibility/performance/SEO acceptance; rendered quality, browser zoom, SEO/static metadata and cold MiniPC performance automation green; manual AT/focus/touch/contrast judgment, live-static convergence and dependency-bookkeeping audit remain | DP-405..409, DP-422, DP-425..429 |
+| DP-409 | IN PROGRESS | Public search/indexing without new infra; deterministic static artifact/UI, browser/mobile/reduced-motion/exact-200%-zoom and live MiniPC approved-projection/search/API fingerprint convergence are green; actual screen-reader/manual accessibility and DP-408 dependency remain | DP-405..408, DP-425 |
+| DP-410 | IN PROGRESS | Accessibility/performance/SEO acceptance; rendered quality, browser zoom, SEO/static metadata, cold MiniPC performance and live static/API convergence are green; manual AT/focus/touch/contrast, populated-route provider-offline/metadata matrix and dependency-bookkeeping audit remain | DP-405..409, DP-422, DP-425..429 |
 | DP-411 | DONE | Generate and compare five researched visual systems against UX v2 | DP-413 |
 | DP-412 | DONE | Consolidate winning visual language into design tokens/components | DP-411 |
 | DP-413 | DONE | Simplify Public/Studio IA to 5 + 2 templates before implementation | DP-400 |
@@ -281,7 +281,7 @@ LLM in the request path.
 | DP-428 | DONE | Method + trust/utility document pages v4 | DP-425 |
 | DP-429 | IN PROGRESS | Explore page v4; static-index UI, browser Back/URL restore, keyboard/dialog, reduced-motion, phone/reflow and exact 200% browser zoom automation green locally and on MiniPC; real screen-reader/manual visual acceptance remains | DP-409, DP-425 |
 | DP-430 | DONE | First-class public Topic resource contract | DP-105, DP-114 |
-| DP-431 | IN PROGRESS | All AC-431.1-.8 proven across pages/API/search/social+JSON-LD/history, fail-closed rebuild, private-history hold and MiniPC rehearsal; running DP-401 static bundle is still stale versus the approved API projection and must be promoted before runtime closure | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429, DP-434 |
+| DP-431 | DONE | Correction/retraction propagation proven across pages/API/search/social+JSON-LD/history, fail-closed rebuild and private-history hold; final MiniPC promotion converges live API/search/RDF validation on the approved projection fingerprint | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429, DP-434 |
 | DP-432 | IN PROGRESS | All AC-432.1-.8 machine-proven including exact browser zoom and isolated MiniPC/public-schema acceptance; remains open only on upstream DP-216..223, while real screen-reader/manual judgment is owned by DP-410 | DP-216..223, DP-308, DP-427, DP-428 |
 | DP-433 | DONE | Stable-URI + linked-data/RDF interoperability projection; deployed `/index.nt` read-back and discovery green | DP-105, DP-403, DP-430, DP-432, DP-434 |
 | DP-434 | DONE | First-class reviewed public Content resource independent of published findings; projection/API/web/RDF + isolated MiniPC migration/same-origin canary complete | DP-105, DP-210, DP-401, DP-403 |

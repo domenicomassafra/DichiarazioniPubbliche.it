@@ -1,6 +1,6 @@
 # DP-431 — Correction/retraction propagation across every public surface
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-303, DP-402, DP-403, DP-405..DP-409, DP-422, DP-427..DP-429, DP-434
 
@@ -162,8 +162,16 @@ Statement/search record is absent under public fingerprint `8c932ddf05a5`, while
 private request and three integrity-bound events remain byte/ID/hash-equivalent and the current
 private read model still returns authoritative `HOLD`. No correction/takedown policy was changed.
 
-A separate read-only check of the currently running DP-401 service found a deployment drift that
-is outside this rehearsal: live static search still carries demo fingerprint `00ede66707f0...`
-while the live API reads approved fingerprint `501348d9638e...`. The current tree itself passes
-an isolated MiniPC host against that exact approved projection with matching search/API
-`501348d9638e...`; production promotion must replace the stale live static bundle before release.
+### MiniPC production promotion — 2026-10-06
+
+The current main candidate was promoted to the canonical MiniPC mirror after a verified private
+backup. The two new additive migrations were applied twice successfully, the approved public
+projection was rebuilt, and the production static bundle was rebuilt from that exact projection.
+After restart, the API health fingerprint, static search `projection_sha256`, and the private
+linked-data validation receipt all equal
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`.
+`/index.nt` returns `200 application/n-triples` with the expected validators; the receipt remains
+an internal sibling validation artifact rather than a public route. The approved projection is
+currently empty, so search correctly contains zero records and no dynamic Statement/Person/Topic/
+Content/Trace route is fabricated. This removes the previously recorded live DP-401 static/API
+drift and completes the runtime portion of AC-431.8.

@@ -226,6 +226,14 @@ loopback adapter. `/`, `/esplora/`, `/metodo/`, `/search-index.v1.json`, `/api/v
 artifact correctly contained zero records, and search/API carried the same fingerprint. A separate
 read-only check of the live DP-401 service found its static `web/dist` still built from demo
 fingerprint `00ede66707f0...` while the live API reads approved fingerprint `501348d9638e...`, and
-`/linked-data-receipt.json` returns `404`. Therefore current-tree approved-projection behavior is
-proven, but the live static deployment still needs to be rebuilt/promoted before runtime closure.
-Dependency gates DP-408/DP-425 remain authoritative.
+`/linked-data-receipt.json` returns `404`; that path is not part of the public contract because the
+receipt is the private sibling used to validate the public `/index.nt` export.
+
+The final 2026-10-06 production promotion rebuilt both projection and static output from the same
+approved fingerprint. Live API health, `search-index.v1.json` `projection_sha256`, and the internal
+linked-data receipt now all equal `501348d9638e...`; `/index.nt`, `/`, `/esplora/`, `/metodo/`,
+`/robots.txt`, `/sitemap.xml` and the public API return `200`. The approved projection is empty and
+the search index correctly has zero records. `check-public-quality` passes the real production
+bundle with 6 HTML documents, 6 sitemap URLs, `index,follow`, and the JavaScript budget intact.
+AC-409.8 remains open only for actual screen-reader/manual accessibility judgment; the live-static
+promotion blocker is closed. Dependency gate DP-408 remains authoritative.
