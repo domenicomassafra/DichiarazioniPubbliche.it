@@ -29,6 +29,7 @@ from dichiarazioni_pubbliche.worker_dispatch import (  # noqa: E402
 
 
 EXPECTED_HANDLERS = {
+    "CONTENT_TRIAGE": "triage_content",
     "TRANSCRIPT_RESOLVE_PLATFORM": "resolve_platform",
     "TRANSCRIPT_ACQUIRE_CAPTION": "acquire_caption",
     "TRANSCRIPT_CANONICALIZE": "canonicalize",
@@ -81,6 +82,7 @@ class WorkerDispatchContractTests(unittest.TestCase):
     def test_handler_bodies_live_on_three_deep_family_mixins(self):
         owners = {
             TranscriptAsrJobHandlers: {
+                "triage_content",
                 "resolve_platform",
                 "acquire_caption",
                 "canonicalize",
@@ -138,10 +140,14 @@ class WorkerDispatchContractTests(unittest.TestCase):
         self.assertEqual(
             family_counts,
             {
-                HandlerFamily.TRANSCRIPT_ASR: 4,
+                HandlerFamily.TRANSCRIPT_ASR: 5,
                 HandlerFamily.CLAIM_EVIDENCE: 6,
                 HandlerFamily.VERIFICATION_RELATION_REANALYSIS: 4,
             },
+        )
+        self.assertEqual(
+            catalog["CONTENT_TRIAGE"].capability,
+            HandlerCapability.DISCOVERY_TRIAGE,
         )
         self.assertEqual(
             catalog["TRANSCRIPT_ACQUIRE_ASR"].capability,
@@ -155,6 +161,61 @@ class WorkerDispatchContractTests(unittest.TestCase):
             catalog["VERIFY_CLAIM"].capability,
             HandlerCapability.DETERMINISTIC_VERIFICATION,
         )
+
+    def test_content_triage_is_metadata_only_and_keeps_discovered_state(self):
+        updates = []
+
+        class Store:
+            def content(self, content_id):
+                return type(
+                    "Content",
+                    (),
+                    {
+                        "content_id": content_id,
+                        "processing_status": "DISCOVERED",
+                    },
+                )()
+
+            def update_content_status(self, content_id, status, metadata_patch=None):
+                updates.append((content_id, status, metadata_patch or {}))
+
+        class Job:
+            content_id = "content:metadata-only"
+            job_type = "CONTENT_TRIAGE"
+            payload = {"ingest_action": "DISCOVERY_ONLY", "estimated_cost_usd": 0.0}
+
+        worker = ProcessingWorker.__new__(ProcessingWorker)
+        worker.store = Store()
+        worker._ensure_budget = lambda job, content: None
+        worker.process(Job())
+
+        self.assertEqual(
+            updates,
+            [(
+                "content:metadata-only",
+                "DISCOVERED",
+                {
+                    "ingest_action": "DISCOVERY_ONLY",
+                    "triage_status": "METADATA_ONLY_COMPLETE",
+                },
+            )],
+        )
+
+    def test_content_triage_rejects_non_discovery_action(self):
+        class Job:
+            payload = {"ingest_action": "REMOTE_ASR"}
+
+        content = type(
+            "Content",
+            (),
+            {"content_id": "content:a", "processing_status": "DISCOVERED"},
+        )()
+        worker = ProcessingWorker.__new__(ProcessingWorker)
+        worker.store = object()
+        with self.assertRaisesRegex(
+            Exception, r"^CONTENT_TRIAGE_ACTION_INVALID:REMOTE_ASR$"
+        ):
+            worker.triage_content(Job(), content)
 
     def test_unknown_job_type_fails_closed_before_invocation(self):
         with self.assertRaisesRegex(

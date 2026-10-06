@@ -42,6 +42,28 @@ def _segment_rows(capture) -> list[dict[str, Any]]:
 
 
 class TranscriptAsrJobHandlers:
+    def triage_content(self, job: ProcessingJob, content: ContentRecord) -> None:
+        """Complete metadata-only discovery without inventing downstream work.
+
+        ``DISCOVERY_ONLY`` sources are intentionally not transcript/claim inputs.
+        The scheduler still emits a durable CONTENT_TRIAGE job so discovery has a
+        replayable queue receipt; this handler closes that receipt while keeping
+        the content in DISCOVERED state and performing zero network/provider work.
+        """
+        action = str(job.payload.get("ingest_action") or "").strip()
+        if action != "DISCOVERY_ONLY":
+            raise BlockedJob(
+                f"CONTENT_TRIAGE_ACTION_INVALID:{action or 'MISSING'}"
+            )
+        self.store.update_content_status(
+            content.content_id,
+            content.processing_status or "DISCOVERED",
+            {
+                "ingest_action": "DISCOVERY_ONLY",
+                "triage_status": "METADATA_ONLY_COMPLETE",
+            },
+        )
+
     def _enqueue_asr(self, content: ContentRecord, *, reason: str) -> None:
         if not content.duration_ms or content.duration_ms <= 0:
             raise BlockedJob("ASR_DURATION_UNKNOWN")

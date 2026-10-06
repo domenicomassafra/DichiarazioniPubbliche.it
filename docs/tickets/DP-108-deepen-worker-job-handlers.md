@@ -86,3 +86,16 @@ failure belongs to concurrent schema/ops work.
 DP-108 remains **IN PROGRESS** pending a green repository-wide integration run after that
 external restore inventory is reconciled and the required MiniPC production queue/cost/block
 acceptance. No provider or MiniPC evidence is inferred from local mocks.
+
+## Metadata-only scheduler compatibility — 2026-10-06
+
+The MiniPC health read-back exposed two historical `CONTENT_TRIAGE` jobs blocked as
+`NO_HANDLER:CONTENT_TRIAGE`. This was a real scheduler/dispatcher compatibility gap: DP-206
+intentionally schedules `CONTENT_TRIAGE` for `DISCOVERY_ONLY` creator metadata, while the
+initial DP-108 closed catalog covered only the 14 job types from the old worker branch chain.
+
+`CONTENT_TRIAGE` is now the fifteenth registered job and remains inside the existing
+ingestion/transcript deep family rather than creating a fourth shallow handler family. Its
+handler accepts only `ingest_action=DISCOVERY_ONLY`, performs no network/provider/transcript/
+claim work, preserves the content's `DISCOVERED` processing state, and records only bounded
+metadata that the metadata-only triage completed. Any other action fails closed.

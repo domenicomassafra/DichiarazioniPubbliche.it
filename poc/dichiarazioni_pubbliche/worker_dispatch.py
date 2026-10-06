@@ -13,6 +13,7 @@ class HandlerFamily(str, Enum):
 
 
 class HandlerCapability(str, Enum):
+    DISCOVERY_TRIAGE = "DISCOVERY_TRIAGE"
     PLATFORM_TRANSCRIPT = "PLATFORM_TRANSCRIPT"
     LOCAL_TRANSCRIPT = "LOCAL_TRANSCRIPT"
     REMOTE_ASR = "REMOTE_ASR"
@@ -40,6 +41,12 @@ class HandlerSpec:
 
 
 _HANDLER_METADATA = (
+    (
+        "CONTENT_TRIAGE",
+        HandlerFamily.TRANSCRIPT_ASR,
+        HandlerCapability.DISCOVERY_TRIAGE,
+        "triage_content",
+    ),
     (
         "TRANSCRIPT_RESOLVE_PLATFORM",
         HandlerFamily.TRANSCRIPT_ASR,

@@ -5,7 +5,7 @@
   "generated_on": "2026-10-06",
   "code_license": "Apache-2.0",
   "note": "Machine-readable fixture/data licensing inventory (DP-603). Rights are curated human decisions, not inferred from the Apache-2.0 code license. UNKNOWN license rows are blocked/pending-review and must NOT be shipped in a release or public projection until owner/legal review. Enforced by tools/check_licensing_inventory.py.",
-  "asset_count": 40,
+  "asset_count": 44,
   "assets": [
     {
       "asset_id": "docs:ux:prototypes-v3:generated-style-02:index.html",
@@ -767,6 +767,75 @@
       "blocker": null
     },
     {
+      "asset_id": "tests:fixtures:correction-propagation-v1.json",
+      "path_or_locator": "tests/fixtures/correction-propagation-v1.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for DP-431 correction/hold/retraction propagation tests",
+      "retrieved_at": "2026-10-05",
+      "content_hash": "a634c2f758a1ea0340ff99fddfa22c0f1cdc4352d82e9e5486be477889fa8de9",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "No external attribution required; person, topic, content and finding identifiers are fictional project-authored examples.",
+      "modifications": "Synthetic old/new public-projection snapshots authored to exercise stale-surface cleanup and correction propagation.",
+      "personal_data": "fictional identifiers and statements only; no real personal data or source body",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal correction-propagation test fixture; never itself a public projection artifact",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:dvns-structured-evidence-v1.json",
+      "path_or_locator": "tests/fixtures/dvns-structured-evidence-v1.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for DP-234 structured-evidence adapter tests; example.test locator only",
+      "retrieved_at": "2026-10-05",
+      "content_hash": "ff81fe4c044ff9a5b2e6a1a3ab34b095badc361fe0c20c3099dfee5ba8cb409a",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "No external attribution required; provider, dataset, URL and private_fields values are synthetic.",
+      "modifications": "Synthetic zero-valued structured record and provenance map authored to exercise adapter/public-boundary behavior.",
+      "personal_data": "none; fictional internal case id only",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal structured-evidence test fixture; private_fields are boundary-test data and must never be projected",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:effective_time_cases.json",
+      "path_or_locator": "tests/fixtures/effective_time_cases.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for DP-227 effective-time and supersession verification tests",
+      "retrieved_at": "2026-10-05",
+      "content_hash": "37b25b14851c7bbbad8e657cafacbe2a793e6763205cd746fa4d57380f76f5a8",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "No external expression copied. Names such as ISTAT/Normattiva are authority labels used to exercise temporal logic, not copied datasets or legal text.",
+      "modifications": "Synthetic dates, version ids and expected outcomes authored for deterministic temporal-policy cases.",
+      "personal_data": "none",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal temporal-verification test fixture; never itself a public finding or evidence record",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
       "asset_id": "tests:fixtures:false-attribution-adversarial-v1.json",
       "path_or_locator": "tests/fixtures/false-attribution-adversarial-v1.json",
       "artifact_kind": "synthetic",
@@ -781,6 +850,29 @@
       "personal_data": "fictional person identifiers and synthetic snippets only; no real personal data",
       "redistribution_status": "allowed",
       "public_projection_status": "internal adversarial benchmark; never itself a public finding or projection artifact",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:launch-set-candidate-preflight-v1.json",
+      "path_or_locator": "tests/fixtures/launch-set-candidate-preflight-v1.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for DP-703 launch-set candidate/preflight fail-closed tests",
+      "retrieved_at": "2026-10-05",
+      "content_hash": "49b7831aa8e00b1e4065f5279bb13bdb890ec8ef807aea4a1455030898d90b26",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "No external attribution required; all source families, decision refs, owners and hashes are fictional placeholders.",
+      "modifications": "Synthetic included/held/excluded source-set states authored to test launch gating without claiming real launch approval.",
+      "personal_data": "none; fictional owner/source identifiers only",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal launch-preflight test fixture; not evidence of an approved production launch set",
       "owner_and_review": {
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
