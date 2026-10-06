@@ -35,6 +35,11 @@ from dichiarazioni_pubbliche.policy.excerpt_policy import (
 from dichiarazioni_pubbliche.public_attribution import evaluate_public_attribution
 from dichiarazioni_pubbliche.quote_binding import verify_written_quote_binding
 from dichiarazioni_pubbliche.speaker_runtime import make_speaker_candidate
+from dichiarazioni_pubbliche.transcript_contract import (
+    TranscriptCandidate,
+    TranscriptStatus,
+    reconcile_candidates,
+)
 from dichiarazioni_pubbliche.wording_contract import (
     SOURCE_WORDING_TYPES,
     TranslationReviewState,
@@ -72,6 +77,9 @@ REQUIRED_CLASSES = (
     "rights_hold_or_source_body_unavailable",
     "fabricated_sentence_absent_from_source",
     "challenger_only_countercase",
+    "transcript_homophone_disagreement",
+    "transcript_punctuation_disagreement",
+    "transcript_cross_talk_disagreement",
 )
 
 
@@ -557,6 +565,45 @@ def _challenger_outcome(case: Mapping[str, Any]) -> CaseOutcome:
     )
 
 
+def _transcript_verbatim_outcome(case: Mapping[str, Any]) -> CaseOutcome:
+    expected = _require_mapping(case["expected"], "DP223_EXPECTED_REQUIRED")
+    params = _require_mapping(case.get("input", {}), "DP223_INPUT_INVALID")
+    candidates = tuple(
+        TranscriptCandidate(
+            candidate_id=str(row.get("candidate_id") or f"candidate:{case['id']}:{index}"),
+            provider_id=str(row.get("provider_id") or "synthetic-benchmark"),
+            text=str(row["text"]),
+            start_ms=int(row.get("start_ms", 0)),
+            end_ms=int(row.get("end_ms", 2000)),
+            source_kind=str(row.get("source_kind") or "ASR"),
+        )
+        for index, row in enumerate(params.get("candidates") or ())
+    )
+    segment = reconcile_candidates(
+        candidates,
+        gazetteer_terms=tuple(str(value) for value in params.get("gazetteer_terms") or ()),
+    )
+    public = (
+        segment.status is TranscriptStatus.RESOLVED
+        and not segment.publication_blocked
+        and segment.verbatim_eligible
+    )
+    blockers: list[str] = []
+    if segment.status is not TranscriptStatus.RESOLVED:
+        blockers.append(f"TRANSCRIPT_{segment.status.value}")
+    if segment.publication_blocked:
+        blockers.append("TRANSCRIPT_PUBLICATION_BLOCKED")
+    if not segment.verbatim_eligible:
+        blockers.append("TRANSCRIPT_VERBATIM_AUTHORITY_REQUIRED")
+    return CaseOutcome(
+        publication_state="PUBLIC" if public else "HELD",
+        person_id=str(expected.get("person_id") or "") or None,
+        wording_type=str(expected["wording_type"]),
+        reason_codes=tuple(blockers) or ("TRANSCRIPT_VERBATIM_VERIFIED",),
+        quote_exact=public,
+    )
+
+
 _GATE_HANDLERS = {
     "quote_binding": _quote_binding_outcome,
     "context_integrity": _context_outcome,
@@ -567,6 +614,7 @@ _GATE_HANDLERS = {
     "citation_assurance": _citation_outcome,
     "excerpt_rights": _excerpt_outcome,
     "challenger_readiness": _challenger_outcome,
+    "transcript_verbatim": _transcript_verbatim_outcome,
 }
 
 

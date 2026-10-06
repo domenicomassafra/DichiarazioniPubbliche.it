@@ -106,6 +106,13 @@ target. The native `<dialog>` opened with focus inside it and Escape closed it a
 the filter button. Reduced-motion media emulation was observed by the page; the reload/interactions
 made only same-origin requests, with zero provider/LLM request. The same browser check now covers
 no-match recovery, overlong-query alert semantics, keyboard radio focus/selected state, a 640 px
-200%-equivalent reflow viewport and the correction-history `#storia` destination. Actual
-screen-reader semantics and manual 200% browser zoom remain DP-410 acceptance, so the final
-accessibility AC stays open.
+200%-equivalent reflow viewport and the correction-history `#storia` destination. It also proves
+exact 200% Chrome browser zoom through a temporary per-host zoom profile: `outerWidth=1280`,
+`innerWidth=640`, `devicePixelRatio=2`, `visualViewport.scale=1`, no horizontal overflow and the
+same usable search/filter controls. Actual screen-reader semantics remain DP-410 acceptance, so
+the combined accessibility AC stays open. The same current-tree browser matrix was rehearsed on
+MiniPC Chrome 150: 19 canonical routes scanned, zero external requests, reduced-motion behavior
+preserved, phone `375/375` viewport/scroll width and 44 px filter target, plus exact 200% browser
+zoom with `innerWidth=640`, `outerWidth=1280`, `devicePixelRatio=2`,
+`visualViewport.scale=1`, `scrollWidth=635` and a 44 px filter target. No real
+screen-reader/manual visual acceptance is inferred from these automated checks.

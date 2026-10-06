@@ -3,7 +3,7 @@
 Status: IN PROGRESS
 Milestone: M6 — open-source and release hardening / post-M4 client ecosystem
 Depends on: DP-105 public schema, DP-402 read-only HTTP API, DP-403 OpenAPI and versioning policy; legal/publication gates remain prerequisites
-Launch state: blocked until the stable API contract and owner decision exist; no client, MCP server, skill, or external publication is authorized here
+Launch state: stable API/OpenAPI prerequisites are closed; blocked on the owner surface/build decision and applicable launch/legal gates; no client, MCP server, skill, or external publication is authorized here
 
 ## Problem
 
@@ -13,10 +13,10 @@ freeze an unstable field vocabulary, expose private operational data, encourage 
 to treat a candidate as a verdict, or create a second read path around review and
 publication policy.
 
-The API contract is not yet a stable release boundary: DP-105 must ratify the public
-schema, DP-402 must define the read-only HTTP behavior, and DP-403 must publish and
-version the OpenAPI description. A client or tool built before those gates would turn
-an implementation detail into a promise.
+DP-105, DP-402, and DP-403 have now closed the public schema, read-only HTTP, and OpenAPI
+contract gates. The remaining product decision is whether to build and maintain one client
+surface at all. The repository therefore keeps only the internal read-only contract harness
+until the owner selects a surface or records the accepted `do not build` outcome.
 
 ## Outcome
 
@@ -213,13 +213,13 @@ A skill is not an autonomous reviewer, publisher, browser session, or replacemen
 - [x] **AC-607.6 — Deterministic CI:** DP-602 runs client contract tests, dependency and
   license checks, secret/private-data scans, and a local mock-server suite without a
   provider, credential, remote, or paid call.
-- [ ] **AC-607.7 — Clean-clone proof:** A detached clean clone installs the selected
+- [x] **AC-607.7 — Clean-clone proof:** A detached clean clone installs the selected
   client/tool from pinned inputs, exercises the local mock API, runs the public fixture
   path, and leaves no generated source or secret in the repository.
 - [x] **AC-607.8 — Version/deprecation proof:** Client metadata records the supported
   public API range, generated source/OpenAPI version, and behavior for a deprecated or
   incompatible endpoint. A client release cannot override DP-403's sunset policy.
-- [ ] **AC-607.9 — Licensing proof:** Every client dependency, generated artifact,
+- [x] **AC-607.9 — Licensing proof:** Every client dependency, generated artifact,
   example, and notice has an DP-603 inventory row and compatible license evidence;
   unknown rights block the client rather than being assumed.
 - [x] **AC-607.10 — Migration/contract safety:** No client-specific database migration is
@@ -318,7 +318,14 @@ The draft client metadata records its supported API version, public schema versi
 contract version and the canonical OpenAPI source version. `Deprecation`/`Sunset` are surfaced
 as bounded response metadata; incomplete metadata or an invalid Sunset HTTP-date is rejected,
 while incompatible API versions remain fail-closed. This consumes DP-403's deprecation policy
-without creating a second sunset authority or an external SDK. AC-607.1 remains open for
-explicit owner selection/stability publication, AC-607.7 for clean-clone proof, AC-607.9 for
-any future client dependency/generated-artifact licensing, and AC-607.11 for the owner
-build/no-build decision.
+without creating a second sunset authority or an external SDK.
+
+Follow-up 2026-10-06: GitHub Actions run `37520100680` succeeded at exact head
+`5a86666bf3bb955f18e036c010e53613425a6cf6`. Its detached clean-clone job installs the package
+and runs contributor acceptance, which exercises `tests.test_public_http_client` against the
+local mock API including the public `UNRESOLVED`, correction/reply and relation fixture paths.
+This closes AC-607.7. AC-607.9 is satisfied for the present internal harness because it is
+stdlib-only and introduces no generated client artifact, bundled external example, or client
+dependency requiring a DP-603 row; any future shipped/generated client reopens that inventory
+gate. AC-607.1 remains open for explicit owner surface/stability selection, and AC-607.11
+remains open for the owner build/no-build decision.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -130,8 +130,26 @@ async function connectCdp(wsUrl) {
   return new Cdp(ws);
 }
 
-async function launchChrome(origin, { scale = 1 } = {}) {
+async function launchChrome(origin, { scale = 1, zoomFactor = 1 } = {}) {
   const profile = await mkdtemp(path.join(tmpdir(), "dp-chrome-"));
+  if (zoomFactor !== 1) {
+    const zoomLevel = Math.log(zoomFactor) / Math.log(1.2);
+    const hostname = new URL(origin).hostname;
+    const defaultProfile = path.join(profile, "Default");
+    await mkdir(defaultProfile, { recursive: true });
+    await writeFile(
+      path.join(defaultProfile, "Preferences"),
+      JSON.stringify({
+        partition: {
+          per_host_zoom_levels: {
+            x: {
+              [hostname]: { zoom_level: zoomLevel },
+            },
+          },
+        },
+      }),
+    );
+  }
   const args = [
     "--headless=new",
     "--disable-gpu",
@@ -362,6 +380,35 @@ try {
   await navigate(cdp, `${origin}/temi/servizi-pubblici/`);
   const topicShot = await screenshot(cdp, "topic-desktop");
 
+  const zoomBrowser = await launchChrome(origin, { zoomFactor: 2 });
+  let zoom200;
+  try {
+    await navigate(zoomBrowser.cdp, `${origin}/esplora/`);
+    await waitFor(
+      zoomBrowser.cdp,
+      "document.querySelector('.results-count')?.textContent?.includes('risultat')",
+      "Explore did not hydrate at exact 200% browser zoom",
+    );
+    zoom200 = await zoomBrowser.cdp.evaluate(`({
+      innerWidth,
+      outerWidth,
+      devicePixelRatio,
+      visualScale: visualViewport.scale,
+      scrollWidth: document.documentElement.scrollWidth,
+      filterHeight: document.querySelector('.filter-button').getBoundingClientRect().height,
+      searchWidth: document.querySelector('#client-search').getBoundingClientRect().width
+    })`);
+    assert.equal(zoom200.outerWidth, 1280, `unexpected outer width at 200% browser zoom: ${JSON.stringify(zoom200)}`);
+    assert.equal(zoom200.innerWidth, 640, `200% browser zoom did not halve CSS viewport: ${JSON.stringify(zoom200)}`);
+    assert.equal(zoom200.devicePixelRatio, 2, `200% browser zoom did not double devicePixelRatio: ${JSON.stringify(zoom200)}`);
+    assert.equal(zoom200.visualScale, 1, `200% browser zoom was replaced by pinch/page scaling: ${JSON.stringify(zoom200)}`);
+    assert(zoom200.scrollWidth <= zoom200.innerWidth + 1, `exact 200% browser zoom has horizontal page overflow: ${JSON.stringify(zoom200)}`);
+    assert(zoom200.filterHeight >= 44, `200% browser zoom filter target below 44px: ${zoom200.filterHeight}`);
+    assert(zoom200.searchWidth > 0, "search input disappeared at exact 200% browser zoom");
+  } finally {
+    await zoomBrowser.close();
+  }
+
   assert.deepEqual(externalRequests, [], `browser made external/provider requests: ${externalRequests.join(", ")}`);
   console.log(JSON.stringify({
     status: "PASS",
@@ -369,6 +416,7 @@ try {
     external_requests: externalRequests.length,
     reduced_motion: motion,
     reflow_200_equivalent: reflow,
+    browser_zoom_200_exact: zoom200,
     phone,
     screenshots: { mobileShot, personShot, topicShot },
   }, null, 2));

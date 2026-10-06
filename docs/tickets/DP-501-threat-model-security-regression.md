@@ -1,6 +1,6 @@
 # DP-501 — Threat model and security regression matrix
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5
 Depends on: M0
 
@@ -24,4 +24,11 @@ Maintain one executable threat register spanning source ingest, transcripts, cla
 - Added `docs/ops/threat-model.md`.
 - Regression coverage includes source spoofing/SSRF, ingestion tampering, biometric identity, queue replay/flooding, evidence fabrication, auto-publication, future-evidence misuse, person scoring, reply leakage, projection tampering, admin exposure, secret leakage, cost abuse, retention/destructive deletion, backup exposure, and restore fabrication.
 
-Mac full-suite validation is green. Remaining acceptance: fresh MiniPC security/runtime read-back and inclusion in the DP-702 closure packet. Do not mark DONE from Mac-only evidence.
+## Final runtime receipt — 2026-10-06
+
+- Candidate commit: `5a86666bf3bb955f18e036c010e53613425a6cf6`; `origin/main` points at the same commit.
+- An independent detached Mac clone passed the focused threat/retention command and the full deterministic suite: **1720 tests OK**.
+- The MiniPC mirror's tracked-file Git blob manifest matched the candidate commit exactly. On that mirror, `tests.test_ops_threat_matrix`, `tests.test_ops_retention_policy`, and `tests.test_retention` passed together (**29/29**), and the full deterministic suite passed **1620/1620** with 12 skips.
+- No missing or future enforcement surface was converted into a pass; the threat register still fails closed on absent evidence.
+
+DP-501 is technically complete. DP-702 must consume this security/runtime receipt in its pre-launch closure packet; that handoff remains a launch-review dependency rather than missing DP-501 implementation evidence.

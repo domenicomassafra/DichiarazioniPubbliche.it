@@ -402,6 +402,38 @@ class PublicProjectionPostgresTamperTests(unittest.TestCase):
         self.assertEqual(projection["dossier_count"], 0)
         self.assertEqual(projection["omitted_count"], 1)
 
+    def test_reported_speech_mode_tamper_is_not_publicly_attributed(self):
+        self.store.run_literal(
+            """
+            UPDATE atomic_claim
+            SET metadata = jsonb_set(
+                metadata,
+                '{speech_mode}',
+                '"REPORTED_SPEECH"'::jsonb,
+                true
+            )
+            WHERE id = 'claim:dp223';
+            """
+        )
+        self.assertEqual(self.store.projectable_findings(), [])
+        self._assert_not_public()
+
+    def test_context_review_state_tamper_is_omitted_from_projection(self):
+        self.store.run_literal(
+            """
+            UPDATE atomic_claim
+            SET metadata = jsonb_set(
+                metadata,
+                '{context_integrity,state}',
+                '"NEEDS_CONTEXT_REVIEW"'::jsonb,
+                false
+            )
+            WHERE id = 'claim:dp223';
+            """
+        )
+        self.assertEqual(self.store.projectable_findings(), [])
+        self._assert_not_public()
+
     def test_direct_provenance_tamper_is_omitted_by_persisted_query(self):
         self.store.run_literal(
             "UPDATE claim_text_provenance SET status = 'REJECTED' "

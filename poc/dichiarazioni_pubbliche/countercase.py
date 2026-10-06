@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from typing import Iterable
 
+from dichiarazioni_pubbliche.high_risk_assertion import HighRiskDecision
+
 
 COUNTERCASE_VERSION = "countercase-v1"
 COUNTER_RELATIONS = frozenset({"CONTRADICT", "LIMITATION", "CONTEXT", "UPDATE"})
@@ -186,6 +188,38 @@ def evaluate_challenger_readiness(
     )
 
 
+def evaluate_high_risk_challenger_readiness(
+    packet: CounterCasePacket,
+    *,
+    high_risk_decision: HighRiskDecision,
+    incorporated_packet_id: str | None,
+    reviewed_packet_id: str | None,
+    challenger_waiver_policy_decision_ref: str | None = None,
+) -> ChallengerReadinessDecision:
+    """Bind DP-229 readiness to the actual DP-309 high-risk decision.
+
+    A waiver is accepted only when it names the exact qualified policy decision already
+    carried by an otherwise publication-eligible DP-309 decision. Passing a free boolean
+    is deliberately insufficient at this integration seam.
+    """
+
+    high_risk = bool(high_risk_decision.signals.requires_escalation)
+    waiver_ref = str(challenger_waiver_policy_decision_ref or "").strip()
+    qualified_waiver = bool(
+        high_risk
+        and high_risk_decision.publication_allowed
+        and waiver_ref
+        and waiver_ref == str(high_risk_decision.policy_decision_ref or "")
+    )
+    return evaluate_challenger_readiness(
+        packet,
+        incorporated_packet_id=incorporated_packet_id,
+        reviewed_packet_id=reviewed_packet_id,
+        high_risk=high_risk,
+        qualified_policy_waives_challenger=qualified_waiver,
+    )
+
+
 __all__ = [
     "COUNTERCASE_VERSION",
     "COUNTER_RELATIONS",
@@ -194,4 +228,5 @@ __all__ = [
     "ChallengerReadinessDecision",
     "build_countercase_packet",
     "evaluate_challenger_readiness",
+    "evaluate_high_risk_challenger_readiness",
 ]

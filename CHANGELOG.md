@@ -36,6 +36,19 @@ makes no compatibility promise. See
 - packaging contract tests that fail if a `.v0`/POC identifier is renamed as a side
   effect (DP-601).
 
+### Changed
+
+- private web component advanced to `0.2.0` after meaningful static build-surface changes:
+  projection-bound `robots.txt`/sitemap output, exact-browser-zoom and cold-performance
+  acceptance, correction/rebuild consistency, and private-hold integration checks
+  (DP-409, DP-410, DP-431, DP-432);
+- evidence and governance hardening now includes exact quote/context/adversarial checks,
+  claim-bound metadata-only existing-fact-check projection, durable private reply abuse/
+  retention ledgers, and a rights-complaint-to-hold bridge without granting publication or
+  legal authority (DP-216..DP-232, DP-302..DP-305);
+- refreshed vulnerable transitive web build dependencies in the lockfile; the resulting
+  static frontend audit reports zero known npm vulnerabilities.
+
 ### Documentation
 
 - documented the honest limitation that repo-relative config/content paths
@@ -43,6 +56,9 @@ makes no compatibility promise. See
   wheel install; all modules still import from the install (DP-601);
 - documented the `.v0`/POC compatibility surface and its DP-106-owned deprecation path
   (DP-601).
+- reconciled current PLAN/ticket receipts with the 2026-10-06 integrated validation,
+  preserving unresolved manual accessibility, provider, legal, release-authority, and
+  public-deployment gates instead of inferring completion.
 
 ### Known blocked items
 

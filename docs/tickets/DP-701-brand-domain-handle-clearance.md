@@ -172,23 +172,23 @@ result. “No collision found” is not a legal clearance.
 - [ ] **AC-701.2 — Qualified disposition:** The packet links controlled evidence for
   trademark/name review and domain/handle decisions; preliminary DNS, WHOIS, or social
   checks are labeled only as preliminary observations.
-- [ ] **AC-701.3 — Identity consistency:** The selected public name is mapped to every
+- [x] **AC-701.3 — Identity consistency:** The selected public name is mapped to every
   in-scope display, documentation, package, schema/API, source, and receipt surface, with
   an explicit decision for each surface.
-- [ ] **AC-701.4 — Technical impact:** No rename is hidden in a documentation-only change.
+- [x] **AC-701.4 — Technical impact:** No rename is hidden in a documentation-only change.
   Every proposed rename has an owner, compatibility window, migration/test seam, and
   rollback classification.
 - [ ] **AC-701.5 — Collision audit:** A deterministic audit finds no duplicate ticket
   IDs, filename IDs, public identifiers, package names, domains, handles, or unresolved
   launch-name claims. Every manual collision has a disposition.
-- [ ] **AC-701.6 — Safety review:** The packet states that the brand decision cannot alter
+- [x] **AC-701.6 — Safety review:** The packet states that the brand decision cannot alter
   no-intent, privacy, rights, provenance, provider, or publication gates.
 - [ ] **AC-701.7 — Compatibility proof:** If an alias or migration is approved, an
   isolated read/replay/rollback can read both identifiers, preserve receipts, and restore
   the prior state with a durable receipt.
 - [ ] **AC-701.8 — Legal handoff:** DP-307/DP-306 records the accepted launch-name and
   disclosure decision, or the ticket remains `BLOCKED` with the exact safe default.
-- [ ] **AC-701.9 — No external side effect:** The implementation creates no remote, URL,
+- [x] **AC-701.9 — No external side effect:** The implementation creates no remote, URL,
   domain registration, handle, tag, release, deployment, or public brand claim.
 - [ ] **AC-701.10 — Handoff:** DP-704 can consume the identity/rollback map, and DP-705
   cannot claim stable v1 while any B-701 row remains open.
@@ -233,7 +233,16 @@ completion.
 Owner identity plus local and MiniPC technical cutover are complete. The owner subsequently
 reported purchasing `dichiarazionipubbliche.it` at Dynadot on 2026-10-05; this is useful
 ownership context but is not treated as a repository-contained registrar receipt or legal
-clearance. A 2026-10-06 read-only DNS check returned no A, AAAA or NS records, so the domain
+clearance. A fresh 2026-10-06 read-only DNS check returned no A, AAAA or NS records for the
+apex and no CNAME/A/AAAA for `www`, so the domain
 is not yet a verified public deployment path. Pending qualified trademark review, controlled
 domain/handle evidence, collision audit, legal handoff, DNS/public-host read-back, and
 exercised rollback proof. This ticket does not claim brand clearance or stable v1 readiness.
+
+The repository-local portion of the collision/dependency audit is green at
+`5a86666bf3bb955f18e036c010e53613425a6cf6`: `tools/check_repository_contract.py` passes and
+the launch preflight correctly remains `NO-GO` instead of treating missing external decisions
+as evidence. AC-701.5 remains open because external package/domain/handle collision checks and
+their manual dispositions are not complete; AC-701.7 and AC-701.10 remain open until an
+exercised rollback receipt exists, and AC-701.1/.2/.8 remain blocked on the qualified
+decision/legal evidence described above.

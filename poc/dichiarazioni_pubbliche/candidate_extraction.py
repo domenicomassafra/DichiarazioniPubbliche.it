@@ -294,6 +294,47 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def reported_origin_metadata(
+    *,
+    speech_mode: str,
+    content_id: str,
+    passage_id: str,
+    source_sha256: str,
+    reported_speaker_mention: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Build a bounded reported-origin placeholder without copying source text."""
+
+    mode = str(speech_mode or "").strip()
+    if mode not in SPEECH_MODES:
+        raise CandidateExtractionError("CANDIDATE_REPORTED_ORIGIN_SPEECH_MODE_INVALID")
+    direct = mode == "DIRECT_UTTERANCE"
+    mention = (
+        reported_speaker_mention
+        if isinstance(reported_speaker_mention, Mapping)
+        else None
+    )
+    mention_metadata: dict[str, Any] | None = None
+    if mention is not None:
+        mention_text = str(mention.get("mention_text") or "")
+        mention_metadata = {
+            "start_char": int(mention["start_char"]),
+            "end_char": int(mention["end_char"]),
+            "mention_text_sha256": _sha256_text(mention_text),
+        }
+    return {
+        "speech_mode": mode,
+        "quotation_depth": 0 if direct else 1,
+        "origin_state": "SELF" if direct else "UNRESOLVED",
+        "current_content_id": str(content_id),
+        "current_passage_id": str(passage_id),
+        "source_sha256": str(source_sha256),
+        "reported_speaker_mention": mention_metadata,
+        "origin_content_id": str(content_id) if direct else None,
+        "origin_occurrence_ref": None,
+        "attribution_proof_ref": None,
+    }
+
+
 def _deterministic_id(prefix: str, *parts: object) -> str:
     material = "\x1f".join(str(part) for part in parts).encode("utf-8")
     return f"{prefix}:" + hashlib.sha256(material).hexdigest()
@@ -812,6 +853,13 @@ def prepare_extraction_batch(
             if speech_mode == "DIRECT_UTTERANCE"
             else WordingType.REPORTED_QUOTE
         )
+        reported_origin = reported_origin_metadata(
+            speech_mode=speech_mode,
+            content_id=context.content_id,
+            passage_id=statement_passage_id,
+            source_sha256=context.text_sha256,
+            reported_speaker_mention=reported_speaker,
+        )
 
         statement_id = _deterministic_id(
             "statement-candidate",
@@ -839,9 +887,10 @@ def prepare_extraction_batch(
                 "provider_version": provider_version,
                 "speaker_mention": raw.get("speaker_mention"),
                 "reported_speaker_mention": reported_speaker,
-                    "speech_mode": speech_mode,
-                    "wording_source_type": source_wording_type.value,
-                    "context_integrity": context_integrity,
+                "speech_mode": speech_mode,
+                "reported_origin": reported_origin,
+                "wording_source_type": source_wording_type.value,
+                "context_integrity": context_integrity,
                 "quote_local_start_char": start,
                 "quote_local_end_char": end,
             },
@@ -903,6 +952,7 @@ def prepare_extraction_batch(
                     "speech_mode": speech_mode,
                     "reported_speaker_mention": reported_speaker,
                     "reported_origin_required": speech_mode != "DIRECT_UTTERANCE",
+                    "reported_origin": reported_origin,
                     "context_integrity": context_integrity,
                     "wording": wording_contract_metadata(
                         occurrence_id=statement.id,

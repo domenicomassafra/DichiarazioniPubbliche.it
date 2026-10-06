@@ -1,6 +1,6 @@
 # DP-503 — Retention matrix
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M5
 Depends on: DP-304, DP-305
 
@@ -24,4 +24,11 @@ Classify raw media, transcripts, evidence/cache, receipts, projection history, h
 - Added `docs/ops/retention-matrix.md`.
 - Existing `retention.py` remains the destructive-operation authority; the new matrix references rather than bypasses its guards.
 
-No legal retention period or lawful basis is asserted. DP-306/DP-307 legal/privacy decisions and a MiniPC retention/hold dry run remain launch blockers.
+## Final runtime receipt — 2026-10-06
+
+- Candidate commit: `5a86666bf3bb955f18e036c010e53613425a6cf6`; the MiniPC tracked-file Git blob manifest matched that commit exactly.
+- An independent detached Mac clone passed the focused threat/retention command and the full deterministic suite (**1720 tests OK**).
+- On the MiniPC mirror, the retention-policy/destructive-guard command passed as part of the **29/29** focused threat/retention set, and the full deterministic suite passed **1620/1620** with 12 skips. The focused tests use test/temporary material and did not purge production data.
+- Durable provenance and history remain non-bulk-purgeable; incomplete manifests and legal holds continue to fail closed.
+
+No legal retention period, lawful basis, or rights outcome is asserted. DP-306/DP-307 remain explicit legal/privacy launch dependencies, but they do not substitute for or invalidate the now-complete technical retention matrix and MiniPC proof.

@@ -49,22 +49,22 @@ or index was not rebuilt.
 
 ## Acceptance criteria
 
-- [ ] **AC-431.1:** One correction/supersession updates Statement, Person, Topic/Trace
+- [x] **AC-431.1:** One correction/supersession updates Statement, Person, Topic/Trace
   relations, Content finding membership/moments, Explore/search, API and structured metadata
   consistently from the same public projection version.
 - [x] **AC-431.2:** Old generated files/index entries are removed or versioned explicitly;
   a rebuild cannot leave an orphan serving the superseded attribution.
 - [x] **AC-431.3:** Search results cannot show stale quote/person text after the canonical
   Statement has been corrected/held.
-- [ ] **AC-431.4:** JSON-LD/social/canonical metadata use the corrected/held state and cannot
+- [x] **AC-431.4:** JSON-LD/social/canonical metadata use the corrected/held state and cannot
   preserve stale wording independently of the page body.
 - [x] **AC-431.5:** Partial build/cache failure fails closed for affected records and emits
   an operator-visible receipt/error instead of mixing old/new versions.
-- [ ] **AC-431.6:** Historical version/correction links preserve auditability without
+- [x] **AC-431.6:** Historical version/correction links preserve auditability without
   presenting superseded wording as current fact.
-- [ ] **AC-431.7:** A public hold/takedown removes the affected current projection while
+- [x] **AC-431.7:** A public hold/takedown removes the affected current projection while
   private append-only history remains intact under DP-303/DP-304/DP-305 policy.
-- [ ] **AC-431.8:** Mobile/web/API/public static tests and MiniPC/static-host rehearsal prove
+- [x] **AC-431.8:** Mobile/web/API/public static tests and MiniPC/static-host rehearsal prove
   the same version fingerprint across all affected surfaces.
 
 ## Validation / proof
@@ -126,17 +126,44 @@ Four failure injections (`after-invalidate`, stale removed Statement, stale sear
 partial current route) all fail closed to the hold page and write a `HOLD` operator receipt rather
 than publishing a mixed bundle. This local evidence closes AC-431.2, AC-431.3 and AC-431.5.
 
-AC-431.1/.4/.6/.7/.8 remain open for API/structured-metadata convergence where applicable,
-historical-view/private-history proof, and the MiniPC/static-host rehearsal with the same
-fingerprint across every public surface.
+The rebuild canary now also drives the read-only `/api/v1` adapter directly from the corrected
+or held projection. It requires the API health/detail/Content responses to carry the new dataset
+fingerprint, rejects the superseded/held Finding as `404`, and verifies that Content membership
+contains only the corrected Finding. The canonical Statement now emits projection-derived social
+metadata and JSON-LD with the current Finding identifier/wording/route; the canary rejects stale
+title, social URL, JSON-LD identity or wording. Its history block exposes the current Finding ID,
+the superseded Finding ID and correction version IDs while derived surfaces continue linking to
+the current `#storia` anchor. This closes AC-431.1, AC-431.4 and AC-431.6 locally without creating
+a separate historical public route.
 
 ### MiniPC rebuild rehearsal — 2026-10-06
 
-The same rebuild guard was exercised on the synchronized MiniPC after moving its temporary
+The rebuild guard was exercised on the synchronized MiniPC after moving its temporary
 acceptance workspace onto the web filesystem (avoiding cross-filesystem `EXDEV` rename
 failures). It passes the correction and hold scenario with fingerprints
 `00ede66707f0 -> 7f1ef323b7d0` and `8c932ddf05a5`, removes stale
 Statement/Person/Topic/Content/Trace/search/static artifacts and keeps all four injected
 partial failures fail-closed. This runtime proof closes the DP-431 integration dependency
-used by DP-510, but DP-431 itself remains IN PROGRESS because AC-431.1/.4/.6/.7/.8 still
-require the broader API/metadata/history convergence stated above.
+used by DP-510.
+
+The expanded current-tree canary was then copied to an isolated MiniPC workspace and rerun after
+the API/social/JSON-LD/history assertions were added. `npm run check:rebuild` passes there with
+the same correction `00ede66707f0 -> 7f1ef323b7d0` and hold `8c932ddf05a5`; search, API health/
+detail/Content read-back, Statement canonical/social/JSON-LD metadata and current/superseded
+history all converge on the rebuilt projection fingerprint, while all four failure injections
+remain fail closed. This closes AC-431.8's MiniPC/static-host rehearsal requirement.
+
+`web/scripts/check_dp431_private_hold.py` supplies the missing AC-431.7 integration proof with an
+ephemeral PostgreSQL database and the existing DP-303 private challenge store. It creates a
+TAKEDOWN request for the exact demo Finding, advances it through reviewed
+`PUBLIC_HOLD_APPROVED`, records the private append-only chain, rebuilds the public bundle with the
+same Finding held out, and then replays the private store. Both Mac and MiniPC pass: the held
+Statement/search record is absent under public fingerprint `8c932ddf05a5`, while exactly one
+private request and three integrity-bound events remain byte/ID/hash-equivalent and the current
+private read model still returns authoritative `HOLD`. No correction/takedown policy was changed.
+
+A separate read-only check of the currently running DP-401 service found a deployment drift that
+is outside this rehearsal: live static search still carries demo fingerprint `00ede66707f0...`
+while the live API reads approved fingerprint `501348d9638e...`. The current tree itself passes
+an isolated MiniPC host against that exact approved projection with matching search/API
+`501348d9638e...`; production promotion must replace the stale live static bundle before release.

@@ -63,7 +63,33 @@ DOSSIER_ALLOWED_KEYS = frozenset(
         "relations",
         "source_methodology",
         "wording",
+        "existing_factchecks",
     }
+)
+
+EXISTING_FACTCHECK_PUBLIC_KEYS = frozenset(
+    {
+        "lineage_id",
+        "version_id",
+        "source_version",
+        "version_state",
+        "provider_id",
+        "review_url",
+        "review_publisher_name",
+        "review_publisher_site",
+        "review_date",
+        "persistence_version",
+    }
+)
+
+SPEAKER_PROVENANCE_PUBLIC_KEYS = frozenset(
+    {"candidate_id", "review_event_ids", "provenance_kind", "attribution_method"}
+)
+TIMED_SPEAKER_PUBLIC_ATTRIBUTION_METHODS = frozenset(
+    {"MANUAL_REVIEW", "TRANSCRIPT_LABEL", "OFFICIAL_RECORD"}
+)
+TEXT_PUBLIC_ATTRIBUTION_METHODS = frozenset(
+    {"SOURCE_BYLINE", "SOURCE_QUOTE", "ACCOUNT_OWNER", "OFFICIAL_RECORD", "MANUAL_REVIEW"}
 )
 
 PUBLIC_SOURCE_WORDING_TYPES = frozenset({"VERBATIM_ORIGINAL", "REPORTED_QUOTE"})
@@ -682,6 +708,45 @@ def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
         raise PublicSchemaValidationError(
             "speaker.provenance must be a non-empty list"
         )
+    for provenance in dossier["speaker"]["provenance"]:
+        if not isinstance(provenance, dict):
+            raise PublicSchemaValidationError("speaker provenance must be an object")
+        unknown_provenance_keys = set(provenance) - SPEAKER_PROVENANCE_PUBLIC_KEYS
+        if unknown_provenance_keys:
+            raise PublicSchemaValidationError(
+                "unknown speaker provenance key(s): "
+                + ", ".join(sorted(unknown_provenance_keys))
+            )
+        if not str(provenance.get("candidate_id") or "").strip():
+            raise PublicSchemaValidationError("speaker provenance candidate_id is required")
+        review_ids = provenance.get("review_event_ids")
+        if (
+            not isinstance(review_ids, list)
+            or not review_ids
+            or not all(isinstance(item, str) and item.strip() for item in review_ids)
+        ):
+            raise PublicSchemaValidationError(
+                "speaker provenance review_event_ids must be non-empty strings"
+            )
+        provenance_kind = str(provenance.get("provenance_kind") or "")
+        if provenance_kind and provenance_kind not in {"TIMED_SPEAKER", "TEXT_ATTRIBUTION"}:
+            raise PublicSchemaValidationError("speaker provenance kind is invalid")
+        attribution_method = provenance.get("attribution_method")
+        if attribution_method is not None:
+            if not provenance_kind:
+                raise PublicSchemaValidationError(
+                    "speaker provenance attribution_method requires provenance_kind"
+                )
+            method = str(attribution_method)
+            allowed_methods = (
+                TIMED_SPEAKER_PUBLIC_ATTRIBUTION_METHODS
+                if provenance_kind == "TIMED_SPEAKER"
+                else TEXT_PUBLIC_ATTRIBUTION_METHODS
+            )
+            if method not in allowed_methods:
+                raise PublicSchemaValidationError(
+                    "speaker provenance attribution_method is not publication-safe"
+                )
     if not isinstance(dossier["speaker"].get("public_roles"), list):
         raise PublicSchemaValidationError("speaker.public_roles must be a list")
 
@@ -711,6 +776,55 @@ def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
         raise PublicSchemaValidationError("corrections must be a list")
     if not isinstance(dossier["rights_of_reply"], list):
         raise PublicSchemaValidationError("rights_of_reply must be a list")
+
+    existing_factchecks = dossier.get("existing_factchecks", [])
+    if not isinstance(existing_factchecks, list) or len(existing_factchecks) > 64:
+        raise PublicSchemaValidationError("existing_factchecks must be a bounded list")
+    seen_factcheck_links: set[tuple[str, str, str]] = set()
+    for item in existing_factchecks:
+        if not isinstance(item, dict):
+            raise PublicSchemaValidationError("existing fact-check metadata must be an object")
+        unknown_factcheck_keys = set(item) - EXISTING_FACTCHECK_PUBLIC_KEYS
+        if unknown_factcheck_keys:
+            raise PublicSchemaValidationError(
+                "unknown existing fact-check key(s): "
+                + ", ".join(sorted(unknown_factcheck_keys))
+            )
+        required_factcheck_keys = {
+            "lineage_id",
+            "version_id",
+            "source_version",
+            "version_state",
+            "provider_id",
+            "review_url",
+            "persistence_version",
+        }
+        missing_factcheck_keys = [
+            key for key in required_factcheck_keys if not str(item.get(key) or "").strip()
+        ]
+        if missing_factcheck_keys:
+            raise PublicSchemaValidationError(
+                "missing existing fact-check key(s): "
+                + ", ".join(sorted(missing_factcheck_keys))
+            )
+        if item["version_state"] not in {"CURRENT", "HISTORICAL"}:
+            raise PublicSchemaValidationError("existing fact-check version_state is invalid")
+        try:
+            _validate_public_url(item["review_url"], field="existing_factchecks.review_url")
+        except ValueError as exc:
+            raise PublicSchemaValidationError("existing fact-check review_url is invalid") from exc
+        if item["persistence_version"] != "existing-factcheck-mirror-v1":
+            raise PublicSchemaValidationError(
+                "existing fact-check persistence_version is not canonical"
+            )
+        identity = (
+            str(item["lineage_id"]),
+            str(item["version_id"]),
+            str(item["review_url"]),
+        )
+        if identity in seen_factcheck_links:
+            raise PublicSchemaValidationError("duplicate existing fact-check metadata")
+        seen_factcheck_links.add(identity)
 
     return dossier
 

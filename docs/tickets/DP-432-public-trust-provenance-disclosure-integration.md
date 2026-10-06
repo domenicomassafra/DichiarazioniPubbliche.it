@@ -57,9 +57,9 @@ provenance, not confidence badges or "AI verified" marketing.
   explains why first-party/official sources have bounded roles rather than universal trust.
 - [x] **AC-432.6:** Method explains abstention/hold behavior and human review honestly; no
   percentage confidence or "AI verified" badge is used as proof.
-- [ ] **AC-432.7:** Correction history links through DP-431 and cannot leave stale wording
+- [x] **AC-432.7:** Correction history links through DP-431 and cannot leave stale wording
   in the current canonical view.
-- [ ] **AC-432.8:** Desktop/mobile/keyboard/200%-zoom and public-schema compatibility tests
+- [x] **AC-432.8:** Desktop/mobile/keyboard/200%-zoom and public-schema compatibility tests
   pass with no provider/LLM request path.
 
 ## Validation / proof
@@ -93,5 +93,26 @@ Content and Trace links now target the Statement `#storia` history anchor, and t
 correction-consistency checker verifies those links against the built search index and correction
 register.
 
-AC-432.7 remains open for DP-431 correction-propagation convergence and AC-432.8 remains open
-for the manual responsive/keyboard/200%-zoom acceptance plus final public-schema/MiniPC proof.
+DP-431's synthetic correction rebuild now proves that the current Statement, its social/JSON-LD
+metadata, API record, search row and every linked Person/Topic/Content/Trace surface converge on
+the corrected projection while the superseded wording is absent from the current canonical view.
+The Statement history block retains current/superseded Finding identifiers and the derived
+surfaces link to `#storia`, closing AC-432.7.
+
+AC-432.8 is now fully machine-proven at its literal scope. The current tree passes the rendered
+Chrome matrix (desktop/phone keyboard flows, reduced motion, 640 px 200%-equivalent reflow and
+zero external/provider requests) plus an exact Chrome browser-zoom factor of `2.0` verified by
+`outerWidth=1280`, `innerWidth=640`, `devicePixelRatio=2` and `visualViewport.scale=1`. MiniPC
+Chrome 150 independently reports the same zoom identity with `scrollWidth=635` and a 44 px filter
+target. An isolated MiniPC build against the exact approved
+`dichiarazioni-pubbliche-public-v2` projection serves `/`, `/esplora/`,
+`/metodo/`, `/search-index.v1.json`, `/api/v1/health` and `/api/v1/openapi.json` with `200` and a
+matching `501348d9638e...` search/API fingerprint. This closure does not claim real screen-reader
+or manual visual acceptance; those cross-surface judgments remain owned by DP-410 rather than this
+ticket's AC-432.8. The running DP-401 static directory is currently stale relative to its API
+(`00ede66707f0...` versus approved `501348d9638e...`), so release/deployment promotion must also
+refresh that live bundle before public launch.
+
+All DP-432 acceptance criteria are now machine-proven, but the ticket remains `IN PROGRESS`
+because upstream dependencies DP-216, DP-217, DP-218, DP-219, DP-220 and DP-223 are still
+`IN PROGRESS`. Their final closure is not inferred from this public-surface integration receipt.

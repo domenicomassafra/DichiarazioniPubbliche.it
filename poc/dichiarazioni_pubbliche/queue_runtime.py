@@ -1608,6 +1608,7 @@ class QueueRuntimeStore(PsqlRuntime):
         event_id: str,
         actor_ref: str = "system",
         reason: str = "",
+        metadata: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         from dichiarazioni_pubbliche.queue_store import ClaimEvidenceObservationStore
 
@@ -1617,6 +1618,7 @@ class QueueRuntimeStore(PsqlRuntime):
             event_id=event_id,
             actor_ref=actor_ref,
             reason=reason,
+            metadata=metadata,
         )
 
     def satisfy_coverage_need(
@@ -1665,6 +1667,7 @@ class QueueRuntimeStore(PsqlRuntime):
         blocker_code: str,
         actor_ref: str = "system",
         reason: str = "",
+        metadata: Mapping[str, Any] | None = None,
     ) -> str:
         from dichiarazioni_pubbliche.queue_store import ClaimEvidenceObservationStore
 
@@ -1675,6 +1678,7 @@ class QueueRuntimeStore(PsqlRuntime):
             blocker_code=blocker_code,
             actor_ref=actor_ref,
             reason=reason,
+            metadata=metadata,
         )
 
     def insert_verification_run(

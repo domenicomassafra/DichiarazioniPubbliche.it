@@ -1,6 +1,6 @@
 # DP-309 — High-risk assertion and legal-status escalation gate
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M3 — Editorial, correction, privacy, and legal policy
 Depends on: DP-215, DP-304, DP-306; DP-307 required for final launch decisions; DP-308
 
@@ -62,12 +62,12 @@ law; qualified questions remain in DP-306/DP-307.
 - [x] **AC-309.5:** Wrong-person/same-name high-risk fixtures remain held through DP-222.
 - [x] **AC-309.6:** Sensitive/private/minor/victim cases inherit DP-304 minimization/hold
   rules and cannot be cleared by this ticket alone.
-- [ ] **AC-309.7:** Every `HIGH/LEGAL` public candidate has an explicit reviewed evidence
+- [x] **AC-309.7:** Every `HIGH/LEGAL` public candidate has an explicit reviewed evidence
   packet and DP-310 review separation, or stays non-public.
 - [x] **AC-309.8:** Qualified-policy rows remain linked to DP-306/DP-307 and a code/test pass
   cannot mark them legally `DECIDED`.
 - [x] **AC-309.9:** Public serializers never expose internal risk scores/notes.
-- [ ] **AC-309.10:** Full regression + DP-223 + MiniPC canary pass.
+- [x] **AC-309.10:** Full regression + DP-223 + MiniPC canary pass.
 
 ## Validation / proof
 
@@ -93,9 +93,9 @@ privacy and minor/victim signals only add restrictions. A high-risk candidate al
 held without an explicit qualified-policy decision reference, human review and DP-310-style
 dual-control flag.
 
-This code does not make or record a legal decision. AC-309.7 remains open until every
+This code does not make or record a legal decision. At that receipt stage AC-309.7 remained open until every
 `HIGH/LEGAL` public candidate is literally required to carry both a current reviewed packet
-and the applicable DP-310 review separation; AC-309.10 remains open for DP-223/full/MiniPC
+and the applicable DP-310 review separation; AC-309.10 likewise remained open for DP-223/full/MiniPC
 acceptance. Final public enablement remains BLOCKED on DP-307 as stated above.
 
 Persisted reviewed-packet receipt 2026-10-06: the private
@@ -132,8 +132,9 @@ is still false, stale record-version/input rejection, tamper rejection and appen
 update/delete/truncate protection. The test also replayed migration/fresh-schema parity and
 migration idempotence. No canary PostgreSQL process remained afterward and the complete
 temporary tree was removed. This is runtime proof of the private packet contract only:
-AC-309.7 remains open because every public `HIGH/LEGAL` candidate is not yet wired through
-this packet + DP-310 path, and AC-309.10 remains open for its full DP-223/regression gate.
+At that MiniPC receipt stage AC-309.7 remained open because every public `HIGH/LEGAL` candidate
+was not yet wired through this packet + DP-310 path, and AC-309.10 remained open for its full
+DP-223/regression gate.
 
 AC-309.9 serializer proof 2026-10-06: a focused audit found and closed one concrete leak path:
 reviewed `corrections[].changed_fields` was copied as an open dictionary into the public JSON
@@ -148,3 +149,11 @@ absent (`check-high-risk-public-serializers.mjs` PASS); the existing `npm run ch
 remains green. A production-style Astro static build from the sanitized projection completed
 successfully and a recursive `dist/` scan found none of the private sentinels or
 `HOLD_HIGH_RISK_*` reason codes. No public risk score or high-risk decision field was introduced.
+
+Final closure receipt at clean HEAD `5a86666b` (2026-10-06): production projection requires the
+current append-only DP-309 reviewed packet plus DP-310/311 authority-attested review separation
+before a `HIGH/LEGAL` candidate can serialize, closing AC-309.7. AC-309.10 is closed by the clean
+**1720/1720** suite, deterministic benchmark **5/5**, DP-223/projection/citation **22/22**,
+isolated MiniPC M3 canary (**346 tests** + benchmark **5/5**) and PostgreSQL rerun **69/69**.
+Engineering completion does not qualify or decide any legal-policy row: without accepted DP-307
+authority the runtime continues to hold the affected candidate.

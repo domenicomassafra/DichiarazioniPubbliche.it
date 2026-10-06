@@ -1,7 +1,7 @@
 {
   "name": "dichiarazioni-pubbliche-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "astro dev",
@@ -15,7 +15,9 @@
     "check:trust": "node scripts/check-trust-disclosure.mjs",
     "check:corrections": "node scripts/check-correction-consistency.mjs",
     "check:browser": "node scripts/check-browser-qa.mjs",
-    "check:rebuild": "python3 scripts/check_dp431_rebuild.py"
+    "check:performance": "node scripts/check-performance.mjs",
+    "check:rebuild": "python3 scripts/check_dp431_rebuild.py",
+    "check:private-hold": "python3 scripts/check_dp431_private_hold.py"
   },
   "dependencies": {
     "@astrojs/react": "7.0.0",

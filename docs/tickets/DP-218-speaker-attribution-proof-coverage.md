@@ -59,7 +59,7 @@ entire quoted/claimed span. Ambiguity produces `HOLD`, never a guessed person.
 - [x] **AC-218.6:** Same-name/different-person evidence resolves through DP-114 stable
   identity, not display-name equality.
 - [x] **AC-218.7:** Segment boundary/source changes are re-checked through interval containment and existing finding-freshness gates; a changed span outside the approved candidate interval no longer satisfies publication.
-- [ ] **AC-218.8:** Public projection exposes only bounded attribution method/provenance
+- [x] **AC-218.8:** Public projection exposes only bounded attribution method/provenance
   metadata and never biometric/template data or private reviewer notes.
 - [x] **AC-218.9:** SQL/tamper-oriented tests prove that a changed speaker_person_id/candidate state still needs the same Person, strong attribution method, approved review and full-span coverage; directly changing `speaker_person_id` or
   candidate status without the matching review/provenance cannot create public output.
@@ -80,4 +80,4 @@ Prefer additive method/version fields and compatibility with existing approved c
 
 ## Completion receipt
 
-Local speaker-attribution publication gate implemented 2026-10-05. Weak metadata/account-credit methods cannot become publication authority; candidate approval, media promotion, finding publication and public projection require strong reviewed same-Person interval coverage. Existing conflicting-person overlap checks remain fail-closed. Focused fixtures now prove host/guest boundary non-inheritance, voice-over boundary holds, embedded clips requiring their own Content/Person proof, and same-name/different-Person ambiguity. Bounded public method disclosure and full schema/benchmark/MiniPC closure remain open.
+Local speaker-attribution publication gate implemented 2026-10-05. Weak metadata/account-credit methods cannot become publication authority; candidate approval, media promotion, finding publication and public projection require strong reviewed same-Person interval coverage. Existing conflicting-person overlap checks remain fail-closed. Focused fixtures now prove host/guest boundary non-inheritance, voice-over boundary holds, embedded clips requiring their own Content/Person proof, and same-name/different-Person ambiguity. The 2026-10-06 final local closure adds the publication-safe attribution method to bounded speaker provenance while the public schema rejects unknown provenance fields and non-publication-capable timed methods; confidence, source refs, biometric/template material and private reviewer notes remain absent. Focused public projection/schema/attribution proof passes. Full schema/benchmark/MiniPC closure remains open under AC-218.10.

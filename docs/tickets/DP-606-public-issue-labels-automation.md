@@ -3,7 +3,7 @@
 Status: IN PROGRESS
 Milestone: M6 — open-source and release hardening
 Depends on: DP-001, a confirmed canonical remote, owner authorization, and the repository governance/security contracts
-Launch state: BLOCKED on owner-approved hosted visibility, maintainer/security ownership, permission scopes, and hosted dry-run; the canonical remote is confirmed
+Launch state: BLOCKED on owner-approved hosted mutation/branch-protection policy and hosted export/rollback dry-run; canonical GitHub remote, public visibility, owner, security channel, and current permission facts are confirmed
 
 ## Problem
 
@@ -157,7 +157,7 @@ closed, or that a release occurred.
 
 ## Acceptance criteria
 
-- [ ] **AC-606.1 — Owner/remote gate:** Before any external setup, the canonical remote,
+- [x] **AC-606.1 — Owner/remote gate:** Before any external setup, the canonical remote,
   platform, visibility, owner, security channel, and permission model are recorded;
   absent these, status remains `PENDING-REMOTE` and no external object is created.
 - [x] **AC-606.2 — Versioned label manifest:** A checked, reviewable manifest defines
@@ -176,14 +176,14 @@ closed, or that a release occurred.
   template structure, ticket-link rules, forbidden fields/secrets, and collision/
   dependency audits before any workflow is enabled. CI does not require a remote for
   local validation.
-- [ ] **AC-606.7 — Clean-clone proof:** A detached clean clone can validate all templates,
+- [x] **AC-606.7 — Clean-clone proof:** A detached clean clone can validate all templates,
   manifests, and automation definitions without credentials, provider calls, or private
   issue data. A hosted dry-run is separately classified `PENDING-REMOTE` until a remote
   exists.
-- [ ] **AC-606.8 — Licensing:** Any automation app, action, or dependency is inventoried
+- [x] **AC-606.8 — Licensing:** Any automation app, action, or dependency is inventoried
   with exact version, license evidence, notice, and review status under DP-603. Native
   platform features are preferred when they avoid an unlicensed dependency.
-- [ ] **AC-606.9 — Versioning:** Milestone/release labels are generated only from an
+- [x] **AC-606.9 — Versioning:** Milestone/release labels are generated only from an
   accepted DP-604 version decision; CI does not bump a version or alter the changelog
   automatically.
 - [ ] **AC-606.10 — Migration/rollback:** Existing repo-local tickets remain readable;
@@ -245,8 +245,15 @@ Keep the ticket `FUTURE`/`BLOCKED` or classify setup incomplete if:
 
 ## Completion receipt
 
-The canonical GitHub fetch/push remote is present in the checkout, but hosted visibility,
-maintainer/security ownership and exact permission scopes are still intentionally unclaimed.
+The canonical GitHub fetch/push remote is present and current hosted facts were read back on
+2026-10-06: repository `domenicomassafra/DichiarazioniPubbliche.it`, visibility `public`,
+default branch `main`, owner `domenicomassafra`, and the authenticated maintainer has
+admin/maintain/push/triage/pull permission. `SECURITY.md` is present on `main`; secret scanning
+and push protection are enabled. `main` currently has no classic branch protection and the
+repository has no rulesets. Those are recorded facts, not an implicit approval of that policy.
+Any branch-protection/permission change remains an owner/admin decision before hosted workflow
+mutation is treated as launch governance.
+
 Local governance is now executable: `.github/labels.v1.json` defines stable label IDs,
 mutually-exclusive state/type groups and a closed state transition graph;
 `.github/triage-policy.v1.json` keeps `PLAN.md`/`docs/tickets` authoritative, disables remote
@@ -259,7 +266,11 @@ unknown labels, state conflicts, mismatched/missing DP IDs, public security inta
 secret/private-shaped bodies. DP-602 contributor acceptance runs this validator
 unconditionally. No GitHub label, issue, project, webhook or workflow action was created.
 
-AC-606.1 remains open for owner/visibility/security-channel/permission decisions, AC-606.7
-for a committed detached clean-clone proof, AC-606.8 unless a third-party automation is ever
-introduced (none is used here), AC-606.9 for an accepted release-label decision, and
-AC-606.10 for hosted export/rollback proof after an owner-authorized setup.
+At exact head `5a86666bf3bb955f18e036c010e53613425a6cf6`, GitHub Actions run
+`37520100680` succeeded; its detached clean-clone job runs contributor acceptance, including
+the DP-606 validator. AC-606.7 is therefore closed. AC-606.8 is satisfied for the current
+implementation because no issue/project automation app, action, or dependency is introduced;
+adding one reopens the DP-603 inventory requirement. AC-606.9 is closed by the checked
+`release_label_source: DP-604` contract plus disabled remote mutation: no release label is
+generated before an accepted DP-604 decision, and CI never chooses or bumps a release.
+AC-606.10 remains open for the hosted export/rollback proof after an owner-authorized setup.

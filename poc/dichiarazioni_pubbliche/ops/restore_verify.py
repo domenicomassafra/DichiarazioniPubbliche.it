@@ -105,6 +105,8 @@ LOAD_BEARING_TABLES = (
     "finding_assertion_citation",
     "claim_relation",
     "right_of_reply",
+    "private_intake_abuse_event",
+    "private_reply_retention_event",
     "correction",
     "private_high_risk_review_packet",
     "private_challenge_request",

@@ -80,7 +80,7 @@ The maintained visual references are the nine mockups in `prototypes/final-hybri
   no LLM/provider call appears in a public request path.
 - [ ] `AC-422.8` Desktop and mobile QA match the selected v4 design contract and the
   maintained `prototypes/final-hybrid/` page families.
-- [ ] `AC-422.9` Astro check/build, Python boundary tests and legacy-route/canonical-route
+- [x] `AC-422.9` Astro check/build, Python boundary tests and legacy-route/canonical-route
   tests pass from a clean clone.
 
 ## Non-goals
@@ -128,6 +128,14 @@ pages, while the DP-407 fixture build has two timed pages plus one written `Pass
 page. Written selection is labeled `Passaggio selezionato` and the checker rejects a fabricated
 clock timestamp. Statement pages must expose the source, version state and `#storia`; Trace pages
 must expose chronology, original-source links and the explicit no-intent boundary. These checks
-close AC-422.4 through AC-422.6 locally. Final redirect-vs-alias cutover, full v4 mobile design
-comparison, clean-clone proof and MiniPC canonical/redirect receipts remain open under AC-422.8/.9;
-DP-408, DP-409 and DP-429 remain completion gates.
+close AC-422.4 through AC-422.6 locally. The full selected-v4 desktop/mobile visual comparison
+remains open under AC-422.8; DP-408, DP-409 and DP-429 remain completion gates.
+
+Clean-clone acceptance was rerun on 2026-10-06 from a fresh clone of `HEAD` with no dirty files:
+`npm ci`, `astro check` (0 errors/warnings/hints), the explicit demo build and
+`check-route-contract.mjs` all pass. The route receipt is 32 HTML routes, 16 compatibility
+aliases, 443 same-site links, three timed locator pages and zero written-locator pages for that
+fixture. The projection/schema/API boundary set also passes **153/153** tests from the clean
+clone. This closes AC-422.9 independently of the shared dirty integration tree. AC-422.8 remains
+open for the selected-v4 desktop/mobile visual comparison; DP-408, DP-409 and DP-429 remain
+completion gates.

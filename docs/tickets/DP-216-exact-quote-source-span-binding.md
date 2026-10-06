@@ -93,7 +93,7 @@ Never:
   eligibility until re-reviewed.
 - [ ] **AC-216.8:** Rights-denied/private spans remain privately verifiable but are not
   leaked through JSON, JSON-LD, HTML, API, search or logs.
-- [ ] **AC-216.9:** Existing DP-111 written-provenance and DP-207 timed-provenance paths
+- [x] **AC-216.9:** Existing DP-111 written-provenance and DP-207 timed-provenance paths
   remain replay-safe and migration-compatible.
 - [ ] **AC-216.10:** Focused tamper tests, full suite, benchmark, migration replay and
   MiniPC canary prove that no arbitrary quote string reaches public projection.
@@ -127,7 +127,18 @@ and requires OFFICIAL_TRANSCRIPT/HUMAN_AUDIO_VERIFIED authority. The promoted At
 retains the bounded context-integrity quote offsets/hash; public projection independently
 recomputes that exact substring against the canonical segment before a timed quote can
 escape, without crossing into private ClaimCandidate/StatementCandidate/promotion/corpus
-tables. Stale-source re-review, discontinuous-span support, broader leak/replay fixtures and
-MiniPC proof remain open.
+tables. The 2026-10-06 closure pass adds `discontinuous-quote-binding-v1`: multiple source
+spans must be strictly ordered/non-adjacent, each span is rebound to the immutable source
+hash, and reconstructed wording always inserts the canonical explicit omission marker
+` […] `. Invisible concatenation of distant clauses fails closed and the receipt retains
+only hashes/offsets. This closes the local binding primitive for AC-216.6, but the AC remains
+unchecked until the frozen public renderer/projection path consumes that structured
+representation. Stale-source re-review, broader leak/replay fixtures and MiniPC proof remain
+open.
+
+Replay compatibility was rechecked against the existing written/timed promotion contracts,
+promotion receipt replay and schema/migration idempotency: the focused promotion/schema set
+passes 65/65, and the full repository suite restores the existing `claim_text_provenance` and
+`claim_segment` durable state unchanged.
 
 Pending implementation and MiniPC proof.

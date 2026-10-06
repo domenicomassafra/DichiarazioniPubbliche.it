@@ -160,6 +160,7 @@ class FalseAttributionBenchmarkExecutionTests(unittest.TestCase):
                 "original_source",
                 "excerpt_rights",
                 "challenger_readiness",
+                "transcript_verbatim",
             },
         )
 

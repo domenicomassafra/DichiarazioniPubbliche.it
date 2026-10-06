@@ -49,12 +49,24 @@ const attributionKinds = [...new Set(
     .filter(Boolean)
 )];
 const translations = wording?.representations.filter((item) => item.wording_type === "TRANSLATION") ?? [];
+const canonicalPath = `/dichiarazioni/${slug}/`;
+const statementStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "CreativeWork",
+  identifier: dossier.finding_id,
+  name: dossier.claim,
+  description: dossier.finding.rationale,
+  url: canonicalPath,
+  datePublished: dossier.finding.published_at,
+  isBasedOn: dossier.source.url
+};
 ---
 
 <BaseLayout
   title={dossier.claim}
   description={dossier.finding.rationale}
-  canonicalPath={`/dichiarazioni/${slug}/`}
+  canonicalPath={canonicalPath}
+  structuredData={statementStructuredData}
 >
   <header class="dp-statement-header">
     <div class="shell">
@@ -148,6 +160,10 @@ const translations = wording?.representations.filter((item) => item.wording_type
         <details>
           <summary>Correzioni, versioni e repliche</summary>
           <div>
+            <p>
+              Versione corrente: <code>{dossier.finding_id}</code>
+              {dossier.finding.supersedes_id && <> · sostituisce <code>{dossier.finding.supersedes_id}</code></>}
+            </p>
             {dossier.corrections.length === 0 && dossier.rights_of_reply.length === 0 ? (
               <p>Nessuna correzione o replica pubblicata per questa versione.</p>
             ) : (
@@ -160,6 +176,8 @@ const translations = wording?.representations.filter((item) => item.wording_type
                         <li>
                           {String(correction.reason ?? "Correzione pubblicata")}
                           {correction.created_at ? ` · ${formatDate(String(correction.created_at))}` : ""}
+                          {correction.previous_finding_id && <> · da <code>{String(correction.previous_finding_id)}</code></>}
+                          {correction.finding_id && <> a <code>{String(correction.finding_id)}</code></>}
                         </li>
                       ))}
                     </ul>

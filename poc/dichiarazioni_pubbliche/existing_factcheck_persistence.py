@@ -28,6 +28,7 @@ class PersistedFactCheckMirror:
     lineage_id: str
     upstream_record_id: str
     version_id: str
+    atomic_claim_id: str | None
     source_version: str
     source_content_sha256: str
     supersedes_version_id: str | None
@@ -213,6 +214,7 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
                 'run_id', attempt.run_id,
                 'query_id', attempt.query_id,
                 'query_metadata', query.metadata,
+                'manifest_coverage_need_ids', manifest.coverage_need_ids,
                 'hit_id', hit.id,
                 'hit_disposition', hit.disposition,
                 'hit_url', hit.canonical_url,
@@ -220,6 +222,7 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
             )::text
             FROM research_discovery_attempt attempt
             JOIN research_discovery_query query ON query.id=attempt.query_id
+            JOIN research_discovery_manifest manifest ON manifest.id=query.manifest_id
             JOIN research_discovery_hit hit
               ON hit.id=:'hit_id'
              AND hit.attempt_id=attempt.id
@@ -236,6 +239,46 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
         if not isinstance(value, dict):
             raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_DISCOVERY_BINDING_INVALID")
         return value
+
+    def _materialized_claim_binding(self, binding: Mapping[str, Any]) -> str | None:
+        """Resolve the private DP-228/DP-213 binding once, before mirror insertion.
+
+        Public projection never reads Coverage Need or discovery planning state.  A
+        claim-scoped need is materialized onto the immutable mirror row here; collection-
+        only/candidate-only needs remain NULL and therefore cannot surface publicly.
+        """
+
+        query_metadata = binding.get("query_metadata")
+        if not isinstance(query_metadata, Mapping):
+            raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_QUERY_METADATA_INVALID")
+        coverage_need_id = _text(
+            query_metadata.get("coverage_need_id"),
+            "COVERAGE_NEED_ID",
+            maximum=512,
+        )
+        manifest_need_ids = binding.get("manifest_coverage_need_ids")
+        if not isinstance(manifest_need_ids, list) or coverage_need_id not in {
+            str(value) for value in manifest_need_ids
+        }:
+            raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_COVERAGE_NEED_BINDING_MISMATCH")
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'id', id,
+                'atomic_claim_id', atomic_claim_id
+            )::text
+            FROM coverage_need
+            WHERE id=:'coverage_need_id';
+            """,
+            coverage_need_id=coverage_need_id,
+        )
+        if not raw:
+            raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_COVERAGE_NEED_MISSING")
+        need = json.loads(raw)
+        if not isinstance(need, Mapping) or str(need.get("id") or "") != coverage_need_id:
+            raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_COVERAGE_NEED_INVALID")
+        claim_id = str(need.get("atomic_claim_id") or "").strip()
+        return claim_id or None
 
     def persist_mirror(
         self,
@@ -289,6 +332,7 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
             raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_RESEARCH_LANE_MISMATCH")
         if str(query_metadata.get("research_assignment_id") or "") != assignment:
             raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_ASSIGNMENT_BINDING_MISMATCH")
+        atomic_claim_id = self._materialized_claim_binding(binding)
 
         provider_receipt = binding.get("provider_receipt")
         if not isinstance(provider_receipt, Mapping):
@@ -388,6 +432,7 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
             SELECT json_build_object(
                 'id', id,
                 'version_id', version_id,
+                'atomic_claim_id', atomic_claim_id,
                 'review_url', review_url,
                 'rights_status', rights_status,
                 'research_assignment_id', research_assignment_id,
@@ -408,6 +453,7 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
         expected = {
             "id": mirror_id,
             "version_id": version_id,
+            "atomic_claim_id": atomic_claim_id,
             "review_url": review_url,
             "rights_status": rights,
             "research_assignment_id": assignment,
@@ -417,25 +463,30 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
             "normalized_record_sha256": normalized_sha,
         }
         if existing_mirror_raw:
-            if json.loads(existing_mirror_raw) != expected:
+            existing_mirror = json.loads(existing_mirror_raw)
+            legacy_expected = dict(expected)
+            legacy_expected["atomic_claim_id"] = None
+            if existing_mirror != expected and existing_mirror != legacy_expected:
                 raise ExistingFactCheckMirrorError("FACTCHECK_MIRROR_EXTERNAL_ID_CONFLICT")
         else:
             try:
+                insert_values = dict(expected)
+                insert_values["atomic_claim_id"] = atomic_claim_id or ""
                 self.run(
                     """
                     INSERT INTO existing_factcheck_mirror (
-                        id, version_id, provider_id, source_external_id, source_version,
+                        id, version_id, atomic_claim_id, provider_id, source_external_id, source_version,
                         review_url, rights_status, research_assignment_id,
                         discovery_attempt_id, discovery_hit_id, provider_receipt_sha256,
                         normalized_record_sha256, normalized_record
                     ) VALUES (
-                        :'id', :'version_id', :'provider_id', :'source_external_id', :'source_version',
+                        :'id', :'version_id', NULLIF(:'atomic_claim_id',''), :'provider_id', :'source_external_id', :'source_version',
                         :'review_url', :'rights_status', :'research_assignment_id',
                         :'discovery_attempt_id', :'discovery_hit_id', :'provider_receipt_sha256',
                         :'normalized_record_sha256', :'normalized_record'::jsonb
                     );
                     """,
-                    **expected,
+                    **insert_values,
                     provider_id=provider,
                     source_external_id=external,
                     source_version=version,
@@ -454,6 +505,7 @@ class ExistingFactCheckMirrorStore(PsqlRuntime):
                 'lineage_id', lineage.id,
                 'upstream_record_id', lineage.upstream_record_id,
                 'version_id', version.id,
+                'atomic_claim_id', mirror.atomic_claim_id,
                 'source_version', version.source_version,
                 'source_content_sha256', version.source_content_sha256,
                 'supersedes_version_id', version.supersedes_version_id,

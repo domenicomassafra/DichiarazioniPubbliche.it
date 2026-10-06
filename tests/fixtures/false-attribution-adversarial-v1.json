@@ -1,6 +1,6 @@
 {
   "schema_version": "dp-223-adversarial-benchmark/v1",
-  "fixture_version": "2026-10-06.2",
+  "fixture_version": "2026-10-06.3",
   "provenance": {
     "authorship": "Dichiarazioni Pubbliche contributors",
     "labeling": "independent hand-labeled expectations authored in fixture data; expectations are not derived from benchmark implementation output",
@@ -33,7 +33,10 @@
     "direct_status_person_quote_tampering",
     "rights_hold_or_source_body_unavailable",
     "fabricated_sentence_absent_from_source",
-    "challenger_only_countercase"
+    "challenger_only_countercase",
+    "transcript_homophone_disagreement",
+    "transcript_punctuation_disagreement",
+    "transcript_cross_talk_disagreement"
   ],
   "cases": [
     {
@@ -2384,10 +2387,112 @@
       "risk_tags": [
         "CHALLENGER_ONLY_UNSAFE_CONCLUSION"
       ]
+    },
+    {
+      "id": "transcript-homophone-adverse",
+      "class": "transcript_homophone_disagreement",
+      "variant": "ADVERSARIAL",
+      "gate": "transcript_verbatim",
+      "source": {"source_id": "source:transcript-homophone-adverse", "text": "L'anno è decisivo.", "sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db"},
+      "span": {"start": 0, "end": 18, "text": "L'anno è decisivo.", "sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db"},
+      "input": {
+        "candidates": [
+          {"candidate_id": "candidate:1", "provider_id": "provider:1", "text": "L'anno è decisivo.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"},
+          {"candidate_id": "candidate:2", "provider_id": "provider:2", "text": "L'hanno è decisivo.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"}
+        ],
+        "gazetteer_terms": []
+      },
+      "expected": {"source_id": "source:transcript-homophone-adverse", "source_sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db", "span_start": 0, "span_end": 18, "span_sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db", "person_id": null, "wording_type": "VERBATIM_ORIGINAL", "publication_state": "HELD", "reason_any": ["TRANSCRIPT_CANDIDATE_DISAGREEMENT", "TRANSCRIPT_VERBATIM_AUTHORITY_REQUIRED"], "quote_exact": false, "speaker_span_covered": null},
+      "risk_tags": ["FABRICATED_QUOTE"]
+    },
+    {
+      "id": "transcript-homophone-control",
+      "class": "transcript_homophone_disagreement",
+      "variant": "CONTROL",
+      "gate": "transcript_verbatim",
+      "source": {"source_id": "source:transcript-homophone-control", "text": "L'anno è decisivo.", "sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db"},
+      "span": {"start": 0, "end": 18, "text": "L'anno è decisivo.", "sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db"},
+      "input": {
+        "candidates": [
+          {"candidate_id": "candidate:1", "provider_id": "provider:1", "text": "L'anno è decisivo.", "start_ms": 0, "end_ms": 2000, "source_kind": "OFFICIAL_TRANSCRIPT"},
+          {"candidate_id": "candidate:2", "provider_id": "provider:2", "text": "L'anno è decisivo.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"}
+        ],
+        "gazetteer_terms": []
+      },
+      "expected": {"source_id": "source:transcript-homophone-control", "source_sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db", "span_start": 0, "span_end": 18, "span_sha256": "d2bcedf4842204cbcfa34c30702a7d885b44df2990f48c44a6fd05cf6cac32db", "person_id": null, "wording_type": "VERBATIM_ORIGINAL", "publication_state": "PUBLIC", "reason_any": ["TRANSCRIPT_VERBATIM_VERIFIED"], "quote_exact": true, "speaker_span_covered": null},
+      "risk_tags": ["FABRICATED_QUOTE"]
+    },
+    {
+      "id": "transcript-punctuation-adverse",
+      "class": "transcript_punctuation_disagreement",
+      "variant": "ADVERSARIAL",
+      "gate": "transcript_verbatim",
+      "source": {"source_id": "source:transcript-punctuation-adverse", "text": "Non basta.", "sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb"},
+      "span": {"start": 0, "end": 10, "text": "Non basta.", "sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb"},
+      "input": {
+        "candidates": [
+          {"candidate_id": "candidate:1", "provider_id": "provider:1", "text": "Non basta.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"},
+          {"candidate_id": "candidate:2", "provider_id": "provider:2", "text": "Non basta?", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"}
+        ],
+        "gazetteer_terms": []
+      },
+      "expected": {"source_id": "source:transcript-punctuation-adverse", "source_sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb", "span_start": 0, "span_end": 10, "span_sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb", "person_id": null, "wording_type": "VERBATIM_ORIGINAL", "publication_state": "HELD", "reason_any": ["TRANSCRIPT_CANDIDATE_DISAGREEMENT", "TRANSCRIPT_VERBATIM_AUTHORITY_REQUIRED"], "quote_exact": false, "speaker_span_covered": null},
+      "risk_tags": ["FABRICATED_QUOTE"]
+    },
+    {
+      "id": "transcript-punctuation-control",
+      "class": "transcript_punctuation_disagreement",
+      "variant": "CONTROL",
+      "gate": "transcript_verbatim",
+      "source": {"source_id": "source:transcript-punctuation-control", "text": "Non basta.", "sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb"},
+      "span": {"start": 0, "end": 10, "text": "Non basta.", "sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb"},
+      "input": {
+        "candidates": [
+          {"candidate_id": "candidate:1", "provider_id": "provider:1", "text": "Non basta.", "start_ms": 0, "end_ms": 2000, "source_kind": "OFFICIAL_TRANSCRIPT"},
+          {"candidate_id": "candidate:2", "provider_id": "provider:2", "text": "Non basta.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"}
+        ],
+        "gazetteer_terms": []
+      },
+      "expected": {"source_id": "source:transcript-punctuation-control", "source_sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb", "span_start": 0, "span_end": 10, "span_sha256": "83c099828f429db0b92a06bad4fec638d556f31b65b66e859361fd4fce3341cb", "person_id": null, "wording_type": "VERBATIM_ORIGINAL", "publication_state": "PUBLIC", "reason_any": ["TRANSCRIPT_VERBATIM_VERIFIED"], "quote_exact": true, "speaker_span_covered": null},
+      "risk_tags": ["FABRICATED_QUOTE"]
+    },
+    {
+      "id": "transcript-crosstalk-adverse",
+      "class": "transcript_cross_talk_disagreement",
+      "variant": "ADVERSARIAL",
+      "gate": "transcript_verbatim",
+      "source": {"source_id": "source:transcript-crosstalk-adverse", "text": "Alfa: Il fondo vale 10.", "sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75"},
+      "span": {"start": 0, "end": 23, "text": "Alfa: Il fondo vale 10.", "sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75"},
+      "input": {
+        "candidates": [
+          {"candidate_id": "candidate:1", "provider_id": "provider:1", "text": "Alfa: Il fondo vale 10.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"},
+          {"candidate_id": "candidate:2", "provider_id": "provider:2", "text": "Beta: Il fondo vale 10.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"}
+        ],
+        "gazetteer_terms": ["Alfa", "Beta"]
+      },
+      "expected": {"source_id": "source:transcript-crosstalk-adverse", "source_sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75", "span_start": 0, "span_end": 23, "span_sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75", "person_id": null, "wording_type": "VERBATIM_ORIGINAL", "publication_state": "HELD", "reason_any": ["TRANSCRIPT_TRANSCRIPT_UNCERTAIN", "TRANSCRIPT_PUBLICATION_BLOCKED"], "quote_exact": false, "speaker_span_covered": null},
+      "risk_tags": ["FABRICATED_QUOTE"]
+    },
+    {
+      "id": "transcript-crosstalk-control",
+      "class": "transcript_cross_talk_disagreement",
+      "variant": "CONTROL",
+      "gate": "transcript_verbatim",
+      "source": {"source_id": "source:transcript-crosstalk-control", "text": "Alfa: Il fondo vale 10.", "sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75"},
+      "span": {"start": 0, "end": 23, "text": "Alfa: Il fondo vale 10.", "sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75"},
+      "input": {
+        "candidates": [
+          {"candidate_id": "candidate:1", "provider_id": "provider:1", "text": "Alfa: Il fondo vale 10.", "start_ms": 0, "end_ms": 2000, "source_kind": "OFFICIAL_TRANSCRIPT"},
+          {"candidate_id": "candidate:2", "provider_id": "provider:2", "text": "Alfa: Il fondo vale 10.", "start_ms": 0, "end_ms": 2000, "source_kind": "ASR"}
+        ],
+        "gazetteer_terms": ["Alfa", "Beta"]
+      },
+      "expected": {"source_id": "source:transcript-crosstalk-control", "source_sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75", "span_start": 0, "span_end": 23, "span_sha256": "e9320e6c66a789704f43eb6c1e8d7c79e57158685475f41aa5283d0be69cfb75", "person_id": null, "wording_type": "VERBATIM_ORIGINAL", "publication_state": "PUBLIC", "reason_any": ["TRANSCRIPT_VERBATIM_VERIFIED"], "quote_exact": true, "speaker_span_covered": null},
+      "risk_tags": ["FABRICATED_QUOTE"]
     }
   ],
   "integrity": {
     "algorithm": "sha256-canonical-json-without-integrity",
-    "fixture_sha256": "8e83e59914c58be1eca32f633273ae4cafc2d3c2fa5d795af5bfcf0ce65d9c16"
+    "fixture_sha256": "29d5f3a73d5906ab085b24f09ac7bd5e7792198e1c03c8bedeac656d662f5591"
   }
 }

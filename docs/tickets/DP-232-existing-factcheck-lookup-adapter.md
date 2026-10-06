@@ -34,7 +34,7 @@ authority.
   map this to its BLOCKED/not-configured state rather than empty success.
 - [x] Query/result/cost limits are inherited from persisted DP-228 assignments; the local
   client already enforces a bounded page size/max-age request contract.
-- [ ] Rights/public projection expose only allowed metadata/links.
+- [x] Rights/public projection expose only allowed metadata/links.
 - [x] Pure outward ClaimReview interoperability accepts only an already-public `PUBLISH`
   dossier with publication/evidence/speaker review provenance and a publishable canonical
   assessment; held/private/unapproved inputs fail closed and the adapter has no network or
@@ -89,7 +89,9 @@ value with the persisted source rights before delegating to canonical DP-305
 `decide_excerpt()`. Tests prove callers cannot turn `UNKNOWN` or `BLOCKED` mirror rights
 into a public excerpt by passing `CLEARED`, and the metadata-only mirror object is rejected
 by outward `claimreview_interop` because it is not an already-public reviewed dossier.
-The generic public projection still reads none of the private mirror tables.
+The initial persistence tranche intentionally did not wire those private tables into the
+canonical public projection; the final closure tranche below adds only the bounded
+metadata/link projection, not ClaimReview body or verdict authority.
 
 Disposable PostgreSQL acceptance: **8/8 PASS**. Related existing-factcheck,
 ClaimReview-interop, DP-228 planner, DP-209 discovery and DP-305 rights regressions:
@@ -98,8 +100,8 @@ database and provider/API environment removed and its own PostgreSQL 18 temporar
 also ran **115/115 PASS**; all temporary files/processes were removed afterward. No live
 Google/provider request or production database mutation occurred.
 
-The DP-305 boundary is proven locally, but the rights/public-projection AC stays open until
-an approved mirror metadata/link surface is wired into the canonical Public projection.
+The DP-305 boundary is proven locally. The canonical metadata/link-only projection closure
+is recorded below; live provider/network proof remains a separate external runtime concern.
 
 ### DP-228/DP-209 runtime wiring follow-up — 2026-10-06
 
@@ -144,3 +146,40 @@ regressions bring the focused set to **123/123 PASS**. `py_compile` and `git dif
 PASS. All lookups in this proof are injected deterministic in-process fixtures; no Google
 or other provider/network call, public projection/web edit, production DB mutation,
 publication authority, commit or push occurred.
+
+### Canonical public metadata/link closure — 2026-10-06
+
+The private persistence seam now materializes an exact nullable `atomic_claim_id` onto each
+new mirror row **before** public projection can see it. At insert time the store revalidates
+the durable DP-209 attempt/hit/provider/URL + DP-228 assignment/lane binding, requires the
+query's exact `coverage_need_id` to be present in the saved manifest, resolves that private
+Coverage Need and snapshots its `atomic_claim_id`. Claim-scoped needs therefore receive one
+immutable Claim binding; collection/candidate-only needs remain `NULL` and are not public.
+Legacy mirror rows are intentionally not backfilled: a nullable legacy binding simply does
+not project.
+
+The canonical `PublicProjectionStore` reads **none** of the private Coverage Need or
+`research_discovery_*` planning/receipt tables. It joins only the immutable DP-232
+mirror/version/lineage rows and requires `mirror.atomic_claim_id = claim.id`. This preserves
+the architecture invariant that research/planning state cannot become a public read
+dependency. The projection emits only the bounded mirror contract already defined by
+`public_mirror_metadata()`: lineage/version identity, current-vs-historical state, provider,
+review URL, publisher name/site, review date and the mirror contract version.
+
+The public schema whitelist rejects any additional mirror field and the sanitizer fails
+closed on unsafe/credentialed review URLs, invalid version state or non-canonical contract
+version. Claim text, textual rating, review title, claimant, normalized record body,
+provider receipt, assignment/attempt IDs and rights state never cross the public boundary;
+the external review link therefore cannot become Evidence, Finding assessment or excerpt
+authority. DP-305 remains the only excerpt/rights gate.
+
+`db/schema.v1.sql` folds the materialized Claim column into the canonical mirror table and
+adds its FK only after `atomic_claim` exists. The already-deployed
+`20261006-add-existing-factcheck-mirror-lineage.sql` remains byte-for-byte untouched; new
+replay-safe migration `20261006-add-existing-factcheck-claim-binding.sql` adds only the
+nullable binding/FK/index and is exercised twice in disposable PostgreSQL acceptance.
+Focused public/persistence + Coverage Need and research-discovery architecture tests pass;
+`compileall` and `git diff --check` pass.
+No live Google/provider request, API key, production database mutation or publication side
+effect was used. The ticket remains `IN PROGRESS` only for any future owner-selected live
+provider/network receipt; all dependency-free local acceptance criteria are now complete.

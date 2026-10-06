@@ -401,6 +401,55 @@ class ClaimEvidenceObservationStoreContractTests(unittest.TestCase):
             [{"coverage_need_id": "coverage:a", "content_id": "content:a"}],
         )
 
+    def test_original_source_satisfaction_persists_bounded_resolution_receipt(self):
+        class CaptureStore(ClaimEvidenceObservationStore):
+            def __init__(self):
+                self.sql = ""
+                self.variables = {}
+
+            def coverage_need_original_source_preflight(self, **variables):
+                return {
+                    "required": True,
+                    "accepted": True,
+                    "status": "RESOLVED",
+                    "need_type": "ATTRIBUTION_GAP",
+                    "atomic_claim_id": None,
+                    "claim_candidate_id": "claim-candidate:reported",
+                    "source_intelligence_assessment_id": "assessment:reported",
+                    "root_content_id": "content:root",
+                    "path_content_ids": ["content:root"],
+                    "path_edge_ids": [],
+                    "private_text": "must never persist",
+                }
+
+            def run(self, sql, **variables):
+                self.sql = sql
+                self.variables = variables
+                return "SATISFIED"
+
+        store = CaptureStore()
+        self.assertEqual(
+            store.satisfy_coverage_need(
+                coverage_need_id="coverage:original",
+                event_id="event:original",
+                content_id="content:root",
+            ),
+            "SATISFIED",
+        )
+        receipt = json.loads(store.variables["original_source_resolution"])
+        self.assertEqual(receipt["root_content_id"], "content:root")
+        self.assertEqual(receipt["path_content_ids"], ["content:root"])
+        self.assertEqual(receipt["need_type"], "ATTRIBUTION_GAP")
+        self.assertEqual(
+            receipt["claim_candidate_id"], "claim-candidate:reported"
+        )
+        self.assertNotIn("private_text", receipt)
+        self.assertIn("UPDATE evidence_set_assessment", store.sql)
+        self.assertIn("original_source_resolution", store.sql)
+        self.assertNotIn("UPDATE claim_candidate", store.sql)
+        self.assertNotIn("UPDATE claim_candidate", store.sql)
+        self.assertNotIn("UPDATE statement_candidate", store.sql)
+
 
 class ReviewPublicationDecisionStoreContractTests(unittest.TestCase):
     def test_store_is_narrow_and_uses_psql_runtime_directly(self):

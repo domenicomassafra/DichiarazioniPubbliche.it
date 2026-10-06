@@ -1,6 +1,6 @@
 # DP-304 — Privacy, minimization, and sensitive-person policy
 
-Status: IN_PROGRESS
+Status: IN PROGRESS
 
 Milestone: M3
 
@@ -189,14 +189,14 @@ reclassify a high-risk item as public.
   purpose, access role, retention behavior, and public allowlist decision.
 - [ ] **AC-304.2:** Public-interest relevance is required before ingestion and
   publication; missing or stale relevance yields a private hold/omission.
-- [ ] **AC-304.3:** Fixtures for sensitive claims, allegations, minors, victims,
+- [x] **AC-304.3:** Fixtures for sensitive claims, allegations, minors, victims,
   exact locations, and contact data are quarantined or minimized and never inferred
   into new traits.
 - [ ] **AC-304.4:** Public JSON, JSON-LD, HTML, API, search, analytics, and logs
   contain no prohibited private fields, even when the operational row is tampered.
 - [ ] **AC-304-05:** Rights requests create private append-only cases and cannot
   directly edit or delete a published historical version.
-- [ ] **AC-304.6:** Retention dry-runs prove that incomplete manifests, missing
+- [x] **AC-304.6:** Retention dry-runs prove that incomplete manifests, missing
   receipts, active holds, and failed provenance checks prevent deletion.
 - [ ] **AC-304-07:** Access tests prove that only authorized roles can inspect private
   content and that access audit records contain no copied body text.
@@ -377,3 +377,12 @@ path are not yet wired; AC-304.1, AC-304.4, AC-304-05, AC-304.6, AC-304-07, and 
 also retain their existing blockers. This tranche does not select a lawful basis,
 retention period, owner/counsel decision, sensitive trait, or reviewer identity authority,
 and it does not change `public_projection`.
+
+Final engineering-truth audit at clean HEAD `5a86666b` (2026-10-06): AC-304.3 is closed by
+the sensitive/high-risk/minor/victim/location/contact fixtures that only quarantine/minimize and
+never derive a new trait. AC-304.6 is closed by the current retention/corpus-retention fail-closed
+dry-run matrix. AC-304.1/.2/.4/-05/-07/-08 remain open: complete field inventory,
+ingestion-wide relevance, all-surface privacy/log proof, persisted rights-request cases, wired
+private-admin access authority, and the composite MiniPC privacy/rights/retention canary are not
+yet proven. Q-306-08..10 / DP-307 remain unresolved; no lawful basis, retention period or rights
+outcome is asserted.

@@ -17,6 +17,9 @@ class FakeCoverageStore(QueueRuntimeStore):
         self.families = families
         self.edges = edges
         self.satisfaction_called = False
+        self.claim_candidate_id = (
+            "claim-candidate:reported" if need_type == "ATTRIBUTION_GAP" else None
+        )
 
     def run(self, sql: str, **variables):
         if "FROM coverage_need" in sql and "need_type" in sql and "json_build_object" in sql:
@@ -25,6 +28,9 @@ class FakeCoverageStore(QueueRuntimeStore):
                     "id": variables["coverage_need_id"],
                     "need_type": self.need_type,
                     "status": "OPEN",
+                    "atomic_claim_id": None,
+                    "claim_candidate_id": self.claim_candidate_id,
+                    "source_intelligence_assessment_id": "assessment:source-intelligence",
                 }
             )
         if "WITH matching_family" in sql:
@@ -124,6 +130,11 @@ class CoverageOriginalSourcePreflightTests(unittest.TestCase):
         )
         self.assertTrue(preflight["required"])
         self.assertTrue(preflight["accepted"])
+        self.assertEqual(preflight["need_type"], "ATTRIBUTION_GAP")
+        self.assertEqual(
+            preflight["claim_candidate_id"], "claim-candidate:reported"
+        )
+        self.assertEqual(preflight["root_content_id"], "content:root")
 
 
 if __name__ == "__main__":

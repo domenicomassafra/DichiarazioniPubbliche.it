@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import asdict, dataclass
+from typing import Sequence
 
 
 CONTEXT_INTEGRITY_VERSION = "context-integrity-v1"
@@ -40,6 +42,33 @@ class ContextIntegrityAssessment:
     context_start: int
     context_end: int
     context_sha256: str
+    signal_codes: tuple[str, ...]
+    version: str = CONTEXT_INTEGRITY_VERSION
+
+    @property
+    def clear(self) -> bool:
+        return self.state in CLEAR_STATES
+
+    def to_metadata(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class StructuredContextSpan:
+    start_char: int
+    end_char: int
+    text_sha256: str
+    speaker_ref: str | None = None
+    source_part_ref: str | None = None
+
+
+@dataclass(frozen=True)
+class StructuredContextIntegrityAssessment:
+    state: str
+    source_sha256: str
+    binding_sha256: str
+    spans: tuple[StructuredContextSpan, ...]
+    omission_count: int
     signal_codes: tuple[str, ...]
     version: str = CONTEXT_INTEGRITY_VERSION
 
@@ -133,6 +162,93 @@ def assess_context_integrity(
     )
 
 
+def assess_structured_context_integrity(
+    *,
+    source_text: str,
+    source_sha256: str,
+    spans: Sequence[tuple[int, int]],
+    speaker_refs: Sequence[str | None] = (),
+    source_part_refs: Sequence[str | None] = (),
+) -> StructuredContextIntegrityAssessment:
+    """Bind discontinuous context to every source span without storing source text.
+
+    Discontinuous excerpts always require explicit review. Different speaker refs expose
+    cross-talk/interruption boundaries, and different source-part refs expose montage or
+    embedded-source boundaries. Both cases stay held instead of inheriting context from
+    a neighboring span.
+    """
+
+    text = str(source_text or "")
+    expected_source_hash = str(source_sha256 or "").strip().lower()
+    if len(expected_source_hash) != 64 or _sha256(text) != expected_source_hash:
+        raise ValueError("CONTEXT_SOURCE_HASH_MISMATCH")
+    if len(spans) < 2:
+        raise ValueError("CONTEXT_STRUCTURED_MULTIPLE_SPANS_REQUIRED")
+    if speaker_refs and len(speaker_refs) != len(spans):
+        raise ValueError("CONTEXT_STRUCTURED_SPEAKER_COUNT_MISMATCH")
+    if source_part_refs and len(source_part_refs) != len(spans):
+        raise ValueError("CONTEXT_STRUCTURED_SOURCE_PART_COUNT_MISMATCH")
+
+    rows: list[StructuredContextSpan] = []
+    previous_end: int | None = None
+    signals: list[str] = ["DISCONTINUOUS_EXCERPT_REQUIRES_REVIEW"]
+    for index, (raw_start, raw_end) in enumerate(spans):
+        start = int(raw_start)
+        end = int(raw_end)
+        if start < 0 or end <= start or end > len(text):
+            raise ValueError("CONTEXT_STRUCTURED_SPAN_INVALID")
+        if previous_end is not None and start <= previous_end:
+            raise ValueError("CONTEXT_STRUCTURED_SPAN_ORDER_INVALID")
+        raw_speaker = speaker_refs[index] if speaker_refs else None
+        raw_source_part = source_part_refs[index] if source_part_refs else None
+        rows.append(
+            StructuredContextSpan(
+                start_char=start,
+                end_char=end,
+                text_sha256=_sha256(text[start:end]),
+                speaker_ref=(
+                    None
+                    if raw_speaker is None
+                    else str(raw_speaker).strip() or None
+                ),
+                source_part_ref=(
+                    None
+                    if raw_source_part is None
+                    else str(raw_source_part).strip() or None
+                ),
+            )
+        )
+        previous_end = end
+
+    speakers = {row.speaker_ref for row in rows if row.speaker_ref}
+    source_parts = {row.source_part_ref for row in rows if row.source_part_ref}
+    if len(speakers) > 1:
+        signals.append("CROSS_TALK_OR_SPEAKER_BOUNDARY")
+    if len(source_parts) > 1:
+        signals.append("MONTAGE_OR_SOURCE_BOUNDARY")
+
+    material = {
+        "source_sha256": expected_source_hash,
+        "spans": [asdict(row) for row in rows],
+        "omission_count": len(rows) - 1,
+        "signal_codes": signals,
+        "version": CONTEXT_INTEGRITY_VERSION,
+    }
+    binding = hashlib.sha256(
+        json.dumps(material, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+    return StructuredContextIntegrityAssessment(
+        state="NEEDS_CONTEXT_REVIEW",
+        source_sha256=expected_source_hash,
+        binding_sha256=binding,
+        spans=tuple(rows),
+        omission_count=len(rows) - 1,
+        signal_codes=tuple(signals),
+    )
+
+
 def curated_context_approval(
     *,
     source_sha256: str,
@@ -167,6 +283,9 @@ __all__ = [
     "CLEAR_STATES",
     "CONTEXT_INTEGRITY_VERSION",
     "ContextIntegrityAssessment",
+    "StructuredContextIntegrityAssessment",
+    "StructuredContextSpan",
     "assess_context_integrity",
+    "assess_structured_context_integrity",
     "curated_context_approval",
 ]

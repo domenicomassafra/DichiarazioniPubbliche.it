@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.candidate_extraction import (  # noqa: E402
     AliasLexiconRow,
     CandidateExtractionError,
+    CandidateExtractionStore,
     OmniRouteCandidateExtractionClient,
     PassageExtractionContext,
     ProviderExtractionResult,
@@ -78,6 +79,27 @@ def media_context():
         segment_speaker_person_id="person:speaker",
         segment_status="RESOLVED",
         segment_publication_blocked=False,
+    )
+
+
+def written_context_for(text: str, *, content_id: str) -> PassageExtractionContext:
+    return PassageExtractionContext(
+        passage_id=f"passage:{content_id}",
+        content_id=content_id,
+        capture_id=f"capture:{content_id}",
+        canonical_segment_id=None,
+        selector_type="TEXT_POSITION",
+        start_char=0,
+        end_char=len(text),
+        page_start=None,
+        page_end=None,
+        text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        text=text,
+        language="it",
+        content_published_at="2026-09-29T10:00:00+00:00",
+        segment_speaker_person_id=None,
+        segment_status=None,
+        segment_publication_blocked=None,
     )
 
 
@@ -452,6 +474,334 @@ class CandidateExtractionTests(unittest.TestCase):
             NAME,
         )
         self.assertTrue(batch.claims[0].metadata["reported_origin_required"])
+        origin = statement.metadata["reported_origin"]
+        self.assertEqual(origin["speech_mode"], "NESTED_QUOTATION")
+        self.assertEqual(origin["quotation_depth"], 1)
+        self.assertEqual(origin["origin_state"], "UNRESOLVED")
+        self.assertEqual(origin["reported_speaker_mention"]["start_char"], NSTART)
+        self.assertEqual(origin["reported_speaker_mention"]["end_char"], NEND)
+        self.assertEqual(
+            origin["reported_speaker_mention"]["mention_text_sha256"],
+            hashlib.sha256(NAME.encode()).hexdigest(),
+        )
+        self.assertNotIn("mention_text", origin["reported_speaker_mention"])
+        self.assertEqual(batch.claims[0].metadata["reported_origin"], origin)
+
+    def test_reported_origin_metadata_is_bounded_and_direct_occurrence_is_self(self):
+        parsed = validate_provider_payload(
+            valid_payload(),
+            passage_text=TEXT,
+            config=load_candidate_extraction_config(),
+        )
+        batch = prepare_extraction_batch(
+            run_id="run:reported-safe",
+            context=written_context(),
+            provider_statements=parsed,
+            alias_matches=scan_known_aliases(TEXT, self.aliases()),
+            provider_model="model",
+            provider_version="v1",
+        )
+        origin = batch.claims[0].metadata["reported_origin"]
+        self.assertEqual(origin["origin_state"], "UNRESOLVED")
+        self.assertNotIn(NAME, repr(origin))
+
+        media = media_context()
+        payload = {
+            "statements": [
+                {
+                    "start_char": 0,
+                    "end_char": len(media.text),
+                    "normalized_statement": media.text,
+                    "speaker_mention": None,
+                    "reported_speaker_mention": None,
+                    "speech_mode": "DIRECT_UTTERANCE",
+                    "entity_mentions": [],
+                    "claims": [
+                        {
+                            "normalized_claim": "Il PIL è cresciuto del due per cento.",
+                            "claim_type": "NUMERIC_STATISTIC",
+                            "check_worthy": True,
+                            "temporal_scope": {},
+                        }
+                    ],
+                }
+            ]
+        }
+        direct = prepare_extraction_batch(
+            run_id="run:direct-origin",
+            context=media,
+            provider_statements=validate_provider_payload(
+                payload,
+                passage_text=media.text,
+                config=load_candidate_extraction_config(),
+            ),
+            alias_matches=(),
+            provider_model="model",
+            provider_version="v1",
+        )
+        direct_origin = direct.claims[0].metadata["reported_origin"]
+        self.assertEqual(direct_origin["quotation_depth"], 0)
+        self.assertEqual(direct_origin["origin_state"], "SELF")
+        self.assertEqual(direct_origin["origin_content_id"], media.content_id)
+
+    def test_ambiguous_repost_and_quoted_tweet_origins_stay_unresolved(self):
+        cases = (
+            (
+                "ambiguous-quotation",
+                "Il comunicato riporta: «La misura costa 10 milioni».",
+                "La misura costa 10 milioni",
+                None,
+                "NESTED_QUOTATION",
+            ),
+            (
+                "repost-commentary",
+                'Commento: condivido il post di Beta: "Il fondo vale 10 milioni".',
+                "Il fondo vale 10 milioni",
+                "Beta",
+                "REPORTED_SPEECH",
+            ),
+            (
+                "quoted-tweet",
+                'Alfa scrive che Beta ha twittato: "Il fondo vale 10 milioni".',
+                "Il fondo vale 10 milioni",
+                "Beta",
+                "NESTED_QUOTATION",
+            ),
+        )
+        for case_id, text, quote, reported_name, speech_mode in cases:
+            with self.subTest(case=case_id):
+                context = written_context_for(text, content_id=f"content:{case_id}")
+                start = text.index(quote)
+                end = start + len(quote)
+                reported = None
+                if reported_name is not None:
+                    name_start = text.index(reported_name)
+                    reported = {
+                        "start_char": name_start,
+                        "end_char": name_start + len(reported_name),
+                    }
+                payload = {
+                    "statements": [
+                        {
+                            "start_char": start,
+                            "end_char": end,
+                            "normalized_statement": quote + ".",
+                            "speaker_mention": None,
+                            "reported_speaker_mention": reported,
+                            "speech_mode": speech_mode,
+                            "entity_mentions": [],
+                            "claims": [
+                                {
+                                    "normalized_claim": quote + ".",
+                                    "claim_type": "HISTORICAL_CLAIM",
+                                    "check_worthy": True,
+                                    "temporal_scope": {},
+                                }
+                            ],
+                        }
+                    ]
+                }
+                parsed = validate_provider_payload(
+                    payload,
+                    passage_text=text,
+                    config=load_candidate_extraction_config(),
+                )
+                batch = prepare_extraction_batch(
+                    run_id=f"run:{case_id}",
+                    context=context,
+                    provider_statements=parsed,
+                    alias_matches=(),
+                    provider_model="model",
+                    provider_version="v1",
+                )
+                origin = batch.claims[0].metadata["reported_origin"]
+                self.assertEqual(origin["origin_state"], "UNRESOLVED")
+                self.assertGreaterEqual(origin["quotation_depth"], 1)
+                self.assertTrue(batch.claims[0].metadata["reported_origin_required"])
+                self.assertEqual(
+                    batch.claims[0].metadata["context_integrity"]["state"],
+                    "NEEDS_CONTEXT_REVIEW",
+                )
+
+    def test_reported_origin_survives_candidate_persistence_payload(self):
+        payload = valid_payload()
+        payload["statements"][0]["speech_mode"] = "NESTED_QUOTATION"
+        payload["statements"][0]["reported_speaker_mention"] = {
+            "start_char": NSTART,
+            "end_char": NEND,
+        }
+        batch = prepare_extraction_batch(
+            run_id="run:persist-reported-origin",
+            context=written_context(),
+            provider_statements=validate_provider_payload(
+                payload,
+                passage_text=TEXT,
+                config=load_candidate_extraction_config(),
+            ),
+            alias_matches=scan_known_aliases(TEXT, self.aliases()),
+            provider_model="model",
+            provider_version="v1",
+        )
+
+        class CaptureStore(CandidateExtractionStore):
+            def __init__(self):
+                super().__init__(database_url=None, psql="unused")
+                self.variables = {}
+
+            def run(self, sql, **variables):
+                self.variables = variables
+                return '{"id":"run:persist-reported-origin","status":"COMPLETED"}'
+
+        store = CaptureStore()
+        provider = FakeProvider(payload=payload)
+        store.commit_batch(
+            run_id="run:persist-reported-origin",
+            lease_owner="worker:test",
+            batch=batch,
+            context=written_context(),
+            provider=provider,
+            provider_result=ProviderExtractionResult(
+                payload=payload,
+                request_id="request:1",
+                latency_seconds=0.1,
+                usage={"total_tokens": 10},
+                cost_usd=Decimal("0"),
+                receipt={"fixture": True},
+            ),
+            provider_receipt_id="receipt:1",
+            request_id="request:1",
+            actual_cost=Decimal("0"),
+        )
+        statement = json.loads(store.variables["statements"])[0]
+        claim = json.loads(store.variables["claims"])[0]
+        self.assertEqual(statement["metadata"]["reported_origin"]["quotation_depth"], 1)
+        self.assertEqual(
+            claim["metadata"]["reported_origin"],
+            statement["metadata"]["reported_origin"],
+        )
+        self.assertNotIn(NAME, repr(statement["metadata"]["reported_origin"]))
+
+    def test_ambiguous_written_quote_marks_keep_origin_unresolved(self):
+        text = 'Il cronista annota: “Ridurrete le imposte”, senza indicare una fonte originale.'
+        quote = '“Ridurrete le imposte”'
+        start = text.index(quote)
+        context = PassageExtractionContext(
+            passage_id="passage:ambiguous-quote",
+            content_id="content:ambiguous-quote",
+            capture_id="capture:ambiguous-quote",
+            canonical_segment_id=None,
+            selector_type="TEXT_POSITION",
+            start_char=0,
+            end_char=len(text),
+            page_start=None,
+            page_end=None,
+            text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            text=text,
+            language="it",
+            content_published_at="2026-09-29T10:00:00+00:00",
+            segment_speaker_person_id=None,
+            segment_status=None,
+            segment_publication_blocked=None,
+        )
+        payload = {
+            "statements": [{
+                "start_char": start,
+                "end_char": start + len(quote),
+                "normalized_statement": "Ridurrete le imposte.",
+                "speaker_mention": None,
+                "reported_speaker_mention": None,
+                "speech_mode": "NESTED_QUOTATION",
+                "entity_mentions": [],
+                "claims": [{
+                    "normalized_claim": "Le imposte saranno ridotte.",
+                    "claim_type": "HISTORICAL_CLAIM",
+                    "check_worthy": True,
+                    "temporal_scope": {},
+                }],
+            }]
+        }
+        batch = prepare_extraction_batch(
+            run_id="run:ambiguous-quote",
+            context=context,
+            provider_statements=validate_provider_payload(
+                payload,
+                passage_text=text,
+                config=load_candidate_extraction_config(),
+            ),
+            alias_matches=(),
+            provider_model="model",
+            provider_version="v1",
+        )
+        origin = batch.claims[0].metadata["reported_origin"]
+        self.assertEqual(origin["origin_state"], "UNRESOLVED")
+        self.assertIsNone(origin["reported_speaker_mention"])
+        self.assertTrue(batch.claims[0].metadata["reported_origin_required"])
+        self.assertIsNone(batch.statements[0].statement.speaker_person_id)
+
+    def test_quoted_post_with_comment_keeps_embedded_origin_separate(self):
+        text = "Commento account Alfa. Post citato di Beta: Il fondo vale 10 milioni."
+        quote = "Il fondo vale 10 milioni."
+        qstart = text.index(quote)
+        beta = "Beta"
+        bstart = text.index(beta)
+        context = PassageExtractionContext(
+            passage_id="passage:quoted-post",
+            content_id="content:commentary-post",
+            capture_id="capture:commentary-post",
+            canonical_segment_id=None,
+            selector_type="TEXT_POSITION",
+            start_char=0,
+            end_char=len(text),
+            page_start=None,
+            page_end=None,
+            text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            text=text,
+            language="it",
+            content_published_at="2026-09-29T10:00:00+00:00",
+            segment_speaker_person_id=None,
+            segment_status=None,
+            segment_publication_blocked=None,
+        )
+        payload = {
+            "statements": [{
+                "start_char": qstart,
+                "end_char": qstart + len(quote),
+                "normalized_statement": quote,
+                "speaker_mention": None,
+                "reported_speaker_mention": {
+                    "start_char": bstart,
+                    "end_char": bstart + len(beta),
+                },
+                "speech_mode": "EMBEDDED_MEDIA",
+                "entity_mentions": [],
+                "claims": [{
+                    "normalized_claim": "Il fondo vale 10 milioni.",
+                    "claim_type": "NUMERIC_STATISTIC",
+                    "check_worthy": True,
+                    "temporal_scope": {},
+                }],
+            }]
+        }
+        batch = prepare_extraction_batch(
+            run_id="run:quoted-post",
+            context=context,
+            provider_statements=validate_provider_payload(
+                payload,
+                passage_text=text,
+                config=load_candidate_extraction_config(),
+            ),
+            alias_matches=(),
+            provider_model="model",
+            provider_version="v1",
+        )
+        origin = batch.claims[0].metadata["reported_origin"]
+        self.assertEqual(origin["speech_mode"], "EMBEDDED_MEDIA")
+        self.assertEqual(origin["origin_state"], "UNRESOLVED")
+        self.assertEqual(origin["current_content_id"], "content:commentary-post")
+        self.assertIsNone(origin["origin_content_id"])
+        self.assertEqual(origin["reported_speaker_mention"]["start_char"], bstart)
+        self.assertNotIn(beta, repr(origin))
+        self.assertIsNone(batch.statements[0].statement.speaker_person_id)
 
     def test_known_alias_resolution_is_candidate_not_auto_speaker(self):
         parsed = validate_provider_payload(valid_payload(), passage_text=TEXT, config=load_candidate_extraction_config())

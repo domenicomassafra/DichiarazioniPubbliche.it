@@ -160,7 +160,7 @@ The acceptance matrix must include a rendered-output inspection for:
 - [ ] `AC-410.2`: Given a user who cannot perceive color or uses a screen reader, when
   they inspect any finding/relation state, then the same meaning and action are available
   through text and semantics.
-- [ ] `AC-410.3`: Given a cold static preview and MiniPC mirror, when the performance
+- [x] `AC-410.3`: Given a cold static preview and MiniPC mirror, when the performance
   matrix runs, then LCP, CLS, INP, initial JavaScript, media layout, and no-network/LLM
   checks meet the stated budgets or have a recorded, separately ticketed exception.
 - [ ] `AC-410.4`: Given providers are offline, when each public route is loaded and
@@ -169,10 +169,10 @@ The acceptance matrix must include a rendered-output inspection for:
 - [ ] `AC-410.5`: Given each public route, when metadata/JSON-LD/canonical/sitemap
   output is inspected, then it is honest, versioned, and points to the same public
   finding version; Studio/demo/private routes are excluded.
-- [ ] `AC-410.6`: Given a correction, reply, relation, or stale projection, when the
+- [x] `AC-410.6`: Given a correction, reply, relation, or stale projection, when the
   route is rendered, then history/version semantics remain visible and the route fails
   closed when required provenance is absent.
-- [ ] `AC-410.7`: Given rendered HTML, client assets, and accessibility tree snapshots,
+- [x] `AC-410.7`: Given rendered HTML, client assets, and accessibility tree snapshots,
   when scanned, then no raw/private content, score, ranking, intent inference, secret, or
   fake activity is present.
 - [ ] `AC-410.8`: Given the collision/dependency audit runs, then DP-410 remains a
@@ -241,8 +241,44 @@ empty and overlong-query announcements; reduced-motion behavior; 375 px mobile r
 target. It then scans the accessibility trees of all 19 canonical non-legacy demo routes for
 private/provider/score markers and records zero external requests across the run.
 
-This is partial evidence only. AC-410.1/.2 still require the manual keyboard, focus, zoom,
-touch, contrast and assistive-technology matrix; AC-410.3 still needs cold-browser LCP/CLS/INP
-on the representative mobile profile and MiniPC mirror; AC-410.4..7 require the full real-route
-state matrix and deployed inspection. Dependency owners DP-409/DP-429 and the remaining public
-surface gates stay authoritative.
+`web/scripts/check-performance.mjs` now runs a fresh Chrome profile with a `375x812` CSS viewport,
+DPR 2, 4x CPU throttling and browser cache disabled/cleared before every navigation. It measures
+eight representative canonical routes from the static bundle, rejects horizontal/media overflow
+and autoplay, sums the actually requested initial JavaScript after gzip, and records zero external
+requests. On Mac the latest run had maximum LCP `136 ms`, CLS `0`, Explore interaction proxy
+`31.2 ms` and Explore initial JS `73,615` bytes gzip. The same script was also run against the
+actual MiniPC DP-401 service at `127.0.0.1:18090`: maximum LCP `404 ms`, CLS `0`, Explore
+interaction proxy `39.3 ms`, initial JS `73,594` bytes gzip and zero external requests. These are
+below the `2,000 ms`, `0.10`, `200 ms` and `120 KiB` budgets. The interaction
+measurement is deliberately an explicitly-labelled two-animation-frame main-thread lab proxy for
+the INP budget; it is not represented as field/RUM INP. This closes the reproducible lab/runtime
+performance gate in AC-410.3 without inventing a production field metric.
+
+The provider-offline/browser matrix and public-output scans prove the implementation-side portion
+of AC-410.4 and close AC-410.7, while DP-431 correction/hold rebuilds plus
+`check:corrections`/`check:trust` close AC-410.6. The public
+build now also emits `robots.txt` and `sitemap.xml` from the same projection boundary. Demo/noindex
+builds produce `Disallow: /` with zero sitemap URLs; the exact approved empty MiniPC projection
+produces `index,follow`, `Allow: /` and exactly the six canonical utility routes. A populated
+projection fixture produces 19 unique canonical sitemap URLs with zero Studio or legacy alias
+paths. `check:quality` requires the production sitemap set to equal the unique canonical HTML set,
+and validates Statement JSON-LD URL/identifier/name against its canonical page. Together with the
+DP-431 corrected-Statement metadata canary, this proves the current-tree/isolated MiniPC portion
+of AC-410.5.
+
+AC-410.1/.2 remain open for the manual focus/touch/contrast and assistive-technology judgment that
+automation cannot certify. Exact browser zoom is now machine-proven separately from reflow: a
+temporary Chrome 154 profile applies per-host zoom factor `2.0`, and the checker requires a
+1280 px outer window to expose a 640 px CSS viewport with `devicePixelRatio=2`,
+`visualViewport.scale=1`, no horizontal overflow, a 44 px filter target and a visible search field.
+This proves the 200% browser-zoom layout behavior without claiming screen-reader or manual visual
+acceptance; MiniPC Chrome 150 independently reports `innerWidth=640`, `outerWidth=1280`, DPR `2`,
+`visualViewport.scale=1`, `scrollWidth=635` and the same 44 px target. AC-410.4/.5 remain open at
+runtime because the running DP-401 service is deployment-drifted: static search fingerprint
+`00ede66707f0...` serves 12 demo records while its API reads the approved empty projection
+fingerprint `501348d9638e...`, and the live host returns `404` for
+`/linked-data-receipt.json`. The isolated current-tree build against that approved projection is
+internally consistent (`501348d9638e...` for projection/search/API) but is not the currently served
+static bundle. AC-410.8 also remains open because the requested dependency audit finds at least one
+bookkeeping contradiction outside this ticket: `DP-404` is marked `DONE` while AC-404.1..8 remain
+unchecked. Dependency owners DP-409/DP-429 and the remaining public-surface gates stay authoritative.

@@ -786,6 +786,18 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
             retention_hold_active=retention_hold_active,
         )
         context_payload["review_is_stale"] = version_stale
+        if (
+            previous.from_state is not None
+            and previous.actor_ref == clean_actor
+            and previous.actor_role is canonical_role
+            and previous.reason == clean_reason
+            and previous.target_record_version == request.target_record_version
+            and previous.transition_context == context_payload
+        ):
+            # Exact retry of the last durable transition. Returning the already
+            # replay-verified event makes request retries idempotent without
+            # granting a caller control over the derived next state.
+            return ChallengeAppendResult(request, previous, False)
         context = ChallengeContext(
             kind=request.kind,
             current_state=previous.to_state,

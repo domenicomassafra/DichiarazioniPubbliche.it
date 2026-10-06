@@ -1,6 +1,6 @@
 # DP-301 — Intentionality and “lie” policy
 
-Status: IN_PROGRESS
+Status: IN PROGRESS
 
 Milestone: M3
 
@@ -140,22 +140,22 @@ public label.
   review provenance cannot be inspected.
 
 ## Acceptance criteria
-- [ ] **AC-301.1:** The policy registry has an explicit, versioned allowlist and
+- [x] **AC-301.1:** The policy registry has an explicit, versioned allowlist and
   rejects every intentionality/person-score label in deterministic, review, and
   projection paths.
-- [ ] **AC-301.2:** A `FACTUALLY_FALSE` fixture with complete approved evidence and
+- [x] **AC-301.2:** A `FACTUALLY_FALSE` fixture with complete approved evidence and
   a valid statement cutoff projects as a claim-level assessment and contains no
   intent or numeric rating field.
-- [ ] **AC-301.3:** A contradiction or position-change fixture projects only its
+- [x] **AC-301.3:** A contradiction or position-change fixture projects only its
   relation type and provenance; no serializer or copy adds an accusation.
-- [ ] **AC-301.4:** A future-evidence fixture is rejected when the verification
+- [x] **AC-301.4:** A future-evidence fixture is rejected when the verification
   cutoff precedes that evidence, unless the fixture explicitly evaluates a later
   outcome.
-- [ ] **AC-301.5:** Tampering with a review timestamp, policy version, evidence set,
+- [x] **AC-301.5:** Tampering with a review timestamp, policy version, evidence set,
   or observation set makes the dossier non-projectable until a new review exists.
-- [ ] **AC-301.6:** Reply, correction, and relation triggers re-run the named
+- [x] **AC-301.6:** Reply, correction, and relation triggers re-run the named
   verification path without directly changing a finding or inventing intent.
-- [ ] **AC-301.7:** Policy tests cover unsupported labels, model-output drift,
+- [x] **AC-301.7:** Policy tests cover unsupported labels, model-output drift,
   stale review, ambiguous evidence, and public JSON/JSON-LD field allowlisting.
 - [ ] **AC-301.8:** DP-306 records the qualified questions and DP-307 records the
   resulting owner/counsel decision before any public-launch use.
@@ -229,3 +229,10 @@ Status: **engineering side implemented; legal closure still BLOCKING.**
 
 Repository checks run: `compileall` OK; full suite green (515 tests);
 `git diff --check` clean. M3 remains blocked on DP-306/DP-307.
+
+Final engineering-truth audit at clean HEAD `5a86666b` (2026-10-06): AC-301.1 through
+AC-301.7 are closed by the current policy/relation/effective-time/re-analysis/public-projection
+proof. The clean-HEAD M3 boundary is 523/523 PASS and the complete suite is 1720/1720 PASS.
+AC-301.8 remains open: DP-306 records the questions, but no Q-306 row has a qualified
+disposition and DP-307 has no accepted owner/counsel decision. No legal conclusion or launch
+approval is inferred from the engineering proof.

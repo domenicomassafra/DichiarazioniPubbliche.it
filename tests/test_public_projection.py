@@ -208,6 +208,7 @@ def valid_row():
                 "excerpt": "must never escape",
             }
         ],
+        "existing_factchecks": [],
         "corrections": [],
         "rights_of_reply": [],
         "speaker_provenance": [
@@ -218,6 +219,21 @@ def valid_row():
         ],
         "public_attribution_input": valid_public_attribution_input(),
         "raw_text": "must never escape",
+    }
+
+
+def valid_existing_factcheck_metadata():
+    return {
+        "lineage_id": "factcheck-lineage:abc",
+        "version_id": "factcheck-version:def",
+        "source_version": "claimreview-v1",
+        "version_state": "CURRENT",
+        "provider_id": "google-factcheck-tools",
+        "review_url": "https://factcheck.example/reviews/claim-123",
+        "review_publisher_name": "Example Fact Check",
+        "review_publisher_site": "factcheck.example",
+        "review_date": "2026-09-02",
+        "persistence_version": "existing-factcheck-mirror-v1",
     }
 
 
@@ -543,6 +559,41 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertNotIn("raw_text", encoded)
         self.assertFalse(payload["methodology"]["aggregate_person_score"])
 
+    def test_existing_factcheck_public_surface_is_metadata_link_only(self):
+        row = valid_row()
+        row["existing_factchecks"] = [valid_existing_factcheck_metadata()]
+        payload = build_public_projection(FakeSource([row]))
+        factchecks = payload["dossiers"][0]["existing_factchecks"]
+        self.assertEqual(factchecks, [valid_existing_factcheck_metadata()])
+        encoded = json.dumps(factchecks, sort_keys=True)
+        for forbidden in (
+            "claim_text",
+            "textual_rating",
+            "review_title",
+            "claimant",
+            "provider_receipt",
+            "normalized_record",
+            "rights_status",
+        ):
+            self.assertNotIn(forbidden, encoded)
+
+    def test_existing_factcheck_public_surface_rejects_unapproved_shape_or_url(self):
+        row = valid_row()
+        unsafe = valid_existing_factcheck_metadata()
+        unsafe["textual_rating"] = "False"
+        row["existing_factchecks"] = [unsafe]
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
+        row = valid_row()
+        unsafe = valid_existing_factcheck_metadata()
+        unsafe["review_url"] = "https://user:secret@factcheck.example/review"
+        row["existing_factchecks"] = [unsafe]
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
     def test_public_attribution_gate_emits_only_stable_identity_and_statement_time_role(self):
         payload = build_public_projection(FakeSource([valid_row()]))
         self.assertEqual(payload["dossier_count"], 1)
@@ -570,9 +621,12 @@ class PublicProjectionTests(unittest.TestCase):
                     "candidate_id": "speaker-candidate:a",
                     "review_event_ids": ["review:speaker-a"],
                     "provenance_kind": "TIMED_SPEAKER",
+                    "attribution_method": "MANUAL_REVIEW",
                 }
             ],
         )
+        self.assertNotIn("confidence", dossier["speaker"]["provenance"][0])
+        self.assertNotIn("source_ref", dossier["speaker"]["provenance"][0])
 
         public_bytes = "\n".join(
             (

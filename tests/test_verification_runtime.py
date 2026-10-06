@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -51,6 +52,46 @@ def VerificationRequest(*args, **kwargs):
 
 
 class VerificationRuntimeTests(unittest.TestCase):
+    def test_structured_provider_fixture_matrix_covers_istat_eurostat_and_dvns(self):
+        fixture = json.loads(
+            (ROOT / "tests" / "fixtures" / "numeric-structured-providers-v1.json").read_text()
+        )
+        self.assertEqual(fixture["schema_version"], "numeric-structured-providers-v1")
+        self.assertEqual(
+            {case["provider_family"] for case in fixture["cases"]},
+            {"ISTAT", "EUROSTAT", "DVNS"},
+        )
+        for case in fixture["cases"]:
+            with self.subTest(case=case["id"]):
+                request = VerificationRequest(
+                    f"claim:{case['id']}",
+                    "2026-09-04",
+                    case["kind"],
+                    case["rule"],
+                )
+                observations = [
+                    VerificationEvidence(
+                        evidence_id=row["evidence_id"],
+                        publication_date="2026-09-01",
+                        metric=row["metric"],
+                        value_numeric=row["value_numeric"],
+                        unit=row["unit"],
+                        reference_period=row["reference_period"],
+                        suitable=True,
+                        metadata={
+                            "provider_family": case["provider_family"],
+                            "dimensions": row["dimensions"],
+                        },
+                    )
+                    for row in case["observations"]
+                ]
+                result = verify(request, observations)
+                self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
+                self.assertAlmostEqual(
+                    result.result["observed"],
+                    case["expected_observed"],
+                )
+
     def test_legacy_authoritative_boolean_does_not_bypass_source_intelligence(self):
         request = RuntimeVerificationRequest(
             "claim:a",

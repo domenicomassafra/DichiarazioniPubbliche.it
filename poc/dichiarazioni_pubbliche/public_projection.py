@@ -36,6 +36,7 @@ from dichiarazioni_pubbliche.provenance_quarantine import (
     InMemoryProvenanceHoldRegistry,
 )
 from dichiarazioni_pubbliche.public_schema import (
+    EXISTING_FACTCHECK_PUBLIC_KEYS,
     PUBLIC_FINDING_STATUSES,
     PUBLIC_SCHEMA_VERSION,
     projection_dataset_sha256,
@@ -460,6 +461,54 @@ class PublicProjectionStore(PsqlRuntime):
                         JOIN evidence ON evidence.id = source_link.evidence_id
                         WHERE source_link.finding_id = finding.id
                     ), '[]'::json) AS evidence,
+                    COALESCE((
+                        SELECT json_agg(factcheck.public_metadata ORDER BY
+                            factcheck.lineage_id,
+                            factcheck.version_id,
+                            factcheck.review_url
+                        )
+                        FROM (
+                            SELECT DISTINCT ON (
+                                lineage.id,
+                                version.id,
+                                mirror.review_url
+                            )
+                                lineage.id AS lineage_id,
+                                version.id AS version_id,
+                                mirror.review_url,
+                                json_build_object(
+                                    'lineage_id', lineage.id,
+                                    'version_id', version.id,
+                                    'source_version', version.source_version,
+                                    'version_state', CASE
+                                        WHEN EXISTS (
+                                            SELECT 1
+                                            FROM existing_factcheck_version child
+                                            WHERE child.supersedes_version_id = version.id
+                                        ) THEN 'HISTORICAL'
+                                        ELSE 'CURRENT'
+                                    END,
+                                    'provider_id', mirror.provider_id,
+                                    'review_url', mirror.review_url,
+                                    'review_publisher_name', NULLIF(left(
+                                        mirror.normalized_record->>'review_publisher_name', 300
+                                    ), ''),
+                                    'review_publisher_site', NULLIF(left(
+                                        mirror.normalized_record->>'review_publisher_site', 300
+                                    ), ''),
+                                    'review_date', NULLIF(left(
+                                        mirror.normalized_record->>'review_date', 64
+                                    ), ''),
+                                    'persistence_version', 'existing-factcheck-mirror-v1'
+                                ) AS public_metadata
+                            FROM existing_factcheck_mirror mirror
+                            JOIN existing_factcheck_version version
+                              ON version.id = mirror.version_id
+                            JOIN existing_factcheck_lineage lineage
+                              ON lineage.id = version.lineage_id
+                            WHERE mirror.atomic_claim_id = claim.id
+                        ) factcheck
+                    ), '[]'::json) AS existing_factchecks,
                     COALESCE((
                         SELECT json_agg(json_build_object(
                             'id', correction.id,
@@ -1466,6 +1515,11 @@ def _timed_public_attribution(
             "candidate_id": candidate_id,
             "review_event_ids": list(candidate_reviews[candidate_id]),
             "provenance_kind": "TIMED_SPEAKER",
+            "attribution_method": next(
+                candidate.attribution_method
+                for candidate in speaker_candidates
+                if candidate.candidate_id == candidate_id
+            ),
         }
         for candidate_id in sorted(selected_candidate_ids)
     ]
@@ -1852,6 +1906,7 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
                 "candidate_id": item["id"],
                 "review_event_ids": list(item["review_event_ids"]),
                 "provenance_kind": "TEXT_ATTRIBUTION",
+                "attribution_method": item["attribution_method"],
             }
         )
     if not provenance:
@@ -1959,6 +2014,57 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    existing_factchecks = []
+    seen_existing_factchecks: set[tuple[str, str, str]] = set()
+    for item in row.get("existing_factchecks") or []:
+        if not isinstance(item, dict):
+            raise ValueError("invalid existing fact-check metadata")
+        unexpected = set(item) - EXISTING_FACTCHECK_PUBLIC_KEYS
+        if unexpected:
+            raise ValueError("existing fact-check metadata contains non-public fields")
+        lineage_id = _bounded(item.get("lineage_id"), 300)
+        version_id = _bounded(item.get("version_id"), 300)
+        source_version = _bounded(item.get("source_version"), 300)
+        version_state = str(item.get("version_state") or "")
+        provider_id = _bounded(item.get("provider_id"), 200)
+        review_url = _safe_http_url(str(item.get("review_url") or ""))
+        persistence_version = str(item.get("persistence_version") or "")
+        if not lineage_id or not version_id or not source_version or not provider_id:
+            raise ValueError("existing fact-check metadata identity is incomplete")
+        if version_state not in {"CURRENT", "HISTORICAL"}:
+            raise ValueError("existing fact-check metadata version state is invalid")
+        if persistence_version != "existing-factcheck-mirror-v1":
+            raise ValueError("existing fact-check metadata version is invalid")
+        identity = (lineage_id, version_id, review_url)
+        if identity in seen_existing_factchecks:
+            continue
+        seen_existing_factchecks.add(identity)
+        existing_factchecks.append(
+            {
+                "lineage_id": lineage_id,
+                "version_id": version_id,
+                "source_version": source_version,
+                "version_state": version_state,
+                "provider_id": provider_id,
+                "review_url": review_url,
+                "review_publisher_name": _bounded(
+                    item.get("review_publisher_name"), 300
+                ),
+                "review_publisher_site": _bounded(
+                    item.get("review_publisher_site"), 300
+                ),
+                "review_date": _bounded(item.get("review_date"), 64),
+                "persistence_version": persistence_version,
+            }
+        )
+    existing_factchecks.sort(
+        key=lambda item: (
+            item["lineage_id"],
+            item["version_id"],
+            item["review_url"],
+        )
+    )
+
     relations = []
     for relation in row.get("relations") or []:
         if not isinstance(relation, dict):
@@ -2047,6 +2153,7 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
         "rights_of_reply": replies,
         "relations": relations,
         "wording": wording,
+        "existing_factchecks": existing_factchecks,
     }
     if source_methodology is not None:
         dossier["source_methodology"] = source_methodology

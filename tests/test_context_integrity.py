@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.context_integrity import (  # noqa: E402
     assess_context_integrity,
+    assess_structured_context_integrity,
     curated_context_approval,
 )
 
@@ -95,6 +96,63 @@ class ContextIntegrityTests(unittest.TestCase):
         )
         self.assertEqual(metadata["state"], "APPROVED_CURATED")
         self.assertEqual(metadata["review_method"], "CURATED_SOURCE_REVIEW")
+
+    def test_discontinuous_excerpt_is_explicit_and_never_auto_clears(self):
+        text = "Prima frase completa. Contesto necessario. Seconda frase completa."
+        first = "Prima frase completa."
+        second = "Seconda frase completa."
+        result = assess_structured_context_integrity(
+            source_text=text,
+            source_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            spans=(
+                (text.index(first), text.index(first) + len(first)),
+                (text.index(second), text.index(second) + len(second)),
+            ),
+        )
+        self.assertFalse(result.clear)
+        self.assertEqual(result.omission_count, 1)
+        self.assertIn("DISCONTINUOUS_EXCERPT_REQUIRES_REVIEW", result.signal_codes)
+        self.assertNotIn(first, repr(result.to_metadata()))
+        self.assertNotIn(second, repr(result.to_metadata()))
+
+    def test_cross_talk_and_montage_boundaries_cannot_inherit_neighbor_context(self):
+        text = "Speaker A: dato uno. Speaker B: dato due."
+        first = "dato uno."
+        second = "dato due."
+        result = assess_structured_context_integrity(
+            source_text=text,
+            source_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            spans=(
+                (text.index(first), text.index(first) + len(first)),
+                (text.index(second), text.index(second) + len(second)),
+            ),
+            speaker_refs=("person:a", "person:b"),
+            source_part_refs=("clip:live", "clip:archive"),
+        )
+        self.assertEqual(result.state, "NEEDS_CONTEXT_REVIEW")
+        self.assertIn("CROSS_TALK_OR_SPEAKER_BOUNDARY", result.signal_codes)
+        self.assertIn("MONTAGE_OR_SOURCE_BOUNDARY", result.signal_codes)
+
+    def test_structured_span_order_fails_closed(self):
+        text = "abc def ghi"
+        with self.assertRaisesRegex(ValueError, "SPAN_ORDER_INVALID"):
+            assess_structured_context_integrity(
+                source_text=text,
+                source_sha256=hashlib.sha256(text.encode()).hexdigest(),
+                spans=((8, 11), (0, 3)),
+            )
+
+    def test_structured_optional_refs_do_not_turn_none_into_literal_text(self):
+        text = "uno ... due"
+        result = assess_structured_context_integrity(
+            source_text=text,
+            source_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            spans=((0, 3), (8, 11)),
+            speaker_refs=(None, "person:b"),
+            source_part_refs=(None, "clip:b"),
+        )
+        self.assertIsNone(result.spans[0].speaker_ref)
+        self.assertIsNone(result.spans[0].source_part_ref)
 
 
 if __name__ == "__main__":

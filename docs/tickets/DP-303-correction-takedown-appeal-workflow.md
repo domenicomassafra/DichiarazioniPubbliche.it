@@ -1,6 +1,6 @@
 # DP-303 — Correction, takedown, and appeal public workflow
 
-Status: IN_PROGRESS
+Status: IN PROGRESS
 
 Milestone: M3
 
@@ -192,23 +192,23 @@ retains the original decision and records the reason.
 ## Acceptance criteria
 - [x] **AC-303.1:** Correction, takedown, and appeal requests have distinct typed
   states and cannot satisfy one another's gates.
-- [ ] **AC-303.2:** A correction with a valid chain and complete reviews is
+- [x] **AC-303.2:** A correction with a valid chain and complete reviews is
   projected as a new version while the previous approved version remains available
   according to policy.
-- [ ] **AC-303.3:** A correction with a missing/cyclic chain, unprocessed trigger,
+- [x] **AC-303.3:** A correction with a missing/cyclic chain, unprocessed trigger,
   stale review, or missing `CORRECTION/APPROVED` event is omitted and does not
   mutate the prior version.
-- [ ] **AC-303.4:** An approved takedown removes the current projection-owned file
+- [x] **AC-303.4:** An approved takedown removes the current projection-owned file
   after regeneration but retains the private Finding, event chain, and receipts.
 - [x] **AC-303.5:** A takedown cannot be triggered by a public submitter, cannot
   delete arbitrary content, and cannot publish an unreviewed reason.
 - [x] **AC-303-6:** An appeal creates a new event, records reviewer separation (or
   the explicit exception), and never edits the original decision.
-- [ ] **AC-303-07:** Replayed and concurrent requests are idempotent, bounded, and
+- [x] **AC-303-07:** Replayed and concurrent requests are idempotent, bounded, and
   do not create duplicate triggers or public versions.
-- [ ] **AC-303-08:** Public JSON, JSON-LD, and HTML notices contain no private body,
+- [x] **AC-303-08:** Public JSON, JSON-LD, and HTML notices contain no private body,
   internal error, evidence excerpt, or unapproved identity field.
-- [ ] **AC-303-09:** Projection regeneration removes stale artifacts after a hold or
+- [x] **AC-303-09:** Projection regeneration removes stale artifacts after a hold or
   correction and leaves non-projection/private files untouched.
 - [ ] **AC-303-10:** A MiniPC canary exercises submit -> hold/review -> correction or
   appeal -> re-analysis -> public projection and verifies the actual resulting
@@ -361,7 +361,7 @@ Existing policy/runtime proof also remains green in the focused run:
 - **AC-303-07 partial only** — correction replay/concurrent follow-up work is bounded and
   deterministic locally; takedown/appeal create no work while dependency-blocked, but a
   real concurrent durable-request ledger/MiniPC proof does not exist yet.
-- **AC-303.2/.3/.4/-6/-8/-9/-10 remain open.** This change deliberately did not touch
+- **At this receipt stage AC-303.2/.3/.4/-6/-8/-9/-10 remained open.** This change deliberately did not touch
   publication/projection, takedown hold transactions, appeal-event persistence,
   stale-artifact cleanup, or MiniPC runtime acceptance.
 
@@ -441,5 +441,57 @@ authority, destructive takedown, and launch remain blocked.**
   identity is independently authoritative.
 - **AC-303-07 remains partial/open**: exact replay is idempotent and the database prevents
   forks, but this tranche does not claim a concurrent-race acceptance proof or MiniPC proof.
-- **AC-303.2/.3/.4/-8/-9/-10 remain open.** No public projection, stale-artifact cleanup,
+- **At this receipt stage AC-303.2/.3/.4/-8/-9/-10 remained open.** No public projection, stale-artifact cleanup,
   public notice, route, production mutation, or MiniPC canary was added or run.
+
+Pre-cleanup-tranche engineering-truth audit at clean HEAD `5a86666b` (2026-10-06): later canonical
+correction/projection work closes AC-303.2/.3, and current projection/API/schema leakage tests
+close AC-303-08. AC-303.4, AC-303-07, AC-303-09 and AC-303-10 remain open: no literal
+takedown-to-file-cleanup proof, no concurrent durable-request acceptance proof, broader DP-431
+cleanup remains open, and no complete submit->review->reanalysis->projection MiniPC canary exists.
+Q-306-06..07 / DP-307 remain unresolved.
+
+## Final dependency-safe challenge/cleanup tranche — 2026-10-06
+
+**AC-303-07 is now closed.** Disposable-PostgreSQL concurrency tests race exact TAKEDOWN
+initiation across eight callers and prove one durable root with idempotent replays. A second test
+races two successor attempts: the unique one-successor/sequence constraints permit exactly one
+authoritative successor, the loser receives a bounded concurrency/authority refusal, and replay
+shows one linear chain with no fork. An exact retry of the winning durable transition returns the
+same replay-verified event with `created=false` and cannot advance the workflow a second time.
+Existing deterministic correction/re-analysis identities
+continue to prevent duplicate correction work or public versions.
+
+The same tranche adds dependency-safe cleanup mechanics without editing the active DP-232/public
+projection area:
+
+- `projection_cleanup.cleanup_takedown_current_artifacts()` consumes the canonical DP-303
+  `current_hold_for_finding()` result and removes only explicitly manifest-listed,
+  projection-owned `CURRENT` Finding files. A non-authoritative/stale hold cannot delete; absolute
+  or traversal paths fail closed. An integrated PostgreSQL test reaches reviewed
+  `PUBLIC_HOLD_APPROVED`, removes the current public file, and proves the Finding, private file and
+  complete challenge chain remain intact.
+- `cleanup_dp431_stale_artifacts()` consumes DP-431's existing
+  `CorrectionPropagationReceipt.stale_artifacts/orphan_artifacts` and deletes only explicitly
+  mapped projection-owned files. The cleanup validates all selected paths/ownership first, so one
+  unsafe mapping causes zero deletions rather than a partial cleanup.
+
+These mechanics intentionally do **not** close AC-303.4 or AC-303-09 yet. Their wording requires
+the actual regeneration/rebuild orchestration to invoke cleanup; that integration overlaps the
+active DP-232/DP-431 public-build lane and was deliberately not edited here. AC-303-10 also remains
+open because the isolated MiniPC **130/130 PASS** canary proves the private PostgreSQL/cleanup
+mechanics, not the full submit -> review -> correction/appeal -> re-analysis -> regenerated public
+projection flow. Q-306-06..07 / DP-307 remain external qualified blockers.
+
+### DP-431 integration reconciliation — 2026-10-06
+
+The later DP-431 integration closes the two cleanup criteria that the dependency-safe tranche
+above deliberately left open. `web/scripts/check_dp431_rebuild.py` performs real correction/hold
+regeneration, removes superseded current Statement/search/entity/static artifacts, removes a
+seeded unrelated stale projection-owned file, and fails closed on partial rebuilds.
+`web/scripts/check_dp431_private_hold.py` reaches reviewed `PUBLIC_HOLD_APPROVED` through the
+durable TAKEDOWN ledger, rebuilds with the Finding omitted, and proves the private request plus
+complete append-only event chain remain intact. The same current-tree scenarios passed in the
+isolated MiniPC rehearsal recorded by DP-431. Therefore AC-303.4 and AC-303-09 are now closed.
+AC-303-10 remains open because no receipt yet exercises the complete enabled
+submit -> review -> correction/appeal -> re-analysis -> regenerated-public-projection path.

@@ -306,6 +306,63 @@ class SourceIntelligenceTests(unittest.TestCase):
         )
         self.assertEqual(result.status, "INSUFFICIENT_INDEPENDENCE")
 
+    def test_syndicated_article_chain_counts_as_one_lineage_not_three(self):
+        base = self.contract.requirements_by_claim_type["NUMERIC_STATISTIC"]
+        rules = []
+        for rule in base.rules:
+            if rule.kind == "MIN_INDEPENDENT_LINEAGES":
+                rules.append(replace(rule, parameters={"minimum": 2}))
+            else:
+                rules.append(rule)
+        strict = replace(base, id=base.id + ":chain", rules=tuple(rules))
+        contract = SourceIntelligenceContract(
+            source_version=self.contract.source_version,
+            requirement_version=self.contract.requirement_version,
+            profiles=self.contract.profiles,
+            requirement_profiles=tuple(
+                strict if item.claim_type == strict.claim_type else item
+                for item in self.contract.requirement_profiles
+            ),
+        )
+        upstream = self.item(
+            "istat-sdmx",
+            evidence_id="e:upstream",
+            independence_group="article:upstream",
+        )
+        copy_a = self.item(
+            "istat-publications",
+            evidence_id="e:copy-a",
+            independence_group="article:copy-a",
+        )
+        copy_b = self.item(
+            "eurostat-api",
+            evidence_id="e:copy-b",
+            independence_group="article:copy-b",
+        )
+        relations = (
+            SourceRelation(
+                from_profile_id=copy_a.source_profile_id,
+                to_profile_id=upstream.source_profile_id,
+                relation_type="SYNDICATED_FROM",
+                status="APPROVED",
+                evidence_basis={"derivation_candidate_id": "derivation:copy-a"},
+            ),
+            SourceRelation(
+                from_profile_id=copy_b.source_profile_id,
+                to_profile_id=copy_a.source_profile_id,
+                relation_type="SYNDICATED_FROM",
+                status="APPROVED",
+                evidence_basis={"derivation_candidate_id": "derivation:copy-b"},
+            ),
+        )
+        result = self.assess(
+            [upstream, copy_a, copy_b],
+            contract=contract,
+            relations=relations,
+        )
+        self.assertEqual(result.status, "INSUFFICIENT_INDEPENDENCE")
+        self.assertTrue(result.missing_rules)
+
     def test_rights_hold_fails_closed(self):
         result = self.assess(
             [self.item("istat-sdmx", rights_status="RIGHTS_HOLD")]

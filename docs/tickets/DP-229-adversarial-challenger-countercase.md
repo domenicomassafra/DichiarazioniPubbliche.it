@@ -38,9 +38,13 @@ Local counter-case packet + focused tests added 2026-10-05. The 2026-10-06 readi
 binds readiness/review to the exact material challenger packet, so a newly gained material
 countercase stales both until incorporated and reviewed. DP-223 carries an explicit
 challenger-only adverse/control pair and the offline release gate holds the stale case.
-The evaluator also has a fail-closed high-risk switch and explicit qualified-policy waiver,
-but wiring that switch to canonical DP-309 persistence remains open together with persisted
-challenger execution and MiniPC proof.
+The evaluator also has a fail-closed high-risk switch. The 2026-10-06 closure pass adds a
+typed adapter over the actual DP-309 `HighRiskDecision`: high-risk input requires the exact
+incorporated/reviewed challenger packet, while a waiver is accepted only when it binds the
+same qualified `policy_decision_ref` carried by an otherwise publication-eligible DP-309
+decision. Canonical persisted DP-309 publication flow still has no durable challenger packet
+input, so the AC remains unchecked rather than claiming integration that the runtime cannot
+yet consume; persisted challenger execution/MiniPC proof remain open.
 
 ### DP-228 challenger-request bridge — 2026-10-05
 

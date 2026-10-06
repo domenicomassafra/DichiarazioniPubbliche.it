@@ -35,5 +35,7 @@ Local runtime and focused tests added 2026-10-05. Explicit rule-scoped unit conv
 delta/percent-change was added without changing existing same-unit semantics. The 2026-10-06
 follow-up adds explicit decimal-place/significant-figure comparison policy plus required
 numerator/denominator population dimensions; invalid/missing dimensions and zero denominators
-fail closed. Synthetic structured-provider tests exercise ISTAT/DVNS/Eurostat-style metadata.
-Provider-backed structured fixture coverage and MiniPC proof remain open under the final AC.
+fail closed. The 2026-10-06 closure pass moves ISTAT/DVNS/Eurostat-style cases into the
+versioned `numeric-structured-providers-v1.json` fixture and replays delta, percent-change and
+ratio through the canonical deterministic verifier. Provider-backed/MiniPC proof remains open
+under the final combined AC.

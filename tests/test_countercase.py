@@ -10,6 +10,10 @@ from dichiarazioni_pubbliche.countercase import (  # noqa: E402
     CounterEvidence,
     build_countercase_packet,
     evaluate_challenger_readiness,
+    evaluate_high_risk_challenger_readiness,
+)
+from dichiarazioni_pubbliche.high_risk_assertion import (  # noqa: E402
+    evaluate_high_risk_candidate,
 )
 
 
@@ -25,6 +29,22 @@ def evidence(evidence_id, relation, *, approved=True, suitable=True, group=None)
 
 
 class CounterCaseTests(unittest.TestCase):
+    @staticmethod
+    def high_risk_decision():
+        return evaluate_high_risk_candidate(
+            source_text="Secondo la procura, Rossi avrebbe commesso una frode.",
+            normalized_text="Secondo la procura, Rossi avrebbe commesso una frode.",
+            identity_resolved=True,
+            privacy_allows=True,
+            official_record_approved=False,
+            jurisdiction_match=False,
+            effective_time_match=False,
+            human_review_approved=True,
+            dual_control_approved=True,
+            qualified_policy_accepted=True,
+            policy_decision_ref="policy:qualified:challenger-waiver",
+        )
+
     def test_packet_keeps_counterevidence_separate_by_relation(self):
         packet = build_countercase_packet(
             claim_id="claim:1",
@@ -136,6 +156,55 @@ class CounterCaseTests(unittest.TestCase):
             reviewed_packet_id=None,
             high_risk=True,
             qualified_policy_waives_challenger=True,
+        )
+        self.assertTrue(waived.ready)
+
+    def test_dp309_high_risk_decision_requires_exact_challenger_packet(self):
+        packet = build_countercase_packet(
+            claim_id="claim:high-risk",
+            evidence=[],
+            research_complete=True,
+        )
+        decision = evaluate_high_risk_challenger_readiness(
+            packet,
+            high_risk_decision=self.high_risk_decision(),
+            incorporated_packet_id=None,
+            reviewed_packet_id=None,
+        )
+        self.assertFalse(decision.ready)
+        self.assertIn("HIGH_RISK_CHALLENGER_REQUIRED", decision.blockers)
+        self.assertIn("HIGH_RISK_CHALLENGER_REVIEW_REQUIRED", decision.blockers)
+
+        ready = evaluate_high_risk_challenger_readiness(
+            packet,
+            high_risk_decision=self.high_risk_decision(),
+            incorporated_packet_id=packet.packet_id,
+            reviewed_packet_id=packet.packet_id,
+        )
+        self.assertTrue(ready.ready)
+
+    def test_dp309_challenger_waiver_must_bind_exact_qualified_policy_decision(self):
+        packet = build_countercase_packet(
+            claim_id="claim:waiver",
+            evidence=[],
+            research_complete=True,
+        )
+        risk = self.high_risk_decision()
+        wrong = evaluate_high_risk_challenger_readiness(
+            packet,
+            high_risk_decision=risk,
+            incorporated_packet_id=None,
+            reviewed_packet_id=None,
+            challenger_waiver_policy_decision_ref="policy:other",
+        )
+        self.assertFalse(wrong.ready)
+
+        waived = evaluate_high_risk_challenger_readiness(
+            packet,
+            high_risk_decision=risk,
+            incorporated_packet_id=None,
+            reviewed_packet_id=None,
+            challenger_waiver_policy_decision_ref=risk.policy_decision_ref,
         )
         self.assertTrue(waived.ready)
 

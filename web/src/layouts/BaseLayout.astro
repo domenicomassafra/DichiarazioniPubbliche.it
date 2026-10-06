@@ -10,18 +10,23 @@ interface Props {
   description?: string;
   studio?: boolean;
   canonicalPath?: string;
+  structuredData?: unknown;
 }
 
 const {
   title = "Dichiarazioni Pubbliche",
   description = "Dichiarazioni pubbliche, fonti, contesto, verifiche, cambi e correzioni in un record consultabile e versionato.",
   studio = false,
-  canonicalPath
+  canonicalPath,
+  structuredData
 } = Astro.props;
 const pageTitle = title === "Dichiarazioni Pubbliche" ? title : `${title} — Dichiarazioni Pubbliche`;
 const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
 const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-projection.json");
 const robotsPolicy = studio || usingDemoProjection ? "noindex,nofollow" : "index,follow";
+const structuredDataJson = structuredData === undefined
+  ? null
+  : JSON.stringify(structuredData).replaceAll("<", "\\u003c");
 ---
 
 <!doctype html>
@@ -31,9 +36,14 @@ const robotsPolicy = studio || usingDemoProjection ? "noindex,nofollow" : "index
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="robots" content={robotsPolicy} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f4f5f2" />
     {canonicalPath && <link rel="canonical" href={canonicalPath} />}
+    {canonicalPath && <meta property="og:url" content={canonicalPath} />}
+    {structuredDataJson && <script type="application/ld+json" set:html={structuredDataJson}></script>}
     <title>{pageTitle}</title>
   </head>
   <body class:list={[studio && "is-studio"]}>

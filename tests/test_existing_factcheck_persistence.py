@@ -40,6 +40,7 @@ from dichiarazioni_pubbliche.policy.excerpt_policy import (  # noqa: E402
     ExcerptRequest,
     RightsStatus,
 )
+from dichiarazioni_pubbliche.public_projection import PublicProjectionStore  # noqa: E402
 from dichiarazioni_pubbliche.research_plan import (  # noqa: E402
     ResearchAssignment,
     discovery_manifest_from_assignments,
@@ -247,6 +248,8 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         for path in (
             ROOT / "db" / "schema.v1.sql",
             ROOT / "db" / "migrations" / "20261006-add-existing-factcheck-mirror-lineage.sql",
+            ROOT / "db" / "migrations" / "20261006-add-existing-factcheck-claim-binding.sql",
+            ROOT / "db" / "migrations" / "20261006-add-existing-factcheck-claim-binding.sql",
         ):
             cls._run_command(
                 [
@@ -274,23 +277,50 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         assignment_id: str = "research-assignment:factcheck:1",
         lane: str = "EXISTING_FACT_CHECK",
         review_url: str = "https://factcheck.example/reviews/claim-123",
+        atomic_claim_id: str | None = "claim:dp232:1",
     ) -> tuple[str, str]:
         collection_id = f"collection:dp232:{suffix}"
+        coverage_need_id = f"coverage:dp232:{suffix}"
         manifest_id = f"manifest:dp232:{suffix}"
         query_id = f"query:dp232:{suffix}"
         run_id = f"run:dp232:{suffix}"
         attempt_id = f"attempt:dp232:{suffix}"
         hit_id = f"hit:dp232:{suffix}"
         hit_key = hashlib.sha256(f"{provider_id}:{external_id}:{suffix}".encode()).hexdigest()
+        if atomic_claim_id is not None:
+            self.store.run(
+                """
+                INSERT INTO content_item (id, canonical_url, processing_status)
+                VALUES ('content:dp232:claim', 'https://example.test/dp232-claim', 'DISCOVERED')
+                ON CONFLICT (id) DO NOTHING;
+                INSERT INTO atomic_claim (
+                    id, content_id, normalized_claim, claim_type, check_worthy
+                ) VALUES (
+                    :'atomic_claim_id', 'content:dp232:claim',
+                    'Synthetic DP-232 claim.', 'NUMERIC_STATISTIC', true
+                )
+                ON CONFLICT (id) DO NOTHING;
+                """,
+                atomic_claim_id=atomic_claim_id,
+            )
         self.store.run(
             """
             INSERT INTO research_collection (id, slug, name, scope_text, policy_version)
             VALUES (:'collection_id', :'slug', 'DP-232 fixture', 'fixture', 'test-v1');
+            INSERT INTO coverage_need (
+                id, collection_id, atomic_claim_id, need_type, requirement_kind,
+                requirement_fingerprint, question, status, attempt_count, max_attempts
+            ) VALUES (
+                :'coverage_need_id', :'collection_id', NULLIF(:'atomic_claim_id',''),
+                'INDEPENDENT_SOURCE', 'OTHER', :'requirement_fingerprint',
+                'Was this claim already reviewed?', 'OPEN', 0, 3
+            );
             INSERT INTO research_discovery_manifest (
                 id, collection_id, manifest_sha256, max_results, max_results_per_host,
-                cost_cap_usd, status
+                cost_cap_usd, coverage_need_ids, status
             ) VALUES (
-                :'manifest_id', :'collection_id', :'manifest_sha256', 10, 3, 0, 'ACTIVE'
+                :'manifest_id', :'collection_id', :'manifest_sha256', 10, 3, 0,
+                :'coverage_need_ids'::jsonb, 'ACTIVE'
             );
             INSERT INTO research_discovery_query (
                 id, manifest_id, ordinal, query_text, source_families, adapter_ids,
@@ -320,14 +350,20 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
             """,
             collection_id=collection_id,
             slug=f"dp232-{suffix}",
+            coverage_need_id=coverage_need_id,
+            atomic_claim_id=atomic_claim_id or "",
+            requirement_fingerprint=hashlib.sha256(
+                f"{coverage_need_id}:{atomic_claim_id or 'collection-only'}".encode()
+            ).hexdigest(),
             manifest_id=manifest_id,
             manifest_sha256=hashlib.sha256(manifest_id.encode()).hexdigest(),
+            coverage_need_ids=json.dumps([coverage_need_id]),
             query_id=query_id,
             adapter_ids=json.dumps([provider_id]),
             query_metadata=json.dumps(
                 {
                     "research_assignment_id": assignment_id,
-                    "coverage_need_id": "coverage:dp232:1",
+                    "coverage_need_id": coverage_need_id,
                     "lane": lane,
                     "plan_version": "research-plan-v1",
                 },
@@ -427,6 +463,7 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first.discovery_attempt_id, attempt_id)
         self.assertEqual(first.discovery_hit_id, hit_id)
+        self.assertEqual(first.atomic_claim_id, "claim:dp232:1")
         self.assertEqual(first.research_assignment_id, "research-assignment:factcheck:1")
         self.assertRegex(first.provider_receipt_sha256, r"^[0-9a-f]{64}$")
         self.assertEqual(
@@ -582,13 +619,24 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         collection_id = f"collection:dp232:{suffix}"
         self.store.run(
             """
+            INSERT INTO content_item (id, canonical_url, processing_status)
+            VALUES ('content:dp232:runtime', 'https://example.test/dp232-runtime', 'DISCOVERED')
+            ON CONFLICT (id) DO NOTHING;
+            INSERT INTO atomic_claim (
+                id, content_id, normalized_claim, claim_type, check_worthy
+            ) VALUES (
+                'claim:dp232:runtime', 'content:dp232:runtime',
+                'Synthetic DP-232 runtime claim.', 'NUMERIC_STATISTIC', true
+            )
+            ON CONFLICT (id) DO NOTHING;
             INSERT INTO research_collection (id, slug, name, scope_text, policy_version)
             VALUES (:'id', :'slug', 'DP-232 runtime', 'runtime fixture', 'test-v1');
             INSERT INTO coverage_need (
-                id, collection_id, need_type, requirement_kind,
+                id, collection_id, atomic_claim_id, need_type, requirement_kind,
                 requirement_fingerprint, question, status, attempt_count, max_attempts
             ) VALUES (
-                'coverage:dp232:runtime', :'id', 'INDEPENDENT_SOURCE', 'OTHER',
+                'coverage:dp232:runtime', :'id', 'claim:dp232:runtime',
+                'INDEPENDENT_SOURCE', 'OTHER',
                 :'fingerprint', 'Was the runtime claim already reviewed?', 'OPEN', 0, 3
             );
             """,
@@ -644,6 +692,7 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         self.assertFalse(result.publication_authority)
         self.assertEqual(len(result.mirrors), 1)
         self.assertEqual(result.mirrors[0].rights_status, RightsStatus.UNKNOWN.value)
+        self.assertEqual(result.mirrors[0].atomic_claim_id, "claim:dp232:runtime")
         self.assertEqual(len(seen), 1)
         self.assertEqual(seen[0].query_text, assignment.question)
         self.assertEqual(seen[0].page_size, assignment.max_results)
@@ -864,11 +913,44 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         with self.assertRaisesRegex(ClaimReviewInteropError, "FINDING_REQUIRED"):
             build_claimreview_interop(dataclasses.asdict(public))
 
+        projection_store = PublicProjectionStore(self.database_url)
+        self.assertEqual(projection_store.projectable_findings(), [])
         projection_source = (
             ROOT / "poc" / "dichiarazioni_pubbliche" / "public_projection.py"
         ).read_text(encoding="utf-8")
-        self.assertNotIn("existing_factcheck_mirror", projection_source)
-        self.assertNotIn("existing_factcheck_version", projection_source)
+        self.assertIn("existing_factcheck_mirror", projection_source)
+        self.assertIn("existing_factcheck_version", projection_source)
+        self.assertIn("AS existing_factchecks", projection_source)
+        self.assertIn("WHERE mirror.atomic_claim_id = claim.id", projection_source)
+
+    def test_collection_only_claim_binding_remains_private_and_unprojectable(self):
+        attempt_id, hit_id = self.seed_retrieval(
+            provider_id="google-factcheck-tools",
+            external_id="mirror:collection-only",
+            suffix="collection-only",
+            atomic_claim_id=None,
+        )
+        mirror = self.store.persist_mirror(
+            mirror_record(),
+            upstream_record_id="claimreview:factcheck.example:collection-only",
+            source_external_id="mirror:collection-only",
+            source_version="claimreview-v1",
+            source_content_sha256=source_hash("claimreview:collection-only:v1"),
+            research_assignment_id="research-assignment:factcheck:1",
+            discovery_attempt_id=attempt_id,
+            discovery_hit_id=hit_id,
+        )
+        self.assertIsNone(mirror.atomic_claim_id)
+
+    def test_materialized_claim_binding_is_restrictive_and_immutable(self):
+        mirror = self.persist(suffix="claim-fk")
+        self.assertEqual(mirror.atomic_claim_id, "claim:dp232:1")
+        with self.assertRaises(RuntimeError):
+            self.store.run("DELETE FROM atomic_claim WHERE id='claim:dp232:1';")
+        self.assertEqual(
+            self.store.read_mirror(mirror.mirror_id).atomic_claim_id,
+            "claim:dp232:1",
+        )
 
 
 if __name__ == "__main__":

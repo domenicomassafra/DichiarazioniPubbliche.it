@@ -76,7 +76,7 @@ public attribution for higher recall.
   attributions and **zero** fabricated direct quotes.
 - [ ] **AC-223.4:** A failure in quote, transcript, speaker, identity, context, rights or
   review provenance produces `HELD/OMITTED/UNRESOLVED`, never a guessed fallback.
-- [ ] **AC-223.4A:** A material Finding assertion without a compatible DP-224 approved
+- [x] **AC-223.4A:** A material Finding assertion without a compatible DP-224 approved
   citation is omitted/held and cannot borrow unrelated Finding-level evidence membership.
 - [x] **AC-223.5:** Benchmark output reports separate counts, not one composite score.
 - [x] **AC-223.6:** Direct persistence tampering is included; helper-layer validation alone
@@ -104,7 +104,7 @@ to Git solely for this benchmark. DP-602 owns CI wiring; DP-704 owns launch rehe
 2026-10-05 local/offline benchmark slice:
 
 - `tests/fixtures/false-attribution-adversarial-v1.json` is a fully synthetic, versioned,
-  hand-labeled corpus with 53 cases covering all 20 required classes plus a dedicated
+  hand-labeled corpus with 59 cases covering all required classes plus dedicated
   challenger-only adverse/control pair. Every required class has an
   adversarial example plus a positive/control example; the sensitive ASR, translation,
   citation and direct status/person/quote-tamper classes carry additional variants.
@@ -112,7 +112,7 @@ to Git solely for this benchmark. DP-602 owns CI wiring; DP-704 owns launch rehe
   CLI. It composes the existing quote binding, context integrity, wording/translation,
   public attribution, citation assurance, original-source resolution and excerpt/rights
   gates rather than implementing a second publication policy.
-- The release metric remains two separate zero-tolerance counts. The current local run is 53/53
+- The release metric remains two separate zero-tolerance counts. The current local run is 59/59
   cases passing with `known_false_public_attribution=0`, `fabricated_public_quote=0`,
   `false_holds=0`, `context_review_escape_count=0` and
   `stale_provenance_escape_count=0`. Other quality/coverage metrics remain separate.
@@ -142,10 +142,14 @@ to Git solely for this benchmark. DP-602 owns CI wiring; DP-704 owns launch rehe
   relation. Every case produces zero public dossiers; the quote-hash case deliberately
   survives the SQL row selection and is rejected by projection sanitization, proving the
   second fail-closed boundary as well.
-- Focused result: 6/6 PostgreSQL acceptance tests pass using only the disposable local
+- The current local persistence suite is 10/10: in addition to the original six cases it
+  directly tampers persisted `speech_mode` and context-review state and proves both are
+  rejected before public attribution. These tests pass using only the disposable local
   cluster. No production or MiniPC database is contacted.
 
-AC-223.3/.4/.4A/.9 remain open. This persistence slice proves AC-223.6 only; it does not
+AC-223.3/.4/.9 remain open. The persisted production-boundary suite also proves AC-223.4A:
+changing the exact assertion citation relation from `SUPPORTS` to incompatible `CONTEXT`
+removes the dossier instead of borrowing unrelated Finding-level membership. This slice does not
 claim the full adversarial corpus through the public projection or a MiniPC
 projection/read-back receipt.
 
@@ -158,9 +162,14 @@ projection/read-back receipt.
 - The MiniPC provides PostgreSQL 18.6. The acceptance test now gives its ephemeral server a
   private Unix-socket directory under the test temporary root, allowing the same unprivileged
   test to run on Linux without relying on `/var/run/postgresql`.
-- With production PostgreSQL environment variables explicitly removed, the bundled
+- With production PostgreSQL environment variables explicitly removed, the then-current
   `tests.test_public_projection_postgres_tamper` suite passed 6/6 against its own temporary
   PostgreSQL cluster/database. The temporary bundle and cluster were removed afterward.
 - This is isolated MiniPC persistence proof for AC-223.6. It does **not** satisfy AC-223.9:
   that criterion still requires DP-704 to rerun the same release suite against the MiniPC
   release candidate and attach an actual projection/read-back receipt.
+
+2026-10-06 final local closure run: `compileall` plus the full unittest discovery passes
+1763/1763; the focused owned-domain bundle passes 128/128 and the current local PostgreSQL
+projection-tamper suite passes 10/10. The MiniPC receipt above predates the four added local
+tamper cases and is therefore not treated as proof for the current release candidate.

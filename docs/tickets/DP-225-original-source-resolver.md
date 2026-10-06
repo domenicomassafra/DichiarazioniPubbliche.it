@@ -34,5 +34,8 @@ Source Intelligence and Coverage Needs can consume.
 ## Implementation receipt
 
 Local resolver + QueueRuntime Coverage Need original-source gate + focused tests added
-2026-10-05. DP-215 metadata/Studio surfacing and a real PostgreSQL/MiniPC proof remain
-open, so the ticket is not DONE.
+2026-10-05. The 2026-10-06 closure pass now persists the bounded resolved root/path receipt
+on the Coverage Need event/metadata and the linked DP-215 `evidence_set_assessment`; for an
+`ATTRIBUTION_GAP` it also retains the ClaimCandidate/assessment target without copying source
+text or rewriting the historical candidate. Studio surfacing and a real PostgreSQL/MiniPC
+approved-derivation canary remain open, so the final combined AC is intentionally unchecked.

@@ -37,7 +37,7 @@ owner gates are complete.
 
 Observed baseline:
 
-- no `origin` remote is configured in the current checkout;
+- the canonical `origin` is `https://github.com/domenicomassafra/DichiarazioniPubbliche.it.git` and `origin/main` currently resolves to the candidate commit;
 - no Git tag or hosted release receipt is present;
 - Python metadata is `dichiarazioni-pubbliche` version `0.0.1`;
 - web metadata is private `dichiarazioni-pubbliche-web` version `0.1.0`;
@@ -200,40 +200,40 @@ not invented here.
 
 ## Acceptance criteria
 
-- [ ] **AC-604.1 — Version authority:** One canonical version source and its mapping to
+- [x] **AC-604.1 — Version authority:** One canonical version source and its mapping to
   Python, web, lockfiles, generated metadata, and changelog are documented and checked;
   no component silently owns a second unreviewed version.
-- [ ] **AC-604.2 — Axis separation:** Product/package, public schema/API, policy, and
+- [x] **AC-604.2 — Axis separation:** Product/package, public schema/API, policy, and
   database migration versions are independently identifiable, with no inference that a
   package bump proves a public or runtime change.
-- [ ] **AC-604.3 — Pre-1.0 policy:** The accepted `0.y.z` development-snapshot policy,
+- [x] **AC-604.3 — Pre-1.0 policy:** The accepted `0.y.z` development-snapshot policy,
   compatibility expectations, and stable-v1 gate are explicit; no stable release is
   claimed before the relevant `PLAN.md` milestone is complete.
-- [ ] **AC-604.4 — Changelog integrity:** Every release candidate has a dated,
+- [x] **AC-604.4 — Changelog integrity:** Every release candidate has a dated,
   ticket-linked changelog entry with impact, compatibility, migration, rights, security,
   and runtime notes; missing or sensitive content fails the check.
-- [ ] **AC-604.5 — Reproducible clean clone:** Two independent detached clean-clone
+- [x] **AC-604.5 — Reproducible clean clone:** Two independent detached clean-clone
   candidate runs from the same commit produce the same claimed version and artifact
   hashes, with no local-only files or credentials.
-- [ ] **AC-604.6 — CI gate:** DP-602 enforces version/changelog consistency, full
+- [x] **AC-604.6 — CI gate:** DP-602 enforces version/changelog consistency, full
   deterministic checks, license/data inventory, and collision/link checks without
   publishing or selecting a release number.
-- [ ] **AC-604.7 — Migration gate:** Any release with persistent changes proves ordered
+- [x] **AC-604.7 — Migration gate:** Any release with persistent changes proves ordered
   migration apply/replay in an isolated database with `ON_ERROR_STOP`; no production
   mutation or destructive experiment is used.
-- [ ] **AC-604.8 — Runtime gate:** Runtime-affecting candidates include a MiniPC receipt;
+- [x] **AC-604.8 — Runtime gate:** Runtime-affecting candidates include a MiniPC receipt;
   Mac-only evidence is explicitly insufficient and the candidate remains blocked without
   it.
-- [ ] **AC-604.9 — Rights gate:** DP-603 has no unresolved fixture/data row proposed for
+- [x] **AC-604.9 — Rights gate:** DP-603 has no unresolved fixture/data row proposed for
   distribution, and required attribution/notices are present in the candidate.
-- [ ] **AC-604.10 — Security gate:** The candidate passes secret/private-data scans,
+- [x] **AC-604.10 — Security gate:** The candidate passes secret/private-data scans,
   security review, dependency/license review, and public-schema safety checks; unresolved
   legal/privacy decisions remain explicit blockers. A legacy benchmark `PUBLISH` label is
   historical evidence only and cannot substitute for current fail-closed review evidence.
-- [ ] **AC-604.11 — No external side effect:** This implementation creates no remote,
+- [x] **AC-604.11 — No external side effect:** This implementation creates no remote,
   tag, registry artifact, public release, deployment, or external publication. The
   future publication command remains gated by owner authorization.
-- [ ] **AC-604.12 — Auditability:** The completion receipt identifies the exact commit,
+- [x] **AC-604.12 — Auditability:** The completion receipt identifies the exact commit,
   version decision, gates, command outputs/receipts, artifact hashes, and any
   `PENDING-OWNER`/`BLOCKED` items without claiming more than was proven.
 
@@ -327,6 +327,12 @@ AC-604.12 PASS.
 exists, but there is still no release tag, signing/registry decision, or completed
 legal/security approval. Per blocked conditions this ticket stays IN PROGRESS until the
 remaining release gates close.
+
+**Hosted follow-up 2026-10-06.** `origin/main` and the GitHub default branch both resolve to
+`5a86666bf3bb955f18e036c010e53613425a6cf6`; Actions run `37520100680` completed
+successfully for that exact head, including the detached clean-clone job and DP-604
+reproducibility gate. This is CI/release-readiness evidence only. It does not supply owner
+release authorization, registry/signing choices, qualified legal closure, or a release tag.
 
 The first unnormalized experiment on commit `6ecce7242849ea6460e8837f467a15a879e07c39`
 correctly showed that ordinary setuptools wheel/sdist hashes drift across independent

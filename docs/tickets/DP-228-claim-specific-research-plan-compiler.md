@@ -30,7 +30,7 @@ ACADEMIC_EXPERT, ORIGINAL_MEDIA and CHALLENGER.
   budget beyond the explicit assignment inputs; source-family mapping is mandatory.
 - [ ] Model query suggestions cannot expand host/tool permissions once model-assisted query
   generation is wired to the planner.
-- [ ] Provider failure leaves the need explicit and blocked/deferred in the persisted path.
+- [x] Provider failure leaves the need explicit and blocked/deferred in the persisted path.
 - [x] READY assignments compile directly into the existing DP-209 DiscoveryManifest;
   BLOCKED assignments are refused rather than falling back to a generic search.
 - [x] No lane can directly approve evidence, verify a claim or publish.
@@ -38,7 +38,8 @@ ACADEMIC_EXPERT, ORIGINAL_MEDIA and CHALLENGER.
 ## Completion receipt
 
 Local planner + DP-209 DiscoveryManifest compiler + focused tests added 2026-10-05.
-Persisted execution/attempt-state integration and MiniPC proof remain open.
+Persisted execution/attempt-state integration is covered by the 2026-10-06 bridge;
+model-assisted query generation and MiniPC runtime proof remain open.
 
 ### Claim-specific compiler follow-up — 2026-10-05
 
@@ -70,6 +71,10 @@ missing adapters, exhausted needs, unknown/non-factual/intent/high-risk claims,
 adapter permission non-expansion, and absence of evidence-review/verification/
 publication authority from assignment fields.
 
-The remaining open ACs are intentionally unchanged: model-assisted query generation is
-not wired, and persisted provider-failure/deferred state integration remains future
-runtime work.
+The 2026-10-06 closure pass adds `research_execution.py`, which binds a DP-209 attempt receipt
+to the exact DP-228 assignment/run and persists that outcome on its Coverage Need. Provider
+`BLOCKED` becomes an explicit terminal `RESEARCH_PROVIDER_BLOCKED`; `FAILED` and `HEALTHY`
+consume the existing bounded attempt path without treating discovery success as approved
+evidence, and assignment/run metadata is stored on the event. The model-assisted query
+generation AC remains open because that feature is not wired; MiniPC runtime proof remains
+external.

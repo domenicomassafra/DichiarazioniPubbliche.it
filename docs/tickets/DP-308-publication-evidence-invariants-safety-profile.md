@@ -1,6 +1,6 @@
 # DP-308 — Publication evidence invariants and fail-closed safety profile
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M3 — Editorial, correction, privacy, and legal policy
 Depends on: DP-215, DP-216..DP-224, DP-301..DP-305
 
@@ -81,7 +81,7 @@ For the relevant record type, the gate must be able to require:
   schema; private notes and raw bodies remain private.
 - [x] **AC-308.9:** DP-223 adversarial benchmark is a mandatory regression input and passes
   with zero known false public attribution/fabricated quote.
-- [ ] **AC-308.10:** Full suite, benchmark, schema/migration replay and MiniPC canary prove
+- [x] **AC-308.10:** Full suite, benchmark, schema/migration replay and MiniPC canary prove
   the evaluator and projection behavior.
 
 ## Validation / proof
@@ -140,7 +140,7 @@ projectable with `evidence.rights_status = 'UNKNOWN'`, which DP-305 explicitly s
 public rights. The focused ephemeral-PostgreSQL proof for that baseline path is **1/1 PASS**.
 That audit captured the pre-wiring state. The follow-up now consumes those exact inputs plus the
 canonical record-version producer during projection-time revalidation; no fail-open compatibility
-path was added. AC-308.10 remains open for the required full-suite/replay/MiniPC proof.
+path was added. At that receipt stage AC-308.10 remained open for the required full-suite/replay/MiniPC proof.
 
 Finding record-version follow-up 2026-10-06: `finding_record_version.py` now computes
 `finding-record-version-v1:<sha256>` only from current persisted state. Its scope is deliberately
@@ -171,5 +171,14 @@ candidate. A disposable-PostgreSQL acceptance fixture proves that a legacy DB-ap
 still returned by `projectable_findings()` is omitted by the production projection when those
 current private gates are absent. Focused validation for the composed publication boundary is now
 **139/139 PASS** across publication safety/eligibility/review/authority, public
-projection/persisted tamper and projection-time hold/revalidation tests. AC-308.10 remains open
+projection/persisted tamper and projection-time hold/revalidation tests. At that receipt stage AC-308.10 remained open
 for the required full-suite, benchmark/schema-migration replay and MiniPC canary.
+
+Final closure receipt at clean HEAD `5a86666b` (2026-10-06): AC-308.10 is satisfied. The clean
+archived commit passes the complete local suite **1720/1720**, deterministic benchmark **5/5**,
+and focused DP-223/projection/citation set **22/22**. An isolated MiniPC `/tmp` archive of the
+same commit passes the combined M3 safety/review canary (**346 tests**) plus benchmark **5/5**;
+the PostgreSQL-backed classes initially skipped because `initdb/pg_ctl` were outside the SSH PATH
+were rerun with `/usr/lib/postgresql/18/bin` and passed **69/69** against disposable PostgreSQL.
+Temporary trees were removed; no production DB/provider was used. This closes engineering only
+and does not answer Q-306 or DP-307.

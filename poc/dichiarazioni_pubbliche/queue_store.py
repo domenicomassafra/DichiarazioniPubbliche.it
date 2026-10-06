@@ -1481,7 +1481,13 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
         event_id: str,
         actor_ref: str = "system",
         reason: str = "",
+        metadata: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        event_metadata = json.dumps(
+            dict(metadata or {}), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        if len(event_metadata.encode("utf-8")) > 8192:
+            raise ValueError("COVERAGE_NEED_EVENT_METADATA_TOO_LARGE")
         raw = self.run(
             """
             WITH current AS (
@@ -1504,7 +1510,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 actor_ref,reason,metadata
               )
               SELECT :'event_id',id,'SEARCH_ATTEMPT',from_status,to_status,attempt_count,
-                     :'actor_ref',NULLIF(:'reason',''),'{}'::jsonb
+                     :'actor_ref',NULLIF(:'reason',''),:'metadata'::jsonb
               FROM changed ON CONFLICT (id) DO NOTHING RETURNING id
             )
             SELECT COALESCE(json_build_object(
@@ -1518,6 +1524,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             event_id=event_id,
             actor_ref=actor_ref,
             reason=reason,
+            metadata=event_metadata,
         )
         return json.loads(raw or "{}")
 
@@ -1534,6 +1541,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
     ) -> str:
         if not any((content_id, evidence_id, source_profile_id)):
             raise ValueError("COVERAGE_NEED_SATISFACTION_LINK_REQUIRED")
+        original_source_resolution: dict[str, Any] = {}
         if content_id:
             preflight = self.coverage_need_original_source_preflight(
                 coverage_need_id=coverage_need_id,
@@ -1546,6 +1554,19 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 raise ValueError(
                     f"COVERAGE_NEED_ORIGINAL_SOURCE_REFUSED:{blocker}{suffix}"
                 )
+            if preflight["required"]:
+                original_source_resolution = {
+                    "status": str(preflight.get("status") or ""),
+                    "need_type": str(preflight.get("need_type") or ""),
+                    "atomic_claim_id": preflight.get("atomic_claim_id"),
+                    "claim_candidate_id": preflight.get("claim_candidate_id"),
+                    "source_intelligence_assessment_id": preflight.get(
+                        "source_intelligence_assessment_id"
+                    ),
+                    "root_content_id": preflight.get("root_content_id"),
+                    "path_content_ids": list(preflight.get("path_content_ids") or []),
+                    "path_edge_ids": list(preflight.get("path_edge_ids") or []),
+                }
         raw = self.run(
             """
             WITH current AS (
@@ -1555,10 +1576,27 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
               SET status='SATISFIED', resolved_at=now(), updated_at=now(), blocker_code=NULL,
                   satisfied_by_content_id=NULLIF(:'content_id',''),
                   satisfied_by_evidence_id=NULLIF(:'evidence_id',''),
-                  satisfied_by_source_profile_id=NULLIF(:'source_profile_id','')
+                  satisfied_by_source_profile_id=NULLIF(:'source_profile_id',''),
+                  metadata=CASE
+                    WHEN :'original_source_resolution'::jsonb <> '{}'::jsonb
+                    THEN need.metadata || jsonb_build_object(
+                      'original_source_resolution', :'original_source_resolution'::jsonb
+                    )
+                    ELSE need.metadata
+                  END
               FROM current
               WHERE need.id=current.id AND current.status IN ('OPEN','SEARCHING')
-              RETURNING need.id,current.status AS from_status
+              RETURNING need.id,current.status AS from_status,current.source_intelligence_assessment_id
+            ), assessment_updated AS (
+              UPDATE evidence_set_assessment assessment
+              SET metadata=assessment.metadata || jsonb_build_object(
+                'original_source_resolution', :'original_source_resolution'::jsonb
+              )
+              FROM changed
+              WHERE changed.source_intelligence_assessment_id IS NOT NULL
+                AND :'original_source_resolution'::jsonb <> '{}'::jsonb
+                AND assessment.id=changed.source_intelligence_assessment_id
+              RETURNING assessment.id
             ), logged AS (
               INSERT INTO coverage_need_event(
                 id,coverage_need_id,event_type,from_status,to_status,content_id,evidence_id,
@@ -1566,7 +1604,14 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
               )
               SELECT :'event_id',id,'SATISFIED',from_status,'SATISFIED',
                      NULLIF(:'content_id',''),NULLIF(:'evidence_id',''),NULLIF(:'source_profile_id',''),
-                     :'actor_ref',NULLIF(:'reason',''),'{}'::jsonb
+                     :'actor_ref',NULLIF(:'reason',''),
+                     CASE
+                       WHEN :'original_source_resolution'::jsonb <> '{}'::jsonb
+                       THEN jsonb_build_object(
+                         'original_source_resolution', :'original_source_resolution'::jsonb
+                       )
+                       ELSE '{}'::jsonb
+                     END
               FROM changed ON CONFLICT (id) DO NOTHING RETURNING id
             )
             SELECT CASE
@@ -1586,6 +1631,11 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             source_profile_id=source_profile_id or "",
             actor_ref=actor_ref,
             reason=reason,
+            original_source_resolution=json.dumps(
+                original_source_resolution,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
         )
         return raw
 
@@ -1600,7 +1650,10 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             SELECT COALESCE(json_build_object(
                 'id', id,
                 'need_type', need_type,
-                'status', status
+                'status', status,
+                'atomic_claim_id', atomic_claim_id,
+                'claim_candidate_id', claim_candidate_id,
+                'source_intelligence_assessment_id', source_intelligence_assessment_id
             )::text, '')
             FROM coverage_need
             WHERE id=:'coverage_need_id';
@@ -1676,6 +1729,12 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             "required": True,
             "accepted": accepted,
             "status": resolution.status,
+            "need_type": need_type,
+            "atomic_claim_id": need.get("atomic_claim_id"),
+            "claim_candidate_id": need.get("claim_candidate_id"),
+            "source_intelligence_assessment_id": need.get(
+                "source_intelligence_assessment_id"
+            ),
             "root_content_id": resolution.root_content_id,
             "path_content_ids": list(resolution.path_content_ids),
             "path_edge_ids": list(resolution.path_edge_ids),
@@ -1690,9 +1749,18 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
         blocker_code: str,
         actor_ref: str = "system",
         reason: str = "",
+        metadata: Mapping[str, Any] | None = None,
     ) -> str:
         if not str(blocker_code).strip():
             raise ValueError("COVERAGE_NEED_BLOCKER_REQUIRED")
+        event_metadata = json.dumps(
+            {"blocker_code": str(blocker_code).strip(), **dict(metadata or {})},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if len(event_metadata.encode("utf-8")) > 8192:
+            raise ValueError("COVERAGE_NEED_EVENT_METADATA_TOO_LARGE")
         raw = self.run(
             """
             WITH current AS (
@@ -1708,7 +1776,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 id,coverage_need_id,event_type,from_status,to_status,actor_ref,reason,metadata
               )
               SELECT :'event_id',id,'BLOCKED',from_status,'BLOCKED',:'actor_ref',
-                     NULLIF(:'reason',''),jsonb_build_object('blocker_code',:'blocker_code')
+                     NULLIF(:'reason',''),:'metadata'::jsonb
               FROM changed ON CONFLICT (id) DO NOTHING RETURNING id
             )
             SELECT CASE
@@ -1723,6 +1791,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             blocker_code=str(blocker_code).strip(),
             actor_ref=actor_ref,
             reason=reason,
+            metadata=event_metadata,
         )
         return raw
 

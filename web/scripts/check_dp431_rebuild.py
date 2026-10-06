@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import html
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,7 @@ sys.path.insert(0, str(WEB_ROOT / "scripts"))
 sys.path.insert(0, str(REPO_ROOT / "poc"))
 
 from dp431_rebuild import RebuildGuardError, rebuild_static  # noqa: E402
+from dichiarazioni_pubbliche.public_api import API_BASE_PATH, dispatch  # noqa: E402
 from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
     projection_dataset_sha256,
     validate_public_bundle,
@@ -106,6 +108,52 @@ def _build_seed(projection_path: Path, output: Path) -> None:
 
 def _slug(value: str) -> str:
     return "-".join(part for part in __import__("re").split(r"[^a-z0-9]+", value.lower()) if part)
+
+
+def _record_slug(projection: dict, content_id: str) -> str:
+    for content in projection.get("contents") or []:
+        if content.get("content_id") == content_id and content.get("slug"):
+            return str(content["slug"])
+    return _slug(content_id)
+
+
+def _api_json(projection_path: Path, route: str, *, expected_status: int = 200) -> dict:
+    response = dispatch("GET", route, projection_path=str(projection_path))
+    assert response.status == expected_status, f"{route}: API status {response.status}, expected {expected_status}"
+    return json.loads(response.body)
+
+
+def _assert_statement_metadata(
+    page: Path,
+    *,
+    current_claim: str,
+    current_finding: str,
+    previous_finding: str,
+) -> None:
+    rendered = html.unescape(page.read_text(encoding="utf-8"))
+    assert current_claim in rendered, "current Statement wording missing"
+    assert current_finding in rendered, "current Statement finding id missing from history"
+    assert previous_finding in rendered, "superseded finding id missing from current Statement history"
+
+    title_match = re.search(r"<title>(.*?)</title>", rendered, flags=re.DOTALL)
+    assert title_match and current_claim in title_match.group(1), "Statement title metadata is stale"
+    og_title = re.search(r'<meta property="og:title" content="([^"]*)"', rendered)
+    assert og_title and current_claim in og_title.group(1), "Statement social title metadata is stale"
+    canonical = re.search(r'<link rel="canonical" href="([^"]*)"', rendered)
+    expected_route = f"/dichiarazioni/{_slug(current_finding)}/"
+    assert canonical and canonical.group(1) == expected_route, "Statement canonical metadata targets the wrong version"
+    og_url = re.search(r'<meta property="og:url" content="([^"]*)"', rendered)
+    assert og_url and og_url.group(1) == expected_route, "Statement social URL targets the wrong version"
+    json_ld_match = re.search(
+        r'<script type="application/ld\+json">(.*?)</script>',
+        rendered,
+        flags=re.DOTALL,
+    )
+    assert json_ld_match, "Statement JSON-LD metadata missing"
+    structured = json.loads(json_ld_match.group(1))
+    assert structured["identifier"] == current_finding, "Statement JSON-LD carries a stale finding id"
+    assert structured["name"] == current_claim, "Statement JSON-LD carries stale wording"
+    assert structured["url"] == expected_route, "Statement JSON-LD targets the wrong canonical route"
 
 
 def _assert_hold_only(publish: Path) -> None:
@@ -196,6 +244,14 @@ def main() -> int:
         assert (publish / "index.nt").is_file()
         linked = json.loads((publish / "linked-data-receipt.json").read_text(encoding="utf-8"))
         assert linked["projection_fingerprint"] == new["dataset_sha256"]
+        held_health = _api_json(new_path, f"{API_BASE_PATH}/health")
+        assert held_health["data"]["dataset_fingerprint"] == new["dataset_sha256"]
+        held_api = _api_json(
+            new_path,
+            f"{API_BASE_PATH}/findings/{removed_finding}",
+            expected_status=404,
+        )
+        assert held_api["error"]["code"] == "RESOURCE_NOT_FOUND"
 
         corrected_publish = root / "publish-corrected"
         corrected_receipts = root / "receipts-corrected"
@@ -215,6 +271,35 @@ def main() -> int:
         corrected_rows = {(row["kind"], row["id"]): row for row in corrected_search["records"]}
         assert ("finding", old_finding) not in corrected_rows, "superseded finding remains searchable"
         assert corrected_rows[("finding", corrected_finding)]["title"] == corrected["dossiers"][0]["claim"]
+        corrected_health = _api_json(corrected_path, f"{API_BASE_PATH}/health")
+        assert corrected_health["data"]["dataset_fingerprint"] == corrected["dataset_sha256"]
+        corrected_api = _api_json(
+            corrected_path,
+            f"{API_BASE_PATH}/findings/{corrected_finding}",
+        )
+        assert corrected_api["meta"]["dataset_fingerprint"] == corrected["dataset_sha256"]
+        assert corrected_api["data"]["finding_id"] == corrected_finding
+        assert corrected_api["data"]["claim"] == corrected["dossiers"][0]["claim"]
+        assert corrected_api["data"]["finding"]["supersedes_id"] == old_finding
+        old_api = _api_json(
+            corrected_path,
+            f"{API_BASE_PATH}/findings/{old_finding}",
+            expected_status=404,
+        )
+        assert old_api["error"]["code"] == "RESOURCE_NOT_FOUND"
+        content_id = corrected["dossiers"][0]["source"]["content_id"]
+        record_api = _api_json(
+            corrected_path,
+            f"{API_BASE_PATH}/records/{_record_slug(corrected, content_id)}",
+        )
+        assert record_api["meta"]["dataset_fingerprint"] == corrected["dataset_sha256"]
+        assert [row["finding_id"] for row in record_api["data"]["findings"]] == [corrected_finding]
+        _assert_statement_metadata(
+            current_statement,
+            current_claim=corrected["dossiers"][0]["claim"],
+            current_finding=corrected_finding,
+            previous_finding=old_finding,
+        )
         for relative in corrected_shared_routes:
             page = corrected_publish / relative
             body = html.unescape(page.read_text(encoding="utf-8"))
@@ -234,7 +319,7 @@ def main() -> int:
             "dp431-rebuild checks PASS "
             f"(correction {old['dataset_sha256'][:12]} -> {corrected['dataset_sha256'][:12]}, "
             f"hold -> {new['dataset_sha256'][:12]}; stale Statement/Person/Topic/Content/Trace/search/static removed; "
-            "4 failure injections fail closed)"
+            "API/current metadata/history converge; 4 failure injections fail closed)"
         )
     return 0
 

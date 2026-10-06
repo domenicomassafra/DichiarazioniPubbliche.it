@@ -1,0 +1,99 @@
+{
+  "schema_version": "numeric-structured-providers-v1",
+  "cases": [
+    {
+      "id": "istat-delta",
+      "provider_family": "ISTAT",
+      "kind": "numeric_delta",
+      "rule": {
+        "left_metric": "employment_rate_current",
+        "right_metric": "employment_rate_previous",
+        "left_reference_period": "2026-07",
+        "right_reference_period": "2025-07",
+        "value": 1.5,
+        "tolerance": 0.01
+      },
+      "observations": [
+        {
+          "evidence_id": "istat:employment:2026-07",
+          "metric": "employment_rate_current",
+          "value_numeric": 63.5,
+          "unit": "percent",
+          "reference_period": "2026-07",
+          "dimensions": {"geography": "IT", "population": "working_age"}
+        },
+        {
+          "evidence_id": "istat:employment:2025-07",
+          "metric": "employment_rate_previous",
+          "value_numeric": 62.0,
+          "unit": "percent",
+          "reference_period": "2025-07",
+          "dimensions": {"geography": "IT", "population": "working_age"}
+        }
+      ],
+      "expected_observed": 1.5
+    },
+    {
+      "id": "eurostat-percent-change",
+      "provider_family": "EUROSTAT",
+      "kind": "numeric_percent_change",
+      "rule": {
+        "current_metric": "price_index_current",
+        "baseline_metric": "price_index_baseline",
+        "current_reference_period": "2026-Q2",
+        "baseline_reference_period": "2025-Q2",
+        "value": 20.0,
+        "tolerance": 0.01
+      },
+      "observations": [
+        {
+          "evidence_id": "eurostat:price-index:2026-q2",
+          "metric": "price_index_current",
+          "value_numeric": 120.0,
+          "unit": "index_points",
+          "reference_period": "2026-Q2",
+          "dimensions": {"geo": "IT", "frequency": "Q"}
+        },
+        {
+          "evidence_id": "eurostat:price-index:2025-q2",
+          "metric": "price_index_baseline",
+          "value_numeric": 100.0,
+          "unit": "index_points",
+          "reference_period": "2025-Q2",
+          "dimensions": {"geo": "IT", "frequency": "Q"}
+        }
+      ],
+      "expected_observed": 20.0
+    },
+    {
+      "id": "dvns-ratio",
+      "provider_family": "DVNS",
+      "kind": "numeric_ratio",
+      "rule": {
+        "numerator_metric": "missioni_completed",
+        "denominator_metric": "missioni_total",
+        "value": 0.25,
+        "tolerance": 0.0001
+      },
+      "observations": [
+        {
+          "evidence_id": "dvns:missioni:completed",
+          "metric": "missioni_completed",
+          "value_numeric": 25.0,
+          "unit": "count",
+          "reference_period": "2026-Q2",
+          "dimensions": {"territory": "IT"}
+        },
+        {
+          "evidence_id": "dvns:missioni:total",
+          "metric": "missioni_total",
+          "value_numeric": 100.0,
+          "unit": "count",
+          "reference_period": "2026-Q2",
+          "dimensions": {"territory": "IT"}
+        }
+      ],
+      "expected_observed": 0.25
+    }
+  ]
+}

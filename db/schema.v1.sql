@@ -568,6 +568,83 @@ CREATE INDEX IF NOT EXISTS research_discovery_hit_run_idx
 CREATE INDEX IF NOT EXISTS research_discovery_hit_content_idx
     ON research_discovery_hit(content_id) WHERE content_id IS NOT NULL;
 
+-- DP-232: append-only private mirror lineage for existing ClaimReview/fact-check lookups.
+-- Public projection may expose only bounded metadata/links from these rows; normalized
+-- claim bodies and provider receipts remain private and DP-305 stays excerpt authority.
+CREATE TABLE IF NOT EXISTS existing_factcheck_lineage (
+    id                  text PRIMARY KEY,
+    upstream_record_id  text NOT NULL UNIQUE,
+    created_at          timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS existing_factcheck_version (
+    id                      text PRIMARY KEY,
+    lineage_id              text NOT NULL REFERENCES existing_factcheck_lineage(id),
+    source_version          text NOT NULL,
+    source_content_sha256   text NOT NULL,
+    supersedes_version_id   text REFERENCES existing_factcheck_version(id),
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    CHECK (source_content_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (supersedes_version_id IS NULL OR supersedes_version_id <> id),
+    UNIQUE (lineage_id, source_version)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS existing_factcheck_version_one_successor_idx
+    ON existing_factcheck_version(supersedes_version_id)
+    WHERE supersedes_version_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS existing_factcheck_version_lineage_idx
+    ON existing_factcheck_version(lineage_id, created_at, id);
+
+CREATE TABLE IF NOT EXISTS existing_factcheck_mirror (
+    id                          text PRIMARY KEY,
+    version_id                  text NOT NULL REFERENCES existing_factcheck_version(id),
+    atomic_claim_id             text,
+    provider_id                 text NOT NULL,
+    source_external_id          text NOT NULL,
+    source_version              text NOT NULL,
+    review_url                  text NOT NULL,
+    rights_status               text NOT NULL DEFAULT 'UNKNOWN',
+    research_assignment_id      text NOT NULL,
+    discovery_attempt_id        text NOT NULL REFERENCES research_discovery_attempt(id),
+    discovery_hit_id            text NOT NULL REFERENCES research_discovery_hit(id),
+    provider_receipt_sha256     text NOT NULL,
+    normalized_record_sha256    text NOT NULL,
+    normalized_record           jsonb NOT NULL,
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    CHECK (provider_receipt_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (normalized_record_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (jsonb_typeof(normalized_record) = 'object'),
+    UNIQUE (provider_id, source_external_id, source_version),
+    UNIQUE (discovery_hit_id)
+);
+
+CREATE INDEX IF NOT EXISTS existing_factcheck_mirror_version_idx
+    ON existing_factcheck_mirror(version_id, provider_id, source_external_id);
+
+CREATE OR REPLACE FUNCTION reject_existing_factcheck_mirror_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'existing factcheck mirror lineage is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS existing_factcheck_lineage_append_only ON existing_factcheck_lineage;
+CREATE TRIGGER existing_factcheck_lineage_append_only
+BEFORE UPDATE OR DELETE ON existing_factcheck_lineage
+FOR EACH ROW EXECUTE FUNCTION reject_existing_factcheck_mirror_mutation();
+
+DROP TRIGGER IF EXISTS existing_factcheck_version_append_only ON existing_factcheck_version;
+CREATE TRIGGER existing_factcheck_version_append_only
+BEFORE UPDATE OR DELETE ON existing_factcheck_version
+FOR EACH ROW EXECUTE FUNCTION reject_existing_factcheck_mirror_mutation();
+
+DROP TRIGGER IF EXISTS existing_factcheck_mirror_append_only ON existing_factcheck_mirror;
+CREATE TRIGGER existing_factcheck_mirror_append_only
+BEFORE UPDATE OR DELETE ON existing_factcheck_mirror
+FOR EACH ROW EXECUTE FUNCTION reject_existing_factcheck_mirror_mutation();
+
 -- DP-115: private source-derivation families and reviewable edges.
 CREATE TABLE IF NOT EXISTS content_derivation_family (
     id                  text PRIMARY KEY,
@@ -883,6 +960,30 @@ CREATE TABLE IF NOT EXISTS atomic_claim (
              OR check_worthy = false)
     )
 );
+
+-- DP-232: the mirror table is declared earlier with discovery runtime state, before
+-- atomic_claim exists. Add the claim FK only after atomic_claim is available so a fresh
+-- canonical schema remains dependency-ordered and replay-safe.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'existing_factcheck_mirror_atomic_claim_fk'
+          AND conrelid = 'existing_factcheck_mirror'::regclass
+    ) THEN
+        ALTER TABLE existing_factcheck_mirror
+            ADD CONSTRAINT existing_factcheck_mirror_atomic_claim_fk
+            FOREIGN KEY (atomic_claim_id)
+            REFERENCES atomic_claim(id)
+            ON DELETE RESTRICT;
+    END IF;
+END;
+$$;
+
+CREATE INDEX IF NOT EXISTS existing_factcheck_mirror_atomic_claim_idx
+    ON existing_factcheck_mirror(atomic_claim_id, version_id)
+    WHERE atomic_claim_id IS NOT NULL;
 
 -- DP-430: reviewed public-subject membership. Knowledge topics remain private
 -- until both the Topic and this claim->Topic membership receive explicit
@@ -3310,5 +3411,115 @@ DROP TRIGGER IF EXISTS source_revalidation_event_no_truncate
 CREATE TRIGGER source_revalidation_event_no_truncate
 BEFORE TRUNCATE ON source_revalidation_event_durable
 FOR EACH STATEMENT EXECUTE FUNCTION reject_source_revalidation_durable_mutation();
+
+-- DP-302 durable private abuse-decision audit.
+CREATE TABLE IF NOT EXISTS private_intake_abuse_event (
+    event_id text PRIMARY KEY,
+    event_version text NOT NULL DEFAULT 'private-intake-abuse-event-v1',
+    subject_digest_sha256 text NOT NULL,
+    actor_ref text NOT NULL,
+    guard_version text NOT NULL,
+    policy_version text NOT NULL,
+    decision_state text NOT NULL,
+    reason_code text NOT NULL,
+    decision_time timestamptz NOT NULL,
+    signal_count integer NOT NULL DEFAULT 0,
+    event_integrity_sha256 text NOT NULL,
+    record_visibility text NOT NULL DEFAULT 'PRIVATE',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (event_version = 'private-intake-abuse-event-v1'),
+    CHECK (subject_digest_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (length(btrim(actor_ref)) BETWEEN 1 AND 256),
+    CHECK (length(btrim(guard_version)) BETWEEN 1 AND 128),
+    CHECK (length(btrim(policy_version)) BETWEEN 1 AND 128),
+    CHECK (decision_state IN ('ALLOWED_PRIVATE','RATE_LIMITED','QUARANTINED','REPLAY','BLOCKED')),
+    CHECK (reason_code ~ '^[A-Z0-9_]{1,96}$'),
+    CHECK (signal_count BETWEEN 0 AND 99),
+    CHECK (event_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (event_id = 'intake-abuse-event:' || event_integrity_sha256),
+    CHECK (record_visibility = 'PRIVATE')
+);
+CREATE INDEX IF NOT EXISTS private_intake_abuse_event_subject_idx
+    ON private_intake_abuse_event(subject_digest_sha256, decision_time, event_id);
+
+-- DP-302 parameterized retention/legal-hold lifecycle for unpublished replies.
+CREATE TABLE IF NOT EXISTS private_reply_retention_event (
+    event_id text PRIMARY KEY,
+    event_version text NOT NULL DEFAULT 'private-reply-retention-event-v1',
+    reply_id text NOT NULL,
+    finding_id text NOT NULL REFERENCES finding(id) ON DELETE RESTRICT,
+    event_sequence integer NOT NULL CHECK (event_sequence > 0),
+    action text NOT NULL,
+    actor_ref text NOT NULL,
+    policy_decision_ref text,
+    reason_code text NOT NULL,
+    previous_event_id text REFERENCES private_reply_retention_event(event_id) ON DELETE RESTRICT,
+    previous_integrity_sha256 text,
+    event_integrity_sha256 text NOT NULL,
+    record_visibility text NOT NULL DEFAULT 'PRIVATE',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CHECK (event_version = 'private-reply-retention-event-v1'),
+    CHECK (length(btrim(reply_id)) BETWEEN 1 AND 512),
+    CHECK (length(btrim(finding_id)) BETWEEN 1 AND 512),
+    CHECK (action IN ('RETAIN','LEGAL_HOLD_SET','LEGAL_HOLD_RELEASE','PURGE_APPROVED','PURGE_EXECUTED')),
+    CHECK (length(btrim(actor_ref)) BETWEEN 1 AND 256),
+    CHECK (policy_decision_ref IS NULL OR length(btrim(policy_decision_ref)) BETWEEN 1 AND 512),
+    CHECK (reason_code ~ '^[A-Z0-9_]{1,96}$'),
+    CHECK (action NOT IN ('LEGAL_HOLD_RELEASE','PURGE_APPROVED') OR policy_decision_ref IS NOT NULL),
+    CHECK ((event_sequence = 1 AND previous_event_id IS NULL AND previous_integrity_sha256 IS NULL)
+        OR (event_sequence > 1 AND previous_event_id IS NOT NULL AND previous_integrity_sha256 IS NOT NULL)),
+    CHECK (previous_integrity_sha256 IS NULL OR previous_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (event_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (event_id = 'reply-retention-event:' || event_integrity_sha256),
+    CHECK (record_visibility = 'PRIVATE')
+);
+CREATE UNIQUE INDEX IF NOT EXISTS private_reply_retention_event_sequence_idx
+    ON private_reply_retention_event(reply_id, event_sequence);
+CREATE UNIQUE INDEX IF NOT EXISTS private_reply_retention_event_one_successor_idx
+    ON private_reply_retention_event(previous_event_id) WHERE previous_event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS private_reply_retention_event_reply_idx
+    ON private_reply_retention_event(reply_id, event_sequence, event_id);
+
+CREATE OR REPLACE FUNCTION validate_private_reply_retention_event_insert()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE parent private_reply_retention_event%ROWTYPE;
+BEGIN
+    IF NEW.event_sequence = 1 THEN RETURN NEW; END IF;
+    SELECT * INTO parent FROM private_reply_retention_event WHERE event_id = NEW.previous_event_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'private_reply_retention_event previous event missing'; END IF;
+    IF parent.reply_id <> NEW.reply_id OR parent.finding_id <> NEW.finding_id THEN
+        RAISE EXCEPTION 'private_reply_retention_event binding mismatch';
+    END IF;
+    IF NEW.event_sequence <> parent.event_sequence + 1 THEN
+        RAISE EXCEPTION 'private_reply_retention_event sequence mismatch';
+    END IF;
+    IF NEW.previous_integrity_sha256 <> parent.event_integrity_sha256 THEN
+        RAISE EXCEPTION 'private_reply_retention_event integrity mismatch';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS private_reply_retention_event_validate_insert ON private_reply_retention_event;
+CREATE TRIGGER private_reply_retention_event_validate_insert
+BEFORE INSERT ON private_reply_retention_event
+FOR EACH ROW EXECUTE FUNCTION validate_private_reply_retention_event_insert();
+
+CREATE OR REPLACE FUNCTION reject_private_intake_abuse_event_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private_intake_abuse_event is append-only'; END; $$;
+DROP TRIGGER IF EXISTS private_intake_abuse_event_append_only ON private_intake_abuse_event;
+CREATE TRIGGER private_intake_abuse_event_append_only BEFORE UPDATE OR DELETE ON private_intake_abuse_event
+FOR EACH ROW EXECUTE FUNCTION reject_private_intake_abuse_event_mutation();
+DROP TRIGGER IF EXISTS private_intake_abuse_event_no_truncate ON private_intake_abuse_event;
+CREATE TRIGGER private_intake_abuse_event_no_truncate BEFORE TRUNCATE ON private_intake_abuse_event
+FOR EACH STATEMENT EXECUTE FUNCTION reject_private_intake_abuse_event_mutation();
+
+CREATE OR REPLACE FUNCTION reject_private_reply_retention_event_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private_reply_retention_event is append-only'; END; $$;
+DROP TRIGGER IF EXISTS private_reply_retention_event_append_only ON private_reply_retention_event;
+CREATE TRIGGER private_reply_retention_event_append_only BEFORE UPDATE OR DELETE ON private_reply_retention_event
+FOR EACH ROW EXECUTE FUNCTION reject_private_reply_retention_event_mutation();
+DROP TRIGGER IF EXISTS private_reply_retention_event_no_truncate ON private_reply_retention_event;
+CREATE TRIGGER private_reply_retention_event_no_truncate BEFORE TRUNCATE ON private_reply_retention_event
+FOR EACH STATEMENT EXECUTE FUNCTION reject_private_reply_retention_event_mutation();
 
 COMMIT;

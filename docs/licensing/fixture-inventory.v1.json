@@ -842,7 +842,7 @@
       "origin": "Dichiarazioni Pubbliche contributors",
       "source_reference": "authored in-repo for DP-223 false-attribution/fabricated-quote adversarial benchmarking",
       "retrieved_at": "2026-10-05",
-      "content_hash": "a5d363efa215aa9e1b75eb1064ba15bf5a15815ee9255735c908218d991b0a8f",
+      "content_hash": "97202db228fbe4b49bfe8b85c35aa71116bf699734312c8c9b0574c1cc131615",
       "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
       "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
       "attribution": "No external attribution required; all source snippets, identities and expectations are fictional/project-authored.",

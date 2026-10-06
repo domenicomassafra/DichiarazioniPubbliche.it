@@ -1,6 +1,6 @@
 # DP-305 — Copyright, transcript, and excerpt publication policy
 
-Status: IN_PROGRESS
+Status: IN PROGRESS
 
 Milestone: M3
 
@@ -183,18 +183,18 @@ expose internal legal reasoning or rights receipts unless explicitly approved.
 ## Acceptance criteria
 - [x] **AC-305.1:** Rights records default to `UNKNOWN`/private and include source,
   locator, receipt, permitted-use, expiry, attribution, and policy-version fields.
-- [ ] **AC-305.2:** A source with unknown, expired, missing, or conflicting rights
+- [x] **AC-305.2:** A source with unknown, expired, missing, or conflicting rights
   status cannot produce a public excerpt or full transcript through any serializer.
-- [ ] **AC-305.3:** An approved excerpt is escaped, attributed, time-bounded, linked
+- [x] **AC-305.3:** An approved excerpt is escaped, attributed, time-bounded, linked
   to exact segment/variant/hash provenance, and limited to the approved public
   fields.
-- [ ] **AC-305.4:** Tampering with source hash, segment freshness, rights expiry, or
+- [x] **AC-305.4:** Tampering with source hash, segment freshness, rights expiry, or
   review event makes the excerpt/dossier non-projectable until re-reviewed.
-- [ ] **AC-305.5:** Public JSON, JSON-LD, HTML, API, search, and analytics contain no
+- [x] **AC-305.5:** Public JSON, JSON-LD, HTML, API, search, and analytics contain no
   raw/canonical transcript, evidence body, provider prompt, or internal rights body.
-- [ ] **AC-305.6:** A rights complaint creates a private DP-303 hold/event, prevents
+- [x] **AC-305.6:** A rights complaint creates a private DP-303 hold/event, prevents
   new public excerpt output, and preserves the prior audit/history.
-- [ ] **AC-305.7:** Full-transcript requests are rejected by the baseline policy and
+- [x] **AC-305.7:** Full-transcript requests are rejected by the baseline policy and
   cannot be satisfied by a hidden bulk-export path.
 - [ ] **AC-305-8:** A MiniPC canary verifies source-rights decisions, excerpt
   projection, expiry hold, and public-bundle cleanup without exposing protected
@@ -392,7 +392,39 @@ and repository `git diff --check` pass.
 ### Acceptance accounting
 
 **AC-305.1 is now complete** for the private persisted/versioned rights-record contract.
-AC-305.2 through AC-305.7 and AC-305-8 remain open exactly as before: this tranche does not
+At this registry-tranche stage AC-305.2 through AC-305.7 and AC-305-8 remained open: this tranche did not
 wire the registry into every serializer/projection path, create a rights-complaint durable
 hold integration, approve a source-specific excerpt policy, or run the MiniPC projection
 canary. No source-specific clearance or qualified Italy/EU legal conclusion is claimed.
+
+Pre-complaint-bridge engineering-truth audit at clean HEAD `5a86666b` (2026-10-06): the combined excerpt
+policy, rights registry, public serializer/API/linked-data boundary and existing DP-221 no-body
+guard close AC-305.2/.3/.4/.5/.7. Unknown/expired/missing/conflicting rights fail closed; approved
+fixture excerpts are escaped, attributed and exact-provenance/time bounded; stale hash/segment/
+review/expiry input blocks; protected bodies never enter public surfaces; and full-transcript
+requests have no public/bulk-export path. AC-305.6 and AC-305-8 remain open: there is no dedicated
+durable rights-complaint -> DP-303 hold bridge and no end-to-end MiniPC rights/excerpt/expiry/
+cleanup canary. No source is legally cleared; Q-306-11..13 / DP-307 remain unresolved.
+
+## Final dependency-safe rights-complaint bridge — 2026-10-06
+
+**AC-305.6 is now closed technically, with no rights or legal conclusion inferred.**
+`rights_complaint_bridge.py` resolves the current private rights record and refuses it unless it
+is directly bound to the target Finding through that Finding's claim Content or approved Finding
+Evidence. A complaint on an unrelated rights record therefore creates no challenge at all.
+
+A valid complaint uses DP-303's existing durable TAKEDOWN ledger: deterministic intake creates a
+private request and advances only to `TRIAGE_PENDING`; exact replay is idempotent. It cannot create
+a public hold by itself. Only an explicit `TRIAGE_REVIEWER` transition with the existing canonical
+review gate may append `PUBLIC_HOLD_APPROVED`. The existing fail-closed
+`current_hold_for_finding()` then returns `HOLD`, preserving the entire private rights record and
+challenge history. Production revalidation already consumes that DP-303 hold seam, so no
+DP-232/public-projection edit was required in this tranche.
+
+The bridge, concurrency/cleanup mechanics, migration parity and restore inventory participate in
+the final isolated MiniPC focused run: **130/130 PASS** with disposable PostgreSQL 18; local new
+acceptance is **15/15 PASS**, broader focused regression **115/115 PASS**, and `compileall` passes.
+
+**AC-305-8 remains open.** This canary did not exercise an owner/counsel-approved real excerpt
+profile through source-rights decision, expiry, regenerated public bundle and cleanup. No source
+is cleared, no quotation amount is approved, and Q-306-11..13 / DP-307 remain unresolved.

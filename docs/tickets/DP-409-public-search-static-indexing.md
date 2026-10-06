@@ -210,6 +210,22 @@ transition with retained focus and URL serialization, dialog open/Escape/focus r
 reduced-motion media emulation, 375 px mobile reflow, and a 640 px 200%-equivalent reflow
 viewport all pass. The corrected/replied result indicator is also required to target the
 Statement `#storia` history anchor. This closes AC-409.4 locally. AC-409.8 remains open for
-actual screen-reader and manual 200% browser-zoom acceptance. Final runtime completion still
-requires DP-401/MiniPC serving/read-back with the approved projection; dependency gates
-DP-408/DP-425 remain authoritative.
+actual screen-reader/manual accessibility judgment. The browser checker now also launches a separate Chrome 154
+profile with an exact per-host zoom factor of `2.0`: a 1280 px outer window becomes a 640 px CSS
+viewport, `devicePixelRatio` is `2`, `visualViewport.scale` stays `1` (so this is browser zoom,
+not pinch/page scaling), and Explore keeps zero horizontal overflow, a 44 px filter target and a
+visible search field. The same proof passes on MiniPC Chrome 150 with `innerWidth=640`,
+`scrollWidth=635` and the 44 px target. The 640 px reflow-equivalent check remains as a separate
+resilience test.
+
+On 2026-10-06 the current tree was also built on MiniPC against the exact approved projection at
+`~/.local/share/dichiarazioni-pubbliche/public/v1/index.json` (fingerprint
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`) and served from an isolated
+loopback adapter. `/`, `/esplora/`, `/metodo/`, `/search-index.v1.json`, `/api/v1/health` and
+`/api/v1/openapi.json` all returned `200`; the approved projection is currently empty, the search
+artifact correctly contained zero records, and search/API carried the same fingerprint. A separate
+read-only check of the live DP-401 service found its static `web/dist` still built from demo
+fingerprint `00ede66707f0...` while the live API reads approved fingerprint `501348d9638e...`, and
+`/linked-data-receipt.json` returns `404`. Therefore current-tree approved-projection behavior is
+proven, but the live static deployment still needs to be rebuilt/promoted before runtime closure.
+Dependency gates DP-408/DP-425 remain authoritative.

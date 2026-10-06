@@ -137,6 +137,14 @@ class RestoreVerificationTests(unittest.TestCase):
         self.assertIn(table, LOAD_BEARING_TABLES)
         self.assertIn(table, backup)
 
+    def test_backup_and_restore_inventory_include_reply_governance_ledgers(self):
+        from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES
+
+        backup = (ROOT / "deploy" / "ops" / "backup.sh").read_text()
+        for table in ("private_intake_abuse_event", "private_reply_retention_event"):
+            self.assertIn(table, LOAD_BEARING_TABLES)
+            self.assertIn(table, backup)
+
     def test_backup_and_restore_inventory_cover_all_persistent_tables(self):
         from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES
 

@@ -1,6 +1,6 @@
 # DP-302 — Right-of-reply public intake threat model and abuse controls
 
-Status: IN_PROGRESS
+Status: IN PROGRESS
 
 Milestone: M3
 
@@ -187,18 +187,18 @@ until its security and legal launch blockers are closed.
   trigger.
 - [x] **AC-302.3:** Duplicate and concurrent submissions cannot create duplicate
   public content, duplicate triggers, or wider provenance.
-- [ ] **AC-302.4:** Rate/quota, queue, and concurrency tests demonstrate bounded
+- [x] **AC-302.4:** Rate/quota, queue, and concurrency tests demonstrate bounded
   memory, bounded work, and a stable response when the reviewer/provider is down.
 - [x] **AC-302-5:** URL fixtures prove that intake performs no DNS, redirect, HTTP,
   screenshot, or embedding operation.
 - [x] **AC-302.6:** Logs and public receipts are inspected to confirm that bodies,
   identity fields, raw request data, and unnecessary fingerprint data are absent.
-- [ ] **AC-302-7:** Parent Finding approval, processed re-analysis, reply approval,
+- [x] **AC-302-7:** Parent Finding approval, processed re-analysis, reply approval,
   visibility, and status are all required before the reply appears in any public
   serializer.
-- [ ] **AC-302-8:** Abuse decisions are append-only, attributable, bounded, and
+- [x] **AC-302-8:** Abuse decisions are append-only, attributable, bounded, and
   explainable to a reviewer without exposing private content.
-- [ ] **AC-302-9:** A privacy/security test demonstrates deletion or retention
+- [x] **AC-302-9:** A privacy/security test demonstrates deletion or retention
   behavior for unpublished submissions and preserves an explicit legal hold.
 - [ ] **AC-302-10:** The MiniPC canary exercises the real intake-to-private-review
   path under load, failure, and replay conditions without publishing an unreviewed
@@ -316,7 +316,50 @@ run (54 tests total).
 
 **AC evidence from this follow-up:** AC-302.1 PASS; AC-302.2 PASS at the callable/store
 contract seam; AC-302.3 PASS for deterministic duplicate/concurrent adapter replay;
-AC-302-5 PASS; AC-302.6 PASS. AC-302.4 remains open beyond the proven caller-supplied
+AC-302-5 PASS; AC-302.6 PASS. At this receipt stage AC-302.4 remained open beyond the proven caller-supplied
 rate/quota decision because bounded queue/load/outage acceptance is not implemented here.
-AC-302-7..10 remain open: no projection work was changed, no append-only abuse-event
+At this receipt stage AC-302-7..10 remained open: no projection work was changed, no append-only abuse-event
 runtime or retention/legal-hold lifecycle was added, and no MiniPC load canary was run.
+
+Pre-governance-tranche engineering-truth audit at clean HEAD `5a86666b` (2026-10-06): later abuse-guard work
+closes AC-302.4 with atomic concurrency/rate/quota tests, bounded duplicate retention and generic
+fail-closed persistence responses; the intake path performs no provider call. Current
+queue/projection tests close AC-302-7 by requiring parent Finding approval, processed re-analysis,
+reply approval, visibility and status before serialization. AC-302-8/-9/-10 remain open: no
+durable attributable abuse-decision ledger, no end-to-end unpublished-reply retention/legal-hold
+lifecycle proof, and no real PostgreSQL intake-to-private-review MiniPC load canary. Q-306-03..05
+and DP-307 remain unresolved.
+
+## Final dependency-safe governance tranche — 2026-10-06
+
+AC-302-8 and AC-302-9 are now closed without choosing a retention period, lawful basis,
+notice duty, or any other qualified legal outcome.
+
+- Additive migration `20261006-add-reply-governance-ledgers.sql` and the fresh schema add
+  `private_intake_abuse_event`, a private append-only abuse-decision ledger. Each row binds a
+  bounded actor reference, guard/policy versions, machine state/reason, UTC decision time and
+  signal count to a domain-separated digest of the already-validated request fingerprint. The
+  raw request body, identity, URL, bucket key and raw fingerprint are not persisted. Database
+  UPDATE/DELETE/TRUNCATE are rejected, and exact replay is idempotent.
+  `ReplyGovernanceStore.guard_and_record_abuse_decision()` composes the existing bounded abuse
+  guard with the durable write so a validated decision cannot be returned from that seam without
+  first producing its attributable audit event.
+- `private_reply_retention_event` is a separate append-only chain for an unpublished reply.
+  It records `RETAIN`, legal-hold set/release, purge approval and purge execution. No duration is
+  encoded. Hold release and purge approval require a caller-supplied opaque policy-decision
+  reference; an active legal hold blocks purge. `purge_unpublished_reply()` locks and deletes
+  only a `PRIVATE`, non-`PUBLISHED` reply in the same transaction that appends
+  `PURGE_EXECUTED`, so the audit chain survives deletion. Public/published replies are refused.
+- Both new ledgers are included in the canonical backup/restore table inventory. Fresh-schema
+  and replayed-migration contracts match, migration replay is safe, and the append-only guards
+  are exercised against disposable PostgreSQL.
+
+Focused local validation for this tranche is **15/15 PASS** for the new governance/cleanup
+acceptance plus **115/115 PASS** for intake/challenge/rights/correction-propagation,
+production-hold and restore regressions; `compileall` passes. The exact clean-HEAD+tranche bundle
+also ran in isolated MiniPC `/tmp` with PostgreSQL 18 and passed **130/130** focused tests plus
+`compileall`; no production database/provider was used and the temporary tree was removed.
+
+**AC-302-10 remains open.** The MiniPC run above proves the dependency-safe private mechanics,
+not the ticket's real enabled intake-to-private-review path under load/failure/replay. Public
+intake remains disabled, and Q-306-03..05 / DP-307 remain qualified external blockers.

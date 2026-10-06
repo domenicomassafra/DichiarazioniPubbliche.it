@@ -1,6 +1,6 @@
 # DP-310 — Independent publication review and dual-control for high-risk records
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M3 — Editorial, correction, privacy, and legal policy
 Depends on: DP-308, DP-309; coordinate with DP-301..DP-307
 
@@ -55,7 +55,7 @@ available, the safe result is a hold, not self-certification.
   DP-303 and never rewrite history.
 - [x] **AC-310.8:** DP-308 includes review-separation as a mandatory invariant for the
   applicable risk class.
-- [ ] **AC-310.9:** Full suite, DP-223 benchmark and MiniPC canary pass.
+- [x] **AC-310.9:** Full suite, DP-223 benchmark and MiniPC canary pass.
 
 ## Validation / proof
 
@@ -92,7 +92,7 @@ Focused tests cover HIGH and LEGAL two-person review, STANDARD single review, du
 and credential, wrong role, upstream-author separation, explicit exception, stale safety and
 high-risk bindings, append-only rejection, content tamper and exact-event replay. The result is
 review completeness only and exposes no publication-authority flag. AC-310.1 and AC-310.6 are
-closed by the mandatory production projection composition described below; AC-310.9 remains open
+closed by the mandatory production projection composition described below; at that receipt stage AC-310.9 remained open
 for the full-suite/benchmark/MiniPC proof.
 AC-310.8 is now closed by `publication-eligibility-v1`. That final pure composition seam
 recomputes the DP-310 result from exact review events and binds the DP-308 safety receipt,
@@ -148,7 +148,7 @@ record as exactly the original event.
 Focused proof: `tests.test_publication_review_persistence` **9/9 PASS**,
 `tests.test_policy_challenge` **36/36 PASS**, and `tests.test_reviewer_identity_authority`
 **9/9 PASS**. The later production-projection composition supersedes the earlier projection-gap
-note above. AC-310.9 remains open for full-suite/benchmark/MiniPC acceptance.
+note above. At that receipt stage AC-310.9 remained open for full-suite/benchmark/MiniPC acceptance.
 
 Authority-backed runtime eligibility proof 2026-10-06: `publication_eligibility.py` now exposes
 one runtime `evaluate_publication_eligibility()` seam that accepts a concrete
@@ -183,4 +183,11 @@ in the high-risk binding. `public_projection.py` now consumes this producer thro
 revalidation boundary and requires DP-310/311 eligibility before serialization. Focused disposable
 PostgreSQL record-version proof remains **5/5 PASS**. The current focused publication boundary is
 **139/139 PASS** across safety/eligibility/review/authority, projection/persisted tamper and
-hold/revalidation tests. AC-310.9 remains open for full-suite, DP-223 benchmark and MiniPC acceptance.
+hold/revalidation tests. At that receipt stage AC-310.9 remained open for full-suite, DP-223 benchmark and MiniPC acceptance.
+
+Final closure receipt at clean HEAD `5a86666b` (2026-10-06): AC-310.9 is satisfied by the clean
+archived commit's **1720/1720** full suite, deterministic benchmark **5/5**, focused
+DP-223/projection/citation **22/22**, isolated MiniPC M3 review/safety canary (**346 tests** +
+benchmark **5/5**) and PostgreSQL rerun **69/69** with PostgreSQL 18 explicitly on PATH. Temporary
+trees were deleted; no production DB/provider was used. All DP-310 engineering ACs are closed
+without claiming legal correctness or any DP-307 disposition.
