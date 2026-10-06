@@ -82,7 +82,7 @@ Never:
   syntactically validated as a 64-character hash.
 - [x] **AC-216.3:** Off-by-one/length and non-exact selector mismatches fail closed before written Claim promotion; stale-capture re-review remains open.
   fail closed and cannot be approved.
-- [ ] **AC-216.4:** A media direct quote cannot be projected unless its exact span maps to
+- [x] **AC-216.4:** A media direct quote cannot be projected unless its exact span maps to
   persisted segments and satisfies DP-217 transcript-verbatim eligibility.
 - [x] **AC-216.5:** A model/extractor response that contains invented or cleaned-up quote wording cannot promote when its statement hash differs from the exact Passage hash.
   text cannot create a public quote unless the exact text independently exists in the
@@ -119,6 +119,15 @@ DP-105/DP-305.
 
 ## Completion receipt
 
-Local exact-quote-binding-v1 is enforced in the ClaimCandidate -> AtomicClaim written promotion seam. The runtime recomputes Passage private text, checks Passage/statement/source SHA-256 values, requires exact character-position selectors, blocks cleaned-up/invented wording and records the quote-binding version/reason in promotion metadata. Stale-source re-review, discontinuous-span support and MiniPC proof remain open.
+Local exact-quote-binding-v1 is enforced in both written and media ClaimCandidate ->
+AtomicClaim promotion seams. Written promotion recomputes the private Passage hash. Media
+promotion verifies integer local quote offsets against the resolved canonical transcript
+segment, recomputes the exact substring SHA-256, aligns the context-integrity offsets/hash,
+and requires OFFICIAL_TRANSCRIPT/HUMAN_AUDIO_VERIFIED authority. The promoted AtomicClaim
+retains the bounded context-integrity quote offsets/hash; public projection independently
+recomputes that exact substring against the canonical segment before a timed quote can
+escape, without crossing into private ClaimCandidate/StatementCandidate/promotion/corpus
+tables. Stale-source re-review, discontinuous-span support, broader leak/replay fixtures and
+MiniPC proof remain open.
 
 Pending implementation and MiniPC proof.

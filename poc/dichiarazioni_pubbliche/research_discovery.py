@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit, urlunsplit
 
+from dichiarazioni_pubbliche.operation_ledger import deterministic_operation_key
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.scheduler import deterministic_content_id
 from dichiarazioni_pubbliche.source_adapters import SourceAdapterError, discover_source_result
@@ -22,6 +23,7 @@ from dichiarazioni_pubbliche.source_watcher import get_source, load_registry
 MANIFEST_VERSION = "research-discovery-manifest-v1"
 QUERY_VERSION = "research-discovery-query-v1"
 RUN_VERSION = "research-discovery-run-v1"
+DISCOVERY_LEDGER_OPERATION = "RESEARCH_DISCOVERY"
 MAX_QUERIES = 32
 MAX_SEEDS = 64
 MAX_TOTAL_RESULTS = 200
@@ -533,6 +535,46 @@ def _attempt_id(run_id: str, query_id: str, adapter_id: str) -> str:
     ).hexdigest()
 
 
+def _discovery_operation_key(
+    *,
+    run_id: str,
+    query_id: str,
+    adapter_id: str,
+    adapter_version: str,
+) -> str:
+    fingerprint = hashlib.sha256(
+        f"{run_id}\x1f{query_id}\x1f{adapter_id}".encode()
+    ).hexdigest()
+    return deterministic_operation_key(
+        operation=DISCOVERY_LEDGER_OPERATION,
+        input_fingerprint=fingerprint,
+        provider_id=adapter_id,
+        model_id=adapter_version,
+    )
+
+
+def _discovery_receipt_id(attempt_id: str) -> str:
+    return "receipt:" + hashlib.sha256(
+        f"research-discovery\x1f{attempt_id}".encode()
+    ).hexdigest()
+
+
+def _discovery_billing(
+    *,
+    known_cost_usd: Decimal | None,
+    cost_upper_bound_usd: Decimal,
+) -> tuple[str, Decimal, Decimal | None]:
+    upper = _decimal(cost_upper_bound_usd, "adapter_cost_upper_bound")
+    if known_cost_usd is None:
+        if upper == 0:
+            return "ZERO_COST", Decimal("0"), None
+        return "UNKNOWN", upper, None
+    measured = _decimal(known_cost_usd, "adapter_cost_usd")
+    if measured == 0 and upper == 0:
+        return "ZERO_COST", Decimal("0"), None
+    return "MEASURED_PROVIDER_COST", upper, measured
+
+
 def new_discovery_run_id(manifest: DiscoveryManifest, nonce: str | None = None) -> str:
     value = nonce or uuid.uuid4().hex
     return "discovery-run:" + hashlib.sha256(
@@ -809,6 +851,69 @@ SET status=:'status',
     completed_at=now()
 WHERE id=:'attempt_id'
 RETURNING status;
+""".strip()
+
+
+_RECORD_DISCOVERY_OPERATION_RECEIPT_SQL = r"""
+WITH attempt_row AS (
+    SELECT
+        attempt.id,
+        attempt.started_at,
+        attempt.completed_at,
+        run.manifest_id,
+        manifest.collection_id
+    FROM research_discovery_attempt attempt
+    JOIN research_discovery_run run ON run.id=attempt.run_id
+    JOIN research_discovery_manifest manifest ON manifest.id=run.manifest_id
+    WHERE attempt.id=:'attempt_id'
+      AND attempt.run_id=:'run_id'
+      AND attempt.query_id=:'query_id'
+      AND attempt.adapter_id=:'adapter_id'
+      AND attempt.adapter_version=:'adapter_version'
+      AND run.manifest_id=:'manifest_id'
+      AND manifest.collection_id=:'collection_id'
+      AND attempt.status<>'RUNNING'
+), inserted AS (
+    INSERT INTO provider_receipt (
+        id, content_id, provider_id, model_id, operation, request_id,
+        operation_key, attempt, started_at, completed_at,
+        input_bytes, input_seconds, estimated_cost_usd, measured_cost_usd,
+        billing_basis, total_tokens, request_count, ledger_scope, status, receipt
+    )
+    SELECT
+        :'receipt_id', NULL, :'adapter_id', :'adapter_version',
+        'RESEARCH_DISCOVERY', NULL, :'operation_key', 1,
+        attempt_row.started_at, COALESCE(attempt_row.completed_at, now()),
+        NULL, NULL, :'estimated_cost_usd'::numeric,
+        NULLIF(:'measured_cost_usd','')::numeric, :'billing_basis',
+        NULL, 1, :'ledger_scope'::jsonb, :'status', :'receipt'::jsonb
+    FROM attempt_row
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id
+), current AS (
+    SELECT id FROM inserted
+    UNION ALL
+    SELECT existing.id
+    FROM provider_receipt existing
+    WHERE existing.id=:'receipt_id'
+      AND NOT EXISTS(SELECT 1 FROM inserted)
+      AND existing.content_id IS NULL
+      AND existing.provider_id=:'adapter_id'
+      AND existing.model_id=:'adapter_version'
+      AND existing.operation='RESEARCH_DISCOVERY'
+      AND existing.operation_key=:'operation_key'
+      AND existing.attempt=1
+      AND existing.request_id IS NULL
+      AND existing.estimated_cost_usd=:'estimated_cost_usd'::numeric
+      AND existing.measured_cost_usd IS NOT DISTINCT FROM
+          NULLIF(:'measured_cost_usd','')::numeric
+      AND existing.billing_basis=:'billing_basis'
+      AND existing.request_count=1
+      AND existing.ledger_scope=:'ledger_scope'::jsonb
+      AND existing.status=:'status'
+      AND existing.receipt=:'receipt'::jsonb
+)
+SELECT COALESCE((SELECT id FROM current LIMIT 1), 'CONFLICT')::text;
 """.strip()
 
 
@@ -1182,6 +1287,80 @@ class ResearchDiscoveryStore(PsqlRuntime):
             provider_receipt=json.dumps(_safe_receipt(provider_receipt), ensure_ascii=False, sort_keys=True, separators=(",", ":")),
         )
 
+    def record_operation_receipt(
+        self,
+        *,
+        manifest: DiscoveryManifest,
+        query: DiscoveryQuery,
+        run_id: str,
+        attempt_id: str,
+        adapter_id: str,
+        adapter_version: str,
+        status: str,
+        cost_upper_bound_usd: Decimal,
+        known_cost_usd: Decimal | None,
+        error_category: str = "",
+    ) -> str:
+        billing_basis, estimated_cost, measured_cost = _discovery_billing(
+            known_cost_usd=known_cost_usd,
+            cost_upper_bound_usd=cost_upper_bound_usd,
+        )
+        operation_key = _discovery_operation_key(
+            run_id=run_id,
+            query_id=query.id,
+            adapter_id=adapter_id,
+            adapter_version=adapter_version,
+        )
+        receipt_id = _discovery_receipt_id(attempt_id)
+        ledger_scope = {
+            "collection_id": manifest.collection_id,
+            "manifest_id": manifest.id,
+            "run_id": run_id,
+            "query_id": query.id,
+            "attempt_id": attempt_id,
+        }
+        canonical_receipt = {
+            "schema": "research-discovery-operation-receipt-v1",
+            "manifest_id": manifest.id,
+            "run_id": run_id,
+            "query_id": query.id,
+            "attempt_id": attempt_id,
+            "status": sanitize_category(status),
+        }
+        if error_category:
+            canonical_receipt["error_category"] = sanitize_category(error_category)
+        raw = self.run(
+            _RECORD_DISCOVERY_OPERATION_RECEIPT_SQL,
+            receipt_id=receipt_id,
+            manifest_id=manifest.id,
+            collection_id=manifest.collection_id,
+            run_id=run_id,
+            query_id=query.id,
+            attempt_id=attempt_id,
+            adapter_id=adapter_id,
+            adapter_version=adapter_version,
+            operation_key=operation_key,
+            estimated_cost_usd=str(estimated_cost),
+            measured_cost_usd="" if measured_cost is None else str(measured_cost),
+            billing_basis=billing_basis,
+            ledger_scope=json.dumps(
+                ledger_scope,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            status=sanitize_category(status),
+            receipt=json.dumps(
+                canonical_receipt,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+        if not raw or raw == "CONFLICT":
+            raise RuntimeError("DISCOVERY_OPERATION_RECEIPT_CONFLICT")
+        return raw
+
     def record_hit(
         self,
         *,
@@ -1438,6 +1617,46 @@ def run_discovery_manifest(
     cost_breached = cost_total > manifest.cost_cap_usd
     cost_uncertain = False
 
+    def finish_invoked_attempt(
+        *,
+        query: DiscoveryQuery,
+        attempt_id: str,
+        adapter_id: str,
+        adapter_version: str,
+        upper_bound: Decimal,
+        status: str,
+        known_cost_usd: Decimal | None,
+        raw_hits: int = 0,
+        accepted_hits: int = 0,
+        rejected_hits: int = 0,
+        omitted_hits: int = 0,
+        error_category: str = "",
+        provider_receipt: Mapping[str, Any] | None = None,
+    ) -> None:
+        store.finish_attempt(
+            attempt_id=attempt_id,
+            status=status,
+            cost_usd=known_cost_usd or Decimal("0"),
+            raw_hits=raw_hits,
+            accepted_hits=accepted_hits,
+            rejected_hits=rejected_hits,
+            omitted_hits=omitted_hits,
+            error_category=error_category,
+            provider_receipt=provider_receipt,
+        )
+        store.record_operation_receipt(
+            manifest=manifest,
+            query=query,
+            run_id=run_id,
+            attempt_id=attempt_id,
+            adapter_id=adapter_id,
+            adapter_version=adapter_version,
+            status=status,
+            cost_upper_bound_usd=upper_bound,
+            known_cost_usd=known_cost_usd,
+            error_category=error_category,
+        )
+
     for query in manifest.queries:
         accepted_query = query_counts.get(query.id, 0)
         for adapter_id in query.adapter_ids:
@@ -1521,46 +1740,75 @@ def run_discovery_manifest(
             try:
                 result = adapter.discover(request)
             except DiscoveryAdapterError as exc:
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="FAILED",
+                    known_cost_usd=None,
                     error_category=exc.category,
                 )
-                cost_uncertain = True
+                cost_uncertain = upper_bound > 0
                 continue
             except SourceAdapterError as exc:
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="BLOCKED" if exc.blocked else "FAILED",
+                    known_cost_usd=None,
                     error_category=exc.category,
                 )
+                cost_uncertain = upper_bound > 0
                 continue
             except Exception:
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="FAILED",
+                    known_cost_usd=None,
                     error_category="ADAPTER_FAILURE",
                 )
-                cost_uncertain = True
+                cost_uncertain = upper_bound > 0
                 continue
 
+            cost: Decimal | None = None
             try:
                 status = str(result.status or "OK").upper()
                 cost = _decimal(result.cost_usd, "adapter_cost_usd")
                 result_hits = tuple(result.hits)
                 omitted_hits = max(int(result.omitted_hits), 0)
             except (AttributeError, TypeError, ValueError, DiscoveryManifestError):
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="FAILED",
+                    known_cost_usd=cost,
                     error_category="ADAPTER_RESULT_INVALID",
                 )
+                if cost is None and upper_bound > 0:
+                    cost_uncertain = True
                 continue
+            assert cost is not None
             if len(result_hits) > MAX_QUERY_RESULTS:
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="FAILED",
-                    cost_usd=cost,
+                    known_cost_usd=cost,
                     raw_hits=len(result_hits),
                     omitted_hits=omitted_hits,
                     error_category="ADAPTER_RESULT_BOUND_EXCEEDED",
@@ -1572,10 +1820,14 @@ def run_discovery_manifest(
             try:
                 receipt = _safe_receipt(result.provider_receipt)
             except DiscoveryAdapterError as exc:
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="FAILED",
-                    cost_usd=cost,
+                    known_cost_usd=cost,
                     raw_hits=len(result_hits),
                     error_category=exc.category,
                 )
@@ -1584,10 +1836,14 @@ def run_discovery_manifest(
                     cost_breached = True
                 continue
             if cost > upper_bound or cost_total + cost > manifest.cost_cap_usd:
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="FAILED",
-                    cost_usd=cost,
+                    known_cost_usd=cost,
                     raw_hits=len(result_hits),
                     omitted_hits=omitted_hits,
                     error_category="COST_RECEIPT_EXCEEDED",
@@ -1598,10 +1854,14 @@ def run_discovery_manifest(
                 continue
             cost_total += cost
             if status != "OK":
-                store.finish_attempt(
+                finish_invoked_attempt(
+                    query=query,
                     attempt_id=attempt_id,
+                    adapter_id=adapter_id,
+                    adapter_version=adapter_version,
+                    upper_bound=upper_bound,
                     status="BLOCKED" if status == "BLOCKED" else "FAILED",
-                    cost_usd=cost,
+                    known_cost_usd=cost,
                     raw_hits=len(result_hits),
                     omitted_hits=omitted_hits,
                     error_category=result.error_category or "ADAPTER_NON_OK",
@@ -1654,16 +1914,34 @@ def run_discovery_manifest(
                             ).hexdigest(),
                         },
                     )
-                    store.record_hit(
-                        manifest=manifest,
-                        query=query,
-                        run_id=run_id,
-                        attempt_id=attempt_id,
-                        ordinal=ordinal,
-                        candidate=candidate,
-                        policy_disposition="REJECTED_POLICY",
-                        reason_code="UNSAFE_RESULT_URL",
-                    )
+                    try:
+                        store.record_hit(
+                            manifest=manifest,
+                            query=query,
+                            run_id=run_id,
+                            attempt_id=attempt_id,
+                            ordinal=ordinal,
+                            candidate=candidate,
+                            policy_disposition="REJECTED_POLICY",
+                            reason_code="UNSAFE_RESULT_URL",
+                        )
+                    except Exception:
+                        finish_invoked_attempt(
+                            query=query,
+                            attempt_id=attempt_id,
+                            adapter_id=adapter_id,
+                            adapter_version=adapter_version,
+                            upper_bound=upper_bound,
+                            status="FAILED",
+                            known_cost_usd=cost,
+                            raw_hits=len(result_hits),
+                            accepted_hits=accepted_attempt,
+                            rejected_hits=rejected_attempt,
+                            omitted_hits=omitted_hits,
+                            error_category="DISCOVERY_HIT_WRITE_FAILED",
+                            provider_receipt=receipt,
+                        )
+                        raise
                     rejected_attempt += 1
                     continue
                 candidate = DiscoveryHitCandidate(
@@ -1691,16 +1969,34 @@ def run_discovery_manifest(
                         accepted_total=accepted_total,
                         accepted_query=accepted_query,
                     )
-                hit = store.record_hit(
-                    manifest=manifest,
-                    query=query,
-                    run_id=run_id,
-                    attempt_id=attempt_id,
-                    ordinal=ordinal,
-                    candidate=candidate,
-                    policy_disposition=disposition,
-                    reason_code=reason,
-                )
+                try:
+                    hit = store.record_hit(
+                        manifest=manifest,
+                        query=query,
+                        run_id=run_id,
+                        attempt_id=attempt_id,
+                        ordinal=ordinal,
+                        candidate=candidate,
+                        policy_disposition=disposition,
+                        reason_code=reason,
+                    )
+                except Exception:
+                    finish_invoked_attempt(
+                        query=query,
+                        attempt_id=attempt_id,
+                        adapter_id=adapter_id,
+                        adapter_version=adapter_version,
+                        upper_bound=upper_bound,
+                        status="FAILED",
+                        known_cost_usd=cost,
+                        raw_hits=len(result_hits),
+                        accepted_hits=accepted_attempt,
+                        rejected_hits=rejected_attempt,
+                        omitted_hits=omitted_hits,
+                        error_category="DISCOVERY_HIT_WRITE_FAILED",
+                        provider_receipt=receipt,
+                    )
+                    raise
                 actual = str(hit.get("disposition") or disposition)
                 if actual in {"NEW_CONTENT", "EXISTING_CONTENT"}:
                     seen_urls.add(canonical_url)
@@ -1712,10 +2008,14 @@ def run_discovery_manifest(
                     if actual == "DUPLICATE_WITHIN_RUN":
                         seen_urls.add(canonical_url)
                     rejected_attempt += 1
-            store.finish_attempt(
+            finish_invoked_attempt(
+                query=query,
                 attempt_id=attempt_id,
+                adapter_id=adapter_id,
+                adapter_version=adapter_version,
+                upper_bound=upper_bound,
                 status="HEALTHY",
-                cost_usd=cost,
+                known_cost_usd=cost,
                 raw_hits=len(result_hits),
                 accepted_hits=accepted_attempt,
                 rejected_hits=rejected_attempt,

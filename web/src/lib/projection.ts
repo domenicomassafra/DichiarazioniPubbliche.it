@@ -1,9 +1,19 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import demoProjection from "../data/demo-projection.json";
 import type { PublicProjection } from "./types";
 
 const EXPECTED_SCHEMA = "dichiarazioni-pubbliche-public-v2";
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`);
+  return `{${entries.join(",")}}`;
+}
 
 function assertProjection(value: unknown): asserts value is PublicProjection {
   if (!value || typeof value !== "object") {
@@ -75,6 +85,57 @@ function assertProjection(value: unknown): asserts value is PublicProjection {
           }
         }
       }
+    }
+  }
+
+  if (candidate.contents !== undefined) {
+    if (!Array.isArray(candidate.contents)) {
+      throw new Error("Public projection contents must be an array when present.");
+    }
+    const findingToContent = new Map<string, string>();
+    for (const dossier of candidate.dossiers) {
+      if (!dossier || typeof dossier !== "object") continue;
+      const findingId = String((dossier as { finding_id?: unknown }).finding_id ?? "").trim();
+      const contentId = String((dossier as { source?: { content_id?: unknown } }).source?.content_id ?? "").trim();
+      if (findingId && contentId) findingToContent.set(findingId, contentId);
+    }
+    const contentIds = new Set<string>();
+    const contentSlugs = new Set<string>();
+    for (const content of candidate.contents) {
+      if (!content || typeof content !== "object") {
+        throw new Error("Public projection contains an invalid Content resource.");
+      }
+      const contentId = String(content.content_id ?? "").trim();
+      const slug = String(content.slug ?? "").trim();
+      const title = String(content.title ?? "").trim();
+      if (
+        !contentId || !slug || !title ||
+        content.publication_version !== "public-content-v1" ||
+        !Array.isArray(content.review_event_ids) || !content.review_event_ids.length ||
+        !Array.isArray(content.finding_ids)
+      ) {
+        throw new Error("Public Content identity/review provenance is incomplete.");
+      }
+      if (contentIds.has(contentId) || contentSlugs.has(slug)) {
+        throw new Error("Public projection contains duplicate Content identity.");
+      }
+      contentIds.add(contentId);
+      contentSlugs.add(slug);
+      for (const findingId of content.finding_ids) {
+        if (findingToContent.get(String(findingId)) !== contentId) {
+          throw new Error("Public Content references a non-projectable finding.");
+        }
+      }
+    }
+
+    const material: Record<string, unknown> = { dossiers: candidate.dossiers };
+    if (candidate.topics !== undefined) material.topics = candidate.topics;
+    material.contents = candidate.contents;
+    const fingerprint = createHash("sha256")
+      .update(canonicalJson(material), "utf8")
+      .digest("hex");
+    if (candidate.dataset_sha256 !== fingerprint) {
+      throw new Error("Public projection fingerprint does not match dossiers/topics/contents.");
     }
   }
 }

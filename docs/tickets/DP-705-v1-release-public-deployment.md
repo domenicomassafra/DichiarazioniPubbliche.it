@@ -191,8 +191,8 @@ reason to continue serving a possibly unsafe bundle.
 | B-705-05 | M2 provider capability is blocked | Close DP-201..204 for the selected launch set or formally hold/exclude every affected path. | Provider/cost/fallback receipts and source-specific disposition. | Provider owner; `EXTERNAL` |
 | B-705-06 | Stable public schema/API is not ratified | Close DP-105 and required DP-401..410 contracts; validate JSON, JSON-LD, HTML, and API against the same projection. | Schema/API/version/deprecation receipts and public field allowlist. | Maintainer; `BLOCKED` |
 | B-705-07 | M5 controls are incomplete | Implement/prove DP-501..506 and decide DP-507/508 applicability. | Security, restore, retention, SLO, alert, cost, and incident receipts. | Operator; `BLOCKED` |
-| B-705-08 | M6 release inputs are incomplete | Close DP-601..605, including clean clone, CI, licensing, version/changelog, and owner dry-run. | Reproducible candidate, inventory, version policy, changelog, clean-clone receipt. | Maintainer; `BLOCKED` |
-| B-705-09 | No canonical remote/registry/hosting/signing authority | Owner confirms the exact destinations and least-privilege release authority. | Controlled decision record; do not invent URLs or keys. | Product owner; `PENDING-OWNER` |
+| B-705-08 | M6 release authority is incomplete | DP-601/602/603/605 are implemented; close DP-604's release-authority gate and any still-applicable DP-606/607 launch dependency for the exact candidate. | Reproducible candidate, inventory, version policy, changelog, clean-clone receipt, and owner release decision. | Maintainer/owner; `BLOCKED` |
+| B-705-09 | Registry/hosting/signing/release authority is unapproved | The canonical GitHub remote is confirmed; owner must still confirm the exact publication destinations and least-privilege release/signing authority. | Controlled decision record; do not invent URLs, registries, hosts, signing identities, or keys. | Product owner; `PENDING-OWNER` |
 | B-705-10 | Rollback or incident path is unproven | Restore the prior candidate/snapshot, verify public/private state, and obtain operator/owner sign-off. | Rollback receipt, hashes, read-back, incident owner. | Operator; `BLOCKED` |
 
 A blocker is closed only by linked evidence and owner acceptance. Deleting a blocker row,
@@ -200,7 +200,7 @@ changing a version number, or adding a disclaimer is not an unblock action.
 
 ## Acceptance criteria
 
-- [ ] **AC-705.1 — No false claim:** The packet reports `NO-GO` while any required gate,
+- [x] **AC-705.1 — No false claim:** The packet reports `NO-GO` while any required gate,
   external decision, owner action, provider capability, rights row, or runtime proof is
   open; it never describes the baseline as launchable.
 - [ ] **AC-705.2 — Version authority:** One canonical version source and its mapping to
@@ -282,3 +282,13 @@ Pending DP-701..DP-704 closure, M2..M6 exit evidence, owner release authority, c
 candidate proof, MiniPC runtime/rehearsal/rollback receipts, and an explicit go/no-go
 decision. This ticket does not claim brand clearance, public deployment, a v1.0.0 tag,
 or a stable public release.
+
+### Local no-false-release preflight receipt — 2026-10-05
+
+The repository now has a side-effect-free `launch-preflight-v1` checker wired into the
+standard contributor acceptance path. It binds current ticket/legal/evidence state into a
+deterministic receipt and reports `NO-GO` while any required gate is incomplete. Even a
+synthetic state with every mechanical gate complete can reach only `PENDING-OWNER`; the
+checker can never authorize `GO-CANARY` or `GO-PUBLIC`. Version strings, local tests and a
+package/web build therefore cannot satisfy release authority. This proves AC-705.1 only;
+all remaining release, rehearsal, rollback, owner and deployment ACs stay open.

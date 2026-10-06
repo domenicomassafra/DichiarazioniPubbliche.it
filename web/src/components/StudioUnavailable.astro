@@ -1,0 +1,17 @@
+---
+import type { StudioUnavailableViewModel } from "../lib/studioViewModel";
+import StudioWorkspaceFrame from "./StudioWorkspaceFrame.astro";
+
+interface Props {
+  model: StudioUnavailableViewModel;
+}
+
+const { model } = Astro.props;
+---
+
+<StudioWorkspaceFrame model={model}>
+  <div class="studio-v3-unavailable" role="status">
+    <h2>Dati Studio non disponibili in questo build</h2>
+    <p>Configura una fonte privata persistita. La fixture locale richiede un opt-in esplicito.</p>
+  </div>
+</StudioWorkspaceFrame>

@@ -2,20 +2,32 @@
 import ContentRecord from "../../components/ContentRecord.astro";
 import { contentSlug } from "../../lib/format";
 import { loadPublicProjection } from "../../lib/projection";
-import type { PublicDossier } from "../../lib/types";
+import type { PublicContent, PublicDossier } from "../../lib/types";
 
 export async function getStaticPaths() {
   const projection = await loadPublicProjection();
+  if (projection.contents !== undefined) {
+    const byFinding = new Map(projection.dossiers.map((dossier) => [dossier.finding_id, dossier]));
+    return projection.contents.map((content) => ({
+      params: { slug: content.slug },
+      props: {
+        content,
+        dossiers: content.finding_ids
+          .map((findingId) => byFinding.get(findingId))
+          .filter((item): item is PublicDossier => Boolean(item)),
+      },
+    }));
+  }
   const groups = new Map<string, PublicDossier[]>();
   for (const dossier of projection.dossiers) {
     const slug = contentSlug(dossier);
     groups.set(slug, [...(groups.get(slug) ?? []), dossier]);
   }
-  return [...groups.entries()].map(([slug, dossiers]) => ({ params: { slug }, props: { dossiers } }));
+  return [...groups.entries()].map(([slug, dossiers]) => ({ params: { slug }, props: { content: null, dossiers } }));
 }
 
-interface Props { dossiers: PublicDossier[] }
-const { dossiers } = Astro.props;
+interface Props { content: PublicContent | null; dossiers: PublicDossier[] }
+const { content, dossiers } = Astro.props;
 ---
 
-<ContentRecord dossiers={dossiers} />
+<ContentRecord content={content} dossiers={dossiers} />

@@ -1,0 +1,47 @@
+{
+  "schema_version": "dichiarazioni-pubbliche-labels-v1",
+  "groups": {
+    "type": {"mutually_exclusive": true},
+    "state": {"mutually_exclusive": true},
+    "area": {"mutually_exclusive": false},
+    "contract": {"mutually_exclusive": false},
+    "contribution": {"mutually_exclusive": false}
+  },
+  "labels": [
+    {"id": "type-bug", "name": "bug", "group": "type", "description": "Reproducible software or data-contract defect", "color": "d73a4a", "public_allowed": true},
+    {"id": "type-proposal", "name": "proposal", "group": "type", "description": "Product, data or engineering proposal", "color": "a2eeef", "public_allowed": true},
+    {"id": "type-documentation", "name": "documentation", "group": "type", "description": "Documentation-only work", "color": "0075ca", "public_allowed": true},
+    {"id": "type-security-private", "name": "security-private", "group": "type", "description": "Private security intake marker; never valid on a public issue", "color": "b60205", "public_allowed": false},
+    {"id": "type-maintenance", "name": "maintenance", "group": "type", "description": "Repository or operational maintenance", "color": "c5def5", "public_allowed": true},
+
+    {"id": "state-needs-triage", "name": "needs-triage", "group": "state", "description": "Awaiting maintainer triage", "color": "fbca04", "public_allowed": true},
+    {"id": "state-ready", "name": "ready", "group": "state", "description": "Dependencies known and work can start", "color": "0e8a16", "public_allowed": true},
+    {"id": "state-in-progress", "name": "in-progress", "group": "state", "description": "Actively being worked", "color": "1d76db", "public_allowed": true},
+    {"id": "state-blocked", "name": "blocked", "group": "state", "description": "Blocked on an explicit dependency or owner decision", "color": "b60205", "public_allowed": true},
+    {"id": "state-needs-owner", "name": "needs-owner", "group": "state", "description": "Requires an explicit maintainer or owner decision", "color": "d876e3", "public_allowed": true},
+    {"id": "state-closed", "name": "closed", "group": "state", "description": "Tracker item closed; does not imply merge, release or legal closure", "color": "6a737d", "public_allowed": true},
+
+    {"id": "area-backend", "name": "backend", "group": "area", "description": "Backend/runtime domain", "color": "bfdadc", "public_allowed": true},
+    {"id": "area-web", "name": "web", "group": "area", "description": "Public web product", "color": "bfdadc", "public_allowed": true},
+    {"id": "area-data", "name": "data", "group": "area", "description": "Corpus, schema or data lifecycle", "color": "bfdadc", "public_allowed": true},
+    {"id": "area-docs", "name": "docs", "group": "area", "description": "Documentation and policy text", "color": "bfdadc", "public_allowed": true},
+    {"id": "area-security", "name": "security", "group": "area", "description": "Security hardening without public vulnerability details", "color": "bfdadc", "public_allowed": true},
+    {"id": "area-release", "name": "release", "group": "area", "description": "Release and packaging", "color": "bfdadc", "public_allowed": true},
+
+    {"id": "contract-public", "name": "public-contract", "group": "contract", "description": "Touches the public projection/API contract", "color": "5319e7", "public_allowed": true},
+    {"id": "contract-migration", "name": "migration", "group": "contract", "description": "Requires a persistent migration/replay gate", "color": "5319e7", "public_allowed": true},
+    {"id": "contract-rights", "name": "rights-review", "group": "contract", "description": "Requires explicit rights review; label is not approval", "color": "5319e7", "public_allowed": true},
+    {"id": "contract-runtime", "name": "runtime-proof", "group": "contract", "description": "Requires runtime/MiniPC evidence", "color": "5319e7", "public_allowed": true},
+    {"id": "contract-no-publication", "name": "no-auto-publication", "group": "contract", "description": "Automation must not publish or approve evidence/findings", "color": "5319e7", "public_allowed": true},
+
+    {"id": "contribution-good-first", "name": "good-first-issue", "group": "contribution", "description": "Maintainer-bounded reproducible contributor task", "color": "7057ff", "public_allowed": true}
+  ],
+  "state_transitions": {
+    "needs-triage": ["ready", "blocked", "needs-owner", "closed"],
+    "ready": ["in-progress", "blocked", "needs-owner", "closed"],
+    "in-progress": ["ready", "blocked", "needs-owner", "closed"],
+    "blocked": ["ready", "in-progress", "needs-owner", "closed"],
+    "needs-owner": ["ready", "blocked", "closed"],
+    "closed": []
+  }
+}

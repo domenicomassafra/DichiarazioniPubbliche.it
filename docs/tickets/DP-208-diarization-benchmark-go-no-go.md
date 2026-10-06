@@ -1,6 +1,6 @@
 # DP-208 — Diarization benchmark and go/no-go decision
 
-Status: FUTURE (blocked until DP-204 and DP-207)
+Status: FUTURE (blocked on DP-204 and real benchmark/runtime gates)
 Milestone: M2  
 Depends on: DP-204, DP-207, M0, and ADR 0003
 
@@ -37,9 +37,10 @@ seams are `poc/dichiarazioni_pubbliche/transcript_contract.py`,
 `tests/`.
 
 DP-204 must first establish the approved remote-ASR/fallback path and receipt
-contract. DP-207 must establish timestamped segment/claim acceptance. Until both
-are complete, this ticket remains `FUTURE/BLOCKED`; no benchmark result may be
-fabricated from an unproven transcript.
+contract. DP-207 has established the timestamped segment/claim acceptance seam, but
+DP-204 remains blocked. Until the remaining dependency and real benchmark gates are
+complete, this ticket remains `FUTURE/BLOCKED`; no benchmark result may be fabricated
+from an unproven transcript.
 
 ## Scope
 
@@ -258,3 +259,19 @@ To be filled only after the benchmark decision and MiniPC proof:
 - final `GO`/`GO_BOUNDED`/`NO_GO` decision, rationale, and follow-up owner:
 - focused/full tests, benchmark, and `git diff --check`:
 - residual blockers and private artifact retention location:
+
+### Local test-first harness receipt — 2026-10-05
+
+The benchmark methodology is now executable in
+`poc/dichiarazioni_pubbliche/diarization_benchmark.py` without a model, provider, network
+call, audio artifact or identity feature. It validates anonymous `TURN_*` intervals and
+input hashes/timebase, computes DER components separately (miss/false alarm/confusion),
+speaker-change precision/recall/F1 and boundary error with the pre-registered 250 ms collar,
+checks the inserted-clip separation and sensitive-span hold behavior, and evaluates the
+pre-registered `GO`/`GO_BOUNDED`/`NO_GO` thresholds without a composite trust score.
+
+This does **not** close AC-208.1..10 or record a benchmark decision: DP-204 remains blocked,
+the ≥10 minute reviewed private reference set does not yet exist, no candidate engine/license
+has been approved, and MiniPC resource/model-cache proof has not been run. The local harness
+only freezes the test-first metric/policy seam required by this ticket before real results are
+available.

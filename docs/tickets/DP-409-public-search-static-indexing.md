@@ -1,6 +1,6 @@
 # DP-409 — Public search and static indexing without new infrastructure
 
-Status: FUTURE
+Status: IN PROGRESS
 
 Milestone: M4 — public product/API
 Depends on: DP-402, DP-403, DP-405, DP-406, DP-407, DP-408, DP-425
@@ -126,29 +126,29 @@ as the artifact and must not become a new data source.
 
 ## Acceptance criteria
 
-- [ ] `AC-409.1`: Given an approved public projection, when the index is generated, then
+- [x] `AC-409.1`: Given an approved public projection, when the index is generated, then
   it contains only the allowlisted public fields, stable IDs, canonical routes, and a
   projection fingerprint, with no private/raw/provider/score data.
-- [ ] `AC-409.2`: Given the same projection and normalization rules, when the index is
+- [x] `AC-409.2`: Given the same projection and normalization rules, when the index is
   generated twice, then the canonical bytes/fingerprint and result ordering are stable.
-- [ ] `AC-409.3`: Given a valid query and active filters, when a user searches, then
+- [x] `AC-409.3`: Given a valid query and active filters, when a user searches, then
   results are deterministic, bounded, public, and linked to the canonical route without
   a provider or LLM call.
-- [ ] `AC-409.4`: Given no match, an empty query, an overlong query, or a filter
+- [x] `AC-409.4`: Given no match, an empty query, an overlong query, or a filter
   transition, when the UI responds, then it provides the documented empty/validation/
   focus state and never invents a result or analysis offer.
-- [ ] `AC-409.5`: Given the index is missing, stale, tampered, or built from an
+- [x] `AC-409.5`: Given the index is missing, stale, tampered, or built from an
   incompatible schema, when the site is built or opened, then it fails closed and does
   not serve a previous artifact as current or fall back to demo data in production.
-- [ ] `AC-409.6`: Given corrections, replies, or relation links, when a matching record
+- [x] `AC-409.6`: Given corrections, replies, or relation links, when a matching record
   is rendered, then its indicator links to the version-aware public history and does
   not imply a new publication event.
-- [ ] `AC-409.7`: Given providers are offline, when a user searches the static index,
+- [x] `AC-409.7`: Given providers are offline, when a user searches the static index,
   then existing public records remain searchable and no live retrieval is attempted.
 - [ ] `AC-409.8`: Given keyboard, screen-reader, mobile, 200% zoom, and reduced-motion
   use, when search and filters are operated, then focus, labels, result count, and
   selected state are perceivable and usable.
-- [ ] `AC-409.9`: Given the collision/dependency audit runs, then DP-409 owns only the
+- [x] `AC-409.9`: Given the collision/dependency audit runs, then DP-409 owns only the
   static search artifact/behavior and does not duplicate DP-402/DP-403's resource
   contract.
 
@@ -193,5 +193,23 @@ fingerprint, size, local timing, representative result IDs, and offline behavior
 
 ## Completion receipt
 
-Pending DP-105/DP-402/DP-403/DP-405..DP-408 and implementation. A client-side demo
-filter is not a public search acceptance receipt.
+Local implementation exists as `search-index.v1.json`: deterministic build material derives
+only from the approved public projection, carries the projection SHA-256 plus its own
+SHA-256, and is revalidated client-side before use. Search normalization is bounded to 200
+characters, case/diacritic-insensitive and deterministic across finding/person/topic/content
+records. Explore no longer searches full dossier objects directly and never falls back to
+demo/stale data when the asset is unavailable or mismatched. The local fixture check covers
+ranking, filters, diacritics, overlong input, correction/reply indicators and tamper/stale
+rejection; two consecutive demo builds produced identical artifact SHA-256
+`4e67d7d23be8137d4b8a8e67b4bcd6a717e2e6ebf49d5c19ba2fbe0ba64c2cd0`. The demo artifact
+is 5,168 bytes raw / 1,199 bytes gzip. Astro check, design check and static build pass.
+
+`npm run check:browser` now exercises the rendered Explore route in local headless Chrome:
+empty-query hydration, no-match recovery, overlong-query `role=alert`, keyboard radio
+transition with retained focus and URL serialization, dialog open/Escape/focus return,
+reduced-motion media emulation, 375 px mobile reflow, and a 640 px 200%-equivalent reflow
+viewport all pass. The corrected/replied result indicator is also required to target the
+Statement `#storia` history anchor. This closes AC-409.4 locally. AC-409.8 remains open for
+actual screen-reader and manual 200% browser-zoom acceptance. Final runtime completion still
+requires DP-401/MiniPC serving/read-back with the approved projection; dependency gates
+DP-408/DP-425 remain authoritative.

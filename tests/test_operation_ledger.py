@@ -12,6 +12,7 @@ from dichiarazioni_pubbliche.operation_ledger import (  # noqa: E402
     aggregate_operation_receipts,
     deterministic_operation_key,
     filter_operation_receipts,
+    operation_usage_receipt_from_row,
 )
 
 
@@ -26,9 +27,11 @@ def receipt(
     claim_id="claim:1",
 ):
     return OperationUsageReceipt(
+        receipt_id=f"receipt:{key}:{attempt}",
         operation_key=key,
         attempt=attempt,
         provider_id=provider,
+        model_id="model:test",
         operation="CLAIM_EXTRACT",
         status="SUCCESS",
         billing_basis=basis,
@@ -107,6 +110,52 @@ class OperationLedgerTests(unittest.TestCase):
             provider_id="provider:a",
         )
         self.assertEqual([row.operation_key for row in filtered], ["op:1"])
+
+    def test_persisted_legacy_row_gets_explicit_legacy_key_and_unknown_cost(self):
+        row = operation_usage_receipt_from_row(
+            {
+                "id": "receipt:legacy",
+                "operation_key": None,
+                "attempt": 1,
+                "provider_id": "provider:a",
+                "model_id": None,
+                "operation": "LEGACY_CALL",
+                "status": "SUCCESS",
+                "billing_basis": "ESTIMATED_ONLY",
+                "estimated_cost_usd": None,
+                "request_count": 1,
+            }
+        )
+        self.assertEqual(row.operation_key, "legacy:receipt:legacy")
+        self.assertEqual(row.billing_basis, "UNKNOWN")
+
+    def test_persisted_measured_row_keeps_measured_basis(self):
+        row = operation_usage_receipt_from_row(
+            {
+                "id": "receipt:1",
+                "operation_key": "provider-operation:1",
+                "attempt": 2,
+                "provider_id": "provider:a",
+                "model_id": "model:a",
+                "operation": "CLAIM_EXTRACT",
+                "status": "SUCCESS",
+                "billing_basis": "MEASURED_PROVIDER_COST",
+                "estimated_cost_usd": "0.20",
+                "measured_cost_usd": "0.12",
+                "total_tokens": 321,
+                "request_count": 1,
+                "content_id": "content:1",
+                "source_id": "source:1",
+                "started_at": "2026-10-05T12:00:00+00:00",
+                "completed_at": "2026-10-05T12:00:02+00:00",
+                "duration_seconds": "2.0",
+            }
+        )
+        self.assertEqual(row.attempt, 2)
+        self.assertEqual(row.measured_cost_usd, Decimal("0.12"))
+        self.assertEqual(row.total_tokens, 321)
+        self.assertEqual(row.model_id, "model:a")
+        self.assertEqual(row.duration_seconds, Decimal("2.0"))
 
 
 if __name__ == "__main__":

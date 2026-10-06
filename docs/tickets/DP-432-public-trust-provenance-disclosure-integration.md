@@ -1,6 +1,6 @@
 # DP-432 — Public trust/provenance disclosure integration for Statement and Method
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-216..DP-223, DP-308, DP-427, DP-428
 
@@ -45,17 +45,17 @@ provenance, not confidence badges or "AI verified" marketing.
 
 ## Acceptance criteria
 
-- [ ] **AC-432.1:** A reader can distinguish direct quote, paraphrase and translation from
+- [x] **AC-432.1:** A reader can distinguish direct quote, paraphrase and translation from
   text/semantics, not color alone.
-- [ ] **AC-432.2:** A public direct quote is displayed only when DP-216/DP-308 marks the
+- [x] **AC-432.2:** A public direct quote is displayed only when DP-216/DP-308 marks the
   underlying provenance eligible; UI never fabricates a fallback quote.
-- [ ] **AC-432.3:** Reported speech cannot visually appear as the reported person's direct
+- [x] **AC-432.3:** Reported speech cannot visually appear as the reported person's direct
   statement unless DP-219 original-source requirements are satisfied.
-- [ ] **AC-432.4:** Attribution/source/time/context are retraceable from the Statement page
+- [x] **AC-432.4:** Attribution/source/time/context are retraceable from the Statement page
   without exposing private operational data.
-- [ ] **AC-432.5:** Method clearly distinguishes occurrence proof from truth evidence and
+- [x] **AC-432.5:** Method clearly distinguishes occurrence proof from truth evidence and
   explains why first-party/official sources have bounded roles rather than universal trust.
-- [ ] **AC-432.6:** Method explains abstention/hold behavior and human review honestly; no
+- [x] **AC-432.6:** Method explains abstention/hold behavior and human review honestly; no
   percentage confidence or "AI verified" badge is used as proof.
 - [ ] **AC-432.7:** Correction history links through DP-431 and cannot leave stale wording
   in the current canonical view.
@@ -75,4 +75,23 @@ contracts are implemented. No new operational data becomes public solely for thi
 
 ## Completion receipt
 
-Pending upstream Trust & Evidence implementation.
+Local Statement/Method integration now consumes only already-public provenance. The
+normalized claim heading is no longer rendered inside quotation marks; every Statement labels
+it as `PARAPHRASE`/non-verbatim and explicitly states that a missing source body is never
+reconstructed as a quote. When DP-221 wording metadata is present, the disclosure preserves
+`VERBATIM_ORIGINAL` vs `REPORTED_QUOTE`, source language and translation review metadata
+without exposing original/translation bodies. The same page retains the public source URL,
+date, locator and bounded speaker provenance kinds. The Method page now documents wording
+separation, reported speech, non-biometric attribution, occurrence-proof vs truth-evidence
+roles and fail-closed holds without a confidence badge/score.
+
+`check:trust` inspects rendered Statement/Method HTML and fails if a normalized Statement h1
+is quoted, required disclosures disappear, or `AI verified`/rating-style shortcuts appear.
+The rendered-browser QA also scans accessibility trees for forbidden private/provider/score
+markers and records zero external/provider requests. Correction-aware Explore, Person, Topic,
+Content and Trace links now target the Statement `#storia` history anchor, and the static
+correction-consistency checker verifies those links against the built search index and correction
+register.
+
+AC-432.7 remains open for DP-431 correction-propagation convergence and AC-432.8 remains open
+for the manual responsive/keyboard/200%-zoom acceptance plus final public-schema/MiniPC proof.

@@ -1,6 +1,6 @@
 # DP-410 — Accessibility, performance, and SEO acceptance
 
-Status: FUTURE
+Status: IN PROGRESS
 
 Milestone: M4 — public product/API
 Depends on: DP-405, DP-406, DP-407, DP-408, DP-409, DP-422, DP-425, DP-426, DP-427, DP-428, DP-429
@@ -220,6 +220,29 @@ exercised remains `PENDING`, not passed.
 
 ## Completion receipt
 
-Pending implementation of the public surfaces and DP-105/DP-425 closure. This ticket is
-not complete because a visual prototype looks good; it is complete only when the real
-route/state matrix and MiniPC proof pass.
+Local cross-surface automation started 2026-10-05. `web/scripts/check-public-quality.mjs`
+inspects the actual static build rather than source templates: the current demo matrix has
+32 rendered HTML pages, each with `lang=it`, description, canonical path, main landmark,
+skip link and exactly one `h1`; it scans rendered HTML for private/provider/score markers and
+client JavaScript for database/provider runtime markers. All current JavaScript assets are
+under the 120 KiB compressed budget; the largest demo-build asset is 65,821 bytes gzip.
+The ordinary public build emits no `/studio/**` routes or Studio fixture markers at all; an
+explicit Studio fixture build remains `noindex,nofollow`. Demo-projection public routes are
+also `noindex,nofollow`, while production public layouts emit `index,follow`. The quality
+checker now requires exactly one `main` landmark per rendered page, preventing nested-main
+regressions. Astro check, design check, deterministic search check, static build and the
+quality checker pass locally.
+
+`web/scripts/check-browser-qa.mjs` adds rendered-browser evidence without treating it as a
+screen-reader substitute. On Explore it verifies the accessibility-tree searchbox,
+radiogroup and filter button; keyboard selection/focus and dialog Escape/focus restoration;
+empty and overlong-query announcements; reduced-motion behavior; 375 px mobile reflow and a
+640 px 200%-equivalent reflow viewport with no horizontal page overflow and a 44 px filter
+target. It then scans the accessibility trees of all 19 canonical non-legacy demo routes for
+private/provider/score markers and records zero external requests across the run.
+
+This is partial evidence only. AC-410.1/.2 still require the manual keyboard, focus, zoom,
+touch, contrast and assistive-technology matrix; AC-410.3 still needs cold-browser LCP/CLS/INP
+on the representative mobile profile and MiniPC mirror; AC-410.4..7 require the full real-route
+state matrix and deployed inspection. Dependency owners DP-409/DP-429 and the remaining public
+surface gates stay authoritative.

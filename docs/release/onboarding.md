@@ -267,7 +267,7 @@ This guide links to the canonical contracts and does not duplicate them:
 
 - [`PRODUCT.md`](../../PRODUCT.md), [`CONTEXT.md`](../../CONTEXT.md), [`ARCHITECTURE.md`](../../ARCHITECTURE.md), [`AGENTS.md`](../../AGENTS.md) — invariants and authority;
 - [`SECURITY.md`](../../SECURITY.md) — private vulnerability reporting (a final public
-  security contact remains an owner decision while no remote exists);
+  security contact remains an owner decision until one is explicitly approved);
 - [`docs/adr/0005-apache-2-core-license.md`](../adr/0005-apache-2-core-license.md) and [`docs/licensing/`](../licensing/) — the Apache-2.0 **code** boundary and the separate **data/fixture** rights inventory (DP-603);
 - `docs/release/development-environment.md` — profiles, supported versions, and the
   `.v0`/POC compatibility surface (DP-601, migration owned by DP-106);
@@ -290,12 +290,12 @@ repository does not provide.
 The DP-605 proof — a real dry run of this guide from an independent clean clone — is
 recorded in the DP-605 ticket's completion receipt. The recipe is:
 
-1. `git clone --no-hardlinks <local-source> "$SCRATCH"` and `git checkout --detach <commit>`;
+1. clone the canonical GitHub remote into `$SCRATCH` and `git checkout --detach <commit>`;
 2. run §1.2, §1.3, §1.5 in order, capturing each exit code;
 3. run the clean-clone job from `.github/workflows/ci.yml` (`clean-clone`) for the
-   package-install smoke;
+   package-install and reproducible-artifact smoke;
 4. record tool versions, `git status --short`, and the §1.7 cleanup result;
-5. classify anything remote-dependent as `PENDING-REMOTE` / `PENDING-OWNER` /
+5. classify unresolved owner/legal/registry/runtime dependencies as `PENDING-OWNER` or
    `BLOCKED`.
 
 The proof creates no remote, release, issue, PR, public site, provider call, or

@@ -35,7 +35,7 @@ Use [PRODUCT.md](../../PRODUCT.md), [CONTEXT.md](../../CONTEXT.md),
 [ARCHITECTURE.md](../../ARCHITECTURE.md), and [PLAN.md](../../PLAN.md). The relevant
 existing implementation seams are `poc/dichiarazioni_pubbliche/source_watcher.py`,
 `poc/dichiarazioni_pubbliche/scheduler.py`, `poc/dichiarazioni_pubbliche/scheduler_daemon.py`,
-`poc/dichiarazioni_pubbliche/platform_transcript.py`, `config/source-registry.v0.json`,
+`poc/dichiarazioni_pubbliche/platform_transcript.py`, `config/source-registry.v1.json`,
 and `tests/test_source_watcher.py`. The source-discovery and audio-first decisions
 in `docs/19-deployment-scaling-sources-and-ux.md` and
 `docs/22-runtime-scheduler-and-omniroute-canary.md` are supporting evidence, not
@@ -216,7 +216,7 @@ as a successful empty source or cause an automatic fallback to another provider.
 
 ## Documentation, data, and migration impact
 
-- Update `config/source-registry.v0.json` only with explicit family metadata,
+- Update `config/source-registry.v1.json` only with explicit family metadata,
   discovery URLs, policies, and bounds; do not add credentials or private URLs.
 - Add adapter contract documentation to `docs/22-runtime-scheduler-and-omniroute-canary.md`
   and the source section of `docs/19-deployment-scaling-sources-and-ux.md`.

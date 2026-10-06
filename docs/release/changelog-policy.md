@@ -76,13 +76,12 @@ pre-1.0 minor bump. See [`versioning-policy.md`](versioning-policy.md).
 
 - A deprecation entry names the replacement and the earliest removal version, and
   follows DP-403's sunset policy.
-- The provisional package names (`poc/`, `dichiarazioni_pubbliche`) and the temporary
-  DP-106 config fallbacks (`config/*.v0.json`) remain compatibility surfaces.
-  Canonical database baselines are now `db/schema.v1.sql` and
+- The provisional package names (`poc/`, `dichiarazioni_pubbliche`) remain compatibility
+  surfaces owned by DP-601. Canonical database baselines are `db/schema.v1.sql` and
   `db/job_queue.v1.sql`.
-  `config/*.v0.json`) are **deprecated compatibility identifiers**, not removals. Their
-  migration is owned by DP-106. Deprecating them here does not schedule their removal,
-  and DP-601/DP-602/DP-604 must not delete or rename them.
+- DP-106 retired the temporary `config/*.v0.json` fallback names after the compatibility
+  window; runtime configuration is now `config/*.v1.json` only. This does not authorize a
+  package/import rename as part of unrelated DP-601/DP-602/DP-604 work.
 
 ## Drift rules
 

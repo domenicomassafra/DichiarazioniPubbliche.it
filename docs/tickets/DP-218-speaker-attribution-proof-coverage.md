@@ -50,13 +50,13 @@ entire quoted/claimed span. Ambiguity produces `HOLD`, never a guessed person.
   exact full span; partial coverage blocks the claim/quote.
 - [x] **AC-218.2:** Biometric/diarization methods are absent from the candidate vocabulary and publication-capable methods are restricted to MANUAL_REVIEW, TRANSCRIPT_LABEL and OFFICIAL_RECORD; diarization labels cannot populate a real Person
   identity without a separately approved attribution method.
-- [ ] **AC-218.3:** Host + guest + inserted clip + voice-over fixtures cannot inherit one
+- [x] **AC-218.3:** Host + guest + inserted clip + voice-over fixtures cannot inherit one
   speaker identity across boundaries.
 - [x] **AC-218.4:** SOURCE_METADATA and PLATFORM_CREDIT remain usable as candidates/context but are not publication-capable timed-speaker authority and cannot alone attribute an embedded
   third-party clip or quoted audio.
 - [x] **AC-218.5:** Speaker approval refuses overlapping already-approved candidates for another Person and publication requires one compatible reviewed proof; model score,
   majority vote or source prestige cannot silently resolve it.
-- [ ] **AC-218.6:** Same-name/different-person evidence must resolve through DP-114 stable
+- [x] **AC-218.6:** Same-name/different-person evidence resolves through DP-114 stable
   identity, not display-name equality.
 - [x] **AC-218.7:** Segment boundary/source changes are re-checked through interval containment and existing finding-freshness gates; a changed span outside the approved candidate interval no longer satisfies publication.
 - [ ] **AC-218.8:** Public projection exposes only bounded attribution method/provenance
@@ -80,4 +80,4 @@ Prefer additive method/version fields and compatibility with existing approved c
 
 ## Completion receipt
 
-Local speaker-attribution publication gate implemented 2026-10-05. Weak metadata/account-credit methods cannot become publication authority; candidate approval, media promotion, finding publication and public projection require strong reviewed same-Person interval coverage. Existing conflicting-person overlap checks remain fail-closed. Multi-speaker/embedded-clip adversarial fixtures, same-name identity fixtures, bounded public method disclosure and MiniPC proof remain open.
+Local speaker-attribution publication gate implemented 2026-10-05. Weak metadata/account-credit methods cannot become publication authority; candidate approval, media promotion, finding publication and public projection require strong reviewed same-Person interval coverage. Existing conflicting-person overlap checks remain fail-closed. Focused fixtures now prove host/guest boundary non-inheritance, voice-over boundary holds, embedded clips requiring their own Content/Person proof, and same-name/different-Person ambiguity. Bounded public method disclosure and full schema/benchmark/MiniPC closure remain open.

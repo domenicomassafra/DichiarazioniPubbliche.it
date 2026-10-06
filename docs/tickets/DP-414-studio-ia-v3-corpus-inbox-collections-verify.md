@@ -1,6 +1,6 @@
 # DP-414 — studio ia v3 corpus inbox collections verify
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-112, DP-113; supersedes only the private two-template constraint of DP-413
 
@@ -36,10 +36,10 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-414.1:** An operator can describe where to search existing corpus, triage new hits, investigate a collection and verify a promoted claim without route ambiguity.
-- [ ] **AC-414.2:** No screen conflates analysis with publication.
-- [ ] **AC-414.3:** Every status displayed has a domain/query source.
-- [ ] **AC-414.4:** One dominant task remains visually clear per screen.
+- [x] **AC-414.1:** An operator can describe where to search existing corpus, triage new hits, investigate a collection and verify a promoted claim without route ambiguity.
+- [x] **AC-414.2:** No screen conflates analysis with publication.
+- [x] **AC-414.3:** Every status displayed has a domain/query source.
+- [x] **AC-414.4:** One dominant task remains visually clear per screen.
 
 ## Validation / proof
 
@@ -63,6 +63,31 @@ older than it is.
 
 ## Completion receipt
 
-Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
-required, migration/rollback state, residual blockers and the resulting commit before
-marking DONE.
+First local Studio IA v3 vertical slice implemented 2026-10-05. The private header now has
+four unambiguous operator jobs and routes: `/studio/corpus/`, `/studio/inbox/`,
+`/studio/collections/` and `/studio/verify/`. Each route shares one task-first workspace
+frame whose single `h1` is the dominant task; Verify keeps exactly three panes for
+source/transcript, claim queue, and evidence/review.
+
+`studio-private-view-v1` is the typed private view-model contract. Every visible counter or
+status requires `source_kind`, `source_ref`, `query_state` and `blocker_code`; blocked states
+without a blocker code fail closed. Verify exposes only distinct `analysis` and `review`
+action domains and no publication action. Fixture mutation actions are disabled because no
+mutation backend is attached.
+
+The local/demo dataset in `web/src/data/studio.ts` is explicitly `fixture_only`. Ordinary
+public static builds do not materialize `/studio/**` at all: the gated
+`src/pages/studio/[workspace]/index.astro` route returns no static paths unless
+`DICHIARAZIONI_PUBBLICHE_STUDIO_FIXTURE_ONLY=1` is explicitly enabled. The opt-in Studio
+fixture build emits all four workspaces and renders the source-binding metadata on every
+visible status. The view-model still fails closed to `STUDIO_PRIVATE_SOURCE_REQUIRED` when
+a fixture is resolved with `allow_fixture: false`; no persisted Studio backend is fabricated.
+
+Local validation covers `astro check`, design-system checks, the 32-route public demo build
+with zero `/studio/**` output/private fixture markers, the explicit 36-route Studio fixture
+build, and `check-studio-v3.mjs` sabotage checks for missing source references/blocker codes,
+legacy navigation ambiguity, fake AI/activity wording, publication controls, action-domain
+separation and Verify three-pane. Public quality/route checks pass with Studio absent.
+Real persisted adapters for corpus/inbox/collection/verification queries, mutation handlers,
+keyboard/loading/error acceptance beyond this slice, and MiniPC runtime proof remain follow-up
+work under DP-415..DP-419; no commit is produced by this receipt.

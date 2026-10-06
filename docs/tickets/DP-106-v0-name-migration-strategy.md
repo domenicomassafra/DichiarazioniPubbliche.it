@@ -280,3 +280,30 @@ Compatibility-window start: **2026-09-27**. Per §3.1, the two
 seven consecutive error-free days. The earliest time-based removal is therefore
 **2026-10-04**, and only if MiniPC journals show zero fallback use. Until then DP-106
 remains IN PROGRESS by design; deleting those two files today would violate the ticket.
+
+## Compatibility-window closure candidate — 2026-10-05
+
+The time gate has elapsed and a read-only MiniPC audit found the canonical v1 configs in
+the deploy mirror with timestamps from 2026-09-27. Both live loaders resolve those v1 paths
+directly. The four relevant unit journals contained more than 93,000 lines since the window
+start and no `Loaded legacy v0 config fallback` diagnostic.
+
+The Mac source tree now removes `config/source-registry.v0.json` and
+`config/transcription-policy.v0.json`, removes the two fallback branches/constants, and
+updates the canonical transcription-policy identity to `transcription-policy-v1`.
+Scheduler and worker defaults already delegate to `load_registry()` and require no separate
+cutover edit.
+
+Local proof after the cleanup:
+
+- runtime/policy/packaging/source-watcher/ASR/scheduler focused suites: **48/48 PASS**;
+- focused `compileall`: PASS;
+- `python3 tools/check_contributor_acceptance.py`: PASS, including repository-contract,
+  licensing-inventory and version/changelog checks;
+- active `poc/`, `tests/`, and `config/` scan finds no live v0 config path beyond tests that
+  assert the retired paths stay absent;
+- focused `git diff --check`: PASS.
+
+Status remains **IN PROGRESS** until this exact cleanup is synchronized to the MiniPC and
+the post-sync daemon/read-back acceptance proves v1-only startup there. No database or DDL
+change is part of this closure.

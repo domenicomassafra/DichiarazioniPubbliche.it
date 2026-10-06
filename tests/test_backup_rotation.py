@@ -22,7 +22,16 @@ class BackupRotationTests(unittest.TestCase):
             "pg_dump",
             "file=''\nfor arg in \"$@\"; do\n  case \"$arg\" in --file=*) file=${arg#--file=} ;; esac\ndone\n[ -n \"$file\" ]\nprintf 'fake-dump-bytes' > \"$file\"\n",
         )
-        self._write_tool(fakebin, "psql", "echo 0\n")
+        self._write_tool(
+            fakebin,
+            "psql",
+            'case "$*" in\n'
+            '  *pg_catalog.pg_class*) '
+            'PYTHONPATH="$DP_TEST_REPO_ROOT/poc" python3 -m '
+            'dichiarazioni_pubbliche.ops.table_inventory --repo-root "$DP_TEST_REPO_ROOT" ;;\n'
+            '  *) echo 0 ;;\n'
+            'esac\n',
+        )
         self._write_tool(fakebin, "pg_restore", "exit 0\n")
         self._write_tool(
             fakebin,
@@ -31,6 +40,7 @@ class BackupRotationTests(unittest.TestCase):
         )
         env = os.environ.copy()
         env["PATH"] = str(fakebin) + os.pathsep + env.get("PATH", "")
+        env["DP_TEST_REPO_ROOT"] = str(ROOT)
         env["DICHIARAZIONI_PUBBLICHE_BACKUP_KEEP"] = keep
         env.pop("DICHIARAZIONI_PUBBLICHE_PUBLIC_BUNDLE", None)
         return env

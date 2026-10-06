@@ -48,7 +48,7 @@ recovered and approved.
   reported speaker/coverage target; Y cannot receive a public Statement from this source.
 - [x] **AC-219.2:** Written sources naming another speaker are conservatively classified as reported occurrence; Python promotion plus all mutation SQL refuse non-direct speech mode, so a journalist/moderator reading another person's quote cannot be
   converted into the quoted person's direct occurrence without original-source proof.
-- [ ] **AC-219.3:** Embedded old clips retain their own Content/source/span and speaker
+- [x] **AC-219.3:** Embedded old clips retain their own Content/source/span and speaker
   provenance instead of inheriting the surrounding narrator's source context.
 - [ ] **AC-219.4:** Article chains that repeat one upstream quotation retain derivation
   lineage and do not create N independent attributions.
@@ -75,4 +75,4 @@ vocabulary after implementation.
 
 ## Completion receipt
 
-First fail-closed reported-speech layer implemented 2026-10-05. Candidate extraction carries a bounded speech_mode and offset-bound reported-speaker mention without identity IDs; written speaker mentions are conservatively reported-source occurrences; ClaimCandidate metadata carries an ATTRIBUTION_GAP hint; promotion Python and all mutation SQL refuse non-direct speech; finding publication and public projection also require DIRECT_UTTERANCE metadata. Persistent CoverageNeed creation, independently reviewed original-occurrence linking, normalized nesting depth/lineage, adversarial corpus and MiniPC proof remain open.
+First fail-closed reported-speech layer implemented 2026-10-05. Candidate extraction carries a bounded speech_mode and offset-bound reported-speaker mention without identity IDs; written speaker mentions are conservatively reported-source occurrences; ClaimCandidate metadata carries an ATTRIBUTION_GAP hint; promotion Python and all mutation SQL refuse non-direct speech; finding publication and public projection also require DIRECT_UTTERANCE metadata. Existing public-attribution and DP-223 fixtures now also prove that an embedded old clip cannot inherit the surrounding Content/speaker proof. Independently reviewed original-occurrence linking, normalized nesting depth/lineage, the remaining reported/repost corpus variants and full MiniPC proof remain open.

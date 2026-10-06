@@ -26,7 +26,7 @@ importing the sister application's runtime or AGPL source code into this core.
   separate fields.
 - [x] Every normalized value retains HTTPS source URL, source record ID/version,
   deterministic adapter record ID and bounded provider receipt.
-- [ ] DP-215 source role/authority scope determines what the record can establish.
+- [x] DP-215 source role/authority scope determines what the record can establish.
 - [x] Provider/source BLOCKED/FAILED/DEGRADED states require an explicit blocker and cannot
   carry records or masquerade as empty-success evidence.
 - [x] Unsupported schema version is rejected fail closed.
@@ -34,6 +34,16 @@ importing the sister application's runtime or AGPL source code into this core.
   existing Evidence/Observation review remains downstream authority.
 - [x] No AGPL implementation code is copied into the permissively licensed core; this is an
   independently implemented provider-neutral contract.
+- [x] A pure/offline DVNS-style adapter seam preserves stable external IDs, source/schema
+  versions, exact field selectors, HTTPS source URLs and opaque rights/availability status;
+  explicitly private input fields are excluded from normalized records, receipts and replay
+  identity.
+- [x] Replay identity is deterministic and input-order independent; exact duplicate records
+  collapse, while conflicting content under the same stable record identity, schema drift and
+  unknown public/provenance fields fail closed.
+- [x] The DVNS-style seam is read-only and candidate-only: it has no upstream write/fetch
+  client, rejects verdict/publication-authority input fields and cannot confer publication
+  authority.
 - [ ] Wire an approved DVNS/API/export provider into this contract and DP-228/DP-215.
 - [ ] Add source-specific schema/rights mapping under an
   explicit compatible licensing decision.
@@ -41,6 +51,18 @@ importing the sister application's runtime or AGPL source code into this core.
 
 ## Completion receipt
 
-Provider-neutral structured-evidence contract + focused tests added 2026-10-05. A real
-DVNS/API/export integration remains blocked on an approved external/shared contract and
-source-specific rights/schema review.
+Provider-neutral structured-evidence contract plus a synthetic, offline DVNS-style adapter
+fixture and focused replay/provenance/privacy tests added 2026-10-05. The adapter input schema
+is an internal seam, not a claim about the current DVNS API/export schema. A real DVNS/API/export
+integration remains blocked on an approved external/shared contract, compatible licensing,
+source-specific rights/schema review and MiniPC canary.
+
+DP-215 bridge proof 2026-10-06: a pure candidate-only suitability bridge binds each imported
+record to an explicit `SourceProfile`, granted evidence role and exact `AuthorityScope`; imported
+self-declared roles cannot grant authority. Exact metric/unit/dimension, authority-scope,
+reference-period, publication-cutoff and effective-interval compatibility are retained as
+pre-assessment metadata. `BLOCKED`/`FAILED`/`DEGRADED` fetch, rights, availability or profile
+access state holds the candidate before compatibility is evaluated. The bridge contains no
+verdict, approval, publication, network or database authority. Focused bridge tests: **7/7 PASS**;
+DVNS/structured-evidence/DP-215 regression set: **44/44 PASS**; `compileall` and `git diff --check`
+PASS. Complete shared suite: **1552/1552 PASS**; deterministic benchmark: **5/5 PASS**.

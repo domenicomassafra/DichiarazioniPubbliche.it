@@ -1,0 +1,101 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import StudioStatus from "../../../components/StudioStatus.astro";
+import StudioWorkspaceClient from "../../../components/StudioWorkspaceClient";
+import StudioWorkspaceFrame from "../../../components/StudioWorkspaceFrame.astro";
+import { studioFixtures } from "../../../data/studio";
+import {
+  fixtureOptInEnabled,
+  resolveStudioViewModel,
+  type StudioWorkspaceKind,
+} from "../../../lib/studioViewModel";
+
+const workspaces: StudioWorkspaceKind[] = ["corpus", "inbox", "collections", "verify"];
+
+export function getStaticPaths() {
+  const allowFixture = import.meta.env.DEV || fixtureOptInEnabled(import.meta.env.DICHIARAZIONI_PUBBLICHE_STUDIO_FIXTURE_ONLY);
+  if (!allowFixture) return [];
+  const staticWorkspaces = ["corpus", "inbox", "collections", "verify"];
+  return staticWorkspaces.map((workspace) => ({ params: { workspace } }));
+}
+
+const workspace = Astro.params.workspace as StudioWorkspaceKind;
+if (!workspaces.includes(workspace)) throw new Error("STUDIO_WORKSPACE_INVALID");
+const model = resolveStudioViewModel(studioFixtures[workspace], { allow_fixture: true });
+if ("unavailable" in model) throw new Error("STUDIO_FIXTURE_BUILD_UNAVAILABLE");
+---
+
+<BaseLayout title={`Studio · ${model.title}`} studio>
+  <StudioWorkspaceFrame model={model}>
+    {model.workspace === "corpus" && (
+      <>
+        <section class="studio-v3-primary" aria-labelledby="corpus-query-title">
+          <div class="studio-v3-primary-copy">
+            <h2 id="corpus-query-title">Query corrente</h2>
+            <p class="studio-v3-query"><code>{model.query}</code></p>
+            <p>La ricerca usa il corpus privato. Questa slice mostra solo una fixture esplicitamente abilitata.</p>
+          </div>
+        </section>
+        <section class="studio-v3-list" aria-label="Risultati corpus">
+          {model.results.map((result) => (
+            <article class="studio-v3-row">
+              <div>
+                <span class="eyebrow">{result.kind}</span>
+                <h2>{result.title}</h2>
+                <p>{result.excerpt}</p>
+              </div>
+              <code>{result.source_ref}</code>
+            </article>
+          ))}
+        </section>
+      </>
+    )}
+
+    {model.workspace === "inbox" && (
+      <>
+        <section class="studio-v3-primary" aria-labelledby="inbox-primary-title">
+          <div class="studio-v3-primary-copy">
+            <h2 id="inbox-primary-title">Triage</h2>
+            <p>Ispeziona provenienza e blocker prima di scegliere una successiva azione operativa.</p>
+          </div>
+        </section>
+        <section class="studio-v3-list" aria-label="Elementi discovery da triagiare">
+          {model.rows.map((row) => (
+            <article class="studio-v3-row">
+              <div>
+                <h2>{row.title}</h2>
+                <code>{row.provenance_ref}</code>
+              </div>
+              <StudioStatus status={row.status} compact />
+            </article>
+          ))}
+        </section>
+      </>
+    )}
+
+    {model.workspace === "collections" && (
+      <>
+        <section class="studio-v3-primary" aria-labelledby="collections-primary-title">
+          <div class="studio-v3-primary-copy">
+            <h2 id="collections-primary-title">Raccolte di ricerca</h2>
+            <p>Apri una raccolta per lavorare su fonti, cronologia, candidati e gap persistiti.</p>
+          </div>
+        </section>
+        <section class="studio-v3-list" aria-label="Raccolte di ricerca">
+          {model.collections.map((collection) => (
+            <article class="studio-v3-row">
+              <div>
+                <h2>{collection.title}</h2>
+                <p>{collection.scope}</p>
+                <code>{collection.id}</code>
+              </div>
+              <StudioStatus status={collection.status} compact />
+            </article>
+          ))}
+        </section>
+      </>
+    )}
+
+    {model.workspace === "verify" && <StudioWorkspaceClient model={model} client:load />}
+  </StudioWorkspaceFrame>
+</BaseLayout>

@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from dataclasses import dataclass
@@ -7,6 +8,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
+from dichiarazioni_pubbliche.operation_ledger import (  # noqa: E402
+    OperationUsageReceipt,
+    aggregate_operation_receipts,
+)
 from dichiarazioni_pubbliche.research_discovery import (  # noqa: E402
     ConfiguredRegistryDiscoveryAdapter,
     DiscoveryAdapterError,
@@ -14,6 +19,10 @@ from dichiarazioni_pubbliche.research_discovery import (  # noqa: E402
     DiscoveryAdapterResult,
     DiscoveryHitCandidate,
     DiscoveryManifestError,
+    ResearchDiscoveryStore,
+    _discovery_billing,
+    _discovery_operation_key,
+    _discovery_receipt_id,
     canonicalize_discovery_url,
     load_discovery_manifest,
     run_discovery_manifest,
@@ -93,6 +102,9 @@ class FakeStore:
         self.hits = []
         self.content_urls = set(existing_urls)
         self.calls = []
+        self.operation_receipts = {}
+        self.operation_receipt_scopes = {}
+        self.operation_receipt_payloads = {}
 
     def persist_manifest(self, manifest):
         self.calls.append(("persist_manifest", manifest.id))
@@ -196,6 +208,64 @@ class FakeStore:
                 return kwargs["status"]
         raise AssertionError("attempt not found")
 
+    def record_operation_receipt(self, **kwargs):
+        receipt_id = _discovery_receipt_id(kwargs["attempt_id"])
+        operation_key = _discovery_operation_key(
+            run_id=kwargs["run_id"],
+            query_id=kwargs["query"].id,
+            adapter_id=kwargs["adapter_id"],
+            adapter_version=kwargs["adapter_version"],
+        )
+        billing_basis, estimated_cost, measured_cost = _discovery_billing(
+            known_cost_usd=kwargs["known_cost_usd"],
+            cost_upper_bound_usd=kwargs["cost_upper_bound_usd"],
+        )
+        row = OperationUsageReceipt(
+            receipt_id=receipt_id,
+            operation_key=operation_key,
+            attempt=1,
+            provider_id=kwargs["adapter_id"],
+            model_id=kwargs["adapter_version"],
+            operation="RESEARCH_DISCOVERY",
+            status=kwargs["status"],
+            billing_basis=billing_basis,
+            estimated_cost_usd=estimated_cost,
+            measured_cost_usd=measured_cost,
+            request_count=1,
+            collection_id=kwargs["manifest"].collection_id,
+        )
+        existing = self.operation_receipts.get(receipt_id)
+        if existing is not None and existing != row:
+            raise AssertionError("operation receipt conflict")
+        self.operation_receipts[receipt_id] = row
+        self.operation_receipt_scopes[receipt_id] = {
+            "collection_id": kwargs["manifest"].collection_id,
+            "manifest_id": kwargs["manifest"].id,
+            "run_id": kwargs["run_id"],
+            "query_id": kwargs["query"].id,
+            "attempt_id": kwargs["attempt_id"],
+        }
+        payload = {
+            "schema": "research-discovery-operation-receipt-v1",
+            "manifest_id": kwargs["manifest"].id,
+            "run_id": kwargs["run_id"],
+            "query_id": kwargs["query"].id,
+            "attempt_id": kwargs["attempt_id"],
+            "status": kwargs["status"],
+        }
+        if kwargs.get("error_category"):
+            payload["error_category"] = kwargs["error_category"]
+        self.operation_receipt_payloads[receipt_id] = payload
+        self.calls.append(("record_operation_receipt", receipt_id))
+        return receipt_id
+
+    def collection_ledger_summary(self, collection_id):
+        return aggregate_operation_receipts(
+            row
+            for row in self.operation_receipts.values()
+            if row.collection_id == collection_id
+        )
+
     def record_hit(self, **kwargs):
         candidate = kwargs["candidate"]
         canonical_url, host = canonicalize_discovery_url(candidate.canonical_url)
@@ -262,6 +332,70 @@ class FakeStore:
 
 
 class ResearchDiscoveryTests(unittest.TestCase):
+    def test_operation_receipt_writer_uses_canonical_discovery_scope_and_attempt_times(self):
+        class CaptureStore(ResearchDiscoveryStore):
+            def __init__(self):
+                self.sql = ""
+                self.variables = {}
+
+            def run(self, sql, **variables):
+                self.sql = sql
+                self.variables = variables
+                return variables["receipt_id"]
+
+        manifest = load_discovery_manifest(manifest_payload())
+        query = manifest.queries[0]
+        store = CaptureStore()
+        first = store.record_operation_receipt(
+            manifest=manifest,
+            query=query,
+            run_id="run:writer",
+            attempt_id="attempt:writer",
+            adapter_id="search-a",
+            adapter_version="search-a-v7",
+            status="HEALTHY",
+            cost_upper_bound_usd=Decimal("0.500000"),
+            known_cost_usd=Decimal("0.125000"),
+        )
+        first_key = store.variables["operation_key"]
+        second = store.record_operation_receipt(
+            manifest=manifest,
+            query=query,
+            run_id="run:writer",
+            attempt_id="attempt:writer",
+            adapter_id="search-a",
+            adapter_version="search-a-v7",
+            status="HEALTHY",
+            cost_upper_bound_usd=Decimal("0.500000"),
+            known_cost_usd=Decimal("0.125000"),
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(first_key, store.variables["operation_key"])
+        self.assertIn("attempt.started_at", store.sql)
+        self.assertIn("COALESCE(attempt_row.completed_at, now())", store.sql)
+        self.assertIn("'RESEARCH_DISCOVERY'", store.sql)
+        self.assertEqual(store.variables["adapter_id"], "search-a")
+        self.assertEqual(store.variables["adapter_version"], "search-a-v7")
+        self.assertEqual(store.variables["billing_basis"], "MEASURED_PROVIDER_COST")
+        self.assertEqual(store.variables["measured_cost_usd"], "0.125000")
+        self.assertEqual(store.variables["estimated_cost_usd"], "0.500000")
+        scope = json.loads(store.variables["ledger_scope"])
+        self.assertEqual(
+            scope,
+            {
+                "collection_id": "collection:test",
+                "manifest_id": "manifest:test:v1",
+                "run_id": "run:writer",
+                "query_id": "query:test:1",
+                "attempt_id": "attempt:writer",
+            },
+        )
+        payload = json.loads(store.variables["receipt"])
+        self.assertEqual(payload["schema"], "research-discovery-operation-receipt-v1")
+        self.assertNotIn("provider_receipt", payload)
+        self.assertNotIn("raw_response", payload)
+
     def test_manifest_is_versioned_hashed_and_bounded(self):
         manifest = load_discovery_manifest(manifest_payload())
         self.assertEqual(len(manifest.manifest_sha256), 64)
@@ -324,6 +458,141 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertEqual(receipt.status, "COMPLETED")
         self.assertEqual(store.calls[0], ("persist_manifest", manifest.id))
         self.assertEqual(adapter.calls, 1)
+
+    def test_collection_ledger_aggregates_invoked_discovery_operations_idempotently(self):
+        payload = manifest_payload()
+        payload["queries"].append(
+            {
+                "id": "query:test:2",
+                "query": "Garlasco followup",
+                "source_families": ["web"],
+                "adapter_ids": ["search-b"],
+                "max_results": 4,
+            }
+        )
+        manifest = load_discovery_manifest(payload)
+        store = FakeStore()
+        adapters = {
+            "search-a": StaticAdapter(
+                "search-a",
+                upper=Decimal("0.200000"),
+                cost=Decimal("0.100000"),
+            ),
+            "search-b": StaticAdapter(
+                "search-b",
+                upper=Decimal("0.300000"),
+                cost=Decimal("0.200000"),
+            ),
+        }
+        first = run_discovery_manifest(
+            manifest,
+            store,
+            adapters,
+            run_id="run:ledger-collection",
+        )
+        second = run_discovery_manifest(
+            manifest,
+            store,
+            adapters,
+            run_id="run:ledger-collection",
+        )
+
+        self.assertEqual(first.status, "COMPLETED")
+        self.assertEqual(second.status, "COMPLETED")
+        self.assertEqual(adapters["search-a"].calls, 1)
+        self.assertEqual(adapters["search-b"].calls, 1)
+        self.assertEqual(len(store.operation_receipts), 2)
+        summary = store.collection_ledger_summary("collection:test")
+        self.assertEqual(summary.operation_count, 2)
+        self.assertEqual(summary.attempt_count, 2)
+        self.assertEqual(summary.measured_cost_usd, Decimal("0.300000"))
+        self.assertEqual(summary.request_count, 2)
+        self.assertEqual(
+            {row.billing_basis for row in store.operation_receipts.values()},
+            {"MEASURED_PROVIDER_COST"},
+        )
+        for receipt_id, scope in store.operation_receipt_scopes.items():
+            self.assertEqual(scope["collection_id"], "collection:test", receipt_id)
+            self.assertEqual(scope["manifest_id"], manifest.id, receipt_id)
+            self.assertEqual(scope["run_id"], "run:ledger-collection", receipt_id)
+            self.assertTrue(scope["query_id"].startswith("query:test:"), receipt_id)
+            self.assertTrue(scope["attempt_id"].startswith("discovery-attempt:"), receipt_id)
+
+    def test_zero_cost_discovery_uses_zero_cost_only_when_upper_bound_is_zero(self):
+        manifest = load_discovery_manifest(manifest_payload())
+
+        zero_store = FakeStore()
+        zero_adapter = StaticAdapter(
+            "search-a",
+            upper=Decimal("0"),
+            cost=Decimal("0"),
+        )
+        run_discovery_manifest(
+            manifest,
+            zero_store,
+            {"search-a": zero_adapter},
+            run_id="run:ledger-zero",
+        )
+        zero_receipt = next(iter(zero_store.operation_receipts.values()))
+        self.assertEqual(zero_receipt.billing_basis, "ZERO_COST")
+
+        measured_store = FakeStore()
+        measured_adapter = StaticAdapter(
+            "search-a",
+            upper=Decimal("0.500000"),
+            cost=Decimal("0"),
+        )
+        run_discovery_manifest(
+            manifest,
+            measured_store,
+            {"search-a": measured_adapter},
+            run_id="run:ledger-measured-zero",
+        )
+        measured_receipt = next(iter(measured_store.operation_receipts.values()))
+        self.assertEqual(measured_receipt.billing_basis, "MEASURED_PROVIDER_COST")
+        self.assertEqual(measured_receipt.measured_cost_usd, Decimal("0"))
+
+    def test_invoked_adapter_exception_records_unknown_or_zero_cost_without_raw_receipt(self):
+        manifest = load_discovery_manifest(manifest_payload())
+
+        unknown_store = FakeStore()
+        unknown_adapter = StaticAdapter(
+            "search-a",
+            status="RAISE",
+            upper=Decimal("0.400000"),
+            error_category="RATE_LIMITED",
+            provider_receipt={"raw_response": "must-never-persist"},
+        )
+        failed = run_discovery_manifest(
+            manifest,
+            unknown_store,
+            {"search-a": unknown_adapter},
+            run_id="run:ledger-failure",
+        )
+        self.assertEqual(failed.status, "FAILED")
+        unknown_receipt = next(iter(unknown_store.operation_receipts.values()))
+        self.assertEqual(unknown_receipt.billing_basis, "UNKNOWN")
+        self.assertEqual(unknown_receipt.estimated_cost_usd, Decimal("0.400000"))
+        self.assertIsNone(unknown_receipt.measured_cost_usd)
+        canonical = next(iter(unknown_store.operation_receipt_payloads.values()))
+        self.assertEqual(canonical["error_category"], "RATE_LIMITED")
+        self.assertNotIn("raw_response", str(canonical))
+
+        free_store = FakeStore()
+        free_adapter = StaticAdapter(
+            "search-a",
+            status="RAISE",
+            upper=Decimal("0"),
+            error_category="UPSTREAM_FAILURE",
+        )
+        run_discovery_manifest(
+            manifest,
+            free_store,
+            {"search-a": free_adapter},
+            run_id="run:ledger-free-failure",
+        )
+        free_receipt = next(iter(free_store.operation_receipts.values()))
+        self.assertEqual(free_receipt.billing_basis, "ZERO_COST")
 
     def test_same_manifest_separate_runs_reuse_content_identity(self):
         manifest = load_discovery_manifest(manifest_payload())
@@ -412,7 +681,12 @@ class ResearchDiscoveryTests(unittest.TestCase):
         payload = manifest_payload()
         payload["queries"][0]["adapter_ids"] = ["search-a", "search-b"]
         manifest = load_discovery_manifest(payload)
-        failing = StaticAdapter("search-a", status="RAISE", error_category="RATE_LIMITED")
+        failing = StaticAdapter(
+            "search-a",
+            status="RAISE",
+            upper=Decimal("0.400000"),
+            error_category="RATE_LIMITED",
+        )
         later = StaticAdapter(
             "search-b",
             hits=(
@@ -468,6 +742,9 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertEqual(receipt.status, "FAILED")
         self.assertEqual(receipt.accepted_hits, 0)
         self.assertFalse(store.hits)
+        self.assertEqual(len(store.operation_receipts), 1)
+        canonical = next(iter(store.operation_receipt_payloads.values()))
+        self.assertNotIn("access_token", str(canonical))
 
     def test_raw_body_provider_receipt_fails_closed(self):
         manifest = load_discovery_manifest(manifest_payload())
@@ -490,6 +767,46 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertEqual(receipt.status, "FAILED")
         self.assertEqual(receipt.accepted_hits, 0)
         self.assertFalse(store.hits)
+        self.assertEqual(len(store.operation_receipts), 1)
+        canonical = next(iter(store.operation_receipt_payloads.values()))
+        self.assertNotIn("raw_response", str(canonical))
+
+    def test_post_provider_hit_write_failure_still_records_operation_receipt(self):
+        class FailingHitStore(FakeStore):
+            def record_hit(self, **kwargs):
+                raise RuntimeError("synthetic hit persistence failure")
+
+        manifest = load_discovery_manifest(manifest_payload())
+        adapter = StaticAdapter(
+            "search-a",
+            upper=Decimal("0.300000"),
+            cost=Decimal("0.125000"),
+            hits=(
+                DiscoveryHitCandidate(
+                    "https://a.example/1",
+                    "Garlasco",
+                    "2026-01-01T00:00:00Z",
+                    "web",
+                ),
+            ),
+        )
+        store = FailingHitStore()
+        with self.assertRaisesRegex(RuntimeError, "synthetic hit persistence failure"):
+            run_discovery_manifest(
+                manifest,
+                store,
+                {"search-a": adapter},
+                run_id="run:hit-write-failure",
+            )
+
+        self.assertEqual(adapter.calls, 1)
+        self.assertEqual(len(store.operation_receipts), 1)
+        operation_receipt = next(iter(store.operation_receipts.values()))
+        self.assertEqual(operation_receipt.billing_basis, "MEASURED_PROVIDER_COST")
+        self.assertEqual(operation_receipt.measured_cost_usd, Decimal("0.125000"))
+        self.assertEqual(operation_receipt.status, "FAILED")
+        canonical = next(iter(store.operation_receipt_payloads.values()))
+        self.assertEqual(canonical["error_category"], "DISCOVERY_HIT_WRITE_FAILED")
 
     def test_adapter_family_mismatch_blocks_without_provider_call(self):
         manifest = load_discovery_manifest(manifest_payload())

@@ -108,8 +108,8 @@ policy; the client package cannot hide or reinterpret a deprecation.
 5. Do **not** hand-edit a lockfile to resolve version drift; regenerate it.
 
 Steps 1–5 produce a *candidate*. Publishing it is gate 11 of
-[`checklist.md`](checklist.md) and is `BLOCKED` without a canonical remote and owner
-approval.
+[`checklist.md`](checklist.md) and remains `BLOCKED` until owner, legal,
+registry/signing, dataset, hosting, and applicable runtime gates are complete.
 
 ## Version authority handoff (DP-601 → DP-604)
 
@@ -128,5 +128,6 @@ DP-601 records the provisional version sources; this document is DP-604 acceptin
 ## No external side effect
 
 This policy creates no remote, tag, registry artifact, deployment, or publication. The
-remote URL, registry, signing authority, and hosting destination are undecided owner
-inputs and are not invented here.
+canonical source remote is `https://github.com/domenicomassafra/DichiarazioniPubbliche.it`;
+registry, signing authority, release hosting, and publication authorization remain gated
+owner inputs and are not invented here.

@@ -1,0 +1,143 @@
+/* Studio IA v3 — private operator workspaces. Token-only, dense, task-first. */
+
+.studio-v3-shell {
+  padding-block: var(--space-5) var(--space-8);
+}
+
+.studio-v3-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule-ink);
+}
+
+.studio-v3-heading h1 {
+  max-width: var(--measure-data);
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-headline);
+}
+
+.studio-v3-fixture-tag {
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+  color: var(--ink-500);
+}
+
+.studio-v3-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.studio-v3-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-meta);
+  color: var(--ink-700);
+}
+
+.studio-v3-status strong,
+.studio-v3-status code {
+  font-family: var(--font-data);
+  font-size: inherit;
+}
+
+.studio-v3-status--compact {
+  flex-wrap: wrap;
+}
+
+.studio-v3-primary {
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.studio-v3-primary-copy {
+  max-width: var(--measure-prose);
+}
+
+.studio-v3-primary-copy h2,
+.studio-v3-row h2 {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-subhead);
+}
+
+.studio-v3-primary-copy p,
+.studio-v3-row p {
+  margin: 0;
+  color: var(--ink-700);
+}
+
+.studio-v3-query {
+  margin-bottom: var(--space-2) !important;
+  font-family: var(--font-data);
+}
+
+.studio-v3-list {
+  border-inline: 1px solid var(--rule-hairline);
+}
+
+.studio-v3-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, auto);
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.studio-v3-row > code,
+.studio-v3-row div > code {
+  font-family: var(--font-data);
+  font-size: var(--text-meta);
+  color: var(--ink-500);
+  overflow-wrap: anywhere;
+}
+
+.studio-v3-unavailable {
+  max-width: var(--measure-prose);
+  padding-block: var(--space-6);
+}
+
+.studio-v3-unavailable h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-subhead);
+}
+
+.studio-v3-action-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-hairline);
+}
+
+.studio-v3-selected-claim {
+  margin: var(--space-2) 0 var(--space-4);
+  font-family: var(--font-claim);
+  font-size: var(--text-headline);
+  line-height: var(--leading-headline);
+}
+
+.studio-v3-action-group {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.studio-v3-action-group button:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 60rem) {
+  .studio-v3-row,
+  .studio-v3-action-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

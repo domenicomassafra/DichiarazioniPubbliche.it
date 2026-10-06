@@ -1,5 +1,6 @@
 import copy
 import hashlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -18,6 +19,12 @@ from dichiarazioni_pubbliche.claim_promotion import (  # noqa: E402
     deterministic_promotion_id,
     deterministic_promotion_key,
     promote_claim_candidate,
+)
+from dichiarazioni_pubbliche.wording_contract import (  # noqa: E402
+    WordingType,
+    make_summary_wording,
+    make_translation_wording,
+    wording_contract_metadata,
 )
 
 
@@ -67,6 +74,13 @@ def written_context():
                 "state": "CLEAR_AUTOMATIC",
                 "version": "context-integrity-v1",
             },
+            "wording": wording_contract_metadata(
+                occurrence_id="statement:1",
+                source_text_sha256=exact_hash,
+                normalized_claim=exact_quote,
+                language="it",
+                derivation_version="claim-candidate-v1",
+            ),
         },
         "promoted_claim_id": None,
         "statement_candidate_id": "statement:1",
@@ -112,8 +126,24 @@ def written_context():
 
 def media_context():
     raw = written_context()
+    exact_quote = "I test sull'impronta 33 diedero esito negativo."
+    prefix = "Nel servizio viene dichiarato: "
+    canonical_text = prefix + exact_quote + " Fine intervento."
+    quote_start = len(prefix)
+    quote_end = quote_start + len(exact_quote)
     raw["written_count"] = 0
     raw["media_count"] = 1
+    raw["statement_metadata"] = {
+        "quote_local_start_char": quote_start,
+        "quote_local_end_char": quote_end,
+    }
+    raw["candidate_metadata"]["context_integrity"].update(
+        {
+            "quote_start": quote_start,
+            "quote_end": quote_end,
+            "quote_sha256": raw["statement_text_hash"],
+        }
+    )
     raw["passages"] = [
         {
             "passage_id": "passage:media:1",
@@ -122,7 +152,7 @@ def media_context():
             "end_char": None,
             "page_start": None,
             "page_end": None,
-            "text_sha256": "d" * 64,
+            "text_sha256": hashlib.sha256(canonical_text.encode("utf-8")).hexdigest(),
             "private_text": None,
             "capture_id": None,
             "capture_sha256": None,
@@ -130,6 +160,7 @@ def media_context():
             "capture_status": None,
             "capture_hold_status": None,
             "canonical_segment_id": "canonical-segment:1",
+            "segment_canonical_text": canonical_text,
             "segment_status": "RESOLVED",
             "segment_publication_blocked": False,
             "segment_speaker_person_id": "person:1",
@@ -228,6 +259,87 @@ class ClaimPromotionTests(unittest.TestCase):
         self.assertEqual(receipt.provenance_refs, ("canonical-segment:1",))
         self.assertTrue(any(call[0] == "create_media" for call in store.calls))
         self.assertFalse(any(call[0] == "create_written" for call in store.calls))
+        create_call = next(call for call in store.calls if call[0] == "create_media")
+        promotion_metadata = json.loads(create_call[1]["metadata"])
+        self.assertEqual(
+            promotion_metadata["quote_binding_version"],
+            "exact-media-quote-binding-v1",
+        )
+        self.assertEqual(
+            promotion_metadata["quote_binding_reason"],
+            "EXACT_MEDIA_SOURCE_SPAN_VERIFIED",
+        )
+
+    def test_media_quote_binding_requires_local_offsets(self):
+        context = media_context()
+        context["statement_metadata"].pop("quote_local_start_char")
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request("MEDIA"),
+        )
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_MEDIA_QUOTE_OFFSETS_MISSING",
+        )
+
+    def test_media_quote_binding_blocks_off_by_one_span(self):
+        context = media_context()
+        context["statement_metadata"]["quote_local_end_char"] -= 1
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request("MEDIA"),
+        )
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_MEDIA_QUOTE_HASH_MISMATCH",
+        )
+
+    def test_media_quote_binding_blocks_statement_hash_mismatch(self):
+        context = media_context()
+        context["statement_text_hash"] = hashlib.sha256(
+            b"I test sull'impronta 33 diedero esito positivo."
+        ).hexdigest()
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request("MEDIA"),
+        )
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_MEDIA_QUOTE_HASH_MISMATCH",
+        )
+
+    def test_media_quote_binding_blocks_out_of_range_span(self):
+        context = media_context()
+        context["statement_metadata"]["quote_local_end_char"] = (
+            len(context["passages"][0]["segment_canonical_text"]) + 1
+        )
+        receipt = promote_claim_candidate(
+            FakePromotionStore(context),
+            self.request("MEDIA"),
+        )
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_MEDIA_QUOTE_SPAN_INVALID",
+        )
+
+    def test_media_quote_binding_rejects_non_integer_offsets(self):
+        for value in ("10", 10.5, True):
+            with self.subTest(value=value):
+                context = media_context()
+                context["statement_metadata"]["quote_local_start_char"] = value
+                receipt = promote_claim_candidate(
+                    FakePromotionStore(context),
+                    self.request("MEDIA"),
+                )
+                self.assertFalse(receipt.promoted)
+                self.assertEqual(
+                    receipt.reason_code,
+                    "PROMOTION_MEDIA_QUOTE_BINDING_INVALID",
+                )
 
     def test_review_gates_fail_closed(self):
         cases = [
@@ -339,6 +451,23 @@ class ClaimPromotionTests(unittest.TestCase):
         self.assertIn("segment.start_ms >= speaker.start_ms", PROMOTION_CONTEXT_SQL_V1)
         self.assertIn("segment.end_ms <= speaker.end_ms", PROMOTION_CONTEXT_SQL_V1)
         self.assertIn("'SPEAKER_IDENTITY_CANDIDATE'", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("sc.metadata AS statement_metadata", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn(
+            "segment.canonical_text AS segment_canonical_text",
+            PROMOTION_CONTEXT_SQL_V1,
+        )
+
+    def test_media_mutation_sql_requires_exact_quote_span_receipt(self):
+        for sql in (_LINK_EXISTING_SQL, _PROMOTE_MEDIA_NEW_SQL):
+            self.assertIn("quote_local_start_char", sql)
+            self.assertIn("quote_local_end_char", sql)
+            self.assertIn("context_integrity,quote_sha256", sql)
+            self.assertIn("char_length(seg.canonical_text)", sql)
+            self.assertIn("substring(", sql)
+            self.assertIn("sha256(", sql)
+            self.assertIn(") = c.statement_text_hash", sql)
+            self.assertIn("'OFFICIAL_TRANSCRIPT'", sql)
+            self.assertIn("'HUMAN_AUDIO_VERIFIED'", sql)
 
     def test_single_reviewed_duplicate_links_existing_with_receipt(self):
         context = written_context()
@@ -382,17 +511,109 @@ class ClaimPromotionTests(unittest.TestCase):
                     )
                 )
 
-    def test_all_mutation_sql_refuses_non_direct_speech_mode(self):
-        guard = (
-            "COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')="
-            "'DIRECT_UTTERANCE'"
+    def test_missing_blank_or_unknown_speech_mode_fails_closed(self):
+        for metadata in (
+            {},
+            {"speech_mode": ""},
+            {"speech_mode": "   "},
+            {"speech_mode": "UNKNOWN"},
+        ):
+            with self.subTest(metadata=metadata):
+                context = written_context()
+                context["candidate_metadata"] = metadata
+                store = FakePromotionStore(context)
+                receipt = promote_claim_candidate(store, self.request())
+                self.assertFalse(receipt.promoted)
+                self.assertEqual(
+                    receipt.reason_code,
+                    "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED",
+                )
+                self.assertEqual([call[0] for call in store.calls], ["context"])
+
+    def test_reported_wording_cannot_be_upgraded_by_direct_speech_metadata(self):
+        context = written_context()
+        context["candidate_metadata"]["speech_mode"] = "DIRECT_UTTERANCE"
+        context["candidate_metadata"]["wording"] = wording_contract_metadata(
+            occurrence_id="statement:1",
+            source_text_sha256=context["statement_text_hash"],
+            normalized_claim=context["normalized_claim"],
+            language="it",
+            derivation_version="test-v1",
+            source_wording_type=WordingType.REPORTED_QUOTE,
         )
+        store = FakePromotionStore(context)
+        receipt = promote_claim_candidate(store, self.request())
+        self.assertFalse(receipt.promoted)
+        self.assertEqual(
+            receipt.reason_code,
+            "PROMOTION_WORDING_DIRECT_SOURCE_REQUIRED",
+        )
+        self.assertEqual([call[0] for call in store.calls], ["context"])
+
+    def test_summary_and_translation_metadata_remain_derived_during_promotion(self):
+        context = written_context()
+        summary = make_summary_wording(
+            occurrence_id="statement:1",
+            summary="Sintesi editoriale del contenuto.",
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            language="it",
+            derivation_version="test-v1",
+        )
+        translation = make_translation_wording(
+            occurrence_id="statement:1",
+            source_text="I test sull'impronta 33 diedero esito negativo.",
+            translated_text="The footprint 33 tests were negative.",
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            source_language="it",
+            target_language="en",
+            method="HUMAN",
+            derivation_version="test-v1",
+            human_reviewed=True,
+        )
+        context["candidate_metadata"]["wording"] = wording_contract_metadata(
+            occurrence_id="statement:1",
+            source_text_sha256=context["statement_text_hash"],
+            normalized_claim=context["normalized_claim"],
+            language="it",
+            derivation_version="test-v1",
+            representations=(summary, translation),
+        )
+        store = FakePromotionStore(context)
+        receipt = promote_claim_candidate(store, self.request())
+        self.assertTrue(receipt.promoted)
+        self.assertTrue(any(call[0] == "create_written" for call in store.calls))
+        wording = context["candidate_metadata"]["wording"]
+        for representation in wording["representations"]:
+            self.assertFalse(representation["direct_quote_eligible"])
+            self.assertEqual(
+                representation["representation_role"],
+                "DERIVED_REPRESENTATION",
+            )
+
+    def test_all_mutation_sql_refuses_non_direct_speech_mode(self):
+        guard = "cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'"
         for sql in (
             _LINK_EXISTING_SQL,
             _PROMOTE_WRITTEN_NEW_SQL,
             _PROMOTE_MEDIA_NEW_SQL,
         ):
             self.assertIn(guard, sql)
+            self.assertNotIn("COALESCE(cc.metadata->>'speech_mode'", sql)
+
+    def test_all_mutation_sql_requires_verbatim_source_not_derived_representation(self):
+        for sql in (
+            _LINK_EXISTING_SQL,
+            _PROMOTE_WRITTEN_NEW_SQL,
+            _PROMOTE_MEDIA_NEW_SQL,
+        ):
+            self.assertIn(
+                "cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'",
+                sql,
+            )
+            self.assertIn(
+                "cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'",
+                sql,
+            )
 
     def test_all_mutation_sql_requires_context_clearance(self):
         guard = (

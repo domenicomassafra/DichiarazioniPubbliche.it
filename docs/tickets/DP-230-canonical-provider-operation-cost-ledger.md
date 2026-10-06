@@ -19,23 +19,32 @@ aggregate. Unknown cost is never displayed as zero.
 
 ## Acceptance criteria
 
-- [ ] Persisted provider receipt records operation key, provider/model/task, attempt, start/end,
-  duration, token/seconds/request usage where available, estimate, measured cost and billing
-  basis.
+- [x] Existing provider_receipt persistence now carries operation key, attempt,
+  provider/model/task, start/end, input seconds, request count, optional token usage,
+  estimate, measured cost, billing basis and private ledger scope.
 - [x] Pure ledger uses a stable provider/model/input-scoped operation key and keeps retries
   visible without inflating logical operation count.
-- [ ] Cancellation/failure after provider start remains ambiguous/charge-possible unless a
-  provider receipt proves otherwise.
-- [x] Pure ledger filters/group inputs by claim/content/source/collection/provider/task
-  dimensions; persisted day/query aggregation remains to wire.
+- [x] Candidate-extraction failures after a provider call are stored conservatively as
+  UNKNOWN with a non-zero cost bound (or ZERO_COST only when the recorded bound is zero);
+  successful provider-reported cost is MEASURED_PROVIDER_COST.
+- [x] QueueRuntime can reconstruct persisted receipts and filter by content/source,
+  provider/task, date window and claim/collection scope where the writer supplies it.
+- [x] EVIDENCE_FETCH writes claim scope; content/source are derived from the canonical
+  Content relation. DP-209 discovery writes collection + manifest/run/query/attempt scope.
 - [x] Measured total, estimated-only total, external-plan usage and unknown usage are
   reported separately.
 - [x] Unknown/unallocated usage cannot be coerced to a complete zero-cost result.
-- [ ] Existing DP-506 caps use the same canonical receipt identities.
+- [x] Worker/scheduler daily/source cost paths, health digest and outage drill now use
+  measured cost when available and otherwise the conservative estimate, matching the
+  canonical ledger billing semantics.
+- [x] DP-209 discovery attempts bridge every invoked adapter call to a collection-scoped
+  canonical operation receipt; `test_collection_ledger_aggregates_invoked_discovery_operations_idempotently`
+  proves collection aggregation and stable replay identity.
 - [ ] Full failure-injection and MiniPC restart/replay canary pass.
 
 ## Completion receipt
 
-Local operation identity, receipt model, aggregation/filtering contract and focused tests
-added 2026-10-05. Database migration, existing-receipt adapters, DP-506 integration and
-MiniPC replay proof remain open.
+Provider receipt v2 schema/migration, worker + candidate-extraction writers, persisted
+ledger query/aggregation, DP-506 cost-path integration, and the DP-209 collection-scoped
+discovery bridge were added and locally tested 2026-10-05. MiniPC restart/replay proof
+remains open.

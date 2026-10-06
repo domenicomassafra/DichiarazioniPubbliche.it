@@ -1,6 +1,6 @@
 # DP-214 — garlasco research collection tracer bullet
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-117, DP-209..213
 
@@ -68,6 +68,16 @@ older than it is.
 
 ## Completion receipt
 
-Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
-required, migration/rollback state, residual blockers and the resulting commit before
-marking DONE.
+Local preflight/replay contract implemented in `garlasco_tracer.py`. It refuses a pilot
+manifest unless it contains exactly 100 unique HTTPS logical items, discovery provenance,
+rights state, all five required source-family classes and an explicit 30-claim baseline. A
+replay receipt fails closed if logical item IDs/claims change or ingestion changes the public
+Finding count; additional immutable Capture versions may be recorded without redefining a
+logical item. Manifest hashing is deterministic and material-sensitive.
+
+Read-only MiniPC inspection on 2026-10-05 found **no** existing `research:garlasco`
+collection and only **27** Atomic Claims discoverable by current Garlasco content identity,
+so none of AC-214.1..8 is marked complete and the ticket does not pretend the required
+100-item/30-claim tracer exists. The next real tranche is to reconcile the 27-vs-30 baseline,
+assemble the owner-approved 100-item source/query manifest and run it privately through the
+existing DP-209..213/117 seams before any AC can close.

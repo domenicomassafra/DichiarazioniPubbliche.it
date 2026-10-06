@@ -1,6 +1,6 @@
 # DP-429 — Explore page v4
 
-Status: FUTURE  
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting  
 Depends on: DP-409, DP-425
 
@@ -60,19 +60,19 @@ learning internal data vocabulary.
 
 ## Acceptance criteria
 
-- [ ] `/esplora/` is the only universal public search/filter hub;
-- [ ] search and every supported filter operate only on DP-409's approved public index;
-- [ ] result-type switching changes the result set without inventing separate landing-page
+- [x] `/esplora/` is the only universal public search/filter hub;
+- [x] search and every supported filter operate only on DP-409's approved public index;
+- [x] result-type switching changes the result set without inventing separate landing-page
   taxonomies;
-- [ ] every result row exposes the minimum useful context and opens the deterministic
+- [x] every result row exposes the minimum useful context and opens the deterministic
   canonical route for its object type;
-- [ ] query, filter and sort state survive reload, browser back/forward and copied URLs;
-- [ ] no-match, invalid-query and unavailable-index states are explicit and recoverable;
-- [ ] phone uses one clear filter affordance/sheet with practical touch targets and no
+- [x] query, filter and sort state survive reload, browser back/forward and copied URLs;
+- [x] no-match, invalid-query and unavailable-index states are explicit and recoverable;
+- [x] phone uses one clear filter affordance/sheet with practical touch targets and no
   horizontal page scroll;
 - [ ] keyboard, screen-reader, 200% zoom and reduced-motion behavior preserve search,
   filtering, result count and selected-state semantics;
-- [ ] no query is sent to an LLM/provider or written to raw telemetry.
+- [x] no query is sent to an LLM/provider or written to raw telemetry.
 
 ## Validation / proof
 
@@ -88,4 +88,24 @@ direction is selected. No database migration; search artifact ownership remains 
 
 ## Completion receipt
 
-Pending implementation.
+Local implementation now consumes only the verified `search-index.v1.json` contract from
+DP-409. `/esplora/` exposes a real radiogroup switcher for Tutto/Dichiarazioni/Persone/Temi/
+Contenuti with deterministic counts, bounded assessment/sort filters, explicit result rows and
+recoverable invalid/no-match/unavailable states. Query/filter/sort serialization is factored
+into pure helpers with invalid-value fallback tests; the client listens to `popstate` and pushes
+discrete filter changes while query typing replaces the current URL, so copied/reloaded history
+states have one canonical encoding. Search is entirely in-browser against the verified static
+artifact and the built client contains no database/provider runtime marker.
+
+`npm run check:search`, Astro check, static build, public-quality checker and `git diff --check`
+pass. The route builds with exactly one `h1`, canonical `/esplora/`, a skip link, explicit labels
+and a semantic radio group. A real local Chrome headless run against the built static site proved
+hydration with 12 records, switch to `Persone` with 3 records and `?tipo=person`, browser Back
+restoring `Tutto`, and a 375px mobile viewport with `scrollWidth=innerWidth` plus a 44px filter
+target. The native `<dialog>` opened with focus inside it and Escape closed it and returned focus to
+the filter button. Reduced-motion media emulation was observed by the page; the reload/interactions
+made only same-origin requests, with zero provider/LLM request. The same browser check now covers
+no-match recovery, overlong-query alert semantics, keyboard radio focus/selected state, a 640 px
+200%-equivalent reflow viewport and the correction-history `#storia` destination. Actual
+screen-reader semantics and manual 200% browser zoom remain DP-410 acceptance, so the final
+accessibility AC stays open.

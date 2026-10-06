@@ -260,6 +260,57 @@ CREATE TABLE IF NOT EXISTS content_item (
     CHECK (duration_ms IS NULL OR duration_ms >= 0)
 );
 
+-- DP-434: reviewed, append-only public projection assertion for one Content.
+-- Discovery/capture does not make a Content public. The approved candidate
+-- snapshots exactly the metadata the public projection may expose so later
+-- operational changes cannot silently mutate an already-reviewed public record.
+CREATE TABLE IF NOT EXISTS content_publication_candidate (
+    id                      text PRIMARY KEY,
+    content_id              text NOT NULL REFERENCES content_item(id) ON DELETE CASCADE,
+    slug                    text NOT NULL,
+    canonical_url           text NOT NULL,
+    title                   text NOT NULL,
+    published_at            timestamptz,
+    content_kind            text NOT NULL DEFAULT 'OTHER',
+    duration_ms             bigint,
+    public_media_url        text,
+    media_policy_version    text,
+    publication_version     text NOT NULL DEFAULT 'public-content-v1',
+    status                  text NOT NULL DEFAULT 'CANDIDATE',
+    supersedes_id           text REFERENCES content_publication_candidate(id),
+    metadata                jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+    CHECK (length(btrim(canonical_url)) > 0),
+    CHECK (length(btrim(title)) > 0),
+    CHECK (content_kind IN ('VIDEO', 'AUDIO', 'WRITTEN', 'OTHER')),
+    CHECK (duration_ms IS NULL OR duration_ms >= 0),
+    CHECK (publication_version = 'public-content-v1'),
+    CHECK (status IN ('CANDIDATE', 'APPROVED', 'REJECTED', 'SUPERSEDED')),
+    CHECK (supersedes_id IS NULL OR supersedes_id <> id),
+    CHECK (jsonb_typeof(metadata) = 'object'),
+    CHECK (
+        public_media_url IS NULL OR (
+            content_kind IN ('VIDEO', 'AUDIO')
+            AND media_policy_version IS NOT NULL
+            AND length(btrim(media_policy_version)) > 0
+        )
+    ),
+    CHECK (
+        content_kind IN ('VIDEO', 'AUDIO')
+        OR (duration_ms IS NULL AND public_media_url IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS content_publication_candidate_approved_unique
+    ON content_publication_candidate(content_id)
+    WHERE status = 'APPROVED';
+CREATE UNIQUE INDEX IF NOT EXISTS content_publication_candidate_slug_approved_unique
+    ON content_publication_candidate(slug)
+    WHERE status = 'APPROVED';
+CREATE INDEX IF NOT EXISTS content_publication_candidate_content_idx
+    ON content_publication_candidate(content_id, status, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS content_locator (
     content_id          text NOT NULL REFERENCES content_item(id) ON DELETE CASCADE,
     platform            text NOT NULL,
@@ -1333,6 +1384,131 @@ CREATE TABLE IF NOT EXISTS evidence (
     metadata            jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
+-- DP-305 AC-305.1: private, versioned source/content/evidence/segment rights registry.
+-- This is decision provenance only: it neither stores receipt bodies nor authorizes
+-- public excerpts. UNKNOWN is the default and all records remain private.
+CREATE TABLE IF NOT EXISTS private_source_rights_record (
+    id                          text PRIMARY KEY,
+    subject_fingerprint         text NOT NULL,
+    source_family               text NOT NULL,
+    locator_kind                text NOT NULL,
+    locator_value               text NOT NULL,
+    content_id                  text REFERENCES content_item(id) ON DELETE RESTRICT,
+    evidence_id                 text REFERENCES evidence(id) ON DELETE RESTRICT,
+    transcript_segment_id       text REFERENCES transcript_segment(id) ON DELETE RESTRICT,
+    canonical_segment_id        text REFERENCES canonical_transcript_segment(id) ON DELETE RESTRICT,
+    passage_id                  text REFERENCES passage(id) ON DELETE RESTRICT,
+    rights_status               text NOT NULL DEFAULT 'UNKNOWN',
+    rights_receipt_ref          text,
+    permitted_uses              text[] NOT NULL DEFAULT ARRAY[]::text[],
+    attribution_requirements    text[] NOT NULL DEFAULT ARRAY[]::text[],
+    reviewed_at                 timestamptz,
+    expires_at                  timestamptz,
+    reviewer_ref                text,
+    policy_version              text NOT NULL,
+    record_visibility           text NOT NULL DEFAULT 'PRIVATE',
+    supersedes_id               text REFERENCES private_source_rights_record(id) ON DELETE RESTRICT,
+    record_version              text NOT NULL DEFAULT 'private-rights-record-v1',
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    CHECK (subject_fingerprint ~ '^[0-9a-f]{64}$'),
+    CHECK (length(btrim(source_family)) BETWEEN 1 AND 128),
+    CHECK (length(btrim(locator_kind)) BETWEEN 1 AND 64),
+    CHECK (length(btrim(locator_value)) BETWEEN 1 AND 2048),
+    CHECK (rights_status IN (
+        'UNKNOWN', 'UNRESOLVED', 'EXPIRED', 'CONFLICTING', 'REVOKED',
+        'BLOCKED', 'FORBIDDEN', 'LEGAL_HOLD', 'RIGHTS_HOLD',
+        'TAKEDOWN_HOLD', 'REMOVED', 'CLEARED'
+    )),
+    CHECK (
+        rights_receipt_ref IS NULL
+        OR length(btrim(rights_receipt_ref)) BETWEEN 1 AND 512
+    ),
+    CHECK (cardinality(permitted_uses) <= 32),
+    CHECK (cardinality(attribution_requirements) <= 32),
+    CHECK ((reviewed_at IS NULL) = (reviewer_ref IS NULL)),
+    CHECK (expires_at IS NULL OR reviewed_at IS NULL OR expires_at >= reviewed_at),
+    CHECK (
+        rights_status IN ('UNKNOWN', 'UNRESOLVED')
+        OR rights_receipt_ref IS NOT NULL
+    ),
+    CHECK (
+        rights_status <> 'CLEARED'
+        OR (
+            rights_receipt_ref IS NOT NULL
+            AND reviewed_at IS NOT NULL
+            AND reviewer_ref IS NOT NULL
+        )
+    ),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (record_version = 'private-rights-record-v1'),
+    CHECK (supersedes_id IS NULL OR supersedes_id <> id),
+    CHECK (num_nonnulls(transcript_segment_id, canonical_segment_id, passage_id) <= 1)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS private_source_rights_record_root_unique
+    ON private_source_rights_record(subject_fingerprint)
+    WHERE supersedes_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS private_source_rights_record_one_successor
+    ON private_source_rights_record(supersedes_id)
+    WHERE supersedes_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS private_source_rights_record_subject_idx
+    ON private_source_rights_record(subject_fingerprint, created_at DESC, id);
+CREATE INDEX IF NOT EXISTS private_source_rights_record_content_idx
+    ON private_source_rights_record(content_id, created_at DESC)
+    WHERE content_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS private_source_rights_record_evidence_idx
+    ON private_source_rights_record(evidence_id, created_at DESC)
+    WHERE evidence_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION validate_private_source_rights_record_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    parent_subject text;
+BEGIN
+    IF NEW.supersedes_id IS NOT NULL THEN
+        SELECT subject_fingerprint INTO parent_subject
+        FROM private_source_rights_record
+        WHERE id = NEW.supersedes_id;
+        IF parent_subject IS NULL THEN
+            RAISE EXCEPTION 'private_source_rights_record supersedes target missing';
+        END IF;
+        IF parent_subject <> NEW.subject_fingerprint THEN
+            RAISE EXCEPTION 'private_source_rights_record supersedes subject mismatch';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_source_rights_record_validate_insert
+    ON private_source_rights_record;
+CREATE TRIGGER private_source_rights_record_validate_insert
+BEFORE INSERT ON private_source_rights_record
+FOR EACH ROW EXECUTE FUNCTION validate_private_source_rights_record_insert();
+
+CREATE OR REPLACE FUNCTION reject_private_source_rights_record_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'private_source_rights_record is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_source_rights_record_append_only
+    ON private_source_rights_record;
+CREATE TRIGGER private_source_rights_record_append_only
+BEFORE UPDATE OR DELETE ON private_source_rights_record
+FOR EACH ROW EXECUTE FUNCTION reject_private_source_rights_record_mutation();
+
+DROP TRIGGER IF EXISTS private_source_rights_record_no_truncate
+    ON private_source_rights_record;
+CREATE TRIGGER private_source_rights_record_no_truncate
+BEFORE TRUNCATE ON private_source_rights_record
+FOR EACH STATEMENT EXECUTE FUNCTION reject_private_source_rights_record_mutation();
+
 CREATE TABLE IF NOT EXISTS claim_evidence_candidate (
     claim_id             text NOT NULL REFERENCES atomic_claim(id) ON DELETE CASCADE,
     evidence_id          text NOT NULL REFERENCES evidence(id) ON DELETE CASCADE,
@@ -1643,6 +1819,7 @@ CREATE TABLE IF NOT EXISTS review_event (
             'CANDIDATE_MATCH_RESULT',
             'TOPIC',
             'CLAIM_TOPIC_MEMBERSHIP',
+            'CONTENT_PUBLICATION_CANDIDATE',
             'FINDING',
             'SPEAKER_IDENTITY_CANDIDATE',
             'PERSON_ROLE_INTERVAL',
@@ -1662,6 +1839,193 @@ CREATE TABLE IF NOT EXISTS review_event (
 
 CREATE INDEX IF NOT EXISTS review_event_entity_idx
     ON review_event(entity_type, entity_id, created_at DESC);
+
+-- DP-304: private, append-only privacy/public-interest publication-decision ledger.
+-- record_version is a caller-supplied binding only. Replay must compare it with
+-- the current authoritative record version supplied by the caller and re-run the
+-- canonical privacy policy over the exact current input digest.
+CREATE TABLE IF NOT EXISTS privacy_publication_decision (
+    decision_id                 text PRIMARY KEY,
+    contract_version            text NOT NULL,
+    subject_ref                 text NOT NULL,
+    record_ref                  text NOT NULL,
+    record_version              text NOT NULL,
+    field_name                  text NOT NULL,
+    data_class                  text NOT NULL,
+    relevance_reason            text,
+    explicitly_approved         boolean NOT NULL DEFAULT false,
+    is_published_version        boolean NOT NULL DEFAULT false,
+    is_ephemeral                boolean NOT NULL DEFAULT false,
+    text_value_sha256           text,
+    input_sha256                text NOT NULL,
+    privacy_policy_version      text NOT NULL,
+    decision_action             text NOT NULL,
+    decision_reasons            jsonb NOT NULL,
+    reviewer_ref                text NOT NULL,
+    audit_ref                   text NOT NULL,
+    reviewed_at_text            text NOT NULL,
+    review_sequence             integer NOT NULL CHECK (review_sequence > 0),
+    supersedes_decision_id      text REFERENCES privacy_publication_decision(decision_id)
+                                ON DELETE RESTRICT,
+    decision_integrity_sha256   text NOT NULL,
+    record_visibility           text NOT NULL DEFAULT 'PRIVATE',
+    persisted_at                timestamptz NOT NULL DEFAULT now(),
+    CHECK (contract_version = 'privacy-publication-decision-v1'),
+    CHECK (decision_id = 'privacy-decision:' || decision_integrity_sha256),
+    CHECK (length(subject_ref) BETWEEN 1 AND 256),
+    CHECK (length(record_ref) BETWEEN 1 AND 256),
+    CHECK (length(record_version) BETWEEN 1 AND 256),
+    CHECK (length(field_name) BETWEEN 1 AND 128),
+    CHECK (length(data_class) BETWEEN 1 AND 64),
+    CHECK (relevance_reason IS NULL OR length(relevance_reason) <= 128),
+    CHECK (text_value_sha256 IS NULL OR text_value_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (input_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (length(privacy_policy_version) BETWEEN 1 AND 128),
+    CHECK (decision_action IN ('ALLOW', 'ALLOW_WITH_REDACTION', 'HOLD_FOR_REVIEW', 'PROHIBIT')),
+    CHECK (jsonb_typeof(decision_reasons) = 'array'),
+    CHECK (jsonb_array_length(decision_reasons) BETWEEN 1 AND 32),
+    CHECK (length(reviewer_ref) BETWEEN 1 AND 128),
+    CHECK (length(audit_ref) BETWEEN 1 AND 128),
+    CHECK (length(reviewed_at_text) BETWEEN 1 AND 64),
+    CHECK (decision_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (supersedes_decision_id IS NULL OR supersedes_decision_id <> decision_id),
+    UNIQUE (subject_ref, record_ref, field_name, review_sequence)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS privacy_publication_decision_root_idx
+    ON privacy_publication_decision(subject_ref, record_ref, field_name)
+    WHERE supersedes_decision_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS privacy_publication_decision_one_successor_idx
+    ON privacy_publication_decision(supersedes_decision_id)
+    WHERE supersedes_decision_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS privacy_publication_decision_record_idx
+    ON privacy_publication_decision(subject_ref, record_ref, field_name, review_sequence DESC);
+
+CREATE OR REPLACE FUNCTION validate_privacy_publication_decision_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    parent privacy_publication_decision%ROWTYPE;
+BEGIN
+    IF NEW.supersedes_decision_id IS NULL THEN
+        IF NEW.review_sequence <> 1 THEN
+            RAISE EXCEPTION 'privacy_publication_decision root sequence must be 1';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    SELECT * INTO parent
+    FROM privacy_publication_decision
+    WHERE decision_id = NEW.supersedes_decision_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'privacy_publication_decision supersedes target missing';
+    END IF;
+    IF parent.subject_ref <> NEW.subject_ref
+       OR parent.record_ref <> NEW.record_ref
+       OR parent.field_name <> NEW.field_name THEN
+        RAISE EXCEPTION 'privacy_publication_decision supersedes binding mismatch';
+    END IF;
+    IF NEW.review_sequence <> parent.review_sequence + 1 THEN
+        RAISE EXCEPTION 'privacy_publication_decision sequence mismatch';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS privacy_publication_decision_validate_insert
+    ON privacy_publication_decision;
+CREATE TRIGGER privacy_publication_decision_validate_insert
+BEFORE INSERT ON privacy_publication_decision
+FOR EACH ROW EXECUTE FUNCTION validate_privacy_publication_decision_insert();
+
+CREATE OR REPLACE FUNCTION reject_privacy_publication_decision_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'privacy_publication_decision is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS privacy_publication_decision_append_only
+    ON privacy_publication_decision;
+CREATE TRIGGER privacy_publication_decision_append_only
+BEFORE UPDATE OR DELETE ON privacy_publication_decision
+FOR EACH ROW EXECUTE FUNCTION reject_privacy_publication_decision_mutation();
+
+DROP TRIGGER IF EXISTS privacy_publication_decision_no_truncate
+    ON privacy_publication_decision;
+CREATE TRIGGER privacy_publication_decision_no_truncate
+BEFORE TRUNCATE ON privacy_publication_decision
+FOR EACH STATEMENT EXECUTE FUNCTION reject_privacy_publication_decision_mutation();
+
+-- DP-310: private durable publication-review ledger. Reviewer identity is not
+-- authenticated by this database; replay must resolve the opaque authority receipt
+-- through the external ReviewerIdentityAuthority contract.
+CREATE TABLE IF NOT EXISTS publication_review_event_durable (
+    event_id                            text PRIMARY KEY,
+    record_id                           text NOT NULL,
+    record_version                      text NOT NULL,
+    sequence                            integer NOT NULL CHECK (sequence > 0),
+    previous_event_id                   text,
+    previous_integrity_sha256           text,
+    actor_ref                           text NOT NULL,
+    credential_fingerprint              text NOT NULL,
+    policy_version                      text NOT NULL,
+    reviewed_at_text                    text NOT NULL,
+    event_json                          jsonb NOT NULL,
+    integrity_sha256                    text NOT NULL,
+    identity_authority_receipt_id       text NOT NULL,
+    identity_authority_binding_sha256   text NOT NULL,
+    persisted_at                        timestamptz NOT NULL DEFAULT now(),
+    CHECK (integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (credential_fingerprint ~ '^[0-9a-f]{64}$'),
+    CHECK (
+        previous_integrity_sha256 IS NULL
+        OR previous_integrity_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    CHECK (identity_authority_binding_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (event_json->>'event_id' = event_id),
+    CHECK (event_json->>'record_id' = record_id),
+    CHECK (event_json->>'record_version' = record_version),
+    CHECK ((event_json->>'sequence')::integer = sequence),
+    CHECK (event_json->>'actor_ref' = actor_ref),
+    CHECK (event_json->>'credential_fingerprint' = credential_fingerprint),
+    CHECK (event_json->>'policy_version' = policy_version),
+    CHECK (event_json->>'reviewed_at' = reviewed_at_text),
+    CHECK (event_json->>'integrity_sha256' = integrity_sha256),
+    UNIQUE (record_id, sequence)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS publication_review_event_durable_previous_idx
+    ON publication_review_event_durable(previous_event_id)
+    WHERE previous_event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS publication_review_event_durable_record_idx
+    ON publication_review_event_durable(record_id, sequence);
+
+CREATE OR REPLACE FUNCTION reject_publication_review_event_durable_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'publication_review_event_durable is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS publication_review_event_durable_append_only
+    ON publication_review_event_durable;
+CREATE TRIGGER publication_review_event_durable_append_only
+BEFORE UPDATE OR DELETE ON publication_review_event_durable
+FOR EACH ROW EXECUTE FUNCTION reject_publication_review_event_durable_mutation();
+
+DROP TRIGGER IF EXISTS publication_review_event_durable_no_truncate
+    ON publication_review_event_durable;
+CREATE TRIGGER publication_review_event_durable_no_truncate
+BEFORE TRUNCATE ON publication_review_event_durable
+FOR EACH STATEMENT EXECUTE FUNCTION reject_publication_review_event_durable_mutation();
 
 CREATE TABLE IF NOT EXISTS finding (
     id                  text PRIMARY KEY,
@@ -1745,6 +2109,8 @@ CREATE TABLE IF NOT EXISTS finding_assertion_citation (
     evidence_id         text NOT NULL REFERENCES evidence(id) ON DELETE CASCADE,
     observation_id      text REFERENCES evidence_observation(id) ON DELETE CASCADE,
     passage_id          text REFERENCES passage(id) ON DELETE SET NULL,
+    passage_text_sha256 text,
+    source_content_sha256 text,
     relation            text NOT NULL,
     citation_version    text NOT NULL DEFAULT 'finding-citation-v1',
     created_at          timestamptz NOT NULL DEFAULT now(),
@@ -1752,6 +2118,15 @@ CREATE TABLE IF NOT EXISTS finding_assertion_citation (
     CHECK (relation IN ('SUPPORT','CONTRADICT','CONTEXT','LIMITATION','UPDATE')),
     CHECK (citation_version = 'finding-citation-v1'),
     CHECK (observation_id IS NOT NULL OR passage_id IS NOT NULL),
+    CONSTRAINT finding_assertion_citation_passage_hash_format CHECK (
+        passage_text_sha256 IS NULL OR passage_text_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    CONSTRAINT finding_assertion_citation_source_hash_format CHECK (
+        source_content_sha256 IS NULL OR source_content_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    CONSTRAINT finding_assertion_citation_passage_hash_pair CHECK (
+        (passage_text_sha256 IS NULL) = (source_content_sha256 IS NULL)
+    ),
     CHECK (jsonb_typeof(metadata) = 'object')
 );
 
@@ -1768,6 +2143,57 @@ CREATE UNIQUE INDEX IF NOT EXISTS finding_assertion_citation_identity_idx
         COALESCE(passage_id, ''),
         relation
     );
+CREATE INDEX IF NOT EXISTS finding_assertion_citation_passage_idx
+    ON finding_assertion_citation(passage_id)
+    WHERE passage_id IS NOT NULL;
+
+-- DP-224: exact private Passage/source-version binding for unstructured
+-- evidence. This function returns only a boolean gate: private passage bodies
+-- never leave the database through the public projection.
+CREATE OR REPLACE FUNCTION finding_assertion_passage_binding_valid(
+    p_citation_id text
+) RETURNS boolean
+LANGUAGE sql STABLE
+AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM finding_assertion_citation citation
+        JOIN finding_assertion assertion
+          ON assertion.id = citation.assertion_id
+        JOIN finding_evidence source_link
+          ON source_link.finding_id = assertion.finding_id
+         AND source_link.evidence_id = citation.evidence_id
+        JOIN evidence cited_evidence
+          ON cited_evidence.id = citation.evidence_id
+        JOIN passage cited_passage
+          ON cited_passage.id = citation.passage_id
+        JOIN content_capture cited_capture
+          ON cited_capture.id = cited_passage.capture_id
+         AND cited_capture.content_id = cited_passage.content_id
+        WHERE
+            citation.id = p_citation_id
+            AND citation.observation_id IS NULL
+            AND citation.passage_id IS NOT NULL
+            AND citation.passage_text_sha256 ~ '^[0-9a-f]{64}$'
+            AND citation.source_content_sha256 ~ '^[0-9a-f]{64}$'
+            AND citation.relation = assertion.required_relation
+            AND cited_passage.text_sha256 = citation.passage_text_sha256
+            AND cited_capture.content_sha256 = citation.source_content_sha256
+            AND cited_evidence.content_sha256 = citation.source_content_sha256
+            AND (
+                cited_passage.private_text IS NULL
+                OR encode(
+                    sha256(convert_to(cited_passage.private_text, 'UTF8')),
+                    'hex'
+                ) = cited_passage.text_sha256
+            )
+            AND NOT EXISTS (
+                SELECT 1
+                FROM evidence_observation structured_observation
+                WHERE structured_observation.evidence_id = citation.evidence_id
+            )
+    );
+$$;
 
 CREATE TABLE IF NOT EXISTS claim_relation (
     subject_claim_id    text NOT NULL REFERENCES atomic_claim(id) ON DELETE CASCADE,
@@ -1822,18 +2248,58 @@ CREATE TABLE IF NOT EXISTS provider_receipt (
     provider_id         text NOT NULL,
     model_id            text,
     operation           text NOT NULL,
+    operation_key       text,
+    attempt             integer NOT NULL DEFAULT 1,
     request_id          text,
     started_at          timestamptz,
     completed_at        timestamptz,
     input_bytes         bigint,
     input_seconds       numeric,
     estimated_cost_usd  numeric(12,6),
+    measured_cost_usd   numeric(12,6),
+    billing_basis       text NOT NULL DEFAULT 'ESTIMATED_ONLY',
+    total_tokens        bigint,
+    request_count       integer NOT NULL DEFAULT 1,
+    ledger_scope        jsonb NOT NULL DEFAULT '{}'::jsonb,
     status              text NOT NULL,
     receipt             jsonb NOT NULL DEFAULT '{}'::jsonb,
+    CHECK (operation_key IS NULL OR length(btrim(operation_key)) > 0),
+    CHECK (attempt >= 1),
     CHECK (input_bytes IS NULL OR input_bytes >= 0),
     CHECK (input_seconds IS NULL OR input_seconds >= 0),
-    CHECK (estimated_cost_usd IS NULL OR estimated_cost_usd >= 0)
+    CHECK (estimated_cost_usd IS NULL OR estimated_cost_usd >= 0),
+    CHECK (measured_cost_usd IS NULL OR measured_cost_usd >= 0),
+    CHECK (total_tokens IS NULL OR total_tokens >= 0),
+    CHECK (request_count >= 0),
+    CHECK (billing_basis IN (
+        'MEASURED_PROVIDER_COST', 'ESTIMATED_ONLY', 'EXTERNAL_PLAN',
+        'ZERO_COST', 'UNKNOWN'
+    )),
+    CHECK (
+        billing_basis <> 'MEASURED_PROVIDER_COST'
+        OR measured_cost_usd IS NOT NULL
+    ),
+    CHECK (
+        billing_basis <> 'UNKNOWN'
+        OR COALESCE(estimated_cost_usd, 0) > 0
+        OR measured_cost_usd IS NOT NULL
+    ),
+    CHECK (
+        billing_basis <> 'ZERO_COST'
+        OR (
+            COALESCE(estimated_cost_usd, 0) = 0
+            AND COALESCE(measured_cost_usd, 0) = 0
+        )
+    ),
+    CHECK (jsonb_typeof(ledger_scope) = 'object'),
+    CHECK (jsonb_typeof(receipt) = 'object')
 );
+
+CREATE INDEX IF NOT EXISTS provider_receipt_operation_idx
+    ON provider_receipt(operation_key, attempt)
+    WHERE operation_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS provider_receipt_billing_idx
+    ON provider_receipt(billing_basis, completed_at);
 
 -- DP-211: bounded Passage -> research candidate extraction receipts.
 CREATE TABLE IF NOT EXISTS candidate_extraction_run (
@@ -2075,5 +2541,774 @@ CREATE INDEX IF NOT EXISTS event_search_fts_idx
     ON event USING gin (to_tsvector('italian', canonical_name || ' ' || scope_text));
 CREATE INDEX IF NOT EXISTS event_name_trgm_idx
     ON event USING gin (canonical_name gin_trgm_ops);
+
+-- DP-309: private, append-only reviewed high-risk packet.
+--
+-- Text bodies are deliberately absent. The packet binds the exact reviewed source/public
+-- text through SHA-256 digests and stores only bounded opaque references to privacy,
+-- official-record, jurisdiction, effective-time, human-review, and qualified-policy records.
+-- A row is evidence of what was reviewed; it is not legal-policy authority or publication
+-- authority. Runtime replay must re-run high-risk-assertion-v1 over the current text/input.
+CREATE TABLE IF NOT EXISTS private_high_risk_review_packet (
+    packet_id                         text PRIMARY KEY,
+    contract_version                  text NOT NULL,
+    record_ref                        text NOT NULL,
+    finding_ref                       text NOT NULL,
+    record_version                    text NOT NULL,
+    source_text_sha256                text NOT NULL,
+    normalized_text_sha256            text NOT NULL,
+    source_allegation_framing         boolean NOT NULL,
+    normalized_allegation_framing     boolean NOT NULL,
+    legal_status_claim                boolean NOT NULL,
+    identity_sensitive                boolean NOT NULL,
+    sensitive_private                 boolean NOT NULL,
+    minor_victim_private_person       boolean NOT NULL,
+    identity_resolved                 boolean NOT NULL,
+    privacy_allows                    boolean NOT NULL,
+    privacy_decision_ref              text,
+    privacy_decision_binding_ref      text,
+    official_record_state             text NOT NULL,
+    official_record_ref               text,
+    official_record_approved          boolean NOT NULL,
+    jurisdiction_state                text NOT NULL,
+    jurisdiction_ref                  text,
+    jurisdiction_match                boolean NOT NULL,
+    effective_time_state              text NOT NULL,
+    effective_time_ref                text,
+    effective_time_match              boolean NOT NULL,
+    human_review_actor_ref            text,
+    human_review_ref                  text,
+    human_reviewed_at_text            text,
+    human_review_approved             boolean NOT NULL,
+    dual_control_approved             boolean NOT NULL,
+    qualified_policy_accepted         boolean NOT NULL DEFAULT false,
+    policy_decision_ref               text,
+    high_risk_policy_version          text NOT NULL,
+    input_sha256                      text NOT NULL,
+    decision_disposition              text NOT NULL,
+    decision_reason_codes             jsonb NOT NULL,
+    risk_classes                      jsonb NOT NULL,
+    procedural_statuses               jsonb NOT NULL,
+    decision_policy_ref               text,
+    decision_binding_sha256           text NOT NULL,
+    packet_sequence                   integer NOT NULL CHECK (packet_sequence > 0),
+    supersedes_packet_id              text REFERENCES private_high_risk_review_packet(packet_id)
+                                      ON DELETE RESTRICT,
+    packet_integrity_sha256           text NOT NULL,
+    record_visibility                 text NOT NULL DEFAULT 'PRIVATE',
+    persisted_at                      timestamptz NOT NULL DEFAULT now(),
+    CHECK (contract_version = 'high-risk-reviewed-packet-v1'),
+    CHECK (length(record_ref) BETWEEN 1 AND 256),
+    CHECK (length(finding_ref) BETWEEN 1 AND 256),
+    CHECK (length(record_version) BETWEEN 1 AND 256),
+    CHECK (source_text_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (normalized_text_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (input_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (decision_binding_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (packet_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (packet_id = 'high-risk-packet:' || packet_integrity_sha256),
+    CHECK ((privacy_decision_ref IS NULL) = (privacy_decision_binding_ref IS NULL)),
+    CHECK (privacy_decision_ref IS NULL OR length(privacy_decision_ref) BETWEEN 1 AND 256),
+    CHECK (
+        privacy_decision_binding_ref IS NULL
+        OR length(privacy_decision_binding_ref) BETWEEN 1 AND 256
+    ),
+    CHECK (official_record_state IN ('APPROVED', 'NOT_APPROVED', 'UNRESOLVED')),
+    CHECK (official_record_approved = (official_record_state = 'APPROVED')),
+    CHECK (official_record_state <> 'APPROVED' OR official_record_ref IS NOT NULL),
+    CHECK (official_record_ref IS NULL OR length(official_record_ref) BETWEEN 1 AND 256),
+    CHECK (jurisdiction_state IN ('MATCH', 'MISMATCH', 'UNRESOLVED')),
+    CHECK (jurisdiction_match = (jurisdiction_state = 'MATCH')),
+    CHECK (jurisdiction_state <> 'MATCH' OR jurisdiction_ref IS NOT NULL),
+    CHECK (jurisdiction_ref IS NULL OR length(jurisdiction_ref) BETWEEN 1 AND 256),
+    CHECK (effective_time_state IN ('MATCH', 'MISMATCH', 'UNRESOLVED')),
+    CHECK (effective_time_match = (effective_time_state = 'MATCH')),
+    CHECK (effective_time_state <> 'MATCH' OR effective_time_ref IS NOT NULL),
+    CHECK (effective_time_ref IS NULL OR length(effective_time_ref) BETWEEN 1 AND 256),
+    CHECK (
+        (human_review_actor_ref IS NULL)
+        = (human_review_ref IS NULL)
+        AND (human_review_ref IS NULL) = (human_reviewed_at_text IS NULL)
+    ),
+    CHECK (human_review_actor_ref IS NULL OR length(human_review_actor_ref) BETWEEN 1 AND 256),
+    CHECK (human_review_ref IS NULL OR length(human_review_ref) BETWEEN 1 AND 256),
+    CHECK (human_reviewed_at_text IS NULL OR length(human_reviewed_at_text) BETWEEN 1 AND 64),
+    CHECK (NOT human_review_approved OR human_review_actor_ref IS NOT NULL),
+    CHECK (
+        (qualified_policy_accepted AND policy_decision_ref IS NOT NULL)
+        OR (NOT qualified_policy_accepted AND policy_decision_ref IS NULL)
+    ),
+    CHECK (policy_decision_ref IS NULL OR length(policy_decision_ref) BETWEEN 1 AND 256),
+    CHECK (length(high_risk_policy_version) BETWEEN 1 AND 128),
+    CHECK (decision_disposition IN ('STANDARD_REVIEW', 'HOLD_HIGH_RISK', 'ELIGIBLE_HIGH_RISK')),
+    CHECK (jsonb_typeof(decision_reason_codes) = 'array'),
+    CHECK (jsonb_array_length(decision_reason_codes) BETWEEN 1 AND 32),
+    CHECK (jsonb_typeof(risk_classes) = 'array'),
+    CHECK (jsonb_array_length(risk_classes) <= 16),
+    CHECK (jsonb_typeof(procedural_statuses) = 'array'),
+    CHECK (jsonb_array_length(procedural_statuses) <= 16),
+    CHECK (decision_policy_ref IS NOT DISTINCT FROM policy_decision_ref),
+    CHECK (decision_policy_ref IS NULL OR length(decision_policy_ref) BETWEEN 1 AND 256),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (supersedes_packet_id IS NULL OR supersedes_packet_id <> packet_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS private_high_risk_review_packet_root_idx
+    ON private_high_risk_review_packet(record_ref, finding_ref)
+    WHERE supersedes_packet_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS private_high_risk_review_packet_one_successor_idx
+    ON private_high_risk_review_packet(supersedes_packet_id)
+    WHERE supersedes_packet_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS private_high_risk_review_packet_sequence_idx
+    ON private_high_risk_review_packet(record_ref, finding_ref, packet_sequence);
+
+CREATE INDEX IF NOT EXISTS private_high_risk_review_packet_current_idx
+    ON private_high_risk_review_packet(record_ref, finding_ref, packet_sequence DESC);
+
+CREATE OR REPLACE FUNCTION validate_private_high_risk_review_packet_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    parent private_high_risk_review_packet%ROWTYPE;
+BEGIN
+    IF NEW.supersedes_packet_id IS NULL THEN
+        IF NEW.packet_sequence <> 1 THEN
+            RAISE EXCEPTION 'private_high_risk_review_packet root sequence must be 1';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    SELECT * INTO parent
+    FROM private_high_risk_review_packet
+    WHERE packet_id = NEW.supersedes_packet_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'private_high_risk_review_packet supersedes target missing';
+    END IF;
+    IF parent.record_ref <> NEW.record_ref OR parent.finding_ref <> NEW.finding_ref THEN
+        RAISE EXCEPTION 'private_high_risk_review_packet supersedes binding mismatch';
+    END IF;
+    IF NEW.packet_sequence <> parent.packet_sequence + 1 THEN
+        RAISE EXCEPTION 'private_high_risk_review_packet sequence mismatch';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_high_risk_review_packet_validate_insert
+    ON private_high_risk_review_packet;
+CREATE TRIGGER private_high_risk_review_packet_validate_insert
+BEFORE INSERT ON private_high_risk_review_packet
+FOR EACH ROW EXECUTE FUNCTION validate_private_high_risk_review_packet_insert();
+
+CREATE OR REPLACE FUNCTION reject_private_high_risk_review_packet_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'private_high_risk_review_packet is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_high_risk_review_packet_append_only
+    ON private_high_risk_review_packet;
+CREATE TRIGGER private_high_risk_review_packet_append_only
+BEFORE UPDATE OR DELETE ON private_high_risk_review_packet
+FOR EACH ROW EXECUTE FUNCTION reject_private_high_risk_review_packet_mutation();
+
+DROP TRIGGER IF EXISTS private_high_risk_review_packet_no_truncate
+    ON private_high_risk_review_packet;
+CREATE TRIGGER private_high_risk_review_packet_no_truncate
+BEFORE TRUNCATE ON private_high_risk_review_packet
+FOR EACH STATEMENT EXECUTE FUNCTION reject_private_high_risk_review_packet_mutation();
+
+-- DP-303: private append-only challenge request/event ledger.
+-- This is workflow evidence only. It does not establish legal authority, publication
+-- authority, deletion authority, or a public takedown route.
+CREATE TABLE IF NOT EXISTS private_challenge_request (
+    request_id                  text PRIMARY KEY,
+    request_version             text NOT NULL DEFAULT 'private-challenge-request-v1',
+    challenge_kind              text NOT NULL,
+    target_finding_id           text NOT NULL REFERENCES finding(id) ON DELETE RESTRICT,
+    target_record_version       text NOT NULL,
+    source_request_ref          text NOT NULL,
+    prior_decision_ref          text,
+    initiated_by_actor_ref      text NOT NULL,
+    initiated_by_role           text NOT NULL,
+    reason                      text NOT NULL,
+    policy_version              text NOT NULL,
+    request_integrity_sha256    text NOT NULL,
+    record_visibility           text NOT NULL DEFAULT 'PRIVATE',
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    CHECK (request_version = 'private-challenge-request-v1'),
+    CHECK (challenge_kind IN ('CORRECTION','TAKEDOWN','APPEAL')),
+    CHECK (length(target_finding_id) BETWEEN 1 AND 256),
+    CHECK (length(target_record_version) BETWEEN 1 AND 256),
+    CHECK (length(source_request_ref) BETWEEN 1 AND 256),
+    CHECK (prior_decision_ref IS NULL OR length(prior_decision_ref) BETWEEN 1 AND 256),
+    CHECK (length(initiated_by_actor_ref) BETWEEN 1 AND 256),
+    CHECK (initiated_by_role IN ('PUBLIC_SUBMITTER','INTAKE_ADAPTER','OPERATOR')),
+    CHECK (length(reason) BETWEEN 1 AND 8000),
+    CHECK (policy_version = 'challenge-workflow-v1'),
+    CHECK (request_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (request_id = 'challenge-request:' || request_integrity_sha256),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (
+        (challenge_kind = 'APPEAL' AND prior_decision_ref IS NOT NULL)
+        OR (challenge_kind <> 'APPEAL' AND prior_decision_ref IS NULL)
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS private_challenge_request_identity_idx
+    ON private_challenge_request(
+        challenge_kind, target_finding_id, target_record_version, source_request_ref
+    );
+CREATE INDEX IF NOT EXISTS private_challenge_request_target_idx
+    ON private_challenge_request(target_finding_id, challenge_kind, created_at, request_id);
+
+CREATE TABLE IF NOT EXISTS private_challenge_event (
+    event_id                    text PRIMARY KEY,
+    event_version               text NOT NULL DEFAULT 'private-challenge-event-v1',
+    request_id                  text NOT NULL
+                                REFERENCES private_challenge_request(request_id)
+                                ON DELETE RESTRICT,
+    challenge_kind              text NOT NULL,
+    event_sequence              integer NOT NULL CHECK (event_sequence > 0),
+    from_state                  text,
+    to_state                    text NOT NULL,
+    actor_ref                   text NOT NULL,
+    actor_role                  text NOT NULL,
+    reason                      text NOT NULL,
+    policy_version              text NOT NULL,
+    target_record_version       text NOT NULL,
+    transition_context          jsonb NOT NULL DEFAULT '{}'::jsonb,
+    previous_event_id           text REFERENCES private_challenge_event(event_id)
+                                ON DELETE RESTRICT,
+    previous_integrity_sha256   text,
+    event_integrity_sha256      text NOT NULL,
+    record_visibility           text NOT NULL DEFAULT 'PRIVATE',
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    CHECK (event_version = 'private-challenge-event-v1'),
+    CHECK (challenge_kind IN ('CORRECTION','TAKEDOWN','APPEAL')),
+    CHECK (
+        from_state IS NULL OR from_state IN (
+            'PRIVATE_RECEIVED','REANALYSIS_PENDING','TRIAGE_PENDING',
+            'REVIEW_REQUIRED','INDEPENDENT_REVIEW_PENDING','PUBLIC_VERSIONED',
+            'PUBLIC_HOLD_APPROVED','UPHELD','OVERTURNED','NEEDS_INFO',
+            'REJECTED','QUARANTINED','REFERRED'
+        )
+    ),
+    CHECK (to_state IN (
+        'PRIVATE_RECEIVED','REANALYSIS_PENDING','TRIAGE_PENDING',
+        'REVIEW_REQUIRED','INDEPENDENT_REVIEW_PENDING','PUBLIC_VERSIONED',
+        'PUBLIC_HOLD_APPROVED','UPHELD','OVERTURNED','NEEDS_INFO',
+        'REJECTED','QUARANTINED','REFERRED'
+    )),
+    CHECK (length(actor_ref) BETWEEN 1 AND 256),
+    CHECK (actor_role IN (
+        'PUBLIC_SUBMITTER','INTAKE_ADAPTER','TRIAGE_REVIEWER',
+        'DECISION_REVIEWER','APPEAL_REVIEWER','OPERATOR'
+    )),
+    CHECK (length(reason) BETWEEN 1 AND 8000),
+    CHECK (policy_version = 'challenge-workflow-v1'),
+    CHECK (length(target_record_version) BETWEEN 1 AND 256),
+    CHECK (jsonb_typeof(transition_context) = 'object'),
+    CHECK (octet_length(transition_context::text) <= 8192),
+    CHECK (
+        previous_integrity_sha256 IS NULL
+        OR previous_integrity_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    CHECK (event_integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (event_id = 'challenge-event:' || event_integrity_sha256),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (
+        (
+            event_sequence = 1
+            AND previous_event_id IS NULL
+            AND previous_integrity_sha256 IS NULL
+            AND from_state IS NULL
+            AND to_state = 'PRIVATE_RECEIVED'
+        )
+        OR (
+            event_sequence > 1
+            AND previous_event_id IS NOT NULL
+            AND previous_integrity_sha256 IS NOT NULL
+            AND from_state IS NOT NULL
+        )
+    ),
+    CHECK (
+        to_state <> 'PUBLIC_HOLD_APPROVED'
+        OR (
+            challenge_kind = 'TAKEDOWN'
+            AND from_state = 'TRIAGE_PENDING'
+            AND transition_context @> '{"challenge_review_approved":true}'::jsonb
+        )
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS private_challenge_event_sequence_idx
+    ON private_challenge_event(request_id, event_sequence);
+CREATE UNIQUE INDEX IF NOT EXISTS private_challenge_event_one_successor_idx
+    ON private_challenge_event(previous_event_id)
+    WHERE previous_event_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS private_challenge_event_request_idx
+    ON private_challenge_event(request_id, event_sequence, event_id);
+
+CREATE OR REPLACE FUNCTION validate_private_challenge_event_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    request_row private_challenge_request%ROWTYPE;
+    parent private_challenge_event%ROWTYPE;
+BEGIN
+    SELECT * INTO request_row
+    FROM private_challenge_request
+    WHERE request_id = NEW.request_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'private_challenge_event request missing';
+    END IF;
+    IF request_row.challenge_kind <> NEW.challenge_kind
+       OR request_row.target_record_version <> NEW.target_record_version THEN
+        RAISE EXCEPTION 'private_challenge_event request binding mismatch';
+    END IF;
+
+    IF NEW.event_sequence = 1 THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT * INTO parent
+    FROM private_challenge_event
+    WHERE event_id = NEW.previous_event_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'private_challenge_event previous event missing';
+    END IF;
+    IF parent.request_id <> NEW.request_id
+       OR parent.challenge_kind <> NEW.challenge_kind
+       OR parent.target_record_version <> NEW.target_record_version THEN
+        RAISE EXCEPTION 'private_challenge_event previous binding mismatch';
+    END IF;
+    IF NEW.event_sequence <> parent.event_sequence + 1 THEN
+        RAISE EXCEPTION 'private_challenge_event sequence mismatch';
+    END IF;
+    IF NEW.from_state <> parent.to_state THEN
+        RAISE EXCEPTION 'private_challenge_event state chain mismatch';
+    END IF;
+    IF NEW.previous_integrity_sha256 <> parent.event_integrity_sha256 THEN
+        RAISE EXCEPTION 'private_challenge_event integrity chain mismatch';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_challenge_event_validate_insert
+    ON private_challenge_event;
+CREATE TRIGGER private_challenge_event_validate_insert
+BEFORE INSERT ON private_challenge_event
+FOR EACH ROW EXECUTE FUNCTION validate_private_challenge_event_insert();
+
+CREATE OR REPLACE FUNCTION reject_private_challenge_request_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'private_challenge_request is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_challenge_request_append_only
+    ON private_challenge_request;
+CREATE TRIGGER private_challenge_request_append_only
+BEFORE UPDATE OR DELETE ON private_challenge_request
+FOR EACH ROW EXECUTE FUNCTION reject_private_challenge_request_mutation();
+DROP TRIGGER IF EXISTS private_challenge_request_no_truncate
+    ON private_challenge_request;
+CREATE TRIGGER private_challenge_request_no_truncate
+BEFORE TRUNCATE ON private_challenge_request
+FOR EACH STATEMENT EXECUTE FUNCTION reject_private_challenge_request_mutation();
+
+CREATE OR REPLACE FUNCTION reject_private_challenge_event_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'private_challenge_event is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS private_challenge_event_append_only
+    ON private_challenge_event;
+CREATE TRIGGER private_challenge_event_append_only
+BEFORE UPDATE OR DELETE ON private_challenge_event
+FOR EACH ROW EXECUTE FUNCTION reject_private_challenge_event_mutation();
+DROP TRIGGER IF EXISTS private_challenge_event_no_truncate
+    ON private_challenge_event;
+CREATE TRIGGER private_challenge_event_no_truncate
+BEFORE TRUNCATE ON private_challenge_event
+FOR EACH STATEMENT EXECUTE FUNCTION reject_private_challenge_event_mutation();
+
+-- DP-217 / DP-220: private append-only source-span review provenance.
+CREATE TABLE IF NOT EXISTS transcript_verbatim_review_event (
+    id                          text PRIMARY KEY,
+    content_id                  text NOT NULL REFERENCES content_item(id) ON DELETE RESTRICT,
+    source_variant_id           text NOT NULL REFERENCES transcript_variant(id) ON DELETE RESTRICT,
+    source_segment_id           text NOT NULL REFERENCES transcript_segment(id) ON DELETE RESTRICT,
+    source_variant_sha256       text NOT NULL,
+    source_segment_sha256       text NOT NULL,
+    start_ms                    bigint NOT NULL,
+    end_ms                      bigint NOT NULL,
+    reviewed_text               text NOT NULL,
+    reviewed_text_sha256        text NOT NULL,
+    decision                    text NOT NULL,
+    reviewer_ref                text NOT NULL,
+    reason_codes                text[] NOT NULL DEFAULT ARRAY[]::text[],
+    record_visibility           text NOT NULL DEFAULT 'PRIVATE',
+    review_version              text NOT NULL DEFAULT 'transcript-verbatim-review-v1',
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    CHECK (source_variant_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (source_segment_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (reviewed_text_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (start_ms >= 0 AND end_ms > start_ms),
+    CHECK (length(reviewed_text) > 0),
+    CHECK (decision IN ('APPROVED', 'REJECTED')),
+    CHECK (cardinality(reason_codes) <= 32),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (review_version = 'transcript-verbatim-review-v1')
+);
+
+CREATE INDEX IF NOT EXISTS transcript_verbatim_review_source_idx
+    ON transcript_verbatim_review_event(source_variant_id, source_segment_id, created_at, id);
+
+CREATE TABLE IF NOT EXISTS context_integrity_review_event (
+    id                          text PRIMARY KEY,
+    record_id                   text NOT NULL,
+    source_sha256               text NOT NULL,
+    quote_sha256                text NOT NULL,
+    context_sha256              text NOT NULL,
+    quote_start                 integer NOT NULL,
+    quote_end                   integer NOT NULL,
+    context_start               integer NOT NULL,
+    context_end                 integer NOT NULL,
+    signal_codes                text[] NOT NULL DEFAULT ARRAY[]::text[],
+    decision                    text NOT NULL,
+    reviewer_ref                text NOT NULL,
+    reason_codes                text[] NOT NULL DEFAULT ARRAY[]::text[],
+    record_visibility           text NOT NULL DEFAULT 'PRIVATE',
+    review_version              text NOT NULL DEFAULT 'context-integrity-review-v1',
+    created_at                  timestamptz NOT NULL DEFAULT now(),
+    CHECK (source_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (quote_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (context_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (quote_start >= 0 AND quote_end > quote_start),
+    CHECK (context_start >= 0 AND context_end >= quote_end),
+    CHECK (context_start <= quote_start),
+    CHECK (cardinality(signal_codes) <= 32),
+    CHECK (cardinality(reason_codes) <= 32),
+    CHECK (decision IN ('APPROVED', 'REJECTED')),
+    CHECK (record_visibility = 'PRIVATE'),
+    CHECK (review_version = 'context-integrity-review-v1')
+);
+
+CREATE INDEX IF NOT EXISTS context_integrity_review_record_idx
+    ON context_integrity_review_event(record_id, created_at, id);
+
+CREATE OR REPLACE FUNCTION reject_source_span_review_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'source-span review ledgers are append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS transcript_verbatim_review_append_only
+    ON transcript_verbatim_review_event;
+CREATE TRIGGER transcript_verbatim_review_append_only
+BEFORE UPDATE OR DELETE ON transcript_verbatim_review_event
+FOR EACH ROW EXECUTE FUNCTION reject_source_span_review_mutation();
+DROP TRIGGER IF EXISTS transcript_verbatim_review_no_truncate
+    ON transcript_verbatim_review_event;
+CREATE TRIGGER transcript_verbatim_review_no_truncate
+BEFORE TRUNCATE ON transcript_verbatim_review_event
+FOR EACH STATEMENT EXECUTE FUNCTION reject_source_span_review_mutation();
+
+DROP TRIGGER IF EXISTS context_integrity_review_append_only
+    ON context_integrity_review_event;
+CREATE TRIGGER context_integrity_review_append_only
+BEFORE UPDATE OR DELETE ON context_integrity_review_event
+FOR EACH ROW EXECUTE FUNCTION reject_source_span_review_mutation();
+DROP TRIGGER IF EXISTS context_integrity_review_no_truncate
+    ON context_integrity_review_event;
+CREATE TRIGGER context_integrity_review_no_truncate
+BEFORE TRUNCATE ON context_integrity_review_event
+FOR EACH STATEMENT EXECUTE FUNCTION reject_source_span_review_mutation();
+
+-- DP-510/DP-511: durable private provenance-hold/dependency and source-revalidation history.
+-- These ledgers are append-only operational authority for projection-time quarantine checks.
+
+CREATE TABLE IF NOT EXISTS provenance_dependency_graph_snapshot (
+    snapshot_id                 text PRIMARY KEY,
+    snapshot_version            text NOT NULL DEFAULT 'provenance-dependency-graph-v1',
+    snapshot_sequence           bigint NOT NULL CHECK (snapshot_sequence > 0),
+    previous_snapshot_id        text REFERENCES provenance_dependency_graph_snapshot(snapshot_id),
+    previous_integrity_sha256   text,
+    graph_json                  jsonb NOT NULL,
+    graph_sha256                text NOT NULL,
+    integrity_sha256            text NOT NULL,
+    persisted_at                timestamptz NOT NULL DEFAULT now(),
+    CHECK (snapshot_version = 'provenance-dependency-graph-v1'),
+    CHECK (jsonb_typeof(graph_json) = 'object'),
+    CHECK (graph_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (integrity_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (
+        previous_integrity_sha256 IS NULL
+        OR previous_integrity_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    UNIQUE (snapshot_sequence)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS provenance_dependency_graph_one_successor_idx
+    ON provenance_dependency_graph_snapshot(previous_snapshot_id)
+    WHERE previous_snapshot_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION validate_provenance_dependency_graph_snapshot_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    parent provenance_dependency_graph_snapshot%ROWTYPE;
+BEGIN
+    IF NEW.snapshot_sequence = 1 THEN
+        IF NEW.previous_snapshot_id IS NOT NULL
+           OR NEW.previous_integrity_sha256 IS NOT NULL THEN
+            RAISE EXCEPTION 'provenance dependency root cannot have a parent';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    IF NEW.previous_snapshot_id IS NULL
+       OR NEW.previous_integrity_sha256 IS NULL THEN
+        RAISE EXCEPTION 'provenance dependency snapshot parent required';
+    END IF;
+    SELECT * INTO parent
+    FROM provenance_dependency_graph_snapshot
+    WHERE snapshot_id = NEW.previous_snapshot_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'provenance dependency snapshot parent missing';
+    END IF;
+    IF NEW.snapshot_sequence <> parent.snapshot_sequence + 1 THEN
+        RAISE EXCEPTION 'provenance dependency snapshot sequence mismatch';
+    END IF;
+    IF NEW.previous_integrity_sha256 <> parent.integrity_sha256 THEN
+        RAISE EXCEPTION 'provenance dependency snapshot integrity mismatch';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS provenance_dependency_graph_validate_insert
+    ON provenance_dependency_graph_snapshot;
+CREATE TRIGGER provenance_dependency_graph_validate_insert
+BEFORE INSERT ON provenance_dependency_graph_snapshot
+FOR EACH ROW EXECUTE FUNCTION validate_provenance_dependency_graph_snapshot_insert();
+
+CREATE OR REPLACE FUNCTION reject_provenance_dependency_graph_snapshot_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'provenance_dependency_graph_snapshot is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS provenance_dependency_graph_append_only
+    ON provenance_dependency_graph_snapshot;
+CREATE TRIGGER provenance_dependency_graph_append_only
+BEFORE UPDATE OR DELETE ON provenance_dependency_graph_snapshot
+FOR EACH ROW EXECUTE FUNCTION reject_provenance_dependency_graph_snapshot_mutation();
+DROP TRIGGER IF EXISTS provenance_dependency_graph_no_truncate
+    ON provenance_dependency_graph_snapshot;
+CREATE TRIGGER provenance_dependency_graph_no_truncate
+BEFORE TRUNCATE ON provenance_dependency_graph_snapshot
+FOR EACH STATEMENT EXECUTE FUNCTION reject_provenance_dependency_graph_snapshot_mutation();
+
+CREATE TABLE IF NOT EXISTS provenance_hold_event_durable (
+    event_id                        text PRIMARY KEY,
+    event_sequence                  integer NOT NULL CHECK (event_sequence > 0),
+    request_id                      text NOT NULL UNIQUE,
+    hold_id                         text NOT NULL,
+    event_type                      text NOT NULL,
+    actor_id                        text NOT NULL,
+    reason_code                     text NOT NULL,
+    incident_id                     text,
+    scope_json                      jsonb NOT NULL,
+    impact_binding_sha256           text NOT NULL,
+    revalidation_binding_sha256     text,
+    private_note_sha256             text,
+    previous_event_hash             text NOT NULL,
+    event_hash                      text NOT NULL,
+    event_version                   text NOT NULL DEFAULT 'provenance-quarantine-v1',
+    dependency_snapshot_id          text NOT NULL REFERENCES provenance_dependency_graph_snapshot(snapshot_id),
+    persisted_at                    timestamptz NOT NULL DEFAULT now(),
+    CHECK (event_type IN ('ACTIVATE', 'REVIEWED_UNHOLD', 'REVALIDATED')),
+    CHECK (jsonb_typeof(scope_json) = 'object'),
+    CHECK (impact_binding_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (
+        revalidation_binding_sha256 IS NULL
+        OR revalidation_binding_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    CHECK (
+        private_note_sha256 IS NULL
+        OR private_note_sha256 ~ '^[0-9a-f]{64}$'
+    ),
+    CHECK (previous_event_hash ~ '^[0-9a-f]{64}$'),
+    CHECK (event_hash ~ '^[0-9a-f]{64}$'),
+    CHECK (event_version = 'provenance-quarantine-v1'),
+    CHECK (
+        (event_type = 'REVALIDATED' AND revalidation_binding_sha256 IS NOT NULL)
+        OR (event_type <> 'REVALIDATED' AND revalidation_binding_sha256 IS NULL)
+    ),
+    UNIQUE (event_sequence),
+    UNIQUE (hold_id, event_type)
+);
+
+CREATE INDEX IF NOT EXISTS provenance_hold_event_hold_idx
+    ON provenance_hold_event_durable(hold_id, event_sequence);
+
+CREATE OR REPLACE FUNCTION validate_provenance_hold_event_durable_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    parent provenance_hold_event_durable%ROWTYPE;
+BEGIN
+    IF NEW.event_sequence = 1 THEN
+        IF NEW.previous_event_hash <> repeat('0', 64) THEN
+            RAISE EXCEPTION 'provenance hold root previous hash mismatch';
+        END IF;
+        RETURN NEW;
+    END IF;
+
+    SELECT * INTO parent
+    FROM provenance_hold_event_durable
+    WHERE event_sequence = NEW.event_sequence - 1;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'provenance hold previous event missing';
+    END IF;
+    IF NEW.previous_event_hash <> parent.event_hash THEN
+        RAISE EXCEPTION 'provenance hold event hash chain mismatch';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS provenance_hold_event_validate_insert
+    ON provenance_hold_event_durable;
+CREATE TRIGGER provenance_hold_event_validate_insert
+BEFORE INSERT ON provenance_hold_event_durable
+FOR EACH ROW EXECUTE FUNCTION validate_provenance_hold_event_durable_insert();
+
+CREATE OR REPLACE FUNCTION reject_provenance_hold_event_durable_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'provenance_hold_event_durable is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS provenance_hold_event_durable_append_only
+    ON provenance_hold_event_durable;
+CREATE TRIGGER provenance_hold_event_durable_append_only
+BEFORE UPDATE OR DELETE ON provenance_hold_event_durable
+FOR EACH ROW EXECUTE FUNCTION reject_provenance_hold_event_durable_mutation();
+DROP TRIGGER IF EXISTS provenance_hold_event_durable_no_truncate
+    ON provenance_hold_event_durable;
+CREATE TRIGGER provenance_hold_event_durable_no_truncate
+BEFORE TRUNCATE ON provenance_hold_event_durable
+FOR EACH STATEMENT EXECUTE FUNCTION reject_provenance_hold_event_durable_mutation();
+
+CREATE TABLE IF NOT EXISTS source_revalidation_snapshot_durable (
+    snapshot_ref                text PRIMARY KEY,
+    source_id                   text NOT NULL REFERENCES source(id),
+    content_id                  text REFERENCES content_item(id),
+    capture_id                  text REFERENCES content_capture(id),
+    observed_at                 timestamptz NOT NULL,
+    availability                text NOT NULL,
+    content_sha256              text,
+    source_version              text,
+    etag                        text,
+    canonical_url               text NOT NULL,
+    supersedes_version          text,
+    rights_status               text NOT NULL,
+    rights_expires_on           date,
+    authority_valid_until       date,
+    snapshot_version            text NOT NULL DEFAULT 'source-revalidation-v1',
+    persisted_at                timestamptz NOT NULL DEFAULT now(),
+    CHECK (snapshot_ref ~ '^[0-9a-f]{64}$'),
+    CHECK (availability IN ('AVAILABLE', 'UNAVAILABLE')),
+    CHECK (content_sha256 IS NULL OR content_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (snapshot_version = 'source-revalidation-v1')
+);
+
+CREATE INDEX IF NOT EXISTS source_revalidation_snapshot_source_idx
+    ON source_revalidation_snapshot_durable(source_id, observed_at, snapshot_ref);
+
+CREATE TABLE IF NOT EXISTS source_revalidation_event_durable (
+    event_key                   text PRIMARY KEY,
+    source_id                   text NOT NULL REFERENCES source(id),
+    previous_snapshot_ref       text NOT NULL REFERENCES source_revalidation_snapshot_durable(snapshot_ref),
+    current_snapshot_ref        text NOT NULL REFERENCES source_revalidation_snapshot_durable(snapshot_ref),
+    disposition                 text NOT NULL,
+    material_change_codes       jsonb NOT NULL DEFAULT '[]'::jsonb,
+    benign_change_codes         jsonb NOT NULL DEFAULT '[]'::jsonb,
+    needs_reanalysis            boolean NOT NULL,
+    needs_targeted_hold         boolean NOT NULL,
+    event_version               text NOT NULL DEFAULT 'source-revalidation-v1',
+    persisted_at                timestamptz NOT NULL DEFAULT now(),
+    CHECK (event_key ~ '^[0-9a-f]{64}$'),
+    CHECK (disposition IN ('UNCHANGED', 'AVAILABILITY_RETRY', 'REVIEW_REQUIRED', 'HOLD_REQUIRED')),
+    CHECK (jsonb_typeof(material_change_codes) = 'array'),
+    CHECK (jsonb_typeof(benign_change_codes) = 'array'),
+    CHECK (event_version = 'source-revalidation-v1'),
+    CHECK (previous_snapshot_ref <> current_snapshot_ref)
+);
+
+CREATE INDEX IF NOT EXISTS source_revalidation_event_source_idx
+    ON source_revalidation_event_durable(source_id, persisted_at, event_key);
+
+CREATE OR REPLACE FUNCTION reject_source_revalidation_durable_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'source revalidation history is append-only';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS source_revalidation_snapshot_append_only
+    ON source_revalidation_snapshot_durable;
+CREATE TRIGGER source_revalidation_snapshot_append_only
+BEFORE UPDATE OR DELETE ON source_revalidation_snapshot_durable
+FOR EACH ROW EXECUTE FUNCTION reject_source_revalidation_durable_mutation();
+DROP TRIGGER IF EXISTS source_revalidation_snapshot_no_truncate
+    ON source_revalidation_snapshot_durable;
+CREATE TRIGGER source_revalidation_snapshot_no_truncate
+BEFORE TRUNCATE ON source_revalidation_snapshot_durable
+FOR EACH STATEMENT EXECUTE FUNCTION reject_source_revalidation_durable_mutation();
+
+DROP TRIGGER IF EXISTS source_revalidation_event_append_only
+    ON source_revalidation_event_durable;
+CREATE TRIGGER source_revalidation_event_append_only
+BEFORE UPDATE OR DELETE ON source_revalidation_event_durable
+FOR EACH ROW EXECUTE FUNCTION reject_source_revalidation_durable_mutation();
+DROP TRIGGER IF EXISTS source_revalidation_event_no_truncate
+    ON source_revalidation_event_durable;
+CREATE TRIGGER source_revalidation_event_no_truncate
+BEFORE TRUNCATE ON source_revalidation_event_durable
+FOR EACH STATEMENT EXECUTE FUNCTION reject_source_revalidation_durable_mutation();
 
 COMMIT;

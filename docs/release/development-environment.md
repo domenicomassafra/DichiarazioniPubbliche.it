@@ -104,9 +104,10 @@ DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH=/abs/path/to/index.json npm run b
   and must not be committed or copied into a clone.
 - Public output comes only from the fail-closed projection, not an operational export.
 
-## The `.v0` / POC compatibility surface (DP-106 owns the migration)
+## The remaining POC compatibility surface
 
-These names are **deprecated compatibility identifiers**, retained on purpose:
+These package names remain compatibility identifiers; the DP-106 config fallback window is
+closed in the source tree:
 
 | Identifier | Status | Migration owner |
 |---|---|---|
@@ -115,15 +116,12 @@ These names are **deprecated compatibility identifiers**, retained on purpose:
 | `dichiarazioni-pubbliche` (distribution name) | retained | DP-106 |
 | `db/schema.v1.sql`, `db/job_queue.v1.sql` | canonical stable baselines | DP-106 |
 | `config/source-registry.v1.json`, `config/transcription-policy.v1.json` | canonical runtime configs | DP-106 |
-| `config/source-registry.v0.json`, `config/transcription-policy.v0.json` | temporary fallback only | DP-106 compatibility window |
 
-**Deprecation path.** DP-106 defines a two-phase dual-resolution window: loaders prefer
-the new `*.v1.json` path and fall back to the `*.v0.json` path with a diagnostic,
-keeping the internal `"name": "transcription-policy-v0"` key stable, and closing the
-window only after a full error-free release cycle on the MiniPC. Until DP-106 executes,
-packaging work must **not** rename any of the identifiers above. The packaging tests
-(`tests/test_packaging_metadata.py`) fail if a rename happens as a side effect of
-environment cleanup, so the deprecation is explicit and detected — never silent.
+**Deprecation path.** DP-106 completed the source/config filename transition after its
+bounded dual-resolution window: runtime defaults now require the canonical `*.v1.json`
+files and the transcription policy identity is `transcription-policy-v1`. Package/source-
+root cleanup remains separate work under DP-601. The packaging tests keep that boundary
+explicit so environment cleanup cannot silently rename the import/distribution surface.
 
 ## Version and dependency authority
 

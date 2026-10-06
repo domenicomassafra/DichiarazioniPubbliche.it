@@ -1,5 +1,7 @@
+import json
 import sys
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 
@@ -27,6 +29,26 @@ class QueueRuntimeTests(unittest.TestCase):
                 "receipt:"
             )
         )
+        legacy_receipt_id = deterministic_receipt_id(
+            "job:a", "youtube", "CAPTION_PROBE"
+        )
+        self.assertEqual(
+            legacy_receipt_id,
+            "receipt:ae929790d96e0319606f51aea1cc0f7e4d5b3ef0674b41fbd4ea18cfe7e4767f",
+        )
+        first_attempt = deterministic_receipt_id(
+            "job:a", "youtube", "CAPTION_PROBE", attempt=1
+        )
+        second_attempt = deterministic_receipt_id(
+            "job:a", "youtube", "CAPTION_PROBE", attempt=2
+        )
+        self.assertEqual(first_attempt, f"{legacy_receipt_id}:attempt:1")
+        self.assertEqual(second_attempt, f"{legacy_receipt_id}:attempt:2")
+        self.assertNotEqual(first_attempt, second_attempt)
+        with self.assertRaisesRegex(ValueError, "PROVIDER_RECEIPT_ATTEMPT_INVALID"):
+            deterministic_receipt_id(
+                "job:a", "youtube", "CAPTION_PROBE", attempt=0
+            )
         self.assertTrue(
             deterministic_variant_id(
                 "content:a", "youtube", "YOUTUBE_AUTO_CAPTION", "f" * 64
@@ -56,6 +78,179 @@ class QueueRuntimeTests(unittest.TestCase):
         self.assertTrue(hasattr(QueueRuntimeStore, "register_organization"))
         self.assertTrue(hasattr(QueueRuntimeStore, "register_person_role_interval"))
         self.assertTrue(hasattr(QueueRuntimeStore, "role_intervals_at"))
+        self.assertTrue(hasattr(QueueRuntimeStore, "operation_ledger_receipts"))
+        self.assertTrue(hasattr(QueueRuntimeStore, "operation_ledger_summary"))
+
+    def test_record_receipt_writes_v2_operation_ledger_fields(self):
+        class CaptureStore(QueueRuntimeStore):
+            def __init__(self):
+                self.sql = ""
+                self.variables = {}
+
+            def run(self, sql, **variables):
+                self.sql = sql
+                self.variables = variables
+                return f"{variables['receipt_id_base']}:attempt:1"
+
+        store = CaptureStore()
+        receipt_id = store.record_receipt(
+            job_id="job:a",
+            content_id="content:a",
+            provider_id="provider:a",
+            model_id="model:a",
+            operation="CLAIM_EXTRACT",
+            request_id="request:a",
+            input_bytes=100,
+            input_seconds=None,
+            estimated_cost_usd=0.20,
+            measured_cost_usd=0.12,
+            total_tokens=321,
+            status="SUCCESS",
+            receipt={"ok": True},
+        )
+        self.assertTrue(receipt_id.endswith(":attempt:1"))
+        self.assertIn("WITH receipt_candidate AS", store.sql)
+        self.assertIn("legacy.id=:'receipt_id_base'", store.sql)
+        self.assertIn("ELSE :'receipt_id_base' || ':attempt:'", store.sql)
+        self.assertIn("operation_key, attempt", store.sql)
+        self.assertIn("measured_cost_usd, billing_basis", store.sql)
+        self.assertIn("ledger_scope", store.sql)
+        self.assertIn("GREATEST(job.attempt,1)", store.sql)
+        self.assertEqual(
+            store.variables["billing_basis"],
+            "MEASURED_PROVIDER_COST",
+        )
+        self.assertEqual(store.variables["measured_cost_usd"], 0.12)
+        self.assertEqual(store.variables["total_tokens"], 321)
+        self.assertIn('"job_id":"job:a"', store.variables["ledger_scope"])
+
+    def test_retry_receipts_are_attempt_scoped_with_stable_logical_operation(self):
+        class RetryStore(QueueRuntimeStore):
+            def __init__(self):
+                self.attempt = 1
+                self.persisted = {}
+
+            def run(self, sql, **variables):
+                if "INSERT INTO provider_receipt" in sql:
+                    receipt_id = (
+                        f"{variables['receipt_id_base']}:attempt:{self.attempt}"
+                    )
+                    if receipt_id not in self.persisted:
+                        self.persisted[receipt_id] = {
+                            "receipt_id": receipt_id,
+                            "operation_key": variables["operation_key"],
+                            "attempt": self.attempt,
+                            "provider_id": variables["provider_id"],
+                            "model_id": variables["model_id"] or None,
+                            "operation": variables["operation"],
+                            "status": variables["status"],
+                            "billing_basis": variables["billing_basis"],
+                            "estimated_cost_usd": variables["estimated_cost_usd"],
+                            "measured_cost_usd": variables["measured_cost_usd"],
+                            "total_tokens": variables["total_tokens"] or None,
+                            "input_seconds": variables["input_seconds"] or None,
+                            "request_count": variables["request_count"],
+                            "claim_id": None,
+                            "content_id": variables["content_id"],
+                            "source_id": "source:a",
+                            "collection_id": None,
+                        }
+                    return receipt_id
+                if "FROM provider_receipt r" in sql:
+                    return json.dumps(list(self.persisted.values()))
+                return ""
+
+        for request_key in ("", "reused-request-key"):
+            with self.subTest(request_key=request_key or "<empty>"):
+                store = RetryStore()
+                first_id = store.record_receipt(
+                    job_id="job:retry",
+                    content_id="content:a",
+                    provider_id="provider:a",
+                    model_id="model:a",
+                    operation="CLAIM_EXTRACT",
+                    request_id=None,
+                    input_bytes=100,
+                    input_seconds=None,
+                    estimated_cost_usd=0.10,
+                    measured_cost_usd=0.10,
+                    status="FAILED",
+                    receipt={"attempt": 1},
+                    request_key=request_key,
+                )
+                store.attempt = 2
+                second_id = store.record_receipt(
+                    job_id="job:retry",
+                    content_id="content:a",
+                    provider_id="provider:a",
+                    model_id="model:a",
+                    operation="CLAIM_EXTRACT",
+                    request_id=None,
+                    input_bytes=100,
+                    input_seconds=None,
+                    estimated_cost_usd=0.20,
+                    measured_cost_usd=0.20,
+                    status="SUCCESS",
+                    receipt={"attempt": 2},
+                    request_key=request_key,
+                )
+
+                self.assertNotEqual(first_id, second_id)
+                self.assertTrue(first_id.endswith(":attempt:1"))
+                self.assertTrue(second_id.endswith(":attempt:2"))
+                receipts = store.operation_ledger_receipts(content_id="content:a")
+                self.assertEqual([row.attempt for row in receipts], [1, 2])
+                self.assertEqual(len({row.operation_key for row in receipts}), 1)
+                summary = store.operation_ledger_summary(content_id="content:a")
+                self.assertEqual(summary.operation_count, 1)
+                self.assertEqual(summary.attempt_count, 2)
+                self.assertEqual(summary.measured_cost_usd, Decimal("0.3"))
+                self.assertEqual(summary.request_count, 2)
+
+    def test_unknown_receipt_requires_nonzero_cost_bound(self):
+        class CaptureStore(QueueRuntimeStore):
+            def run(self, sql, **variables):
+                return ""
+
+        store = CaptureStore()
+        with self.assertRaisesRegex(
+            ValueError,
+            "PROVIDER_RECEIPT_UNKNOWN_COST_BOUND_REQUIRED",
+        ):
+            store.record_receipt(
+                job_id="job:a",
+                content_id="content:a",
+                provider_id="provider:a",
+                model_id=None,
+                operation="PAID_CALL",
+                request_id=None,
+                input_bytes=None,
+                input_seconds=None,
+                estimated_cost_usd=0.0,
+                billing_basis="UNKNOWN",
+                status="FAILED",
+                receipt={},
+            )
+
+    def test_operation_ledger_query_preserves_unknown_legacy_cost(self):
+        class CaptureStore(QueueRuntimeStore):
+            def run(self, sql, **variables):
+                return (
+                    '[{"receipt_id":"receipt:old","operation_key":"legacy:receipt:old",'
+                    '"attempt":1,"provider_id":"provider:a","operation":"OLD",'
+                    '"status":"SUCCESS","billing_basis":"UNKNOWN",'
+                    '"estimated_cost_usd":null,"measured_cost_usd":null,'
+                    '"total_tokens":null,"input_seconds":null,"request_count":1,'
+                    '"claim_id":null,"content_id":"content:a","source_id":"source:a",'
+                    '"collection_id":null}]'
+                )
+
+        receipts = CaptureStore().operation_ledger_receipts(source_id="source:a")
+        self.assertEqual(len(receipts), 1)
+        self.assertEqual(receipts[0].billing_basis, "UNKNOWN")
+        summary = CaptureStore().operation_ledger_summary(source_id="source:a")
+        self.assertFalse(summary.cost_complete)
+        self.assertEqual(summary.unknown_cost_operation_count, 1)
 
     def test_role_interval_review_is_atomic_and_bounded(self):
         class CaptureStore(QueueRuntimeStore):

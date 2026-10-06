@@ -21,6 +21,8 @@ RESOURCE_KINDS = frozenset(
         "person",
         "organization",
         "statement",
+        "occurrence",
+        "representation",
         "finding",
         "content",
         "topic",
@@ -97,6 +99,35 @@ def projection_triples(payload: dict[str, Any]) -> tuple[Triple, ...]:
     _add_literal(triples, dataset_uri, DP + "projectionFingerprint", bundle["dataset_sha256"])
     _add_literal(triples, dataset_uri, DP + "linkedDataVersion", LINKED_DATA_VERSION)
 
+    # DP-434: Content is independently publishable from Finding. Emit reviewed
+    # first-class Content before dossier-derived relations so a zero-finding
+    # Content remains discoverable in RDF without inventing a Statement.
+    for content in bundle.get("contents") or []:
+        content_uri = public_resource_uri("content", content["content_id"])
+        _add_uri(triples, dataset_uri, SCHEMA + "hasPart", content_uri)
+        _add_uri(triples, content_uri, RDF + "type", SCHEMA + "CreativeWork")
+        _add_literal(triples, content_uri, SCHEMA + "identifier", content["content_id"])
+        _add_literal(triples, content_uri, SCHEMA + "name", content["title"])
+        _add_literal(triples, content_uri, SCHEMA + "datePublished", content.get("published_at"))
+        _add_uri(triples, content_uri, SCHEMA + "url", content["url"])
+        _add_literal(triples, content_uri, DP + "contentKind", content["content_kind"])
+        _add_literal(triples, content_uri, DP + "durationMs", content.get("duration_ms"))
+        _add_literal(
+            triples,
+            content_uri,
+            DP + "publicationVersion",
+            content["publication_version"],
+        )
+        media_url = content.get("public_media_url")
+        if media_url:
+            _add_uri(triples, content_uri, SCHEMA + "contentUrl", media_url)
+            _add_literal(
+                triples,
+                content_uri,
+                DP + "mediaPolicyVersion",
+                content.get("media_policy_version"),
+            )
+
     for dossier in bundle.get("dossiers") or []:
         finding_uri = public_resource_uri("finding", dossier["finding_id"])
         statement_uri = public_resource_uri("statement", dossier["claim_id"])
@@ -146,6 +177,167 @@ def projection_triples(payload: dict[str, Any]) -> tuple[Triple, ...]:
         _add_literal(triples, statement_uri, SCHEMA + "text", dossier.get("claim"))
         _add_uri(triples, statement_uri, SCHEMA + "author", person_uri)
         _add_uri(triples, statement_uri, SCHEMA + "appearance", content_uri)
+        wording = dossier.get("wording")
+        if isinstance(wording, dict):
+            source_wording = wording.get("source_occurrence") or {}
+            normalized_wording = wording.get("normalized_claim") or {}
+            occurrence_id = str(source_wording.get("occurrence_id") or "").strip()
+            if occurrence_id:
+                occurrence_uri = public_resource_uri("occurrence", occurrence_id)
+                _add_uri(triples, statement_uri, PROV + "wasDerivedFrom", occurrence_uri)
+                _add_uri(triples, occurrence_uri, RDF + "type", DP + "SourceOccurrence")
+                _add_literal(
+                    triples,
+                    occurrence_uri,
+                    DP + "wordingType",
+                    source_wording.get("wording_type"),
+                )
+                _add_literal(
+                    triples,
+                    occurrence_uri,
+                    DP + "representationRole",
+                    source_wording.get("representation_role"),
+                )
+                _add_literal(
+                    triples,
+                    occurrence_uri,
+                    DP + "directQuoteEligible",
+                    str(bool(source_wording.get("direct_quote_eligible"))).lower(),
+                )
+                _add_literal(
+                    triples,
+                    occurrence_uri,
+                    DP + "textSha256",
+                    source_wording.get("text_sha256"),
+                )
+                _add_literal(
+                    triples,
+                    occurrence_uri,
+                    SCHEMA + "inLanguage",
+                    source_wording.get("language"),
+                )
+                public_provenance = wording.get("public_provenance") or {}
+                for segment_id in public_provenance.get("segment_ids") or []:
+                    _add_literal(
+                        triples,
+                        occurrence_uri,
+                        DP + "sourceSegmentId",
+                        segment_id,
+                    )
+                for provenance_id in public_provenance.get("text_provenance_ids") or []:
+                    _add_literal(
+                        triples,
+                        occurrence_uri,
+                        DP + "sourceTextProvenanceId",
+                        provenance_id,
+                    )
+
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    DP + "wordingContractVersion",
+                    wording.get("version"),
+                )
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    DP + "wordingType",
+                    normalized_wording.get("wording_type"),
+                )
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    DP + "representationRole",
+                    normalized_wording.get("representation_role"),
+                )
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    DP + "directQuoteEligible",
+                    str(bool(normalized_wording.get("direct_quote_eligible"))).lower(),
+                )
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    DP + "sourceWordingType",
+                    normalized_wording.get("source_wording_type"),
+                )
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    DP + "textSha256",
+                    normalized_wording.get("text_sha256"),
+                )
+                _add_literal(
+                    triples,
+                    statement_uri,
+                    SCHEMA + "inLanguage",
+                    normalized_wording.get("language"),
+                )
+
+                for representation in wording.get("representations") or []:
+                    representation_hash = str(
+                        representation.get("text_sha256") or ""
+                    ).strip()
+                    if not representation_hash:
+                        continue
+                    representation_uri = public_resource_uri(
+                        "representation",
+                        f"{dossier['claim_id']}:{representation_hash}",
+                    )
+                    _add_uri(
+                        triples,
+                        statement_uri,
+                        DP + "hasRepresentation",
+                        representation_uri,
+                    )
+                    _add_uri(
+                        triples,
+                        representation_uri,
+                        RDF + "type",
+                        DP + "WordingRepresentation",
+                    )
+                    _add_uri(
+                        triples,
+                        representation_uri,
+                        PROV + "wasDerivedFrom",
+                        occurrence_uri,
+                    )
+                    for predicate, value in (
+                        ("wordingType", representation.get("wording_type")),
+                        ("representationRole", representation.get("representation_role")),
+                        ("textSha256", representation_hash),
+                        ("sourceWordingType", representation.get("source_wording_type")),
+                        ("sourceLanguage", representation.get("source_language")),
+                        ("reviewState", representation.get("review_state")),
+                        ("derivationMethod", representation.get("derivation_method")),
+                        ("derivationVersion", representation.get("derivation_version")),
+                    ):
+                        _add_literal(
+                            triples,
+                            representation_uri,
+                            DP + predicate,
+                            value,
+                        )
+                    _add_literal(
+                        triples,
+                        representation_uri,
+                        DP + "directQuoteEligible",
+                        str(bool(representation.get("direct_quote_eligible"))).lower(),
+                    )
+                    _add_literal(
+                        triples,
+                        representation_uri,
+                        SCHEMA + "inLanguage",
+                        representation.get("language"),
+                    )
+                    for signal_code in representation.get("signal_codes") or []:
+                        _add_literal(
+                            triples,
+                            representation_uri,
+                            DP + "signalCode",
+                            signal_code,
+                        )
 
         _add_uri(triples, person_uri, RDF + "type", SCHEMA + "Person")
         _add_literal(

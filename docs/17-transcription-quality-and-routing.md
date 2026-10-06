@@ -299,7 +299,7 @@ Non hardcodare Groq nella business logic.
 
 La policy eseguibile iniziale è versionata in:
 
-config/transcription-policy.v0.json
+config/transcription-policy.v1.json
 
 Il file registra:
 

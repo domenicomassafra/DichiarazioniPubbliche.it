@@ -394,6 +394,28 @@ class CandidateExtractionTests(unittest.TestCase):
             "REPORTED_SPEECH",
         )
         self.assertTrue(batch.claims[0].metadata["reported_origin_required"])
+        wording = batch.claims[0].metadata["wording"]
+        self.assertEqual(
+            wording["source_occurrence"]["wording_type"],
+            "REPORTED_QUOTE",
+        )
+        self.assertFalse(wording["source_occurrence"]["direct_quote_eligible"])
+        self.assertEqual(
+            wording["normalized_claim"]["source_wording_type"],
+            "REPORTED_QUOTE",
+        )
+        self.assertEqual(
+            wording["source_provenance"]["passage_id"],
+            child.id,
+        )
+        self.assertEqual(
+            wording["source_provenance"]["capture_id"],
+            "capture:1",
+        )
+        self.assertEqual(
+            wording["source_provenance"]["quote_local_start_char"],
+            QSTART,
+        )
         self.assertEqual(
             batch.claims[0].metadata["coverage_need_hint"]["need_type"],
             "ATTRIBUTION_GAP",
@@ -464,6 +486,20 @@ class CandidateExtractionTests(unittest.TestCase):
         self.assertEqual(
             batch.claims[0].metadata["context_integrity"]["state"],
             "CLEAR_AUTOMATIC",
+        )
+        wording = batch.claims[0].metadata["wording"]
+        self.assertEqual(
+            wording["source_occurrence"]["wording_type"],
+            "VERBATIM_ORIGINAL",
+        )
+        self.assertEqual(wording["source_occurrence"]["language"], "it")
+        self.assertEqual(
+            wording["source_provenance"]["canonical_segment_id"],
+            "segment:1",
+        )
+        self.assertEqual(
+            wording["source_provenance"]["selector_type"],
+            "MEDIA_SEGMENT_REF",
         )
 
     def test_success_keeps_value_judgment_searchable_but_non_checkworthy(self):

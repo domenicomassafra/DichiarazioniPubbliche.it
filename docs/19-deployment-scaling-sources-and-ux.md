@@ -209,7 +209,7 @@ Ogni source ricorrente dovrebbe avere:
 
 Il primo registry machine-readable è:
 
-config/source-registry.v0.json
+config/source-registry.v1.json
 
 Contiene già:
 

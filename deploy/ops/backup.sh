@@ -33,12 +33,15 @@ case "$KEEP" in
         ;;
 esac
 
-for tool in pg_dump psql pg_restore sha256sum; do
+for tool in pg_dump psql pg_restore sha256sum python3; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "BACKUP FAILED: required tool not found: $tool" >&2
         exit 2
     fi
 done
+
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
 
 umask 077
 mkdir -p "$BACKUP_ROOT"
@@ -71,21 +74,57 @@ fi
 # Row-count manifest taken from the live database at backup time. The restore
 # drill compares these against the restored database; it never re-derives them
 # from the restored side.
-TABLES="source person content_item content_locator content_capture capture_lifecycle_event research_collection \
+TABLES="source person person_alias organization person_role_interval content_item content_locator content_capture capture_lifecycle_event research_collection \
 research_collection_content research_discovery_manifest research_discovery_query research_discovery_run \
 research_discovery_attempt research_discovery_hit content_derivation_family content_derivation_candidate \
 proposition_cluster proposition_cluster_member topic topic_alias event event_alias organization_alias \
 candidate_match_run candidate_match_result \
-entity_identifier entity_resolution_candidate claim_topic_membership passage statement_candidate statement_candidate_passage \
+entity_identifier entity_resolution_candidate claim_topic_membership content_publication_candidate passage statement_candidate statement_candidate_passage \
 claim_candidate claim_candidate_promotion candidate_extraction_run entity_mention_candidate \
 source_profile source_evidence_role source_authority_scope source_relation \
 evidence_requirement_profile evidence_requirement_rule evidence_set_assessment \
-appearance transcript_variant transcript_segment canonical_transcript_segment \
+appearance transcript_variant transcript_segment canonical_transcript_segment canonical_segment_candidate \
 atomic_claim claim_segment claim_text_provenance evidence claim_evidence_candidate \
-evidence_observation verification_run inference_candidate review_event finding finding_evidence \
+private_source_rights_record evidence_observation verification_run inference_candidate claim_relation_candidate reanalysis_trigger \
+review_event privacy_publication_decision publication_review_event_durable finding finding_evidence \
 finding_assertion finding_assertion_citation \
+claim_relation right_of_reply correction private_high_risk_review_packet private_challenge_request private_challenge_event \
+existing_factcheck_lineage existing_factcheck_version existing_factcheck_mirror public_schema_contract \
 coverage_need coverage_need_event \
-provider_receipt processing_job speaker_identity_candidate"
+provider_receipt processing_job source_health source_poll_run source_poll_run_source speaker_identity_candidate \
+transcript_verbatim_review_event context_integrity_review_event provenance_dependency_graph_snapshot \
+provenance_hold_event_durable source_revalidation_snapshot_durable source_revalidation_event_durable"
+
+# The checked-in inventory remains human-reviewable, but it is not trusted by
+# itself.  Refuse to back up when it diverges from either the current repository
+# schema/migrations or PostgreSQL's live permanent public-table catalog.
+DECLARED_TABLES=$(PYTHONPATH="$REPO_ROOT/poc" python3 -m \
+    dichiarazioni_pubbliche.ops.table_inventory --repo-root "$REPO_ROOT") || {
+    echo "BACKUP FAILED: could not derive durable table inventory from repository SQL" >&2
+    exit 1
+}
+STATIC_TABLES=$(printf '%s\n' $TABLES | sort)
+if [ "$STATIC_TABLES" != "$DECLARED_TABLES" ]; then
+    echo "BACKUP FAILED: checked-in table inventory drifted from schema+migrations" >&2
+    exit 1
+fi
+if ! LIVE_TABLES=$(psql --dbname="$DATABASE_URL" --no-align --tuples-only --command="
+    SELECT c.relname
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind IN ('r','p')
+      AND c.relpersistence = 'p'
+    ORDER BY c.relname
+"); then
+    echo "BACKUP FAILED: could not inspect live durable table inventory" >&2
+    exit 1
+fi
+LIVE_TABLES=$(printf '%s\n' "$LIVE_TABLES" | sed '/^[[:space:]]*$/d')
+if [ "$LIVE_TABLES" != "$DECLARED_TABLES" ]; then
+    echo "BACKUP FAILED: live durable table inventory drifted from schema+migrations" >&2
+    exit 1
+fi
 
 {
     echo "{"

@@ -21,34 +21,31 @@ class RuntimePolicyTests(unittest.TestCase):
             json.loads((ROOT / "config" / "transcription-policy.v1.json").read_text()),
         )
 
-    def test_runtime_loaders_fall_back_to_v0_when_primary_is_absent(self):
+    def test_runtime_loaders_require_v1_when_default_primary_is_absent(self):
         from dichiarazioni_pubbliche import asr_router, source_watcher
 
+        self.assertFalse(hasattr(source_watcher, "FALLBACK_REGISTRY"))
+        self.assertFalse(hasattr(asr_router, "FALLBACK_POLICY"))
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            missing_registry = root / "source-registry.v1.json"
-            fallback_registry = root / "source-registry.v0.json"
-            fallback_registry.write_text('{"sources":[{"id":"legacy"}]}')
-            with (
-                patch.object(source_watcher, "PRIMARY_REGISTRY", missing_registry),
-                patch.object(source_watcher, "FALLBACK_REGISTRY", fallback_registry),
+            with patch.object(
+                source_watcher,
+                "PRIMARY_REGISTRY",
+                root / "source-registry.v1.json",
             ):
-                self.assertEqual(
-                    source_watcher.load_registry()["sources"][0]["id"],
-                    "legacy",
-                )
-
-            missing_policy = root / "transcription-policy.v1.json"
-            fallback_policy = root / "transcription-policy.v0.json"
-            fallback_policy.write_text('{"name":"transcription-policy-v0"}')
-            with (
-                patch.object(asr_router, "PRIMARY_POLICY", missing_policy),
-                patch.object(asr_router, "FALLBACK_POLICY", fallback_policy),
+                with self.assertRaises(FileNotFoundError):
+                    source_watcher.load_registry()
+            with patch.object(
+                asr_router,
+                "PRIMARY_POLICY",
+                root / "transcription-policy.v1.json",
             ):
-                self.assertEqual(
-                    asr_router.load_policy()["name"],
-                    "transcription-policy-v0",
-                )
+                with self.assertRaises(FileNotFoundError):
+                    asr_router.load_policy()
+        self.assertEqual(
+            asr_router.load_policy()["name"],
+            "transcription-policy-v1",
+        )
 
     def test_transcription_policy_never_persists_downloaded_video(self):
         policy = json.loads(

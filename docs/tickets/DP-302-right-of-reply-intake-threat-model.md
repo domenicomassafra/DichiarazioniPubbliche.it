@@ -179,19 +179,19 @@ until its security and legal launch blockers are closed.
   rollback runbook.
 
 ## Acceptance criteria
-- [ ] **AC-302.1:** The eventual intake contract accepts only the bounded fields in
+- [x] **AC-302.1:** The eventual intake contract accepts only the bounded fields in
   E-302-01 and rejects malformed, oversized, unsafe-URL, and wrong-type input with
   generic, non-reflective errors.
-- [ ] **AC-302.2:** A valid reply is stored `PRIVATE/RECEIVED`, receives a
+- [x] **AC-302.2:** A valid reply is stored `PRIVATE/RECEIVED`, receives a
   deterministic ID, and enqueues exactly one linked `RIGHT_OF_REPLY` re-analysis
   trigger.
-- [ ] **AC-302.3:** Duplicate and concurrent submissions cannot create duplicate
+- [x] **AC-302.3:** Duplicate and concurrent submissions cannot create duplicate
   public content, duplicate triggers, or wider provenance.
 - [ ] **AC-302.4:** Rate/quota, queue, and concurrency tests demonstrate bounded
   memory, bounded work, and a stable response when the reviewer/provider is down.
-- [ ] **AC-302-5:** URL fixtures prove that intake performs no DNS, redirect, HTTP,
+- [x] **AC-302-5:** URL fixtures prove that intake performs no DNS, redirect, HTTP,
   screenshot, or embedding operation.
-- [ ] **AC-302.6:** Logs and public receipts are inspected to confirm that bodies,
+- [x] **AC-302.6:** Logs and public receipts are inspected to confirm that bodies,
   identity fields, raw request data, and unnecessary fingerprint data are absent.
 - [ ] **AC-302-7:** Parent Finding approval, processed re-analysis, reply approval,
   visibility, and status are all required before the reply appears in any public
@@ -278,3 +278,45 @@ public intake remains DISABLED; legal/security closure BLOCKING.**
 Repository checks run: `compileall` OK; full suite green (515 tests);
 `git diff --check` clean. Public intake stays disabled pending DP-306/DP-307 and an
 operator-accepted launch profile + MiniPC canary (AC-302.10).
+
+## Implementation receipt — runtime edge follow-up (2026-10-05)
+
+Status: **callable private-intake adapter implemented and locally proven; public intake
+remains DISABLED and launch remains BLOCKED.** No HTTP listener or endpoint was opened.
+
+Implemented `poc/dichiarazioni_pubbliche/right_of_reply_intake.py`, composing the existing
+`policy/intake_policy.py` validator/rate decision with
+`review_admin.record_right_of_reply`. The adapter defaults to an unconfigured/disabled
+launch profile and will not persist until the caller supplies both an explicitly enabled
+launch profile and caller-owned rate/quota state. It performs no DNS, HTTP, redirect,
+fetch, provider, or publication operation.
+
+Persistence remains owned by the existing API: the submission is inserted through
+`record_right_of_reply`, whose store contract creates `RECEIVED/PRIVATE` and a
+deterministic `RIGHT_OF_REPLY` re-analysis trigger. The adapter observes the existing
+`insert_right_of_reply()` and `enqueue_followup()` idempotency booleans without adding a
+query or schema field: `true/true` is a new receipt, `false/false` is a completed
+duplicate replay, and a mixed result is reported as a concurrent replay/race. The
+canonical intake fingerprint is used only inside validation/idempotency handling and is
+not emitted in the public acknowledgement or loggable receipt.
+
+The acknowledgement is capped and contains only receipt metadata (`receipt_id`, policy
+version, UTC receipt time, generic `RECEIVED_PRIVATE` state). It contains no body,
+identity, evidence URL, raw fingerprint, acceptance/approval/publication claim, or raw
+persistence error. Rejected, quarantined, quota-blocked, and rate-deferred requests do
+not enter the persistence path in this adapter.
+
+Focused proof in `tests/test_right_of_reply_intake.py` (13 tests): valid private receipt;
+invalid-before-store; quota reject; rate defer; missing caller rate state; DNS/network
+forbidden; no fetch/provider/publication; deterministic duplicate replay; concurrent
+replay distinction; canonical fingerprint not logged; private body/name/reference not in
+ack/loggable receipt; private persistence-error redaction; quarantine does not persist.
+The existing 41 policy tests and 13 `review_admin` tests also remain green in the focused
+run (54 tests total).
+
+**AC evidence from this follow-up:** AC-302.1 PASS; AC-302.2 PASS at the callable/store
+contract seam; AC-302.3 PASS for deterministic duplicate/concurrent adapter replay;
+AC-302-5 PASS; AC-302.6 PASS. AC-302.4 remains open beyond the proven caller-supplied
+rate/quota decision because bounded queue/load/outage acceptance is not implemented here.
+AC-302-7..10 remain open: no projection work was changed, no append-only abuse-event
+runtime or retention/legal-hold lifecycle was added, and no MiniPC load canary was run.

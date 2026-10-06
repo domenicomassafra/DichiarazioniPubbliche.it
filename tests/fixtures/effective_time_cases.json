@@ -1,0 +1,150 @@
+[
+  {
+    "id": "historical-law-version-remains-valid-for-past-state",
+    "statement_date": "2026-05-01",
+    "as_of": "2026-05-01",
+    "scope": "HISTORICAL",
+    "versions": [
+      {
+        "version_id": "law-v1",
+        "valid_from": "2026-01-01",
+        "valid_to": null,
+        "publication_date": "2025-12-20",
+        "superseded_at": "2026-07-01",
+        "authority_id": "normattiva",
+        "record_status": "SUPERSEDED"
+      }
+    ],
+    "expected": {
+      "status": "EFFECTIVE",
+      "selected_version_id": "law-v1",
+      "blockers": []
+    }
+  },
+  {
+    "id": "superseded-policy-cannot-be-current",
+    "statement_date": "2026-05-01",
+    "as_of": "2026-10-05",
+    "scope": "CURRENT",
+    "versions": [
+      {
+        "version_id": "policy-v1",
+        "valid_from": "2026-01-01",
+        "valid_to": null,
+        "publication_date": "2026-01-01",
+        "authority_id": "ministry-policy",
+        "record_status": "SUPERSEDED"
+      }
+    ],
+    "expected": {
+      "status": "UNRESOLVED",
+      "selected_version_id": null,
+      "blockers": ["STALE_VERSION_WITHOUT_EFFECTIVE_END"]
+    }
+  },
+  {
+    "id": "current-policy-selects-active-replacement",
+    "statement_date": "2026-05-01",
+    "as_of": "2026-10-05",
+    "scope": "CURRENT",
+    "versions": [
+      {
+        "version_id": "policy-v1",
+        "valid_from": "2026-01-01",
+        "valid_to": "2026-07-01",
+        "publication_date": "2026-01-01",
+        "superseded_at": "2026-07-01",
+        "authority_id": "ministry-policy",
+        "record_status": "SUPERSEDED"
+      },
+      {
+        "version_id": "policy-v2",
+        "valid_from": "2026-07-01",
+        "valid_to": null,
+        "publication_date": "2026-06-20",
+        "authority_id": "ministry-policy",
+        "record_status": "ACTIVE"
+      }
+    ],
+    "expected": {
+      "status": "EFFECTIVE",
+      "selected_version_id": "policy-v2",
+      "blockers": []
+    }
+  },
+  {
+    "id": "old-reference-period-does-not-make-future-statistics-historical",
+    "statement_date": "2026-06-01",
+    "as_of": "2026-06-01",
+    "scope": "HISTORICAL",
+    "versions": [
+      {
+        "version_id": "stats-2025-final",
+        "valid_from": "2025-01-01",
+        "valid_to": null,
+        "publication_date": "2026-06-10",
+        "observation_date": "2026-06-11",
+        "reference_period": "2025",
+        "authority_id": "istat",
+        "record_status": "ACTIVE"
+      }
+    ],
+    "expected": {
+      "status": "INSUFFICIENT",
+      "selected_version_id": null,
+      "blockers": ["POST_STATEMENT_EVIDENCE"]
+    }
+  },
+  {
+    "id": "later-outcome-allows-explicit-post-statement-statistics",
+    "statement_date": "2026-06-01",
+    "as_of": "2026-06-15",
+    "scope": "LATER_OUTCOME",
+    "versions": [
+      {
+        "version_id": "stats-2025-final",
+        "valid_from": "2025-01-01",
+        "valid_to": null,
+        "publication_date": "2026-06-10",
+        "observation_date": "2026-06-11",
+        "reference_period": "2025",
+        "authority_id": "istat",
+        "record_status": "ACTIVE"
+      }
+    ],
+    "expected": {
+      "status": "EFFECTIVE",
+      "selected_version_id": "stats-2025-final",
+      "blockers": []
+    }
+  },
+  {
+    "id": "incompatible-authorities-overlap-fails-closed",
+    "statement_date": "2026-06-01",
+    "as_of": "2026-06-01",
+    "scope": "HISTORICAL",
+    "versions": [
+      {
+        "version_id": "record-a",
+        "valid_from": "2026-01-01",
+        "valid_to": null,
+        "publication_date": "2026-01-01",
+        "authority_id": "authority-a",
+        "record_status": "ACTIVE"
+      },
+      {
+        "version_id": "record-b",
+        "valid_from": "2026-01-01",
+        "valid_to": null,
+        "publication_date": "2026-01-01",
+        "authority_id": "authority-b",
+        "record_status": "ACTIVE"
+      }
+    ],
+    "expected": {
+      "status": "UNRESOLVED",
+      "selected_version_id": null,
+      "blockers": ["CONFLICTING_AUTHORITIES"]
+    }
+  }
+]

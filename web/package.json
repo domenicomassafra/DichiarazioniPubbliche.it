@@ -8,7 +8,14 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "check:design": "node scripts/check-design-system.mjs"
+    "check:design": "node scripts/check-design-system.mjs",
+    "check:search": "node --experimental-strip-types scripts/check-search-index.mjs",
+    "check:quality": "node scripts/check-public-quality.mjs",
+    "check:routes": "node scripts/check-route-contract.mjs",
+    "check:trust": "node scripts/check-trust-disclosure.mjs",
+    "check:corrections": "node scripts/check-correction-consistency.mjs",
+    "check:browser": "node scripts/check-browser-qa.mjs",
+    "check:rebuild": "python3 scripts/check_dp431_rebuild.py"
   },
   "dependencies": {
     "@astrojs/react": "7.0.0",

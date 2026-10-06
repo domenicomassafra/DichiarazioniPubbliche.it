@@ -8,8 +8,8 @@ versioning for stable public contracts.
 
 ## [Unreleased]
 
-No released heading exists yet: this repository has no configured Git remote, tag, or
-published package. The version below `## [Unreleased]` is a development snapshot and
+No released heading exists yet: this repository has a canonical Git remote but no release
+tag or published package. The version below `## [Unreleased]` is a development snapshot and
 makes no compatibility promise. See
 [`docs/release/versioning-policy.md`](docs/release/versioning-policy.md).
 
@@ -46,13 +46,14 @@ makes no compatibility promise. See
 
 ### Known blocked items
 
-- release authority is `BLOCKED` — no canonical Git remote, registry, signing key, or
-  confirmed public URL; nothing in this change creates one (DP-604);
+- release authority is `BLOCKED` — registry/signing, legal, dataset, hosting, and owner
+  approval gates remain incomplete even though the canonical Git remote exists (DP-604);
 - six real public-source fixture rows (Raffaele Giuliani and Beppe Grillo content from
   Instagram/TikTok/YouTube) are `blocked` for redistribution: public availability is not
   a grant, and DP-304/DP-305/DP-306/DP-307 review is required before they may ship
   (DP-603);
-- the final public security contact remains an owner decision while no remote exists.
+- the final public security contact remains an owner decision until one is explicitly
+  approved and published through the project security process.
 
 ### Security / hardening
 

@@ -241,6 +241,13 @@ Sul MiniPC:
 - config e source registry;
 - secrets esclusi.
 
+DP-311 reviewer-authority credentials remain excluded from the ordinary PostgreSQL/public
+backup. Historical review receipts must remain verifiable after restart/restore, so the
+private authority root requires a separate operator-controlled secret-backup/recovery procedure
+before production use. The repository does not copy that root into DB dumps, public artifacts
+or general config backups and does not prescribe a vendor-specific secret store. If the
+authority root is unavailable after restore, publication remains held.
+
 Il media transient non va incluso nei backup.
 
 ## Retention suggested defaults
@@ -257,7 +264,7 @@ Il media transient non va incluso nei backup.
 
 La policy machine-readable iniziale è:
 
-config/transcription-policy.v0.json
+config/transcription-policy.v1.json
 
 ## Storage budget
 

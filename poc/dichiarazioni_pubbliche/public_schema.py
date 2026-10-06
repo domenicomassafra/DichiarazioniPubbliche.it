@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from typing import Any
+from urllib.parse import urlsplit
 
 from dichiarazioni_pubbliche.domain_vocabulary import (
     ClaimType,
     FindingPublicationStatus,
     VerificationAssessment,
 )
+from dichiarazioni_pubbliche.public_internal_guard import forbidden_public_internal_paths
 
 PUBLIC_SCHEMA_VERSION = "dichiarazioni-pubbliche-public-v2"
 
@@ -59,8 +62,68 @@ DOSSIER_ALLOWED_KEYS = frozenset(
         "rights_of_reply",
         "relations",
         "source_methodology",
+        "wording",
     }
 )
+
+PUBLIC_SOURCE_WORDING_TYPES = frozenset({"VERBATIM_ORIGINAL", "REPORTED_QUOTE"})
+PUBLIC_DERIVED_WORDING_TYPES = frozenset({"PARAPHRASE", "SUMMARY", "TRANSLATION"})
+PUBLIC_TRANSLATION_REVIEW_STATES = frozenset(
+    {"NEEDS_REVIEW", "HUMAN_REVIEWED", "REJECTED"}
+)
+PUBLIC_WORDING_SOURCE_ROLE = "SOURCE_OCCURRENCE"
+PUBLIC_WORDING_DERIVED_ROLE = "DERIVED_REPRESENTATION"
+
+WORDING_REQUIRED_KEYS = frozenset(
+    {"version", "source_occurrence", "normalized_claim", "representations", "public_provenance"}
+)
+WORDING_ALLOWED_KEYS = WORDING_REQUIRED_KEYS
+WORDING_SOURCE_REQUIRED_KEYS = frozenset(
+    {
+        "occurrence_id",
+        "wording_type",
+        "text_sha256",
+        "language",
+        "direct_quote_eligible",
+        "representation_role",
+    }
+)
+WORDING_SOURCE_ALLOWED_KEYS = WORDING_SOURCE_REQUIRED_KEYS
+WORDING_NORMALIZED_REQUIRED_KEYS = frozenset(
+    {
+        "wording_type",
+        "text_sha256",
+        "source_occurrence_id",
+        "source_wording_type",
+        "language",
+        "derivation_method",
+        "derivation_version",
+        "direct_quote_eligible",
+        "representation_role",
+    }
+)
+WORDING_NORMALIZED_ALLOWED_KEYS = WORDING_NORMALIZED_REQUIRED_KEYS
+WORDING_REPRESENTATION_REQUIRED_KEYS = frozenset(
+    {
+        "wording_type",
+        "text_sha256",
+        "source_occurrence_id",
+        "source_wording_type",
+        "language",
+        "source_language",
+        "derivation_method",
+        "derivation_version",
+        "review_state",
+        "signal_codes",
+        "direct_quote_eligible",
+        "representation_role",
+    }
+)
+WORDING_REPRESENTATION_ALLOWED_KEYS = WORDING_REPRESENTATION_REQUIRED_KEYS
+WORDING_PROVENANCE_REQUIRED_KEYS = frozenset(
+    {"segment_ids", "text_provenance_ids"}
+)
+WORDING_PROVENANCE_ALLOWED_KEYS = WORDING_PROVENANCE_REQUIRED_KEYS
 
 PROJECTION_BUNDLE_REQUIRED_KEYS = frozenset(
     {
@@ -84,6 +147,7 @@ PROJECTION_BUNDLE_ALLOWED_KEYS = frozenset(
         "omitted_count",
         "dossiers",
         "topics",
+        "contents",
     }
 )
 
@@ -112,6 +176,47 @@ TOPIC_MEMBERSHIP_REQUIRED_KEYS = frozenset(
 )
 
 TOPIC_MEMBERSHIP_ALLOWED_KEYS = TOPIC_MEMBERSHIP_REQUIRED_KEYS
+
+CONTENT_REQUIRED_KEYS = frozenset(
+    {
+        "content_id",
+        "slug",
+        "url",
+        "title",
+        "published_at",
+        "content_kind",
+        "duration_ms",
+        "public_media_url",
+        "media_policy_version",
+        "publication_version",
+        "review_event_ids",
+        "finding_ids",
+    }
+)
+
+CONTENT_ALLOWED_KEYS = CONTENT_REQUIRED_KEYS
+CONTENT_KINDS = frozenset({"VIDEO", "AUDIO", "WRITTEN", "OTHER"})
+
+
+def projection_dataset_sha256(bundle: dict[str, Any]) -> str:
+    """Return the canonical dataset fingerprint for the collections present.
+
+    Older public-v2 bundles can omit newer additive collections. Their historical
+    fingerprint remains defined over the collections that actually exist in that
+    bundle; DP-434 bundles include ``contents`` and therefore bind it into the hash.
+    """
+    material: dict[str, Any] = {"dossiers": bundle.get("dossiers", [])}
+    if "topics" in bundle:
+        material["topics"] = bundle.get("topics", [])
+    if "contents" in bundle:
+        material["contents"] = bundle.get("contents", [])
+    canonical = json.dumps(
+        material,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(canonical).hexdigest()
 
 FORBIDDEN_KEY_SUBSTRINGS = (
     "ratingvalue",
@@ -158,6 +263,32 @@ FORBIDDEN_EXACT_KEY_NAMES = frozenset(
     }
 )
 
+PRIVATE_IDENTITY_KEY_NAMES = frozenset(
+    {
+        "public_attribution_input",
+        "publicattributioninput",
+        "retrieval_score",
+        "retrievalscore",
+        "supporting_features",
+        "supportingfeatures",
+        "contradicting_features",
+        "contradictingfeatures",
+        "speaker_label",
+        "speakerlabel",
+        "identifier_value",
+        "identifiervalue",
+        "mention_text",
+        "mentiontext",
+        "resolution_method",
+        "resolutionmethod",
+        "resolution_version",
+        "resolutionversion",
+        "confidence",
+        "alias",
+        "aliases",
+    }
+)
+
 FORBIDDEN_JSON_KEY_PATTERN = re.compile(
     r'"(?:ratingValue|bestRating|worstRating|ratingExplanation|reviewRating|numericRating|'
     r'reliability_score|person_score|aggregate_score|political_score|truth_score|trust_score|'
@@ -181,6 +312,10 @@ def _scan_forbidden_tokens(data: Any, path: str = "") -> None:
             k_clean = k_norm.replace("_", "")
             current_path = f"{path}.{k_str}" if path else k_str
 
+            if k_norm in PRIVATE_IDENTITY_KEY_NAMES or k_clean in PRIVATE_IDENTITY_KEY_NAMES:
+                raise PublicSchemaValidationError(
+                    f"Private identity-resolution field '{current_path}' is forbidden in public schema"
+                )
             if (
                 k_norm in FORBIDDEN_EXACT_KEY_NAMES
                 or k_clean in FORBIDDEN_EXACT_KEY_NAMES
@@ -197,6 +332,238 @@ def _scan_forbidden_tokens(data: Any, path: str = "") -> None:
     elif isinstance(data, list):
         for idx, item in enumerate(data):
             _scan_forbidden_tokens(item, f"{path}[{idx}]")
+
+
+def _validate_sha256(value: object, *, field: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise PublicSchemaValidationError(f"{field} must be a lowercase sha256")
+    return value
+
+
+def _validate_exact_keys(
+    value: object,
+    *,
+    field: str,
+    required: frozenset[str],
+    allowed: frozenset[str],
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise PublicSchemaValidationError(f"{field} must be a dictionary")
+    unknown = set(value) - allowed
+    if unknown:
+        raise PublicSchemaValidationError(
+            f"unknown {field} key(s): {', '.join(sorted(unknown))}"
+        )
+    missing = [key for key in required if key not in value]
+    if missing:
+        raise PublicSchemaValidationError(
+            f"missing {field} key(s): {', '.join(sorted(missing))}"
+        )
+    return value
+
+
+def _validate_public_wording(
+    wording: object,
+    *,
+    claim_text: str | None,
+    source: dict[str, Any],
+) -> None:
+    contract = _validate_exact_keys(
+        wording,
+        field="wording",
+        required=WORDING_REQUIRED_KEYS,
+        allowed=WORDING_ALLOWED_KEYS,
+    )
+    if contract["version"] != "wording-contract-v1":
+        raise PublicSchemaValidationError("wording.version is unsupported")
+
+    source_occurrence = _validate_exact_keys(
+        contract["source_occurrence"],
+        field="wording.source_occurrence",
+        required=WORDING_SOURCE_REQUIRED_KEYS,
+        allowed=WORDING_SOURCE_ALLOWED_KEYS,
+    )
+    occurrence_id = source_occurrence["occurrence_id"]
+    if not isinstance(occurrence_id, str) or not occurrence_id.strip():
+        raise PublicSchemaValidationError(
+            "wording.source_occurrence.occurrence_id must be non-empty"
+        )
+    source_type = source_occurrence["wording_type"]
+    if source_type not in PUBLIC_SOURCE_WORDING_TYPES:
+        raise PublicSchemaValidationError(
+            "wording.source_occurrence.wording_type is not canonical"
+        )
+    _validate_sha256(
+        source_occurrence["text_sha256"],
+        field="wording.source_occurrence.text_sha256",
+    )
+    source_language = source_occurrence["language"]
+    if source_language is not None and (
+        not isinstance(source_language, str) or not source_language.strip()
+    ):
+        raise PublicSchemaValidationError(
+            "wording.source_occurrence.language must be a string or None"
+        )
+    expected_direct = source_type == "VERBATIM_ORIGINAL"
+    if source_occurrence["direct_quote_eligible"] is not expected_direct:
+        raise PublicSchemaValidationError(
+            "wording.source_occurrence direct-quote authority is inconsistent"
+        )
+    if source_occurrence["representation_role"] != PUBLIC_WORDING_SOURCE_ROLE:
+        raise PublicSchemaValidationError(
+            "wording.source_occurrence representation_role is invalid"
+        )
+
+    normalized = _validate_exact_keys(
+        contract["normalized_claim"],
+        field="wording.normalized_claim",
+        required=WORDING_NORMALIZED_REQUIRED_KEYS,
+        allowed=WORDING_NORMALIZED_ALLOWED_KEYS,
+    )
+    if normalized["wording_type"] != "PARAPHRASE":
+        raise PublicSchemaValidationError(
+            "wording.normalized_claim must be PARAPHRASE"
+        )
+    normalized_hash = _validate_sha256(
+        normalized["text_sha256"],
+        field="wording.normalized_claim.text_sha256",
+    )
+    if claim_text is None:
+        raise PublicSchemaValidationError(
+            "wording metadata requires a public normalized claim"
+        )
+    if hashlib.sha256(claim_text.encode("utf-8")).hexdigest() != normalized_hash:
+        raise PublicSchemaValidationError(
+            "wording.normalized_claim hash does not match claim"
+        )
+    if normalized["source_occurrence_id"] != occurrence_id:
+        raise PublicSchemaValidationError(
+            "wording.normalized_claim source occurrence mismatch"
+        )
+    if normalized["source_wording_type"] != source_type:
+        raise PublicSchemaValidationError(
+            "wording.normalized_claim source wording type mismatch"
+        )
+    if normalized["direct_quote_eligible"] is not False:
+        raise PublicSchemaValidationError(
+            "wording.normalized_claim cannot be direct-quote eligible"
+        )
+    if normalized["representation_role"] != PUBLIC_WORDING_DERIVED_ROLE:
+        raise PublicSchemaValidationError(
+            "wording.normalized_claim representation_role is invalid"
+        )
+    for key in ("derivation_method", "derivation_version"):
+        if not isinstance(normalized[key], str) or not normalized[key].strip():
+            raise PublicSchemaValidationError(
+                f"wording.normalized_claim.{key} must be non-empty"
+            )
+
+    representations = contract["representations"]
+    if not isinstance(representations, list) or len(representations) > 16:
+        raise PublicSchemaValidationError(
+            "wording.representations must be a bounded list"
+        )
+    for index, representation_raw in enumerate(representations):
+        representation = _validate_exact_keys(
+            representation_raw,
+            field=f"wording.representations[{index}]",
+            required=WORDING_REPRESENTATION_REQUIRED_KEYS,
+            allowed=WORDING_REPRESENTATION_ALLOWED_KEYS,
+        )
+        wording_type = representation["wording_type"]
+        if wording_type not in PUBLIC_DERIVED_WORDING_TYPES:
+            raise PublicSchemaValidationError(
+                "wording representation type is not canonical"
+            )
+        _validate_sha256(
+            representation["text_sha256"],
+            field=f"wording.representations[{index}].text_sha256",
+        )
+        if representation["source_occurrence_id"] != occurrence_id:
+            raise PublicSchemaValidationError(
+                "wording representation source occurrence mismatch"
+            )
+        if representation["source_wording_type"] != source_type:
+            raise PublicSchemaValidationError(
+                "wording representation source type mismatch"
+            )
+        if representation["direct_quote_eligible"] is not False:
+            raise PublicSchemaValidationError(
+                "derived wording cannot be direct-quote eligible"
+            )
+        if representation["representation_role"] != PUBLIC_WORDING_DERIVED_ROLE:
+            raise PublicSchemaValidationError(
+                "wording representation role is invalid"
+            )
+        for key in ("derivation_method", "derivation_version"):
+            if not isinstance(representation[key], str) or not representation[key].strip():
+                raise PublicSchemaValidationError(
+                    f"wording representation {key} must be non-empty"
+                )
+        signal_codes = representation["signal_codes"]
+        if (
+            not isinstance(signal_codes, list)
+            or len(signal_codes) > 32
+            or not all(isinstance(code, str) and code.strip() for code in signal_codes)
+        ):
+            raise PublicSchemaValidationError(
+                "wording representation signal_codes are invalid"
+            )
+        if wording_type == "TRANSLATION":
+            if representation["source_language"] != source_language:
+                raise PublicSchemaValidationError(
+                    "translation source language does not match source occurrence"
+                )
+            if not isinstance(representation["language"], str) or not representation[
+                "language"
+            ].strip():
+                raise PublicSchemaValidationError(
+                    "translation target language is required"
+                )
+            if representation["review_state"] not in PUBLIC_TRANSLATION_REVIEW_STATES:
+                raise PublicSchemaValidationError(
+                    "translation review_state is not canonical"
+                )
+
+    provenance = _validate_exact_keys(
+        contract["public_provenance"],
+        field="wording.public_provenance",
+        required=WORDING_PROVENANCE_REQUIRED_KEYS,
+        allowed=WORDING_PROVENANCE_ALLOWED_KEYS,
+    )
+    segment_ids = provenance["segment_ids"]
+    text_ids = provenance["text_provenance_ids"]
+    if not isinstance(segment_ids, list) or not isinstance(text_ids, list):
+        raise PublicSchemaValidationError(
+            "wording.public_provenance channels must be lists"
+        )
+    if len(segment_ids) > 64 or len(text_ids) > 64:
+        raise PublicSchemaValidationError(
+            "wording.public_provenance channels are unbounded"
+        )
+    if not all(isinstance(item, str) and item.strip() for item in segment_ids + text_ids):
+        raise PublicSchemaValidationError(
+            "wording.public_provenance contains invalid ids"
+        )
+    public_segment_ids = {
+        str(item.get("segment_id")) for item in source.get("segments", [])
+    }
+    public_text_ids = {
+        str(item.get("id")) for item in source.get("text_provenance", [])
+    }
+    if set(segment_ids) != public_segment_ids or set(text_ids) != public_text_ids:
+        raise PublicSchemaValidationError(
+            "wording.public_provenance does not match public source provenance"
+        )
+    if text_ids:
+        public_quote_hashes = {
+            str(item.get("quote_sha256") or "")
+            for item in source.get("text_provenance", [])
+        }
+        if source_occurrence["text_sha256"] not in public_quote_hashes:
+            raise PublicSchemaValidationError(
+                "wording source hash does not match public text provenance"
+            )
 
 
 def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
@@ -230,6 +597,12 @@ def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
         and not isinstance(dossier["claim"], str)
     ):
         raise PublicSchemaValidationError("claim must be a string or None")
+
+    private_paths = forbidden_public_internal_paths(dossier)
+    if private_paths:
+        raise PublicSchemaValidationError(
+            "dossier contains internal-only material: " + ", ".join(private_paths[:8])
+        )
 
     # Forbidden fields / scoring / person aggregates
     _scan_forbidden_tokens(dossier)
@@ -324,6 +697,13 @@ def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
         raise PublicSchemaValidationError(
             "source requires segments or text_provenance"
         )
+    wording = dossier.get("wording")
+    if wording is not None:
+        _validate_public_wording(
+            wording,
+            claim_text=dossier.get("claim"),
+            source=dossier["source"],
+        )
 
     if not isinstance(dossier["evidence"], list) or not dossier["evidence"]:
         raise PublicSchemaValidationError("evidence must be a non-empty list")
@@ -411,6 +791,92 @@ def validate_topic(topic: dict[str, Any]) -> dict[str, Any]:
     return topic
 
 
+def _validate_public_url(value: object, *, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise PublicSchemaValidationError(f"{field} must be a non-empty URL string")
+    parsed = urlsplit(value.strip())
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+    ):
+        raise PublicSchemaValidationError(f"{field} must be a safe public http(s) URL")
+    return value
+
+
+def validate_content(content: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(content, dict):
+        raise PublicSchemaValidationError("content must be a dictionary")
+    unknown = set(content) - CONTENT_ALLOWED_KEYS
+    if unknown:
+        raise PublicSchemaValidationError(
+            f"unknown content key(s): {', '.join(sorted(unknown))}"
+        )
+    missing = [
+        key
+        for key in CONTENT_REQUIRED_KEYS
+        if key not in content
+        or (
+            key
+            not in {
+                "published_at",
+                "duration_ms",
+                "public_media_url",
+                "media_policy_version",
+            }
+            and content[key] is None
+        )
+    ]
+    if missing:
+        raise PublicSchemaValidationError(
+            f"missing content key(s): {', '.join(sorted(missing))}"
+        )
+    for key in ("content_id", "slug", "title", "publication_version"):
+        if not isinstance(content[key], str) or not content[key].strip():
+            raise PublicSchemaValidationError(f"content.{key} must be a non-empty string")
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", content["slug"]):
+        raise PublicSchemaValidationError("content.slug must be a canonical lowercase slug")
+    _validate_public_url(content["url"], field="content.url")
+    if content["published_at"] is not None and not isinstance(content["published_at"], str):
+        raise PublicSchemaValidationError("content.published_at must be a string or None")
+    if content["content_kind"] not in CONTENT_KINDS:
+        raise PublicSchemaValidationError("content.content_kind is not canonical")
+    if content["publication_version"] != "public-content-v1":
+        raise PublicSchemaValidationError("content.publication_version is unsupported")
+    duration = content["duration_ms"]
+    if duration is not None and (
+        isinstance(duration, bool) or not isinstance(duration, int) or duration < 0
+    ):
+        raise PublicSchemaValidationError("content.duration_ms must be a non-negative integer or None")
+    if content["content_kind"] not in {"VIDEO", "AUDIO"} and duration is not None:
+        raise PublicSchemaValidationError("non-timed content cannot publish duration_ms")
+    media_url = content["public_media_url"]
+    media_policy = content["media_policy_version"]
+    if media_url is not None:
+        _validate_public_url(media_url, field="content.public_media_url")
+        if content["content_kind"] not in {"VIDEO", "AUDIO"}:
+            raise PublicSchemaValidationError("public_media_url requires timed media content")
+        if not isinstance(media_policy, str) or not media_policy.strip():
+            raise PublicSchemaValidationError("public_media_url requires media_policy_version")
+    elif media_policy is not None and (
+        not isinstance(media_policy, str) or not media_policy.strip()
+    ):
+        raise PublicSchemaValidationError("content.media_policy_version must be a string or None")
+    if not isinstance(content["review_event_ids"], list) or not content["review_event_ids"]:
+        raise PublicSchemaValidationError("content.review_event_ids must be a non-empty list")
+    if not all(isinstance(item, str) and item.strip() for item in content["review_event_ids"]):
+        raise PublicSchemaValidationError("content.review_event_ids contains an invalid id")
+    if not isinstance(content["finding_ids"], list):
+        raise PublicSchemaValidationError("content.finding_ids must be a list")
+    if len(content["finding_ids"]) != len(set(content["finding_ids"])):
+        raise PublicSchemaValidationError("content.finding_ids must not contain duplicates")
+    if not all(isinstance(item, str) and item.strip() for item in content["finding_ids"]):
+        raise PublicSchemaValidationError("content.finding_ids contains an invalid id")
+    _scan_forbidden_tokens(content)
+    return content
+
+
 def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(bundle, dict):
         raise PublicSchemaValidationError("bundle must be a dictionary")
@@ -488,6 +954,41 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                         "topic membership finding/claim mismatch"
                     )
 
+    contents = bundle.get("contents", [])
+    if not isinstance(contents, list):
+        raise PublicSchemaValidationError("bundle contents must be a list")
+    public_findings = {
+        str(dossier["finding_id"]): str(dossier["source"]["content_id"])
+        for dossier in bundle["dossiers"]
+    }
+    seen_content_ids: set[str] = set()
+    seen_content_slugs: set[str] = set()
+    for content in contents:
+        validate_content(content)
+        if content["content_id"] in seen_content_ids:
+            raise PublicSchemaValidationError("duplicate public content_id")
+        if content["slug"] in seen_content_slugs:
+            raise PublicSchemaValidationError("duplicate public content slug")
+        seen_content_ids.add(content["content_id"])
+        seen_content_slugs.add(content["slug"])
+        for finding_id in content["finding_ids"]:
+            owner = public_findings.get(finding_id)
+            if owner is None:
+                raise PublicSchemaValidationError(
+                    "content references a non-public finding"
+                )
+            if owner != content["content_id"]:
+                raise PublicSchemaValidationError(
+                    "content finding belongs to a different source content_id"
+                )
+
+    if "contents" in bundle:
+        expected_fingerprint = projection_dataset_sha256(bundle)
+        if bundle["dataset_sha256"] != expected_fingerprint:
+            raise PublicSchemaValidationError(
+                "dataset_sha256 does not match dossiers/topics/contents"
+            )
+
     return bundle
 
 
@@ -499,12 +1000,17 @@ __all__ = [
     "PUBLIC_FINDING_STATUSES",
     "PUBLIC_SCHEMA_VERSION",
     "PUBLISHABLE_ASSESSMENTS",
+    "CONTENT_ALLOWED_KEYS",
+    "CONTENT_KINDS",
+    "CONTENT_REQUIRED_KEYS",
     "TOPIC_ALLOWED_KEYS",
     "TOPIC_MEMBERSHIP_ALLOWED_KEYS",
     "TOPIC_MEMBERSHIP_REQUIRED_KEYS",
     "TOPIC_REQUIRED_KEYS",
     "PublicSchemaValidationError",
+    "projection_dataset_sha256",
     "validate_dossier",
+    "validate_content",
     "validate_public_bundle",
     "validate_topic",
 ]

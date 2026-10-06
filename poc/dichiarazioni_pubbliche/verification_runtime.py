@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from typing import Any, Iterable
@@ -141,6 +142,7 @@ def _numeric_input(
     *,
     metric: str,
     reference_period: str | None,
+    required_dimensions: dict[str, Any] | None = None,
 ) -> tuple[str, VerificationEvidence | None, float | None, tuple[str, ...], str | None]:
     cutoff = _parse_date(request.statement_date, "STATEMENT_DATE")
     matched = [
@@ -150,6 +152,25 @@ def _numeric_input(
         and item.value_numeric is not None
         and (reference_period is None or item.reference_period == reference_period)
     ]
+    if required_dimensions:
+        dimension_matched = [
+            item
+            for item in matched
+            if isinstance(item.metadata.get("dimensions"), dict)
+            and all(
+                item.metadata["dimensions"].get(key) == value
+                for key, value in required_dimensions.items()
+            )
+        ]
+        if not dimension_matched:
+            return (
+                "INSUFFICIENT",
+                None,
+                None,
+                _evidence_ids(matched),
+                "NUMERIC_DIMENSION_MISMATCH",
+            )
+        matched = dimension_matched
     before = [
         item
         for item in matched
@@ -179,6 +200,8 @@ def _numeric_pair_inputs(
     right_metric: str,
     left_reference_period: str | None,
     right_reference_period: str | None,
+    left_dimensions: dict[str, Any] | None = None,
+    right_dimensions: dict[str, Any] | None = None,
 ) -> tuple[
     VerificationEvidence | None,
     float | None,
@@ -191,12 +214,14 @@ def _numeric_pair_inputs(
         evidence,
         metric=left_metric,
         reference_period=left_reference_period,
+        required_dimensions=left_dimensions,
     )
     right_state, right_item, right_value, right_ids, right_reason = _numeric_input(
         request,
         evidence,
         metric=right_metric,
         reference_period=right_reference_period,
+        required_dimensions=right_dimensions,
     )
     combined_ids = tuple(dict.fromkeys((*left_ids, *right_ids)))
     if left_state == "CONFLICT" or right_state == "CONFLICT":
@@ -233,6 +258,122 @@ def _numeric_pair_inputs(
             result={"input_blockers": list(reasons)},
         )
     return left_item, left_value, right_item, right_value, None
+
+
+def _rounded_numeric_pair(
+    request: VerificationRequest,
+    *,
+    observed: float,
+    expected: float,
+) -> tuple[float, float, dict[str, Any] | None]:
+    policy = request.rule.get("rounding")
+    if policy is None:
+        return observed, expected, None
+    if not isinstance(policy, dict):
+        raise ValueError("NUMERIC_ROUNDING_POLICY_INVALID")
+    mode = str(policy.get("mode") or "").strip().upper()
+    if mode == "DECIMAL_PLACES":
+        places = policy.get("places")
+        if not isinstance(places, int) or isinstance(places, bool) or not 0 <= places <= 12:
+            raise ValueError("NUMERIC_ROUNDING_PLACES_INVALID")
+        return (
+            round(observed, places),
+            round(expected, places),
+            {"mode": mode, "places": places},
+        )
+    if mode == "SIGNIFICANT_FIGURES":
+        digits = policy.get("digits")
+        if not isinstance(digits, int) or isinstance(digits, bool) or not 1 <= digits <= 15:
+            raise ValueError("NUMERIC_SIGNIFICANT_FIGURES_INVALID")
+
+        def significant(value: float) -> float:
+            if value == 0:
+                return 0.0
+            places = digits - 1 - int(math.floor(math.log10(abs(value))))
+            return round(value, places)
+
+        return (
+            significant(observed),
+            significant(expected),
+            {"mode": mode, "digits": digits},
+        )
+    raise ValueError("NUMERIC_ROUNDING_MODE_INVALID")
+
+
+def _normalize_comparable_units(
+    request: VerificationRequest,
+    left: VerificationEvidence,
+    left_value: float,
+    right: VerificationEvidence,
+    right_value: float,
+) -> tuple[
+    float | None,
+    float | None,
+    str | None,
+    dict[str, Any] | None,
+    VerificationResult | None,
+]:
+    left_unit = str(left.unit or "").strip()
+    right_unit = str(right.unit or "").strip()
+    if left_unit == right_unit:
+        return left_value, right_value, left.unit or right.unit, None, None
+
+    policy = request.rule.get("unit_conversion")
+    if policy is None:
+        return None, None, None, None, _insufficient(
+            request,
+            "NUMERIC_UNIT_MISMATCH",
+            evidence_ids=_evidence_ids((left, right)),
+            result={"left_unit": left.unit, "right_unit": right.unit},
+        )
+    if not isinstance(policy, dict):
+        return None, None, None, None, _insufficient(
+            request,
+            "NUMERIC_UNIT_CONVERSION_POLICY_INVALID",
+            evidence_ids=_evidence_ids((left, right)),
+        )
+
+    target_unit = str(policy.get("target_unit") or "").strip()
+    factors = policy.get("factor_to_target")
+    if not target_unit or not isinstance(factors, dict):
+        return None, None, None, None, _insufficient(
+            request,
+            "NUMERIC_UNIT_CONVERSION_POLICY_INVALID",
+            evidence_ids=_evidence_ids((left, right)),
+        )
+
+    converted: list[tuple[str, float]] = []
+    for unit, value in ((left_unit, left_value), (right_unit, right_value)):
+        raw_factor = factors.get(unit)
+        try:
+            factor = float(raw_factor)
+        except (TypeError, ValueError):
+            return None, None, None, None, _insufficient(
+                request,
+                "NUMERIC_UNIT_CONVERSION_UNAVAILABLE",
+                evidence_ids=_evidence_ids((left, right)),
+                result={
+                    "left_unit": left.unit,
+                    "right_unit": right.unit,
+                    "target_unit": target_unit,
+                },
+            )
+        if factor <= 0 or not math.isfinite(factor):
+            return None, None, None, None, _insufficient(
+                request,
+                "NUMERIC_UNIT_CONVERSION_POLICY_INVALID",
+                evidence_ids=_evidence_ids((left, right)),
+            )
+        converted.append((unit, value * factor))
+
+    conversion = {
+        "target_unit": target_unit,
+        "left_unit": left.unit,
+        "right_unit": right.unit,
+        "left_factor": float(factors[left_unit]),
+        "right_factor": float(factors[right_unit]),
+    }
+    return converted[0][1], converted[1][1], target_unit, conversion, None
 
 
 def _evidence_ids(
@@ -443,42 +584,67 @@ def verify_numeric_delta(
             if request.rule.get("right_reference_period") is not None
             else None
         ),
+        left_dimensions=(
+            dict(request.rule["left_dimensions"])
+            if isinstance(request.rule.get("left_dimensions"), dict)
+            else None
+        ),
+        right_dimensions=(
+            dict(request.rule["right_dimensions"])
+            if isinstance(request.rule.get("right_dimensions"), dict)
+            else None
+        ),
     )
     if blocked is not None:
         return blocked
     assert left is not None and right is not None
     assert left_value is not None and right_value is not None
-    if str(left.unit or "") != str(right.unit or ""):
-        return _insufficient(
-            request,
-            "NUMERIC_UNIT_MISMATCH",
-            evidence_ids=_evidence_ids((left, right)),
-            result={"left_unit": left.unit, "right_unit": right.unit},
-        )
+    left_value, right_value, output_unit, conversion, blocked = _normalize_comparable_units(
+        request,
+        left,
+        left_value,
+        right,
+        right_value,
+    )
+    if blocked is not None:
+        return blocked
+    assert left_value is not None and right_value is not None
     expected = float(request.rule["value"])
     tolerance = float(request.rule.get("tolerance", 0.0))
     if tolerance < 0:
         raise ValueError("NEGATIVE_TOLERANCE")
     observed = left_value - right_value
+    observed_for_compare, expected_for_compare, rounding = _rounded_numeric_pair(
+        request,
+        observed=observed,
+        expected=expected,
+    )
     assessment = (
         VerificationAssessment.SUPPORTED
-        if abs(observed - expected) <= tolerance
+        if abs(observed_for_compare - expected_for_compare) <= tolerance
         else VerificationAssessment.FACTUALLY_FALSE
     )
+    result = {
+        "expected": expected,
+        "observed": observed,
+        "tolerance": tolerance,
+        "left_metric": left_metric,
+        "right_metric": right_metric,
+        "unit": output_unit,
+    }
+    if rounding is not None:
+        result["rounding"] = rounding
+        result["observed_compared"] = observed_for_compare
+        result["expected_compared"] = expected_for_compare
+    if conversion is not None:
+        result["unit_conversion"] = conversion
     return VerificationResult(
         request.claim_id,
         assessment,
         _evidence_ids((left, right)),
         (),
         ("NUMERIC_DELTA_MATCH" if assessment == VerificationAssessment.SUPPORTED else "NUMERIC_DELTA_MISMATCH",),
-        {
-            "expected": expected,
-            "observed": observed,
-            "tolerance": tolerance,
-            "left_metric": left_metric,
-            "right_metric": right_metric,
-            "unit": left.unit,
-        },
+        result,
         request.statement_date,
     )
 
@@ -516,6 +682,20 @@ def verify_numeric_ratio(
             if request.rule.get(right_period_key) is not None
             else None
         ),
+        left_dimensions=(
+            dict(request.rule["current_dimensions"])
+            if percent_change and isinstance(request.rule.get("current_dimensions"), dict)
+            else dict(request.rule["numerator_dimensions"])
+            if not percent_change and isinstance(request.rule.get("numerator_dimensions"), dict)
+            else None
+        ),
+        right_dimensions=(
+            dict(request.rule["baseline_dimensions"])
+            if percent_change and isinstance(request.rule.get("baseline_dimensions"), dict)
+            else dict(request.rule["denominator_dimensions"])
+            if not percent_change and isinstance(request.rule.get("denominator_dimensions"), dict)
+            else None
+        ),
     )
     if blocked is not None:
         return blocked
@@ -527,13 +707,24 @@ def verify_numeric_ratio(
             "NUMERIC_DENOMINATOR_ZERO",
             evidence_ids=_evidence_ids((left, right)),
         )
-    if percent_change and str(left.unit or "") != str(right.unit or ""):
-        return _insufficient(
+    conversion = None
+    if percent_change:
+        left_value, right_value, _output_unit, conversion, blocked = _normalize_comparable_units(
             request,
-            "NUMERIC_UNIT_MISMATCH",
-            evidence_ids=_evidence_ids((left, right)),
-            result={"current_unit": left.unit, "baseline_unit": right.unit},
+            left,
+            left_value,
+            right,
+            right_value,
         )
+        if blocked is not None:
+            return blocked
+        assert left_value is not None and right_value is not None
+        if right_value == 0:
+            return _insufficient(
+                request,
+                "NUMERIC_DENOMINATOR_ZERO",
+                evidence_ids=_evidence_ids((left, right)),
+            )
     expected = float(request.rule["value"])
     tolerance = float(request.rule.get("tolerance", 0.0))
     if tolerance < 0:
@@ -546,26 +737,38 @@ def verify_numeric_ratio(
         if percent_change
         else (left_value / right_value) * scale
     )
+    observed_for_compare, expected_for_compare, rounding = _rounded_numeric_pair(
+        request,
+        observed=observed,
+        expected=expected,
+    )
     assessment = (
         VerificationAssessment.SUPPORTED
-        if abs(observed - expected) <= tolerance
+        if abs(observed_for_compare - expected_for_compare) <= tolerance
         else VerificationAssessment.FACTUALLY_FALSE
     )
     code = "NUMERIC_PERCENT_CHANGE" if percent_change else "NUMERIC_RATIO"
+    result = {
+        "expected": expected,
+        "observed": observed,
+        "tolerance": tolerance,
+        "left_metric": left_metric,
+        "right_metric": right_metric,
+        "scale": scale,
+    }
+    if rounding is not None:
+        result["rounding"] = rounding
+        result["observed_compared"] = observed_for_compare
+        result["expected_compared"] = expected_for_compare
+    if conversion is not None:
+        result["unit_conversion"] = conversion
     return VerificationResult(
         request.claim_id,
         assessment,
         _evidence_ids((left, right)),
         (),
         (f"{code}_MATCH" if assessment == VerificationAssessment.SUPPORTED else f"{code}_MISMATCH",),
-        {
-            "expected": expected,
-            "observed": observed,
-            "tolerance": tolerance,
-            "left_metric": left_metric,
-            "right_metric": right_metric,
-            "scale": scale,
-        },
+        result,
         request.statement_date,
     )
 

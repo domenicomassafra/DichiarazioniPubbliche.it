@@ -7,8 +7,26 @@ WEB = ROOT / "web"
 
 
 class PublicWebBoundaryTests(unittest.TestCase):
-    def test_private_studio_is_not_a_public_static_route(self):
-        self.assertFalse((WEB / "src" / "pages" / "studio").exists())
+    def test_private_studio_routes_are_explicitly_non_public(self):
+        studio_root = WEB / "src" / "pages" / "studio"
+        self.assertTrue(studio_root.is_dir())
+        routes = tuple(sorted(studio_root.glob("*/index.astro")))
+        self.assertEqual({path.parent.name for path in routes}, {"[workspace]"})
+        source = routes[0].read_text()
+        self.assertIn("BaseLayout", source)
+        self.assertRegex(source, r"<BaseLayout\b[^>]*\bstudio(?:\s|>)")
+        self.assertIn('DICHIARAZIONI_PUBBLICHE_STUDIO_FIXTURE_ONLY', source)
+        self.assertIn("if (!allowFixture) return [];", source)
+        for workspace in ("corpus", "inbox", "collections", "verify"):
+            self.assertIn(f'"{workspace}"', source)
+
+        layout = (WEB / "src" / "layouts" / "BaseLayout.astro").read_text()
+        self.assertIn(
+            'const robotsPolicy = studio || usingDemoProjection ? "noindex,nofollow" : "index,follow";',
+            layout,
+        )
+        self.assertIn('<meta name="robots" content={robotsPolicy}', layout)
+
         prototype = WEB / "prototypes" / "verify-studio" / "README.md"
         self.assertTrue(prototype.is_file())
         self.assertIn("private", prototype.read_text().lower())

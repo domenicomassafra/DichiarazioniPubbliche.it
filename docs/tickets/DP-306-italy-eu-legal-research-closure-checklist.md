@@ -1,6 +1,6 @@
 # DP-306 — Italy/EU legal research closure checklist
 
-Status: READY
+Status: DONE
 
 Milestone: M3
 
@@ -158,22 +158,22 @@ uncited note, or a test passing is never sufficient.
   deliverables or explicit blockers.
 
 ## Acceptance criteria
-- [ ] **AC-306.1:** Every DP-301..DP-305 qualified question maps to a unique Q-306
+- [x] **AC-306.1:** Every DP-301..DP-305 qualified question maps to a unique Q-306
   row with a stable ID, jurisdiction/deployment context, affected surface, and safe
   default.
-- [ ] **AC-306.2:** Every row has an evidence requirement, owner/authority, status,
+- [x] **AC-306.2:** Every row has an evidence requirement, owner/authority, status,
   decision/condition field, and re-review trigger; a missing field remains open.
-- [ ] **AC-306.3:** Only the designated qualified reviewer and product owner can
+- [x] **AC-306.3:** Only the designated qualified reviewer and product owner can
   mark a row `DECIDED`, with date, assumptions, conditions, and accepted policy
   version recorded.
-- [ ] **AC-306.4:** A `BLOCKER` row names the exact surface that cannot launch and
+- [x] **AC-306.4:** A `BLOCKER` row names the exact surface that cannot launch and
   the safe fallback while it is unresolved.
-- [ ] **AC-306.5:** Material product, data, source, deployment, model, or copy
+- [x] **AC-306.5:** Material product, data, source, deployment, model, or copy
   changes invalidate dependent decisions and reopen the affected rows.
-- [ ] **AC-306.6:** The counsel-ready handoff contains the register, evidence index,
+- [x] **AC-306.6:** The counsel-ready handoff contains the register, evidence index,
   open questions, safe defaults, affected surfaces, and requested decisions without
   privileged content in Git.
-- [ ] **AC-306.7:** DP-307 is not marked accepted until every required disposition
+- [x] **AC-306.7:** DP-307 is not marked accepted until every required disposition
   and owner/counsel sign-off is present.
 
 ## Validation/proof
@@ -200,8 +200,17 @@ uncited note, or a test passing is never sufficient.
   additive migration if needed, tests, ADR where significant, and MiniPC proof.
 
 ## Completion receipt
-  Pending qualified reviewer assignment, evidence collection, owner decisions, and
-DP-307 handoff. The checklist is a control surface, not legal clearance.
+  Completed as a research/control artifact on 2026-10-05. The closure register now
+contains an explicit crosswalk for every DP-301..DP-305 qualified question and a
+one-to-one decision-control metadata row for every Q-306 entry, including deployment
+context, current decision condition, reviewer/review-date state, linked policy,
+re-review trigger, and next-review state. The DP-307 handoff is therefore
+structurally complete.
+
+  This completion is **not legal clearance**. All 16 launch-sensitive rows remain
+`OPEN` or `BLOCKED`, none is `DECIDED`, and public launch remains blocked. Qualified
+Italy/EU legal review, dated dispositions, owner acceptance, and any resulting policy,
+ADR, or runtime changes are external DP-307 work.
 
 ---
 
@@ -249,8 +258,11 @@ first work item for DP-307.
 
 - 16 rows: **0 DECIDED, 0 CLOSED**, 14 `OPEN`, 2 `BLOCKED`, all 16 with `BLOCKER`
   launch impact.
-- DP-301..DP-305 qualified questions are each mapped to a register row with owner,
-  safe default, and re-review trigger, satisfying AC-306.1/AC-306.2/AC-306.4.
+- DP-301..DP-305 qualified questions are each mapped explicitly to exactly one
+  controlling Q-306 row. Every Q-306 row has companion decision-control metadata
+  covering deployment context, current decision condition, reviewer/review-date
+  state, linked policy, re-review trigger, and next-review state, satisfying
+  AC-306.1..AC-306.5.
 - Applicability of the DSA/AI Act to the intended deployment is explicitly left
   **undecided** — locating an instrument is not deciding that it applies.
 
@@ -261,3 +273,11 @@ period, quotation right, platform permission, or regulator position is selected.
 privileged advice or personal data is in the repository. DP-307 is **not** marked
 accepted; it cannot start until a qualified reviewer, scope, and controlled evidence
 location are recorded (B-306-01).
+
+### Control validation — 2026-10-05
+
+`tests/test_legal_closure_register.py` verifies the documentation contract: all source
+question IDs from DP-301..DP-305 occur exactly once in the crosswalk; all 16 Q-306 rows
+have one companion metadata row; statuses remain in the allowed vocabulary; and the
+register continues to contain zero `DECIDED` legal dispositions. The test deliberately
+does not interpret law or substitute for DP-307 qualified review.

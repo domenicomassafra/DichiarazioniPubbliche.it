@@ -23,11 +23,17 @@ deterministic verifier without introducing a second judgment engine.
   mismatch or zero baseline.
 - [x] Compound rules keep the statement-time cutoff and DP-215 source-suitability gate.
 - [x] Conflicting numeric inputs remain unresolved instead of choosing a preferred value.
-- [ ] Add explicit unit-conversion policy rather than implicit conversion.
-- [ ] Add rounding/significant-figure policy and denominator/population semantics.
+- [x] Add explicit unit-conversion policy rather than implicit conversion; delta and
+  percent-change rules may normalize mismatched comparable units only through a declared
+  target unit plus per-input factors, while missing/invalid mappings fail closed.
+- [x] Add rounding/significant-figure policy and denominator/population semantics.
 - [ ] Add structured ISTAT/Eurostat/DVNS fixture coverage and MiniPC proof.
 
 ## Implementation receipt
 
-Local runtime and focused tests added 2026-10-05. Structured-provider integration and
-MiniPC proof remain open.
+Local runtime and focused tests added 2026-10-05. Explicit rule-scoped unit conversion for
+delta/percent-change was added without changing existing same-unit semantics. The 2026-10-06
+follow-up adds explicit decimal-place/significant-figure comparison policy plus required
+numerator/denominator population dimensions; invalid/missing dimensions and zero denominators
+fail closed. Synthetic structured-provider tests exercise ISTAT/DVNS/Eurostat-style metadata.
+Provider-backed structured fixture coverage and MiniPC proof remain open under the final AC.

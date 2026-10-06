@@ -1,22 +1,23 @@
 # DP-605 — Maintainer and contributor documentation dry-run from a clean clone
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M6 — open-source and release hardening
 Depends on: DP-001, DP-601, and the documented DP-602/DP-603/DP-604 gates
-Launch state: documentation and local proof only; no remote, release, or public publication
+Launch state: documentation and clean-clone proof only; no release or public publication
 
 ## Problem
 
 The repository has useful README, contribution, security, architecture, and ticket
-contracts, but a new contributor still has to infer which commands are mandatory, which
-are optional, where PostgreSQL/provider credentials belong, and how to run a local demo.
-The existing setup text contains a generic clone placeholder, while the current checkout
-has no confirmed remote. A documentation page that only works in the original working
-directory is not an onboarding proof.
+contracts, but the original contributor path required readers to infer which commands
+were mandatory, which were optional, where PostgreSQL/provider credentials belonged, and
+how to run a local demo. The original setup text also contained a generic clone
+placeholder. A documentation page that only works in the original working directory is
+not an onboarding proof.
 
-The required proof must be performed by a fresh clean clone, or by an independent local
-clone of the exact candidate commit when no remote exists, and must preserve the current
-POC/v0 names. It must not turn a Mac-only check into a runtime or release claim.
+The required proof must be performed by a fresh clean clone of the exact candidate commit
+and must preserve the current POC/v0 names. Hosted CI may create that detached proof from
+its checked-out commit without implying release authorization. It must not turn a Mac-only
+check into a runtime or release claim.
 
 ## Outcome
 
@@ -123,7 +124,7 @@ The guide must link to the canonical contracts rather than restating them:
 
 - `PRODUCT.md`, `CONTEXT.md`, `ARCHITECTURE.md`, and `AGENTS.md` for invariants;
 - `SECURITY.md` for private vulnerability reporting and the fact that a final public
-  security contact remains an owner decision while no remote exists;
+  security contact remains an owner decision until explicitly approved;
 - ADR 0005 and DP-603 for code/content licensing and fixture inventory;
 - DP-602 for CI and clean-clone checks; and
 - DP-604 for the provisional version source, changelog, and release checklist.
@@ -254,8 +255,8 @@ and fixed four real documentation defects — the doc was corrected, not the rep
 2. `docs/release/README.md` and the checklist pointed at a `.yaml` inventory while the
    generated artifact is `.json`;
 3. the guide claimed `git status`/remotes showed "no remote" — a local clone *does* set
-   an `origin` to the local path; the claim was corrected to distinguish the clone's
-   local origin from the authoritative checkout's absence of a remote;
+   an `origin` to the local path; the historical claim was corrected, and the guide now
+   points directly at the canonical GitHub source remote;
 4. `pip install -e .` leaves `dichiarazioni_pubbliche.egg-info/` in the tree, so the
    documented cleanup did not reach an empty `git status` — `*.egg-info/`, `build/`,
    `dist/` are now ignored and removed by the documented cleanup.
@@ -285,7 +286,14 @@ persistence), AC-605.6 PASS, AC-605.7 PASS, AC-605.8 PASS, AC-605.9 PASS, AC-605
 PASS, AC-605.11 PASS (no remote, release, issue, PR, site, provider call, or external
 publication), AC-605.12 PASS (link/collision/inventory/version audits green).
 
-**Classified open items:** `PENDING-REMOTE` — no canonical public repository URL, issue
-tracker, or hosted release location; `PENDING-OWNER` — the final public security
-contact and the qualified legal/privacy review (DP-307/DP-702). Neither is invented
-here. Ticket remains IN PROGRESS on those owner decisions, not on any local step.
+**Follow-up 2026-10-05.** The canonical GitHub repository and issue tracker now exist, so
+the historical `PENDING-REMOTE` classification is closed. The guide and release policy
+were corrected anywhere they still said otherwise. The hosted DP-602 matrix has a real
+successful Actions receipt, and the `clean-clone` job now performs the package-install
+smoke the guide already promised plus the DP-604 reproducible-artifact check.
+
+Remaining external decisions are `PENDING-OWNER`: final public security contact,
+qualified legal/privacy review (DP-307/DP-702), registry/signing/hosting choices, and
+release authorization. They are release/launch gates rather than missing contributor or
+maintainer setup, so the DP-605 documentation/dry-run ticket is complete without
+inventing them.

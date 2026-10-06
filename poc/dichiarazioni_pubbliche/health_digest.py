@@ -205,7 +205,13 @@ def build_health_digest(
                 operation,
                 status,
                 count(*)::integer AS count,
-                COALESCE(sum(estimated_cost_usd), 0)::numeric(12,6) AS cost_usd
+                COALESCE(sum(
+                    CASE
+                        WHEN billing_basis='MEASURED_PROVIDER_COST'
+                            THEN measured_cost_usd
+                        ELSE estimated_cost_usd
+                    END
+                ), 0)::numeric(12,6) AS cost_usd
             FROM provider_receipt
             WHERE COALESCE(completed_at, started_at, now())
                 >= date_trunc('day', now())

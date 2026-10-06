@@ -1,6 +1,6 @@
 # DP-434 — First-class public Content resource contract
 
-Status: READY
+Status: DONE
 
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-210, DP-401, DP-403
@@ -57,22 +57,22 @@ invalid or private, omit that membership without leaking that it exists.
 
 ## Acceptance criteria
 
-- [ ] `AC-434.1`: an approved Content with zero published findings appears in the public
+- [x] `AC-434.1`: an approved Content with zero published findings appears in the public
   projection/API and can produce a deliberate “no published checks” page.
-- [ ] `AC-434.2`: a Content with published findings references only projectable finding IDs;
+- [x] `AC-434.2`: a Content with published findings references only projectable finding IDs;
   a private/held finding is indistinguishable from a nonexistent membership.
-- [ ] `AC-434.3`: media kind/duration/embed are absent unless explicitly supported by
+- [x] `AC-434.3`: media kind/duration/embed are absent unless explicitly supported by
   reviewed public metadata; the UI never guesses them from URL/extension/platform.
-- [ ] `AC-434.4`: raw transcript/canonical transcript/capture bytes/provider receipts/private
+- [x] `AC-434.4`: raw transcript/canonical transcript/capture bytes/provider receipts/private
   archive paths and evidence bodies cannot enter the public Content structure.
-- [ ] `AC-434.5`: pre-DP-434 `dichiarazioni-pubbliche-public-v2` bundles without `contents`
+- [x] `AC-434.5`: pre-DP-434 `dichiarazioni-pubbliche-public-v2` bundles without `contents`
   remain valid; new builders include `contents` in the dataset fingerprint.
-- [ ] `AC-434.6`: API/OpenAPI distinguish first-class Content resources from findings and
+- [x] `AC-434.6`: API/OpenAPI distinguish first-class Content resources from findings and
   continue to work with providers and the operational DB offline.
-- [ ] `AC-434.7`: fixtures cover timed media, written source, zero moments, multiple findings,
+- [x] `AC-434.7`: fixtures cover timed media, written source, zero moments, multiple findings,
   withheld media URL, invalid/private membership, correction/retraction membership changes,
   stale/tampered projection, and two Content items with similar titles.
-- [ ] `AC-434.8`: full tests, bundle verification, web static build, MiniPC migration/projection
+- [x] `AC-434.8`: full tests, bundle verification, web static build, MiniPC migration/projection
   canary, same-origin API checks, and `git diff --check` pass.
 
 ## Non-goals
@@ -86,4 +86,21 @@ invalid or private, omit that membership without leaking that it exists.
 
 ## Completion receipt
 
-Pending implementation.
+Implementation is complete for the reviewed DB candidate, additive public-v2 schema,
+projection fingerprint, API/OpenAPI collection + detail, static Content route (including zero
+findings), and linked-data projection. The shared backend suite passed 1,195/1,195 tests,
+benchmark 5/5, contributor/repository contracts and `git diff --check`; Astro check/design/build
+also pass.
+
+MiniPC canary on 2026-10-05 used a disposable PostgreSQL database created through the host's
+existing `postgres` administration path. `schema.v1.sql`,
+`20261005-extend-provider-receipt-ledger.sql`, and
+`20261005-add-public-content-resource.sql` applied with `ON_ERROR_STOP`; the two additive
+migrations replayed twice successfully and the disposable DB was dropped. A separate temporary
+candidate directory then built the web against projection SHA
+`d231884f50e9c06c3df304ba46fb5344a3544e4032921a4060eb53bc8be21edd` and served the candidate
+on MiniPC loopback port 18134. Same-origin read-back proved `/api/v1/records` returned
+`content:minipc:zero` with `finding_count=0`, `/contenuti/minipc-zero-finding/` rendered the
+deliberate no-finding state, `/search-index.v1.json` carried the same projection SHA, and OpenAPI
+included `/api/v1/records`. The temporary service/candidate/database were removed afterwards;
+this receipt does not claim a public-internet deployment.

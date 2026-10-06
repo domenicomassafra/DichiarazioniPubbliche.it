@@ -8,6 +8,7 @@ erased.
 
 import sys
 import unittest
+from dataclasses import asdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,20 +18,28 @@ from dichiarazioni_pubbliche.policy.privacy_policy import (  # noqa: E402
     PRIVACY_POLICY_VERSION,
     RETENTION_PERIODS_APPROVED,
     DataClass,
+    PrivateAccessMode,
+    PrivateAccessOutcome,
+    PrivateAccessPurpose,
+    PrivateAccessRequest,
+    PrivateAccessRole,
     ProjectionInput,
     PublicationDecision,
     RetentionDecision,
     RightsRequestKind,
     RightsRequestOutcome,
     assert_no_trait_inference,
+    build_private_access_audit,
     contains_high_risk_marker,
     contains_pii_shape,
     contains_sensitive_marker,
+    decide_private_access,
     decide_projection,
     minimize_public_fieldset,
     retention_decision,
     rights_request_outcome,
 )
+from dichiarazioni_pubbliche.policy.challenge_workflow import ChallengeRole  # noqa: E402
 
 
 def _core(**overrides) -> ProjectionInput:
@@ -77,6 +86,16 @@ class ClassificationTests(unittest.TestCase):
                     _core(field_name=field, data_class=DataClass.PUBLIC_CORE)
                 )
                 self.assertEqual(result.decision, PublicationDecision.PROHIBIT)
+
+    def test_sensitive_schema_field_name_is_refused_even_if_classified_public(self):
+        # This is schema-name minimization, not inference about a person's value.
+        for field in ("religion", "criminal_history", "victim_status", "mental_health"):
+            with self.subTest(field=field):
+                result = decide_projection(
+                    _core(field_name=field, data_class=DataClass.PUBLIC_CORE)
+                )
+                self.assertEqual(result.decision, PublicationDecision.PROHIBIT)
+                self.assertIn("SENSITIVE_OR_HIGH_RISK_FIELD_NAME", result.reasons)
 
     def test_public_core_with_relevance_is_allowed(self):
         self.assertEqual(decide_projection(_core()).decision, PublicationDecision.ALLOW)
@@ -245,6 +264,12 @@ class MinimizationTests(unittest.TestCase):
         kept = minimize_public_fieldset(["finding_id", "trust_score", "person_rank"])
         self.assertEqual(kept, ("finding_id",))
 
+    def test_minimization_drops_sensitive_or_high_risk_schema_fields(self):
+        kept = minimize_public_fieldset(
+            ["finding_id", "religion", "victim_status", "criminal_history"]
+        )
+        self.assertEqual(kept, ("finding_id",))
+
     def test_minimization_is_sorted_and_deduplicated(self):
         kept = minimize_public_fieldset(["b", "a", "b"])
         self.assertEqual(kept, ("a", "b"))
@@ -323,6 +348,158 @@ class RightsRequestTests(unittest.TestCase):
             ),
             RightsRequestOutcome.OPEN_PRIVATE,
         )
+
+
+class PrivateAccessTests(unittest.TestCase):
+    def _request(self, **overrides) -> PrivateAccessRequest:
+        base = {
+            "actor_ref": "reviewer-1",
+            "role": PrivateAccessRole.DECISION_REVIEWER,
+            "purpose": PrivateAccessPurpose.EDITORIAL_REVIEW,
+            "data_class": DataClass.OPERATIONAL_PRIVATE,
+            "requested_fields": ("raw_text", "evidence_excerpt"),
+        }
+        base.update(overrides)
+        return PrivateAccessRequest(**base)
+
+    def test_authorized_private_inspection_is_read_only(self):
+        decision = decide_private_access(self._request())
+        self.assertEqual(decision.outcome, PrivateAccessOutcome.ALLOW_READ_ONLY)
+        self.assertTrue(decision.allowed)
+
+    def test_private_access_roles_reuse_existing_dp303_runtime_role_names(self):
+        challenge_roles = {role.value for role in ChallengeRole}
+        self.assertTrue(
+            {role.value for role in PrivateAccessRole}.issubset(challenge_roles)
+        )
+        for untrusted_role in (
+            ChallengeRole.PUBLIC_SUBMITTER,
+            ChallengeRole.INTAKE_ADAPTER,
+        ):
+            with self.subTest(role=untrusted_role):
+                self.assertFalse(
+                    decide_private_access(self._request(role=untrusted_role.value)).allowed
+                )
+
+    def test_unknown_role_purpose_mode_and_class_fail_closed(self):
+        cases = (
+            {"role": "PUBLIC_USER"},
+            {"purpose": "CURIOSITY"},
+            {"mode": "SOMETHING_ELSE"},
+            {"data_class": "SOMETHING_ELSE"},
+        )
+        for overrides in cases:
+            with self.subTest(overrides=overrides):
+                self.assertFalse(decide_private_access(self._request(**overrides)).allowed)
+
+    def test_public_class_is_not_routed_through_private_access(self):
+        decision = decide_private_access(
+            self._request(data_class=DataClass.PUBLIC_CORE)
+        )
+        self.assertEqual(decision.outcome, PrivateAccessOutcome.DENY)
+        self.assertIn("NOT_A_PRIVATE_DATA_CLASS", decision.reasons)
+
+    def test_non_read_modes_are_never_authorized(self):
+        for mode in (
+            PrivateAccessMode.LOG,
+            PrivateAccessMode.EXPORT,
+            PrivateAccessMode.MUTATE,
+            PrivateAccessMode.DELETE,
+        ):
+            with self.subTest(mode=mode):
+                decision = decide_private_access(self._request(mode=mode))
+                self.assertEqual(decision.outcome, PrivateAccessOutcome.DENY)
+                self.assertIn("PRIVATE_ACCESS_IS_READ_ONLY", decision.reasons)
+
+    def test_sensitive_classes_require_bounded_review_or_incident_purpose(self):
+        denied = decide_private_access(
+            self._request(
+                actor_ref="operator-1",
+                role=PrivateAccessRole.OPERATOR,
+                purpose=PrivateAccessPurpose.OPERATIONS,
+                data_class=DataClass.SENSITIVE_CANDIDATE,
+            )
+        )
+        self.assertEqual(denied.outcome, PrivateAccessOutcome.DENY)
+        self.assertIn("SENSITIVE_REVIEW_PURPOSE_REQUIRED", denied.reasons)
+
+        allowed = decide_private_access(
+            self._request(
+                data_class=DataClass.HIGH_RISK_IDENTITY,
+                purpose=PrivateAccessPurpose.RIGHTS_REQUEST,
+            )
+        )
+        self.assertTrue(allowed.allowed)
+        self.assertNotIn("minor", " ".join(allowed.reasons).lower())
+        self.assertNotIn("victim", " ".join(allowed.reasons).lower())
+
+    def test_legal_hold_never_relaxes_read_only_boundary(self):
+        read = decide_private_access(self._request(legal_hold_active=True))
+        self.assertTrue(read.allowed)
+        self.assertIn("LEGAL_HOLD_PRESERVED_READ_ONLY", read.reasons)
+
+        delete = decide_private_access(
+            self._request(
+                legal_hold_active=True,
+                mode=PrivateAccessMode.DELETE,
+            )
+        )
+        self.assertFalse(delete.allowed)
+        self.assertIn("PRIVATE_ACCESS_IS_READ_ONLY", delete.reasons)
+
+    def test_audit_receipt_contains_identifiers_and_counts_never_private_fields(self):
+        request = self._request(
+            requested_fields=("PRIVATE_BODY_SENTINEL", "raw_text", "email_address"),
+            legal_hold_active=True,
+        )
+        decision = decide_private_access(request)
+        receipt = build_private_access_audit(
+            request,
+            decision,
+            record_ref="capture:123",
+            occurred_at="2026-10-05T23:10:00+02:00",
+        )
+        payload = asdict(receipt)
+        rendered = repr(payload)
+        self.assertEqual(
+            set(payload),
+            {
+                "policy_version",
+                "actor_ref",
+                "record_ref",
+                "purpose",
+                "outcome",
+                "occurred_at",
+                "requested_field_count",
+                "legal_hold_active",
+            },
+        )
+        self.assertEqual(payload["requested_field_count"], 3)
+        for private_value in request.requested_fields:
+            self.assertNotIn(private_value, rendered)
+
+    def test_audit_redacts_identifier_shaped_private_contact(self):
+        request = self._request(actor_ref="private@example.test")
+        decision = decide_private_access(request)
+        receipt = build_private_access_audit(
+            request,
+            decision,
+            record_ref="private@example.test",
+            occurred_at="2026-10-05T23:10:00+02:00",
+        )
+        self.assertEqual(receipt.actor_ref, "REDACTED_IDENTIFIER")
+        self.assertEqual(receipt.record_ref, "REDACTED_IDENTIFIER")
+        self.assertEqual(decision.outcome, PrivateAccessOutcome.DENY)
+
+    def test_audit_rejects_non_timestamp_text_in_timestamp_slot(self):
+        request = self._request()
+        receipt = build_private_access_audit(
+            request,
+            decide_private_access(request),
+            record_ref="capture:123",
+            occurred_at="PRIVATE_BODY_SENTINEL",
+        )
+        self.assertEqual(receipt.occurred_at, "UNRESOLVED")
 
 
 if __name__ == "__main__":

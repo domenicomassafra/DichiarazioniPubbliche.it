@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
-import logging
 import socket
 import subprocess
 import urllib.request
@@ -17,9 +16,7 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 PRIMARY_REGISTRY = ROOT / "config" / "source-registry.v1.json"
-FALLBACK_REGISTRY = ROOT / "config" / "source-registry.v0.json"
 DEFAULT_REGISTRY = PRIMARY_REGISTRY
-logger = logging.getLogger(__name__)
 
 ATOM = "http://www.w3.org/2005/Atom"
 YT = "http://www.youtube.com/xml/schemas/2015"
@@ -57,13 +54,7 @@ class FetchedBytes:
 
 
 def load_registry(path: Path | None = None) -> dict[str, Any]:
-    if path is not None:
-        resolved = path
-    elif PRIMARY_REGISTRY.exists():
-        resolved = PRIMARY_REGISTRY
-    else:
-        resolved = FALLBACK_REGISTRY
-        logger.info("Loaded legacy v0 config fallback: %s", resolved)
+    resolved = path if path is not None else PRIMARY_REGISTRY
     return json.loads(resolved.read_text())
 
 

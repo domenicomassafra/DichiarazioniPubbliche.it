@@ -447,6 +447,36 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(store.bulk_jobs[0]["state"], "QUEUED")
         self.assertNotIn("text", store.bulk_jobs[0]["payload"])
 
+    def test_claim_parent_failed_canary_blocks_without_provider_downgrade(self):
+        store = FakeStore(
+            [
+                job(
+                    "CLAIM_EXTRACT",
+                    {
+                        "variant_id": "transcript:v1",
+                        "estimated_cost_usd": 0,
+                    },
+                )
+            ]
+        )
+        client = FakeClaimClient(healthy=False)
+        summary = self.make_worker(
+            store,
+            claim_client=client,
+            claim_rate=0.0,
+        ).run(1)
+
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(summary.completed, 0)
+        self.assertEqual(client.probes, 1)
+        self.assertEqual(client.extracts, 0)
+        self.assertEqual(store.bulk_jobs, [])
+        self.assertTrue(
+            store.block_reasons["job:CLAIM_EXTRACT"].startswith(
+                "CLAIM_EXTRACTION_CANARY_FAILED:"
+            )
+        )
+
     def test_claim_parent_blocks_when_cost_model_is_missing(self):
         store = FakeStore(
             [
@@ -537,6 +567,9 @@ class WorkerDaemonTests(unittest.TestCase):
             store.inserted_claim_rows[0]["temporal_scope"]["statement_date"]
         )
         self.assertEqual(store.receipts[-1]["operation"], "CLAIM_EXTRACT")
+        self.assertEqual(store.receipts[-1]["measured_cost_usd"], 0.0)
+        self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.0)
+        self.assertEqual(store.receipts[-1]["total_tokens"], 15)
         self.assertEqual(store.status_updates[-1][1], "CLAIMS_EXTRACTED")
 
     def test_claim_window_blocks_when_job_statement_date_is_invalid(self):
@@ -648,6 +681,10 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(store.evidence_links[0]["claim_id"], "claim:a")
         self.assertEqual(store.receipts[-1]["operation"], "EVIDENCE_FETCH")
         self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.0)
+        self.assertEqual(
+            store.receipts[-1]["ledger_scope"],
+            {"claim_id": "claim:a"},
+        )
         self.assertIsNone(store.evidence_rows[0]["excerpt"])
 
     def test_evidence_rate_limit_defers_without_consuming_retry(self):

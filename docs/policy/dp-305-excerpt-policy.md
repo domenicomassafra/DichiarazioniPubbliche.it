@@ -10,14 +10,20 @@ Tests: `tests/test_policy_excerpt.py`
 ## The fail-closed spine
 
 C-305-01 — **rights unknown means private.** Only `RightsStatus.CLEARED` can ever
-authorize a public excerpt. `UNKNOWN`, `UNRESOLVED`, `EXPIRED`, `CONFLICTING`, and
-`REVOKED` all prohibit. There is deliberately **no** "the URL was fetchable, so it is
-allowed" path (E-305-01): technical reachability is not permission (C-305-07).
+authorize a public excerpt. `UNKNOWN`, `UNRESOLVED`, `EXPIRED`, `CONFLICTING`,
+`REVOKED`, plus operational block/hold states (`BLOCKED`, `FORBIDDEN`, `LEGAL_HOLD`,
+`RIGHTS_HOLD`, `TAKEDOWN_HOLD`, `REMOVED`) all prohibit. There is deliberately **no**
+"the URL was fetchable, so it is allowed" path (E-305-01): technical reachability is
+not permission (C-305-07).
 
 C-305-02 — **no substitute republication.** `FULL_TRANSCRIPT` and media-copy request
-kinds (`MEDIA_COPY`, `AUDIO`, `VIDEO`, `SOURCE_CAPTURE`) are rejected *before* any
-other check, by design (E-305-03, AC-305.7). A dossier may carry at most
-`MAX_EXCERPTS_PER_DOSSIER` excerpts (`dossier_excerpt_budget`).
+kinds are rejected *before* any other excerpt check, by design. The legacy
+`dossier_excerpt_budget()` count check remains available, while
+`decide_excerpt_budget()` is the structured authority: it returns bounded machine
+codes for profile-not-approved, invalid lengths, per-item overflow, count overflow,
+and derived total-character overflow. The total is derived only from the supplied
+profile (`max_excerpts × max_excerpt_chars`), so this module still invents no separate
+legal quotation limit.
 
 C-305-03 — **exact provenance.** Every public excerpt must carry source URL,
 content id, segment id, transcript variant id, a bounded timestamp range, and a
@@ -34,6 +40,10 @@ notes.
 
 C-305-05 — **fail closed at read time.** Expiry, source-hash change, and segment
 staleness are re-evaluated on every decision; a mismatch omits the excerpt.
+When an expiry/review date is supplied, `decide_excerpt()` parses the caller-supplied
+ISO dates on every decision. A declared expiry without a valid current date, a future
+review date, or a current date after expiry is prohibited with a bounded machine code.
+The module chooses no duration and does not require or invent a source-specific expiry.
 
 ## The excerpt profile is NOT approved (P-305-05, B-305-01)
 
@@ -48,6 +58,10 @@ explicit values.
 The effective cap is the **smaller** of the absolute cap and a 10% ratio of the
 source length (`effective_excerpt_cap`), so a placeholder profile cannot accidentally
 authorize a whole short page.
+
+`decide_excerpt_budget()` follows the same rule: the repository default profile is
+unapproved and therefore prohibits. Tests may pass explicit profile values to exercise
+the arithmetic, but those values are test inputs, not legal/source-specific clearance.
 
 ## The fail-closed decision order
 
@@ -64,6 +78,32 @@ authorize a whole short page.
 10. intent language in the excerpt → prohibited (DP-301 hard rule);
 11. profile not approved → prohibited;
 12. otherwise allowed.
+
+## Public media/embed authorization seam
+
+The current public-v2 Content contract has bounded `public_media_url` and
+`media_policy_version` fields for timed `VIDEO`/`AUDIO` content. DP-305 does not treat
+their mere presence as permission. `decide_media_use()` is the pure precondition seam:
+
+- only `EMBED` can ever be allowed by this baseline; media copy/audio copy/video copy
+  and source-capture modes are prohibited;
+- rights must already be `CLEARED`;
+- `MEDIA_EMBED_PUBLIC` must be present in the pre-resolved permitted-use set;
+- the media URL must be HTTPS, non-local/non-private-literal and credential-free;
+- `media_policy_version` must be non-empty and content kind must be `VIDEO` or `AUDIO`;
+- an explicit source-specific media profile must be approved. The default is false.
+
+This seam performs no fetch and grants no permission. It only enforces a clearance
+that some separately approved source policy has already supplied.
+
+## Bounded audit reasons (E-305-12 technical seam)
+
+`build_rights_policy_audit()` emits only the policy version, a bounded subject ID,
+disposition, and up to `MAX_AUDIT_REASON_CODES` allowlisted enum reason codes. Free-form
+reason text, excerpt/source text, URLs, licence receipts, and rights notes are not copied
+into the receipt. Contact-shaped/unbounded subject identifiers are replaced by a generic
+placeholder. This is a content-free audit representation; append-only persistence still
+belongs to the runtime workflow.
 
 ## Machine-transcript disclosure (E-305-08)
 
@@ -84,7 +124,8 @@ automatically deletes the operational record. See
 
 - It grants no rights, clears no source, and declares no quotation fair. It only
   enforces that a *pre-existing, approved* clearance is present and current.
-- It does not fetch, resolve, or embed any source.
+- It does not fetch, resolve, or render an embed. It only authorizes/denies a resolved
+  media/embed proposal for a later runtime/public seam.
 - It implements no full-transcript path at all, by design.
 
 ## Corrected instrument mapping (research finding)

@@ -1,0 +1,2393 @@
+{
+  "schema_version": "dp-223-adversarial-benchmark/v1",
+  "fixture_version": "2026-10-06.2",
+  "provenance": {
+    "authorship": "Dichiarazioni Pubbliche contributors",
+    "labeling": "independent hand-labeled expectations authored in fixture data; expectations are not derived from benchmark implementation output",
+    "material": "fully synthetic Italian/English snippets; no third-party source body, media, credentials, or personal data",
+    "network_required": false,
+    "provider_required": false,
+    "persistence_required": false,
+    "limitations": [
+      "full persisted public-projection release-candidate coverage remains a separate DP-223/DP-704 gate"
+    ]
+  },
+  "required_classes": [
+    "same_name_people",
+    "rapid_host_guest_alternation",
+    "narrator_reading_another_quote",
+    "politician_quoting_opponent",
+    "old_embedded_clip_current_commentary",
+    "verified_account_repost_third_party_media",
+    "asr_sensitive_token_error",
+    "overlapping_or_off_camera_speaker",
+    "qualification_clipping",
+    "yes_no_without_question",
+    "conditional_flattened_to_assertion",
+    "paraphrase_or_headline_as_quote",
+    "translation_semantic_drift",
+    "syndicated_upstream_quote",
+    "source_page_updated_after_capture",
+    "stale_review_after_source_version_change",
+    "finding_assertion_bad_citation",
+    "direct_status_person_quote_tampering",
+    "rights_hold_or_source_body_unavailable",
+    "fabricated_sentence_absent_from_source",
+    "challenger_only_countercase"
+  ],
+  "cases": [
+    {
+      "id": "same-name-adverse",
+      "class": "same_name_people",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:same-name-adverse",
+        "text": "Studio. Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ac5992fc3563f78247b680ae714337677ecb113ad16d17bcee3796c5c0cd0d55"
+      },
+      "span": {
+        "start": 22,
+        "end": 47,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:same-name-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:same-name-adverse",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          },
+          {
+            "target_id": "person:beta",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:same-name-adverse",
+        "source_sha256": "ac5992fc3563f78247b680ae714337677ecb113ad16d17bcee3796c5c0cd0d55",
+        "span_start": 22,
+        "span_end": 47,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "IDENTITY_RESOLUTION_AMBIGUOUS"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "same-name-control",
+      "class": "same_name_people",
+      "variant": "CONTROL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:same-name-control",
+        "text": "Studio. Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ac5992fc3563f78247b680ae714337677ecb113ad16d17bcee3796c5c0cd0d55"
+      },
+      "span": {
+        "start": 22,
+        "end": 47,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:same-name-control",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:same-name-control",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:same-name-control",
+        "source_sha256": "ac5992fc3563f78247b680ae714337677ecb113ad16d17bcee3796c5c0cd0d55",
+        "span_start": 22,
+        "span_end": 47,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "IDENTITY_APPROVED_ROLE_OMITTED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": true
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "rapid-alternation-adverse",
+      "class": "rapid_host_guest_alternation",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:rapid-alternation-adverse",
+        "text": "Host: La misura parte oggi. Ospite: Il fondo vale 10 milioni.",
+        "sha256": "4e9cd483f2fef1333d70fccaa4bd0dd14a7459e126a3bb39fff9f3927e052cf4"
+      },
+      "span": {
+        "start": 36,
+        "end": 61,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:guest",
+        "content_id": "content:rapid-alternation-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:host",
+          "content_id": "content:rapid-alternation-adverse",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:guest",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:rapid-alternation-adverse",
+        "source_sha256": "4e9cd483f2fef1333d70fccaa4bd0dd14a7459e126a3bb39fff9f3927e052cf4",
+        "span_start": 36,
+        "span_end": 61,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:guest",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "SPEAKER_PERSON_MISMATCH"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "rapid-alternation-control",
+      "class": "rapid_host_guest_alternation",
+      "variant": "CONTROL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:rapid-alternation-control",
+        "text": "Host: La misura parte oggi. Ospite: Il fondo vale 10 milioni.",
+        "sha256": "4e9cd483f2fef1333d70fccaa4bd0dd14a7459e126a3bb39fff9f3927e052cf4"
+      },
+      "span": {
+        "start": 36,
+        "end": 61,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:guest",
+        "content_id": "content:rapid-alternation-control",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:guest",
+          "content_id": "content:rapid-alternation-control",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:guest",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:rapid-alternation-control",
+        "source_sha256": "4e9cd483f2fef1333d70fccaa4bd0dd14a7459e126a3bb39fff9f3927e052cf4",
+        "span_start": 36,
+        "span_end": 61,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:guest",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "IDENTITY_APPROVED_ROLE_OMITTED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": true
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "narrator-quote-adverse",
+      "class": "narrator_reading_another_quote",
+      "variant": "ADVERSARIAL",
+      "gate": "wording",
+      "source": {
+        "source_id": "source:narrator-quote-adverse",
+        "text": "Narratore: Persona Beta ha detto: «Il fondo vale 10 milioni». ",
+        "sha256": "333c678c0c5a262e4b9c0d1a717b48e75e15600a5ccfef90d1a1709d86b00a83"
+      },
+      "span": {
+        "start": 35,
+        "end": 59,
+        "text": "Il fondo vale 10 milioni",
+        "sha256": "66eadef5370cbf74b072f4bf0fb5a04c522c665e003d197cf628371007c014e7"
+      },
+      "input": {
+        "wording_type": "REPORTED_QUOTE"
+      },
+      "expected": {
+        "source_id": "source:narrator-quote-adverse",
+        "source_sha256": "333c678c0c5a262e4b9c0d1a717b48e75e15600a5ccfef90d1a1709d86b00a83",
+        "span_start": 35,
+        "span_end": 59,
+        "span_sha256": "66eadef5370cbf74b072f4bf0fb5a04c522c665e003d197cf628371007c014e7",
+        "person_id": "person:beta",
+        "wording_type": "REPORTED_QUOTE",
+        "publication_state": "HELD",
+        "reason_any": [
+          "WORDING_DIRECT_QUOTE_FORBIDDEN:REPORTED_QUOTE"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "narrator-quote-control",
+      "class": "narrator_reading_another_quote",
+      "variant": "CONTROL",
+      "gate": "wording",
+      "source": {
+        "source_id": "source:narrator-quote-control",
+        "text": "Persona Beta: Il fondo vale 10 milioni.",
+        "sha256": "fba83d18fbe0db35c89389edc04035be568678ad565dfd72912a76760f018ce3"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "wording_type": "VERBATIM_ORIGINAL"
+      },
+      "expected": {
+        "source_id": "source:narrator-quote-control",
+        "source_sha256": "fba83d18fbe0db35c89389edc04035be568678ad565dfd72912a76760f018ce3",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:beta",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "DIRECT_QUOTE_ELIGIBLE"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "opponent-quote-adverse",
+      "class": "politician_quoting_opponent",
+      "variant": "ADVERSARIAL",
+      "gate": "wording",
+      "source": {
+        "source_id": "source:opponent-quote-adverse",
+        "text": "Persona Alfa: Il mio avversario ha detto «Aumenteremo le imposte». ",
+        "sha256": "7652be82ee6143bbb9bfe010065d2a5aaf1fc6705385a960fafb38385e65d054"
+      },
+      "span": {
+        "start": 42,
+        "end": 64,
+        "text": "Aumenteremo le imposte",
+        "sha256": "8e6dcc157f05ab74594a4c386cddd7d1974a0670ff225b4da04ba8db01140237"
+      },
+      "input": {
+        "wording_type": "REPORTED_QUOTE"
+      },
+      "expected": {
+        "source_id": "source:opponent-quote-adverse",
+        "source_sha256": "7652be82ee6143bbb9bfe010065d2a5aaf1fc6705385a960fafb38385e65d054",
+        "span_start": 42,
+        "span_end": 64,
+        "span_sha256": "8e6dcc157f05ab74594a4c386cddd7d1974a0670ff225b4da04ba8db01140237",
+        "person_id": "person:beta",
+        "wording_type": "REPORTED_QUOTE",
+        "publication_state": "HELD",
+        "reason_any": [
+          "WORDING_DIRECT_QUOTE_FORBIDDEN:REPORTED_QUOTE"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION",
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "opponent-quote-control",
+      "class": "politician_quoting_opponent",
+      "variant": "CONTROL",
+      "gate": "wording",
+      "source": {
+        "source_id": "source:opponent-quote-control",
+        "text": "Persona Beta: Aumenteremo le imposte.",
+        "sha256": "c7f9fef269b063ac5b88d10191f16a6a0066d9bf7364980541aa1bc7563251b0"
+      },
+      "span": {
+        "start": 14,
+        "end": 37,
+        "text": "Aumenteremo le imposte.",
+        "sha256": "865b8b6fdba5bf4064bbb6c5a1494f432d27812cb4b28abde8953e7769e3c415"
+      },
+      "input": {
+        "wording_type": "VERBATIM_ORIGINAL"
+      },
+      "expected": {
+        "source_id": "source:opponent-quote-control",
+        "source_sha256": "c7f9fef269b063ac5b88d10191f16a6a0066d9bf7364980541aa1bc7563251b0",
+        "span_start": 14,
+        "span_end": 37,
+        "span_sha256": "865b8b6fdba5bf4064bbb6c5a1494f432d27812cb4b28abde8953e7769e3c415",
+        "person_id": "person:beta",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "DIRECT_QUOTE_ELIGIBLE"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION",
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "old-clip-adverse",
+      "class": "old_embedded_clip_current_commentary",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:old-clip-adverse",
+        "text": "Commento attuale. Clip 2021: Il fondo vale 10 milioni.",
+        "sha256": "0e4e7379149acc7a3c892ee809c954594b258e732923e209177a1f856b2c4327"
+      },
+      "span": {
+        "start": 29,
+        "end": 54,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:old-clip-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:old-clip-2021",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:old-clip-adverse",
+        "source_sha256": "0e4e7379149acc7a3c892ee809c954594b258e732923e209177a1f856b2c4327",
+        "span_start": 29,
+        "span_end": 54,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "SPEAKER_CONTENT_MISMATCH"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "old-clip-control",
+      "class": "old_embedded_clip_current_commentary",
+      "variant": "CONTROL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:old-clip-control",
+        "text": "Commento attuale. Clip 2021: Il fondo vale 10 milioni.",
+        "sha256": "0e4e7379149acc7a3c892ee809c954594b258e732923e209177a1f856b2c4327"
+      },
+      "span": {
+        "start": 29,
+        "end": 54,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:old-clip-control",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:old-clip-control",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:old-clip-control",
+        "source_sha256": "0e4e7379149acc7a3c892ee809c954594b258e732923e209177a1f856b2c4327",
+        "span_start": 29,
+        "span_end": 54,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "IDENTITY_APPROVED_ROLE_OMITTED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": true
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "verified-repost-adverse",
+      "class": "verified_account_repost_third_party_media",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:verified-repost-adverse",
+        "text": "Post verificato con video di terzi. Testo account: Comunicato ufficiale.",
+        "sha256": "a5e3ba65b9bd139a2ef6412ae783bac147f85a5f175207cc6501df6ae5b820d8"
+      },
+      "span": {
+        "start": 51,
+        "end": 72,
+        "text": "Comunicato ufficiale.",
+        "sha256": "2b38a3ff8bca7d5b4c36cc45b550327fb5a9ff84908cb60f4c241bb3e99572e3"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:verified-repost-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "EMBEDDED_THIRD_PARTY",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:verified-repost-adverse",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "PLATFORM_CREDIT",
+          "source_ref": {
+            "account_owner_person_id": "person:alpha",
+            "account_content_id": "content:verified-repost-adverse",
+            "authorship_scope": "SOURCE_AUTHORSHIP"
+          }
+        },
+        "resolutions": []
+      },
+      "expected": {
+        "source_id": "source:verified-repost-adverse",
+        "source_sha256": "a5e3ba65b9bd139a2ef6412ae783bac147f85a5f175207cc6501df6ae5b820d8",
+        "span_start": 51,
+        "span_end": 72,
+        "span_sha256": "2b38a3ff8bca7d5b4c36cc45b550327fb5a9ff84908cb60f4c241bb3e99572e3",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "ACCOUNT_CREDIT_NOT_SPEAKER_IDENTITY"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "verified-repost-control",
+      "class": "verified_account_repost_third_party_media",
+      "variant": "CONTROL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:verified-repost-control",
+        "text": "Post verificato con video di terzi. Testo account: Comunicato ufficiale.",
+        "sha256": "a5e3ba65b9bd139a2ef6412ae783bac147f85a5f175207cc6501df6ae5b820d8"
+      },
+      "span": {
+        "start": 51,
+        "end": 72,
+        "text": "Comunicato ufficiale.",
+        "sha256": "2b38a3ff8bca7d5b4c36cc45b550327fb5a9ff84908cb60f4c241bb3e99572e3"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:verified-repost-control",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "AUTHORSHIP",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:verified-repost-control",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "PLATFORM_CREDIT",
+          "source_ref": {
+            "account_owner_person_id": "person:alpha",
+            "account_content_id": "content:verified-repost-control",
+            "authorship_scope": "SOURCE_AUTHORSHIP"
+          }
+        },
+        "resolutions": []
+      },
+      "expected": {
+        "source_id": "source:verified-repost-control",
+        "source_sha256": "a5e3ba65b9bd139a2ef6412ae783bac147f85a5f175207cc6501df6ae5b820d8",
+        "span_start": 51,
+        "span_end": 72,
+        "span_sha256": "2b38a3ff8bca7d5b4c36cc45b550327fb5a9ff84908cb60f4c241bb3e99572e3",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "APPROVED_ACCOUNT_AUTHORSHIP_SCOPE"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": true
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "asr-negation-adverse",
+      "class": "asr_sensitive_token_error",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:asr-negation-adverse",
+        "text": "Persona Alfa: Non aumenteremo le imposte.",
+        "sha256": "9f95434c4830727097c30447ddda285daf79b902dd85361d7cc321e192ea5589"
+      },
+      "span": {
+        "start": 14,
+        "end": 41,
+        "text": "Non aumenteremo le imposte.",
+        "sha256": "28837bb35532f4aa5409c94802cf4a5f866bac60f9cafd2f90aecdd8d54e2b6a"
+      },
+      "input": {
+        "proposed_text": "Aumenteremo le imposte."
+      },
+      "expected": {
+        "source_id": "source:asr-negation-adverse",
+        "source_sha256": "9f95434c4830727097c30447ddda285daf79b902dd85361d7cc321e192ea5589",
+        "span_start": 14,
+        "span_end": 41,
+        "span_sha256": "28837bb35532f4aa5409c94802cf4a5f866bac60f9cafd2f90aecdd8d54e2b6a",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "asr-number-adverse",
+      "class": "asr_sensitive_token_error",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:asr-number-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "proposed_text": "Il fondo vale 100 milioni."
+      },
+      "expected": {
+        "source_id": "source:asr-number-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "asr-date-adverse",
+      "class": "asr_sensitive_token_error",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:asr-date-adverse",
+        "text": "Persona Alfa: La misura parte nel 2027.",
+        "sha256": "4dd1fba1166c1a4cd9d33de2a8f7c945d8ef3eb82298f66c4f81cb019ba1fb72"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "La misura parte nel 2027.",
+        "sha256": "374bf85b12f79814617f6e45451e748164859113fc4c9d8c73e6a2a42a7cd904"
+      },
+      "input": {
+        "proposed_text": "La misura parte nel 2028."
+      },
+      "expected": {
+        "source_id": "source:asr-date-adverse",
+        "source_sha256": "4dd1fba1166c1a4cd9d33de2a8f7c945d8ef3eb82298f66c4f81cb019ba1fb72",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "374bf85b12f79814617f6e45451e748164859113fc4c9d8c73e6a2a42a7cd904",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "asr-name-adverse",
+      "class": "asr_sensitive_token_error",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:asr-name-adverse",
+        "text": "Persona Alfa: Il ministro Beta presenterà il testo.",
+        "sha256": "75f3f09a00540385ec41b0a185bd72584264fc0a9c209fb6cd569a28a0284c28"
+      },
+      "span": {
+        "start": 14,
+        "end": 51,
+        "text": "Il ministro Beta presenterà il testo.",
+        "sha256": "5ed2346d31c073db6f757eebcce8cadeda159716923e049aedebd39adcd9e724"
+      },
+      "input": {
+        "proposed_text": "Il ministro Gamma presenterà il testo."
+      },
+      "expected": {
+        "source_id": "source:asr-name-adverse",
+        "source_sha256": "75f3f09a00540385ec41b0a185bd72584264fc0a9c209fb6cd569a28a0284c28",
+        "span_start": 14,
+        "span_end": 51,
+        "span_sha256": "5ed2346d31c073db6f757eebcce8cadeda159716923e049aedebd39adcd9e724",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "asr-legal-term-adverse",
+      "class": "asr_sensitive_token_error",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:asr-legal-term-adverse",
+        "text": "Persona Alfa: La persona è indagata.",
+        "sha256": "26125307d78007f6ea78c4909288b2227c6148a898cca2fbf8e0984a64b7831c"
+      },
+      "span": {
+        "start": 14,
+        "end": 36,
+        "text": "La persona è indagata.",
+        "sha256": "511a9d04edb3c18226b196e780f29c1f3fb80e409856a84d29090483e2ad6ddb"
+      },
+      "input": {
+        "proposed_text": "La persona è condannata."
+      },
+      "expected": {
+        "source_id": "source:asr-legal-term-adverse",
+        "source_sha256": "26125307d78007f6ea78c4909288b2227c6148a898cca2fbf8e0984a64b7831c",
+        "span_start": 14,
+        "span_end": 36,
+        "span_sha256": "511a9d04edb3c18226b196e780f29c1f3fb80e409856a84d29090483e2ad6ddb",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "asr-control",
+      "class": "asr_sensitive_token_error",
+      "variant": "CONTROL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:asr-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "proposed_text": "Il fondo vale 10 milioni."
+      },
+      "expected": {
+        "source_id": "source:asr-control",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "EXACT_SOURCE_SPAN_VERIFIED"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "offcamera-adverse",
+      "class": "overlapping_or_off_camera_speaker",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:offcamera-adverse",
+        "text": "Due voci sovrapposte. Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "f109c7535b63e5d1d2be7e51e1ee5cb1715a26a9df15330ce0c26d8d210361f1"
+      },
+      "span": {
+        "start": 36,
+        "end": 61,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:offcamera-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:offcamera-adverse",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "SOURCE_METADATA",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:offcamera-adverse",
+        "source_sha256": "f109c7535b63e5d1d2be7e51e1ee5cb1715a26a9df15330ce0c26d8d210361f1",
+        "span_start": 36,
+        "span_end": 61,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "SPEAKER_METHOD_NOT_PUBLICATION_CAPABLE"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "offcamera-control",
+      "class": "overlapping_or_off_camera_speaker",
+      "variant": "CONTROL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:offcamera-control",
+        "text": "Due voci sovrapposte. Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "f109c7535b63e5d1d2be7e51e1ee5cb1715a26a9df15330ce0c26d8d210361f1"
+      },
+      "span": {
+        "start": 36,
+        "end": 61,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:offcamera-control",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:offcamera-control",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "OFFICIAL_RECORD",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:offcamera-control",
+        "source_sha256": "f109c7535b63e5d1d2be7e51e1ee5cb1715a26a9df15330ce0c26d8d210361f1",
+        "span_start": 36,
+        "span_end": 61,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "IDENTITY_APPROVED_ROLE_OMITTED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": true
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "qualification-adverse",
+      "class": "qualification_clipping",
+      "variant": "ADVERSARIAL",
+      "gate": "context_integrity",
+      "source": {
+        "source_id": "source:qualification-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni, ma solo se il bilancio lo consente.",
+        "sha256": "89a84bcb158b65a82bbd0c42f22edc487855817a4123afc1c875b769972f7560"
+      },
+      "span": {
+        "start": 14,
+        "end": 38,
+        "text": "Il fondo vale 10 milioni",
+        "sha256": "66eadef5370cbf74b072f4bf0fb5a04c522c665e003d197cf628371007c014e7"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:qualification-adverse",
+        "source_sha256": "89a84bcb158b65a82bbd0c42f22edc487855817a4123afc1c875b769972f7560",
+        "span_start": 14,
+        "span_end": 38,
+        "span_sha256": "66eadef5370cbf74b072f4bf0fb5a04c522c665e003d197cf628371007c014e7",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "IMMEDIATE_QUALIFICATION_OMITTED"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "CONTEXT_REVIEW",
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "qualification-control",
+      "class": "qualification_clipping",
+      "variant": "CONTROL",
+      "gate": "context_integrity",
+      "source": {
+        "source_id": "source:qualification-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni, con copertura già stanziata.",
+        "sha256": "bcc7f43a38700852a60ca0508d2ec012b136739e06cb4ed105e2ccde93ea31f3"
+      },
+      "span": {
+        "start": 14,
+        "end": 68,
+        "text": "Il fondo vale 10 milioni, con copertura già stanziata.",
+        "sha256": "22e0e6a9674633de4073ebb6bfc90f8597ee9e248b8f01922aae13af3915d643"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:qualification-control",
+        "source_sha256": "bcc7f43a38700852a60ca0508d2ec012b136739e06cb4ed105e2ccde93ea31f3",
+        "span_start": 14,
+        "span_end": 68,
+        "span_sha256": "22e0e6a9674633de4073ebb6bfc90f8597ee9e248b8f01922aae13af3915d643",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "CONTEXT_CLEAR"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "CONTEXT_REVIEW"
+      ]
+    },
+    {
+      "id": "yes-no-adverse",
+      "class": "yes_no_without_question",
+      "variant": "ADVERSARIAL",
+      "gate": "context_integrity",
+      "source": {
+        "source_id": "source:yes-no-adverse",
+        "text": "Intervistatore: Taglierete le tasse? Persona Alfa: Sì.",
+        "sha256": "ffea96074cf45fcc9c77e07f3d5d0e29aaa1e9f31d8c23b9daba1e25d1688752"
+      },
+      "span": {
+        "start": 51,
+        "end": 54,
+        "text": "Sì.",
+        "sha256": "b473393d73e76854d0605fed672521bf40eb48230ab37a764069cdca4434faa4"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:yes-no-adverse",
+        "source_sha256": "ffea96074cf45fcc9c77e07f3d5d0e29aaa1e9f31d8c23b9daba1e25d1688752",
+        "span_start": 51,
+        "span_end": 54,
+        "span_sha256": "b473393d73e76854d0605fed672521bf40eb48230ab37a764069cdca4434faa4",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "ANSWER_REQUIRES_QUESTION_CONTEXT"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "CONTEXT_REVIEW"
+      ]
+    },
+    {
+      "id": "yes-no-control",
+      "class": "yes_no_without_question",
+      "variant": "CONTROL",
+      "gate": "context_integrity",
+      "source": {
+        "source_id": "source:yes-no-control",
+        "text": "Persona Alfa: Sì, taglieremo le tasse nel 2027.",
+        "sha256": "6a3c0209ee1ae62c6e310a40dcece87fa47307f72537b3fa84b9b77c4d7a55e0"
+      },
+      "span": {
+        "start": 14,
+        "end": 47,
+        "text": "Sì, taglieremo le tasse nel 2027.",
+        "sha256": "5ac07adebc064c497e02a30af70c099e0778b0ef5353a3506b369fb87741ad74"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:yes-no-control",
+        "source_sha256": "6a3c0209ee1ae62c6e310a40dcece87fa47307f72537b3fa84b9b77c4d7a55e0",
+        "span_start": 14,
+        "span_end": 47,
+        "span_sha256": "5ac07adebc064c497e02a30af70c099e0778b0ef5353a3506b369fb87741ad74",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "CONTEXT_CLEAR"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "CONTEXT_REVIEW"
+      ]
+    },
+    {
+      "id": "conditional-adverse",
+      "class": "conditional_flattened_to_assertion",
+      "variant": "ADVERSARIAL",
+      "gate": "context_integrity",
+      "source": {
+        "source_id": "source:conditional-adverse",
+        "text": "Persona Alfa: Se le entrate aumentano, ridurremo le imposte.",
+        "sha256": "e6f77088e63f41b09abbda2acbf22eabfc4a8ce60625be6b29abdf0b87362ea7"
+      },
+      "span": {
+        "start": 14,
+        "end": 60,
+        "text": "Se le entrate aumentano, ridurremo le imposte.",
+        "sha256": "fd77dabbc52103b2fe15370acb5df614b6f2419393e91c96b32c139cf7049747"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:conditional-adverse",
+        "source_sha256": "e6f77088e63f41b09abbda2acbf22eabfc4a8ce60625be6b29abdf0b87362ea7",
+        "span_start": 14,
+        "span_end": 60,
+        "span_sha256": "fd77dabbc52103b2fe15370acb5df614b6f2419393e91c96b32c139cf7049747",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "CONDITIONAL_OR_HYPOTHETICAL"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "CONTEXT_REVIEW"
+      ]
+    },
+    {
+      "id": "conditional-control",
+      "class": "conditional_flattened_to_assertion",
+      "variant": "CONTROL",
+      "gate": "context_integrity",
+      "source": {
+        "source_id": "source:conditional-control",
+        "text": "Persona Alfa: Ridurremo le imposte nel 2027.",
+        "sha256": "b3451d260312bbf30dafba5465657cf3533b3c7ada04b25c39b0fd1ebaf71340"
+      },
+      "span": {
+        "start": 14,
+        "end": 44,
+        "text": "Ridurremo le imposte nel 2027.",
+        "sha256": "d2129a763766ab9556e0ab6d1a98d76fdeffc232c272e2a3273314cb1ca67104"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:conditional-control",
+        "source_sha256": "b3451d260312bbf30dafba5465657cf3533b3c7ada04b25c39b0fd1ebaf71340",
+        "span_start": 14,
+        "span_end": 44,
+        "span_sha256": "d2129a763766ab9556e0ab6d1a98d76fdeffc232c272e2a3273314cb1ca67104",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "CONTEXT_CLEAR"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "CONTEXT_REVIEW"
+      ]
+    },
+    {
+      "id": "paraphrase-adverse",
+      "class": "paraphrase_or_headline_as_quote",
+      "variant": "ADVERSARIAL",
+      "gate": "wording",
+      "source": {
+        "source_id": "source:paraphrase-adverse",
+        "text": "Persona Alfa: Valuteremo una riduzione delle imposte.",
+        "sha256": "9ff1ef4b689a798dcead27793c1d36a234c63db8e7d16cf6d724123c32f6d8c9"
+      },
+      "span": {
+        "start": 14,
+        "end": 53,
+        "text": "Valuteremo una riduzione delle imposte.",
+        "sha256": "31d374f5d73f67f6945f4380e6746b7c46facd71ccb4e6e5236dc7c62736d19d"
+      },
+      "input": {
+        "wording_type": "PARAPHRASE",
+        "derived_text": "Il governo promette un taglio delle tasse."
+      },
+      "expected": {
+        "source_id": "source:paraphrase-adverse",
+        "source_sha256": "9ff1ef4b689a798dcead27793c1d36a234c63db8e7d16cf6d724123c32f6d8c9",
+        "span_start": 14,
+        "span_end": 53,
+        "span_sha256": "31d374f5d73f67f6945f4380e6746b7c46facd71ccb4e6e5236dc7c62736d19d",
+        "person_id": "person:alpha",
+        "wording_type": "PARAPHRASE",
+        "publication_state": "HELD",
+        "reason_any": [
+          "WORDING_DIRECT_QUOTE_FORBIDDEN:PARAPHRASE"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "paraphrase-control",
+      "class": "paraphrase_or_headline_as_quote",
+      "variant": "CONTROL",
+      "gate": "wording",
+      "source": {
+        "source_id": "source:paraphrase-control",
+        "text": "Persona Alfa: Valuteremo una riduzione delle imposte.",
+        "sha256": "9ff1ef4b689a798dcead27793c1d36a234c63db8e7d16cf6d724123c32f6d8c9"
+      },
+      "span": {
+        "start": 14,
+        "end": 53,
+        "text": "Valuteremo una riduzione delle imposte.",
+        "sha256": "31d374f5d73f67f6945f4380e6746b7c46facd71ccb4e6e5236dc7c62736d19d"
+      },
+      "input": {
+        "wording_type": "VERBATIM_ORIGINAL"
+      },
+      "expected": {
+        "source_id": "source:paraphrase-control",
+        "source_sha256": "9ff1ef4b689a798dcead27793c1d36a234c63db8e7d16cf6d724123c32f6d8c9",
+        "span_start": 14,
+        "span_end": 53,
+        "span_sha256": "31d374f5d73f67f6945f4380e6746b7c46facd71ccb4e6e5236dc7c62736d19d",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "DIRECT_QUOTE_ELIGIBLE"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "translation-negation-adverse",
+      "class": "translation_semantic_drift",
+      "variant": "ADVERSARIAL",
+      "gate": "translation",
+      "source": {
+        "source_id": "source:translation-negation-adverse",
+        "text": "Persona Alfa: Non aumenteremo 10.",
+        "sha256": "3ca006f786dfa57ddccd8e2782d9cb8c47fff12cd7fc62921fb14b944fc853cc"
+      },
+      "span": {
+        "start": 14,
+        "end": 33,
+        "text": "Non aumenteremo 10.",
+        "sha256": "abc4f7455830298188ca346d6d9d95cb9cc1fb429e30236cc84ecb3153e8cdfe"
+      },
+      "input": {
+        "source_text": "Non aumenteremo 10.",
+        "translated_text": "We will increase 10.",
+        "source_language": "it",
+        "target_language": "en",
+        "method": "MACHINE",
+        "human_reviewed": false
+      },
+      "expected": {
+        "source_id": "source:translation-negation-adverse",
+        "source_sha256": "3ca006f786dfa57ddccd8e2782d9cb8c47fff12cd7fc62921fb14b944fc853cc",
+        "span_start": 14,
+        "span_end": 33,
+        "span_sha256": "abc4f7455830298188ca346d6d9d95cb9cc1fb429e30236cc84ecb3153e8cdfe",
+        "person_id": "person:alpha",
+        "wording_type": "TRANSLATION",
+        "publication_state": "HELD",
+        "reason_any": [
+          "NEGATION_CHANGED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "translation-modality-adverse",
+      "class": "translation_semantic_drift",
+      "variant": "ADVERSARIAL",
+      "gate": "translation",
+      "source": {
+        "source_id": "source:translation-modality-adverse",
+        "text": "Persona Alfa: Può aumentare 10.",
+        "sha256": "19f58104e78a72184aec0dcab3ed85cf05c56df32e053602d2761f163808fe57"
+      },
+      "span": {
+        "start": 14,
+        "end": 31,
+        "text": "Può aumentare 10.",
+        "sha256": "1fa7ac51eb704943e77b851f4a248c802a00c8f2c251f0bcccf2a1e6816df66c"
+      },
+      "input": {
+        "source_text": "Può aumentare 10.",
+        "translated_text": "It must increase 10.",
+        "source_language": "it",
+        "target_language": "en",
+        "method": "MACHINE",
+        "human_reviewed": false
+      },
+      "expected": {
+        "source_id": "source:translation-modality-adverse",
+        "source_sha256": "19f58104e78a72184aec0dcab3ed85cf05c56df32e053602d2761f163808fe57",
+        "span_start": 14,
+        "span_end": 31,
+        "span_sha256": "1fa7ac51eb704943e77b851f4a248c802a00c8f2c251f0bcccf2a1e6816df66c",
+        "person_id": "person:alpha",
+        "wording_type": "TRANSLATION",
+        "publication_state": "HELD",
+        "reason_any": [
+          "MODALITY_CHANGED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "translation-number-adverse",
+      "class": "translation_semantic_drift",
+      "variant": "ADVERSARIAL",
+      "gate": "translation",
+      "source": {
+        "source_id": "source:translation-number-adverse",
+        "text": "Persona Alfa: Aumenteremo 10.",
+        "sha256": "907f9e9775863b81c799a5e5d39472f774cebae9f70d7154a844251c43f9947d"
+      },
+      "span": {
+        "start": 14,
+        "end": 29,
+        "text": "Aumenteremo 10.",
+        "sha256": "3535af981e89fc85fc952352637c8fa7ba6687a051524b4c343b683c1f680b3c"
+      },
+      "input": {
+        "source_text": "Aumenteremo 10.",
+        "translated_text": "We will increase 20.",
+        "source_language": "it",
+        "target_language": "en",
+        "method": "MACHINE",
+        "human_reviewed": false
+      },
+      "expected": {
+        "source_id": "source:translation-number-adverse",
+        "source_sha256": "907f9e9775863b81c799a5e5d39472f774cebae9f70d7154a844251c43f9947d",
+        "span_start": 14,
+        "span_end": 29,
+        "span_sha256": "3535af981e89fc85fc952352637c8fa7ba6687a051524b4c343b683c1f680b3c",
+        "person_id": "person:alpha",
+        "wording_type": "TRANSLATION",
+        "publication_state": "HELD",
+        "reason_any": [
+          "NUMBER_CHANGED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "translation-control",
+      "class": "translation_semantic_drift",
+      "variant": "CONTROL",
+      "gate": "translation",
+      "source": {
+        "source_id": "source:translation-control",
+        "text": "Persona Alfa: La misura può aumentare 10.",
+        "sha256": "0c16d338afa5ef0e443383b8ca0846bf5eee15e543102f1286d4b7bdc5be3a8d"
+      },
+      "span": {
+        "start": 14,
+        "end": 41,
+        "text": "La misura può aumentare 10.",
+        "sha256": "24267e8a6d74662613dc8c47ecee0131dbcb05d0cb2c8c11d7e26cfc118a38dd"
+      },
+      "input": {
+        "source_text": "La misura può aumentare 10.",
+        "translated_text": "The measure can increase 10.",
+        "source_language": "it",
+        "target_language": "en",
+        "method": "HUMAN_REVIEWED_MACHINE",
+        "human_reviewed": true
+      },
+      "expected": {
+        "source_id": "source:translation-control",
+        "source_sha256": "0c16d338afa5ef0e443383b8ca0846bf5eee15e543102f1286d4b7bdc5be3a8d",
+        "span_start": 14,
+        "span_end": 41,
+        "span_sha256": "24267e8a6d74662613dc8c47ecee0131dbcb05d0cb2c8c11d7e26cfc118a38dd",
+        "person_id": "person:alpha",
+        "wording_type": "TRANSLATION",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "TRANSLATION_HUMAN_REVIEWED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "syndication-adverse",
+      "class": "syndicated_upstream_quote",
+      "variant": "ADVERSARIAL",
+      "gate": "original_source",
+      "source": {
+        "source_id": "source:syndication-adverse",
+        "text": "Articolo sindacato: Persona Alfa ha detto che il fondo vale 10 milioni.",
+        "sha256": "ed5edc3864715c4d584a151ff4ba2d95ddf29780691cb78caa5b5c8ae2b10e7f"
+      },
+      "span": {
+        "start": 46,
+        "end": 70,
+        "text": "il fondo vale 10 milioni",
+        "sha256": "66a18bddfdf6caa71b7d86c3641c7ecbc5ac71d7a03b91aad6ba53915aa99dd4"
+      },
+      "input": {
+        "content_id": "content:syndication-adverse",
+        "families": [
+          {
+            "status": "APPROVED",
+            "root_content_id": "content:root-a"
+          },
+          {
+            "status": "APPROVED",
+            "root_content_id": "content:root-b"
+          }
+        ],
+        "edges": []
+      },
+      "expected": {
+        "source_id": "source:syndication-adverse",
+        "source_sha256": "ed5edc3864715c4d584a151ff4ba2d95ddf29780691cb78caa5b5c8ae2b10e7f",
+        "span_start": 46,
+        "span_end": 70,
+        "span_sha256": "66a18bddfdf6caa71b7d86c3641c7ecbc5ac71d7a03b91aad6ba53915aa99dd4",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "UNRESOLVED",
+        "reason_any": [
+          "CONFLICTING_APPROVED_FAMILY_ROOTS"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "syndication-control",
+      "class": "syndicated_upstream_quote",
+      "variant": "CONTROL",
+      "gate": "original_source",
+      "source": {
+        "source_id": "source:syndication-control",
+        "text": "Articolo sindacato: Persona Alfa ha detto che il fondo vale 10 milioni.",
+        "sha256": "ed5edc3864715c4d584a151ff4ba2d95ddf29780691cb78caa5b5c8ae2b10e7f"
+      },
+      "span": {
+        "start": 46,
+        "end": 70,
+        "text": "il fondo vale 10 milioni",
+        "sha256": "66a18bddfdf6caa71b7d86c3641c7ecbc5ac71d7a03b91aad6ba53915aa99dd4"
+      },
+      "input": {
+        "content_id": "content:syndication-control",
+        "families": [
+          {
+            "status": "APPROVED",
+            "root_content_id": "content:root"
+          }
+        ],
+        "edges": [
+          {
+            "id": "edge:syndication-control",
+            "family_id": "fam:1",
+            "derived_content_id": "content:syndication-control",
+            "origin_content_id": "content:root",
+            "relation_type": "SYNDICATION",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:syndication-control",
+        "source_sha256": "ed5edc3864715c4d584a151ff4ba2d95ddf29780691cb78caa5b5c8ae2b10e7f",
+        "span_start": 46,
+        "span_end": 70,
+        "span_sha256": "66a18bddfdf6caa71b7d86c3641c7ecbc5ac71d7a03b91aad6ba53915aa99dd4",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "ORIGINAL_SOURCE_RESOLVED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "source-update-adverse",
+      "class": "source_page_updated_after_capture",
+      "variant": "ADVERSARIAL",
+      "gate": "excerpt_rights",
+      "source": {
+        "source_id": "source:source-update-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "observed_source_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected": {
+        "source_id": "source:source-update-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "OMITTED",
+        "reason_any": [
+          "SOURCE_HASH_MISMATCH"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE",
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "source-update-control",
+      "class": "source_page_updated_after_capture",
+      "variant": "CONTROL",
+      "gate": "excerpt_rights",
+      "source": {
+        "source_id": "source:source-update-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {},
+      "expected": {
+        "source_id": "source:source-update-control",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "ALLOW"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "stale-review-adverse",
+      "class": "stale_review_after_source_version_change",
+      "variant": "ADVERSARIAL",
+      "gate": "excerpt_rights",
+      "source": {
+        "source_id": "source:stale-review-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "segment_is_stale": true
+      },
+      "expected": {
+        "source_id": "source:stale-review-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "OMITTED",
+        "reason_any": [
+          "SEGMENT_STALE"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "stale-review-control",
+      "class": "stale_review_after_source_version_change",
+      "variant": "CONTROL",
+      "gate": "excerpt_rights",
+      "source": {
+        "source_id": "source:stale-review-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "segment_is_stale": false
+      },
+      "expected": {
+        "source_id": "source:stale-review-control",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "ALLOW"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "citation-unrelated-adverse",
+      "class": "finding_assertion_bad_citation",
+      "variant": "ADVERSARIAL",
+      "gate": "citation_assurance",
+      "source": {
+        "source_id": "source:citation-unrelated-adverse",
+        "text": "Finding sintetico. Evidenza A supporta solo un fatto distinto.",
+        "sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193"
+      },
+      "span": {
+        "start": 19,
+        "end": 62,
+        "text": "Evidenza A supporta solo un fatto distinto.",
+        "sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328"
+      },
+      "input": {
+        "assertion_text": "Il fondo vale 10 milioni.",
+        "relation": "SUPPORT",
+        "evidence_id": "evidence:a",
+        "approved_evidence_ids": [
+          "evidence:other"
+        ]
+      },
+      "expected": {
+        "source_id": "source:citation-unrelated-adverse",
+        "source_sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193",
+        "span_start": 19,
+        "span_end": 62,
+        "span_sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "EVIDENCE_NOT_APPROVED_FOR_FINDING"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "citation-context-adverse",
+      "class": "finding_assertion_bad_citation",
+      "variant": "ADVERSARIAL",
+      "gate": "citation_assurance",
+      "source": {
+        "source_id": "source:citation-context-adverse",
+        "text": "Finding sintetico. Evidenza A supporta solo un fatto distinto.",
+        "sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193"
+      },
+      "span": {
+        "start": 19,
+        "end": 62,
+        "text": "Evidenza A supporta solo un fatto distinto.",
+        "sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328"
+      },
+      "input": {
+        "assertion_text": "Il fondo vale 10 milioni.",
+        "relation": "CONTEXT",
+        "evidence_id": "evidence:a",
+        "approved_evidence_ids": [
+          "evidence:a"
+        ]
+      },
+      "expected": {
+        "source_id": "source:citation-context-adverse",
+        "source_sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193",
+        "span_start": 19,
+        "span_end": 62,
+        "span_sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "CITATION_RELATION_MISMATCH"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "citation-contradict-adverse",
+      "class": "finding_assertion_bad_citation",
+      "variant": "ADVERSARIAL",
+      "gate": "citation_assurance",
+      "source": {
+        "source_id": "source:citation-contradict-adverse",
+        "text": "Finding sintetico. Evidenza A supporta solo un fatto distinto.",
+        "sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193"
+      },
+      "span": {
+        "start": 19,
+        "end": 62,
+        "text": "Evidenza A supporta solo un fatto distinto.",
+        "sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328"
+      },
+      "input": {
+        "assertion_text": "Il fondo vale 10 milioni.",
+        "relation": "CONTRADICT",
+        "evidence_id": "evidence:a",
+        "approved_evidence_ids": [
+          "evidence:a"
+        ]
+      },
+      "expected": {
+        "source_id": "source:citation-contradict-adverse",
+        "source_sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193",
+        "span_start": 19,
+        "span_end": 62,
+        "span_sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "CITATION_RELATION_MISMATCH"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "citation-control",
+      "class": "finding_assertion_bad_citation",
+      "variant": "CONTROL",
+      "gate": "citation_assurance",
+      "source": {
+        "source_id": "source:citation-control",
+        "text": "Finding sintetico. Evidenza A supporta solo un fatto distinto.",
+        "sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193"
+      },
+      "span": {
+        "start": 19,
+        "end": 62,
+        "text": "Evidenza A supporta solo un fatto distinto.",
+        "sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328"
+      },
+      "input": {
+        "assertion_text": "Il fondo vale 10 milioni.",
+        "relation": "SUPPORT",
+        "evidence_id": "evidence:a",
+        "approved_evidence_ids": [
+          "evidence:a"
+        ]
+      },
+      "expected": {
+        "source_id": "source:citation-control",
+        "source_sha256": "e5ce77db74394eacfd1f4c1a42a151fc2dd3248832c31e4bbe50aef539519193",
+        "span_start": 19,
+        "span_end": 62,
+        "span_sha256": "c9523111b70d58926d992ea5c3ffb82573f89409eff227b48b353eb014229328",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "CITATION_ASSURED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "STALE_PROVENANCE"
+      ]
+    },
+    {
+      "id": "tamper-person-adverse",
+      "class": "direct_status_person_quote_tampering",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:tamper-person-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:tamper-person-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:beta",
+          "content_id": "content:tamper-person-adverse",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:tamper-person-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "SPEAKER_PERSON_MISMATCH"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "tamper-status-adverse",
+      "class": "direct_status_person_quote_tampering",
+      "variant": "ADVERSARIAL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:tamper-status-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:tamper-status-adverse",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:tamper-status-adverse",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "CANDIDATE"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:tamper-status-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "IDENTITY_RESOLUTION_MISSING"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": false
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "tamper-quote-adverse",
+      "class": "direct_status_person_quote_tampering",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:tamper-quote-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "proposed_text": "Il fondo vale 100 milioni."
+      },
+      "expected": {
+        "source_id": "source:tamper-quote-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "tamper-materialized-control",
+      "class": "direct_status_person_quote_tampering",
+      "variant": "CONTROL",
+      "gate": "public_attribution",
+      "source": {
+        "source_id": "source:tamper-materialized-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "requested_person_id": "person:alpha",
+        "content_id": "content:tamper-materialized-control",
+        "occurrence_start_ms": 1000,
+        "occurrence_end_ms": 2000,
+        "statement_date": "2026-05-01",
+        "occurrence_kind": "SPEAKER",
+        "speaker": {
+          "person_id": "person:alpha",
+          "content_id": "content:tamper-materialized-control",
+          "start_ms": 0,
+          "end_ms": 5000,
+          "method": "MANUAL_REVIEW",
+          "source_ref": {}
+        },
+        "resolutions": [
+          {
+            "target_id": "person:alpha",
+            "status": "APPROVED"
+          }
+        ]
+      },
+      "expected": {
+        "source_id": "source:tamper-materialized-control",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "IDENTITY_APPROVED_ROLE_OMITTED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": true
+      },
+      "risk_tags": [
+        "FALSE_ATTRIBUTION"
+      ]
+    },
+    {
+      "id": "rights-hold-adverse",
+      "class": "rights_hold_or_source_body_unavailable",
+      "variant": "ADVERSARIAL",
+      "gate": "excerpt_rights",
+      "source": {
+        "source_id": "source:rights-hold-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "rights_status": "RIGHTS_HOLD"
+      },
+      "expected": {
+        "source_id": "source:rights-hold-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "OMITTED",
+        "reason_any": [
+          "RIGHTS_BLOCKED"
+        ],
+        "quote_exact": null,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "body-unavailable-adverse",
+      "class": "rights_hold_or_source_body_unavailable",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:body-unavailable-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "body_available": false,
+        "proposed_text": "Il fondo vale 10 milioni."
+      },
+      "expected": {
+        "source_id": "source:body-unavailable-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "QUOTE_POSITION_LENGTH_MISMATCH"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "rights-control",
+      "class": "rights_hold_or_source_body_unavailable",
+      "variant": "CONTROL",
+      "gate": "excerpt_rights",
+      "source": {
+        "source_id": "source:rights-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "rights_status": "CLEARED"
+      },
+      "expected": {
+        "source_id": "source:rights-control",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "ALLOW"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "fabricated-sentence-adverse",
+      "class": "fabricated_sentence_absent_from_source",
+      "variant": "ADVERSARIAL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:fabricated-sentence-adverse",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "proposed_text": "Aboliremo tutte le imposte domani."
+      },
+      "expected": {
+        "source_id": "source:fabricated-sentence-adverse",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "HELD",
+        "reason_any": [
+          "STATEMENT_NOT_EXACT_PASSAGE"
+        ],
+        "quote_exact": false,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "fabricated-sentence-control",
+      "class": "fabricated_sentence_absent_from_source",
+      "variant": "CONTROL",
+      "gate": "quote_binding",
+      "source": {
+        "source_id": "source:fabricated-sentence-control",
+        "text": "Persona Alfa: Il fondo vale 10 milioni.",
+        "sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b"
+      },
+      "span": {
+        "start": 14,
+        "end": 39,
+        "text": "Il fondo vale 10 milioni.",
+        "sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2"
+      },
+      "input": {
+        "proposed_text": "Il fondo vale 10 milioni."
+      },
+      "expected": {
+        "source_id": "source:fabricated-sentence-control",
+        "source_sha256": "ea590cf00c48ee5168cf097d33525d30c5514b76cc8132e986df29582841712b",
+        "span_start": 14,
+        "span_end": 39,
+        "span_sha256": "62c9fe1b4be86a8c92e0eecadc72bafe7b3954d6c52949c49de6e283de7c6cf2",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "EXACT_SOURCE_SPAN_VERIFIED"
+        ],
+        "quote_exact": true,
+        "speaker_span_covered": null
+      },
+      "risk_tags": [
+        "FABRICATED_QUOTE"
+      ]
+    },
+    {
+      "id": "challenger-only-adverse",
+      "class": "challenger_only_countercase",
+      "variant": "ADVERSARIAL",
+      "gate": "challenger_readiness",
+      "source": {
+        "source_id": "source:challenger-only-adverse",
+        "text": "Il rapporto mostra un aumento, ma il challenger documenta una correzione.",
+        "sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d"
+      },
+      "span": {
+        "start": 0,
+        "end": 73,
+        "text": "Il rapporto mostra un aumento, ma il challenger documenta una correzione.",
+        "sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d"
+      },
+      "input": {
+        "claim_id": "claim:challenger-only",
+        "counterevidence": [
+          {
+            "evidence_id": "evidence:challenger-contradiction",
+            "relation": "CONTRADICT",
+            "rationale_code": "COUNTERCASE_CORRECTION_FOUND",
+            "approved": true,
+            "suitable": true,
+            "independence_group": "challenger-independent"
+          }
+        ],
+        "research_complete": true,
+        "incorporated_current": false,
+        "reviewed_current": false
+      },
+      "expected": {
+        "source_sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d",
+        "span_start": 0,
+        "span_end": 73,
+        "span_sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "quote_exact": true,
+        "speaker_span_covered": null,
+        "source_id": "source:challenger-only-adverse",
+        "publication_state": "HELD",
+        "reason_any": [
+          "MATERIAL_CHALLENGER_NOT_INCORPORATED",
+          "CHALLENGER_REVIEW_STALE"
+        ]
+      },
+      "risk_tags": [
+        "CHALLENGER_ONLY_UNSAFE_CONCLUSION"
+      ]
+    },
+    {
+      "id": "challenger-only-control",
+      "class": "challenger_only_countercase",
+      "variant": "CONTROL",
+      "gate": "challenger_readiness",
+      "source": {
+        "source_id": "source:challenger-only-control",
+        "text": "Il rapporto mostra un aumento, ma il challenger documenta una correzione.",
+        "sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d"
+      },
+      "span": {
+        "start": 0,
+        "end": 73,
+        "text": "Il rapporto mostra un aumento, ma il challenger documenta una correzione.",
+        "sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d"
+      },
+      "input": {
+        "claim_id": "claim:challenger-only",
+        "counterevidence": [
+          {
+            "evidence_id": "evidence:challenger-contradiction",
+            "relation": "CONTRADICT",
+            "rationale_code": "COUNTERCASE_CORRECTION_FOUND",
+            "approved": true,
+            "suitable": true,
+            "independence_group": "challenger-independent"
+          }
+        ],
+        "research_complete": true,
+        "incorporated_current": true,
+        "reviewed_current": true
+      },
+      "expected": {
+        "source_sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d",
+        "span_start": 0,
+        "span_end": 73,
+        "span_sha256": "76f33a471259d54e458df24e1a320106a9683f92f4700a2d4350edf45f96da2d",
+        "person_id": "person:alpha",
+        "wording_type": "VERBATIM_ORIGINAL",
+        "quote_exact": true,
+        "speaker_span_covered": null,
+        "source_id": "source:challenger-only-control",
+        "publication_state": "PUBLIC",
+        "reason_any": [
+          "CHALLENGER_READY"
+        ]
+      },
+      "risk_tags": [
+        "CHALLENGER_ONLY_UNSAFE_CONCLUSION"
+      ]
+    }
+  ],
+  "integrity": {
+    "algorithm": "sha256-canonical-json-without-integrity",
+    "fixture_sha256": "8e83e59914c58be1eca32f633273ae4cafc2d3c2fa5d795af5bfcf0ce65d9c16"
+  }
+}

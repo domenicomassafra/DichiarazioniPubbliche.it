@@ -37,6 +37,18 @@ const locator = sourceMoment
 const relations = [...(dossier.relations ?? [])]
   .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
   .filter((relation, index, list) => list.findIndex((item) => item.id === relation.id) === index);
+const wording = dossier.wording;
+const sourceWordingLabel = wording?.source_occurrence.wording_type === "VERBATIM_ORIGINAL"
+  ? "Occorrenza originale verbatim"
+  : wording?.source_occurrence.wording_type === "REPORTED_QUOTE"
+    ? "Citazione riportata dalla fonte"
+    : "Occorrenza sorgente non esposta in questo snapshot";
+const attributionKinds = [...new Set(
+  (dossier.speaker.provenance ?? [])
+    .map((item) => String(item.provenance_kind ?? "").trim())
+    .filter(Boolean)
+)];
+const translations = wording?.representations.filter((item) => item.wording_type === "TRANSLATION") ?? [];
 ---
 
 <BaseLayout
@@ -47,7 +59,8 @@ const relations = [...(dossier.relations ?? [])]
   <header class="dp-statement-header">
     <div class="shell">
       <div class="eyebrow">Dichiarazione</div>
-      <h1>“{dossier.claim}”</h1>
+      <h1>{dossier.claim}</h1>
+      <p class="dp-statement-wording-label">Formulazione normalizzata · paraphrase</p>
       <div class="dp-statement-meta">
         <strong>{dossier.speaker.name}</strong>
         <span aria-hidden="true">·</span>
@@ -68,6 +81,39 @@ const relations = [...(dossier.relations ?? [])]
           {dossier.finding.supersedes_id ? "Versione corretta" : "Versione pubblicata"}<br />
           {formatDate(dossier.finding.published_at)}
         </div>
+      </section>
+
+      <section class="dp-provenance-disclosure" aria-labelledby="wording-heading">
+        <div class="eyebrow" id="wording-heading">Parole, attribuzione e fonte</div>
+        <h2>Questa formulazione non è una citazione verbatim.</h2>
+        <p>
+          Il titolo della dichiarazione è una <strong>parafrasi normalizzata</strong> usata per
+          rappresentare il claim verificato. La citazione diretta resta un oggetto distinto e
+          può essere mostrata soltanto quando il testo originale è ammesso dal contratto pubblico.
+          Questa pagina non ricostruisce né inventa quel testo quando non è presente nella projection.
+        </p>
+        <dl>
+          <div><dt>Tipo della formulazione</dt><dd>PARAPHRASE · non direct-quote eligible</dd></div>
+          <div><dt>Occorrenza sorgente</dt><dd>{sourceWordingLabel}</dd></div>
+          <div><dt>Locator pubblico</dt><dd>{locator}</dd></div>
+          <div><dt>Attribuzione</dt><dd>{attributionKinds.length ? attributionKinds.join(" · ") : "Provenienza revisionata"}</dd></div>
+          {wording?.source_occurrence.language && (
+            <div><dt>Lingua sorgente</dt><dd>{wording.source_occurrence.language}</dd></div>
+          )}
+        </dl>
+        {wording?.source_occurrence.wording_type === "REPORTED_QUOTE" && (
+          <p><strong>Discorso riportato:</strong> la fonte attribuisce parole a una persona; questa rappresentazione non le promuove automaticamente a dichiarazione diretta della persona riportata.</p>
+        )}
+        {translations.length > 0 && (
+          <div>
+            <h3>Traduzione</h3>
+            {translations.map((translation) => (
+              <p>
+                Rappresentazione tradotta {translation.source_language ? `da ${translation.source_language}` : "dalla lingua sorgente"}{translation.language ? ` a ${translation.language}` : ""} · stato di revisione {translation.review_state ?? "non pubblicato"}. La traduzione non acquisisce autorità di citazione diretta.
+              </p>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   </header>
@@ -145,6 +191,8 @@ const relations = [...(dossier.relations ?? [])]
             <p>Finding: <code>{dossier.finding_id}</code></p>
             <p>Claim: <code>{dossier.claim_id}</code></p>
             <p>Policy: <code>{dossier.finding.policy_version ?? "non pubblicata"}</code></p>
+            <p>Wording: <code>PARAPHRASE</code> · direct quote: <code>false</code></p>
+            {wording && <p>Source occurrence: <code>{wording.source_occurrence.wording_type}</code> · hash <code>{wording.source_occurrence.text_sha256}</code></p>}
             <p>{locator}. La pagina espone soltanto provenienza ed evidenze già ammesse nella projection pubblica.</p>
             <p><a href="/metodo/">Leggi il metodo completo</a></p>
           </div>

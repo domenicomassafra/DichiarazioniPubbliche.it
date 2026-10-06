@@ -136,13 +136,12 @@ code license as a data permission.
 
 ## Naming during the pre-1.0 compatibility window
 
-The repository still carries POC/`.v0` technical identifiers
-(`poc/`, `dichiarazioni_pubbliche`). Stable database/config baselines now use
-`db/schema.v1.sql`, `db/job_queue.v1.sql`, and `config/*.v1.json`; the two
-`config/*.v0.json` files remain only for the DP-106 compatibility window. These are
-deliberately retained compatibility identifiers. Do not rename them in a pull request;
-DP-106 owns that migration and its compatibility window. Use the current names in
-documentation and new code until the rename is accepted.
+The repository still carries provisional package identifiers (`poc/`,
+`dichiarazioni_pubbliche`). Stable database/config baselines use `db/schema.v1.sql`,
+`db/job_queue.v1.sql`, and `config/*.v1.json`; the DP-106 `config/*.v0.json` fallback
+window has closed in the source tree. Do not rename the remaining package identifiers in
+a pull request; DP-601 owns that packaging transition. Use the current names in
+documentation and new code until that rename is accepted.
 
 ## Commit style
 

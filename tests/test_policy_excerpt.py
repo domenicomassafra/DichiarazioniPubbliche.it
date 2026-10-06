@@ -7,6 +7,7 @@ profile.
 
 import sys
 import unittest
+from dataclasses import asdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,11 +18,20 @@ from dichiarazioni_pubbliche.policy.excerpt_policy import (  # noqa: E402
     EXCERPT_PROFILE_APPROVED,
     EXCERPT_PUBLIC_USE_REQUIRED,
     ALLOWED_PUBLIC_METHOD_FIELDS,
+    MAX_AUDIT_REASON_CODES,
+    MEDIA_EMBED_PUBLIC_USE_REQUIRED,
     REQUIRED_ATTRIBUTION_FIELDS,
+    ExcerptBudgetCode,
     ExcerptDecisionCode,
     ExcerptRequest,
+    MediaDecisionCode,
+    MediaUseKind,
+    MediaUseRequest,
     RightsStatus,
+    build_rights_policy_audit,
     decide_excerpt,
+    decide_excerpt_budget,
+    decide_media_use,
     dossier_excerpt_budget,
     effective_excerpt_cap,
     render_attributed_excerpt,
@@ -98,6 +108,31 @@ class RightsTests(unittest.TestCase):
                 result = decide_excerpt(_req(rights_status=status))
                 self.assertFalse(result.allowed)
 
+    def test_operational_block_and_hold_statuses_are_prohibited(self):
+        for status in (
+            RightsStatus.BLOCKED,
+            RightsStatus.FORBIDDEN,
+            RightsStatus.LEGAL_HOLD,
+            RightsStatus.RIGHTS_HOLD,
+            RightsStatus.TAKEDOWN_HOLD,
+            RightsStatus.REMOVED,
+        ):
+            with self.subTest(status=status):
+                result = decide_excerpt(_req(rights_status=status))
+                self.assertFalse(result.allowed)
+                self.assertIn(ExcerptDecisionCode.RIGHTS_BLOCKED, result.codes)
+
+    def test_full_transcript_is_suppressed_for_unknown_or_blocked_rights(self):
+        for status in (RightsStatus.UNKNOWN, RightsStatus.RIGHTS_HOLD):
+            with self.subTest(status=status):
+                result = decide_excerpt(
+                    _req(rights_status=status, request_kind="FULL_TRANSCRIPT")
+                )
+                self.assertFalse(result.allowed)
+                self.assertEqual(
+                    result.codes[0], ExcerptDecisionCode.FULL_TRANSCRIPT_REQUEST
+                )
+
     def test_unknown_rights_string_fails_closed(self):
         result = decide_excerpt(_req(rights_status="SOMETHING_ELSE"))
         self.assertEqual(result.codes[0], ExcerptDecisionCode.RIGHTS_NOT_CLEARED)
@@ -117,6 +152,42 @@ class RightsTests(unittest.TestCase):
             ExcerptDecisionCode.RIGHTS_REVOKED,
             decide_excerpt(_req(rights_status=RightsStatus.REVOKED)).codes,
         )
+
+    def test_declared_rights_expiry_is_revalidated_at_read_time(self):
+        current = decide_excerpt(
+            _req(
+                rights_reviewed_on="2026-09-01",
+                rights_expires_on="2026-10-05",
+                today="2026-10-05",
+            )
+        )
+        self.assertTrue(current.allowed)
+
+        expired = decide_excerpt(
+            _req(
+                rights_reviewed_on="2026-09-01",
+                rights_expires_on="2026-10-05",
+                today="2026-10-06",
+            )
+        )
+        self.assertFalse(expired.allowed)
+        self.assertIn(ExcerptDecisionCode.RIGHTS_EXPIRED, expired.codes)
+
+    def test_declared_expiry_without_valid_clock_input_fails_closed(self):
+        for today in ("", "not-a-date"):
+            with self.subTest(today=today):
+                result = decide_excerpt(
+                    _req(rights_expires_on="2026-10-05", today=today)
+                )
+                self.assertFalse(result.allowed)
+                self.assertIn(ExcerptDecisionCode.RIGHTS_DATE_INVALID, result.codes)
+
+    def test_future_review_date_fails_closed(self):
+        result = decide_excerpt(
+            _req(rights_reviewed_on="2026-10-06", today="2026-10-05")
+        )
+        self.assertFalse(result.allowed)
+        self.assertIn(ExcerptDecisionCode.RIGHTS_DATE_INVALID, result.codes)
 
 
 class AttributionAndProvenanceTests(unittest.TestCase):
@@ -203,6 +274,188 @@ class SubstitutivityTests(unittest.TestCase):
 
         self.assertTrue(dossier_excerpt_budget([10] * MAX_EXCERPTS_PER_DOSSIER))
         self.assertFalse(dossier_excerpt_budget([10] * (MAX_EXCERPTS_PER_DOSSIER + 1)))
+
+
+class StructuredExcerptBudgetTests(unittest.TestCase):
+    def test_default_profile_is_fail_closed(self):
+        decision = decide_excerpt_budget([10])
+        self.assertFalse(decision.allowed)
+        self.assertIn(ExcerptBudgetCode.PROFILE_NOT_APPROVED, decision.codes)
+
+    def test_approved_profile_calculates_count_and_total_budget(self):
+        decision = decide_excerpt_budget(
+            [30, 40],
+            profile_approved=True,
+            max_excerpts=2,
+            max_excerpt_chars=50,
+        )
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.excerpt_count, 2)
+        self.assertEqual(decision.total_excerpt_chars, 70)
+        self.assertEqual(decision.max_total_chars, 100)
+
+    def test_count_and_total_overages_are_distinct(self):
+        count = decide_excerpt_budget(
+            [10, 10, 10],
+            profile_approved=True,
+            max_excerpts=2,
+            max_excerpt_chars=50,
+        )
+        self.assertIn(ExcerptBudgetCode.EXCERPT_COUNT_EXCEEDED, count.codes)
+
+        total = decide_excerpt_budget(
+            [80, 30],
+            profile_approved=True,
+            max_excerpts=2,
+            max_excerpt_chars=50,
+        )
+        self.assertIn(ExcerptBudgetCode.TOTAL_CHAR_BUDGET_EXCEEDED, total.codes)
+
+    def test_single_excerpt_cannot_hide_inside_larger_total_budget(self):
+        decision = decide_excerpt_budget(
+            [80, 10],
+            profile_approved=True,
+            max_excerpts=2,
+            max_excerpt_chars=50,
+        )
+        self.assertFalse(decision.allowed)
+        self.assertIn(ExcerptBudgetCode.EXCERPT_ITEM_TOO_LONG, decision.codes)
+
+    def test_invalid_lengths_fail_closed(self):
+        for lengths in ([-1], [True], [1.5]):
+            with self.subTest(lengths=lengths):
+                decision = decide_excerpt_budget(
+                    lengths,  # type: ignore[arg-type]
+                    profile_approved=True,
+                    max_excerpts=2,
+                    max_excerpt_chars=50,
+                )
+                self.assertFalse(decision.allowed)
+                self.assertEqual(decision.codes, (ExcerptBudgetCode.INVALID_LENGTH,))
+
+
+class MediaAuthorizationTests(unittest.TestCase):
+    def _media(self, **overrides) -> MediaUseRequest:
+        base = {
+            "kind": MediaUseKind.EMBED,
+            "rights_status": RightsStatus.CLEARED,
+            "permitted_public_uses": (MEDIA_EMBED_PUBLIC_USE_REQUIRED,),
+            "media_url": "https://media.example.test/embed/1",
+            "media_policy_version": "public-media-v1",
+            "content_kind": "VIDEO",
+            "profile_approved": True,
+        }
+        base.update(overrides)
+        return MediaUseRequest(**base)
+
+    def test_embed_requires_clearance_and_explicit_public_use(self):
+        self.assertTrue(decide_media_use(self._media()).allowed)
+
+        unknown = decide_media_use(self._media(rights_status=RightsStatus.UNKNOWN))
+        self.assertFalse(unknown.allowed)
+        self.assertIn(MediaDecisionCode.RIGHTS_NOT_CLEARED, unknown.codes)
+
+        missing_use = decide_media_use(self._media(permitted_public_uses=()))
+        self.assertFalse(missing_use.allowed)
+        self.assertIn(MediaDecisionCode.PUBLIC_USE_NOT_PERMITTED, missing_use.codes)
+
+    def test_blocked_source_rights_suppress_embed(self):
+        for status in (
+            RightsStatus.BLOCKED,
+            RightsStatus.RIGHTS_HOLD,
+            RightsStatus.LEGAL_HOLD,
+            RightsStatus.TAKEDOWN_HOLD,
+        ):
+            with self.subTest(status=status):
+                result = decide_media_use(self._media(rights_status=status))
+                self.assertFalse(result.allowed)
+                self.assertIn(MediaDecisionCode.RIGHTS_BLOCKED, result.codes)
+
+    def test_media_copy_modes_are_never_authorized_by_baseline(self):
+        for kind in (
+            MediaUseKind.MEDIA_COPY,
+            MediaUseKind.AUDIO_COPY,
+            MediaUseKind.VIDEO_COPY,
+            MediaUseKind.SOURCE_CAPTURE,
+        ):
+            with self.subTest(kind=kind):
+                result = decide_media_use(self._media(kind=kind))
+                self.assertFalse(result.allowed)
+                self.assertEqual(
+                    result.codes, (MediaDecisionCode.SUBSTITUTIVE_MEDIA_COPY,)
+                )
+
+    def test_unknown_media_use_kind_fails_closed_with_bounded_code(self):
+        result = decide_media_use(self._media(kind="SOMETHING_ELSE"))
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.codes, (MediaDecisionCode.MEDIA_USE_KIND_INVALID,))
+
+    def test_embed_profile_is_fail_closed_by_default(self):
+        result = decide_media_use(self._media(profile_approved=False))
+        self.assertFalse(result.allowed)
+        self.assertIn(MediaDecisionCode.PROFILE_NOT_APPROVED, result.codes)
+
+    def test_embed_requires_safe_url_policy_version_and_timed_media_kind(self):
+        cases = (
+            ({"media_url": "http://media.example.test/embed/1"}, MediaDecisionCode.MEDIA_URL_INVALID),
+            ({"media_url": "https://127.0.0.1/embed/1"}, MediaDecisionCode.MEDIA_URL_INVALID),
+            ({"media_policy_version": None}, MediaDecisionCode.MEDIA_POLICY_VERSION_MISSING),
+            ({"content_kind": "WRITTEN"}, MediaDecisionCode.CONTENT_KIND_NOT_MEDIA),
+        )
+        for overrides, expected in cases:
+            with self.subTest(overrides=overrides):
+                result = decide_media_use(self._media(**overrides))
+                self.assertFalse(result.allowed)
+                self.assertIn(expected, result.codes)
+
+
+class RightsAuditTests(unittest.TestCase):
+    def test_audit_is_content_free_and_machine_bounded(self):
+        decision = decide_excerpt(
+            _req(
+                rights_status=RightsStatus.RIGHTS_HOLD,
+                excerpt_text="PRIVATE_EXCERPT_SENTINEL",
+            )
+        )
+        receipt = build_rights_policy_audit(
+            subject_ref="segment:7",
+            disposition=decision.disposition,
+            reason_codes=decision.codes,
+        )
+        payload = asdict(receipt)
+        rendered = repr(payload)
+        self.assertNotIn("PRIVATE_EXCERPT_SENTINEL", rendered)
+        self.assertNotIn("example.org/speech", rendered)
+        self.assertLessEqual(len(receipt.reason_codes), MAX_AUDIT_REASON_CODES)
+        self.assertTrue(
+            set(receipt.reason_codes)
+            <= {code.value for code in ExcerptDecisionCode}
+        )
+
+    def test_audit_rejects_free_form_reason_and_redacts_contact_subject(self):
+        receipt = build_rights_policy_audit(
+            subject_ref="private@example.test",
+            disposition="SOMETHING_ELSE",
+            reason_codes=(
+                "PRIVATE BODY: do not log",
+                ExcerptDecisionCode.RIGHTS_NOT_CLEARED,
+            ),
+        )
+        self.assertEqual(receipt.subject_ref, "REDACTED_IDENTIFIER")
+        self.assertEqual(receipt.disposition, "PROHIBITED")
+        self.assertEqual(
+            receipt.reason_codes,
+            (ExcerptDecisionCode.RIGHTS_NOT_CLEARED.value,),
+        )
+
+    def test_audit_truncates_many_unique_machine_codes(self):
+        receipt = build_rights_policy_audit(
+            subject_ref="content:1",
+            disposition="PROHIBITED",
+            reason_codes=tuple(ExcerptDecisionCode),
+        )
+        self.assertEqual(len(receipt.reason_codes), MAX_AUDIT_REASON_CODES)
+        self.assertTrue(receipt.reasons_truncated)
 
 
 class MethodDisclosureTests(unittest.TestCase):

@@ -1,6 +1,6 @@
 # DP-607 — Optional SDK, MCP, or agent skill after the HTTP contract is stable
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M6 — open-source and release hardening / post-M4 client ecosystem
 Depends on: DP-105 public schema, DP-402 read-only HTTP API, DP-403 OpenAPI and versioning policy; legal/publication gates remain prerequisites
 Launch state: blocked until the stable API contract and owner decision exist; no client, MCP server, skill, or external publication is authorized here
@@ -198,37 +198,37 @@ A skill is not an autonomous reviewer, publisher, browser session, or replacemen
 - [ ] **AC-607.1 — API-before-client gate:** No SDK, MCP server, or skill implementation
   is marked stable or published until DP-105, DP-402, and DP-403 close their contract
   gates and the owner selects one surface.
-- [ ] **AC-607.2 — Single authority:** The selected client consumes the same HTTP API and
+- [x] **AC-607.2 — Single authority:** The selected client consumes the same HTTP API and
   DP-105 public schema, with no second database, projection, provider, or publication
   path.
-- [ ] **AC-607.3 — Read-only behavior:** Allowed operations are limited to documented
+- [x] **AC-607.3 — Read-only behavior:** Allowed operations are limited to documented
   public reads; mutation, intake, approval, publication, provider, and admin operations
   are absent or explicitly rejected.
-- [ ] **AC-607.4 — Safety semantics:** Contract tests prove no client output upgrades an
+- [x] **AC-607.4 — Safety semantics:** Contract tests prove no client output upgrades an
   unresolved result, infers intent, exposes private data, or treats a candidate relation
   as a published accusation.
-- [ ] **AC-607.5 — Failure behavior:** Missing, stale, tampered, incompatible, oversized,
+- [x] **AC-607.5 — Failure behavior:** Missing, stale, tampered, incompatible, oversized,
   slow, or malformed API data fails closed with the documented error and no fabricated
   record.
-- [ ] **AC-607.6 — Deterministic CI:** DP-602 runs client contract tests, dependency and
+- [x] **AC-607.6 — Deterministic CI:** DP-602 runs client contract tests, dependency and
   license checks, secret/private-data scans, and a local mock-server suite without a
   provider, credential, remote, or paid call.
 - [ ] **AC-607.7 — Clean-clone proof:** A detached clean clone installs the selected
   client/tool from pinned inputs, exercises the local mock API, runs the public fixture
   path, and leaves no generated source or secret in the repository.
-- [ ] **AC-607.8 — Version/deprecation proof:** Client metadata records the supported
+- [x] **AC-607.8 — Version/deprecation proof:** Client metadata records the supported
   public API range, generated source/OpenAPI version, and behavior for a deprecated or
   incompatible endpoint. A client release cannot override DP-403's sunset policy.
 - [ ] **AC-607.9 — Licensing proof:** Every client dependency, generated artifact,
   example, and notice has an DP-603 inventory row and compatible license evidence;
   unknown rights block the client rather than being assumed.
-- [ ] **AC-607.10 — Migration/contract safety:** No client-specific database migration is
+- [x] **AC-607.10 — Migration/contract safety:** No client-specific database migration is
   introduced. A public contract change follows DP-105/DP-403 migration and compatibility
   policy, with old clients held or deprecated explicitly.
 - [ ] **AC-607.11 — Optionality:** If no safe, useful client surface is justified, the
   accepted outcome is “do not build” with the decision receipt; no placeholder SDK/MCP
   or skill is shipped.
-- [ ] **AC-607.12 — No external publication:** This specification does not publish an
+- [x] **AC-607.12 — No external publication:** This specification does not publish an
   SDK, MCP endpoint, skill, remote, registry artifact, API URL, or release.
 
 ## Validation / proof
@@ -294,7 +294,31 @@ Keep the ticket `FUTURE`/`BLOCKED` or classify client work incomplete if:
 
 ## Completion receipt
 
-Pending API contract closure, owner selection, optional client implementation (if chosen),
-mock/contract tests, clean-clone proof, MiniPC proof where applicable, license inventory,
-and the DP-601..DP-607 ticket audit. The accepted no-build outcome is valid when no safe
-client surface is justified. No client or external publication is claimed here.
+DP-105/DP-402/DP-403 are now closed, so a draft internal client-contract harness is present
+without selecting or publishing an SDK/MCP/skill. `public_http_client.py` is stdlib-only and
+consumes exactly `/api/v1`; it exposes only `GET`/`HEAD`, refuses mutation before network I/O,
+requires the accepted API/public-schema versions and dataset fingerprint, disables redirects,
+bounds timeout/response size/retries, preserves typed HTTP errors and ETag metadata, and
+fails closed on stale fingerprint, incompatible version, malformed JSON and oversized data.
+Plain HTTP is refused except explicit loopback test mode; credential-bearing base URLs are
+rejected. The local test server proves unresolved data remains unresolved rather than being
+upgraded to a verdict.
+
+DP-602 contributor acceptance runs the local mock contract suite unconditionally with no
+provider, credential, external network, PostgreSQL or third-party dependency. This is not a
+published SDK or chosen client product surface. The safety matrix now reuses
+`public_schema.validate_dossier` at the finding-detail boundary and adds narrow client-side
+bounds for the public correction/right-of-reply/relation extension objects. Mock responses
+prove those objects remain public bounded data, relation data stays descriptive rather than
+becoming an assessment/intent conclusion, and an `UNRESOLVED` collection value is preserved
+verbatim rather than upgraded. Private/raw response keys and out-of-schema dossier fields fail
+closed instead of being returned to the caller.
+
+The draft client metadata records its supported API version, public schema version, client
+contract version and the canonical OpenAPI source version. `Deprecation`/`Sunset` are surfaced
+as bounded response metadata; incomplete metadata or an invalid Sunset HTTP-date is rejected,
+while incompatible API versions remain fail-closed. This consumes DP-403's deprecation policy
+without creating a second sunset authority or an external SDK. AC-607.1 remains open for
+explicit owner selection/stability publication, AC-607.7 for clean-clone proof, AC-607.9 for
+any future client dependency/generated-artifact licensing, and AC-607.11 for the owner
+build/no-build decision.

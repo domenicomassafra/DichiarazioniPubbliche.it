@@ -1,7 +1,7 @@
 /* ==========================================================================
    Dichiarazioni Pubbliche — Design System v1 · stylesheet manifest
    ------------------------------------------------------------------------
-   This file is intentionally four imports long. It replaces the previous
+   This file is intentionally five imports long. It replaces the previous
    557-line page-stylesheet, and the replacement is the deliverable.
 
    LAYER ORDER IS A CONTRACT. Each layer may only depend on the ones above it:
@@ -21,6 +21,10 @@
                       files owned by other lanes. Delete per page as it
                       migrates. See docs/ux/design-system-v1.md § Migration.
 
+     studio-v3.css    Private Studio IA v3 layout extensions. Uses only the
+                      token/design-system vocabulary and the existing dense
+                      workspace primitives; owns no public page semantics.
+
    Consumable by components/design/** (React) and by any .astro page.
    The machine-readable mirror of this layer is web/src/lib/tokens.ts.
    ========================================================================== */
@@ -29,3 +33,4 @@
 @import "./base.css";
 @import "./primitives.css";
 @import "./legacy.css";
+@import "./studio-v3.css";

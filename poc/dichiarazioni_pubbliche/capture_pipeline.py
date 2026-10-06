@@ -87,6 +87,31 @@ class ArchiveResult:
 
 
 @dataclass(frozen=True)
+class CaptureEnrichmentPolicy:
+    metadata_enabled: bool = True
+    archive_enabled: bool = True
+
+
+def capture_enrichment_policy_from_source(
+    source: Mapping[str, Any],
+) -> CaptureEnrichmentPolicy:
+    policy = source.get("content_policy") or {}
+    if not isinstance(policy, Mapping):
+        raise CapturePipelineError("SOURCE_CONTENT_POLICY_INVALID")
+
+    values: dict[str, bool] = {}
+    for key, output_key in (
+        ("metadata_enrichment_enabled", "metadata_enabled"),
+        ("archive_enabled", "archive_enabled"),
+    ):
+        value = policy.get(key, True)
+        if not isinstance(value, bool):
+            raise CapturePipelineError(f"SOURCE_{key.upper()}_INVALID")
+        values[output_key] = value
+    return CaptureEnrichmentPolicy(**values)
+
+
+@dataclass(frozen=True)
 class CapturePipelineReceipt:
     content_id: str
     primary_capture_id: str
@@ -437,6 +462,9 @@ class StdlibVisibleTextParser:
     parser_method = "STDLIB_VISIBLE_TEXT"
     parser_version = STDLIB_HTML_PARSER_VERSION
 
+    def __init__(self, *, extract_metadata: bool = True) -> None:
+        self.extract_metadata = bool(extract_metadata)
+
     def parse(self, fetched: FetchedBytes) -> ParseResult:
         media_type = _normalize_media_type(fetched.media_type)
         if media_type == "text/plain":
@@ -457,10 +485,13 @@ class StdlibVisibleTextParser:
                     error_category="PARSER_HTML_ERROR",
                 )
             canonical = parser.text()
-            try:
-                metadata = extract_source_metadata(decoded, base_url=fetched.final_url)
-            except CapturePipelineError:
-                metadata = {"metadata_parse_status": "FAILED"}
+            if self.extract_metadata:
+                try:
+                    metadata = extract_source_metadata(decoded, base_url=fetched.final_url)
+                except CapturePipelineError:
+                    metadata = {"metadata_parse_status": "FAILED"}
+            else:
+                metadata = {}
         else:
             return ParseResult(
                 status="FAILED",
@@ -906,6 +937,8 @@ def _capture_record(
     parse: ParseResult,
     rights_status: str,
     retention_class: str,
+    metadata_enabled: bool,
+    archive_enabled: bool,
 ) -> ContentCaptureRecord:
     return ContentCaptureRecord(
         id=capture_id,
@@ -929,6 +962,8 @@ def _capture_record(
             "last_modified": fetched.last_modified,
             "parse_status": parse.status,
             "parse_error_category": parse.error_category,
+            "source_metadata_policy": "ENABLED" if metadata_enabled else "DISABLED",
+            "source_archive_policy": "ENABLED" if archive_enabled else "DISABLED",
             "source_metadata": parse.metadata,
         },
     )
@@ -967,6 +1002,25 @@ def _archive_capture(
                 actor_ref=actor_ref,
                 receipt=receipt,
             )
+        if status == "SUCCEEDED":
+            archive_url = str(receipt.get("archive_url") or "").strip()
+            parsed_archive_url = urlsplit(archive_url)
+            try:
+                archive_port = parsed_archive_url.port
+            except ValueError:
+                archive_port = -1
+            if (
+                parsed_archive_url.scheme.lower() != "https"
+                or not parsed_archive_url.hostname
+                or parsed_archive_url.username is not None
+                or parsed_archive_url.password is not None
+                or archive_port not in {None, 443}
+            ):
+                status = "FAILED"
+                receipt = {
+                    "error_category": "ARCHIVE_SUCCESS_LOCATOR_INVALID",
+                    "pipeline": CAPTURE_PIPELINE_VERSION,
+                }
         if status not in {"SUCCEEDED", "FAILED"}:
             status = "FAILED"
             receipt = {**receipt, "error_category": "ARCHIVE_STATUS_INVALID"}
@@ -1001,6 +1055,8 @@ def _persist_fetched_capture(
     rights_status: str,
     retention_class: str,
     language: str | None,
+    metadata_enabled: bool,
+    archive_enabled: bool,
 ) -> tuple[ContentCaptureRecord, str, ParseResult, tuple[PassageRecord, ...], tuple[str, ...]]:
     _validate_fetched_resource(fetched, max_response_bytes=MAX_DISCOVERY_RESPONSE_BYTES)
     content_sha256 = hashlib.sha256(fetched.body).hexdigest()
@@ -1016,6 +1072,16 @@ def _persist_fetched_capture(
             content_sha256=content_sha256,
         ).body_ref
     parse = parser.parse(fetched)
+    if not metadata_enabled and parse.metadata:
+        parse = ParseResult(
+            status=parse.status,
+            parser_method=parse.parser_method,
+            parser_version=parse.parser_version,
+            canonical_text=parse.canonical_text,
+            spans=parse.spans,
+            error_category=parse.error_category,
+            metadata={},
+        )
     record = _capture_record(
         content_id=content_id,
         capture_id=proposed_id,
@@ -1028,6 +1094,8 @@ def _persist_fetched_capture(
         parse=parse,
         rights_status=rights_status,
         retention_class=retention_class,
+        metadata_enabled=metadata_enabled,
+        archive_enabled=archive_enabled,
     )
     persisted = store.upsert_capture(record)
     actual_id = str(persisted["id"])
@@ -1132,6 +1200,7 @@ def capture_content(
     fetcher: Callable[..., FetchedBytes] = fetch_bytes,
     browser_renderer: BrowserRenderer | None = None,
     archive_adapter: ArchiveAdapter | None = None,
+    enrichment_policy: CaptureEnrichmentPolicy | None = None,
     max_response_bytes: int = MAX_DISCOVERY_RESPONSE_BYTES,
 ) -> CapturePipelineReceipt:
     if not isinstance(content_id, str) or not content_id.strip():
@@ -1139,7 +1208,10 @@ def capture_content(
     parsed_url = urlsplit(str(url).strip())
     if parsed_url.scheme.lower() != "https" or not parsed_url.hostname:
         raise CapturePipelineError("CAPTURE_URL_HTTPS_REQUIRED")
-    parser = parser or StdlibVisibleTextParser()
+    enrichment_policy = enrichment_policy or CaptureEnrichmentPolicy()
+    parser = parser or StdlibVisibleTextParser(
+        extract_metadata=enrichment_policy.metadata_enabled
+    )
     observed_at = observed_at or _now_iso()
     try:
         datetime.fromisoformat(observed_at[:-1] + "+00:00" if observed_at.endswith("Z") else observed_at)
@@ -1161,6 +1233,8 @@ def capture_content(
         rights_status=rights_status,
         retention_class=retention_class,
         language=language,
+        metadata_enabled=enrichment_policy.metadata_enabled,
+        archive_enabled=enrichment_policy.archive_enabled,
     )
     selected = primary
     selected_parse = parse
@@ -1185,6 +1259,8 @@ def capture_content(
                 rights_status=rights_status,
                 retention_class=retention_class,
                 language=language,
+                metadata_enabled=enrichment_policy.metadata_enabled,
+                archive_enabled=enrichment_policy.archive_enabled,
             )
             browser_status = "SUCCEEDED" if selected_parse.status == "SUCCEEDED" else "PARSE_FAILED"
         except Exception:
@@ -1204,7 +1280,9 @@ def capture_content(
             )
 
     archive_status = "NOT_REQUESTED"
-    if archive_adapter is not None and state == "INSERTED":
+    if archive_adapter is not None and not enrichment_policy.archive_enabled:
+        archive_status = "DISABLED_POLICY"
+    elif archive_adapter is not None and state == "INSERTED":
         archive_status = _archive_capture(
             store=store,
             capture=primary,
@@ -1238,6 +1316,8 @@ __all__ = [
     "BodyStoreReceipt",
     "CAPTURE_PIPELINE_VERSION",
     "CaptureBodyStore",
+    "CaptureEnrichmentPolicy",
+    "capture_enrichment_policy_from_source",
     "CapturePipelineError",
     "CapturePipelineReceipt",
     "CapturePipelineStore",

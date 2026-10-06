@@ -313,10 +313,11 @@ publication was created.
   both components, `## [Unreleased]` present, and the prohibited-content rules.
 
 **AC status.** AC-604.1 PASS, AC-604.2 PASS, AC-604.3 PASS, AC-604.4 PASS (structure
-enforced; human content gates are checklist items), AC-604.5 PARTIAL — a build-twice
-artifact-hash comparison is specified and the build is reproducible-by-command, but
-byte-identical wheel hashes across runs were **not** asserted here (setuptools embeds
-no timestamp in this configuration, but it was not proven twice in this receipt);
+enforced; human content gates are checklist items), AC-604.5 PASS — follow-up proof on
+2026-10-05 established the missing deterministic artifact path: two independent detached
+clones use the commit timestamp as `SOURCE_DATE_EPOCH`; wheels are byte-identical, and
+sdists are normalized only for tar/gzip metadata before comparison. The executable gate is
+`tools/check_reproducible_package.py`, backed by `tools/normalize_sdist.py`, and CI runs it;
 AC-604.6 PASS, AC-604.7 N/A (no persistence change in this candidate),
 AC-604.8 PASS (documented as a gate; no runtime claim is made),
 AC-604.9 PASS (consumes the DP-603 inventory), AC-604.10 PASS, AC-604.11 PASS,
@@ -326,3 +327,13 @@ AC-604.12 PASS.
 exists, but there is still no release tag, signing/registry decision, or completed
 legal/security approval. Per blocked conditions this ticket stays IN PROGRESS until the
 remaining release gates close.
+
+The first unnormalized experiment on commit `6ecce7242849ea6460e8837f467a15a879e07c39`
+correctly showed that ordinary setuptools wheel/sdist hashes drift across independent
+clones. `SOURCE_DATE_EPOCH` alone made the wheel reproducible but not the sdist, so the
+gate was not declared green until deterministic sdist archive metadata normalization was
+added. A follow-up run against committed baseline
+`4adc779039864346cd9407ce6096d0eb6d53335f` produced identical hashes in both clones:
+wheel `0efaa082100c689c2c6685d5847e66dcb42497d2acb54d57342cd684cd9d7448` and normalized
+sdist `2be9119712518c6fee8f7f6f63e582fbbc263d09f0aa058ac034e7b0bae6666b`. No payload
+bytes are rewritten and no release artifact was published.

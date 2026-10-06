@@ -3,8 +3,9 @@
 Status: **SPECIFIED + machine-checkable; public intake DISABLED**
 Policy version: `reply-intake-policy-v1`
 Owner: product owner + security reviewer
-Code: `poc/dichiarazioni_pubbliche/policy/intake_policy.py`
-Tests: `tests/test_policy_intake.py`
+Code: `poc/dichiarazioni_pubbliche/policy/intake_policy.py`,
+`poc/dichiarazioni_pubbliche/right_of_reply_intake.py`
+Tests: `tests/test_policy_intake.py`, `tests/test_right_of_reply_intake.py`
 
 ## Trust boundary
 
@@ -33,7 +34,7 @@ even parsed.
 
 | # | Threat | Control (code) | Fail-safe behavior | Proof |
 |---|---|---|---|---|
-| 1 | Spam / duplicate flooding | deterministic content fingerprint + reply ID (`compute_request_fingerprint`, `deterministic_reply_id`); bounded body/identity/URL counts | replay returns the same receipt; cannot create a second record or trigger | `IdempotencyTests` |
+| 1 | Spam / duplicate flooding | deterministic content fingerprint + existing private-store reply/trigger identity; bounded body/identity/URL counts | replay returns the same receipt; completed duplicate and concurrent replay are distinguished without a second record/trigger | `IdempotencyTests`, `RightOfReplyIntakeRuntimeTests` |
 | 2 | Rate-limit / quota exhaustion | `rate_limit_decision()` over caller-supplied counters; unconfigured profile fails closed | defer or reject; never admit by default | `AbuseControlTests`, `LaunchProfileTests` |
 | 3 | Resource exhaustion | `MAX_REPLY_BODY_CHARS`, `MAX_REPLY_IDENTITY_CHARS`, `MAX_EVIDENCE_URLS`, `MAX_REQUEST_FIELDS`, control-character rejection | reject with a bounded, non-reflective reason | `EdgeValidationTests` |
 | 4 | Malicious URL (SSRF) | `validate_evidence_url()`: http(s) only, host required, no userinfo, length-bounded, duplicate-rejecting; **no resolution, no fetch** | store as a candidate reference only, or reject | `UnsafeUrlTests` (incl. a `socket` mock asserting no DNS/connect) |
@@ -42,7 +43,7 @@ even parsed.
 | 7 | Replay / forged provenance | fingerprint binds normalized body + identity + URL set + policy version | idempotent; no widened evidence links | `IdempotencyTests` |
 | 8 | Review-gate bypass via field injection | raw-payload key allowlist + reserved-field refusal | `UNKNOWN_FIELD`, request refused | `ReviewGateBypassTests` |
 | 9 | Information leak in the acknowledgement | `public_ack` returns only `receipt_id`, `policy_version`, `state`; `acknowledgement_is_bounded()` | bounded receipt; never an echo or an "accepted" claim | `test_public_acknowledgement_is_bounded_and_non_claimant` |
-| 10 | Provider/reviewer outage | nothing in this module depends on an LLM, network, or DB | intake stays disabled; the reviewer path is unaffected | module is pure (no I/O) |
+| 10 | Provider/reviewer outage | policy is pure; runtime adapter calls only the existing private store seam and converts persistence errors to a bounded generic receipt | no provider fallback or publication path; intake stays disabled without an explicit launch profile | `RightOfReplyIntakeRuntimeTests.test_private_persistence_error_is_reduced_to_generic_receipt` |
 
 ## What is deliberately NOT implemented
 
@@ -52,8 +53,9 @@ even parsed.
   (Q-302-04). `compute_request_fingerprint` deliberately hashes normalized *content
   only*. The launch profile must decide this explicitly; the code does not decide it
   by default.
-- **No rate limiter state.** A token bucket is stateful; this module is pure. The
-  stateful adapter calls `rate_limit_decision()` with the current counts.
+- **No rate limiter state.** A token bucket remains owned outside this boundary. The
+  callable runtime adapter applies `rate_limit_decision()` only to caller-supplied current
+  counts; it does not derive a network identity or open a socket.
 
 ## Launch posture
 
@@ -67,7 +69,7 @@ in prose.
 
 - The personal-data and intent detectors are **conservative heuristic markers**. They
   quarantine for a human; they are not classifiers and must not be read as one.
-- Quarantine currently means "accepted privately with a flag", not "stored in a
-  separate quarantine store". The separation is a runtime concern (DP-302 E-302-04)
-  and is not implemented here.
+- A separate quarantine store is still not implemented. The callable runtime adapter
+  therefore fails closed and does not persist `QUARANTINED` input through the normal
+  `RECEIVED/PRIVATE` path.
 - No abuse-incident runbook exists yet (E-302-10); it is a launch blocker B-302-06.

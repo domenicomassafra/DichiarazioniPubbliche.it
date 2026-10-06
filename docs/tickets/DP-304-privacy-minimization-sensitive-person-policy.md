@@ -271,9 +271,109 @@ implemented; lawful basis, retention periods, and rights workflow remain BLOCKIN
 - No GDPR role, lawful basis, special-category condition, retention period, or
   rights outcome (Q-304-01..07, Q-306-08..10 `OPEN`/`BLOCKING`).
 - This is a name-based deny list + marker heuristics, **not** the full field
-  inventory (E-304-01), access control/encryption/audit (E-304-06), or incident
-  runbook (E-304-12) — all runtime work.
+  inventory (E-304-01), authenticated access-enforcement surface/encryption, or incident
+  runbook (E-304-12). The pure E-304-06 authorization/audit seam is implemented below,
+  but runtime persistence/integration remains open.
 - No production data was mutated.
 
 Repository checks run: `compileall` OK; full suite green (515 tests);
 `git diff --check` clean.
+
+---
+
+## Local implementation receipt — private access/minimization seam (2026-10-05)
+
+Implemented and proved the previously outstanding pure `E-304-06` access/audit seam
+without changing schema, public projection/API/web, queue/ledger, or shared dirty runtime
+files:
+
+- `PrivateAccessRole` aligns its operational/reviewer names with the existing DP-303
+  `OPERATOR` / `TRIAGE_REVIEWER` / `DECISION_REVIEWER` / `APPEAL_REVIEWER` vocabulary;
+  `PrivateAccessPurpose`, `PrivateAccessMode`, request/decision
+  objects and `decide_private_access()` provide a closed, fail-closed authorization
+  contract for **read-only** private inspection. Unknown roles, purposes, modes, data
+  classes, malformed actors, and malformed field requests are denied.
+- Generic local operations cannot inspect `SENSITIVE_CANDIDATE` or
+  `HIGH_RISK_IDENTITY`; an already-classified sensitive/high-risk item requires a bounded
+  review/rights/correction purpose or explicit incident response. The helper consumes the
+  classification and never derives a trait from content.
+- `LOG`, `EXPORT`, `MUTATE`, and `DELETE` are never authorized by this seam. An active
+  legal hold may accompany an authorized read but never relaxes that read-only boundary.
+- `build_private_access_audit()` records only bounded identifiers, purpose, outcome,
+  timestamp, requested-field **count**, policy version, and hold flag. Requested field
+  names/body values are not copied; contact-shaped identifiers and non-timestamp text are
+  replaced with generic placeholders.
+- Fixed a separate minimization leak in the same pure policy: schema fields named like
+  `religion`, `criminal_history`, `victim_status`, or `mental_health` are now prohibited
+  even if a caller mislabels them `PUBLIC_CORE`, and `minimize_public_fieldset()` removes
+  them. This is field-name minimization, not sensitive-trait inference.
+
+Proof:
+
+- `PYTHONPATH=poc python3 -m unittest tests.test_policy_privacy -v`: **44/44 PASS**;
+- privacy + challenge + retention + corpus-retention + right-of-reply boundary suite:
+  **110/110 PASS**;
+- focused `compileall`: PASS;
+- focused `git diff --check`: PASS.
+
+This closes the **pure policy/helper portion** of E-304-06, but AC-304-07 remains open
+until an actual private runtime/admin inspection path is wired through this authority and
+its persisted audit receipt is tested end-to-end. AC-304.1 (complete field inventory),
+AC-304.2 (end-to-end ingestion/publication relevance), AC-304.4 (all public/log
+surfaces), AC-304-05 (persisted append-only rights cases), AC-304.6 (complete deletion
+receipt/hold matrix), and AC-304-08 (MiniPC canary) also remain open. No legal basis,
+retention period, rights outcome, or regulatory conclusion is asserted.
+
+---
+
+## Local implementation receipt — persisted publication-decision binding (2026-10-06)
+
+Implemented the private persisted DP-304 publication-decision seam that can later be
+consumed by DP-308 without making the public projection itself an authority:
+
+- `privacy_publication_decision` is an additive, private, append-only ledger with one
+  linear supersession chain per `(subject_ref, record_ref, field_name)`. Each review is
+  bound to an opaque `record_version`; that value is a binding supplied by the caller,
+  not proof that the caller supplied the canonical Finding/version authority.
+- Each record persists the data class, exact relevance reason, explicit safe-text
+  approval flag, privacy-policy version, bounded reviewer/audit references, review
+  sequence/supersession, canonical decision/reasons, and an exact projection-input
+  digest. The text body itself is not persisted; its SHA-256 participates in the exact
+  input binding.
+- `PrivacyPublicationDecisionStore.append_review()` derives the decision only by calling
+  canonical `privacy_policy.decide_projection()`; callers do not supply an ALLOW/HOLD/
+  PROHIBIT result. `replay_current()` re-runs that same canonical policy over the current
+  bounded input and requires the current caller-supplied record-version binding, current
+  policy version, exact input digest, intact append-only chain, and matching persisted
+  decision before an ALLOW can survive replay.
+- Missing decisions, superseded/record-version-stale decisions, and changed inputs yield
+  `HOLD_FOR_REVIEW`; malformed/tampered chains or a persisted decision that disagrees with
+  canonical replay yield `PROHIBIT`. Unknown data classes remain `PROHIBIT`. A relevance
+  reason of `IS_PUBLIC_FIGURE` remains a hold and cannot authorize publication.
+- Fresh-schema parity is present in `db/schema.v1.sql` and the additive migration
+  `20261006-add-privacy-publication-decision-ledger.sql`; both include insert-chain
+  validation plus UPDATE/DELETE/TRUNCATE append-only guards.
+
+Focused disposable-PostgreSQL proof:
+
+- migration-path + fresh-schema replay, missing decision, `UNKNOWN`, public-figure-only
+  relevance, explicit safe-text approval, exact-input staleness/body non-persistence,
+  supersession/record-version staleness, privacy-policy-version staleness, append-only
+  mutation rejection, fabricated integrity tamper, and additive-migration replay:
+  **9/9 PASS**;
+- privacy/schema/runtime/launch focused regression: **93/93 PASS** before the additional
+  policy-version-staleness case; focused and repository-wide `compileall`: PASS;
+  deterministic benchmark: **5/5 PASS**; `git diff --check`: PASS;
+- full local discovery suite was attempted after the shared DP-305 rights-registry lane
+  landed in the dirty tree: **1656 tests, 31 setup errors**. The observed failures are
+  caused by pre-existing test cleanup paths that issue `TRUNCATE ... CASCADE` after
+  `private_source_rights_record` acquired a no-TRUNCATE append-only trigger; PostgreSQL
+  raises from `reject_private_source_rights_record_mutation()`. This is a shared-tree
+  DP-305 test-isolation blocker, so no full-suite-green claim is made here.
+
+No AC checkbox is closed by this tranche alone. In particular, **AC-304.2 remains open**
+because ingestion-wide relevance enforcement and the actual public-projection consumption
+path are not yet wired; AC-304.1, AC-304.4, AC-304-05, AC-304.6, AC-304-07, and AC-304-08
+also retain their existing blockers. This tranche does not select a lawful basis,
+retention period, owner/counsel decision, sensitive trait, or reviewer identity authority,
+and it does not change `public_projection`.

@@ -111,6 +111,46 @@ export interface PublicDossier {
     rationale_codes: string[];
     review_event_id: string;
   }>;
+  wording?: {
+    version: "wording-contract-v1";
+    source_occurrence: {
+      occurrence_id: string;
+      wording_type: "VERBATIM_ORIGINAL" | "REPORTED_QUOTE";
+      text_sha256: string;
+      language?: string | null;
+      direct_quote_eligible: boolean;
+      representation_role: "SOURCE_OCCURRENCE";
+    };
+    normalized_claim: {
+      wording_type: "PARAPHRASE";
+      text_sha256: string;
+      source_occurrence_id: string;
+      source_wording_type: "VERBATIM_ORIGINAL" | "REPORTED_QUOTE";
+      language?: string | null;
+      derivation_method?: string | null;
+      derivation_version?: string | null;
+      direct_quote_eligible: false;
+      representation_role: "DERIVED_REPRESENTATION";
+    };
+    representations: Array<{
+      wording_type: "PARAPHRASE" | "SUMMARY" | "TRANSLATION";
+      text_sha256: string;
+      source_occurrence_id: string;
+      source_wording_type: "VERBATIM_ORIGINAL" | "REPORTED_QUOTE";
+      language?: string | null;
+      source_language?: string | null;
+      derivation_method?: string | null;
+      derivation_version?: string | null;
+      review_state?: string | null;
+      signal_codes: string[];
+      direct_quote_eligible: false;
+      representation_role: "DERIVED_REPRESENTATION";
+    }>;
+    public_provenance: {
+      segment_ids: string[];
+      text_provenance_ids: string[];
+    };
+  };
 }
 
 export interface PublicTopicMembership {
@@ -131,6 +171,21 @@ export interface PublicTopic {
   memberships: PublicTopicMembership[];
 }
 
+export interface PublicContent {
+  content_id: string;
+  slug: string;
+  url: string;
+  title: string;
+  published_at?: string | null;
+  content_kind: "VIDEO" | "AUDIO" | "WRITTEN" | "OTHER";
+  duration_ms?: number | null;
+  public_media_url?: string | null;
+  media_policy_version?: string | null;
+  publication_version: "public-content-v1";
+  review_event_ids: string[];
+  finding_ids: string[];
+}
+
 export interface PublicProjection {
   schema_version: "dichiarazioni-pubbliche-public-v2";
   generated_at: string;
@@ -147,6 +202,8 @@ export interface PublicProjection {
   dossiers: PublicDossier[];
   /** Optional for pre-DP-430 public-v2 bundles; never derived from claim_type. */
   topics?: PublicTopic[];
+  /** Optional for pre-DP-434 public-v2 bundles; never inferred from captures or URLs. */
+  contents?: PublicContent[];
 }
 
 export interface ContentAuditMoment {

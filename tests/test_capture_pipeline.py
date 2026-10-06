@@ -12,8 +12,10 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.capture_pipeline import (  # noqa: E402
     ArchiveResult,
     CaptureBodyStore,
+    CaptureEnrichmentPolicy,
     CapturePipelineError,
     StdlibVisibleTextParser,
+    capture_enrichment_policy_from_source,
     capture_content,
     extract_source_metadata,
     verify_passage_roundtrip,
@@ -174,7 +176,43 @@ class PendingArchive:
         return ArchiveResult("PENDING", self.provider, {"request_id": "archive-1"})
 
 
+class SuccessfulArchive:
+    provider = "fake-archive"
+
+    def __init__(self, archive_url="https://archive.example.test/item/1"):
+        self.archive_url = archive_url
+
+    def archive(self, *, capture, body_path):
+        return ArchiveResult(
+            "SUCCEEDED",
+            self.provider,
+            {"archive_url": self.archive_url, "receipt_id": "archive-receipt-1"},
+        )
+
+
 class CapturePipelineTests(unittest.TestCase):
+    def test_source_content_policy_compiles_enrichment_permissions_fail_closed(self):
+        policy = capture_enrichment_policy_from_source(
+            {
+                "content_policy": {
+                    "metadata_enrichment_enabled": False,
+                    "archive_enabled": False,
+                }
+            }
+        )
+        self.assertFalse(policy.metadata_enabled)
+        self.assertFalse(policy.archive_enabled)
+        self.assertEqual(
+            capture_enrichment_policy_from_source({}),
+            CaptureEnrichmentPolicy(),
+        )
+        with self.assertRaisesRegex(
+            CapturePipelineError, "SOURCE_METADATA_ENRICHMENT_ENABLED_INVALID"
+        ):
+            capture_enrichment_policy_from_source(
+                {"content_policy": {"metadata_enrichment_enabled": "no"}}
+            )
+
     def test_source_metadata_extracts_canonical_social_jsonld_and_oembed(self):
         html = """
         <html><head>
@@ -358,6 +396,80 @@ class CapturePipelineTests(unittest.TestCase):
             )
             self.assertEqual(receipt.archive_status, "PENDING")
             self.assertEqual(store.archive[receipt.primary_capture_id], "PENDING")
+
+    def test_archive_success_requires_safe_durable_https_locator(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            receipt = capture_content(
+                content_id="content:archive-success",
+                url="https://example.test/archive-success",
+                store=store,
+                body_store=CaptureBodyStore(Path(tmp)),
+                observed_at="2026-09-29T10:00:00+00:00",
+                fetcher=SequenceFetcher(fetched(b"<p>Archived source.</p>")),
+                archive_adapter=SuccessfulArchive(),
+            )
+            self.assertEqual(receipt.archive_status, "SUCCEEDED")
+            self.assertEqual(store.archive[receipt.primary_capture_id], "SUCCEEDED")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            receipt = capture_content(
+                content_id="content:archive-unsafe-success",
+                url="https://example.test/archive-unsafe-success",
+                store=store,
+                body_store=CaptureBodyStore(Path(tmp)),
+                observed_at="2026-09-29T10:00:00+00:00",
+                fetcher=SequenceFetcher(fetched(b"<p>Unsafe archive locator.</p>")),
+                archive_adapter=SuccessfulArchive("http://archive.example.test/item/1"),
+            )
+            self.assertEqual(receipt.archive_status, "FAILED")
+            self.assertEqual(store.archive[receipt.primary_capture_id], "FAILED")
+
+    def test_source_policy_can_disable_metadata_enrichment_without_disabling_parse(self):
+        body = b"""
+        <html><head>
+          <meta property="og:title" content="Private metadata title">
+          <link rel="alternate" type="application/json+oembed" href="https://embed.example.test/oembed">
+        </head><body><p>Visible source text remains parseable.</p></body></html>
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            receipt = capture_content(
+                content_id="content:metadata-policy",
+                url="https://example.test/metadata-policy",
+                store=store,
+                body_store=CaptureBodyStore(Path(tmp)),
+                observed_at="2026-09-29T10:00:00+00:00",
+                fetcher=SequenceFetcher(fetched(body)),
+                enrichment_policy=CaptureEnrichmentPolicy(metadata_enabled=False),
+            )
+            self.assertEqual(receipt.parse_status, "SUCCEEDED")
+            self.assertTrue(receipt.passage_ids)
+            record = next(iter(store.captures.values()))["record"]
+            self.assertEqual(record.metadata["source_metadata_policy"], "DISABLED")
+            self.assertEqual(record.metadata["source_metadata"], {})
+
+    def test_source_policy_can_disable_archive_before_adapter_call(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            archive = FailingArchive()
+            receipt = capture_content(
+                content_id="content:archive-policy",
+                url="https://example.test/archive-policy",
+                store=store,
+                body_store=CaptureBodyStore(Path(tmp)),
+                observed_at="2026-09-29T10:00:00+00:00",
+                fetcher=SequenceFetcher(fetched(b"<p>Policy-gated archive.</p>")),
+                archive_adapter=archive,
+                enrichment_policy=CaptureEnrichmentPolicy(archive_enabled=False),
+            )
+            self.assertEqual(archive.calls, 0)
+            self.assertEqual(receipt.archive_status, "DISABLED_POLICY")
+            self.assertEqual(receipt.parse_status, "SUCCEEDED")
+            record = next(iter(store.captures.values()))["record"]
+            self.assertEqual(record.archive_status, "NOT_REQUESTED")
+            self.assertEqual(record.metadata["source_archive_policy"], "DISABLED")
 
     def test_passage_roundtrip_reparses_capture_bytes(self):
         body = b"<article><h1>Heading</h1><p>First paragraph with fact.</p><p>Second fact.</p></article>"

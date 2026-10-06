@@ -1,0 +1,113 @@
+{
+  "fixture_version": "launch-set-candidate-preflight-fixture-v1",
+  "all_held": [
+    {
+      "source_id": "source:held:a",
+      "source_family": "family-a",
+      "state": "HELD",
+      "rights_state": "PENDING",
+      "privacy_state": "READY",
+      "provider_state": "READY"
+    },
+    {
+      "source_id": "source:held:b",
+      "source_family": "family-b",
+      "state": "HELD",
+      "rights_state": "READY",
+      "privacy_state": "PENDING",
+      "provider_state": "READY"
+    },
+    {
+      "source_id": "source:held:c",
+      "source_family": "family-c",
+      "state": "HELD",
+      "rights_state": "READY",
+      "privacy_state": "READY",
+      "provider_state": "BLOCKED"
+    }
+  ],
+  "blocked": {
+    "source_id": "source:blocked:provider",
+    "source_family": "family-blocked",
+    "state": "HELD",
+    "rights_state": "READY",
+    "privacy_state": "READY",
+    "provider_state": "BLOCKED",
+    "provider_path_id": "provider-path:blocked"
+  },
+  "three_family_candidate": [
+    {
+      "source_id": "source:candidate:a",
+      "source_family": "family-a",
+      "state": "INCLUDED",
+      "rights_state": "READY",
+      "privacy_state": "READY",
+      "provider_state": "READY",
+      "rights_decision_ref": "rights:a:v1",
+      "privacy_decision_ref": "privacy:a:v1",
+      "policy_decision_ref": "policy:a:v1",
+      "discovery_path_id": "discovery:a:v1",
+      "transcript_path_id": "transcript:a:v1",
+      "speaker_path_id": "speaker:a:v1",
+      "evidence_path_id": "evidence:a:v1",
+      "provider_path_id": "provider:a:v1",
+      "health_owner": "owner:a",
+      "disclosure_decision_ref": "disclosure:a:v1",
+      "config_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "source_id": "source:candidate:b",
+      "source_family": "family-b",
+      "state": "INCLUDED",
+      "rights_state": "READY",
+      "privacy_state": "READY",
+      "provider_state": "READY",
+      "rights_decision_ref": "rights:b:v1",
+      "privacy_decision_ref": "privacy:b:v1",
+      "policy_decision_ref": "policy:b:v1",
+      "discovery_path_id": "discovery:b:v1",
+      "transcript_path_id": "transcript:b:v1",
+      "speaker_path_id": "speaker:b:v1",
+      "evidence_path_id": "evidence:b:v1",
+      "provider_path_id": "provider:b:v1",
+      "health_owner": "owner:b",
+      "disclosure_decision_ref": "disclosure:b:v1",
+      "config_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "source_id": "source:candidate:c",
+      "source_family": "family-c",
+      "state": "INCLUDED",
+      "rights_state": "READY",
+      "privacy_state": "READY",
+      "provider_state": "READY",
+      "rights_decision_ref": "rights:c:v1",
+      "privacy_decision_ref": "privacy:c:v1",
+      "policy_decision_ref": "policy:c:v1",
+      "discovery_path_id": "discovery:c:v1",
+      "transcript_path_id": "transcript:c:v1",
+      "speaker_path_id": "speaker:c:v1",
+      "evidence_path_id": "evidence:c:v1",
+      "provider_path_id": "provider:c:v1",
+      "health_owner": "owner:c",
+      "disclosure_decision_ref": "disclosure:c:v1",
+      "config_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "source_id": "source:candidate:held",
+      "source_family": "family-held",
+      "state": "HELD",
+      "rights_state": "PENDING",
+      "privacy_state": "READY",
+      "provider_state": "BLOCKED"
+    },
+    {
+      "source_id": "source:candidate:excluded",
+      "source_family": "family-excluded",
+      "state": "EXCLUDED",
+      "rights_state": "BLOCKED",
+      "privacy_state": "READY",
+      "provider_state": "READY"
+    }
+  ]
+}

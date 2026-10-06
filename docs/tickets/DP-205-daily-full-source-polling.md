@@ -47,8 +47,8 @@ look successful.
 
 Relevant existing seams are `poc/dichiarazioni_pubbliche/source_watcher.py`,
 `poc/dichiarazioni_pubbliche/scheduler.py`, `poc/dichiarazioni_pubbliche/scheduler_daemon.py`,
-`poc/dichiarazioni_pubbliche/queue_runtime.py`, `db/schema.v0.sql`,
-`db/job_queue.v0.sql`, and the source-poll systemd units under `deploy/systemd/`.
+`poc/dichiarazioni_pubbliche/queue_runtime.py`, `db/schema.v1.sql`,
+`db/job_queue.v1.sql`, and the source-poll systemd units under `deploy/systemd/`.
 
 ## Scope
 

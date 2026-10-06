@@ -59,16 +59,16 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
   </header>
 
   {ordered.length === 0 ? (
-    <main class="shell page-section-tight topic-empty">
+    <div class="shell page-section-tight topic-empty">
       <section class="dp-utility-empty">
         <div class="eyebrow">Archivio pubblico</div>
         <h2>Nessuna dichiarazione pubblica disponibile per questo Tema.</h2>
         <p>Il Topic esiste nel contratto pubblico, ma questo snapshot non contiene finding pubblici approvati collegati. Non vengono mostrati record privati, candidati o appartenenze inferite.</p>
         <p><a href="/esplora/">Esplora il registro →</a> · <a href="/metodo/">Come funziona il metodo →</a></p>
       </section>
-    </main>
+    </div>
   ) : (
-    <main class="shell topic-dossier">
+    <div class="shell topic-dossier">
       <section class="topic-primary" aria-labelledby="topic-statements-heading">
         <div class="record-filter-toolbar">
           <button type="button" class="record-filter-toggle" data-topic-filter-toggle aria-expanded="false" aria-controls="topic-filters">Filtri</button>
@@ -178,7 +178,7 @@ const rowDate = (dossier: PublicDossier) => dossier.source.published_at ?? dossi
           <p>Il nome e l’appartenenza delle dichiarazioni provengono dalla projection pubblica; questa pagina non genera o rinomina Topic.</p>
         </details>
       </aside>
-    </main>
+    </div>
   )}
 
   <script is:inline>

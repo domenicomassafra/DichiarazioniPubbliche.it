@@ -1,0 +1,23 @@
+---
+import type { StudioSourceBoundStatus } from "../lib/studioViewModel";
+
+interface Props {
+  status: StudioSourceBoundStatus;
+  compact?: boolean;
+}
+
+const { status, compact = false } = Astro.props;
+---
+
+<span
+  class:list={["studio-v3-status", compact && "studio-v3-status--compact"]}
+  data-studio-status
+  data-source-kind={status.source_kind}
+  data-source-ref={status.source_ref}
+  data-query-state={status.query_state}
+  data-blocker-code={status.blocker_code ?? "NONE"}
+>
+  <span>{status.label}</span>
+  {status.value !== undefined && <strong>{status.value}</strong>}
+  {status.blocker_code && <code>{status.blocker_code}</code>}
+</span>

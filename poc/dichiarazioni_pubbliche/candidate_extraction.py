@@ -17,6 +17,7 @@ from typing import Any, Mapping, Protocol, Sequence
 
 from dichiarazioni_pubbliche.claim_contract import ClaimType, NON_FACTUAL_CLAIM_TYPES
 from dichiarazioni_pubbliche.context_integrity import assess_context_integrity
+from dichiarazioni_pubbliche.wording_contract import WordingType, wording_contract_metadata
 from dichiarazioni_pubbliche.corpus_repository import (
     ClaimCandidateRecord,
     PassageRecord,
@@ -806,6 +807,11 @@ def prepare_extraction_batch(
             quote_end=end,
             speech_mode=speech_mode,
         ).to_metadata()
+        source_wording_type = (
+            WordingType.VERBATIM_ORIGINAL
+            if speech_mode == "DIRECT_UTTERANCE"
+            else WordingType.REPORTED_QUOTE
+        )
 
         statement_id = _deterministic_id(
             "statement-candidate",
@@ -833,8 +839,9 @@ def prepare_extraction_batch(
                 "provider_version": provider_version,
                 "speaker_mention": raw.get("speaker_mention"),
                 "reported_speaker_mention": reported_speaker,
-                "speech_mode": speech_mode,
-                "context_integrity": context_integrity,
+                    "speech_mode": speech_mode,
+                    "wording_source_type": source_wording_type.value,
+                    "context_integrity": context_integrity,
                 "quote_local_start_char": start,
                 "quote_local_end_char": end,
             },
@@ -897,6 +904,40 @@ def prepare_extraction_batch(
                     "reported_speaker_mention": reported_speaker,
                     "reported_origin_required": speech_mode != "DIRECT_UTTERANCE",
                     "context_integrity": context_integrity,
+                    "wording": wording_contract_metadata(
+                        occurrence_id=statement.id,
+                        source_text_sha256=statement.statement_text_hash,
+                        normalized_claim=str(raw_claim["normalized_claim"]),
+                        language=context.language,
+                        derivation_version=EXTRACTOR_VERSION,
+                        source_wording_type=source_wording_type,
+                        source_provenance={
+                            "passage_id": statement_passage_id,
+                            "selector_type": (
+                                source_passage.selector_type
+                                if source_passage is not None
+                                else context.selector_type
+                            ),
+                            "capture_id": (
+                                source_passage.capture_id
+                                if source_passage is not None
+                                else context.capture_id
+                            ),
+                            "canonical_segment_id": context.canonical_segment_id,
+                            "start_char": (
+                                source_passage.start_char
+                                if source_passage is not None
+                                else None
+                            ),
+                            "end_char": (
+                                source_passage.end_char
+                                if source_passage is not None
+                                else None
+                            ),
+                            "quote_local_start_char": start,
+                            "quote_local_end_char": end,
+                        },
+                    ),
                     "coverage_need_hint": (
                         {
                             "need_type": "ATTRIBUTION_GAP",
@@ -1056,11 +1097,21 @@ WITH locked AS (
 ), receipt_insert AS (
     INSERT INTO provider_receipt (
         id, content_id, provider_id, model_id, operation, request_id,
-        started_at, completed_at, input_bytes, estimated_cost_usd, status, receipt
+        operation_key, attempt,
+        started_at, completed_at, input_bytes, estimated_cost_usd,
+        measured_cost_usd, billing_basis, request_count, ledger_scope,
+        status, receipt
     )
     SELECT :'provider_receipt_id', content_id, provider_id, model_id, 'CANDIDATE_EXTRACT',
-           NULLIF(:'request_id',''), started_at, now(), :'input_bytes'::bigint,
-           :'cost_usd'::numeric, :'receipt_status', :'provider_receipt'::jsonb
+           NULLIF(:'request_id',''), operation_key, 1,
+           started_at, now(), :'input_bytes'::bigint,
+           :'cost_usd'::numeric, NULL,
+           CASE
+               WHEN :'cost_usd'::numeric > 0 THEN 'UNKNOWN'
+               ELSE 'ZERO_COST'
+           END,
+           1, jsonb_build_object('candidate_extraction_run_id', id),
+           :'receipt_status', :'provider_receipt'::jsonb
     FROM locked WHERE :'record_provider_receipt'::boolean
     ON CONFLICT (id) DO NOTHING
     RETURNING id
@@ -1215,11 +1266,19 @@ WITH locked AS (
 ), receipt_insert AS (
     INSERT INTO provider_receipt (
         id, content_id, provider_id, model_id, operation, request_id,
-        started_at, completed_at, input_bytes, estimated_cost_usd, status, receipt
+        operation_key, attempt,
+        started_at, completed_at, input_bytes, estimated_cost_usd,
+        measured_cost_usd, billing_basis, total_tokens, request_count,
+        ledger_scope, status, receipt
     )
     SELECT :'provider_receipt_id', content_id, provider_id, model_id,
-           'CANDIDATE_EXTRACT', NULLIF(:'request_id',''), started_at, now(),
-           :'input_bytes'::bigint, :'cost_usd'::numeric, 'SUCCESS', :'provider_receipt'::jsonb
+           'CANDIDATE_EXTRACT', NULLIF(:'request_id',''), operation_key, 1,
+           started_at, now(),
+           :'input_bytes'::bigint, cost_upper_bound_usd,
+           :'cost_usd'::numeric, 'MEASURED_PROVIDER_COST',
+           NULLIF(:'total_tokens','')::bigint, 1,
+           jsonb_build_object('candidate_extraction_run_id', id),
+           'SUCCESS', :'provider_receipt'::jsonb
     FROM locked
     RETURNING id
 ), updated AS (
@@ -1531,6 +1590,19 @@ class CandidateExtractionStore(PsqlRuntime):
                 _strict_json_dumps(provider_result.payload).encode()
             ).hexdigest(),
         }
+        total_tokens: int | None = None
+        if provider_result.usage:
+            raw_total = (
+                provider_result.usage.get("total_tokens")
+                or provider_result.usage.get("totalTokens")
+            )
+            if raw_total is not None:
+                try:
+                    parsed_total = int(raw_total)
+                except (TypeError, ValueError):
+                    parsed_total = -1
+                if parsed_total >= 0:
+                    total_tokens = parsed_total
         raw = self.run(
             _COMMIT_BATCH_SQL,
             run_id=run_id,
@@ -1544,6 +1616,7 @@ class CandidateExtractionStore(PsqlRuntime):
             request_id=request_id or "",
             input_bytes=len(context.text.encode("utf-8")),
             cost_usd=str(actual_cost),
+            total_tokens="" if total_tokens is None else total_tokens,
             provider_receipt=_strict_json_dumps(receipt),
             statement_count=len(batch.statements),
             claim_count=len(batch.claims),

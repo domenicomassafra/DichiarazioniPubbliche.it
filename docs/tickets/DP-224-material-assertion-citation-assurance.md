@@ -1,6 +1,6 @@
 # DP-224 — Material-assertion citation assurance
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-215, DP-210; coordinate with DP-216 and DP-308
 
@@ -38,7 +38,7 @@ a deterministic fail-closed audit. An unsupported material assertion blocks publ
 - [x] A contradiction/context-only ref cannot silently satisfy a SUPPORT requirement.
 - [x] Tampering with assertion text stales the binding.
 - [x] Non-material navigation/method copy is not forced into the Finding assertion ledger.
-- [ ] DP-223 includes unsupported/incorrect-citation adversarial cases.
+- [x] DP-223 includes unsupported/incorrect-citation adversarial cases.
 - [x] Finding creation now persists one versioned RATIONALE_MATERIAL assertion plus SUPPORT
   citation bindings to the exact evidence/approved observation IDs of the same verification
   run.
@@ -46,12 +46,41 @@ a deterministic fail-closed audit. An unsupported material assertion blocks publ
   material assertion without a compatible Finding evidence + approved verification
   observation citation.
 - [x] New assertion/citation tables are included in backup/restore load-bearing inventory.
-- [ ] Extend citation bindings to exact Passage/source hashes where the Finding assertion
+- [x] Extend citation bindings to exact Passage/source hashes where the Finding assertion
   depends on unstructured evidence rather than structured observations.
-- [ ] Run migration/replay and MiniPC database proof before DONE.
+- [x] Run migration/replay and MiniPC database proof before DONE.
 
 ## Completion receipt
 
 Local assurance contract, persistent rationale assertion/citation schema, transactional
 Finding insertion, projection-time fail-closed gate and backup/restore inventory added
-2026-10-05. Passage/source-hash enrichment and real PostgreSQL/MiniPC proof remain open.
+2026-10-05.
+
+2026-10-06 closes the unstructured-evidence and runtime proof gap. DP-223 already contains
+the citation-unrelated, citation-context, citation-contradict and citation-control adversarial
+cases, and its persisted PostgreSQL tamper proof directly changes a material citation from
+`SUPPORT` to `CONTEXT`; all fail closed as expected while the control remains public.
+
+For unstructured evidence, `finding_assertion_citation` now carries optional exact
+`passage_text_sha256` and `source_content_sha256` bindings. The private
+`finding_assertion_passage_binding_valid(...)` gate requires the citation Passage hash,
+retained Passage body hash when present, immutable Capture hash and Evidence content hash to
+agree, requires the Evidence to belong to the same Finding/verification packet with approved
+claim-evidence review, and refuses the Passage path when structured observations exist. The
+public projection consumes only the boolean gate: it does not select or expose private Passage
+text or Passage IDs. Direct tampering of Passage hash/body, Capture hash or Evidence hash makes
+the dossier non-projectable under the DP-308 projection-time fail-closed boundary.
+
+The additive `20261006-add-passage-citation-hash-binding.sql` migration upgrades a synthetic
+legacy citation schema and replays cleanly twice on disposable PostgreSQL. Current-tree
+focused DP-224/public-projection validation is 72/72 PASS; the DP-223 benchmark is 51/51 with
+zero false attribution and zero fabricated quote. An isolated MiniPC `/tmp` bundle using its
+own PostgreSQL 18 temporary clusters passes 29/29 DP-224/persisted-tamper tests plus the same
+51/51 benchmark, then removes the bundle, clusters and processes. No production database,
+provider, deploy configuration or legal-inference path is used.
+
+The repository-wide concurrent-worktree run reached 1602 tests with two failures outside
+DP-224: the DP-222 knowledge-schema guard rejects a concurrent public-attribution read of
+private resolution tables, and a concurrent publication-review-control risk-class test fails.
+All DP-224 citation, migration, PostgreSQL, projection and MiniPC acceptance tests are green;
+those unrelated lanes are not treated as DP-224 blockers.

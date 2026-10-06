@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,9 +8,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 PRIMARY_POLICY = ROOT / "config" / "transcription-policy.v1.json"
-FALLBACK_POLICY = ROOT / "config" / "transcription-policy.v0.json"
 DEFAULT_POLICY = PRIMARY_POLICY
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -40,13 +37,7 @@ class RoutingPlan:
 
 
 def load_policy(path: Path | None = None) -> dict[str, Any]:
-    if path is not None:
-        resolved = path
-    elif PRIMARY_POLICY.exists():
-        resolved = PRIMARY_POLICY
-    else:
-        resolved = FALLBACK_POLICY
-        logger.info("Loaded legacy v0 config fallback: %s", resolved)
+    resolved = path if path is not None else PRIMARY_POLICY
     return json.loads(resolved.read_text())
 
 

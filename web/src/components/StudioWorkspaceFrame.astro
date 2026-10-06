@@ -1,0 +1,28 @@
+---
+import type { StudioBaseViewModel } from "../lib/studioViewModel";
+import StudioStatus from "./StudioStatus.astro";
+
+interface Props {
+  model: StudioBaseViewModel;
+}
+
+const { model } = Astro.props;
+---
+
+<section class="studio-v3-shell shell" data-density="studio" data-studio-workspace={model.workspace}>
+  <header class="studio-v3-heading">
+    <div>
+      <p class="eyebrow">Studio · {model.title}</p>
+      <h1>{model.dominant_task}</h1>
+    </div>
+    {model.fixture_only && <span class="studio-v3-fixture-tag">fixture_only</span>}
+  </header>
+
+  {model.statuses.length > 0 && (
+    <div class="studio-v3-status-strip" aria-label="Stato della query">
+      {model.statuses.map((status) => <StudioStatus status={status} />)}
+    </div>
+  )}
+
+  <slot />
+</section>

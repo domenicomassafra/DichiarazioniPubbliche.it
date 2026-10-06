@@ -26,6 +26,7 @@ def evidence(
     authoritative=True,
     suitable=True,
     status="APPROVED",
+    unit="percent",
     metadata=None,
 ):
     return VerificationEvidence(
@@ -34,7 +35,7 @@ def evidence(
         metric=metric,
         value_numeric=value if isinstance(value, (int, float)) else None,
         value_text=value if isinstance(value, str) else None,
-        unit="percent",
+        unit=unit,
         reference_period=reference_period,
         suitable=suitable,
         authoritative=authoritative,
@@ -271,6 +272,75 @@ class VerificationRuntimeTests(unittest.TestCase):
         self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
         self.assertAlmostEqual(result.result["observed"], 1.5)
 
+    def test_numeric_delta_applies_only_explicit_unit_conversion(self):
+        request = VerificationRequest(
+            "claim:delta-unit",
+            "2026-09-04",
+            "numeric_delta",
+            {
+                "left_metric": "spending_current",
+                "right_metric": "spending_previous",
+                "value": 500000.0,
+                "unit_conversion": {
+                    "target_unit": "eur",
+                    "factor_to_target": {
+                        "million_eur": 1000000.0,
+                        "eur": 1.0,
+                    },
+                },
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(
+                    1.5,
+                    evidence_id="current",
+                    metric="spending_current",
+                    unit="million_eur",
+                ),
+                evidence(
+                    1000000.0,
+                    evidence_id="previous",
+                    metric="spending_previous",
+                    unit="eur",
+                ),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
+        self.assertAlmostEqual(result.result["observed"], 500000.0)
+        self.assertEqual(result.result["unit"], "eur")
+        self.assertEqual(
+            result.result["unit_conversion"]["left_factor"],
+            1000000.0,
+        )
+
+    def test_numeric_delta_mismatched_units_still_fail_without_conversion_policy(self):
+        request = VerificationRequest(
+            "claim:delta-unit-blocked",
+            "2026-09-04",
+            "numeric_delta",
+            {
+                "left_metric": "spending_current",
+                "right_metric": "spending_previous",
+                "value": 500000.0,
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(1.5, metric="spending_current", unit="million_eur"),
+                evidence(
+                    1000000.0,
+                    evidence_id="previous",
+                    metric="spending_previous",
+                    unit="eur",
+                ),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.INSUFFICIENT_EVIDENCE)
+        self.assertIn("NUMERIC_UNIT_MISMATCH", result.blockers)
+
     def test_numeric_percent_change_fails_closed_on_zero_baseline(self):
         request = VerificationRequest(
             "claim:pct",
@@ -304,6 +374,40 @@ class VerificationRuntimeTests(unittest.TestCase):
         self.assertEqual(result.assessment, VerificationAssessment.INSUFFICIENT_EVIDENCE)
         self.assertIn("NUMERIC_DENOMINATOR_ZERO", result.blockers)
 
+    def test_numeric_percent_change_normalizes_explicit_compatible_units(self):
+        request = VerificationRequest(
+            "claim:pct-unit",
+            "2026-09-04",
+            "numeric_percent_change",
+            {
+                "current_metric": "spending",
+                "baseline_metric": "spending_previous",
+                "value": 50.0,
+                "unit_conversion": {
+                    "target_unit": "eur",
+                    "factor_to_target": {
+                        "million_eur": 1000000.0,
+                        "eur": 1.0,
+                    },
+                },
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(1.5, metric="spending", unit="million_eur"),
+                evidence(
+                    1000000.0,
+                    evidence_id="baseline",
+                    metric="spending_previous",
+                    unit="eur",
+                ),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
+        self.assertAlmostEqual(result.result["observed"], 50.0)
+        self.assertEqual(result.result["unit_conversion"]["target_unit"], "eur")
+
     def test_numeric_ratio_detects_mismatch(self):
         request = VerificationRequest(
             "claim:ratio",
@@ -324,6 +428,130 @@ class VerificationRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(result.assessment, VerificationAssessment.FACTUALLY_FALSE)
         self.assertAlmostEqual(result.result["observed"], 0.3)
+
+    def test_numeric_ratio_requires_explicit_denominator_population_dimensions(self):
+        request = VerificationRequest(
+            "claim:ratio-population",
+            "2026-09-04",
+            "numeric_ratio",
+            {
+                "numerator_metric": "employed_people",
+                "denominator_metric": "population",
+                "value": 0.6,
+                "denominator_dimensions": {
+                    "population": "working_age",
+                    "geography": "IT",
+                },
+            },
+        )
+        wrong_population = verify(
+            request,
+            [
+                evidence(30.0, evidence_id="istat-employed", metric="employed_people"),
+                VerificationEvidence(
+                    evidence_id="istat-pop-total",
+                    publication_date="2026-09-01",
+                    metric="population",
+                    value_numeric=50.0,
+                    unit="percent",
+                    suitable=True,
+                    metadata={
+                        "provider_family": "ISTAT",
+                        "dimensions": {"population": "total", "geography": "IT"},
+                    },
+                ),
+            ],
+        )
+        self.assertEqual(
+            wrong_population.assessment,
+            VerificationAssessment.INSUFFICIENT_EVIDENCE,
+        )
+        self.assertIn("NUMERIC_DIMENSION_MISMATCH", wrong_population.blockers)
+
+        matched_population = verify(
+            request,
+            [
+                evidence(30.0, evidence_id="istat-employed", metric="employed_people"),
+                VerificationEvidence(
+                    evidence_id="istat-pop-working-age",
+                    publication_date="2026-09-01",
+                    metric="population",
+                    value_numeric=50.0,
+                    unit="percent",
+                    suitable=True,
+                    metadata={
+                        "provider_family": "ISTAT",
+                        "dimensions": {"population": "working_age", "geography": "IT"},
+                    },
+                ),
+            ],
+        )
+        self.assertEqual(matched_population.assessment, VerificationAssessment.SUPPORTED)
+
+    def test_numeric_rounding_policy_is_explicit_for_structured_sources(self):
+        request = VerificationRequest(
+            "claim:structured-rounding",
+            "2026-09-04",
+            "numeric_ratio",
+            {
+                "numerator_metric": "dvns_numerator",
+                "denominator_metric": "eurostat_denominator",
+                "value": 0.33,
+                "rounding": {"mode": "DECIMAL_PLACES", "places": 2},
+            },
+        )
+        result = verify(
+            request,
+            [
+                VerificationEvidence(
+                    evidence_id="dvns-structured",
+                    publication_date="2026-09-01",
+                    metric="dvns_numerator",
+                    value_numeric=1.0,
+                    unit="count",
+                    suitable=True,
+                    metadata={"provider_family": "DVNS", "dimensions": {}},
+                ),
+                VerificationEvidence(
+                    evidence_id="eurostat-structured",
+                    publication_date="2026-09-01",
+                    metric="eurostat_denominator",
+                    value_numeric=3.0,
+                    unit="count",
+                    suitable=True,
+                    metadata={"provider_family": "EUROSTAT", "dimensions": {}},
+                ),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
+        self.assertEqual(
+            result.result["rounding"],
+            {"mode": "DECIMAL_PLACES", "places": 2},
+        )
+        self.assertEqual(result.result["observed_compared"], 0.33)
+
+    def test_significant_figure_policy_changes_only_the_explicit_comparison(self):
+        request = VerificationRequest(
+            "claim:sigfig",
+            "2026-09-04",
+            "numeric_delta",
+            {
+                "left_metric": "istat_current",
+                "right_metric": "istat_previous",
+                "value": 1.23,
+                "rounding": {"mode": "SIGNIFICANT_FIGURES", "digits": 3},
+            },
+        )
+        result = verify(
+            request,
+            [
+                evidence(11.234, evidence_id="current", metric="istat_current"),
+                evidence(10.0, evidence_id="previous", metric="istat_previous"),
+            ],
+        )
+        self.assertEqual(result.assessment, VerificationAssessment.SUPPORTED)
+        self.assertAlmostEqual(result.result["observed"], 1.234)
+        self.assertEqual(result.result["observed_compared"], 1.23)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,8 @@
 import json
+import os
+import re
+import stat
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -6,6 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RESTORE_SCRIPT = ROOT / "deploy" / "ops" / "restore_drill.sh"
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.ops.restore_drill import main as restore_main  # noqa: E402
@@ -20,6 +25,34 @@ from dichiarazioni_pubbliche.ops.restore_verify import (  # noqa: E402
 
 
 class RestoreVerificationTests(unittest.TestCase):
+    def _write_fake_tool(self, root: Path, name: str, body: str) -> None:
+        path = root / name
+        path.write_text("#!/bin/sh\nset -eu\n" + body)
+        path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+    def _run_restore_driver_with_psql(self, psql_body: str) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fakebin = root / "bin"
+            fakebin.mkdir()
+            self._write_fake_tool(fakebin, "psql", psql_body)
+            self._write_fake_tool(fakebin, "pg_restore", "exit 0\n")
+            env = os.environ.copy()
+            env["PATH"] = str(fakebin) + os.pathsep + env.get("PATH", "")
+            return subprocess.run(
+                [
+                    str(RESTORE_SCRIPT),
+                    "--backup-root",
+                    str(root / "backups"),
+                    "--restore-url",
+                    "postgresql:///restore-target",
+                ],
+                text=True,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+
     def test_equal_table_counts_restore(self):
         self.assertTrue(check_table("finding", 7, 7).ok)
 
@@ -64,6 +97,50 @@ class RestoreVerificationTests(unittest.TestCase):
         for table in tables:
             self.assertIn(table, LOAD_BEARING_TABLES)
             self.assertIn(table, backup)
+
+    def test_backup_and_restore_inventory_include_durable_publication_reviews(self):
+        from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES
+
+        table = "publication_review_event_durable"
+        backup = (ROOT / "deploy" / "ops" / "backup.sh").read_text()
+        self.assertIn(table, LOAD_BEARING_TABLES)
+        self.assertIn(table, backup)
+
+    def test_backup_and_restore_inventory_cover_all_persistent_tables(self):
+        from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES
+
+        sql_paths = [ROOT / "db" / "schema.v1.sql", *sorted((ROOT / "db" / "migrations").glob("*.sql"))]
+        create_table = re.compile(
+            r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
+            re.IGNORECASE,
+        )
+        persistent_tables: set[str] = set()
+        for path in sql_paths:
+            persistent_tables.update(create_table.findall(path.read_text()))
+
+        backup_text = (ROOT / "deploy" / "ops" / "backup.sh").read_text()
+        match = re.search(r'TABLES="(.*?)"\n', backup_text, re.DOTALL)
+        self.assertIsNotNone(match, "backup.sh TABLES inventory is not parseable")
+        backup_tables = set(re.findall(r"\b[a-z][a-z0-9_]+\b", match.group(1)))
+        restore_tables = set(LOAD_BEARING_TABLES)
+
+        self.assertEqual(backup_tables, restore_tables)
+        self.assertEqual(persistent_tables - backup_tables, set())
+
+    def test_restore_driver_refuses_canonical_production_database(self):
+        proc = self._run_restore_driver_with_psql("echo dichiarazioni_pubbliche\n")
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("refusing canonical production database", proc.stderr)
+
+    def test_restore_driver_refuses_nonempty_target(self):
+        proc = self._run_restore_driver_with_psql(
+            'case "$*" in\n'
+            '  *current_database*) echo dp_restore_test ;;\n'
+            '  *) echo 1 ;;\n'
+            'esac\n'
+        )
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("is not empty", proc.stderr)
 
     def test_cli_passes_only_when_all_required_counts_match(self):
         from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES

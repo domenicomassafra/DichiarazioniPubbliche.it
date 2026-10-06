@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 from dichiarazioni_pubbliche.policy.intent_policy import (
@@ -219,6 +220,86 @@ class RightsRequestOutcome(StrEnum):
     BLOCKED_BY_PUBLIC_HISTORY = "BLOCKED_BY_PUBLIC_HISTORY"
 
 
+class PrivateAccessRole(StrEnum):
+    """Closed operational roles allowed to request private inspection.
+
+    These are product/runtime roles, not legal roles or GDPR classifications.
+    """
+
+    OPERATOR = "OPERATOR"
+    TRIAGE_REVIEWER = "TRIAGE_REVIEWER"
+    DECISION_REVIEWER = "DECISION_REVIEWER"
+    APPEAL_REVIEWER = "APPEAL_REVIEWER"
+
+
+class PrivateAccessPurpose(StrEnum):
+    OPERATIONS = "OPERATIONS"
+    EDITORIAL_REVIEW = "EDITORIAL_REVIEW"
+    RIGHTS_REQUEST = "RIGHTS_REQUEST"
+    CORRECTION_REVIEW = "CORRECTION_REVIEW"
+    INCIDENT_RESPONSE = "INCIDENT_RESPONSE"
+    RETENTION_REVIEW = "RETENTION_REVIEW"
+
+
+class PrivateAccessMode(StrEnum):
+    """Private access is inspection-only in this policy seam.
+
+    Mutation, deletion, export, and logging of private material stay behind their
+    dedicated append-only / retention workflows and are never authorized here.
+    """
+
+    READ = "READ"
+    LOG = "LOG"
+    EXPORT = "EXPORT"
+    MUTATE = "MUTATE"
+    DELETE = "DELETE"
+
+
+class PrivateAccessOutcome(StrEnum):
+    ALLOW_READ_ONLY = "ALLOW_READ_ONLY"
+    DENY = "DENY"
+
+
+@dataclass(frozen=True)
+class PrivateAccessRequest:
+    actor_ref: str
+    role: PrivateAccessRole | str
+    purpose: PrivateAccessPurpose | str
+    data_class: DataClass | str
+    requested_fields: tuple[str, ...]
+    mode: PrivateAccessMode | str = PrivateAccessMode.READ
+    legal_hold_active: bool = False
+
+
+@dataclass(frozen=True)
+class PrivateAccessDecision:
+    outcome: PrivateAccessOutcome
+    reasons: tuple[str, ...]
+
+    @property
+    def allowed(self) -> bool:
+        return self.outcome is PrivateAccessOutcome.ALLOW_READ_ONLY
+
+
+@dataclass(frozen=True)
+class PrivateAccessAuditReceipt:
+    """Content-free private access receipt.
+
+    The receipt intentionally records identifiers and counts only.  Requested field
+    names, body text, excerpts, prompts, contact data, and sensitivity markers are
+    never copied into the loggable structure.
+    """
+
+    policy_version: str
+    actor_ref: str
+    record_ref: str
+    purpose: str
+    outcome: str
+    occurred_at: str
+    requested_field_count: int
+    legal_hold_active: bool
+
+
 @dataclass(frozen=True)
 class ProjectionInput:
     """Bounded field-level projection decision input."""
@@ -240,6 +321,179 @@ class ProjectionDecision:
     @property
     def allowed(self) -> bool:
         return self.decision in {PublicationDecision.ALLOW, PublicationDecision.ALLOW_WITH_REDACTION}
+
+
+_PRIVATE_ACCESS_CLASSES: frozenset[DataClass] = frozenset(
+    {
+        DataClass.OPERATIONAL_PRIVATE,
+        DataClass.SENSITIVE_CANDIDATE,
+        DataClass.HIGH_RISK_IDENTITY,
+        DataClass.EPHEMERAL,
+    }
+)
+
+_ROLE_PURPOSES: dict[PrivateAccessRole, frozenset[PrivateAccessPurpose]] = {
+    PrivateAccessRole.OPERATOR: frozenset(
+        {
+            PrivateAccessPurpose.OPERATIONS,
+            PrivateAccessPurpose.INCIDENT_RESPONSE,
+            PrivateAccessPurpose.RETENTION_REVIEW,
+        }
+    ),
+    PrivateAccessRole.TRIAGE_REVIEWER: frozenset(
+        {
+            PrivateAccessPurpose.EDITORIAL_REVIEW,
+            PrivateAccessPurpose.RIGHTS_REQUEST,
+            PrivateAccessPurpose.CORRECTION_REVIEW,
+            PrivateAccessPurpose.INCIDENT_RESPONSE,
+        }
+    ),
+    PrivateAccessRole.DECISION_REVIEWER: frozenset(
+        {
+            PrivateAccessPurpose.EDITORIAL_REVIEW,
+            PrivateAccessPurpose.RIGHTS_REQUEST,
+            PrivateAccessPurpose.CORRECTION_REVIEW,
+            PrivateAccessPurpose.INCIDENT_RESPONSE,
+        }
+    ),
+    PrivateAccessRole.APPEAL_REVIEWER: frozenset(
+        {
+            PrivateAccessPurpose.EDITORIAL_REVIEW,
+            PrivateAccessPurpose.RIGHTS_REQUEST,
+            PrivateAccessPurpose.CORRECTION_REVIEW,
+            PrivateAccessPurpose.INCIDENT_RESPONSE,
+        }
+    ),
+}
+
+_AUDIT_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+
+
+def _safe_audit_identifier(value: str) -> str:
+    normalized = value.strip() if isinstance(value, str) else ""
+    if not _AUDIT_IDENTIFIER.fullmatch(normalized):
+        return "REDACTED_IDENTIFIER"
+    return normalized
+
+
+def _safe_audit_timestamp(value: str) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value) > 64:
+        return "UNRESOLVED"
+    try:
+        parsed = datetime.fromisoformat(value.strip())
+    except ValueError:
+        return "UNRESOLVED"
+    if parsed.tzinfo is None:
+        return "UNRESOLVED"
+    return parsed.isoformat()
+
+
+def decide_private_access(request: PrivateAccessRequest) -> PrivateAccessDecision:
+    """E-304-06: authorize bounded, read-only inspection of private material.
+
+    This function does not inspect content and therefore cannot infer a sensitive
+    attribute.  Sensitive/high-risk classification must already exist upstream.
+    Unknown roles, purposes, modes, classes, malformed actors, and malformed field
+    requests fail closed.  A legal hold never widens access and never enables a
+    destructive action.
+    """
+
+    if _safe_audit_identifier(request.actor_ref) == "REDACTED_IDENTIFIER":
+        return PrivateAccessDecision(PrivateAccessOutcome.DENY, ("ACTOR_REF_INVALID",))
+
+    try:
+        role = PrivateAccessRole(str(request.role))
+    except ValueError:
+        return PrivateAccessDecision(PrivateAccessOutcome.DENY, ("ROLE_NOT_AUTHORIZED",))
+    try:
+        purpose = PrivateAccessPurpose(str(request.purpose))
+    except ValueError:
+        return PrivateAccessDecision(PrivateAccessOutcome.DENY, ("PURPOSE_NOT_AUTHORIZED",))
+    try:
+        mode = PrivateAccessMode(str(request.mode))
+    except ValueError:
+        return PrivateAccessDecision(PrivateAccessOutcome.DENY, ("ACCESS_MODE_INVALID",))
+    try:
+        data_class = DataClass(str(request.data_class))
+    except ValueError:
+        return PrivateAccessDecision(PrivateAccessOutcome.DENY, ("UNKNOWN_DATA_CLASS",))
+
+    if mode is not PrivateAccessMode.READ:
+        return PrivateAccessDecision(
+            PrivateAccessOutcome.DENY,
+            ("PRIVATE_ACCESS_IS_READ_ONLY",),
+        )
+    if data_class not in _PRIVATE_ACCESS_CLASSES:
+        return PrivateAccessDecision(
+            PrivateAccessOutcome.DENY,
+            ("NOT_A_PRIVATE_DATA_CLASS",),
+        )
+    if purpose not in _ROLE_PURPOSES[role]:
+        return PrivateAccessDecision(
+            PrivateAccessOutcome.DENY,
+            ("ROLE_PURPOSE_NOT_AUTHORIZED",),
+        )
+    if not request.requested_fields or len(request.requested_fields) > 64:
+        return PrivateAccessDecision(
+            PrivateAccessOutcome.DENY,
+            ("REQUESTED_FIELDS_INVALID",),
+        )
+    if any(
+        not isinstance(field, str) or not field.strip() or len(field) > 128
+        for field in request.requested_fields
+    ):
+        return PrivateAccessDecision(
+            PrivateAccessOutcome.DENY,
+            ("REQUESTED_FIELDS_INVALID",),
+        )
+
+    # Least privilege for the classes most likely to contain sensitive-person data:
+    # generic operations/retention work does not authorize inspection.  A local
+    # operator may inspect them only during an explicit incident response; reviewers
+    # remain bounded by their declared review purpose above.
+    if data_class in {DataClass.SENSITIVE_CANDIDATE, DataClass.HIGH_RISK_IDENTITY}:
+        if role is PrivateAccessRole.OPERATOR and purpose is not PrivateAccessPurpose.INCIDENT_RESPONSE:
+            return PrivateAccessDecision(
+                PrivateAccessOutcome.DENY,
+                ("SENSITIVE_REVIEW_PURPOSE_REQUIRED",),
+            )
+
+    if data_class is DataClass.EPHEMERAL and role is not PrivateAccessRole.OPERATOR:
+        if purpose is not PrivateAccessPurpose.INCIDENT_RESPONSE:
+            return PrivateAccessDecision(
+                PrivateAccessOutcome.DENY,
+                ("EPHEMERAL_OPERATOR_OR_INCIDENT_ONLY",),
+            )
+
+    reasons = ["AUTHORIZED_READ_ONLY"]
+    if request.legal_hold_active:
+        reasons.append("LEGAL_HOLD_PRESERVED_READ_ONLY")
+    return PrivateAccessDecision(PrivateAccessOutcome.ALLOW_READ_ONLY, tuple(reasons))
+
+
+def build_private_access_audit(
+    request: PrivateAccessRequest,
+    decision: PrivateAccessDecision,
+    *,
+    record_ref: str,
+    occurred_at: str,
+) -> PrivateAccessAuditReceipt:
+    """Build a minimized audit receipt without copying requested/private content."""
+
+    try:
+        purpose = PrivateAccessPurpose(str(request.purpose)).value
+    except ValueError:
+        purpose = "UNRESOLVED"
+    return PrivateAccessAuditReceipt(
+        policy_version=PRIVACY_POLICY_VERSION,
+        actor_ref=_safe_audit_identifier(request.actor_ref),
+        record_ref=_safe_audit_identifier(record_ref),
+        purpose=purpose,
+        outcome=decision.outcome.value,
+        occurred_at=_safe_audit_timestamp(occurred_at),
+        requested_field_count=min(len(request.requested_fields), 64),
+        legal_hold_active=bool(request.legal_hold_active),
+    )
 
 
 def _normalized_markers(markers: frozenset[str]) -> frozenset[str]:
@@ -312,6 +566,18 @@ def decide_projection(inputs: ProjectionInput) -> ProjectionDecision:
     if _field_is_operational_private(inputs.field_name):
         return ProjectionDecision(
             PublicationDecision.PROHIBIT, ("OPERATIONAL_PRIVATE_FIELD",)
+        )
+
+    # A schema/serializer bug must not make an explicitly sensitive or high-risk
+    # field name public merely because it was mislabeled PUBLIC_CORE.  This is a
+    # field-name boundary only: it does not inspect a person's value or infer a
+    # sensitive attribute.
+    if contains_high_risk_marker(inputs.field_name) or contains_sensitive_marker(
+        inputs.field_name
+    ):
+        return ProjectionDecision(
+            PublicationDecision.PROHIBIT,
+            ("SENSITIVE_OR_HIGH_RISK_FIELD_NAME",),
         )
 
     # C-304-02: no sensitive inference. A high-risk identity marker is a hold.
@@ -421,6 +687,8 @@ def minimize_public_fieldset(fields: list[str]) -> tuple[str, ...]:
     for field in fields:
         if _field_is_operational_private(field):
             continue
+        if contains_high_risk_marker(field) or contains_sensitive_marker(field):
+            continue
         if scan_public_label(field):
             continue
         kept.add(field)
@@ -449,6 +717,13 @@ __all__ = [
     "HIGH_RISK_IDENTITY_MARKERS",
     "OPERATIONAL_PRIVATE_FIELDS",
     "PRIVACY_POLICY_VERSION",
+    "PrivateAccessAuditReceipt",
+    "PrivateAccessDecision",
+    "PrivateAccessMode",
+    "PrivateAccessOutcome",
+    "PrivateAccessPurpose",
+    "PrivateAccessRequest",
+    "PrivateAccessRole",
     "ProjectionDecision",
     "ProjectionInput",
     "PUBLIC_PROJECTABLE_CLASSES",
@@ -463,6 +738,8 @@ __all__ = [
     "contains_high_risk_marker",
     "contains_pii_shape",
     "contains_sensitive_marker",
+    "build_private_access_audit",
+    "decide_private_access",
     "decide_projection",
     "minimize_public_fieldset",
     "retention_decision",

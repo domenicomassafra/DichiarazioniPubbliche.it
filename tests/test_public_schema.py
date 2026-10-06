@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sys
 import unittest
 from pathlib import Path
@@ -17,6 +18,8 @@ from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
     PUBLIC_SCHEMA_VERSION,
     PUBLISHABLE_ASSESSMENTS,
     PublicSchemaValidationError,
+    projection_dataset_sha256,
+    validate_content,
     validate_dossier,
     validate_public_bundle,
 )
@@ -131,6 +134,70 @@ def valid_bundle() -> dict:
     }
 
 
+def valid_wording(*, source_type: str = "VERBATIM_ORIGINAL") -> dict:
+    claim = valid_dossier()["claim"]
+    assert isinstance(claim, str)
+    return {
+        "version": "wording-contract-v1",
+        "source_occurrence": {
+            "occurrence_id": "statement:s1",
+            "wording_type": source_type,
+            "text_sha256": "a" * 64,
+            "language": "it",
+            "direct_quote_eligible": source_type == "VERBATIM_ORIGINAL",
+            "representation_role": "SOURCE_OCCURRENCE",
+        },
+        "normalized_claim": {
+            "wording_type": "PARAPHRASE",
+            "text_sha256": hashlib.sha256(claim.encode("utf-8")).hexdigest(),
+            "source_occurrence_id": "statement:s1",
+            "source_wording_type": source_type,
+            "language": "it",
+            "derivation_method": "CLAIM_NORMALIZATION",
+            "derivation_version": "test-v1",
+            "direct_quote_eligible": False,
+            "representation_role": "DERIVED_REPRESENTATION",
+        },
+        "representations": [
+            {
+                "wording_type": "TRANSLATION",
+                "text_sha256": "b" * 64,
+                "source_occurrence_id": "statement:s1",
+                "source_wording_type": source_type,
+                "language": "en",
+                "source_language": "it",
+                "derivation_method": "TRANSLATION_HUMAN",
+                "derivation_version": "test-v1",
+                "review_state": "HUMAN_REVIEWED",
+                "signal_codes": [],
+                "direct_quote_eligible": False,
+                "representation_role": "DERIVED_REPRESENTATION",
+            }
+        ],
+        "public_provenance": {
+            "segment_ids": ["segment:s1"],
+            "text_provenance_ids": [],
+        },
+    }
+
+
+def valid_content() -> dict:
+    return {
+        "content_id": "content:c1",
+        "slug": "content-c1",
+        "url": "https://example.test/source",
+        "title": "Intervista TV",
+        "published_at": "2026-09-20T10:00:00+00:00",
+        "content_kind": "VIDEO",
+        "duration_ms": 120000,
+        "public_media_url": None,
+        "media_policy_version": None,
+        "publication_version": "public-content-v1",
+        "review_event_ids": ["review:content-c1"],
+        "finding_ids": ["finding:100"],
+    }
+
+
 class PublicSchemaContractTests(unittest.TestCase):
     def test_schema_version_is_unchanged(self):
         self.assertEqual(PUBLIC_SCHEMA_VERSION, "dichiarazioni-pubbliche-public-v2")
@@ -139,6 +206,65 @@ class PublicSchemaContractTests(unittest.TestCase):
         dossier = valid_dossier()
         result = validate_dossier(dossier)
         self.assertIs(result, dossier)
+
+    def test_additive_wording_metadata_preserves_legacy_public_v2(self):
+        legacy = valid_dossier()
+        self.assertIs(validate_dossier(legacy), legacy)
+
+        current = valid_dossier()
+        current["wording"] = valid_wording()
+        self.assertIs(validate_dossier(current), current)
+        self.assertEqual(PUBLIC_SCHEMA_VERSION, "dichiarazioni-pubbliche-public-v2")
+
+    def test_reported_source_is_distinct_and_never_direct_quote_eligible(self):
+        dossier = valid_dossier()
+        dossier["wording"] = valid_wording(source_type="REPORTED_QUOTE")
+        self.assertIs(validate_dossier(dossier), dossier)
+        dossier["wording"]["source_occurrence"]["direct_quote_eligible"] = True
+        with self.assertRaisesRegex(
+            PublicSchemaValidationError,
+            "direct-quote authority",
+        ):
+            validate_dossier(dossier)
+
+    def test_derived_representation_cannot_become_direct_quote(self):
+        dossier = valid_dossier()
+        dossier["wording"] = valid_wording()
+        dossier["wording"]["representations"][0]["direct_quote_eligible"] = True
+        with self.assertRaisesRegex(
+            PublicSchemaValidationError,
+            "derived wording cannot be direct-quote eligible",
+        ):
+            validate_dossier(dossier)
+
+    def test_translation_requires_original_language_and_review_state(self):
+        for key, value in (
+            ("source_language", "fr"),
+            ("review_state", None),
+        ):
+            with self.subTest(key=key):
+                dossier = valid_dossier()
+                dossier["wording"] = valid_wording()
+                dossier["wording"]["representations"][0][key] = value
+                with self.assertRaises(PublicSchemaValidationError):
+                    validate_dossier(dossier)
+
+    def test_wording_contract_rejects_raw_or_private_text_fields(self):
+        dossier = valid_dossier()
+        dossier["wording"] = valid_wording()
+        dossier["wording"]["representations"][0]["text"] = "private translation"
+        with self.assertRaisesRegex(PublicSchemaValidationError, "unknown wording"):
+            validate_dossier(dossier)
+
+    def test_wording_public_provenance_must_match_source(self):
+        dossier = valid_dossier()
+        dossier["wording"] = valid_wording()
+        dossier["wording"]["public_provenance"]["segment_ids"] = ["segment:other"]
+        with self.assertRaisesRegex(
+            PublicSchemaValidationError,
+            "does not match public source provenance",
+        ):
+            validate_dossier(dossier)
 
     def test_claim_field_may_be_none_or_absent(self):
         dossier_none = valid_dossier()
@@ -247,6 +373,42 @@ class PublicSchemaContractTests(unittest.TestCase):
                 with self.assertRaises(PublicSchemaValidationError):
                     validate_dossier(d)
 
+    def test_private_identity_resolution_material_is_rejected(self):
+        forbidden_identity = [
+            ("public_attribution_input", {"private": True}),
+            ("retrieval_score", 0.99),
+            ("supporting_features", [{"code": "KNOWN_ALIAS", "value": "private"}]),
+            ("contradicting_features", [{"code": "DATE_CONFLICT"}]),
+            ("speaker_label", "PRIVATE_ALIAS"),
+            ("identifier_value", "PRIVATE-ID"),
+            ("mention_text", "Private mention"),
+            ("resolution_method", "MANUAL_REVIEW"),
+            ("resolution_version", "entity-resolution-v1"),
+            ("confidence", 0.99),
+            ("aliases", ["private alias"]),
+        ]
+        for key, value in forbidden_identity:
+            with self.subTest(speaker_key=key):
+                dossier = valid_dossier()
+                dossier["speaker"][key] = value
+                with self.assertRaises(PublicSchemaValidationError):
+                    validate_dossier(dossier)
+
+            with self.subTest(nested_changed_fields=key):
+                dossier = valid_dossier()
+                dossier["corrections"].append(
+                    {
+                        "id": "c-private-identity",
+                        "finding_id": "f1",
+                        "previous_finding_id": "f0",
+                        "reason": "Update",
+                        "changed_fields": {key: value},
+                        "created_at": "2026-09-21T10:00:00+00:00",
+                    }
+                )
+                with self.assertRaises(PublicSchemaValidationError):
+                    validate_dossier(dossier)
+
     def test_non_publishable_assessment_rejected(self):
         non_publishable = [
             VerificationAssessment.INSUFFICIENT_EVIDENCE.value,
@@ -293,6 +455,67 @@ class PublicSchemaContractTests(unittest.TestCase):
         bundle = valid_bundle()
         result = validate_public_bundle(bundle)
         self.assertIs(result, bundle)
+
+    def test_public_content_can_have_zero_findings(self):
+        content = valid_content()
+        content["finding_ids"] = []
+        self.assertIs(validate_content(content), content)
+
+    def test_public_content_media_metadata_is_fail_closed(self):
+        content = valid_content()
+        content["public_media_url"] = "https://media.example.test/embed/1"
+        with self.assertRaises(PublicSchemaValidationError):
+            validate_content(content)
+
+        content["media_policy_version"] = "public-media-v1"
+        self.assertIs(validate_content(content), content)
+
+        written = valid_content()
+        written["content_kind"] = "WRITTEN"
+        written["duration_ms"] = None
+        written["public_media_url"] = "https://media.example.test/embed/1"
+        written["media_policy_version"] = "public-media-v1"
+        with self.assertRaises(PublicSchemaValidationError):
+            validate_content(written)
+
+    def test_bundle_accepts_legacy_without_contents_and_validates_new_contents(self):
+        legacy = valid_bundle()
+        self.assertIs(validate_public_bundle(legacy), legacy)
+
+        current = valid_bundle()
+        current["contents"] = [valid_content()]
+        current["dataset_sha256"] = projection_dataset_sha256(current)
+        self.assertIs(validate_public_bundle(current), current)
+
+    def test_content_cannot_reference_private_or_other_content_finding(self):
+        bundle = valid_bundle()
+        content = valid_content()
+        content["finding_ids"] = ["finding:private"]
+        bundle["contents"] = [content]
+        with self.assertRaisesRegex(PublicSchemaValidationError, "non-public finding"):
+            validate_public_bundle(bundle)
+
+        other = valid_dossier()
+        other["finding_id"] = "finding:other"
+        other["claim_id"] = "claim:other"
+        other["source"]["content_id"] = "content:other"
+        bundle = valid_bundle()
+        bundle["dossiers"].append(other)
+        bundle["dossier_count"] = 2
+        content = valid_content()
+        content["finding_ids"] = ["finding:other"]
+        bundle["contents"] = [content]
+        with self.assertRaisesRegex(PublicSchemaValidationError, "different source content_id"):
+            validate_public_bundle(bundle)
+
+    def test_content_bundle_fingerprint_detects_tampering(self):
+        bundle = valid_bundle()
+        bundle["contents"] = [valid_content()]
+        bundle["dataset_sha256"] = projection_dataset_sha256(bundle)
+        self.assertIs(validate_public_bundle(bundle), bundle)
+        bundle["contents"][0]["title"] = "Titolo alterato dopo la proiezione"
+        with self.assertRaisesRegex(PublicSchemaValidationError, "dataset_sha256"):
+            validate_public_bundle(bundle)
 
     def test_validate_public_bundle_rejects_person_aggregate(self):
         bundle = valid_bundle()

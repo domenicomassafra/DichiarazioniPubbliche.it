@@ -120,7 +120,7 @@ if it ships code only and the unresolved rows are not part of it — record whic
 ## 8. Gate 6 — Security / privacy
 
 - [ ] secret/private-content scan clean (part of `tools/check_repository_contract.py`)
-- [ ] `SECURITY.md` reviewed; no public security contact invented while no remote exists
+- [ ] `SECURITY.md` reviewed; no public security contact invented before owner approval
 - [ ] dependency/license review: no incompatible-license code vendored
 - [ ] unresolved legal/privacy decisions are explicit blockers (DP-304..DP-307)
 
@@ -184,16 +184,23 @@ python3 tools/check_version_consistency.py
 ## 14. Reproducibility: build twice
 
 ```bash
-for i in 1 2; do
-  python3 -m build --outdir "dist-$i"
-  sha256sum dist-$i/* 2>/dev/null || shasum -a 256 dist-$i/*
-done
-diff <(cd dist-1 && sha256sum * 2>/dev/null | sort) <(cd dist-2 && sha256sum * 2>/dev/null | sort)
+python3 -m pip install "build>=1.2,<2.0" "packaging>=24,<26" "setuptools>=68,<81" "wheel>=0.44,<0.46"
+python3 tools/check_reproducible_package.py
 ```
 
-Two runs from the same commit must yield the same artifact hashes (a reproducible
-build backend is required; if the backend is not reproducible, record the difference
-rather than claiming reproducibility).
+The checker creates two independent detached clones of the exact commit, sets
+`SOURCE_DATE_EPOCH` to that commit timestamp, builds wheel + sdist with the bounded build
+tooling, normalizes only the sdist archive metadata through `tools/normalize_sdist.py`,
+and requires identical artifact names and SHA-256 hashes. A mismatch fails the gate.
+
+For the candidate artifacts kept for review, use the same metadata rule:
+
+```bash
+export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+python3 -m build --no-isolation --outdir dist
+python3 tools/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" dist/*.tar.gz
+sha256sum dist/* 2>/dev/null || shasum -a 256 dist/*
+```
 
 ## 15. Cleanup and tree hygiene
 
@@ -204,7 +211,9 @@ find . -name __pycache__ -type d -prune -exec rm -rf {} +
 git status --short          # must be empty
 ```
 
-`pip install -e .` / `python -m build` write `*.egg-info/` and `dist/` into the
+`pip install -e .` / `python -m build` may write `*.egg-info/`, `build/`, or `dist/`
+into the checkout. Remove only those generated paths after recording the artifact hashes;
+the final `git status --short` must be empty in the detached candidate clone.
 
 ## 16. Final receipt
 

@@ -3,15 +3,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import Assessment from "./Assessment.astro";
 import SourceRow from "./SourceRow.astro";
 import { contentSlug, dossierSlug, formatDate, relationSlug } from "../lib/format";
-import type { PublicDossier } from "../lib/types";
+import type { PublicContent, PublicDossier } from "../lib/types";
 
 interface Props {
+  content?: PublicContent | null;
   dossiers: PublicDossier[];
 }
 
-const { dossiers } = Astro.props;
-const source = dossiers[0].source;
-const canonical = `/contenuti/${contentSlug(dossiers[0])}/`;
+const { content = null, dossiers } = Astro.props;
+const source = content ?? dossiers[0]?.source;
+if (!source) throw new Error("Content page requires a reviewed Content or one legacy public dossier.");
+const canonicalSlug = content?.slug ?? contentSlug(dossiers[0]);
+const canonical = `/contenuti/${canonicalSlug}/`;
 
 const msLabel = (ms?: number | null) => {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) return null;
@@ -105,6 +108,8 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
         <h1 class="page-title">{source.title}</h1>
         <div class="content-record-meta">
           {source.published_at && <span>{formatDate(source.published_at)}</span>}
+          {content && <span>{content.content_kind.toLowerCase()}</span>}
+          {content?.duration_ms !== null && content?.duration_ms !== undefined && <span>{msLabel(content.duration_ms)}</span>}
           <span>{moments.length} {moments.length === 1 ? "dichiarazione pubblicata" : "dichiarazioni pubblicate"}</span>
           {timedMoments.length > 0 && <span>{timedMoments.length} con locator temporale</span>}
           {writtenMoments.length > 0 && <span>{writtenMoments.length} con locator testuale</span>}
@@ -113,12 +118,16 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
       <div class="content-record-source">
         <div class="eyebrow">Fonte originale</div>
         <a href={source.url} rel="noreferrer">Apri il contenuto originale ↗</a>
-        <p>Il contratto pubblico corrente non espone un URL media/embed separato e autorizzato: questa pagina non costruisce quindi un player fittizio.</p>
+        {content?.public_media_url ? (
+          <p><a href={content.public_media_url} rel="noreferrer">Apri media pubblico autorizzato ↗</a></p>
+        ) : (
+          <p>Nessun URL media/embed separato è stato approvato per questa risorsa: la pagina non costruisce un player fittizio.</p>
+        )}
       </div>
     </div>
   </header>
 
-  <main class="shell content-record">
+  <div class="shell content-record">
     <section class="content-context" aria-labelledby="content-context-heading">
       <div>
         <div class="eyebrow">Contesto sorgente</div>
@@ -159,8 +168,14 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
           </div>
         </div>
 
-        <ol class="content-moment-list">
-          {moments.map(({ dossier, locator }, index) => {
+        {moments.length === 0 ? (
+          <section class="dp-state" data-state="empty">
+            <h3 class="dp-state__title">Nessuna verifica pubblicata per questo contenuto.</h3>
+            <p class="dp-state__body">Il contenuto è stato approvato come risorsa pubblica, ma al momento non contiene dichiarazioni con un finding pubblicabile.</p>
+          </section>
+        ) : (
+          <ol class="content-moment-list">
+            {moments.map(({ dossier, locator }, index) => {
             const slug = dossierSlug(dossier);
             const hasHistory = dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0;
             const relations = [...new Set((dossier.relations ?? [])
@@ -189,7 +204,9 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                   hidden={index !== 0}
                   aria-live="polite"
                 >
-                  <div class="eyebrow">Momento selezionato · {locator.label}</div>
+                  <div class="eyebrow">
+                    {locator.kind === "timed" ? "Momento selezionato" : locator.kind === "written" ? "Passaggio selezionato" : "Elemento selezionato"} · {locator.label}
+                  </div>
                   <h3>“{dossier.claim}”</h3>
                   <div class="content-detail-finding">
                     <Assessment code={dossier.finding.assessment} />
@@ -223,8 +240,9 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                 </article>
               </li>
             );
-          })}
-        </ol>
+            })}
+          </ol>
+        )}
       </div>
     </section>
 
@@ -242,7 +260,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
         <ul>{allRelations.map((id) => <li><a href={`/tracce/${relationSlug(id)}/`}>Apri la traccia →</a></li>)}</ul>
       </section>
     )}
-  </main>
+  </div>
 
   <script is:inline>
     (() => {

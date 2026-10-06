@@ -1,6 +1,6 @@
 # DP-703 — Production dataset/source launch set and disclosure
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M7 — stable v1 launch
 Depends on: M2 exit criteria (DP-201..DP-207; DP-208 only if the selected path uses diarization) and M3 (DP-301..DP-307); coordinate with DP-603, DP-604, and DP-701
 Launch state: BLOCKED until a bounded source set, rights/privacy disposition, provider path, and versioned public snapshot are accepted
@@ -230,7 +230,7 @@ The rollback receipt is required before a launch snapshot can be called releasab
 - [ ] **AC-703.10 — Runtime proof:** MiniPC runs the approved source/poll and projection
   path in an isolated canary, records queue/source-health state, and reads back the actual
   public/private result.
-- [ ] **AC-703-11 — No public side effect:** The specification does not publish a dataset,
+- [x] **AC-703-11 — No public side effect:** The specification does not publish a dataset,
   remote, API, website, tag, release, or deployment.
 - [ ] **AC-703-12 — Handoff:** DP-704 rehearses the approved snapshot and DP-705 can
   consume its manifest, disclosure, and rollback receipt without guessing missing
@@ -278,7 +278,33 @@ clearance or publication authorization.
 
 ## Completion receipt
 
-Pending provider capability receipts, owner-approved source-set decision, rights/privacy
-closure, disclosure acceptance, deterministic snapshot proof, and rollback receipt. This
-ticket does not claim that a production dataset or public source set is cleared,
-published, or live.
+Local preparatory preflight semantics added 2026-10-05 in
+`launch-set-candidate-v1` / `launch-snapshot-candidate-v1`. This pure seam validates
+synthetic candidate source rows only; it does not select, mutate, approve or publish a
+production source set. Candidate rows preserve stable source/family identity and explicit
+`INCLUDED|HELD|EXCLUDED|REMOVED` state, bounded rights/privacy/provider gate state, decision
+refs, discovery/transcript/speaker/evidence/provider path IDs, health owner, disclosure
+decision and per-source config fingerprint. An `INCLUDED` row fails closed unless every
+required ref is present and rights/privacy/provider gates are `READY`; a candidate with
+fewer than three distinct included source families remains mechanically `BLOCKED`.
+
+The synthetic three-family fixture can reach only `READY_FOR_OWNER_REVIEW`; both manifest
+and snapshot objects retain `launch_state=BLOCKED` and `launch_authorized=false`, so no
+owner approval is inferred. The snapshot candidate deterministically binds candidate
+commit, effective config hash, policy/schema/API versions, all/included source IDs, the
+launch-set fingerprint, an externally supplied public-projection fingerprint, and held /
+omitted counts. Source-ID or source/global-config changes alter the snapshot fingerprint.
+The strict row surface rejects unknown fields (including raw-body style additions), while
+the snapshot model has no raw body, credential, secret or owner-approval fields.
+
+A pure rollback receipt candidate binds rejected/restore-target snapshot fingerprints,
+expected restore projection fingerprint, actor/reason refs and a deterministic receipt
+hash, but is explicitly `NOT_EXECUTED` and non-authorizing. It is therefore preparatory
+evidence only, not the durable executed/read-back proof required by AC-703-9.
+
+AC-703-11 is locally proven because the implementation is pure and performs no registry,
+projection, deployment, release or network mutation. AC-703.1/.2/.3/.4/.5/.6/.7/.8/.9/.10
+and .12 remain open for a real owner-selected launch set, provider paths, qualified
+rights/privacy/legal decisions, approved disclosure, actual projection/schema validation,
+executed rollback/read-back, DP-704 handoff and MiniPC evidence. Launch state remains
+`BLOCKED` exactly as declared at the top of this ticket.

@@ -16,6 +16,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,14 +32,30 @@ CHECKS: list[tuple[str, list[str]]] = [
      ["python3", "tools/generate_fixture_inventory.py", "--check"]),
     ("version/changelog consistency (DP-604)",
      ["python3", "tools/check_version_consistency.py", "--allow-no-release"]),
+    ("local issue/label governance contract (DP-606)",
+     ["python3", "tools/check_issue_workflow.py"]),
+    ("draft public HTTP client contract (DP-607)",
+     ["python3", "-m", "unittest", "tests.test_public_http_client", "-v"]),
+    ("M7 no-false-launch preflight (DP-702/DP-705)",
+     ["python3", "tools/check_launch_preflight.py", "--expect-no-go"]),
+    ("DP-223 false-attribution/fabricated-quote release gate",
+     ["python3", "-m", "dichiarazioni_pubbliche.false_attribution_benchmark"]),
 ]
 
 
 def main() -> int:
     failures: list[str] = []
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT / "poc")
     for label, cmd in CHECKS:
         print(f"==> {label}")
-        result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+        result = subprocess.run(
+            cmd,
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
         out = (result.stdout or "").rstrip()
         err = (result.stderr or "").rstrip()
         if out:

@@ -25,16 +25,16 @@ with available media locators without biometric identity.
 - [x] Speaker identity is emitted only when an external DP-114/DP-218-style resolution is
   explicitly approved; the alignment module performs no
   face/voice matching.
-- [ ] Official transcript wording remains a source version and does not overwrite platform
+- [x] Official transcript wording remains a source version and does not overwrite platform
   captions/ASR variants.
 - [x] Official media timing becomes a direct official locator; without it, exact normalized
   transcript alignment creates only a REVIEW_CANDIDATE.
 - [x] Missing or ambiguous text alignment never invents a timestamp.
-- [ ] Agenda/item/session context is preserved separately from the quoted statement.
-- [ ] Corrections or amended parliamentary records create new versions/supersession and
+- [x] Agenda/item/session context is preserved separately from the quoted statement.
+- [x] Corrections or amended parliamentary records create new versions/supersession and
   trigger DP-227/DP-511 revalidation.
-- [ ] Source terms/rights and public excerpt behavior remain governed by DP-305.
-- [ ] A deterministic fixture proves multi-speaker session alignment with zero cross-person
+- [x] Source terms/rights and public excerpt behavior remain governed by DP-305.
+- [x] A deterministic fixture proves multi-speaker session alignment with zero cross-person
   attribution.
 - [ ] MiniPC canary exercises at least one approved official source family before DONE.
 
@@ -50,3 +50,143 @@ with available media locators without biometric identity.
 Local official-intervention/alignment contract + focused tests added 2026-10-05. Camera/
 Senato ingestion, persistence, source-version/reanalysis integration and MiniPC canary
 remain open.
+
+### Official source normalizer follow-up — 2026-10-05
+
+Added `poc/dichiarazioni_pubbliche/parliamentary_official_adapter.py`, a pure/offline
+normalizer for already-fetched official Camera/Senato records. It performs no network I/O,
+speaker inference, biometric matching, review action, verification, or publication action.
+
+The adapter requires and preserves explicit official chamber, sitting, speaker and
+statement identifiers. Sitting date and statement date must match; statement speaker ID
+must exactly match the official speaker record; all chamber-owned IDs must carry the
+matching `camera:` / `senato:` namespace. Official transcript and video URLs must be HTTPS,
+credential-free, default/443-port URLs under the matching chamber domain.
+
+Statement alignment is source-span based and fail closed: the caller supplies
+`start_char`/`end_char`, and the exact slice of the supplied official transcript version
+must equal the supplied statement text. Video alignment is emitted only when an explicit
+complete `start_ms`/`end_ms` range is supplied; no timestamp is inferred when it is absent.
+
+Official transcript wording is retained as its own source version/hash/span. Platform
+caption/ASR IDs are preserved only as `variant_refs` and cannot overwrite official text.
+Likewise, agenda/item/session metadata is stored in a separate session-context object, not
+concatenated into the quoted statement.
+
+Provenance and replay identity are deterministic SHA-256 identities over official IDs,
+source versions/hashes, transcript span and explicit video locator. Exact replays dedupe;
+the same chamber+statement ID with changed material fails closed as
+`PARLIAMENTARY_REPLAY_CONFLICT` instead of silently replacing history.
+
+Offline synthetic fixture `tests/parliamentary_official_fixture.py` contains two
+different official speakers in the same Camera sitting. The second row intentionally has
+a misleading `platform_author`; normalization still emits only the explicit official
+speaker ID/name. Missing official speaker metadata fails even when a platform account name
+is present.
+
+Focused proof in `tests/test_parliamentary_official_adapter.py` covers the multi-speaker
+fixture, account/platform non-inference, explicit video timing, transcript-variant
+separation, separate agenda context, deterministic replay/dedupe, replay conflicts,
+HTTPS/chamber URL gates, chamber/date/speaker/span mismatch fail-closed behavior, and the
+absence of publication/review/assessment authority from the record contract.
+
+ACs for amended-record supersession/revalidation, DP-305 rights/excerpt enforcement and
+the MiniPC canary remain open because this pure adapter does not persist, publish, fetch or
+mutate source versions.
+
+### Reviewed amended-record revalidation integration — 2026-10-06
+
+Added `poc/dichiarazioni_pubbliche/parliamentary_amendment_revalidation.py`, a pure bridge
+that composes the existing parliamentary normalizer with canonical DP-511
+`source_revalidation`, DP-511 -> DP-510 hold-request and DONE DP-227
+`supersession_reanalysis` contracts. No Camera/Senato network fetch, provider call, database
+write, Finding mutation or publication action is performed by this seam.
+
+For the same chamber-owned official `statement_id`, a changed official transcript version
+is normalized as a distinct immutable parliamentary record. The bridge requires the same
+chamber, sitting and official speaker identity; uses the statement ID as the stable DP-511
+source identity; binds the old/new transcript version and SHA-256; marks the current
+snapshot as directly superseding the previous source version; and evaluates it as
+load-bearing for quote, speaker and evidence. A real amendment therefore yields canonical
+`HOLD_REQUIRED` + `OFFICIAL_VERSION_SUPERSEDED`, a deterministic targeted hold request for
+the previous load-bearing source version, and — only after an `APPROVED` review of the exact
+DP-511 `event_key` — the canonical DP-227 reanalysis request. That request preserves the
+old/new version IDs, content hashes, caller-supplied effective `valid_from`/`valid_until`
+dates and affected Claim/Finding IDs. It only returns deterministic reanalysis trigger/job
+inputs; it has no publication side effect.
+
+DP-305 remains a separate fail-closed prerequisite. The DP-511 snapshots intentionally keep
+`rights_status=UNKNOWN`; an official parliamentary origin does not create quotation or
+republication permission. If no `ExcerptRequest` is supplied, public-excerpt readiness is
+false. If one is supplied, the bridge delegates unchanged to canonical `decide_excerpt()`:
+`UNKNOWN` remains `PROHIBITED`, while only an explicit caller-supplied DP-305 clearance,
+public-use grant, approved profile, review and exact provenance can satisfy the excerpt
+prerequisite. Rights outcome does not alter or manufacture the DP-511/DP-227 supersession
+identity or reanalysis request.
+
+Focused local proof: `test_parliamentary_amendment_revalidation` **7/7 PASS**; combined
+parliamentary adapter + DP-511 + DP-227 + DP-305 focused set **95/95 PASS**; `py_compile` and
+`git diff --check` PASS. An isolated MiniPC `/tmp` bundle with production DB/provider/API
+environment variables removed ran the same **95/95 PASS** and was deleted afterward. This
+MiniPC proof exercises the pure integration against the synthetic Camera fixture only; it
+does **not** close the final MiniPC AC requiring an approved official source-family canary,
+and no live Camera/Senato fetch was attempted.
+
+### Synthetic source-family execution tranche — 2026-10-06
+
+Added `parliamentary-source-family-execution-v1`, a fixture-only Camera/Senato batch seam
+over already-fetched records. It performs no network/provider call, production execution,
+database/schema write, verification, public projection or publication action. The manifest
+must be explicitly `fixture_only`; a non-fixture invocation fails closed.
+
+The executor reuses the canonical DP-233 normalizer for deterministic exact-replay dedupe
+and chamber-owned identifier/URL/span rules. It distinguishes `NEW`, exact `REPLAY`, and
+materially changed `AMENDED` records. A changed previously seen statement cannot silently
+replace the old source version: it requires an explicit reviewed-amendment input and then
+delegates unchanged to the existing DP-511/DP-227 amendment bridge, preserving its targeted
+hold and reviewed supersession/reanalysis identities.
+
+DP-305 remains authoritative for excerpt readiness. The source-family manifest supplies the
+resolved rights state; a caller-supplied `ExcerptRequest` cannot upgrade that state. Requests
+must bind the exact normalized source URL, record/statement IDs, transcript source version,
+source hash and, when official video timing exists, the exact video range. `UNKNOWN` remains
+`PROHIBITED`; only an explicitly supplied synthetic `CLEARED` family state plus the existing
+DP-305 gates can make the prerequisite true. The execution receipt contains no publication,
+approval, verdict or assessment authority.
+
+Synthetic proof now covers both Camera and Senato source-family shapes, exact replay,
+cross-family/chamber refusal, amendment-without-review refusal, reviewed amendment
+DP-511/DP-227 delegation, caller-rights upgrade refusal, exact excerpt binding and absence of
+publication authority. Focused adapter + amendment + DP-305 + source-family execution tests
+are **83/83 PASS**; `compileall`, Ruff and `git diff --check` pass.
+
+No acceptance checkbox changes in this tranche: AC-233.1 through AC-233.9 were already
+checked by prior local contracts, while AC-233.10 still requires a MiniPC canary against at
+least one approved official source family. This synthetic executor intentionally does not
+claim that production/source-approval proof.
+
+### AC-233.10 approved-source-family audit blocker — 2026-10-06
+
+A fresh repository audit found **no explicitly approved Camera/Senato source family** that
+can satisfy the prerequisite for the final MiniPC canary. `config/source-registry.v1.json`
+contains only the current Pulp YouTube/RSS and Giuliani social rows; it contains no Camera or
+Senato launch/source-family entry. `config/evidence-sources.v1.json` does list
+`camera-linked-data`, `camera-publications`, `senato-linked-data` and
+`senato-publications` as official/authoritative evidence endpoints, and
+`config/source-intelligence.v1.json` supplies their bounded authority scopes, but those
+contracts do not contain an owner launch decision, `INCLUDED` launch state, source-family
+rights clearance or equivalent production approval.
+
+DP-703 is the explicit launch authority and remains blocked: its baseline says the project
+does not yet have an owner-approved production launch set and calls the current source
+registry provisional, while B-703-03 states `No approved source set exists` and B-703-04
+keeps source-specific terms/rights unresolved. A repository-wide search found no separate
+Camera/Senato `INCLUDED`, `launch_authorized=true`, approved-use decision, or licensing
+closure that overrides those blockers.
+
+Therefore **no MiniPC canary was run in this follow-up**. Running even a read-only canary
+against Camera/Senato and calling it AC-233.10 proof would invent the missing approval
+prerequisite. AC-233.10 remains open until an owner-approved official parliamentary source
+family with resolved source/rights disposition exists; once that exact decision is present,
+the existing fixture-only execution contract can be exercised on MiniPC without production
+DB/provider mutation.

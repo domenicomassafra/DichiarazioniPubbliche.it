@@ -69,8 +69,29 @@ acceptable reason.
 ## Minimization (C-304-03)
 
 `minimize_public_fieldset()` returns a sorted, de-duplicated tuple with
-operational-private names and any person-score/intent field removed. This is the
+operational-private names, sensitive/high-risk schema names, and any person-score/
+intent field removed. The sensitive/high-risk check is against the field/schema name
+only; it does not inspect a person's value or infer a sensitive attribute. This is the
 projection-side allowlist complement.
+
+## Private access and content-free audit (E-304-06)
+
+`decide_private_access()` is the pure authorization seam for local inspection of
+private material. It uses a closed runtime role/purpose vocabulary, accepts only
+read-only access, and rejects unknown roles, purposes, classes, modes, malformed actor
+identifiers, or malformed field requests. Sensitive/high-risk classification must
+already exist upstream; this helper never derives or publishes a sensitive trait.
+
+`build_private_access_audit()` emits a minimized private receipt containing only policy
+version, bounded actor/record identifiers, declared purpose, decision, bounded timestamp,
+requested-field count, and legal-hold flag. Requested field names and body values are
+never copied into the receipt. Contact-shaped identifiers and invalid timestamp text are
+reduced to generic placeholders instead of being logged verbatim.
+
+An active legal hold never widens access. A permitted inspection remains read-only;
+`LOG`, `EXPORT`, `MUTATE`, and `DELETE` modes are denied by this seam regardless of hold
+state. Destructive state changes remain owned by the existing append-only rights and
+retention workflows.
 
 ## Retention interaction — no numbers invented (P-304-06)
 
@@ -110,9 +131,11 @@ routes to a reviewed correction/hold.
   heuristics. It cannot detect a sensitive value inside arbitrary free text beyond
   the marker and PII-shape detectors, and it is not a substitute for the runtime
   field inventory (E-304-01), which remains outstanding.
-- Access control, encryption, transport, incident response, and the rights-request
-  *workflow* (case persistence, not just the outcome decision) are runtime work
-  (E-304-06, E-304-12) and are not implemented here.
+- The pure private-access authorization and content-free audit contract is implemented,
+  but persistence/enforcement wiring to an authenticated admin/runtime surface remains
+  runtime work. Encryption, transport, incident response, and the rights-request
+  *workflow* (case persistence, not just the outcome decision) also remain outside this
+  pure policy module.
 - No conclusion is drawn about GDPR roles, journalistic exemptions, or the Italian
   implementing law of Art. 85; see the closure register.
 

@@ -152,16 +152,13 @@ class ProvisionalNameTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertTrue((ROOT / path).is_file(), f"{path} is missing")
 
-    def test_v0_config_files_are_present_during_compatibility_window(self) -> None:
+    def test_v0_config_fallbacks_are_retired_after_compatibility_window(self) -> None:
         for path in (
             "config/source-registry.v0.json",
             "config/transcription-policy.v0.json",
         ):
             with self.subTest(path=path):
-                self.assertTrue(
-                    (ROOT / path).is_file(),
-                    f"{path} must remain during the DP-106 compatibility window",
-                )
+                self.assertFalse((ROOT / path).exists(), f"{path} must be retired")
         for path in (
             "config/source-registry.v1.json",
             "config/transcription-policy.v1.json",

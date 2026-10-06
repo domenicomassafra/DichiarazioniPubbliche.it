@@ -3,6 +3,12 @@ interface Props { studio?: boolean }
 const { studio = false } = Astro.props;
 const path = Astro.url.pathname;
 const active = (prefix: string) => path === prefix || path.startsWith(prefix + "/");
+const studioNav = [
+  { href: "/studio/corpus/", label: "Corpus" },
+  { href: "/studio/inbox/", label: "Inbox" },
+  { href: "/studio/collections/", label: "Collections" },
+  { href: "/studio/verify/", label: "Verify" },
+] as const;
 ---
 
 <header class:list={["site-header", studio && "studio-header"]}>
@@ -13,7 +19,7 @@ const active = (prefix: string) => path === prefix || path.startsWith(prefix + "
     </div>
   )}
   <div class="shell header-inner">
-    <a class="brand" href={studio ? "/studio/sessioni/" : "/"} aria-label="Dichiarazioni Pubbliche home">
+    <a class="brand" href={studio ? "/studio/corpus/" : "/"} aria-label="Dichiarazioni Pubbliche home">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">Dichiarazioni<br />Pubbliche</span>
       {studio && <small>Verify Studio</small>}
@@ -21,8 +27,15 @@ const active = (prefix: string) => path === prefix || path.startsWith(prefix + "
 
     {studio ? (
       <nav class="main-nav" aria-label="Verify Studio">
-        <a class:list={[active("/studio/sessioni") && "is-active"]} href="/studio/sessioni/">Sessioni</a>
-        <a href="/studio/sessioni/#nuova">Nuova verifica</a>
+        {studioNav.map((item) => (
+          <a
+            class:list={[active(item.href.slice(0, -1)) && "is-active"]}
+            aria-current={active(item.href.slice(0, -1)) ? "page" : undefined}
+            href={item.href}
+          >
+            {item.label}
+          </a>
+        ))}
       </nav>
     ) : (
       <nav class="main-nav" aria-label="Navigazione principale">
@@ -31,18 +44,22 @@ const active = (prefix: string) => path === prefix || path.startsWith(prefix + "
       </nav>
     )}
 
-    <a class="header-search" href={studio ? "/studio/sessioni/" : "/esplora/"}>
+    <a class="header-search" href={studio ? "/studio/corpus/" : "/esplora/"}>
       <span aria-hidden="true">⌕</span>
-      <span>{studio ? "Cerca sessioni" : "Cerca"}</span>
+      <span>{studio ? "Cerca nel corpus" : "Cerca"}</span>
     </a>
-    {!studio && (
-      <details class="mobile-nav">
-        <summary>Menu</summary>
-        <nav aria-label="Navigazione mobile">
-          <a aria-current={active("/esplora") ? "page" : undefined} href="/esplora/">Esplora</a>
-          <a aria-current={active("/metodo") ? "page" : undefined} href="/metodo/">Metodo</a>
-        </nav>
-      </details>
-    )}
+    <details class="mobile-nav">
+      <summary>Menu</summary>
+      <nav aria-label={studio ? "Verify Studio mobile" : "Navigazione mobile"}>
+        {studio ? studioNav.map((item) => (
+          <a aria-current={active(item.href.slice(0, -1)) ? "page" : undefined} href={item.href}>{item.label}</a>
+        )) : (
+          <>
+            <a aria-current={active("/esplora") ? "page" : undefined} href="/esplora/">Esplora</a>
+            <a aria-current={active("/metodo") ? "page" : undefined} href="/metodo/">Metodo</a>
+          </>
+        )}
+      </nav>
+    </details>
   </div>
 </header>

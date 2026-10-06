@@ -214,6 +214,87 @@ named surface is held).
 **Summary: 16 rows — 0 `DECIDED`, 0 `CLOSED`, 2 `BLOCKED`, 14 `OPEN`, all 16 `BLOCKER`
 launch impact.** Nothing in this register authorises public launch.
 
+## Source-question crosswalk
+
+DP-306 consolidates related qualified questions, but it must not make any source
+question disappear. This is the one-to-one source-question crosswalk required by
+AC-306.1: every `Q-301-*` through `Q-305-*` question appears exactly once below and
+maps to one controlling `Q-306-*` row. Several source questions may share the same
+controlling row when they require the same qualified decision.
+
+| Source question | Controlling DP-306 row |
+|---|---|
+| Q-301-01 | Q-306-01 |
+| Q-301-02 | Q-306-02 |
+| Q-301-03 | Q-306-06 |
+| Q-301-04 | Q-306-14 |
+| Q-302-01 | Q-306-03 |
+| Q-302-02 | Q-306-04 |
+| Q-302-03 | Q-306-03 |
+| Q-302-04 | Q-306-05 |
+| Q-302-05 | Q-306-03 |
+| Q-302-06 | Q-306-05 |
+| Q-303-01 | Q-306-06 |
+| Q-303-02 | Q-306-07 |
+| Q-303-03 | Q-306-07 |
+| Q-303-04 | Q-306-10 |
+| Q-303-05 | Q-306-06 |
+| Q-303-06 | Q-306-06 |
+| Q-304-01 | Q-306-08 |
+| Q-304-02 | Q-306-09 |
+| Q-304-03 | Q-306-10 |
+| Q-304-04 | Q-306-08 |
+| Q-304-05 | Q-306-09 |
+| Q-304-06 | Q-306-15 |
+| Q-304-07 | Q-306-08 |
+| Q-305-01 | Q-306-11 |
+| Q-305-02 | Q-306-12 |
+| Q-305-03 | Q-306-11 |
+| Q-305-04 | Q-306-11 |
+| Q-305-05 | Q-306-13 |
+| Q-305-06 | Q-306-10 |
+| Q-305-07 | Q-306-12 |
+
+## Decision-control metadata
+
+The closure table above records the evidence, status, authority, affected surface,
+safe default, and launch impact. This companion table is keyed one-to-one by the same
+`Q-306-*` ID and records the remaining closure-schema fields. It is part of the same
+register, not a second checklist.
+
+`UNSCHEDULED` means no calendar date has been invented before a qualified reviewer is
+assigned. The affected surface remains blocked in the meantime. Once a reviewer is
+assigned, the row must receive a dated review and next-review date before it can become
+`DECIDED`.
+
+| Q-306 | Jurisdiction / deployment context | Decision / condition today | Reviewer / review date | Linked ticket / policy | Re-review trigger | Next review |
+|---|---|---|---|---|---|---|
+| Q-306-01 | Italy/EU; public claim-level Findings, UI, API and structured metadata | No qualified decision; neutral claim-level wording only | UNASSIGNED — no qualified review date | DP-301; `intentionality-policy-v1` | Public wording, deployment role, jurisdiction or finding vocabulary review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-02 | Italy/EU; hypothetical intentionality capability, disabled in v1 | No qualified decision; capability remains prohibited | UNASSIGNED — no qualified review date | DP-301; `intentionality-policy-v1` | Proposal review for intent/deception semantics or a new assessment field | UNSCHEDULED — external reviewer not assigned |
+| Q-306-03 | Italy/EU; disabled public right-of-reply intake and private receipt store | No qualified decision; public intake stays disabled | UNASSIGNED — no qualified review date | DP-302; `reply-intake-policy-v1` | Intake enablement review or identity, notice, retention or withdrawal change | UNSCHEDULED — external reviewer not assigned |
+| Q-306-04 | Italy/EU; disabled reply/UGC intake; service role/applicability unresolved | BLOCKED pending deployment-role analysis and qualified review | UNASSIGNED — no qualified review date | DP-302; `reply-intake-policy-v1` | Hosting/UGC/service-role or moderation design review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-05 | Italy/EU; disabled intake anti-abuse, logs and rate/quota profile | No qualified privacy/security decision; minimum-data fallback applies | UNASSIGNED — no qualified review date | DP-302; `reply-intake-policy-v1` | Review any new abuse signal, cookie/device identifier, log field, challenge or retention profile | UNSCHEDULED — external reviewer not assigned |
+| Q-306-06 | Italy/EU; correction, retraction, notice and appeal behavior for public Findings | No qualified decision; requests stay private and append-only | UNASSIGNED — no qualified review date | DP-303; `challenge-workflow-v1` | Workflow, public notice, response deadline or finding-vocabulary review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-07 | Italy/EU; private challenge review, public holds and appeal authority | No qualified decision; explicit review/separation remains required | UNASSIGNED — no qualified review date | DP-303; `challenge-workflow-v1` | Reviewer-role, independence, takedown authority or disclosure review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-08 | Italy/EU; public-interest/person processing across ingestion, projection and API | No qualified privacy decision; minimize and keep non-approved data private | UNASSIGNED — no qualified review date | DP-304; `privacy-minimization-v1` | Data-class, purpose, role, lawful-basis assumption, notice or rights-workflow review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-09 | Italy/EU; sensitive/high-risk personal data in claims, evidence, intake and public copy | No qualified decision; hold/quarantine with no trait inference | UNASSIGNED — no qualified review date | DP-304; `privacy-minimization-v1` | Sensitive-data, allegation/criminal/minor/victim/location handling review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-10 | Italy/EU; private retention, deletion/restriction, legal holds and backups | No qualified retention decision; no unapproved automatic purge | UNASSIGNED — no qualified review date | DP-304/DP-305; `privacy-minimization-v1`; DP-503 | Retention, rights-request, hold, backup or deletion-mechanism review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-11 | Italy/EU; public excerpts/transcripts/audio/video; profile disabled absent clearance | No qualified rights decision; no new public excerpt ships | UNASSIGNED — no qualified review date | DP-305; `excerpt-rights-v1` | Source-family, excerpt profile, licence, attribution or complaint-handling review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-12 | Platform/contract-specific plus Italy/EU; source acquisition and API/scraping controls | No qualified platform/terms decision; unresolved sources stay disabled | UNASSIGNED — no qualified review date | DP-305; DP-603 | Platform/API terms, access method, authentication, scraping or source-registry review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-13 | Italy/EU; machine-generated transcripts and derived public method metadata | No qualified disclosure decision; provenance/limitations only, no accuracy claim | UNASSIGNED — no qualified review date | DP-305; `excerpt-rights-v1` | ASR/provider role, transcript disclosure, synthetic-content handling or method-field review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-14 | Italy/EU; chosen public hosting/intake/AI deployment roles | BLOCKED pending deployment assumptions and applicability analysis | UNASSIGNED — no qualified review date | DP-301/DP-302; DP-702 | Hosting, intermediary role, public-intake, model-use or jurisdiction review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-15 | Italy/EU; public site/intake/operations documents, contacts and incident process | No qualified decision; no launch without owned contacts/runbooks | UNASSIGNED — no qualified review date | DP-304; DP-501/DP-702 | Terms/privacy/contact/complaint/security-process or deployment-owner review | UNSCHEDULED — external reviewer not assigned |
+| Q-306-16 | All affected jurisdictions; every M3/M4/M5 product/data/deployment surface | No closure decision; material change reopens dependent rows | UNASSIGNED — no qualified review date | DP-306/DP-307; all linked M3/M4/M5 policies | Material source, data, product, model, public-copy, hosting or jurisdiction review | UNSCHEDULED — external reviewer not assigned |
+
+No row above records legal advice or a legal conclusion. The qualified disposition,
+assumptions, conditions, review date, accepted policy version, and next-review date are
+external DP-307 inputs. Until they exist, the matching closure-table row remains
+`OPEN`/`BLOCKED` and its safe default continues to apply.
+
+A future `DECIDED` row must replace `UNASSIGNED`/`UNSCHEDULED` with the accepted
+reviewer identity/role, review date, accepted policy version, conditions/assumptions,
+and next-review date. Merely changing the status string is invalid.
+
 ## Explicitly NOT verified
 
 Per the no-fabrication rule, the following are recorded as `UNVERIFIED` and carry no

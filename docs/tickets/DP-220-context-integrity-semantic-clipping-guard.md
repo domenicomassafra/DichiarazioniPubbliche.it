@@ -59,7 +59,7 @@ ambiguous cases.
   clauses across a source boundary invisibly.
 - [ ] **AC-220.6:** Cross-talk/interruption/montage boundaries preserve distinct speakers
   and source spans; one speaker cannot inherit another speaker's surrounding context.
-- [ ] **AC-220.7:** A reviewer decision is append-only/versioned and becomes stale when any
+- [x] **AC-220.7:** A reviewer decision is append-only/versioned and becomes stale when any
   covered source/transcript/span hash changes.
 - [x] **AC-220.8:** Context metadata is bounded to hashes, offsets, state/version and signal codes; raw surrounding source text is not persisted in the context decision or projected publicly.
 - [ ] **AC-220.9:** Adversarial context fixtures produce zero known misleading public
@@ -80,4 +80,4 @@ rights/public-body policy in DP-305.
 
 ## Completion receipt
 
-First fail-closed context-integrity layer implemented 2026-10-05. The extractor binds context decisions to the exact source hash, quote hash/range and bounded context-window hash; deterministic risk signals cover negation near a clipping boundary, conditional/hypothetical wording, short Q/A-dependent answers, immediate qualifications, ellipsis/omission markers, dependent pronouns and incomplete boundaries. Candidate promotion, all promotion mutation SQL, finding publication and public projection require CLEAR_AUTOMATIC or APPROVED_CURATED. Curated written intake records an explicit hash-bound CURATED_SOURCE_REVIEW approval without storing raw context text. General append-only context review events/staleness, discontinuous excerpts, cross-talk/montage fixtures, full DP-223 adversarial corpus and MiniPC proof remain open.
+First fail-closed context-integrity layer implemented 2026-10-05. The extractor binds context decisions to the exact source hash, quote hash/range and bounded context-window hash; deterministic risk signals cover negation near a clipping boundary, conditional/hypothetical wording, short Q/A-dependent answers, immediate qualifications, ellipsis/omission markers, dependent pronouns and incomplete boundaries. Candidate promotion, all promotion mutation SQL, finding publication and public projection require CLEAR_AUTOMATIC or APPROVED_CURATED. On 2026-10-06 the private `context_integrity_review_event` ledger added append-only/versioned review provenance bound to source/quote/context hashes and all covered offsets. Freshness fails closed on any binding change, and the ledger stores no surrounding raw source text. Discontinuous excerpts, cross-talk/montage fixtures, full DP-223 projection coverage and release-candidate MiniPC proof remain open.

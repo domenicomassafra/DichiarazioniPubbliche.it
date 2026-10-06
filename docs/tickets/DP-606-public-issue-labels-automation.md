@@ -1,14 +1,14 @@
 # DP-606 — Public issue labels and project automation after a remote exists
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M6 — open-source and release hardening
 Depends on: DP-001, a confirmed canonical remote, owner authorization, and the repository governance/security contracts
-Launch state: BLOCKED until the remote and owner decision exist; this file does not create or mutate a remote
+Launch state: BLOCKED on owner-approved hosted visibility, maintainer/security ownership, permission scopes, and hosted dry-run; the canonical remote is confirmed
 
 ## Problem
 
-The repository has local issue templates and repo-local ticket IDs, but the current
-checkout has no configured remote. A label scheme, project board, triage automation,
+The repository has local issue templates and repo-local ticket IDs, and the canonical
+GitHub remote is configured. A label scheme, project board, triage automation,
 or branch/issue policy cannot be truthfully installed or verified without knowing the
 canonical hosting platform, repository visibility, owner, and security boundary. Guessing
 a remote URL or creating external issues would turn a repository-local planning task into
@@ -160,19 +160,19 @@ closed, or that a release occurred.
 - [ ] **AC-606.1 — Owner/remote gate:** Before any external setup, the canonical remote,
   platform, visibility, owner, security channel, and permission model are recorded;
   absent these, status remains `PENDING-REMOTE` and no external object is created.
-- [ ] **AC-606.2 — Versioned label manifest:** A checked, reviewable manifest defines
+- [x] **AC-606.2 — Versioned label manifest:** A checked, reviewable manifest defines
   stable label IDs, descriptions, colors, allowed transitions, and mutually exclusive
   states. Unknown labels and implicit state changes are rejected or surfaced.
-- [ ] **AC-606.3 — Ticket linkage:** New public issues require an `DP-###`/external issue
+- [x] **AC-606.3 — Ticket linkage:** New public issues require an `DP-###`/external issue
   linkage and sanitized reproduction/provenance fields; repo-local tickets remain the
   canonical source until an owner-approved synchronization decision says otherwise.
-- [ ] **AC-606.4 — Security boundary:** Security templates and automation direct
+- [x] **AC-606.4 — Security boundary:** Security templates and automation direct
   vulnerability reports to the private `SECURITY.md` path, do not create public issues,
   and do not copy confidential report content into project metadata or logs.
-- [ ] **AC-606.5 — Safe automation:** All enabled rules are read-only or explicitly
+- [x] **AC-606.5 — Safe automation:** All enabled rules are read-only or explicitly
   reversible, use least privilege, have bounded triggers, and cannot auto-close,
   auto-merge, auto-publish, auto-approve, or change a legal/rights state.
-- [ ] **AC-606.6 — CI validation:** DP-602 validates label-manifest syntax, issue/PR
+- [x] **AC-606.6 — CI validation:** DP-602 validates label-manifest syntax, issue/PR
   template structure, ticket-link rules, forbidden fields/secrets, and collision/
   dependency audits before any workflow is enabled. CI does not require a remote for
   local validation.
@@ -189,7 +189,7 @@ closed, or that a release occurred.
 - [ ] **AC-606.10 — Migration/rollback:** Existing repo-local tickets remain readable;
   label/project changes have a versioned manifest, an export/backup, and a rollback
   procedure. No database migration or production data change is involved.
-- [ ] **AC-606.11 — No publication:** This ticket does not create a remote, issue,
+- [x] **AC-606.11 — No publication:** This ticket does not create a remote, issue,
   project, webhook, public page, release, or external publication. Any later setup is
   a separately authorized change with a receipt.
 
@@ -245,7 +245,21 @@ Keep the ticket `FUTURE`/`BLOCKED` or classify setup incomplete if:
 
 ## Completion receipt
 
-Pending owner-confirmed remote and visibility, security-channel decision, label/automation
-manifest, local fixture validation, clean-clone proof, license inventory, and an
-owner-authorized hosted dry-run if required. No external issue, project, label, remote,
-or publication is claimed by this specification.
+The canonical GitHub fetch/push remote is present in the checkout, but hosted visibility,
+maintainer/security ownership and exact permission scopes are still intentionally unclaimed.
+Local governance is now executable: `.github/labels.v1.json` defines stable label IDs,
+mutually-exclusive state/type groups and a closed state transition graph;
+`.github/triage-policy.v1.json` keeps `PLAN.md`/`docs/tickets` authoritative, disables remote
+mutation, enumerates the small reversible suggestion set and explicitly forbids close/merge/
+publish/evidence/finding/legal/rights/security-copy automation. Both public issue forms now
+require an existing DP ticket linkage and direct vulnerability reports to `SECURITY.md`.
+
+`tools/check_issue_workflow.py` validates manifests/templates and local mock issues, rejects
+unknown labels, state conflicts, mismatched/missing DP IDs, public security intake and
+secret/private-shaped bodies. DP-602 contributor acceptance runs this validator
+unconditionally. No GitHub label, issue, project, webhook or workflow action was created.
+
+AC-606.1 remains open for owner/visibility/security-channel/permission decisions, AC-606.7
+for a committed detached clean-clone proof, AC-606.8 unless a third-party automation is ever
+introduced (none is used here), AC-606.9 for an accepted release-label decision, and
+AC-606.10 for hosted export/rollback proof after an owner-authorized setup.

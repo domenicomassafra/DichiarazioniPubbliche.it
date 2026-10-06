@@ -145,6 +145,10 @@ def fictional_dossier(
     with_reply: bool = False,
     with_relations: bool = False,
 ) -> dict[str, Any]:
+    source_wording_sha256 = hashlib.sha256(
+        b"Fictional original source wording."
+    ).hexdigest()
+    normalized_claim_sha256 = hashlib.sha256(claim.encode("utf-8")).hexdigest()
     dossier: dict[str, Any] = {
         "claim": claim,
         "claim_contract": {
@@ -200,6 +204,50 @@ def fictional_dossier(
             "verification_run_id": "verification:fictional:1",
         },
         "finding_id": finding_id,
+        "wording": {
+            "version": "wording-contract-v1",
+            "source_occurrence": {
+                "occurrence_id": "statement:fictional:source:1",
+                "wording_type": "VERBATIM_ORIGINAL",
+                "text_sha256": source_wording_sha256,
+                "language": "it",
+                "direct_quote_eligible": True,
+                "representation_role": "SOURCE_OCCURRENCE",
+            },
+            "normalized_claim": {
+                "wording_type": "PARAPHRASE",
+                "text_sha256": normalized_claim_sha256,
+                "source_occurrence_id": "statement:fictional:source:1",
+                "source_wording_type": "VERBATIM_ORIGINAL",
+                "language": "it",
+                "derivation_method": "CLAIM_NORMALIZATION",
+                "derivation_version": "fictional-v1",
+                "direct_quote_eligible": False,
+                "representation_role": "DERIVED_REPRESENTATION",
+            },
+            "representations": [
+                {
+                    "wording_type": "TRANSLATION",
+                    "text_sha256": hashlib.sha256(
+                        b"Fictional translated representation."
+                    ).hexdigest(),
+                    "source_occurrence_id": "statement:fictional:source:1",
+                    "source_wording_type": "VERBATIM_ORIGINAL",
+                    "language": "en",
+                    "source_language": "it",
+                    "derivation_method": "TRANSLATION_HUMAN",
+                    "derivation_version": "fictional-v1",
+                    "review_state": "HUMAN_REVIEWED",
+                    "signal_codes": [],
+                    "direct_quote_eligible": False,
+                    "representation_role": "DERIVED_REPRESENTATION",
+                }
+            ],
+            "public_provenance": {
+                "segment_ids": ["segment:fictional:1"],
+                "text_provenance_ids": [],
+            },
+        },
         "relations": (
             [
                 {
@@ -388,20 +436,187 @@ def fictional_people() -> list[dict[str, Any]]:
 
 def fictional_record() -> dict[str, Any]:
     return {
+        "content_id": "content-fictional-1",
+        "content_kind": "VIDEO",
+        "duration_ms": 125000,
         "finding_count": 1,
         "findings": [fictional_summary()],
+        "media_policy_version": None,
         "published_at": "2026-01-15T12:00:00+00:00",
+        "publication_version": "public-content-v1",
+        "public_media_url": None,
         "record_id": "content-fictional-1",
-        "segment_count": 1,
+        "review_event_ids": ["review:content:fictional:1"],
         "slug": "content-fictional-1",
         "title": "Fictional public statement",
         "url": FICTIONAL_SOURCE_URL,
     }
 
 
+def fictional_content() -> dict[str, Any]:
+    record = fictional_record()
+    return {
+        "content_id": record["content_id"],
+        "slug": record["slug"],
+        "url": record["url"],
+        "title": record["title"],
+        "published_at": record["published_at"],
+        "content_kind": record["content_kind"],
+        "duration_ms": record["duration_ms"],
+        "public_media_url": record["public_media_url"],
+        "media_policy_version": record["media_policy_version"],
+        "publication_version": record["publication_version"],
+        "review_event_ids": record["review_event_ids"],
+        "finding_ids": ["finding:fictional:1"],
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Components
 # --------------------------------------------------------------------------- #
+
+
+def _wording_schema() -> dict[str, Any]:
+    sha256 = {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    source_occurrence = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "occurrence_id",
+            "wording_type",
+            "text_sha256",
+            "language",
+            "direct_quote_eligible",
+            "representation_role",
+        ],
+        "properties": {
+            "occurrence_id": {"type": "string"},
+            "wording_type": {
+                "type": "string",
+                "enum": ["VERBATIM_ORIGINAL", "REPORTED_QUOTE"],
+            },
+            "text_sha256": sha256,
+            "language": {"type": ["string", "null"]},
+            "direct_quote_eligible": {"type": "boolean"},
+            "representation_role": {"const": "SOURCE_OCCURRENCE"},
+        },
+    }
+    normalized_claim = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "wording_type",
+            "text_sha256",
+            "source_occurrence_id",
+            "source_wording_type",
+            "language",
+            "derivation_method",
+            "derivation_version",
+            "direct_quote_eligible",
+            "representation_role",
+        ],
+        "properties": {
+            "wording_type": {"const": "PARAPHRASE"},
+            "text_sha256": sha256,
+            "source_occurrence_id": {"type": "string"},
+            "source_wording_type": {
+                "type": "string",
+                "enum": ["VERBATIM_ORIGINAL", "REPORTED_QUOTE"],
+            },
+            "language": {"type": ["string", "null"]},
+            "derivation_method": {"type": "string"},
+            "derivation_version": {"type": "string"},
+            "direct_quote_eligible": {"const": False},
+            "representation_role": {"const": "DERIVED_REPRESENTATION"},
+        },
+    }
+    derived_representation = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "wording_type",
+            "text_sha256",
+            "source_occurrence_id",
+            "source_wording_type",
+            "language",
+            "source_language",
+            "derivation_method",
+            "derivation_version",
+            "review_state",
+            "signal_codes",
+            "direct_quote_eligible",
+            "representation_role",
+        ],
+        "properties": {
+            "wording_type": {
+                "type": "string",
+                "enum": ["PARAPHRASE", "SUMMARY", "TRANSLATION"],
+            },
+            "text_sha256": sha256,
+            "source_occurrence_id": {"type": "string"},
+            "source_wording_type": {
+                "type": "string",
+                "enum": ["VERBATIM_ORIGINAL", "REPORTED_QUOTE"],
+            },
+            "language": {"type": ["string", "null"]},
+            "source_language": {"type": ["string", "null"]},
+            "derivation_method": {"type": "string"},
+            "derivation_version": {"type": "string"},
+            "review_state": {
+                "type": ["string", "null"],
+                "enum": ["NEEDS_REVIEW", "HUMAN_REVIEWED", "REJECTED", None],
+            },
+            "signal_codes": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {"type": "string"},
+            },
+            "direct_quote_eligible": {"const": False},
+            "representation_role": {"const": "DERIVED_REPRESENTATION"},
+        },
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "description": (
+            "Bounded wording/derivation metadata. Source bodies, summary text, "
+            "translation text, capture paths and private provenance are never included."
+        ),
+        "required": [
+            "version",
+            "source_occurrence",
+            "normalized_claim",
+            "representations",
+            "public_provenance",
+        ],
+        "properties": {
+            "version": {"const": "wording-contract-v1"},
+            "source_occurrence": source_occurrence,
+            "normalized_claim": normalized_claim,
+            "representations": {
+                "type": "array",
+                "maxItems": 16,
+                "items": derived_representation,
+            },
+            "public_provenance": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["segment_ids", "text_provenance_ids"],
+                "properties": {
+                    "segment_ids": {
+                        "type": "array",
+                        "maxItems": 64,
+                        "items": {"type": "string"},
+                    },
+                    "text_provenance_ids": {
+                        "type": "array",
+                        "maxItems": 64,
+                        "items": {"type": "string"},
+                    },
+                },
+            },
+        },
+    }
 
 
 def _dossier_schema() -> dict[str, Any]:
@@ -427,6 +642,7 @@ def _dossier_schema() -> dict[str, Any]:
         ],
         "properties": {
             "claim": {"type": ["string", "null"]},
+            "wording": {"$ref": "#/components/schemas/WordingMetadata"},
             "claim_id": {"type": "string"},
             "claim_type": {"type": "string", "enum": list(VOCABULARIES["claim_type"][1])},
             "finding_id": {"type": "string"},
@@ -794,16 +1010,61 @@ def _components() -> dict[str, Any]:
             },
             "Record": {
                 "type": "object",
-                "required": ["record_id", "slug", "findings"],
+                "description": (
+                    "A first-class reviewed public Content resource and the published "
+                    "findings currently attached to it. Pre-DP-434 bundles may expose "
+                    "null Content metadata while preserving the same endpoint."
+                ),
+                "required": [
+                    "record_id", "content_id", "slug", "finding_count", "findings",
+                    "review_event_ids"
+                ],
                 "properties": {
                     "record_id": {"type": "string"},
+                    "content_id": {"type": "string"},
                     "slug": {"type": "string"},
                     "url": {"type": ["string", "null"]},
                     "title": {"type": ["string", "null"]},
                     "published_at": {"type": ["string", "null"]},
-                    "segment_count": {"type": "integer", "minimum": 0},
+                    "content_kind": {
+                        "type": ["string", "null"],
+                        "enum": ["VIDEO", "AUDIO", "WRITTEN", "OTHER", None],
+                    },
+                    "duration_ms": {"type": ["integer", "null"], "minimum": 0},
+                    "public_media_url": {"type": ["string", "null"]},
+                    "media_policy_version": {"type": ["string", "null"]},
+                    "publication_version": {"type": ["string", "null"]},
+                    "review_event_ids": {"type": "array", "items": {"type": "string"}},
                     "finding_count": {"type": "integer", "minimum": 0},
                     "findings": {"type": "array", "items": {"$ref": "#/components/schemas/FindingSummary"}},
+                },
+            },
+            "PublicContent": {
+                "type": "object",
+                "description": (
+                    "Reviewed public Content metadata from the projection. It contains no "
+                    "capture bytes, transcript body, provider receipt, archive path, or evidence body."
+                ),
+                "required": [
+                    "content_id", "slug", "url", "title", "published_at", "content_kind",
+                    "duration_ms", "public_media_url", "media_policy_version",
+                    "publication_version", "review_event_ids", "finding_ids"
+                ],
+                "properties": {
+                    "content_id": {"type": "string"},
+                    "slug": {"type": "string"},
+                    "url": {"type": "string"},
+                    "title": {"type": "string"},
+                    "published_at": {"type": ["string", "null"]},
+                    "content_kind": {"type": "string", "enum": ["VIDEO", "AUDIO", "WRITTEN", "OTHER"]},
+                    "duration_ms": {"type": ["integer", "null"], "minimum": 0},
+                    "public_media_url": {"type": ["string", "null"]},
+                    "media_policy_version": {"type": ["string", "null"]},
+                    "publication_version": {"const": "public-content-v1"},
+                    "review_event_ids": {
+                        "type": "array", "minItems": 1, "items": {"type": "string"}
+                    },
+                    "finding_ids": {"type": "array", "items": {"type": "string"}},
                 },
             },
             "Topic": {
@@ -879,6 +1140,7 @@ def _components() -> dict[str, Any]:
                     "omitted_count": {"type": "integer", "minimum": 0},
                 },
             },
+            "WordingMetadata": _wording_schema(),
             "Dossier": _dossier_schema(),
             "Error": {
                 "type": "object",
@@ -1215,7 +1477,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
     paths: dict[str, Any] = {}
 
     for route in ROUTES:
-        if route.name in ("health", "schema", "findings", "topics", "people"):
+        if route.name in ("health", "schema", "findings", "records", "topics", "people"):
             schema_ref = {
                 "health": "#/components/schemas/Health",
                 "schema": {"type": "object", "additionalProperties": True},
@@ -1223,6 +1485,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
                     "type": "array",
                     "items": {"$ref": "#/components/schemas/FindingSummary"},
                 },
+                "records": {"type": "array", "items": {"$ref": "#/components/schemas/Record"}},
                 "topics": {"type": "array", "items": {"$ref": "#/components/schemas/Topic"}},
                 "people": {
                     "type": "array",
@@ -1241,6 +1504,9 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
                     next_cursor=None,
                     link=f"{API_BASE_PATH}/findings",
                 ),
+                "records": _envelope_example(
+                    [fictional_record()], index, count=1, link=f"{API_BASE_PATH}/records"
+                ),
                 "topics": _envelope_example(
                     fictional_topics(), index, count=1, link=f"{API_BASE_PATH}/topics"
                 ),
@@ -1252,6 +1518,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
                 "health": "Liveness plus the served projection fingerprint and vocabulary versions.",
                 "schema": "The public contract descriptor: vocabularies, bounds, facets, and guarantees.",
                 "findings": "Bounded, deterministic collection of published finding versions.",
+                "records": "Reviewed public Content resources, including zero-finding Content when approved.",
                 "topics": "First-class reviewed public subject Topics present in the projection.",
                 "people": "Public figures actually present in the projection, with counts.",
             }[route.name]
@@ -1421,6 +1688,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
                                 "dossier_count": 1,
                                 "omitted_count": 0,
                                 "dossiers": [fictional_dossier()],
+                                "contents": [fictional_content()],
                             },
                             "The fail-closed public projection bundle.",
                         ),
@@ -1515,6 +1783,8 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
                 "description": "Records the publication gate held. It is an aggregate count, never a record.",
             },
             "dossiers": {"type": "array", "items": {"$ref": "#/components/schemas/Dossier"}},
+            "topics": {"type": "array", "items": {"$ref": "#/components/schemas/Topic"}},
+            "contents": {"type": "array", "items": {"$ref": "#/components/schemas/PublicContent"}},
         },
     }
 

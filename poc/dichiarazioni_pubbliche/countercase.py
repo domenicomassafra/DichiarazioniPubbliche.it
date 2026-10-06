@@ -48,6 +48,19 @@ class CounterCasePacket:
         return bool(self.contradicting_evidence_ids or self.limitation_evidence_ids)
 
 
+@dataclass(frozen=True)
+class ChallengerReadinessDecision:
+    status: str
+    packet_id: str
+    blockers: tuple[str, ...]
+    review_stale: bool
+    version: str = COUNTERCASE_VERSION
+
+    @property
+    def ready(self) -> bool:
+        return self.status == "READY"
+
+
 def build_countercase_packet(
     *,
     claim_id: str,
@@ -126,10 +139,59 @@ def build_countercase_packet(
     )
 
 
+def evaluate_challenger_readiness(
+    packet: CounterCasePacket,
+    *,
+    incorporated_packet_id: str | None,
+    reviewed_packet_id: str | None,
+    high_risk: bool = False,
+    qualified_policy_waives_challenger: bool = False,
+) -> ChallengerReadinessDecision:
+    """Bind readiness/review to the exact challenger packet that was incorporated.
+
+    A newly material counter-case cannot inherit readiness from an older packet/review.
+    High-risk callers must also show an exact incorporated challenger packet unless a
+    separately supplied qualified policy explicitly waives that step.
+    """
+    blockers: list[str] = []
+    if packet.status != "READY":
+        blockers.append("CHALLENGER_PACKET_NOT_READY")
+
+    incorporated = str(incorporated_packet_id or "").strip()
+    reviewed = str(reviewed_packet_id or "").strip()
+    exact_incorporation = incorporated == packet.packet_id
+    exact_review = reviewed == packet.packet_id
+
+    if packet.has_material_countercase and not exact_incorporation:
+        blockers.append("MATERIAL_CHALLENGER_NOT_INCORPORATED")
+    if packet.has_material_countercase and not exact_review:
+        blockers.append("CHALLENGER_REVIEW_STALE")
+
+    if high_risk and not qualified_policy_waives_challenger:
+        if not exact_incorporation:
+            blockers.append("HIGH_RISK_CHALLENGER_REQUIRED")
+        if not exact_review:
+            blockers.append("HIGH_RISK_CHALLENGER_REVIEW_REQUIRED")
+
+    normalized = tuple(dict.fromkeys(blockers))
+    return ChallengerReadinessDecision(
+        status="READY" if not normalized else "STALE",
+        packet_id=packet.packet_id,
+        blockers=normalized,
+        review_stale=(
+            (packet.has_material_countercase or high_risk)
+            and not exact_review
+            and not (high_risk and qualified_policy_waives_challenger)
+        ),
+    )
+
+
 __all__ = [
     "COUNTERCASE_VERSION",
     "COUNTER_RELATIONS",
     "CounterCasePacket",
     "CounterEvidence",
+    "ChallengerReadinessDecision",
     "build_countercase_packet",
+    "evaluate_challenger_readiness",
 ]

@@ -16,6 +16,9 @@ import UtilityDocument from "../components/UtilityDocument.astro";
     <nav class="dp-utility-index" aria-label="Sezioni del metodo">
       <a href="#pubblicazione">Pubblicazione</a>
       <a href="#provenienza">Provenienza</a>
+      <a href="#formulazioni">Parole e rappresentazioni</a>
+      <a href="#attribuzione">Attribuzione</a>
+      <a href="#ruolo-fonti">Ruolo delle fonti</a>
       <a href="#esiti">Esiti</a>
       <a href="#incertezza">Incertezza</a>
       <a href="#correzioni">Correzioni e repliche</a>
@@ -32,13 +35,27 @@ import UtilityDocument from "../components/UtilityDocument.astro";
       <h2>Provenienza e fonte originale</h2>
       <p>Ogni dichiarazione pubblicata conserva un percorso verso la fonte originale e verso le evidenze approvate usate nella verifica. La formulazione attribuita, la persona, la data e il locator del contenuto devono essere supportati dalla provenienza pubblica disponibile.</p>
     </section>
+    <section id="formulazioni" class="dp-utility-section">
+      <h2>Originale, parafrasi, traduzione e discorso riportato</h2>
+      <p>Il testo originale legato alla fonte e la formulazione normalizzata del claim sono rappresentazioni diverse. La parafrasi e il riassunto non vengono mostrati tra virgolette come se fossero parole esatte. Una traduzione conserva il legame con l’occorrenza e la lingua sorgente e richiede la revisione prevista dal contratto; anche una traduzione revisionata non diventa automaticamente una citazione verbatim.</p>
+      <p>Quando una fonte riferisce che una persona avrebbe detto qualcosa, conserviamo il carattere di <strong>discorso riportato</strong>. Non trasformiamo “A riferisce che B ha detto X” in una citazione diretta di B senza la prova dell’occorrenza originale richiesta.</p>
+    </section>
+    <section id="attribuzione" class="dp-utility-section">
+      <h2>Attribuzione senza biometria</h2>
+      <p>Per collegare una dichiarazione a una persona usiamo provenienza revisionata: record ufficiali, etichette della fonte, intervalli di ruolo e revisione umana quando necessari. La diarizzazione può al massimo separare turni anonimi; non usiamo impronte vocali o riconoscimento facciale per decidere chi ha parlato.</p>
+      <p>Se identità, ruolo al momento della dichiarazione, speaker span o contesto non sono sufficientemente provati, il record resta in hold o viene omesso invece di scegliere la persona “più probabile”.</p>
+    </section>
+    <section id="ruolo-fonti" class="dp-utility-section">
+      <h2>Provare che una frase è stata detta non prova che sia vera</h2>
+      <p>Una fonte primaria o un record ufficiale può essere molto forte per dimostrare <em>che cosa è stato detto</em>, da chi e quando. Questo non rende la stessa fonte autorità universale sulla verità fattuale della frase. Le evidenze usate per verificare il contenuto del claim hanno ruoli, requisiti e periodi di riferimento separati.</p>
+    </section>
     <section id="esiti" class="dp-utility-section">
       <h2>Esiti senza punteggi sulle persone</h2>
       <p>L’esito appartiene alla singola dichiarazione verificata. Il prodotto non calcola percentuali di affidabilità, classifiche o punteggi complessivi di persone, partiti o organizzazioni.</p>
     </section>
     <section id="incertezza" class="dp-utility-section">
       <h2>Incertezza</h2>
-      <p>Quando provenienza, evidenza o revisione non sono sufficienti, il risultato corretto è dichiarare il limite o non pubblicare. L’assenza di una conclusione forte non viene riempita con una risposta generata.</p>
+      <p>Quando provenienza, evidenza, diritti, privacy o revisione non sono sufficienti, il risultato corretto è dichiarare il limite o non pubblicare. I gate sono prove esplicite, non una percentuale di “fiducia”: un controllo mancante non viene compensato da un punteggio alto altrove. L’assenza di una conclusione forte non viene riempita con una risposta generata.</p>
     </section>
     <section id="correzioni" class="dp-utility-section">
       <h2>Correzioni, repliche e versioni</h2>

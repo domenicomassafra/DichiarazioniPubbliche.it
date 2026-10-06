@@ -1,0 +1,51 @@
+{
+  "schema_version": "dvns-style-readonly-evidence-v1",
+  "provider_id": "dvns-synthetic",
+  "source_version": "release-2026-10-05",
+  "rights_status": "OPEN_DATA_DECLARED",
+  "availability_status": "AVAILABLE",
+  "fetch_state": "SUCCEEDED",
+  "blocker": null,
+  "records": [
+    {
+      "external_id": "dataset:missioni:2026-q2:it",
+      "source_url": "https://data.example.test/datasets/missioni/2026-q2",
+      "metric": "spesa_euro",
+      "value_state": "PRESENT",
+      "value_numeric": 0,
+      "value_text": null,
+      "unit": "EUR",
+      "reference_period": "2026-Q2",
+      "publication_date": "2026-07-15",
+      "observed_at": "2026-10-05T12:00:00+00:00",
+      "effective_from": "2026-04-01",
+      "effective_to": "2026-07-01",
+      "dimensions": {
+        "territory": "IT"
+      },
+      "source_roles": [
+        "SECONDARY_REFERENCE"
+      ],
+      "field_provenance": {
+        "external_id": "records[0].id",
+        "source_version": "$.source_version",
+        "source_url": "records[0].canonical_url",
+        "metric": "records[0].metric",
+        "value_state": "records[0].value_state",
+        "value_numeric": "records[0].value_numeric",
+        "unit": "records[0].unit",
+        "reference_period": "records[0].reference_period",
+        "publication_date": "records[0].publication_date",
+        "observed_at": "records[0].observed_at",
+        "effective_from": "records[0].effective_from",
+        "effective_to": "records[0].effective_to",
+        "dimensions.territory": "records[0].dimensions.territory",
+        "source_roles": "records[0].source_roles"
+      },
+      "private_fields": {
+        "operator_note": "must never leave the adapter boundary",
+        "internal_case_id": "private-123"
+      }
+    }
+  ]
+}

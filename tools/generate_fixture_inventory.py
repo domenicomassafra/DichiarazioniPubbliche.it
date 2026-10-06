@@ -32,6 +32,30 @@ OWNER = "Dichiarazioni Pubbliche maintainers (owner: repo principal)"
 CODE_LICENSE = "Apache-2.0"
 FIXTURE_POLICY = "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0"
 
+CANDIDATE_PREFIXES = (
+    "data/public/",
+    "poc/content/",
+    "poc/fixtures/",
+    "poc/benchmarks/",
+    "research/results/",
+    "research/content-audits/",
+    "research/source-candidates/",
+    "tests/fixtures/",
+    "web/src/data/",
+    "docs/ux/prototypes-v3/generated/",
+    "docs/ux/prototypes-v3/generated-style-02/",
+    "docs/ux/reference/",
+)
+CANDIDATE_SUFFIXES = (
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".woff", ".woff2", ".ttf", ".otf",
+)
+
+
+def is_candidate(path: str) -> bool:
+    if path.endswith(CANDIDATE_SUFFIXES):
+        return path.startswith(CANDIDATE_PREFIXES) or path.startswith("docs/ux/") or path.startswith("web/")
+    return path.startswith(CANDIDATE_PREFIXES)
+
 # Curated rights decisions. Keyed by repo path. Every value is a human decision,
 # not an inference from the Apache-2.0 code license.
 ROW_DECISIONS: dict[str, dict] = {
@@ -62,6 +86,20 @@ ROW_DECISIONS: dict[str, dict] = {
         personal_data="fictional/hostile strings only; no real personal data",
         redistribution_status="allowed",
         public_projection_status="not a public artifact; test-only fixture",
+        blocker=None,
+    ),
+    "tests/fixtures/false-attribution-adversarial-v1.json": dict(
+        artifact_kind="synthetic",
+        origin="Dichiarazioni Pubbliche contributors",
+        source_reference="authored in-repo for DP-223 false-attribution/fabricated-quote adversarial benchmarking",
+        retrieved_at="2026-10-05",
+        license_or_terms=FIXTURE_POLICY,
+        license_evidence="docs/licensing/README.md#synthetic-fixture-policy",
+        attribution="No external attribution required; all source snippets, identities and expectations are fictional/project-authored.",
+        modifications="Versioned hand-labeled benchmark fixture authored for DP-223; no third-party source body or media copied.",
+        personal_data="fictional person identifiers and synthetic snippets only; no real personal data",
+        redistribution_status="allowed",
+        public_projection_status="internal adversarial benchmark; never itself a public finding or projection artifact",
         blocker=None,
     ),
     "tests/fixtures/corpus-search-benchmark-v1.json": dict(
@@ -102,6 +140,20 @@ ROW_DECISIONS: dict[str, dict] = {
         attribution="Fictional demo content. Not attributable to any real person, publisher, or dataset.",
         modifications="Fictional dossiers, evidence and findings generated for the demo banner state.",
         personal_data="fictional; explicitly labeled 'Ambiente dimostrativo' in the UI",
+        redistribution_status="allowed",
+        public_projection_status="demo-only; never the real public projection",
+        blocker=None,
+    ),
+    "web/src/data/dp407-content-projection.json": dict(
+        artifact_kind="synthetic",
+        origin="Dichiarazioni Pubbliche contributors",
+        source_reference="authored in-repo for DP-407 from the fictional demo projection; example.test locators only",
+        retrieved_at="2026-10-05",
+        license_or_terms=FIXTURE_POLICY,
+        license_evidence="docs/licensing/README.md#synthetic-fixture-policy",
+        attribution="Fictional DP-407 content-source locator fixture; no real person, publisher, or dataset is represented.",
+        modifications="Expanded project-authored demo projection to exercise content/source locator UI states.",
+        personal_data="fictional; example.test URLs and synthetic people only",
         redistribution_status="allowed",
         public_projection_status="demo-only; never the real public projection",
         blocker=None,
@@ -343,9 +395,20 @@ def build_rows() -> list[dict]:
         ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.split("\0")
     tracked = [p for p in tracked if p]
+    # Contributor acceptance runs before commit. Include only explicitly curated
+    # ROW_DECISIONS files that already exist in the candidate working tree so a
+    # newly-authored fixture and its inventory row can be validated without
+    # mutating the shared Git index. Arbitrary untracked files remain ignored.
+    tracked_set = set(tracked)
+    tracked.extend(
+        path
+        for path in ROW_DECISIONS
+        if path not in tracked_set and (ROOT / path).is_file()
+    )
 
     rows: list[dict] = []
     covered: set[str] = set()
+    uncovered: list[str] = []
 
     for path in tracked:
         decision = None
@@ -358,6 +421,8 @@ def build_rows() -> list[dict]:
         elif path.startswith(VISUAL_REFERENCE) and path.endswith(".png"):
             decision = visual_decision(path)
         if decision is None:
+            if is_candidate(path) and not path.endswith("/README.md"):
+                uncovered.append(path)
             continue
 
         disk = ROOT / path
@@ -382,6 +447,12 @@ def build_rows() -> list[dict]:
         rows.append(ordered)
         covered.add(path)
 
+    if uncovered:
+        joined = "\n  - ".join(uncovered)
+        raise ValueError(
+            "tracked candidate asset(s) have no curated ROW_DECISIONS entry:\n  - " + joined
+        )
+
     return sorted(rows, key=lambda r: r["path_or_locator"])
 
 
@@ -402,7 +473,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="fail if the on-disk inventory is stale")
     args = parser.parse_args(argv)
 
-    rows = build_rows()
+    try:
+        rows = build_rows()
+    except ValueError as exc:
+        print(f"FAIL: {exc}")
+        return 1
 
     inv = {
         "schema_version": SCHEMA_VERSION,

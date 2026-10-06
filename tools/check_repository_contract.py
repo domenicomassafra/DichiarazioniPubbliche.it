@@ -51,14 +51,25 @@ SECRET_PATTERNS = [
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "AWS access key id"),
     (re.compile(r"://[^/\s:]+:[^/\s@]+@"), "credential in URL"),
     (re.compile(r"(?i)\b(?:api[_-]?key|secret[_-]?key|password)\s*[:=]\s*['\"][A-Za-z0-9/+_-]{16,}['\"]"), "hardcoded secret"),
+    (re.compile(r"(?i)\bsecret_hex\s*[:=]\s*['\"][0-9a-f]{64}['\"]"), "reviewer credential secret"),
 ]
 
 TEXT_SUFFIXES = {".py", ".md", ".json", ".yml", ".yaml", ".sql", ".ts", ".tsx", ".astro", ".css", ".html", ".toml", ".mjs", ".txt"}
+PRIVATE_AUTHORITY_PATH_MARKERS = (
+    "/reviewer-authority/credentials/",
+    "/reviewer-authority/receipts/",
+    "/reviewer_identity_authority/credentials/",
+    "/reviewer_identity_authority/receipts/",
+)
 
 
 def tracked_files() -> list[str]:
     out = subprocess.run(["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    return [p for p in out.split("\0") if p]
+    # `git ls-files` still reports tracked paths deleted in the current candidate
+    # working tree until the deletion is committed. Contributor acceptance is also
+    # run before commit, so validate the files that actually exist in that candidate
+    # tree rather than trying to parse an intentionally removed tracked file.
+    return [p for p in out.split("\0") if p and (ROOT / p).is_file()]
 
 
 def _hard_dependencies(raw: str) -> list[str]:
@@ -263,6 +274,11 @@ def check_hygiene() -> list[str]:
                 problems.append(f"whitespace: {line}")
     # Conflict markers + secret-shaped strings in tracked text.
     for rel in tracked_files():
+        normalized_rel = f"/{rel.lower().replace('\\', '/')}"
+        if any(marker in normalized_rel for marker in PRIVATE_AUTHORITY_PATH_MARKERS):
+            problems.append(
+                f"{rel}: private reviewer-authority credential/receipt must not be tracked"
+            )
         p = ROOT / rel
         if p.suffix not in TEXT_SUFFIXES or not p.is_file():
             continue

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 import tempfile
@@ -17,6 +18,12 @@ from dichiarazioni_pubbliche.public_projection import (  # noqa: E402
     render_dossier_html,
     write_public_bundle,
 )
+from dichiarazioni_pubbliche.wording_contract import (  # noqa: E402
+    WordingType,
+    make_summary_wording,
+    make_translation_wording,
+    wording_contract_metadata,
+)
 
 
 class FakeSource:
@@ -27,8 +34,91 @@ class FakeSource:
         return self.rows
 
 
+class FakeContentSource(FakeSource):
+    def __init__(self, rows, contents):
+        super().__init__(rows)
+        self.contents = contents
+
+    def projectable_contents(self):
+        return self.contents
+
+
+def valid_public_attribution_input():
+    mention = "Persona A"
+    return {
+        "speaker_candidates": [
+            {
+                "id": "speaker-candidate:a",
+                "content_id": "content:a",
+                "person_id": "person:a",
+                "start_ms": 0,
+                "end_ms": 1000,
+                "speaker_label": "PRIVATE_ALIAS_SPEAKER",
+                "attribution_method": "MANUAL_REVIEW",
+                "attribution_version": "speaker-attribution-v1",
+                "source_ref": {"private_feature": "speaker-source-ref"},
+                "confidence": 0.9999,
+                "status": "APPROVED",
+                "review_event_ids": ["review:speaker-a"],
+            }
+        ],
+        "resolution_candidates": [
+            {
+                "id": "resolution:a",
+                "content_id": "content:a",
+                "passage_id": "passage:a",
+                "mention_text": mention,
+                "mention_text_sha256": hashlib.sha256(mention.encode()).hexdigest(),
+                "entity_type": "PERSON",
+                "target_id": "person:a",
+                "resolution_method": "MANUAL_REVIEW",
+                "resolution_version": "entity-resolution-v1",
+                "supporting_features": [
+                    {"code": "IDENTIFIER_ID", "value": "identifier:person-a"},
+                    {"code": "KNOWN_ALIAS", "value": "PRIVATE_ALIAS_RESOLUTION"},
+                ],
+                "contradicting_features": [],
+                "retrieval_score": 0.987654,
+                "status": "APPROVED",
+                "review_event_ids": ["review:resolution-a"],
+            }
+        ],
+        "identifiers": [
+            {
+                "id": "identifier:person-a",
+                "entity_type": "PERSON",
+                "entity_id": "person:a",
+                "identifier_kind": "OFFICIAL_PERSON_ID",
+                "identifier_value": "PRIVATE_IDENTIFIER_VALUE",
+                "authority": "OFFICIAL_REGISTER",
+                "identifier_version": "entity-identifier-v1",
+                "source_ref": {"private_identifier_source": "must-not-escape"},
+                "status": "ACTIVE",
+                "supersedes_id": None,
+            }
+        ],
+        "role_intervals": [
+            {
+                "id": "role:a",
+                "person_id": "person:a",
+                "organization_id": "org:a",
+                "organization_name": "Organization A",
+                "role": "Member",
+                "start_date": "2026-01-01",
+                "end_date": None,
+                "source_ref": {"private_role_source": "must-not-escape"},
+                "status": "ACTIVE",
+                "review_event_ids": ["review:role-a"],
+            }
+        ],
+    }
+
+
 def valid_row():
     rationale = "Supported by the approved record."
+    normalized_claim = "Il valore è 10."
+    source_wording = "Il valore dichiarato nella fonte è 10."
+    quote_sha256 = hashlib.sha256(source_wording.encode("utf-8")).hexdigest()
     return {
         "finding_id": "finding:a",
         "claim_id": "claim:a",
@@ -42,7 +132,21 @@ def valid_row():
         "published_at": "2026-09-22T10:05:00+00:00",
         "publication_review_ids": ["review:finding-a"],
         "supersedes_id": None,
-        "normalized_claim": "Il valore è 10.",
+        "normalized_claim": normalized_claim,
+        "source_occurrence_quote_sha256": quote_sha256,
+        "wording": wording_contract_metadata(
+            occurrence_id="statement:a",
+            source_text_sha256=quote_sha256,
+            normalized_claim=normalized_claim,
+            language="it",
+            derivation_version="candidate-extraction-v1",
+            source_provenance={
+                "selector_type": "MEDIA_SEGMENT_REF",
+                "canonical_segment_id": "segment:a",
+                "quote_local_start_char": 0,
+                "quote_local_end_char": len(normalized_claim),
+            },
+        ),
         "claim_type": "NUMERIC_STATISTIC",
         "temporal_scope": {
             "statement_date": "2026-09-21",
@@ -112,11 +216,181 @@ def valid_row():
                 "review_event_ids": ["review:speaker-a"],
             }
         ],
+        "public_attribution_input": valid_public_attribution_input(),
         "raw_text": "must never escape",
     }
 
 
+def reset_row_wording(
+    row: dict,
+    *,
+    source_text_sha256: str | None = None,
+    representations=(),
+):
+    normalized_claim = str(row["normalized_claim"])
+    quote_sha256 = source_text_sha256 or hashlib.sha256(
+        f"Fonte distinta per {row['claim_id']}: {normalized_claim}".encode("utf-8")
+    ).hexdigest()
+    row["source_occurrence_quote_sha256"] = quote_sha256
+    row["wording"] = wording_contract_metadata(
+        occurrence_id=f"statement:{row['claim_id']}",
+        source_text_sha256=quote_sha256,
+        normalized_claim=normalized_claim,
+        language="it",
+        derivation_version="candidate-extraction-v1",
+        representations=representations,
+    )
+    return row
+
+
+def valid_content_row(**overrides):
+    row = {
+        "content_id": "content:a",
+        "slug": "content-a",
+        "url": "https://example.test/source",
+        "title": "Source",
+        "published_at": "2026-09-21T10:00:00+00:00",
+        "content_kind": "VIDEO",
+        "duration_ms": 180000,
+        "public_media_url": None,
+        "media_policy_version": None,
+        "publication_version": "public-content-v1",
+        "review_event_ids": ["review:content-a"],
+        "private_capture_path": "/private/must-not-escape",
+    }
+    row.update(overrides)
+    return row
+
+
 class PublicProjectionTests(unittest.TestCase):
+    def test_first_class_content_can_publish_with_zero_findings(self):
+        payload = build_public_projection(
+            FakeContentSource([], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        self.assertEqual(payload["dossiers"], [])
+        self.assertEqual(len(payload["contents"]), 1)
+        content = payload["contents"][0]
+        self.assertEqual(content["content_id"], "content:a")
+        self.assertEqual(content["finding_ids"], [])
+        self.assertNotIn("private_capture_path", content)
+
+    def test_first_class_content_membership_comes_only_from_projectable_findings(self):
+        row = valid_row()
+        payload = build_public_projection(
+            FakeContentSource([row], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        self.assertEqual(payload["contents"][0]["finding_ids"], ["finding:a"])
+
+        held = valid_row()
+        held["publication_status"] = "POLICY_HOLD"
+        payload = build_public_projection(
+            FakeContentSource([held], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        self.assertEqual(payload["contents"][0]["finding_ids"], [])
+
+    def test_content_collects_multiple_public_findings_for_same_source(self):
+        first = valid_row()
+        second = valid_row()
+        second["finding_id"] = "finding:b"
+        second["claim_id"] = "claim:b"
+        second["normalized_claim"] = "Il valore è 11."
+        reset_row_wording(second)
+        payload = build_public_projection(
+            FakeContentSource([first, second], [valid_content_row()])
+        )
+        self.assertEqual(
+            payload["contents"][0]["finding_ids"],
+            ["finding:a", "finding:b"],
+        )
+
+    def test_similar_content_titles_keep_distinct_reviewed_identity_and_slug(self):
+        payload = build_public_projection(
+            FakeContentSource(
+                [],
+                [
+                    valid_content_row(title="Intervista serale", slug="intervista-serale-a"),
+                    valid_content_row(
+                        content_id="content:b",
+                        title="Intervista serale",
+                        slug="intervista-serale-b",
+                        url="https://example.test/source-b",
+                        review_event_ids=["review:content-b"],
+                    ),
+                ],
+            )
+        )
+        self.assertEqual(
+            [(item["content_id"], item["slug"]) for item in payload["contents"]],
+            [
+                ("content:a", "intervista-serale-a"),
+                ("content:b", "intervista-serale-b"),
+            ],
+        )
+
+    def test_content_membership_and_fingerprint_change_when_finding_is_held(self):
+        published = valid_row()
+        first = build_public_projection(
+            FakeContentSource([published], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        held = valid_row()
+        held["publication_status"] = "POLICY_HOLD"
+        second = build_public_projection(
+            FakeContentSource([held], [valid_content_row()]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        self.assertEqual(first["contents"][0]["finding_ids"], ["finding:a"])
+        self.assertEqual(second["contents"][0]["finding_ids"], [])
+        self.assertNotEqual(first["dataset_sha256"], second["dataset_sha256"])
+
+    def test_content_media_url_requires_explicit_reviewed_policy_metadata(self):
+        unsafe = valid_content_row(
+            public_media_url="https://media.example.test/embed/1",
+            media_policy_version=None,
+        )
+        payload = build_public_projection(FakeContentSource([], [unsafe]))
+        self.assertEqual(payload["contents"], [])
+
+        approved = valid_content_row(
+            public_media_url="https://media.example.test/embed/1",
+            media_policy_version="public-media-v1",
+        )
+        payload = build_public_projection(FakeContentSource([], [approved]))
+        self.assertEqual(
+            payload["contents"][0]["public_media_url"],
+            "https://media.example.test/embed/1",
+        )
+
+    def test_dataset_fingerprint_includes_first_class_contents(self):
+        first = build_public_projection(
+            FakeContentSource([], [valid_content_row(title="Source A")]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        second = build_public_projection(
+            FakeContentSource([], [valid_content_row(title="Source B")]),
+            generated_at="2026-09-22T12:00:00+00:00",
+        )
+        self.assertNotEqual(first["dataset_sha256"], second["dataset_sha256"])
+
+    def test_content_store_requires_approved_candidate_and_latest_review(self):
+        class CaptureStore(PublicProjectionStore):
+            def __init__(self):
+                self.sql = ""
+
+            def run(self, sql, **variables):
+                self.sql = sql
+                return "[]"
+
+        store = CaptureStore()
+        self.assertEqual(store.projectable_contents(), [])
+        self.assertIn("content_publication_candidate", store.sql)
+        self.assertIn("candidate.status = 'APPROVED'", store.sql)
+        self.assertIn("'CONTENT_PUBLICATION_CANDIDATE'", store.sql)
+        self.assertIn("ORDER BY review.created_at DESC", store.sql)
+
     def approved_relation(self, **overrides):
         relation = {
             "id": "relation:a",
@@ -222,6 +496,26 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("claim.metadata#>>'{context_integrity,state}'", store.sql)
         self.assertIn("'CLEAR_AUTOMATIC'", store.sql)
         self.assertIn("'APPROVED_CURATED'", store.sql)
+        self.assertNotIn("claim_candidate_promotion", store.sql)
+        self.assertNotIn("FROM claim_candidate ", store.sql)
+        self.assertNotIn("FROM statement_candidate ", store.sql)
+        self.assertNotIn("FROM passage ", store.sql)
+        self.assertIn(
+            "claim.metadata#>'{context_integrity,quote_start}'",
+            store.sql,
+        )
+        self.assertIn(
+            "claim.metadata#>'{context_integrity,quote_end}'",
+            store.sql,
+        )
+        self.assertIn(
+            "claim.metadata#>>'{context_integrity,quote_sha256}'",
+            store.sql,
+        )
+        self.assertIn("segment.canonical_text", store.sql)
+        self.assertIn("char_length(segment.canonical_text)", store.sql)
+        self.assertIn("substring(", store.sql)
+        self.assertIn("sha256(", store.sql)
         self.assertIn(
             "candidate_link.canonical_segment_id =",
             store.sql,
@@ -248,6 +542,217 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertNotIn("excerpt", encoded)
         self.assertNotIn("raw_text", encoded)
         self.assertFalse(payload["methodology"]["aggregate_person_score"])
+
+    def test_public_attribution_gate_emits_only_stable_identity_and_statement_time_role(self):
+        payload = build_public_projection(FakeSource([valid_row()]))
+        self.assertEqual(payload["dossier_count"], 1)
+        self.assertEqual(payload["omitted_count"], 0)
+        dossier = payload["dossiers"][0]
+        self.assertEqual(dossier["speaker"]["id"], "person:a")
+        self.assertEqual(dossier["speaker"]["public_role"], "Member")
+        self.assertEqual(
+            dossier["speaker"]["public_roles"],
+            [
+                {
+                    "organization_id": "org:a",
+                    "organization_name": "Organization A",
+                    "role": "Member",
+                    "start_date": "2026-01-01",
+                    "end_date": None,
+                    "review_event_ids": ["review:role-a"],
+                }
+            ],
+        )
+        self.assertEqual(
+            dossier["speaker"]["provenance"],
+            [
+                {
+                    "candidate_id": "speaker-candidate:a",
+                    "review_event_ids": ["review:speaker-a"],
+                    "provenance_kind": "TIMED_SPEAKER",
+                }
+            ],
+        )
+
+        public_bytes = "\n".join(
+            (
+                json.dumps(payload, ensure_ascii=False),
+                render_dossier_html(dossier),
+                json.dumps(dossier_jsonld(dossier), ensure_ascii=False),
+            )
+        )
+        for private_value in (
+            "PRIVATE_ALIAS_SPEAKER",
+            "PRIVATE_ALIAS_RESOLUTION",
+            "PRIVATE_IDENTIFIER_VALUE",
+            "speaker-source-ref",
+            "private_identifier_source",
+            "private_role_source",
+            "supporting_features",
+            "contradicting_features",
+            "retrieval_score",
+            '"confidence"',
+            "public_attribution_input",
+        ):
+            self.assertNotIn(private_value, public_bytes)
+
+    def test_public_attribution_gate_omits_direct_person_link_tamper(self):
+        row = valid_row()
+        row["speaker"]["id"] = "person:tampered"
+        row["speaker"]["name"] = "Persona Tampered"
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
+    def test_public_attribution_gate_omits_private_resolution_contradiction(self):
+        row = valid_row()
+        row["public_attribution_input"]["resolution_candidates"][0][
+            "contradicting_features"
+        ] = [{"code": "DATE_ROLE_CONFLICT", "value": "private-conflict"}]
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
+    def test_public_attribution_gate_omits_stale_role_but_keeps_person(self):
+        row = valid_row()
+        row["public_attribution_input"]["role_intervals"][0]["end_date"] = "2026-01-01"
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 1)
+        speaker = payload["dossiers"][0]["speaker"]
+        self.assertEqual(speaker["id"], "person:a")
+        self.assertIsNone(speaker["public_role"])
+        self.assertEqual(speaker["public_roles"], [])
+
+    def test_public_wording_metadata_is_bounded_and_private_free(self):
+        row = valid_row()
+        summary_text = "Sintesi editoriale da non pubblicare come testo derivato."
+        translation_text = "The value is 10."
+        summary = make_summary_wording(
+            occurrence_id=f"statement:{row['claim_id']}",
+            summary=summary_text,
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            language="it",
+            derivation_version="test-v1",
+            author_ref="private-editor:must-not-escape",
+        )
+        translation = make_translation_wording(
+            occurrence_id=f"statement:{row['claim_id']}",
+            source_text=row["normalized_claim"],
+            translated_text=translation_text,
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            source_language="it",
+            target_language="en",
+            method="HUMAN",
+            derivation_version="test-v1",
+            human_reviewed=True,
+            reviewer_ref="private-reviewer:must-not-escape",
+        )
+        reset_row_wording(row, representations=(summary, translation))
+        payload = build_public_projection(FakeSource([row]))
+        wording = payload["dossiers"][0]["wording"]
+        self.assertEqual(
+            wording["source_occurrence"]["wording_type"],
+            "VERBATIM_ORIGINAL",
+        )
+        self.assertTrue(wording["source_occurrence"]["direct_quote_eligible"])
+        self.assertEqual(wording["normalized_claim"]["wording_type"], "PARAPHRASE")
+        self.assertFalse(wording["normalized_claim"]["direct_quote_eligible"])
+        self.assertEqual(
+            [item["wording_type"] for item in wording["representations"]],
+            ["SUMMARY", "TRANSLATION"],
+        )
+        self.assertTrue(
+            all(
+                item["direct_quote_eligible"] is False
+                for item in wording["representations"]
+            )
+        )
+        self.assertEqual(
+            wording["representations"][1]["review_state"],
+            "HUMAN_REVIEWED",
+        )
+        self.assertEqual(
+            wording["representations"][1]["source_language"],
+            "it",
+        )
+        self.assertEqual(wording["representations"][1]["language"], "en")
+        self.assertEqual(
+            wording["public_provenance"]["segment_ids"],
+            ["segment:a"],
+        )
+        encoded = json.dumps(wording, ensure_ascii=False)
+        for forbidden in (
+            summary_text,
+            translation_text,
+            "private-editor",
+            "private-reviewer",
+            "capture_id",
+            "passage_id",
+            "private_text",
+            "raw_text",
+        ):
+            self.assertNotIn(forbidden, encoded)
+
+    def test_public_claim_cannot_copy_private_source_or_derived_wording_body(self):
+        source_copy = valid_row()
+        exact_source_hash = hashlib.sha256(
+            source_copy["normalized_claim"].encode("utf-8")
+        ).hexdigest()
+        reset_row_wording(source_copy, source_text_sha256=exact_source_hash)
+        payload = build_public_projection(FakeSource([source_copy]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
+        derived_copy = valid_row()
+        summary = make_summary_wording(
+            occurrence_id=f"statement:{derived_copy['claim_id']}",
+            summary=derived_copy["normalized_claim"],
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            language="it",
+            derivation_version="test-v1",
+        )
+        reset_row_wording(derived_copy, representations=(summary,))
+        payload = build_public_projection(FakeSource([derived_copy]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
+        translated_copy = valid_row()
+        translation = make_translation_wording(
+            occurrence_id=f"statement:{translated_copy['claim_id']}",
+            source_text="The source wording is distinct.",
+            translated_text=translated_copy["normalized_claim"],
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            source_language="en",
+            target_language="it",
+            method="HUMAN",
+            derivation_version="test-v1",
+            human_reviewed=True,
+        )
+        reset_row_wording(
+            translated_copy,
+            source_text_sha256=hashlib.sha256(
+                b"The source wording is distinct."
+            ).hexdigest(),
+            representations=(translation,),
+        )
+        payload = build_public_projection(FakeSource([translated_copy]))
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
+    def test_derived_wording_cannot_gain_direct_quote_authority(self):
+        row = valid_row()
+        summary = make_summary_wording(
+            occurrence_id=f"statement:{row['claim_id']}",
+            summary="Sintesi editoriale.",
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            language="it",
+            derivation_version="test-v1",
+        )
+        reset_row_wording(row, representations=(summary,))
+        row["wording"]["representations"][0]["direct_quote_eligible"] = True
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossiers"], [])
+        self.assertEqual(payload["omitted_count"], 1)
 
     def test_rationale_assertion_hash_mismatch_is_omitted_fail_closed(self):
         row = valid_row()
@@ -323,11 +828,12 @@ class PublicProjectionTests(unittest.TestCase):
         row = valid_row()
         row["source_segments"] = []
         row["speaker_provenance"] = []
+        reset_row_wording(row, source_text_sha256="c" * 64)
         row["source_text_provenance"] = [
             {
                 "id": "text-provenance:a",
                 "selector_type": "TEXT_QUOTE_HASH",
-                "quote_sha256": "c" * 64,
+                "quote_sha256": row["source_occurrence_quote_sha256"],
                 "source_sha256": "d" * 64,
                 "start_char": None,
                 "end_char": None,
@@ -394,6 +900,9 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("&lt;script&gt;", rendered)
         self.assertIn("Persona &lt;A&gt;", rendered)
         self.assertIn('type="application/ld+json"', rendered)
+        self.assertIn('data-wording-type="PARAPHRASE"', rendered)
+        self.assertIn('data-direct-quote-eligible="false"', rendered)
+        self.assertNotIn("<blockquote", rendered)
 
     def test_jsonld_claimreview_has_no_numeric_person_score(self):
         payload = build_public_projection(FakeSource([valid_row()]))
@@ -410,6 +919,20 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertNotIn("bestRating", encoded)
         self.assertNotIn("worstRating", encoded)
         self.assertNotIn("reliability", encoded.lower())
+        properties = {
+            item["name"]: item["value"]
+            for item in graph["itemReviewed"]["additionalProperty"]
+        }
+        self.assertEqual(properties["wordingType"], "PARAPHRASE")
+        self.assertFalse(properties["directQuoteEligible"])
+        source = graph["itemReviewed"]["isBasedOn"]
+        source_properties = {
+            item["name"]: item["value"]
+            for item in source["additionalProperty"]
+        }
+        self.assertEqual(source_properties["wordingType"], "VERBATIM_ORIGINAL")
+        self.assertTrue(source_properties["directQuoteEligible"])
+        self.assertNotIn("text", source)
 
     def test_jsonld_rejects_unknown_or_non_public_assessment(self):
         for assessment in (

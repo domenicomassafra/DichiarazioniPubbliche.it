@@ -243,6 +243,20 @@ class CuratedWrittenIntakeTests(unittest.TestCase):
             store.candidate_metadata["context_integrity"]["state"],
             "APPROVED_CURATED",
         )
+        wording = store.candidate_metadata["wording"]
+        self.assertEqual(
+            wording["source_occurrence"]["wording_type"],
+            "VERBATIM_ORIGINAL",
+        )
+        self.assertEqual(wording["source_occurrence"]["language"], "it")
+        self.assertEqual(
+            wording["source_provenance"]["capture_id"],
+            "capture:test:one",
+        )
+        self.assertEqual(
+            wording["source_provenance"]["selector_type"],
+            "TEXT_POSITION",
+        )
         self.assertEqual(receipt["mode"], "CLAIM_CANDIDATE_PROMOTION_V1")
         self.assertEqual(claim["legacy_requested_claim_id"], "claim:test:one")
         self.assertEqual(claim["target_claim_id"], "claim:test:one")
@@ -263,6 +277,36 @@ class CuratedWrittenIntakeTests(unittest.TestCase):
         self.assertEqual(claim["promotion_reason_code"], "PROMOTION_CREATED")
         self.assertTrue(str(claim["target_claim_id"]).startswith("claim:promoted:"))
         self.assertTrue(any(call[0] == "create_written" for call in store.calls if isinstance(call[0], str)))
+
+    def test_curated_foreign_language_is_preserved_in_source_and_content_metadata(self):
+        payload = promotion_ready_payload()
+        payload["contents"][0]["language"] = "en"
+        batch = prepare_curated_written_batch(payload)
+        self.assertEqual(batch.contents[0].language, "en")
+        store = FakePromotionStore(duplicate_target=True)
+        apply_curated_written_batch_via_promotion(
+            store,
+            batch,
+            actor_ref="reviewer",
+        )
+        wording = store.candidate_metadata["wording"]
+        self.assertEqual(wording["source_occurrence"]["language"], "en")
+        self.assertEqual(
+            wording["source_provenance"]["start_char"],
+            10,
+        )
+        source_call = next(
+            call
+            for call in store.calls
+            if isinstance(call[0], str) and "INSERT INTO source" in call[0]
+        )
+        content_call = next(
+            call
+            for call in store.calls
+            if isinstance(call[0], str) and "INSERT INTO content_item" in call[0]
+        )
+        self.assertEqual(source_call[1]["language"], "en")
+        self.assertEqual(content_call[1]["language"], "en")
 
     def test_promotion_capture_requires_offsets_but_legacy_direct_does_not(self):
         payload = promotion_ready_payload()

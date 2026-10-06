@@ -1,0 +1,193 @@
+{
+  "fixture_version": "correction-propagation-fixture-v1",
+  "scenarios": [
+    {
+      "id": "correction-replaces-finding-and-person-attribution",
+      "old_projection": {
+        "dataset_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "dossiers": [
+          {
+            "finding_id": "finding:v1",
+            "claim_id": "claim:1",
+            "claim": "Versione errata attribuita a Persona Uno",
+            "speaker": {"id": "person:1", "name": "Persona Uno"},
+            "source": {"content_id": "content:1", "title": "Intervista uno"},
+            "finding": {"publication_status": "PUBLISHED", "supersedes_id": null}
+          }
+        ],
+        "contents": [
+          {
+            "content_id": "content:1",
+            "title": "Intervista uno",
+            "finding_ids": ["finding:v1"]
+          }
+        ],
+        "topics": [
+          {
+            "topic_id": "topic:1",
+            "canonical_name": "Tema Uno",
+            "memberships": [
+              {"claim_id": "claim:1", "finding_ids": ["finding:v1"]}
+            ]
+          }
+        ]
+      },
+      "new_projection": {
+        "dataset_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "dossiers": [
+          {
+            "finding_id": "finding:v2",
+            "claim_id": "claim:1",
+            "claim": "Versione corretta attribuita a Persona Due",
+            "speaker": {"id": "person:2", "name": "Persona Due"},
+            "source": {"content_id": "content:1", "title": "Intervista uno"},
+            "finding": {"publication_status": "PUBLISHED", "supersedes_id": "finding:v1"}
+          }
+        ],
+        "contents": [
+          {
+            "content_id": "content:1",
+            "title": "Intervista uno",
+            "finding_ids": ["finding:v2"]
+          }
+        ],
+        "topics": [
+          {
+            "topic_id": "topic:1",
+            "canonical_name": "Tema Uno",
+            "memberships": [
+              {"claim_id": "claim:1", "finding_ids": ["finding:v2"]}
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "affected_finding_ids": ["finding:v1", "finding:v2"],
+        "affected_content_ids": ["content:1"],
+        "affected_person_ids": ["person:1", "person:2"],
+        "affected_topic_ids": ["topic:1"],
+        "current_finding_ids": ["finding:v2"],
+        "historical_finding_ids": ["finding:v1"]
+      },
+      "stale_search_record": {
+        "id": "finding:v1",
+        "kind": "finding",
+        "title": "Versione errata attribuita a Persona Uno"
+      }
+    },
+    {
+      "id": "hold-removes-current-finding-but-keeps-reviewed-content",
+      "old_projection": {
+        "dataset_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "dossiers": [
+          {
+            "finding_id": "finding:hold:v1",
+            "claim_id": "claim:hold",
+            "claim": "Claim poi posto in hold",
+            "speaker": {"id": "person:hold", "name": "Persona Hold"},
+            "source": {"content_id": "content:hold", "title": "Contenuto Hold"},
+            "finding": {"publication_status": "PUBLISHED", "supersedes_id": null}
+          }
+        ],
+        "contents": [
+          {
+            "content_id": "content:hold",
+            "title": "Contenuto Hold",
+            "finding_ids": ["finding:hold:v1"]
+          }
+        ],
+        "topics": [
+          {
+            "topic_id": "topic:hold",
+            "canonical_name": "Tema Hold",
+            "memberships": [
+              {"claim_id": "claim:hold", "finding_ids": ["finding:hold:v1"]}
+            ]
+          }
+        ]
+      },
+      "new_projection": {
+        "dataset_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "dossiers": [],
+        "contents": [
+          {
+            "content_id": "content:hold",
+            "title": "Contenuto Hold",
+            "finding_ids": []
+          }
+        ],
+        "topics": [
+          {
+            "topic_id": "topic:hold",
+            "canonical_name": "Tema Hold",
+            "memberships": []
+          }
+        ]
+      },
+      "expected": {
+        "affected_finding_ids": ["finding:hold:v1"],
+        "affected_content_ids": ["content:hold"],
+        "affected_person_ids": ["person:hold"],
+        "affected_topic_ids": ["topic:hold"],
+        "current_finding_ids": [],
+        "historical_finding_ids": ["finding:hold:v1"]
+      },
+      "stale_search_record": {
+        "id": "person:hold",
+        "kind": "person",
+        "title": "Persona Hold"
+      }
+    },
+    {
+      "id": "retraction-removes-finding-content-person-and-topic",
+      "old_projection": {
+        "dataset_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "dossiers": [
+          {
+            "finding_id": "finding:retract:v1",
+            "claim_id": "claim:retract",
+            "claim": "Claim ritirato",
+            "speaker": {"id": "person:retract", "name": "Persona Retract"},
+            "source": {"content_id": "content:retract", "title": "Contenuto Retract"},
+            "finding": {"publication_status": "PUBLISHED", "supersedes_id": null}
+          }
+        ],
+        "contents": [
+          {
+            "content_id": "content:retract",
+            "title": "Contenuto Retract",
+            "finding_ids": ["finding:retract:v1"]
+          }
+        ],
+        "topics": [
+          {
+            "topic_id": "topic:retract",
+            "canonical_name": "Tema Retract",
+            "memberships": [
+              {"claim_id": "claim:retract", "finding_ids": ["finding:retract:v1"]}
+            ]
+          }
+        ]
+      },
+      "new_projection": {
+        "dataset_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "dossiers": [],
+        "contents": [],
+        "topics": []
+      },
+      "expected": {
+        "affected_finding_ids": ["finding:retract:v1"],
+        "affected_content_ids": ["content:retract"],
+        "affected_person_ids": ["person:retract"],
+        "affected_topic_ids": ["topic:retract"],
+        "current_finding_ids": [],
+        "historical_finding_ids": ["finding:retract:v1"]
+      },
+      "stale_search_record": {
+        "id": "content:retract",
+        "kind": "content",
+        "title": "Contenuto Retract"
+      }
+    }
+  ]
+}

@@ -54,6 +54,10 @@ from dichiarazioni_pubbliche.domain_vocabulary import (
     VOCABULARIES,
     VERIFICATION_ASSESSMENT_VERSION,
 )
+from dichiarazioni_pubbliche.linked_data import (
+    LINKED_DATA_VERSION,
+    projection_linked_data_receipt,
+)
 from dichiarazioni_pubbliche.public_schema import (
     DOSSIER_ALLOWED_KEYS,
     DOSSIER_REQUIRED_KEYS,
@@ -70,6 +74,7 @@ API_BASE_PATH = "/api/v1"
 API_MAJOR_VERSION = 1
 API_VERSION_HEADER = "X-Dichiarazioni-Pubbliche-Api-Version"
 LLMS_PATH = "/llms.txt"
+LINKED_DATA_PATH = "/index.nt"
 
 DEFAULT_LIMIT = 25
 MAX_LIMIT = 100
@@ -233,9 +238,11 @@ class PublicIndex:
     omitted_count: int
     entries: tuple[FindingEntry, ...]
     findings_by_id: dict[str, FindingEntry]
-    records: dict[str, FindingEntry]
+    records: dict[str, dict[str, Any]]
     people: dict[str, dict[str, Any]]
     topics: dict[str, dict[str, Any]]
+    topics_present: bool
+    contents_present: bool
     source_path: str
     mtime: float
 
@@ -285,33 +292,33 @@ def build_index(bundle: dict[str, Any], *, source_path: str = "", mtime: float =
     entries.sort(key=lambda item: (-item.published_epoch, item.finding_id))
 
     findings_by_id: dict[str, FindingEntry] = {}
-    records: dict[str, FindingEntry] = {}
+    records: dict[str, dict[str, Any]] = {}
     people: dict[str, dict[str, Any]] = {}
     topics: dict[str, dict[str, Any]] = {}
     slug_owner: dict[str, str] = {}
+    raw_contents = bundle.get("contents")
 
     for entry in entries:
         findings_by_id.setdefault(entry.finding_id, entry)
 
-        slug = slugify(entry.content_id)
-        if not slug:
-            raise PublicApiError(
-                503,
-                "PUBLIC_PROJECTION_UNAVAILABLE",
-                "The public projection contains a content identifier with no stable public slug.",
-            )
-        owner = slug_owner.get(slug)
-        if owner is not None and owner != entry.content_id:
-            # Ambiguous public slug: fail closed rather than serve an ambiguous
-            # record under a display-derived address.
-            raise PublicApiError(
-                503,
-                "PUBLIC_PROJECTION_UNAVAILABLE",
-                "The public projection contains colliding public record slugs.",
-            )
-        slug_owner[slug] = entry.content_id
-        records.setdefault(slug, entry)
-
+        if raw_contents is None:
+            slug = slugify(entry.content_id)
+            if not slug:
+                raise PublicApiError(
+                    503,
+                    "PUBLIC_PROJECTION_UNAVAILABLE",
+                    "The public projection contains a content identifier with no stable public slug.",
+                )
+            owner = slug_owner.get(slug)
+            if owner is not None and owner != entry.content_id:
+                # Legacy public-v2 has no reviewed Content slug. Ambiguous
+                # derived slugs therefore fail closed.
+                raise PublicApiError(
+                    503,
+                    "PUBLIC_PROJECTION_UNAVAILABLE",
+                    "The public projection contains colliding public record slugs.",
+                )
+            slug_owner[slug] = entry.content_id
         person = people.setdefault(
             entry.person_id,
             {
@@ -327,6 +334,68 @@ def build_index(bundle: dict[str, Any], *, source_path: str = "", mtime: float =
 
     for person in people.values():
         person["claim_types"] = sorted(person["claim_types"])
+
+    if raw_contents is not None:
+        for raw_content in raw_contents:
+            slug = str(raw_content["slug"])
+            content_id = str(raw_content["content_id"])
+            owner = slug_owner.get(slug)
+            if owner is not None and owner != content_id:
+                raise PublicApiError(
+                    503,
+                    "PUBLIC_PROJECTION_UNAVAILABLE",
+                    "The public projection contains colliding public record slugs.",
+                )
+            slug_owner[slug] = content_id
+            findings = [
+                findings_by_id[finding_id].summary
+                for finding_id in raw_content.get("finding_ids") or []
+                if finding_id in findings_by_id
+            ]
+            records[slug] = {
+                "record_id": content_id,
+                "content_id": content_id,
+                "slug": slug,
+                "url": raw_content.get("url"),
+                "title": raw_content.get("title"),
+                "published_at": raw_content.get("published_at"),
+                "content_kind": raw_content.get("content_kind"),
+                "duration_ms": raw_content.get("duration_ms"),
+                "public_media_url": raw_content.get("public_media_url"),
+                "media_policy_version": raw_content.get("media_policy_version"),
+                "publication_version": raw_content.get("publication_version"),
+                "review_event_ids": list(raw_content.get("review_event_ids") or []),
+                "finding_count": len(findings),
+                "findings": findings,
+            }
+    else:
+        # Compatibility path for pre-DP-434 public-v2 bundles. Records remain
+        # derivable from public findings until the first-class Content collection
+        # is present in the bundle.
+        for entry in entries:
+            slug = slugify(entry.content_id)
+            if not slug:
+                continue
+            if slug in records:
+                continue
+            dossier = entry.dossier
+            same_content = [item for item in entries if item.content_id == entry.content_id]
+            records[slug] = {
+                "record_id": entry.content_id,
+                "content_id": entry.content_id,
+                "slug": slug,
+                "url": dossier["source"].get("url"),
+                "title": dossier["source"].get("title"),
+                "published_at": dossier["source"].get("published_at"),
+                "content_kind": None,
+                "duration_ms": None,
+                "public_media_url": None,
+                "media_policy_version": None,
+                "publication_version": None,
+                "review_event_ids": [],
+                "finding_count": len(same_content),
+                "findings": [item.summary for item in same_content],
+            }
 
     # DP-430: first-class public subject Topics. Older public-v2 bundles do not
     # carry the optional collection and therefore expose zero subject Topics;
@@ -386,6 +455,8 @@ def build_index(bundle: dict[str, Any], *, source_path: str = "", mtime: float =
         records=records,
         people=people,
         topics=topics,
+        topics_present="topics" in bundle,
+        contents_present="contents" in bundle,
         source_path=source_path,
         mtime=mtime,
     )
@@ -643,20 +714,22 @@ def get_finding(index: PublicIndex, finding_id: str) -> dict[str, Any]:
 
 
 def get_record(index: PublicIndex, slug: str) -> dict[str, Any]:
-    entry = index.records.get(slug)
-    if entry is None:
+    record = index.records.get(slug)
+    if record is None:
         raise _not_found()
-    dossier = entry.dossier
-    return {
-        "record_id": entry.content_id,
-        "slug": slug,
-        "url": dossier["source"].get("url"),
-        "title": dossier["source"].get("title"),
-        "published_at": dossier["source"].get("published_at"),
-        "segment_count": len(dossier["source"].get("segments") or []),
-        "finding_count": sum(1 for item in index.entries if item.content_id == entry.content_id),
-        "findings": [item.summary for item in index.entries if item.content_id == entry.content_id],
-    }
+    return dict(record)
+
+
+def list_records(index: PublicIndex) -> list[dict[str, Any]]:
+    rows = [dict(record) for record in index.records.values()]
+    rows.sort(
+        key=lambda row: (
+            str(row.get("published_at") or ""),
+            str(row.get("content_id") or ""),
+        ),
+        reverse=True,
+    )
+    return rows
 
 
 def list_people(index: PublicIndex) -> list[dict[str, Any]]:
@@ -819,6 +892,12 @@ def _h_topics(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
     return _envelope(index, items, {"count": len(items), "link": f"{API_BASE_PATH}/topics"})
 
 
+def _h_records(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
+    validate_params(params)
+    items = list_records(index)
+    return _envelope(index, items, {"count": len(items), "link": f"{API_BASE_PATH}/records"})
+
+
 def _h_people(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
     validate_params(params)
     items = list_people(index)
@@ -853,7 +932,7 @@ def index_full_bundle_payload(index: PublicIndex) -> dict[str, Any]:
     The bundle is itself the fail-closed artifact, so re-serializing the parsed
     bundle yields byte-identical canonical JSON to the projection writer.
     """
-    return {
+    payload = {
         "schema_version": index.schema_version,
         "generated_at": index.generated_at,
         "dataset_sha256": index.dataset_sha256,
@@ -862,6 +941,91 @@ def index_full_bundle_payload(index: PublicIndex) -> dict[str, Any]:
         "omitted_count": index.omitted_count,
         "dossiers": [entry.dossier for entry in index.entries],
     }
+    if index.topics_present:
+        payload["topics"] = [
+            {
+                "topic_id": topic["topic_id"],
+                "slug": topic["slug"],
+                "canonical_name": topic["canonical_name"],
+                "scope_text": topic["scope_text"],
+                "entity_version": topic["entity_version"],
+                "review_event_ids": topic["review_event_ids"],
+                "memberships": topic["memberships"],
+            }
+            for topic in sorted(
+                index.topics.values(),
+                key=lambda item: (item["canonical_name"].casefold(), item["topic_id"]),
+            )
+        ]
+    first_class_contents = [
+        {
+            key: record.get(key)
+            for key in (
+                "content_id",
+                "slug",
+                "url",
+                "title",
+                "published_at",
+                "content_kind",
+                "duration_ms",
+                "public_media_url",
+                "media_policy_version",
+                "publication_version",
+                "review_event_ids",
+            )
+        }
+        | {"finding_ids": [item["finding_id"] for item in record["findings"]]}
+        for record in index.records.values()
+        if record.get("publication_version") == "public-content-v1"
+    ]
+    if index.contents_present:
+        first_class_contents.sort(key=lambda item: (str(item["title"]).casefold(), str(item["content_id"])))
+        payload["contents"] = first_class_contents
+    return payload
+
+
+def _load_linked_data_artifact(index: PublicIndex) -> tuple[bytes, float]:
+    """Load the generated N-Triples sibling only when it matches this projection.
+
+    ``index.nt`` and its receipt are projection-owned build artifacts.  The host
+    never derives public RDF from operational state: it validates the already
+    generated files against the same validated ``index.json`` currently serving
+    the API and fails closed on any missing, stale, or tampered artifact.
+    """
+    root = Path(index.source_path).parent
+    artifact_path = root / "index.nt"
+    receipt_path = root / "linked-data-receipt.json"
+    try:
+        artifact_stat = artifact_path.stat()
+        receipt_stat = receipt_path.stat()
+        body = artifact_path.read_bytes()
+        receipt_raw = receipt_path.read_bytes()
+    except OSError as exc:
+        raise _unavailable() from exc
+    try:
+        receipt = json.loads(receipt_raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise _unavailable() from exc
+    if not isinstance(receipt, dict):
+        raise _unavailable()
+
+    expected = projection_linked_data_receipt(index_full_bundle_payload(index))
+    if receipt != expected:
+        raise _unavailable()
+    if receipt.get("linked_data_version") != LINKED_DATA_VERSION:
+        raise _unavailable()
+    if hashlib.sha256(body).hexdigest() != receipt.get("ntriples_sha256"):
+        raise _unavailable()
+    if len(body) != receipt.get("byte_count"):
+        raise _unavailable()
+    try:
+        body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise _unavailable() from exc
+    triple_count = sum(1 for line in body.splitlines() if line.strip())
+    if triple_count != receipt.get("triple_count"):
+        raise _unavailable()
+    return body, max(index.mtime, artifact_stat.st_mtime, receipt_stat.st_mtime)
 
 
 @dataclass(frozen=True)
@@ -879,6 +1043,7 @@ ROUTES: tuple[Route, ...] = (
     Route("health", ("GET", "HEAD"), f"{API_BASE_PATH}/health", _h_health),
     Route("schema", ("GET", "HEAD"), f"{API_BASE_PATH}/schema", _h_schema, document_cache=True),
     Route("findings", ("GET", "HEAD"), f"{API_BASE_PATH}/findings", _h_findings),
+    Route("records", ("GET", "HEAD"), f"{API_BASE_PATH}/records", _h_records),
     Route(
         "finding",
         ("GET", "HEAD"),
@@ -899,7 +1064,16 @@ ROUTES: tuple[Route, ...] = (
 
 JSON_CONTENT_TYPE = "application/json; charset=utf-8"
 LLMS_CONTENT_TYPE = "text/plain; charset=utf-8"
+NTRIPLES_CONTENT_TYPE = "application/n-triples"
 ALLOWED_ACCEPT = ("application/json", "*/*", "application/*")
+LINKED_DATA_ACCEPT = (NTRIPLES_CONTENT_TYPE, "*/*", "application/*")
+
+
+def _discovery_link_header() -> str:
+    return (
+        f'<{API_BASE_PATH}/openapi.json>; rel="service-desc", '
+        f'<{LINKED_DATA_PATH}>; rel="alternate"; type="{NTRIPLES_CONTENT_TYPE}"'
+    )
 
 
 def match_route(path: str) -> tuple[Route, dict[str, str]]:
@@ -973,7 +1147,7 @@ def build_response(
         API_VERSION_HEADER: API_CONTRACT_VERSION,
         "X-Content-Type-Options": "nosniff",
         "Vary": "Accept",
-        "Link": f'<{API_BASE_PATH}/openapi.json>; rel="service-desc"',
+        "Link": _discovery_link_header(),
     }
     conditional = conditional_headers or {}
     if _is_fresh(conditional, etag, last_modified):
@@ -1030,6 +1204,16 @@ def _accepts_json(value: str | None) -> bool:
     return False
 
 
+def _accepts_ntriples(value: str | None) -> bool:
+    if not value:
+        return True
+    for item in value.split(","):
+        media_type = item.split(";", 1)[0].strip().lower()
+        if media_type in LINKED_DATA_ACCEPT:
+            return True
+    return False
+
+
 def llms_response(
     method: str,
     *,
@@ -1051,12 +1235,52 @@ def llms_response(
             f"stale-while-revalidate={STALE_WHILE_REVALIDATE}"
         ),
         "X-Content-Type-Options": "nosniff",
+        "Link": _discovery_link_header(),
     }
     if _is_fresh(conditional_headers or {}, etag, last_modified):
         return ApiResponse(304, b"", LLMS_CONTENT_TYPE, headers)
     if method == "HEAD":
         return ApiResponse(200, b"", LLMS_CONTENT_TYPE, headers, content_length=len(body))
     return ApiResponse(200, body, LLMS_CONTENT_TYPE, headers)
+
+
+def linked_data_response(
+    method: str,
+    *,
+    projection_path: str | os.PathLike[str] | None,
+    conditional_headers: dict[str, str] | None = None,
+    accept: str | None = None,
+) -> ApiResponse:
+    """Serve the generated projection ``index.nt`` from the approved bundle only."""
+    if not _accepts_ntriples(accept):
+        raise PublicApiError(
+            406,
+            "NOT_ACCEPTABLE",
+            f"This resource serves {NTRIPLES_CONTENT_TYPE}.",
+        )
+    index = load_index(projection_path)
+    body, artifact_mtime = _load_linked_data_artifact(index)
+    etag = '"' + hashlib.sha256(body).hexdigest()[:32] + '"'
+    last_modified = _http_date(artifact_mtime)
+    headers = {
+        "ETag": etag,
+        "Last-Modified": last_modified,
+        "Cache-Control": (
+            f"public, max-age={DOCUMENT_MAX_AGE}, "
+            f"stale-while-revalidate={STALE_WHILE_REVALIDATE}"
+        ),
+        "X-Content-Type-Options": "nosniff",
+        "Vary": "Accept",
+        "Link": (
+            f'<{API_BASE_PATH}/index.json>; rel="alternate"; type="application/json", '
+            f'<{API_BASE_PATH}/openapi.json>; rel="service-desc"'
+        ),
+    }
+    if _is_fresh(conditional_headers or {}, etag, last_modified):
+        return ApiResponse(304, b"", NTRIPLES_CONTENT_TYPE, headers)
+    if method == "HEAD":
+        return ApiResponse(200, b"", NTRIPLES_CONTENT_TYPE, headers, content_length=len(body))
+    return ApiResponse(200, body, NTRIPLES_CONTENT_TYPE, headers)
 
 
 def dispatch(
@@ -1081,6 +1305,26 @@ def dispatch(
                 "METHOD_NOT_ALLOWED",
                 "This API is read-only.",
                 headers={"Allow": "GET, HEAD"},
+            )
+        if split.path == LINKED_DATA_PATH:
+            linked_params = parse_query(split.query)
+            if method == "GET" and "_method" in linked_params:
+                raise PublicApiError(
+                    405,
+                    "METHOD_NOT_ALLOWED",
+                    "This public host is read-only.",
+                    headers={"Allow": "GET, HEAD"},
+                )
+            if linked_params:
+                raise _bad_request(
+                    "The linked-data export does not accept query parameters.",
+                    code="UNSUPPORTED_PARAMETER",
+                )
+            return linked_data_response(
+                method,
+                projection_path=projection_path,
+                conditional_headers=conditional_headers,
+                accept=accept,
             )
         if not _accepts_json(accept):
             raise PublicApiError(
@@ -1195,7 +1439,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if self._is_api_path():
+        if self._is_api_path() or path == LINKED_DATA_PATH:
             self._serve_api("GET")
         elif path == LLMS_PATH:
             self._serve_llms("GET")
@@ -1206,7 +1450,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
 
     def do_HEAD(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if self._is_api_path():
+        if self._is_api_path() or path == LINKED_DATA_PATH:
             self._serve_api("HEAD")
         elif path == LLMS_PATH:
             self._serve_llms("HEAD")
@@ -1295,7 +1539,9 @@ __all__ = [
     "API_CONTRACT_VERSION",
     "API_MAJOR_VERSION",
     "API_VERSION_HEADER",
+    "LINKED_DATA_PATH",
     "LLMS_PATH",
+    "NTRIPLES_CONTENT_TYPE",
     "CURSOR_VERSION",
     "DEFAULT_LIMIT",
     "MAX_LIMIT",
@@ -1319,9 +1565,11 @@ __all__ = [
     "get_record",
     "health_payload",
     "index_full_bundle_payload",
+    "linked_data_response",
     "llms_response",
     "list_people",
     "list_topics",
+    "list_records",
     "load_index",
     "match_route",
     "parse_instant",

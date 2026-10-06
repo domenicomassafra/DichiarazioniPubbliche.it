@@ -61,6 +61,42 @@ if [ "$BLOCKED" -ne 0 ]; then
     exit 2
 fi
 
+# Refuse the canonical production database name and any target that already has
+# user-owned relations. A restore drill is destructive by design; an empty,
+# separately named database is the minimum machine-checkable disposable target.
+if ! TARGET_DB=$(psql --dbname="$RESTORE_URL" --no-align --tuples-only \
+        --command='SELECT current_database()' 2>/dev/null); then
+    echo "DRILL BLOCKED: restore target is not reachable" >&2
+    exit 2
+fi
+TARGET_DB=$(printf '%s' "$TARGET_DB" | tr -d '[:space:]')
+if [ -z "$TARGET_DB" ]; then
+    echo "DRILL BLOCKED: restore target database identity is unavailable" >&2
+    exit 2
+fi
+if [ "$TARGET_DB" = "dichiarazioni_pubbliche" ]; then
+    echo "DRILL BLOCKED: refusing canonical production database name '$TARGET_DB'" >&2
+    exit 2
+fi
+if ! TARGET_OBJECTS=$(psql --dbname="$RESTORE_URL" --no-align --tuples-only \
+        --command="SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_' AND c.relkind IN ('r','p','v','m','f','S')" \
+        2>/dev/null); then
+    echo "DRILL BLOCKED: could not inspect restore target for existing user objects" >&2
+    exit 2
+fi
+TARGET_OBJECTS=$(printf '%s' "$TARGET_OBJECTS" | tr -d '[:space:]')
+case "$TARGET_OBJECTS" in
+    ''|*[!0-9]*)
+        echo "DRILL BLOCKED: restore target object count is invalid" >&2
+        exit 2
+        ;;
+esac
+if [ "$TARGET_OBJECTS" -ne 0 ]; then
+    echo "DRILL BLOCKED: restore target '$TARGET_DB' is not empty ($TARGET_OBJECTS user objects)" >&2
+    exit 2
+fi
+echo "DRILL target_database=$TARGET_DB disposable_check=empty"
+
 # Locate the backup set.
 if [ -z "$BACKUP_SET" ]; then
     for candidate in "$BACKUP_ROOT"/2*; do
@@ -116,11 +152,37 @@ if [ ! -f "$MANIFEST" ]; then
     exit 2
 fi
 
-TABLES=$(python3 -c '
+TABLES=$(PYTHONPATH="$REPO_ROOT/poc" python3 -c '
 import json,sys
+from dichiarazioni_pubbliche.ops.table_inventory import validate_table_names
 with open(sys.argv[1]) as h:
-    print(" ".join(json.load(h)["tables"].keys()))
-' "$MANIFEST")
+    payload=json.load(h)
+tables=validate_table_names(tuple(payload["tables"].keys()))
+print(" ".join(sorted(tables)))
+' "$MANIFEST") || {
+    echo "DRILL FAILED: backup manifest has an invalid table inventory" >&2
+    exit 1
+}
+
+if ! RESTORED_TABLES=$(psql --dbname="$RESTORE_URL" --no-align --tuples-only --command="
+    SELECT c.relname
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind IN ('r','p')
+      AND c.relpersistence = 'p'
+    ORDER BY c.relname
+"); then
+    echo "DRILL FAILED: could not inspect restored durable table inventory" >&2
+    FAIL=1
+    RESTORED_TABLES=""
+fi
+RESTORED_TABLES=$(printf '%s\n' "$RESTORED_TABLES" | sed '/^[[:space:]]*$/d')
+MANIFEST_TABLES=$(printf '%s\n' $TABLES | sort)
+if [ "$RESTORED_TABLES" != "$MANIFEST_TABLES" ]; then
+    echo "DRILL FAILED: restored durable table inventory differs from backup manifest" >&2
+    FAIL=1
+fi
 
 RESULTS=$(mktemp)
 set --
@@ -168,9 +230,9 @@ if [ "$FAIL" -ne 0 ] || [ "$VERDICT" -ne 0 ]; then
 fi
 
 if [ "$KEEP" -eq 0 ]; then
-    echo "DRILL cleanup: drop the throwaway restored database"
+    echo "DRILL cleanup: reset the throwaway restored database schema"
     psql --dbname="$RESTORE_URL" --no-align --tuples-only \
-        --command='DROP SCHEMA public CASCADE; DROP SCHEMA IF EXISTS public CASCADE;' \
+        --command='DROP SCHEMA public CASCADE; CREATE SCHEMA public;' \
         >/dev/null 2>&1 || true
 fi
 

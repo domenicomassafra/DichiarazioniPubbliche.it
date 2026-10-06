@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.countercase import (  # noqa: E402
     CounterEvidence,
     build_countercase_packet,
+    evaluate_challenger_readiness,
 )
 
 
@@ -84,6 +85,59 @@ class CounterCaseTests(unittest.TestCase):
             research_complete=True,
         )
         self.assertNotEqual(empty.packet_id, counter.packet_id)
+
+    def test_material_challenger_gain_stales_prior_readiness_and_review(self):
+        prior = build_countercase_packet(
+            claim_id="claim:1",
+            evidence=[],
+            research_complete=True,
+        )
+        updated = build_countercase_packet(
+            claim_id="claim:1",
+            evidence=[evidence("e1", "CONTRADICT")],
+            research_complete=True,
+        )
+        decision = evaluate_challenger_readiness(
+            updated,
+            incorporated_packet_id=prior.packet_id,
+            reviewed_packet_id=prior.packet_id,
+        )
+        self.assertFalse(decision.ready)
+        self.assertTrue(decision.review_stale)
+        self.assertIn("MATERIAL_CHALLENGER_NOT_INCORPORATED", decision.blockers)
+        self.assertIn("CHALLENGER_REVIEW_STALE", decision.blockers)
+
+        refreshed = evaluate_challenger_readiness(
+            updated,
+            incorporated_packet_id=updated.packet_id,
+            reviewed_packet_id=updated.packet_id,
+        )
+        self.assertTrue(refreshed.ready)
+        self.assertFalse(refreshed.review_stale)
+
+    def test_high_risk_requires_exact_challenger_unless_qualified_policy_waives_it(self):
+        packet = build_countercase_packet(
+            claim_id="claim:1",
+            evidence=[],
+            research_complete=True,
+        )
+        required = evaluate_challenger_readiness(
+            packet,
+            incorporated_packet_id=None,
+            reviewed_packet_id=None,
+            high_risk=True,
+        )
+        self.assertFalse(required.ready)
+        self.assertIn("HIGH_RISK_CHALLENGER_REQUIRED", required.blockers)
+
+        waived = evaluate_challenger_readiness(
+            packet,
+            incorporated_packet_id=None,
+            reviewed_packet_id=None,
+            high_risk=True,
+            qualified_policy_waives_challenger=True,
+        )
+        self.assertTrue(waived.ready)
 
 
 if __name__ == "__main__":

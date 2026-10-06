@@ -1,6 +1,6 @@
 # DP-602 — CI matrix and deterministic contributor acceptance
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M6 — open-source and release hardening
 Depends on: DP-601 package/development profiles and the existing Python/web baseline
 Launch state: specification only; CI must not publish, release, or access production data
@@ -271,8 +271,9 @@ Implemented. `.github/workflows/ci.yml` now has named jobs:
   license, licensing inventory (+ `--check-hashes` and staleness), version/changelog
   consistency.
 - `clean-clone`: detached `git clone --no-hardlinks .` of the candidate commit into a
-  scratch dir, then compileall/unittest/benchmark/contributor-acceptance — independent
-  of the job's working tree.
+  scratch dir, then compileall/unittest/benchmark/contributor-acceptance, distribution
+  build, fresh-environment wheel import/benchmark/CLI smoke, and the DP-604 reproducible
+  artifact check — independent of the job's working tree.
 
 Least privilege: `permissions: contents: read`; no publish/release/deploy; no
 credentials; no PostgreSQL; no provider. Third-party actions are the official
@@ -289,6 +290,12 @@ build 12 pages; invalid-projection build rejected.
 **AC status.** AC-602 required jobs PASS; hermetic setup/least privilege PASS;
 clean-clone proof PASS (independent scratch clone, no local-only files);
 repository-contract checks PASS; no publish/deploy/production access.
-A **hosted** CI run was not claimed in this historical receipt because the canonical
-remote did not yet exist at the time. The local commands were the evidence available for
-that closure; future hosted claims require an actual GitHub Actions run.
+Historical note: the original receipt predated the canonical remote. Hosted CI is now
+proven by GitHub Actions run `37169435178` on commit
+`cdf4e061020dc48ab73e4c579c8d038fcd1c49ba` (2026-10-04): every Python matrix job,
+the web job, repository-contract job, and detached clean-clone job completed successfully.
+
+Follow-up 2026-10-05: the detached clean-clone job now includes the package build/install,
+fresh-environment import/benchmark/CLI smoke promised by DP-601/DP-605, plus the DP-604
+reproducible-artifact checker. This keeps the hosted job aligned with the documented
+clean-clone acceptance path.

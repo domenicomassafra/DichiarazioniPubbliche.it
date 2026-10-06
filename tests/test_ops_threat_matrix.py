@@ -77,7 +77,7 @@ _SQL_SUBJECTS = {
         "BLOCKED",
     ),
     "T-PROVIDER-DOWNGRADE": (
-        "poc/dichiarazioni_pubbliche/worker_daemon.py",
+        "poc/dichiarazioni_pubbliche/worker_handlers_claim_evidence.py",
         "CLAIM_EXTRACTION_CANARY_FAILED",
     ),
     "T-AUTO-PUB": (

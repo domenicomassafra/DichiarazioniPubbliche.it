@@ -1,11 +1,12 @@
 # DP-303 — Correction, takedown, and appeal workflow
 
-Status: **IMPLEMENTED as a pure state machine; runtime wiring and legal closure
-outstanding**
+Status: **pure state machine + first dependency-safe callable runtime implemented;
+takedown/appeal persistence and legal closure outstanding**
 Policy version: `challenge-workflow-v1`
 Owner: product owner + editorial reviewer
-Code: `poc/dichiarazioni_pubbliche/policy/challenge_workflow.py`
-Tests: `tests/test_policy_challenge.py`
+Code: `poc/dichiarazioni_pubbliche/policy/challenge_workflow.py`,
+`poc/dichiarazioni_pubbliche/challenge_intake.py`
+Tests: `tests/test_policy_challenge.py`, `tests/test_challenge_intake.py`
 
 ## Relationship to `correction_runtime.py`
 
@@ -75,6 +76,13 @@ in `PUBLIC_VERSIONED` with no gates and asserts it is refused. This is C-303-03.
 - The appeal outcome never mutates the original decision; the original context object
   is unchanged after a transition decision (asserted by test).
 
+The first runtime adapter preserves the same boundary. CORRECTION may write only through
+`review_admin.record_correction`, which owns the private correction + deterministic
+re-analysis path. TAKEDOWN/APPEAL currently have no compatible durable request entity;
+they therefore return a typed dependency-blocked private receipt and perform no write.
+They are not encoded as a `FINDING`, `CORRECTION`, or generic review event merely to make
+the path appear implemented.
+
 ## No intent inference (C-303-04)
 
 `NO_INTENT_DERIVATION` states the rule in code as a constant. Mechanically, a public
@@ -106,9 +114,12 @@ exception is a deliberate, auditable act, not a default.
 
 ## Known limits
 
-- This module decides **transitions**, not persistence. The `review_admin` /
-  `QueueRuntimeStore` transaction boundary (E-303-02) and the write-time gate
-  (E-303-09) are runtime work, not implemented here.
+- The state-machine module still decides **transitions**, not persistence. The callable
+  runtime now wires the already-supported private CORRECTION path only. There is no
+  approved TAKEDOWN/APPEAL request entity in the current store/review-event contract, so
+  those paths remain fail-closed until dedicated append-only persistence exists.
+- The `QueueRuntimeStore` public-state transaction boundary (E-303-02) and write-time
+  publication/hold gates remain runtime work; the intake adapter never calls them.
 - Stale projection artifact cleanup (E-303-07) is `public_projection`'s job; this
   module only reports that omission is required.
 - Notice wording, retention periods, and appeal deadlines remain Q-303-01..06 /

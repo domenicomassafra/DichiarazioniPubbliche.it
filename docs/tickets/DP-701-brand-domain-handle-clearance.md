@@ -155,7 +155,7 @@ rollback receipt unless it is actually exercised and read back.
 |---|---|---|---|---|
 | B-701-01 | Owner-approved public identity | **CLOSED 2026-10-03:** owner selected **Dichiarazioni Pubbliche**. | This decision record + repository cutover. | Product owner; `CLOSED` |
 | B-701-02 | Trademark/name clearance absent | Commission and record the qualified trademark search/disposition for intended classes and jurisdictions. | Reviewer identity, scope, search date, sources, disposition, and conditions. | Qualified reviewer; `EXTERNAL` |
-| B-701-03 | Domain and handles unreserved | Select candidates, complete owner-controlled availability/reservation actions, and record expiry/ownership. | Registrar/registry receipts or controlled evidence references; no secret data. | Product owner; `EXTERNAL` |
+| B-701-03 | Domain purchase reported; DNS/handles evidence incomplete | **Owner-reported 2026-10-05:** `dichiarazionipubbliche.it` was purchased at Dynadot. As of 2026-10-06 the public DNS lookup returns no A, AAAA or NS record, and social-handle reservation evidence is still absent. Preserve the registrar receipt outside Git, configure the owner-approved DNS path, and record handle disposition before launch. | Controlled registrar ownership/expiry reference plus DNS and handle read-back; no secret data. | Product owner; `EXTERNAL` (partial evidence only) |
 | B-701-04 | Technical rename decision | **CLOSED 2026-10-03:** repo/package/ticket/systemd/env/database/data paths and public projection migrated on Mac + MiniPC. | docs/reviews/rebrand-cutover-2026-10-03.md. | Maintainer + owner; CLOSED |
 | B-701-05 | Name or URL collision possible | Run the read-only collision audit against repository metadata, public projection/API identifiers, package names, domains, handles, and source receipts. | Machine-readable audit output and manual disposition of every collision. | Maintainer; `BLOCKED` until clean |
 | B-701-06 | Legal/public copy not accepted | Obtain DP-307 disposition for the selected name, description, disclosure, and launch surfaces. | Accepted Q-306/DP-307 decision ID and policy version. | Owner + counsel; `EXTERNAL` |
@@ -230,6 +230,10 @@ completion.
 
 ## Completion receipt
 
-Owner identity plus local and MiniPC technical cutover are complete. Pending qualified
-trademark/domain/handle evidence, collision audit, legal handoff, and exercised rollback proof. This ticket does
-not claim brand clearance, domain ownership, a public URL, or stable v1 readiness.
+Owner identity plus local and MiniPC technical cutover are complete. The owner subsequently
+reported purchasing `dichiarazionipubbliche.it` at Dynadot on 2026-10-05; this is useful
+ownership context but is not treated as a repository-contained registrar receipt or legal
+clearance. A 2026-10-06 read-only DNS check returned no A, AAAA or NS records, so the domain
+is not yet a verified public deployment path. Pending qualified trademark review, controlled
+domain/handle evidence, collision audit, legal handoff, DNS/public-host read-back, and
+exercised rollback proof. This ticket does not claim brand clearance or stable v1 readiness.

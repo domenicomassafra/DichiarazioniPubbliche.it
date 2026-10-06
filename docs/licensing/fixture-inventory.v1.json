@@ -2,10 +2,10 @@
   "schema_version": "fixture-inventory/v1",
   "policy_version": "DP-603@2026-09-26",
   "generated_by": "tools/generate_fixture_inventory.py",
-  "generated_on": "2026-10-05",
+  "generated_on": "2026-10-06",
   "code_license": "Apache-2.0",
   "note": "Machine-readable fixture/data licensing inventory (DP-603). Rights are curated human decisions, not inferred from the Apache-2.0 code license. UNKNOWN license rows are blocked/pending-review and must NOT be shipped in a release or public projection until owner/legal review. Enforced by tools/check_licensing_inventory.py.",
-  "asset_count": 38,
+  "asset_count": 40,
   "assets": [
     {
       "asset_id": "docs:ux:prototypes-v3:generated-style-02:index.html",
@@ -767,6 +767,29 @@
       "blocker": null
     },
     {
+      "asset_id": "tests:fixtures:false-attribution-adversarial-v1.json",
+      "path_or_locator": "tests/fixtures/false-attribution-adversarial-v1.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for DP-223 false-attribution/fabricated-quote adversarial benchmarking",
+      "retrieved_at": "2026-10-05",
+      "content_hash": "a5d363efa215aa9e1b75eb1064ba15bf5a15815ee9255735c908218d991b0a8f",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "No external attribution required; all source snippets, identities and expectations are fictional/project-authored.",
+      "modifications": "Versioned hand-labeled benchmark fixture authored for DP-223; no third-party source body or media copied.",
+      "personal_data": "fictional person identifiers and synthetic snippets only; no real personal data",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal adversarial benchmark; never itself a public finding or projection artifact",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
       "asset_id": "tests:fixtures:postgres-provenance-canary.sql",
       "path_or_locator": "tests/fixtures/postgres-provenance-canary.sql",
       "artifact_kind": "synthetic",
@@ -859,13 +882,36 @@
       "blocker": null
     },
     {
+      "asset_id": "web:src:data:dp407-content-projection.json",
+      "path_or_locator": "web/src/data/dp407-content-projection.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo for DP-407 from the fictional demo projection; example.test locators only",
+      "retrieved_at": "2026-10-05",
+      "content_hash": "0ddeb490e0d8d093ca5f9ab3bdeab62c58e193bfae31e3a3b618ae237a4480a7",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "Fictional DP-407 content-source locator fixture; no real person, publisher, or dataset is represented.",
+      "modifications": "Expanded project-authored demo projection to exercise content/source locator UI states.",
+      "personal_data": "fictional; example.test URLs and synthetic people only",
+      "redistribution_status": "allowed",
+      "public_projection_status": "demo-only; never the real public projection",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
       "asset_id": "web:src:data:studio.ts",
       "path_or_locator": "web/src/data/studio.ts",
       "artifact_kind": "synthetic",
       "origin": "Dichiarazioni Pubbliche contributors",
       "source_reference": "authored in-repo (Verify Studio UX fixture)",
       "retrieved_at": "2026-09-26",
-      "content_hash": "cba5d8c5b63c28eff4c8614eaf9e49eea8585070bb367d6d5b93c43f7112801e",
+      "content_hash": "55701f82a5097b801f734c8ec1a80b8e755e1a596a00839d75804936c7e6e532",
       "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
       "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
       "attribution": "Fictional private-session fixture; demo-only.",

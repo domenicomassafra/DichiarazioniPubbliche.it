@@ -12,6 +12,7 @@ from dichiarazioni_pubbliche.claim_promotion import (
     promote_claim_candidate,
 )
 from dichiarazioni_pubbliche.context_integrity import curated_context_approval
+from dichiarazioni_pubbliche.wording_contract import wording_contract_metadata
 from dichiarazioni_pubbliche.corpus_repository import (
     ClaimCandidateRecord,
     ContentCaptureRecord,
@@ -69,6 +70,7 @@ class PreparedContent:
     source_url: str
     canonical_url: str
     title: str
+    language: str
     published_at: str
     person_id: str
     metadata: dict[str, Any]
@@ -137,6 +139,11 @@ def prepare_curated_written_batch(payload: Mapping[str, Any]) -> PreparedBatch:
         source_url = _url(source.get("url"), "source_url")
         canonical_url = _url(raw_content.get("url"), "canonical_url")
         title = _required_text(raw_content.get("title"), "title")
+        language = str(
+            raw_content.get("language") or source.get("language") or "it"
+        ).strip().casefold()
+        if not language or len(language) > 35:
+            raise ValueError("CURATED_INTAKE_LANGUAGE_INVALID")
         published_at = _required_text(raw_content.get("published_at"), "published_at")
         person_id = _required_text(raw_content.get("person_id"), "person_id")
         content_metadata = _mapping(raw_content.get("metadata"), "content_metadata")
@@ -266,6 +273,7 @@ def prepare_curated_written_batch(payload: Mapping[str, Any]) -> PreparedBatch:
                 source_url=source_url,
                 canonical_url=canonical_url,
                 title=title,
+                language=language,
                 published_at=published_at,
                 person_id=person_id,
                 metadata={**content_metadata, "intake_batch": batch_id},
@@ -289,7 +297,7 @@ def _upsert_source(store: QueueRuntimeStore, content: PreparedContent) -> str:
             INSERT INTO source (
                 id, canonical_name, source_type, canonical_url, language, country_code
             ) VALUES (
-                :'source_id', :'source_name', 'MEDIA', :'source_url', 'it', 'IT'
+                :'source_id', :'source_name', 'MEDIA', :'source_url', :'language', 'IT'
             )
             ON CONFLICT (id) DO NOTHING
             RETURNING id
@@ -298,6 +306,7 @@ def _upsert_source(store: QueueRuntimeStore, content: PreparedContent) -> str:
             WHERE id = :'source_id'
               AND canonical_name = :'source_name'
               AND canonical_url = :'source_url'
+              AND language = :'language'
         )
         SELECT CASE
             WHEN EXISTS(SELECT 1 FROM inserted) THEN 'inserted'
@@ -308,6 +317,7 @@ def _upsert_source(store: QueueRuntimeStore, content: PreparedContent) -> str:
         source_id=content.source_id,
         source_name=content.source_name,
         source_url=content.source_url,
+        language=content.language,
     )
 
 
@@ -323,7 +333,7 @@ def _upsert_content(store: QueueRuntimeStore, content: PreparedContent) -> str:
             )
             SELECT
                 :'content_id', :'source_id', :'content_id', :'canonical_url', :'title',
-                'it', :'published_at'::timestamptz, 'UNKNOWN', 'REVIEW_REQUIRED',
+                :'language', :'published_at'::timestamptz, 'UNKNOWN', 'REVIEW_REQUIRED',
                 :'metadata'::jsonb
             FROM eligible
             ON CONFLICT (id) DO NOTHING
@@ -334,6 +344,7 @@ def _upsert_content(store: QueueRuntimeStore, content: PreparedContent) -> str:
             WHERE item.id = :'content_id'
               AND item.source_id = :'source_id'
               AND item.canonical_url = :'canonical_url'
+              AND item.language = :'language'
         )
         SELECT CASE
             WHEN EXISTS(SELECT 1 FROM inserted) THEN 'inserted'
@@ -345,6 +356,7 @@ def _upsert_content(store: QueueRuntimeStore, content: PreparedContent) -> str:
         source_id=content.source_id,
         canonical_url=content.canonical_url,
         title=content.title,
+        language=content.language,
         published_at=content.published_at,
         person_id=content.person_id,
         metadata=json.dumps(content.metadata, ensure_ascii=False, separators=(",", ":")),
@@ -642,7 +654,7 @@ def _prepare_promotion_candidate_records(
         end_char=claim.quote_end_char,
         text_sha256=claim.quote_sha256,
         private_text=claim.private_quote_text,
-        language="it",
+        language=content.language,
         extraction_method="CURATED_SOURCE_QUOTE",
         extraction_version=batch.extraction_version,
         metadata={
@@ -688,6 +700,20 @@ def _prepare_promotion_candidate_records(
             "legacy_requested_claim_id": claim.claim_id,
             "speech_mode": "DIRECT_UTTERANCE",
             "context_integrity": context_integrity,
+            "wording": wording_contract_metadata(
+                occurrence_id=statement.id,
+                source_text_sha256=claim.quote_sha256,
+                normalized_claim=claim.normalized_claim,
+                language=content.language,
+                derivation_version=batch.extraction_version,
+                source_provenance={
+                    "passage_id": passage.id,
+                    "selector_type": passage.selector_type,
+                    "capture_id": capture.capture_id,
+                    "start_char": claim.quote_start_char,
+                    "end_char": claim.quote_end_char,
+                },
+            ),
         },
     )
     return passage, statement, candidate

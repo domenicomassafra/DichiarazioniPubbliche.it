@@ -52,13 +52,13 @@ jobs:
 
       - name: Build the distribution (proves the packaging contract)
         run: |
-          python -m pip install --upgrade "pip<26" "build<2" "setuptools<81"
+          python -m pip install --upgrade "pip>=24,<26" "build>=1.2,<2.0" "packaging>=24,<26" "setuptools>=68,<81" "wheel>=0.44,<0.46"
           python -m build --outdir dist-ci
 
       - name: Install into a fresh environment and smoke the import/CLI contract
         run: |
           python -m venv .venv-ci
-          .venv-ci/bin/python -m pip install --upgrade "pip<26"
+          .venv-ci/bin/python -m pip install --upgrade "pip>=24,<26"
           .venv-ci/bin/python -m pip install dist-ci/*.whl
           .venv-ci/bin/python -c "import dichiarazioni_pubbliche; print('import ok:', dichiarazioni_pubbliche.__file__)"
           # Every module must import from the install, with no repo on sys.path.
@@ -175,8 +175,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Independent of the job's working tree: proves the committed tree alone is
-    # sufficient for the deterministic backend profile. Uses a local source clone
-    # because this repository has no configured remote.
+    # sufficient for the deterministic backend/package profile. The hosted checkout is
+    # cloned locally so the proof stays pinned to the exact candidate commit.
     steps:
       - uses: actions/checkout@v4
 
@@ -184,7 +184,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Clone to a scratch directory and run the backend profile
+      - name: Install bounded packaging tooling
+        run: python -m pip install --upgrade "pip>=24,<26" "build>=1.2,<2.0" "packaging>=24,<26" "setuptools>=68,<81" "wheel>=0.44,<0.46"
+
+      - name: Clone to a scratch directory and run the backend/package profile
         run: |
           set -euo pipefail
           SCRATCH="$(mktemp -d)"
@@ -198,4 +201,13 @@ jobs:
           PYTHONPATH=poc python3 -m unittest discover -s tests
           PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark
           python3 tools/check_contributor_acceptance.py
-          echo "clean-clone backend profile OK"
+          python -m build --no-isolation --outdir "$SCRATCH/dist" .
+          python -m venv "$SCRATCH/venv"
+          "$SCRATCH/venv/bin/python" -m pip install "$SCRATCH"/dist/*.whl
+          "$SCRATCH/venv/bin/python" -c "import dichiarazioni_pubbliche; print('clean-clone import ok:', dichiarazioni_pubbliche.__file__)"
+          "$SCRATCH/venv/bin/python" -m dichiarazioni_pubbliche.benchmark --fixtures "$PWD/poc/fixtures/italian_cases.json"
+          "$SCRATCH/venv/bin/dichiarazioni-pubbliche-review-admin" --help > /dev/null
+          echo "clean-clone backend/package profile OK"
+
+      - name: Reproducible package artifacts (DP-604)
+        run: python3 tools/check_reproducible_package.py

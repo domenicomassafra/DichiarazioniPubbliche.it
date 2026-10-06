@@ -30,17 +30,17 @@ requirements for this project.
 | Original-source resolution | Deterministic reviewed-root resolver now gates PRIMARY_SOURCE / ORIGINAL_MEDIA / ATTRIBUTION_GAP Coverage Need satisfaction; DB/MiniPC canary + Studio surfacing remain | DP-225 IN PROGRESS |
 | Deterministic judgment/publication policy | Implemented in multiple fail-closed seams; DP-308 will unify the final safety profile | KEEP / DP-308 |
 | Citation assurance | Finding rationale assertions/citations are persisted, replay-backfillable, backup/restore load-bearing and enforced fail-closed by public projection; exact Passage binding remains for unstructured evidence | DP-224 IN PROGRESS |
-| Numerical verification | Exact/range/historical verification exists; compound delta/ratio/percent-change was missing | DP-226; runtime started 2026-10-05 |
+| Numerical verification | Exact/range/historical plus compound delta/ratio/percent-change runtime exists; rule-scoped unit conversion now fails closed unless an explicit conversion is supplied. Rounding/significant-figure and denominator/population policy plus provider fixtures/MiniPC proof remain | DP-226 IN PROGRESS |
 | Temporal verification | Source Intelligence now consumes persisted evidence valid_from/valid_until/status and blocks not-yet-effective, expired or unsafe superseded versions before verification | DP-227 IN PROGRESS |
 | Defender/challenger | Pure counter-case packet now separates contradict/limitation/context/update evidence without creating a verdict; execution/persistence remain | DP-229 IN PROGRESS |
-| Paid-operation receipts/idempotency | Implemented for discovery/extraction/provider work, but cost/usage aggregation is fragmented | DP-230 |
-| Canonical investigation cost ledger | Pure stable operation identity + measured/estimated/external-plan/unknown aggregation exists; persistence adapters remain | DP-230 IN PROGRESS |
+| Paid-operation receipts/idempotency | provider_receipt v2 now persists stable worker/candidate operation identity, attempts, billing basis and measured/estimated usage; DP-209 collection bridge remains | DP-230 IN PROGRESS |
+| Canonical investigation cost ledger | Persisted query/aggregation now separates measured, estimated, external-plan, zero and unknown cost and feeds worker/scheduler/health/outage accounting | DP-230 IN PROGRESS |
 | Pender capture/archive state machine | Implemented in DP-210 without Rails/Redis dependency | KEEP |
 | Pender metadata/oEmbed/provider parsing | Capture parser now stores bounded canonical/OG/Twitter/oEmbed/JSON-LD metadata candidates; network/provider/conflict policy remains | DP-231 IN PROGRESS |
 | Pender concrete archive callbacks | Protocol/state machine exists; source-specific real adapters remain intentionally absent | DP-231, rights/policy gated |
 | Alegre similarity service | PostgreSQL lexical/trigram path exists; no reason yet to add Elasticsearch/Kibana/Redis | KEEP; embeddings only if DP-116 benchmark justifies |
 | ClaimReview JSON-LD | Implemented in public projection | KEEP |
-| CIMPLE URI/RDF projection | Stable HTTPS identities + deterministic N-Triples export now exist over the validated public bundle; static artifact wiring remains | DP-433 IN PROGRESS |
+| CIMPLE URI/RDF projection | Stable HTTPS identities + deterministic N-Triples export, static `index.nt` + linked-data receipt wiring, and first-class zero-finding Content export now exist over the validated public bundle; host content-type/discoverability + deployed read-back remain | DP-433 IN PROGRESS |
 | Google/existing fact-check lookup | Bounded Google Fact Check Tools normalizer/client exists with secret-safe receipt; DP-228 persistence/execution remains | DP-232 IN PROGRESS |
 | Open Parliament speech/video alignment | Pure official-intervention/media alignment now exists; Camera/Senato ingestion/persistence remains | DP-233 IN PROGRESS |
 | DVNS structured evidence intermediary | Provider-neutral zero/missing/date/schema-drift contract now exists; real external adapter remains blocked on approved contract | DP-234 IN PROGRESS |

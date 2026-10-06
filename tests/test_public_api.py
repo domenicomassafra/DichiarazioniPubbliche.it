@@ -8,6 +8,7 @@ the HTTP handler uses, so the tested contract is the served contract.
 """
 
 import json
+import hashlib
 import http.client
 import sys
 import tempfile
@@ -19,6 +20,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
+from dichiarazioni_pubbliche.linked_data import (  # noqa: E402
+    projection_linked_data_receipt,
+    projection_ntriples,
+)
 from dichiarazioni_pubbliche.openapi import (  # noqa: E402
     OPENAPI_VERSION,
     build_api_readme,
@@ -30,7 +35,9 @@ from dichiarazioni_pubbliche.openapi import (  # noqa: E402
 from dichiarazioni_pubbliche.public_api import (  # noqa: E402
     API_BASE_PATH,
     DEFAULT_LIMIT,
+    LINKED_DATA_PATH,
     MAX_LIMIT,
+    NTRIPLES_CONTENT_TYPE,
     PUBLIC_SCHEMA_VERSION,
     ROUTES,
     PublicApiError,
@@ -46,6 +53,7 @@ from dichiarazioni_pubbliche.public_api import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
     PublicSchemaValidationError,
+    projection_dataset_sha256,
     validate_dossier,
     validate_public_bundle,
 )
@@ -61,6 +69,17 @@ def load_demo_index():
 def write_bundle(path: Path, bundle: dict) -> str:
     path.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
     return str(path)
+
+
+def write_linked_bundle(root: Path, bundle: dict) -> str:
+    root.mkdir(parents=True, exist_ok=True)
+    projection_path = Path(write_bundle(root / "index.json", bundle))
+    (root / "index.nt").write_text(projection_ntriples(bundle), encoding="utf-8")
+    (root / "linked-data-receipt.json").write_text(
+        json.dumps(projection_linked_data_receipt(bundle), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return str(projection_path)
 
 
 def published_bundle(dossiers: list[dict], *, schema_version: str = PUBLIC_SCHEMA_VERSION) -> dict:
@@ -88,12 +107,15 @@ class HttpAdapterContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.static_root = tempfile.TemporaryDirectory()
+        cls.bundle_root = tempfile.TemporaryDirectory()
         Path(cls.static_root.name, "index.html").write_text(
             "<!doctype html><title>Dichiarazioni Pubbliche test</title>",
             encoding="utf-8",
         )
+        cls.bundle = json.loads(DEMO_PROJECTION.read_text(encoding="utf-8"))
+        cls.projection_path = write_linked_bundle(Path(cls.bundle_root.name), cls.bundle)
         cls.server = build_server(
-            DEMO_PROJECTION,
+            cls.projection_path,
             host="127.0.0.1",
             port=0,
             static_dir=cls.static_root.name,
@@ -108,6 +130,7 @@ class HttpAdapterContractTest(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join(timeout=5)
         cls.static_root.cleanup()
+        cls.bundle_root.cleanup()
 
     def request(self, method: str, path: str, *, headers: dict[str, str] | None = None):
         connection = http.client.HTTPConnection(self.host, self.port, timeout=5)
@@ -153,10 +176,47 @@ class HttpAdapterContractTest(unittest.TestCase):
         self.assertTrue(llms_headers["Content-Type"].startswith("text/plain"))
         self.assertIn(b"/api/v1/openapi.json", llms_body)
         self.assertIn("ETag", llms_headers)
+        self.assertIn(f"<{LINKED_DATA_PATH}>", llms_headers["Link"])
 
         api_status, _, api_body = self.request("GET", f"{API_BASE_PATH}/health")
         self.assertEqual(api_status, 200)
         self.assertEqual(json.loads(api_body)["data"]["status"], "ok")
+
+    def test_generated_ntriples_is_same_origin_discoverable_and_head_safe(self):
+        status, headers, body = self.request(
+            "GET",
+            LINKED_DATA_PATH,
+            headers={"Accept": NTRIPLES_CONTENT_TYPE},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], NTRIPLES_CONTENT_TYPE)
+        self.assertEqual(body, projection_ntriples(self.bundle).encode("utf-8"))
+        self.assertIn(f"<{API_BASE_PATH}/index.json>", headers["Link"])
+        self.assertIn('rel="alternate"', headers["Link"])
+        self.assertIn("ETag", headers)
+
+        head_status, head_headers, head_body = self.request(
+            "HEAD",
+            LINKED_DATA_PATH,
+            headers={"Accept": NTRIPLES_CONTENT_TYPE},
+        )
+        self.assertEqual(head_status, 200)
+        self.assertEqual(head_body, b"")
+        self.assertEqual(head_headers["Content-Type"], NTRIPLES_CONTENT_TYPE)
+        self.assertEqual(head_headers["ETag"], headers["ETag"])
+        self.assertEqual(int(head_headers["Content-Length"]), len(body))
+
+        health_status, health_headers, _ = self.request("GET", f"{API_BASE_PATH}/health")
+        self.assertEqual(health_status, 200)
+        self.assertIn(f'<{LINKED_DATA_PATH}>; rel="alternate"; type="{NTRIPLES_CONTENT_TYPE}"', health_headers["Link"])
+
+        rejected, _, rejected_body = self.request(
+            "GET",
+            LINKED_DATA_PATH,
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(rejected, 406)
+        self.assertEqual(json.loads(rejected_body)["error"]["code"], "NOT_ACCEPTABLE")
 
     def test_unsupported_accept_is_406(self):
         status, _, body = self.request(
@@ -166,6 +226,72 @@ class HttpAdapterContractTest(unittest.TestCase):
         )
         self.assertEqual(status, 406)
         self.assertEqual(json.loads(body)["error"]["code"], "NOT_ACCEPTABLE")
+
+
+class LinkedDataHostFailClosedTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.bundle = json.loads(DEMO_PROJECTION.read_text(encoding="utf-8"))
+        self.path = write_linked_bundle(self.root, self.bundle)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def response(self):
+        return dispatch(
+            "GET",
+            LINKED_DATA_PATH,
+            projection_path=self.path,
+            accept=NTRIPLES_CONTENT_TYPE,
+        )
+
+    def test_missing_generated_artifact_or_receipt_is_503(self):
+        (self.root / "index.nt").unlink()
+        missing_artifact = self.response()
+        self.assertEqual(missing_artifact.status, 503)
+        self.assertEqual(
+            json.loads(missing_artifact.body)["error"]["code"],
+            "PUBLIC_PROJECTION_UNAVAILABLE",
+        )
+
+        self.path = write_linked_bundle(self.root, self.bundle)
+        (self.root / "linked-data-receipt.json").unlink()
+        missing_receipt = self.response()
+        self.assertEqual(missing_receipt.status, 503)
+
+    def test_stale_projection_fingerprint_is_503(self):
+        receipt_path = self.root / "linked-data-receipt.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["projection_fingerprint"] = "0" * 64
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        response = self.response()
+        self.assertEqual(response.status, 503)
+        self.assertNotIn(self.bundle["dataset_sha256"].encode("utf-8"), response.body)
+
+    def test_tampered_artifact_and_forged_receipt_still_fail_closed(self):
+        artifact = b"<https://example.test/a> <https://example.test/b> <https://example.test/c> .\n"
+        (self.root / "index.nt").write_bytes(artifact)
+        receipt_path = self.root / "linked-data-receipt.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["ntriples_sha256"] = hashlib.sha256(artifact).hexdigest()
+        receipt["byte_count"] = len(artifact)
+        receipt["triple_count"] = 1
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+        response = self.response()
+        self.assertEqual(response.status, 503)
+        self.assertNotIn(b"example.test/a", response.body)
+
+    def test_query_parameters_do_not_select_or_transform_linked_data(self):
+        response = dispatch(
+            "GET",
+            f"{LINKED_DATA_PATH}?format=json",
+            projection_path=self.path,
+            accept=NTRIPLES_CONTENT_TYPE,
+        )
+        self.assertEqual(response.status, 400)
+        self.assertEqual(json.loads(response.body)["error"]["code"], "UNSUPPORTED_PARAMETER")
 
 
 class PaginationContractTest(unittest.TestCase):
@@ -551,7 +677,7 @@ class ResponseShapeTest(unittest.TestCase):
     def test_every_response_uses_the_data_meta_envelope(self):
         # `openapi.json` is the service description, not an API resource, and
         # `index.json` is the raw bundle; both are deliberately un-enveloped.
-        for route in ("health", "schema", "findings", "topics", "people"):
+        for route in ("health", "schema", "findings", "records", "topics", "people"):
             response = dispatch("GET", f"{API_BASE_PATH}/{route}", projection_path=self.path)
             self.assertEqual(response.status, 200, route)
             body = json.loads(response.body)
@@ -604,11 +730,85 @@ class ResponseShapeTest(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(json.loads(response.body)["data"]["record_id"], record["source"]["content_id"])
 
+    def test_first_class_content_with_zero_findings_is_listed_and_resolved(self):
+        bundle = published_bundle([])
+        bundle["contents"] = [
+            {
+                "content_id": "content:zero",
+                "slug": "content-zero",
+                "url": "https://example.test/zero",
+                "title": "Reviewed zero-moment content",
+                "published_at": "2026-01-18T12:00:00+00:00",
+                "content_kind": "WRITTEN",
+                "duration_ms": None,
+                "public_media_url": None,
+                "media_policy_version": None,
+                "publication_version": "public-content-v1",
+                "review_event_ids": ["review:content-zero"],
+                "finding_ids": [],
+            }
+        ]
+        bundle["dataset_sha256"] = projection_dataset_sha256(bundle)
+        validate_public_bundle(bundle)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_bundle(Path(tmp) / "index.json", bundle)
+            collection = dispatch("GET", f"{API_BASE_PATH}/records", projection_path=path)
+            self.assertEqual(collection.status, 200)
+            rows = json.loads(collection.body)["data"]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["content_id"], "content:zero")
+            self.assertEqual(rows[0]["finding_count"], 0)
+
+            detail = dispatch(
+                "GET", f"{API_BASE_PATH}/records/content-zero", projection_path=path
+            )
+            self.assertEqual(detail.status, 200)
+            record = json.loads(detail.body)["data"]
+            self.assertEqual(record["review_event_ids"], ["review:content-zero"])
+            self.assertEqual(record["findings"], [])
+
+            raw = dispatch("GET", f"{API_BASE_PATH}/index.json", projection_path=path)
+            self.assertEqual(json.loads(raw.body)["contents"], bundle["contents"])
+
     def test_detail_endpoint_returns_the_dossier_verbatim(self):
         index = load_demo_index()
         finding_id = index.entries[0].finding_id
         response = dispatch("GET", f"{API_BASE_PATH}/findings/{finding_id}", projection_path=self.path)
         self.assertEqual(json.loads(response.body)["data"], index.entries[0].dossier)
+
+    def test_detail_api_preserves_bounded_wording_metadata_without_derived_text(self):
+        dossier = fictional_dossier()
+        bundle = published_bundle([dossier])
+        bundle["dataset_sha256"] = projection_dataset_sha256(bundle)
+        validate_public_bundle(bundle)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_bundle(Path(tmp) / "wording.json", bundle)
+            response = dispatch(
+                "GET",
+                f"{API_BASE_PATH}/findings/{dossier['finding_id']}",
+                projection_path=path,
+            )
+            self.assertEqual(response.status, 200)
+            public = json.loads(response.body)["data"]
+            wording = public["wording"]
+            self.assertEqual(
+                wording["source_occurrence"]["wording_type"],
+                "VERBATIM_ORIGINAL",
+            )
+            self.assertEqual(wording["normalized_claim"]["wording_type"], "PARAPHRASE")
+            self.assertFalse(wording["normalized_claim"]["direct_quote_eligible"])
+            self.assertEqual(
+                wording["representations"][0]["wording_type"],
+                "TRANSLATION",
+            )
+            self.assertEqual(
+                wording["representations"][0]["review_state"],
+                "HUMAN_REVIEWED",
+            )
+            encoded = json.dumps(wording, ensure_ascii=False)
+            self.assertNotIn("Fictional translated representation.", encoded)
+            self.assertNotIn("private_text", encoded)
+            self.assertNotIn("raw_text", encoded)
 
 
 class OpenApiContractTest(unittest.TestCase):
@@ -621,6 +821,25 @@ class OpenApiContractTest(unittest.TestCase):
         self.assertEqual(
             sorted(self.document["paths"]), sorted(route.pattern for route in ROUTES)
         )
+
+    def test_wording_metadata_is_optional_additive_and_derived_quote_authority_is_false(self):
+        schemas = self.document["components"]["schemas"]
+        dossier = schemas["Dossier"]
+        self.assertNotIn("wording", dossier["required"])
+        self.assertEqual(
+            dossier["properties"]["wording"]["$ref"],
+            "#/components/schemas/WordingMetadata",
+        )
+        wording = schemas["WordingMetadata"]
+        self.assertFalse(wording["additionalProperties"])
+        normalized = wording["properties"]["normalized_claim"]
+        self.assertEqual(normalized["properties"]["wording_type"]["const"], "PARAPHRASE")
+        self.assertFalse(
+            normalized["properties"]["direct_quote_eligible"]["const"]
+        )
+        derived = wording["properties"]["representations"]["items"]
+        self.assertFalse(derived["properties"]["direct_quote_eligible"]["const"])
+        self.assertIn("TRANSLATION", derived["properties"]["wording_type"]["enum"])
 
     def test_every_route_has_get_and_head_only(self):
         for path, item in self.document["paths"].items():

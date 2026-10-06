@@ -14,6 +14,7 @@ from dichiarazioni_pubbliche.public_api import API_BASE_PATH, dispatch, load_ind
 from dichiarazioni_pubbliche.public_projection import build_public_projection  # noqa: E402
 from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
     PublicSchemaValidationError,
+    projection_dataset_sha256,
     validate_public_bundle,
 )
 from tests.test_public_projection import FakeSource, valid_row  # noqa: E402
@@ -56,9 +57,12 @@ class TopicSource(FakeSource):
 class PublicTopicProjectionTests(unittest.TestCase):
     def test_old_public_v2_bundle_without_topics_stays_valid(self):
         payload = build_public_projection(FakeSource([valid_row()]))
-        # Builder now emits the additive collection, but a pre-DP-430 bundle
-        # without the optional key remains a valid v2 input.
+        # Builder now emits the additive topic/content collections, but a
+        # pre-DP-430/pre-DP-434 bundle without those optional keys remains a
+        # valid v2 input with its historical dossiers-only fingerprint.
         payload.pop("topics")
+        payload.pop("contents")
+        payload["dataset_sha256"] = projection_dataset_sha256(payload)
         self.assertIs(validate_public_bundle(payload), payload)
 
     def test_reviewed_topic_and_membership_publish_with_projectable_finding(self):

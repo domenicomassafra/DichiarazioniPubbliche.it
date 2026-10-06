@@ -46,10 +46,10 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
     </div>
   </header>
 
-  <main class="shell page-section-tight">
+  <div class="shell page-section-tight">
     <div class="dp-trace-relation-note">
       <strong>{relation.label}</strong>
-      <span>{trace.participants.length} dichiarazioni pubbliche · gli esiti restano propri di ciascuna dichiarazione.</span>
+      <span>{trace.participants.length} dichiarazioni pubbliche · gli esiti restano propri di ciascuna dichiarazione. La relazione descrive testi e tempo senza attribuire intenzioni.</span>
     </div>
 
     <section class="dp-trace-workspace" aria-labelledby="trace-chronology-heading" data-trace-workspace>
@@ -97,7 +97,7 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
       {trace.rationaleCodes.length > 0 && <p>Codici di razionale revisionati: {trace.rationaleCodes.join(", ")}.</p>}
       <p>La presenza della relazione deriva esclusivamente dalla projection pubblica approvata. La pagina non ricostruisce relazioni da keyword, embedding o output di modello.</p>
     </details>
-  </main>
+  </div>
 
   <script is:inline>
     (() => {

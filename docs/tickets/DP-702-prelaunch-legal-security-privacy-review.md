@@ -250,7 +250,7 @@ generic “compliant” label.
   disabled; no placeholder is presented as a final legal document.
 - [ ] **AC-702-11 — Re-review invalidation:** A material source, data-class, model,
   public-copy, hosting, jurisdiction, or rights change marks dependent decisions stale.
-- [ ] **AC-702-12 — No launch claim:** The packet reports `NO-GO` while any required
+- [x] **AC-702-12 — No launch claim:** The packet reports `NO-GO` while any required
   blocker, missing M5 proof, or unresolved owner/external decision remains.
 - [ ] **AC-702-13 — Handoff:** DP-704 consumes the packet and DP-705 can cite exact
   decision/control IDs without treating technical tests as legal approval.
@@ -308,3 +308,18 @@ Pending qualified legal/privacy decisions, M5 control evidence, owner-approved d
 profile, MiniPC failure/restore/retention proof, and the DP-701/DP-703/DP-704 handoffs.
 This ticket does not claim legal compliance, public security approval, or stable v1
 launch readiness.
+
+### Local fail-closed preflight receipt — 2026-10-05
+
+`launch-preflight-v1` now reads the canonical PLAN status table and qualified-decision
+register, requires the exact M2/M3/Trust/M4/M5/M6/M7 ticket set, keeps DP-507/DP-508
+conditional surfaces undecided unless an explicit non-applicability record exists, and
+requires the future prelaunch/launch-set/rehearsal/release-authority artifacts. The checker
+can emit only `NO-GO` while blockers exist or `PENDING-OWNER` when mechanical inputs are
+complete; it has no `GO`/deploy authority. The current checkout deterministically reports
+`NO-GO`, including DP-201..204 provider blockers, open/blocked Q-306 rows, incomplete M5/M7
+tickets and absent release artifacts. DP-602 contributor acceptance runs this check with
+`--expect-no-go`, so a local green suite cannot silently upgrade launch readiness.
+
+This proves only AC-702.12. It is not qualified legal/security/privacy closure and does not
+close any other AC in this ticket.

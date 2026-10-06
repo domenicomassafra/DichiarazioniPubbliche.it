@@ -127,8 +127,8 @@ Goal: stabilize the core temporal public-record model before public API/frontend
 | DP-104 | DONE | Longitudinal relation approval/publication policy | DP-102, DP-103 |
 | DP-105 | DONE | Public schema v1 compatibility contract | DP-101..104 |
 | DP-106 | IN PROGRESS | Migration strategy from `*.v0` schema/config names; v1 primary, v0 config fallback window through at least 2026-10-04 | DP-101..105 |
-| DP-107 | FUTURE | Deepen concrete PostgreSQL persistence modules | DP-101..106 |
-| DP-108 | FUTURE | Separate worker orchestration from domain job handlers | DP-107 |
+| DP-107 | IN PROGRESS | Deep PostgreSQL persistence locally converged: queue lifecycle + DP-230-aware cost/ledger, transcript/canonical, claim/evidence/observation/source-assessment/Coverage Need, and review/finding/reanalysis/reply/correction contract methods are owned by narrow stores; atomic cross-ledger approval transactions stay co-located and aggregate callers remain on the compatibility store where they cross domains; repository restore-inventory integration + MiniPC acceptance pending | DP-101..106 |
+| DP-108 | IN PROGRESS | Production `ProcessingWorker.process` dispatches into three cohesive handler families while queue/budget lifecycle stays centralized; failed claim canaries remain fail-closed with zero fallback/fan-out; local focused tests + benchmark green, repository restore-inventory integration + MiniPC production acceptance pending | DP-107 |
 | DP-110 | DONE | Evidence-based reasoned inference candidates, private/review-only | DP-102, DP-103 |
 | DP-111 | DONE | First-class written-source claim provenance without fake timestamps | DP-102, DP-105 |
 
@@ -174,33 +174,33 @@ without manual DB surgery.
 | DP-205 | DONE | Daily/full-source polling mode with bounded coverage | M0 |
 | DP-206 | DONE | Add second and third source families without code duplication | DP-205 |
 | DP-207 | DONE | Timestamped claim acceptance across real content | DP-202 or deterministic fixture path |
-| DP-208 | FUTURE | Diarization benchmark and go/no-go decision | DP-204, DP-207 |
+| DP-208 | FUTURE | Diarization benchmark/go-no-go; local metric/safety harness implemented, real reference/model/MiniPC decision remains blocked on DP-204 and runtime gates | DP-204, DP-207 |
 | DP-209 | DONE | Bounded research discovery runs + query manifests | DP-113, DP-205, DP-206 |
 | DP-210 | DONE | Capture/preservation/parser pipeline | DP-113, DP-118, DP-209 |
 | DP-211 | DONE | Passage -> statement/entity/claim candidate extraction | DP-114, DP-210 |
 | DP-212 | DONE | Candidate dedupe, matching and proposition clustering runtime | DP-115, DP-116, DP-211 |
 | DP-215 | IN_PROGRESS | Source Intelligence + contextual evidence suitability/requirements; no global source scores | DP-102, DP-113, DP-115, DP-118, DP-209, DP-210 |
 | DP-213 | DONE | Coverage-needs planner for missing primary/original/independent material | DP-211, DP-212, DP-215 |
-| DP-214 | FUTURE | Garlasco Research Collection tracer-bullet corpus | DP-209..213, DP-215, DP-117 |
+| DP-214 | IN PROGRESS | Garlasco Research Collection tracer-bullet corpus; strict 100-item/replay preflight implemented, real collection absent and 27-vs-30 baseline reconciliation pending | DP-209..213, DP-215, DP-117 |
 | DP-216 | IN PROGRESS | Exact quote/source-span binding; model output can never be quotation authority | DP-111, DP-210; coordinate DP-207/DP-305 |
 | DP-217 | IN PROGRESS | Transcript reliability tiers + human/audio verbatim review gate | DP-204/DP-207 where live; fixture lane independent |
 | DP-218 | IN PROGRESS | Speaker-attribution proof must cover the exact quoted/claimed span | DP-114, DP-207, ADR 0003 |
 | DP-219 | IN PROGRESS | Reported speech/nested quotation + original-quote-origin separation | DP-216, DP-218, DP-211 |
 | DP-220 | IN PROGRESS | Context-integrity / semantic-clipping guard for public statements | DP-216, DP-217, DP-219 |
-| DP-221 | FUTURE | Original wording vs paraphrase/summary/translation separation | DP-216 |
-| DP-222 | FUTURE | Public-attribution Person identity + same-name/role-at-time gate | DP-101, DP-114, DP-216, DP-218 |
-| DP-223 | FUTURE | False-attribution/fabricated-quote adversarial benchmark; zero known public escapes | DP-216..222, DP-224 |
-| DP-224 | IN PROGRESS | Material-assertion citation assurance over approved evidence/passages | DP-215, DP-210; coordinate DP-216/DP-308 |
+| DP-221 | DONE | Original wording vs paraphrase/summary/translation separation; public serializers/search + DP-305 no-body exact-copy guard proven locally and on MiniPC | DP-216 |
+| DP-222 | DONE | Public-attribution Person identity + same-name/role-at-time gate; projection/read-time fail-closed identity/role proof + persisted tamper + MiniPC acceptance complete | DP-101, DP-114, DP-216, DP-218 |
+| DP-223 | IN PROGRESS | False-attribution/fabricated-quote adversarial benchmark; 51-case zero-tolerance gate + real PostgreSQL tamper path proven locally and in isolated MiniPC canary, full adversarial projection + DP-704 release-candidate read-back pending | DP-216..222, DP-224 |
+| DP-224 | DONE | Material-assertion citation assurance over approved evidence/passages; exact Passage/source-hash binding + persisted tamper + MiniPC acceptance complete | DP-215, DP-210; coordinate DP-216/DP-308 |
 | DP-225 | IN PROGRESS | Reviewed original-source resolver over approved derivation families | DP-115, DP-215 |
 | DP-226 | IN PROGRESS | Compound numerical verification: delta/ratio/percent change + unit/denominator policy | DP-215 |
-| DP-227 | IN PROGRESS | Effective-time, validity-interval and supersession verification | DP-215, DP-210 |
+| DP-227 | DONE | Effective-time/validity/supersession verification; selectors + reviewed supersession -> persisted reanalysis consumer proven with law/policy/statistical MiniPC canary | DP-215, DP-210 |
 | DP-228 | IN PROGRESS | Claim-specific research-plan compiler with bounded specialist retrieval lanes | DP-213, DP-215, DP-209 |
 | DP-229 | IN PROGRESS | Bounded adversarial challenger/counter-case packet | DP-228, DP-215 |
 | DP-230 | IN PROGRESS | Canonical provider-operation receipt + reconstructable cost ledger v2 | DP-209, DP-211, DP-506 |
 | DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
-| DP-232 | IN PROGRESS | Existing fact-check lookup adapter for Google/CIMPLE/ClaimReview providers | DP-228, DP-215 |
-| DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video alignment adapter | DP-206, DP-217, DP-218, DP-231 |
-| DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter | DP-215, DP-228, external contract/API |
+| DP-232 | IN PROGRESS | Existing fact-check adapter; bounded DP-228→DP-209 runtime + append-only mirror lineage/replay and fail-closed UNKNOWN rights proven, canonical public metadata/link surface still pending | DP-228, DP-215 |
+| DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video adapter; fixture execution distinguishes NEW/REPLAY/AMENDED and delegates amended records to DP-511/DP-227 with DP-305 fail-closed rights; approved official source-family MiniPC canary pending | DP-206, DP-217, DP-218, DP-231 |
+| DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter; strict offline normalization + explicit DP-215 role/authority/suitability bridge implemented, real approved provider/licensing + MiniPC source-family canary pending | DP-215, DP-228, external contract/API |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never
@@ -226,13 +226,14 @@ handled before opening the product to users.
 | DP-301 | IN PROGRESS | Intentionality/"lie" policy: default no-intent assessment | M0 |
 | DP-302 | IN PROGRESS | Right-of-reply public intake threat model + abuse controls | M0 |
 | DP-303 | IN PROGRESS | Correction/takedown/appeal public workflow | DP-302 |
-| DP-304 | IN PROGRESS | Privacy/minimization and sensitive-person policy | M0 |
-| DP-305 | IN PROGRESS | Copyright/transcript excerpt publication policy | M0 |
-| DP-306 | READY | Legal research closure checklist for Italy/EU launch | DP-301..305 |
+| DP-304 | IN PROGRESS | Privacy/minimization policy plus private append-only publication-decision ledger; canonical policy replay now detects missing/stale/tampered relevance decisions without storing text bodies, but ingestion/public-projection/rights-workflow/MiniPC/legal closure remain pending | M0 |
+| DP-305 | IN PROGRESS | Copyright/transcript excerpt policy; private versioned rights registry (UNKNOWN/private default, source/locator/use/attribution/review/expiry binding) now satisfies AC-305.1, public serializer/complaint/MiniPC/legal closure still pending | M0 |
+| DP-306 | DONE | Legal research closure checklist for Italy/EU launch; control register complete, external legal disposition remains DP-307 | DP-301..305 |
 | DP-307 | FUTURE | Qualified legal review and resulting ADR/policy changes | DP-306 |
-| DP-308 | FUTURE | Publication evidence invariants + fail-closed safety profile; no confidence score | DP-215, DP-216..224, DP-301..305 |
-| DP-309 | FUTURE | High-risk assertion/legal-status escalation gate | DP-215, DP-304, DP-306, DP-308; DP-307 for launch |
-| DP-310 | FUTURE | Independent/dual-control publication review for HIGH/LEGAL records | DP-308, DP-309 |
+| DP-308 | IN PROGRESS | Publication evidence invariants + fail-closed safety profile; evaluator/proof matrix + mandatory production projection revalidation through privacy/rights/challenge/high-risk/attested review implemented; full-suite/schema replay/MiniPC acceptance pending | DP-215, DP-216..224, DP-301..305 |
+| DP-309 | IN PROGRESS | High-risk assertion/legal-status escalation gate; private append-only reviewed-packet replay + fail-closed serializer guard now proven, including missing-DP307 hold and DP310 sole-dual-control cycle break; mandatory public-candidate enforcement + full/MiniPC + DP-307 launch closure pending | DP-215, DP-304, DP-306, DP-308; DP-307 for launch |
+| DP-310 | IN PROGRESS | Independent/dual-control review for HIGH/LEGAL; off-DB identity-attested durable replay is mandatory in runtime eligibility and canonical production projection, so same-actor/fabricated DB chains fail closed; full-suite/DP-223/MiniPC acceptance pending | DP-308, DP-309 |
+| DP-311 | DONE | Local/off-DB reviewer identity authority + exact-event attested receipts for DP-310; restart/tamper/revocation, private backup/restore, disposable-PostgreSQL replay and isolated MiniPC acceptance complete | DP-310; coordinate DP-303, DP-507 |
 
 Exit criteria: public submission and publication behavior have explicit policy, abuse,
 privacy, retention, appeal and evidence-safety rules; high-risk assertions cannot bypass
@@ -255,11 +256,11 @@ LLM in the request path.
 | DP-403 | DONE | OpenAPI + examples + API versioning/deprecation policy | DP-402 |
 | DP-404 | DONE | `llms.txt` and agent-oriented public data documentation | DP-403 |
 | DP-405 | DONE | Person archive UI | DP-105, DP-425 |
-| DP-406 | READY | Topic dossier UI | DP-430, DP-425 |
-| DP-407 | READY | Content/source-locator UI | DP-207, DP-105, DP-425 |
+| DP-406 | DONE | Topic dossier UI | DP-430, DP-425 |
+| DP-407 | DONE | Content/source-locator UI | DP-207, DP-105, DP-425 |
 | DP-408 | BLOCKED | Trace/longitudinal relation UI; implementation complete, real reviewed runtime canary unavailable | DP-104, DP-105, DP-425 |
-| DP-409 | FUTURE | Public search/indexing without new infra by default | DP-405..408, DP-425 |
-| DP-410 | FUTURE | Accessibility/performance/SEO acceptance | DP-405..409, DP-422, DP-425..429 |
+| DP-409 | IN PROGRESS | Public search/indexing without new infra; deterministic static artifact + local UI implemented, accessibility/MiniPC acceptance pending | DP-405..408, DP-425 |
+| DP-410 | IN PROGRESS | Accessibility/performance/SEO acceptance; rendered static quality/JS-budget/noindex checks implemented, manual AT + cold MiniPC metrics pending | DP-405..409, DP-422, DP-425..429 |
 | DP-411 | DONE | Generate and compare five researched visual systems against UX v2 | DP-413 |
 | DP-412 | DONE | Consolidate winning visual language into design tokens/components | DP-411 |
 | DP-413 | DONE | Simplify Public/Studio IA to 5 + 2 templates before implementation | DP-400 |
@@ -271,18 +272,19 @@ LLM in the request path.
 | DP-419 | FUTURE | Source/capture/passage provenance inspector | DP-210, DP-414 |
 | DP-420 | FUTURE | Garlasco operator usability and search-recall acceptance | DP-214, DP-415..419 |
 | DP-421 | FUTURE | Public case/collection view contract decision | DP-214, M3, DP-420 |
-| DP-422 | FUTURE | Public Product Architecture v3 route/template migration + legacy cutover integration | DP-405..409, DP-426..429 |
+| DP-422 | IN PROGRESS | Public Product Architecture v3 route/template migration; canonical route/legacy alias/internal-link contract implemented, final redirect + blocked page-owner acceptance pending | DP-405..409, DP-426..429 |
 | DP-423 | DONE | Public product-marketing + brand context | DP-400, DP-413 |
 | DP-424 | DONE | Public visual redesign v4 concept selection | DP-423, DP-412 |
 | DP-425 | DONE | Public design system v2 + component contract | DP-424 |
 | DP-426 | DONE | Home + public shell v4 | DP-425 |
 | DP-427 | DONE | Canonical Statement page v4 | DP-425, DP-105 |
 | DP-428 | DONE | Method + trust/utility document pages v4 | DP-425 |
-| DP-429 | FUTURE | Explore page v4 | DP-409, DP-425 |
+| DP-429 | IN PROGRESS | Explore page v4; verified static-index UI/type switcher/URL encoding complete, browser history + responsive/AT acceptance pending | DP-409, DP-425 |
 | DP-430 | DONE | First-class public Topic resource contract | DP-105, DP-114 |
-| DP-431 | FUTURE | Correction/retraction propagation across all public pages/API/search/metadata | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429 |
-| DP-432 | FUTURE | Public trust/provenance disclosure integration for Statement + Method | DP-216..223, DP-308, DP-427, DP-428 |
-| DP-433 | IN PROGRESS | Stable-URI + linked-data/RDF interoperability projection | DP-105, DP-403, DP-430, DP-432 |
+| DP-431 | IN PROGRESS | Correction/retraction propagation across public pages/API/search/metadata; pure multi-artifact fingerprint/orphan/current-vs-historical checker implemented, rebuild/cleanup/MiniPC integration pending | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429, DP-434 |
+| DP-432 | IN PROGRESS | Public trust/provenance disclosure integration for Statement + Method; wording/attribution/source-role/abstention disclosure implemented, correction propagation + manual/MiniPC acceptance pending | DP-216..223, DP-308, DP-427, DP-428 |
+| DP-433 | IN PROGRESS | Stable-URI + linked-data/RDF interoperability projection, including zero-finding first-class Content | DP-105, DP-403, DP-430, DP-432, DP-434 |
+| DP-434 | DONE | First-class reviewed public Content resource independent of published findings; projection/API/web/RDF + isolated MiniPC migration/same-origin canary complete | DP-105, DP-210, DP-401, DP-403 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
 providers offline, expose provenance/correction history without private raw content, and
@@ -308,8 +310,8 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-507 | FUTURE | AuthN/AuthZ/CSRF design for any future admin HTTP surface | only when such surface exists |
 | DP-508 | FUTURE | Public intake rate limiting/spam controls runtime | DP-302, public intake implementation |
 | DP-509 | DONE | Harden claim/ASR/verification provenance inputs | M0 baseline |
-| DP-510 | FUTURE | Targeted provenance quarantine + emergency public hold/unhold | DP-308; coordinate DP-501/504/505/431 |
-| DP-511 | FUTURE | Source drift/supersession/rights-expiry revalidation watch | DP-210, DP-215, DP-308, DP-510 |
+| DP-510 | IN PROGRESS | Targeted provenance quarantine + emergency public hold/unhold; bounded append-only domain plus production Finding projection hold/revalidation binding implemented locally; authoritative hold persistence, DP-431 propagation and MiniPC canary pending | DP-308; coordinate DP-501/504/505/431 |
+| DP-511 | IN PROGRESS | Source drift/supersession/rights-expiry revalidation watch; re-observation, DP-510 hold bridge, bounded alerts and local production projection suppression/revalidation are implemented; Capture/authoritative persisted hold state/MiniPC pending | DP-210, DP-215, DP-308, DP-510 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
 observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad
@@ -325,13 +327,13 @@ are not the original author.
 
 | Ticket | Status | Description | Depends on |
 |---|---|---|---|
-| DP-601 | IN PROGRESS | Package/development environment cleanup beyond POC naming | M1 |
-| DP-602 | IN PROGRESS | CI matrix and deterministic contributor acceptance | DP-601 |
-| DP-603 | IN PROGRESS | Fixture/data licensing inventory and attribution | M3 |
-| DP-604 | IN PROGRESS | Release/versioning/changelog policy and release checklist | DP-601, DP-602 |
-| DP-605 | IN PROGRESS | Maintainer/contributor documentation dry-run from clean clone | DP-001, DP-601 |
-| DP-606 | FUTURE | Public issue labels/project automation once remote exists | GitHub remote |
-| DP-607 | FUTURE | Optional SDK/MCP/skill only after HTTP contract is stable | DP-403 |
+| DP-601 | DONE | Package/development environment cleanup beyond POC naming | M1 |
+| DP-602 | DONE | CI matrix and deterministic contributor acceptance | DP-601 |
+| DP-603 | DONE | Fixture/data licensing inventory and attribution | M3 |
+| DP-604 | IN PROGRESS | Release/versioning/changelog policy and release checklist; reproducible local artifacts proven, external release authority still gated | DP-601, DP-602 |
+| DP-605 | DONE | Maintainer/contributor documentation dry-run from clean clone | DP-001, DP-601 |
+| DP-606 | IN PROGRESS | Public issue labels/project automation; local versioned label/triage contract + DP-602 validation implemented, hosted owner/visibility/permissions/dry-run pending | GitHub remote |
+| DP-607 | IN PROGRESS | Optional SDK/MCP/skill gate; internal stdlib read-only HTTP client contract + local mock CI implemented, owner surface/build decision and clean-clone/deprecation proof pending | DP-403 |
 
 Exit criteria: clean clone -> tests -> local demo is documented and reproducible; code,
 fixtures, and third-party attributions are publishable under explicit terms.

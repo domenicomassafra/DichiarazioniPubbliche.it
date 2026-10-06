@@ -1,0 +1,36 @@
+{
+  "schema_version": "dichiarazioni-pubbliche-triage-v1",
+  "canonical_backlog": "PLAN.md",
+  "ticket_directory": "docs/tickets",
+  "security_path": "SECURITY.md",
+  "external_sync_policy": "UNCONFIGURED",
+  "default_new_issue_state": "needs-triage",
+  "allowed_automation_actions": [
+    "suggest-type-label",
+    "suggest-area-label",
+    "add-needs-triage",
+    "validate-ticket-link"
+  ],
+  "human_only_actions": [
+    "set-ready",
+    "set-in-progress",
+    "set-blocked",
+    "set-needs-owner",
+    "set-closed",
+    "add-good-first-issue",
+    "add-release-label"
+  ],
+  "forbidden_automation_actions": [
+    "auto-close",
+    "auto-merge",
+    "auto-publish",
+    "auto-approve-evidence",
+    "auto-approve-finding",
+    "set-legal-status",
+    "set-rights-approved",
+    "fetch-issue-url",
+    "copy-private-security-report"
+  ],
+  "release_label_source": "DP-604",
+  "remote_mutation_enabled": false
+}

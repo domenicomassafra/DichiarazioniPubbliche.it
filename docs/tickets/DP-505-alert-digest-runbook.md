@@ -20,4 +20,21 @@ Turn health data into bounded, deduplicated operator actions with explicit escal
 
 The health digest now emits `blocker_actions` and SLO page candidates from the DP-504 taxonomy. Repeated identical blockers collapse to one cause/action row. `docs/ops/operator-runbook.md` records the recovery contract and explicitly forbids model/provider downgrade, gate lowering, canonical-data edits, and treating UNKNOWN as healthy.
 
-Remaining acceptance: exercise the digest/runbook on MiniPC, record incident ownership/contact path, and prove a representative page/non-page matrix. Until then the ticket remains IN PROGRESS.
+### Local acceptance advance — 2026-10-05
+
+- `docs/ops/operator-runbook.md` now assigns the repository owner acting as production
+  runtime operator as the primary operational incident owner and binds security/privacy
+  escalation to the private contact route already defined in `SECURITY.md`.
+- The runbook explicitly distinguishes that internal route from still-unresolved public
+  security/complaint contacts owned by DP-702/legal closure, so local operations do not
+  manufacture launch acceptance.
+- A representative `PAGE` / `NO_PAGE` matrix is documented for dead letters, failed
+  sources, provider/canary failures, SLO states, expected credential blockers, deferred
+  work and cost caps.
+- `tests/test_ops_runbook_contract.py` proves every documented matrix decision matches
+  the executable taxonomy and that owner/contact plus forbidden-remedy wording cannot
+  silently disappear.
+
+Remaining acceptance: exercise this exact matrix against a real MiniPC health digest and
+preserve the sanitized result. Until that runtime receipt exists the ticket remains
+IN PROGRESS.

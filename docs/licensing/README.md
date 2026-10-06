@@ -42,7 +42,7 @@ public finding.
 
 | `redistribution_status` | Count | Meaning |
 |---|---|---|
-| `allowed` | 27 | synthetic/derived/reference assets releasable with the code |
+| `allowed` | 30 | synthetic/derived/reference assets releasable with the code |
 | `pending-review` | 3 | owner/legal decision required before distribution |
 | `blocked` | 6 | **not** redistributable; must not ship in a release or public projection |
 | `metadata-only` / `private-only` | 0 | (none currently) |

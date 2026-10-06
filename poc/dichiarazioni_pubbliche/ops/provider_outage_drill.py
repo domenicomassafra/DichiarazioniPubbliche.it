@@ -203,7 +203,12 @@ def _snapshot(db: QueueRuntimeStore) -> dict[str, Any]:
             db,
             "SELECT count(*) FROM finding WHERE publication_status = 'PUBLISH'",
         ),
-        "cost_usd": _scalar(db, "SELECT COALESCE(sum(estimated_cost_usd), 0)::text FROM provider_receipt"),
+        "cost_usd": _scalar(
+            db,
+            "SELECT COALESCE(sum(CASE "
+            "WHEN billing_basis='MEASURED_PROVIDER_COST' THEN measured_cost_usd "
+            "ELSE estimated_cost_usd END), 0)::text FROM provider_receipt",
+        ),
     }
 
 

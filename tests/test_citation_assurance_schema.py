@@ -15,6 +15,12 @@ class CitationAssuranceSchemaTests(unittest.TestCase):
             / "migrations"
             / "20261005-add-finding-citation-assurance.sql"
         ).read_text()
+        cls.passage_binding_migration = (
+            ROOT
+            / "db"
+            / "migrations"
+            / "20261006-add-passage-citation-hash-binding.sql"
+        ).read_text()
 
     def test_schema_and_migration_have_assertion_and_citation_tables(self):
         for table in ("finding_assertion", "finding_assertion_citation"):
@@ -61,6 +67,20 @@ class CitationAssuranceSchemaTests(unittest.TestCase):
         self.assertGreaterEqual(lowered.count("create table if not exists"), 2)
         self.assertGreaterEqual(lowered.count("create index if not exists"), 3)
 
+    def test_unstructured_passage_binding_is_hash_bound_and_additive(self):
+        self.assertIn("passage_text_sha256", self.schema)
+        self.assertIn("source_content_sha256", self.schema)
+        self.assertIn("finding_assertion_passage_binding_valid", self.schema)
+        migration = self.passage_binding_migration.lower()
+        self.assertIn("add column if not exists passage_text_sha256", migration)
+        self.assertIn("add column if not exists source_content_sha256", migration)
+        self.assertIn("finding_assertion_passage_binding_valid", migration)
+        self.assertIn("create index if not exists", migration)
+        self.assertNotIn("drop table", migration)
+        self.assertNotIn("drop column", migration)
+        self.assertNotIn("update finding", migration)
+        self.assertNotIn("delete from", migration)
+
     def test_backup_and_restore_inventory_include_assertion_tables(self):
         backup = (ROOT / "deploy" / "ops" / "backup.sh").read_text()
         restore = (
@@ -85,6 +105,8 @@ class CitationAssuranceSchemaTests(unittest.TestCase):
         self.assertIn("FROM finding_assertion_citation citation", projection)
         self.assertIn("assertion.assertion_text = finding.rationale", projection)
         self.assertIn("verification.observation_ids ?", projection)
+        self.assertIn("finding_assertion_passage_binding_valid", projection)
+        self.assertNotIn("cited_passage.private_text", projection)
 
 
 if __name__ == "__main__":

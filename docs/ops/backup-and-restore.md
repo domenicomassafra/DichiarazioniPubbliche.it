@@ -4,7 +4,7 @@ Status: implementation complete on the development checkout; runtime drill still
 
 `deploy/ops/backup.sh` creates a PostgreSQL custom-format dump plus an observed row-count manifest. If a public projection bundle is configured, it copies the bundle verbatim and records its `dataset_sha256`. Backup directories are private and the dump is checked with `pg_restore --list` before the backup is called usable.
 
-`deploy/ops/restore_drill.sh` restores a selected backup into a throwaway database. It compares the source manifest with live restored row counts and delegates fail-closed verdicts to `dichiarazioni_pubbliche.ops.restore_verify`. A missing count, mismatched count, missing bundle hash, or changed bundle hash fails the drill. The verifier never regenerates data to manufacture a pass.
+`deploy/ops/restore_drill.sh` restores a selected backup into a throwaway database. Before restore it refuses the canonical production database name and any target that already has user relations. It compares the source manifest with live restored row counts and delegates fail-closed verdicts to `dichiarazioni_pubbliche.ops.restore_verify`. A missing count, mismatched count, missing bundle hash, or changed bundle hash fails the drill. The verifier never regenerates data to manufacture a pass. A regression test requires the backup manifest and restore verifier to cover every persistent table declared by the baseline schema or migrations, preventing new durable tables from silently falling out of the round-trip check.
 
 Production data must not be altered for acceptance. The restore target must be disposable. The public bundle is evidence to compare, not a substitute for restoring the operational database.
 

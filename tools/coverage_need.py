@@ -14,7 +14,7 @@ from dichiarazioni_pubbliche.coverage_needs import (  # noqa: E402
     coverage_need_event_id,
     discovery_hint_for_need,
 )
-from dichiarazioni_pubbliche.queue_runtime import QueueRuntimeStore  # noqa: E402
+from dichiarazioni_pubbliche.queue_store import ClaimEvidenceObservationStore  # noqa: E402
 
 
 def main() -> int:
@@ -46,7 +46,7 @@ def main() -> int:
     block.add_argument("--reason", default="")
 
     args = parser.parse_args()
-    store = QueueRuntimeStore(database_url=args.database_url)
+    store = ClaimEvidenceObservationStore(database_url=args.database_url)
     if args.command == "list":
         rows = store.searchable_coverage_needs(
             collection_id=args.collection_id,

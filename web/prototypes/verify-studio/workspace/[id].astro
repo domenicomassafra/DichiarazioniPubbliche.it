@@ -1,19 +1,19 @@
 ---
 import BaseLayout from "../../../src/layouts/BaseLayout.astro";
 import StudioWorkspaceClient from "../../../src/components/StudioWorkspaceClient";
-import { studioWorkspace } from "../../../src/data/studio";
+import { studioVerifyFixture } from "../../../src/data/studio";
 
 export function getStaticPaths() {
-  return [{ params: { id: studioWorkspace.id } }];
+  return [{ params: { id: "fixture-verify" } }];
 }
 ---
 
-<BaseLayout title={studioWorkspace.title} studio>
-  <div class="studio-shell">
+<BaseLayout title="Verify · fixture" studio>
+  <div class="studio-shell" data-density="studio">
     <div class="workspace-topline">
-      <strong>{studioWorkspace.title}</strong>
-      <span>{studioWorkspace.pipeline}</span>
+      <strong>{studioVerifyFixture.source_title}</strong>
+      <span>fixture_only</span>
     </div>
-    <StudioWorkspaceClient client:load />
+    <StudioWorkspaceClient model={studioVerifyFixture} client:load />
   </div>
 </BaseLayout>

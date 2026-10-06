@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "transcription-policy-v0",
+  "name": "transcription-policy-v1",
   "principles": {
     "single_asr_is_never_source_of_truth": true,
     "preserve_raw_candidates": true,

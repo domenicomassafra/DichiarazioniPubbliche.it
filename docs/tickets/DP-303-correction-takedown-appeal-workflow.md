@@ -190,7 +190,7 @@ retains the original decision and records the reason.
   every field that can appear in a notice or correction.
 
 ## Acceptance criteria
-- [ ] **AC-303.1:** Correction, takedown, and appeal requests have distinct typed
+- [x] **AC-303.1:** Correction, takedown, and appeal requests have distinct typed
   states and cannot satisfy one another's gates.
 - [ ] **AC-303.2:** A correction with a valid chain and complete reviews is
   projected as a new version while the previous approved version remains available
@@ -200,9 +200,9 @@ retains the original decision and records the reason.
   mutate the prior version.
 - [ ] **AC-303.4:** An approved takedown removes the current projection-owned file
   after regeneration but retains the private Finding, event chain, and receipts.
-- [ ] **AC-303.5:** A takedown cannot be triggered by a public submitter, cannot
+- [x] **AC-303.5:** A takedown cannot be triggered by a public submitter, cannot
   delete arbitrary content, and cannot publish an unreviewed reason.
-- [ ] **AC-303-6:** An appeal creates a new event, records reviewer separation (or
+- [x] **AC-303-6:** An appeal creates a new event, records reviewer separation (or
   the explicit exception), and never edits the original decision.
 - [ ] **AC-303-07:** Replayed and concurrent requests are idempotent, bounded, and
   do not create duplicate triggers or public versions.
@@ -295,3 +295,151 @@ owns validation/identity; the policy module owns transitions/authority.
 
 Repository checks run: `compileall` OK; full suite green (515 tests);
 `git diff --check` clean.
+
+## Implementation receipt — first runtime edge/service (2026-10-05)
+
+Status: **dependency-safe callable runtime implemented; public workflow remains
+DISABLED/BLOCKED; takedown/appeal durable request persistence is still missing.** No HTTP
+listener, public route, schema change, projection change, or direct Finding mutation was
+added.
+
+### Runtime seam implemented
+
+- Added `poc/dichiarazioni_pubbliche/challenge_intake.py`, a disabled-by-default callable
+  service that composes the existing `policy/challenge_workflow.py` state machine,
+  DP-302 caller-supplied `rate_limit_decision()`, and the canonical
+  `review_admin.record_correction` persistence/re-analysis path.
+- The launch profile must be explicitly configured, enabled, and list each enabled
+  challenge kind. Missing profile, missing caller-owned rate/quota state, malformed or
+  oversized input, and disabled kinds all fail closed before persistence.
+- Request shapes are kind-specific and mutually exclusive: CORRECTION requires
+  `finding_id`, `previous_finding_id`, bounded `reason`, and bounded JSON
+  `changed_fields`; TAKEDOWN requires `target_finding_id` + reason; APPEAL requires an
+  exact `target_finding_id`, `prior_decision_id`, and reason. Cross-kind fields are
+  rejected rather than ignored. This closes AC-303.1 at the edge/state-machine seam.
+- CORRECTION checks the exact superseding/previous Finding contexts and same-claim chain,
+  then delegates the write to `record_correction`. That canonical path creates only the
+  private correction record and deterministic `CORRECTION` re-analysis work; it does not
+  publish or directly edit the Finding. An invalid chain or persistence refusal returns
+  a bounded generic failure.
+- Exact correction replay reuses the deterministic correction ID and deterministic
+  re-analysis variant. The adapter observes the existing `enqueue_followup()` inserted
+  flag and reports `REPLAY_OR_CONCURRENT` when another request already won that work,
+  without creating a second trigger in the proved fake-store contract.
+- TAKEDOWN and APPEAL are intentionally dependency-blocked after their distinct policy
+  initiation gates. The current `review_event` schema has no takedown/appeal request
+  entity, so the adapter does **not** mislabel either request as `FINDING`, `CORRECTION`,
+  or another existing entity and performs zero store mutation. A future durable request
+  ledger requires its own approved persistence/schema work before those paths can move
+  beyond private intake.
+- Acknowledgements and loggable receipts contain only bounded kind/state/reason-code,
+  opaque deterministic request reference, receipt ID when a correction was actually
+  persisted, replay class, policy version/time metadata. They omit the private reason,
+  changed fields, raw store errors, and never claim `accepted`, `approved`, `verified`,
+  or `published`.
+
+### Focused proof
+
+`tests/test_challenge_intake.py` adds 15 tests covering disabled launch posture; valid
+private correction + re-analysis; deterministic replay; concurrent follow-up winner;
+invalid correction chain; distinct dependency-blocked takedown/appeal paths; cross-kind
+field rejection; malformed/oversized input; caller-supplied quota; missing rate state;
+no DNS/network/fetch/provider/publication/Finding mutation; private-reason/changed-field
+redaction; private store-error redaction; and non-claimant bounded acknowledgements.
+
+Existing policy/runtime proof also remains green in the focused run:
+`tests/test_policy_challenge.py`, `tests/test_correction_runtime.py`, and
+`tests/test_review_admin.py` (54 tests).
+
+### AC status after this follow-up
+
+- **AC-303.1 PASS** — three kinds have distinct typed request shapes, policy transitions,
+  and runtime paths; cross-kind fields cannot satisfy another kind's gate.
+- **AC-303.5 partial only** — the public/intake adapter cannot execute a hold, delete
+  content, or publish a reason, but no durable takedown request/authorized hold runtime
+  exists yet.
+- **AC-303-07 partial only** — correction replay/concurrent follow-up work is bounded and
+  deterministic locally; takedown/appeal create no work while dependency-blocked, but a
+  real concurrent durable-request ledger/MiniPC proof does not exist yet.
+- **AC-303.2/.3/.4/-6/-8/-9/-10 remain open.** This change deliberately did not touch
+  publication/projection, takedown hold transactions, appeal-event persistence,
+  stale-artifact cleanup, or MiniPC runtime acceptance.
+
+## Implementation receipt — private challenge ledger (2026-10-06)
+
+Status: **dependency-safe private persistence implemented; public projection, legal
+authority, destructive takedown, and launch remain blocked.**
+
+### Durable private contract
+
+- Added additive `private_challenge_request` and `private_challenge_event` tables in the
+  fresh schema plus replay-safe migration
+  `20261006-add-private-challenge-ledger.sql`. Both tables are private and append-only:
+  `UPDATE`, `DELETE`, and `TRUNCATE` are rejected. There is no mutable current-status
+  column and no delete/publication operation.
+- Requests are typed `CORRECTION`, `TAKEDOWN`, or `APPEAL` and bind one exact Finding to
+  an opaque `target_record_version`. Runtime derives that version from the persisted
+  Finding through `FindingRecordVersionStore`; intake cannot supply or override it. This
+  is freshness/version binding only, not legal authority or reviewer authority.
+- Events form one linear chain per request with sequence, previous event/hash, exact
+  target-version binding, workflow/event version, policy version, bounded actor/role/reason,
+  bounded transition context, and deterministic SHA-256 integrity/identity. Unique
+  sequence and one-successor indexes prevent multiple authoritative successors.
+- `PrivateChallengeLedgerStore.transition_request()` derives the current state by replay,
+  rebuilds `ChallengeContext`, and calls canonical
+  `policy.challenge_workflow.evaluate_transition()` before every appended transition.
+  Persisted replay calls the same evaluator again, so a structurally valid but
+  policy-invalid direct SQL event is not authoritative.
+- A `PUBLIC_SUBMITTER` may create only the root `PRIVATE_RECEIVED` request. Runtime rejects
+  any later transition by that role. The existing policy authorization/state guards remain
+  the transition authority; this ledger adds no legal conclusion and no public moderator
+  authority.
+
+### Takedown hold read model
+
+- `PUBLIC_HOLD_APPROVED` is not a status edit. The schema only permits it on a TAKEDOWN
+  event following `TRIAGE_PENDING` with an explicit reviewed-transition fact, and runtime
+  will append it only when canonical `evaluate_transition()` returns that state for an
+  authorized reviewed transition.
+- `current_hold_for_finding()` is read-only and intentionally private. It recomputes the
+  current Finding record version, replays every TAKEDOWN chain, recomputes event integrity,
+  and re-runs policy transitions. It returns `HOLD` only for an authoritative current
+  `PUBLIC_HOLD_APPROVED`; stale target binding, malformed/tampered chain, or unavailable
+  ledger/version state returns `UNKNOWN`/blocked rather than guessing. No
+  `public_projection` wiring is included in this tranche.
+
+### Intake convergence
+
+- `challenge_intake.submit_challenge()` now persists TAKEDOWN and APPEAL through the
+  private ledger instead of returning `TAKEDOWN_LEDGER_UNAVAILABLE` or
+  `APPEAL_LEDGER_UNAVAILABLE`. Intake can advance only to the first private work state:
+  `TRIAGE_PENDING` for TAKEDOWN and `INDEPENDENT_REVIEW_PENDING` for APPEAL. It has no path
+  to a public hold, appeal outcome, Finding mutation, notice publication, or deletion.
+- CORRECTION continues to use the existing canonical `record_correction` + explicit
+  re-analysis path. The new typed ledger supports CORRECTION roots so all three challenge
+  kinds share one persistence vocabulary, but this dependency-safe tranche does not fork
+  or replace the established correction transaction.
+
+### Focused proof and literal AC status
+
+- Disposable PostgreSQL proof is **11/11 PASS**: typed roots for all three kinds; exact
+  replay/idempotency; actor/reason bounds; public-submitter initiation-only; explicit
+  reviewed TAKEDOWN -> `PUBLIC_HOLD_APPROVED`; unreviewed TAKEDOWN -> `REFERRED`; append-only
+  mutation refusal; malformed direct hold -> `UNKNOWN`; stale Finding version -> `UNKNOWN`;
+  appeal reviewer-separation exception recording; real `submit_challenge()` TAKEDOWN/APPEAL
+  persistence; and fresh-schema/replay-safe-migration parity.
+- Broader focused challenge/correction/reply/reanalysis/review/version/schema proof is
+  **113/113 PASS**. The legacy unavailable reason codes are absent from `poc/` and `tests/`.
+- **AC-303.5 PASS** for the implemented private hold authority: a public submitter may
+  initiate a request but cannot advance it to a hold; only an explicit reviewed canonical
+  transition can create authoritative `PUBLIC_HOLD_APPROVED`; this code has no delete or
+  public-reason publication operation.
+- **AC-303-6 PASS** for private appeal persistence: an appeal has its own append-only event
+  chain, stores the prior decision as an immutable opaque reference, records reviewer
+  separation or an explicit exception in the decision event, and never edits that prior
+  decision. The ledger does not claim that the supplied prior-review reference or reviewer
+  identity is independently authoritative.
+- **AC-303-07 remains partial/open**: exact replay is idempotent and the database prevents
+  forks, but this tranche does not claim a concurrent-race acceptance proof or MiniPC proof.
+- **AC-303.2/.3/.4/-8/-9/-10 remain open.** No public projection, stale-artifact cleanup,
+  public notice, route, production mutation, or MiniPC canary was added or run.

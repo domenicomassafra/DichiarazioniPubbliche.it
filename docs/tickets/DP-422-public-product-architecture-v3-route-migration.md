@@ -1,6 +1,6 @@
 # DP-422 — Public Product Architecture v3 route/template migration
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-405, DP-406, DP-407, DP-408, DP-409, DP-426, DP-427, DP-428, DP-429
 
@@ -65,18 +65,18 @@ The maintained visual references are the nine mockups in `prototypes/final-hybri
 
 ## Acceptance criteria
 
-- [ ] `AC-422.1` The real public route set contains all canonical v3 primary templates and
+- [x] `AC-422.1` The real public route set contains all canonical v3 primary templates and
   no new public template without a distinct page job.
-- [ ] `AC-422.2` Legacy public URLs resolve through deterministic canonical redirects (or
+- [x] `AC-422.2` Legacy public URLs resolve through deterministic canonical redirects (or
   remain explicit aliases until such redirects are safe); no content becomes unreachable.
-- [ ] `AC-422.3` Public navigation is `Esplora`, `Metodo`, and search; Person/Topic/Content/
+- [x] `AC-422.3` Public navigation is `Esplora`, `Metodo`, and search; Person/Topic/Content/
   Trace remain contextual result/entity types rather than permanent nav clutter.
-- [ ] `AC-422.4` Person and Topic pages have visibly different information architectures.
-- [ ] `AC-422.5` Content supports both timed media and written locators without fabricating
+- [x] `AC-422.4` Person and Topic pages have visibly different information architectures.
+- [x] `AC-422.5` Content supports both timed media and written locators without fabricating
   timestamps.
-- [ ] `AC-422.6` Statement and Trace preserve source links, time, version/correction history
+- [x] `AC-422.6` Statement and Trace preserve source links, time, version/correction history
   and the no-intent-inference rule.
-- [ ] `AC-422.7` Public pages continue to consume only the approved fail-closed projection;
+- [x] `AC-422.7` Public pages continue to consume only the approved fail-closed projection;
   no LLM/provider call appears in a public request path.
 - [ ] `AC-422.8` Desktop and mobile QA match the selected v4 design contract and the
   maintained `prototypes/final-hybrid/` page families.
@@ -110,4 +110,24 @@ owned by their domain/public-contract tickets.
 
 ## Completion receipt
 
-Pending all page-owner tickets and integration proof.
+Local route integration is now executable. `web/scripts/check-route-contract.mjs` enumerates
+the built site and requires every v3 family (`/`, `/esplora/`, `/dichiarazioni/`, `/persone/`,
+`/temi/`, `/contenuti/`, `/tracce/`, `/metodo/` plus utility documents). The current demo build
+passes with 32 HTML routes. Sixteen legacy Fact-check/Record/Content/Compare URLs remain explicit
+compatibility aliases for now; each must emit a deterministic canonical target in the v3 family,
+and every target must exist in the same build. The checker also crawls 443 same-site HTML links
+with zero broken static destinations. The ordinary public build now materializes zero
+`/studio/**` routes; the four private Studio workspaces exist only in the explicit Studio
+fixture build. SiteHeader exposes only Esplora, Metodo and search as permanent public navigation.
+
+The static quality/client scan finds no database/provider runtime marker in the public request
+path. The route checker now enforces the distinct Person chronology/no-person-score IA versus
+the Topic dossier/context IA; local Chrome screenshots visually confirm the two layouts differ.
+Content locator acceptance is exercised twice: the ordinary demo build has three timed-locator
+pages, while the DP-407 fixture build has two timed pages plus one written `Passaggio 420–612`
+page. Written selection is labeled `Passaggio selezionato` and the checker rejects a fabricated
+clock timestamp. Statement pages must expose the source, version state and `#storia`; Trace pages
+must expose chronology, original-source links and the explicit no-intent boundary. These checks
+close AC-422.4 through AC-422.6 locally. Final redirect-vs-alias cutover, full v4 mobile design
+comparison, clean-clone proof and MiniPC canonical/redirect receipts remain open under AC-422.8/.9;
+DP-408, DP-409 and DP-429 remain completion gates.

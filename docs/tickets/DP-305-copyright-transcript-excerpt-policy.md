@@ -181,7 +181,7 @@ expose internal legal reasoning or rights receipts unless explicitly approved.
   review trail before any affected public excerpt is removed or replaced.
 
 ## Acceptance criteria
-- [ ] **AC-305.1:** Rights records default to `UNKNOWN`/private and include source,
+- [x] **AC-305.1:** Rights records default to `UNKNOWN`/private and include source,
   locator, receipt, permitted-use, expiry, attribution, and policy-version fields.
 - [ ] **AC-305.2:** A source with unknown, expired, missing, or conflicting rights
   status cannot produce a public excerpt or full transcript through any serializer.
@@ -283,3 +283,116 @@ Q-306-11, `OPEN`/`BLOCKING`.
 
 Repository checks run: `compileall` OK; full suite green (515 tests);
 `git diff --check` clean.
+
+---
+
+## Local implementation receipt — budget/media/audit gates (2026-10-05)
+
+Advanced the technical policy lane only; no source was legally cleared and no
+source-specific quotation/media conclusion was created.
+
+### Implemented
+
+- Extended `RightsStatus` with operational block/hold states already used elsewhere in
+  the runtime (`BLOCKED`, `FORBIDDEN`, `LEGAL_HOLD`, `RIGHTS_HOLD`, `TAKEDOWN_HOLD`,
+  `REMOVED`). They all suppress excerpt/media authorization with bounded reason codes;
+  `CLEARED` remains the only authorizing status.
+- Added `decide_excerpt_budget()`, a structured excerpt-budget calculator/decision.
+  Repository defaults remain fail-closed because `EXCERPT_PROFILE_APPROVED=False`.
+  Explicit test/profile inputs can prove count, individual-item, and derived total-char
+  enforcement without making those numbers legal rules.
+- Added `decide_media_use()` as the media/embed authorization seam matching the current
+  public Content shape (`public_media_url`, `media_policy_version`) without changing that
+  shared schema. Copy/republication modes remain prohibited. An embed requires
+  pre-existing `CLEARED` rights, explicit `MEDIA_EMBED_PUBLIC` use, safe HTTPS URL,
+  timed-media kind, policy version, and an explicitly approved source-specific profile.
+- Added `build_rights_policy_audit()`: bounded machine-code-only receipt, maximum eight
+  reason codes, no excerpt/body/URL/licence-note copying, and redaction of contact-shaped
+  subject identifiers.
+- Added explicit tests that unknown/rights-hold source state suppresses excerpts and full
+  transcript output; full transcript remains prohibited regardless of rights state.
+- Fixed the pre-existing read-time expiry gap: supplied `rights_reviewed_on`,
+  `rights_expires_on`, and `today` ISO dates are now validated; expiry after the declared
+  date, malformed clock/date input, or a future review date fail closed. No duration or
+  expiry period is invented.
+
+### Acceptance accounting
+
+No DP-305 AC is marked complete by this receipt. The local policy gates prove substantial
+parts of AC-305.2/.3/.4/.7, but those ACs intentionally quantify over public serializers,
+runtime/public integration, or hidden export paths that this clean-file change did not
+modify. AC-305.1 still needs the versioned persisted rights registry, AC-305.5 requires
+all public surfaces, AC-305.6 requires persisted DP-303 hold/event integration, and
+AC-305-8 remains a MiniPC canary.
+
+All source-specific terms, licences, quotation limits, attribution conditions, media
+permissions, retention decisions, and qualified Italy/EU conclusions remain open under
+Q-305-01..07 / DP-306 / DP-307.
+
+Validation for this receipt:
+
+- `PYTHONPATH=poc python3 -m unittest tests.test_policy_excerpt -v`: **51/51 PASS**;
+- excerpt policy + source-intelligence + current public-schema + DP-303 challenge suite:
+  **127/127 PASS**;
+- focused `compileall`: PASS;
+- focused `git diff --check`: PASS.
+
+---
+
+## Private versioned rights registry tranche — 2026-10-06
+
+Implemented the persisted private registry required by AC-305.1 only. This tranche does
+not clear any real source, define quotation limits, make a legal conclusion, approve an
+excerpt, or alter any public projection/schema/web surface.
+
+### Persisted contract
+
+- Added `private_source_rights_record` to the fresh database schema and additive migration
+  `20261006-add-private-rights-registry.sql`.
+- Database defaults are literally `rights_status='UNKNOWN'` and
+  `record_visibility='PRIVATE'`. The registry is append-only: UPDATE, DELETE and TRUNCATE
+  are rejected by database triggers.
+- Each record is bound to a `source_family`, exact `locator_kind` + `locator_value`, and
+  optional exact `content_id`, `evidence_id`, plus at most one transcript/canonical/passage
+  segment reference. When a segment is bound together with a Content, the private runtime
+  verifies that the segment actually belongs to that Content.
+- A rights receipt is represented only by bounded opaque `rights_receipt_ref`; there is no
+  receipt body, legal-reasoning, note, or public-approval field in the table/runtime
+  contract.
+- `permitted_uses` and `attribution_requirements` are bounded machine-code arrays. Review
+  and expiry are explicit `reviewed_at` / `expires_at` fields, review identity is the opaque
+  `reviewer_ref`, and `policy_version` is mandatory.
+- Non-`UNKNOWN`/`UNRESOLVED` states require a receipt reference. A `CLEARED` value, if an
+  operator later records one, additionally requires an explicit receipt + reviewer +
+  reviewed timestamp; the registry itself still has no excerpt/publication authorization
+  output.
+- Version history is append-only through explicit `supersedes_id`. Exact replay produces
+  the same deterministic record ID; a new decision without superseding the current leaf is
+  refused; a stale parent cannot branch the chain. Historical replay remains idempotent.
+
+`poc/dichiarazioni_pubbliche/rights_registry.py` provides the private persistence seam over
+that contract. It normalizes timestamps to UTC before fingerprinting, keeps receipt refs
+opaque, validates bounded decision codes and exact target relationships, and never calls
+`decide_excerpt()` or exposes a publication decision.
+
+### Focused PostgreSQL proof
+
+`tests/test_rights_registry_postgres.py` runs an ephemeral local PostgreSQL cluster with two
+databases: one from the current fresh `schema.v1.sql` and one minimal legacy dependency
+shape upgraded by the additive migration twice. The tests prove executed DB defaults
+`UNKNOWN|PRIVATE`, deterministic replay, historical replay, explicit supersession, no stale
+branch, append-only mutation refusal, exact Content/segment binding, opaque/no-body receipt
+storage, clearance guard requirements, migration replay safety, and fresh-schema/migration
+column parity.
+
+Focused registry + excerpt policy + source-intelligence + DP-303 policy/intake validation is
+**130/130 PASS**; full `python3 -m compileall -q poc tests`, Ruff on the new registry files,
+and repository `git diff --check` pass.
+
+### Acceptance accounting
+
+**AC-305.1 is now complete** for the private persisted/versioned rights-record contract.
+AC-305.2 through AC-305.7 and AC-305-8 remain open exactly as before: this tranche does not
+wire the registry into every serializer/projection path, create a rights-complaint durable
+hold integration, approve a source-specific excerpt policy, or run the MiniPC projection
+canary. No source-specific clearance or qualified Italy/EU legal conclusion is claimed.

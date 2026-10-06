@@ -6,7 +6,11 @@ import { loadPublicProjection } from "../lib/projection";
 const projection = await loadPublicProjection();
 ---
 
-<BaseLayout title="Esplora" description="Cerca dichiarazioni, persone, temi e contenuti nel record pubblico di Dichiarazioni Pubbliche.">
+<BaseLayout
+  title="Esplora"
+  description="Cerca dichiarazioni, persone, temi e contenuti nel record pubblico di Dichiarazioni Pubbliche."
+  canonicalPath="/esplora/"
+>
   <section class="shell explore-header">
     <div class="section-number" aria-hidden="true">R</div>
     <div>
@@ -16,6 +20,6 @@ const projection = await loadPublicProjection();
     </div>
   </section>
   <div class="shell">
-    <ExploreClient dossiers={projection.dossiers} client:load />
+    <ExploreClient expectedProjectionSha256={projection.dataset_sha256} client:load />
   </div>
 </BaseLayout>

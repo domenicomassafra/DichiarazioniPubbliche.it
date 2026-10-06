@@ -1,6 +1,6 @@
 # DP-601 — Package and development-environment cleanup beyond POC naming
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M6 — open-source and release hardening
 Depends on: DP-101..DP-106 and the existing deterministic backend/web baseline
 Launch state: specification only; no rename, release, remote creation, or external publication is authorized
@@ -291,3 +291,12 @@ AC-601.11 PASS (no remote/release/provider/MiniPC side effect).
 
 Not claimed: the package was **not released**, no remote or registry artifact was
 created, and the POC/v0 names were **not** renamed.
+
+### Follow-up verification — 2026-10-05
+
+The package contract remains green on the canonical hosted repository. DP-602 now has a
+successful hosted CI receipt that builds the distribution on Linux/macOS across Python
+3.11–3.14, installs the wheel into a fresh environment, imports the package, runs the
+benchmark with an explicit fixture path, and resolves the console script. The DP-602
+`clean-clone` job is also extended to perform the package build/install smoke directly in
+its detached clone, closing the documentation/CI mismatch found during the DP-605 audit.

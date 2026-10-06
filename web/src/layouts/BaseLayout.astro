@@ -21,6 +21,7 @@ const {
 const pageTitle = title === "Dichiarazioni Pubbliche" ? title : `${title} — Dichiarazioni Pubbliche`;
 const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
 const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-projection.json");
+const robotsPolicy = studio || usingDemoProjection ? "noindex,nofollow" : "index,follow";
 ---
 
 <!doctype html>
@@ -29,6 +30,7 @@ const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-pro
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta name="robots" content={robotsPolicy} />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f4f5f2" />
     {canonicalPath && <link rel="canonical" href={canonicalPath} />}

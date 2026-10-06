@@ -7,6 +7,9 @@ from typing import Any, Mapping
 
 from dichiarazioni_pubbliche.claim_contract import validate_atomic_claim
 from dichiarazioni_pubbliche.quote_binding import verify_written_quote_binding
+from dichiarazioni_pubbliche.wording_contract import (
+    validate_wording_contract_metadata,
+)
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.text_provenance import make_text_provenance_candidate
 
@@ -14,6 +17,7 @@ from dichiarazioni_pubbliche.text_provenance import make_text_provenance_candida
 PROMOTION_VERSION = "claim-candidate-promotion-v1"
 PROMOTION_CHANNELS = frozenset({"WRITTEN", "MEDIA"})
 PROMOTABLE_CANDIDATE_STATES = frozenset({"CANDIDATE", "DUPLICATE"})
+MEDIA_QUOTE_BINDING_VERSION = "exact-media-quote-binding-v1"
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,81 @@ def deterministic_promoted_claim_id(candidate_id: str) -> str:
     return _digest("claim:promoted", PROMOTION_VERSION, candidate_id)
 
 
+@dataclass(frozen=True)
+class MediaQuoteBindingResult:
+    status: str
+    reason_code: str
+    statement_text_sha256: str
+    recomputed_text_sha256: str
+    start_char: int
+    end_char: int
+    version: str = MEDIA_QUOTE_BINDING_VERSION
+
+    @property
+    def verified(self) -> bool:
+        return self.status == "VERIFIED"
+
+
+def verify_media_quote_binding(
+    *,
+    statement_text_sha256: str,
+    canonical_text: str,
+    quote_local_start_char: object,
+    quote_local_end_char: object,
+) -> MediaQuoteBindingResult:
+    statement_hash = str(statement_text_sha256 or "").strip().lower()
+    if len(statement_hash) != 64 or any(
+        char not in "0123456789abcdef" for char in statement_hash
+    ):
+        raise ValueError("MEDIA_QUOTE_STATEMENT_HASH_INVALID")
+    if quote_local_start_char is None or quote_local_end_char is None:
+        return MediaQuoteBindingResult(
+            status="BLOCKED",
+            reason_code="MEDIA_QUOTE_OFFSETS_MISSING",
+            statement_text_sha256=statement_hash,
+            recomputed_text_sha256="",
+            start_char=-1,
+            end_char=-1,
+        )
+    if (
+        not isinstance(quote_local_start_char, int)
+        or isinstance(quote_local_start_char, bool)
+        or not isinstance(quote_local_end_char, int)
+        or isinstance(quote_local_end_char, bool)
+    ):
+        raise ValueError("MEDIA_QUOTE_OFFSETS_INVALID")
+    start = quote_local_start_char
+    end = quote_local_end_char
+    text = str(canonical_text or "")
+    if start < 0 or end <= start or end > len(text):
+        return MediaQuoteBindingResult(
+            status="BLOCKED",
+            reason_code="MEDIA_QUOTE_SPAN_INVALID",
+            statement_text_sha256=statement_hash,
+            recomputed_text_sha256="",
+            start_char=start,
+            end_char=end,
+        )
+    recomputed = hashlib.sha256(text[start:end].encode("utf-8")).hexdigest()
+    if recomputed != statement_hash:
+        return MediaQuoteBindingResult(
+            status="BLOCKED",
+            reason_code="MEDIA_QUOTE_HASH_MISMATCH",
+            statement_text_sha256=statement_hash,
+            recomputed_text_sha256=recomputed,
+            start_char=start,
+            end_char=end,
+        )
+    return MediaQuoteBindingResult(
+        status="VERIFIED",
+        reason_code="EXACT_MEDIA_SOURCE_SPAN_VERIFIED",
+        statement_text_sha256=statement_hash,
+        recomputed_text_sha256=recomputed,
+        start_char=start,
+        end_char=end,
+    )
+
+
 PROMOTION_CONTEXT_SQL_V1 = r"""
 WITH candidate AS (
     SELECT
@@ -84,6 +163,7 @@ WITH candidate AS (
         sc.status AS statement_status,
         sc.speaker_person_id,
         sc.statement_text_hash,
+        sc.metadata AS statement_metadata,
         sc.statement_at,
         sc.attribution_method,
         content.canonical_url,
@@ -112,6 +192,7 @@ WITH candidate AS (
         capture.status AS capture_status,
         capture.hold_status AS capture_hold_status,
         p.canonical_segment_id,
+        segment.canonical_text AS segment_canonical_text,
         segment.transcript_status AS segment_status,
         segment.publication_blocked AS segment_publication_blocked,
         segment.speaker_person_id AS segment_speaker_person_id,
@@ -195,6 +276,7 @@ WITH candidate AS (
                 'capture_status', capture_status,
                 'capture_hold_status', capture_hold_status,
                 'canonical_segment_id', canonical_segment_id,
+                'segment_canonical_text', segment_canonical_text,
                 'segment_status', segment_status,
                 'segment_publication_blocked', segment_publication_blocked,
                 'segment_speaker_person_id', segment_speaker_person_id,
@@ -276,6 +358,7 @@ SELECT COALESCE((
         'speaker_person_id', c.speaker_person_id,
         'speaker_is_public', COALESCE(c.is_public_figure, false),
         'statement_text_hash', c.statement_text_hash,
+        'statement_metadata', c.statement_metadata,
         'statement_at', c.statement_at,
         'attribution_method', c.attribution_method,
         'canonical_url', c.canonical_url,
@@ -297,15 +380,19 @@ _LINK_EXISTING_SQL = r"""
 WITH lock_row AS (
     SELECT pg_advisory_xact_lock(hashtextextended(:'candidate_id', 0))
 ), candidate AS (
-    SELECT cc.*, sc.id AS statement_id, sc.status AS statement_status, sc.speaker_person_id
+    SELECT cc.*, sc.id AS statement_id, sc.status AS statement_status,
+           sc.speaker_person_id, sc.statement_text_hash,
+           sc.metadata AS statement_metadata
     FROM claim_candidate cc
     JOIN statement_candidate sc
       ON sc.id=cc.statement_candidate_id AND sc.content_id=cc.content_id
     CROSS JOIN lock_row
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
-      AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
+      AND cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'
       AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
+      AND cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'
+      AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (
@@ -337,6 +424,61 @@ WITH lock_row AS (
         AND seg.transcript_status='RESOLVED'
         AND seg.publication_blocked=false
         AND seg.speaker_person_id=c.speaker_person_id
+        AND CASE
+            WHEN jsonb_typeof(
+                c.statement_metadata->'quote_local_start_char'
+            ) = 'number'
+             AND jsonb_typeof(
+                c.statement_metadata->'quote_local_end_char'
+             ) = 'number'
+             AND (c.statement_metadata->>'quote_local_start_char')::numeric >= 0
+             AND (c.statement_metadata->>'quote_local_start_char')::numeric =
+                 trunc((c.statement_metadata->>'quote_local_start_char')::numeric)
+             AND (c.statement_metadata->>'quote_local_end_char')::numeric =
+                 trunc((c.statement_metadata->>'quote_local_end_char')::numeric)
+             AND (c.statement_metadata->>'quote_local_end_char')::numeric >
+                 (c.statement_metadata->>'quote_local_start_char')::numeric
+             AND (c.statement_metadata->>'quote_local_end_char')::numeric <=
+                 char_length(seg.canonical_text)
+            THEN encode(
+                sha256(
+                    convert_to(
+                        substring(
+                            seg.canonical_text
+                            FROM (
+                                (c.statement_metadata->>'quote_local_start_char')::numeric
+                                + 1
+                            )::integer
+                            FOR (
+                                (c.statement_metadata->>'quote_local_end_char')::numeric
+                                - (c.statement_metadata->>'quote_local_start_char')::numeric
+                            )::integer
+                        ),
+                        'UTF8'
+                    )
+                ),
+                'hex'
+            ) = c.statement_text_hash
+            ELSE false
+        END
+        AND c.metadata#>'{context_integrity,quote_start}' =
+            c.statement_metadata->'quote_local_start_char'
+        AND c.metadata#>'{context_integrity,quote_end}' =
+            c.statement_metadata->'quote_local_end_char'
+        AND c.metadata#>>'{context_integrity,quote_sha256}' = c.statement_text_hash
+        AND EXISTS (
+            SELECT 1
+            FROM canonical_segment_candidate media_candidate_link
+            JOIN transcript_segment media_candidate_segment
+              ON media_candidate_segment.id =
+                 media_candidate_link.transcript_segment_id
+            JOIN transcript_variant media_candidate_variant
+              ON media_candidate_variant.id = media_candidate_segment.variant_id
+            WHERE media_candidate_link.canonical_segment_id = seg.id
+              AND upper(media_candidate_variant.source_kind) IN (
+                  'OFFICIAL_TRANSCRIPT', 'HUMAN_AUDIO_VERIFIED'
+              )
+        )
       )
 ), target_valid AS (
     SELECT ac.id
@@ -406,8 +548,10 @@ WITH lock_row AS (
     CROSS JOIN lock_row
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
-      AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
+      AND cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'
       AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
+      AND cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'
+      AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
@@ -516,15 +660,19 @@ _PROMOTE_MEDIA_NEW_SQL = r"""
 WITH lock_row AS (
     SELECT pg_advisory_xact_lock(hashtextextended(:'candidate_id', 0))
 ), candidate AS (
-    SELECT cc.*, sc.id AS statement_id, sc.status AS statement_status, sc.speaker_person_id
+    SELECT cc.*, sc.id AS statement_id, sc.status AS statement_status,
+           sc.speaker_person_id, sc.statement_text_hash,
+           sc.metadata AS statement_metadata
     FROM claim_candidate cc
     JOIN statement_candidate sc
       ON sc.id=cc.statement_candidate_id AND sc.content_id=cc.content_id
     CROSS JOIN lock_row
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
-      AND COALESCE(cc.metadata->>'speech_mode','DIRECT_UTTERANCE')='DIRECT_UTTERANCE'
+      AND cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'
       AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
+      AND cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'
+      AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
@@ -548,6 +696,60 @@ WITH lock_row AS (
     WHERE seg.transcript_status='RESOLVED'
       AND seg.publication_blocked=false
       AND seg.speaker_person_id=c.speaker_person_id
+      AND CASE
+          WHEN jsonb_typeof(
+              c.statement_metadata->'quote_local_start_char'
+          ) = 'number'
+           AND jsonb_typeof(
+              c.statement_metadata->'quote_local_end_char'
+           ) = 'number'
+           AND (c.statement_metadata->>'quote_local_start_char')::numeric >= 0
+           AND (c.statement_metadata->>'quote_local_start_char')::numeric =
+               trunc((c.statement_metadata->>'quote_local_start_char')::numeric)
+           AND (c.statement_metadata->>'quote_local_end_char')::numeric =
+               trunc((c.statement_metadata->>'quote_local_end_char')::numeric)
+           AND (c.statement_metadata->>'quote_local_end_char')::numeric >
+               (c.statement_metadata->>'quote_local_start_char')::numeric
+           AND (c.statement_metadata->>'quote_local_end_char')::numeric <=
+               char_length(seg.canonical_text)
+          THEN encode(
+              sha256(
+                  convert_to(
+                      substring(
+                          seg.canonical_text
+                          FROM (
+                              (c.statement_metadata->>'quote_local_start_char')::numeric
+                              + 1
+                          )::integer
+                          FOR (
+                              (c.statement_metadata->>'quote_local_end_char')::numeric
+                              - (c.statement_metadata->>'quote_local_start_char')::numeric
+                          )::integer
+                      ),
+                      'UTF8'
+                  )
+              ),
+              'hex'
+          ) = c.statement_text_hash
+          ELSE false
+      END
+      AND c.metadata#>'{context_integrity,quote_start}' =
+          c.statement_metadata->'quote_local_start_char'
+      AND c.metadata#>'{context_integrity,quote_end}' =
+          c.statement_metadata->'quote_local_end_char'
+      AND c.metadata#>>'{context_integrity,quote_sha256}' = c.statement_text_hash
+      AND EXISTS (
+          SELECT 1
+          FROM canonical_segment_candidate media_candidate_link
+          JOIN transcript_segment media_candidate_segment
+            ON media_candidate_segment.id = media_candidate_link.transcript_segment_id
+          JOIN transcript_variant media_candidate_variant
+            ON media_candidate_variant.id = media_candidate_segment.variant_id
+          WHERE media_candidate_link.canonical_segment_id = seg.id
+            AND upper(media_candidate_variant.source_kind) IN (
+                'OFFICIAL_TRANSCRIPT', 'HUMAN_AUDIO_VERIFIED'
+            )
+      )
 ), duplicate_targets AS (
     SELECT ac.id
     FROM media c
@@ -693,6 +895,32 @@ def promote_claim_candidate(
     if not isinstance(passage, Mapping):
         return _blocked(request, "PROMOTION_PROVENANCE_INVALID")
 
+    candidate_metadata = context.get("candidate_metadata") or {}
+    if not isinstance(candidate_metadata, Mapping):
+        return _blocked(request, "PROMOTION_METADATA_INVALID")
+    speech_mode = str(candidate_metadata.get("speech_mode") or "").strip()
+    if speech_mode != "DIRECT_UTTERANCE":
+        return _blocked(request, "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED")
+    context_integrity = candidate_metadata.get("context_integrity")
+    if not isinstance(context_integrity, Mapping):
+        return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_MISSING")
+    if str(context_integrity.get("state") or "") not in {
+        "CLEAR_AUTOMATIC",
+        "APPROVED_CURATED",
+    }:
+        return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_REVIEW_REQUIRED")
+    try:
+        wording_contract = validate_wording_contract_metadata(
+            candidate_metadata.get("wording")
+        )
+    except ValueError:
+        return _blocked(request, "PROMOTION_WORDING_CONTRACT_INVALID")
+    if (
+        wording_contract["source_occurrence"]["wording_type"]
+        != "VERBATIM_ORIGINAL"
+    ):
+        return _blocked(request, "PROMOTION_WORDING_DIRECT_SOURCE_REQUIRED")
+
     if request.provenance_channel == "WRITTEN":
         if int(context.get("written_count") or 0) != 1 or passage.get("capture_id") is None:
             return _blocked(request, "PROMOTION_CHANNEL_MISMATCH")
@@ -730,23 +958,29 @@ def promote_claim_candidate(
             return _blocked(request, "PROMOTION_MEDIA_VERBATIM_NOT_ELIGIBLE")
         if passage.get("segment_speaker_provenance_ok") is not True:
             return _blocked(request, "PROMOTION_MEDIA_SPEAKER_PROOF_MISSING")
-
-    candidate_metadata = context.get("candidate_metadata") or {}
-    if not isinstance(candidate_metadata, Mapping):
-        return _blocked(request, "PROMOTION_METADATA_INVALID")
-    speech_mode = str(
-        candidate_metadata.get("speech_mode") or "DIRECT_UTTERANCE"
-    ).strip()
-    if speech_mode != "DIRECT_UTTERANCE":
-        return _blocked(request, "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED")
-    context_integrity = candidate_metadata.get("context_integrity")
-    if not isinstance(context_integrity, Mapping):
-        return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_MISSING")
-    if str(context_integrity.get("state") or "") not in {
-        "CLEAR_AUTOMATIC",
-        "APPROVED_CURATED",
-    }:
-        return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_REVIEW_REQUIRED")
+        statement_metadata = context.get("statement_metadata")
+        if not isinstance(statement_metadata, Mapping):
+            return _blocked(request, "PROMOTION_MEDIA_QUOTE_OFFSETS_MISSING")
+        try:
+            media_quote_binding = verify_media_quote_binding(
+                statement_text_sha256=str(context.get("statement_text_hash") or ""),
+                canonical_text=str(passage.get("segment_canonical_text") or ""),
+                quote_local_start_char=statement_metadata.get(
+                    "quote_local_start_char"
+                ),
+                quote_local_end_char=statement_metadata.get("quote_local_end_char"),
+            )
+        except (TypeError, ValueError):
+            return _blocked(request, "PROMOTION_MEDIA_QUOTE_BINDING_INVALID")
+        if not media_quote_binding.verified:
+            return _blocked(request, f"PROMOTION_{media_quote_binding.reason_code}")
+        if (
+            context_integrity.get("quote_start") != media_quote_binding.start_char
+            or context_integrity.get("quote_end") != media_quote_binding.end_char
+            or str(context_integrity.get("quote_sha256") or "").lower()
+            != media_quote_binding.statement_text_sha256
+        ):
+            return _blocked(request, "PROMOTION_MEDIA_QUOTE_CONTEXT_MISMATCH")
 
     duplicate_ids = tuple(str(x) for x in (context.get("duplicate_target_ids") or []))
     if len(set(duplicate_ids)) > 1:
@@ -763,6 +997,11 @@ def promote_claim_candidate(
     if request.provenance_channel == "WRITTEN":
         metadata["quote_binding_version"] = quote_binding.version
         metadata["quote_binding_reason"] = quote_binding.reason_code
+    else:
+        metadata["quote_binding_version"] = media_quote_binding.version
+        metadata["quote_binding_reason"] = media_quote_binding.reason_code
+        metadata["quote_local_start_char"] = media_quote_binding.start_char
+        metadata["quote_local_end_char"] = media_quote_binding.end_char
     provenance_refs: tuple[str, ...]
 
     if duplicate_ids:
@@ -906,10 +1145,13 @@ __all__ = [
     "PROMOTION_CHANNELS",
     "PROMOTION_CONTEXT_SQL_V1",
     "PROMOTION_VERSION",
+    "MEDIA_QUOTE_BINDING_VERSION",
+    "MediaQuoteBindingResult",
     "PromotionReceipt",
     "PromotionRequest",
     "deterministic_promoted_claim_id",
     "deterministic_promotion_id",
     "deterministic_promotion_key",
     "promote_claim_candidate",
+    "verify_media_quote_binding",
 ]

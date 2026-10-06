@@ -59,11 +59,25 @@ class KnowledgeSchemaTests(unittest.TestCase):
             self.assertIn("status IN ('ACTIVE', 'SUPERSEDED')", block)
             self.assertNotIn("truth_score", block.lower())
 
-    def test_public_projection_does_not_read_private_resolution_tables(self):
+    def test_public_projection_private_resolution_reads_are_dp222_gated(self):
         projection=(ROOT / "poc" / "dichiarazioni_pubbliche" / "public_projection.py").read_text()
-        for table in ("entity_identifier","entity_resolution_candidate"):
-            self.assertNotIn(f"FROM {table}", projection)
-            self.assertNotIn(f"JOIN {table}", projection)
+        schema=(ROOT / "poc" / "dichiarazioni_pubbliche" / "public_schema.py").read_text()
+        # DP-114 kept these tables private from the original projection. DP-222 is the
+        # separately-approved bridge: reviewed rows may now be consumed as internal gate
+        # input, but they are never a public entity graph or public dossier fields.
+        self.assertIn("evaluate_public_attribution", projection)
+        self.assertIn("public_attribution_input", projection)
+        self.assertIn("FROM entity_identifier", projection)
+        self.assertIn("FROM entity_resolution_candidate", projection)
+        for private_key in (
+            "retrieval_score",
+            "supporting_features",
+            "contradicting_features",
+            "identifier_value",
+            "speaker_label",
+        ):
+            self.assertIn(private_key, projection)
+            self.assertIn(private_key, schema)
 
     def test_backup_restore_inventory_includes_knowledge_tables(self):
         backup=(ROOT / "deploy" / "ops" / "backup.sh").read_text()

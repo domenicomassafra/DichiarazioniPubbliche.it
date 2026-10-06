@@ -17,7 +17,19 @@ from dichiarazioni_pubbliche.public_projection import (  # noqa: E402
     build_public_projection,
     dossier_jsonld,
 )
-from tests.test_public_projection import FakeSource, valid_row  # noqa: E402
+from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256  # noqa: E402
+from dichiarazioni_pubbliche.wording_contract import (  # noqa: E402
+    WordingType,
+    make_summary_wording,
+    make_translation_wording,
+)
+from tests.test_public_projection import (  # noqa: E402
+    FakeContentSource,
+    FakeSource,
+    reset_row_wording,
+    valid_content_row,
+    valid_row,
+)
 
 
 class LinkedDataTests(unittest.TestCase):
@@ -69,6 +81,71 @@ class LinkedDataTests(unittest.TestCase):
         for token in forbidden:
             self.assertNotIn(token, encoded)
 
+    def test_rdf_wording_metadata_distinguishes_source_and_derived_without_text_leak(self):
+        row = valid_row()
+        occurrence_id = f"statement:{row['claim_id']}"
+        summary_text = "Sintesi editoriale privata."
+        translation_text = "The value is 10."
+        summary = make_summary_wording(
+            occurrence_id=occurrence_id,
+            summary=summary_text,
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            language="it",
+            derivation_version="test-v1",
+        )
+        translation = make_translation_wording(
+            occurrence_id=occurrence_id,
+            source_text=row["normalized_claim"],
+            translated_text=translation_text,
+            source_wording_type=WordingType.VERBATIM_ORIGINAL,
+            source_language="it",
+            target_language="en",
+            method="HUMAN",
+            derivation_version="test-v1",
+            human_reviewed=True,
+        )
+        reset_row_wording(row, representations=(summary, translation))
+        encoded = projection_ntriples(build_public_projection(FakeSource([row])))
+        occurrence_uri = public_resource_uri("occurrence", occurrence_id)
+        self.assertIn(f"<{occurrence_uri}>", encoded)
+        self.assertIn('"VERBATIM_ORIGINAL"', encoded)
+        self.assertIn('"PARAPHRASE"', encoded)
+        self.assertIn('"SUMMARY"', encoded)
+        self.assertIn('"TRANSLATION"', encoded)
+        self.assertIn('"HUMAN_REVIEWED"', encoded)
+        self.assertIn('"DERIVED_REPRESENTATION"', encoded)
+        self.assertIn('"false"', encoded)
+        self.assertNotIn(summary_text, encoded)
+        self.assertNotIn(translation_text, encoded)
+
+    def test_zero_finding_public_content_is_present_in_linked_data(self):
+        payload = build_public_projection(
+            FakeContentSource([], [valid_content_row()])
+        )
+        encoded = projection_ntriples(payload)
+        content_uri = public_resource_uri("content", "content:a")
+        self.assertIn(f"<{content_uri}>", encoded)
+        self.assertIn('"Source"', encoded)
+        self.assertIn('"VIDEO"', encoded)
+        self.assertNotIn("review:content-a", encoded)
+        self.assertNotIn("private_capture_path", encoded)
+
+    def test_approved_public_media_metadata_is_linked_without_private_state(self):
+        payload = build_public_projection(
+            FakeContentSource(
+                [],
+                [
+                    valid_content_row(
+                        public_media_url="https://media.example.test/embed/1",
+                        media_policy_version="public-media-v1",
+                    )
+                ],
+            )
+        )
+        encoded = projection_ntriples(payload)
+        self.assertIn("https://media.example.test/embed/1", encoded)
+        self.assertIn('"public-media-v1"', encoded)
+
     def test_no_person_score_or_ranking_is_exported(self):
         encoded = projection_ntriples(self.payload()).lower()
         for token in ("person_score", "truth_score", "trust_score", "ranking", "leaderboard"):
@@ -110,6 +187,7 @@ class LinkedDataTests(unittest.TestCase):
                 ],
             }
         ]
+        payload["dataset_sha256"] = projection_dataset_sha256(payload)
         encoded = projection_ntriples(payload)
         self.assertIn(f"<{topic_public_uri('tema-a')}>", encoded)
 

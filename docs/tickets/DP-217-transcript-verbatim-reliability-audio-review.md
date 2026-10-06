@@ -55,14 +55,14 @@ human audio review of the exact quoted span before it can be represented as verb
   direct quote cannot be public merely because `canonical_transcript` exists.
 - [x] **AC-217.2:** `SINGLE_ASR`, `PLATFORM_CAPTION` and unreviewed `MULTI_ASR_AGREEMENT`
   are not v1 public-verbatim authority.
-- [ ] **AC-217.3:** Runtime already reserves HUMAN_AUDIO_VERIFIED as the only non-official eligible method; persist the exact human audio review event/source version before this criterion is complete.
+- [x] **AC-217.3:** Runtime reserves HUMAN_AUDIO_VERIFIED as the only non-official eligible method and the private append-only `transcript_verbatim_review_event` ledger binds the human decision to the exact source variant hash, segment hash and audio range.
   tied to the exact audio/time range and immutable transcript/source version.
 - [x] **AC-217.4:** Existing fixtures cover dropped negation, changed number/name-sensitive disagreement and machine-only holds; add homophone/punctuation/cross-talk cases to DP-223 before final closure.
   punctuation ambiguity and overlapping speech remain held until source-faithful review.
-- [ ] **AC-217.5:** Reviewer correction creates a derived reviewed representation and
+- [x] **AC-217.5:** Reviewer correction creates a derived reviewed representation and
   preserves the original provider/platform variant and hash.
-- [ ] **AC-217.6:** Any later transcript/source-version change stales the approval and
-  blocks projection until re-review.
+- [ ] **AC-217.6:** A deterministic freshness check now detects later transcript/source-version, source-segment hash or reviewed-range changes, but the canonical projection path must consume that persisted freshness before this criterion can be closed; any such change must stale the approval and
+  block projection until re-review.
 - [x] **AC-217.7:** The internal/publication gate distinguishes official, human-verified and machine-only provenance without accuracy scores; bounded public disclosure can reuse existing source_kind metadata.
   provenance without exposing provider prompts, raw transcript bodies or accuracy hype.
 - [ ] **AC-217.8:** Deterministic fixture, full suite, benchmark and MiniPC canary prove the
@@ -84,4 +84,4 @@ turn a human-corrected transcript into a destructive rewrite of provider evidenc
 
 ## Completion receipt
 
-Local verbatim-evidence gate implemented 2026-10-05: transcript reconciliation classifies OFFICIAL_TRANSCRIPT, HUMAN_AUDIO_VERIFIED, PLATFORM_CAPTION, MULTI_ASR_AGREEMENT, SINGLE_ASR and UNVERIFIED; media Claim promotion and public projection both require official/human-verified authority. Persistent human-audio review events, stale-review invalidation, expanded adversarial fixtures and MiniPC proof remain open.
+Local verbatim-evidence gate implemented 2026-10-05: transcript reconciliation classifies OFFICIAL_TRANSCRIPT, HUMAN_AUDIO_VERIFIED, PLATFORM_CAPTION, MULTI_ASR_AGREEMENT, SINGLE_ASR and UNVERIFIED; media Claim promotion and public projection both require official/human-verified authority. On 2026-10-06 the additive private `transcript_verbatim_review_event` ledger and `source_span_review.py` runtime added exact variant/segment/range binding, append-only review history, a derived HUMAN_AUDIO_VERIFIED representation that leaves provider evidence unchanged, and deterministic stale-review detection. Disposable PostgreSQL proof loads the canonical schema, replays the migration twice and verifies both append-only enforcement and source preservation. Canonical projection consumption of the persisted freshness decision, expanded homophone/punctuation/cross-talk adversarial fixtures and the release-candidate MiniPC proof remain open.
