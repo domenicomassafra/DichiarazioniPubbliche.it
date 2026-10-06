@@ -234,7 +234,11 @@ class QueueRuntimeTests(unittest.TestCase):
 
     def test_operation_ledger_query_preserves_unknown_legacy_cost(self):
         class CaptureStore(QueueRuntimeStore):
+            def __init__(self):
+                self.sql = ""
+
             def run(self, sql, **variables):
+                self.sql = sql
                 return (
                     '[{"receipt_id":"receipt:old","operation_key":"legacy:receipt:old",'
                     '"attempt":1,"provider_id":"provider:a","operation":"OLD",'
@@ -245,9 +249,18 @@ class QueueRuntimeTests(unittest.TestCase):
                     '"collection_id":null}]'
                 )
 
-        receipts = CaptureStore().operation_ledger_receipts(source_id="source:a")
+        store = CaptureStore()
+        receipts = store.operation_ledger_receipts(source_id="source:a")
         self.assertEqual(len(receipts), 1)
         self.assertEqual(receipts[0].billing_basis, "UNKNOWN")
+        # Empty optional timestamp filters must never be cast directly. PostgreSQL
+        # may evaluate a constant cast before the OR short-circuit, so ''::timestamptz
+        # fails even when the NULLIF guard is true. Cast the NULLIF result instead.
+        self.assertIn("NULLIF(:'since','')::timestamptz", store.sql)
+        self.assertIn("NULLIF(:'until','')::timestamptz", store.sql)
+        self.assertNotIn(":'since'::timestamptz", store.sql)
+        self.assertNotIn(":'until'::timestamptz", store.sql)
+
         summary = CaptureStore().operation_ledger_summary(source_id="source:a")
         self.assertFalse(summary.cost_complete)
         self.assertEqual(summary.unknown_cost_operation_count, 1)

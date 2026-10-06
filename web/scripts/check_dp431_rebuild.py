@@ -150,7 +150,14 @@ def main() -> int:
     new, removed_finding, removed_person, removed_content, removed_relation = _hold_projection(old)
     corrected, old_finding, corrected_finding, old_claim, corrected_shared_routes = _corrected_projection(old)
 
-    with tempfile.TemporaryDirectory(prefix="dp431-static-rebuild-") as raw:
+    # Astro may move prerendered assets with rename(2). Keep the acceptance
+    # workspace on the same filesystem as web/.astro so Linux hosts where
+    # /tmp is a separate mount do not fail with EXDEV before the DP-431 guard
+    # itself is exercised.
+    with tempfile.TemporaryDirectory(
+        prefix=".dp431-static-rebuild-",
+        dir=WEB_ROOT,
+    ) as raw:
         root = Path(raw)
         old_path = root / "old.json"
         new_path = root / "held.json"

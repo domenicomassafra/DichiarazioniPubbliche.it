@@ -353,12 +353,12 @@ class QueueExecutionCostStore(PsqlRuntime):
                 AND (
                     NULLIF(:'since','') IS NULL
                     OR COALESCE(r.started_at,r.completed_at) >=
-                        :'since'::timestamptz
+                        NULLIF(:'since','')::timestamptz
                 )
                 AND (
                     NULLIF(:'until','') IS NULL
                     OR COALESCE(r.started_at,r.completed_at) <
-                        :'until'::timestamptz
+                        NULLIF(:'until','')::timestamptz
                 );
             """,
             source_id=source_id or "",
