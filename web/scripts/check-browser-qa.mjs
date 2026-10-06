@@ -144,51 +144,78 @@ async function launchChrome(origin, { scale = 1 } = {}) {
     `${origin}/esplora/`,
   ];
   const child = spawn(chromeBin, args, { stdio: ["ignore", "ignore", "pipe"] });
-  const activePort = path.join(profile, "DevToolsActivePort");
-  for (let attempt = 0; attempt < 100 && !(await exists(activePort)); attempt += 1) await sleep(50);
-  assert(await exists(activePort), "Chrome did not expose DevToolsActivePort");
-  const [port] = (await readFile(activePort, "utf8")).trim().split("\n");
-  let target;
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    try {
-      const targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) => response.json());
-      target = targets.find((item) => item.type === "page" && item.url.startsWith(origin)) ?? targets.find((item) => item.type === "page");
-      if (target?.webSocketDebuggerUrl) break;
-    } catch {
-      // Chrome can expose the port just before the target list is ready.
-    }
-    await sleep(50);
-  }
-  assert(target?.webSocketDebuggerUrl, "Chrome page target unavailable");
-  const cdp = await connectCdp(target.webSocketDebuggerUrl);
-  await Promise.all([
-    cdp.send("Page.enable"),
-    cdp.send("Runtime.enable"),
-    cdp.send("Network.enable"),
-    cdp.send("Accessibility.enable"),
-  ]);
-  return {
-    child,
-    cdp,
-    profile,
-    async close() {
-      try { await cdp.send("Browser.close"); } catch {}
-      await Promise.race([
-        new Promise((resolve) => child.once("exit", resolve)),
-        sleep(1500),
-      ]);
-      if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        try {
-          await rm(profile, { recursive: true, force: true });
-          break;
-        } catch (error) {
-          if (attempt === 19) throw error;
-          await sleep(50);
-        }
+  const stderrChunks = [];
+  child.stderr?.on("data", (chunk) => {
+    const text = String(chunk);
+    stderrChunks.push(text);
+    if (stderrChunks.length > 20) stderrChunks.shift();
+  });
+
+  async function cleanup() {
+    if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
+    await Promise.race([
+      new Promise((resolve) => child.once("exit", resolve)),
+      sleep(1500),
+    ]);
+    if (child.exitCode === null) child.kill("SIGKILL");
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      try {
+        await rm(profile, { recursive: true, force: true });
+        return;
+      } catch (error) {
+        if (attempt === 39) throw error;
+        await sleep(50);
       }
-    },
-  };
+    }
+  }
+
+  try {
+    const activePort = path.join(profile, "DevToolsActivePort");
+    for (let attempt = 0; attempt < 300 && !(await exists(activePort)); attempt += 1) {
+      if (child.exitCode !== null) {
+        throw new Error(`Chrome exited before DevTools was ready (exit ${child.exitCode})`);
+      }
+      await sleep(50);
+    }
+    assert(await exists(activePort), "Chrome did not expose DevToolsActivePort within 15 seconds");
+    const [port] = (await readFile(activePort, "utf8")).trim().split("\n");
+    let target;
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      if (child.exitCode !== null) {
+        throw new Error(`Chrome exited before a page target was ready (exit ${child.exitCode})`);
+      }
+      try {
+        const targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) => response.json());
+        target = targets.find((item) => item.type === "page" && item.url.startsWith(origin)) ?? targets.find((item) => item.type === "page");
+        if (target?.webSocketDebuggerUrl) break;
+      } catch {
+        // Chrome can expose the port just before the target list is ready.
+      }
+      await sleep(50);
+    }
+    assert(target?.webSocketDebuggerUrl, "Chrome page target unavailable within 10 seconds");
+    const cdp = await connectCdp(target.webSocketDebuggerUrl);
+    await Promise.all([
+      cdp.send("Page.enable"),
+      cdp.send("Runtime.enable"),
+      cdp.send("Network.enable"),
+      cdp.send("Accessibility.enable"),
+    ]);
+    return {
+      child,
+      cdp,
+      profile,
+      async close() {
+        try { await cdp.send("Browser.close"); } catch {}
+        await cleanup();
+      },
+    };
+  } catch (error) {
+    const stderr = stderrChunks.join("").trim();
+    await cleanup();
+    const detail = stderr ? `\nChrome stderr:\n${stderr.slice(-4000)}` : "";
+    throw new Error(`${error.message}${detail}`, { cause: error });
+  }
 }
 
 async function waitFor(cdp, expression, message, timeoutMs = 6000) {
