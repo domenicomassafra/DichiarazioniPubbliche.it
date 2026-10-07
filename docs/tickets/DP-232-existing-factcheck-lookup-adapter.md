@@ -1,6 +1,6 @@
 # DP-232 — Existing fact-check lookup adapter
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-228, DP-215
 
@@ -192,3 +192,18 @@ dossiers/search records, so there is no production fact-check mirror row to mist
 provider receipt. The only remaining status blocker is an owner-selected live provider/network
 exercise if such a provider is chosen; this receipt does not invent one and does not upgrade
 `UNKNOWN` rights.
+
+### Status reconciliation — 2026-10-08
+
+DP-232 is `DONE` for its explicit bounded, provider-neutral adapter contract. All acceptance
+criteria in this ticket are checked, and current-tree revalidation passes **28/28** both locally
+and on the MiniPC for the Google normalizer/client contract, DP-228 -> DP-209 persisted
+runtime/mirror path, fail-closed rights/public boundary, and outward ClaimReview interoperability.
+
+The prior sentence describing a future owner-selected live provider/network exercise is a
+conditional operational follow-up, not an unchecked acceptance criterion: no live Google or other
+provider has been selected or authorized, and this status change does not manufacture a provider
+credential, live network receipt, source-family approval, or provider success. If an owner later
+selects a live provider/source family, that integration must carry its own authorization, bounded
+network canary, rights/source review, cost receipt and MiniPC proof before production use. Existing
+`UNKNOWN` mirror rights and the empty approved public projection remain unchanged.

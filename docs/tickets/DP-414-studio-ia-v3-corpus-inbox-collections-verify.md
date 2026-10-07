@@ -88,9 +88,11 @@ with zero `/studio/**` output/private fixture markers, the explicit 36-route Stu
 build, and `check-studio-v3.mjs` sabotage checks for missing source references/blocker codes,
 legacy navigation ambiguity, fake AI/activity wording, publication controls, action-domain
 separation and Verify three-pane. Public quality/route checks pass with Studio absent.
-Real persisted adapters for corpus/inbox/collection/verification queries, mutation handlers,
-keyboard/loading/error acceptance beyond this slice, and MiniPC runtime proof remain follow-up
-work under DP-415..DP-419; no commit is produced by this receipt.
+At the time of this first receipt, real persisted adapters for corpus/inbox/collection/
+verification queries, mutation handlers, richer keyboard/loading/error acceptance, and the
+ticket-specific MiniPC IA proof were still follow-up work. The MiniPC IA-contract proof is
+superseded by the 2026-10-08 receipt below; persisted adapters and real operator workflows remain
+owned by DP-415..DP-419 rather than DP-414.
 
 ### MiniPC IA-contract closure — 2026-10-08
 

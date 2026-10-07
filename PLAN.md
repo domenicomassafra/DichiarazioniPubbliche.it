@@ -199,7 +199,7 @@ without manual DB surgery.
 | DP-229 | IN PROGRESS | Bounded adversarial challenger/counter-case packet | DP-228, DP-215 |
 | DP-230 | DONE | Canonical provider-operation receipt + reconstructable cost ledger v2; MiniPC restart/replay canary green | DP-209, DP-211, DP-506 |
 | DP-231 | IN PROGRESS | Pender-style metadata/oEmbed/archive enrichment without Pender runtime | DP-210, DP-118, DP-305 |
-| DP-232 | IN PROGRESS | Existing fact-check adapter; bounded DP-228→DP-209 runtime + append-only mirror lineage/replay, fail-closed UNKNOWN rights and canonical metadata/link-only public surface proven via persistence-time atomic_claim binding; public projection reads no Coverage Need/discovery planning state; future live provider/network receipt remains external | DP-228, DP-215 |
+| DP-232 | DONE | Existing fact-check provider-neutral adapter complete: bounded DP-228→DP-209 runtime, append-only mirror lineage/replay, fail-closed UNKNOWN rights and metadata/link-only public surface proven; any future owner-selected live provider requires a separate authorized network/source canary | DP-228, DP-215 |
 | DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video adapter; fixture execution distinguishes NEW/REPLAY/AMENDED and delegates amended records to DP-511/DP-227 with DP-305 fail-closed rights; approved official source-family MiniPC canary pending | DP-206, DP-217, DP-218, DP-231 |
 | DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter; strict offline normalization + explicit DP-215 role/authority/suitability bridge implemented, real approved provider/licensing + MiniPC source-family canary pending | DP-215, DP-228, external contract/API |
 
