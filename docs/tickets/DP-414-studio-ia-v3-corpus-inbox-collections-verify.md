@@ -1,6 +1,6 @@
 # DP-414 — studio ia v3 corpus inbox collections verify
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-112, DP-113; supersedes only the private two-template constraint of DP-413
 
@@ -91,3 +91,28 @@ separation and Verify three-pane. Public quality/route checks pass with Studio a
 Real persisted adapters for corpus/inbox/collection/verification queries, mutation handlers,
 keyboard/loading/error acceptance beyond this slice, and MiniPC runtime proof remain follow-up
 work under DP-415..DP-419; no commit is produced by this receipt.
+
+### MiniPC IA-contract closure — 2026-10-08
+
+The remaining DP-414-specific runtime acceptance was exercised without enabling private Studio in
+production. On the authoritative MiniPC mirror at current main, `check-studio-v3.mjs` passes
+against the live public build and confirms `/studio/**` is absent by default. A separate isolated
+`/tmp` build from commit `9fa9074b02c9bf01b4570f19086e3302a04784b2`, using the real approved
+public projection plus the explicit `DICHIARAZIONI_PUBBLICHE_STUDIO_FIXTURE_ONLY=1` opt-in,
+materializes exactly four private fixture workspaces:
+
+- `/studio/corpus/`
+- `/studio/inbox/`
+- `/studio/collections/`
+- `/studio/verify/`
+
+The same checker passes on that fixture build and proves source-bound status metadata, the single
+dominant task/frame, Verify's three-pane analysis/review separation, disabled fixture mutations,
+and absence of publication controls. The isolated build is removed afterward; the production
+public dist remains Studio-free.
+
+This closes DP-414's four IA/data-contract acceptance criteria. Persisted query adapters, mutation
+handlers, richer keyboard/loading/error workflows, and private provenance inspection are not
+silently absorbed here: they remain explicitly owned by DP-415..DP-419, whose acceptance criteria
+are still open. DP-414 can therefore be `DONE` without claiming those downstream workspaces are
+implemented or production-enabled.

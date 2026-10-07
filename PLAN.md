@@ -265,7 +265,7 @@ LLM in the request path.
 | DP-411 | DONE | Generate and compare five researched visual systems against UX v2 | DP-413 |
 | DP-412 | IN PROGRESS | Design-token/component contract largely proven; real screen-reader + exact-200%-zoom component acceptance remains | DP-411 |
 | DP-413 | DONE | Simplify Public/Studio IA to 5 + 2 templates before implementation | DP-400 |
-| DP-414 | IN PROGRESS | Studio IA v3: four private workspaces + source-bound fixture view-model implemented; persisted adapters/runtime acceptance remain under DP-415..419 | DP-112, DP-113 |
+| DP-414 | DONE | Studio IA v3 contract closed: four private workspaces + source-bound fixture view-model proven on MiniPC; persisted adapters/workflows remain owned by DP-415..419 | DP-112, DP-113 |
 | DP-415 | FUTURE | Corpus search/filter/query workspace | DP-116, DP-414 |
 | DP-416 | FUTURE | Research Collection workspace | DP-113, DP-114, DP-414 |
 | DP-417 | FUTURE | Discovery Inbox triage and duplicate/coverage queues | DP-209, DP-212, DP-414 |
