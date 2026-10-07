@@ -1,4 +1,4 @@
-import type { AssessmentCode, PublicDossier } from "./types";
+import type { AssessmentCode, PublicDossier, PublicProjection } from "./types";
 
 export const assessmentLabels: Record<string, string> = {
   SUPPORTED: "Supportata",
@@ -43,6 +43,8 @@ export function speakerSlug(dossier: PublicDossier): string {
 export function publicIdSlug(value: string): string {
   return value
     .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{M}+/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
@@ -53,6 +55,41 @@ export function contentSlug(dossier: PublicDossier): string {
 
 export function relationSlug(relationId: string): string {
   return publicIdSlug(relationId);
+}
+
+export function assertUniquePublicRoutes(projection: PublicProjection): void {
+  const owners = new Map<string, string>();
+  const findingIds = new Set<string>();
+  const register = (prefix: string, rawId: string, label: string, explicitSlug?: string) => {
+    const id = String(rawId ?? "").trim();
+    const slug = explicitSlug === undefined ? publicIdSlug(id) : String(explicitSlug).trim();
+    if (!id || !slug) throw new Error(`PUBLIC_ROUTE_IDENTITY_INVALID:${label}`);
+    const route = `${prefix}${slug}/`;
+    const previous = owners.get(route);
+    if (previous !== undefined && previous !== id) {
+      throw new Error(`PUBLIC_ROUTE_COLLISION:${route}:${previous}:${id}`);
+    }
+    owners.set(route, id);
+  };
+
+  for (const dossier of projection.dossiers) {
+    if (findingIds.has(dossier.finding_id)) throw new Error("PUBLIC_ROUTE_DUPLICATE_FINDING_ID");
+    findingIds.add(dossier.finding_id);
+    register("/dichiarazioni/", dossier.finding_id, "finding_id");
+    register("/persone/", dossier.speaker.id, "speaker.id");
+    for (const relation of dossier.relations ?? []) {
+      register("/tracce/", relation.id, "relations.id");
+    }
+    if (projection.contents === undefined) {
+      register("/contenuti/", dossier.source.content_id, "source.content_id");
+    }
+  }
+  for (const topic of projection.topics ?? []) {
+    register("/temi/", topic.topic_id, "topic.topic_id", topic.slug);
+  }
+  for (const content of projection.contents ?? []) {
+    register("/contenuti/", content.content_id, "content.content_id", content.slug);
+  }
 }
 
 const claimTypeLabels: Record<string, string> = {

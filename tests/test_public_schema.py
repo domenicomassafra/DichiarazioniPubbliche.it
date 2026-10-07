@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 import sys
 import unittest
 from pathlib import Path
@@ -455,6 +456,66 @@ class PublicSchemaContractTests(unittest.TestCase):
         bundle = valid_bundle()
         result = validate_public_bundle(bundle)
         self.assertIs(result, bundle)
+
+    def test_bundle_rejects_duplicate_or_colliding_finding_routes(self):
+        duplicate = valid_bundle()
+        duplicate["dossiers"].append(copy.deepcopy(duplicate["dossiers"][0]))
+        duplicate["dossier_count"] = 2
+        with self.assertRaisesRegex(PublicSchemaValidationError, "duplicate public finding_id"):
+            validate_public_bundle(duplicate)
+
+        collision = valid_bundle()
+        other = copy.deepcopy(collision["dossiers"][0])
+        collision["dossiers"][0]["finding_id"] = "finding_a"
+        other["finding_id"] = "finding-a"
+        other["claim_id"] = "claim:other"
+        other["source"]["content_id"] = "content:other"
+        collision["dossiers"].append(other)
+        collision["dossier_count"] = 2
+        with self.assertRaisesRegex(PublicSchemaValidationError, "public route collision"):
+            validate_public_bundle(collision)
+
+    def test_bundle_rejects_colliding_person_content_and_trace_routes(self):
+        people = valid_bundle()
+        people["dossiers"][0]["speaker"]["id"] = "person_a"
+        other = copy.deepcopy(people["dossiers"][0])
+        other["finding_id"] = "finding:other"
+        other["claim_id"] = "claim:other"
+        other["speaker"]["id"] = "person-a"
+        other["source"]["content_id"] = "content:other"
+        people["dossiers"].append(other)
+        people["dossier_count"] = 2
+        with self.assertRaisesRegex(PublicSchemaValidationError, "public route collision"):
+            validate_public_bundle(people)
+
+        contents = valid_bundle()
+        contents["dossiers"][0]["source"]["content_id"] = "content_a"
+        other = copy.deepcopy(contents["dossiers"][0])
+        other["finding_id"] = "finding:other"
+        other["claim_id"] = "claim:other"
+        other["source"]["content_id"] = "content-a"
+        contents["dossiers"].append(other)
+        contents["dossier_count"] = 2
+        with self.assertRaisesRegex(PublicSchemaValidationError, "public route collision"):
+            validate_public_bundle(contents)
+
+        traces = valid_bundle()
+        traces["dossiers"][0]["relations"] = [{"id": "relation_a"}]
+        other = copy.deepcopy(traces["dossiers"][0])
+        other["finding_id"] = "finding:other"
+        other["claim_id"] = "claim:other"
+        other["source"]["content_id"] = "content:other"
+        other["relations"] = [{"id": "relation-a"}]
+        traces["dossiers"].append(other)
+        traces["dossier_count"] = 2
+        with self.assertRaisesRegex(PublicSchemaValidationError, "public route collision"):
+            validate_public_bundle(traces)
+
+    def test_bundle_rejects_identifier_with_empty_public_slug(self):
+        bundle = valid_bundle()
+        bundle["dossiers"][0]["speaker"]["id"] = ":::"
+        with self.assertRaisesRegex(PublicSchemaValidationError, "stable public route slug"):
+            validate_public_bundle(bundle)
 
     def test_public_content_can_have_zero_findings(self):
         content = valid_content()

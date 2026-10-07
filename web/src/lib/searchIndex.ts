@@ -1,4 +1,5 @@
 import type { PublicDossier, PublicProjection } from "./types";
+import { publicIdSlug } from "./format.ts";
 
 export const SEARCH_INDEX_SCHEMA = "dichiarazioni-pubbliche-search-index-v1" as const;
 export const SEARCH_QUERY_MAX_CHARS = 200;
@@ -82,15 +83,6 @@ export function buildExploreSearch(state: ExploreUrlState): string {
   if (state.kind !== "ALL") params.set("tipo", state.kind);
   if (state.sort !== "relevance") params.set("ordine", state.sort);
   return params.toString();
-}
-
-function publicIdSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/\p{M}+/gu, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 export function normalizeSearchText(value: string): string {
@@ -294,10 +286,12 @@ export async function validateSearchIndex(
   const actual = await sha256Hex(canonicalJson(material));
   if (claimed !== actual) throw new Error("SEARCH_INDEX_TAMPERED");
   const identities = new Set<string>();
+  const routes = new Set<string>();
   for (const record of index.records) {
     const identity = `${record.kind}:${record.id}`;
     if (
       identities.has(identity) ||
+      routes.has(record.route) ||
       !record.id ||
       !record.title ||
       !record.route.startsWith("/") ||
@@ -310,6 +304,7 @@ export async function validateSearchIndex(
       throw new Error("SEARCH_INDEX_RECORD_INVALID");
     }
     identities.add(identity);
+    routes.add(record.route);
   }
   return index;
 }

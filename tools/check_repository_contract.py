@@ -30,6 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 TICKETS_DIR = ROOT / "docs" / "tickets"
 
 TICKET_ID = re.compile(r"\bDP-(\d{3})\b")
+TICKET_FILENAME_ID = re.compile(r"^(DP-\d{3})(?=-|\.md$)")
+TICKET_TITLE_ID = re.compile(r"^#\s+(DP-\d{3})\b", re.M)
 TICKET_STATUS = re.compile(r"^Status:[ \t]*(.+?)[ \t]*$", re.M)
 DEPENDS_LINE = re.compile(r"^Depends on:\s*(.+)$", re.M)
 RANGE_TOKEN = re.compile(r"^(DP-\d{3})\.\.(DP-\d{3})$")
@@ -121,18 +123,33 @@ def check_tickets() -> list[str]:
 
     for path in files:
         text = path.read_text(encoding="utf-8")
-        # Title ID: the first "# DP-### " in the file.
-        m = re.search(r"^#\s+(DP-\d{3})\b", text, re.M)
+        # Filename and H1 are independent identities; neither may stand in for
+        # the other when checking collisions.
+        filename_match = TICKET_FILENAME_ID.match(path.name)
+        if not filename_match:
+            problems.append(f"{path.name}: no 'DP-###' ticket id in filename")
+        else:
+            filename_id = filename_match.group(1)
+            if filename_id in file_to_id:
+                problems.append(
+                    f"duplicate filename id {filename_id} in "
+                    f"{file_to_id[filename_id]} and {path.name}"
+                )
+            file_to_id[filename_id] = path.name
+
+        # Title ID: the first "# DP-### " H1 in the file.
+        m = TICKET_TITLE_ID.search(text)
         if not m:
             problems.append(f"{path.name}: no 'DP-###' ticket id in the H1 title")
             continue
         tid = m.group(1)
+        if filename_match and tid != filename_id:
+            problems.append(
+                f"{path.name}: filename id {filename_id} does not match H1 id {tid}"
+            )
         if tid in id_to_file:
             problems.append(f"duplicate ticket id {tid} in {id_to_file[tid]} and {path.name}")
         id_to_file[tid] = path.name
-        if tid in file_to_id:
-            problems.append(f"duplicate filename id {tid} in {file_to_id[tid]} and {path.name}")
-        file_to_id[tid] = path.name
 
         sm = TICKET_STATUS.search(text)
         if not sm:

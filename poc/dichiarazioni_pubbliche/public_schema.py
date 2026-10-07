@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -14,6 +15,36 @@ from dichiarazioni_pubbliche.domain_vocabulary import (
 from dichiarazioni_pubbliche.public_internal_guard import forbidden_public_internal_paths
 
 PUBLIC_SCHEMA_VERSION = "dichiarazioni-pubbliche-public-v2"
+
+
+def _public_route_slug(value: object, *, field: str) -> str:
+    """Mirror the web's public-ID slug contract and fail closed on empty routes."""
+    if not isinstance(value, str) or not value.strip():
+        raise PublicSchemaValidationError(f"{field} must be a non-empty string")
+    normalized = unicodedata.normalize("NFKD", value.strip().lower())
+    ascii_base = "".join(ch for ch in normalized if not unicodedata.category(ch).startswith("M"))
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_base).strip("-")
+    if not slug:
+        raise PublicSchemaValidationError(f"{field} has no stable public route slug")
+    return slug
+
+
+def _register_public_route(
+    owners: dict[str, str],
+    *,
+    prefix: str,
+    identifier: object,
+    field: str,
+) -> None:
+    identifier_text = str(identifier).strip()
+    slug = _public_route_slug(identifier, field=field)
+    route = f"{prefix}{slug}/"
+    previous = owners.get(route)
+    if previous is not None and previous != identifier_text:
+        raise PublicSchemaValidationError(
+            f"public route collision at {route}: {previous!r} vs {identifier_text!r}"
+        )
+    owners[route] = identifier_text
 
 PUBLIC_FINDING_STATUSES = frozenset(
     {
@@ -1083,8 +1114,45 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             f"dossier_count mismatch: {bundle['dossier_count']} != {len(bundle['dossiers'])}"
         )
 
+    route_owners: dict[str, str] = {}
+    seen_finding_ids: set[str] = set()
     for dossier in bundle["dossiers"]:
         validate_dossier(dossier)
+        finding_id = str(dossier["finding_id"])
+        if finding_id in seen_finding_ids:
+            raise PublicSchemaValidationError("duplicate public finding_id")
+        seen_finding_ids.add(finding_id)
+        _register_public_route(
+            route_owners,
+            prefix="/dichiarazioni/",
+            identifier=finding_id,
+            field="finding_id",
+        )
+        _register_public_route(
+            route_owners,
+            prefix="/persone/",
+            identifier=dossier["speaker"]["id"],
+            field="speaker.id",
+        )
+        relations = dossier.get("relations", [])
+        if not isinstance(relations, list):
+            raise PublicSchemaValidationError("relations must be a list")
+        for relation in relations:
+            if not isinstance(relation, dict):
+                raise PublicSchemaValidationError("public relation must be a dictionary")
+            _register_public_route(
+                route_owners,
+                prefix="/tracce/",
+                identifier=relation.get("id"),
+                field="relations.id",
+            )
+        if "contents" not in bundle:
+            _register_public_route(
+                route_owners,
+                prefix="/contenuti/",
+                identifier=dossier["source"]["content_id"],
+                field="source.content_id",
+            )
 
     topics = bundle.get("topics", [])
     if not isinstance(topics, list):
@@ -1103,6 +1171,14 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             raise PublicSchemaValidationError("duplicate public topic slug")
         seen_topic_ids.add(topic["topic_id"])
         seen_topic_slugs.add(topic["slug"])
+        topic_route = f"/temi/{topic['slug']}/"
+        previous_topic_owner = route_owners.get(topic_route)
+        if previous_topic_owner is not None and previous_topic_owner != topic["topic_id"]:
+            raise PublicSchemaValidationError(
+                f"public route collision at {topic_route}: "
+                f"{previous_topic_owner!r} vs {topic['topic_id']!r}"
+            )
+        route_owners[topic_route] = topic["topic_id"]
         for membership in topic["memberships"]:
             for finding_id in membership["finding_ids"]:
                 claim_id = finding_to_claim.get(finding_id)
@@ -1132,6 +1208,14 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             raise PublicSchemaValidationError("duplicate public content slug")
         seen_content_ids.add(content["content_id"])
         seen_content_slugs.add(content["slug"])
+        content_route = f"/contenuti/{content['slug']}/"
+        previous_content_owner = route_owners.get(content_route)
+        if previous_content_owner is not None and previous_content_owner != content["content_id"]:
+            raise PublicSchemaValidationError(
+                f"public route collision at {content_route}: "
+                f"{previous_content_owner!r} vs {content['content_id']!r}"
+            )
+        route_owners[content_route] = content["content_id"]
         for finding_id in content["finding_ids"]:
             owner = public_findings.get(finding_id)
             if owner is None:

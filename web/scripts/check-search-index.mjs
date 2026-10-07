@@ -9,6 +9,7 @@ import {
   parseExploreSearch,
   validateSearchIndex,
 } from "../src/lib/searchIndex.ts";
+import { assertUniquePublicRoutes, publicIdSlug } from "../src/lib/format.ts";
 
 const dossier = (id, claim, speaker, source, publishedAt, assessment = "SUPPORTED", sourceWordingType = "VERBATIM_ORIGINAL") => ({
   finding_id: id,
@@ -105,6 +106,25 @@ assert.equal(searchPublicIndex(index, "").records[0]?.id, "finding:esatto", "emp
 assert.equal(searchPublicIndex(index, "x".repeat(SEARCH_QUERY_MAX_CHARS + 1)).status, "QUERY_TOO_LONG");
 assert.equal(searchPublicIndex(index, "spesa", { assessment: "SUPPORTED" }).records.length, 0);
 assert.equal(searchPublicIndex(index, "economia").records[0]?.kind, "topic");
+assert.equal(publicIdSlug("person:José_Rossi"), "person-jose-rossi", "all web route builders must share one canonical public slug");
+
+const collidingProjection = structuredClone(projection);
+collidingProjection.dossiers = [
+  dossier("finding_a", "Uno", "Mario", "Fonte A", "2026-10-05T10:00:00Z"),
+  dossier("finding-a", "Due", "Luigi", "Fonte B", "2026-10-04T10:00:00Z"),
+];
+collidingProjection.dossier_count = 2;
+assert.throws(() => assertUniquePublicRoutes(collidingProjection), /PUBLIC_ROUTE_COLLISION/);
+
+const collidingPeople = structuredClone(projection);
+collidingPeople.dossiers = [
+  dossier("finding:one", "Uno", "Mario", "Fonte A", "2026-10-05T10:00:00Z"),
+  dossier("finding:two", "Due", "Luigi", "Fonte B", "2026-10-04T10:00:00Z"),
+];
+collidingPeople.dossiers[0].speaker.id = "person_a";
+collidingPeople.dossiers[1].speaker.id = "person-a";
+collidingPeople.dossier_count = 2;
+assert.throws(() => assertUniquePublicRoutes(collidingPeople), /PUBLIC_ROUTE_COLLISION/);
 
 const urlState = {
   query: " José Rossi ",
@@ -125,6 +145,14 @@ const tampered = structuredClone(index);
 tampered.records[0].title = "tampered";
 await assert.rejects(() => validateSearchIndex(tampered, projection.dataset_sha256), /TAMPERED/);
 await assert.rejects(() => validateSearchIndex(index, "b".repeat(64)), /INCOMPATIBLE/);
+
+const duplicateRouteMaterial = structuredClone(material);
+duplicateRouteMaterial.records[1].route = duplicateRouteMaterial.records[0].route;
+const duplicateRouteIndex = await finalizeSearchIndex(duplicateRouteMaterial);
+await assert.rejects(
+  () => validateSearchIndex(duplicateRouteIndex, projection.dataset_sha256),
+  /SEARCH_INDEX_RECORD_INVALID/,
+);
 
 const encoded = canonicalJson(index);
 for (const forbidden of [

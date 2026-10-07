@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import demoProjection from "../data/demo-projection.json";
+import { assertUniquePublicRoutes } from "./format.ts";
 import type { PublicProjection } from "./types";
 
 const EXPECTED_SCHEMA = "dichiarazioni-pubbliche-public-v2";
@@ -32,6 +33,8 @@ function assertProjection(value: unknown): asserts value is PublicProjection {
   if (candidate.methodology?.aggregate_person_score !== false) {
     throw new Error("Public projection must explicitly disable aggregate person scores.");
   }
+
+  assertUniquePublicRoutes(candidate as PublicProjection);
 
   if (candidate.topics !== undefined) {
     if (!Array.isArray(candidate.topics)) {
