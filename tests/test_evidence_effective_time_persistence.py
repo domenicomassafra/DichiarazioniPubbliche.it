@@ -42,7 +42,7 @@ def _pg_bin(name: str) -> str:
         candidate = Path(bindir) / name
         if candidate.is_file():
             return str(candidate)
-    raise RuntimeError(f"PostgreSQL tool unavailable: {name}")
+    raise unittest.SkipTest(f"PostgreSQL tool unavailable: {name}")
 
 
 def _run(args: list[str], *, input_text: str | None = None) -> str:
