@@ -97,3 +97,44 @@ authority, assignment/result/cost caps, and refusal of blocked DP-228 plans.
 The pure DP-309/challenger seam remains useful for deterministic tests, while the runtime gate is
 intentionally blocked on a real durable/authority-backed challenger mechanism. DP-228/DP-209
 research receipts by themselves are not challenger review authority and are not treated as such.
+
+### Durable-authority audit — 2026-10-08
+
+A closure audit intentionally made **no implementation change** because the missing runtime
+authority cannot be made trustworthy by adding an append-only table around the current pure
+packet object.
+
+- `build_countercase_packet()` currently derives a deterministic packet from caller-supplied
+  `CounterEvidence.approved/suitable/relation/rationale_code/independence_group` values plus a
+  caller-supplied `research_complete` boolean. Those inputs are useful pure-policy fixtures, but
+  they are not an independently replayable statement of the current canonical challenger
+  material.
+- Existing persisted `claim_evidence_candidate` / research-discovery / DP-228 records do not yet
+  define the complete material authority required here: in particular there is no canonical
+  versioned challenger snapshot covering the exact approved/suitable counterevidence set,
+  `LIMITATION` semantics, rationale/independence approval, and invalidation when newly relevant
+  material appears. The production projection revalidation path therefore has no safe current
+  challenger packet to resolve.
+- The attested DP-310 publication reviewer authority cannot be silently reused as challenger
+  packet authority: no packet-specific attestation is defined that binds claim/finding version,
+  current material hash/sequence, incorporation state and challenger review. Likewise DP-309's
+  qualified `policy_decision_ref` approves the high-risk decision; it is not, by itself, an
+  independently accepted challenger-waiver decision. DP-307 has no accepted decision authorizing
+  such a waiver, so none is inferred.
+- Persisting the present in-memory `READY` object would therefore launder caller-controlled
+  approval flags and could remain apparently current after material challenger evidence changed.
+  The runtime correctly continues to reject caller-supplied readiness with
+  `CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE` and caller-supplied waiver values with
+  `CHALLENGER_WAIVER_AUTHORITY_UNAVAILABLE`.
+
+Safe implementation is blocked until the contract defines: (1) authoritative current challenger
+material selection plus a stable version/fingerprint and supersession rule; (2) exact incorporation
+target; (3) independently attested challenger review bound to claim + record/version + packet
+material/hash + policy; and (4) a separately scoped qualified waiver authority/freshness contract.
+Only after those semantics exist is an additive private append-only ledger appropriate.
+
+Focused audit validation on the current tree passes **50/50** across countercase, challenger
+research, pure/runtime eligibility, durable publication review and high-risk persistence,
+including disposable PostgreSQL; compileall and `git diff --check` also pass. The unchecked
+high-risk challenger AC therefore remains a deliberate fail-closed blocker rather than a
+machine-green placeholder.
