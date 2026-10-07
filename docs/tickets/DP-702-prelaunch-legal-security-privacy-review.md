@@ -213,7 +213,7 @@ The packet is an input to DP-704 and DP-705, not permission to deploy.
 | B-702-05 | Deployment profile and public contact path are unowned | Freeze the MiniPC/static/API topology, operator roles, security/privacy/complaint contact, and incident owner. | Approved topology/profile, public policy documents, contact/runbook references. | Product owner; `PENDING-OWNER` |
 | B-702-06 | Failure behavior is not proven end to end | Run the failure matrix on the MiniPC using isolated/canary data and verify blocked/omitted outcomes and receipts. | Sanitized receipts, actual read-back, queue/projection state, no publication. | Operator; `BLOCKED` |
 | B-702-07 | Rights/retention/incident decisions are stale or missing | Re-review affected data classes, source families, public notices, and operational changes. | New decision IDs, policy versions, implementation receipts, and owner acceptance. | Owner/counsel; `EXTERNAL` |
-| B-702-08 | **CLOSED (technical)** — attribution/evidence safety gate passes on runtime code candidate `4c93246` | Re-run this gate after any material attribution, projection, safety, high-risk, reviewer-authority or launch-candidate change; failing classes remain held. | DP-216..DP-224 closure; candidate DP-223 zero-tolerance benchmark plus persisted projection replay; DP-224 citation assurance; DP-308 safety, DP-309 high-risk and DP-310 review-separation receipts. | Maintainer/editorial engineering gate; `CLOSED` |
+| B-702-08 | **CLOSED (technical)** — attribution/evidence safety gate passes on runtime code candidate `2dfd323` | Re-run this gate after any material attribution, projection, safety, high-risk, reviewer-authority or launch-candidate change; failing classes remain held. | DP-216..DP-224 closure; candidate DP-223 zero-tolerance benchmark plus persisted projection replay; DP-224 citation assurance; DP-308 safety, DP-309 high-risk and DP-310 review-separation receipts. | Maintainer/editorial engineering gate; `CLOSED` |
 
 No row may be closed by deleting the blocker text, changing a status string, or adding a
 generic “compliant” label.
@@ -232,9 +232,9 @@ generic “compliant” label.
 - [ ] **AC-702-4 — Conditional surfaces:** Public intake and any admin surface have
   explicit enabled/disabled decisions; enabled surfaces have the required auth, CSRF,
   rate-limit, abuse, privacy, and rollback controls.
-- [ ] **AC-702-5 — Trust boundary:** Public/static/API reads use only the approved
+- [x] **AC-702-5 — Trust boundary:** Public/static/API reads use only the approved
   projection, contain no private fields, and make no provider/LLM/PostgreSQL call.
-- [ ] **AC-702-6 — Security/privacy regression:** Secret, raw-content, SSRF, URL,
+- [x] **AC-702-6 — Security/privacy regression:** Secret, raw-content, SSRF, URL,
   projection-tamper, stale-review, rights-hold, and access-control tests pass on the
   candidate and the MiniPC canary.
 - [x] **AC-702-7 — Restore and retention:** A disposable backup restores successfully and
@@ -321,7 +321,7 @@ authorize launch.
   candidate, and DP-704 remains `FUTURE`. AC-702-14 must be re-run and closed against that actual
   release candidate when it exists.
 
-DP-702 remains `FUTURE` and launch remains `NO-GO`: AC-702.1/.2/.4-.6/.9-.11/.13/.14 and their
+DP-702 remains `FUTURE` and launch remains `NO-GO`: AC-702.1/.2/.4/.9-.11/.13/.14 and their
 owner/external/release-candidate/composite-canary requirements are not inferred from these
 engineering receipts.
 
@@ -329,9 +329,10 @@ engineering receipts.
 
 The DP-304 ingestion-relevance rollout materially changed the durable-table inventory, so the
 restore/operations portion of this packet was refreshed against runtime code candidate
-`4c93246f5f91ec5b29d710aa1dc73c80be732d8a`. This refresh closes only **AC-702-7** and
-**AC-702-8**. It does not close the broader security/privacy regression matrix (AC-702-6), the
-full failure matrix (AC-702-9), any qualified decision, or the release-candidate gate.
+`4c93246f5f91ec5b29d710aa1dc73c80be732d8a`. This refresh closed only **AC-702-7** and
+**AC-702-8** at that stage. The later trust-boundary/security refresh below supersedes the
+then-open AC-702-6 statement; the full failure matrix (AC-702-9), qualified decisions, and the
+release-candidate gate remain open.
 
 - **Restore/retention (AC-702-7):** after the additive DP-304 migration, production and repository
   inventories are **99/99** persistent tables. Backup set `20261007T225628Z` has dump SHA-256
@@ -372,6 +373,51 @@ presence-gated because canonical DP-702/DP-703/DP-704/DP-705 artifact schemas/au
 are not specified tightly enough to encode a semantic validator without inventing product/release
 authority. No invented schema was added to make those blockers disappear.
 
+### Candidate-bound trust/security refresh — 2026-10-08
+
+Public-contract/runtime candidate `2dfd3233a967dadf476350cf6e4f2e8eb633f759` closes
+**AC-702-5** and **AC-702-6** as machine-verifiable deployment invariants only. It does not approve
+the deployment profile, public contacts, conditional admin/intake surfaces, legal/privacy policy,
+the complete failure matrix, or release authority.
+
+- **Trust boundary (AC-702-5):** `public_api.py` is projection-only by construction, and the live
+  MiniPC proof exercised an additional temporary API process under `strace` while serving the real
+  production `/api/v1/health` and `/api/v1/index.json`. There were **0 `connect()` calls to
+  AF_INET/AF_INET6** from the API process and **0 file accesses** under the private
+  `~/.local/share/dichiarazioni-pubbliche/` runtime tree outside the explicitly supplied
+  `/public/v1` projection. The observed projection fingerprint was
+  `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`, with 0 dossiers and
+  contract status `DRAFT`. The systemd unit remains read-only over `web/dist` plus `/public/v1`,
+  with `ProtectSystem=strict`, `ProtectHome=read-only` and `NoNewPrivileges=yes`. This proves the
+  served read path is static/projection-only; it is not an owner-approved topology decision and
+  therefore does not close B-702-05.
+- **Security/privacy regression (AC-702-6):** the bounded suite covering the executable threat
+  matrix, SSRF/URL policy, public projection/API, high-risk private-field serializers, privacy
+  runtime and persisted decisions, production projection revalidation, publication eligibility and
+  private intake policy passes **220/220 on the deployed MiniPC mirror**. The frozen local candidate
+  full suite passes **1812/1812**, which includes the same regression families and the new route
+  identity tests. The public-schema/API/repository-contract focused set passes **111/111** on the
+  mirror. Web typecheck, search-index validation, production-projection build, route contract and
+  public-quality checks all pass after deployment.
+- The candidate additionally fails closed on public URL identity collisions: distinct finding,
+  Person, fallback Content, reviewed Trace, explicit Content or Topic identities may not collapse
+  onto one public route. The repository ticket checker independently validates filename and H1 IDs,
+  removing a second identity-audit false green.
+- DP-223 was re-run on the deployed mirror after the public-schema change: **59/59 PASS**,
+  `false_attribution=0`, `fabricated_quote=0`, `release_gate=True`; B-702-08 is therefore refreshed
+  to `2dfd323` rather than relying on the earlier runtime SHA.
+- Runtime read-back after deployment remains unchanged: PostgreSQL has **99** persistent tables,
+  ingestion-relevance authority/permit ledgers remain **0/0**, web/worker/source-poll timers are
+  active, and no source/provider call, production-data rewrite, authority seed, tag, release, or
+  stable-v1 action was performed by this refresh.
+
+**AC-702-9 remains open.** Existing tests and drills exercise many individual failure classes, but
+the ticket requires one complete matrix covering every enumerated failure path with owner,
+detection signal, safe user-visible state, recovery action and durable receipt. That composite
+artifact has not been truthfully proven complete. **AC-702-11 also remains open** because accepted
+qualified decisions do not yet exist for the Q-306/DP-307 re-review contract; tests cannot invent
+that authority.
+
 ## Documentation, data, and migration impact
 
 - Add the closure index, decision links, control matrix, failure matrix, and operator
@@ -387,10 +433,11 @@ authority. No invented schema was added to make those blockers disappear.
 
 ## Completion receipt
 
-Pending qualified legal/privacy decisions, owner-approved deployment profile, the remaining
-security/privacy and full failure-matrix proofs, public communications/re-review decisions, and
+Pending qualified legal/privacy decisions, owner-approved deployment profile, the complete
+failure-matrix proof, public communications/re-review decisions, and
 the DP-701/DP-703/DP-704 handoffs. Current restore/retention and operations receipts are recorded
-above but do not imply legal/security approval or release authority.
+above; the trust-boundary/security regression is also machine-closed above, but none of those
+engineering receipts imply legal/security approval or release authority.
 This ticket does not claim legal compliance, public security approval, or stable v1
 launch readiness.
 

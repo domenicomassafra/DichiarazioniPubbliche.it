@@ -157,7 +157,7 @@ rollback receipt unless it is actually exercised and read back.
 | B-701-02 | Trademark/name clearance absent | Commission and record the qualified trademark search/disposition for intended classes and jurisdictions. | Reviewer identity, scope, search date, sources, disposition, and conditions. | Qualified reviewer; `EXTERNAL` |
 | B-701-03 | Domain purchase reported; registrar/handle evidence incomplete | **Owner-reported 2026-10-05:** `dichiarazionipubbliche.it` was purchased at Dynadot. Fresh 2026-10-06 read-back now proves authoritative Cloudflare delegation (`candy.ns.cloudflare.com`, `kanye.ns.cloudflare.com`), proxied apex and `www` resolution, HTTPS `200` on the apex, and `www` `308` redirect to the canonical apex. Preserve the controlled registrar ownership/expiry receipt outside Git and record social-handle disposition before launch. | Controlled registrar ownership/expiry reference, current DNS/public-host read-back, and handle disposition; no secret data. | Product owner; `EXTERNAL` (DNS/public-host portion closed; registrar/handles still open) |
 | B-701-04 | Technical rename decision | **CLOSED 2026-10-03:** repo/package/ticket/systemd/env/database/data paths and public projection migrated on Mac + MiniPC. | docs/reviews/rebrand-cutover-2026-10-03.md. | Maintainer + owner; CLOSED |
-| B-701-05 | Name or URL collision possible | Run the read-only collision audit against repository metadata, public projection/API identifiers, package names, domains, handles, and source receipts. | Machine-readable audit output and manual disposition of every collision. | Maintainer; `BLOCKED` until clean |
+| B-701-05 | Name or URL collision possible | **Repository/public-route machine portion hardened and green on `2dfd323`; external package/domain/handle/manual disposition remains open.** Complete the read-only collision audit for those external namespaces and disposition every result. | Machine-readable audit output and manual disposition of every collision. | Maintainer; `BLOCKED` on external/manual collision disposition |
 | B-701-06 | Legal/public copy not accepted | Obtain DP-307 disposition for the selected name, description, disclosure, and launch surfaces. | Accepted Q-306/DP-307 decision ID and policy version. | Owner + counsel; `EXTERNAL` |
 | B-701-07 | Rebrand rollback path cannot currently be exercised | The temporary 2026-10-03 rename-era rollback bundle was deliberately deleted after canonical verification, the post-cutover `20261004T014945Z` backup has since rotated out, and the canonical Git baseline is a root snapshot with no retained pre-rename parent. Recover a controlled pre-cutover bundle/preimage with a stable hash and rehearse old -> new -> rollback in isolation; do not reconstruct one from guesses or unrelated unreachable objects. | Controlled pre-cutover artifact hash, exercised rollback receipt, restore read-back, and operator sign-off. | Maintainer; `BLOCKED` |
 
@@ -257,6 +257,37 @@ their manual dispositions are not complete; AC-701.7 remains open until an exerc
 pre-rename rollback receipt exists, while AC-701.10 is closed by the explicit blocked-state
 handoff below. AC-701.1/.2/.8 remain blocked on the qualified decision/legal evidence described
 above.
+
+### Collision-audit hardening refresh — 2026-10-08
+
+Runtime/public-contract candidate `2dfd3233a967dadf476350cf6e4f2e8eb633f759` closes two
+repository-local false-green cases without claiming external name clearance:
+
+- `tools/check_repository_contract.py` now extracts the ticket ID independently from the
+  `docs/tickets/DP-###-...md` filename and from the H1. Filename/H1 mismatch, duplicate filename
+  IDs, duplicate H1 IDs, and malformed ticket filenames fail closed. Dedicated regression coverage
+  passes **6/6** and the full repository contract remains PASS.
+- The public projection/web route boundary now rejects lossy-ID collisions instead of allowing two
+  distinct public identities to normalize to one route. Finding, Person, fallback Content, reviewed
+  Trace, explicit Content and Topic routes are checked before publication/build; exact duplicate
+  `finding_id` is also rejected. The Python and TypeScript/web paths share the same NFKD/lowercase
+  public-ID slug semantics, and the search-index verifier rejects duplicate output routes. Adversarial
+  examples such as `person_a` versus `person-a` and `finding_a` versus `finding-a` are regression
+  fixtures rather than accepted aliases.
+- Frozen local validation on the candidate is **1812/1812 PASS**, benchmark **5/5**, repository and
+  contributor acceptance PASS. Web `check`, `check:search`, production/demo build contracts,
+  `check:routes`, and `check:quality` pass. The launch preflight remains intentionally `NO-GO` with
+  41 blockers.
+- The exact eight changed files were checksum-verified on the MiniPC. The isolated candidate and the
+  deployed mirror both passed public-schema/API/repository-contract acceptance (**111/111** on the
+  mirror). The real approved empty projection built to six public routes; route and public-quality
+  checks pass. Production dataset fingerprint remains
+  `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a` with 0 dossiers and API
+  contract `DRAFT`.
+
+This advances only the **machine-local** portion of B-701-05/AC-701.5. AC-701.5 remains unchecked:
+external package/domain/handle namespaces and every manual collision disposition still require
+controlled evidence. It is not a trademark, registrar, social-handle, or legal-clearance receipt.
 
 The rollback blocker is concrete rather than bookkeeping-only. The 2026-10-03 cutover used a
 temporary rename-era rollback bundle, but after the canonical identity was independently
