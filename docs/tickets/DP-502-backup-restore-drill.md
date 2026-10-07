@@ -78,3 +78,23 @@ database restored every manifest count exactly, including the updated `evidence`
 `valid_from`, `valid_until`, and `record_status`; the verifier reported
 `RESULT: PASS (restored state matches backup exactly)` and `DRILL PASS`. The disposable
 database was removed immediately after verification.
+
+### Privacy rights/access migration drill — 2026-10-07
+
+Candidate `dbca6035148873ce740a4abf6140b14bfa9a2854` passed GitHub Actions run
+`37647821230` before promotion. The MiniPC pre-migration state was internally consistent at
+**94 repository-declared / 94 live tables** and was backed up as set `20261007T155743Z`
+(dump bytes `10908926`). Only
+`20261007-add-privacy-rights-access-ledgers.sql` was then applied, twice with
+`ON_ERROR_STOP`; no historical migration replay was attempted. Repository and live inventory
+converged at **97/97** tables, while the three new private ledgers were intentionally empty
+(`0/0/0`) immediately after migration.
+
+The post-migration backup set `20261007T160049Z` contains **97 table-data entries** and a
+10,926,017-byte dump. Sanitized integrity identifiers are dump SHA-256
+`9168371b3f549a7d58f9a43822073f64a4d3c94b0db3ed6e68a330f3c745b0c2` and manifest
+SHA-256 `8d8c329378652df29a2f0cedfbab2b9c5161eae585632368e2ef2c38868a2f8b`.
+A fresh disposable database `dp_restore_dbca603_20261007` restored all **97/97** durable
+tables with exact source/restored row-count parity, including the three new zero-row privacy
+ledgers. The verifier reported `RESULT: PASS (restored state matches backup exactly)` and
+`DRILL PASS set=20261007T160049Z`; the disposable database was removed afterward.

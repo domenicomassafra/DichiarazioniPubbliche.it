@@ -455,8 +455,10 @@ conclusion; the launch-level qualified questions and DP-306/DP-307 blockers rema
   durable privacy tables as absent from the checked-in backup/restore inventory; the inventory and
   restore verifier were then extended fail-closed to all **97** repository-declared persistent
   tables, with focused backup/restore/privacy regression **25/25 PASS**. This is local integration
-  proof only; the production MiniPC migration and post-migration 97-table restore drill are recorded
-  separately when the candidate is promoted.
+  proof only. The subsequent `dbca603` production promotion applied the privacy migration twice,
+  converged at **97/97** live/repository tables with all three new ledgers empty, and passed the
+  post-migration **97-table** disposable restore drill; the detailed runtime receipt is recorded in
+  DP-502/DP-604.
 
 ### Remaining blockers
 

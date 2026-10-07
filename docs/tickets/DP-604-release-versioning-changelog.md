@@ -392,3 +392,32 @@ added. A follow-up run against committed baseline
 wheel `0efaa082100c689c2c6685d5847e66dcb42497d2acb54d57342cd684cd9d7448` and normalized
 sdist `2be9119712518c6fee8f7f6f63e582fbbc263d09f0aa058ac034e7b0bae6666b`. No payload
 bytes are rewritten and no release artifact was published.
+
+**Privacy-runtime candidate follow-up 2026-10-07.** Main and `origin/main` were aligned on
+`dbca6035148873ce740a4abf6140b14bfa9a2854` before promotion. Local acceptance ran
+**1788/1788** Python tests, benchmark **5/5**, contributor acceptance, repository contract,
+and `git diff --check` successfully. GitHub Actions run `37647821230` completed successfully
+for the exact commit, including detached clean-clone/reproducible-package, web-static,
+repository-contract, and Python 3.11-3.14 on Linux and macOS.
+
+This candidate adds the bounded privacy rights/access persistence migration, so AC-604.7 was
+re-exercised rather than inherited: the production MiniPC first backed up the coherent 94-table
+state (`20261007T155743Z`), then applied only
+`20261007-add-privacy-rights-access-ledgers.sql` twice. Repository and live inventory converged
+at **97/97** durable tables. The post-migration backup `20261007T160049Z` passed a real
+disposable restore drill with **97 table-data entries** and exact row-count parity; the target
+database was removed afterward.
+
+AC-604.8 also has current-head runtime proof. The approved public projection rebuilt to the
+same fail-closed empty fingerprint
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`; the production web
+build contains six pages, `npm audit --omit=dev --audit-level=high` reports zero
+vulnerabilities, and quality/routes/trust/corrections/browser/performance checks all pass with
+zero external requests. All five runtime units returned active. Localhost and the Cloudflare
+canonical host returned `200` on the public/static/API/RDF routes, `www` redirected `308` to
+the apex, API/search/private linked-data receipt fingerprints converged, public search remained
+at zero records, and the private linked-data receipt remained intentionally non-public (`404`).
+
+This remains release-readiness evidence, not release authority. Gate 11 is still BLOCKED: no
+stable-v1 tag, GitHub Release, registry/signing action, qualified legal/security closure, or
+owner release authorization is inferred from this promotion.
