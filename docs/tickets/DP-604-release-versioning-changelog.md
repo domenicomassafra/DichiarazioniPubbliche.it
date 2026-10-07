@@ -330,20 +330,22 @@ legal/security approval. Per blocked conditions this ticket stays IN PROGRESS un
 remaining release gates close.
 
 **Final integrated candidate follow-up 2026-10-07.** Canonical main and `origin/main`
-resolve to `2db8ca1100c5a1efd99ce38ffe50b1593646ed83`. GitHub Actions run
-`37636313362` is fully green across detached clean-clone/reproducible-package,
+resolve to `cdad363e8dff97b1465891e47f00b51fbbbadb0d`. GitHub Actions run
+`37640404058` is fully green across detached clean-clone/reproducible-package,
 repository-contract, web-static, and Python 3.11-3.14 on Linux and macOS. The matching local
-candidate runs **1781/1781** Python tests, restore verification, benchmark **5/5**,
+candidate runs **1782/1782** Python tests, restore verification, benchmark **5/5**,
 contributor acceptance, and `git diff --check` successfully.
 
-This candidate does contain a persistence change, so AC-604.7 is no longer N/A for the
-current head: `20261007-add-evidence-effective-time-state.sql` was applied and replayed on
+The runtime payload inherited by this candidate contains the already-promoted persistence
+change, so AC-604.7 is not N/A: `20261007-add-evidence-effective-time-state.sql` was applied and replayed on
 the MiniPC without drift, and the post-migration backup `20261007T143042Z` passed a real
 disposable restore drill with **94** table-data entries and exact row-count parity. AC-604.8
-also has concrete runtime proof for the current head: the approved projection/static/API
+also has concrete runtime proof for the runtime payload: the approved projection/static/API
 were rebuilt on the MiniPC, all runtime units returned active, and localhost plus the
 Cloudflare canonical host converged on projection fingerprint
 `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`.
+The delta from the promoted runtime commit to `cdad363` is tests/documentation only, so no
+runtime redeploy is implied by this receipt.
 This remains release-readiness evidence only; Gate 11 is still BLOCKED and no tag, Release,
 registry/signing action, or stable-v1 authorization is inferred.
 

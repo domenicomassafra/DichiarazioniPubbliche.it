@@ -248,9 +248,19 @@ against a private sibling receipt; the receipt itself is intentionally not expos
 route.
 
 The repository-local portion of the collision/dependency audit is green at
-`df8cdcc9e22295de0c80ab9ca0c9366a779f3cef`: `tools/check_repository_contract.py` passes and
+`cdad363e8dff97b1465891e47f00b51fbbbadb0d`: `tools/check_repository_contract.py` passes and
 the launch preflight correctly remains `NO-GO` instead of treating missing external decisions
-as evidence. The current integrated launch preflight reports **44 blockers**. AC-701.5 remains open because external package/domain/handle collision checks and
+as evidence. The current integrated launch preflight reports **42 blockers**. AC-701.5 remains open because external package/domain/handle collision checks and
 their manual dispositions are not complete; AC-701.7 and AC-701.10 remain open until an
 exercised rollback receipt exists, and AC-701.1/.2/.8 remain blocked on the qualified
 decision/legal evidence described above.
+
+The rollback blocker is concrete rather than bookkeeping-only. The 2026-10-03 cutover used a
+temporary rename-era rollback bundle, but after the canonical identity was independently
+verified on 2026-10-04 that bundle and the obsolete runtime identities were deliberately
+removed; recovery authority then moved to the canonical backups. The repository's canonical
+baseline commit is also a root baseline rather than a retained pre-rename parent. Therefore an
+old-identity -> new-identity -> rollback rehearsal cannot now be executed from controlled
+retained material without reconstructing a legacy state. No such reconstruction is treated as
+proof. AC-701.7 remains open, and AC-701.10 remains open with it until DP-704 receives a real
+identity/rollback handoff packet.
