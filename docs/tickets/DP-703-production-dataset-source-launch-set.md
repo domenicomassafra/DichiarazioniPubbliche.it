@@ -207,7 +207,7 @@ The rollback receipt is required before a launch snapshot can be called releasab
   verification, review, and projection contracts or remains explicitly held. Fewer
   families leave the ticket `BLOCKED` until the canonical M2 exit criterion is changed
   by the owner.
-- [ ] **AC-703.3 — Provider honesty:** A blocked OmniRoute route, missing Groq
+- [x] **AC-703.3 — Provider honesty:** A blocked OmniRoute route, missing Groq
   credential, source access restriction, or budget cap produces the documented
   `BLOCKED`/`HELD` state and no fabricated claim, finding, or public dossier.
 - [ ] **AC-703.4 — Rights/privacy:** DP-603, DP-304, DP-305, and accepted M3 decisions
@@ -303,8 +303,31 @@ hash, but is explicitly `NOT_EXECUTED` and non-authorizing. It is therefore prep
 evidence only, not the durable executed/read-back proof required by AC-703-9.
 
 AC-703-11 is locally proven because the implementation is pure and performs no registry,
-projection, deployment, release or network mutation. AC-703.1/.2/.3/.4/.5/.6/.7/.8/.9/.10
-and .12 remain open for a real owner-selected launch set, provider paths, qualified
+projection, deployment, release or network mutation. AC-703.1/.2/.4/.5/.6/.7/.8/.9/.10
+and .12 remain open for a real owner-selected launch set, qualified
 rights/privacy/legal decisions, approved disclosure, actual projection/schema validation,
 executed rollback/read-back, DP-704 handoff and MiniPC evidence. Launch state remains
 `BLOCKED` exactly as declared at the top of this ticket.
+
+### Provider-honesty closure follow-up — 2026-10-07
+
+**AC-703.3 is closed for the failure-path contract only.** This does not prove a live
+provider success path, select a production source, or authorize a launch set.
+
+- The completed DP-506 isolated MiniPC outage drill exercises the real `ProcessingWorker`
+  and records `CLAIM_EXTRACTION_CANARY_FAILED:OMNIROUTE_API_KEY_MISSING`. The claim job
+  becomes `BLOCKED`; atomic claims remain **0→0**, successful provider receipts **0→0**,
+  published findings **0→0**, provider cost stays **0**, and model invocations stay **0**.
+- Current worker/runtime tests prove the other required blocked branches: missing Groq
+  credentials block ASR before network use; a restricted source returns explicit
+  `ACCESS_RESTRICTED/BLOCKED`; and job/global budget caps stop dispatch without spending.
+- The DP-703 candidate manifest independently refuses an `INCLUDED` row whose provider,
+  rights, or privacy gate is `BLOCKED`, while a blocked provider may only remain an explicit
+  `HELD` candidate. The current approved public projection remains fail-closed and empty, so
+  none of these failure paths can fabricate a public dossier.
+
+Focused proof at main `8b47c0c`: provider-outage, cost-policy, launch-set-candidate and
+source-adapter suites **35/35 PASS**; missing-Groq plus budget-before-dispatch worker checks
+**2/2 PASS**. `tools/check_launch_preflight.py --expect-no-go` remains `NO-GO` with the same
+**41** launch blockers; this closure removes no provider, legal, owner, launch-set, snapshot,
+or release-authority gate.

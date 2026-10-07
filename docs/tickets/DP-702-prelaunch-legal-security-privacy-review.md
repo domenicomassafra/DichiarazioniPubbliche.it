@@ -52,12 +52,11 @@ appoint counsel, decide a lawful basis, or authorize a public launch.
   for DP-307's qualified legal dispositions.
 - [`docs/04-legal-safety-research.md`](../04-legal-safety-research.md) is preliminary
   research and explicitly says qualified review is required before public launch.
-- The plan assigns M5 to DP-501..DP-511. DP-501..DP-508 now have local ticket/control
-  surfaces, but DP-501..DP-506 still require the fresh MiniPC receipts specified by
-  their tickets; their existence is not an assumed pass. DP-507/DP-508 remain
-  conditional FUTURE surfaces and must be re-reviewed before any admin/intake exposure.
-  DP-510/DP-511 add targeted quarantine and source-drift/supersession revalidation and
-  likewise require their own runtime receipts before launch.
+- The plan assigns M5 to DP-501..DP-511. DP-501..DP-506 are now `DONE` with their required
+  implementation and MiniPC receipts, and DP-510/DP-511 are likewise `DONE` with targeted
+  quarantine and source-drift/supersession runtime proof. DP-507/DP-508 remain conditional
+  FUTURE surfaces and must be re-reviewed before any admin/intake exposure; their absence is
+  not converted into `NOT_APPLICABLE` without the owner/security record required below.
 - The current runtime baseline reports private processing and zero public dossiers, with
   OmniRoute claim extraction blocked and Groq ASR blocked. Those provider states remain
   visible in the launch packet.
@@ -209,12 +208,12 @@ The packet is an input to DP-704 and DP-705, not permission to deploy.
 |---|---|---|---|---|
 | B-702-01 | DP-301..DP-305 policies are safe defaults, not accepted legal policy | Implement the policy contracts, answer their qualified questions, and hand the register to DP-307. | Cross-referenced Q-306 rows, policy versions, tests, and owner acceptance. | Product owner; `BLOCKED` |
 | B-702-02 | No qualified Italy/EU review or accepted decision | Appoint the qualified reviewer, review the exact register/deployment assumptions, and record each disposition. | Reviewer identity/scope/date, controlled evidence reference, signed decision IDs. | Owner/counsel; `EXTERNAL` |
-| B-702-03 | M5 DP-501..DP-506 controls are not closed | Create or update the missing M5 specs, implement the controls, and attach focused plus MiniPC proof. | Security matrix, restore receipt, retention matrix, SLO/error tests, alert runbook, cost/outage drill. | Maintainer/operator; `BLOCKED` |
+| B-702-03 | **CLOSED (technical)** — DP-501..DP-506 controls are implemented and carry MiniPC receipts | Keep the linked controls current for the selected candidate; any material change reopens this row. | DP-501 security matrix; DP-502 restore receipt; DP-503 retention matrix; DP-504 SLO/error tests; DP-505 alert/runbook receipt; DP-506 cost/outage drill. | Maintainer/operator; `CLOSED` |
 | B-702-04 | Conditional DP-507/DP-508 status is unknown | Decide whether public admin/intake exists. If yes, implement the applicable auth/abuse controls; if no, record a verified `NOT_APPLICABLE` decision and re-review trigger. | Surface inventory and tests/runbook, or owner-signed non-applicability record. | Owner/security; `PENDING-OWNER` |
 | B-702-05 | Deployment profile and public contact path are unowned | Freeze the MiniPC/static/API topology, operator roles, security/privacy/complaint contact, and incident owner. | Approved topology/profile, public policy documents, contact/runbook references. | Product owner; `PENDING-OWNER` |
 | B-702-06 | Failure behavior is not proven end to end | Run the failure matrix on the MiniPC using isolated/canary data and verify blocked/omitted outcomes and receipts. | Sanitized receipts, actual read-back, queue/projection state, no publication. | Operator; `BLOCKED` |
 | B-702-07 | Rights/retention/incident decisions are stale or missing | Re-review affected data classes, source families, public notices, and operational changes. | New decision IDs, policy versions, implementation receipts, and owner acceptance. | Owner/counsel; `EXTERNAL` |
-| B-702-08 | Attribution/evidence safety gate is incomplete or fails | Close DP-216..DP-224 and DP-308..DP-310 for launch-set surfaces; rerun DP-223 on the candidate and keep any failing class held. | Zero-false-attribution/fabricated-quote benchmark receipt, assertion-citation assurance, safety-profile read-back, high-risk and review-separation receipts. | Maintainer/editorial owner; `BLOCKED` |
+| B-702-08 | **CLOSED (technical)** — attribution/evidence safety gate passes on current main candidate `8b47c0c` | Re-run this gate after any material attribution, projection, safety, high-risk, reviewer-authority or launch-candidate change; failing classes remain held. | DP-216..DP-224 closure; current-main DP-223 zero-tolerance benchmark plus persisted projection replay; DP-224 citation assurance; DP-308 safety, DP-309 high-risk and DP-310 review-separation receipts. | Maintainer/editorial engineering gate; `CLOSED` |
 
 No row may be closed by deleting the blocker text, changing a status string, or adding a
 generic “compliant” label.
@@ -227,7 +226,7 @@ generic “compliant” label.
 - [ ] **AC-702-2 — Qualified review:** The required reviewer and product owner accept
   the exact deployment assumptions; unresolved or conditional questions remain visibly
   blocked.
-- [ ] **AC-702-3 — M5 control packet:** DP-501..DP-506 have implementation and MiniPC
+- [x] **AC-702-3 — M5 control packet:** DP-501..DP-506 have implementation and MiniPC
   receipts. These controls are mandatory for the selected v1 deployment; no
   `NOT_APPLICABLE` substitution is allowed for DP-501..DP-506.
 - [ ] **AC-702-4 — Conditional surfaces:** Public intake and any admin surface have
@@ -288,6 +287,42 @@ It must also include:
 
 A local test pass is not legal/security/privacy closure. A missing reviewer, decision,
 control proof, or MiniPC read-back remains `PENDING-OWNER`, `EXTERNAL`, or `BLOCKED`.
+
+### Machine-only closure refresh — 2026-10-07
+
+This refresh closes AC-702-3 and the technical B-702-03/B-702-08 rows. AC-702-14 remains
+open because its wording is explicitly bound to the eventual release candidate; the repository
+does not yet contain an owner-approved release candidate. This refresh does not create the final
+pre-launch closure packet, qualify any legal/privacy decision, approve a deployment profile, or
+authorize launch.
+
+- **AC-702-3:** DP-501, DP-502, DP-503, DP-504, DP-505 and DP-506 are all `DONE` and each
+  ticket contains its required MiniPC/runtime receipt. The authoritative MiniPC mirror's tracked
+  files match current `HEAD`/`origin/main` `8b47c0cfc4fafea3136e6b9db7521f172ecf66dd` by
+  checksum. On that mirror, a bounded M5 + publication-safety selection contains **191 tests**.
+  With the normal SSH PATH, unittest reported **168 tests run, 2 class-level skips, 0 failures**:
+  the two PostgreSQL-backed classes could not start because `initdb`/`pg_ctl` were outside PATH.
+  Re-running those classes with `/usr/lib/postgresql/18/bin` on PATH passed the omitted **23/23**
+  tests against disposable PostgreSQL. The selection exercises the security matrix,
+  retention/destructive guards, restore verifier, SLO/taxonomy, operator runbook, cost policy,
+  provider-outage behavior and downstream attribution/review gates. The separate production
+  restore receipt remains DP-502 set `20261007T160049Z`, with exact **97/97** persistent-table
+  row-count parity.
+- **B-702-08 technical gate:** on the same current-main mirror, the dedicated DP-223 command
+  reports **59/59 PASS**, `false_attribution=0`, `fabricated_quote=0`, `release_gate=True`. The
+  PostgreSQL-backed persisted public-projection replay is included in the **23/23** rerun and
+  exercises the authored corpus through persisted final-output handling. DP-216..DP-224 and
+  DP-308..DP-310 are `DONE`; the current focused selection also exercises publication safety,
+  high-risk gating/public serializers, review control, durable review replay and reviewer identity
+  authority. Missing or stale proof remains a hold/omission rather than a warning-mode
+  publication. This is current-candidate engineering proof only: DP-604 remains `IN PROGRESS`
+  with no release authorized, the release policy still requires an owner-approved release
+  candidate, and DP-704 remains `FUTURE`. AC-702-14 must be re-run and closed against that actual
+  release candidate when it exists.
+
+DP-702 remains `FUTURE` and launch remains `NO-GO`: AC-702.1/.2/.4-.11/.13/.14 and their
+owner/external/release-candidate/composite-canary requirements are not inferred from these
+engineering receipts.
 
 ## Documentation, data, and migration impact
 
