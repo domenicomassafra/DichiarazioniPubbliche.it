@@ -99,19 +99,19 @@ the same information architecture. Topic is a research dossier; Person is a chro
 
 ## Acceptance criteria
 
-- [ ] `AC-406.1`: Given an approved Topic with several public finding versions, when the
+- [x] `AC-406.1`: Given an approved Topic with several public finding versions, when the
   route renders on desktop or mobile, then it shows the approved scope and a neutral,
   claim-first chronology with direct evidence paths.
-- [ ] `AC-406.2`: Given a topic label that is similar to another topic, when a user opens
+- [x] `AC-406.2`: Given a topic label that is similar to another topic, when a user opens
   the route by ID, then the page resolves only the requested stable Topic and does not
   merge, redirect, or infer a replacement.
-- [ ] `AC-406.3`: Given a Topic with no public records, when the route renders, then the
+- [x] `AC-406.3`: Given a Topic with no public records, when the route renders, then the
   empty state explains the public-data boundary and offers Explore/Method navigation
   without a placeholder, score, or hidden omission count.
-- [ ] `AC-406.4`: Given a stale, tampered, unsafe, or incompatible projection, when the
+- [x] `AC-406.4`: Given a stale, tampered, unsafe, or incompatible projection, when the
   page is built or requested, then it fails closed and does not fall back to demo data or
   a stale record.
-- [ ] `AC-406.5`: Given a reviewed relation or correction/reply history, when the page
+- [x] `AC-406.5`: Given a reviewed relation or correction/reply history, when the page
   links to it, then the target preserves finding-version and review semantics; candidates
   and private records are not rendered.
 - [ ] `AC-406.6`: Given any state, when viewed without color, at 200% zoom, and with
@@ -120,7 +120,7 @@ the same information architecture. Topic is a research dossier; Person is a chro
 - [ ] `AC-406.7`: Given the visual implementation, when compared with DP-405, Topic is
   visibly a dossier rather than a Person chronology while both reuse system components;
   the page has one dominant task with no dashboard/KPI/scorecard additions.
-- [ ] `AC-406.8`: Given the collision/dependency audit runs, then DP-406 owns only the
+- [x] `AC-406.8`: Given the collision/dependency audit runs, then DP-406 owns only the
   Topic route and shared Record ownership is not duplicated.
 
 ## Validation / proof
@@ -204,3 +204,25 @@ Implementation complete; runtime DONE remains blocked on one real approved Topic
   yet. No Topic or membership was auto-approved or fabricated merely to turn this ticket
   green. Once one reviewed canary exists, rebuild on MiniPC and attach its canonical route,
   projection fingerprint and representative no-score/raw-content HTML receipt.
+
+### Machine acceptance refresh — 2026-10-07
+
+The current public-schema-valid DP-407 projection supplies the missing deterministic Topic matrix
+without changing production data. It contains a populated `Servizi pubblici` Topic with two
+reviewed public finding memberships, a distinct similarly named `Servizio pubblico` Topic with
+zero memberships, and a third `Mobilità urbana` Topic. The static build emits all three canonical
+routes. The populated route exposes approved scope, chronological Statement rows and direct
+`#fonti` evidence paths; the empty route states the public-data boundary and links Explore/Method;
+the similar labels remain separate stable routes rather than being merged by display text.
+
+The same populated Topic links the approved Trace and the corrected Statement history. Current
+`check:corrections` verifies version-aware history links from derived surfaces, while DP-430 tests
+prove private/rejected memberships are omitted and malformed/stale Topic material fails closed.
+Focused `test_public_topics`, relation/public-projection coverage, route checks and rendered HTML
+inspection are green. This closes AC-406.1/.2/.3/.4/.5 and the ownership-only AC-406.8 at the
+machine/contract level.
+
+AC-406.6 and AC-406.7 remain open because they require real assistive-technology and visual
+judgment. The ticket remains `BLOCKED` for runtime DONE because the production authority still has
+no real reviewed Topic+membership canary; the isolated/public-schema fixture is deliberately not
+relabeled as production data.

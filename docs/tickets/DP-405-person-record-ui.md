@@ -244,3 +244,17 @@ This closes AC-405.1 and AC-405.5. AC-405.3 remains open because the public proj
 does not emit a Person resource/route with zero public records; filter-result emptiness is not
 substituted for that stronger state. AC-405.6 remains open because automated keyboard/zoom/AX
 inspection is not substituted for the required real screen-reader/manual acceptance.
+
+### Closure audit — 2026-10-07
+
+The AC-405.1/.5 closure was re-audited against the exact populated DP-407 projection and current
+QA rather than accepted from status text alone. `/persone/person-demo-maintenance/` contains 12
+published rows for one approved Person, while correction/reply consistency requires every derived
+Person surface that links the affected Statement to expose the version-aware `#storia` path.
+Route, correction, browser and performance checks all pass with zero external requests.
+
+AC-405.3 is still not truthfully provable from the current public contract. Person is derived from
+projectable dossiers rather than a first-class zero-record Person resource, so a Person with no
+public records has no static route to render. The first-class zero-finding Content and empty Topic
+contracts cannot be reused as Person proof. AC-405.6 remains the separate manual accessibility
+gate.

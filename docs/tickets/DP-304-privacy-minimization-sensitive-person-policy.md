@@ -192,15 +192,15 @@ reclassify a high-risk item as public.
 - [x] **AC-304.3:** Fixtures for sensitive claims, allegations, minors, victims,
   exact locations, and contact data are quarantined or minimized and never inferred
   into new traits.
-- [ ] **AC-304.4:** Public JSON, JSON-LD, HTML, API, search, analytics, and logs
+- [x] **AC-304.4:** Public JSON, JSON-LD, HTML, API, search, analytics, and logs
   contain no prohibited private fields, even when the operational row is tampered.
-- [ ] **AC-304-05:** Rights requests create private append-only cases and cannot
+- [x] **AC-304-05:** Rights requests create private append-only cases and cannot
   directly edit or delete a published historical version.
 - [x] **AC-304.6:** Retention dry-runs prove that incomplete manifests, missing
   receipts, active holds, and failed provenance checks prevent deletion.
-- [ ] **AC-304-07:** Access tests prove that only authorized roles can inspect private
+- [x] **AC-304-07:** Access tests prove that only authorized roles can inspect private
   content and that access audit records contain no copied body text.
-- [ ] **AC-304-08:** A MiniPC canary verifies private/public field separation, an
+- [x] **AC-304-08:** A MiniPC canary verifies private/public field separation, an
   approved sanitized projection, a rights-request hold, and a safe retention
   decision without mutating unrelated records.
 
@@ -386,3 +386,88 @@ ingestion-wide relevance, all-surface privacy/log proof, persisted rights-reques
 private-admin access authority, and the composite MiniPC privacy/rights/retention canary are not
 yet proven. Q-306-08..10 / DP-307 remain unresolved; no lawful basis, retention period or rights
 outcome is asserted.
+
+---
+
+## Finalization receipt — machine-provable privacy boundary (2026-10-07)
+
+This tranche closes only machine-verifiable privacy/minimization requirements. It does not
+select a lawful basis, legal retention period, data-subject-rights outcome, or regulatory
+conclusion; the launch-level qualified questions and DP-306/DP-307 blockers remain unchanged.
+
+### Persisted private rights/access seams
+
+- `privacy_rights_case` + `privacy_rights_case_event` are private append-only ledgers. The
+  runtime can open a bounded `ACCESS/CORRECTION/RESTRICTION/OBJECTION/DELETION` case and append
+  only `OPEN_PRIVATE`, `REVIEW_PENDING`, or `PUBLIC_HISTORY_HOLD_REQUIRED` safety events. The
+  requester reference is stored only as SHA-256; no request body is persisted by this seam.
+  Deterministic-ID replays revalidate the persisted row before trusting a conflict, identical
+  hold retries are idempotent, and an exact concurrent replay converges on one successor event.
+- A rights request aimed at an already-published record does not mutate the public historical
+  row. The disposable-PostgreSQL acceptance snapshots a `PUBLISH` Finding byte-for-byte before
+  and after opening a deletion request and appending the public-history hold requirement; the
+  Finding is unchanged, while UPDATE/DELETE/TRUNCATE attempts against the rights ledgers fail.
+  This closes **AC-304-05** as an engineering invariant only, not as a legal-rights decision.
+- `private_access_audit_event` is a private append-only audit ledger containing policy version,
+  bounded actor/record identifiers, purpose, outcome, timestamp, field **count**, and hold flag.
+  It has no requested-field-name or body column. `PrivacyRightsAccessStore.inspect_private_field()`
+  is a closed read-only allowlist over operational-private body fields and evaluates the existing
+  `decide_private_access()` authority before reading. Unknown roles, wrong classifications,
+  field mismatches, non-allowlisted fields, invalid audit timestamps, and incompatible
+  deterministic audit-ID conflicts return no body; the verified audit write occurs before an
+  authorized read. This closes **AC-304-07** for the implemented local operator/runtime seam.
+
+### Public/private leak proof
+
+- Existing high-risk serializer fixtures contaminate an operational projection row with private
+  reviewer/high-risk fields and prove removal/rejection across projection JSON, dossier and
+  projection JSON-LD, HTML, RDF/N-Triples, written public bundle, and all public API routes; a
+  fingerprint-valid bypass returns a generic 503 without private material.
+- DP-221/DP-305 boundary fixtures independently prove private source/paraphrase/summary/
+  translation bodies are removed before every public serializer. The persisted PostgreSQL
+  attribution acceptance also carries private alias/identifier/source-ref values through the
+  operational database and proves they do not escape the projected dossier.
+- The web search serializer check passes with contaminated high-risk sentinels absent. Public
+  intake/challenge log receipts and private-store error receipts are bounded and redact private
+  body/contact/fingerprint/error sentinels. No separate analytics or notification emitter exists
+  in the current public runtime; therefore there is no additional public payload surface to
+  authorize implicitly. This closes **AC-304.4** for the current implemented surfaces; adding a
+  future analytics/notification surface would require a new allowlist/leak proof.
+
+### Validation and MiniPC canary
+
+- Local privacy policy + persisted publication-decision + new rights/access runtime:
+  **59/59 PASS** on disposable PostgreSQL 17.11; fresh `schema.v1.sql` plus the additive
+  `20261007-add-privacy-rights-access-ledgers.sql` migration replay twice successfully.
+  A separate disposable migration audit also proves HEAD-before-DP-304 schema -> additive
+  migration replay twice has the same three-table column shape as the fresh-schema path.
+- Local serializer/log/retention boundary set: **52/52 PASS**; persisted PostgreSQL private
+  attribution/source-ref leak check: **1/1 PASS**; web high-risk search serializer: **PASS**.
+- Refreshed isolated MiniPC `/tmp` bundle after the replay/conflict hardening, with production
+  database/provider variables removed, uses Python 3.14.4 and disposable PostgreSQL 18.6:
+  **71/71 PASS** across privacy policy, rights/access
+  persistence, high-risk public serializers, media retention and corpus-retention. The temporary
+  bundle/database is removed afterward; no deployment mirror, provider, production database, or
+  production record is touched. This proves the four required AC-304-08 machine canary elements:
+  private/public separation, sanitized projection, private rights-request hold, and fail-closed
+  safe retention decision. **AC-304-08 is closed.**
+- Final shared-tree integration runs **1788/1788 PASS**. That run initially exposed the three new
+  durable privacy tables as absent from the checked-in backup/restore inventory; the inventory and
+  restore verifier were then extended fail-closed to all **97** repository-declared persistent
+  tables, with focused backup/restore/privacy regression **25/25 PASS**. This is local integration
+  proof only; the production MiniPC migration and post-migration 97-table restore drill are recorded
+  separately when the candidate is promoted.
+
+### Remaining blockers
+
+- **AC-304.1 remains open:** the repository still lacks the required exhaustive field-level
+  inventory covering every persisted/projected field with classification, purpose, access role,
+  retention behavior and public allowlist decision. The existing name-based policy is not that
+  inventory, and no legal retention period is invented here.
+- **AC-304.2 remains open:** the persisted privacy publication decision is consumed by the
+  production publication boundary and missing/stale relevance fails closed there, but acquisition
+  and ingestion are not yet universally gated by a persisted public-interest relevance reason.
+  The criterion explicitly requires both ingestion and publication, so publication-only proof is
+  insufficient.
+- Q-304/Q-306/DP-307 qualified legal, retention, notice, and rights-workflow questions remain
+  external blockers. No lawful-basis, legal-retention, or legal-rights conclusion is claimed.

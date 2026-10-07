@@ -256,3 +256,20 @@ This closes AC-407.1/.2/.3/.5/.6/.8/.9. AC-407.4 remains open because a literal
 unresolved/needs-more-evidence/under-review/blocked public Content state is not yet exercised
 through the approved public contract. AC-407.7 remains open because automated AX/keyboard/zoom
 checks are not substituted for the required real screen-reader/manual accessibility pass.
+
+### Closure audit — 2026-10-07
+
+The machine closures above were rechecked against the exact DP-407 fixture and current QA:
+54 HTML pages build, route/correction checks pass, browser QA scans the populated snapshot with
+zero external requests, and performance includes canonical Person/Topic/Content/Trace routes with
+no overflow or autoplay. The first-class DP-434 zero-finding Content canary remains the proof for
+the deliberate no-public-moment fallback. The AC-407.1/.2/.3/.5/.6/.8/.9 checkmarks therefore have
+literal fixture/contract evidence and are retained.
+
+AC-407.4 remains open by design rather than for lack of a convenient fixture. An unresolved,
+needs-more-evidence, under-review or blocked Finding is not a public Content moment under the
+current publication contract: private/held membership is omitted and is indistinguishable from a
+nonexistent membership. Rendering a named private workflow state would leak information the public
+projection intentionally withholds. The existing zero-finding fallback proves safe omission, not
+the AC's stronger explicit-state wording, so no pass is claimed without a contract/acceptance
+decision. AC-407.7 remains manual.

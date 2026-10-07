@@ -120,16 +120,16 @@ UI must preserve the exact domain label and explanation supplied by the public c
 
 ## Acceptance criteria
 
-- [ ] `AC-408.1`: Given an approved relation with two or more public finding versions,
+- [x] `AC-408.1`: Given an approved relation with two or more public finding versions,
   when a reader opens the Trace, then each statement, date, source, relation type,
   and evidence path is visible in a stable reading order.
 - [ ] `AC-408.2`: Given the relation is a contradiction or position-change context, when
   the page explains it, then it does not infer intent, deceit, lie, reliability, or a
   political conclusion and preserves the exact DP-104 label.
-- [ ] `AC-408.3`: Given a relation candidate, stale review, incompatible scope, or
+- [x] `AC-408.3`: Given a relation candidate, stale review, incompatible scope, or
   non-projectable participant, when the page is requested, then it fails closed and
   does not render a guessed or stale comparison.
-- [ ] `AC-408.4`: Given a correction, reply, or reanalysis, when a participant changes,
+- [x] `AC-408.4`: Given a correction, reply, or reanalysis, when a participant changes,
   then the page links the new version and preserves the original finding/history without
   overwriting it.
 - [ ] `AC-408.5`: Given desktop and mobile layouts, when the comparison is navigated by
@@ -138,10 +138,10 @@ UI must preserve the exact domain label and explanation supplied by the public c
 - [ ] `AC-408.6`: Given the visual implementation, when compared with architecture v3
   and DP-425, then chronology and the Segno evidence rail are primary; side-by-side
   comparison is secondary; no dashboard, graph, or color-coded person history appears.
-- [ ] `AC-408.7`: Given providers are offline, when an approved comparison projection
+- [x] `AC-408.7`: Given providers are offline, when an approved comparison projection
   is served, then it remains readable and no LLM, provider, or operational DB request
   occurs.
-- [ ] `AC-408.8`: Given the collision/dependency audit runs, then DP-408 owns the
+- [x] `AC-408.8`: Given the collision/dependency audit runs, then DP-408 owns the
   Trace route and DP-104/DP-105 remain the only relation/schema owners.
 
 ## Validation / proof
@@ -213,3 +213,30 @@ comparison output, and fail-closed stale/tampered result.
   no synthetic database row or fabricated approval was created merely to make the ticket
   green. Once one reviewed relation is available, rebuild on MiniPC and attach its route,
   review-event provenance, projection fingerprint and representative HTML receipt.
+
+### Machine/runtime acceptance refresh — 2026-10-07
+
+The public-schema-valid DP-407 fixture carries one structurally APPROVED `UPDATE` relation with an
+explicit review-event ID and two projectable public participants. The current build emits the
+canonical Trace route, preserves stable chronological ordering, source links, Statement/evidence
+paths, exact relation type/version/review provenance and the no-intent boundary. Rendered output
+contains none of the score/raw/private tokens audited elsewhere. This closes AC-408.1 as a
+deterministic machine acceptance case without claiming a production relation exists.
+
+DP-104's focused policy/projection suite proves candidate, stale-review, incompatible-context and
+non-projectable-participant relations fail closed before they can become a public Trace; the final
+production empty projection likewise emits no guessed Trace. This closes AC-408.3. The DP-431
+rebuild canary proves a correction replaces the current participant version across Trace while the
+Statement `#storia` path retains current/superseded history, and proves a held participant removes
+the affected Trace entirely. That canary also passed from an isolated MiniPC workspace, closing
+AC-408.4's machine/runtime propagation requirement without touching production data.
+
+Browser/performance QA over the populated projection records zero external requests while loading
+the Trace route, so AC-408.7 is closed. Repository/collision ownership remains DP-408 for Trace and
+DP-104/DP-105 for relation/schema semantics, closing AC-408.8.
+
+AC-408.2 remains open: the current rendered canary exercises `UPDATE`, not a literal rendered
+`CONTRADICTION_CANDIDATE` or `POSITION_CHANGE_CANDIDATE`, so code branches alone are not promoted
+to acceptance proof. AC-408.5 and AC-408.6 remain open because they require real screen-reader/
+manual visual judgment. The ticket remains `BLOCKED` for runtime DONE until a real DP-104-reviewed
+relation with projectable participants exists in the runtime authority.

@@ -159,7 +159,7 @@ rollback receipt unless it is actually exercised and read back.
 | B-701-04 | Technical rename decision | **CLOSED 2026-10-03:** repo/package/ticket/systemd/env/database/data paths and public projection migrated on Mac + MiniPC. | docs/reviews/rebrand-cutover-2026-10-03.md. | Maintainer + owner; CLOSED |
 | B-701-05 | Name or URL collision possible | Run the read-only collision audit against repository metadata, public projection/API identifiers, package names, domains, handles, and source receipts. | Machine-readable audit output and manual disposition of every collision. | Maintainer; `BLOCKED` until clean |
 | B-701-06 | Legal/public copy not accepted | Obtain DP-307 disposition for the selected name, description, disclosure, and launch surfaces. | Accepted Q-306/DP-307 decision ID and policy version. | Owner + counsel; `EXTERNAL` |
-| B-701-07 | Rollback path unproven | If any rename/mapping is approved, rehearse the old-to-new mapping and rollback in an isolated environment. | Rollback receipt with hashes, restore read-back, and operator sign-off. | Maintainer; `BLOCKED` |
+| B-701-07 | Rebrand rollback path cannot currently be exercised | The temporary 2026-10-03 rename-era rollback bundle was deliberately deleted after canonical verification, the post-cutover `20261004T014945Z` backup has since rotated out, and the canonical Git baseline is a root snapshot with no retained pre-rename parent. Recover a controlled pre-cutover bundle/preimage with a stable hash and rehearse old -> new -> rollback in isolation; do not reconstruct one from guesses or unrelated unreachable objects. | Controlled pre-cutover artifact hash, exercised rollback receipt, restore read-back, and operator sign-off. | Maintainer; `BLOCKED` |
 
 A blocker may be marked closed only when its evidence is linked and the owner accepts the
 result. “No collision found” is not a legal clearance.
@@ -190,7 +190,7 @@ result. “No collision found” is not a legal clearance.
   disclosure decision, or the ticket remains `BLOCKED` with the exact safe default.
 - [x] **AC-701.9 — No external side effect:** The implementation creates no remote, URL,
   domain registration, handle, tag, release, deployment, or public brand claim.
-- [ ] **AC-701.10 — Handoff:** DP-704 can consume the identity/rollback map, and DP-705
+- [x] **AC-701.10 — Handoff:** DP-704 can consume the identity/rollback map, and DP-705
   cannot claim stable v1 while any B-701 row remains open.
 
 ## Validation / proof
@@ -253,9 +253,10 @@ status reconciliation leaving the runtime payload unchanged. `tools/check_reposi
 passes and the launch preflight correctly remains `NO-GO` instead of treating missing external
 decisions as evidence. After DP-223's isolated MiniPC attribution-integrity sub-rehearsal closed,
 the current integrated launch preflight reports **41 blockers**. AC-701.5 remains open because external package/domain/handle collision checks and
-their manual dispositions are not complete; AC-701.7 and AC-701.10 remain open until an
-exercised rollback receipt exists, and AC-701.1/.2/.8 remain blocked on the qualified
-decision/legal evidence described above.
+their manual dispositions are not complete; AC-701.7 remains open until an exercised
+pre-rename rollback receipt exists, while AC-701.10 is closed by the explicit blocked-state
+handoff below. AC-701.1/.2/.8 remain blocked on the qualified decision/legal evidence described
+above.
 
 The rollback blocker is concrete rather than bookkeeping-only. The 2026-10-03 cutover used a
 temporary rename-era rollback bundle, but after the canonical identity was independently
@@ -264,5 +265,67 @@ removed; recovery authority then moved to the canonical backups. The repository'
 baseline commit is also a root baseline rather than a retained pre-rename parent. Therefore an
 old-identity -> new-identity -> rollback rehearsal cannot now be executed from controlled
 retained material without reconstructing a legacy state. No such reconstruction is treated as
-proof. AC-701.7 remains open, and AC-701.10 remains open with it until DP-704 receives a real
-identity/rollback handoff packet.
+proof. AC-701.7 remains open.
+
+### Final compatibility / rollback audit and downstream handoff — 2026-10-07
+
+Fresh read-only inspection of the actual runtime and source history confirms that the missing
+pre-rename rollback material is still the exact blocker rather than a stale ticket note:
+
+- the MiniPC backup root no longer contains the documented post-cutover
+  `20261004T014945Z` set, and a bounded home/runtime scan finds no project rename-era rollback
+  bundle or active path carrying the former project aliases;
+- `cdf4e061020dc48ab73e4c579c8d038fcd1c49ba`, the first canonical GitHub/source baseline,
+  is a root commit with no parent. Current `git fsck --no-reflogs --unreachable` exposes only
+  an unrelated 2026-10-05 DP-423 commit, not a controlled pre-rename source snapshot;
+- the retained `~/.local/share/dichiarazioni-pubbliche/public/v1.rollback-20261006T142259Z`
+  bundle is itself post-rebrand (`dichiarazioni-pubbliche-public-v2`) and therefore cannot prove
+  old-identifier compatibility or the 2026-10-03 rename rollback.
+
+Current recovery authority is healthy but proves only the **canonical** identity. Backup set
+`20261007T143042Z` has dump SHA-256
+`7587f81f7c6e50da07713943ff1aea940cac36415207eae55fa447df020ced02` and manifest SHA-256
+`21b623d43340baf1d06bc1707b5482551ce1cd432589af260ee8a31436788b6e`, covering 94 durable
+tables. On 2026-10-07 an isolated MiniPC database `dp701_brand_compat_20261007` was created empty,
+the canonical restore drill replayed that exact set, verified all **94/94** table counts and
+reported `RESULT: PASS` / `DRILL PASS`, then reset the throwaway schema and dropped the database;
+post-run database existence read-back was zero. This is valid current-state disaster-recovery
+evidence, but it is **not** AC-701.7 proof because the backup contains only the canonical
+identity and does not let the operator read/replay both old and new identifiers or restore the
+pre-rename state. The set also has no public-bundle copy, so public-host state is verified
+separately rather than represented as part of that rollback receipt.
+
+Read-only public-host verification remains consistent with the canonical identity: Cloudflare
+serves the apex with HTTPS `200`, `www` returns `308` to the apex, authoritative delegation is
+`candy.ns.cloudflare.com` / `kanye.ns.cloudflare.com`, `/api/v1/health` reports `status=ok`,
+`contract_status=DRAFT`, schema `dichiarazioni-pubbliche-public-v2`, zero dossiers/omissions and
+dataset fingerprint `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`;
+`search-index.v1.json` reports the same fingerprint with zero records and `/index.nt` returns
+HTTP `200`. This is current read-back only; it does not recreate the deleted legacy bundle or
+constitute trademark/domain/handle/legal clearance.
+
+AC-701.10 is now closed as a **blocked-state handoff**, not as rollback completion. DP-704 already
+declares DP-701 a final-signoff dependency (`B-704-06`) and requires an actually exercised
+`ROLLBACK_VERIFIED` receipt (`B-704-08` / `AC-704.10`). Its DP-701 input is therefore:
+
+| Handoff field | DP-701 value for DP-704 |
+|---|---|
+| Canonical product / technical identity | `Dichiarazioni Pubbliche` / `DichiarazioniPubbliche.it` / `dichiarazioni_pubbliche` / `dichiarazioni-pubbliche` |
+| Runtime/database/schema | MiniPC canonical paths from the 2026-10-03 cutover; DB `dichiarazioni_pubbliche`; public schema `dichiarazioni-pubbliche-public-v2` |
+| Current recovery state | Canonical 94-table backup/restore authority proven; current-state restore is `PASS` |
+| Rebrand rollback state | `BLOCKED_PRE_RENAME_ARTIFACT_DELETED`; no controlled old-identity bundle/preimage remains |
+| Public read-back | Cloudflare apex `200`, `www` -> apex `308`, dataset fingerprint `501348d9...`, zero dossiers/records, API contract `DRAFT` |
+| Launch instruction | Do not convert current recovery/read-back into rebrand rollback proof; DP-704 remains blocked until its independent rollback and launch prerequisites are met |
+
+DP-705 independently enforces the same safe default: it is `FUTURE` / `BLOCKED`, depends on
+DP-701..DP-704, and its `B-705-01` requires DP-701 technical rename/rollback actions to close
+while `B-705-10` separately requires tested rollback/read-back. Therefore DP-705 cannot claim
+stable v1 while B-701-02/03/05/06/07 or the corresponding open ACs remain unresolved. This
+handoff requires no edit to DP-704/DP-705 and makes no legal, trademark, handle, registrar, DNS,
+deployment, or public-service mutation.
+
+Repository validation after this handoff is green: `tools/check_repository_contract.py` passes,
+`tools/check_launch_preflight.py --expect-no-go` passes, and `git diff --check` passes. The integrated launch preflight
+returns `NO-GO` with **41 blockers** and explicitly includes `TICKET_NOT_DONE:DP-701:IN PROGRESS`,
+so the handoff cannot be misread by DP-705 as release authority while the deleted-preimage
+rollback blocker or the external clearance rows remain open.

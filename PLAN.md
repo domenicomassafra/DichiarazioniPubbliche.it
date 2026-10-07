@@ -349,7 +349,7 @@ Goal: first release that can be operated publicly without calling the code a pro
 |---|---|---|---|
 | DP-701 | IN PROGRESS | Owner identity + technical rename/MiniPC cutover complete; trademark, DNS/handles, external collision/legal and rollback evidence open | M4 |
 | DP-702 | FUTURE | Pre-launch legal/security/privacy/evidence-safety review closure | DP-301..310, DP-501..511 |
-| DP-703 | FUTURE | Production dataset/source launch set and disclosure | M2, M3 |
+| DP-703 | IN PROGRESS | Production dataset/source launch set and disclosure; launch set/rights/provider/snapshot gates remain blocked | M2, M3 |
 | DP-704 | FUTURE | End-to-end launch rehearsal from source to correction | M2..M6 |
 | DP-705 | FUTURE | v1.0.0 release and public deployment | DP-701..704 |
 
