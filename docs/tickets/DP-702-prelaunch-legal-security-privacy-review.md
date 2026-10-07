@@ -213,7 +213,7 @@ The packet is an input to DP-704 and DP-705, not permission to deploy.
 | B-702-05 | Deployment profile and public contact path are unowned | Freeze the MiniPC/static/API topology, operator roles, security/privacy/complaint contact, and incident owner. | Approved topology/profile, public policy documents, contact/runbook references. | Product owner; `PENDING-OWNER` |
 | B-702-06 | Failure behavior is not proven end to end | Run the failure matrix on the MiniPC using isolated/canary data and verify blocked/omitted outcomes and receipts. | Sanitized receipts, actual read-back, queue/projection state, no publication. | Operator; `BLOCKED` |
 | B-702-07 | Rights/retention/incident decisions are stale or missing | Re-review affected data classes, source families, public notices, and operational changes. | New decision IDs, policy versions, implementation receipts, and owner acceptance. | Owner/counsel; `EXTERNAL` |
-| B-702-08 | **CLOSED (technical)** — attribution/evidence safety gate passes on current main candidate `8b47c0c` | Re-run this gate after any material attribution, projection, safety, high-risk, reviewer-authority or launch-candidate change; failing classes remain held. | DP-216..DP-224 closure; current-main DP-223 zero-tolerance benchmark plus persisted projection replay; DP-224 citation assurance; DP-308 safety, DP-309 high-risk and DP-310 review-separation receipts. | Maintainer/editorial engineering gate; `CLOSED` |
+| B-702-08 | **CLOSED (technical)** — attribution/evidence safety gate passes on runtime code candidate `4c93246` | Re-run this gate after any material attribution, projection, safety, high-risk, reviewer-authority or launch-candidate change; failing classes remain held. | DP-216..DP-224 closure; candidate DP-223 zero-tolerance benchmark plus persisted projection replay; DP-224 citation assurance; DP-308 safety, DP-309 high-risk and DP-310 review-separation receipts. | Maintainer/editorial engineering gate; `CLOSED` |
 
 No row may be closed by deleting the blocker text, changing a status string, or adding a
 generic “compliant” label.
@@ -237,9 +237,9 @@ generic “compliant” label.
 - [ ] **AC-702-6 — Security/privacy regression:** Secret, raw-content, SSRF, URL,
   projection-tamper, stale-review, rights-hold, and access-control tests pass on the
   candidate and the MiniPC canary.
-- [ ] **AC-702-7 — Restore and retention:** A disposable backup restores successfully and
+- [x] **AC-702-7 — Restore and retention:** A disposable backup restores successfully and
   the retention/hold dry run blocks unsafe deletion; no production data is mutated.
-- [ ] **AC-702-8 — Operations:** SLO/error taxonomy, health digest, alerts, cost caps,
+- [x] **AC-702-8 — Operations:** SLO/error taxonomy, health digest, alerts, cost caps,
   provider outage, and incident escalation are exercised with bounded receipts.
 - [ ] **AC-702-9 — Failure matrix:** Every required failure path is injected or
   otherwise proven with an expected fail-closed state, recovery owner, and no fabricated
@@ -305,9 +305,10 @@ authorize launch.
   Re-running those classes with `/usr/lib/postgresql/18/bin` on PATH passed the omitted **23/23**
   tests against disposable PostgreSQL. The selection exercises the security matrix,
   retention/destructive guards, restore verifier, SLO/taxonomy, operator runbook, cost policy,
-  provider-outage behavior and downstream attribution/review gates. The separate production
-  restore receipt remains DP-502 set `20261007T160049Z`, with exact **97/97** persistent-table
-  row-count parity.
+  provider-outage behavior and downstream attribution/review gates. At the time of this
+  2026-10-07 refresh, the separate production restore receipt was DP-502 set
+  `20261007T160049Z`, with exact **97/97** persistent-table row-count parity; the
+  2026-10-08 candidate-bound refresh below supersedes it with the 99-table receipt.
 - **B-702-08 technical gate:** on the same current-main mirror, the dedicated DP-223 command
   reports **59/59 PASS**, `false_attribution=0`, `fabricated_quote=0`, `release_gate=True`. The
   PostgreSQL-backed persisted public-projection replay is included in the **23/23** rerun and
@@ -320,9 +321,56 @@ authorize launch.
   candidate, and DP-704 remains `FUTURE`. AC-702-14 must be re-run and closed against that actual
   release candidate when it exists.
 
-DP-702 remains `FUTURE` and launch remains `NO-GO`: AC-702.1/.2/.4-.11/.13/.14 and their
+DP-702 remains `FUTURE` and launch remains `NO-GO`: AC-702.1/.2/.4-.6/.9-.11/.13/.14 and their
 owner/external/release-candidate/composite-canary requirements are not inferred from these
 engineering receipts.
+
+### Candidate-bound restore/operations refresh — 2026-10-08
+
+The DP-304 ingestion-relevance rollout materially changed the durable-table inventory, so the
+restore/operations portion of this packet was refreshed against runtime code candidate
+`4c93246f5f91ec5b29d710aa1dc73c80be732d8a`. This refresh closes only **AC-702-7** and
+**AC-702-8**. It does not close the broader security/privacy regression matrix (AC-702-6), the
+full failure matrix (AC-702-9), any qualified decision, or the release-candidate gate.
+
+- **Restore/retention (AC-702-7):** after the additive DP-304 migration, production and repository
+  inventories are **99/99** persistent tables. Backup set `20261007T225628Z` has dump SHA-256
+  `f2f103e89e469538ab987e75e3dcaf68d3fd66488eca79db229d34444ad7fc96` and manifest SHA-256
+  `004be1763d784c812447b06a2a2198c5fcbabf8781834cb85b43098f31721108`; the two new relevance
+  ledgers are 0/0 rows. A disposable PostgreSQL 18 restore reproduced every **99/99** table count
+  and the exact public-projection fingerprint
+  `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a` before automatic cleanup.
+  On the same MiniPC mirror, the current retention/restore/health/ops selection passed
+  **111/111**; its retention tests prove missing manifests/receipts, active holds, hash mismatch,
+  path escape/symlink cases and non-ephemeral data fail closed. No production deletion was run.
+- **Operations (AC-702-8):** the real MiniPC health service completed successfully on the candidate
+  and wrote a private aggregate digest at `2026-10-07T22:57:42.284590+00:00`; public availability,
+  queue-age/drain and cost objectives were healthy while public freshness correctly remained
+  `UNKNOWN`, not silently upgraded. The candidate-bound 111-test selection also covers SLO/error
+  taxonomy, health redaction/private mode, executable PAGE/NO_PAGE runbook policy, cost caps and
+  alert taxonomy; the already-recorded DP-505 runtime matrix remains the live PAGE/NO_PAGE
+  acceptance receipt.
+- A fresh isolated provider-outage drill loaded both canonical database baselines
+  (`schema.v1.sql` and `job_queue.v1.sql`) and used the real worker path. Missing OmniRoute
+  credentials yielded `CLAIM_EXTRACTION_CANARY_FAILED:OMNIROUTE_API_KEY_MISSING`; the claim job
+  became `BLOCKED`, atomic claims stayed 0→0, claim windows stayed 0, successful provider receipts
+  stayed 0→0, published findings stayed 0→0, provider cost was 0 and model invocations were 0.
+  The disposable cluster was removed afterward; no provider/model/quality downgrade occurred.
+- Current local `/api/v1/health` returns HTTP 200 with contract status still `DRAFT`, 0 dossiers and
+  dataset fingerprint `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`.
+  The three worker/source-poll timers are active. Production processing jobs remain explicitly
+  bounded (`BLOCKED=30`, `COMPLETED=86`), and the new ingestion-relevance authority/permit ledgers
+  remain 0/0 rather than being synthetically seeded to make runtime acceptance pass.
+- The current MiniPC mirror also re-ran the DP-223 zero-tolerance benchmark: **59/59 PASS**,
+  `false_attribution=0`, `fabricated_quote=0`, `release_gate=True`. This refreshes technical
+  B-702-08 to the deployed runtime code candidate only. Receipt-only documentation commits after
+  that code SHA do not change the runtime proof. **AC-702-14 remains open** because there is still no owner-approved
+  release candidate / DP-704 rehearsal against which that release-bound criterion can be closed.
+
+The launch preflight intentionally remains fail-closed. Its future release artifacts are currently
+presence-gated because canonical DP-702/DP-703/DP-704/DP-705 artifact schemas/authorization fields
+are not specified tightly enough to encode a semantic validator without inventing product/release
+authority. No invented schema was added to make those blockers disappear.
 
 ## Documentation, data, and migration impact
 
@@ -339,8 +387,10 @@ engineering receipts.
 
 ## Completion receipt
 
-Pending qualified legal/privacy decisions, M5 control evidence, owner-approved deployment
-profile, MiniPC failure/restore/retention proof, and the DP-701/DP-703/DP-704 handoffs.
+Pending qualified legal/privacy decisions, owner-approved deployment profile, the remaining
+security/privacy and full failure-matrix proofs, public communications/re-review decisions, and
+the DP-701/DP-703/DP-704 handoffs. Current restore/retention and operations receipts are recorded
+above but do not imply legal/security approval or release authority.
 This ticket does not claim legal compliance, public security approval, or stable v1
 launch readiness.
 

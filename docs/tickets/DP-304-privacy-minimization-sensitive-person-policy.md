@@ -187,7 +187,7 @@ reclassify a high-risk item as public.
 ## Acceptance criteria
 - [ ] **AC-304.1:** Every persisted and projected field has one classification,
   purpose, access role, retention behavior, and public allowlist decision.
-- [ ] **AC-304.2:** Public-interest relevance is required before ingestion and
+- [x] **AC-304.2:** Public-interest relevance is required before ingestion and
   publication; missing or stale relevance yields a private hold/omission.
 - [x] **AC-304.3:** Fixtures for sensitive claims, allegations, minors, victims,
   exact locations, and contact data are quarantined or minimized and never inferred
@@ -371,10 +371,12 @@ Focused disposable-PostgreSQL proof:
   raises from `reject_private_source_rights_record_mutation()`. This is a shared-tree
   DP-305 test-isolation blocker, so no full-suite-green claim is made here.
 
-No AC checkbox is closed by this tranche alone. In particular, **AC-304.2 remains open**
-because ingestion-wide relevance enforcement and the actual public-projection consumption
-path are not yet wired; AC-304.1, AC-304.4, AC-304-05, AC-304.6, AC-304-07, and AC-304-08
-also retain their existing blockers. This tranche does not select a lawful basis,
+No AC checkbox was closed by this tranche alone. At the time of this receipt,
+**AC-304.2 remained open** because ingestion-wide relevance enforcement and the actual
+public-projection consumption path were not yet wired; the later 2026-10-08 production
+acceptance receipt below supersedes that specific blocker. AC-304.1, AC-304.4, AC-304-05,
+AC-304.6, AC-304-07, and AC-304-08 also retained their then-current blockers. This tranche
+does not select a lawful basis,
 retention period, owner/counsel decision, sensitive trait, or reviewer identity authority,
 and it does not change `public_projection`.
 
@@ -466,10 +468,65 @@ conclusion; the launch-level qualified questions and DP-306/DP-307 blockers rema
   inventory covering every persisted/projected field with classification, purpose, access role,
   retention behavior and public allowlist decision. The existing name-based policy is not that
   inventory, and no legal retention period is invented here.
-- **AC-304.2 remains open:** the persisted privacy publication decision is consumed by the
-  production publication boundary and missing/stale relevance fails closed there, but acquisition
-  and ingestion are not yet universally gated by a persisted public-interest relevance reason.
-  The criterion explicitly requires both ingestion and publication, so publication-only proof is
-  insufficient.
 - Q-304/Q-306/DP-307 qualified legal, retention, notice, and rights-workflow questions remain
   external blockers. No lawful-basis, legal-retention, or legal-rights conclusion is claimed.
+
+## Production acceptance receipt — persisted ingestion relevance (2026-10-08)
+
+This receipt supersedes the AC-304.2 blocker recorded in the 2026-10-07 finalization receipt.
+It closes **AC-304.2 as an engineering invariant for the current production acquisition and
+publication paths only**. It does not decide whether any person/content is legally in the public
+interest, select a lawful basis, or authorize publication.
+
+- Candidate commit `4c93246f5f91ec5b29d710aa1dc73c80be732d8a` adds append-only
+  `privacy_ingestion_relevance_authority` and `privacy_ingestion_acquisition_permit` ledgers.
+  Authority reasons are bounded to the implemented policy vocabulary and remain private. A permit
+  is bound to the reviewed content identity, operation kind/ref and the still-current authority;
+  missing, conflicting, stale or superseded authority fails closed.
+- Current runtime acquisition seams are gated before externally acquired material can become
+  durable: scheduler source/content/job commit revalidates the permit under one PostgreSQL
+  transaction/advisory lock; research discovery persists only after a current permit; existing
+  fact-check discovery requires an explicit reviewer-supplied relevance handoff rather than
+  deriving authority from provider results; curated written intake rechecks before source/content
+  mutation; capture rechecks after fetch and before body/capture persistence; transcript/platform
+  resolution, caption and ASR paths check before network work and again before durable result
+  persistence; source revalidation checks current relevance before materializing a new capture.
+  Missing/stale authority therefore becomes `BLOCKED`/private omission rather than a fabricated
+  relevance decision.
+- Publication remains independently fail-closed through the persisted privacy-publication decision
+  boundary proven by the earlier receipt. The new ingestion authority does not auto-promote or
+  replace that publication decision.
+- Frozen local integration on the exact code candidate ran **1803/1803 PASS**, deterministic
+  benchmark **5/5**, repository/contributor acceptance PASS, compileall PASS and `git diff --check`
+  PASS. The canonical launch preflight remained `NO-GO` with 41 blockers.
+- An isolated MiniPC `/tmp` candidate derived from the commit reported **99** repository-declared
+  persistent tables and passed the DP-304 ingestion/scheduler/capture/curated/fact-check/
+  revalidation/worker selection **101/101** on disposable PostgreSQL 18. The migration
+  `20261007-add-privacy-ingestion-relevance-authority.sql` SHA-256 is
+  `d60e209f9afab0d274a41236d1763e870d2517f503ec999e9a9575c0f00bfdec` and replayed twice.
+- Before production migration, backup set `20261007T225439Z` captured the then-current **97-table**
+  database; dump SHA-256
+  `2a7941ad1d7a8f4a53ece70d405ccbe7049a10bfe6cd2f35e3324d10ba0f8156` and manifest SHA-256
+  `2bbfe67070f30c910b18f403e41720b62517f33f5c145995a98b57c7d40ca082`.
+  Production held 50 content rows and 9 findings, while the public projection remained 0 dossiers
+  at dataset fingerprint `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`.
+- Only the additive relevance migration was then applied, twice with `ON_ERROR_STOP`. Live and
+  repository inventories converged at **99/99** tables. Both new production ledgers remained
+  exactly **0 rows**: no fake reviewer/public-interest authority or permit was seeded. Existing
+  content stayed 50, findings stayed 9, and the public projection file/dataset fingerprint stayed
+  unchanged with 0 dossiers. Legacy rows therefore remain private/unapproved unless a real review
+  creates authority; they were not retroactively blessed to make this acceptance pass.
+- The 21 changed candidate files were synchronized to the non-Git MiniPC mirror while worker/source
+  timers were suspended and no corresponding service was active. The live mirror then passed
+  compileall, the same **101/101** focused suite, benchmark **5/5**, and the three timers were
+  returned to `active`.
+- Post-migration backup set `20261007T225628Z` contains **99** manifest tables with both relevance
+  ledgers at 0 rows; dump SHA-256
+  `f2f103e89e469538ab987e75e3dcaf68d3fd66488eca79db229d34444ad7fc96` and manifest SHA-256
+  `004be1763d784c812447b06a2a2198c5fcbabf8781834cb85b43098f31721108`.
+  A disposable PostgreSQL 18 restore reproduced all **99/99** table row counts exactly and matched
+  the backed-up public projection fingerprint `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`;
+  the throwaway cluster was removed afterward.
+
+AC-304.1 and the Q-304/Q-306/DP-307 qualified legal/privacy decisions remain open, so DP-304 stays
+`IN PROGRESS` and this receipt is not launch or legal-compliance authority.

@@ -98,3 +98,31 @@ A fresh disposable database `dp_restore_dbca603_20261007` restored all **97/97**
 tables with exact source/restored row-count parity, including the three new zero-row privacy
 ledgers. The verifier reported `RESULT: PASS (restored state matches backup exactly)` and
 `DRILL PASS set=20261007T160049Z`; the disposable database was removed afterward.
+
+### Ingestion-relevance migration drill — 2026-10-08
+
+Runtime code candidate `4c93246f5f91ec5b29d710aa1dc73c80be732d8a` adds the two private DP-304 ingestion
+relevance ledgers. Before applying that migration, the MiniPC created backup set
+`20261007T225439Z` from the coherent **97-table** production state. Sanitized integrity
+identifiers are dump SHA-256
+`2a7941ad1d7a8f4a53ece70d405ccbe7049a10bfe6cd2f35e3324d10ba0f8156` and manifest SHA-256
+`2bbfe67070f30c910b18f403e41720b62517f33f5c145995a98b57c7d40ca082`.
+
+Only `20261007-add-privacy-ingestion-relevance-authority.sql` was then applied, twice with
+`ON_ERROR_STOP`; no historical migration replay was attempted. Repository and live inventories
+converged at **99/99** persistent tables. The new
+`privacy_ingestion_relevance_authority` and `privacy_ingestion_acquisition_permit` tables were
+both intentionally **0 rows** after migration; no synthetic reviewer/public-interest authority
+was seeded.
+
+Post-migration backup set `20261007T225628Z` contains all **99** manifest tables. Sanitized
+integrity identifiers are dump SHA-256
+`f2f103e89e469538ab987e75e3dcaf68d3fd66488eca79db229d34444ad7fc96` and manifest SHA-256
+`004be1763d784c812447b06a2a2198c5fcbabf8781834cb85b43098f31721108`.
+Because the production database role intentionally has no `CREATEDB` privilege, the restore was
+performed in a completely separate disposable PostgreSQL 18 cluster under `/tmp`, not by granting
+extra production privileges. `pg_restore` reported **99 table-data entries**; every source/restored
+row count matched exactly, and the backed-up public projection fingerprint
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a` matched exactly. The verifier
+reported `RESULT: PASS (restored state matches backup exactly)` and
+`DRILL PASS set=20261007T225628Z`; the throwaway cluster was stopped and removed afterward.
