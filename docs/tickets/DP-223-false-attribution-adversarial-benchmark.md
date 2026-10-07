@@ -1,6 +1,6 @@
 # DP-223 — False-attribution and fabricated-quote adversarial benchmark
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216..DP-222, DP-224; coordinate with DP-602 and DP-704
 
@@ -84,7 +84,7 @@ public attribution for higher recall.
 - [x] **AC-223.7:** Replay is deterministic and changing fixture/source hashes invalidates
   the expected approvals rather than reusing stale results.
 - [x] **AC-223.8:** DP-602 can run the benchmark in CI without network/provider calls.
-- [ ] **AC-223.9:** DP-704 can rerun the same suite against the MiniPC release candidate and
+- [x] **AC-223.9:** DP-704 can rerun the same suite against the MiniPC release candidate and
   attach an actual projection/read-back receipt.
 
 ## Validation / proof
@@ -215,3 +215,21 @@ release candidate was deployed or read back through DP-704.
 
 AC-223.9 remains open and DP-704-bound. This disposable local persistence/serializer receipt
 is not a MiniPC release-candidate deployment or projection/read-back receipt.
+
+### DP-704 attribution-integrity sub-rehearsal — 2026-10-07
+
+The CI-green candidate `cdad363e8dff97b1465891e47f00b51fbbbadb0d` was materialized
+from Git into an isolated `/tmp` workspace on the authoritative MiniPC `udodo`. With the
+PostgreSQL 18 binary directory supplied explicitly from `pg_config --bindir`, the exact
+DP-223 benchmark plus persisted public-projection/tamper suite ran against disposable
+PostgreSQL: **17/17 PASS**. The full authored corpus again reported **59/59 PASS**,
+`known_false_public_attribution=0`, `fabricated_public_quote=0`; the persisted replay
+executed `PublicProjectionStore -> build_public_projection -> write_public_bundle`, including
+the 59-case persisted boundary and serialized bundle read-back. The isolated candidate
+workspace and ephemeral database were removed after the run.
+
+This closes AC-223.9 and therefore DP-223. It is deliberately only the DP-704
+attribution-integrity sub-gate: DP-704 itself remains FUTURE/BLOCKED because its full
+source-to-correction rehearsal, provider/legal/public-contract prerequisites, rollback
+receipt and owner disposition are still missing. No production database or public dataset
+was mutated to obtain this pass.

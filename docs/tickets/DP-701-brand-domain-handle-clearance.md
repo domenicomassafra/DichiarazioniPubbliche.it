@@ -247,10 +247,12 @@ as stable-v1 or legal launch clearance. Public linked data is served at `/index.
 against a private sibling receipt; the receipt itself is intentionally not exposed as a public
 route.
 
-The repository-local portion of the collision/dependency audit is green at
-`cdad363e8dff97b1465891e47f00b51fbbbadb0d`: `tools/check_repository_contract.py` passes and
-the launch preflight correctly remains `NO-GO` instead of treating missing external decisions
-as evidence. The current integrated launch preflight reports **42 blockers**. AC-701.5 remains open because external package/domain/handle collision checks and
+The repository-local portion of the collision/dependency audit is green at the CI-verified
+code candidate `cdad363e8dff97b1465891e47f00b51fbbbadb0d`, with subsequent documentation-only
+status reconciliation leaving the runtime payload unchanged. `tools/check_repository_contract.py`
+passes and the launch preflight correctly remains `NO-GO` instead of treating missing external
+decisions as evidence. After DP-223's isolated MiniPC attribution-integrity sub-rehearsal closed,
+the current integrated launch preflight reports **41 blockers**. AC-701.5 remains open because external package/domain/handle collision checks and
 their manual dispositions are not complete; AC-701.7 and AC-701.10 remain open until an
 exercised rollback receipt exists, and AC-701.1/.2/.8 remain blocked on the qualified
 decision/legal evidence described above.

@@ -190,7 +190,7 @@ without manual DB surgery.
 | DP-220 | DONE | Context-integrity / semantic-clipping guard for public statements, including discontinuous/montage fail-closed handling | DP-216, DP-217, DP-219 |
 | DP-221 | DONE | Original wording vs paraphrase/summary/translation separation; public serializers/search + DP-305 no-body exact-copy guard proven locally and on MiniPC | DP-216 |
 | DP-222 | DONE | Public-attribution Person identity + same-name/role-at-time gate; projection/read-time fail-closed identity/role proof + persisted tamper + MiniPC acceptance complete | DP-101, DP-114, DP-216, DP-218 |
-| DP-223 | IN PROGRESS | False-attribution/fabricated-quote adversarial benchmark; 59-case gate, persisted full-corpus PostgreSQL projection/serializer replay and zero false-attribution/fabricated-quote boundary are green; only AC-223.9 DP-704 release-candidate MiniPC read-back remains | DP-216..222, DP-224 |
+| DP-223 | DONE | False-attribution/fabricated-quote adversarial benchmark; 59-case zero-tolerance gate, persisted full-corpus projection/serializer replay and isolated MiniPC release-candidate attribution-integrity read-back all pass with zero known false attribution/fabricated quote | DP-216..222, DP-224 |
 | DP-224 | DONE | Material-assertion citation assurance over approved evidence/passages; exact Passage/source-hash binding + persisted tamper + MiniPC acceptance complete | DP-215, DP-210; coordinate DP-216/DP-308 |
 | DP-225 | DONE | Reviewed original-source resolver over approved derivation families; persisted receipt + private Studio inspection proven on MiniPC | DP-115, DP-215 |
 | DP-226 | DONE | Compound numerical verification: delta/ratio/percent change + unit/denominator policy; structured-provider fixture + MiniPC proof complete | DP-215 |
@@ -283,7 +283,7 @@ LLM in the request path.
 | DP-429 | IN PROGRESS | Explore page v4; static-index UI, browser Back/URL restore, keyboard/dialog, reduced-motion, phone/reflow and exact 200% browser zoom automation green locally and on MiniPC; real screen-reader/manual visual acceptance remains | DP-409, DP-425 |
 | DP-430 | DONE | First-class public Topic resource contract | DP-105, DP-114 |
 | DP-431 | DONE | Correction/retraction propagation proven across pages/API/search/social+JSON-LD/history, fail-closed rebuild and private-history hold; final MiniPC promotion converges live API/search/RDF validation on the approved projection fingerprint | DP-303, DP-402/403, DP-405..409, DP-422, DP-427..429, DP-434 |
-| DP-432 | IN PROGRESS | All AC-432.1-.8 machine-proven including exact browser zoom and MiniPC/public-schema acceptance; remains open only on upstream DP-223, while real screen-reader/manual judgment is owned by DP-410 | DP-216..223, DP-308, DP-427, DP-428 |
+| DP-432 | DONE | Public trust/provenance disclosure and correction-history integration AC-432.1-.8 machine-proven; upstream DP-223 attribution-integrity release sub-gate is now closed, while real screen-reader/manual judgment remains owned by DP-410 | DP-216..223, DP-308, DP-427, DP-428 |
 | DP-433 | DONE | Stable-URI + linked-data/RDF interoperability projection; deployed `/index.nt` read-back and discovery green | DP-105, DP-403, DP-430, DP-432, DP-434 |
 | DP-434 | DONE | First-class reviewed public Content resource independent of published findings; projection/API/web/RDF + isolated MiniPC migration/same-origin canary complete | DP-105, DP-210, DP-401, DP-403 |
 

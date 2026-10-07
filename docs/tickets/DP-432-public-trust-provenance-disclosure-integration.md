@@ -1,6 +1,6 @@
 # DP-432 — Public trust/provenance disclosure integration for Statement and Method
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-216..DP-223, DP-308, DP-427, DP-428
 
@@ -116,7 +116,9 @@ zero rendered Statement pages as valid only when the public search index also ha
 records; Method disclosures remain mandatory. Populated fixtures still require every rendered
 Statement trust disclosure.
 
-All DP-432 acceptance criteria are now machine-proven, but the ticket remains `IN PROGRESS`
-because upstream dependency DP-223 is still `IN PROGRESS`. DP-216 through DP-220 are now
-closed independently; DP-223's remaining projection/release-candidate gates are not inferred
-from this public-surface integration receipt.
+All DP-432 acceptance criteria are machine-proven. The final upstream blocker, DP-223,
+closed on 2026-10-07 after its persisted 59-case projection/serializer replay and isolated
+MiniPC release-candidate attribution-integrity sub-rehearsal both passed with zero known false
+public attribution and zero fabricated direct quote. DP-432 is therefore DONE. Real
+screen-reader/manual visual acceptance remains separately owned by DP-410 and is not inferred
+from this ticket.
