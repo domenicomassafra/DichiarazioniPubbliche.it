@@ -475,8 +475,8 @@ class PublicProjectionPostgresTamperTests(unittest.TestCase):
                 id, content_id, provider_id, source_kind, language,
                 raw_text_sha256, raw_text, is_manual_caption
             ) VALUES (
-                'transcript:dp222', 'content:dp223', 'official-fixture',
-                'OFFICIAL_TRANSCRIPT', 'it', :'source_hash', :'source_wording', true
+                'transcript:dp222', 'content:dp223', 'asr-fixture',
+                'ASR_PROVIDER', 'it', :'source_hash', :'source_wording', false
             );
             INSERT INTO transcript_segment (
                 id, variant_id, segment_index, start_ms, end_ms, text
@@ -496,6 +496,17 @@ class PublicProjectionPostgresTamperTests(unittest.TestCase):
             INSERT INTO canonical_segment_candidate (
                 canonical_segment_id, transcript_segment_id
             ) VALUES ('segment:dp222', 'transcript-segment:dp222');
+            INSERT INTO transcript_verbatim_review_event (
+                id, content_id, source_variant_id, source_segment_id,
+                source_variant_sha256, source_segment_sha256,
+                start_ms, end_ms, reviewed_text, reviewed_text_sha256,
+                decision, reviewer_ref, reason_codes
+            ) VALUES (
+                'transcript-review:dp217', 'content:dp223', 'transcript:dp222',
+                'transcript-segment:dp222', :'source_hash', :'source_hash',
+                0, 1000, :'source_wording', :'source_hash', 'APPROVED',
+                'reviewer:dp217', ARRAY['AUDIO_REVIEWED']::text[]
+            );
             INSERT INTO claim_segment (claim_id, segment_id)
             VALUES ('claim:dp223', 'segment:dp222');
 
@@ -591,6 +602,25 @@ class PublicProjectionPostgresTamperTests(unittest.TestCase):
             "contradicting_features",
         ):
             self.assertNotIn(forbidden, encoded)
+
+        # DP-217: human-audio authority is the persisted review bound to the exact
+        # source variant/segment bytes and reviewed canonical wording. Changing the
+        # source segment after review must immediately remove public eligibility;
+        # restoring those exact bytes makes the existing append-only receipt current
+        # again without inventing a new human decision.
+        self.store.run_literal(
+            "UPDATE transcript_segment SET text = 'segment changed after review' "
+            "WHERE id = 'transcript-segment:dp222';"
+        )
+        self.assertEqual(self.store.projectable_findings(), [])
+        self._assert_not_public()
+        self.store.run(
+            "UPDATE transcript_segment SET text = :'source_wording' "
+            "WHERE id = 'transcript-segment:dp222';",
+            source_wording=source_wording,
+        )
+        self.assertEqual(len(self.store.projectable_findings()), 1)
+        self.assertEqual(self._projection()["dossier_count"], 1)
 
         self.store.run(
             """

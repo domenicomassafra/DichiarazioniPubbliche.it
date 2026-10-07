@@ -161,42 +161,42 @@ labelled development evidence.
 
 ## Acceptance criteria
 
-- [ ] **AC-602.1 — Matrix fidelity:** The workflow runs the documented supported Python
+- [x] **AC-602.1 — Matrix fidelity:** The workflow runs the documented supported Python
   versions and the exact pinned web toolchain, with no unapproved version drift.
-- [ ] **AC-602.2 — Deterministic backend:** For each required Python version, a clean
+- [x] **AC-602.2 — Deterministic backend:** For each required Python version, a clean
   environment builds/installs the package, compiles `poc` and `tests`, runs the full
   unit/regression suite, runs the deterministic benchmark, and passes import/CLI smoke
   checks without a paid credential. Legacy benchmark `PUBLISH` output is retained only
   as historical regression evidence; current fail-closed projection/review tests must
   prove that no deterministic result auto-publishes.
-- [ ] **AC-602.3 — Deterministic web:** A clean `npm ci` install passes type/Astro
+- [x] **AC-602.3 — Deterministic web:** A clean `npm ci` install passes type/Astro
   checks and the static build from the documented fictional fixture; an explicit
   approved public projection build is tested separately and is not replaced by a demo
   fallback.
-- [ ] **AC-602.4 — Clean clone:** One required job proves a detached clean clone has no
+- [x] **AC-602.4 — Clean clone:** One required job proves a detached clean clone has no
   local-only prerequisites or generated source artifacts and records the exact commit,
   tool versions, and exit codes.
-- [ ] **AC-602.5 — Repository contract:** Link, syntax, ticket completeness/collision,
+- [x] **AC-602.5 — Repository contract:** Link, syntax, ticket completeness/collision,
   license/data inventory, secret/private-data, version/changelog, and whitespace checks
   run on every relevant change and fail closed on a missing required field.
-- [ ] **AC-602.6 — No side effects:** Default CI has read-only permissions, makes no
+- [x] **AC-602.6 — No side effects:** Default CI has read-only permissions, makes no
   provider/publication/deploy call, and cannot access production credentials or data.
   Any future write-capable workflow is separately authorized and reviewed.
-- [ ] **AC-602.7 — Migration canary:** A ticket that changes persistent schema or
+- [x] **AC-602.7 — Migration canary:** A ticket that changes persistent schema or
   migration order proves `ON_ERROR_STOP` apply/replay in an isolated database; missing
   or failed proof leaves the ticket blocked and never changes production.
-- [ ] **AC-602.8 — Runtime separation:** Runtime-affecting work records MiniPC proof;
+- [x] **AC-602.8 — Runtime separation:** Runtime-affecting work records MiniPC proof;
   Mac results are labelled development evidence and cannot satisfy the runtime gate.
-- [ ] **AC-602.9 — Licensing:** Every newly introduced CI dependency/action and fixture
+- [x] **AC-602.9 — Licensing:** Every newly introduced CI dependency/action and fixture
   has an DP-603 inventory row with exact version, license evidence, and attribution;
   unknown rights fail the release-facing check.
-- [ ] **AC-602.10 — Versioning:** CI detects disagreement among Python metadata, web
+- [x] **AC-602.10 — Versioning:** CI detects disagreement among Python metadata, web
   metadata, the DP-604 canonical version source, lockfiles, and changelog without
   automatically bumping or publishing a version.
-- [ ] **AC-602.11 — No remote assumption:** The specification and local validation do
+- [x] **AC-602.11 — No remote assumption:** The specification and local validation do
   not require a remote URL, issue, PR, or hosted runner; a hosted result is classified
   `PENDING-REMOTE` until a canonical remote is confirmed.
-- [ ] **AC-602.12 — Trust & Evidence regression:** Once DP-223 is implemented, every
+- [x] **AC-602.12 — Trust & Evidence regression:** Once DP-223 is implemented, every
   release-facing deterministic backend run executes it without network/provider access and
   fails on any known false public person attribution or fabricated direct quotation. False
   holds/abstentions remain separately reported and cannot be traded for a false-publication

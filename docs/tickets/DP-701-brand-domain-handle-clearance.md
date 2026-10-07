@@ -155,7 +155,7 @@ rollback receipt unless it is actually exercised and read back.
 |---|---|---|---|---|
 | B-701-01 | Owner-approved public identity | **CLOSED 2026-10-03:** owner selected **Dichiarazioni Pubbliche**. | This decision record + repository cutover. | Product owner; `CLOSED` |
 | B-701-02 | Trademark/name clearance absent | Commission and record the qualified trademark search/disposition for intended classes and jurisdictions. | Reviewer identity, scope, search date, sources, disposition, and conditions. | Qualified reviewer; `EXTERNAL` |
-| B-701-03 | Domain purchase reported; DNS/handles evidence incomplete | **Owner-reported 2026-10-05:** `dichiarazionipubbliche.it` was purchased at Dynadot. As of 2026-10-06 the public DNS lookup returns no A, AAAA or NS record, and social-handle reservation evidence is still absent. Preserve the registrar receipt outside Git, configure the owner-approved DNS path, and record handle disposition before launch. | Controlled registrar ownership/expiry reference plus DNS and handle read-back; no secret data. | Product owner; `EXTERNAL` (partial evidence only) |
+| B-701-03 | Domain purchase reported; registrar/handle evidence incomplete | **Owner-reported 2026-10-05:** `dichiarazionipubbliche.it` was purchased at Dynadot. Fresh 2026-10-06 read-back now proves authoritative Cloudflare delegation (`candy.ns.cloudflare.com`, `kanye.ns.cloudflare.com`), proxied apex and `www` resolution, HTTPS `200` on the apex, and `www` `308` redirect to the canonical apex. Preserve the controlled registrar ownership/expiry receipt outside Git and record social-handle disposition before launch. | Controlled registrar ownership/expiry reference, current DNS/public-host read-back, and handle disposition; no secret data. | Product owner; `EXTERNAL` (DNS/public-host portion closed; registrar/handles still open) |
 | B-701-04 | Technical rename decision | **CLOSED 2026-10-03:** repo/package/ticket/systemd/env/database/data paths and public projection migrated on Mac + MiniPC. | docs/reviews/rebrand-cutover-2026-10-03.md. | Maintainer + owner; CLOSED |
 | B-701-05 | Name or URL collision possible | Run the read-only collision audit against repository metadata, public projection/API identifiers, package names, domains, handles, and source receipts. | Machine-readable audit output and manual disposition of every collision. | Maintainer; `BLOCKED` until clean |
 | B-701-06 | Legal/public copy not accepted | Obtain DP-307 disposition for the selected name, description, disclosure, and launch surfaces. | Accepted Q-306/DP-307 decision ID and policy version. | Owner + counsel; `EXTERNAL` |
@@ -233,16 +233,24 @@ completion.
 Owner identity plus local and MiniPC technical cutover are complete. The owner subsequently
 reported purchasing `dichiarazionipubbliche.it` at Dynadot on 2026-10-05; this is useful
 ownership context but is not treated as a repository-contained registrar receipt or legal
-clearance. A fresh 2026-10-06 read-only DNS check returned no A, AAAA or NS records for the
-apex and no CNAME/A/AAAA for `www`, so the domain
-is not yet a verified public deployment path. Pending qualified trademark review, controlled
-domain/handle evidence, collision audit, legal handoff, DNS/public-host read-back, and
-exercised rollback proof. This ticket does not claim brand clearance or stable v1 readiness.
+clearance. Fresh 2026-10-06 read-only DNS/public-host checks now prove that the domain is
+delegated to Cloudflare through `candy.ns.cloudflare.com` and `kanye.ns.cloudflare.com`; the
+apex and `www` resolve through Cloudflare, the apex returns HTTPS `200`, and `www` returns a
+`308` redirect to `https://dichiarazionipubbliche.it/`. The canonical host serves
+`robots.txt` and `sitemap.xml`, and its public search/API fingerprint is the same approved
+`501348d9638e...` empty projection observed on the MiniPC. This closes the machine-readable
+DNS/public-host portion of B-701-03 only. Controlled registrar ownership/expiry evidence,
+social-handle disposition, qualified trademark review, external collision disposition, legal
+handoff, and exercised rollback proof remain open. The public API still identifies its contract
+as `DRAFT` and the approved projection has zero dossiers; none of this host read-back is treated
+as stable-v1 or legal launch clearance. Public linked data is served at `/index.nt` and validated
+against a private sibling receipt; the receipt itself is intentionally not exposed as a public
+route.
 
 The repository-local portion of the collision/dependency audit is green at
-`5a86666bf3bb955f18e036c010e53613425a6cf6`: `tools/check_repository_contract.py` passes and
+`df8cdcc9e22295de0c80ab9ca0c9366a779f3cef`: `tools/check_repository_contract.py` passes and
 the launch preflight correctly remains `NO-GO` instead of treating missing external decisions
-as evidence. AC-701.5 remains open because external package/domain/handle collision checks and
+as evidence. The current integrated launch preflight reports **44 blockers**. AC-701.5 remains open because external package/domain/handle collision checks and
 their manual dispositions are not complete; AC-701.7 and AC-701.10 remain open until an
 exercised rollback receipt exists, and AC-701.1/.2/.8 remain blocked on the qualified
 decision/legal evidence described above.

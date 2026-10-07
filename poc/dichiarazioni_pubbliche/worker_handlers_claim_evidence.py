@@ -462,6 +462,11 @@ class ClaimEvidenceJobHandlers:
                 str(job.payload.get("publication_date") or "").strip()
                 or None
             ),
+            valid_from=(str(job.payload.get("valid_from") or "").strip() or None),
+            valid_until=(str(job.payload.get("valid_until") or "").strip() or None),
+            record_status=(
+                str(job.payload.get("record_status") or "").strip().upper() or None
+            ),
             fetched_at=receipt.fetched_at,
             content_sha256=receipt.content_sha256,
             excerpt=None,

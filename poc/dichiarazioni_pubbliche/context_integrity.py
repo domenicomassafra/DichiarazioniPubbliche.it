@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
 CONTEXT_INTEGRITY_VERSION = "context-integrity-v1"
@@ -82,6 +82,130 @@ class StructuredContextIntegrityAssessment:
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _sha256_value(value: object, field: str) -> str:
+    text = str(value or "").strip().lower()
+    if len(text) != 64 or any(char not in "0123456789abcdef" for char in text):
+        raise ValueError(f"CONTEXT_{field}_INVALID")
+    return text
+
+
+def structured_context_binding_sha256(
+    *,
+    source_sha256: str,
+    spans: Sequence[StructuredContextSpan],
+    omission_count: int,
+    signal_codes: Sequence[str],
+    version: str = CONTEXT_INTEGRITY_VERSION,
+) -> str:
+    """Compute the canonical v1 binding for one structured context receipt."""
+
+    source_hash = _sha256_value(source_sha256, "SOURCE_SHA256")
+    if version != CONTEXT_INTEGRITY_VERSION:
+        raise ValueError("CONTEXT_STRUCTURED_VERSION_INVALID")
+    if len(spans) < 2:
+        raise ValueError("CONTEXT_STRUCTURED_MULTIPLE_SPANS_REQUIRED")
+    if omission_count != len(spans) - 1:
+        raise ValueError("CONTEXT_STRUCTURED_OMISSION_COUNT_INVALID")
+    material = {
+        "source_sha256": source_hash,
+        "spans": [asdict(row) for row in spans],
+        "omission_count": omission_count,
+        "signal_codes": list(signal_codes),
+        "version": version,
+    }
+    return hashlib.sha256(
+        json.dumps(material, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+
+
+def verify_structured_context_integrity_metadata(
+    metadata: Mapping[str, object],
+) -> StructuredContextIntegrityAssessment:
+    """Validate and rebind a persisted structured context-integrity v1 receipt."""
+
+    if not isinstance(metadata, Mapping):
+        raise ValueError("CONTEXT_STRUCTURED_METADATA_INVALID")
+    version = str(metadata.get("version") or "")
+    if version != CONTEXT_INTEGRITY_VERSION:
+        raise ValueError("CONTEXT_STRUCTURED_VERSION_INVALID")
+    source_hash = _sha256_value(metadata.get("source_sha256"), "SOURCE_SHA256")
+    binding_hash = _sha256_value(metadata.get("binding_sha256"), "BINDING_SHA256")
+    raw_spans = metadata.get("spans")
+    if not isinstance(raw_spans, (list, tuple)) or len(raw_spans) < 2:
+        raise ValueError("CONTEXT_STRUCTURED_MULTIPLE_SPANS_REQUIRED")
+
+    rows: list[StructuredContextSpan] = []
+    previous_end: int | None = None
+    for raw_span in raw_spans:
+        if not isinstance(raw_span, Mapping):
+            raise ValueError("CONTEXT_STRUCTURED_SPAN_INVALID")
+        start = raw_span.get("start_char")
+        end = raw_span.get("end_char")
+        if (
+            not isinstance(start, int)
+            or isinstance(start, bool)
+            or not isinstance(end, int)
+            or isinstance(end, bool)
+            or start < 0
+            or end <= start
+        ):
+            raise ValueError("CONTEXT_STRUCTURED_SPAN_INVALID")
+        if previous_end is not None and start <= previous_end:
+            raise ValueError("CONTEXT_STRUCTURED_SPAN_ORDER_INVALID")
+        speaker_ref = raw_span.get("speaker_ref")
+        source_part_ref = raw_span.get("source_part_ref")
+        if speaker_ref is not None and not isinstance(speaker_ref, str):
+            raise ValueError("CONTEXT_STRUCTURED_SPEAKER_REF_INVALID")
+        if source_part_ref is not None and not isinstance(source_part_ref, str):
+            raise ValueError("CONTEXT_STRUCTURED_SOURCE_PART_REF_INVALID")
+        rows.append(
+            StructuredContextSpan(
+                start_char=start,
+                end_char=end,
+                text_sha256=_sha256_value(raw_span.get("text_sha256"), "SPAN_SHA256"),
+                speaker_ref=speaker_ref.strip() or None if speaker_ref is not None else None,
+                source_part_ref=(
+                    source_part_ref.strip() or None if source_part_ref is not None else None
+                ),
+            )
+        )
+        previous_end = end
+
+    omission_count = metadata.get("omission_count")
+    if (
+        not isinstance(omission_count, int)
+        or isinstance(omission_count, bool)
+        or omission_count != len(rows) - 1
+    ):
+        raise ValueError("CONTEXT_STRUCTURED_OMISSION_COUNT_INVALID")
+    raw_signal_codes = metadata.get("signal_codes")
+    if not isinstance(raw_signal_codes, (list, tuple)) or any(
+        not isinstance(code, str) or not code for code in raw_signal_codes
+    ):
+        raise ValueError("CONTEXT_STRUCTURED_SIGNAL_CODES_INVALID")
+    signal_codes = tuple(raw_signal_codes)
+    expected_binding = structured_context_binding_sha256(
+        source_sha256=source_hash,
+        spans=rows,
+        omission_count=omission_count,
+        signal_codes=signal_codes,
+        version=version,
+    )
+    if binding_hash != expected_binding:
+        raise ValueError("CONTEXT_STRUCTURED_BINDING_MISMATCH")
+    return StructuredContextIntegrityAssessment(
+        state=str(metadata.get("state") or ""),
+        source_sha256=source_hash,
+        binding_sha256=binding_hash,
+        spans=tuple(rows),
+        omission_count=omission_count,
+        signal_codes=signal_codes,
+        version=version,
+    )
 
 
 def assess_context_integrity(
@@ -227,18 +351,12 @@ def assess_structured_context_integrity(
     if len(source_parts) > 1:
         signals.append("MONTAGE_OR_SOURCE_BOUNDARY")
 
-    material = {
-        "source_sha256": expected_source_hash,
-        "spans": [asdict(row) for row in rows],
-        "omission_count": len(rows) - 1,
-        "signal_codes": signals,
-        "version": CONTEXT_INTEGRITY_VERSION,
-    }
-    binding = hashlib.sha256(
-        json.dumps(material, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
-    ).hexdigest()
+    binding = structured_context_binding_sha256(
+        source_sha256=expected_source_hash,
+        spans=rows,
+        omission_count=len(rows) - 1,
+        signal_codes=signals,
+    )
     return StructuredContextIntegrityAssessment(
         state="NEEDS_CONTEXT_REVIEW",
         source_sha256=expected_source_hash,
@@ -288,4 +406,6 @@ __all__ = [
     "assess_context_integrity",
     "assess_structured_context_integrity",
     "curated_context_approval",
+    "structured_context_binding_sha256",
+    "verify_structured_context_integrity_metadata",
 ]

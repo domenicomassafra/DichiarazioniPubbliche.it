@@ -177,42 +177,42 @@ public projection remains held until the relevant rights and provenance gates pa
 
 ## Acceptance criteria
 
-- [ ] **AC-603.1 — Complete inventory:** Every tracked or release-candidate fixture/data
+- [x] **AC-603.1 — Complete inventory:** Every tracked or release-candidate fixture/data
   artifact has one unique row, a stable ID, a content hash where applicable, an artifact
   kind, an owner, and a review status.
-- [ ] **AC-603.2 — Evidence required:** No row marked `allowed`, `public`, or
+- [x] **AC-603.2 — Evidence required:** No row marked `allowed`, `public`, or
   `redistributable` has `UNKNOWN`, missing, stale, or unlinked license/terms evidence,
   attribution, source version, or retrieval date.
-- [ ] **AC-603.3 — Current mixed baseline:** Real-source metadata, derived receipts,
+- [x] **AC-603.3 — Current mixed baseline:** Real-source metadata, derived receipts,
   synthetic/demo fixtures, visual/reference assets, and owner-local raw material are
   explicitly distinguished. Existing unresolved rows remain visibly blocked rather than
   being relabeled as cleared.
-- [ ] **AC-603.4 — Notice correctness:** Required attribution/notice text is present in
+- [x] **AC-603.4 — Notice correctness:** Required attribution/notice text is present in
   the owning artifact or linked distribution surface, and modifications are recorded.
   The Apache-2.0 `LICENSE` is not used as a blanket data permission.
-- [ ] **AC-603.5 — Raw-data exclusion:** A secret/private-content scan and Git path audit
+- [x] **AC-603.5 — Raw-data exclusion:** A secret/private-content scan and Git path audit
   prove that raw media, full private transcripts, cookies, credentials, provider prompts,
   and unapproved evidence bodies are neither tracked nor packaged.
-- [ ] **AC-603.6 — Fail-closed enforcement:** Adding, renaming, or moving a candidate
+- [x] **AC-603.6 — Fail-closed enforcement:** Adding, renaming, or moving a candidate
   fixture without an inventory row fails the deterministic check; an unresolved row
   cannot be promoted by manually changing a status string.
-- [ ] **AC-603.7 — Clean-clone proof:** A detached clean clone runs the inventory check
+- [x] **AC-603.7 — Clean-clone proof:** A detached clean clone runs the inventory check
   and contains only rows/artifacts approved for that distribution mode. Local ignored
   raw files are not needed and are not copied into the clone.
-- [ ] **AC-603.8 — CI gate:** DP-602 runs the inventory check on every relevant change,
+- [x] **AC-603.8 — CI gate:** DP-602 runs the inventory check on every relevant change,
   using a pinned checker with sanitized output. The check has no hidden network or
   credential dependency.
-- [ ] **AC-603.9 — Migration/data safety:** Moving a fixture updates its stable ID,
+- [x] **AC-603.9 — Migration/data safety:** Moving a fixture updates its stable ID,
   hash, references, and notice atomically; no database migration or production data
   mutation is introduced. An unapproved deletion requires an owner/legal decision and
   an explicit replacement or retention record.
-- [ ] **AC-603.10 — Versioning:** The inventory schema and policy version are recorded;
+- [x] **AC-603.10 — Versioning:** The inventory schema and policy version are recorded;
   a content or fixture change requires a changelog/inventory update and a new hash. It
   is not coupled silently to a package release version.
-- [ ] **AC-603.11 — No publication:** The implementation does not publish a dataset,
+- [x] **AC-603.11 — No publication:** The implementation does not publish a dataset,
   release, remote repository, or public projection. A future release gate must consume
   the same inventory, not a parallel list.
-- [ ] **AC-603.12 — Legal/privacy handoff:** Every unresolved row names DP-304/DP-305/
+- [x] **AC-603.12 — Legal/privacy handoff:** Every unresolved row names DP-304/DP-305/
   DP-306/DP-307 or the owner decision required, and no test result claims legal
   clearance.
 

@@ -196,7 +196,7 @@ expose internal legal reasoning or rights receipts unless explicitly approved.
   new public excerpt output, and preserves the prior audit/history.
 - [x] **AC-305.7:** Full-transcript requests are rejected by the baseline policy and
   cannot be satisfied by a hidden bulk-export path.
-- [ ] **AC-305-8:** A MiniPC canary verifies source-rights decisions, excerpt
+- [x] **AC-305-8:** A MiniPC canary verifies source-rights decisions, excerpt
   projection, expiry hold, and public-bundle cleanup without exposing protected
   content.
 
@@ -428,3 +428,35 @@ acceptance is **15/15 PASS**, broader focused regression **115/115 PASS**, and `
 **AC-305-8 remains open.** This canary did not exercise an owner/counsel-approved real excerpt
 profile through source-rights decision, expiry, regenerated public bundle and cleanup. No source
 is cleared, no quotation amount is approved, and Q-306-11..13 / DP-307 remain unresolved.
+
+## Synthetic rights/excerpt/expiry/cleanup MiniPC canary — 2026-10-06
+
+**AC-305-8 is now closed for the machine/runtime contract.** The global repository posture is
+unchanged: `EXCERPT_PROFILE_APPROVED` remains `False`, so this receipt does not approve a real
+source family or quotation limit. `tests/test_m3_runtime_canaries.py` supplies an explicitly
+approved **synthetic fixture profile only** so the already-implemented positive branch can be
+tested without converting test parameters into legal policy.
+
+Against a fresh disposable PostgreSQL database the canary records a synthetic `CLEARED` private
+rights decision bound to an exact Content, Evidence and transcript segment, with opaque receipt,
+reviewer, permitted-use and expiry metadata. Before expiry, the exact-provenance excerpt passes
+`decide_excerpt()` and `render_attributed_excerpt()` emits only the bounded escaped public fields;
+neither the rights receipt nor reviewer reference is present. After the declared expiry date the
+same request fails with `RIGHTS_EXPIRED` and the renderer refuses output. A new append-only
+`EXPIRED` rights record explicitly supersedes the cleared record.
+
+The expired current rights record then enters `RightsComplaintBridge`: private TAKEDOWN intake
+stops at triage, an explicit synthetic reviewer advances the canonical ledger to
+`PUBLIC_HOLD_APPROVED`, and `cleanup_takedown_current_artifacts()` removes only the manifest-listed
+current public Finding artifact. A private raw-body sentinel, the rights registry history and the
+three-event private challenge chain remain intact. Cleanup receipts contain neither that private
+body nor an opaque rights-receipt reference.
+
+The integrated canary passes **3/3 locally** and **3/3 on MiniPC** from an isolated `/tmp`
+workspace with production DB variables removed; MiniPC `compileall` also passes. The broader
+local M3 focused regression is **107/107 PASS**, benchmark is **5/5 PASS**, and
+`git diff --check` is clean.
+
+This is not source clearance. Q-305-01..07, Q-306-11..13 and DP-307 remain unresolved, the real
+excerpt launch profile remains disabled, and no quotation amount, licence interpretation,
+platform permission, retention period or legal conclusion is asserted.

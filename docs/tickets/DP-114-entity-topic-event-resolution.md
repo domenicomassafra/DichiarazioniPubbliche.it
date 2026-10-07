@@ -37,11 +37,11 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-114.1:** Ambiguous same-name examples produce candidates, not merges.
-- [ ] **AC-114.2:** Contradicting features remain queryable after a decision.
-- [ ] **AC-114.3:** Approved stable-identifier rules are deterministic/versioned.
-- [ ] **AC-114.4:** Topic/Event merge/rename is append-only or superseding, not silent overwrite.
-- [ ] **AC-114.5:** Existing Person role-at-date behavior remains green.
+- [x] **AC-114.1:** Ambiguous same-name examples produce candidates, not merges.
+- [x] **AC-114.2:** Contradicting features remain queryable after a decision.
+- [x] **AC-114.3:** Approved stable-identifier rules are deterministic/versioned.
+- [x] **AC-114.4:** Topic/Event merge/rename is append-only or superseding, not silent overwrite.
+- [x] **AC-114.5:** Existing Person role-at-date behavior remains green.
 
 ## Validation / proof
 

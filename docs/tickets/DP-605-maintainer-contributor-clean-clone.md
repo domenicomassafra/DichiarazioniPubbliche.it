@@ -145,39 +145,39 @@ availability.
 
 ## Acceptance criteria
 
-- [ ] **AC-605.1 — Role-specific guide:** The documentation has separate, navigable
+- [x] **AC-605.1 — Role-specific guide:** The documentation has separate, navigable
   contributor, maintainer, and operator paths with prerequisites, commands, expected
   results, cleanup, and failure ownership.
-- [ ] **AC-605.2 — Clean-clone execution:** An independent clone of the exact candidate
+- [x] **AC-605.2 — Clean-clone execution:** An independent clone of the exact candidate
   commit completes the documented minimal path with no local-only file, credential,
   virtualenv, `node_modules`, raw media, or provider state.
-- [ ] **AC-605.3 — Backend result:** The clean clone passes the documented compile,
+- [x] **AC-605.3 — Backend result:** The clean clone passes the documented compile,
   full unit/regression, deterministic benchmark, and package/CLI smoke checks with no
   paid provider.
-- [ ] **AC-605.4 — Web/demo result:** `npm ci`, `npm run check`, and `npm run build` pass;
+- [x] **AC-605.4 — Web/demo result:** `npm ci`, `npm run check`, and `npm run build` pass;
   the fictional demo is visibly labeled and the explicit public-projection build fails
   closed for an incompatible or missing projection.
-- [ ] **AC-605.5 — Optional database boundary:** The documented PostgreSQL path uses an
+- [x] **AC-605.5 — Optional database boundary:** The documented PostgreSQL path uses an
   isolated database/schema, applies ordered migrations with `ON_ERROR_STOP`, and never
   instructs a contributor to mutate production data.
-- [ ] **AC-605.6 — Provider/blocker honesty:** Missing provider credentials or MiniPC
+- [x] **AC-605.6 — Provider/blocker honesty:** Missing provider credentials or MiniPC
   access are recorded as `BLOCKED`/`PENDING-OWNER`, with no substitute provider,
   fabricated receipt, or Mac-only runtime claim.
-- [ ] **AC-605.7 — Safety links:** The guide points to the canonical product, provenance,
+- [x] **AC-605.7 — Safety links:** The guide points to the canonical product, provenance,
   privacy, security, license, and ticket gates and does not expose raw/private content or
   credentials in examples.
-- [ ] **AC-605.8 — Licensing evidence:** A clean clone can locate `LICENSE`, `NOTICE`, and
+- [x] **AC-605.8 — Licensing evidence:** A clean clone can locate `LICENSE`, `NOTICE`, and
   the DP-603 inventory, and the guide tells contributors not to add a fixture or donor
   artifact without evidence/attribution.
-- [ ] **AC-605.9 — Versioning handoff:** The guide identifies the provisional version
+- [x] **AC-605.9 — Versioning handoff:** The guide identifies the provisional version
   sources and directs release/version decisions to DP-604; it does not hard-code a fake
   release number or claim stable v1.
-- [ ] **AC-605.10 — Tree hygiene:** After the dry-run, `git status --short` and an
+- [x] **AC-605.10 — Tree hygiene:** After the dry-run, `git status --short` and an
   artifact-path audit show no uncommitted source change or generated output in the
   repository. Cleanup instructions remove only generated/local artifacts.
-- [ ] **AC-605.11 — No external side effect:** The proof creates no remote, release,
+- [x] **AC-605.11 — No external side effect:** The proof creates no remote, release,
   issue, PR, public site, provider call, or external publication.
-- [ ] **AC-605.12 — M6 audit:** The DP-601..DP-607 ticket completeness/collision audit
+- [x] **AC-605.12 — M6 audit:** The DP-601..DP-607 ticket completeness/collision audit
   passes, and the documentation links resolve from the clean clone.
 
 ## Validation / proof

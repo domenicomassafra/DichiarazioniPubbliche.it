@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { gzipSync } from "node:zlib";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -13,17 +13,6 @@ const lcpBudgetMs = 2000;
 const clsBudget = 0.10;
 const interactionBudgetMs = 200;
 const jsBudgetBytes = 120 * 1024;
-
-const routes = [
-  "/",
-  "/esplora/",
-  "/dichiarazioni/finding-demo-maintenance/",
-  "/persone/person-demo-maintenance/",
-  "/temi/servizi-pubblici/",
-  "/contenuti/content-demo-maintenance/",
-  "/tracce/relation-demo-public-services-update/",
-  "/metodo/",
-];
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -43,6 +32,33 @@ async function exists(file) {
   } catch {
     return false;
   }
+}
+
+async function walk(dir) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...await walk(full));
+    else out.push(full);
+  }
+  return out;
+}
+
+function routeFor(file) {
+  const rel = path.relative(root, file).replaceAll("\\", "/");
+  if (rel === "index.html") return "/";
+  return `/${rel.replace(/index\.html$/, "")}`;
+}
+
+async function representativeRoutes() {
+  const built = new Set((await walk(root)).filter((file) => file.endsWith("index.html")).map(routeFor));
+  const selected = ["/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"].filter((route) => built.has(route));
+  for (const prefix of ["/dichiarazioni/", "/persone/", "/temi/", "/contenuti/", "/tracce/"]) {
+    const candidate = [...built].sort().find((route) => route.startsWith(prefix));
+    if (candidate) selected.push(candidate);
+  }
+  assert(selected.includes("/") && selected.includes("/esplora/") && selected.includes("/metodo/"), "performance build is missing required public routes");
+  return selected;
 }
 
 async function startStaticServer() {
@@ -215,6 +231,7 @@ async function navigate(cdp, url) {
 
 const localHost = configuredOrigin ? null : await startStaticServer();
 const origin = configuredOrigin ? new URL(configuredOrigin).origin : localHost.origin;
+const routes = await representativeRoutes();
 const browser = await launchChrome(origin);
 const externalRequests = [];
 const requestedJs = new Set();
@@ -258,6 +275,8 @@ try {
   for (const route of routes) {
     requestedJs.clear();
     await cdp.send("Network.clearBrowserCache");
+    const preflight = await fetch(`${origin}${route}`, { redirect: "manual" });
+    assert(preflight.ok, `${route}: representative performance route returned HTTP ${preflight.status}`);
     await navigate(cdp, `${origin}${route}`);
     if (route === "/esplora/") {
       await waitFor(cdp, "document.querySelector('.results-count')?.textContent?.includes('risultat')", "Explore did not hydrate in performance run");

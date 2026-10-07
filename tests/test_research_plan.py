@@ -191,6 +191,71 @@ class ResearchPlanTests(unittest.TestCase):
                 },
             )
 
+    def test_model_query_suggestion_can_only_narrow_permissions(self):
+        assignments = compile_research_assignments(
+            need(need_type="OFFICIAL_RECORD"),
+            lane_adapters={
+                "OFFICIAL_STRUCTURED": ["istat", "eurostat"],
+                "EXISTING_FACT_CHECK": ["factcheck"],
+            },
+            max_results=5,
+            max_results_per_host=1,
+            cost_cap_usd=Decimal("0.05"),
+        )
+        official = next(row for row in assignments if row.lane == "OFFICIAL_STRUCTURED")
+        families = {
+            "OFFICIAL_STRUCTURED": ["istat-family", "eurostat-family"],
+            "EXISTING_FACT_CHECK": ["fact-check-family"],
+        }
+        manifest = discovery_manifest_from_assignments(
+            assignments,
+            collection_id="collection:1",
+            lane_source_families=families,
+            query_suggestions={
+                official.assignment_id: {
+                    "query": "employment rate Italy Q2 2026 official table",
+                    "adapter_ids": ["istat"],
+                    "source_families": ["istat-family"],
+                }
+            },
+        )
+        query = next(row for row in manifest.queries if row.id == official.assignment_id)
+        self.assertEqual(query.query_text, "employment rate Italy Q2 2026 official table")
+        self.assertEqual(query.adapter_ids, ("istat",))
+        self.assertEqual(query.source_families, ("istat-family",))
+        self.assertEqual(query.max_results, official.max_results)
+        self.assertEqual(manifest.max_results_per_host, 1)
+        self.assertEqual(manifest.cost_cap_usd, Decimal("0.10"))
+        self.assertEqual(query.metadata["query_source"], "MODEL_SUGGESTION")
+
+        for expansion in (
+            {"query": "q", "adapter_ids": ["web-anywhere"]},
+            {"query": "q", "source_families": ["unapproved-family"]},
+        ):
+            with self.assertRaisesRegex(
+                ValueError,
+                "RESEARCH_PLAN_QUERY_SUGGESTION_PERMISSION_EXPANSION",
+            ):
+                discovery_manifest_from_assignments(
+                    assignments,
+                    collection_id="collection:1",
+                    lane_source_families=families,
+                    query_suggestions={official.assignment_id: expansion},
+                )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "RESEARCH_PLAN_QUERY_SUGGESTION_FIELDS_INVALID",
+        ):
+            discovery_manifest_from_assignments(
+                assignments,
+                collection_id="collection:1",
+                lane_source_families=families,
+                query_suggestions={
+                    official.assignment_id: {"query": "q", "max_results": 500}
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -202,11 +202,12 @@ comparison output, and fail-closed stale/tampered result.
 - Local validation shared with DP-405: full Python suite **986/986 PASS**, restore
   verification PASS, `npm run check:design` PASS, Astro check 0 diagnostics, explicit
   projection build PASS, and `git diff --check` PASS.
-- MiniPC fail-closed proof on 2026-10-05: production projection fingerprint
-  `8c430c1bb36ad8135c313247d6cf276ffc6fea6c2f998e31f9d55aa02da85383` contains **0**
-  public relations; PostgreSQL contains **0** `claim_relation` rows and no approved
-  `claim_relation_candidate` row. The production build therefore emits no Trace route and
-  the same-origin service returns HTTP 404 for an unprojected Trace ID, as required.
+- MiniPC fail-closed proof remains current after the final 2026-10-06 production promotion:
+  the approved empty projection/static/API surfaces converge at fingerprint
+  `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a` and expose no
+  public relation. The production build therefore emits no Trace route rather than
+  fabricating comparison data. The earlier database receipt also recorded **0**
+  `claim_relation` rows and no approved `claim_relation_candidate` row.
 - **Remaining blocker:** the ticket's runtime DONE gate requires a real DP-104-reviewed
   relation canary with projectable participants. None exists in the runtime authority, so
   no synthetic database row or fabricated approval was created merely to make the ticket

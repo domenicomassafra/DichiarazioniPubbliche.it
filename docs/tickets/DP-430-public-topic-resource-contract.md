@@ -62,19 +62,19 @@ operational database or model provider.
 
 ## Acceptance criteria
 
-- [ ] `AC-430.1`: Given an approved Topic, the public projection exposes a stable ID,
+- [x] `AC-430.1`: Given an approved Topic, the public projection exposes a stable ID,
   canonical public name, optional approved scope and deterministic route identifier.
-- [ ] `AC-430.2`: Given an approved Statement-Topic membership, the projection exposes it
+- [x] `AC-430.2`: Given an approved Statement-Topic membership, the projection exposes it
   without deriving membership from free text or `claim_type` in the frontend.
-- [ ] `AC-430.3`: Given an unreviewed/private/rejected Topic or membership, it is omitted
+- [x] `AC-430.3`: Given an unreviewed/private/rejected Topic or membership, it is omitted
   from the public projection and cannot be recovered through the API.
-- [ ] `AC-430.4`: Similar Topic labels remain distinct through stable IDs; no fuzzy or
+- [x] `AC-430.4`: Similar Topic labels remain distinct through stable IDs; no fuzzy or
   display-name redirect merges them.
-- [ ] `AC-430.5`: Missing, stale, malformed or incompatible Topic data fails closed rather
+- [x] `AC-430.5`: Missing, stale, malformed or incompatible Topic data fails closed rather
   than falling back to demo/facet-derived content in production.
-- [ ] `AC-430.6`: The public API documents the difference between subject Topics and the
+- [x] `AC-430.6`: The public API documents the difference between subject Topics and the
   claim-type taxonomy and does not silently preserve the old conflation.
-- [ ] `AC-430.7`: Fixtures/tests cover populated, empty, ambiguous-label, multi-topic,
+- [x] `AC-430.7`: Fixtures/tests cover populated, empty, ambiguous-label, multi-topic,
   private/rejected and tampered/stale cases.
 
 ## Validation / proof

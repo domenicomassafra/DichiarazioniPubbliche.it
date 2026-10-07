@@ -149,42 +149,42 @@ compatibility rule must be recorded rather than silently forced equal.
 
 ## Acceptance criteria
 
-- [ ] **AC-601.1 — Installable package:** From a clean checkout, a pinned supported
+- [x] **AC-601.1 — Installable package:** From a clean checkout, a pinned supported
   Python build creates an installable artifact, and a fresh environment can import
   `dichiarazioni_pubbliche` and run the existing `python -m dichiarazioni_pubbliche.*` entry points
   without relying on an undeclared checkout path.
-- [ ] **AC-601.2 — Compatibility:** Existing `PYTHONPATH=poc` commands continue to work
+- [x] **AC-601.2 — Compatibility:** Existing `PYTHONPATH=poc` commands continue to work
   during the compatibility window, or the migration provides a tested, documented
   replacement and an explicit deprecation window. No silent import break is allowed.
-- [ ] **AC-601.3 — Truthful metadata:** Distribution metadata matches the supported
+- [x] **AC-601.3 — Truthful metadata:** Distribution metadata matches the supported
   interpreter range, actual runtime imports, Apache-2.0 code license, and development
   dependency set. A lock or install cannot silently add a provider or database client.
-- [ ] **AC-601.4 — Profile separation:** `backend-minimal` passes with no paid provider,
+- [x] **AC-601.4 — Profile separation:** `backend-minimal` passes with no paid provider,
   PostgreSQL, or network data source; `backend-postgres` and `web` are independently
   runnable and report missing prerequisites as `SKIP` or `BLOCKED` according to policy.
-- [ ] **AC-601.5 — Name preservation:** The diff contains no repository/package rename,
+- [x] **AC-601.5 — Name preservation:** The diff contains no repository/package rename,
   no `schema.v0` or `*.v0` migration, and no brand/domain decision. Any proposed rename
   is referred to DP-106 and the later owner-approved brand/domain decision rather than
   performed here.
-- [ ] **AC-601.6 — Clean-clone acceptance:** A detached clean clone installs the package,
+- [x] **AC-601.6 — Clean-clone acceptance:** A detached clean clone installs the package,
   runs compile/unit/benchmark and web checks, and produces a local demo without
   `node_modules`, virtual environments, caches, secrets, or raw media in the source
   tree. The proof records the exact commit and tool versions.
-- [ ] **AC-601.7 — Migration compatibility:** If package layout changes, an additive
+- [x] **AC-601.7 — Migration compatibility:** If package layout changes, an additive
   filesystem/import compatibility check and the canonical `db/schema.v1.sql` plus ordered
   migration replay prove that no database migration is required. Production data is not
   touched.
-- [ ] **AC-601.8 — CI contract:** DP-602 can run the same package-install and profile
+- [x] **AC-601.8 — CI contract:** DP-602 can run the same package-install and profile
   commands on Python 3.11 and 3.12, and a package/version drift check fails on an
   unreviewed metadata change.
-- [ ] **AC-601.9 — License and data boundary:** `LICENSE`, `NOTICE`, dependency/license
+- [x] **AC-601.9 — License and data boundary:** `LICENSE`, `NOTICE`, dependency/license
   evidence, and the DP-603 fixture inventory are present or explicitly linked as the
   owning gate. The Apache code license is not represented as a grant for media,
   transcripts, evidence, or datasets.
-- [ ] **AC-601.10 — Version handoff:** The implementation records the provisional version
+- [x] **AC-601.10 — Version handoff:** The implementation records the provisional version
   sources and defers the release number and SemVer decision to DP-604; no version is
   bumped as a side effect of environment cleanup.
-- [ ] **AC-601.11 — No external side effect:** No remote, release, publication, provider
+- [x] **AC-601.11 — No external side effect:** No remote, release, publication, provider
   call, or MiniPC deployment is part of the local proof.
 
 ## Validation / proof

@@ -13,6 +13,9 @@ from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256
+from dichiarazioni_pubbliche.context_integrity import (
+    verify_structured_context_integrity_metadata,
+)
 from dichiarazioni_pubbliche.domain_vocabulary import (
     ClaimType,
     FindingPublicationStatus,
@@ -128,6 +131,7 @@ class PublicProjectionStore(PsqlRuntime):
                     finding.supersedes_id,
                     claim.normalized_claim,
                     claim.metadata->'wording' AS wording,
+                    claim.metadata->'context_integrity' AS context_integrity,
                     claim.metadata#>>'{context_integrity,quote_sha256}'
                         AS source_occurrence_quote_sha256,
                     claim.claim_type,
@@ -802,9 +806,35 @@ class PublicProjectionStore(PsqlRuntime):
                                 WHERE
                                     candidate_link.canonical_segment_id =
                                         segment.id
-                                    AND upper(candidate_variant.source_kind) IN (
-                                        'OFFICIAL_TRANSCRIPT',
-                                        'HUMAN_AUDIO_VERIFIED'
+                                    AND (
+                                        upper(candidate_variant.source_kind) =
+                                            'OFFICIAL_TRANSCRIPT'
+                                        OR EXISTS (
+                                            SELECT 1
+                                            FROM transcript_verbatim_review_event
+                                                verbatim_review
+                                            WHERE
+                                                verbatim_review.content_id = segment.content_id
+                                                AND verbatim_review.source_variant_id =
+                                                    candidate_variant.id
+                                                AND verbatim_review.source_segment_id =
+                                                    candidate_segment.id
+                                                AND verbatim_review.decision = 'APPROVED'
+                                                AND verbatim_review.source_variant_sha256 =
+                                                    candidate_variant.raw_text_sha256
+                                                AND verbatim_review.source_segment_sha256 =
+                                                    encode(sha256(convert_to(
+                                                        candidate_segment.text, 'UTF8'
+                                                    )), 'hex')
+                                                AND verbatim_review.reviewed_text_sha256 =
+                                                    encode(sha256(convert_to(
+                                                        segment.canonical_text, 'UTF8'
+                                                    )), 'hex')
+                                                AND verbatim_review.start_ms <=
+                                                    segment.start_ms
+                                                AND verbatim_review.end_ms >=
+                                                    segment.end_ms
+                                        )
                                     )
                             )
                     )
@@ -1572,6 +1602,7 @@ def _sanitize_public_wording(
     source_occurrence_quote_sha256: object,
     segments: list[dict[str, Any]],
     text_provenance: list[dict[str, Any]],
+    context_integrity: object = None,
 ) -> dict[str, Any]:
     try:
         clean = validate_wording_contract_metadata(raw)
@@ -1696,7 +1727,7 @@ def _sanitize_public_wording(
                 raise ValueError("public translation review state is invalid")
         representations.append(public_representation)
 
-    return {
+    public_wording = {
         "version": "wording-contract-v1",
         "source_occurrence": {
             "occurrence_id": occurrence_id,
@@ -1723,6 +1754,44 @@ def _sanitize_public_wording(
             "text_provenance_ids": [str(item["id"]) for item in text_provenance],
         },
     }
+    if isinstance(context_integrity, dict) and context_integrity.get("spans") is not None:
+        try:
+            verified_context = verify_structured_context_integrity_metadata(context_integrity)
+        except ValueError as exc:
+            raise ValueError("discontinuous public excerpt context binding is invalid") from exc
+        if verified_context.state != "APPROVED_CURATED":
+            raise ValueError("discontinuous public excerpt requires curated context approval")
+        if len(verified_context.spans) > 32:
+            raise ValueError("discontinuous public excerpt span list is invalid")
+        public_spans: list[dict[str, Any]] = []
+        speakers: set[str] = set()
+        source_parts: set[str] = set()
+        for span in verified_context.spans:
+            public_spans.append(
+                {
+                    "start_char": span.start_char,
+                    "end_char": span.end_char,
+                    "text_sha256": span.text_sha256,
+                }
+            )
+            if span.speaker_ref:
+                speakers.add(span.speaker_ref)
+            if span.source_part_ref:
+                source_parts.add(span.source_part_ref)
+        signal_codes = set(verified_context.signal_codes)
+        if len(speakers) > 1 or "CROSS_TALK_OR_SPEAKER_BOUNDARY" in signal_codes:
+            raise ValueError("discontinuous public excerpt crosses a speaker boundary")
+        if len(source_parts) > 1 or "MONTAGE_OR_SOURCE_BOUNDARY" in signal_codes:
+            raise ValueError("discontinuous public excerpt crosses a source-part boundary")
+        public_wording["source_span_disclosure"] = {
+            "version": "discontinuous-quote-binding-v1",
+            "source_sha256": verified_context.source_sha256,
+            "binding_sha256": verified_context.binding_sha256,
+            "omission_count": verified_context.omission_count,
+            "omission_marker": " […] ",
+            "spans": public_spans,
+        }
+    return public_wording
 
 
 def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -2112,6 +2181,7 @@ def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
         source_occurrence_quote_sha256=row.get("source_occurrence_quote_sha256"),
         segments=segments,
         text_provenance=text_provenance,
+        context_integrity=row.get("context_integrity"),
     )
     dossier = {
         "finding_id": str(row["finding_id"]),
@@ -2456,6 +2526,27 @@ def dossier_jsonld(dossier: dict[str, Any]) -> dict[str, Any]:
                 },
             ],
         }
+        span_disclosure = wording.get("source_span_disclosure")
+        if isinstance(span_disclosure, dict):
+            reviewed_claim["isBasedOn"]["additionalProperty"].extend(
+                [
+                    {
+                        "@type": "PropertyValue",
+                        "name": "omissionCount",
+                        "value": span_disclosure.get("omission_count"),
+                    },
+                    {
+                        "@type": "PropertyValue",
+                        "name": "omissionMarker",
+                        "value": span_disclosure.get("omission_marker"),
+                    },
+                    {
+                        "@type": "PropertyValue",
+                        "name": "sourceSpanBindingSha256",
+                        "value": span_disclosure.get("binding_sha256"),
+                    },
+                ]
+            )
         derived_jsonld: list[dict[str, Any]] = []
         for representation in wording.get("representations") or []:
             derived_jsonld.append(
@@ -2648,6 +2739,15 @@ def render_dossier_html(dossier: dict[str, Any]) -> str:
             + source_type
             + "</p>"
         )
+        span_disclosure = wording.get("source_span_disclosure")
+        if isinstance(span_disclosure, dict):
+            wording_html += (
+                '<p class="source-span-disclosure">Omissioni dichiarate: '
+                + html.escape(str(span_disclosure.get("omission_count") or 0))
+                + "; marker: "
+                + html.escape(str(span_disclosure.get("omission_marker") or ""))
+                + "</p>"
+            )
     return (
         '<!doctype html><html lang="it"><meta charset="utf-8">'
         '<script type="application/ld+json">'

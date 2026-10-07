@@ -235,5 +235,9 @@ linked-data receipt now all equal `501348d9638e...`; `/index.nt`, `/`, `/esplora
 `/robots.txt`, `/sitemap.xml` and the public API return `200`. The approved projection is empty and
 the search index correctly has zero records. `check-public-quality` passes the real production
 bundle with 6 HTML documents, 6 sitemap URLs, `index,follow`, and the JavaScript budget intact.
-AC-409.8 remains open only for actual screen-reader/manual accessibility judgment; the live-static
-promotion blocker is closed. Dependency gate DP-408 remains authoritative.
+The browser QA now accepts that exact approved-empty state without weakening the populated fixture:
+it scans the six emitted routes, hydrates Explore at zero results, exercises keyboard filter/dialog
+flows, reduced motion, phone reflow and exact 200% browser zoom, and records zero external/provider
+requests. Populated demo acceptance still requires the correction-history link and all populated
+route families. AC-409.8 remains open only for actual screen-reader/manual accessibility judgment;
+the live-static promotion blocker is closed. Dependency gate DP-408 remains authoritative.

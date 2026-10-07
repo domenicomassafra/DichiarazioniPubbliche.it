@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256  # noqa: E402
+from dichiarazioni_pubbliche.context_integrity import (  # noqa: E402
+    assess_structured_context_integrity,
+)
 from dichiarazioni_pubbliche.public_projection import (  # noqa: E402
     PublicProjectionStore,
     build_public_projection,
@@ -279,6 +282,89 @@ def valid_content_row(**overrides):
 
 
 class PublicProjectionTests(unittest.TestCase):
+    def test_discontinuous_public_source_discloses_omissions_without_source_body(self):
+        source_text = "Prima clausola. Materiale omesso. Seconda clausola."
+        first = source_text.index("Prima clausola.")
+        first_end = first + len("Prima clausola.")
+        second = source_text.index("Seconda clausola.")
+        second_end = second + len("Seconda clausola.")
+        assessment = assess_structured_context_integrity(
+            source_text=source_text,
+            source_sha256=hashlib.sha256(source_text.encode()).hexdigest(),
+            spans=((first, first_end), (second, second_end)),
+            speaker_refs=("person:a", "person:a"),
+            source_part_refs=("part:a", "part:a"),
+        ).to_metadata()
+        assessment["state"] = "APPROVED_CURATED"
+        row = valid_row()
+        row["context_integrity"] = assessment
+
+        payload = build_public_projection(FakeSource([row]))
+        self.assertEqual(payload["dossier_count"], 1)
+        disclosure = payload["dossiers"][0]["wording"]["source_span_disclosure"]
+        self.assertEqual(disclosure["omission_count"], 1)
+        self.assertEqual(disclosure["omission_marker"], " […] ")
+        self.assertEqual(
+            [(span["start_char"], span["end_char"]) for span in disclosure["spans"]],
+            [(first, first_end), (second, second_end)],
+        )
+        encoded = json.dumps(payload, ensure_ascii=False)
+        self.assertNotIn(source_text, encoded)
+        self.assertNotIn("Materiale omesso", encoded)
+
+        dossier = payload["dossiers"][0]
+        html = render_dossier_html(dossier)
+        jsonld = json.dumps(dossier_jsonld(dossier), ensure_ascii=False)
+        self.assertIn("Omissioni dichiarate: 1", html)
+        self.assertIn("[…]", html)
+        self.assertIn("omissionMarker", jsonld)
+        self.assertIn("[…]", jsonld)
+        self.assertNotIn("Materiale omesso", html)
+        self.assertNotIn("Materiale omesso", jsonld)
+
+    def test_discontinuous_public_source_cannot_cross_speaker_or_montage_boundary(self):
+        source_text = "Clausola uno. Intermezzo. Clausola due."
+        spans = ((0, len("Clausola uno.")), (source_text.index("Clausola due."), len(source_text)))
+        source_sha = hashlib.sha256(source_text.encode()).hexdigest()
+        cases = (
+            dict(speaker_refs=("person:a", "person:b"), source_part_refs=("part:a", "part:a")),
+            dict(speaker_refs=("person:a", "person:a"), source_part_refs=("part:a", "part:b")),
+        )
+        for refs in cases:
+            with self.subTest(refs=refs):
+                assessment = assess_structured_context_integrity(
+                    source_text=source_text,
+                    source_sha256=source_sha,
+                    spans=spans,
+                    **refs,
+                ).to_metadata()
+                assessment["state"] = "APPROVED_CURATED"
+                row = valid_row()
+                row["context_integrity"] = assessment
+                payload = build_public_projection(FakeSource([row]))
+                self.assertEqual(payload["dossier_count"], 0)
+                self.assertEqual(payload["omitted_count"], 1)
+
+    def test_discontinuous_public_source_omits_stale_structured_binding(self):
+        source_text = "Prima clausola. Materiale omesso. Seconda clausola."
+        second = source_text.index("Seconda clausola.")
+        assessment = assess_structured_context_integrity(
+            source_text=source_text,
+            source_sha256=hashlib.sha256(source_text.encode()).hexdigest(),
+            spans=((0, len("Prima clausola.")), (second, len(source_text))),
+            speaker_refs=("person:a", "person:a"),
+            source_part_refs=("part:a", "part:a"),
+        ).to_metadata()
+        assessment["state"] = "APPROVED_CURATED"
+        assessment["spans"][1]["start_char"] = second + 1
+        row = valid_row()
+        row["context_integrity"] = assessment
+
+        payload = build_public_projection(FakeSource([row]))
+
+        self.assertEqual(payload["dossier_count"], 0)
+        self.assertEqual(payload["omitted_count"], 1)
+
     def test_first_class_content_can_publish_with_zero_findings(self):
         payload = build_public_projection(
             FakeContentSource([], [valid_content_row()]),
@@ -503,7 +589,10 @@ class PublicProjectionTests(unittest.TestCase):
         self.assertIn("segment.updated_at", store.sql)
         self.assertIn("trigger.status = 'PROCESSED'", store.sql)
         self.assertIn("'OFFICIAL_TRANSCRIPT'", store.sql)
-        self.assertIn("'HUMAN_AUDIO_VERIFIED'", store.sql)
+        self.assertIn("transcript_verbatim_review_event", store.sql)
+        self.assertIn("verbatim_review.source_variant_sha256", store.sql)
+        self.assertIn("verbatim_review.source_segment_sha256", store.sql)
+        self.assertIn("verbatim_review.reviewed_text_sha256", store.sql)
         self.assertIn("'MANUAL_REVIEW'", store.sql)
         self.assertIn("'TRANSCRIPT_LABEL'", store.sql)
         self.assertIn("'OFFICIAL_RECORD'", store.sql)

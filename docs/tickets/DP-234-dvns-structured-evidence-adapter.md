@@ -66,3 +66,11 @@ access state holds the candidate before compatibility is evaluated. The bridge c
 verdict, approval, publication, network or database authority. Focused bridge tests: **7/7 PASS**;
 DVNS/structured-evidence/DP-215 regression set: **44/44 PASS**; `compileall` and `git diff --check`
 PASS. Complete shared suite: **1552/1552 PASS**; deterministic benchmark: **5/5 PASS**.
+
+Final dependency-free runtime proof on 2026-10-06 runs the provider-neutral structured-evidence,
+offline DVNS import and DP-215 suitability bridge as **26/26 PASS** in an isolated MiniPC
+`/tmp` bundle with production/provider credentials removed. This proves the current seam on the
+runtime authority but closes none of the three external ACs: there is still no approved
+DVNS/API/export provider wired into DP-228/DP-215, no source-specific compatible-license/rights
+decision, and therefore no production source family on which a meaningful MiniPC provider
+canary can run. The synthetic contract remains candidate-only and confers no source approval.

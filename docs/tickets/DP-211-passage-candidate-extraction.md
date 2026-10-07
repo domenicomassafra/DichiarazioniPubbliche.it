@@ -37,11 +37,11 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-211.1:** Every candidate points to exact Passage/segment provenance.
-- [ ] **AC-211.2:** Schema-invalid/model-failed output creates no candidate and records failure.
-- [ ] **AC-211.3:** Non-check-worthy/value candidates can remain searchable without entering verification.
-- [ ] **AC-211.4:** Replay under same operation key is idempotent.
-- [ ] **AC-211.5:** Cost/call counts are attributable per content/capture.
+- [x] **AC-211.1:** Every candidate points to exact Passage/segment provenance.
+- [x] **AC-211.2:** Schema-invalid/model-failed output creates no candidate and records failure.
+- [x] **AC-211.3:** Non-check-worthy/value candidates can remain searchable without entering verification.
+- [x] **AC-211.4:** Replay under same operation key is idempotent.
+- [x] **AC-211.5:** Cost/call counts are attributable per content/capture.
 
 ## Validation / proof
 

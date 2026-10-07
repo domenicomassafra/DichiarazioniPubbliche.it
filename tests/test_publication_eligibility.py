@@ -7,6 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
+from dichiarazioni_pubbliche.countercase import (  # noqa: E402
+    build_countercase_packet,
+    evaluate_high_risk_challenger_readiness,
+)
 from dichiarazioni_pubbliche.high_risk_assertion import (  # noqa: E402
     evaluate_high_risk_candidate,
 )
@@ -109,6 +113,37 @@ def risk(kind: str):
     )
 
 
+def eligible_legal_risk():
+    return evaluate_high_risk_candidate(
+        source_text="La procura comunica che Mario Rossi è indagato.",
+        normalized_text="Mario Rossi è indagato.",
+        legal_status_claim=True,
+        identity_resolved=True,
+        privacy_allows=True,
+        official_record_approved=True,
+        jurisdiction_match=True,
+        effective_time_match=True,
+        human_review_approved=True,
+        dual_control_approved=True,
+        qualified_policy_accepted=True,
+        policy_decision_ref="decision:dp307:legal-status-v1",
+    )
+
+
+def challenger_ready(risk_result):
+    packet = build_countercase_packet(
+        claim_id="claim:1",
+        evidence=(),
+        research_complete=True,
+    )
+    return evaluate_high_risk_challenger_readiness(
+        packet,
+        high_risk_decision=risk_result,
+        incorporated_packet_id=packet.packet_id,
+        reviewed_packet_id=packet.packet_id,
+    )
+
+
 def review_event(
     *,
     safety_result,
@@ -187,7 +222,12 @@ class PublicationEligibilityTests(unittest.TestCase):
                     credential="2" * 64,
                     previous=primary,
                 )
-                ready = compose(safety_result, risk_result, (primary, independent))
+                ready = compose(
+                    safety_result,
+                    risk_result,
+                    (primary, independent),
+                    challenger_readiness=challenger_ready(risk_result),
+                )
                 self.assertEqual(
                     ready.disposition,
                     "ELIGIBLE_FOR_PROJECTION_REVALIDATION",
@@ -228,7 +268,12 @@ class PublicationEligibilityTests(unittest.TestCase):
             previous=primary,
         )
         changed_safety = safety(source_sha256="c" * 64)
-        result = compose(changed_safety, risk_result, (primary, independent))
+        result = compose(
+            changed_safety,
+            risk_result,
+            (primary, independent),
+            challenger_readiness=challenger_ready(risk_result),
+        )
         self.assertIn("STALE_PUBLICATION_SAFETY_BINDING", result.blockers)
         self.assertEqual(result.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
 
@@ -250,6 +295,7 @@ class PublicationEligibilityTests(unittest.TestCase):
             risk_result,
             (primary, independent),
             input_binding="d" * 64,
+            challenger_readiness=challenger_ready(risk_result),
         )
         self.assertIn("STALE_HIGH_RISK_BINDING", result.blockers)
         self.assertEqual(result.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
@@ -276,8 +322,19 @@ class PublicationEligibilityTests(unittest.TestCase):
             credential="2" * 64,
             previous=primary,
         )
-        first = compose(safety_result, risk_result, (primary, independent))
-        second = compose(safety_result, risk_result, (primary, independent))
+        readiness = challenger_ready(risk_result)
+        first = compose(
+            safety_result,
+            risk_result,
+            (primary, independent),
+            challenger_readiness=readiness,
+        )
+        second = compose(
+            safety_result,
+            risk_result,
+            (primary, independent),
+            challenger_readiness=readiness,
+        )
         self.assertEqual(first, second)
 
         alternate = review_event(
@@ -289,11 +346,77 @@ class PublicationEligibilityTests(unittest.TestCase):
             credential="3" * 64,
             previous=primary,
         )
-        changed = compose(safety_result, risk_result, (primary, alternate))
+        changed = compose(
+            safety_result,
+            risk_result,
+            (primary, alternate),
+            challenger_readiness=readiness,
+        )
         self.assertNotEqual(first.binding_sha256, changed.binding_sha256)
         self.assertFalse(hasattr(first, "publication_allowed"))
         self.assertFalse(hasattr(first, "actor_ref"))
         self.assertFalse(hasattr(first, "credential_fingerprint"))
+
+    def test_high_risk_is_held_without_exact_challenger_readiness(self):
+        safety_result = safety()
+        risk_result = risk("LEGAL")
+        primary = review_event(safety_result=safety_result, risk_result=risk_result)
+        independent = review_event(
+            safety_result=safety_result,
+            risk_result=risk_result,
+            stage=ReviewStage.INDEPENDENT,
+            role=ReviewRole.INDEPENDENT_PUBLICATION_REVIEWER,
+            actor="reviewer:2",
+            credential="2" * 64,
+            previous=primary,
+        )
+        held = compose(safety_result, risk_result, (primary, independent))
+        self.assertEqual(held.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertIn("HIGH_RISK_CHALLENGER_REQUIRED", held.blockers)
+        self.assertIsNone(held.challenger_packet_id)
+
+        readiness = challenger_ready(risk_result)
+        ready = compose(
+            safety_result,
+            risk_result,
+            (primary, independent),
+            challenger_readiness=readiness,
+        )
+        self.assertEqual(ready.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
+        self.assertEqual(ready.challenger_packet_id, readiness.packet_id)
+
+    def test_only_exact_qualified_policy_ref_can_waive_challenger(self):
+        safety_result = safety()
+        risk_result = eligible_legal_risk()
+        primary = review_event(safety_result=safety_result, risk_result=risk_result)
+        independent = review_event(
+            safety_result=safety_result,
+            risk_result=risk_result,
+            stage=ReviewStage.INDEPENDENT,
+            role=ReviewRole.INDEPENDENT_PUBLICATION_REVIEWER,
+            actor="reviewer:2",
+            credential="2" * 64,
+            previous=primary,
+        )
+        wrong = compose(
+            safety_result,
+            risk_result,
+            (primary, independent),
+            challenger_waiver_policy_decision_ref="decision:dp307:other",
+        )
+        self.assertIn("HIGH_RISK_CHALLENGER_REQUIRED", wrong.blockers)
+
+        waived = compose(
+            safety_result,
+            risk_result,
+            (primary, independent),
+            challenger_waiver_policy_decision_ref=risk_result.policy_decision_ref,
+        )
+        self.assertEqual(waived.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
+        self.assertEqual(
+            waived.challenger_waiver_policy_decision_ref,
+            risk_result.policy_decision_ref,
+        )
 
 
 if __name__ == "__main__":

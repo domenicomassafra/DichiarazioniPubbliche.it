@@ -139,3 +139,10 @@ fixture. The projection/schema/API boundary set also passes **153/153** tests fr
 clone. This closes AC-422.9 independently of the shared dirty integration tree. AC-422.8 remains
 open for the selected-v4 desktop/mobile visual comparison; DP-408, DP-409 and DP-429 remain
 completion gates.
+
+The final approved-empty production shape is now covered explicitly as well. Against fingerprint
+`501348d9638e...`, the route checker expects exactly the six static canonical pages and rejects any
+fabricated Statement/Person/Topic/Content/Trace or legacy alias when the search index has zero
+records. The same checker retains the full populated-fixture assertions above. This is machine
+route-contract evidence only; it does not close AC-422.8's manual comparison with the selected v4
+visual references.

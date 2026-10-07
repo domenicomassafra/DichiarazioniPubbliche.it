@@ -1,6 +1,6 @@
 # DP-218 — Speaker-attribution proof coverage for the exact quoted/claimed span
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-114, DP-207; ADR 0003; coordinate with DP-216 and DP-217
 
@@ -63,7 +63,7 @@ entire quoted/claimed span. Ambiguity produces `HOLD`, never a guessed person.
   metadata and never biometric/template data or private reviewer notes.
 - [x] **AC-218.9:** SQL/tamper-oriented tests prove that a changed speaker_person_id/candidate state still needs the same Person, strong attribution method, approved review and full-span coverage; directly changing `speaker_person_id` or
   candidate status without the matching review/provenance cannot create public output.
-- [ ] **AC-218.10:** Full suite, benchmark, schema replay and MiniPC canary pass.
+- [x] **AC-218.10:** Full suite, benchmark, schema replay and MiniPC canary pass.
 
 ## Validation / proof
 
@@ -81,3 +81,11 @@ Prefer additive method/version fields and compatibility with existing approved c
 ## Completion receipt
 
 Local speaker-attribution publication gate implemented 2026-10-05. Weak metadata/account-credit methods cannot become publication authority; candidate approval, media promotion, finding publication and public projection require strong reviewed same-Person interval coverage. Existing conflicting-person overlap checks remain fail-closed. Focused fixtures now prove host/guest boundary non-inheritance, voice-over boundary holds, embedded clips requiring their own Content/Person proof, and same-name/different-Person ambiguity. The 2026-10-06 final local closure adds the publication-safe attribution method to bounded speaker provenance while the public schema rejects unknown provenance fields and non-publication-capable timed methods; confidence, source refs, biometric/template material and private reviewer notes remain absent. Focused public projection/schema/attribution proof passes. Full schema/benchmark/MiniPC closure remains open under AC-218.10.
+
+2026-10-06 final machine closure: the isolated `df8cdcc` evidence-core candidate passes
+compileall, **1765/1765** unittests, benchmark **5/5**, DP-223 **59/59**, and
+`git diff --check`; **41/41** migrations apply and replay with `ON_ERROR_STOP` on disposable
+PostgreSQL 17.11. The same candidate copied only to MiniPC `/tmp` passes **213/213** focused
+tests against PostgreSQL 18.6 temporary clusters, including same-Person full-span coverage,
+weak-method rejection, persistence tamper and public-attribution checks. No biometric path,
+provider call, deploy-mirror write or production DB access was used.

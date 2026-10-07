@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from typing import Any
 
 from dichiarazioni_pubbliche.citation_assurance import (
@@ -30,6 +31,22 @@ from dichiarazioni_pubbliche.queue_runtime import (
     deterministic_segment_id,
     deterministic_variant_id,
 )
+
+
+def _evidence_iso_date(value: str | None, field_name: str) -> str | None:
+    if value is None or str(value).strip() == "":
+        return None
+    text = str(value).strip()
+    if len(text) != 10:
+        raise ValueError(f"{field_name}_INVALID")
+    try:
+        parsed = date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"{field_name}_INVALID") from exc
+    canonical = parsed.isoformat()
+    if canonical != text:
+        raise ValueError(f"{field_name}_INVALID")
+    return canonical
 
 
 class QueueExecutionCostStore(PsqlRuntime):
@@ -885,12 +902,34 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
         fetched_at: str,
         content_sha256: str,
         publication_date: str | None = None,
+        valid_from: str | None = None,
+        valid_until: str | None = None,
+        record_status: str | None = None,
         excerpt: str | None = None,
         reference_period: str | None = None,
         independence_group: str | None = None,
         rights_status: str = "UNKNOWN",
         metadata: dict[str, Any] | None = None,
     ) -> bool:
+        canonical_publication_date = _evidence_iso_date(
+            publication_date, "EVIDENCE_PUBLICATION_DATE"
+        )
+        canonical_valid_from = _evidence_iso_date(valid_from, "EVIDENCE_VALID_FROM")
+        canonical_valid_until = _evidence_iso_date(valid_until, "EVIDENCE_VALID_UNTIL")
+        if (
+            canonical_valid_from is not None
+            and canonical_valid_until is not None
+            and canonical_valid_until <= canonical_valid_from
+        ):
+            raise ValueError("EVIDENCE_EFFECTIVE_INTERVAL_INVALID")
+        normalized_record_status = str(record_status or "").strip().upper()
+        if normalized_record_status and normalized_record_status not in {
+            "ACTIVE",
+            "SUPERSEDED",
+            "RETIRED",
+            "EXPIRED",
+        }:
+            raise ValueError("invalid evidence record_status")
         encoded = json.dumps(metadata or {}, ensure_ascii=False, separators=(",", ":"))
         raw = self.run(
             """
@@ -901,6 +940,9 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                     publisher,
                     source_type,
                     publication_date,
+                    valid_from,
+                    valid_until,
+                    record_status,
                     fetched_at,
                     content_sha256,
                     excerpt,
@@ -914,6 +956,9 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                     :'publisher',
                     :'source_type',
                     NULLIF(:'publication_date','')::date,
+                    NULLIF(:'valid_from','')::date,
+                    NULLIF(:'valid_until','')::date,
+                    COALESCE(NULLIF(:'record_status',''), 'ACTIVE'),
                     NULLIF(:'fetched_at','')::timestamptz,
                     :'content_sha256',
                     NULLIF(:'excerpt',''),
@@ -924,16 +969,50 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 )
                 ON CONFLICT (id) DO UPDATE SET
                     fetched_at = COALESCE(EXCLUDED.fetched_at, evidence.fetched_at),
+                    valid_from = COALESCE(evidence.valid_from, EXCLUDED.valid_from),
+                    valid_until = COALESCE(evidence.valid_until, EXCLUDED.valid_until),
+                    record_status = CASE
+                        WHEN evidence.record_status = 'RETIRED' THEN 'RETIRED'
+                        WHEN evidence.record_status = 'SUPERSEDED' THEN
+                            CASE
+                                WHEN EXCLUDED.record_status = 'RETIRED' THEN 'RETIRED'
+                                ELSE 'SUPERSEDED'
+                            END
+                        WHEN evidence.record_status = 'EXPIRED' THEN
+                            CASE
+                                WHEN EXCLUDED.record_status = 'RETIRED' THEN 'RETIRED'
+                                ELSE 'EXPIRED'
+                            END
+                        ELSE EXCLUDED.record_status
+                    END,
                     metadata = evidence.metadata || EXCLUDED.metadata
+                WHERE
+                    (
+                        EXCLUDED.valid_from IS NULL
+                        OR evidence.valid_from IS NULL
+                        OR EXCLUDED.valid_from = evidence.valid_from
+                    )
+                    AND (
+                        EXCLUDED.valid_until IS NULL
+                        OR evidence.valid_until IS NULL
+                        OR EXCLUDED.valid_until = evidence.valid_until
+                    )
                 RETURNING (xmax = 0) AS created
             )
-            SELECT COALESCE(bool_or(created), false)::text FROM inserted;
+            SELECT CASE
+                WHEN EXISTS(SELECT 1 FROM inserted)
+                    THEN COALESCE((SELECT bool_or(created)::text FROM inserted), 'false')
+                ELSE 'EVIDENCE_EFFECTIVE_TIME_CONFLICT'
+            END;
             """,
             evidence_id=evidence_id,
             canonical_url=canonical_url,
             publisher=publisher,
             source_type=source_type,
-            publication_date=publication_date or "",
+            publication_date=canonical_publication_date or "",
+            valid_from=canonical_valid_from or "",
+            valid_until=canonical_valid_until or "",
+            record_status=normalized_record_status,
             fetched_at=fetched_at,
             content_sha256=content_sha256,
             excerpt=excerpt or "",
@@ -942,6 +1021,8 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             rights_status=rights_status,
             metadata=encoded,
         )
+        if raw == "EVIDENCE_EFFECTIVE_TIME_CONFLICT":
+            raise RuntimeError(raw)
         return raw.lower() in {"t", "true", "1"}
 
     def link_claim_evidence(
@@ -1192,7 +1273,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 'publication_date', evidence.publication_date::text,
                 'valid_from', evidence.valid_from::text,
                 'valid_until', evidence.valid_until::text,
-                'record_status', evidence.status,
+                'record_status', evidence.record_status,
                 'metric', observation.metric,
                 'value_numeric', observation.value_numeric,
                 'value_text', observation.value_text,

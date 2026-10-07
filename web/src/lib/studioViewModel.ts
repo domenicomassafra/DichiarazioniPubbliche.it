@@ -6,6 +6,7 @@ export type StudioSourceKind =
   | "corpus_query"
   | "discovery_queue"
   | "research_collection"
+  | "coverage_need"
   | "verification_run"
   | "review_event"
   | "runtime_config";
@@ -89,6 +90,15 @@ export interface StudioEvidenceRow {
   status: StudioSourceBoundStatus;
 }
 
+export interface StudioOriginalSourceResolution {
+  status: string;
+  need_type: string;
+  root_content_id: string;
+  path_content_ids: string[];
+  path_edge_ids: string[];
+  source_ref: string;
+}
+
 export interface StudioVerifyClaim {
   id: string;
   time: string;
@@ -97,6 +107,7 @@ export interface StudioVerifyClaim {
   observation: string;
   status: StudioSourceBoundStatus;
   evidence: StudioEvidenceRow[];
+  original_source_resolution?: StudioOriginalSourceResolution;
 }
 
 export interface StudioVerifyViewModel extends StudioBaseViewModel {
@@ -138,6 +149,31 @@ export function assertSourceBoundStatus(status: StudioSourceBoundStatus): void {
   }
 }
 
+export function assertOriginalSourceResolution(receipt: StudioOriginalSourceResolution): void {
+  assertText(receipt.status, "original_source_status");
+  assertText(receipt.need_type, "original_source_need_type");
+  assertText(receipt.root_content_id, "original_source_root_content_id");
+  assertText(receipt.source_ref, "original_source_ref");
+  if (!Array.isArray(receipt.path_content_ids) || receipt.path_content_ids.length === 0) {
+    throw new Error("STUDIO_ORIGINAL_SOURCE_CONTENT_PATH_REQUIRED");
+  }
+  if (receipt.path_content_ids.some((value) => typeof value !== "string" || !value.trim())) {
+    throw new Error("STUDIO_ORIGINAL_SOURCE_CONTENT_PATH_INVALID");
+  }
+  if (!Array.isArray(receipt.path_edge_ids)) {
+    throw new Error("STUDIO_ORIGINAL_SOURCE_EDGE_PATH_REQUIRED");
+  }
+  if (receipt.path_edge_ids.some((value) => typeof value !== "string" || !value.trim())) {
+    throw new Error("STUDIO_ORIGINAL_SOURCE_EDGE_PATH_INVALID");
+  }
+  if (receipt.path_edge_ids.length !== receipt.path_content_ids.length - 1) {
+    throw new Error("STUDIO_ORIGINAL_SOURCE_PATH_LENGTH_MISMATCH");
+  }
+  if (receipt.path_content_ids.at(-1) !== receipt.root_content_id) {
+    throw new Error("STUDIO_ORIGINAL_SOURCE_ROOT_PATH_MISMATCH");
+  }
+}
+
 function collectStatuses(model: StudioViewModel): StudioSourceBoundStatus[] {
   const nested: StudioSourceBoundStatus[] = [];
   if (model.workspace === "inbox") {
@@ -162,6 +198,11 @@ export function assertStudioViewModel(model: StudioViewModel): void {
   assertText(model.dominant_task, "dominant_task");
   for (const status of collectStatuses(model)) assertSourceBoundStatus(status);
   if (model.workspace === "verify") {
+    for (const claim of model.claims) {
+      if (claim.original_source_resolution) {
+        assertOriginalSourceResolution(claim.original_source_resolution);
+      }
+    }
     const domains = new Set(model.actions.map((action) => action.domain));
     if (!domains.has("analysis") || !domains.has("review")) {
       throw new Error("STUDIO_VERIFY_ACTION_DOMAINS_REQUIRED");

@@ -121,29 +121,29 @@ prompt, an operational database query, or a hosting vendor.
 
 ## Acceptance criteria
 
-- [ ] `AC-403.1`: Given the DP-105-approved schema and DP-402 route table, when the
+- [x] `AC-403.1`: Given the DP-105-approved schema and DP-402 route table, when the
   OpenAPI document is generated, then every route, status, parameter, header, and schema
   reference matches the implementation without a second field vocabulary.
-- [ ] `AC-403.2`: Given the documented examples, when each response example is validated
+- [x] `AC-403.2`: Given the documented examples, when each response example is validated
   against the referenced DP-105 schema, then valid examples pass and intentionally
   invalid examples fail for the documented reason.
-- [ ] `AC-403.3`: Given a consumer reads the document, when it inspects security and
+- [x] `AC-403.3`: Given a consumer reads the document, when it inspects security and
   methods, then it sees read-only public operations only and no implied write/auth
   contract.
-- [ ] `AC-403.4`: Given an additive optional change, when compatibility is assessed, then
+- [x] `AC-403.4`: Given an additive optional change, when compatibility is assessed, then
   it is classified as non-breaking and does not require a new major version; given a
   semantic or required-field change, then it is classified as breaking and requires a
   new major version.
-- [ ] `AC-403.5`: Given a deprecation, when a client requests the old endpoint during the
+- [x] `AC-403.5`: Given a deprecation, when a client requests the old endpoint during the
   announced window, then the response remains readable and includes the required
   `Deprecation` and `Sunset` headers plus a documented replacement.
-- [ ] `AC-403.6`: Given a schema or route fixture, when the document is inspected, then it
+- [x] `AC-403.6`: Given a schema or route fixture, when the document is inspected, then it
   contains no raw transcript/evidence body, private data, provider receipt, person score,
   unreviewed correction/reply, or real-person fictional example.
-- [ ] `AC-403.7`: Given the DP-105 v1/v2 decision is unresolved, when the document is
+- [x] `AC-403.7`: Given the DP-105 v1/v2 decision is unresolved, when the document is
   built, then the build succeeds only in fixture mode or fails with a clear contract gate;
   it cannot publish a falsely stable document.
-- [ ] `AC-403.8`: Given the OpenAPI document and examples, when the collision/dependency
+- [x] `AC-403.8`: Given the OpenAPI document and examples, when the collision/dependency
   audit runs, then DP-402 remains the route owner, DP-105 remains the schema owner, and
   no duplicate endpoint contract is introduced.
 

@@ -59,3 +59,12 @@ DB `dp_restore_accept_20261006_1856`; the drill verified **92/92** table-data en
 reported `RESULT: PASS (restored state matches backup exactly)` plus `DRILL PASS`. The
 disposable DB was then dropped. The canonical production database was never used as a
 restore target and no credential/private payload was copied into the sanitized receipt.
+
+### Post-migration release-candidate drill — 2026-10-06
+
+After the final 2026-10-06 additive migrations, backup set `20261006T214721Z` was restored
+again into a separately created disposable MiniPC database. The source dump contained **94**
+table-data entries; every manifest count matched the restored database, including the two new
+private reply-governance ledgers. The verifier reported `RESULT: PASS` and `DRILL PASS`, and the
+temporary database was removed immediately afterwards. This confirms the final integrated
+94-table runtime state remains recoverable without touching the production database.

@@ -666,6 +666,9 @@ class WorkerDaemonTests(unittest.TestCase):
                         "claim_id": "claim:a",
                         "relation_candidate": "UNKNOWN",
                         "retrieval_version": "v1",
+                        "valid_from": "2026-01-01",
+                        "valid_until": "2026-10-01",
+                        "record_status": "SUPERSEDED",
                         "estimated_cost_usd": 0,
                     },
                 )
@@ -686,6 +689,9 @@ class WorkerDaemonTests(unittest.TestCase):
             {"claim_id": "claim:a"},
         )
         self.assertIsNone(store.evidence_rows[0]["excerpt"])
+        self.assertEqual(store.evidence_rows[0]["valid_from"], "2026-01-01")
+        self.assertEqual(store.evidence_rows[0]["valid_until"], "2026-10-01")
+        self.assertEqual(store.evidence_rows[0]["record_status"], "SUPERSEDED")
 
     def test_evidence_rate_limit_defers_without_consuming_retry(self):
         fetcher = FakeEvidenceFetcher(

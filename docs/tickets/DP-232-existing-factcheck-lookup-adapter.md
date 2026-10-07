@@ -183,3 +183,12 @@ Focused public/persistence + Coverage Need and research-discovery architecture t
 No live Google/provider request, API key, production database mutation or publication side
 effect was used. The ticket remains `IN PROGRESS` only for any future owner-selected live
 provider/network receipt; all dependency-free local acceptance criteria are now complete.
+
+Final-tree revalidation on 2026-10-06 runs the Google-normalizer contract, disposable
+PostgreSQL mirror/runtime/projection acceptance and outward ClaimReview interoperability as
+**27/27 PASS** on an isolated MiniPC `/tmp` bundle with provider/API credentials removed. The
+externally reachable production projection remains fingerprint `501348d9638e...` with zero
+dossiers/search records, so there is no production fact-check mirror row to mistake for a live
+provider receipt. The only remaining status blocker is an owner-selected live provider/network
+exercise if such a provider is chosen; this receipt does not invent one and does not upgrade
+`UNKNOWN` rights.

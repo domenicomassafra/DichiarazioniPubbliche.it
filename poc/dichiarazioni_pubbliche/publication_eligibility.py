@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import Iterable
 
+from dichiarazioni_pubbliche.countercase import ChallengerReadinessDecision
 from dichiarazioni_pubbliche.high_risk_assertion import HighRiskDecision
 from dichiarazioni_pubbliche.publication_review_control import (
     PublicationReviewEvent,
@@ -32,6 +33,9 @@ class PublicationEligibilityResult:
     review_risk_class: ReviewRiskClass
     counted_review_event_ids: tuple[str, ...]
     binding_sha256: str
+    challenger_packet_id: str | None = None
+    challenger_version: str | None = None
+    challenger_waiver_policy_decision_ref: str | None = None
     profile_version: str = PUBLICATION_ELIGIBILITY_VERSION
 
 
@@ -46,6 +50,8 @@ def _binding_sha256(
     review_risk_class: ReviewRiskClass,
     review_disposition: str,
     counted_event_ids: tuple[str, ...],
+    challenger_readiness: ChallengerReadinessDecision | None,
+    challenger_waiver_policy_decision_ref: str | None,
 ) -> str:
     payload = {
         "profile_version": PUBLICATION_ELIGIBILITY_VERSION,
@@ -67,6 +73,18 @@ def _binding_sha256(
             "disposition": str(review_disposition),
             "counted_event_ids": list(counted_event_ids),
         },
+        "challenger": (
+            None
+            if challenger_readiness is None
+            else {
+                "version": str(challenger_readiness.version),
+                "packet_id": str(challenger_readiness.packet_id),
+                "status": str(challenger_readiness.status),
+                "blockers": list(challenger_readiness.blockers),
+                "review_stale": bool(challenger_readiness.review_stale),
+            }
+        ),
+        "challenger_waiver_policy_decision_ref": challenger_waiver_policy_decision_ref,
     }
     encoded = json.dumps(
         payload,
@@ -87,6 +105,8 @@ def _evaluate_publication_eligibility_from_events(
     review_events: Iterable[PublicationReviewEvent],
     upstream_actor_refs: Iterable[str] = (),
     upstream_credential_fingerprints: Iterable[str] = (),
+    challenger_readiness: ChallengerReadinessDecision | None = None,
+    challenger_waiver_policy_decision_ref: str | None = None,
 ) -> PublicationEligibilityResult:
     """Pure DP-308/309/310 composition over caller-supplied events.
 
@@ -111,6 +131,19 @@ def _evaluate_publication_eligibility_from_events(
     )
 
     blockers = list(review.blockers)
+    waiver_ref = str(challenger_waiver_policy_decision_ref or "").strip()
+    qualified_challenger_waiver = bool(
+        high_risk.signals.requires_escalation
+        and high_risk.publication_allowed
+        and waiver_ref
+        and waiver_ref == str(high_risk.policy_decision_ref or "")
+    )
+    if high_risk.signals.requires_escalation and not qualified_challenger_waiver:
+        if challenger_readiness is None:
+            blockers.append("HIGH_RISK_CHALLENGER_REQUIRED")
+        elif not challenger_readiness.ready:
+            blockers.append("HIGH_RISK_CHALLENGER_NOT_READY")
+            blockers.extend(challenger_readiness.blockers)
     if not publication_safety.eligible:
         if "UPSTREAM_PUBLICATION_SAFETY_NOT_ELIGIBLE" not in blockers:
             blockers.append("UPSTREAM_PUBLICATION_SAFETY_NOT_ELIGIBLE")
@@ -138,6 +171,8 @@ def _evaluate_publication_eligibility_from_events(
         review_risk_class=review.risk_class,
         review_disposition=review.disposition,
         counted_event_ids=review.counted_event_ids,
+        challenger_readiness=challenger_readiness,
+        challenger_waiver_policy_decision_ref=(waiver_ref or None),
     )
     return PublicationEligibilityResult(
         disposition=disposition,
@@ -148,6 +183,13 @@ def _evaluate_publication_eligibility_from_events(
         review_risk_class=review.risk_class,
         counted_review_event_ids=review.counted_event_ids,
         binding_sha256=binding,
+        challenger_packet_id=(
+            challenger_readiness.packet_id if challenger_readiness is not None else None
+        ),
+        challenger_version=(
+            challenger_readiness.version if challenger_readiness is not None else None
+        ),
+        challenger_waiver_policy_decision_ref=(waiver_ref or None),
     )
 
 
@@ -162,6 +204,8 @@ def evaluate_publication_eligibility(
     review_authority: ReviewerIdentityAuthority | None,
     upstream_actor_refs: Iterable[str] = (),
     upstream_credential_fingerprints: Iterable[str] = (),
+    challenger_readiness: ChallengerReadinessDecision | None = None,
+    challenger_waiver_policy_decision_ref: str | None = None,
 ) -> PublicationEligibilityResult:
     """Runtime eligibility from authority-attested durable review history only.
 
@@ -169,7 +213,19 @@ def evaluate_publication_eligibility(
     in-memory hash chain as review authority. The exact durable history is replayed through the
     independently controlled reviewer authority first. Any replay/authority blocker is carried
     into the fail-closed eligibility result.
+
+    Challenger readiness/waiver values are currently pure policy/testing inputs only. There is
+    no durable challenger packet/review authority equivalent to the reviewer authority in this
+    runtime, so caller-supplied challenger values are rejected and never forwarded into the pure
+    eligibility composer. A future runtime integration must resolve challenger state through a
+    real durable/authority mechanism before this boundary may consume it.
     """
+
+    runtime_blockers: list[str] = []
+    if challenger_readiness is not None:
+        runtime_blockers.append("CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE")
+    if str(challenger_waiver_policy_decision_ref or "").strip():
+        runtime_blockers.append("CHALLENGER_WAIVER_AUTHORITY_UNAVAILABLE")
 
     replay = review_store.replay_attested_chain(
         record_id,
@@ -184,10 +240,14 @@ def evaluate_publication_eligibility(
         review_events=replay.events,
         upstream_actor_refs=upstream_actor_refs,
         upstream_credential_fingerprints=upstream_credential_fingerprints,
+        challenger_readiness=None,
+        challenger_waiver_policy_decision_ref=None,
     )
-    if not replay.blockers:
+    if not replay.blockers and not runtime_blockers:
         return result
-    blockers = tuple(dict.fromkeys((*replay.blockers, *result.blockers)))
+    blockers = tuple(
+        dict.fromkeys((*replay.blockers, *runtime_blockers, *result.blockers))
+    )
     return PublicationEligibilityResult(
         disposition="HOLD_FOR_PUBLICATION_REVIEW",
         blockers=blockers,
@@ -197,6 +257,9 @@ def evaluate_publication_eligibility(
         review_risk_class=result.review_risk_class,
         counted_review_event_ids=(),
         binding_sha256=result.binding_sha256,
+        challenger_packet_id=None,
+        challenger_version=None,
+        challenger_waiver_policy_decision_ref=None,
     )
 
 

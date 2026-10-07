@@ -74,7 +74,7 @@ public attribution for higher recall.
   negative/control example where meaningful.
 - [ ] **AC-223.3:** The full public-projection path produces **zero** known false-person
   attributions and **zero** fabricated direct quotes.
-- [ ] **AC-223.4:** A failure in quote, transcript, speaker, identity, context, rights or
+- [x] **AC-223.4:** A failure in quote, transcript, speaker, identity, context, rights or
   review provenance produces `HELD/OMITTED/UNRESOLVED`, never a guessed fallback.
 - [x] **AC-223.4A:** A material Finding assertion without a compatible DP-224 approved
   citation is omitted/held and cannot borrow unrelated Finding-level evidence membership.
@@ -147,7 +147,11 @@ to Git solely for this benchmark. DP-602 owns CI wiring; DP-704 owns launch rehe
   rejected before public attribution. These tests pass using only the disposable local
   cluster. No production or MiniPC database is contacted.
 
-AC-223.3/.4/.9 remain open. The persisted production-boundary suite also proves AC-223.4A:
+AC-223.3/.9 remain open. The combined deterministic gate now closes AC-223.4: the 59-case
+hand-labelled suite exercises quote, transcript, speaker, identity, context, rights,
+source-drift and review-provenance failures with every adverse case ending
+`HELD/OMITTED/UNRESOLVED`, while the persisted production-boundary suite exercises direct
+SQL tampering and the DP-305 public-serializer boundary. The persisted suite also proves AC-223.4A:
 changing the exact assertion citation relation from `SUPPORTS` to incompatible `CONTEXT`
 removes the dossier instead of borrowing unrelated Finding-level membership. This slice does not
 claim the full adversarial corpus through the public projection or a MiniPC
@@ -169,7 +173,22 @@ projection/read-back receipt.
   that criterion still requires DP-704 to rerun the same release suite against the MiniPC
   release candidate and attach an actual projection/read-back receipt.
 
-2026-10-06 final local closure run: `compileall` plus the full unittest discovery passes
-1763/1763; the focused owned-domain bundle passes 128/128 and the current local PostgreSQL
-projection-tamper suite passes 10/10. The MiniPC receipt above predates the four added local
-tamper cases and is therefore not treated as proof for the current release candidate.
+2026-10-06 final evidence-core run reconstructs `df8cdcc` plus only the evidence-core patch
+in an isolated candidate. `compileall`, **1765/1765** unittests, deterministic benchmark
+**5/5**, DP-223 **59/59** and `git diff --check` pass; PostgreSQL 17.11 applies/replays all
+**41/41** migrations. The production-boundary tamper test now also seeds a machine ASR
+variant whose direct-quote authority comes only from a persisted current human-verbatim
+review; changing the source-segment bytes immediately removes the dossier until the exact
+reviewed bytes return.
+
+That exact candidate was copied only to a temporary MiniPC directory and run with production
+database variables removed. On Python 3.14.4/PostgreSQL 18.6, **213/213** focused
+evidence-core tests pass with no skips using temporary local clusters; benchmark **5/5** and
+DP-223 **59/59** also pass. This current canary supersedes the older 6-test MiniPC receipt
+for deterministic evidence-core behavior, but it is deliberately **not** AC-223.9: no
+release candidate was deployed or read back through DP-704.
+
+AC-223.3 remains open because the complete 59-case authored corpus still terminates in its
+individual production gate families rather than replaying every case through the persisted
+public-projection store/serializer. AC-223.9 remains open until DP-704 supplies an actual
+MiniPC release-candidate projection/read-back receipt.

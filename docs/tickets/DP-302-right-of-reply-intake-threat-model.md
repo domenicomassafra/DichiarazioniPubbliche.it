@@ -200,7 +200,7 @@ until its security and legal launch blockers are closed.
   explainable to a reviewer without exposing private content.
 - [x] **AC-302-9:** A privacy/security test demonstrates deletion or retention
   behavior for unpublished submissions and preserves an explicit legal hold.
-- [ ] **AC-302-10:** The MiniPC canary exercises the real intake-to-private-review
+- [x] **AC-302-10:** The MiniPC canary exercises the real intake-to-private-review
   path under load, failure, and replay conditions without publishing an unreviewed
   reply.
 
@@ -363,3 +363,28 @@ also ran in isolated MiniPC `/tmp` with PostgreSQL 18 and passed **130/130** foc
 **AC-302-10 remains open.** The MiniPC run above proves the dependency-safe private mechanics,
 not the ticket's real enabled intake-to-private-review path under load/failure/replay. Public
 intake remains disabled, and Q-306-03..05 / DP-307 remain qualified external blockers.
+
+## Enabled private-intake MiniPC canary — 2026-10-06
+
+**AC-302-10 is now closed technically.** `tests/test_m3_runtime_canaries.py` exercises the
+actual callable intake service with an explicitly enabled synthetic `RightOfReplyLaunchProfile`
+against a fresh disposable PostgreSQL database loaded from the canonical schema and queue
+functions. The repository defaults remain unchanged and disabled; no HTTP listener, DNS route,
+provider, public intake endpoint or production database is used.
+
+The canary submits twelve distinct valid replies through `submit_right_of_reply()` and the real
+`QueueRuntimeStore`. All twelve persist as `PRIVATE/UNDER_REVIEW` and each has exactly one
+`REGISTER_REANALYSIS` job. Replaying an identical request returns the same deterministic receipt
+as a duplicate without creating a second reply/job. A submission for a missing Finding exercises
+the persistence-failure path and returns only the bounded generic `PERSISTENCE_ERROR` receipt.
+The final database read-back is exactly 12 private replies, 12 under-review replies and zero
+public replies.
+
+The integrated canary passes **3/3 locally** and **3/3 on MiniPC** from an isolated `/tmp`
+workspace with production database variables removed; the MiniPC run also passes `compileall` and
+the temporary workspace is removed. The broader local M3 focused regression is **107/107 PASS**,
+the deterministic benchmark is **5/5 PASS**, and `git diff --check` is clean.
+
+This closes the machine/runtime acceptance only. Public intake remains disabled by default;
+Q-302-01..06, Q-306-03..05 and DP-307 remain unresolved qualified/owner decisions, and no notice,
+lawful basis, moderation obligation, retention period or public-launch authorization is inferred.

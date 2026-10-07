@@ -27,6 +27,37 @@ function canonicalOf(html) {
 const htmlFiles = (await walk(dist)).filter((path) => path.endsWith(".html"));
 const pages = new Map();
 for (const path of htmlFiles) pages.set(routeFor(path), await readFile(path, "utf8"));
+const searchIndex = JSON.parse(await readFile(join(dist, "search-index.v1.json"), "utf8"));
+assert(Array.isArray(searchIndex.records), "search index records must be an array");
+const demoProjection = JSON.parse(await readFile(new URL("../src/data/demo-projection.json", import.meta.url), "utf8"));
+const demoSnapshot = searchIndex.projection_sha256 === demoProjection.dataset_sha256;
+
+const kindToPrefix = new Map([
+  ["finding", "/dichiarazioni/"],
+  ["person", "/persone/"],
+  ["topic", "/temi/"],
+  ["content", "/contenuti/"],
+]);
+
+function expectedDynamicRoutes(records) {
+  const expected = new Map([...kindToPrefix.values()].map((prefix) => [prefix, new Set()]));
+  for (const record of records) {
+    const prefix = kindToPrefix.get(record?.kind);
+    if (!prefix) continue;
+    assert.equal(typeof record.route, "string", `${record?.kind ?? "unknown"} search record is missing a route`);
+    assert(record.route.startsWith(prefix), `${record.kind} search record route escaped ${prefix}: ${record.route}`);
+    expected.get(prefix).add(record.route);
+  }
+  return expected;
+}
+
+// Regression guard: first-class Content can be public with zero Findings/People/Topics.
+const contentOnlyRegression = expectedDynamicRoutes([{ kind: "content", route: "/contenuti/content-only/" }]);
+assert.deepEqual([...contentOnlyRegression.get("/contenuti/")], ["/contenuti/content-only/"]);
+for (const prefix of ["/dichiarazioni/", "/persone/", "/temi/"]) {
+  assert.equal(contentOnlyRegression.get(prefix).size, 0, `content-only regression unexpectedly requires ${prefix}`);
+}
+const expectedByPrefix = expectedDynamicRoutes(searchIndex.records);
 
 function primaryPages(prefix) {
   return [...pages.entries()].filter(([route]) => route.startsWith(prefix));
@@ -34,9 +65,16 @@ function primaryPages(prefix) {
 
 const requiredStatic = ["/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"];
 for (const route of requiredStatic) assert(pages.has(route), `missing canonical route ${route}`);
-for (const prefix of ["/dichiarazioni/", "/persone/", "/temi/", "/contenuti/", "/tracce/"]) {
-  assert([...pages.keys()].some((route) => route.startsWith(prefix)), `missing canonical route family ${prefix}`);
+for (const [prefix, expectedRoutes] of expectedByPrefix) {
+  const actualRoutes = new Set([...pages.keys()].filter((route) => route.startsWith(prefix)));
+  assert.deepEqual(
+    [...actualRoutes].sort(),
+    [...expectedRoutes].sort(),
+    `${prefix}: canonical routes diverge from the verified public search index`,
+  );
 }
+const traceRoutes = new Set([...pages.keys()].filter((route) => route.startsWith("/tracce/")));
+if (demoSnapshot) assert(traceRoutes.size > 0, "demo fixture must exercise at least one reviewed Trace route");
 
 const legacyToCanonical = new Map([
   ["/fact-check/", "/dichiarazioni/"],
@@ -46,20 +84,23 @@ const legacyToCanonical = new Map([
   ["/compare/", "/tracce/"],
 ]);
 let legacyCount = 0;
+let compareAliasCount = 0;
 for (const [route, html] of pages) {
   for (const [legacyPrefix, canonicalPrefix] of legacyToCanonical) {
     if (!route.startsWith(legacyPrefix)) continue;
     legacyCount += 1;
+    if (legacyPrefix === "/compare/") compareAliasCount += 1;
     const canonical = canonicalOf(html);
     assert(canonical?.startsWith(canonicalPrefix), `${route}: unsafe/missing legacy canonical ${canonical}`);
     assert(pages.has(canonical), `${route}: canonical target is not built: ${canonical}`);
   }
 }
-assert(legacyCount > 0, "demo build must exercise legacy compatibility aliases");
+assert.equal(compareAliasCount, traceRoutes.size, "Trace compatibility aliases must match canonical Trace routes one-for-one");
+if (demoSnapshot) assert(legacyCount > 0, "demo fixture must exercise legacy compatibility aliases");
 
 const personPages = primaryPages("/persone/");
 const topicPages = primaryPages("/temi/");
-assert(personPages.length > 0 && topicPages.length > 0, "Person/Topic routes required for IA acceptance");
+if (demoSnapshot) assert(personPages.length > 0 && topicPages.length > 0, "demo fixture requires Person/Topic routes for IA acceptance");
 for (const [route, html] of personPages) {
   assert.match(html, /class="[^"]*person-chronology/, `${route}: Person chronology missing`);
   assert.match(html, /non esiste un punteggio della persona/i, `${route}: Person no-score boundary missing`);
@@ -76,10 +117,10 @@ for (const [route, html] of topicPages) {
   }
   assert.equal(/class="[^"]*person-chronology/.test(html), false, `${route}: Topic route leaked Person chronology IA`);
 }
-assert(populatedTopicPages > 0, "Topic fixture must exercise at least one populated contextual dossier");
+if (demoSnapshot) assert(populatedTopicPages > 0, "demo Topic fixture must exercise at least one populated contextual dossier");
 
 const contentPages = primaryPages("/contenuti/");
-assert(contentPages.length > 0, "Content routes required for locator acceptance");
+if (demoSnapshot) assert(contentPages.length > 0, "demo Content routes required for locator acceptance");
 let timedLocatorPages = 0;
 let writtenLocatorPages = 0;
 for (const [route, html] of contentPages) {
@@ -94,7 +135,7 @@ for (const [route, html] of contentPages) {
     assert.equal(/Passaggio selezionato[^<]*(?:\d{1,2}:\d{2})/i.test(html), false, `${route}: written locator fabricated a timestamp`);
   }
 }
-assert(timedLocatorPages > 0, "Content fixture must exercise at least one timed locator");
+if (demoSnapshot) assert(timedLocatorPages > 0, "demo Content fixture must exercise at least one timed locator");
 if (process.env.DP_EXPECT_WRITTEN_LOCATOR === "1") {
   assert(writtenLocatorPages > 0, "Content fixture must exercise at least one written locator");
 }
@@ -135,4 +176,9 @@ for (const [route, html] of pages) {
   assert.equal(canonical, route, `${route}: primary route canonical is ${canonical}`);
 }
 
-console.log(`route-contract checks PASS (${pages.size} HTML routes, ${legacyCount} compatibility aliases, ${internalLinks} internal links, ${timedLocatorPages} timed locator pages, ${writtenLocatorPages} written locator pages)`);
+const snapshotShape = demoSnapshot
+  ? "populated demo fixture"
+  : searchIndex.records.length === 0
+    ? "approved empty snapshot"
+    : `search-driven snapshot (${[...new Set(searchIndex.records.map((record) => record.kind))].sort().join(", ")})`;
+console.log(`route-contract checks PASS (${snapshotShape}; ${pages.size} HTML routes, ${legacyCount} compatibility aliases, ${internalLinks} internal links, ${timedLocatorPages} timed locator pages, ${writtenLocatorPages} written locator pages)`);

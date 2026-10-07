@@ -191,6 +191,17 @@ export const studioVerifyFixture: StudioVerifyViewModel = {
         query_state: "ready",
         blocker_code: null,
       },
+      original_source_resolution: {
+        status: "RESOLVED",
+        need_type: "PRIMARY_SOURCE",
+        root_content_id: "content:fixture:servizi:originale",
+        path_content_ids: [
+          "content:fixture:servizi:ripubblicazione",
+          "content:fixture:servizi:originale",
+        ],
+        path_edge_ids: ["derivation:fixture:servizi:ripubblicazione-originale"],
+        source_ref: "fixture:coverage-need:claim-wait#original_source_resolution",
+      },
       evidence: [
         {
           id: "evidence:wait:1",

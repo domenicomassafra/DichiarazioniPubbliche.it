@@ -109,10 +109,14 @@ target. An isolated MiniPC build against the exact approved
 `/metodo/`, `/search-index.v1.json`, `/api/v1/health` and `/api/v1/openapi.json` with `200` and a
 matching `501348d9638e...` search/API fingerprint. This closure does not claim real screen-reader
 or manual visual acceptance; those cross-surface judgments remain owned by DP-410 rather than this
-ticket's AC-432.8. The running DP-401 static directory is currently stale relative to its API
-(`00ede66707f0...` versus approved `501348d9638e...`), so release/deployment promotion must also
-refresh that live bundle before public launch.
+ticket's AC-432.8. The final 2026-10-06 production promotion subsequently removed the recorded
+DP-401 drift: live static search, API health and the internal linked-data receipt now converge on
+`501348d9638e...`. The approved production projection is empty, so the trust checker now treats
+zero rendered Statement pages as valid only when the public search index also has zero Finding
+records; Method disclosures remain mandatory. Populated fixtures still require every rendered
+Statement trust disclosure.
 
 All DP-432 acceptance criteria are now machine-proven, but the ticket remains `IN PROGRESS`
-because upstream dependencies DP-216, DP-217, DP-218, DP-219, DP-220 and DP-223 are still
-`IN PROGRESS`. Their final closure is not inferred from this public-surface integration receipt.
+because upstream dependency DP-223 is still `IN PROGRESS`. DP-216 through DP-220 are now
+closed independently; DP-223's remaining projection/release-candidate gates are not inferred
+from this public-surface integration receipt.

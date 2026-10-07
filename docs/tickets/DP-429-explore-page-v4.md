@@ -116,3 +116,10 @@ preserved, phone `375/375` viewport/scroll width and 44 px filter target, plus e
 zoom with `innerWidth=640`, `outerWidth=1280`, `devicePixelRatio=2`,
 `visualViewport.scale=1`, `scrollWidth=635` and a 44 px filter target. No real
 screen-reader/manual visual acceptance is inferred from these automated checks.
+
+The final approved empty production shape is now a first-class QA case rather than a fixture
+failure. With zero search records, Explore still hydrates, serializes keyboard filter state,
+opens/closes the filter dialog with focus restoration, exposes the overlong-query alert, respects
+reduced motion, stays within the 375 px phone viewport and exact 200% browser zoom, and performs
+zero external/provider requests. Populated demo QA still requires result/history links. The mixed
+accessibility AC remains unchecked solely because real screen-reader judgment is still required.

@@ -456,6 +456,10 @@ class ClaimPromotionTests(unittest.TestCase):
             "segment.canonical_text AS segment_canonical_text",
             PROMOTION_CONTEXT_SQL_V1,
         )
+        self.assertIn("transcript_verbatim_review_event verbatim_review", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("verbatim_review.source_variant_sha256", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("verbatim_review.source_segment_sha256", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("verbatim_review.reviewed_text_sha256", PROMOTION_CONTEXT_SQL_V1)
 
     def test_media_mutation_sql_requires_exact_quote_span_receipt(self):
         for sql in (_LINK_EXISTING_SQL, _PROMOTE_MEDIA_NEW_SQL):
@@ -467,7 +471,10 @@ class ClaimPromotionTests(unittest.TestCase):
             self.assertIn("sha256(", sql)
             self.assertIn(") = c.statement_text_hash", sql)
             self.assertIn("'OFFICIAL_TRANSCRIPT'", sql)
-            self.assertIn("'HUMAN_AUDIO_VERIFIED'", sql)
+            self.assertIn("transcript_verbatim_review_event verbatim_review", sql)
+            self.assertIn("verbatim_review.source_variant_sha256", sql)
+            self.assertIn("verbatim_review.source_segment_sha256", sql)
+            self.assertIn("verbatim_review.reviewed_text_sha256", sql)
 
     def test_single_reviewed_duplicate_links_existing_with_receipt(self):
         context = written_context()

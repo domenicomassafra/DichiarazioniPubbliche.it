@@ -36,10 +36,10 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-115.1:** Same source/selector duplicate is distinguishable from same-proposition across sources.
-- [ ] **AC-115.2:** Related-but-different propositions can be rejected from one cluster without data loss.
-- [ ] **AC-115.3:** Ten copied articles can be represented as one derivation family without deleting records.
-- [ ] **AC-115.4:** Cluster/derivation suggestions cannot change existing approved evidence by side effect.
+- [x] **AC-115.1:** Same source/selector duplicate is distinguishable from same-proposition across sources.
+- [x] **AC-115.2:** Related-but-different propositions can be rejected from one cluster without data loss.
+- [x] **AC-115.3:** Ten copied articles can be represented as one derivation family without deleting records.
+- [x] **AC-115.4:** Cluster/derivation suggestions cannot change existing approved evidence by side effect.
 
 ## Validation / proof
 

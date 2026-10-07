@@ -166,6 +166,38 @@ class SourceIntelligenceTests(unittest.TestCase):
             {row["reason"] for row in result.rejected_evidence},
         )
 
+    def test_expired_record_without_valid_until_fails_closed(self):
+        result = self.assess(
+            [
+                self.item(
+                    "istat-sdmx",
+                    record_status="EXPIRED",
+                )
+            ]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn(
+            "SUPERSEDED_VERSION_WITHOUT_VALID_UNTIL",
+            {row["reason"] for row in result.rejected_evidence},
+        )
+
+    def test_expired_record_with_valid_until_uses_normal_end_exclusive_semantics(self):
+        result = self.assess(
+            [
+                self.item(
+                    "istat-sdmx",
+                    valid_from="2026-01-01",
+                    valid_until="2026-09-04",
+                    record_status="EXPIRED",
+                )
+            ]
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn(
+            "VERSION_NO_LONGER_EFFECTIVE",
+            {row["reason"] for row in result.rejected_evidence},
+        )
+
     def test_superseded_version_with_historical_interval_can_prove_past_statement(self):
         result = self.assess(
             [

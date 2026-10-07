@@ -1,6 +1,6 @@
 # DP-216 — Exact quote/source-span binding; model output can never be quotation authority
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-111, DP-210; coordinate with DP-207, DP-305
 
@@ -87,15 +87,15 @@ Never:
 - [x] **AC-216.5:** A model/extractor response that contains invented or cleaned-up quote wording cannot promote when its statement hash differs from the exact Passage hash.
   text cannot create a public quote unless the exact text independently exists in the
   approved source span.
-- [ ] **AC-216.6:** Structured ellipsis/discontinuous-span fixtures preserve source order
+- [x] **AC-216.6:** Structured ellipsis/discontinuous-span fixtures preserve source order
   and disclose omissions; the renderer cannot concatenate non-adjacent text invisibly.
-- [ ] **AC-216.7:** Source version change produces new/stale provenance and removes public
+- [x] **AC-216.7:** Source version change produces new/stale provenance and removes public
   eligibility until re-reviewed.
-- [ ] **AC-216.8:** Rights-denied/private spans remain privately verifiable but are not
+- [x] **AC-216.8:** Rights-denied/private spans remain privately verifiable but are not
   leaked through JSON, JSON-LD, HTML, API, search or logs.
 - [x] **AC-216.9:** Existing DP-111 written-provenance and DP-207 timed-provenance paths
   remain replay-safe and migration-compatible.
-- [ ] **AC-216.10:** Focused tamper tests, full suite, benchmark, migration replay and
+- [x] **AC-216.10:** Focused tamper tests, full suite, benchmark, migration replay and
   MiniPC canary prove that no arbitrary quote string reaches public projection.
 
 ## Validation / proof
@@ -141,4 +141,31 @@ promotion receipt replay and schema/migration idempotency: the focused promotion
 passes 65/65, and the full repository suite restores the existing `claim_text_provenance` and
 `claim_segment` durable state unchanged.
 
-Pending implementation and MiniPC proof.
+2026-10-06 finalization closes the remaining machine-provable path. The public projection
+now consumes approved structured multi-span context as a bounded `source_span_disclosure`:
+ordered offsets and per-span/source/binding hashes are public, every omitted gap is counted
+and rendered with the canonical ` […] ` marker in HTML/JSON-LD, and no source body is copied.
+Cross-speaker and cross-source-part/montage spans fail closed even if a caller attempts to
+mark the structured context curated. Existing production source-revalidation tests prove a
+changed load-bearing source version enters HOLD until the exact current version is
+revalidated. DP-305/DP-221 rights fixtures omit private source/derived bodies before JSON,
+JSON-LD, RDF, bundle and API serialization; the generated rights-blocked projection also
+passes `check-dp221-private-body-search.mjs`, and the projection/API operational output is
+limited to schema/count/fingerprint or host/port metadata rather than source bodies.
+
+The evidence-core candidate reconstructed from `df8cdcc` plus this ticket's code changes
+passes compileall, **1765/1765** unittests, deterministic benchmark **5/5**, DP-223 **59/59**,
+and `git diff --check`. A disposable PostgreSQL 17.11 database applied and replayed all
+**41/41** ordered migrations with `ON_ERROR_STOP`. The same candidate was copied only to a
+MiniPC `/tmp` directory (never the deploy mirror) and, with production DB variables removed,
+passed **213/213** evidence-core tests against its own PostgreSQL 18.6 temporary clusters,
+benchmark **5/5**, and DP-223 **59/59**. A bounded MiniPC source-span canary independently
+recomputed a verified `TEXT_POSITION` receipt with source SHA-256, selector `[10,41]`, and
+computed quote SHA-256. No provider call or production database was used.
+
+2026-10-07 regression closure: public multi-span projection now recomputes the canonical
+`context-integrity-v1` binding from the complete private structured receipt before emitting
+`source_span_disclosure`. The binding implementation is shared with
+`assess_structured_context_integrity`; stale span offsets, per-span hashes or the stored
+binding fail closed instead of publishing an internally inconsistent disclosure. The
+focused context/projection/public-schema set passes **91/91** and `git diff --check` passes.

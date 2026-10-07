@@ -1,6 +1,6 @@
 # DP-226 — Compound numerical verification v2
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-215; coordinate with structured-data providers
 
@@ -27,7 +27,7 @@ deterministic verifier without introducing a second judgment engine.
   percent-change rules may normalize mismatched comparable units only through a declared
   target unit plus per-input factors, while missing/invalid mappings fail closed.
 - [x] Add rounding/significant-figure policy and denominator/population semantics.
-- [ ] Add structured ISTAT/Eurostat/DVNS fixture coverage and MiniPC proof.
+- [x] Add structured ISTAT/Eurostat/DVNS fixture coverage and MiniPC proof.
 
 ## Implementation receipt
 
@@ -37,5 +37,9 @@ follow-up adds explicit decimal-place/significant-figure comparison policy plus 
 numerator/denominator population dimensions; invalid/missing dimensions and zero denominators
 fail closed. The 2026-10-06 closure pass moves ISTAT/DVNS/Eurostat-style cases into the
 versioned `numeric-structured-providers-v1.json` fixture and replays delta, percent-change and
-ratio through the canonical deterministic verifier. Provider-backed/MiniPC proof remains open
-under the final combined AC.
+ratio through the canonical deterministic verifier. Final focused acceptance is **19/19 PASS**
+locally and **19/19 PASS** on an isolated MiniPC `/tmp` bundle. The fixture matrix exercises
+ISTAT-, Eurostat- and DVNS-shaped structured observations through the real deterministic rules,
+including unit conversion, denominator/population semantics, rounding and fail-closed conflict
+cases. This closes the stated fixture+MiniPC AC; no live ISTAT/Eurostat/DVNS provider call,
+credential, source-family approval or network receipt is claimed or required by this ticket.

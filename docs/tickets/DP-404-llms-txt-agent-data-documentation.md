@@ -115,28 +115,28 @@ The document must not instruct an agent to:
 
 ## Acceptance criteria
 
-- [ ] `AC-404.1`: Given the approved DP-105 contract and DP-403 OpenAPI document, when
+- [x] `AC-404.1`: Given the approved DP-105 contract and DP-403 OpenAPI document, when
   `llms.txt` is generated, then its links, version, vocabulary, and examples agree with
   those sources and contain no conflicting field names or routes.
-- [ ] `AC-404.2`: Given an agent reads the document, when it follows the links, then it
+- [x] `AC-404.2`: Given an agent reads the document, when it follows the links, then it
   can reach the manifest, schema/examples, method, and correction/reply policy without
   credentials or a private host.
-- [ ] `AC-404.3`: Given any example, when it is parsed, then it is explicitly fictional
+- [x] `AC-404.3`: Given any example, when it is parsed, then it is explicitly fictional
   and cannot be mistaken for a real claim, a published verdict, or an instruction to
   publish.
-- [ ] `AC-404.4`: Given the document is inspected for safety, then it contains no raw
+- [x] `AC-404.4`: Given the document is inspected for safety, then it contains no raw
   transcript, evidence body, provider prompt, secret, person score, ranking, political
   recommendation, biometric instruction, or unreviewed reply/correction.
-- [ ] `AC-404.5`: Given a contract, link, or fingerprint changes, when the documentation
+- [x] `AC-404.5`: Given a contract, link, or fingerprint changes, when the documentation
   build runs, then it either updates the document atomically or fails closed; it never
   leaves a stale stable document reachable.
-- [ ] `AC-404.6`: Given an empty projection, when the document is generated, then it
+- [x] `AC-404.6`: Given an empty projection, when the document is generated, then it
   describes the empty public dataset without claiming that private/held records do not
   exist.
-- [ ] `AC-404.7`: Given all providers are offline, when the public documentation is read,
+- [x] `AC-404.7`: Given all providers are offline, when the public documentation is read,
   then it remains useful and does not require a live model or a private operational
   database.
-- [ ] `AC-404.8`: Given the collision/dependency audit runs, then DP-403 owns OpenAPI,
+- [x] `AC-404.8`: Given the collision/dependency audit runs, then DP-403 owns OpenAPI,
   DP-404 owns discovery text, and no second API/schema contract is introduced.
 
 ## Validation / proof

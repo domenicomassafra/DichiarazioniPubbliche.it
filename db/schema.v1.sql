@@ -1475,6 +1475,9 @@ CREATE TABLE IF NOT EXISTS evidence (
     publisher           text,
     source_type         text NOT NULL,
     publication_date    date,
+    valid_from          date,
+    valid_until         date,
+    record_status       text NOT NULL DEFAULT 'ACTIVE',
     fetched_at          timestamptz,
     observed_at         timestamptz NOT NULL DEFAULT now(),
     content_sha256      text,
@@ -1482,7 +1485,11 @@ CREATE TABLE IF NOT EXISTS evidence (
     reference_period    text,
     independence_group  text,
     rights_status       text NOT NULL DEFAULT 'UNKNOWN',
-    metadata            jsonb NOT NULL DEFAULT '{}'::jsonb
+    metadata            jsonb NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT evidence_effective_interval_check
+        CHECK (valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from),
+    CONSTRAINT evidence_record_status_check
+        CHECK (record_status IN ('ACTIVE', 'SUPERSEDED', 'RETIRED', 'EXPIRED'))
 );
 
 -- DP-305 AC-305.1: private, versioned source/content/evidence/segment rights registry.

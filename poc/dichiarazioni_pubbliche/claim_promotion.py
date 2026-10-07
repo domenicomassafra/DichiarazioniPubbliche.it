@@ -198,10 +198,32 @@ WITH candidate AS (
         segment.speaker_person_id AS segment_speaker_person_id,
         (
             SELECT CASE
-                WHEN bool_or(upper(variant.source_kind)='HUMAN_AUDIO_VERIFIED')
-                    THEN 'HUMAN_AUDIO_VERIFIED'
                 WHEN bool_or(upper(variant.source_kind)='OFFICIAL_TRANSCRIPT')
                     THEN 'OFFICIAL_TRANSCRIPT'
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM canonical_segment_candidate reviewed_link
+                    JOIN transcript_segment reviewed_segment
+                      ON reviewed_segment.id = reviewed_link.transcript_segment_id
+                    JOIN transcript_variant reviewed_variant
+                      ON reviewed_variant.id = reviewed_segment.variant_id
+                    JOIN transcript_verbatim_review_event verbatim_review
+                      ON verbatim_review.content_id = segment.content_id
+                     AND verbatim_review.source_variant_id = reviewed_variant.id
+                     AND verbatim_review.source_segment_id = reviewed_segment.id
+                    WHERE reviewed_link.canonical_segment_id = segment.id
+                      AND verbatim_review.decision = 'APPROVED'
+                      AND verbatim_review.source_variant_sha256 =
+                          reviewed_variant.raw_text_sha256
+                      AND verbatim_review.source_segment_sha256 = encode(
+                          sha256(convert_to(reviewed_segment.text, 'UTF8')), 'hex'
+                      )
+                      AND verbatim_review.reviewed_text_sha256 = encode(
+                          sha256(convert_to(segment.canonical_text, 'UTF8')), 'hex'
+                      )
+                      AND verbatim_review.start_ms <= segment.start_ms
+                      AND verbatim_review.end_ms >= segment.end_ms
+                ) THEN 'HUMAN_AUDIO_VERIFIED'
                 WHEN count(*) > 1
                     THEN 'MULTI_ASR_AGREEMENT'
                 WHEN bool_or(
@@ -475,8 +497,26 @@ WITH lock_row AS (
             JOIN transcript_variant media_candidate_variant
               ON media_candidate_variant.id = media_candidate_segment.variant_id
             WHERE media_candidate_link.canonical_segment_id = seg.id
-              AND upper(media_candidate_variant.source_kind) IN (
-                  'OFFICIAL_TRANSCRIPT', 'HUMAN_AUDIO_VERIFIED'
+              AND (
+                  upper(media_candidate_variant.source_kind) = 'OFFICIAL_TRANSCRIPT'
+                  OR EXISTS (
+                      SELECT 1
+                      FROM transcript_verbatim_review_event verbatim_review
+                      WHERE verbatim_review.content_id = seg.content_id
+                        AND verbatim_review.source_variant_id = media_candidate_variant.id
+                        AND verbatim_review.source_segment_id = media_candidate_segment.id
+                        AND verbatim_review.decision = 'APPROVED'
+                        AND verbatim_review.source_variant_sha256 =
+                            media_candidate_variant.raw_text_sha256
+                        AND verbatim_review.source_segment_sha256 = encode(
+                            sha256(convert_to(media_candidate_segment.text, 'UTF8')), 'hex'
+                        )
+                        AND verbatim_review.reviewed_text_sha256 = encode(
+                            sha256(convert_to(seg.canonical_text, 'UTF8')), 'hex'
+                        )
+                        AND verbatim_review.start_ms <= seg.start_ms
+                        AND verbatim_review.end_ms >= seg.end_ms
+                  )
               )
         )
       )
@@ -746,8 +786,26 @@ WITH lock_row AS (
           JOIN transcript_variant media_candidate_variant
             ON media_candidate_variant.id = media_candidate_segment.variant_id
           WHERE media_candidate_link.canonical_segment_id = seg.id
-            AND upper(media_candidate_variant.source_kind) IN (
-                'OFFICIAL_TRANSCRIPT', 'HUMAN_AUDIO_VERIFIED'
+            AND (
+                upper(media_candidate_variant.source_kind) = 'OFFICIAL_TRANSCRIPT'
+                OR EXISTS (
+                    SELECT 1
+                    FROM transcript_verbatim_review_event verbatim_review
+                    WHERE verbatim_review.content_id = seg.content_id
+                      AND verbatim_review.source_variant_id = media_candidate_variant.id
+                      AND verbatim_review.source_segment_id = media_candidate_segment.id
+                      AND verbatim_review.decision = 'APPROVED'
+                      AND verbatim_review.source_variant_sha256 =
+                          media_candidate_variant.raw_text_sha256
+                      AND verbatim_review.source_segment_sha256 = encode(
+                          sha256(convert_to(media_candidate_segment.text, 'UTF8')), 'hex'
+                      )
+                      AND verbatim_review.reviewed_text_sha256 = encode(
+                          sha256(convert_to(seg.canonical_text, 'UTF8')), 'hex'
+                      )
+                      AND verbatim_review.start_ms <= seg.start_ms
+                      AND verbatim_review.end_ms >= seg.end_ms
+                )
             )
       )
 ), duplicate_targets AS (

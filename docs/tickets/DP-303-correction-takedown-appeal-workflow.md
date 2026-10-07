@@ -210,7 +210,7 @@ retains the original decision and records the reason.
   internal error, evidence excerpt, or unapproved identity field.
 - [x] **AC-303-09:** Projection regeneration removes stale artifacts after a hold or
   correction and leaves non-projection/private files untouched.
-- [ ] **AC-303-10:** A MiniPC canary exercises submit -> hold/review -> correction or
+- [x] **AC-303-10:** A MiniPC canary exercises submit -> hold/review -> correction or
   appeal -> re-analysis -> public projection and verifies the actual resulting
   public/private state.
 
@@ -495,3 +495,36 @@ complete append-only event chain remain intact. The same current-tree scenarios 
 isolated MiniPC rehearsal recorded by DP-431. Therefore AC-303.4 and AC-303-09 are now closed.
 AC-303-10 remains open because no receipt yet exercises the complete enabled
 submit -> review -> correction/appeal -> re-analysis -> regenerated-public-projection path.
+
+### Full correction/re-analysis/projection MiniPC canary — 2026-10-06
+
+**AC-303-10 is now closed technically.** `tests/test_m3_runtime_canaries.py` drives the real
+correction path over a fresh disposable PostgreSQL database. It first creates a fully synthetic
+claim/evidence set and runs the canonical deterministic verification handler to establish the
+current Finding. It then enables only `CORRECTION` in a synthetic `ChallengeLaunchProfile` and
+submits through `submit_challenge()`, which persists the canonical private correction and its
+`REGISTER_REANALYSIS` job without publishing from intake.
+
+The canary executes the same production re-analysis handlers in order:
+`register_reanalysis -> reanalyze_claim -> verify_claim`. The durable re-analysis trigger reaches
+`PROCESSED`; deterministic verification replay does not create a second public version. Only after
+that processed trigger and the existing Finding reviews are present does `publish_correction()`
+advance the correction: the prior Finding becomes `CORRECTED`, the current Finding remains
+`PUBLISH`, and `PublicProjectionStore -> build_public_projection()` returns the current dossier
+with the exact previous-Finding correction history.
+
+This end-to-end proof also exposed a real runtime/schema mismatch in
+`approved_verification_evidence()`: it selected `evidence.valid_from`, `evidence.valid_until` and
+`evidence.status`, none of which exist in the canonical `evidence` table. The query now returns
+`NULL` for the unmodelled validity bounds and the existing `EvidenceItem` default `ACTIVE` record
+state. This keeps effective-time claims fail-closed instead of manufacturing dates or reading
+untyped metadata, and allows the actual re-analysis path to execute against the canonical schema.
+
+The integrated canary passes **3/3 locally** and **3/3 on MiniPC** in an isolated `/tmp`
+workspace with production DB variables removed. The broader local M3 regression is
+**107/107 PASS**, `compileall` passes, benchmark is **5/5 PASS**, and `git diff --check` is clean.
+No production record, public DNS surface or release path is touched.
+
+Q-303-01..06, Q-306-06..07 and DP-307 remain unresolved. This canary proves the implemented
+machine workflow and says nothing about required notice, deadlines, legal authority, appeal
+rights, public wording or retention policy.

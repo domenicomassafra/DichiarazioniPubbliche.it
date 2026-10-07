@@ -1,6 +1,6 @@
 # DP-228 — Claim-specific research-plan compiler with bounded specialist lanes
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-213, DP-215, DP-209
 
@@ -28,7 +28,7 @@ ACADEMIC_EXPERT, ORIGINAL_MEDIA and CHALLENGER.
 - [x] Exhausted Coverage Needs create no more assignments.
 - [x] Assignment-to-DP-209 compiler cannot add adapters, source families or result/cost
   budget beyond the explicit assignment inputs; source-family mapping is mandatory.
-- [ ] Model query suggestions cannot expand host/tool permissions once model-assisted query
+- [x] Model query suggestions cannot expand host/tool permissions once model-assisted query
   generation is wired to the planner.
 - [x] Provider failure leaves the need explicit and blocked/deferred in the persisted path.
 - [x] READY assignments compile directly into the existing DP-209 DiscoveryManifest;
@@ -39,7 +39,7 @@ ACADEMIC_EXPERT, ORIGINAL_MEDIA and CHALLENGER.
 
 Local planner + DP-209 DiscoveryManifest compiler + focused tests added 2026-10-05.
 Persisted execution/attempt-state integration is covered by the 2026-10-06 bridge;
-model-assisted query generation and MiniPC runtime proof remain open.
+the bounded query-suggestion permission seam is covered below.
 
 ### Claim-specific compiler follow-up — 2026-10-05
 
@@ -76,5 +76,20 @@ to the exact DP-228 assignment/run and persists that outcome on its Coverage Nee
 `BLOCKED` becomes an explicit terminal `RESEARCH_PROVIDER_BLOCKED`; `FAILED` and `HEALTHY`
 consume the existing bounded attempt path without treating discovery success as approved
 evidence, and assignment/run metadata is stored on the event. The model-assisted query
-generation AC remains open because that feature is not wired; MiniPC runtime proof remains
-external.
+suggestion boundary is implemented at the DP-209 manifest compiler rather than by introducing a
+model/provider dependency.
+
+Final dependency-free proof on 2026-10-06 wires optional externally supplied query suggestions
+into `discovery_manifest_from_assignments()` without calling a model. A suggestion may replace
+only query text and may narrow the assignment's adapter IDs/source families. Unknown fields,
+unknown assignment IDs, empty/oversized text, a new adapter or a new source family fail closed;
+result count, per-host cap, cost cap, temporal scope and stop conditions remain inherited from
+the original assignment. Suggested query material is included in manifest identity so changing
+it cannot silently reuse the previous run identity. This directly proves that a future model
+suggestion cannot expand host/tool permissions even though no provider/network model call is
+required for acceptance.
+
+The claim compiler, assignment/manifest compiler and execution reconciliation are **30/30 PASS**
+locally and **30/30 PASS** in an isolated MiniPC `/tmp` bundle with production DB/provider
+credentials removed. No live model, discovery provider, source-family approval or network receipt
+is claimed.

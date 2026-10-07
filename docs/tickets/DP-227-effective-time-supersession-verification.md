@@ -74,3 +74,37 @@ persisted consumer proves exact reviewed-event binding, idempotent per-claim tri
 creation, Finding-ID audit retention, unrelated-binding rollback and unchanged publication
 status. The temporary cluster/bundle/processes were removed afterward. No production
 DB/provider/deploy/config path was touched.
+
+## Canonical evidence effective-time persistence reconciliation — 2026-10-07
+
+A later integrated audit found that the verification read path had been temporarily masking a
+schema gap: `approved_verification_evidence()` exposed `valid_from=NULL`, `valid_until=NULL` and
+`record_status=ACTIVE` because those fields were not actually persisted on `evidence`. That
+fallback has been removed. The canonical `evidence` table now stores nullable `valid_from` and
+`valid_until` dates plus a bounded `record_status` (`ACTIVE`, `SUPERSEDED`, `RETIRED`, `EXPIRED`), and the
+new additive `20261007-add-evidence-effective-time-state.sql` migration is replay-safe.
+
+Unknown effective dates remain SQL `NULL`; no date is inferred from publication, fetch,
+observation or reference-period metadata. `QueueRuntimeStore.upsert_evidence()` validates exact
+ISO dates and start-inclusive/end-exclusive interval ordering before persistence. A previously
+unknown endpoint may be filled once, but a later conflicting non-null effective date fails closed
+with `EVIDENCE_EFFECTIVE_TIME_CONFLICT` and leaves the persisted row unchanged. Version state is
+monotonic for the generic evidence upsert: `ACTIVE` may advance to `SUPERSEDED`, `RETIRED` or
+`EXPIRED`; stale `SUPERSEDED`/`EXPIRED` state cannot be replayed back to `ACTIVE`, and either may
+advance to terminal `RETIRED`. `EXPIRED` does not imply or manufacture an expiry date: without a
+persisted `valid_until` it remains stale and fails closed; with an explicit `valid_until`, the
+normal start-inclusive/end-exclusive interval semantics apply.
+
+The evidence-fetch worker now passes `valid_from`, `valid_until` and `record_status` from the
+bounded job payload into canonical persistence. The verification read path consumes those actual
+persisted columns. A disposable-PostgreSQL acceptance test creates both an updated fresh schema
+and a pre-migration legacy `evidence` table, applies the migration twice, and proves the resulting
+effective-time column/constraint contract is identical. The same acceptance proves legacy rows
+retain unknown dates as `NULL`, persisted stale state survives replay, conflicting intervals are
+refused without mutation, and a persisted `SUPERSEDED` record with no reliable `valid_until`
+reaches DP-215 Source Intelligence and is rejected with
+`SUPERSEDED_VERSION_WITHOUT_VALID_UNTIL`.
+
+Focused DP-227/queue/worker acceptance after this reconciliation is **92/92 PASS**; compileall and
+`git diff --check` pass. This reconciliation changes no publication decision, does not invent an
+effective date, and does not touch production DB/provider/deploy/config paths.

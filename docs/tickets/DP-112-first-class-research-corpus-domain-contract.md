@@ -36,12 +36,12 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-112.1:** Canonical docs use one vocabulary for all new corpus objects and explicitly preserve existing public invariants.
-- [ ] **AC-112.2:** The contract states `Content != ContentCapture`, `ClaimCandidate != AtomicClaim`, and `ResearchCollection membership != Evidence`.
-- [ ] **AC-112.3:** Promotion is explicit/idempotent and cannot create evidence approval, Finding or publication as a side effect.
-- [ ] **AC-112.4:** Current written/media provenance paths have a compatibility strategy rather than being rewritten in place.
-- [ ] **AC-112.5:** The dependency graph identifies the additive schema/runtime/Studio tickets and no duplicate ticket owns the same contract.
-- [ ] **AC-112.6:** No public schema/API field changes are implied by this ticket.
+- [x] **AC-112.1:** Canonical docs use one vocabulary for all new corpus objects and explicitly preserve existing public invariants.
+- [x] **AC-112.2:** The contract states `Content != ContentCapture`, `ClaimCandidate != AtomicClaim`, and `ResearchCollection membership != Evidence`.
+- [x] **AC-112.3:** Promotion is explicit/idempotent and cannot create evidence approval, Finding or publication as a side effect.
+- [x] **AC-112.4:** Current written/media provenance paths have a compatibility strategy rather than being rewritten in place.
+- [x] **AC-112.5:** The dependency graph identifies the additive schema/runtime/Studio tickets and no duplicate ticket owns the same contract.
+- [x] **AC-112.6:** No public schema/API field changes are implied by this ticket.
 
 ## Validation / proof
 

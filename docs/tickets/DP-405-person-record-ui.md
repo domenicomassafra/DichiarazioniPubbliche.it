@@ -1,6 +1,6 @@
 # DP-405 — Person archive UI
 
-Status: DONE
+Status: IN PROGRESS
 
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-425
@@ -124,13 +124,13 @@ visibly different page jobs: Person is a chronology; Topic is a dossier.
 - [ ] `AC-405.1`: Given an approved Person resource with several published finding
   versions, when the route renders on desktop or mobile, then it shows a neutral,
   claim-first chronology with source/date context and a direct Statement path.
-- [ ] `AC-405.2`: Given a dated Role Interval, when a row is displayed, then the role is
+- [x] `AC-405.2`: Given a dated Role Interval, when a row is displayed, then the role is
   resolved for that row's relevant time and linked to its public provenance; when no
   approved interval exists, the role is omitted.
 - [ ] `AC-405.3`: Given a Person with no public records, when the route renders, then the
   empty state explains the public-data boundary, offers Explore/Method navigation, and
   contains no placeholder, score, or hidden omission count.
-- [ ] `AC-405.4`: Given an unsafe, stale, tampered, or contract-incompatible projection,
+- [x] `AC-405.4`: Given an unsafe, stale, tampered, or contract-incompatible projection,
   when the build or request runs, then the Person page fails closed and does not use the
   demo fixture or a stale browser record.
 - [ ] `AC-405.5`: Given a correction or approved right of reply, when the history is
@@ -139,10 +139,10 @@ visibly different page jobs: Person is a chronology; Topic is a dossier.
 - [ ] `AC-405.6`: Given any page state, when rendered without color, when zoomed to
   200%, and when navigated by keyboard, then headings, rows, links, filters, and status
   labels remain understandable and operable.
-- [ ] `AC-405.7`: Given the visual implementation, when compared with architecture v3
+- [x] `AC-405.7`: Given the visual implementation, when compared with architecture v3
   and DP-425, then Person reads as a chronology, is visibly distinct from Topic, has one
   dominant task, and does not introduce a Person-only component zoo or dashboard chrome.
-- [ ] `AC-405.8`: Given the collision/dependency audit runs, then DP-405 is the only
+- [x] `AC-405.8`: Given the collision/dependency audit runs, then DP-405 is the only
   owner of the Person route, DP-406 owns Topic, and DP-425's shared component ownership
   is not duplicated.
 
@@ -207,3 +207,23 @@ fingerprint, representative HTML output, and a no-score/raw-content inspection.
   Representative HTML contains the Person name, chronology heading and explicit no-score
   boundary, while `person_score`, `reliability_score`, `leaderboard`, `raw_text`,
   `transcript_text`, and `evidence_body` are absent.
+
+### Bookkeeping audit — 2026-10-07
+
+The previous `DONE` header was too strong for the literal acceptance text and is now
+`IN PROGRESS`. The receipt proves AC-405.2, AC-405.4, AC-405.7 and AC-405.8. Four criteria remain
+open rather than being inferred from adjacent evidence:
+
+- AC-405.1 requires a Person fixture/runtime route with several published finding versions;
+  the recorded demo/runtime receipts do not prove that exact state.
+- AC-405.3 requires an approved Person route with zero public records to render a deliberate
+  empty state, while the current implementation intentionally emits no Person route without at
+  least one projectable dossier.
+- AC-405.5 requires the Person surface to prove both finding versions for correction/reply
+  history; the current receipt proves a link to Statement history, not that stronger literal
+  surface behavior.
+- AC-405.6 requires Person-specific without-color, exact 200% zoom and keyboard acceptance;
+  the current cross-surface browser automation is Explore-centric and is not substituted for
+  that missing Person matrix.
+
+No current implementation or historical receipt is rewritten into a pass for these four cases.

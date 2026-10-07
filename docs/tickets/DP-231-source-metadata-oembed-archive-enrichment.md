@@ -43,8 +43,8 @@ description, author and publisher candidates, validates canonical/oEmbed candida
 and emits explicit page/Content/source-registry conflicts while keeping both publication
 authority and identity mutation disabled. Unsafe/private/credentialed candidate URLs are
 discarded and represented only by a digest in conflict metadata. Existing DP-210 tests
-also prove parser/archive failure preserves the primary Capture. Provider network lookup and
-MiniPC proof remain open; no oEmbed/provider fetch seam was added by this block.
+also prove parser/archive failure preserves the primary Capture. Provider network lookup remains
+open; no oEmbed/provider fetch seam was added by this block.
 
 ### Capture enrichment policy + archive receipt follow-up — 2026-10-06
 
@@ -71,3 +71,10 @@ dependency search across `pyproject.toml`, `poc/` and `tests/` finds no Rails, R
 Sidekiq dependency. The only remaining acceptance item is the optional bounded/allowlisted
 oEmbed/provider network lookup; this tranche intentionally does not invent a provider or
 network contract.
+
+Final dependency-free acceptance on 2026-10-06 runs Capture + metadata enrichment as **24/24
+PASS** locally and **24/24 PASS** in an isolated MiniPC `/tmp` bundle. That proves the parser,
+policy-disable, conflict, unsafe-URL and archive-state contracts on the runtime authority without
+network access. The remaining AC stays open because the repository still has no owner-selected
+oEmbed/provider endpoint, provider-specific allowlist/request budget or approved network lookup
+contract; adding a synthetic fetch would not prove that external prerequisite.

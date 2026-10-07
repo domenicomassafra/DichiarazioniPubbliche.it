@@ -1,6 +1,6 @@
 # DP-407 — Content page and source-locator UI
 
-Status: BLOCKED
+Status: IN PROGRESS
 
 Milestone: M4 — public product/API
 Depends on: DP-207, DP-105, DP-425
@@ -182,8 +182,9 @@ representative media-less and populated states, and the no-private-content inspe
 
 ## Completion receipt
 
-Implementation complete for the currently ratified dossier-derived Content surface; final
-DONE is blocked only by DP-434 first-class Content publication semantics.
+Implementation is no longer contract-blocked by DP-434: first-class Content publication semantics
+are DONE. The ticket remains IN PROGRESS until its remaining literal route-state and accessibility
+acceptance is closed; DP-434 completion alone is not treated as a screen-reader/runtime pass.
 
 - Replaced the canonical `/contenuti/{slug}/` demo-only page with a projection-backed
   `ContentRecord.astro`. The legacy `/contents/{id}/` route reuses the same component and
@@ -226,11 +227,9 @@ DONE is blocked only by DP-434 first-class Content publication semantics.
   same-origin canonical and legacy routes return HTTP 200; representative HTML includes
   source context and moments, has no fake player, and contains none of the raw/private/score
   tokens above.
-- **Remaining contract blocker:** DP-105/public-v2 currently exposes Content only as fields
-  nested in projectable dossiers. Therefore a public source item with **zero** public
-  moments cannot exist as a route/API resource, and no reviewed media kind/duration/embed
-  can be represented independently. Likewise the schema requires non-empty approved
-  evidence for every projectable dossier, so DP-407 cannot honestly manufacture a
-  “published moment with no approved public evidence” case. DP-434 owns the additive
-  first-class Content resource and publication gate needed to close these states. Until it
-  lands, DP-407 remains BLOCKED rather than faking data.
+- **DP-434 follow-up:** DP-434 is now DONE and its MiniPC canary proved a first-class approved
+  Content with zero findings at `/contenuti/minipc-zero-finding/`, including same-origin API/search
+  fingerprint convergence and a deliberate no-finding route. This removes the old contract
+  blocker above. It does not by itself prove DP-407's full unresolved/blocked-state matrix or the
+  required real screen-reader pass, so those acceptance items remain open and the ticket is not
+  promoted to DONE.

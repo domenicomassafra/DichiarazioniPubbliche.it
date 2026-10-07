@@ -5,6 +5,7 @@ import process from "node:process";
 
 import { studioFixtures } from "../src/data/studio.ts";
 import {
+  assertOriginalSourceResolution,
   assertSourceBoundStatus,
   assertStudioViewModel,
   isStudioUnavailable,
@@ -49,6 +50,19 @@ assert.throws(
   "blocked status without blocker_code must fail closed",
 );
 
+const originalSource = studioFixtures.verify.claims.find((claim) => claim.original_source_resolution)?.original_source_resolution;
+assert.ok(originalSource, "Verify fixture must exercise a DP-225 original-source receipt");
+assertOriginalSourceResolution(originalSource);
+assert.equal(originalSource.path_content_ids.at(-1), originalSource.root_content_id, "original-source receipt root/path drift");
+
+const originalSourceSabotage = structuredClone(studioFixtures.verify);
+originalSourceSabotage.claims[0].original_source_resolution.root_content_id = "content:fixture:wrong-root";
+assert.throws(
+  () => assertStudioViewModel(originalSourceSabotage),
+  /ORIGINAL_SOURCE_ROOT_PATH_MISMATCH/,
+  "Studio must fail closed on a DP-225 root/path mismatch",
+);
+
 const header = read("src/components/SiteHeader.astro");
 for (const workspace of expectedWorkspaces) {
   const route = `/studio/${workspace}/`;
@@ -72,6 +86,8 @@ assert.equal((verify.match(/className="workspace-pane"/g) ?? []).length, 3, "Ver
 assert.ok(verify.includes('data-verify-three-pane="true"'), "Verify three-pane contract marker missing");
 assert.ok(verify.includes('data-action-domain="analysis"'), "Verify analysis action boundary missing");
 assert.ok(verify.includes('data-action-domain="review"'), "Verify review action boundary missing");
+assert.ok(verify.includes('data-original-source-resolution="true"'), "Verify original-source inspection marker missing");
+assert.ok(verify.includes("data-root-content-id"), "Verify original-source root binding missing");
 
 const statusRenderers = [
   read("src/components/StudioStatus.astro"),

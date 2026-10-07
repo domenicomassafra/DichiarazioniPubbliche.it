@@ -173,33 +173,33 @@ trace or SQL fragment.
 
 ## Acceptance criteria
 
-- [ ] `AC-402.1`: Given the DP-105-approved public projection, when a client requests an
+- [x] `AC-402.1`: Given the DP-105-approved public projection, when a client requests an
   allowed `GET` or `HEAD` resource, then the response is generated from the projection
   only and contains the stable finding/resource identifiers required by DP-105.
-- [ ] `AC-402.2`: Given a valid collection request without a cursor, when more than one
+- [x] `AC-402.2`: Given a valid collection request without a cursor, when more than one
   record matches, then the response is bounded, deterministically ordered, and includes a
   continuation cursor only when more records exist.
-- [ ] `AC-402.3`: Given an empty public collection, when the client requests it, then the
+- [x] `AC-402.3`: Given an empty public collection, when the client requests it, then the
   API returns `200`, an empty array, and no fabricated record or private omission detail.
-- [ ] `AC-402.4`: Given an unknown, private, unsafe, stale, or tampered resource, when it
+- [x] `AC-402.4`: Given an unknown, private, unsafe, stale, or tampered resource, when it
   is requested, then the response fails closed and never exposes operational existence,
   raw content, or provenance gaps.
-- [ ] `AC-402.5`: Given a write method, unsafe method override, malformed query, unsupported
+- [x] `AC-402.5`: Given a write method, unsafe method override, malformed query, unsupported
   media type, or invalid cursor, when the request is made, then the documented status and
   bounded error envelope are returned without reaching a write or database mutation.
-- [ ] `AC-402.6`: Given any public response, when it is inspected, then it contains no raw
+- [x] `AC-402.6`: Given any public response, when it is inspected, then it contains no raw
   transcript, canonical transcript body, evidence excerpt/body, provider receipt, secret,
   person score, ranking, or unreviewed reply/correction.
-- [ ] `AC-402.7`: Given a projection fingerprint changes, when a client revalidates a
+- [x] `AC-402.7`: Given a projection fingerprint changes, when a client revalidates a
   cached response, then the validator changes for every affected finding version and
   correction/reply history.
-- [ ] `AC-402.8`: Given all model and evidence providers are offline, when the same
+- [x] `AC-402.8`: Given all model and evidence providers are offline, when the same
   approved projection is served, then reads remain available and do not invoke a provider
   or LLM.
-- [ ] `AC-402.9`: Given the DP-105 contract is not yet ratified, when an implementation
+- [x] `AC-402.9`: Given the DP-105 contract is not yet ratified, when an implementation
   branch starts, then the branch contains a recorded contract decision and does not claim
   stable v1 or public readiness.
-- [ ] `AC-402.10`: Given the route contract and examples, when the collision/dependency
+- [x] `AC-402.10`: Given the route contract and examples, when the collision/dependency
   audit runs, then no duplicate ticket ID, route owner, schema owner, or dependency cycle
   is present.
 

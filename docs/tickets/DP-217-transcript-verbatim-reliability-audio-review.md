@@ -1,6 +1,6 @@
 # DP-217 — Transcript reliability tiers and audio-to-verbatim review gate
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-204/DP-207 where their live lanes apply; deterministic fixture path may proceed; coordinate with DP-216
 
@@ -61,11 +61,11 @@ human audio review of the exact quoted span before it can be represented as verb
   punctuation ambiguity and overlapping speech remain held until source-faithful review.
 - [x] **AC-217.5:** Reviewer correction creates a derived reviewed representation and
   preserves the original provider/platform variant and hash.
-- [ ] **AC-217.6:** A deterministic freshness check now detects later transcript/source-version, source-segment hash or reviewed-range changes, but the canonical projection path must consume that persisted freshness before this criterion can be closed; any such change must stale the approval and
+- [x] **AC-217.6:** A deterministic freshness check now detects later transcript/source-version, source-segment hash or reviewed-range changes, and the canonical projection path consumes that persisted freshness; any such change must stale the approval and
   block projection until re-review.
 - [x] **AC-217.7:** The internal/publication gate distinguishes official, human-verified and machine-only provenance without accuracy scores; bounded public disclosure can reuse existing source_kind metadata.
   provenance without exposing provider prompts, raw transcript bodies or accuracy hype.
-- [ ] **AC-217.8:** Deterministic fixture, full suite, benchmark and MiniPC canary prove the
+- [x] **AC-217.8:** Deterministic fixture, full suite, benchmark and MiniPC canary prove the
   publication gate with zero live-provider substitution.
 
 ## Validation / proof
@@ -84,4 +84,21 @@ turn a human-corrected transcript into a destructive rewrite of provider evidenc
 
 ## Completion receipt
 
-Local verbatim-evidence gate implemented 2026-10-05: transcript reconciliation classifies OFFICIAL_TRANSCRIPT, HUMAN_AUDIO_VERIFIED, PLATFORM_CAPTION, MULTI_ASR_AGREEMENT, SINGLE_ASR and UNVERIFIED; media Claim promotion and public projection both require official/human-verified authority. On 2026-10-06 the additive private `transcript_verbatim_review_event` ledger and `source_span_review.py` runtime added exact variant/segment/range binding, append-only review history, a derived HUMAN_AUDIO_VERIFIED representation that leaves provider evidence unchanged, and deterministic stale-review detection. Disposable PostgreSQL proof loads the canonical schema, replays the migration twice and verifies both append-only enforcement and source preservation. The adversarial fixture is now v2026-10-06.3 and includes dedicated homophone, punctuation and cross-talk adverse/control pairs through a transcript-verbatim gate; the 59-case offline benchmark passes with zero fabricated public quotes. Canonical projection consumption of the persisted freshness decision and the release-candidate MiniPC proof remain open.
+Local verbatim-evidence gate implemented 2026-10-05: transcript reconciliation classifies OFFICIAL_TRANSCRIPT, HUMAN_AUDIO_VERIFIED, PLATFORM_CAPTION, MULTI_ASR_AGREEMENT, SINGLE_ASR and UNVERIFIED; media Claim promotion and public projection both require official/human-verified authority. On 2026-10-06 the additive private `transcript_verbatim_review_event` ledger and `source_span_review.py` runtime added exact variant/segment/range binding, append-only review history, a derived HUMAN_AUDIO_VERIFIED representation that leaves provider evidence unchanged, and deterministic stale-review detection. Disposable PostgreSQL proof loads the canonical schema, replays the migration twice and verifies both append-only enforcement and source preservation. The adversarial fixture is now v2026-10-06.3 and includes dedicated homophone, punctuation and cross-talk adverse/control pairs through a transcript-verbatim gate; the 59-case offline benchmark passes with zero fabricated public quotes.
+
+The final 2026-10-06 integration removes the remaining source-kind shortcut: non-official
+media promotion and the production public SQL require an `APPROVED`
+`transcript_verbatim_review_event` whose variant hash, source-segment hash, reviewed
+canonical-text hash and covered time range all still match the persisted transcript rows.
+An isolated PostgreSQL acceptance seeds an ASR variant plus a current human review, proves
+the dossier is public, changes the persisted source-segment bytes and observes zero
+projectable findings, then restores the exact bytes and recovers eligibility. Thus the
+append-only review is consumed at the canonical public boundary rather than merely exposed
+by a helper.
+
+Candidate validation is compileall + **1765/1765** full unittests + benchmark **5/5** +
+DP-223 **59/59** + `git diff --check`; all **41** migrations apply/replay on disposable
+PostgreSQL 17.11. The exact candidate copied to MiniPC `/tmp` passes **213/213** focused
+evidence-core tests with PostgreSQL 18.6 temporary clusters plus both benchmarks. Production
+database variables were removed and no live provider was invoked; DP-204 live-provider proof
+remains a separate dependency rather than a substitute for this deterministic gate.

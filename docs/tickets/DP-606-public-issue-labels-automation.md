@@ -266,11 +266,18 @@ unknown labels, state conflicts, mismatched/missing DP IDs, public security inta
 secret/private-shaped bodies. DP-602 contributor acceptance runs this validator
 unconditionally. No GitHub label, issue, project, webhook or workflow action was created.
 
-At exact head `5a86666bf3bb955f18e036c010e53613425a6cf6`, GitHub Actions run
-`37520100680` succeeded; its detached clean-clone job runs contributor acceptance, including
-the DP-606 validator. AC-606.7 is therefore closed. AC-606.8 is satisfied for the current
+At exact head `df8cdcc9e22295de0c80ab9ca0c9366a779f3cef`, GitHub Actions run
+`37537071243` succeeded; its detached clean-clone job runs contributor acceptance, including
+the DP-606 validator. Fresh read-only GitHub inspection confirms the repository remains public,
+`main` remains the default branch, the authenticated maintainer has admin/maintain/push/triage/
+pull permission, `SECURITY.md` is present on hosted `main`, secret scanning and push protection
+remain enabled, classic branch protection remains absent, and the repository still has zero
+rulesets. These are observed hosted facts only; no branch-protection or ruleset policy is
+approved by this receipt. AC-606.7 is therefore closed. AC-606.8 is satisfied for the current
 implementation because no issue/project automation app, action, or dependency is introduced;
 adding one reopens the DP-603 inventory requirement. AC-606.9 is closed by the checked
 `release_label_source: DP-604` contract plus disabled remote mutation: no release label is
 generated before an accepted DP-604 decision, and CI never chooses or bumps a release.
-AC-606.10 remains open for the hosted export/rollback proof after an owner-authorized setup.
+Current local read-back also passes `tools/check_issue_workflow.py` and the full repository
+contract. AC-606.10 remains open for the hosted export/rollback proof after an owner-authorized
+setup; no hosted label/project/branch-protection mutation was performed.

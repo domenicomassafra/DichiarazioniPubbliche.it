@@ -278,6 +278,11 @@ const { server, origin } = await startStaticServer();
 const externalRequests = [];
 const canonicalFiles = (await walk(root)).filter((file) => file.endsWith("index.html"));
 const routes = canonicalFiles.map(routeFor).filter((route) => !route.startsWith("/studio/"));
+const searchIndex = JSON.parse(await readFile(path.join(root, "search-index.v1.json"), "utf8"));
+assert(Array.isArray(searchIndex.records), "search index records must be an array");
+const correctedRecords = searchIndex.records.filter((record) =>
+  record.kind === "finding" && (record.has_corrections || record.has_rights_of_reply)
+);
 const browser = await launchChrome(origin);
 browser.cdp.on("Network.requestWillBeSent", ({ request }) => {
   if (!request?.url || request.url.startsWith("data:") || request.url.startsWith("blob:")) return;
@@ -289,7 +294,11 @@ try {
   await navigate(cdp, `${origin}/esplora/`);
   await waitFor(cdp, "document.querySelector('.results-count')?.textContent?.includes('risultat')", "Explore did not hydrate");
   const correctionHistoryHref = await cdp.evaluate("document.querySelector('.claim-row-meta a')?.getAttribute('href') ?? ''");
-  assert.match(correctionHistoryHref, /^\/dichiarazioni\/[^#]+\/#storia$/, "Explore correction indicator must link to version history");
+  if (correctedRecords.length > 0) {
+    assert.match(correctionHistoryHref, /^\/dichiarazioni\/[^#]+\/#storia$/, "Explore correction indicator must link to version history");
+  } else {
+    assert.equal(correctionHistoryHref, "", "empty approved snapshot rendered a correction-history result link");
+  }
 
   const ax = (await cdp.send("Accessibility.getFullAXTree")).nodes;
   assert(ax.some((node) => ["searchbox", "textbox"].includes(axValue(node, "role")) && axValue(node, "name") === "Cerca nel record pubblico"), "search control missing from accessibility tree");
@@ -375,10 +384,18 @@ try {
     for (const marker of forbiddenAx) assert.equal(encoded.includes(marker), false, `${route}: forbidden accessibility-tree marker ${marker}`);
   }
 
-  await navigate(cdp, `${origin}/persone/person-demo-maintenance/`);
-  const personShot = await screenshot(cdp, "person-desktop");
-  await navigate(cdp, `${origin}/temi/servizi-pubblici/`);
-  const topicShot = await screenshot(cdp, "topic-desktop");
+  const personRoute = routes.find((route) => route.startsWith("/persone/"));
+  const topicRoute = routes.find((route) => route.startsWith("/temi/"));
+  let personShot = null;
+  let topicShot = null;
+  if (personRoute) {
+    await navigate(cdp, `${origin}${personRoute}`);
+    personShot = await screenshot(cdp, "person-desktop");
+  }
+  if (topicRoute) {
+    await navigate(cdp, `${origin}${topicRoute}`);
+    topicShot = await screenshot(cdp, "topic-desktop");
+  }
 
   const zoomBrowser = await launchChrome(origin, { zoomFactor: 2 });
   let zoom200;
@@ -412,6 +429,7 @@ try {
   assert.deepEqual(externalRequests, [], `browser made external/provider requests: ${externalRequests.join(", ")}`);
   console.log(JSON.stringify({
     status: "PASS",
+    search_records: searchIndex.records.length,
     routes_scanned: scanRoutes.length,
     external_requests: externalRequests.length,
     reduced_motion: motion,

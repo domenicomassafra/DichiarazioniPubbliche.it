@@ -35,11 +35,11 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-118.1:** Purging body bytes leaves the required provenance/hash receipt without a dangling public reference.
-- [ ] **AC-118.2:** Archive failure is explicit and cannot appear succeeded.
-- [ ] **AC-118.3:** Rights hold blocks downstream use according to policy.
-- [ ] **AC-118.4:** Public bundle contains no raw capture body/private passage text.
-- [ ] **AC-118.5:** Replay from retained artifacts is deterministic where policy permits.
+- [x] **AC-118.1:** Purging body bytes leaves the required provenance/hash receipt without a dangling public reference.
+- [x] **AC-118.2:** Archive failure is explicit and cannot appear succeeded.
+- [x] **AC-118.3:** Rights hold blocks downstream use according to policy.
+- [x] **AC-118.4:** Public bundle contains no raw capture body/private passage text.
+- [x] **AC-118.5:** Replay from retained artifacts is deterministic where policy permits.
 
 ## Validation / proof
 

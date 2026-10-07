@@ -11,6 +11,7 @@ from dichiarazioni_pubbliche.context_integrity import (  # noqa: E402
     assess_context_integrity,
     assess_structured_context_integrity,
     curated_context_approval,
+    verify_structured_context_integrity_metadata,
 )
 
 
@@ -153,6 +154,31 @@ class ContextIntegrityTests(unittest.TestCase):
         )
         self.assertIsNone(result.spans[0].speaker_ref)
         self.assertIsNone(result.spans[0].source_part_ref)
+
+    def test_structured_metadata_binding_rejects_stale_span_or_hash(self):
+        text = "uno ... due"
+        metadata = assess_structured_context_integrity(
+            source_text=text,
+            source_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            spans=((0, 3), (8, 11)),
+            speaker_refs=("person:a", "person:a"),
+            source_part_refs=("part:a", "part:a"),
+        ).to_metadata()
+        verified = verify_structured_context_integrity_metadata(metadata)
+        self.assertEqual(verified.binding_sha256, metadata["binding_sha256"])
+
+        for field, value in (("start_char", 9), ("text_sha256", "f" * 64)):
+            with self.subTest(field=field):
+                tampered = dict(metadata)
+                tampered["spans"] = [dict(span) for span in metadata["spans"]]
+                tampered["spans"][1][field] = value
+                with self.assertRaisesRegex(ValueError, "CONTEXT_STRUCTURED_BINDING_MISMATCH"):
+                    verify_structured_context_integrity_metadata(tampered)
+
+        tampered_binding = dict(metadata)
+        tampered_binding["binding_sha256"] = "f" * 64
+        with self.assertRaisesRegex(ValueError, "CONTEXT_STRUCTURED_BINDING_MISMATCH"):
+            verify_structured_context_integrity_metadata(tampered_binding)
 
 
 if __name__ == "__main__":

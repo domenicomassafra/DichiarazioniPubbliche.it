@@ -103,7 +103,7 @@ PUBLIC_WORDING_DERIVED_ROLE = "DERIVED_REPRESENTATION"
 WORDING_REQUIRED_KEYS = frozenset(
     {"version", "source_occurrence", "normalized_claim", "representations", "public_provenance"}
 )
-WORDING_ALLOWED_KEYS = WORDING_REQUIRED_KEYS
+WORDING_ALLOWED_KEYS = WORDING_REQUIRED_KEYS | {"source_span_disclosure"}
 WORDING_SOURCE_REQUIRED_KEYS = frozenset(
     {
         "occurrence_id",
@@ -150,6 +150,11 @@ WORDING_PROVENANCE_REQUIRED_KEYS = frozenset(
     {"segment_ids", "text_provenance_ids"}
 )
 WORDING_PROVENANCE_ALLOWED_KEYS = WORDING_PROVENANCE_REQUIRED_KEYS
+WORDING_SPAN_DISCLOSURE_REQUIRED_KEYS = frozenset(
+    {"version", "source_sha256", "binding_sha256", "omission_count", "omission_marker", "spans"}
+)
+WORDING_SPAN_DISCLOSURE_ALLOWED_KEYS = WORDING_SPAN_DISCLOSURE_REQUIRED_KEYS
+WORDING_SPAN_REQUIRED_KEYS = frozenset({"start_char", "end_char", "text_sha256"})
 
 PROJECTION_BUNDLE_REQUIRED_KEYS = frozenset(
     {
@@ -590,6 +595,48 @@ def _validate_public_wording(
             raise PublicSchemaValidationError(
                 "wording source hash does not match public text provenance"
             )
+
+    disclosure_raw = contract.get("source_span_disclosure")
+    if disclosure_raw is not None:
+        disclosure = _validate_exact_keys(
+            disclosure_raw,
+            field="wording.source_span_disclosure",
+            required=WORDING_SPAN_DISCLOSURE_REQUIRED_KEYS,
+            allowed=WORDING_SPAN_DISCLOSURE_ALLOWED_KEYS,
+        )
+        if disclosure["version"] != "discontinuous-quote-binding-v1":
+            raise PublicSchemaValidationError("source span disclosure version is unsupported")
+        _validate_sha256(disclosure["source_sha256"], field="source_span_disclosure.source_sha256")
+        _validate_sha256(disclosure["binding_sha256"], field="source_span_disclosure.binding_sha256")
+        if disclosure["omission_marker"] != " […] ":
+            raise PublicSchemaValidationError("source span disclosure omission marker is not canonical")
+        spans = disclosure["spans"]
+        if not isinstance(spans, list) or not 2 <= len(spans) <= 32:
+            raise PublicSchemaValidationError("source span disclosure spans are invalid")
+        if disclosure["omission_count"] != len(spans) - 1:
+            raise PublicSchemaValidationError("source span disclosure omission count is invalid")
+        previous_end: int | None = None
+        for index, raw_span in enumerate(spans):
+            span = _validate_exact_keys(
+                raw_span,
+                field=f"wording.source_span_disclosure.spans[{index}]",
+                required=WORDING_SPAN_REQUIRED_KEYS,
+                allowed=WORDING_SPAN_REQUIRED_KEYS,
+            )
+            start = span["start_char"]
+            end = span["end_char"]
+            if (
+                not isinstance(start, int)
+                or isinstance(start, bool)
+                or not isinstance(end, int)
+                or isinstance(end, bool)
+                or start < 0
+                or end <= start
+                or (previous_end is not None and start <= previous_end)
+            ):
+                raise PublicSchemaValidationError("source span disclosure span order is invalid")
+            _validate_sha256(span["text_sha256"], field="source_span_disclosure.spans.text_sha256")
+            previous_end = end
 
 
 def validate_dossier(dossier: dict[str, Any]) -> dict[str, Any]:

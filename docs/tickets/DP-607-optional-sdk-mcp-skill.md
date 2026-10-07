@@ -320,11 +320,13 @@ as bounded response metadata; incomplete metadata or an invalid Sunset HTTP-date
 while incompatible API versions remain fail-closed. This consumes DP-403's deprecation policy
 without creating a second sunset authority or an external SDK.
 
-Follow-up 2026-10-06: GitHub Actions run `37520100680` succeeded at exact head
-`5a86666bf3bb955f18e036c010e53613425a6cf6`. Its detached clean-clone job installs the package
+Follow-up 2026-10-06: GitHub Actions run `37537071243` succeeded at exact head
+`df8cdcc9e22295de0c80ab9ca0c9366a779f3cef`. Its detached clean-clone job installs the package
 and runs contributor acceptance, which exercises `tests.test_public_http_client` against the
 local mock API including the public `UNRESOLVED`, correction/reply and relation fixture paths.
-This closes AC-607.7. AC-607.9 is satisfied for the present internal harness because it is
+The final local focused run also passes all **13/13** `tests.test_public_http_client` tests,
+the repository contract and the DP-603 inventory check with no provider, credential or external
+client publication. This closes AC-607.7. AC-607.9 is satisfied for the present internal harness because it is
 stdlib-only and introduces no generated client artifact, bundled external example, or client
 dependency requiring a DP-603 row; any future shipped/generated client reopens that inventory
 gate. AC-607.1 remains open for explicit owner surface/stability selection, and AC-607.11

@@ -214,6 +214,7 @@ def discovery_manifest_from_assignments(
     *,
     collection_id: str,
     lane_source_families: Mapping[str, Sequence[str]],
+    query_suggestions: Mapping[str, Mapping[str, Any]] | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     seeds: Sequence[Mapping[str, str]] = (),
@@ -221,7 +222,9 @@ def discovery_manifest_from_assignments(
     """Compile bounded donor-style assignments into the existing DP-209 manifest.
 
     This is intentionally a one-way narrowing adapter: it may not add adapters, increase
-    per-query result limits, invent source families, or execute BLOCKED assignments.
+    per-query result limits, invent source families, or execute BLOCKED assignments. Optional
+    model/query suggestions may replace query text or narrow adapters/source families, but can
+    never widen those permissions or alter host/result/cost caps.
     Coverage-need retries remain outside the manifest and continue to be owned by the
     existing Coverage Need state machine.
     """
@@ -239,9 +242,12 @@ def discovery_manifest_from_assignments(
 
     queries: list[dict[str, Any]] = []
     manifest_families: list[str] = []
+    suggestion_identity: list[dict[str, Any]] = []
     total_results = 0
     total_cost = Decimal("0")
     per_host_caps: list[int] = []
+    suggestions = dict(query_suggestions or {})
+    consumed_suggestions: set[str] = set()
 
     for ordinal, row in enumerate(rows):
         families = tuple(
@@ -253,18 +259,62 @@ def discovery_manifest_from_assignments(
         )
         if not families:
             raise ValueError(f"RESEARCH_PLAN_SOURCE_FAMILY_REQUIRED:{row.lane}")
+        query_text = row.question
+        adapter_ids = row.adapter_ids
+        selected_families = families
+        suggestion = suggestions.get(row.assignment_id)
+        if suggestion is not None:
+            consumed_suggestions.add(row.assignment_id)
+            if not isinstance(suggestion, Mapping):
+                raise ValueError("RESEARCH_PLAN_QUERY_SUGGESTION_INVALID")
+            allowed_fields = {"query", "adapter_ids", "source_families"}
+            if set(suggestion) - allowed_fields:
+                raise ValueError("RESEARCH_PLAN_QUERY_SUGGESTION_FIELDS_INVALID")
+            query_text = str(suggestion.get("query") or "").strip()
+            if not query_text or len(query_text.encode("utf-8")) > 2048:
+                raise ValueError("RESEARCH_PLAN_QUERY_SUGGESTION_TEXT_INVALID")
+            if "adapter_ids" in suggestion:
+                requested_adapters = tuple(
+                    dict.fromkeys(
+                        str(value).strip()
+                        for value in suggestion.get("adapter_ids") or ()
+                        if str(value).strip()
+                    )
+                )
+                if not requested_adapters or not set(requested_adapters).issubset(row.adapter_ids):
+                    raise ValueError("RESEARCH_PLAN_QUERY_SUGGESTION_PERMISSION_EXPANSION")
+                adapter_ids = requested_adapters
+            if "source_families" in suggestion:
+                requested_families = tuple(
+                    dict.fromkeys(
+                        str(value).strip()
+                        for value in suggestion.get("source_families") or ()
+                        if str(value).strip()
+                    )
+                )
+                if not requested_families or not set(requested_families).issubset(families):
+                    raise ValueError("RESEARCH_PLAN_QUERY_SUGGESTION_PERMISSION_EXPANSION")
+                selected_families = requested_families
+            suggestion_identity.append(
+                {
+                    "assignment_id": row.assignment_id,
+                    "query": query_text,
+                    "adapter_ids": list(adapter_ids),
+                    "source_families": list(selected_families),
+                }
+            )
         if row.max_results > MAX_QUERY_RESULTS:
             raise ValueError("RESEARCH_PLAN_QUERY_RESULT_CAP_EXCEEDED")
         total_results += row.max_results
         total_cost += row.cost_cap_usd
         per_host_caps.append(row.max_results_per_host)
-        manifest_families.extend(families)
+        manifest_families.extend(selected_families)
         queries.append(
             {
                 "id": row.assignment_id,
-                "query": row.question,
-                "source_families": list(families),
-                "adapter_ids": list(row.adapter_ids),
+                "query": query_text,
+                "source_families": list(selected_families),
+                "adapter_ids": list(adapter_ids),
                 "max_results": row.max_results,
                 "metadata": {
                     "research_assignment_id": row.assignment_id,
@@ -276,9 +326,14 @@ def discovery_manifest_from_assignments(
                     "temporal_constraints": dict(row.temporal_constraints),
                     "stop_conditions": list(row.stop_conditions),
                     "ordinal": ordinal,
+                    "query_source": "MODEL_SUGGESTION" if suggestion is not None else "COVERAGE_NEED",
                 },
             }
         )
+
+    unknown_suggestions = set(suggestions) - consumed_suggestions
+    if unknown_suggestions:
+        raise ValueError("RESEARCH_PLAN_QUERY_SUGGESTION_ASSIGNMENT_UNKNOWN")
 
     if total_results > MAX_TOTAL_RESULTS:
         raise ValueError("RESEARCH_PLAN_MANIFEST_RESULT_CAP_EXCEEDED")
@@ -295,6 +350,8 @@ def discovery_manifest_from_assignments(
         "date_to": date_to,
         "version": RESEARCH_PLAN_VERSION,
     }
+    if suggestion_identity:
+        identity_material["query_suggestions"] = suggestion_identity
     manifest_id = "research-plan-manifest:" + hashlib.sha256(
         _stable_json(identity_material).encode("utf-8")
     ).hexdigest()

@@ -40,12 +40,12 @@ Observed baseline:
 - the canonical `origin` is `https://github.com/domenicomassafra/DichiarazioniPubbliche.it.git` and `origin/main` currently resolves to the candidate commit;
 - no Git tag or hosted release receipt is present;
 - Python metadata is `dichiarazioni-pubbliche` version `0.0.1`;
-- web metadata is private `dichiarazioni-pubbliche-web` version `0.1.0`;
+- web metadata is private `dichiarazioni-pubbliche-web` version `0.2.0`;
 - `CHANGELOG.md` uses an `Unreleased` section and Keep a Changelog principles;
 - the current `research/results/poc-benchmark-v0.json` is a legacy receipt with
   historical `PUBLISH` labels and cannot satisfy the release publication gate;
-- the public projection currently emits `dichiarazioni-pubbliche-public-v2`, while DP-105 has not
-  ratified the stable public v1 compatibility decision; and
+- the public projection currently emits `dichiarazioni-pubbliche-public-v2`; DP-105 is closed,
+  while stable-release authorization remains a separate DP-604/DP-705 gate; and
 - `db/schema.v1.sql` and ordered `db/migrations/` are the database authority.
 
 A separate DP-601 baseline and W0R/W0P files were not present in the checkout. Their
@@ -294,7 +294,7 @@ Implemented, with release authority **BLOCKED**. No tag, remote, registry artifa
 publication was created.
 
 - Canonical version source: root **`VERSION`** (`0.0.1`). `pyproject.toml` mirrors it
-  (asserted by a test); the web `0.1.0` is an intentionally independent, private
+  (asserted by a test); the web `0.2.0` is an intentionally independent, private
   component whose divergence is recorded rather than forced equal. Mapped in
   `docs/release/versioning-policy.md`.
 - SemVer + pre-1.0 policy: every `0.y.z` is a development snapshot making no
@@ -329,10 +329,38 @@ legal/security approval. Per blocked conditions this ticket stays IN PROGRESS un
 remaining release gates close.
 
 **Hosted follow-up 2026-10-06.** `origin/main` and the GitHub default branch both resolve to
-`5a86666bf3bb955f18e036c010e53613425a6cf6`; Actions run `37520100680` completed
-successfully for that exact head, including the detached clean-clone job and DP-604
-reproducibility gate. This is CI/release-readiness evidence only. It does not supply owner
-release authorization, registry/signing choices, qualified legal closure, or a release tag.
+`df8cdcc9e22295de0c80ab9ca0c9366a779f3cef`; Actions run `37537071243` completed
+successfully for that exact head. All jobs were green, including the detached clean-clone,
+repository-contract, web-static and Python 3.11-3.14 Linux/macOS jobs; the clean-clone job runs
+the DP-604 reproducibility gate. Read-only GitHub inspection also confirms that the repository
+has no hosted release, and `git ls-remote --tags origin` returns no tags. This is
+CI/release-readiness evidence only. It does not supply owner release authorization,
+registry/signing choices, qualified legal closure, or a release tag.
+
+**Final local/runtime follow-up 2026-10-06.** At the same committed head,
+`tools/check_version_consistency.py --allow-no-release`, the repository-contract checker and
+the DP-603 inventory check are green; version read-back is product/package `0.0.1`, private web
+component `0.2.0`, zero releases. The final MiniPC post-migration backup set
+`20261006T214721Z` passed a real disposable restore drill with **94 TABLE DATA** entries and
+matching row counts for every table; the temporary database was removed after `DRILL PASS`.
+An attempted replay of the entire historical migration directory against the already-evolved
+live schema correctly stopped at `20260922-add-correction-reply-policy.sql` because that old
+`review_event` enum constraint conflicts with later valid rows; the transaction rolled back and
+caused no damage. The two newly applicable `20261006` migrations were each applied twice
+successfully. Release procedure therefore continues to require ordered migration apply/replay
+for the candidate's applicable migrations in an isolated target; it must not reinterpret
+already-applied historical migrations as a replay set for an evolved live database.
+
+A later same-day read-only public-host check confirms that `https://dichiarazionipubbliche.it/`
+is now reachable through Cloudflare with HTTPS `200`, while `www` redirects `308` to the apex.
+The public search index and `/api/v1/health` agree on projection fingerprint `501348d9638e...`,
+matching the MiniPC loopback read-back; `robots.txt` and `sitemap.xml` are served and the old
+demo banner is absent. This is deployment/read-back evidence, not a release receipt: the API
+still reports `contract_status: DRAFT`, the approved projection contains zero dossiers,
+the launch preflight remains `NO-GO`, and no tag, GitHub Release, signing/registry decision or
+owner/legal release authorization exists. Public `/index.nt` returns `200` and has been
+validated against its private sibling linked-data receipt; that receipt is an internal
+validation artifact and is intentionally not a public route.
 
 The first unnormalized experiment on commit `6ecce7242849ea6460e8837f467a15a879e07c39`
 correctly showed that ordinary setuptools wheel/sdist hashes drift across independent

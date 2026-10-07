@@ -87,6 +87,31 @@ export default function StudioWorkspaceClient({ model }: StudioWorkspaceClientPr
             <h3>Osservazione</h3>
             <p>{selected.observation}</p>
           </div>
+          {selected.original_source_resolution ? (
+            <div
+              className="detail-block"
+              data-original-source-resolution="true"
+              data-source-ref={selected.original_source_resolution.source_ref}
+              data-root-content-id={selected.original_source_resolution.root_content_id}
+            >
+              <h3>Origine revisionata</h3>
+              <p>
+                <strong>{selected.original_source_resolution.status}</strong>
+                {" · "}{selected.original_source_resolution.need_type}
+              </p>
+              <p>Root: <code>{selected.original_source_resolution.root_content_id}</code></p>
+              <ol>
+                {selected.original_source_resolution.path_content_ids.map((contentId, index) => (
+                  <li key={contentId}>
+                    <code>{contentId}</code>
+                    {index < selected.original_source_resolution!.path_edge_ids.length ? (
+                      <small> via {selected.original_source_resolution!.path_edge_ids[index]}</small>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
           <div className="detail-block">
             <h3>Evidenze collegate</h3>
             {selected.evidence.length === 0 ? <p>Nessuna evidenza nella query corrente.</p> : selected.evidence.map((item) => (

@@ -1,6 +1,6 @@
 # DP-215 — source intelligence and evidence suitability
 
-Status: IN_PROGRESS
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-102, DP-113, DP-115, DP-118, DP-209, DP-210
 
@@ -252,6 +252,12 @@ No live-provider calls made or required.
 Status stays IN_PROGRESS until (a) AC-215.9 via FUTURE DP-214 (Garlasco tracer
 explainability before promotion/publication checks) and (b) the DP-213/DP-214
 integration pass. Record their receipts here before marking DONE.
+
+2026-10-06 finalization re-read confirms this is still a real external dependency rather
+than a missing deterministic unit test. DP-214 has no completed acceptance criteria for the
+real `research:garlasco` collection/tracer and its required source-role/lineage/scope/time/
+rights explanation before promotion is therefore unavailable. AC-215.9 remains unchecked;
+no synthetic fixture or unrelated MiniPC canary is treated as a substitute.
 
 Original pending note: implementation, migration, deterministic fixtures, MiniPC proof
 and DP-213/DP-214 integration were all pending before this Mac-side verification.

@@ -1,6 +1,6 @@
 # DP-412 — Consolidate the visual language into design tokens and component contracts
 
-Status: DONE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-411, DP-413
 
@@ -170,33 +170,33 @@ token. Generated screenshots are receipts, not token values.
 
 ## Acceptance criteria
 
-- [ ] `AC-412.1`: Given the DP-411 selected direction and DP-413 IA, when the token
+- [x] `AC-412.1`: Given the DP-411 selected direction and DP-413 IA, when the token
   contract is reviewed, then every token has a semantic purpose, allowed use, responsive
   rule, and accessibility constraint; arbitrary hex/font/radius values are not hidden in
   component documentation.
-- [ ] `AC-412.2`: Given the component inventory, when each component is exercised across
+- [x] `AC-412.2`: Given the component inventory, when each component is exercised across
   its required states, then it has a clear purpose, public/Studio ownership, bounded
   props, keyboard behavior, focus behavior, and text-first status semantics.
-- [ ] `AC-412.3`: Given Public and Studio fixtures, when they use the shared tokens, then
+- [x] `AC-412.3`: Given Public and Studio fixtures, when they use the shared tokens, then
   Public remains spacious/mobile-first and Studio remains dense/desktop-first without
   becoming separate visual brands.
-- [ ] `AC-412.4`: Given a component receives a missing, unsafe, empty, unresolved, or
+- [x] `AC-412.4`: Given a component receives a missing, unsafe, empty, unresolved, or
   stale value, when it renders, then it has an intentional fallback and never fabricates
   a source, verdict, person score, private field, or publication state.
 - [ ] `AC-412.5`: Given keyboard, screen-reader, 200% zoom, grayscale, and reduced-motion
   checks, when the component contract is exercised, then focus order, names, contrast,
   target size, state wording, and non-animated equivalents pass.
-- [ ] `AC-412.6`: Given the current Astro/React implementation, when the migration map
+- [x] `AC-412.6`: Given the current Astro/React implementation, when the migration map
   is written, then existing local components and dependencies are reused where they
   satisfy the contract, and no third-party visual system is copied without exact license
   evidence.
-- [ ] `AC-412.7`: Given a new component or dependency is proposed, when the deletion test
+- [x] `AC-412.7`: Given a new component or dependency is proposed, when the deletion test
   is applied, then the spec explains the user/operator decision it supports and rejects
   a component created only to match a mockup rectangle.
-- [ ] `AC-412.8`: Given DP-411 is not complete, when someone tries to freeze tokens, then
+- [x] `AC-412.8`: Given DP-411 is not complete, when someone tries to freeze tokens, then
   the contract remains explicitly provisional and the ticket does not claim visual or
   production readiness.
-- [ ] `AC-412.9`: Given the collision/dependency audit runs, then DP-412 owns the token/
+- [x] `AC-412.9`: Given the collision/dependency audit runs, then DP-412 owns the token/
   component contract, DP-411 owns visual comparison, and DP-405..DP-410 do not create
   duplicate design ownership.
 
@@ -234,7 +234,7 @@ fixture; a Mac screenshot is development evidence only.
 
 ## Completion receipt — 2026-09-26
 
-**Status: DONE, with one named exception and three recorded risks.**
+**Historical receipt status: DONE, with one named exception and three recorded risks.**
 
 The gate that blocked this ticket — DP-411 must be DONE before tokens freeze —
 was satisfied on 2026-09-26. The contract is now frozen as
@@ -264,7 +264,7 @@ legacy`, each depending only on those above it.
 | `AC-412.2` | **pass** | 16 primitives, each with a state matrix in `design-system-v1.md` §3.1. Baked behavior, not TODOs: native `<details>`, `showModal()` focus containment, real radios with arrow-key roving, focus restoration. |
 | `AC-412.3` | **pass** | Density is 8 `--density-*` variables, not a second stylesheet. Verified live: `--density-row-min` = 3.75rem Public / 2.5rem Studio. |
 | `AC-412.4` | **pass** | `StatusText` renders **nothing** on an empty label and **refuses** a count above 50. `EmptyState`/`ErrorState` fabricate nothing. `Dialog` fails visibly in dev rather than shipping an untrapped modal. |
-| `AC-412.5` | **pass** | Focus (3-part structure, verified in-browser), contrast (full measured table), grayscale (verified with `filter: grayscale(1)`), reduced motion (durations → 1ms, end states preserved), 320px (no overflow). |
+| `AC-412.5` | **reopened 2026-10-07** | Historical proof covers focus, contrast, grayscale, reduced motion and a narrow viewport, but does not contain the literal real screen-reader and 200% zoom acceptance required by this AC. |
 | `AC-412.6` | **pass** | The existing implementation is reused, not replaced: `legacy.css` re-expresses its ~130 class names in tokens with **zero edits to Lane D2 files**. No third-party visual system was copied. |
 | `AC-412.7` | **pass** | The deletion test is written into the contract (§8) and was **applied during authoring**: a pill radius and a planned custom focus trap were both removed by it. |
 | `AC-412.8` | **pass** | Provisional status ended only when DP-411 became DONE the same day. This receipt does not claim production readiness — see risks. |
@@ -426,11 +426,11 @@ vendored in `web/licenses/`; and `npm run check:design` permanently checks
 theme/token sync, license presence, forbidden gradients/backdrop filters,
 out-of-contract color literals, and excessive radii.
 
-### Why this is DONE
+### Bookkeeping audit — 2026-10-07
 
-DP-412 is DONE when the selected system has become a small, accessible,
-license-safe contract used by the real Public/Studio surfaces. The contract is
-frozen, contrast-validated, a11y-enforced in code, and the existing product has
-already been moved onto it in token terms. What remains — per-page migration
-off `legacy.css`, and MiniPC proof — is Lane D2's implementation work and
-runtime validation, tracked above as risk rather than claimed as complete.
+The top-level status is now `IN PROGRESS`. AC-412.1/.2/.3/.4/.6/.7/.8/.9 retain the literal
+proof recorded above. AC-412.5 remains open because the historical receipt did not record an
+actual screen-reader pass or exact 200% zoom exercise across the component contract; semantic
+markup, browser focus proof, grayscale and reduced-motion evidence are not treated as substitutes.
+The previously recorded runtime/page-adoption risks remain separate and are not converted into
+acceptance failures unless their owning tickets require them.

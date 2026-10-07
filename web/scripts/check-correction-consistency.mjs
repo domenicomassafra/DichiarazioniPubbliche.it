@@ -28,10 +28,12 @@ const searchIndex = JSON.parse(await readFile(path.join(dist, "search-index.v1.j
 const corrected = searchIndex.records.filter((record) =>
   record.kind === "finding" && (record.has_corrections || record.has_rights_of_reply)
 );
-assert(corrected.length > 0, "fixture must expose at least one corrected/replied finding");
 
 const correctionRegister = pages.get("/correzioni/");
 assert(correctionRegister, "correction register route missing");
+if (corrected.length === 0) {
+  assert.match(correctionRegister, /Nessuna correzione pubblicata in questo snapshot/i, "empty correction register state missing");
+}
 
 const surfacePrefixes = ["/persone/", "/temi/", "/contenuti/", "/tracce/"];
 let linkedSurfaceCount = 0;
@@ -61,4 +63,4 @@ for (const record of corrected) {
   linkedSurfaceCount += linked.length;
 }
 
-console.log(`correction-consistency checks PASS (${corrected.length} corrected/replied findings, ${linkedSurfaceCount} linked derived surfaces)`);
+console.log(`correction-consistency checks PASS (${corrected.length} corrected/replied findings, ${linkedSurfaceCount} linked derived surfaces${corrected.length === 0 ? "; approved empty snapshot" : ""})`);

@@ -1,6 +1,6 @@
 # DP-220 — Context integrity and semantic-clipping guard
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-216, DP-217, DP-219
 
@@ -55,16 +55,16 @@ ambiguous cases.
   the question link or remains held.
 - [x] **AC-220.4:** Conditional/hypothetical and immediate-qualification fixtures are held by explicit signal codes and cannot be
   flattened into unconditional public assertions without review.
-- [ ] **AC-220.5:** Discontinuous excerpts disclose every omission and cannot concatenate
+- [x] **AC-220.5:** Discontinuous excerpts disclose every omission and cannot concatenate
   clauses across a source boundary invisibly.
-- [ ] **AC-220.6:** Cross-talk/interruption/montage boundaries preserve distinct speakers
+- [x] **AC-220.6:** Cross-talk/interruption/montage boundaries preserve distinct speakers
   and source spans; one speaker cannot inherit another speaker's surrounding context.
 - [x] **AC-220.7:** A reviewer decision is append-only/versioned and becomes stale when any
   covered source/transcript/span hash changes.
 - [x] **AC-220.8:** Context metadata is bounded to hashes, offsets, state/version and signal codes; raw surrounding source text is not persisted in the context decision or projected publicly.
 - [x] **AC-220.9:** Adversarial context fixtures produce zero known misleading public
   excerpts; uncertainty results in under-publication rather than a guessed clearance.
-- [ ] **AC-220.10:** Full suite, benchmark and MiniPC canary pass.
+- [x] **AC-220.10:** Full suite, benchmark and MiniPC canary pass.
 
 ## Validation / proof
 
@@ -86,10 +86,26 @@ The final local closure pass adds a structured multi-span context receipt. It ha
 source span, records an explicit omission count, always returns `NEEDS_CONTEXT_REVIEW`, and
 adds `CROSS_TALK_OR_SPEAKER_BOUNDARY` / `MONTAGE_OR_SOURCE_BOUNDARY` when speaker or source
 part changes across spans; no raw surrounding text is retained. Focused tests prove source
-ordering and no neighboring-context inheritance. AC-220.5/.6 remain unchecked until this
-structured representation is consumed by the candidate/public excerpt path; full DP-223
-projection coverage and release-candidate MiniPC proof also remain open.
+ordering and no neighboring-context inheritance. The 2026-10-06 finalization wires an
+approved same-speaker/same-source-part structured receipt into public wording metadata as
+hashes + ordered offsets + `omission_count`; HTML and JSON-LD render the canonical ` […] `
+marker, while the private omitted/source text never enters the public payload. A structured
+receipt that crosses speaker or source-part/montage boundaries is omitted even if its state
+is manually changed to `APPROVED_CURATED`, preventing neighboring-context inheritance.
 
 The offline adversarial gate remains fail closed after the structured-context additions:
 59/59 cases pass with `context_review_escape_count=0`, while discontinuous/cross-speaker/
 cross-source-part focused cases return `NEEDS_CONTEXT_REVIEW` rather than guessed clearance.
+
+The isolated candidate passes compileall, **1765/1765** full unittests, benchmark **5/5**,
+DP-223 **59/59** and `git diff --check`; all **41** migrations apply/replay on disposable
+PostgreSQL 17.11. MiniPC `/tmp` validation passes **213/213** focused tests and both
+benchmarks against temporary PostgreSQL 18.6 clusters, with no production DB or provider
+access.
+
+2026-10-07 regression closure binds the public discontinuous-excerpt disclosure back to
+the canonical private `context-integrity-v1` receipt at projection time. The projection
+recomputes the receipt binding with the same helper used during assessment and omits the
+finding when an offset, per-span hash or stored binding is stale. A regression that mutates
+the second span offset while retaining the old binding is held fail closed. The focused
+context/projection/public-schema set passes **91/91** and `git diff --check` passes.

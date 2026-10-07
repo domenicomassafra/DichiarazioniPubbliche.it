@@ -42,9 +42,37 @@ The evaluator also has a fail-closed high-risk switch. The 2026-10-06 closure pa
 typed adapter over the actual DP-309 `HighRiskDecision`: high-risk input requires the exact
 incorporated/reviewed challenger packet, while a waiver is accepted only when it binds the
 same qualified `policy_decision_ref` carried by an otherwise publication-eligible DP-309
-decision. Canonical persisted DP-309 publication flow still has no durable challenger packet
-input, so the AC remains unchecked rather than claiming integration that the runtime cannot
-yet consume; persisted challenger execution/MiniPC proof remain open.
+decision.
+
+The pure eligibility composer can bind a `ChallengerReadinessDecision` to a high-risk decision
+for deterministic policy/testing, including an exact qualified-policy waiver. That helper is not
+a runtime authority boundary. A follow-up combined audit found that the runtime wrapper had
+incorrectly accepted the same caller-supplied in-memory readiness object even though no durable
+challenger packet/review authority exists. An arbitrarily instantiated `READY` decision could
+therefore satisfy the challenger portion of pure/runtime eligibility when the reviewer chain was
+otherwise valid.
+
+The runtime boundary now fails closed. `evaluate_publication_eligibility()` never forwards a
+caller-supplied challenger readiness or waiver into the pure composer. Supplying readiness adds
+`CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE`; supplying a waiver adds
+`CHALLENGER_WAIVER_AUTHORITY_UNAVAILABLE`; high-risk cases continue to carry
+`HIGH_RISK_CHALLENGER_REQUIRED`. Rejected challenger values are not reflected as trusted packet,
+version or waiver refs in the runtime result. Standard-risk eligibility remains possible from an
+authority-attested durable reviewer chain, proving the fail-closed change is challenger-specific
+rather than a global publication lock.
+
+This deliberately reopens the high-risk integration AC and returns DP-229 to `IN PROGRESS`.
+There is still no durable challenger packet/review ledger or independent challenger authority in
+the current runtime, and none is invented here. Until such an existing/approved authority is
+wired, runtime high-risk publication eligibility cannot be satisfied by challenger readiness or
+waiver supplied by a caller.
+
+Focused regression proof for the fail-closed repair is **18/18 PASS** for pure
+countercase/eligibility, **12/12 PASS** for disposable-PostgreSQL durable runtime eligibility,
+and **4/4 PASS** for production projection revalidation. The same three groups pass unchanged in
+an isolated MiniPC `/tmp` bundle with production/provider credentials removed. The runtime suite
+includes a directly instantiated forged `READY` challenger decision and an exact-looking forged
+waiver; neither can authorize runtime eligibility.
 
 ### DP-228 challenger-request bridge — 2026-10-05
 
@@ -66,6 +94,6 @@ Focused proof in `tests/test_challenger_research.py` covers deterministic reques
 identity, explicit opt-in, exact Coverage Need question reuse, no evidence/verdict
 authority, assignment/result/cost caps, and refusal of blocked DP-228 plans.
 
-The remaining open AC is canonical DP-309 integration: the local readiness evaluator can
-require a challenger for high-risk input (or consume an explicit qualified-policy waiver),
-but the DP-309 persisted high-risk packet does not yet invoke that seam automatically.
+The pure DP-309/challenger seam remains useful for deterministic tests, while the runtime gate is
+intentionally blocked on a real durable/authority-backed challenger mechanism. DP-228/DP-209
+research receipts by themselves are not challenger review authority and are not treated as such.

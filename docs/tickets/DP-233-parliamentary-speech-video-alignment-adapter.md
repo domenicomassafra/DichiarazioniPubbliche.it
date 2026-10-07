@@ -190,3 +190,10 @@ prerequisite. AC-233.10 remains open until an owner-approved official parliament
 family with resolved source/rights disposition exists; once that exact decision is present,
 the existing fixture-only execution contract can be exercised on MiniPC without production
 DB/provider mutation.
+
+The final machine-only tranche does run the offline adapter/amendment/source-family contracts on
+MiniPC, using the existing synthetic Camera/Senato fixtures only: **32/32 PASS** in an isolated
+`/tmp` bundle with production DB/provider credentials removed. This is useful runtime proof of
+the code path but deliberately does not change AC-233.10: the prerequisite remains an explicitly
+owner-approved official Camera/Senato source family with resolved rights/source disposition,
+which is still absent from the repository contracts audited above.

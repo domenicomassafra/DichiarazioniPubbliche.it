@@ -4,11 +4,15 @@ import path from "node:path";
 
 const dist = path.resolve("dist");
 const statements = path.join(dist, "dichiarazioni");
-assert.ok(fs.existsSync(statements), "statement output directory missing");
-const statementFiles = fs.readdirSync(statements)
-  .map((slug) => path.join(statements, slug, "index.html"))
-  .filter((file) => fs.existsSync(file));
-assert.ok(statementFiles.length > 0, "no rendered statement pages found");
+const searchIndex = JSON.parse(fs.readFileSync(path.join(dist, "search-index.v1.json"), "utf8"));
+assert.ok(Array.isArray(searchIndex.records), "search index records must be an array");
+const findingRecords = searchIndex.records.filter((record) => record.kind === "finding");
+const statementFiles = fs.existsSync(statements)
+  ? fs.readdirSync(statements)
+    .map((slug) => path.join(statements, slug, "index.html"))
+    .filter((file) => fs.existsSync(file))
+  : [];
+assert.equal(statementFiles.length, findingRecords.length, "rendered Statement count must match the public search index");
 
 for (const file of statementFiles) {
   const html = fs.readFileSync(file, "utf8");
@@ -30,4 +34,4 @@ for (const phrase of [
 }
 assert.equal(/AI verified|ratingValue/i.test(method), false, "method contains prohibited trust shortcut");
 
-console.log(`trust-disclosure checks PASS (${statementFiles.length} statement pages + method)`);
+console.log(`trust-disclosure checks PASS (${statementFiles.length} statement pages + method${statementFiles.length === 0 ? "; approved empty snapshot" : ""})`);

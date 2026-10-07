@@ -35,10 +35,10 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-212.1:** Known duplicate fixtures rank ahead of related-but-different fixtures.
-- [ ] **AC-212.2:** Uncertain candidate is held rather than merged.
-- [ ] **AC-212.3:** Existing 30 Garlasco claims are matchable without being recreated.
-- [ ] **AC-212.4:** Match algorithm/version is replayable and comparison features are inspectable.
+- [x] **AC-212.1:** Known duplicate fixtures rank ahead of related-but-different fixtures.
+- [x] **AC-212.2:** Uncertain candidate is held rather than merged.
+- [x] **AC-212.3:** Existing 30 Garlasco claims are matchable without being recreated.
+- [x] **AC-212.4:** Match algorithm/version is replayable and comparison features are inspectable.
 
 ## Validation / proof
 

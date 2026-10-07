@@ -850,7 +850,7 @@ def assess_evidence_set(
                         )
                         continue
                     if (
-                        item.record_status in {"SUPERSEDED", "RETIRED"}
+                        item.record_status in {"SUPERSEDED", "RETIRED", "EXPIRED"}
                         and valid_until is None
                     ):
                         temporal_rejections.append(

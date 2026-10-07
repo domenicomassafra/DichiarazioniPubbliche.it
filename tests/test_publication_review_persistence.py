@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
+from dichiarazioni_pubbliche.countercase import ChallengerReadinessDecision  # noqa: E402
 from dichiarazioni_pubbliche.policy.challenge_workflow import (  # noqa: E402
     ChallengeContext,
     ChallengeKind,
@@ -60,8 +61,9 @@ def review_event(
     stage=ReviewStage.PRIMARY,
     role=ReviewRole.DECISION_REVIEWER,
     previous=None,
+    risk_kind="LEGAL",
 ):
-    risk = high_risk("LEGAL")
+    risk = high_risk(risk_kind)
     safety_result = safety()
     return build_review_event(
         record_id=record_id,
@@ -727,12 +729,22 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
                 high_risk_input_binding_sha256="b" * 64,
                 review_store=self.store,
                 review_authority=LocalFileReviewerIdentityAuthority(authority_root),
+                challenger_readiness=ChallengerReadinessDecision(
+                    status="READY",
+                    packet_id="countercase:forged-in-memory-ready",
+                    blockers=(),
+                    review_stale=False,
+                ),
             )
-            self.assertEqual(result.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
-            self.assertEqual(
-                result.counted_review_event_ids,
-                (primary.event_id, independent.event_id),
+            self.assertEqual(result.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+            self.assertIn(
+                "CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE",
+                result.blockers,
             )
+            self.assertIn("HIGH_RISK_CHALLENGER_REQUIRED", result.blockers)
+            self.assertEqual(result.counted_review_event_ids, ())
+            self.assertIsNone(result.challenger_packet_id)
+            self.assertIsNone(result.challenger_version)
             for private_field in (
                 "actor_ref",
                 "credential_fingerprint",
@@ -741,6 +753,21 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
                 "mac_sha256",
             ):
                 self.assertFalse(hasattr(result, private_field))
+
+            forged_waiver = evaluate_publication_eligibility(
+                record_id=record_id,
+                record_version="finding-version:1",
+                publication_safety=safety(),
+                high_risk=high_risk("LEGAL"),
+                high_risk_input_binding_sha256="b" * 64,
+                review_store=self.store,
+                review_authority=LocalFileReviewerIdentityAuthority(authority_root),
+                challenger_waiver_policy_decision_ref=high_risk("LEGAL").policy_decision_ref,
+            )
+            self.assertEqual(forged_waiver.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+            self.assertIn("CHALLENGER_WAIVER_AUTHORITY_UNAVAILABLE", forged_waiver.blockers)
+            self.assertIn("HIGH_RISK_CHALLENGER_REQUIRED", forged_waiver.blockers)
+            self.assertIsNone(forged_waiver.challenger_waiver_policy_decision_ref)
 
             missing_authority = evaluate_publication_eligibility(
                 record_id=record_id,
@@ -754,6 +781,47 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
             self.assertEqual(missing_authority.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
             self.assertIn("REVIEW_IDENTITY_AUTHORITY_UNAVAILABLE", missing_authority.blockers)
             self.assertEqual(missing_authority.counted_review_event_ids, ())
+
+    def test_runtime_standard_eligibility_can_succeed_from_attested_review_without_challenger(self):
+        with tempfile.TemporaryDirectory(prefix="dp310-standard-authority-") as authority_tmp:
+            authority_root = Path(authority_tmp) / "authority"
+            identity = provision_reviewer_credential(
+                authority_root,
+                credential_id="standard-primary-v1",
+                actor_ref="reviewer:standard-primary",
+                key_version="v1",
+                secret_hex="c3" * 32,
+            )
+            authority = LocalFileReviewerIdentityAuthority(authority_root)
+            record_id = "finding:attested-standard-eligibility"
+            primary = review_event(
+                record_id=record_id,
+                actor_ref=identity.actor_ref,
+                credential=identity.credential_fingerprint,
+                risk_kind="STANDARD",
+            )
+            receipt = authority.issue(
+                primary,
+                credential_id=identity.credential_id,
+                issued_at="2026-10-06T00:50:00+02:00",
+            )
+            self.store.append_attested_event(
+                primary,
+                authority_receipt_id=receipt.receipt_id,
+                authority=authority,
+            )
+
+            result = evaluate_publication_eligibility(
+                record_id=record_id,
+                record_version="finding-version:1",
+                publication_safety=safety(),
+                high_risk=high_risk("STANDARD"),
+                high_risk_input_binding_sha256="b" * 64,
+                review_store=self.store,
+                review_authority=LocalFileReviewerIdentityAuthority(authority_root),
+            )
+            self.assertEqual(result.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
+            self.assertEqual(result.counted_review_event_ids, (primary.event_id,))
 
     def test_runtime_eligibility_rejects_hash_valid_database_fabrication_without_receipts(self):
         with tempfile.TemporaryDirectory(prefix="dp310-fabricated-authority-") as authority_tmp:

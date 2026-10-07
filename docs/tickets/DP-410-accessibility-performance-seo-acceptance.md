@@ -163,10 +163,10 @@ The acceptance matrix must include a rendered-output inspection for:
 - [x] `AC-410.3`: Given a cold static preview and MiniPC mirror, when the performance
   matrix runs, then LCP, CLS, INP, initial JavaScript, media layout, and no-network/LLM
   checks meet the stated budgets or have a recorded, separately ticketed exception.
-- [ ] `AC-410.4`: Given providers are offline, when each public route is loaded and
+- [x] `AC-410.4`: Given providers are offline, when each public route is loaded and
   interacted with, then existing public records remain available and no provider/LLM
   request or fabricated fallback appears.
-- [ ] `AC-410.5`: Given each public route, when metadata/JSON-LD/canonical/sitemap
+- [x] `AC-410.5`: Given each public route, when metadata/JSON-LD/canonical/sitemap
   output is inspected, then it is honest, versioned, and points to the same public
   finding version; Studio/demo/private routes are excluded.
 - [x] `AC-410.6`: Given a correction, reply, relation, or stale projection, when the
@@ -175,7 +175,7 @@ The acceptance matrix must include a rendered-output inspection for:
 - [x] `AC-410.7`: Given rendered HTML, client assets, and accessibility tree snapshots,
   when scanned, then no raw/private content, score, ranking, intent inference, secret, or
   fake activity is present.
-- [ ] `AC-410.8`: Given the collision/dependency audit runs, then DP-410 remains a
+- [x] `AC-410.8`: Given the collision/dependency audit runs, then DP-410 remains a
   cross-surface quality gate and does not take ownership of routes, schema, API, or
   design-system decisions owned by other tickets.
 
@@ -280,9 +280,38 @@ API health, static search and the internal linked-data receipt now share approve
 `501348d9638e...`, while `/index.nt` is served as validated N-Triples. The real empty-approved
 production build passes `check-public-quality` with 6 sitemap URLs, `index,follow`, no demo/private
 routes and the JavaScript budget intact; the cold MiniPC performance checker also passes with zero
-external requests. The route/browser fixture checkers intentionally assume at least one populated
-Statement/correction fixture, so they are not treated as proof for an empty production dataset.
-AC-410.4/.5 therefore stay unchecked until the complete populated-route/provider-offline matrix is
-exercised; the old live-static convergence blocker itself is closed. AC-410.1/.2 remain manual
-AT/visual judgment, and AC-410.8 remains open because the dependency audit still finds historical
-DONE-ticket checkbox bookkeeping contradictions outside this ticket.
+external requests. The route, trust, correction and rendered-browser checkers now distinguish a
+populated acceptance fixture from an approved empty public snapshot: the empty build must contain
+the six canonical utility routes, zero fabricated dynamic/legacy routes, an explicit empty
+correction register, zero Statement/search records and working Explore keyboard/reflow/zoom states.
+The populated fixture still requires Statement/Person/Topic/Content/Trace coverage, correction
+history and the stricter route assertions. The performance checker now selects only routes that
+exist in the built bundle and preflights each for HTTP success, so a 404 page can no longer be
+mistaken for a passing LCP sample.
+
+This closes AC-410.4 and AC-410.5 at their machine/runtime scope. The populated fixture proves the
+dynamic route/state behavior and current-version metadata without a provider request path; the exact
+approved-empty production snapshot proves that the live deployment emits only its six legitimate
+canonical routes, preserves the same no-provider boundary, publishes honest `index,follow` metadata
+and a six-route sitemap, and fabricates no dynamic fallback merely to satisfy the matrix. This does
+not claim that production contains a populated Statement/Topic/Content/Trace today.
+
+AC-410.1/.2 remain manual AT/visual judgment. A 2026-10-07 audit of the 18 historical
+`Status: DONE` tickets with unchecked ACs reconciled the ticket files themselves: sixteen had
+literal receipt/test evidence and now have their AC checkboxes aligned; DP-405 and DP-412 were
+reopened to `IN PROGRESS` rather than inventing missing Person-state and screen-reader/200%-zoom
+proof. There are therefore no longer `Status: DONE` ticket files with unchecked ACs in that audited
+set.
+
+An intermediate audit still found PLAN/ticket drift for DP-405 and DP-412. That drift was not
+treated as closed until the canonical PLAN was reconciled in the final pass below.
+
+### Final dependency/bookkeeping reconciliation — 2026-10-07
+
+The repository-wide status/AC audit now has **zero** `Status: DONE` ticket files with unchecked
+acceptance criteria. Sixteen historical DONE tickets were reconciled against their existing
+receipts; DP-405 and DP-412 were instead reopened to `IN PROGRESS` where literal UI/accessibility
+criteria are still unproven. `PLAN.md` now matches those statuses, as well as DP-406/DP-407 and
+the current M2/M3 closure state. DP-410 therefore remains a cross-surface quality gate without
+claiming ownership of those page/design contracts, closing AC-410.8. This does not close
+AC-410.1/.2 or any real screen-reader/manual visual acceptance.

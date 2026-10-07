@@ -37,11 +37,11 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-116.1:** Benchmark dataset/query set is versioned and repeatable.
-- [ ] **AC-116.2:** Lexical/structured baseline meets the ticketed recall/latency floor or records exact misses.
-- [ ] **AC-116.3:** Typos/near duplicates exercise `pg_trgm` index-supported path.
-- [ ] **AC-116.4:** Provider/model outage does not break baseline search.
-- [ ] **AC-116.5:** Embeddings remain disabled unless measured incremental recall justifies them.
+- [x] **AC-116.1:** Benchmark dataset/query set is versioned and repeatable.
+- [x] **AC-116.2:** Lexical/structured baseline meets the ticketed recall/latency floor or records exact misses.
+- [x] **AC-116.3:** Typos/near duplicates exercise `pg_trgm` index-supported path.
+- [x] **AC-116.4:** Provider/model outage does not break baseline search.
+- [x] **AC-116.5:** Embeddings remain disabled unless measured incremental recall justifies them.
 
 ## Validation / proof
 

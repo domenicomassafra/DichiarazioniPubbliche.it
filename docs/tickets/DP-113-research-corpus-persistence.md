@@ -37,12 +37,12 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-113.1:** Fresh schema and migration-upgraded schema expose identical new contracts.
-- [ ] **AC-113.2:** Two captures of one Content with different body hashes coexist; replay of one capture is idempotent.
-- [ ] **AC-113.3:** A Passage cannot exist without valid capture/segment provenance.
-- [ ] **AC-113.4:** A Claim Candidate can exist without Atomic Claim/Finding and remains private.
-- [ ] **AC-113.5:** Public projection regression tests prove zero corpus rows leak.
-- [ ] **AC-113.6:** MiniPC migration canary/read-back succeeds before DONE.
+- [x] **AC-113.1:** Fresh schema and migration-upgraded schema expose identical new contracts.
+- [x] **AC-113.2:** Two captures of one Content with different body hashes coexist; replay of one capture is idempotent.
+- [x] **AC-113.3:** A Passage cannot exist without valid capture/segment provenance.
+- [x] **AC-113.4:** A Claim Candidate can exist without Atomic Claim/Finding and remains private.
+- [x] **AC-113.5:** Public projection regression tests prove zero corpus rows leak.
+- [x] **AC-113.6:** MiniPC migration canary/read-back succeeds before DONE.
 
 ## Validation / proof
 
