@@ -68,3 +68,13 @@ table-data entries; every manifest count matched the restored database, includin
 private reply-governance ledgers. The verifier reported `RESULT: PASS` and `DRILL PASS`, and the
 temporary database was removed immediately afterwards. This confirms the final integrated
 94-table runtime state remains recoverable without touching the production database.
+
+### Effective-time migration drill — 2026-10-07
+
+After promoting main `2db8ca1100c5a1efd99ce38ffe50b1593646ed83`, the MiniPC applied
+`20261007-add-evidence-effective-time-state.sql` twice successfully, then created backup set
+`20261007T143042Z`. The dump again contained **94** table-data entries. A fresh disposable
+database restored every manifest count exactly, including the updated `evidence` table with
+`valid_from`, `valid_until`, and `record_status`; the verifier reported
+`RESULT: PASS (restored state matches backup exactly)` and `DRILL PASS`. The disposable
+database was removed immediately after verification.

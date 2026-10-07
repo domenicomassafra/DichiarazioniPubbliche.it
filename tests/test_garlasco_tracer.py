@@ -105,7 +105,7 @@ class GarlascoTracerTests(unittest.TestCase):
             )
         )
 
-    def test_current_27_claim_readback_would_block_ticket_claim_of_30(self):
+    def test_incomplete_27_claim_readback_would_block_ticket_claim_of_30(self):
         value = manifest()
         result = evaluate_preflight(
             value,

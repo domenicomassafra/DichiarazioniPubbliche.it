@@ -180,9 +180,9 @@ without manual DB surgery.
 | DP-210 | DONE | Capture/preservation/parser pipeline | DP-113, DP-118, DP-209 |
 | DP-211 | DONE | Passage -> statement/entity/claim candidate extraction | DP-114, DP-210 |
 | DP-212 | DONE | Candidate dedupe, matching and proposition clustering runtime | DP-115, DP-116, DP-211 |
-| DP-215 | IN PROGRESS | Source Intelligence + contextual evidence suitability/requirements; no global source scores | DP-102, DP-113, DP-115, DP-118, DP-209, DP-210 |
+| DP-215 | IN PROGRESS | Source Intelligence + contextual evidence suitability/requirements is implemented; only AC-215.9 remains blocked because the real 100-item Garlasco tracer collection/manifest and its role/rights/lineage data do not exist | DP-102, DP-113, DP-115, DP-118, DP-209, DP-210 |
 | DP-213 | DONE | Coverage-needs planner for missing primary/original/independent material | DP-211, DP-212, DP-215 |
-| DP-214 | IN PROGRESS | Garlasco Research Collection tracer-bullet corpus; strict 100-item/replay preflight implemented, real collection absent and 27-vs-30 baseline reconciliation pending | DP-209..213, DP-215, DP-117 |
+| DP-214 | IN PROGRESS | Garlasco Research Collection tracer-bullet corpus; 30/30 claim baseline now reconciled, but the real versioned 100-item `research:garlasco` manifest/collection, captures/passages/candidates/rights/Source-Intelligence receipts are absent | DP-209..213, DP-215, DP-117 |
 | DP-216 | DONE | Exact quote/source-span binding; human-review/source hashes and bounded discontinuous-span omission disclosure proven fail-closed locally and on MiniPC | DP-111, DP-210; coordinate DP-207/DP-305 |
 | DP-217 | DONE | Transcript reliability tiers + persisted human/audio verbatim review gate bound to exact source/canonical hashes and reviewed range | DP-204/DP-207 where live; fixture lane independent |
 | DP-218 | DONE | Speaker-attribution proof covers the exact quoted/claimed span; schema/benchmark/MiniPC acceptance complete | DP-114, DP-207, ADR 0003 |
@@ -190,7 +190,7 @@ without manual DB surgery.
 | DP-220 | DONE | Context-integrity / semantic-clipping guard for public statements, including discontinuous/montage fail-closed handling | DP-216, DP-217, DP-219 |
 | DP-221 | DONE | Original wording vs paraphrase/summary/translation separation; public serializers/search + DP-305 no-body exact-copy guard proven locally and on MiniPC | DP-216 |
 | DP-222 | DONE | Public-attribution Person identity + same-name/role-at-time gate; projection/read-time fail-closed identity/role proof + persisted tamper + MiniPC acceptance complete | DP-101, DP-114, DP-216, DP-218 |
-| DP-223 | IN PROGRESS | False-attribution/fabricated-quote adversarial benchmark; 59-case zero-tolerance gate + real PostgreSQL tamper path proven locally and in isolated MiniPC canary, full adversarial projection + DP-704 release-candidate read-back pending | DP-216..222, DP-224 |
+| DP-223 | IN PROGRESS | False-attribution/fabricated-quote adversarial benchmark; 59-case gate, persisted full-corpus PostgreSQL projection/serializer replay and zero false-attribution/fabricated-quote boundary are green; only AC-223.9 DP-704 release-candidate MiniPC read-back remains | DP-216..222, DP-224 |
 | DP-224 | DONE | Material-assertion citation assurance over approved evidence/passages; exact Passage/source-hash binding + persisted tamper + MiniPC acceptance complete | DP-215, DP-210; coordinate DP-216/DP-308 |
 | DP-225 | DONE | Reviewed original-source resolver over approved derivation families; persisted receipt + private Studio inspection proven on MiniPC | DP-115, DP-215 |
 | DP-226 | DONE | Compound numerical verification: delta/ratio/percent change + unit/denominator policy; structured-provider fixture + MiniPC proof complete | DP-215 |
@@ -225,10 +225,10 @@ handled before opening the product to users.
 | Ticket | Status | Description | Depends on |
 |---|---|---|---|
 | DP-301 | IN PROGRESS | Intentionality/"lie" engineering policy AC-301.1-.7 complete and fail-closed; AC-301.8 remains blocked on qualified Q-306/DP-307 owner/counsel dispositions | M0 |
-| DP-302 | IN PROGRESS | Right-of-reply engineering AC-302.1-.10 machine-proven, including durable abuse/retention ledgers and enabled MiniPC intake→private-review replay; Q-306/DP-307 launch/legal decisions remain | M0 |
-| DP-303 | IN PROGRESS | Typed append-only correction/takedown/appeal engineering AC-303.1-.10 machine-proven through full MiniPC submit→review→correction/reanalysis→public-projection canary; Q-306/DP-307 legal decisions remain | DP-302 |
+| DP-302 | DONE | Right-of-reply engineering AC-302.1-.10 machine-proven, including durable abuse/retention ledgers and enabled MiniPC intake→private-review replay; public intake remains disabled pending separate Q-306/DP-307 launch/legal decisions | M0 |
+| DP-303 | DONE | Typed append-only correction/takedown/appeal engineering AC-303.1-.10 machine-proven through full MiniPC submit→review→correction/reanalysis→public-projection canary; launch policy/legal decisions remain separate Q-306/DP-307 blockers | DP-302 |
 | DP-304 | IN PROGRESS | Privacy/minimization policy has sensitive-data quarantine and fail-closed retention dry-runs proven (AC-304.3/.6); complete field inventory, ingestion-wide relevance, all-surface privacy/log proof, persisted rights-request cases, wired private-access runtime and composite MiniPC canary remain, with Q-306/DP-307 legal decisions unresolved | M0 |
-| DP-305 | IN PROGRESS | Copyright/transcript excerpt engineering AC-305.1-.8 machine-proven through rights registry, fail-closed no-body boundary, complaint→hold bridge and MiniPC excerpt/expiry/cleanup canary; source-specific Q-306/DP-307 legal clearance remains | M0 |
+| DP-305 | DONE | Copyright/transcript excerpt engineering AC-305.1-.8 machine-proven through rights registry, fail-closed no-body boundary, complaint→hold bridge and MiniPC excerpt/expiry/cleanup canary; real excerpt profile remains disabled pending source-specific Q-306/DP-307 legal clearance | M0 |
 | DP-306 | DONE | Italy/EU legal closure-control register structurally complete; this is not legal clearance: all launch-sensitive Q-306 rows remain OPEN/BLOCKED with 0 qualified dispositions, handed off to DP-307 | DP-301..305 |
 | DP-307 | FUTURE | Qualified legal review remains BLOCKED: no accepted reviewer/scope or owner/counsel dispositions; all DP-307 acceptance criteria remain open | DP-306 |
 | DP-308 | DONE | Publication evidence invariants + fail-closed production revalidation complete; clean HEAD full suite 1720/1720, benchmark 5/5 and isolated MiniPC/PostgreSQL acceptance green; no Q-306/DP-307 legal conclusion implied | DP-215, DP-216..224, DP-301..305 |
@@ -256,9 +256,9 @@ LLM in the request path.
 | DP-402 | DONE | Read-only HTTP API implementation over public schema v1 | DP-105, DP-401 |
 | DP-403 | DONE | OpenAPI + examples + API versioning/deprecation policy | DP-402 |
 | DP-404 | DONE | `llms.txt` and agent-oriented public data documentation | DP-403 |
-| DP-405 | IN PROGRESS | Person archive UI; chronology/no-score/filters/runtime proof green, multi-version/zero-record/manual accessibility states remain | DP-105, DP-425 |
+| DP-405 | IN PROGRESS | Person archive UI; populated 12-finding chronology plus correction/reply history are green; only deliberate zero-public-record Person state and real screen-reader/manual accessibility acceptance remain | DP-105, DP-425 |
 | DP-406 | BLOCKED | Topic dossier UI implementation complete; real approved Topic/membership runtime canary still unavailable | DP-430, DP-425 |
-| DP-407 | IN PROGRESS | Content/source-locator UI; DP-434 contract blocker resolved, remaining full-state/manual accessibility acceptance open | DP-207, DP-105, DP-425 |
+| DP-407 | IN PROGRESS | Content/source-locator UI; populated timed/written, correction/reply, privacy/offline and zero-finding fallback matrices are green; only unresolved/blocked public-state wording and real screen-reader/manual accessibility acceptance remain | DP-207, DP-105, DP-425 |
 | DP-408 | BLOCKED | Trace/longitudinal relation UI; implementation complete, real reviewed runtime canary unavailable | DP-104, DP-105, DP-425 |
 | DP-409 | IN PROGRESS | Public search/indexing without new infra; deterministic static artifact/UI, browser/mobile/reduced-motion/exact-200%-zoom and live MiniPC approved-projection/search/API fingerprint convergence are green; actual screen-reader/manual accessibility and DP-408 dependency remain | DP-405..408, DP-425 |
 | DP-410 | IN PROGRESS | Accessibility/performance/SEO acceptance; rendered quality, browser zoom, SEO/static metadata, cold MiniPC performance, live static/API convergence and dependency/bookkeeping audit are green; manual AT/focus/touch/contrast acceptance remains | DP-405..409, DP-422, DP-425..429 |

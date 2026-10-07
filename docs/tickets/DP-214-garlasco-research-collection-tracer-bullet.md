@@ -75,9 +75,24 @@ replay receipt fails closed if logical item IDs/claims change or ingestion chang
 Finding count; additional immutable Capture versions may be recorded without redefining a
 logical item. Manifest hashing is deterministic and material-sensitive.
 
-Read-only MiniPC inspection on 2026-10-05 found **no** existing `research:garlasco`
-collection and only **27** Atomic Claims discoverable by current Garlasco content identity,
-so none of AC-214.1..8 is marked complete and the ticket does not pretend the required
-100-item/30-claim tracer exists. The next real tranche is to reconcile the 27-vs-30 baseline,
-assemble the owner-approved 100-item source/query manifest and run it privately through the
-existing DP-209..213/117 seams before any AC can close.
+Read-only MiniPC reinspection on 2026-10-07 resolves the old **27-vs-30** baseline mismatch:
+the authoritative PostgreSQL database now contains exactly **30** `claim:garlasco:*` Atomic
+Claims. That recovery does not create the tracer-bullet corpus. The same current runtime has
+**0** Research Collections, therefore no `research:garlasco` row or membership; the 18 current
+Garlasco Content records linked by those claims have **0** `content_capture`, **0** `passage`,
+**0** Statement Candidate, **0** Claim Candidate and **0** collection Coverage Need rows.
+All 18 current Garlasco Content rows remain `rights_status=UNKNOWN`. No real 100-item Garlasco
+manifest was found in the repository, current MiniPC `/tmp`, runtime mirror or the searched
+operator-state/backups paths; the former curated intake manifest documented at
+`/tmp/garlasco-curated-2026-09-28.json` is no longer present.
+
+The current MiniPC global corpus-search benchmark still passes **13/13 (100% case recall)**,
+which confirms the existing claims remain searchable. It is not a `research:garlasco`
+collection-scoped tracer run and therefore does not close AC-214.4 or substitute for AC-214.1,
+.2, .5, .6, .7 or .8. None of AC-214.1..8 is marked complete from this inspection.
+
+The exact remaining data blocker is the real bounded pilot itself: a versioned 100-item manifest
+with the five required source-family classes, discovery provenance and rights state, persisted as
+`research:garlasco` and then processed through DP-209..213/117 so the required captures,
+passages, candidates, derivation/duplicate examples, Coverage Needs, replay and MiniPC leak/public
+count checks can be read back. No synthetic collection or fixture is accepted as a substitute.

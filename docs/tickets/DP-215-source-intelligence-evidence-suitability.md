@@ -259,5 +259,25 @@ real `research:garlasco` collection/tracer and its required source-role/lineage/
 rights explanation before promotion is therefore unavailable. AC-215.9 remains unchecked;
 no synthetic fixture or unrelated MiniPC canary is treated as a substitute.
 
+2026-10-07 read-only reinspection against the authoritative MiniPC runtime narrows that blocker.
+The historical baseline is now healthy at exactly **30** `claim:garlasco:*` Atomic Claims, so the
+former 27-vs-30 mismatch is no longer blocking DP-214. The tracer collection itself is still
+absent: `research_collection` has 0 rows, with 0 `research:garlasco` members/captures/passages/
+Coverage Needs. Only 18 existing Garlasco Content records are currently identifiable in the live
+database; all 18 have `rights_status=UNKNOWN`, none has a private rights record, and the 10 source
+IDs represented by those records map to **0** active Source Intelligence profiles, roles, scopes
+or approved source relations. The runtime also has 0 research-discovery manifests/runs/hits and 0
+content-derivation candidates. A repository/MiniPC file search found no real 100-item tracer
+manifest to evaluate.
+
+The existing non-collection Garlasco search benchmark was rerun against the current MiniPC and
+passes **13/13 (100% case recall)**. That proves searchability of the historical claim corpus, not
+AC-215.9: there is still no selected 100-item DP-214 source set for which every source can be
+explained by role, lineage, scope, time and rights state before promotion/publication checks.
+AC-215.9 therefore remains unchecked and this ticket remains `IN_PROGRESS`. The required closure
+input is the real DP-214 manifest/collection plus its persisted Source Intelligence and rights/
+lineage data; fabricating profiles, rights decisions or a synthetic corpus would invalidate the
+acceptance.
+
 Original pending note: implementation, migration, deterministic fixtures, MiniPC proof
 and DP-213/DP-214 integration were all pending before this Mac-side verification.

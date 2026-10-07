@@ -120,29 +120,29 @@ not an operator transcript, evidence-review queue, worker state, or publication 
 
 ## Acceptance criteria
 
-- [ ] `AC-407.1`: Given an approved Content item with several public statement moments, when
+- [x] `AC-407.1`: Given an approved Content item with several public statement moments, when
   a reader opens the route on desktop or mobile, then media/context, ordered moments,
   selected finding, and approved sources are available without a raw transcript dump.
-- [ ] `AC-407.2`: Given a moment with a valid source segment and timestamp, when the
+- [x] `AC-407.2`: Given a moment with a valid source segment and timestamp, when the
   reader selects it, then the player/marker, finding panel, and URL state identify the
   same public moment and the source position is not inferred from display order.
-- [ ] `AC-407.3`: Given no public media, no public claim moments, or no approved public
+- [x] `AC-407.3`: Given no public media, no public claim moments, or no approved public
   evidence, when the page renders, then it has a deliberate text-first fallback and does
   not fabricate a player, claim, source, or stronger assessment.
 - [ ] `AC-407.4`: Given an unresolved, needs-more-evidence, under-review, or blocked
   state, when rendered, then the wording is explicit and the page remains navigable;
   analysis completion is never presented as publication.
-- [ ] `AC-407.5`: Given a transcript segment without approved public-safe content, when
+- [x] `AC-407.5`: Given a transcript segment without approved public-safe content, when
   the page renders, then it exposes only the permitted source/timestamp metadata and
   never raw/canonical transcript text or provider output.
-- [ ] `AC-407.6`: Given a correction or approved right of reply, when selected, then the
+- [x] `AC-407.6`: Given a correction or approved right of reply, when selected, then the
   page preserves the original Content moment and links the version-aware history.
 - [ ] `AC-407.7`: Given keyboard-only input, 200% zoom, reduced motion, and a screen
   reader, when the reader traverses media controls, moment markers, details, and source
   links, then all actions and state are perceivable and operable with visible focus.
-- [ ] `AC-407.8`: Given providers are offline, when an approved projection is served,
+- [x] `AC-407.8`: Given providers are offline, when an approved projection is served,
   the page remains readable and no LLM, provider, or operational DB request occurs.
-- [ ] `AC-407.9`: Given the collision/dependency audit runs, then DP-407 owns the public
+- [x] `AC-407.9`: Given the collision/dependency audit runs, then DP-407 owns the public
   Content route, DP-408 owns Trace, and Studio remains a separate boundary.
 
 ## Validation / proof
@@ -233,3 +233,26 @@ acceptance is closed; DP-434 completion alone is not treated as a screen-reader/
   blocker above. It does not by itself prove DP-407's full unresolved/blocked-state matrix or the
   required real screen-reader pass, so those acceptance items remain open and the ticket is not
   promoted to DONE.
+
+### Final machine acceptance refresh — 2026-10-07
+
+The dedicated public-schema-valid DP-407 projection was rebuilt through the current static
+frontend and exercised with the production QA scripts. The build emitted **54 HTML pages**,
+including three canonical Content routes; one Content carries **12 ordered published moments**,
+with timed locators derived from approved source segments, while the written-source fixture uses
+the reviewed text-position locator. The route, quality, trust and correction checkers all pass.
+
+Browser QA scans the populated snapshot with **0 external requests**, exact 200% browser zoom,
+phone layout and reduced-motion checks green. The performance checker also reports **0 external
+requests** and no overflow/autoplay regressions. The same projection contains both an approved
+correction and an approved right of reply, and correction consistency proves the version-aware
+derived links. Rendered Content HTML exposes source/locator metadata but none of
+`raw_text`, `transcript_text`, `canonical_text`, provider payloads or evidence bodies. The
+first-class zero-finding Content canary from DP-434 supplies the deliberate no-public-moment
+fallback, while the normal Content pages explicitly refuse to fabricate an unapproved media
+player.
+
+This closes AC-407.1/.2/.3/.5/.6/.8/.9. AC-407.4 remains open because a literal
+unresolved/needs-more-evidence/under-review/blocked public Content state is not yet exercised
+through the approved public contract. AC-407.7 remains open because automated AX/keyboard/zoom
+checks are not substituted for the required real screen-reader/manual accessibility pass.

@@ -318,8 +318,9 @@ enforced; human content gates are checklist items), AC-604.5 PASS — follow-up 
 clones use the commit timestamp as `SOURCE_DATE_EPOCH`; wheels are byte-identical, and
 sdists are normalized only for tar/gzip metadata before comparison. The executable gate is
 `tools/check_reproducible_package.py`, backed by `tools/normalize_sdist.py`, and CI runs it;
-AC-604.6 PASS, AC-604.7 N/A (no persistence change in this candidate),
-AC-604.8 PASS (documented as a gate; no runtime claim is made),
+AC-604.6 PASS, AC-604.7 PASS on the current integrated candidate (the later
+`20261007` persistence migration has apply/replay plus restore-drill proof),
+AC-604.8 PASS with current-head MiniPC runtime/read-back evidence,
 AC-604.9 PASS (consumes the DP-603 inventory), AC-604.10 PASS, AC-604.11 PASS,
 AC-604.12 PASS.
 
@@ -327,6 +328,24 @@ AC-604.12 PASS.
 exists, but there is still no release tag, signing/registry decision, or completed
 legal/security approval. Per blocked conditions this ticket stays IN PROGRESS until the
 remaining release gates close.
+
+**Final integrated candidate follow-up 2026-10-07.** Canonical main and `origin/main`
+resolve to `2db8ca1100c5a1efd99ce38ffe50b1593646ed83`. GitHub Actions run
+`37636313362` is fully green across detached clean-clone/reproducible-package,
+repository-contract, web-static, and Python 3.11-3.14 on Linux and macOS. The matching local
+candidate runs **1781/1781** Python tests, restore verification, benchmark **5/5**,
+contributor acceptance, and `git diff --check` successfully.
+
+This candidate does contain a persistence change, so AC-604.7 is no longer N/A for the
+current head: `20261007-add-evidence-effective-time-state.sql` was applied and replayed on
+the MiniPC without drift, and the post-migration backup `20261007T143042Z` passed a real
+disposable restore drill with **94** table-data entries and exact row-count parity. AC-604.8
+also has concrete runtime proof for the current head: the approved projection/static/API
+were rebuilt on the MiniPC, all runtime units returned active, and localhost plus the
+Cloudflare canonical host converged on projection fingerprint
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`.
+This remains release-readiness evidence only; Gate 11 is still BLOCKED and no tag, Release,
+registry/signing action, or stable-v1 authorization is inferred.
 
 **Hosted follow-up 2026-10-06.** `origin/main` and the GitHub default branch both resolve to
 `df8cdcc9e22295de0c80ab9ca0c9366a779f3cef`; Actions run `37537071243` completed

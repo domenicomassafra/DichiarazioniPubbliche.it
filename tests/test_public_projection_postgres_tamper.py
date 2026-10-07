@@ -13,12 +13,22 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256  # noqa: E402
+from dichiarazioni_pubbliche.false_attribution_benchmark import (  # noqa: E402
+    load_fixture,
+    run_benchmark,
+)
 from dichiarazioni_pubbliche.public_projection import (  # noqa: E402
     PublicProjectionStore,
     ProductionPublicProjectionStore,
     build_public_projection,
+    write_public_bundle,
 )
-from dichiarazioni_pubbliche.wording_contract import wording_contract_metadata  # noqa: E402
+from dichiarazioni_pubbliche.wording_contract import (  # noqa: E402
+    TranslationReviewState,
+    WordingType,
+    make_derived_wording,
+    wording_contract_metadata,
+)
 
 
 def _free_tcp_port() -> int:
@@ -336,6 +346,266 @@ class PublicProjectionPostgresTamperTests(unittest.TestCase):
             assertion_sha256=assertion_text_sha256(rationale),
         )
 
+    def _seed_persisted_replay_case(self, case: dict, result, *, fixture_version: str) -> None:
+        """Persist one authored DP-223 case from its actual gate result.
+
+        The replay never copies the authored expected publication state into PostgreSQL.
+        Instead it materializes the production gate result plus the exact authored
+        source/span/person identifiers.  Cases without an authored person keep a NULL
+        speaker and therefore remain fail-closed at the final public boundary.
+        """
+
+        case_id = str(case["id"])
+        source = dict(case["source"])
+        span = dict(case["span"])
+        params = dict(case.get("input") or {})
+        speaker_person_id = str(result.actual_person_id or "")
+        normalized_claim = f"Caso sintetico DP-223 {case_id}."
+        occurrence_id = str(source["source_id"])
+        source_language = str(params.get("source_language") or "it")
+        representations = []
+        if (
+            result.actual_publication_state == "PUBLIC"
+            and result.actual_wording_type == WordingType.TRANSLATION.value
+        ):
+            representations.append(
+                make_derived_wording(
+                    wording_type=WordingType.TRANSLATION,
+                    occurrence_id=occurrence_id,
+                    text=str(params["translated_text"]),
+                    source_wording_type=WordingType.VERBATIM_ORIGINAL,
+                    language=str(params["target_language"]),
+                    source_language=str(params["source_language"]),
+                    derivation_method="DP223_PERSISTED_REPLAY",
+                    derivation_version="dp223-persisted-replay-v1",
+                    review_state=(
+                        TranslationReviewState.HUMAN_REVIEWED.value
+                        if params.get("human_reviewed")
+                        else TranslationReviewState.NEEDS_REVIEW.value
+                    ),
+                    signal_codes=result.reason_codes,
+                )
+            )
+        wording = wording_contract_metadata(
+            occurrence_id=occurrence_id,
+            source_text_sha256=str(span["sha256"]),
+            normalized_claim=normalized_claim,
+            language=source_language,
+            derivation_version="dp223-persisted-replay-v1",
+            representations=tuple(representations),
+        )
+        publication_status = {
+            "PUBLIC": "PUBLISH",
+            "HELD": "POLICY_HOLD",
+            "OMITTED": "NO_FINDING",
+            "UNRESOLVED": "UNRESOLVED",
+        }[result.actual_publication_state]
+        assessment = (
+            "UNRESOLVED"
+            if result.actual_publication_state == "UNRESOLVED"
+            else "SUPPORTED"
+        )
+        statement_date = str(params.get("statement_date") or "2026-05-01")
+        rationale = (
+            f"DP-223 authored synthetic replay {case_id}: "
+            + ",".join(result.reason_codes)
+        )
+        content_id = f"content:dp223-replay:{case_id}"
+        claim_id = f"claim:dp223-replay:{case_id}"
+        provenance_id = f"text-provenance:dp223-replay:{case_id}"
+        evidence_id = f"evidence:dp223-replay:{case_id}"
+        observation_id = f"observation:dp223-replay:{case_id}"
+        verification_id = f"verification:dp223-replay:{case_id}"
+        finding_id = f"finding:dp223-replay:{case_id}"
+        assertion_id = f"assertion:dp223-replay:{case_id}"
+        citation_id = f"citation:dp223-replay:{case_id}"
+        self.store.run(
+            """
+            INSERT INTO person (id, canonical_name)
+            SELECT :'speaker_person_id', :'speaker_person_id'
+            WHERE :'speaker_person_id' <> ''
+            ON CONFLICT (id) DO NOTHING;
+
+            INSERT INTO content_item (
+                id, canonical_url, title, language, published_at, processing_status
+            ) VALUES (
+                :'content_id', :'source_url', :'source_id', :'source_language',
+                :'statement_date'::date + time '12:00:00', 'PROCESSED'
+            );
+
+            INSERT INTO atomic_claim (
+                id, content_id, speaker_person_id, normalized_claim, claim_type,
+                temporal_scope, check_worthy, extraction_version, metadata
+            ) VALUES (
+                :'claim_id', :'content_id',
+                CASE WHEN :'speaker_person_id' = '' THEN NULL ELSE :'speaker_person_id' END,
+                :'normalized_claim', 'NUMERIC_STATISTIC',
+                jsonb_build_object(
+                    'statement_date', :'statement_date',
+                    'valid_from', NULL,
+                    'valid_until', NULL
+                ),
+                true, 'dp223-persisted-replay-v1',
+                jsonb_build_object(
+                    'speech_mode', 'DIRECT_UTTERANCE',
+                    'context_integrity', jsonb_build_object(
+                        'state', 'CLEAR_AUTOMATIC',
+                        'quote_sha256', :'span_sha256'
+                    ),
+                    'wording', :'wording'::jsonb,
+                    'dp223_replay', jsonb_build_object(
+                        'fixture_version', :'fixture_version',
+                        'case_id', :'case_id',
+                        'gate', :'gate',
+                        'actual_publication_state', :'actual_publication_state',
+                        'actual_wording_type', :'actual_wording_type',
+                        'reason_codes', :'reason_codes'::jsonb
+                    )
+                )
+            );
+
+            INSERT INTO claim_text_provenance (
+                id, claim_id, content_id, person_id, selector_type, quote_sha256,
+                source_sha256, start_char, end_char, attribution_method, status, source_ref
+            )
+            SELECT
+                :'provenance_id', :'claim_id', :'content_id', :'speaker_person_id',
+                'TEXT_POSITION_HASH', :'span_sha256', :'source_sha256',
+                :'span_start'::integer, :'span_end'::integer,
+                'SOURCE_QUOTE', 'APPROVED',
+                jsonb_build_object(
+                    'fixture_version', :'fixture_version',
+                    'case_id', :'case_id',
+                    'source_id', :'source_id'
+                )
+            WHERE :'speaker_person_id' <> '';
+
+            INSERT INTO evidence (
+                id, canonical_url, publisher, source_type, publication_date,
+                observed_at, content_sha256, reference_period, rights_status,
+                metadata
+            ) VALUES (
+                :'evidence_id', :'source_url', 'DP-223 authored synthetic fixture',
+                'SYNTHETIC_FIXTURE', :'statement_date'::date,
+                :'statement_date'::date + time '12:00:00', :'source_sha256',
+                :'statement_date', 'UNKNOWN',
+                jsonb_build_object(
+                    'fixture_version', :'fixture_version',
+                    'case_id', :'case_id',
+                    'source_id', :'source_id',
+                    'span_sha256', :'span_sha256'
+                )
+            );
+
+            INSERT INTO claim_evidence_candidate (
+                claim_id, evidence_id, retrieval_method, retrieval_version,
+                relation_candidate, status, statement_cutoff
+            ) VALUES (
+                :'claim_id', :'evidence_id', 'SYNTHETIC_FIXTURE',
+                'dp223-persisted-replay-v1', 'SUPPORT', 'APPROVED', :'statement_date'::date
+            );
+
+            INSERT INTO evidence_observation (
+                id, evidence_id, observation_type, value_text, extraction_method,
+                extraction_version, status
+            ) VALUES (
+                :'observation_id', :'evidence_id', 'TEXT_VALUE', :'span_sha256',
+                'SYNTHETIC_FIXTURE', 'dp223-persisted-replay-v1', 'APPROVED'
+            );
+
+            INSERT INTO verification_run (
+                id, claim_id, verification_kind, verification_version,
+                input_fingerprint, statement_cutoff, assessment, evidence_ids,
+                observation_ids, blockers, rationale_codes
+            ) VALUES (
+                :'verification_id', :'claim_id', 'DETERMINISTIC',
+                'dp223-persisted-replay-v1', :'source_sha256', :'statement_date'::date,
+                :'assessment', jsonb_build_array(:'evidence_id'),
+                jsonb_build_array(:'observation_id'), '[]'::jsonb, :'reason_codes'::jsonb
+            );
+
+            INSERT INTO finding (
+                id, claim_id, assessment, rationale, publication_status,
+                policy_version, verification_run_id, created_at
+            ) VALUES (
+                :'finding_id', :'claim_id', :'assessment', :'rationale',
+                :'publication_status', 'dp223-persisted-replay-v1',
+                :'verification_id', :'statement_date'::date + time '12:00:00'
+            );
+
+            INSERT INTO finding_evidence (finding_id, evidence_id, relation)
+            VALUES (:'finding_id', :'evidence_id', 'VERIFICATION_INPUT');
+
+            INSERT INTO finding_assertion (
+                id, finding_id, assertion_text, assertion_text_sha256,
+                assertion_type, material, required_relation
+            ) VALUES (
+                :'assertion_id', :'finding_id', :'rationale', :'assertion_sha256',
+                'RATIONALE_MATERIAL', true, 'SUPPORT'
+            );
+
+            INSERT INTO finding_assertion_citation (
+                id, assertion_id, evidence_id, observation_id, relation
+            ) VALUES (
+                :'citation_id', :'assertion_id', :'evidence_id', :'observation_id', 'SUPPORT'
+            );
+
+            INSERT INTO review_event (id, entity_type, entity_id, action, created_at)
+            VALUES
+                (
+                    'review:evidence:' || :'case_id', 'CLAIM_EVIDENCE_CANDIDATE',
+                    :'claim_id' || '|' || :'evidence_id' || '|dp223-persisted-replay-v1',
+                    'APPROVED', :'statement_date'::date + time '12:01:00'
+                ),
+                (
+                    'review:observation:' || :'case_id', 'EVIDENCE_OBSERVATION',
+                    :'observation_id', 'APPROVED', :'statement_date'::date + time '12:02:00'
+                );
+
+            INSERT INTO review_event (id, entity_type, entity_id, action, created_at)
+            SELECT
+                'review:provenance:' || :'case_id', 'CLAIM_TEXT_PROVENANCE',
+                :'provenance_id', 'APPROVED', :'statement_date'::date + time '12:03:00'
+            WHERE :'speaker_person_id' <> '';
+
+            INSERT INTO review_event (id, entity_type, entity_id, action, created_at)
+            SELECT
+                'review:finding:' || :'case_id', 'FINDING', :'finding_id',
+                'APPROVED', :'statement_date'::date + time '12:05:00'
+            WHERE :'actual_publication_state' = 'PUBLIC';
+            """,
+            speaker_person_id=speaker_person_id,
+            content_id=content_id,
+            source_url=f"https://benchmark.invalid/{case_id}",
+            source_id=source["source_id"],
+            source_language=source_language,
+            statement_date=statement_date,
+            claim_id=claim_id,
+            normalized_claim=normalized_claim,
+            span_sha256=span["sha256"],
+            wording=json.dumps(wording, ensure_ascii=False, separators=(",", ":")),
+            fixture_version=fixture_version,
+            case_id=case_id,
+            gate=case["gate"],
+            actual_publication_state=result.actual_publication_state,
+            actual_wording_type=result.actual_wording_type,
+            reason_codes=json.dumps(list(result.reason_codes), separators=(",", ":")),
+            provenance_id=provenance_id,
+            source_sha256=source["sha256"],
+            span_start=span["start"],
+            span_end=span["end"],
+            evidence_id=evidence_id,
+            observation_id=observation_id,
+            verification_id=verification_id,
+            assessment=assessment,
+            finding_id=finding_id,
+            publication_status=publication_status,
+            rationale=rationale,
+            assertion_id=assertion_id,
+            assertion_sha256=assertion_text_sha256(rationale),
+            citation_id=citation_id,
+        )
+
     def _projection(self) -> dict:
         return build_public_projection(
             self.store,
@@ -346,6 +616,114 @@ class PublicProjectionPostgresTamperTests(unittest.TestCase):
         projection = self._projection()
         self.assertEqual(projection["dossier_count"], 0)
         self.assertEqual(projection["dossiers"], [])
+
+    def test_full_adversarial_corpus_replays_through_persisted_projection_and_bundle(self):
+        """AC-223.3: all 59 authored cases reach persisted final-output handling."""
+
+        # setUp creates the legacy tamper fixture used by the other tests.  This
+        # acceptance replay owns the disposable database instead and seeds only
+        # authored DP-223 cases plus deterministic persistence scaffolding.
+        self._recreate_fixture_database()
+        fixture = load_fixture()
+        report = run_benchmark()
+        self.assertEqual(report.total_cases, 59)
+        self.assertEqual(report.failed_cases, 0)
+        self.assertEqual(report.metrics["known_false_public_attribution"], 0)
+        self.assertEqual(report.metrics["fabricated_public_quote"], 0)
+        results = {result.case_id: result for result in report.cases}
+        self.assertEqual(set(results), {str(case["id"]) for case in fixture["cases"]})
+
+        for case in fixture["cases"]:
+            self._seed_persisted_replay_case(
+                case,
+                results[str(case["id"])],
+                fixture_version=str(fixture["fixture_version"]),
+            )
+
+        persisted_count = int(
+            self.store.run_literal(
+                "SELECT count(*) FROM atomic_claim WHERE metadata ? 'dp223_replay';"
+            )
+        )
+        self.assertEqual(persisted_count, 59)
+
+        projection = self._projection()
+        finding_prefix = "finding:dp223-replay:"
+        public_by_case = {
+            str(dossier["finding_id"]).removeprefix(finding_prefix): dossier
+            for dossier in projection["dossiers"]
+        }
+        authored_by_case = {str(case["id"]): case for case in fixture["cases"]}
+        expected_projectable = {
+            case_id
+            for case_id, case in authored_by_case.items()
+            if case["expected"]["publication_state"] == "PUBLIC"
+            and case["expected"].get("person_id") is not None
+        }
+        self.assertEqual(set(public_by_case), expected_projectable)
+
+        # The three transcript-only positive controls intentionally have no authored
+        # person identity.  The final boundary must under-publish them rather than
+        # fabricate a speaker solely to make the replay green.
+        personless_public_controls = {
+            case_id
+            for case_id, case in authored_by_case.items()
+            if case["expected"]["publication_state"] == "PUBLIC"
+            and case["expected"].get("person_id") is None
+        }
+        self.assertEqual(
+            personless_public_controls,
+            {
+                "transcript-homophone-control",
+                "transcript-punctuation-control",
+                "transcript-crosstalk-control",
+            },
+        )
+        self.assertTrue(personless_public_controls.isdisjoint(public_by_case))
+        self.assertEqual(projection["dossier_count"], 21)
+
+        false_public_attribution = 0
+        fabricated_public_quote = 0
+        for case_id, dossier in public_by_case.items():
+            expected = authored_by_case[case_id]["expected"]
+            if dossier["speaker"]["id"] != expected["person_id"]:
+                false_public_attribution += 1
+            source_wording = dossier["wording"]["source_occurrence"]
+            if (
+                source_wording["direct_quote_eligible"] is True
+                and source_wording["text_sha256"] != expected["span_sha256"]
+            ):
+                fabricated_public_quote += 1
+        self.assertEqual(false_public_attribution, 0)
+        self.assertEqual(fabricated_public_quote, 0)
+
+        translation = public_by_case["translation-control"]["wording"]["representations"]
+        self.assertEqual([row["wording_type"] for row in translation], ["TRANSLATION"])
+        self.assertFalse(translation[0]["direct_quote_eligible"])
+
+        with tempfile.TemporaryDirectory(prefix="dp223-public-bundle-") as tmp:
+            output_dir = Path(tmp)
+            write_public_bundle(output_dir, projection)
+            serialized = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+            serialized_by_case = {
+                str(dossier["finding_id"]).removeprefix(finding_prefix): dossier
+                for dossier in serialized["dossiers"]
+            }
+            self.assertEqual(set(serialized_by_case), expected_projectable)
+            self.assertEqual(
+                {case_id: dossier["speaker"]["id"] for case_id, dossier in serialized_by_case.items()},
+                {
+                    case_id: authored_by_case[case_id]["expected"]["person_id"]
+                    for case_id in expected_projectable
+                },
+            )
+            claims_dir = output_dir / "claims"
+            self.assertEqual(len(list(claims_dir.glob("*.json"))), 21)
+            self.assertEqual(len(list(claims_dir.glob("*.jsonld"))), 21)
+            self.assertEqual(len(list(claims_dir.glob("*.html"))), 21)
+            self.assertTrue((output_dir / "index.jsonld").is_file())
+            self.assertTrue((output_dir / "index.nt").is_file())
+            self.assertTrue((output_dir / "linked-data-receipt.json").is_file())
 
     def test_valid_persisted_dossier_projects_before_tamper(self):
         rows = self.store.projectable_findings()

@@ -1,6 +1,6 @@
 # DP-302 — Right-of-reply public intake threat model and abuse controls
 
-Status: IN PROGRESS
+Status: DONE
 
 Milestone: M3
 
@@ -388,3 +388,11 @@ the deterministic benchmark is **5/5 PASS**, and `git diff --check` is clean.
 This closes the machine/runtime acceptance only. Public intake remains disabled by default;
 Q-302-01..06, Q-306-03..05 and DP-307 remain unresolved qualified/owner decisions, and no notice,
 lawful basis, moderation obligation, retention period or public-launch authorization is inferred.
+
+## Engineering completion reconciliation — 2026-10-07
+
+All ten acceptance criteria are now backed by the receipts above, including the enabled
+private-intake MiniPC canary. The ticket is therefore DONE as an engineering/threat-model
+implementation. Its launch state remains BLOCKED exactly as specified at the top of this ticket:
+public intake stays disabled until the separate Q-306/DP-307 owner/security/legal decisions and
+any DP-508 applicability decision are accepted. DONE here is not public-intake authorization.

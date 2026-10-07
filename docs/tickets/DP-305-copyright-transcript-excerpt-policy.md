@@ -1,6 +1,6 @@
 # DP-305 — Copyright, transcript, and excerpt publication policy
 
-Status: IN PROGRESS
+Status: DONE
 
 Milestone: M3
 
@@ -460,3 +460,12 @@ local M3 focused regression is **107/107 PASS**, benchmark is **5/5 PASS**, and
 This is not source clearance. Q-305-01..07, Q-306-11..13 and DP-307 remain unresolved, the real
 excerpt launch profile remains disabled, and no quotation amount, licence interpretation,
 platform permission, retention period or legal conclusion is asserted.
+
+## Engineering completion reconciliation — 2026-10-07
+
+All eight acceptance criteria are now proven for the fail-closed machine/runtime contract,
+including the synthetic rights/excerpt/expiry/cleanup MiniPC canary. The ticket is therefore DONE
+as the rights-aware publication-policy implementation. The launch state remains BLOCKED on the
+separate source-specific Q-306/DP-307 qualified decisions, and the real excerpt launch profile
+remains disabled. DONE here grants no quotation right, licence, platform permission or source
+clearance.

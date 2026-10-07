@@ -121,7 +121,7 @@ visibly different page jobs: Person is a chronology; Topic is a dossier.
 
 ## Acceptance criteria
 
-- [ ] `AC-405.1`: Given an approved Person resource with several published finding
+- [x] `AC-405.1`: Given an approved Person resource with several published finding
   versions, when the route renders on desktop or mobile, then it shows a neutral,
   claim-first chronology with source/date context and a direct Statement path.
 - [x] `AC-405.2`: Given a dated Role Interval, when a row is displayed, then the role is
@@ -133,7 +133,7 @@ visibly different page jobs: Person is a chronology; Topic is a dossier.
 - [x] `AC-405.4`: Given an unsafe, stale, tampered, or contract-incompatible projection,
   when the build or request runs, then the Person page fails closed and does not use the
   demo fixture or a stale browser record.
-- [ ] `AC-405.5`: Given a correction or approved right of reply, when the history is
+- [x] `AC-405.5`: Given a correction or approved right of reply, when the history is
   present, then the page links both finding versions and preserves the original record;
   private or unreviewed history is absent.
 - [ ] `AC-405.6`: Given any page state, when rendered without color, when zoomed to
@@ -226,4 +226,21 @@ open rather than being inferred from adjacent evidence:
   the current cross-surface browser automation is Explore-centric and is not substituted for
   that missing Person matrix.
 
-No current implementation or historical receipt is rewritten into a pass for these four cases.
+No current implementation or historical receipt is rewritten into a pass for the remaining
+zero-record and manual-accessibility cases.
+
+### Populated chronology/history refresh — 2026-10-07
+
+The current DP-407 public-schema fixture also supplies a deterministic populated Person
+acceptance case. Its canonical `/persone/person-demo-maintenance/` page renders **12 published
+finding rows** for the same approved Person, with chronology, source labels and per-finding
+assessment labels. The fixture contains one approved correction and one approved right of reply;
+the Person surface renders the corresponding version-aware `Correzioni e repliche` links to the
+Statement history instead of replacing the original chronology entry. The populated snapshot
+passes route/quality/correction consistency plus browser and performance QA with zero external
+requests.
+
+This closes AC-405.1 and AC-405.5. AC-405.3 remains open because the public projection currently
+does not emit a Person resource/route with zero public records; filter-result emptiness is not
+substituted for that stronger state. AC-405.6 remains open because automated keyboard/zoom/AX
+inspection is not substituted for the required real screen-reader/manual acceptance.

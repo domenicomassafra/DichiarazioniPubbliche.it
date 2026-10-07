@@ -72,7 +72,7 @@ public attribution for higher recall.
   from implementation code.
 - [x] **AC-223.2:** Every required adversarial class has at least one positive and one
   negative/control example where meaningful.
-- [ ] **AC-223.3:** The full public-projection path produces **zero** known false-person
+- [x] **AC-223.3:** The full public-projection path produces **zero** known false-person
   attributions and **zero** fabricated direct quotes.
 - [x] **AC-223.4:** A failure in quote, transcript, speaker, identity, context, rights or
   review provenance produces `HELD/OMITTED/UNRESOLVED`, never a guessed fallback.
@@ -147,7 +147,8 @@ to Git solely for this benchmark. DP-602 owns CI wiring; DP-704 owns launch rehe
   rejected before public attribution. These tests pass using only the disposable local
   cluster. No production or MiniPC database is contacted.
 
-AC-223.3/.9 remain open. The combined deterministic gate now closes AC-223.4: the 59-case
+At this 2026-10-06 slice, AC-223.3/.9 remained open. The combined deterministic gate closed
+AC-223.4: the 59-case
 hand-labelled suite exercises quote, transcript, speaker, identity, context, rights,
 source-drift and review-provenance failures with every adverse case ending
 `HELD/OMITTED/UNRESOLVED`, while the persisted production-boundary suite exercises direct
@@ -188,7 +189,29 @@ DP-223 **59/59** also pass. This current canary supersedes the older 6-test Mini
 for deterministic evidence-core behavior, but it is deliberately **not** AC-223.9: no
 release candidate was deployed or read back through DP-704.
 
-AC-223.3 remains open because the complete 59-case authored corpus still terminates in its
-individual production gate families rather than replaying every case through the persisted
-public-projection store/serializer. AC-223.9 remains open until DP-704 supplies an actual
-MiniPC release-candidate projection/read-back receipt.
+2026-10-07 AC-223.3 persisted full-corpus closure:
+
+- `tests.test_public_projection_postgres_tamper` now replays all **59** authored cases through
+  a disposable PostgreSQL 17.11 database and the real `PublicProjectionStore ->
+  build_public_projection -> write_public_bundle` final-output path. The harness persists
+  each case's **actual** production-gate result plus the exact authored source/span/person
+  identifiers; it never copies the authored expected publication label into PostgreSQL to
+  force a pass.
+- All 59 case records are present in persistence. The final public projection contains **21**
+  dossiers and the serializer writes exactly 21 JSON, 21 JSON-LD and 21 HTML claim outputs,
+  plus the projection JSON/JSON-LD/N-Triples/linked-data receipt. Every emitted speaker ID
+  matches the hand-labelled person and every direct-quote source hash matches the authored
+  span hash: `known_false_public_attribution=0`, `fabricated_public_quote=0` at the serialized
+  boundary.
+- Three positive transcript-verbatim controls are deliberately under-published at the final
+  boundary because the hand-labelled corpus contains no `person_id` for those cases. The
+  replay keeps `speaker_person_id=NULL` and therefore records three false holds rather than
+  inventing an attribution solely to make the acceptance green. This is consistent with the
+  DP-223 zero-tolerance rule that under-publication is preferable to one known false
+  attribution.
+- Focused validation is **17/17** for `tests.test_false_attribution_benchmark` plus
+  `tests.test_public_projection_postgres_tamper`; the dedicated deterministic corpus remains
+  **59/59** with zero false-attribution/fabricated-quote counts, and `git diff --check` passes.
+
+AC-223.9 remains open and DP-704-bound. This disposable local persistence/serializer receipt
+is not a MiniPC release-candidate deployment or projection/read-back receipt.

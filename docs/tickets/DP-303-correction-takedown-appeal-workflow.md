@@ -1,6 +1,6 @@
 # DP-303 — Correction, takedown, and appeal public workflow
 
-Status: IN PROGRESS
+Status: DONE
 
 Milestone: M3
 
@@ -528,3 +528,11 @@ No production record, public DNS surface or release path is touched.
 Q-303-01..06, Q-306-06..07 and DP-307 remain unresolved. This canary proves the implemented
 machine workflow and says nothing about required notice, deadlines, legal authority, appeal
 rights, public wording or retention policy.
+
+## Engineering completion reconciliation — 2026-10-07
+
+All ten acceptance criteria are now machine/runtime proven, including cleanup integration and
+the complete correction/re-analysis/public-projection MiniPC canary. The ticket is therefore DONE
+as the correction/takedown/appeal workflow implementation. The launch state remains BLOCKED on
+the separate Q-306/DP-307 owner/legal policy decisions; no notice duty, appeal entitlement,
+deadline, takedown authority or public wording is inferred from engineering completion.
