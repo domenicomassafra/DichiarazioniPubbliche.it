@@ -31,6 +31,7 @@ from dichiarazioni_pubbliche.existing_factcheck_runtime import (  # noqa: E402
     ExistingFactCheckDiscoveryAdapter,
     ExistingFactCheckLookupResult,
     ExistingFactCheckMirrorCandidate,
+    ExistingFactCheckRelevanceReview,
     ExistingFactCheckRuntimeError,
     run_existing_factcheck_assignment,
 )
@@ -657,6 +658,16 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
             source_content_sha256=source_hash("claimreview-runtime-v1"),
         )
 
+    def _runtime_relevance_review(self, *, external_id="mirror:runtime:1"):
+        return ExistingFactCheckRelevanceReview(
+            provider_id="google-factcheck-tools",
+            source_external_id=external_id,
+            relevance_reason="DOCUMENTED_PUBLIC_ACTIVITY",
+            reviewer_ref="reviewer:dp304:existing-factcheck",
+            audit_ref="audit:dp304:existing-factcheck",
+            reviewed_at="2026-10-07T20:00:00+02:00",
+        )
+
     def test_runtime_executes_persisted_dp228_dp209_bounds_and_appends_unknown_rights_mirror(self):
         collection_id = self._runtime_collection("runtime-bounds")
         assignment = self._runtime_assignment()
@@ -685,6 +696,7 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
             collection_id=collection_id,
             database_url=self.database_url,
             adapters={"google-factcheck-tools": adapter},
+            relevance_reviews=(self._runtime_relevance_review(),),
             run_id="run:dp232:runtime-bounds",
         )
 
@@ -761,6 +773,7 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
             collection_id=collection_id,
             database_url=self.database_url,
             adapters={"google-factcheck-tools": first_adapter},
+            relevance_reviews=(self._runtime_relevance_review(),),
             run_id="run:dp232:runtime-replay",
         )
 
@@ -776,6 +789,7 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
             collection_id=collection_id,
             database_url=self.database_url,
             adapters={"google-factcheck-tools": second_adapter},
+            relevance_reviews=(self._runtime_relevance_review(),),
             run_id="run:dp232:runtime-replay",
         )
         self.assertEqual(len(calls), 1)
@@ -783,6 +797,45 @@ class ExistingFactCheckMirrorPostgresTests(unittest.TestCase):
         self.assertEqual(
             self.store.run("SELECT count(*) FROM existing_factcheck_mirror;"),
             "1",
+        )
+
+    def test_runtime_missing_relevance_authority_blocks_without_hit_or_mirror(self):
+        collection_id = self._runtime_collection("runtime-relevance-missing")
+        assignment = self._runtime_assignment()
+        calls = []
+
+        def lookup(request):
+            calls.append(request)
+            return ExistingFactCheckLookupResult(
+                candidates=(self._runtime_candidate(),),
+                provider_receipt={"page_size": request.page_size},
+            )
+
+        adapter = ExistingFactCheckDiscoveryAdapter(
+            provider_id="google-factcheck-tools",
+            adapter_version="existing-factcheck-offline-v1",
+            source_family="existing_factcheck",
+            cost_upper_bound_usd=0,
+            lookup=lookup,
+        )
+        result = run_existing_factcheck_assignment(
+            assignment,
+            collection_id=collection_id,
+            database_url=self.database_url,
+            adapters={"google-factcheck-tools": adapter},
+            run_id="run:dp232:runtime-relevance-missing",
+        )
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(result.run.status, "BLOCKED")
+        self.assertEqual(result.mirrors, ())
+        self.assertEqual(
+            self.store.run("SELECT count(*) FROM research_discovery_hit;"),
+            "0",
+        )
+        self.assertEqual(
+            self.store.run("SELECT count(*) FROM existing_factcheck_mirror;"),
+            "0",
         )
 
     def test_runtime_cost_cap_blocks_prelookup_and_persists_no_mirror(self):

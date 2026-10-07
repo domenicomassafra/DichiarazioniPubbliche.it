@@ -42,6 +42,15 @@ def _segment_rows(capture) -> list[dict[str, Any]]:
 
 
 class TranscriptAsrJobHandlers:
+    def _require_current_ingestion_relevance(self, content: ContentRecord) -> None:
+        try:
+            self.store.require_current_ingestion_relevance(
+                content_ref=content.content_id,
+                canonical_url=content.canonical_url,
+            )
+        except RuntimeError as exc:
+            raise BlockedJob(str(exc)) from exc
+
     def triage_content(self, job: ProcessingJob, content: ContentRecord) -> None:
         """Complete metadata-only discovery without inventing downstream work.
 
@@ -65,6 +74,7 @@ class TranscriptAsrJobHandlers:
         )
 
     def _enqueue_asr(self, content: ContentRecord, *, reason: str) -> None:
+        self._require_current_ingestion_relevance(content)
         if not content.duration_ms or content.duration_ms <= 0:
             raise BlockedJob("ASR_DURATION_UNKNOWN")
         duration_seconds = max(int(round(content.duration_ms / 1000)), 1)
@@ -102,6 +112,7 @@ class TranscriptAsrJobHandlers:
             job.job_id, self.worker_id, lease_seconds=self.lease_seconds
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_CAPTION_PROBE", 0)
+        self._require_current_ingestion_relevance(content)
         try:
             probe = self.resolver.probe_caption(candidate.canonical_url)
         except PlatformAccessRestricted:
@@ -144,6 +155,7 @@ class TranscriptAsrJobHandlers:
             )
             raise RetryableJob(f"CAPTION_PROBE_FAILED:{type(exc).__name__}") from exc
 
+        self._require_current_ingestion_relevance(content)
         self.store.record_receipt(
             job_id=job.job_id,
             content_id=content.content_id,
@@ -200,6 +212,7 @@ class TranscriptAsrJobHandlers:
                 raise BlockedJob("YOUTUBE_JOB_MISSING_ID_OR_URL")
             candidate = VideoCandidate(video_id, content.title, url)
         elif platform == "podcast_rss":
+            self._require_current_ingestion_relevance(content)
             try:
                 candidate = self.resolver.resolve(content.title, source)
             except Exception as exc:
@@ -210,6 +223,7 @@ class TranscriptAsrJobHandlers:
             if candidate is None:
                 self._enqueue_asr(content, reason="PLATFORM_COPY_NOT_FOUND")
                 return
+            self._require_current_ingestion_relevance(content)
             self.store.upsert_locator(
                 content.content_id,
                 platform="youtube",
@@ -234,6 +248,7 @@ class TranscriptAsrJobHandlers:
             job.job_id, self.worker_id, lease_seconds=self.lease_seconds
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_CAPTION_CAPTURE", 0)
+        self._require_current_ingestion_relevance(content)
         try:
             capture = self.resolver.capture_caption(url, probe)
         except Exception as exc:
@@ -257,6 +272,7 @@ class TranscriptAsrJobHandlers:
                 f"CAPTION_CAPTURE_FAILED:{type(exc).__name__}", 300
             ) from exc
 
+        self._require_current_ingestion_relevance(content)
         source_kind = _caption_source_kind(probe)
         variant_id, inserted = self.store.insert_transcript_variant(
             content_id=content.content_id,
@@ -414,6 +430,7 @@ class TranscriptAsrJobHandlers:
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_ASR", 0)
 
+        self._require_current_ingestion_relevance(content)
         transcriber = GroqUrlTranscriber(self.groq_api_key)
         try:
             result = transcriber.transcribe_url(audio_url)
@@ -449,6 +466,7 @@ class TranscriptAsrJobHandlers:
             )
             raise BlockedJob(str(exc)) from exc
 
+        self._require_current_ingestion_relevance(content)
         variant_id, inserted = self.store.insert_transcript_variant(
             content_id=content.content_id,
             provider_id=provider_id,

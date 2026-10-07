@@ -25,6 +25,9 @@ from dichiarazioni_pubbliche.corpus_retention import (
     REQUEST_CAPTURE_ARCHIVE_SQL_V1,
     lifecycle_event_id,
 )
+from dichiarazioni_pubbliche.ingestion_relevance import (
+    deterministic_ingestion_operation_ref,
+)
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.source_watcher import (
     MAX_DISCOVERY_RESPONSE_BYTES,
@@ -1057,8 +1060,21 @@ def _persist_fetched_capture(
     language: str | None,
     metadata_enabled: bool,
     archive_enabled: bool,
+    permit_id: str,
+    permit_canonical_url: str,
+    permit_operation_ref: str,
 ) -> tuple[ContentCaptureRecord, str, ParseResult, tuple[PassageRecord, ...], tuple[str, ...]]:
     _validate_fetched_resource(fetched, max_response_bytes=MAX_DISCOVERY_RESPONSE_BYTES)
+    try:
+        store.require_ingestion_acquisition_permit(
+            permit_id=permit_id,
+            content_ref=content_id,
+            canonical_url=permit_canonical_url,
+            operation_kind="CAPTURE_FETCH",
+            operation_ref=permit_operation_ref,
+        )
+    except RuntimeError as exc:
+        raise CapturePipelineError(str(exc)) from exc
     content_sha256 = hashlib.sha256(fetched.body).hexdigest()
     existing = store.find_capture(content_id, content_sha256)
     proposed_id = str(existing.get("id")) if existing else _capture_id(content_id, content_sha256)
@@ -1218,6 +1234,21 @@ def capture_content(
     except ValueError as exc:
         raise CapturePipelineError("OBSERVED_AT_INVALID") from exc
 
+    try:
+        operation_ref = deterministic_ingestion_operation_ref(
+            "CAPTURE_FETCH",
+            content_id,
+            observed_at,
+        )
+        permit = store.issue_ingestion_acquisition_permit(
+            content_ref=content_id,
+            canonical_url=url,
+            operation_kind="CAPTURE_FETCH",
+            operation_ref=operation_ref,
+        )
+    except RuntimeError as exc:
+        raise CapturePipelineError(str(exc)) from exc
+
     fetched = fetcher(url, max_response_bytes=max_response_bytes)
     _validate_fetched_resource(fetched, max_response_bytes=max_response_bytes)
     primary, state, parse, passages, passage_states = _persist_fetched_capture(
@@ -1235,6 +1266,9 @@ def capture_content(
         language=language,
         metadata_enabled=enrichment_policy.metadata_enabled,
         archive_enabled=enrichment_policy.archive_enabled,
+        permit_id=permit.permit_id,
+        permit_canonical_url=url,
+        permit_operation_ref=operation_ref,
     )
     selected = primary
     selected_parse = parse
@@ -1243,6 +1277,16 @@ def capture_content(
     browser_status = "NOT_REQUESTED"
 
     if parse.status != "SUCCEEDED" and browser_renderer is not None and _normalize_media_type(fetched.media_type) in {"text/html", "application/xhtml+xml"}:
+        try:
+            store.require_ingestion_acquisition_permit(
+                permit_id=permit.permit_id,
+                content_ref=content_id,
+                canonical_url=url,
+                operation_kind="CAPTURE_FETCH",
+                operation_ref=operation_ref,
+            )
+        except RuntimeError as exc:
+            raise CapturePipelineError(str(exc)) from exc
         try:
             rendered = browser_renderer.render(url, max_response_bytes=max_response_bytes)
             _validate_fetched_resource(rendered, max_response_bytes=max_response_bytes)
@@ -1261,6 +1305,9 @@ def capture_content(
                 language=language,
                 metadata_enabled=enrichment_policy.metadata_enabled,
                 archive_enabled=enrichment_policy.archive_enabled,
+                permit_id=permit.permit_id,
+                permit_canonical_url=url,
+                permit_operation_ref=operation_ref,
             )
             browser_status = "SUCCEEDED" if selected_parse.status == "SUCCEEDED" else "PARSE_FAILED"
         except Exception:
@@ -1283,6 +1330,16 @@ def capture_content(
     if archive_adapter is not None and not enrichment_policy.archive_enabled:
         archive_status = "DISABLED_POLICY"
     elif archive_adapter is not None and state == "INSERTED":
+        try:
+            store.require_ingestion_acquisition_permit(
+                permit_id=permit.permit_id,
+                content_ref=content_id,
+                canonical_url=url,
+                operation_kind="CAPTURE_FETCH",
+                operation_ref=operation_ref,
+            )
+        except RuntimeError as exc:
+            raise CapturePipelineError(str(exc)) from exc
         archive_status = _archive_capture(
             store=store,
             capture=primary,

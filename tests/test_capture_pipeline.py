@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
@@ -42,6 +43,38 @@ class FakeCaptureStore:
         self.passages = {}
         self.events = {}
         self.archive = {}
+        self.relevance_allowed = True
+
+    def require_current_ingestion_relevance(self, *, content_ref, canonical_url):
+        if not self.relevance_allowed:
+            raise RuntimeError("INGESTION_RELEVANCE_MISSING")
+        return {"content_ref": content_ref, "canonical_url": canonical_url}
+
+    def issue_ingestion_acquisition_permit(
+        self, *, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=f"permit:{content_ref}",
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
+    def require_ingestion_acquisition_permit(
+        self, *, permit_id, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=permit_id,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
 
     def find_capture(self, content_id, content_sha256):
         row = self.captures.get((content_id, content_sha256))
@@ -191,6 +224,31 @@ class SuccessfulArchive:
 
 
 class CapturePipelineTests(unittest.TestCase):
+    def test_relevance_supersession_during_fetch_blocks_before_body_or_capture_persistence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            body_store = CaptureBodyStore(Path(tmp))
+
+            def fetch_and_supersede(url, *, max_response_bytes):
+                store.relevance_allowed = False
+                return fetched(b"<p>Must not be persisted after relevance becomes stale.</p>")
+
+            with self.assertRaisesRegex(
+                CapturePipelineError, "INGESTION_RELEVANCE_MISSING"
+            ):
+                capture_content(
+                    content_id="content:relevance-race",
+                    url="https://example.test/relevance-race",
+                    store=store,
+                    body_store=body_store,
+                    observed_at="2026-10-07T20:30:00+00:00",
+                    fetcher=fetch_and_supersede,
+                )
+
+            self.assertEqual(store.captures, {})
+            self.assertEqual(store.passages, {})
+            self.assertFalse(any(Path(tmp).rglob("*.body")))
+
     def test_source_content_policy_compiles_enrichment_permissions_fail_closed(self):
         policy = capture_enrichment_policy_from_source(
             {

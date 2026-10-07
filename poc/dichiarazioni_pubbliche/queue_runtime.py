@@ -139,6 +139,64 @@ class PsqlRuntime:
     def run_literal(self, sql: str) -> str:
         return self.run(sql)
 
+    def require_current_ingestion_relevance(
+        self,
+        *,
+        content_ref: str,
+        canonical_url: str,
+    ):
+        from dichiarazioni_pubbliche.ingestion_relevance import (
+            require_current_ingestion_relevance,
+        )
+
+        return require_current_ingestion_relevance(
+            self.run,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+
+    def issue_ingestion_acquisition_permit(
+        self,
+        *,
+        content_ref: str,
+        canonical_url: str,
+        operation_kind: str,
+        operation_ref: str,
+    ):
+        from dichiarazioni_pubbliche.ingestion_relevance import (
+            issue_ingestion_acquisition_permit,
+        )
+
+        return issue_ingestion_acquisition_permit(
+            self.run,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
+    def require_ingestion_acquisition_permit(
+        self,
+        *,
+        permit_id: str,
+        content_ref: str,
+        canonical_url: str,
+        operation_kind: str,
+        operation_ref: str,
+    ):
+        from dichiarazioni_pubbliche.ingestion_relevance import (
+            require_ingestion_acquisition_permit,
+        )
+
+        return require_ingestion_acquisition_permit(
+            self.run,
+            permit_id=permit_id,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
 
 class QueueRuntimeStore(PsqlRuntime):
     def reap_expired(self, max_attempts: int = 5) -> int:

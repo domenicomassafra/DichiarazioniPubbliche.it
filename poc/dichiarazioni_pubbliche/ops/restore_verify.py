@@ -97,6 +97,8 @@ LOAD_BEARING_TABLES = (
     "source_revalidation_snapshot_durable",
     "source_revalidation_event_durable",
     "review_event",
+    "privacy_ingestion_acquisition_permit",
+    "privacy_ingestion_relevance_authority",
     "privacy_publication_decision",
     "privacy_rights_case",
     "privacy_rights_case_event",

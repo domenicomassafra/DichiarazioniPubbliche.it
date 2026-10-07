@@ -142,6 +142,8 @@ class RestoreVerificationTests(unittest.TestCase):
 
         backup = (ROOT / "deploy" / "ops" / "backup.sh").read_text()
         for table in (
+            "privacy_ingestion_relevance_authority",
+            "privacy_ingestion_acquisition_permit",
             "privacy_rights_case",
             "privacy_rights_case_event",
             "private_access_audit_event",

@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Sequence
 
 from dichiarazioni_pubbliche.existing_factcheck import ExistingFactCheckRecord
 from dichiarazioni_pubbliche.existing_factcheck_persistence import (
@@ -23,7 +24,14 @@ from dichiarazioni_pubbliche.existing_factcheck_persistence import (
     PersistedFactCheckMirror,
 )
 from dichiarazioni_pubbliche.policy.excerpt_policy import RightsStatus
+from dichiarazioni_pubbliche.ingestion_relevance import (
+    IngestionRelevanceAuthority,
+    append_ingestion_relevance_authority,
+    canonical_relevance_reason,
+    replay_current_ingestion_relevance,
+)
 from dichiarazioni_pubbliche.research_discovery import (
+    canonicalize_discovery_url,
     DiscoveryAdapterError,
     DiscoveryAdapterRequest,
     DiscoveryAdapterResult,
@@ -83,11 +91,120 @@ class ExistingFactCheckRuntimeReceipt:
     runtime_version: str = EXISTING_FACTCHECK_RUNTIME_VERSION
 
 
+@dataclass(frozen=True)
+class ExistingFactCheckRelevanceReview:
+    provider_id: str
+    source_external_id: str
+    relevance_reason: str
+    reviewer_ref: str
+    audit_ref: str
+    reviewed_at: str
+    supersedes_authority_id: str | None = None
+
+
 def _required(value: object, code: str, *, limit: int = 4096) -> str:
     text = str(value or "").strip()
     if not text or len(text) > limit or "\x00" in text:
         raise ExistingFactCheckRuntimeError(code)
     return text
+
+
+def _reviewed_at(value: object) -> str:
+    text = _required(
+        value,
+        "FACTCHECK_RELEVANCE_REVIEWED_AT_REQUIRED",
+        limit=64,
+    )
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ExistingFactCheckRuntimeError(
+            "FACTCHECK_RELEVANCE_REVIEWED_AT_INVALID"
+        ) from exc
+    if parsed.tzinfo is None:
+        raise ExistingFactCheckRuntimeError("FACTCHECK_RELEVANCE_REVIEWED_AT_INVALID")
+    return parsed.isoformat()
+
+
+def _validated_relevance_reviews(
+    reviews: Sequence[ExistingFactCheckRelevanceReview],
+    *,
+    permitted_provider_ids: set[str],
+    max_reviews: int,
+) -> dict[tuple[str, str], ExistingFactCheckRelevanceReview]:
+    if len(reviews) > max_reviews:
+        raise ExistingFactCheckRuntimeError("FACTCHECK_RELEVANCE_REVIEW_BOUND_EXCEEDED")
+    validated: dict[tuple[str, str], ExistingFactCheckRelevanceReview] = {}
+    for review in reviews:
+        if not isinstance(review, ExistingFactCheckRelevanceReview):
+            raise ExistingFactCheckRuntimeError("FACTCHECK_RELEVANCE_REVIEW_INVALID")
+        provider_id = _required(
+            review.provider_id,
+            "FACTCHECK_RELEVANCE_PROVIDER_ID_REQUIRED",
+            limit=256,
+        )
+        if provider_id not in permitted_provider_ids:
+            raise ExistingFactCheckRuntimeError(
+                "FACTCHECK_RELEVANCE_PROVIDER_NOT_PERMITTED"
+            )
+        source_external_id = _required(
+            review.source_external_id,
+            "FACTCHECK_RELEVANCE_SOURCE_EXTERNAL_ID_REQUIRED",
+            limit=512,
+        )
+        try:
+            relevance_reason = canonical_relevance_reason(review.relevance_reason)
+        except ValueError as exc:
+            raise ExistingFactCheckRuntimeError(
+                "FACTCHECK_RELEVANCE_REASON_INVALID"
+            ) from exc
+        reviewer_ref = _required(
+            review.reviewer_ref,
+            "FACTCHECK_RELEVANCE_REVIEWER_REF_REQUIRED",
+            limit=128,
+        )
+        audit_ref = _required(
+            review.audit_ref,
+            "FACTCHECK_RELEVANCE_AUDIT_REF_REQUIRED",
+            limit=128,
+        )
+        reviewed_at = _reviewed_at(review.reviewed_at)
+        supersedes = (
+            None
+            if review.supersedes_authority_id is None
+            else _required(
+                review.supersedes_authority_id,
+                "FACTCHECK_RELEVANCE_SUPERSEDES_INVALID",
+                limit=256,
+            )
+        )
+        key = (provider_id, source_external_id)
+        if key in validated:
+            raise ExistingFactCheckRuntimeError(
+                "FACTCHECK_RELEVANCE_REVIEW_DUPLICATE"
+            )
+        validated[key] = ExistingFactCheckRelevanceReview(
+            provider_id=provider_id,
+            source_external_id=source_external_id,
+            relevance_reason=relevance_reason,
+            reviewer_ref=reviewer_ref,
+            audit_ref=audit_ref,
+            reviewed_at=reviewed_at,
+            supersedes_authority_id=supersedes,
+        )
+    return validated
+
+
+def _authority_matches_review(
+    authority: IngestionRelevanceAuthority,
+    review: ExistingFactCheckRelevanceReview,
+) -> bool:
+    return (
+        authority.relevance_reason == review.relevance_reason
+        and authority.reviewer_ref == review.reviewer_ref
+        and authority.audit_ref == review.audit_ref
+        and authority.reviewed_at == review.reviewed_at
+    )
 
 
 class ExistingFactCheckDiscoveryAdapter:
@@ -121,6 +238,8 @@ class ExistingFactCheckDiscoveryAdapter:
             raise ExistingFactCheckRuntimeError("FACTCHECK_RUNTIME_COST_BOUND_INVALID")
         self._lookup = lookup
         self._candidates: dict[str, ExistingFactCheckMirrorCandidate] = {}
+        self._relevance_store: ResearchDiscoveryStore | None = None
+        self._relevance_reviews: dict[str, ExistingFactCheckRelevanceReview] = {}
 
     @property
     def candidates(self) -> Mapping[str, ExistingFactCheckMirrorCandidate]:
@@ -128,6 +247,87 @@ class ExistingFactCheckDiscoveryAdapter:
 
     def cost_upper_bound_usd(self, request: DiscoveryAdapterRequest) -> Decimal:
         return self._upper
+
+    def bind_relevance_authority_handoff(
+        self,
+        *,
+        store: ResearchDiscoveryStore,
+        reviews: Mapping[str, ExistingFactCheckRelevanceReview],
+    ) -> None:
+        self._relevance_store = store
+        self._relevance_reviews = dict(reviews)
+
+    def _ensure_relevance_authority(
+        self,
+        candidate: ExistingFactCheckMirrorCandidate,
+        *,
+        external_id: str,
+    ) -> None:
+        store = self._relevance_store
+        if store is None:
+            raise DiscoveryAdapterError(
+                "FACTCHECK_RELEVANCE_HANDOFF_UNBOUND", blocked=True
+            )
+        review = self._relevance_reviews.get(external_id)
+        if review is None:
+            raise DiscoveryAdapterError(
+                "FACTCHECK_RELEVANCE_AUTHORITY_MISSING", blocked=True
+            )
+        canonical_url, _host = canonicalize_discovery_url(candidate.record.review_url)
+        content_ref = store.relevance_content_ref(
+            canonical_url=canonical_url,
+            source_id=None,
+            external_id=external_id,
+            platform=None,
+        )
+        if content_ref is None:
+            raise DiscoveryAdapterError(
+                "FACTCHECK_RELEVANCE_CONTENT_IDENTITY_AMBIGUOUS", blocked=True
+            )
+        replay = replay_current_ingestion_relevance(
+            store.run,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        if replay.allowed and replay.authority is not None:
+            if review.supersedes_authority_id is None:
+                if _authority_matches_review(replay.authority, review):
+                    return
+                raise DiscoveryAdapterError(
+                    "FACTCHECK_RELEVANCE_AUTHORITY_CONFLICT", blocked=True
+                )
+            if review.supersedes_authority_id != replay.authority.authority_id:
+                raise DiscoveryAdapterError(
+                    "FACTCHECK_RELEVANCE_SUPERSEDES_NOT_CURRENT", blocked=True
+                )
+        elif replay.authority is not None:
+            if review.supersedes_authority_id != replay.authority.authority_id:
+                raise DiscoveryAdapterError(
+                    "FACTCHECK_RELEVANCE_STALE_REVIEW_REQUIRES_SUPERSESSION", blocked=True
+                )
+        elif review.supersedes_authority_id is not None:
+            raise DiscoveryAdapterError(
+                "FACTCHECK_RELEVANCE_SUPERSEDES_MISSING", blocked=True
+            )
+        try:
+            persisted = append_ingestion_relevance_authority(
+                store.run,
+                content_ref=content_ref,
+                canonical_url=canonical_url,
+                relevance_reason=review.relevance_reason,
+                reviewer_ref=review.reviewer_ref,
+                audit_ref=review.audit_ref,
+                reviewed_at=review.reviewed_at,
+                supersedes_authority_id=review.supersedes_authority_id,
+            )
+        except (RuntimeError, ValueError) as exc:
+            raise DiscoveryAdapterError(
+                "FACTCHECK_RELEVANCE_AUTHORITY_PERSIST_FAILED", blocked=True
+            ) from exc
+        if not _authority_matches_review(persisted, review):
+            raise DiscoveryAdapterError(
+                "FACTCHECK_RELEVANCE_AUTHORITY_CONFLICT", blocked=True
+            )
 
     def discover(self, request: DiscoveryAdapterRequest) -> DiscoveryAdapterResult:
         assignment_id = _required(
@@ -179,6 +379,7 @@ class ExistingFactCheckDiscoveryAdapter:
             source_sha = str(candidate.source_content_sha256 or "").strip().lower()
             if len(source_sha) != 64 or any(ch not in "0123456789abcdef" for ch in source_sha):
                 raise DiscoveryAdapterError("FACTCHECK_SOURCE_HASH_INVALID")
+            self._ensure_relevance_authority(candidate, external_id=external_id)
             self._candidates[external_id] = candidate
             hits.append(
                 DiscoveryHitCandidate(
@@ -212,6 +413,7 @@ def run_existing_factcheck_assignment(
     collection_id: str,
     database_url: str,
     adapters: Mapping[str, ExistingFactCheckDiscoveryAdapter],
+    relevance_reviews: Sequence[ExistingFactCheckRelevanceReview] = (),
     source_family: str = "existing_factcheck",
     run_id: str | None = None,
     date_from: str | None = None,
@@ -245,6 +447,12 @@ def run_existing_factcheck_assignment(
         if adapter.source_family != source_family:
             raise ExistingFactCheckRuntimeError("FACTCHECK_RUNTIME_SOURCE_FAMILY_MISMATCH")
 
+    review_map = _validated_relevance_reviews(
+        relevance_reviews,
+        permitted_provider_ids=permitted,
+        max_reviews=max(assignment.max_results * len(assignment.adapter_ids), 1),
+    )
+
     manifest = discovery_manifest_from_assignments(
         (assignment,),
         collection_id=collection_id,
@@ -263,6 +471,16 @@ def run_existing_factcheck_assignment(
         raise ExistingFactCheckRuntimeError("FACTCHECK_RUNTIME_QUERY_LIMIT_MISMATCH")
 
     discovery_store = ResearchDiscoveryStore(database_url)
+    for adapter_id in assignment.adapter_ids:
+        adapter = adapters[adapter_id]
+        adapter.bind_relevance_authority_handoff(
+            store=discovery_store,
+            reviews={
+                source_external_id: review
+                for (provider_id, source_external_id), review in review_map.items()
+                if provider_id == adapter_id
+            },
+        )
     receipt = run_discovery_manifest(
         manifest,
         discovery_store,
@@ -316,6 +534,7 @@ __all__ = [
     "ExistingFactCheckLookupRequest",
     "ExistingFactCheckLookupResult",
     "ExistingFactCheckMirrorCandidate",
+    "ExistingFactCheckRelevanceReview",
     "ExistingFactCheckRuntimeError",
     "ExistingFactCheckRuntimeReceipt",
     "run_existing_factcheck_assignment",

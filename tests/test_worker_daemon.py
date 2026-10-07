@@ -43,11 +43,15 @@ class FakeResolver:
     def __init__(self, candidate=None, probe=None):
         self.candidate = candidate
         self.probe = probe
+        self.resolve_calls = 0
+        self.probe_calls = 0
 
     def resolve(self, title, source):
+        self.resolve_calls += 1
         return self.candidate
 
     def probe_caption(self, url):
+        self.probe_calls += 1
         if isinstance(self.probe, Exception):
             raise self.probe
         return self.probe
@@ -138,6 +142,8 @@ class FakeStore:
         self.reanalysis_transitions = []
         self.latest_finding = None
         self.verification_template = None
+        self.relevance_allowed = True
+        self.relevance_checks = []
 
     def reap_expired(self, max_attempts):
         return 0
@@ -162,6 +168,12 @@ class FakeStore:
 
     def renew(self, *args, **kwargs):
         return True
+
+    def require_current_ingestion_relevance(self, *, content_ref, canonical_url):
+        self.relevance_checks.append((content_ref, canonical_url))
+        if not self.relevance_allowed:
+            raise RuntimeError("INGESTION_RELEVANCE_MISSING")
+        return {"content_ref": content_ref, "canonical_url": canonical_url}
 
     def upsert_locator(self, content_id, **kwargs):
         self.locators.append((content_id, kwargs))
@@ -357,6 +369,33 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(store.followups[0]["job_type"], "TRANSCRIPT_ACQUIRE_CAPTION")
         self.assertEqual(store.locators[0][1]["platform"], "youtube")
         self.assertEqual(store.receipts[0]["estimated_cost_usd"], 0.0)
+
+    def test_stale_ingestion_relevance_blocks_before_platform_resolution_network(self):
+        resolver = FakeResolver(
+            VideoCandidate(
+                "stale-video",
+                "Stale candidate",
+                "https://www.youtube.com/watch?v=stale-video",
+            ),
+            CaptionProbe("automatic_caption", "it-orig"),
+        )
+        store = FakeStore(
+            [
+                job(
+                    "TRANSCRIPT_RESOLVE_PLATFORM",
+                    {"platform": "podcast_rss", "estimated_cost_usd": 0},
+                )
+            ]
+        )
+        store.relevance_allowed = False
+        summary = self.make_worker(store, resolver).run(1)
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(resolver.resolve_calls, 0)
+        self.assertEqual(resolver.probe_calls, 0)
+        self.assertEqual(store.followups, [])
+        self.assertEqual(
+            store.states["job:TRANSCRIPT_RESOLVE_PLATFORM"], "BLOCKED"
+        )
 
     def test_claim_prepare_missing_variant_blocks(self):
         store = FakeStore([job("CLAIM_EXTRACT")])

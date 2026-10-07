@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,38 @@ class FakeStore:
         self.source_poll_runs = {}
         self.source_poll_sources = {}
         self._source_poll_runs = self.source_poll_runs
+        self.relevance_allowed = True
+
+    def require_current_ingestion_relevance(self, *, content_ref, canonical_url):
+        if not self.relevance_allowed:
+            raise RuntimeError("INGESTION_RELEVANCE_MISSING")
+        return {"content_ref": content_ref, "canonical_url": canonical_url}
+
+    def issue_ingestion_acquisition_permit(
+        self, *, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=f"permit:{content_ref}",
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
+    def require_ingestion_acquisition_permit(
+        self, *, permit_id, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=permit_id,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
 
     def upsert_source(self, source):
         self.source = source
@@ -186,6 +219,12 @@ class FakeStore:
             key = f"{item.source_id}:{item.platform}:{item.external_id}:{item.title}"
             fallback = f"content:{key}"
             content_id = self.resolve_content_id(item.platform, item.external_id, fallback)
+            self.issue_ingestion_acquisition_permit(
+                content_ref=content_id,
+                canonical_url=item.canonical_url,
+                operation_kind="SCHEDULER_INGEST",
+                operation_ref=f"fake:{content_id}",
+            )
             self.upsert_content(item, content_id)
             upserts += 1
             if item.published_at > latest_value:

@@ -14,6 +14,10 @@ from typing import Any, Mapping, Protocol, Sequence
 from urllib.parse import urlsplit, urlunsplit
 
 from dichiarazioni_pubbliche.operation_ledger import deterministic_operation_key
+from dichiarazioni_pubbliche.ingestion_relevance import (
+    deterministic_ingestion_operation_ref,
+)
+from dichiarazioni_pubbliche.policy.privacy_policy import PRIVACY_POLICY_VERSION
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.scheduler import deterministic_content_id
 from dichiarazioni_pubbliche.source_adapters import SourceAdapterError, discover_source_result
@@ -48,8 +52,9 @@ class DiscoveryManifestError(ValueError):
 
 
 class DiscoveryAdapterError(RuntimeError):
-    def __init__(self, category: str) -> None:
+    def __init__(self, category: str, *, blocked: bool = False) -> None:
         self.category = sanitize_category(category)
+        self.blocked = bool(blocked)
         super().__init__(self.category)
 
 
@@ -918,7 +923,39 @@ SELECT COALESCE((SELECT id FROM current LIMIT 1), 'CONFLICT')::text;
 
 
 _RECORD_HIT_SQL = r"""
-WITH lock_row AS (
+WITH relevance_lock AS (
+    SELECT CASE
+        WHEN NULLIF(:'permit_content_ref','') IS NOT NULL
+        THEN pg_advisory_xact_lock(hashtextextended(:'permit_content_ref', 30402))
+        ELSE NULL
+    END AS locked
+), relevance_guard AS (
+    SELECT CASE
+        WHEN :'policy_disposition'<>'' THEN true
+        ELSE EXISTS (
+            SELECT 1
+            FROM privacy_ingestion_acquisition_permit permit
+            JOIN privacy_ingestion_relevance_authority authority
+              ON authority.authority_id = permit.authority_id
+            CROSS JOIN relevance_lock
+            WHERE permit.permit_id = :'permit_id'
+              AND permit.content_ref = :'permit_content_ref'
+              AND permit.operation_kind = 'RESEARCH_DISCOVERY'
+              AND permit.operation_ref = :'permit_operation_ref'
+              AND authority.content_ref = permit.content_ref
+              AND authority.content_binding_sha256 = permit.content_binding_sha256
+              AND authority.contract_version = 'privacy-ingestion-relevance-v1'
+              AND authority.binding_version = 'content-acquisition-binding-v1'
+              AND authority.privacy_policy_version = :'privacy_policy_version'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM privacy_ingestion_relevance_authority successor
+                  WHERE successor.supersedes_authority_id = authority.authority_id
+              )
+        )
+    END AS allowed
+    FROM relevance_lock
+), lock_row AS (
     SELECT pg_advisory_xact_lock(hashtextextended(:'canonical_url', 0))
 ), identity_matches AS (
     SELECT array_agg(id ORDER BY id) AS ids, count(*)::integer AS n
@@ -954,6 +991,8 @@ WITH lock_row AS (
         'it', NULLIF(:'published_at','')::timestamptz, :'content_metadata'::jsonb
     FROM identity_matches
     WHERE :'policy_disposition'=''
+      AND (SELECT allowed FROM relevance_guard)
+      AND :'new_content_id'=:'permit_content_ref'
       AND n=0
       AND NOT EXISTS(SELECT 1 FROM id_collision)
     ON CONFLICT (id) DO NOTHING
@@ -1008,6 +1047,13 @@ WITH lock_row AS (
     FROM run_resolved
     WHERE run_resolved.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
       AND run_resolved.content_id IS NOT NULL
+      AND (
+          :'policy_disposition'<>''
+          OR (
+              (SELECT allowed FROM relevance_guard)
+              AND run_resolved.content_id=:'permit_content_ref'
+          )
+      )
     ON CONFLICT (collection_id, content_id) DO NOTHING
     RETURNING content_id
 ), locator_insert AS (
@@ -1017,6 +1063,13 @@ WITH lock_row AS (
     FROM run_resolved
     WHERE run_resolved.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
       AND run_resolved.content_id IS NOT NULL
+      AND (
+          :'policy_disposition'<>''
+          OR (
+              (SELECT allowed FROM relevance_guard)
+              AND run_resolved.content_id=:'permit_content_ref'
+          )
+      )
       AND NULLIF(:'platform','') IS NOT NULL
       AND NULLIF(:'external_id','') IS NOT NULL
     ON CONFLICT (platform, external_id) DO NOTHING
@@ -1041,6 +1094,13 @@ WITH lock_row AS (
      AND attempt.run_id=:'run_id'
      AND attempt.query_id=:'query_id'
      AND attempt.status='RUNNING'
+    WHERE (
+        :'policy_disposition'<>''
+        OR (
+            (SELECT allowed FROM relevance_guard)
+            AND run_resolved.content_id=:'permit_content_ref'
+        )
+    )
     ON CONFLICT (id) DO NOTHING
     RETURNING id, disposition, content_id, canonical_url, hit_key, ordinal
 ), current AS (
@@ -1180,6 +1240,55 @@ SELECT json_build_object(
 
 
 class ResearchDiscoveryStore(PsqlRuntime):
+    def relevance_content_ref(
+        self,
+        *,
+        canonical_url: str,
+        source_id: str | None,
+        external_id: str | None,
+        platform: str | None,
+    ) -> str | None:
+        new_content_id = _url_content_id(canonical_url)
+        raw = self.run(
+            """
+            WITH identity_matches AS (
+                SELECT id FROM content_item WHERE canonical_url=:'canonical_url'
+                UNION
+                SELECT id FROM content_item
+                WHERE NULLIF(:'source_id','') IS NOT NULL
+                  AND NULLIF(:'external_id','') IS NOT NULL
+                  AND source_id=NULLIF(:'source_id','')
+                  AND source_external_id=NULLIF(:'external_id','')
+                UNION
+                SELECT locator.content_id FROM content_locator locator
+                WHERE NULLIF(:'platform','') IS NOT NULL
+                  AND NULLIF(:'external_id','') IS NOT NULL
+                  AND locator.platform=NULLIF(:'platform','')
+                  AND locator.external_id=NULLIF(:'external_id','')
+            ), identity_count AS (
+                SELECT count(*)::integer AS n, min(id) AS only_id
+                FROM identity_matches
+            ), id_collision AS (
+                SELECT canonical_url FROM content_item WHERE id=:'new_content_id'
+            )
+            SELECT CASE
+                WHEN identity_count.n > 1 THEN ''
+                WHEN identity_count.n = 1 THEN identity_count.only_id
+                WHEN EXISTS(
+                    SELECT 1 FROM id_collision WHERE canonical_url <> :'canonical_url'
+                ) THEN ''
+                ELSE :'new_content_id'
+            END
+            FROM identity_count;
+            """,
+            canonical_url=canonical_url,
+            source_id=source_id or "",
+            external_id=external_id or "",
+            platform=platform or "",
+            new_content_id=new_content_id,
+        )
+        return raw or None
+
     def persist_manifest(self, manifest: DiscoveryManifest) -> str:
         queries = [
             {
@@ -1385,6 +1494,36 @@ class ResearchDiscoveryStore(PsqlRuntime):
         )
         key = _hit_key(normalized, ordinal)
         hit_id = _hit_id(attempt_id, key)
+        new_content_id = _url_content_id(canonical_url)
+        permit = None
+        operation_ref = ""
+        relevance_content_ref = ""
+        if not policy_disposition:
+            relevance_content_ref = self.relevance_content_ref(
+                canonical_url=canonical_url,
+                source_id=normalized.source_id,
+                external_id=normalized.external_id,
+                platform=str(normalized.metadata.get("platform") or "")[:64],
+            )
+            if relevance_content_ref is not None:
+                operation_ref = deterministic_ingestion_operation_ref(
+                    "RESEARCH_DISCOVERY",
+                    hit_id,
+                    relevance_content_ref,
+                )
+                permit = self.issue_ingestion_acquisition_permit(
+                    content_ref=relevance_content_ref,
+                    canonical_url=canonical_url,
+                    operation_kind="RESEARCH_DISCOVERY",
+                    operation_ref=operation_ref,
+                )
+                self.require_ingestion_acquisition_permit(
+                    permit_id=permit.permit_id,
+                    content_ref=relevance_content_ref,
+                    canonical_url=canonical_url,
+                    operation_kind="RESEARCH_DISCOVERY",
+                    operation_ref=operation_ref,
+                )
         raw = self.run(
             _RECORD_HIT_SQL,
             hit_id=hit_id,
@@ -1403,8 +1542,12 @@ class ResearchDiscoveryStore(PsqlRuntime):
             platform=str(normalized.metadata.get("platform") or "")[:64],
             policy_disposition=policy_disposition,
             reason_code=reason_code,
+            permit_id=permit.permit_id if permit is not None else "",
+            permit_content_ref=relevance_content_ref or "",
+            permit_operation_ref=operation_ref,
+            privacy_policy_version=PRIVACY_POLICY_VERSION,
             metadata=json.dumps(normalized.metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
-            new_content_id=_url_content_id(canonical_url),
+            new_content_id=new_content_id,
             content_metadata=json.dumps(
                 {
                     "discovered_by": "research-discovery-run-v1",
@@ -1746,7 +1889,7 @@ def run_discovery_manifest(
                     adapter_id=adapter_id,
                     adapter_version=adapter_version,
                     upper_bound=upper_bound,
-                    status="FAILED",
+                    status="BLOCKED" if exc.blocked else "FAILED",
                     known_cost_usd=None,
                     error_category=exc.category,
                 )

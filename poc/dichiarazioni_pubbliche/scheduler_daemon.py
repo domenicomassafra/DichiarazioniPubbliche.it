@@ -16,6 +16,13 @@ from dichiarazioni_pubbliche.scheduler import (
     plan_initial_job,
     provisional_content_key,
 )
+from dichiarazioni_pubbliche.ingestion_relevance import (
+    IngestionRelevanceBlocked,
+    deterministic_ingestion_operation_ref,
+    issue_ingestion_acquisition_permit,
+    require_ingestion_acquisition_permit,
+    require_current_ingestion_relevance,
+)
 from dichiarazioni_pubbliche.source_adapters import (
     SUPPORTED_SOURCE_KINDS,
     SourceAdapterError,
@@ -216,6 +223,9 @@ def _error_category(value: object) -> str:
     if isinstance(value, TimeoutError):
         return "TIMEOUT"
     text = str(value or "").upper()
+    relevance = re.search(r"INGESTION_[A-Z0-9_]+", text)
+    if relevance is not None:
+        return relevance.group(0)[:80]
     if any(marker in text for marker in ("DISCOVERY_URL", "NONPUBLIC_IP", "SSRF", "PRIVATE_IP")):
         return "SSRF_REJECTED"
     if any(marker in text for marker in ("PARSE", "XML", "MALFORMED", "FEED")):
@@ -299,9 +309,60 @@ class PsqlStore:
         )
         if proc.returncode != 0:
             detail = (proc.stderr or proc.stdout).strip().splitlines()
-            message = detail[-1] if detail else f"psql exited {proc.returncode}"
+            error_lines = [line for line in detail if "ERROR:" in line.upper()]
+            message = (
+                error_lines[-1]
+                if error_lines
+                else (detail[-1] if detail else f"psql exited {proc.returncode}")
+            )
             raise RuntimeError(message[:1000])
         return proc.stdout.strip()
+
+    def require_current_ingestion_relevance(
+        self,
+        *,
+        content_ref: str,
+        canonical_url: str,
+    ):
+        return require_current_ingestion_relevance(
+            self._run,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+
+    def issue_ingestion_acquisition_permit(
+        self,
+        *,
+        content_ref: str,
+        canonical_url: str,
+        operation_kind: str,
+        operation_ref: str,
+    ):
+        return issue_ingestion_acquisition_permit(
+            self._run,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
+    def require_ingestion_acquisition_permit(
+        self,
+        *,
+        permit_id: str,
+        content_ref: str,
+        canonical_url: str,
+        operation_kind: str,
+        operation_ref: str,
+    ):
+        return require_ingestion_acquisition_permit(
+            self._run,
+            permit_id=permit_id,
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
 
     def upsert_source(self, source: dict[str, Any]) -> None:
         metadata = json.dumps(
@@ -689,12 +750,29 @@ class PsqlStore:
         for content in items:
             key = provisional_content_key(content)
             job = plan_initial_job(content, scheduler_ingest_plan(content))
+            content_id = self.resolve_content_id(
+                content.platform,
+                content.external_id,
+                deterministic_content_id(key),
+            )
+            operation_ref = deterministic_ingestion_operation_ref(
+                "SCHEDULER_INGEST",
+                context.run_id,
+                content_id,
+                job.job_id,
+            )
+            permit = self.issue_ingestion_acquisition_permit(
+                content_ref=content_id,
+                canonical_url=content.canonical_url,
+                operation_kind="SCHEDULER_INGEST",
+                operation_ref=operation_ref,
+            )
             rows.append(
                 {
                     "source_id": content.source_id,
                     "platform": content.platform,
                     "external_id": content.external_id,
-                    "content_id": deterministic_content_id(key),
+                    "content_id": content_id,
                     "title": content.title,
                     "description": content.description or "",
                     "canonical_url": content.canonical_url,
@@ -712,6 +790,9 @@ class PsqlStore:
                     "job_id": job.job_id,
                     "job_type": job.job_type,
                     "payload": job.payload,
+                    "permit_id": permit.permit_id,
+                    "permit_operation_ref": permit.operation_ref,
+                    "permit_binding_sha256": permit.content_binding_sha256,
                 }
             )
         metadata = json.dumps(
@@ -722,19 +803,6 @@ class PsqlStore:
         raw = self._run(
             """
             BEGIN;
-            INSERT INTO source (
-                id, canonical_name, source_type, canonical_url,
-                language, country_code, metadata
-            ) VALUES (
-                :'source_id', :'source_name', :'source_kind',
-                NULLIF(:'source_url',''), 'it', 'IT', :'source_metadata'::jsonb
-            )
-            ON CONFLICT (id) DO UPDATE SET
-                canonical_name = EXCLUDED.canonical_name,
-                source_type = EXCLUDED.source_type,
-                canonical_url = EXCLUDED.canonical_url,
-                metadata = source.metadata || EXCLUDED.metadata,
-                updated_at = now();
             CREATE TEMP TABLE _source_poll_input (
                 ordinal integer,
                 source_id text,
@@ -749,12 +817,16 @@ class PsqlStore:
                 metadata jsonb,
                 job_id text,
                 job_type text,
-                payload jsonb
+                payload jsonb,
+                permit_id text,
+                permit_operation_ref text,
+                permit_binding_sha256 text
             ) ON COMMIT DROP;
             INSERT INTO _source_poll_input (
                 ordinal, source_id, platform, external_id, content_id,
                 title, description, canonical_url, published_at, duration_ms,
-                metadata, job_id, job_type, payload
+                metadata, job_id, job_type, payload,
+                permit_id, permit_operation_ref, permit_binding_sha256
             )
             SELECT
                 ordinal::integer,
@@ -770,7 +842,10 @@ class PsqlStore:
                 value->'metadata',
                 value->>'job_id',
                 value->>'job_type',
-                value->'payload'
+                value->'payload',
+                value->>'permit_id',
+                value->>'permit_operation_ref',
+                value->>'permit_binding_sha256'
             FROM jsonb_array_elements(:'items'::jsonb)
                 WITH ORDINALITY AS item(value, ordinal);
             UPDATE _source_poll_input i
@@ -783,6 +858,52 @@ class PsqlStore:
             FROM content_locator locator
             WHERE locator.platform = i.platform
               AND locator.external_id = i.external_id;
+            SELECT pg_advisory_xact_lock(hashtextextended(content_id, 30402))
+            FROM _source_poll_input
+            ORDER BY content_id;
+            DO $dp304_relevance_guard$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM _source_poll_input i
+                    LEFT JOIN privacy_ingestion_acquisition_permit permit
+                      ON permit.permit_id = i.permit_id
+                     AND permit.content_ref = i.content_id
+                     AND permit.content_binding_sha256 = i.permit_binding_sha256
+                     AND permit.operation_kind = 'SCHEDULER_INGEST'
+                     AND permit.operation_ref = i.permit_operation_ref
+                    LEFT JOIN privacy_ingestion_relevance_authority authority
+                      ON authority.authority_id = permit.authority_id
+                     AND authority.content_ref = permit.content_ref
+                     AND authority.content_binding_sha256 = permit.content_binding_sha256
+                     AND authority.contract_version = 'privacy-ingestion-relevance-v1'
+                     AND authority.binding_version = 'content-acquisition-binding-v1'
+                     AND authority.privacy_policy_version = 'privacy-minimization-v1'
+                    WHERE permit.permit_id IS NULL
+                       OR authority.authority_id IS NULL
+                       OR EXISTS (
+                           SELECT 1
+                           FROM privacy_ingestion_relevance_authority successor
+                           WHERE successor.supersedes_authority_id = authority.authority_id
+                       )
+                ) THEN
+                    RAISE EXCEPTION 'INGESTION_ACQUISITION_PERMIT_STALE';
+                END IF;
+            END
+            $dp304_relevance_guard$;
+            INSERT INTO source (
+                id, canonical_name, source_type, canonical_url,
+                language, country_code, metadata
+            ) VALUES (
+                :'source_id', :'source_name', :'source_kind',
+                NULLIF(:'source_url',''), 'it', 'IT', :'source_metadata'::jsonb
+            )
+            ON CONFLICT (id) DO UPDATE SET
+                canonical_name = EXCLUDED.canonical_name,
+                source_type = EXCLUDED.source_type,
+                canonical_url = EXCLUDED.canonical_url,
+                metadata = source.metadata || EXCLUDED.metadata,
+                updated_at = now();
             INSERT INTO content_item (
                 id, source_id, source_external_id, canonical_url, title,
                 description, language, published_at, duration_ms, metadata
@@ -1089,6 +1210,25 @@ def _legacy_persist_items(
             content.external_id,
             fallback_id,
         )
+        operation_ref = deterministic_ingestion_operation_ref(
+            "SCHEDULER_INGEST",
+            content_id,
+            content.platform,
+            content.external_id,
+        )
+        permit = store.issue_ingestion_acquisition_permit(
+            content_ref=content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="SCHEDULER_INGEST",
+            operation_ref=operation_ref,
+        )
+        store.require_ingestion_acquisition_permit(
+            permit_id=permit.permit_id,
+            content_ref=content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="SCHEDULER_INGEST",
+            operation_ref=operation_ref,
+        )
         store.upsert_content(content, content_id)
         upserts += 1
         normalized_published = _normalized_timestamp(content.published_at)
@@ -1290,7 +1430,15 @@ def poll_source(
         )
     except Exception as exc:
         category = _error_category(exc)
-        status = "BLOCKED" if isinstance(exc, SourceAdapterError) and exc.blocked else "FAILED"
+        status = (
+            "BLOCKED"
+            if (
+                isinstance(exc, IngestionRelevanceBlocked)
+                or (isinstance(exc, SourceAdapterError) and exc.blocked)
+                or category.startswith("INGESTION_")
+            )
+            else "FAILED"
+        )
         outcome = PollOutcome(
             source_id,
             status,

@@ -25,6 +25,9 @@ from dichiarazioni_pubbliche.provenance_quarantine import (  # noqa: E402
 from dichiarazioni_pubbliche.provenance_quarantine_persistence import (  # noqa: E402
     ProvenanceHoldPersistenceStore,
 )
+from dichiarazioni_pubbliche.ingestion_relevance import (  # noqa: E402
+    append_ingestion_relevance_authority,
+)
 from dichiarazioni_pubbliche.source_revalidation import (  # noqa: E402
     SourceSnapshot,
     evaluate_reobservation,
@@ -205,6 +208,15 @@ class ProvenanceRevalidationPersistencePostgresTests(unittest.TestCase):
                     f"VALUES ('{CONTENT_ID}', '{SOURCE_ID}', 'https://example.test/source', 'PROCESSED');"
                 ),
             ]
+        )
+        append_ingestion_relevance_authority(
+            self.revalidation.run,
+            content_ref=CONTENT_ID,
+            canonical_url="https://example.test/source",
+            relevance_reason="OFFICIAL_RECORD",
+            reviewer_ref="reviewer:dp304",
+            audit_ref="audit:dp304:source-revalidation",
+            reviewed_at="2026-10-06T12:00:00+00:00",
         )
 
     def tearDown(self):
@@ -450,6 +462,43 @@ class ProvenanceRevalidationPersistencePostgresTests(unittest.TestCase):
         self.assertEqual(persisted.previous_capture_id, persisted.current_capture_id)
         self.assertEqual(self._scalar("SELECT count(*) FROM content_capture;"), "1")
         self.assertEqual(self._scalar("SELECT count(*) FROM source_revalidation_snapshot_durable;"), "2")
+
+    def test_revalidation_capture_without_current_relevance_is_omitted(self):
+        unreviewed_content_id = "content:dp511:unreviewed"
+        self.revalidation.run(
+            """
+            INSERT INTO content_item (id, source_id, canonical_url, processing_status)
+            VALUES (:'content_id', :'source_id', 'https://example.test/source', 'PROCESSED');
+            """,
+            content_id=unreviewed_content_id,
+            source_id=SOURCE_ID,
+        )
+        previous = snapshot()
+        current = replace(
+            previous,
+            observed_at=NOW.replace(hour=13),
+            content_sha256=SHA_B,
+            source_version="v2",
+        )
+        decision = evaluate_reobservation(
+            previous,
+            current,
+            as_of=date(2026, 10, 6),
+        )
+        with self.assertRaisesRegex(RuntimeError, "INGESTION_RELEVANCE_MISSING"):
+            self.revalidation.persist_reobservation(
+                previous=previous,
+                current=current,
+                decision=decision,
+                content_id=unreviewed_content_id,
+            )
+        self.assertEqual(
+            self._scalar(
+                "SELECT count(*) FROM content_capture "
+                f"WHERE content_id='{unreviewed_content_id}';"
+            ),
+            "0",
+        )
 
     def test_hold_and_source_ledgers_are_append_only_and_detect_privileged_tamper(self):
         scope = HoldScopeTarget.finding(FINDING_ID)

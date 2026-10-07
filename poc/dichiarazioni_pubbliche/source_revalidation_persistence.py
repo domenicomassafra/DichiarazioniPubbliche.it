@@ -13,6 +13,9 @@ from dichiarazioni_pubbliche.provenance_quarantine import (
 from dichiarazioni_pubbliche.provenance_quarantine_persistence import (
     ProvenanceHoldPersistenceStore,
 )
+from dichiarazioni_pubbliche.ingestion_relevance import (
+    require_current_ingestion_relevance,
+)
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.source_revalidation import (
     SOURCE_REVALIDATION_VERSION,
@@ -135,10 +138,13 @@ def _snapshot_from_row(row: dict[str, Any]) -> SourceSnapshot:
 class SourceRevalidationPersistenceStore(PsqlRuntime):
     """Append-only DP-511 source observations/decisions plus immutable Capture linkage."""
 
-    def _validate_content_source(self, *, content_id: str, source_id: str) -> None:
+    def _validate_content_source(self, *, content_id: str, source_id: str) -> str:
         raw = self.run(
             """
-            SELECT COALESCE(source_id, '')
+            SELECT json_build_object(
+                'source_id', source_id,
+                'canonical_url', canonical_url
+            )::text
             FROM content_item
             WHERE id = :'content_id';
             """,
@@ -146,8 +152,20 @@ class SourceRevalidationPersistenceStore(PsqlRuntime):
         ).strip()
         if not raw:
             raise ValueError("SOURCE_REVALIDATION_CONTENT_NOT_FOUND")
-        if raw != source_id:
+        row = json.loads(raw)
+        if not isinstance(row, dict):
+            raise ValueError("SOURCE_REVALIDATION_CONTENT_INVALID")
+        if str(row.get("source_id") or "") != source_id:
             raise ValueError("SOURCE_REVALIDATION_CONTENT_SOURCE_MISMATCH")
+        canonical_url = str(row.get("canonical_url") or "").strip()
+        if not canonical_url:
+            raise ValueError("SOURCE_REVALIDATION_CONTENT_URL_MISSING")
+        require_current_ingestion_relevance(
+            self.run,
+            content_ref=content_id,
+            canonical_url=canonical_url,
+        )
+        return canonical_url
 
     def _persist_capture(
         self,
@@ -164,7 +182,10 @@ class SourceRevalidationPersistenceStore(PsqlRuntime):
         clean_content_id = str(content_id or "").strip()
         if not clean_content_id:
             raise ValueError("SOURCE_REVALIDATION_CONTENT_ID_INVALID")
-        self._validate_content_source(content_id=clean_content_id, source_id=str(row["source_id"]))
+        self._validate_content_source(
+            content_id=clean_content_id,
+            source_id=str(row["source_id"]),
+        )
         proposed_id = "capture:source-revalidation:" + hashlib.sha256(
             f"{clean_content_id}\0{content_hash}".encode("utf-8")
         ).hexdigest()

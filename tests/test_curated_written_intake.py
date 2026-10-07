@@ -3,6 +3,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
@@ -73,6 +74,38 @@ class FakePromotionStore:
         self.duplicate_target = duplicate_target
         self.last_candidate_id = None
         self.candidate_metadata = {}
+        self.relevance_allowed = True
+
+    def require_current_ingestion_relevance(self, *, content_ref, canonical_url):
+        if not self.relevance_allowed:
+            raise RuntimeError("INGESTION_ACQUISITION_PERMIT_STALE")
+        return {"content_ref": content_ref, "canonical_url": canonical_url}
+
+    def issue_ingestion_acquisition_permit(
+        self, *, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=f"permit:{content_ref}",
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
+    def require_ingestion_acquisition_permit(
+        self, *, permit_id, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=permit_id,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
 
     def run(self, sql, **variables):
         self.calls.append((sql, variables))
@@ -162,6 +195,38 @@ class FakePromotionStore:
 class FakeStore(QueueRuntimeStore):
     def __init__(self):
         self.calls = []
+        self.relevance_allowed = True
+
+    def require_current_ingestion_relevance(self, *, content_ref, canonical_url):
+        if not self.relevance_allowed:
+            raise RuntimeError("INGESTION_ACQUISITION_PERMIT_STALE")
+        return {"content_ref": content_ref, "canonical_url": canonical_url}
+
+    def issue_ingestion_acquisition_permit(
+        self, *, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=f"permit:{content_ref}",
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
+
+    def require_ingestion_acquisition_permit(
+        self, *, permit_id, content_ref, canonical_url, operation_kind, operation_ref
+    ):
+        self.require_current_ingestion_relevance(
+            content_ref=content_ref,
+            canonical_url=canonical_url,
+        )
+        return SimpleNamespace(
+            permit_id=permit_id,
+            operation_kind=operation_kind,
+            operation_ref=operation_ref,
+        )
 
     def run(self, sql, **variables):
         self.calls.append((sql, variables))
@@ -183,6 +248,38 @@ class FakeStore(QueueRuntimeStore):
 
 
 class CuratedWrittenIntakeTests(unittest.TestCase):
+    def test_stale_permit_after_issue_blocks_direct_batch_before_source_mutation(self):
+        batch = prepare_curated_written_batch(fixture_payload())
+
+        class StaleAfterIssueStore(FakeStore):
+            def issue_ingestion_acquisition_permit(self, **kwargs):
+                permit = super().issue_ingestion_acquisition_permit(**kwargs)
+                self.relevance_allowed = False
+                return permit
+
+        store = StaleAfterIssueStore()
+        with self.assertRaisesRegex(RuntimeError, "INGESTION_ACQUISITION_PERMIT_STALE"):
+            apply_curated_written_batch(
+                store, batch, actor_ref="reviewer", approve_attribution=True
+            )
+        self.assertEqual(store.calls, [])
+
+    def test_stale_permit_after_issue_blocks_promotion_before_source_mutation(self):
+        batch = prepare_curated_written_batch(promotion_ready_payload())
+
+        class StaleAfterIssueStore(FakePromotionStore):
+            def issue_ingestion_acquisition_permit(self, **kwargs):
+                permit = super().issue_ingestion_acquisition_permit(**kwargs)
+                self.relevance_allowed = False
+                return permit
+
+        store = StaleAfterIssueStore()
+        with self.assertRaisesRegex(RuntimeError, "INGESTION_ACQUISITION_PERMIT_STALE"):
+            apply_curated_written_batch_via_promotion(
+                store, batch, actor_ref="reviewer"
+            )
+        self.assertEqual(store.calls, [])
+
     def test_prepare_hashes_quote_and_does_not_retain_body(self):
         batch = prepare_curated_written_batch(fixture_payload())
         claim = batch.contents[0].claims[0]

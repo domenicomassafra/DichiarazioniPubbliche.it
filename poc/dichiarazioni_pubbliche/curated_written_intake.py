@@ -25,6 +25,9 @@ from dichiarazioni_pubbliche.corpus_repository import (
     deterministic_corpus_id,
 )
 from dichiarazioni_pubbliche.domain_vocabulary import CLAIM_TYPE_VERSION
+from dichiarazioni_pubbliche.ingestion_relevance import (
+    deterministic_ingestion_operation_ref,
+)
 from dichiarazioni_pubbliche.queue_runtime import QueueRuntimeStore
 from dichiarazioni_pubbliche.review_admin import deterministic_review_event_id
 from dichiarazioni_pubbliche.text_provenance import make_text_provenance_candidate
@@ -436,7 +439,32 @@ def apply_curated_written_batch(
         "contents": [],
     }
     for content in batch.contents:
+        operation_ref = deterministic_ingestion_operation_ref(
+            "CURATED_WRITTEN",
+            batch.batch_id,
+            content.content_id,
+        )
+        permit = store.issue_ingestion_acquisition_permit(
+            content_ref=content.content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="CURATED_WRITTEN",
+            operation_ref=operation_ref,
+        )
+        store.require_ingestion_acquisition_permit(
+            permit_id=permit.permit_id,
+            content_ref=content.content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="CURATED_WRITTEN",
+            operation_ref=operation_ref,
+        )
         source_state = _upsert_source(store, content)
+        store.require_ingestion_acquisition_permit(
+            permit_id=permit.permit_id,
+            content_ref=content.content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="CURATED_WRITTEN",
+            operation_ref=operation_ref,
+        )
         content_state = _upsert_content(store, content)
         if source_state == "conflict" or content_state == "conflict":
             raise RuntimeError(
@@ -854,7 +882,32 @@ def apply_curated_written_batch_via_promotion(
         "contents": [],
     }
     for content in batch.contents:
+        operation_ref = deterministic_ingestion_operation_ref(
+            "CURATED_WRITTEN",
+            batch.batch_id,
+            content.content_id,
+        )
+        permit = store.issue_ingestion_acquisition_permit(
+            content_ref=content.content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="CURATED_WRITTEN",
+            operation_ref=operation_ref,
+        )
+        store.require_ingestion_acquisition_permit(
+            permit_id=permit.permit_id,
+            content_ref=content.content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="CURATED_WRITTEN",
+            operation_ref=operation_ref,
+        )
         source_state = _upsert_source(store, content)
+        store.require_ingestion_acquisition_permit(
+            permit_id=permit.permit_id,
+            content_ref=content.content_id,
+            canonical_url=content.canonical_url,
+            operation_kind="CURATED_WRITTEN",
+            operation_ref=operation_ref,
+        )
         content_state = _upsert_content(store, content)
         if source_state == "conflict" or content_state == "conflict":
             raise RuntimeError(f"CURATED_PROMOTION_CONTENT_CONFLICT:{content.content_id}")
