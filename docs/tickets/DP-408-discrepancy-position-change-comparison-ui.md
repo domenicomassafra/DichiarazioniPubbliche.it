@@ -123,7 +123,7 @@ UI must preserve the exact domain label and explanation supplied by the public c
 - [x] `AC-408.1`: Given an approved relation with two or more public finding versions,
   when a reader opens the Trace, then each statement, date, source, relation type,
   and evidence path is visible in a stable reading order.
-- [ ] `AC-408.2`: Given the relation is a contradiction or position-change context, when
+- [x] `AC-408.2`: Given the relation is a contradiction or position-change context, when
   the page explains it, then it does not infer intent, deceit, lie, reliability, or a
   political conclusion and preserves the exact DP-104 label.
 - [x] `AC-408.3`: Given a relation candidate, stale review, incompatible scope, or
@@ -235,8 +235,29 @@ Browser/performance QA over the populated projection records zero external reque
 the Trace route, so AC-408.7 is closed. Repository/collision ownership remains DP-408 for Trace and
 DP-104/DP-105 for relation/schema semantics, closing AC-408.8.
 
-AC-408.2 remains open: the current rendered canary exercises `UPDATE`, not a literal rendered
-`CONTRADICTION_CANDIDATE` or `POSITION_CHANGE_CANDIDATE`, so code branches alone are not promoted
-to acceptance proof. AC-408.5 and AC-408.6 remain open because they require real screen-reader/
+AC-408.5 and AC-408.6 remain open because they require real screen-reader/
 manual visual judgment. The ticket remains `BLOCKED` for runtime DONE until a real DP-104-reviewed
 relation with projectable participants exists in the runtime authority.
+
+### Contradiction / position-change rendered acceptance — 2026-10-07
+
+AC-408.2 is closed with rendered fixture evidence rather than source-branch inspection. A
+temporary projection derived from the public-schema-valid DP-407 fixture replaced the existing
+demo `UPDATE` relation with two structurally approved, explicitly reviewed relations over the
+same two public participants: `CONTRADICTION_CANDIDATE` and `POSITION_CHANGE_CANDIDATE`. This is
+deterministic demo acceptance data only; it is not represented as a real DP-104 runtime review.
+
+The production static renderer emitted canonical Trace routes for both relation IDs. Read-back of
+the generated HTML proves the exact DP-104 domain labels remain visible in provenance
+(`CONTRADICTION_CANDIDATE` and `POSITION_CHANGE_CANDIDATE`), while the reader-facing labels are
+respectively `Contraddizione revisionata` and `Cambiamento di posizione revisionato`. Both pages
+state the no-intent boundary (`senza attribuire intenzioni`) and contain none of the inspected
+deception/reliability terms (`bugia`, `menzogna`, `disonest*`, `affidabil*`, `inganno`, `deceit`).
+Review-event provenance remains present; the page does not infer a political conclusion.
+
+Validation on the rendered 56-page snapshot: quality PASS; route contract PASS (**56 HTML**, **28
+compatibility aliases**, **817 internal links**); trust PASS; correction consistency PASS;
+browser QA PASS (**31 routes**, **0 external requests**, exact 200% zoom, phone reflow, reduced
+motion); performance PASS with the contradiction Trace included as a representative route and no
+overflow/autoplay. The temporary projection lives outside the repository and no production data,
+runtime relation, provider, or public service was mutated.
