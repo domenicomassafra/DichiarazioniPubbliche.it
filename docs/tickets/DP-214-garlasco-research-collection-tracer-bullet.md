@@ -136,3 +136,42 @@ plus an official authority website as a *source locator only*.
 All six remain rights/provenance unknown, not captured or ingested;
 none is counted toward the accepted 100. The register is a concrete
 next-step shortlist for reviewed discovery, not AC-214.1 proof.
+
+### 2026-10-08 private PAUSED historical collection seed
+
+The separate additive `garlasco_collection_seed.py` was executed only after
+read-only dry-run, an actual PostgreSQL transaction ending in `ROLLBACK`,
+and a protected MiniPC preimage backup. A guarded, atomic, explicitly
+opted-in transaction persisted one **PAUSED** `research:garlasco`
+collection with exactly **18 included links to the existing historical
+Content IDs**. This is a *metadata-only research baseline*, not the full
+100-item pilot and not an approved discovery/capture manifest.
+The transaction verifies the exact versioned 18-item SHA-256, all 30
+historical claims, Content ID/URL/Source ID bindings, unresolved rights,
+absence of historic Captures/Passages, and unchanged public PUBLISH count.
+It refuses concurrent source/claim drift, preexisting wrong-state
+collection/memberships or hash mismatch, rather than force-overwriting.
+Reapplying the same seed was verified against MiniPC PostgreSQL and
+left exactly one collection and 18 members; no duplicates.
+
+**Observed live postflight:** state `PAUSED`; collection 1, members 18/18,
+rights `UNKNOWN` 18/18, claims 30, Capture 0, Passage 0, discovery
+hits 0, public `PUBLISH` findings 2 (unchanged). DP-209's canonical
+discovery manifest persists only for `collection.status='ACTIVE'`, so this
+paused baseline is not an active intake campaign.
+
+The previous unscoped Garlasco 13-case benchmark passed 13/13; scoped
+to the first persisted collection, two PERSON queries initially failed
+because the search filtered only `content_id` (11/13). The DP-116 SQL
+was corrected to bind a PERSON result only through an included Content
+with an exact persisted `atomic_claim.speaker_person_id`, and to
+resolve COLLECTION results only for the exact collection ID. The
+**real MiniPC collection-scoped benchmark now passes 13/13 (100% @5)**,
+including both person cases, without exposing arbitrary persons.
+This is a historical-baseline retrieval proof, not yet the full
+100-item corpus AC-214.4 acceptance.
+
+AC-214.1/.2/.4/.5/.6/.7/.8 remain unchecked. No source/capture rights
+were granted, no discovery candidate was added to Content, no new
+candidate/claim/finding was promoted and no public projection was changed.
+Detailed receipt and rollback info: `docs/ops/garlasco-paused-baseline-20261008.md`.

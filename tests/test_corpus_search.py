@@ -85,6 +85,19 @@ class CorpusSearchContractTests(unittest.TestCase):
         self.assertIn("erc.status='APPROVED'", CORPUS_SEARCH_SQL_V1)
         self.assertIn("rcc.status='INCLUDED'", CORPUS_SEARCH_SQL_V1)
 
+    def test_collection_scoped_speakers_require_exact_historical_claim_membership(self):
+        # Before DP-214's first persisted collection, collection-scoped search
+        # lost the two PERSON baseline cases: PERSON rows have no content_id.
+        # The fix must bind a real existing historical speaker to an included
+        # collection Content, not expose arbitrary people or model candidates.
+        self.assertIn("h.kind='PERSON' AND h.person_id IS NOT NULL", CORPUS_SEARCH_SQL_V1)
+        self.assertIn("JOIN atomic_claim ac ON ac.content_id=rcc.content_id", CORPUS_SEARCH_SQL_V1)
+        self.assertIn("ac.speaker_person_id=h.person_id", CORPUS_SEARCH_SQL_V1)
+        self.assertIn("rcc.collection_id=:'collection_id'", CORPUS_SEARCH_SQL_V1)
+        self.assertIn("rcc.status='INCLUDED'", CORPUS_SEARCH_SQL_V1)
+        self.assertIn("h.kind='COLLECTION' AND h.id=:'collection_id'", CORPUS_SEARCH_SQL_V1)
+        self.assertNotIn("h.kind='ORGANIZATION' AND h.id=:'collection_id'", CORPUS_SEARCH_SQL_V1)
+
     def test_sql_is_provider_free_and_similarity_is_retrieval_only(self):
         lowered = CORPUS_SEARCH_SQL_V1.lower()
         self.assertNotIn("http://", lowered)

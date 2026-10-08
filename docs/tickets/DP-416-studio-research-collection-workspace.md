@@ -82,3 +82,11 @@ and counts of explicitly INCLUDED collection members (no raw names,
 private scope, source bodies or unapproved interpretation). The local
 browser can issue this query. Full collection→source→passage→candidate
 navigation and Garlasco acceptance remain open.
+
+Follow-up 2026-10-08: `research:garlasco` is now an actual **PAUSED**
+PostgreSQL collection holding exactly 18 prior historical Content IDs,
+all rights `UNKNOWN`. Private `StudioOperatorQueues.list_collections`
+returned `research:garlasco`, `PAUSED`, `included_content_count=18`
+in a real MiniPC read-only canary. This advances the real collection
+read-back/selection prerequisite, **not** the source→passage→candidate
+operator path or a ready public page.

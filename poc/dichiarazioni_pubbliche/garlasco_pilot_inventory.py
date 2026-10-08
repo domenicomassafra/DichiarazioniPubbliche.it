@@ -152,6 +152,7 @@ class GarlascoInventory:
     summary: Mapping[str, int]
     seed_manifest: TracerManifest
     blockers: tuple[str, ...]
+    source_bindings: tuple[tuple[str, str], ...] = ()
 
     def receipt(self) -> dict[str, object]:
         """No raw URLs, source prose, quote bodies or private metadata in stdout."""
@@ -220,6 +221,7 @@ def build_live_inventory(reader: _InventoryReader) -> GarlascoInventory:
         raise ValueError("GARLASCO_INVENTORY_TOTALS_SCHEMA_INVALID")
     claim_ids = [_safe_id(value, "CLAIM_ID") for value in claim_ids]
     items: list[PilotItem] = []
+    source_bindings: list[tuple[str, str]] = []
     verified_source = 0
     unprofiled = 0
     unknown_rights = 0
@@ -227,7 +229,7 @@ def build_live_inventory(reader: _InventoryReader) -> GarlascoInventory:
         content_id = _safe_id(record.get("id"), "CONTENT_ID")
         if not content_id.startswith("content:garlasco:"):
             raise ValueError("GARLASCO_INVENTORY_OUT_OF_SCOPE_CONTENT")
-        _safe_id(record.get("source_id"), "SOURCE_ID")
+        source_id = _safe_id(record.get("source_id"), "SOURCE_ID")
         url = record.get("canonical_url")
         if not isinstance(url, str) or len(url) > 2048 or not _safe_url(url):
             raise ValueError("GARLASCO_INVENTORY_SOURCE_URL_UNSAFE")
@@ -243,6 +245,7 @@ def build_live_inventory(reader: _InventoryReader) -> GarlascoInventory:
         unprofiled += int(profiles == 0)
         unknown_rights += int(rights in {"UNKNOWN", "UNRESOLVED", "REVIEW_REQUIRED"})
         items.append(PilotItem(content_id, url, "", "UNCLASSIFIED", rights))
+        source_bindings.append((content_id, source_id))
     if (
         len(set(row.item_id for row in items)) != len(items)
         or len(set(row.canonical_url for row in items)) != len(items)
@@ -277,7 +280,9 @@ def build_live_inventory(reader: _InventoryReader) -> GarlascoInventory:
         blockers.append("COLLECTION_COVERAGE_NEEDS_MISSING")
     if summary["discovery_hits"] == 0:
         blockers.append("DISCOVERY_RUN_PROVENANCE_MISSING")
-    return GarlascoInventory(summary, manifest, tuple(sorted(set(blockers))))
+    return GarlascoInventory(
+        summary, manifest, tuple(sorted(set(blockers))), tuple(source_bindings)
+    )
 
 
 def verify_baseline_retrieval(

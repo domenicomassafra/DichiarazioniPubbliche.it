@@ -329,6 +329,14 @@ WITH params AS (
                 SELECT 1 FROM research_collection_content rcc
                 WHERE rcc.collection_id=:'collection_id' AND rcc.content_id=h.content_id AND rcc.status='INCLUDED'
             ))
+            OR (h.kind='PERSON' AND h.person_id IS NOT NULL AND EXISTS (
+                SELECT 1 FROM research_collection_content rcc
+                JOIN atomic_claim ac ON ac.content_id=rcc.content_id
+                WHERE rcc.collection_id=:'collection_id'
+                  AND rcc.status='INCLUDED'
+                  AND ac.speaker_person_id=h.person_id
+            ))
+            OR (h.kind='COLLECTION' AND h.id=:'collection_id')
         )
         AND (
             NULLIF(:'person_id','') IS NULL
