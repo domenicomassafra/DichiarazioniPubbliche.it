@@ -39,7 +39,7 @@ concurrent work and use the smallest independently provable vertical slice.
 
 - [ ] **AC-214.1:** 100 logical items have discovery/source provenance and successful items have immutable capture receipts.
 - [ ] **AC-214.2:** Duplicate/derivation examples are surfaced without deleting source records.
-- [ ] **AC-214.3:** Existing 30 claims remain unique and discoverable/linkable.
+- [x] **AC-214.3:** Existing 30 claims remain unique and discoverable/linkable.
 - [ ] **AC-214.4:** Search benchmark can answer the agreed Garlasco research questions with measured Recall@K.
 - [ ] **AC-214.5:** Open authoritative-source gaps are Coverage Needs.
 - [ ] **AC-214.6:** Replay leaves logical counts stable except for intentionally new Capture versions.
@@ -96,3 +96,43 @@ with the five required source-family classes, discovery provenance and rights st
 `research:garlasco` and then processed through DP-209..213/117 so the required captures,
 passages, candidates, derivation/duplicate examples, Coverage Needs, replay and MiniPC leak/public
 count checks can be read back. No synthetic collection or fixture is accepted as a substitute.
+
+### 2026-10-08 live baseline proof and seed export
+
+**AC-214.3 closed independently of the still incomplete 100-item tracer.**
+Read-only MiniPC queries confirmed exactly 30 distinct
+`claim:garlasco:*` rows, 30/30 live content joins across 18 unique
+Content IDs, and 30/30 **individual indexed lexical search retrievals**:
+each historical normalized claim query returns its exact claim ID joined
+to the correct Content ID within top 20. The existing 13-case top-5
+Garlasco benchmark independently passed **13/13, p95=51.904ms**
+(`CorpusSearchStore`, real MiniPC PostgreSQL). This proves persisted
+baseline uniqueness, private searchability and linkability, *not* the
+completeness or attribution accuracy of future sources. See
+`docs/ops/garlasco-pilot-seed-readback-20261008.md`.
+
+`garlasco_pilot_inventory.py` now reconstructs the **18 real Content**
+URLs and exact 30 claim IDs from PostgreSQL without fetching, updating
+or publishing anything. It writes the optional candidate manifest
+outside the repository under a 0700 MiniPC operator directory with
+a 0600 new-file-only constraint. The private file is explicitly
+`INCOMPLETE_UNREVIEWED_SEED_NOT_FOR_INGESTION`: its 18 items have
+**no manufactured discovery refs or source-family roles**, and all
+have `rights_status=UNKNOWN`. The preflight therefore correctly reports
+**82 missing logical items** and outstanding provenance, source role,
+rights, capture, passage, Coverage Need and collection gates. 28
+approved text-attribution rows are distinct from rights clearance.
+The production public Finding count remains 2 `PUBLISH`.
+
+AC-214.1/.2/.4/.5/.6/.7/.8 remain unchecked. Baseline query recall
+without the real 100-item collection **does not** close AC-214.4.
+The 18-item seed is a traceable operator starting point, not a
+50/100/100-item filled fixture or a launch artifact.
+
+The separate `config/garlasco-public-discovery-leads.v1.json`
+registers six unreviewed public URL candidates with no present
+Garlasco Content URL collision (MiniPC read-only comparison 0/6),
+plus an official authority website as a *source locator only*.
+All six remain rights/provenance unknown, not captured or ingested;
+none is counted toward the accepted 100. The register is a concrete
+next-step shortlist for reviewed discovery, not AC-214.1 proof.

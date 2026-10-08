@@ -1,0 +1,76 @@
+{
+  "version": "garlasco-public-discovery-leads-v1",
+  "discovered_on": "2026-10-08",
+  "state": "UNREVIEWED_CANDIDATES_ONLY",
+  "description": "Public search discovery hints only. Not DP-209 persisted discovery, not the DP-214 100-item approved manifest, not a license/capture approval or a claim-attribution authority.",
+  "candidates": [
+    {
+      "id": "lead:garlasco:burnout-2026-01",
+      "url": "https://podcasts.apple.com/it/podcast/burnout-ep-16-garlasco-ha-una-regia/id1772323196?i=1000747146238",
+      "proposed_family": "VIDEO_PODCAST",
+      "discovery_type": "PLATFORM_EPISODE_PAGE",
+      "rights_status": "UNKNOWN",
+      "provenance_status": "UNVERIFIED_IN_DATABASE",
+      "candidate_only": true,
+      "capture_authorized": false
+    },
+    {
+      "id": "lead:garlasco:mediaset-interview",
+      "url": "https://mediasetinfinity.mediaset.it/video/quartogrado/caso-garlasco-lintervista-a-roberta-bruzzone_F314087301028C11",
+      "proposed_family": "VIDEO_PODCAST",
+      "discovery_type": "BROADCASTER_VIDEO_PAGE",
+      "rights_status": "UNKNOWN",
+      "provenance_status": "UNVERIFIED_IN_DATABASE",
+      "candidate_only": true,
+      "capture_authorized": false
+    },
+    {
+      "id": "lead:garlasco:raiplay-farwest-2026-04",
+      "url": "https://www.raiplay.it/video/2026/04/Cappa-Garlasco-tra-nuovi-rilievi-e-audio-sospetti---FarWest---21042026-13577568-35e2-4786-b6f6-b0b2e3044ab8.html",
+      "proposed_family": "VIDEO_PODCAST",
+      "discovery_type": "BROADCASTER_VIDEO_PAGE",
+      "rights_status": "UNKNOWN",
+      "provenance_status": "UNVERIFIED_IN_DATABASE",
+      "candidate_only": true,
+      "capture_authorized": false
+    },
+    {
+      "id": "lead:garlasco:ansa-report-2026-05",
+      "url": "https://www.ansa.it/lombardia/notizie/2026/05/07/procura-di-pavia-chiude-le-indagini-su-garlasco-chiara-uccisa-da-sempio_5838528d-4418-49e3-8047-613fa7b0a63e.html",
+      "proposed_family": "SECONDARY_REPORTING",
+      "discovery_type": "NEWS_AGENCY_REPORT",
+      "rights_status": "UNKNOWN",
+      "provenance_status": "UNVERIFIED_IN_DATABASE",
+      "candidate_only": true,
+      "capture_authorized": false
+    },
+    {
+      "id": "lead:garlasco:ilticino-communique-2026-09",
+      "url": "https://ilticino.it/2026/09/28/dlelitto-di-garlasco-notificato-dalla-procura-di-pavia-lavviso-di-chiusura-delle-indagini/",
+      "proposed_family": "DUPLICATE_DERIVATION",
+      "discovery_type": "THIRD_PARTY_OFFICIAL_STATEMENT_MIRROR",
+      "rights_status": "UNKNOWN",
+      "provenance_status": "UNVERIFIED_IN_DATABASE",
+      "candidate_only": true,
+      "capture_authorized": false
+    },
+    {
+      "id": "lead:garlasco:rai-legal-communique-2026-05",
+      "url": "https://www.chilhavisto.rai.it/dl/clv/News/ContentItem-bbe55c13-870b-42f8-9eb3-3300927e12a0.html",
+      "proposed_family": "SECONDARY_REPORTING",
+      "discovery_type": "BROADCASTER_NEWS_PAGE",
+      "rights_status": "UNKNOWN",
+      "provenance_status": "UNVERIFIED_IN_DATABASE",
+      "candidate_only": true,
+      "capture_authorized": false
+    }
+  ],
+  "source_locator_only": [
+    {
+      "id": "lead:official-source:procura-pavia",
+      "url": "https://procura-pavia.giustizia.it/",
+      "purpose": "Locate an authentic first-party procedural record; an institution homepage is not a captured case document.",
+      "count_as_logical_item": false
+    }
+  ]
+}
