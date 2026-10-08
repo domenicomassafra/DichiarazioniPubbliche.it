@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.private_candidate_batch import VERSION
+from dichiarazioni_pubbliche.private_candidate_commit_fence import PrivateCandidateCommitFence
 from tools import extract_research_candidates
 
 
@@ -151,6 +152,14 @@ class CandidateCommandTests(unittest.TestCase):
             [call.kwargs["max_cost_usd"] for call in extract.call_args_list],
             [Decimal("0.10"), Decimal("0.07")],
         )
+        self.assertTrue(all(
+            isinstance(call.kwargs["commit_fence"], PrivateCandidateCommitFence)
+            and call.kwargs["commit_fence"].collection_id == "research:reviewed"
+            and call.kwargs["commit_fence"].content_id == "content:reviewed"
+            and call.kwargs["commit_fence"].rights_record_id == "private-rights:reviewed"
+            and call.kwargs["commit_fence"].passage_id == call.kwargs["passage_id"]
+            for call in extract.call_args_list
+        ))
 
     def test_rejected_first_candidate_stops_batch_without_second_call(self):
         class Capture:

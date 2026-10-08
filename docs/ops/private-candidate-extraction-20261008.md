@@ -37,9 +37,68 @@ which revalidates rights before the model call and before candidate commit.
 If a right is revoked before the provider call, the run records BLOCKED with
 zero provider calls and cost. After a provider call, revocation records BLOCKED,
 reserves its conservative upper cost, and persists **no Candidate**. This
-read-time revalidation does not amount to atomic SQL fencing against every
-possible microsecond race. A separate transaction-level authorization fence
-would be required for stronger concurrency guarantees.
+read-time revalidation is supplemented by a same-SQL-statement commit fence
+as documented below; it is not a global guarantee against an uncoordinated,
+concurrent append-only rights/authority revocation.
+
+## Transaction-snapshot Candidate commit fence (additional hardening)
+
+The operator-only `--execute` path now passes an explicit
+`PrivateCandidateCommitFence`, derived exclusively from the reviewed
+manifest's exact Collection ID, Content/Passage/Capture IDs, Passage SHA-256,
+canonical URL, source family and current private rights-record ID. The
+persisted privacy relevance binding SHA-256 is deterministically derived
+from Content and URL, not supplied by the model.
+
+Inside the **same PostgreSQL statement** that inserts candidate Passages,
+Statement Candidates, Claim Candidates, entity mentions/resolutions, the
+private provider receipt and `COMPLETED` extraction-run state, the new
+`commit_authority` CTE must find a valid current-snapshot authorization:
+
+- ACTIVE Collection, INCLUDED and capture-authorized membership, no
+  explicitly forbidden/inactive alternate Collection;
+- exact Content, Capture and parent Passage IDs/hash, Capture not held or
+  purged, CLEARED Content/Capture rights and private retention class;
+- exact current private rights record with receipt, reviewer, unexpired
+  review, source family/URL binding and **both** specific private permitted
+  uses; no superseding rights record;
+- current Content/URL-bound privacy relevance authority with expected
+  policy/binding versions and no successor;
+- valid source-family-matched Discovery Hit, with healthy attempt, exact
+  query/adapter/manifest lineage and accepted disposition.
+
+If the row vanishes from that database snapshot, the insert and
+`COMPLETED` mutation have no eligible `locked` run, so **no candidate or
+success receipt is inserted**. The application subsequently writes a
+terminal BLOCKED run receipt, preserving the provider call and conservative
+cost upper bound when the model call has already occurred.
+
+This fence is used by `tools/extract_research_candidates.py` and the
+legacy operator command that delegates to it. The DP-211 internal
+extraction adapter remains available *without* this operator fence only
+for its independently certified legacy/isolated test routes. No public
+write or claim promotion was added.
+
+**Race limitation:** the SQL snapshot prevents a stale application-side
+approval from authorizing a later *observably revoked* commit. It does
+**not** fully serialize against a concurrently inserted append-only
+supersession that does not coordinate locks; such global atomicity would
+require compatible locking/write-side governance. The independently
+replayed Python relevance and rights checks remain mandatory, including
+integrity and lineage validation. This is defense in depth, not a legal
+or concurrency certification.
+
+### MiniPC acceptance
+
+`tools/check_private_candidate_commit_fence.py --database-url
+dichiarazioni_pubbliche` creates **only temporary shadow tables inside one
+transaction ending in ROLLBACK**, invokes the actual CTE on one synthetic
+positive fixture and tests 15 revoked/mismatched cases. MiniPC result:
+**1 synthetic acceptance + 15 fail-closed cases PASS; 0 private Candidate
+writes; protected real production counters unchanged**. The synthetic
+positive source and reviewer labels are test-only, not Garlasco content,
+permissions, providers or real rights receipts. Neither the service mirror
+nor production schema/data are updated.
 
 ## Manifest and procedure
 

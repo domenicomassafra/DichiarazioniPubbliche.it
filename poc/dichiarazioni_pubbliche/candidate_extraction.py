@@ -25,6 +25,10 @@ from dichiarazioni_pubbliche.corpus_repository import (
     deterministic_corpus_id,
 )
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
+from dichiarazioni_pubbliche.private_candidate_commit_fence import (
+    PrivateCandidateCommitFence,
+    PRIVATE_CANDIDATE_COMMIT_AUTHORITY_CTE,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1200,9 +1204,18 @@ COMMIT;
 
 _COMMIT_BATCH_SQL = r"""
 BEGIN;
-WITH locked AS (
+WITH commit_authority AS MATERIALIZED (
+    SELECT 1 AS allowed WHERE false
+), locked AS (
     SELECT * FROM candidate_extraction_run
     WHERE id=:'run_id' AND status='RUNNING' AND lease_owner=:'lease_owner'
+      AND (NOT :'fence_required'::boolean OR (
+          content_id=:'fence_content_id'
+          AND passage_id=:'fence_passage_id'
+          AND capture_id=:'fence_capture_id'
+          AND input_sha256=:'fence_passage_sha256'
+          AND EXISTS (SELECT 1 FROM commit_authority)
+      ))
     FOR UPDATE
 ), passage_input AS (
     SELECT * FROM jsonb_to_recordset(:'passages'::jsonb) AS x(
@@ -1354,7 +1367,11 @@ SELECT json_build_object(
     'provider_receipt_id', provider_receipt_id, 'error_category', error_category
 )::text FROM updated;
 COMMIT;
-""".strip()
+""".strip().replace(
+    "commit_authority AS MATERIALIZED (\n    SELECT 1 AS allowed WHERE false\n)",
+    PRIVATE_CANDIDATE_COMMIT_AUTHORITY_CTE,
+    1,
+)
 
 
 _GET_RUN_SQL = r"""
@@ -1562,7 +1579,25 @@ class CandidateExtractionStore(PsqlRuntime):
         provider_receipt_id: str,
         request_id: str | None,
         actual_cost: Decimal,
+        commit_fence: PrivateCandidateCommitFence | None = None,
     ) -> dict[str, Any]:
+        fence_parameters = (
+            commit_fence.sql_parameters() if commit_fence is not None else {
+                key: "" for key in (
+                    "fence_collection_id", "fence_content_id", "fence_capture_id",
+                    "fence_passage_id", "fence_passage_sha256", "fence_canonical_url",
+                    "fence_source_family", "fence_rights_record_id",
+                    "fence_relevance_binding_sha256",
+                )
+            }
+        )
+        if commit_fence is not None and (
+            commit_fence.content_id != context.content_id
+            or commit_fence.capture_id != context.capture_id
+            or commit_fence.passage_id != context.passage_id
+            or commit_fence.passage_sha256 != context.text_sha256
+        ):
+            raise CandidateExtractionError("CANDIDATE_COMMIT_FENCE_CONTEXT_MISMATCH")
         passage_rows = []
         statement_rows = []
         for prepared in batch.statements:
@@ -1696,10 +1731,15 @@ class CandidateExtractionStore(PsqlRuntime):
             claim_count=len(batch.claims),
             entity_mention_count=len(batch.mentions),
             entity_resolution_count=len(batch.resolutions),
+            fence_required=str(commit_fence is not None).lower(),
+            **fence_parameters,
         )
         lines = [line for line in raw.splitlines() if line.strip().startswith("{")]
         if not lines:
-            raise CandidateExtractionError("CANDIDATE_BATCH_COMMIT_FAILED")
+            raise CandidateExtractionError(
+                "CANDIDATE_COMMIT_AUTHORITY_CHANGED"
+                if commit_fence is not None else "CANDIDATE_BATCH_COMMIT_FAILED"
+            )
         return json.loads(lines[-1])
 
 
@@ -1733,9 +1773,17 @@ def extract_passage_candidates(
     max_cost_usd: Decimal | str | float = Decimal("0"),
     lease_seconds: int = 120,
     authorization_guard: Callable[[], None] | None = None,
+    commit_fence: PrivateCandidateCommitFence | None = None,
 ) -> CandidateExtractionReceipt:
     # Operator-driven live extraction must revalidate rights and source provenance.
     # The pure certified DP-211 adapter remains callable for isolated canaries.
+    if commit_fence is not None:
+        try:
+            commit_fence.sql_parameters()
+        except ValueError as exc:
+            raise CandidateExtractionError("CANDIDATE_COMMIT_FENCE_INVALID") from exc
+        if commit_fence.passage_id != passage_id:
+            raise CandidateExtractionError("CANDIDATE_COMMIT_FENCE_PASSAGE_MISMATCH")
     if authorization_guard is not None:
         authorization_guard()
     provider_config = getattr(provider, "config", None)
@@ -1754,6 +1802,12 @@ def extract_passage_candidates(
         raise CandidateExtractionError("CANDIDATE_INPUT_TOO_LARGE")
     if _sha256_text(context.text) != context.text_sha256:
         raise CandidateExtractionError("CANDIDATE_PASSAGE_HASH_MISMATCH")
+    if commit_fence is not None and (
+        commit_fence.content_id != context.content_id
+        or commit_fence.capture_id != context.capture_id
+        or commit_fence.passage_sha256 != context.text_sha256
+    ):
+        raise CandidateExtractionError("CANDIDATE_COMMIT_FENCE_CONTEXT_MISMATCH")
     if context.selector_type == "MEDIA_SEGMENT_REF" and (
         context.segment_status != "RESOLVED" or context.segment_publication_blocked is True
     ):
@@ -2052,17 +2106,23 @@ def extract_passage_candidates(
             authorization_guard()
         except Exception as exc:
             return authority_block(called=True, error=exc)
-    committed = store.commit_batch(
-        run_id=run_id,
-        lease_owner=lease_owner,
-        batch=batch,
-        context=context,
-        provider=provider,
-        provider_result=result,
-        provider_receipt_id=provider_receipt_id,
-        request_id=request_id,
-        actual_cost=actual_cost,
-    )
+    try:
+        committed = store.commit_batch(
+            run_id=run_id,
+            lease_owner=lease_owner,
+            batch=batch,
+            context=context,
+            provider=provider,
+            provider_result=result,
+            provider_receipt_id=provider_receipt_id,
+            request_id=request_id,
+            actual_cost=actual_cost,
+            commit_fence=commit_fence,
+        )
+    except CandidateExtractionError as exc:
+        if commit_fence is not None and exc.code == "CANDIDATE_COMMIT_AUTHORITY_CHANGED":
+            return authority_block(called=True, error=exc)
+        raise
     return _receipt(committed, reason_code="CANDIDATE_EXTRACTION_COMPLETED")
 
 

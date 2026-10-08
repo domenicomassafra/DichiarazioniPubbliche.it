@@ -28,6 +28,7 @@ from dichiarazioni_pubbliche.private_candidate_batch import (  # noqa: E402
     load_candidate_batch,
     preflight_candidate_batch,
 )
+from dichiarazioni_pubbliche.private_candidate_commit_fence import PrivateCandidateCommitFence  # noqa: E402
 from dichiarazioni_pubbliche.rights_registry import PrivateRightsRegistryStore  # noqa: E402
 
 
@@ -95,6 +96,16 @@ def main(argv: list[str] | None = None) -> int:
             provider=client,
             max_cost_usd=cap - spent,
             authorization_guard=guard,
+            commit_fence=PrivateCandidateCommitFence(
+                collection_id=batch.collection_id,
+                content_id=item.content_id,
+                capture_id=item.capture_id,
+                passage_id=item.passage_id,
+                passage_sha256=item.passage_sha256,
+                canonical_url=item.canonical_url,
+                source_family=item.source_family,
+                rights_record_id=item.rights_record_id,
+            ),
         )
         # Cost-bearing failed attempts also consume the remaining batch budget.
         spent += receipt.cost_usd
