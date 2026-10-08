@@ -28,6 +28,7 @@ from tests.test_studio_capture_inspector import A, B, FakeCaptureStore  # noqa: 
 from tests.test_studio_candidate_review import Store as FakeMatchStore  # noqa: E402
 from tests.test_studio_operator_search import FakeStore as FakeSearchStore  # noqa: E402
 from tests.test_studio_operator_queues import FakeOperatorQueues  # noqa: E402
+from tests.test_studio_discovery_inspect import fixture as discovery_inspect_fixture  # noqa: E402
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page  # noqa: E402
 
 TOKEN = "a" * 64
@@ -179,6 +180,25 @@ class StudioLocalApiTests(unittest.TestCase):
                 self.assertFalse(reply["data"]["publication_authority"])
                 self.assertNotIn("PRIVATE", json.dumps(reply))
                 self.assertNotIn("canonical_url", json.dumps(reply))
+
+    def test_discovery_inspect_real_loopback_auth_and_no_private_body(self):
+        route = "/v1/discovery/inspect"
+        request = {"collection_id": "research:1", "hit_id": "hit:1"}
+        self.queues.rows = [discovery_inspect_fixture()]
+        denied, _, _ = self.call("POST", route, request)
+        self.assertEqual(denied, 401)
+        status, reply, headers = self.call("POST", route, request, self.auth())
+        self.assertEqual(status, 200, reply)
+        self.assertEqual(reply["data"]["provenance_path"]["query_id"], "query:1")
+        self.assertFalse(reply["data"]["publication_authority"])
+        self.assertFalse(reply["data"]["triage_action_authorized"])
+        self.assertEqual(headers["Cache-Control"], "no-store, private")
+        self.assertNotIn("canonical_url", json.dumps(reply))
+        self.assertNotIn("DO NOT LEAK", json.dumps(reply))
+        invalid, _, _ = self.call(
+            "POST", route, request | {"approve": True}, self.auth(),
+        )
+        self.assertEqual(invalid, 422)
 
     def test_member_listing_and_exact_detail_require_token_and_included_binding(self):
         cases = [

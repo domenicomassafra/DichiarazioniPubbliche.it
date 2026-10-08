@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
+from dichiarazioni_pubbliche.studio_discovery_detail import present_discovery_detail
 
 STUDIO_QUEUES_VERSION = "studio-operator-queues-v1"
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
@@ -47,6 +48,41 @@ FROM research_discovery_hit hit
 WHERE hit.id > :'after_id'
 ORDER BY hit.id ASC
 LIMIT :'limit'::integer;
+""".strip()
+
+_DISCOVERY_DETAIL_SQL = """
+SELECT json_build_object(
+    'id', hit.id, 'run_id', run.id, 'attempt_id', attempt.id,
+    'query_id', hit.query_id, 'manifest_id', manifest.id,
+    'collection_id', manifest.collection_id, 'content_id', hit.content_id,
+    'disposition', hit.disposition, 'reason_code', hit.reason_code,
+    'source_family', hit.source_family,
+    'collection_status', collection.status, 'manifest_status', manifest.status,
+    'run_status', run.status, 'attempt_status', attempt.status,
+    'lineage_ok', COALESCE(
+        attempt.run_id=run.id AND attempt.query_id=hit.query_id
+        AND discovery_query.manifest_id=manifest.id, false),
+    'manifest_digest_ok', (run.manifest_sha256=manifest.manifest_sha256),
+    'family_ok', COALESCE(
+        manifest.source_families ? hit.source_family
+        AND discovery_query.source_families ? hit.source_family, false),
+    'adapter_ok', COALESCE(discovery_query.adapter_ids ? attempt.adapter_id, false),
+    'url_ok', COALESCE(content.canonical_url=hit.canonical_url, false),
+    'membership_status', member.status,
+    'capture_authorized', COALESCE(
+        member.metadata->'capture_authorized'='true'::jsonb, false),
+    'content_rights_status', content.rights_status
+)::text
+FROM research_discovery_hit hit
+JOIN research_discovery_run run ON run.id=hit.run_id
+JOIN research_discovery_manifest manifest ON manifest.id=run.manifest_id
+JOIN research_collection collection ON collection.id=manifest.collection_id
+LEFT JOIN research_discovery_attempt attempt ON attempt.id=hit.attempt_id
+LEFT JOIN research_discovery_query discovery_query ON discovery_query.id=hit.query_id
+LEFT JOIN content_item content ON content.id=hit.content_id
+LEFT JOIN research_collection_content member
+  ON member.collection_id=collection.id AND member.content_id=hit.content_id
+WHERE hit.id=:'hit_id' AND manifest.collection_id=:'collection_id';
 """.strip()
 
 # The membership is the *authority boundary*: do not browse a Content merely
@@ -287,6 +323,24 @@ class StudioOperatorQueues(PsqlRuntime):
             "private_only": True, "publication_authority": False,
             "results": output, "next_after_id": last_id if len(output) == limit else None,
         }
+
+    def inspect_discovery(self, *, collection_id: str, hit_id: str) -> dict[str, object]:
+        """Inspect persisted run/attempt/query/manifest provenance for one scoped Hit."""
+        collection_id = _id(collection_id, "COLLECTION_ID")
+        hit_id = _id(hit_id, "DISCOVERY_ID")
+        try:
+            row = _record(self.run(
+                _DISCOVERY_DETAIL_SQL, collection_id=collection_id, hit_id=hit_id,
+            ))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            raise ValueError("STUDIO_DISCOVERY_DETAIL_RESULT_INVALID") from None
+        except Exception:
+            raise RuntimeError("STUDIO_DISCOVERY_DETAIL_STORE_UNAVAILABLE") from None
+        if row is None:
+            raise ValueError("STUDIO_DISCOVERY_DETAIL_NOT_FOUND")
+        if row.get("id") != hit_id or row.get("collection_id") != collection_id:
+            raise ValueError("STUDIO_DISCOVERY_DETAIL_SCOPE_MISMATCH")
+        return present_discovery_detail(row)
 
     def list_collection_members(
         self, *, collection_id: str, limit: int = 20, after_id: str | None = None,

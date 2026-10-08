@@ -80,3 +80,37 @@ optional Content ID and safe blocker code. It excludes raw source URL,
 query, title, provider receipt and private body. The local browser has
 a read-only Inbox form. No reject, merge, promote, publish, bulk mutation,
 review authority or idempotency acceptance is introduced.
+
+### Scoped per-Hit provenance inspection — 2026-10-09
+
+The authenticated loopback Studio adds `/v1/discovery/inspect` and a
+read-only Inbox form accepting the exact Collection ID and Discovery Hit ID.
+The SQL traverses persisted Hit -> Run -> Attempt -> Query -> Manifest ->
+Collection, checking run/attempt lineage, active manifest, digest,
+source-family/adapter scope, URL-to-Content equality and Collection
+membership. A mismatched Collection/Hit pair is not found; there is no
+cross-collection inspection by guessing an ID.
+
+The response allowlists **IDs, safe status codes, specific blocker codes
+and suggested unblock conditions**, not source URLs, titles, query text,
+provider receipts, source bodies, model prompts or other private metadata.
+The suggestions are not authorizations. No action to merge, reject,
+extract, promote, publish or bulk-modify is enabled.
+Even a fully matching synthetic Discovery lineage remains blocked by
+`PRIVATE_SOURCE_RIGHTS_REVIEW_NOT_EVALUATED` and
+`DISCOVERY_TRIAGE_REVIEW_AUTHORITY_UNAVAILABLE`; the response reports
+lineage checks separately from those mandatory missing authorities.
+
+Focused unit tests prove valid lineage, rejected/mismatched provenance,
+blocked/capture-unapproved cases, malformed payload refusal, no private
+fields in replies, loopback dispatch and local browser form. A MiniPC
+PostgreSQL `pg_temp` canary exercises the **actual SQL** with one
+synthetic valid row and then a failed Discovery Attempt, with all
+temporary state rolled back and production counters unchanged.
+Live `research:garlasco` has no persisted Discovery Hits to inspect.
+
+**Partial only:** this adds an inspectable provenance path and exact
+unblock guidance **for Discovery Hit rows**, not for every DP-417 queue
+type. AC-417.1/.3 stay open until other queue families are implemented
+and runtime-proven. Durable review transitions, idempotent action replay,
+bulk-state compatibility and real source-family review remain open.

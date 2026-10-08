@@ -117,6 +117,15 @@ _PAGE = """<!doctype html>
         <label>Dopo ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Mostra coda</button></div>
       </form>
+      <h2>Provenienza del risultato</h2>
+      <p>Controllo puntuale di run, tentativo, query, manifest, Collection e autorizzazioni. Gli sblocchi elencati sono interventi da verificare: non approvazioni automatiche.</p>
+      <form data-endpoint="/v1/discovery/inspect">
+        <div class="controls">
+          <label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+          <label>ID Discovery Hit<input name="hit_id" maxlength="180" required></label>
+          <button type="submit">Ispeziona provenienza</button>
+        </div>
+      </form>
     </section>
     <section class="pane" id="matches" hidden>
       <h2>Candidati e corrispondenze</h2><p>Classificazioni suggerite da un match run persistito; attualità e autorità di revisione non verificate.</p>
