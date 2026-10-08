@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from dichiarazioni_pubbliche.claim_contract import ClaimType, NON_FACTUAL_CLAIM_TYPES
 from dichiarazioni_pubbliche.context_integrity import assess_context_integrity
@@ -1384,6 +1384,30 @@ SELECT json_build_object(
 
 
 class CandidateExtractionStore(PsqlRuntime):
+    def read_operator_passage_state(self, passage_id: str) -> dict[str, Any] | None:
+        """Rights/readiness read-back; never expose the private passage body."""
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'passage_id', passage.id,
+                'content_id', passage.content_id,
+                'capture_id', passage.capture_id,
+                'passage_sha256', passage.text_sha256,
+                'capture_status', capture.status,
+                'capture_hold_status', capture.hold_status,
+                'capture_rights_status', capture.rights_status,
+                'capture_retention_class', capture.retention_class,
+                'body_ref', (capture.body_ref IS NOT NULL AND length(btrim(capture.body_ref)) > 0)
+            )::text
+            FROM passage
+            JOIN content_capture capture
+              ON capture.id=passage.capture_id AND capture.content_id=passage.content_id
+            WHERE passage.id=:'passage_id';
+            """,
+            passage_id=passage_id,
+        )
+        return json.loads(raw) if raw else None
+
     def load_passage(self, passage_id: str) -> PassageExtractionContext | None:
         raw = self.run(_LOAD_PASSAGE_SQL, passage_id=passage_id)
         if not raw:
@@ -1708,7 +1732,12 @@ def extract_passage_candidates(
     provider: CandidateExtractionProvider,
     max_cost_usd: Decimal | str | float = Decimal("0"),
     lease_seconds: int = 120,
+    authorization_guard: Callable[[], None] | None = None,
 ) -> CandidateExtractionReceipt:
+    # Operator-driven live extraction must revalidate rights and source provenance.
+    # The pure certified DP-211 adapter remains callable for isolated canaries.
+    if authorization_guard is not None:
+        authorization_guard()
     provider_config = getattr(provider, "config", None)
     if provider_config is None:
         config = load_candidate_extraction_config()
@@ -1729,6 +1758,8 @@ def extract_passage_candidates(
         context.segment_status != "RESOLVED" or context.segment_publication_blocked is True
     ):
         raise CandidateExtractionError("CANDIDATE_MEDIA_SEGMENT_UNRESOLVED")
+    if authorization_guard is not None:
+        authorization_guard()
     if not isinstance(lease_seconds, int) or isinstance(lease_seconds, bool) or lease_seconds <= 0:
         raise CandidateExtractionError("CANDIDATE_LEASE_SECONDS_INVALID")
     effective_lease_seconds = max(
@@ -1791,6 +1822,8 @@ def extract_passage_candidates(
     except Exception as exc:
         upper_bound = Decimal("0")
         cost_blocker = str(getattr(exc, "code", None) or "CANDIDATE_COST_CONTRACT_INVALID")
+    if authorization_guard is not None:
+        authorization_guard()
     lease_owner = "candidate-extractor:" + uuid.uuid4().hex
     started = store.start_run(
         run_id=run_id,
@@ -1822,6 +1855,29 @@ def extract_passage_candidates(
         return _receipt(current, reason_code="ATTEMPT_RECONCILIATION_REQUIRED", replayed=True)
 
     provider_receipt_id = deterministic_extraction_receipt_id(operation_key)
+    def authority_block(*, called: bool, error: Exception) -> CandidateExtractionReceipt:
+        # Stable error categories only; a rights record or provider response is
+        # never copied into the durable receipt. A request already sent retains
+        # the reserved upper cost as a conservative billing estimate.
+        code = str(getattr(error, "code", "") or str(error) or "PRIVATE_ANALYSIS_AUTHORITY_REVOKED")
+        if not re.fullmatch(r"[A-Z0-9_]{1,120}", code):
+            code = "PRIVATE_ANALYSIS_AUTHORITY_REVOKED"
+        raw = store.finish_without_candidates(
+            run_id=run_id,
+            lease_owner=lease_owner,
+            status="BLOCKED",
+            error_category=code,
+            call_count=1 if called else 0,
+            cost_usd=upper_bound if called else Decimal("0"),
+            input_bytes=len(context.text.encode("utf-8")),
+            provider_receipt_id=provider_receipt_id,
+            request_id=None,
+            provider_receipt={"error_category": code} if called else None,
+            receipt_status="BLOCKED",
+            record_provider_receipt=called,
+        )
+        return _receipt(raw, reason_code=code)
+
     if cost_blocker is not None:
         raw = store.finish_without_candidates(
             run_id=run_id,
@@ -1868,6 +1924,11 @@ def extract_passage_candidates(
         max_entity_mentions_per_statement=int(config["max_entity_mentions_per_statement"]),
         cost_upper_bound_usd=upper_bound,
     )
+    if authorization_guard is not None:
+        try:
+            authorization_guard()
+        except Exception as exc:
+            return authority_block(called=False, error=exc)
     if not store.mark_provider_call_started(run_id=run_id, lease_owner=lease_owner):
         raise CandidateExtractionError("CANDIDATE_PROVIDER_CALL_START_CONFLICT")
     try:
@@ -1893,6 +1954,11 @@ def extract_passage_candidates(
             record_provider_receipt=True,
         )
         return _receipt(raw, reason_code=str(code))
+    if authorization_guard is not None:
+        try:
+            authorization_guard()
+        except Exception as exc:
+            return authority_block(called=True, error=exc)
 
     actual_cost = upper_bound
     request_id: str | None = None
@@ -1981,6 +2047,11 @@ def extract_passage_candidates(
         )
         return _receipt(raw, reason_code=str(code))
 
+    if authorization_guard is not None:
+        try:
+            authorization_guard()
+        except Exception as exc:
+            return authority_block(called=True, error=exc)
     committed = store.commit_batch(
         run_id=run_id,
         lease_owner=lease_owner,
