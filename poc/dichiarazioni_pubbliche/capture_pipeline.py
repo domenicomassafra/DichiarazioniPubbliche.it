@@ -34,6 +34,10 @@ from dichiarazioni_pubbliche.source_watcher import (
     FetchedBytes,
     fetch_bytes,
 )
+from dichiarazioni_pubbliche.source_oembed_lookup import (
+    fetch_oembed_json,
+    lookup_vimeo_oembed,
+)
 
 
 CAPTURE_PIPELINE_VERSION = "capture-pipeline-v1"
@@ -93,6 +97,7 @@ class ArchiveResult:
 class CaptureEnrichmentPolicy:
     metadata_enabled: bool = True
     archive_enabled: bool = True
+    oembed_lookup_enabled: bool = False
 
 
 def capture_enrichment_policy_from_source(
@@ -106,8 +111,9 @@ def capture_enrichment_policy_from_source(
     for key, output_key in (
         ("metadata_enrichment_enabled", "metadata_enabled"),
         ("archive_enabled", "archive_enabled"),
+        ("oembed_lookup_enabled", "oembed_lookup_enabled"),
     ):
-        value = policy.get(key, True)
+        value = policy.get(key, False if key == "oembed_lookup_enabled" else True)
         if not isinstance(value, bool):
             raise CapturePipelineError(f"SOURCE_{key.upper()}_INVALID")
         values[output_key] = value
@@ -128,6 +134,7 @@ class CapturePipelineReceipt:
     browser_status: str
     archive_status: str
     reason_code: str
+    oembed_status: str = "NOT_REQUESTED"
 
 
 class ParserAdapter(Protocol):
@@ -1217,6 +1224,7 @@ def capture_content(
     browser_renderer: BrowserRenderer | None = None,
     archive_adapter: ArchiveAdapter | None = None,
     enrichment_policy: CaptureEnrichmentPolicy | None = None,
+    oembed_fetcher: Callable[..., FetchedBytes] = fetch_oembed_json,
     max_response_bytes: int = MAX_DISCOVERY_RESPONSE_BYTES,
 ) -> CapturePipelineReceipt:
     if not isinstance(content_id, str) or not content_id.strip():
@@ -1348,6 +1356,44 @@ def capture_content(
             actor_ref=actor_ref,
         )
 
+    oembed_status = "NOT_REQUESTED"
+    if (
+        enrichment_policy.oembed_lookup_enabled
+        and enrichment_policy.metadata_enabled
+        and state == "INSERTED"
+    ):
+        # This is a separate, explicitly allowed *private* enrichment event,
+        # not a mutation of the immutable captured source or a public finding.
+        try:
+            store.require_ingestion_acquisition_permit(
+                permit_id=permit.permit_id,
+                content_ref=content_id,
+                canonical_url=url,
+                operation_kind="CAPTURE_FETCH",
+                operation_ref=operation_ref,
+            )
+        except RuntimeError as exc:
+            raise CapturePipelineError(str(exc)) from exc
+        result = lookup_vimeo_oembed(selected.final_url, fetcher=oembed_fetcher)
+        oembed_status = result.status
+        if oembed_status != "NOT_APPLICABLE":
+            try:
+                event_state = store.append_event(
+                    capture_id=selected.id,
+                    event_type="PRIVATE_OEMBED_LOOKUP",
+                    operation_key=f"{observed_at}:{result.contract_version}",
+                    actor_ref=actor_ref,
+                    previous_state={},
+                    new_state={"oembed_status": oembed_status},
+                    receipt=result.to_dict(),
+                )
+                if event_state not in {"INSERTED", "EXISTING"}:
+                    oembed_status = "FAILED_EVENT_PERSISTENCE"
+            except Exception:
+                oembed_status = "FAILED_EVENT_PERSISTENCE"
+    elif enrichment_policy.oembed_lookup_enabled and state == "EXISTING":
+        oembed_status = "SKIPPED_REPLAY"
+
     reason = "CAPTURE_PARSED" if selected_parse.status == "SUCCEEDED" else (
         selected_parse.error_category or "CAPTURE_PARSE_FAILED"
     )
@@ -1363,6 +1409,7 @@ def capture_content(
         passage_states=selected_states,
         browser_status=browser_status,
         archive_status=archive_status,
+        oembed_status=oembed_status,
         reason_code=reason,
     )
 

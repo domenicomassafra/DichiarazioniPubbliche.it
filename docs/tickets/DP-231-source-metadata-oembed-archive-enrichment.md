@@ -1,6 +1,6 @@
 # DP-231 — Pender-style source metadata, oEmbed and archive enrichment
 
-Status: IN PROGRESS
+Status: DONE (optional provider contract; production provider lookup disabled)
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-210, DP-118, DP-305
 
@@ -26,7 +26,7 @@ adapters without running Pender, Rails or Redis as another service.
   and detect conflicts with source-registry/Content identity.
 - [x] Conflicting page/canonical/source-registry identity is explicit and cannot silently
   rewrite Content identity.
-- [ ] oEmbed/provider network lookups are allowlisted, bounded and optional.
+- [x] oEmbed/provider network lookups are allowlisted, bounded and optional.
 - [x] Extracted metadata is stored as private Capture provenance/context and does not
   independently alter speaker identity, Content identity or factual findings.
 - [x] Archive adapters preserve async REQUESTED/PENDING/SUCCEEDED/FAILED semantics and a
@@ -78,3 +78,42 @@ policy-disable, conflict, unsafe-URL and archive-state contracts on the runtime 
 network access. The remaining AC stays open because the repository still has no owner-selected
 oEmbed/provider endpoint, provider-specific allowlist/request budget or approved network lookup
 contract; adding a synthetic fetch would not prove that external prerequisite.
+
+### Optional provider-pinned network adapter — 2026-10-08
+
+The first optional network adapter is now implemented in
+`poc/dichiarazioni_pubbliche/source_oembed_lookup.py`, using the published
+Vimeo `https://vimeo.com/api/oembed.json?url=...` JSON contract. This is an
+**engineering-contract completion**, not permission to activate a production
+source, proof of a live successful remote response, or approval of any rights.
+
+- `CaptureEnrichmentPolicy.oembed_lookup_enabled` defaults to **false** and
+  `capture_enrichment_policy_from_source()` accepts only a source-policy
+  Boolean opt-in; disabling metadata disables oEmbed even if the flag is set.
+- Only public, exact-host Vimeo numeric-video URLs qualify. The code constructs
+  the fixed endpoint itself rather than fetching any HTML-discovered
+  `<link rel="alternate">` URL, credentialed URL, unrelated host or raw
+  provider-supplied locator. The request is HTTPS, DNS-public-checked,
+  redirect-denied, proxy-disabled, 3-second-limited and 8192-byte-capped, with
+  JSON-only response acceptance. Future providers need separate review.
+- Only bounded title/author/provider candidates and the response digest are
+  stored in a **private append-only capture lifecycle event**; HTML embed
+  markup, private metadata, arbitrary JSON fields and the raw response are not
+  copied. Every candidate explicitly lacks publication or identity authority.
+  The original Content Capture and its Passages are immutable across lookup
+  success/failure. Replay of an existing Capture skips the network operation.
+- A current acquisition permit is revalidated before the optional request.
+  If the provider is down, returns an error, changes schema, redirects, or
+  returns an oversized/non-JSON response, enrichment fails closed and the
+  original successfully captured body/Passages remain intact.
+- Focused local suite: **35/35 PASS**; isolated MiniPC `/tmp` canary:
+  **35/35 PASS**, cleaned up without production service/DB/provider changes;
+  full Mac suite **1822/1822 PASS**, benchmark **5/5 PASS**, compileall and
+  `git diff --check` PASS.
+
+The independently published example video `https://vimeo.com/286898202`
+returned HTTP 404 from the API when checked on 2026-10-08. That result is
+**not** misrepresented as a successful live-provider acceptance: production
+source profiles remain unconfigured for this optional lookup. A future real
+source activation must pass the source-owner rights/permission and live
+endpoint receipt gates separately; `DP-231` does not grant them.
