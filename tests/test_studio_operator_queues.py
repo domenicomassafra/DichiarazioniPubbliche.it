@@ -23,6 +23,107 @@ class FakeOperatorQueues(StudioOperatorQueues):
 
 
 class StudioQueueTests(unittest.TestCase):
+    @staticmethod
+    def _provenance_row():
+        return {
+            "collection_id": "research:garlasco", "collection_state": "PAUSED",
+            "content_id": "content:garlasco:one", "claim_id": "claim:garlasco:one",
+            "speaker_person_id": "person:one", "rights_status": "UNKNOWN",
+            "processing_status": "REVIEW_REQUIRED",
+            "capture_count": 0, "passage_count": 0, "provenance_count": 1,
+            "provenance": [{
+                "id": "provenance:1", "claim_id": "claim:garlasco:one",
+                "content_id": "content:garlasco:one", "person_id": "person:one",
+                "status": "APPROVED", "selector_type": "TEXT_QUOTE_HASH",
+                "quote_sha256": "a" * 64, "source_sha256": None,
+                "start_char": None, "end_char": None,
+                "attribution_method": "SOURCE_QUOTE",
+                "source_ref": {"url": "https://secret.example/private"},
+                "metadata": {"private_text": "DO NOT EXPOSE"},
+            }],
+        }
+
+    def test_provenance_exact_claim_binding_and_rights_never_inferred(self):
+        store = FakeOperatorQueues([self._provenance_row()])
+        data = store.inspect_claim_provenance(
+            collection_id="research:garlasco", content_id="content:garlasco:one",
+            claim_id="claim:garlasco:one", limit=1,
+        )
+        self.assertEqual(data["provenance_record_count"], 1)
+        self.assertEqual(data["records"][0]["status"], "APPROVED")
+        self.assertEqual(data["next_after_id"], "provenance:1")
+        self.assertIn("CONTENT_RIGHTS_NOT_APPROVED", data["blockers"])
+        self.assertIn("ATTRIBUTION_REVIEW_AUTHORITY_NOT_REEVALUATED", data["blockers"])
+        self.assertFalse(data["rights_clearance"])
+        self.assertFalse(data["review_authority_evaluated"])
+        self.assertFalse(data["publication_authority"])
+        self.assertFalse(data["records"][0]["rights_clearance"])
+        self.assertNotIn("secret", json.dumps(data).lower())
+        self.assertNotIn("source_ref", json.dumps(data))
+        sql, variables = store.calls[0]
+        self.assertIn("member.status='INCLUDED'", sql)
+        self.assertIn("claim.content_id=content.id", sql)
+        self.assertIn("provenance.claim_id=claim.id", sql)
+        self.assertIn("claim.id=:'claim_id'", sql)
+        self.assertNotIn("provenance.source_ref", sql)
+        self.assertNotIn("provenance.metadata", sql)
+        self.assertEqual(variables["limit"], 1)
+        self.assertEqual(variables["after_id"], "")
+
+    def test_provenance_absent_blockers_are_explicit(self):
+        row = self._provenance_row() | {"provenance_count": 0, "provenance": []}
+        data = FakeOperatorQueues([row]).inspect_claim_provenance(
+            collection_id="research:garlasco",
+            content_id="content:garlasco:one", claim_id="claim:garlasco:one",
+        )
+        self.assertIn("CLAIM_TEXT_PROVENANCE_MISSING", data["blockers"])
+        self.assertEqual(data["records"], [])
+        self.assertIsNone(data["next_after_id"])
+
+    def test_provenance_all_forged_cross_claim_states_and_positions_fail_closed(self):
+        base = self._provenance_row()
+        cases = [
+            base | {"collection_id": "research:other"},
+            base | {"content_id": "content:other"},
+            base | {"claim_id": "claim:other"},
+            base | {"collection_state": "PUBLISHED"},
+            base | {"capture_count": -1},
+            base | {"provenance_count": 0},
+            base | {"provenance": base["provenance"] * 2},
+            base | {"provenance": [base["provenance"][0] | {"person_id": "person:wrong"}]},
+            base | {"provenance": [base["provenance"][0] | {"claim_id": "claim:wrong"}]},
+            base | {"provenance": [base["provenance"][0] | {"content_id": "content:wrong"}]},
+            base | {"provenance": [base["provenance"][0] | {"status": "READY_TO_PUBLISH"}]},
+            base | {"provenance": [base["provenance"][0] | {"selector_type": "UNVERIFIED"}]},
+            base | {"provenance": [base["provenance"][0] | {"quote_sha256": "not-a-hash"}]},
+            base | {"provenance": [base["provenance"][0] | {"start_char": 20, "end_char": 10}]},
+            base | {"provenance": [base["provenance"][0] | {"start_char": True, "end_char": 20}]},
+            base | {"provenance": [base["provenance"][0] | {"selector_type": "TEXT_POSITION_HASH"}]},
+            base | {"provenance": [base["provenance"][0] | {"attribution_method": "MODEL_APPROVAL"}]},
+        ]
+        for case in cases:
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                FakeOperatorQueues([case]).inspect_claim_provenance(
+                    collection_id="research:garlasco", content_id="content:garlasco:one",
+                    claim_id="claim:garlasco:one", limit=1,
+                )
+        with self.assertRaises(ValueError):
+            FakeOperatorQueues([]).inspect_claim_provenance(
+                collection_id="research:garlasco", content_id="content:garlasco:one",
+                claim_id="claim:garlasco:one",
+            )
+        with self.assertRaisesRegex(RuntimeError, "STUDIO_PROVENANCE_STORE_UNAVAILABLE") as ctx:
+            FakeOperatorQueues(error=RuntimeError("PASSWORD PRIVATE")).inspect_claim_provenance(
+                collection_id="research:garlasco", content_id="content:garlasco:one",
+                claim_id="claim:garlasco:one",
+            )
+        self.assertNotIn("PRIVATE", str(ctx.exception))
+        with self.assertRaises(ValueError):
+            FakeOperatorQueues([base]).inspect_claim_provenance(
+                collection_id="research:garlasco", content_id="content:garlasco:one",
+                claim_id="claim:garlasco:one", after_id="provenance:1\nSECRET",
+            )
+
     def test_members_exact_collection_and_bounded_cursor_no_private_source(self):
         store = FakeOperatorQueues([{
             "collection_id": "research:garlasco", "state": "PAUSED",

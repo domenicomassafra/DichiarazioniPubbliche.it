@@ -50,7 +50,7 @@ with Ctrl-C; rotate by stopping it and provisioning a new secret.
 
 ## 3. Exact read-only interface
 
-Seven POST routes:
+Eight POST routes:
 
 - /v1/corpus/search — private DP-116 query, safe IDs only.
 - /v1/collections/list — persisted collection IDs/status/INCLUDED counts.
@@ -59,6 +59,10 @@ Seven POST routes:
 - /v1/collections/member — exact included Content membership inspection,
   Source existence and bounded historic claim IDs with separate cursor;
   absent captures/passages/candidates are explicitly reported.
+- /v1/collections/claim-provenance — exact included Content→Atomic Claim
+  text-attribution provenance, with bounded IDs/status/hash/selector
+  metadata only; never quote text, source_ref, approved rights or
+  current reviewer authority.
 - /v1/discovery/list — persisted discovery hit/run/Content IDs and disposition.
 - /v1/candidate/matches — persisted match classes and feature codes;
   currentness/reviewer authority is **not verified**.
@@ -83,7 +87,10 @@ and private evidence never enter HTTP response bodies.
 
 This is a secure technical slice, **not acceptance closure** of
 DP-415..419. The private Garlasco historical baseline can now be read
-as collection→Content→Source ID/Atomic Claim IDs, but Captures/Passages
+as collection→Content→Source ID→Atomic Claim ID→text-provenance
+metadata. Of the 30 historical Claims, 28 have a persisted APPROVED
+quote-hash attribution record and two have none. These statuses do not
+grant publication, reproduction or current reviewer approval. Captures/Passages
 and Candidates are still absent. Needed: full-pilot Garlasco top-K
 benchmark; persisted source→passage→candidate traversal and
 rights-gated previews; durable

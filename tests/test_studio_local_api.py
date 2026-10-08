@@ -216,6 +216,49 @@ class StudioLocalApiTests(unittest.TestCase):
                 status, _, _ = self.call("POST", path, malformed, self.auth())
                 self.assertEqual(status, 422)
 
+    def test_claim_provenance_is_exactly_scoped_metadata_only_and_authenticated(self):
+        path = "/v1/collections/claim-provenance"
+        request = {
+            "collection_id": "research:garlasco",
+            "content_id": "content:garlasco:one",
+            "claim_id": "claim:garlasco:one",
+        }
+        self.queues.rows = [
+            {
+                "collection_id": "research:garlasco", "collection_state": "PAUSED",
+                "content_id": "content:garlasco:one", "claim_id": "claim:garlasco:one",
+                "speaker_person_id": "person:one", "rights_status": "UNKNOWN",
+                "processing_status": "REVIEW_REQUIRED", "capture_count": 0,
+                "passage_count": 0, "provenance_count": 1,
+                "provenance": [{
+                    "id": "prov:1", "claim_id": "claim:garlasco:one",
+                    "content_id": "content:garlasco:one", "person_id": "person:one",
+                    "status": "APPROVED", "selector_type": "TEXT_QUOTE_HASH",
+                    "quote_sha256": "a" * 64, "source_sha256": None,
+                    "start_char": None, "end_char": None,
+                    "attribution_method": "SOURCE_QUOTE",
+                    "source_ref": {"private_url": "SECRET"},
+                }],
+            }
+        ]
+        denied, _, _ = self.call("POST", path, request)
+        self.assertEqual(denied, 401)
+        status, response, headers = self.call("POST", path, request, self.auth())
+        self.assertEqual(status, 200, response)
+        self.assertTrue(response["data"]["private_only"])
+        self.assertEqual(response["data"]["records"][0]["status"], "APPROVED")
+        self.assertFalse(response["data"]["rights_clearance"])
+        self.assertFalse(response["data"]["publication_authority"])
+        self.assertNotIn("SECRET", json.dumps(response))
+        self.assertNotIn("source_ref", json.dumps(response))
+        self.assertNotIn("Access-Control-Allow-Origin", headers)
+        invalid, _, _ = self.call("POST", path, request | {"approve": True}, self.auth())
+        self.assertEqual(invalid, 422)
+        origin, _, _ = self.call(
+            "POST", path, request, self.auth() | {"Origin": "https://attacker.invalid"},
+        )
+        self.assertEqual(origin, 403)
+
     def test_login_page_is_static_local_only_and_csp_nonce_scoped(self):
         conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=4)
         conn.request("GET", "/")
@@ -232,6 +275,9 @@ class StudioLocalApiTests(unittest.TestCase):
         self.assertIn("data-panel=\"collections\"", page)
         self.assertIn('data-endpoint="/v1/collections/members"', page)
         self.assertIn('data-endpoint="/v1/collections/member"', page)
+        self.assertIn('data-endpoint="/v1/collections/claim-provenance"', page)
+        self.assertIn('id="claim-links"', page)
+        self.assertIn("provenanceForm.requestSubmit()", page)
         self.assertIn('id="member-links"', page)
         self.assertIn("memberDetailForm.requestSubmit()", page)
         self.assertIn("memberLinks.replaceChildren()", page)

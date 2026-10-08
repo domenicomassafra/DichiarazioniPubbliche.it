@@ -111,6 +111,51 @@ WHERE member.collection_id=:'collection_id'
   AND member.status='INCLUDED';
 """.strip()
 
+_CLAIM_PROVENANCE_SQL = """
+SELECT json_build_object(
+    'collection_id', member.collection_id,
+    'collection_state', collection.status,
+    'content_id', content.id, 'claim_id', claim.id,
+    'speaker_person_id', claim.speaker_person_id,
+    'rights_status', content.rights_status,
+    'processing_status', content.processing_status,
+    'capture_count', (SELECT count(*) FROM content_capture capture WHERE capture.content_id=content.id),
+    'passage_count', (SELECT count(*) FROM passage p WHERE p.content_id=content.id),
+    'provenance_count', (
+        SELECT count(*) FROM claim_text_provenance provenance WHERE provenance.claim_id=claim.id
+    ),
+    'provenance', (
+        SELECT coalesce(json_agg(row_to_json(selected) ORDER BY selected.id), '[]'::json)
+        FROM (
+            SELECT provenance.id, provenance.claim_id, provenance.content_id,
+                   provenance.person_id, provenance.status, provenance.selector_type,
+                   provenance.quote_sha256, provenance.source_sha256,
+                   provenance.start_char, provenance.end_char, provenance.attribution_method
+            FROM claim_text_provenance provenance
+            WHERE provenance.claim_id=claim.id AND provenance.id > :'after_id'
+            ORDER BY provenance.id
+            LIMIT :'limit'::integer
+        ) selected
+    )
+)::text
+FROM research_collection_content member
+JOIN research_collection collection ON collection.id=member.collection_id
+JOIN content_item content ON content.id=member.content_id
+JOIN atomic_claim claim ON claim.content_id=content.id
+WHERE member.collection_id=:'collection_id'
+  AND member.content_id=:'content_id'
+  AND member.status='INCLUDED'
+  AND claim.id=:'claim_id';
+""".strip()
+
+_PROVENANCE_STATES = frozenset({"CANDIDATE", "APPROVED", "REJECTED", "SUPERSEDED"})
+_SELECTOR_TYPES = frozenset({"TEXT_QUOTE_HASH", "TEXT_POSITION_HASH"})
+_ATTRIBUTION_METHODS = frozenset({
+    "SOURCE_BYLINE", "SOURCE_QUOTE", "ACCOUNT_OWNER",
+    "OFFICIAL_RECORD", "MANUAL_REVIEW",
+})
+_HASH = re.compile(r"^[0-9a-f]{64}$")
+
 
 def _id(value: object, label: str) -> str:
     if not isinstance(value, str) or not _ID.fullmatch(value):
@@ -161,6 +206,22 @@ def _count(value: object, label: str) -> int:
 
 def _optional_id(value: object, label: str) -> str | None:
     return _id(value, label) if value is not None else None
+
+
+def _hash(value: object, label: str, *, optional: bool = False) -> str | None:
+    if value is None and optional:
+        return None
+    if not isinstance(value, str) or not _HASH.fullmatch(value):
+        raise ValueError(f"STUDIO_QUEUE_{label}_INVALID")
+    return value
+
+
+def _position(value: object, label: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError(f"STUDIO_QUEUE_{label}_INVALID")
+    return value
 
 
 class StudioOperatorQueues(PsqlRuntime):
@@ -347,6 +408,102 @@ class StudioOperatorQueues(PsqlRuntime):
             "claims": output_claims, "next_after_claim_id": last_id if len(output_claims) == limit else None,
             "blockers": blockers, "private_only": True,
             "capture_authorized": False, "publication_authority": False,
+        }
+
+    def inspect_claim_provenance(
+        self, *, collection_id: str, content_id: str, claim_id: str,
+        limit: int = 20, after_id: str | None = None,
+    ) -> dict[str, object]:
+        """Private attribution history scoped to an INCLUDED Content's exact claim."""
+        collection_id = _id(collection_id, "COLLECTION_ID")
+        content_id = _id(content_id, "CONTENT_ID")
+        claim_id = _id(claim_id, "CLAIM_ID")
+        limit, cursor = _pagination(limit, after_id)
+        try:
+            row = _record(self.run(
+                _CLAIM_PROVENANCE_SQL, collection_id=collection_id,
+                content_id=content_id, claim_id=claim_id, limit=limit, after_id=cursor,
+            ))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            raise ValueError("STUDIO_PROVENANCE_ROWS_INVALID") from None
+        except Exception:
+            raise RuntimeError("STUDIO_PROVENANCE_STORE_UNAVAILABLE") from None
+        if row is None:
+            raise ValueError("STUDIO_PROVENANCE_CLAIM_NOT_IN_COLLECTION")
+        if (
+            row.get("collection_id") != collection_id
+            or row.get("content_id") != content_id
+            or row.get("claim_id") != claim_id
+            or row.get("collection_state") not in _COLLECTION_STATES
+        ):
+            raise ValueError("STUDIO_PROVENANCE_CLAIM_BINDING_MISMATCH")
+        speaker = _optional_id(row.get("speaker_person_id"), "SPEAKER_ID")
+        rights = _safe_state(row.get("rights_status"), "RIGHTS_STATUS")
+        processing = _safe_state(row.get("processing_status"), "PROCESSING_STATUS")
+        captures = _count(row.get("capture_count"), "CAPTURE_COUNT")
+        passages = _count(row.get("passage_count"), "PASSAGE_COUNT")
+        count = _count(row.get("provenance_count"), "PROVENANCE_COUNT")
+        values = row.get("provenance")
+        if not isinstance(values, list) or len(values) > limit or len(values) > count:
+            raise ValueError("STUDIO_PROVENANCE_PAGE_INVALID")
+        last_id = cursor
+        records: list[dict[str, object]] = []
+        for value in values:
+            if not isinstance(value, dict):
+                raise ValueError("STUDIO_PROVENANCE_RECORD_INVALID")
+            record_id = _id(value.get("id"), "RECORD_ID")
+            if (
+                record_id <= last_id
+                or value.get("claim_id") != claim_id
+                or value.get("content_id") != content_id
+                or speaker is None or value.get("person_id") != speaker
+                or value.get("status") not in _PROVENANCE_STATES
+                or value.get("selector_type") not in _SELECTOR_TYPES
+                or value.get("attribution_method") not in _ATTRIBUTION_METHODS
+            ):
+                raise ValueError("STUDIO_PROVENANCE_RECORD_BINDING_INVALID")
+            quote_hash = _hash(value.get("quote_sha256"), "QUOTE_HASH")
+            source_hash = _hash(value.get("source_sha256"), "SOURCE_HASH", optional=True)
+            start = _position(value.get("start_char"), "START_CHAR")
+            end = _position(value.get("end_char"), "END_CHAR")
+            if (
+                (start is None) != (end is None)
+                or (start is not None and (end is None or end <= start))
+                or (value["selector_type"] == "TEXT_POSITION_HASH" and start is None)
+            ):
+                raise ValueError("STUDIO_PROVENANCE_SELECTOR_INVALID")
+            records.append({
+                "id": record_id, "status": value["status"],
+                "selector_type": value["selector_type"],
+                "quote_sha256": quote_hash, "source_sha256": source_hash,
+                "start_char": start, "end_char": end,
+                "attribution_method": value["attribution_method"],
+                "rights_clearance": False, "review_authority_evaluated": False,
+            })
+            last_id = record_id
+        blockers = []
+        if count == 0:
+            blockers.append("CLAIM_TEXT_PROVENANCE_MISSING")
+        if rights != "APPROVED":
+            blockers.append("CONTENT_RIGHTS_NOT_APPROVED")
+        if processing != "READY":
+            blockers.append("CONTENT_NOT_READY")
+        if captures == 0:
+            blockers.append("NO_PERSISTED_CAPTURE")
+        if passages == 0:
+            blockers.append("NO_PERSISTED_PASSAGE")
+        blockers.append("ATTRIBUTION_REVIEW_AUTHORITY_NOT_REEVALUATED")
+        return {
+            "contract_version": STUDIO_QUEUES_VERSION,
+            "collection_id": collection_id, "content_id": content_id,
+            "claim_id": claim_id, "speaker_person_id": speaker,
+            "collection_state": row["collection_state"],
+            "rights_status": rights, "processing_status": processing,
+            "provenance_record_count": count,
+            "records": records, "next_after_id": last_id if len(records) == limit else None,
+            "blockers": blockers, "private_only": True,
+            "rights_clearance": False, "review_authority_evaluated": False,
+            "publication_authority": False,
         }
 
 

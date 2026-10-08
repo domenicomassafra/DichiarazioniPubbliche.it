@@ -131,3 +131,31 @@ passage/time selector, no approved provenance/rights, no real
 accessibility/browser evidence, and no reviewed membership mutation.
 Keep DP-416 IN PROGRESS, all ACs unchecked. See
 `docs/reviews/2026-10-08-studio-garlasco-private-members.md`.
+
+### Historical Claim text-provenance navigation — 2026-10-08
+
+The authenticated, on-demand Studio collection inspector now supports
+Content→Atomic Claim→persisted `claim_text_provenance` via
+`POST /v1/collections/claim-provenance`. An INCLUDED collection
+membership and exact Claim.content_id binding are required inside
+the same DB query, not inferred from caller-provided IDs. The
+reader returns bounded stable record IDs, stored status, selector
+type/hash and optional positions with blocker codes. No original quote,
+normalized Claim text, source_ref, source URL, raw reviewer metadata
+or private body is emitted.
+
+The local UI has a native Claim-selection button which opens the
+private provenance form. Live MiniPC read-back: 30 historical Claims
+over 18 Content, 28 APPROVED TEXT_QUOTE_HASH attribution records
+and 2 Claims with no provenance record, with no Claim/Content/Person
+binding errors. Exact HTTP proof: authorized 200, missing token 401,
+wrong Claim 422, cross-origin 403.
+
+APPROVED describes **only the persisted record state**. The API
+explicitly returns rights_clearance=false,
+review_authority_evaluated=false and publication_authority=false
+even for APPROVED records. All 18 Content rights remain UNKNOWN
+and no Garlasco Capture/Passage is stored. Full Source→Passage→
+Candidate and browser/accessibility acceptance still require
+independent evidence. No DP-416 AC closed.
+Receipt: `docs/reviews/2026-10-08-studio-garlasco-text-provenance.md`.

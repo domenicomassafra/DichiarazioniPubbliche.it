@@ -87,3 +87,11 @@ now has authenticated loopback read-only HTTP/HTML transport. Raw bodies,
 source URLs, archive receipts and credentials are still excluded.
 Exact media selector jump, retention/rights-gated passage preview and
 real browser/DB acceptance remain open.
+
+Follow-up 2026-10-08: the adjacent private collection inspector
+can now read historical Claim text-provenance hash/selector
+records scoped to Collection→Content→Claim. The Garlasco baseline
+has 28 approved-state TEXT_QUOTE_HASH records but still zero
+Content Captures/Passages. This adds **no** archive verification,
+rights-granted passage preview or exact media-segment jump; all
+DP-419 AC remain open.

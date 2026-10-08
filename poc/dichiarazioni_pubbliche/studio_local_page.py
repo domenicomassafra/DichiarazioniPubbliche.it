@@ -37,6 +37,8 @@ _PAGE = """<!doctype html>
     .notice{font-weight:600}
     #member-links{display:grid;gap:.4rem;margin:1rem 0}
     #member-links button{text-align:left;overflow-wrap:anywhere}
+    #claim-links{display:grid;gap:.4rem;margin:1rem 0}
+    #claim-links button{text-align:left;overflow-wrap:anywhere}
     pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#e9ebe6;padding:1rem;font-size:.86rem}
     @media(max-width:40rem){body{padding:.8rem}.controls,label{display:grid;width:100%}}
   </style>
@@ -96,6 +98,17 @@ _PAGE = """<!doctype html>
         <label>Dopo claim ID<input name="after_claim_id" maxlength="180"></label>
         <button type="submit">Ispeziona fonte e claim</button></div>
       </form>
+      <div id="claim-links" role="group" aria-label="Claim storici selezionabili"></div>
+      <h2>Provenienza di un claim storico</h2>
+      <p>Stati e hash di attribuzione persistiti. APPROVED indica lo stato del record di attribuzione, non autorizza la riproduzione della fonte o la pubblicazione.</p>
+      <form data-endpoint="/v1/collections/claim-provenance">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Claim ID<input name="claim_id" maxlength="180" required></label>
+        <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo provenance ID<input name="after_id" maxlength="180"></label>
+        <button type="submit">Verifica provenienza</button></div>
+      </form>
     </section>
     <section class="pane" id="inbox" hidden>
       <h2>Discovery Inbox</h2><p>Record di discovery e codici di blocco senza URL, corpi o titoli non revisionati.</p>
@@ -133,7 +146,9 @@ _PAGE = """<!doctype html>
     const results = document.getElementById('results');
     const status = document.getElementById('status');
     const memberLinks = document.getElementById('member-links');
+    const claimLinks = document.getElementById('claim-links');
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
+    const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
     document.getElementById('clear').addEventListener('click', () => {
       token.value = '';
@@ -166,6 +181,10 @@ _PAGE = """<!doctype html>
         results.textContent = 'Nessun risultato ancora disponibile.';
         if (form.dataset.endpoint === '/v1/collections/members') {
           memberLinks.replaceChildren();
+          claimLinks.replaceChildren();
+        }
+        if (form.dataset.endpoint === '/v1/collections/member') {
+          claimLinks.replaceChildren();
         }
         try {
           const response = await fetch(form.dataset.endpoint, {
@@ -190,6 +209,23 @@ _PAGE = """<!doctype html>
                 memberDetailForm.requestSubmit();
               });
               memberLinks.append(link);
+            }
+          }
+          if (response.ok && form.dataset.endpoint === '/v1/collections/member'
+              && Array.isArray(receipt.data?.claims)) {
+            for (const claim of receipt.data.claims) {
+              if (typeof claim.id !== 'string') continue;
+              const link = document.createElement('button');
+              link.type = 'button';
+              link.textContent = claim.id + ' · ' + claim.claim_type;
+              link.addEventListener('click', () => {
+                provenanceForm.elements.namedItem('collection_id').value = receipt.data.collection_id;
+                provenanceForm.elements.namedItem('content_id').value = receipt.data.content_id;
+                provenanceForm.elements.namedItem('claim_id').value = claim.id;
+                provenanceForm.elements.namedItem('after_id').value = '';
+                provenanceForm.requestSubmit();
+              });
+              claimLinks.append(link);
             }
           }
         } catch (_) {
