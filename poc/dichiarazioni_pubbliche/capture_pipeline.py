@@ -19,6 +19,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
     PassageRecord,
     deterministic_corpus_id,
 )
+from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.corpus_retention import (
     COMPLETE_CAPTURE_ARCHIVE_SQL_V1,
     MARK_CAPTURE_ARCHIVE_PENDING_SQL_V1,
@@ -731,6 +732,88 @@ ORDER BY start_char NULLS LAST, id;
 
 
 class CapturePipelineStore(PsqlRuntime):
+    def read_private_capture_safety_counts(self) -> dict[str, int]:
+        """Only a coarse, read-only side-effect guard, not publication authority."""
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'atomic_claim', (SELECT count(*) FROM atomic_claim),
+                'publish_finding', (SELECT count(*) FROM finding WHERE publication_status='PUBLISH'),
+                'statement_candidate', (SELECT count(*) FROM statement_candidate),
+                'claim_candidate', (SELECT count(*) FROM claim_candidate)
+            )::text;
+            """
+        )
+        if not raw:
+            raise CapturePipelineError("PRIVATE_CAPTURE_SAFETY_COUNTS_MISSING")
+        value = json.loads(raw)
+        return {key: int(value[key]) for key in (
+            "atomic_claim", "publish_finding", "statement_candidate", "claim_candidate"
+        )}
+
+    def read_research_capture_context(self, collection_id: str, content_id: str) -> dict[str, Any] | None:
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'collection_id', collection.id,
+                'collection_status', collection.status,
+                'membership_status', member.status,
+                'capture_authorized', member.metadata->'capture_authorized',
+                'content_id', content.id,
+                'canonical_url', content.canonical_url,
+                'accepted_discovery_hits', (
+                    SELECT count(*)
+                    FROM research_discovery_hit hit
+                    JOIN research_discovery_run run ON run.id=hit.run_id
+                    JOIN research_discovery_manifest manifest ON manifest.id=run.manifest_id
+                    WHERE hit.content_id=content.id
+                      AND hit.canonical_url=content.canonical_url
+                      AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
+                      AND run.status IN ('COMPLETED','PARTIAL')
+                      AND manifest.collection_id=collection.id
+                      AND manifest.status='ACTIVE'
+                      AND manifest.manifest_sha256=run.manifest_sha256
+                )
+            )::text
+            FROM research_collection collection
+            JOIN research_collection_content member ON member.collection_id=collection.id
+            JOIN content_item content ON content.id=member.content_id
+            WHERE collection.id=:'collection_id' AND content.id=:'content_id';
+            """,
+            collection_id=collection_id,
+            content_id=content_id,
+        )
+        return json.loads(raw) if raw else None
+
+    def read_operator_capture_content_state(self, content_id: str) -> dict[str, Any] | None:
+        """Read-only Content/collection authority snapshot for the operator guard."""
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'id', content.id,
+                'canonical_url', content.canonical_url,
+                'rights_status', content.rights_status,
+                'inactive_collection_count', (
+                    SELECT count(*) FROM research_collection_content member
+                    JOIN research_collection collection ON collection.id=member.collection_id
+                    WHERE member.content_id=content.id
+                      AND member.status='INCLUDED'
+                      AND collection.status <> 'ACTIVE'
+                ),
+                'forbidden_membership_count', (
+                    SELECT count(*) FROM research_collection_content member
+                    WHERE member.content_id=content.id
+                      AND member.status='INCLUDED'
+                      AND member.metadata->>'capture_authorized' = 'false'
+                )
+            )::text
+            FROM content_item content
+            WHERE content.id=:'content_id';
+            """,
+            content_id=content_id,
+        )
+        return json.loads(raw) if raw else None
+
     def find_capture(self, content_id: str, content_sha256: str) -> dict[str, Any] | None:
         raw = self.run(_FIND_CAPTURE_SQL, content_id=content_id, content_sha256=content_sha256)
         return json.loads(raw) if raw else None
@@ -1070,6 +1153,7 @@ def _persist_fetched_capture(
     permit_id: str,
     permit_canonical_url: str,
     permit_operation_ref: str,
+    rights_guard: Callable[[], None] | None = None,
 ) -> tuple[ContentCaptureRecord, str, ParseResult, tuple[PassageRecord, ...], tuple[str, ...]]:
     _validate_fetched_resource(fetched, max_response_bytes=MAX_DISCOVERY_RESPONSE_BYTES)
     try:
@@ -1084,6 +1168,8 @@ def _persist_fetched_capture(
         raise CapturePipelineError(str(exc)) from exc
     content_sha256 = hashlib.sha256(fetched.body).hexdigest()
     existing = store.find_capture(content_id, content_sha256)
+    if rights_guard is not None:
+        rights_guard()
     proposed_id = str(existing.get("id")) if existing else _capture_id(content_id, content_sha256)
     body_ref: str | None = None
     if existing:
@@ -1120,6 +1206,8 @@ def _persist_fetched_capture(
         metadata_enabled=metadata_enabled,
         archive_enabled=archive_enabled,
     )
+    if rights_guard is not None:
+        rights_guard()
     persisted = store.upsert_capture(record)
     actual_id = str(persisted["id"])
     if actual_id != record.id:
@@ -1169,6 +1257,8 @@ def _persist_fetched_capture(
     passages: tuple[PassageRecord, ...] = ()
     passage_states: tuple[str, ...] = ()
     if parse.status == "SUCCEEDED":
+        if rights_guard is not None:
+            rights_guard()
         passages = _passage_records(
             content_id=content_id,
             capture_id=actual_id,
@@ -1226,6 +1316,7 @@ def capture_content(
     enrichment_policy: CaptureEnrichmentPolicy | None = None,
     oembed_fetcher: Callable[..., FetchedBytes] = fetch_oembed_json,
     max_response_bytes: int = MAX_DISCOVERY_RESPONSE_BYTES,
+    rights_guard: Callable[[], None] | None = None,
 ) -> CapturePipelineReceipt:
     if not isinstance(content_id, str) or not content_id.strip():
         raise CapturePipelineError("CONTENT_ID_REQUIRED")
@@ -1242,6 +1333,8 @@ def capture_content(
     except ValueError as exc:
         raise CapturePipelineError("OBSERVED_AT_INVALID") from exc
 
+    if rights_guard is not None:
+        rights_guard()
     try:
         operation_ref = deterministic_ingestion_operation_ref(
             "CAPTURE_FETCH",
@@ -1259,6 +1352,8 @@ def capture_content(
 
     fetched = fetcher(url, max_response_bytes=max_response_bytes)
     _validate_fetched_resource(fetched, max_response_bytes=max_response_bytes)
+    if rights_guard is not None:
+        rights_guard()
     primary, state, parse, passages, passage_states = _persist_fetched_capture(
         content_id=content_id,
         fetched=fetched,
@@ -1277,6 +1372,7 @@ def capture_content(
         permit_id=permit.permit_id,
         permit_canonical_url=url,
         permit_operation_ref=operation_ref,
+        rights_guard=rights_guard,
     )
     selected = primary
     selected_parse = parse
@@ -1285,6 +1381,8 @@ def capture_content(
     browser_status = "NOT_REQUESTED"
 
     if parse.status != "SUCCEEDED" and browser_renderer is not None and _normalize_media_type(fetched.media_type) in {"text/html", "application/xhtml+xml"}:
+        if rights_guard is not None:
+            rights_guard()
         try:
             store.require_ingestion_acquisition_permit(
                 permit_id=permit.permit_id,
@@ -1298,6 +1396,8 @@ def capture_content(
         try:
             rendered = browser_renderer.render(url, max_response_bytes=max_response_bytes)
             _validate_fetched_resource(rendered, max_response_bytes=max_response_bytes)
+            if rights_guard is not None:
+                rights_guard()
             selected, _, selected_parse, selected_passages, selected_states = _persist_fetched_capture(
                 content_id=content_id,
                 fetched=rendered,
@@ -1316,8 +1416,12 @@ def capture_content(
                 permit_id=permit.permit_id,
                 permit_canonical_url=url,
                 permit_operation_ref=operation_ref,
+                rights_guard=rights_guard,
             )
             browser_status = "SUCCEEDED" if selected_parse.status == "SUCCEEDED" else "PARSE_FAILED"
+        except PrivateCaptureAuthorizationBlocked:
+            # A revoked/paused authority is not an optional browser-render failure.
+            raise
         except Exception:
             browser_status = "FAILED"
             store.append_event(
@@ -1338,6 +1442,8 @@ def capture_content(
     if archive_adapter is not None and not enrichment_policy.archive_enabled:
         archive_status = "DISABLED_POLICY"
     elif archive_adapter is not None and state == "INSERTED":
+        if rights_guard is not None:
+            rights_guard()
         try:
             store.require_ingestion_acquisition_permit(
                 permit_id=permit.permit_id,
@@ -1362,6 +1468,8 @@ def capture_content(
         and enrichment_policy.metadata_enabled
         and state == "INSERTED"
     ):
+        if rights_guard is not None:
+            rights_guard()
         # This is a separate, explicitly allowed *private* enrichment event,
         # not a mutation of the immutable captured source or a public finding.
         try:
