@@ -23,6 +23,111 @@ class FakeOperatorQueues(StudioOperatorQueues):
 
 
 class StudioQueueTests(unittest.TestCase):
+    def test_members_exact_collection_and_bounded_cursor_no_private_source(self):
+        store = FakeOperatorQueues([{
+            "collection_id": "research:garlasco", "state": "PAUSED",
+            "members": [
+                {"content_id": "content:garlasco:001", "source_id": "source:one",
+                 "rights_status": "UNKNOWN", "processing_status": "REVIEW_REQUIRED",
+                 "title": "SECRET PRIVATE TITLE", "canonical_url": "https://secret.example"},
+                {"content_id": "content:garlasco:002", "source_id": "source:two",
+                 "rights_status": "UNKNOWN", "processing_status": "REVIEW_REQUIRED"},
+            ],
+        }])
+        result = store.list_collection_members(collection_id="research:garlasco", limit=2)
+        self.assertEqual(len(result["results"]), 2)
+        self.assertEqual(result["state"], "PAUSED")
+        self.assertEqual(result["next_after_id"], "content:garlasco:002")
+        self.assertEqual(result["results"][0]["source_id"], "source:one")
+        self.assertFalse(result["results"][0]["capture_authorized"])
+        self.assertFalse(result["publication_authority"])
+        self.assertNotIn("SECRET", json.dumps(result))
+        self.assertNotIn("canonical_url", json.dumps(result))
+        sql, variables = store.calls[0]
+        self.assertIn("member.status='INCLUDED'", sql)
+        self.assertIn("content.id=member.content_id", sql)
+        self.assertEqual(variables["collection_id"], "research:garlasco")
+        self.assertEqual(variables["limit"], 2)
+        for payload in (
+            [{"collection_id": "research:other", "state": "PAUSED", "members": []}],
+            [{"collection_id": "research:garlasco", "state": "EXPOSED", "members": []}],
+            [{"collection_id": "research:garlasco", "state": "PAUSED", "members": [
+                {"content_id": "content:garlasco:1", "rights_status": "<private>",
+                 "processing_status": "READY"}
+            ]}],
+            [{"collection_id": "research:garlasco", "state": "PAUSED", "members": [
+                {"content_id": "content:garlasco:1", "rights_status": "UNKNOWN",
+                 "processing_status": "REVIEW_REQUIRED"},
+                {"content_id": "content:garlasco:1", "rights_status": "UNKNOWN",
+                 "processing_status": "REVIEW_REQUIRED"},
+            ]}],
+        ):
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                FakeOperatorQueues(payload).list_collection_members(collection_id="research:garlasco")
+        with self.assertRaises(ValueError):
+            FakeOperatorQueues([]).list_collection_members(collection_id="research:garlasco")
+        with self.assertRaises(ValueError):
+            FakeOperatorQueues([{"collection_id": "research:garlasco", "state": "PAUSED", "members": []}]).list_collection_members(
+                collection_id="research:garlasco", after_id="content:1\nSELECT * FROM private"
+            )
+
+    def test_exact_included_member_source_claim_graph_and_fail_closed(self):
+        valid = {
+            "collection_id": "research:garlasco", "collection_state": "PAUSED",
+            "content_id": "content:garlasco:001", "source_id": "source:one",
+            "source_exists": True, "rights_status": "UNKNOWN",
+            "processing_status": "REVIEW_REQUIRED",
+            "capture_count": 0, "passage_count": 0,
+            "statement_candidate_count": 0, "claim_candidate_count": 0,
+            "atomic_claim_count": 2,
+            "claims": [
+                {"id": "claim:garlasco:001", "speaker_person_id": "person:one",
+                 "claim_type": "HISTORICAL_CLAIM", "normalized_claim": "SECRET"},
+                {"id": "claim:garlasco:002", "speaker_person_id": "person:one",
+                 "claim_type": "VALUE_JUDGMENT"},
+            ],
+            "title": "PRIVATE",
+        }
+        store = FakeOperatorQueues([valid])
+        result = store.inspect_collection_member(collection_id="research:garlasco", content_id="content:garlasco:001", limit=2)
+        self.assertEqual([x["id"] for x in result["claims"]], ["claim:garlasco:001", "claim:garlasco:002"])
+        self.assertEqual(result["source_id"], "source:one")
+        self.assertEqual(result["next_after_claim_id"], "claim:garlasco:002")
+        self.assertIn("CONTENT_RIGHTS_NOT_APPROVED", result["blockers"])
+        self.assertIn("NO_PERSISTED_PASSAGE", result["blockers"])
+        self.assertIn("REVIEW_AUTHORITY_NOT_EVALUATED", result["blockers"])
+        self.assertFalse(result["publication_authority"])
+        self.assertFalse(result["capture_authorized"])
+        self.assertNotIn("SECRET", json.dumps(result))
+        self.assertNotIn("normalized_claim", json.dumps(result))
+        sql, args = store.calls[0]
+        self.assertIn("member.status='INCLUDED'", sql)
+        self.assertIn("member.content_id=:'content_id'", sql)
+        self.assertIn("claim.content_id=content.id", sql)
+        self.assertIn("JOIN research_collection collection", sql)
+        self.assertEqual(args["limit"], 2)
+        for wrong in (
+            valid | {"collection_id": "research:wrong"},
+            valid | {"content_id": "content:wrong"},
+            valid | {"source_exists": False},
+            valid | {"capture_count": -1},
+            valid | {"claims": list(reversed(valid["claims"]))},
+            valid | {"claims": [valid["claims"][0], valid["claims"][0]]},
+            valid | {"claims": [valid["claims"][0] | {"claim_type": "<script>"}]},
+        ):
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                FakeOperatorQueues([wrong]).inspect_collection_member(
+                    collection_id="research:garlasco", content_id="content:garlasco:001"
+                )
+        with self.assertRaises(ValueError):
+            FakeOperatorQueues([]).inspect_collection_member(
+                collection_id="research:garlasco", content_id="content:garlasco:001"
+            )
+        with self.assertRaisesRegex(RuntimeError, "STORE_UNAVAILABLE"):
+            FakeOperatorQueues(error=RuntimeError("SECRET PG QUERY")).inspect_collection_member(
+                collection_id="research:garlasco", content_id="content:garlasco:001"
+            )
+
     def test_collections_persisted_states_bounded_pagination(self):
         store = FakeOperatorQueues([{
             "id": "collection:garlasco", "status": "ACTIVE",

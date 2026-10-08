@@ -90,3 +90,44 @@ returned `research:garlasco`, `PAUSED`, `included_content_count=18`
 in a real MiniPC read-only canary. This advances the real collection
 read-back/selection prerequisite, **not** the source→passage→candidate
 operator path or a ready public page.
+
+### Private persisted collection→Content→Source/Claim navigation — 2026-10-08
+
+Added bounded, authenticated, **loopback-only** JSON endpoints
+`POST /v1/collections/members` and `POST /v1/collections/member`,
+backed by `StudioOperatorQueues` and transaction-read-only PostgreSQL.
+The former lists only INCLUDED Content IDs, Source IDs and canonical
+rights/processing states for a specific persisted collection (limit
+1–30, stable keyset cursor). The latter refuses a Content outside
+that exact included membership, and returns source existence, counts
+of captures/passages/statement/claim candidates, plus up to 30
+persisted historical claim IDs/speaker IDs/types with a separate
+claim cursor. Neither endpoint selects or exports URL, title,
+transcript, quote, private body, source metadata or raw receipt.
+No inferred rights or publication/reviewer authority is introduced;
+any gaps show stable blocker codes.
+
+The local operator shell now provides an actual Collections → included
+Content → detail workflow: native focusable buttons are created from
+server-provided IDs with `textContent`, never `innerHTML`. The
+static public build and public navigation are unchanged.
+
+**Real MiniPC proofs**:
+- 1 PAUSED `research:garlasco` collection; **18/18** included Content
+  rows with `rights_status=UNKNOWN`,
+  `processing_status=REVIEW_REQUIRED`;
+- all 18 details inspected, yielding **10 distinct Source IDs** and
+  **30 linked historical Atomic Claims**; Captures/Passages still
+  **0/0** and all review/publication flags false;
+- exact Content outside included membership refused, missing keys
+  rejected, request with no token HTTP 401, cross-origin HTTP 403,
+  valid local token HTTP 200, and outside-membership HTTP 422.
+- local and MiniPC focused negative tests include order/cursor,
+  forged values, missing source, unsafe state and private-field leaks.
+
+This is a *partial historical path*, not AC-416.1 DONE: there are
+still **no** persisted Garlasco Passages or Candidates, no exact
+passage/time selector, no approved provenance/rights, no real
+accessibility/browser evidence, and no reviewed membership mutation.
+Keep DP-416 IN PROGRESS, all ACs unchecked. See
+`docs/reviews/2026-10-08-studio-garlasco-private-members.md`.

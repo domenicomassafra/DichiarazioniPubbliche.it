@@ -35,6 +35,8 @@ _PAGE = """<!doctype html>
     [hidden]{display:none!important}
     .pane{margin-top:1rem;padding:1rem;border:1px solid #9ca3a0}
     .notice{font-weight:600}
+    #member-links{display:grid;gap:.4rem;margin:1rem 0}
+    #member-links button{text-align:left;overflow-wrap:anywhere}
     pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#e9ebe6;padding:1rem;font-size:.86rem}
     @media(max-width:40rem){body{padding:.8rem}.controls,label{display:grid;width:100%}}
   </style>
@@ -78,6 +80,22 @@ _PAGE = """<!doctype html>
         <label>Dopo ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Mostra raccolte</button></div>
       </form>
+      <h2>Contenuti inclusi</h2><p>Seleziona una raccolta per leggere solo i riferimenti persistiti. Il dettaglio indica i collegamenti verificati e gli elementi ancora assenti.</p>
+      <form data-endpoint="/v1/collections/members">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo Content ID<input name="after_id" maxlength="180"></label>
+        <button type="submit">Elenca contenuti</button></div>
+      </form>
+      <div id="member-links" role="group" aria-label="Contenuti persistiti selezionabili"></div>
+      <h2>Dettaglio Content</h2>
+      <form data-endpoint="/v1/collections/member">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Limite claim (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo claim ID<input name="after_claim_id" maxlength="180"></label>
+        <button type="submit">Ispeziona fonte e claim</button></div>
+      </form>
     </section>
     <section class="pane" id="inbox" hidden>
       <h2>Discovery Inbox</h2><p>Record di discovery e codici di blocco senza URL, corpi o titoli non revisionati.</p>
@@ -114,6 +132,8 @@ _PAGE = """<!doctype html>
     const token = document.getElementById('token');
     const results = document.getElementById('results');
     const status = document.getElementById('status');
+    const memberLinks = document.getElementById('member-links');
+    const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const panels = document.querySelectorAll('main > section[id]');
     document.getElementById('clear').addEventListener('click', () => {
       token.value = '';
@@ -144,6 +164,9 @@ _PAGE = """<!doctype html>
         }
         status.textContent = 'Richiesta locale in corso…';
         results.textContent = 'Nessun risultato ancora disponibile.';
+        if (form.dataset.endpoint === '/v1/collections/members') {
+          memberLinks.replaceChildren();
+        }
         try {
           const response = await fetch(form.dataset.endpoint, {
             method: 'POST', credentials: 'omit', redirect: 'error',
@@ -153,6 +176,22 @@ _PAGE = """<!doctype html>
           const receipt = await response.json();
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
           results.textContent = JSON.stringify(receipt, null, 2);
+          if (response.ok && form.dataset.endpoint === '/v1/collections/members'
+              && Array.isArray(receipt.data?.results)) {
+            for (const member of receipt.data.results) {
+              if (typeof member.content_id !== 'string') continue;
+              const link = document.createElement('button');
+              link.type = 'button';
+              link.textContent = member.content_id + ' · ' + member.rights_status + ' · ' + member.processing_status;
+              link.addEventListener('click', () => {
+                memberDetailForm.elements.namedItem('collection_id').value = receipt.data.collection_id;
+                memberDetailForm.elements.namedItem('content_id').value = member.content_id;
+                memberDetailForm.elements.namedItem('after_claim_id').value = '';
+                memberDetailForm.requestSubmit();
+              });
+              memberLinks.append(link);
+            }
+          }
         } catch (_) {
           status.textContent = 'Servizio locale non disponibile.';
           results.textContent = 'Nessun risultato.';

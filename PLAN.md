@@ -267,7 +267,7 @@ LLM in the request path.
 | DP-413 | DONE | Simplify Public/Studio IA to 5 + 2 templates before implementation | DP-400 |
 | DP-414 | DONE | Studio IA v3 contract closed: four private workspaces + source-bound fixture view-model proven on MiniPC; persisted adapters/workflows remain owned by DP-415..419 | DP-112, DP-113 |
 | DP-415 | IN PROGRESS | Authenticated on-demand loopback Studio UI + metadata-only DP-116 private search API; real Garlasco top-K, persisted browser UX/AT and operator runtime proof remain open | DP-116, DP-414 |
-| DP-416 | IN PROGRESS | Private loopback paged research-collection status/count listing + fixture inspector; persisted collection→source→passage→candidate navigation remains open | DP-113, DP-114, DP-414 |
+| DP-416 | IN PROGRESS | Authenticated loopback collection→18 persisted Content→10 Source IDs→30 historical Claim IDs with bounded pagination and blocked/rights metadata, real MiniPC/HTTP canary; no Captures/Passages/Candidates yet, full chain and browser AT acceptance open | DP-113, DP-114, DP-414 |
 | DP-417 | IN PROGRESS | Private loopback paged discovery-hit IDs/disposition/reason listing + fixture inspector; persisted review queue/actions and safe replay/transition proof remain open | DP-209, DP-212, DP-414 |
 | DP-418 | IN PROGRESS | Private loopback persisted match-run read-only inspector; currentness/reviewer authority unverified, no promotion until durable review + UI proof | DP-117, DP-212, DP-414 |
 | DP-419 | IN PROGRESS | Private loopback persisted capture-version metadata compare; passage/media selector jump, rights-gated previews and live browser proof remain open | DP-210, DP-414 |

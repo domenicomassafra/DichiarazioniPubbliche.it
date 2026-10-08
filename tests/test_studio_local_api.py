@@ -180,6 +180,42 @@ class StudioLocalApiTests(unittest.TestCase):
                 self.assertNotIn("PRIVATE", json.dumps(reply))
                 self.assertNotIn("canonical_url", json.dumps(reply))
 
+    def test_member_listing_and_exact_detail_require_token_and_included_binding(self):
+        cases = [
+            ("/v1/collections/members", {"collection_id": "research:garlasco", "limit": 10},
+             {"collection_id": "research:garlasco", "state": "PAUSED", "members": [{
+                 "content_id": "content:garlasco:001", "source_id": "source:one",
+                 "rights_status": "UNKNOWN", "processing_status": "REVIEW_REQUIRED",
+                 "title": "PRIVATE SOURCE"
+             }]}),
+            ("/v1/collections/member",
+             {"collection_id": "research:garlasco", "content_id": "content:garlasco:001"},
+             {"collection_id": "research:garlasco", "collection_state": "PAUSED",
+              "content_id": "content:garlasco:001", "source_id": "source:one",
+              "source_exists": True, "rights_status": "UNKNOWN",
+              "processing_status": "REVIEW_REQUIRED",
+              "capture_count": 0, "passage_count": 0, "statement_candidate_count": 0,
+              "claim_candidate_count": 0, "atomic_claim_count": 1,
+              "claims": [{"id": "claim:garlasco:001", "speaker_person_id": "person:one",
+                          "claim_type": "HISTORICAL_CLAIM", "normalized_claim": "PRIVATE TEXT"}]})
+        ]
+        for path, request, database_row in cases:
+            with self.subTest(path=path):
+                self.queues.rows = [database_row]
+                denied, _, _ = self.call("POST", path, request)
+                self.assertEqual(denied, 401)
+                status, reply, headers = self.call("POST", path, request, self.auth())
+                self.assertEqual(status, 200, reply)
+                self.assertTrue(reply["data"]["private_only"])
+                self.assertFalse(reply["data"]["publication_authority"])
+                self.assertEqual(headers["Cache-Control"], "no-store, private")
+                self.assertNotIn("PRIVATE", json.dumps(reply))
+                self.assertNotIn("normalized_claim", json.dumps(reply))
+                self.assertNotIn("Access-Control-Allow-Origin", headers)
+                malformed = request | {"publication_approve": True}
+                status, _, _ = self.call("POST", path, malformed, self.auth())
+                self.assertEqual(status, 422)
+
     def test_login_page_is_static_local_only_and_csp_nonce_scoped(self):
         conn = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=4)
         conn.request("GET", "/")
@@ -194,6 +230,12 @@ class StudioLocalApiTests(unittest.TestCase):
         self.assertIn("data-panel=\"matches\"", page)
         self.assertIn("data-panel=\"captures\"", page)
         self.assertIn("data-panel=\"collections\"", page)
+        self.assertIn('data-endpoint="/v1/collections/members"', page)
+        self.assertIn('data-endpoint="/v1/collections/member"', page)
+        self.assertIn('id="member-links"', page)
+        self.assertIn("memberDetailForm.requestSubmit()", page)
+        self.assertIn("memberLinks.replaceChildren()", page)
+        self.assertIn("document.createElement('button')", page)
         self.assertIn("credentials: 'omit'", page)
         self.assertIn("results.textContent", page)
         self.assertNotIn("innerHTML", page)

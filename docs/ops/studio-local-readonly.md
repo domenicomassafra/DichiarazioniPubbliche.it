@@ -50,10 +50,15 @@ with Ctrl-C; rotate by stopping it and provisioning a new secret.
 
 ## 3. Exact read-only interface
 
-Five POST routes:
+Seven POST routes:
 
 - /v1/corpus/search — private DP-116 query, safe IDs only.
 - /v1/collections/list — persisted collection IDs/status/INCLUDED counts.
+- /v1/collections/members — bounded, cursor-paged included Content IDs,
+  Source IDs and rights/processing states in one exact collection.
+- /v1/collections/member — exact included Content membership inspection,
+  Source existence and bounded historic claim IDs with separate cursor;
+  absent captures/passages/candidates are explicitly reported.
 - /v1/discovery/list — persisted discovery hit/run/Content IDs and disposition.
 - /v1/candidate/matches — persisted match classes and feature codes;
   currentness/reviewer authority is **not verified**.
@@ -76,9 +81,12 @@ and private evidence never enter HTTP response bodies.
 
 ## 4. Residual blockers
 
-This is one secure technical slice, **not acceptance closure** of
-DP-415..419. Needed: real Garlasco search/top-K benchmark; persisted
-source→passage→candidate traversal and rights-gated previews; durable
+This is a secure technical slice, **not acceptance closure** of
+DP-415..419. The private Garlasco historical baseline can now be read
+as collection→Content→Source ID/Atomic Claim IDs, but Captures/Passages
+and Candidates are still absent. Needed: full-pilot Garlasco top-K
+benchmark; persisted source→passage→candidate traversal and
+rights-gated previews; durable
 candidate/currentness/review authority and replay-safe actions;
 operator permissions/roles for any expanded admin surface; real
 MiniPC corpus read-back; keyboard, actual 200% zoom and screen-reader
