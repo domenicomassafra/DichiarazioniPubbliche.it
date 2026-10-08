@@ -1,6 +1,6 @@
 # DP-418 — studio candidate promotion cluster review
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-117, DP-212, DP-414
 
@@ -64,3 +64,25 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+### Persisted match-run read-only inspection — 2026-10-08
+
+`studio_candidate_review.py` reads an existing DP-212 `candidate_match_run`
+and its persisted `candidate_match_result` rows using the canonical
+`CandidateMatchingStore.get_run/load_results` methods. It requires an exact run
+and candidate binding, completed state, bounded count, valid fingerprint,
+deterministic rank and match class/disposition consistency. It returns only
+bounded IDs, match classes and feature **codes**, never raw match features,
+private candidate/source text, numeric similarity scores or reviewer notes.
+
+The response explicitly states `currentness=UNVERIFIED`,
+`review_authority=false`, `publication_authority=false` and
+`promotion_enabled=false`: a persisted matching suggestion is **not** a
+currentness decision, review decision or promotion permit. No database mutation,
+cluster materialization, HTTP endpoint or public build change is introduced.
+
+This is an internal read-only prerequisite, not the completed DP-418 workflow.
+The authenticated private Studio UI, exact source/passage comparison, blocker
+before mutation, canonical currentness/authority checks, review/approval replay
+and keyboard/MiniPC acceptance all remain open. Synthetic focused tests cover
+normal, missing/stale/conflicting and private-feature-leak paths.

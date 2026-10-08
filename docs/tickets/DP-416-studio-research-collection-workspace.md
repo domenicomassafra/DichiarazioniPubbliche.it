@@ -1,6 +1,6 @@
 # DP-416 — studio research collection workspace
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-113, DP-114, DP-414
 
@@ -65,3 +65,13 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+### Fixture-only collection inspector — 2026-10-08
+
+The shared read-only Studio client now filters a bounded collection list and displays
+the selected scope, source reference and state/blocker code using native button/input
+focus semantics. The current fixture is explicit and **not** passed off as a real
+persisted collection. No private source, passage, candidate, coverage need or review
+link is fabricated. Real DP-214/Garlasco collection navigation, pagination, approved
+membership actions, browser accessibility and MiniPC persisted proof remain open;
+no AC is checked solely because the fixture renders.

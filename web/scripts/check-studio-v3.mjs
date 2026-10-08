@@ -11,6 +11,12 @@ import {
   isStudioUnavailable,
   resolveStudioViewModel,
 } from "../src/lib/studioViewModel.ts";
+import {
+  filterCorpusResults,
+  filterInboxRows,
+  filterCollections,
+  explainSourceBoundStatus,
+} from "../src/lib/studioReadOnlyWorkflows.ts";
 
 const root = process.cwd();
 const read = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
@@ -80,6 +86,7 @@ assert.ok(routeSource.includes("StudioWorkspaceFrame"), "Studio route must use s
 assert.ok(routeSource.includes("if (!allowFixture) return []"), "public builds must omit private Studio routes by default");
 
 const verify = read("src/components/StudioWorkspaceClient.tsx");
+const readOnly = read("src/components/StudioReadOnlyWorkspace.tsx");
 const frame = read("src/components/StudioWorkspaceFrame.astro");
 assert.equal((frame.match(/<h1\b/g) ?? []).length, 1, "shared Studio frame must own the single dominant h1");
 assert.equal((verify.match(/className="workspace-pane"/g) ?? []).length, 3, "Verify must remain exactly three-pane");
@@ -88,6 +95,29 @@ assert.ok(verify.includes('data-action-domain="analysis"'), "Verify analysis act
 assert.ok(verify.includes('data-action-domain="review"'), "Verify review action boundary missing");
 assert.ok(verify.includes('data-original-source-resolution="true"'), "Verify original-source inspection marker missing");
 assert.ok(verify.includes("data-root-content-id"), "Verify original-source root binding missing");
+assert.ok(routeSource.includes("StudioReadOnlyWorkspace"), "Corpus/Inbox/Collections must use interactive fixture navigation");
+assert.ok(readOnly.includes("if (!model.fixture_only)"), "new Studio fixture navigation must fail closed on untrusted real model");
+assert.ok(readOnly.includes("aria-pressed"), "read-only selected-result controls must have keyboard/selection semantics");
+assert.ok(readOnly.includes('type="button"'), "Studio navigation must never submit mutation actions");
+assert.ok(readOnly.includes("Non interroga il database privato"), "fixture search must not claim a live corpus query");
+
+const corpusRows = studioFixtures.corpus.results;
+assert.equal(filterCorpusResults(corpusRows, "").length, 3, "empty fixture filter must preserve results");
+assert.deepEqual(
+  filterCorpusResults(corpusRows, "Piano trasporti", "content").map((row) => row.id),
+  ["content:trasporti:2027"],
+  "Corpus fixture query should match lexical tokens and kind",
+);
+assert.equal(filterCorpusResults(corpusRows, "non esistente").length, 0, "missing query must not fabricate a result");
+assert.equal(filterCorpusResults(corpusRows, "", "passage").length, 1, "kind filter must be deterministic");
+assert.equal(filterCorpusResults(corpusRows, "", "all", 1).length, 1, "client-side result budget must apply");
+assert.equal(filterInboxRows(studioFixtures.inbox.rows, "blocked").length, 1, "Inbox blocker filter must apply");
+assert.equal(filterInboxRows(studioFixtures.inbox.rows, "ready").length, 1, "Inbox ready filter must apply");
+assert.equal(filterCollections(studioFixtures.collections.collections, "energia").length, 1, "Collection lexical filter must apply");
+assert.ok(
+  explainSourceBoundStatus(studioFixtures.inbox.rows[1].status).includes("RIGHTS_REVIEW_REQUIRED"),
+  "blocked inbox row must explain exact blocker",
+);
 
 const statusRenderers = [
   read("src/components/StudioStatus.astro"),

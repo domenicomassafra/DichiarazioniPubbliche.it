@@ -1,6 +1,6 @@
 # DP-419 — studio source capture passage inspector
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-210, DP-414
 
@@ -65,3 +65,19 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+### Fail-closed capture version comparison (private backend) — 2026-10-08
+
+`studio_capture_inspector.py` adds an additive metadata-only read seam for two
+**distinct** known capture hashes on one Content. It uses the existing persisted
+`CapturePipelineStore.find_capture` contract and rejects missing/tampered versions,
+status enums, identity collisions and backend failures. It compares hash,
+capture/hold/archive status and `PURGED/STORED_UNVERIFIED/NOT_STORED` body state:
+stored references do not assert readable body or rights clearance.
+
+The returned data is limited to stable IDs, hashes and operational states. It never
+copies source URL, private text, parser payload, raw capture metadata, archive
+receipt or credentials, and confers no review/publication authority. This is **not**
+yet a connected private browser inspector or approval to show excerpt bodies:
+real capture-history UI, exact passage/media jump, rights-gated preview, keyboard
+acceptance and MiniPC persisted replay remain open.

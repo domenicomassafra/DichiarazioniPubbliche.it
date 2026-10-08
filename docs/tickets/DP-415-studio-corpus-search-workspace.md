@@ -1,6 +1,6 @@
 # DP-415 — studio corpus search workspace
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-116, DP-414
 
@@ -65,3 +65,26 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+### Read-only preparatory slice — 2026-10-08
+
+`StudioReadOnlyWorkspace.tsx` and `studioReadOnlyWorkflows.ts` add keyboard-native
+query, kind filtering, selected-result inspection and explicit fixture/empty-state
+wording. The browser runs **only** on explicit fixture opt-in; production static builds
+exclude `/studio/*` and do not embed a private corpus. This client-side filter is
+not a PostgreSQL query, a verified search result or an authorization boundary.
+
+`studio_operator_search.py` supplies a separate **operator-local** read-only
+metadata-only interface over DP-116's `CorpusSearchStore`. It bounds query/filter/
+result counts, returns source/content/passage identifiers but never source snippets,
+private transcripts, raw query text or provider details, and fails closed on malformed
+backend data or errors. It does not create an HTTP listener, public API or automatic
+publication path. Run locally as
+`PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.studio_operator_search --query '<termine>'`
+only with an already-authorized private PostgreSQL environment; do not copy its
+output into static files.
+
+AC-415.1 (interactive real private UI and keyboard browser proof), AC-415.2
+(actual DP-116 top-K benchmark against the accepted corpus), AC-415.3 (end-to-end
+private/public artifact audit), and AC-415.4 (provider-offline live corpus run)
+remain **open**. The result is a preparatory, testable vertical slice, not DONE.

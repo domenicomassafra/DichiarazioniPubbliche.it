@@ -266,11 +266,11 @@ LLM in the request path.
 | DP-412 | IN PROGRESS | Design-token/component contract largely proven; real screen-reader + exact-200%-zoom component acceptance remains | DP-411 |
 | DP-413 | DONE | Simplify Public/Studio IA to 5 + 2 templates before implementation | DP-400 |
 | DP-414 | DONE | Studio IA v3 contract closed: four private workspaces + source-bound fixture view-model proven on MiniPC; persisted adapters/workflows remain owned by DP-415..419 | DP-112, DP-113 |
-| DP-415 | FUTURE | Corpus search/filter/query workspace | DP-116, DP-414 |
-| DP-416 | FUTURE | Research Collection workspace | DP-113, DP-114, DP-414 |
-| DP-417 | FUTURE | Discovery Inbox triage and duplicate/coverage queues | DP-209, DP-212, DP-414 |
-| DP-418 | FUTURE | Candidate promotion + proposition-cluster review UX | DP-117, DP-212, DP-414 |
-| DP-419 | FUTURE | Source/capture/passage provenance inspector | DP-210, DP-414 |
+| DP-415 | IN PROGRESS | Read-only fixture query/filter/selection and private metadata-only DP-116 operator CLI added; authenticated UI-to-persisted search, real top-K acceptance and keyboard runtime remain open | DP-116, DP-414 |
+| DP-416 | IN PROGRESS | Read-only fixture collection filter/selection + source-bound status inspector added; persisted collection/source/passage/candidate navigation remains open | DP-113, DP-114, DP-414 |
+| DP-417 | IN PROGRESS | Read-only fixture inbox filters and provenance/blocker inspector added; persisted queue and safe replay/transition actions remain open | DP-209, DP-212, DP-414 |
+| DP-418 | IN PROGRESS | Read-only private persisted match-run inspector added; currentness/review authority unverified, no promotion controls until durable review + private Studio integration | DP-117, DP-212, DP-414 |
+| DP-419 | IN PROGRESS | Metadata-only persisted capture-version comparison contract added; private integrated inspector, passage/media jump and rights-gated previews remain open | DP-210, DP-414 |
 | DP-420 | FUTURE | Garlasco operator usability and search-recall acceptance | DP-214, DP-415..419 |
 | DP-421 | FUTURE | Public case/collection view contract decision | DP-214, M3, DP-420 |
 | DP-422 | IN PROGRESS | Public Product Architecture v3 route/template migration; canonical/legacy/internal-link contract and clean-clone acceptance green; AC-422.8 selected-v4 desktop/mobile manual comparison plus DP-408/409/429 completion gates remain | DP-405..409, DP-426..429 |

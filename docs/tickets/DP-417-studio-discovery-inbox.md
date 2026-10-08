@@ -1,6 +1,6 @@
 # DP-417 — studio discovery inbox
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-209, DP-212, DP-414
 
@@ -64,3 +64,12 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+### Read-only blocked-state inspector — 2026-10-08
+
+`StudioReadOnlyWorkspace.tsx` now supports source-bound inbox row selection,
+`ready/blocked` filters, explicit provenance display and fail-closed blocker
+explanations for the fixture. No triage action is enabled: it would be unsafe to
+turn a UI click into a review/merge/promotion without current persisted authority,
+idempotency, rights and state-transition verification. Real queue reads, replay,
+bulk-action compatibility, runtime canary and full acceptance criteria remain open.
