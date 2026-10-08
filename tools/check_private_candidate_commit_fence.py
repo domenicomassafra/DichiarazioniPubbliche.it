@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineStore  # noqa: E402
+from dichiarazioni_pubbliche.candidate_extraction import _COMMIT_BATCH_SQL  # noqa: E402
 from dichiarazioni_pubbliche.private_candidate_commit_fence import (  # noqa: E402
     PRIVATE_CANDIDATE_COMMIT_AUTHORITY_CTE, PrivateCandidateCommitFence,
 )
@@ -170,6 +171,183 @@ def ephemeral_fence_sql() -> str:
     """
 
 
+_OUTPUT_TABLES = (
+    "candidate_extraction_run", "provider_receipt", "statement_candidate",
+    "statement_candidate_passage", "claim_candidate", "entity_mention_candidate",
+    "entity_resolution_candidate",
+)
+_WRITTEN_TABLES = (
+    "passage", "provider_receipt", "statement_candidate", "statement_candidate_passage",
+    "claim_candidate", "entity_mention_candidate", "entity_resolution_candidate",
+)
+
+
+def full_commit_canary_sql() -> str:
+    """Execute the *actual full Candidate SQL*, including CTE inserts, on TEMP shadow tables.
+
+    All statements run under the outer fixture's BEGIN/ROLLBACK. Deliberately
+    exclude the inner BEGIN/COMMIT from the production transaction template
+    so no fixture write can escape the rollback.
+    """
+    fixture = ephemeral_fence_sql()
+    head, separator, _ = fixture.partition("WITH commit_authority AS MATERIALIZED")
+    if not separator or "ROLLBACK;" in head:
+        raise RuntimeError("CANDIDATE_FULL_COMMIT_FIXTURE_DRIFT")
+    head = head.replace(
+        "CREATE TEMP TABLE passage (id text, content_id text, capture_id text, text_sha256 text);",
+        "CREATE TEMP TABLE passage (LIKE public.passage INCLUDING DEFAULTS);",
+    )
+    head = head.replace(
+        """INSERT INTO passage VALUES
+        ('passage:fence-canary', 'content:fence-canary', 'capture:fence-canary',
+         repeat('a',64));""",
+        """INSERT INTO passage (id,content_id,capture_id,selector_type,start_char,
+          end_char,text_sha256,private_text,extraction_method,extraction_version)
+        VALUES ('passage:fence-canary','content:fence-canary','capture:fence-canary',
+          'TEXT_POSITION',0,12,repeat('a',64),'Canary text.','SYNTHETIC','test-v1');""",
+    )
+    if "CREATE TEMP TABLE passage (LIKE public.passage" not in head or "INSERT INTO passage VALUES" in head:
+        raise RuntimeError("CANDIDATE_FULL_COMMIT_PASSAGE_FIXTURE_DRIFT")
+    for table in _OUTPUT_TABLES:
+        head += f"\nCREATE TEMP TABLE {table} (LIKE public.{table} INCLUDING DEFAULTS INCLUDING INDEXES);\n"
+    head += """
+    INSERT INTO candidate_extraction_run (
+      id,operation_key,content_id,passage_id,capture_id,input_sha256,
+      provider_id,model_id,provider_version,status,lease_owner,lease_until,
+      cost_upper_bound_usd,metadata
+    ) VALUES (
+      :'run_id', 'canary:operation','content:fence-canary','passage:fence-canary',
+      'capture:fence-canary',repeat('a',64),'fake-fixture','test-only',
+      'test-v1','RUNNING',:'lease_owner',now()+interval '5 minutes',
+      0.003,'{"provider_call_state":"STARTED_COST_UPPER_BOUND_RESERVED"}'
+    );
+    """
+    body = _COMMIT_BATCH_SQL.removeprefix("BEGIN;\n")
+    if body == _COMMIT_BATCH_SQL or not body.endswith("\nCOMMIT;"):
+        raise RuntimeError("CANDIDATE_FULL_COMMIT_SQL_TRANSACTION_DRIFT")
+    body = body.removesuffix("\nCOMMIT;")
+    def counts(label: str) -> str:
+        pairs = " || ',' || ".join(
+            f"(SELECT count(*)::text FROM {name})" for name in _WRITTEN_TABLES
+        )
+        return f"SELECT '{label}|' || {pairs};\n"
+    sql = head + "\n"
+    for label, setup in (
+        ("rights_revoked", "UPDATE private_source_rights_record SET rights_status='REVOKED';"),
+        ("capture_held", """UPDATE private_source_rights_record SET rights_status='CLEARED';
+          UPDATE content_capture SET hold_status='RIGHTS_HOLD';"""),
+        ("discovery_failed", """UPDATE content_capture SET hold_status='NONE';
+          UPDATE research_discovery_attempt SET status='FAILED';"""),
+        ("passage_stale", """UPDATE research_discovery_attempt SET status='HEALTHY';
+          UPDATE passage SET text_sha256=repeat('b',64);"""),
+        ("valid", "UPDATE passage SET text_sha256=repeat('a',64);"),
+    ):
+        sql += setup + "\n" + body + "\n" + counts(label)
+    sql += "ROLLBACK;\n"
+    return sql
+
+
+def full_commit_parameters() -> dict[str, str]:
+    """No provider calls; all source material and approvals are test-only temp rows."""
+    fields = fixture_scope().sql_parameters()
+    child = "passage:fence-child"
+    fields.update({
+        "run_id": "candidate-extraction-run:fence-canary",
+        "lease_owner": "test-only-lease",
+        "passages": json.dumps([{
+            "id": child, "content_id": fields["fence_content_id"],
+            "capture_id": fields["fence_capture_id"], "selector_type": "TEXT_POSITION",
+            "start_char": 0, "end_char": 11, "text_sha256": "b"*64,
+            "private_text": "Canary text", "language": "it",
+            "extraction_method": "SYNTHETIC", "extraction_version": "test-v1",
+            "metadata": {},
+        }]),
+        "statements": json.dumps([{
+            "id": "statement:fence-canary", "content_id": fields["fence_content_id"],
+            "passage_id": child, "speaker_person_id": None,
+            "statement_text_hash": "c"*64, "normalized_statement": "Synthetic test",
+            "statement_at": None, "attribution_method": "MODEL",
+            "extraction_model": "test-only", "extraction_version": "test-v1",
+            "metadata": {},
+        }]),
+        "claims": json.dumps([{
+            "id": "claim-candidate:fence-canary", "statement_candidate_id": "statement:fence-canary",
+            "content_id": fields["fence_content_id"], "normalized_claim": "Synthetic test claim",
+            "proposed_claim_type": "HISTORICAL_CLAIM", "claim_type_version": "test-v1",
+            "temporal_scope": {}, "check_worthy": True,
+            "extraction_model": "test-only", "extraction_version": "test-v1",
+            "metadata": {},
+        }]),
+        "mentions": json.dumps([{
+            "id": "mention:fence-canary", "extraction_run_id": "candidate-extraction-run:fence-canary",
+            "content_id": fields["fence_content_id"], "passage_id": child,
+            "start_char": 0, "end_char": 6, "mention_text": "Canary",
+            "mention_text_sha256": "d"*64, "proposed_entity_type": "PERSON",
+            "extraction_method": "MODEL", "metadata": {},
+        }]),
+        "resolutions": json.dumps([{
+            "id": "resolution:fence-canary", "content_id": fields["fence_content_id"],
+            "passage_id": child, "mention_text": "Canary",
+            "mention_text_sha256": "d"*64, "entity_type": "PERSON",
+            "target_person_id": "person:test-only", "target_organization_id": None,
+            "target_topic_id": None, "target_event_id": None,
+            "resolution_method": "KNOWN_ALIAS", "supporting_features": [],
+            "metadata": {},
+        }]),
+        "provider_receipt_id": "provider-receipt:fence-canary",
+        "request_id": "test-only",
+        "input_bytes": "12",
+        "cost_usd": "0.002",
+        "total_tokens": "12",
+        "provider_receipt": '{"cost_basis":"test-only"}',
+        "statement_count": "1",
+        "claim_count": "1",
+        "entity_mention_count": "1",
+        "entity_resolution_count": "1",
+        "fence_required": "true",
+    })
+    return fields
+
+
+def check_full_commit_receipts(raw: str) -> dict[str, object]:
+    expected = {
+        "rights_revoked": [1, 0, 0, 0, 0, 0, 0],
+        "capture_held": [1, 0, 0, 0, 0, 0, 0],
+        "discovery_failed": [1, 0, 0, 0, 0, 0, 0],
+        "passage_stale": [1, 0, 0, 0, 0, 0, 0],
+        "valid": [2, 1, 1, 1, 1, 1, 1],
+    }
+    observed: dict[str, list[int]] = {}
+    completed_rows = 0
+    for line in raw.splitlines():
+        if line.startswith("{"):
+            # A successful COMMIT must return the updated run receipt exactly once.
+            receipt = json.loads(line)
+            if receipt.get("status") != "COMPLETED":
+                raise RuntimeError("CANDIDATE_FULL_COMMIT_STATUS_INVALID")
+            completed_rows += 1
+            continue
+        if not line.strip():
+            continue
+        fields = line.split("|")
+        if len(fields) != 2 or fields[0] not in expected or fields[0] in observed:
+            raise RuntimeError("CANDIDATE_FULL_COMMIT_RECEIPT_INVALID")
+        try:
+            observed[fields[0]] = [int(x) for x in fields[1].split(",")]
+        except ValueError as exc:
+            raise RuntimeError("CANDIDATE_FULL_COMMIT_COUNTS_INVALID") from exc
+    if observed != expected or completed_rows != 1:
+        raise RuntimeError("CANDIDATE_FULL_COMMIT_ATOMICITY_FAIL")
+    return {
+        "status": "PASS_ROLLBACK_ONLY",
+        "full_commit_sql_executed": True,
+        "negative_commits_rejected": 4,
+        "positive_synthetic_commit": 1,
+        "candidate_receipt_and_run_atomicity": True,
+        "publication_authorized": False,
+    }
+
+
 _EXPECTED = {
     "valid": 1,
     "rights_revoked": 0,
@@ -213,6 +391,8 @@ def evaluate_receipts(raw: str) -> dict[str, object]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--database-url", default=os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL"))
+    parser.add_argument("--full-commit", action="store_true",
+                        help="Also execute exact production CTE batch SQL on pg_temp shadow tables")
     args = parser.parse_args(argv)
     capture = CapturePipelineStore(database_url=args.database_url)
     before = capture.read_private_capture_safety_counts()
@@ -220,6 +400,11 @@ def main(argv: list[str] | None = None) -> int:
         ephemeral_fence_sql(), **fixture_scope().sql_parameters()
     )
     result = evaluate_receipts(observed)
+    if args.full_commit:
+        actual = PsqlRuntime(database_url=args.database_url).run(
+            full_commit_canary_sql(), **full_commit_parameters()
+        )
+        result["full_commit"] = check_full_commit_receipts(actual)
     after = capture.read_private_capture_safety_counts()
     if before != after:
         raise RuntimeError("CANDIDATE_COMMIT_FENCE_PROTECTED_COUNTS_CHANGED")

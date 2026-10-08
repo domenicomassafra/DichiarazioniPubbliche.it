@@ -21,6 +21,7 @@ from dichiarazioni_pubbliche.private_candidate_commit_fence import (
 from test_candidate_extraction import FakeProvider, FakeStore, valid_payload, written_context
 from tools.check_private_candidate_commit_fence import (
     ephemeral_fence_sql, evaluate_receipts, fixture_scope,
+    full_commit_canary_sql, full_commit_parameters, check_full_commit_receipts,
 )
 
 
@@ -150,6 +151,41 @@ class CommitFenceTests(unittest.TestCase):
                     source.rsplit("\n", 1)[0]):
             with self.assertRaisesRegex(RuntimeError, "BYPASS"):
                 evaluate_receipts(bad)
+
+    def test_full_sql_transaction_canary_never_commits_fixture_rows(self):
+        statement = full_commit_canary_sql()
+        self.assertIn("CREATE TEMP TABLE provider_receipt", statement)
+        self.assertIn("CREATE TEMP TABLE claim_candidate", statement)
+        self.assertIn(
+            "CREATE TEMP TABLE entity_resolution_candidate "
+            "(LIKE public.entity_resolution_candidate INCLUDING DEFAULTS INCLUDING INDEXES)",
+            statement,
+        )
+        self.assertIn("WITH commit_authority AS MATERIALIZED", statement)
+        self.assertEqual(statement.count("WITH commit_authority AS MATERIALIZED"), 5)
+        self.assertEqual(statement.count("ROLLBACK;"), 1)
+        self.assertEqual(statement.count("\nCOMMIT;"), 0)
+        params = full_commit_parameters()
+        self.assertEqual(params["fence_required"], "true")
+        self.assertEqual(len(__import__("json").loads(params["statements"])), 1)
+        self.assertEqual(len(__import__("json").loads(params["claims"])), 1)
+
+    def test_full_commit_receipts_validate_negative_isolation_and_positive_entire_batch(self):
+        output = "\n".join([
+            "rights_revoked|1,0,0,0,0,0,0",
+            "capture_held|1,0,0,0,0,0,0",
+            "discovery_failed|1,0,0,0,0,0,0",
+            "passage_stale|1,0,0,0,0,0,0",
+            '{"status":"COMPLETED"}',
+            "valid|2,1,1,1,1,1,1",
+        ])
+        self.assertTrue(check_full_commit_receipts(output)["candidate_receipt_and_run_atomicity"])
+        for bad in (output.replace("rights_revoked|1,0", "rights_revoked|2,0"),
+                    output.replace("valid|2,1,1", "valid|2,0,1"),
+                    output.replace('{"status":"COMPLETED"}', ""),
+                    output.replace("valid|2,1,1,1,1,1,1", "")):
+            with self.subTest(bad=bad), self.assertRaisesRegex(RuntimeError, "ATOMICITY_FAIL"):
+                check_full_commit_receipts(bad)
 
 
 if __name__ == "__main__":

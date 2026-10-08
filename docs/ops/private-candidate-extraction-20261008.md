@@ -88,6 +88,44 @@ replayed Python relevance and rights checks remain mandatory, including
 integrity and lineage validation. This is defense in depth, not a legal
 or concurrency certification.
 
+### Additional full-transaction SQL acceptance
+
+The original 16-case canary exercised the `commit_authority` CTE, but
+did **not** invoke the entire `_COMMIT_BATCH_SQL` statement that writes
+candidate children, provider receipts and the completed run. The enhanced
+`--full-commit` canary now executes that exact SQL statement in a single
+outer `BEGIN` / `ROLLBACK` scope with isolated PostgreSQL
+`pg_temp` shadow tables. It strips only the nested `BEGIN` and
+`COMMIT` wrappers from the production SQL template, **not** any of its
+authorization, write or completion CTEs.
+
+The temporary output tables copy their real PostgreSQL defaults and
+unique indexes, including the `ON CONFLICT (id)` requirement of
+`entity_resolution_candidate`. A first test setup omitted those indexes
+and correctly failed; no claim of success was made until that fixture
+was corrected.
+
+The read-back requires four **no-write** attempts (rights revoked,
+Capture held, failed Discovery attempt and changed Passage hash),
+followed by one explicitly synthetic eligible commit with **all**
+private Candidate output tables, provider receipt and completed
+extraction-run receipt written exclusively to `pg_temp`. Every negative
+attempt must preserve all child-table counts. The positive receipt must
+report `COMPLETED` exactly once and all seven private output counts must
+match. The complete test transaction ends with `ROLLBACK` and verifies
+before/after protected production counts.
+
+MiniPC command:
+
+    PGDATABASE=dichiarazioni_pubbliche PYTHONPATH=poc python3 tools/check_private_candidate_commit_fence.py --full-commit
+
+Observed: `full_commit_sql_executed=true`,
+`negative_commits_rejected=4`, `positive_synthetic_commit=1`,
+`candidate_receipt_and_run_atomicity=true`,
+`protected_counts_unchanged=true`; previous 15 revoke/mismatch
+checks remain green. These synthetic fixtures grant no rights to any
+real Content and do not satisfy live DP-214 corpus acceptance.
+
 ### MiniPC acceptance
 
 `tools/check_private_candidate_commit_fence.py --database-url
