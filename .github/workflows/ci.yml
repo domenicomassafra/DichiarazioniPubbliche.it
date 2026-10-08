@@ -161,6 +161,9 @@ jobs:
       - name: Ticket graph, links, JSON, templates, hygiene, license
         run: python3 tools/check_repository_contract.py
 
+      - name: DP-304 versioned field inventory rejects schema/privacy policy drift
+        run: python3 tools/check_privacy_field_inventory.py
+
       - name: Fixture/data licensing inventory (DP-603)
         run: |
           python3 tools/check_licensing_inventory.py --check-hashes
