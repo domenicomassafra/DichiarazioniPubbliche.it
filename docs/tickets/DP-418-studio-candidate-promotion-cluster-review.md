@@ -86,3 +86,9 @@ The authenticated private Studio UI, exact source/passage comparison, blocker
 before mutation, canonical currentness/authority checks, review/approval replay
 and keyboard/MiniPC acceptance all remain open. Synthetic focused tests cover
 normal, missing/stale/conflicting and private-feature-leak paths.
+
+Follow-up 2026-10-08: persisted match-run inspection now has a token-
+authenticated local read-only HTTP/HTML transport with PostgreSQL
+transaction-level read-only enforcement and bounded network/DB timeouts.
+No write endpoint exists. Matching currentness and reviewer authority
+remain unverified, so the UI cannot promote, accept or merge candidates.

@@ -73,3 +73,10 @@ explanations for the fixture. No triage action is enabled: it would be unsafe to
 turn a UI click into a review/merge/promotion without current persisted authority,
 idempotency, rights and state-transition verification. Real queue reads, replay,
 bulk-action compatibility, runtime canary and full acceptance criteria remain open.
+
+Follow-up 2026-10-08: token-authenticated local Discovery endpoint now
+reads paged persisted discovery-hit IDs, run IDs, exact disposition,
+optional Content ID and safe blocker code. It excludes raw source URL,
+query, title, provider receipt and private body. The local browser has
+a read-only Inbox form. No reject, merge, promote, publish, bulk mutation,
+review authority or idempotency acceptance is introduced.

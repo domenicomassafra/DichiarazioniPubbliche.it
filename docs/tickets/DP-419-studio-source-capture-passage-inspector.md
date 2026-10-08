@@ -81,3 +81,9 @@ receipt or credentials, and confers no review/publication authority. This is **n
 yet a connected private browser inspector or approval to show excerpt bodies:
 real capture-history UI, exact passage/media jump, rights-gated preview, keyboard
 acceptance and MiniPC persisted replay remain open.
+
+Follow-up 2026-10-08: the exact two-hash persisted capture comparison
+now has authenticated loopback read-only HTTP/HTML transport. Raw bodies,
+source URLs, archive receipts and credentials are still excluded.
+Exact media selector jump, retention/rights-gated passage preview and
+real browser/DB acceptance remain open.

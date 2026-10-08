@@ -75,3 +75,10 @@ persisted collection. No private source, passage, candidate, coverage need or re
 link is fabricated. Real DP-214/Garlasco collection navigation, pagination, approved
 membership actions, browser accessibility and MiniPC persisted proof remain open;
 no AC is checked solely because the fixture renders.
+
+Follow-up 2026-10-08: on-demand token-authenticated loopback-only
+Collections endpoint now reads persisted paginated IDs, lifecycle states,
+and counts of explicitly INCLUDED collection members (no raw names,
+private scope, source bodies or unapproved interpretation). The local
+browser can issue this query. Full collection→source→passage→candidate
+navigation and Garlasco acceptance remain open.

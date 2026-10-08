@@ -88,3 +88,24 @@ AC-415.1 (interactive real private UI and keyboard browser proof), AC-415.2
 (actual DP-116 top-K benchmark against the accepted corpus), AC-415.3 (end-to-end
 private/public artifact audit), and AC-415.4 (provider-offline live corpus run)
 remain **open**. The result is a preparatory, testable vertical slice, not DONE.
+
+### On-demand authenticated operator-local API — 2026-10-08
+
+The operator-only module studio_local_api.py now binds exact 127.0.0.1
+**on explicit invocation**, using a protected 0600 token file and five
+read-only PostgreSQL-backed endpoints plus a same-origin local HTML page.
+The UI has native forms for Corpus, Collections, Inbox, Match and capture
+comparison. The browser keeps its token in memory, never cookies/storage,
+and all returned database values are rendered with textContent.
+
+Strict Host/Origin and bearer-token checks, no CORS, no external assets,
+non-persisted browser credentials, exact URL allowlist, 4KiB JSON requests
+and bounded database responses were exercised with negative HTTP tests.
+The DB bridge enforces PostgreSQL read-only mode with bounded query,
+connection and subprocess timeouts, independently of the HTTP route.
+No external service, public route or mutation authority is enabled.
+
+Operator instructions: docs/ops/studio-local-readonly.md. The live Garlasco
+top-K, full private source/passage browser flow, rights authorization,
+human accessibility testing and real persisted MiniPC acceptance are
+still **not proven**. DP-415 remains IN PROGRESS.
