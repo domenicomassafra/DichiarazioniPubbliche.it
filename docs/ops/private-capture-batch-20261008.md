@@ -116,3 +116,40 @@ Next admissible real canary: owner/reviewer-approved private capture rights
 and relevance tied to one original genuine source, in an authorized active
 collection with a persisted real discovery hit. Validate one isolated
 Capture→Passage and exact hash/read-back/replay before expanding to 100.
+
+## 2026-10-08 provenance-lineage hardening after the initial batch
+
+The original accepted-hit check could count a nominally accepted
+`research_discovery_hit` even when its `attempt_id`, `query_id`,
+`run_id`, source family or declared query adapter did not establish a
+*successful and internally consistent* discovery chain. The private
+Capture/Passage and private Candidate batch preflight now share one
+`discovery_provenance.valid_discovery_hit_groups_sql` read-only query.
+It requires:
+
+- `hit.attempt_id` bound to the same run and query as the hit;
+- `attempt.status=HEALTHY`, regardless of the parent run's disposition;
+- a query owned by the run's exact manifest, with the matching adapter;
+- exact source family included in both the query and manifest scopes;
+- the active manifest's SHA-256 equal to the persisted run digest;
+- run COMPLETED/PARTIAL and hit NEW_CONTENT/EXISTING_CONTENT;
+- the same exact Content ID and canonical source URL.
+
+The operator guard now rejects an absent, malformed, duplicated or
+inconsistent list of matched families, and requires at least one valid hit
+**of the same source family as the private rights record being used**.
+One unrelated accepted hit may not authorize a different family.
+The read-only Garlasco pilot readiness report reuses precisely the
+same query, rather than independently counting weaker results.
+
+MiniPC PostgreSQL canary:
+`tools/check_discovery_provenance_sql.py --database-url dichiarazioni_pubbliche`.
+The test uses `pg_temp` shadow tables inside a transaction that ends in
+`ROLLBACK`, without touching production Content/Claim/Discovery rows.
+**5/5 scenarios PASS**: one valid hit survives adversarial neighbors;
+revoked attempt, suspended manifest, changed run-manifest digest and
+blocked run each produce zero accepted hits. Atomic Claim/PUBLISH Finding
+and Candidate counts remain unchanged. Live read-only
+`research:garlasco` check confirms 18 members, collection PAUSED and zero
+qualifying Discovery Hits and family groups. None of these synthetic
+canary rows counts toward the 100-item real pilot.

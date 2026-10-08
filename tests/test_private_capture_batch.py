@@ -45,6 +45,7 @@ def research_context(item=None, **changes):
         "content_id": item.content_id,
         "canonical_url": item.canonical_url,
         "accepted_discovery_hits": 1,
+        "accepted_discovery_groups": [{"source_family": item.source_family, "hit_count": 1}],
     }
     state.update(changes)
     return state
@@ -125,6 +126,12 @@ class PrivateCaptureBatchTests(unittest.TestCase):
             research_context(item, capture_authorized=False),
             research_context(item, capture_authorized=None),
             research_context(item, accepted_discovery_hits=0),
+            research_context(item, accepted_discovery_groups=[]),
+            research_context(item, accepted_discovery_groups=[{"source_family": "WRONG_FAMILY", "hit_count": 1}]),
+            research_context(item, accepted_discovery_groups=None),
+            research_context(item, accepted_discovery_groups=[{"source_family": item.source_family, "hit_count": True}]),
+            research_context(item, accepted_discovery_groups=[{"source_family": item.source_family, "hit_count": 1},
+                                                               {"source_family": item.source_family, "hit_count": 1}]),
             research_context(item, content_id="content:other"),
             research_context(item, canonical_url="https://example.test/other"),
         )
@@ -154,6 +161,7 @@ class PrivateCaptureBatchTests(unittest.TestCase):
             result = original(collection_id, content_id)
             if content_id == "content:approved-1":
                 result["accepted_discovery_hits"] = 0
+                result["accepted_discovery_groups"] = []
             return result
 
         store.read_research_capture_context = missing_second

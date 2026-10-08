@@ -94,3 +94,12 @@ record. Only the individual, reread-first fail-closed operator preflight
 validates exact subject scope, reviewer receipt, allowed use, unexpired
 authority and current privacy relevance. A zero missing-prerequisite report
 would **still not** authorize processing or publication.
+
+**Additional lineage safety (2026-10-08):** the `accepted_discovery_hits`
+and five-family inventory now count only hits whose completed/partial run,
+HEALTHY attempt, query/adapter/manifest identity, accepted disposition and
+canonical source-family binding are internally consistent. This is the
+same strict helper as the private Capture and Candidate batch authorization
+guard. The MiniPC negative readback remains 0 valid hits, 0/5 families
+for 18 PAUSED Garlasco members; isolated PostgreSQL tamper/rollback proof
+is documented in `docs/ops/private-capture-batch-20261008.md`.

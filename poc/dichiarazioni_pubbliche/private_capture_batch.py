@@ -18,6 +18,7 @@ from dichiarazioni_pubbliche.capture_authorization import (
     private_capture_rights_guard,
 )
 from dichiarazioni_pubbliche.ingestion_relevance import canonical_content_url
+from dichiarazioni_pubbliche.discovery_provenance import accepted_discovery_family_counts
 
 BATCH_VERSION = "private-research-capture-batch-v1"
 MAX_BATCH_SIZE = 25
@@ -99,7 +100,16 @@ def require_persisted_discovery(
             raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_CONTENT_URL_MISMATCH")
     except ValueError as exc:
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_CONTENT_URL_INVALID") from exc
-    if int(context.get("accepted_discovery_hits") or 0) < 1:
+    try:
+        groups = accepted_discovery_family_counts(context)
+    except ValueError as exc:
+        raise PrivateCaptureAuthorizationBlocked(
+            "PRIVATE_CAPTURE_DISCOVERY_PROVENANCE_INVALID"
+        ) from exc
+    reported_count = context.get("accepted_discovery_hits")
+    if type(reported_count) is not int or reported_count < 0 or sum(groups.values()) != reported_count:
+        raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_DISCOVERY_PROVENANCE_INCONSISTENT")
+    if groups.get(item.source_family, 0) < 1:
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_DISCOVERY_PROVENANCE_MISSING")
 
 

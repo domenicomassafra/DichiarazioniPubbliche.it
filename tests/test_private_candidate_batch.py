@@ -63,6 +63,7 @@ class FakeCapture:
             content_id=content_id,
             canonical_url=ITEM.canonical_url,
             accepted_discovery_hits=1,
+            accepted_discovery_groups=[{"source_family": ITEM.source_family, "hit_count": 1}],
         )
 
     def read_operator_capture_content_state(self, content_id):

@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from dichiarazioni_pubbliche.ingestion_relevance import canonical_content_url
 from dichiarazioni_pubbliche.garlasco_tracer import REQUIRED_SOURCE_FAMILIES
+from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 
@@ -26,37 +27,20 @@ _BOUNDED_MEMBERS = 2000
 
 # A single SELECT for each collection: all counts come from the same SQL
 # statement snapshot. No text/URLs are returned, even in private reports.
-_MEMBER_READ_SQL = r"""
+_VALID_DISCOVERY_GROUPS_SQL = valid_discovery_hit_groups_sql(
+    collection_id_sql="member.collection_id",
+    content_id_sql="content.id",
+    canonical_url_sql="content.canonical_url",
+)
+
+_MEMBER_READ_SQL = f"""
 SELECT json_build_object(
     'content_id', member.content_id,
     'membership_status', member.status,
     'capture_authorized', member.metadata->'capture_authorized',
     'content_rights_status', content.rights_status,
-    'accepted_discovery_hits', (
-        SELECT count(*) FROM research_discovery_hit hit
-        JOIN research_discovery_run run ON run.id=hit.run_id
-        JOIN research_discovery_manifest manifest ON manifest.id=run.manifest_id
-        WHERE hit.content_id=content.id
-          AND hit.canonical_url=content.canonical_url
-          AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
-          AND run.status IN ('COMPLETED','PARTIAL')
-          AND manifest.status='ACTIVE'
-          AND manifest.collection_id=member.collection_id
-          AND manifest.manifest_sha256=run.manifest_sha256
-    ),
-    'observed_accepted_source_families', (
-        SELECT COALESCE(json_agg(DISTINCT hit.source_family), '[]'::json)
-        FROM research_discovery_hit hit
-        JOIN research_discovery_run run ON run.id=hit.run_id
-        JOIN research_discovery_manifest manifest ON manifest.id=run.manifest_id
-        WHERE hit.content_id=content.id
-          AND hit.canonical_url=content.canonical_url
-          AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
-          AND run.status IN ('COMPLETED','PARTIAL')
-          AND manifest.status='ACTIVE'
-          AND manifest.collection_id=member.collection_id
-          AND manifest.manifest_sha256=run.manifest_sha256
-    ),
+    'accepted_discovery_hits', provenance.hit_count,
+    'observed_accepted_source_families', provenance.source_families,
     'current_rights_records', (
         SELECT count(*) FROM private_source_rights_record rights
         WHERE rights.content_id=content.id
@@ -90,6 +74,12 @@ SELECT json_build_object(
 )::text
 FROM research_collection_content member
 JOIN content_item content ON content.id=member.content_id
+CROSS JOIN LATERAL (
+    SELECT COALESCE(sum(grouped.hit_count), 0)::integer AS hit_count,
+        COALESCE(json_agg(grouped.source_family ORDER BY grouped.source_family), '[]'::json)
+            AS source_families
+    FROM ({_VALID_DISCOVERY_GROUPS_SQL}) grouped
+) provenance
 WHERE member.collection_id=:'collection_id'
 ORDER BY member.content_id
 LIMIT 2001;

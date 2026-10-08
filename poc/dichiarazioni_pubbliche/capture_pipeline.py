@@ -20,6 +20,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
     deterministic_corpus_id,
 )
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
+from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 from dichiarazioni_pubbliche.corpus_retention import (
     COMPLETE_CAPTURE_ARCHIVE_SQL_V1,
     MARK_CAPTURE_ARCHIVE_PENDING_SQL_V1,
@@ -752,8 +753,13 @@ class CapturePipelineStore(PsqlRuntime):
         )}
 
     def read_research_capture_context(self, collection_id: str, content_id: str) -> dict[str, Any] | None:
+        valid_groups = valid_discovery_hit_groups_sql(
+            collection_id_sql="collection.id",
+            content_id_sql="content.id",
+            canonical_url_sql="content.canonical_url",
+        )
         raw = self.run(
-            """
+            f"""
             SELECT json_build_object(
                 'collection_id', collection.id,
                 'collection_status', collection.status,
@@ -761,23 +767,20 @@ class CapturePipelineStore(PsqlRuntime):
                 'capture_authorized', member.metadata->'capture_authorized',
                 'content_id', content.id,
                 'canonical_url', content.canonical_url,
-                'accepted_discovery_hits', (
-                    SELECT count(*)
-                    FROM research_discovery_hit hit
-                    JOIN research_discovery_run run ON run.id=hit.run_id
-                    JOIN research_discovery_manifest manifest ON manifest.id=run.manifest_id
-                    WHERE hit.content_id=content.id
-                      AND hit.canonical_url=content.canonical_url
-                      AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
-                      AND run.status IN ('COMPLETED','PARTIAL')
-                      AND manifest.collection_id=collection.id
-                      AND manifest.status='ACTIVE'
-                      AND manifest.manifest_sha256=run.manifest_sha256
-                )
+                'accepted_discovery_hits', provenance.hit_count,
+                'accepted_discovery_groups', provenance.family_groups
             )::text
             FROM research_collection collection
             JOIN research_collection_content member ON member.collection_id=collection.id
             JOIN content_item content ON content.id=member.content_id
+            CROSS JOIN LATERAL (
+                SELECT COALESCE(sum(grouped.hit_count), 0)::integer AS hit_count,
+                    COALESCE(json_agg(json_build_object(
+                        'source_family', grouped.source_family,
+                        'hit_count', grouped.hit_count
+                    ) ORDER BY grouped.source_family), '[]'::json) AS family_groups
+                FROM ({valid_groups}) grouped
+            ) provenance
             WHERE collection.id=:'collection_id' AND content.id=:'content_id';
             """,
             collection_id=collection_id,
