@@ -40,6 +40,15 @@ concurrent work and use the smallest independently provable vertical slice.
 - [x] **AC-213.3:** Blocked access remains BLOCKED and stops bounded retries.
 - [x] **AC-213.4:** Satisfied needs survive replay and remain historically auditable.
 
+2026-10-09 safety follow-up: Coverage Need construction now refuses implicit
+boolean/string/float coercion of retry counts or independence minima, wrong
+candidate/role/scope types and exhausted Discovery hints. Duplicate semantic
+need candidates collapse deterministically within the exact Collection while
+distinct Collections keep independent needs. Legacy opaque Content/Claim and
+Collection IDs remain supported; no external source was fetched and no
+production need row was changed. This is additional input-integrity coverage
+for the existing DONE source contract, not a new real-corpus acceptance.
+
 Mac-side verification 2026-10-01 (all four ACs proven on source authority;
 MiniPC migration replay/tracer still required before DONE, see below):
 

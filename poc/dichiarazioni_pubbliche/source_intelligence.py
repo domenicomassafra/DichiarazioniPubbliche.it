@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -104,10 +105,20 @@ def _stable_id(prefix: str, *parts: object) -> str:
 def _iso_date(value: str | None) -> date | None:
     if not value:
         return None
+    raw = str(value)
     try:
-        return date.fromisoformat(str(value)[:10])
+        # Keep the evaluator's calendar-day semantics for valid ISO timestamps,
+        # but do not let arbitrary suffixes (or invalid clock times) disappear.
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+            return date.fromisoformat(raw)
+        if re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-]\d{2}:\d{2})?",
+            raw,
+        ):
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
     except ValueError as exc:
         raise SourceIntelligenceError(f"SOURCE_INTELLIGENCE_DATE_INVALID:{value}") from exc
+    raise SourceIntelligenceError(f"SOURCE_INTELLIGENCE_DATE_INVALID:{value}")
 
 
 @dataclass(frozen=True)
@@ -569,6 +580,18 @@ def _scope_matches(
     return True
 
 
+def _scope_temporally_applicable(scope: AuthorityScope, cutoff: date | None) -> bool:
+    if not scope.valid_from and not scope.valid_until:
+        return True
+    if cutoff is None:
+        return False
+    valid_from = _iso_date(scope.valid_from)
+    valid_until = _iso_date(scope.valid_until)
+    # Effective intervals follow [valid_from, valid_until), matching DP-227.
+    return ((valid_from is None or valid_from <= cutoff)
+            and (valid_until is None or cutoff < valid_until))
+
+
 def _field_value(item: EvidenceItem, name: str) -> str | None:
     if name in {"metric", "unit", "reference_period"}:
         value = getattr(item, name)
@@ -797,19 +820,49 @@ def assess_evidence_set(
                             status = "SCOPE_MISMATCH"
         elif rule.kind == "AUTHORITY_SCOPE":
             fields = tuple(str(value) for value in rule.parameters.get("match") or [])
+            required_fields_present = all(
+                str(claim_requirements.get(name) or "").strip() for name in fields
+            )
+            # Bind the scope to its preceding role requirement, not to every
+            # ROLE_ANY rule in the profile: two independent required role
+            # groups need not share one impossible intersection role.
+            preceding_required_roles: set[str] | None = None
+            for earlier in profile.rules:
+                if earlier is rule:
+                    break
+                if earlier.kind == "ROLE_ANY" and earlier.required:
+                    preceding_required_roles = set(
+                        str(role) for role in earlier.parameters.get("roles") or []
+                    )
+            cutoff = _iso_date(statement_date)
+            scope_matched = [
+                (item, scope)
+                for item in qualified
+                for scope in item.authority_scopes
+                if (required_fields_present
+                    and scope.role in item.roles
+                    and (preceding_required_roles is None
+                         or scope.role in preceding_required_roles)
+                    and _scope_matches(scope, claim_requirements, fields))
+            ]
             matching = [
                 item
                 for item in qualified
-                if any(
-                    _scope_matches(scope, claim_requirements, fields)
-                    for scope in item.authority_scopes
-                    if scope.role in item.roles
-                )
+                if any(candidate is item and _scope_temporally_applicable(scope, cutoff)
+                       for candidate, scope in scope_matched)
             ]
             rule_ok = bool(matching)
             if rule_ok:
                 qualified = matching
             else:
+                temporal_only = bool(scope_matched)
+                if temporal_only:
+                    rejected.extend(
+                        {"evidence_id": item.evidence_id,
+                         "reason": "AUTHORITY_SCOPE_TEMPORAL_MISMATCH"}
+                        for item in qualified
+                        if any(candidate is item for candidate, _ in scope_matched)
+                    )
                 if rule.coverage_need_enabled:
                     needs.append(
                         CoverageNeedCandidate(
@@ -823,10 +876,26 @@ def assess_evidence_set(
                         )
                     )
                 if status is None:
-                    status = "SCOPE_MISMATCH"
+                    status = "TEMPORAL_MISMATCH" if temporal_only else "SCOPE_MISMATCH"
         elif rule.kind == "TEMPORAL_CUTOFF":
             cutoff = _iso_date(statement_date)
-            if cutoff is not None and not bool(rule.parameters.get("allow_post_statement")):
+            if cutoff is None and not bool(rule.parameters.get("allow_post_statement")):
+                rule_ok = False
+                rejected.extend(
+                    {"evidence_id": item.evidence_id, "reason": "STATEMENT_DATE_REQUIRED"}
+                    for item in qualified
+                )
+                if rule.coverage_need_enabled:
+                    needs.append(
+                        CoverageNeedCandidate(
+                            requirement_kind=rule.kind,
+                            reason=rule.rationale_code,
+                            temporal_constraints={"statement_date_required": True},
+                        )
+                    )
+                if status is None:
+                    status = "TEMPORAL_MISMATCH"
+            elif cutoff is not None and not bool(rule.parameters.get("allow_post_statement")):
                 before: list[EvidenceItem] = []
                 temporal_rejections: list[tuple[EvidenceItem, str]] = []
                 for item in qualified:

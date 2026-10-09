@@ -224,3 +224,15 @@ loader. The file loader refuses repeated JSON keys rather than silently
 using the last `items` value. Both controls run before database reads or
 network acquisition; they do not grant capture rights or imply a live
 provider/corpus run.
+
+### 2026-10-09 follow-up: pilot URL and source-family identity
+
+The Garlasco structural manifest preflight now refuses noncanonical URLs
+(including alternate host case, default-port spelling, fragment or padded
+value) and checks logical duplicate URLs after canonicalization, not merely
+the raw input strings. It rejects non-global literal IPs, invalid/custom
+ports and unrecognized source-family values. The check aligns structural
+intake with the stricter private Capture fetch destination restrictions.
+Adversarial local fixtures confirm private-network URLs and hidden duplicate
+locators cannot make a synthetic 100-item manifest appear structurally ready.
+No genuine Content was added, and AC-214.1/.2/.4-.8 remain unchecked.

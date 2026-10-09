@@ -12,6 +12,7 @@ from dichiarazioni_pubbliche.source_intelligence import (  # noqa: E402
     EVIDENCE_ROLES,
     EvidenceItem,
     SourceIntelligenceContract,
+    SourceIntelligenceError,
     SourceRelation,
     assess_evidence_set,
     evidence_item_from_row,
@@ -119,6 +120,35 @@ class SourceIntelligenceTests(unittest.TestCase):
             [self.item("istat-sdmx", publication_date="2026-09-05")]
         )
         self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+
+    def test_missing_statement_date_cannot_bypass_required_temporal_cutoff(self):
+        result = self.assess(
+            [self.item("istat-sdmx", publication_date="2030-01-01")],
+            statement_date=None,
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn("STATEMENT_DATE_REQUIRED",
+                      {row["reason"] for row in result.rejected_evidence})
+
+    def test_invalid_date_suffix_cannot_be_truncated_into_qualified_evidence(self):
+        for value in (
+            "2026-09-01NOT_A_DATE",
+            "2026-09-01T99:99:99Z",
+            "2026-09-01T12:00:00Zextra",
+        ):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(SourceIntelligenceError, "SOURCE_INTELLIGENCE_DATE_INVALID"):
+                    self.assess([self.item("istat-sdmx", publication_date=value)])
+
+    def test_valid_timestamp_with_timezone_retains_date_level_cutoff_semantics(self):
+        accepted = self.assess([
+            self.item("istat-sdmx", publication_date="2026-09-04T20:45:15+02:00")
+        ])
+        self.assertEqual(accepted.status, "SUFFICIENT_FOR_RULE")
+        future = self.assess([
+            self.item("istat-sdmx", publication_date="2026-09-05T00:00:01Z")
+        ])
+        self.assertEqual(future.status, "TEMPORAL_MISMATCH")
 
     def test_version_not_yet_effective_is_temporal_mismatch(self):
         result = self.assess(
@@ -259,6 +289,71 @@ class SourceIntelligenceTests(unittest.TestCase):
             contract=self.contract,
         )
         self.assertEqual(result.status, "SCOPE_MISMATCH")
+
+    def test_missing_required_legal_jurisdiction_cannot_match_any_scope(self):
+        legal = self.item("gazzetta-ufficiale", metric=None, unit=None,
+                          reference_period=None, value="vigente")
+        result = assess_evidence_set(
+            target_type="ATOMIC_CLAIM", target_id="claim:missing-jurisdiction",
+            claim_type="LEGAL_POLICY_STATUS", statement_date="2026-09-04",
+            claim_requirements={}, evidence=[legal], contract=self.contract,
+        )
+        self.assertEqual(result.status, "SCOPE_MISMATCH")
+
+    def test_legal_role_cannot_borrow_another_role_authority_scope(self):
+        legal = self.item("gazzetta-ufficiale", metric=None, unit=None,
+                          reference_period=None, value="vigente")
+        borrowed_scope = replace(legal.authority_scopes[0], role="SECONDARY_REFERENCE")
+        false_authority = replace(
+            legal, roles=(*legal.roles, "SECONDARY_REFERENCE"),
+            authority_scopes=(borrowed_scope,),
+        )
+        result = assess_evidence_set(
+            target_type="ATOMIC_CLAIM", target_id="claim:borrowed-role",
+            claim_type="LEGAL_POLICY_STATUS", statement_date="2026-09-04",
+            claim_requirements={"jurisdiction": "IT"},
+            evidence=[false_authority], contract=self.contract,
+        )
+        self.assertEqual(result.status, "SCOPE_MISMATCH")
+
+    def test_multiple_required_role_groups_do_not_demand_one_scope_match_all(self):
+        base = self.contract.requirements_by_claim_type["LEGAL_POLICY_STATUS"]
+        extra_role = replace(
+            base.rules[0], id=base.rules[0].id + ":primary-record",
+            parameters={"roles": ["PRIMARY_RECORD"]},
+        )
+        expanded = replace(base, rules=(extra_role, *base.rules))
+        contract = replace(
+            self.contract,
+            requirement_profiles=tuple(
+                expanded if profile.claim_type == base.claim_type else profile
+                for profile in self.contract.requirement_profiles
+            ),
+        )
+        legal = self.item("gazzetta-ufficiale", metric=None, unit=None,
+                          reference_period=None, value="vigente")
+        result = assess_evidence_set(
+            target_type="ATOMIC_CLAIM", target_id="claim:multiple-roles",
+            claim_type="LEGAL_POLICY_STATUS", statement_date="2026-09-04",
+            claim_requirements={"jurisdiction": "IT"},
+            evidence=[legal], contract=contract,
+        )
+        self.assertEqual(result.status, "SUFFICIENT_FOR_RULE")
+
+    def test_expired_authority_scope_cannot_prove_legal_status(self):
+        legal = self.item("gazzetta-ufficiale", metric=None, unit=None,
+                          reference_period=None, value="vigente")
+        expired_scope = replace(legal.authority_scopes[0], valid_until="2026-09-01")
+        result = assess_evidence_set(
+            target_type="ATOMIC_CLAIM", target_id="claim:scope-expired",
+            claim_type="LEGAL_POLICY_STATUS", statement_date="2026-09-04",
+            claim_requirements={"jurisdiction": "IT"},
+            evidence=[replace(legal, authority_scopes=(expired_scope,))],
+            contract=self.contract,
+        )
+        self.assertEqual(result.status, "TEMPORAL_MISMATCH")
+        self.assertIn("AUTHORITY_SCOPE_TEMPORAL_MISMATCH",
+                      {row["reason"] for row in result.rejected_evidence})
 
     def test_first_party_statement_does_not_corroborate_numeric_content(self):
         first_party = EvidenceItem(

@@ -158,6 +158,65 @@ class GarlascoTracerTests(unittest.TestCase):
         self.assertIn("DISCOVERY_PROVENANCE_MISSING", result.blockers)
         self.assertIn("RIGHTS_STATUS_MISSING", result.blockers)
 
+    def test_private_ip_or_nondefault_port_never_passes_manifest_url_preflight(self):
+        value = manifest()
+        for locator in (
+            "https://169.254.169.254/latest/meta-data/",
+            "https://10.0.0.3/internal",
+            "https://192.168.1.1/config",
+            "https://example.test:8443/garlasco/000",
+            "https://example.test:invalid/garlasco/000",
+        ):
+            with self.subTest(locator=locator):
+                rows = list(value.items)
+                rows[0] = PilotItem(
+                    rows[0].item_id, locator, rows[0].discovery_ref,
+                    rows[0].source_family, rows[0].rights_status,
+                )
+                result = evaluate_preflight(
+                    TracerManifest(value.collection_id, tuple(rows), value.baseline_claim_ids),
+                    observed_baseline_claim_ids=value.baseline_claim_ids,
+                )
+                self.assertFalse(result.ready)
+                self.assertIn("CANONICAL_URL_UNSAFE", result.blockers)
+
+    def test_noncanonical_locator_duplicates_are_not_two_logical_sources(self):
+        value = manifest()
+        source = value.items[0]
+        for locator in (
+            source.canonical_url.replace("example.test", "EXAMPLE.TEST"),
+            source.canonical_url.replace("example.test", "example.test:443"),
+            source.canonical_url + "#different-fragment",
+            source.canonical_url + " ",
+        ):
+            with self.subTest(locator=locator):
+                rows = list(value.items)
+                rows[1] = PilotItem(
+                    rows[1].item_id, locator, rows[1].discovery_ref,
+                    rows[1].source_family, rows[1].rights_status,
+                )
+                result = evaluate_preflight(
+                    TracerManifest(value.collection_id, tuple(rows), value.baseline_claim_ids),
+                    observed_baseline_claim_ids=value.baseline_claim_ids,
+                )
+                self.assertFalse(result.ready)
+                self.assertIn("CANONICAL_URL_DUPLICATE", result.blockers)
+                self.assertIn("CANONICAL_URL_UNSAFE", result.blockers)
+
+    def test_unclassified_source_does_not_pass_required_pilot_family_coverage(self):
+        value = manifest()
+        rows = list(value.items)
+        rows[0] = PilotItem(
+            rows[0].item_id, rows[0].canonical_url, rows[0].discovery_ref,
+            "UNCLASSIFIED", rows[0].rights_status,
+        )
+        result = evaluate_preflight(
+            TracerManifest(value.collection_id, tuple(rows), value.baseline_claim_ids),
+            observed_baseline_claim_ids=value.baseline_claim_ids,
+        )
+        self.assertFalse(result.ready)
+        self.assertIn("SOURCE_FAMILY_UNRECOGNIZED", result.blockers)
+
 
 if __name__ == "__main__":
     unittest.main()

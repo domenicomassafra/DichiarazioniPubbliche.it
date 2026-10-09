@@ -290,3 +290,14 @@ authoritative MiniPC PostgreSQL: the PAUSED Garlasco baseline has 18 included
 Contents and no active Source Intelligence profile/role/scope on those items.
 This adds accurate operator diagnostics; it does not create source authority,
 legal rights, lineage review or the 100-item tracer. **AC-215.9 remains open.**
+
+2026-10-09 temporal/role suitability follow-up: the evaluator no longer
+truncates malformed ISO timestamp suffixes to a valid date. For contextual
+`AUTHORITY_SCOPE`, it requires the explicitly requested jurisdiction and
+other match fields, binds a scope to its applicable required evidence role
+instead of borrowing an unrelated secondary role, and enforces effective
+`[valid_from, valid_until)` dates. Required temporal cutoff fails closed
+when statement date is missing and emits an inspectable Coverage Need.
+Both valid timestamp controls and disjoint required-role groups are covered
+by focused tests. This does not certify a real Garlasco source or close
+AC-215.9.

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 from urllib.parse import urlsplit
+
+from dichiarazioni_pubbliche.ingestion_relevance import canonical_content_url
 
 
 GARLASCO_TRACER_VERSION = "garlasco-tracer-v1"
@@ -63,15 +66,25 @@ class ReplayReceipt:
 
 def _safe_url(value: str) -> bool:
     try:
-        parsed = urlsplit(str(value or ""))
+        raw = str(value or "")
+        parsed = urlsplit(raw)
+        port = parsed.port
+        canonical = canonical_content_url(raw)
     except ValueError:
         return False
+    try:
+        literal = ipaddress.ip_address(parsed.hostname or "")
+    except ValueError:
+        literal = None
     return (
         parsed.scheme == "https"
         and bool(parsed.hostname)
         and parsed.username is None
         and parsed.password is None
-        and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
+        and port in {None, 443}
+        and raw == canonical
+        and parsed.hostname != "localhost"
+        and (literal is None or literal.is_global)
     )
 
 
@@ -117,13 +130,19 @@ def evaluate_preflight(
         blockers.append("PILOT_ITEM_COUNT_NOT_100")
 
     item_ids = [str(row.item_id or "").strip() for row in manifest.items]
-    urls = [str(row.canonical_url or "").strip() for row in manifest.items]
+    urls = [str(row.canonical_url or "") for row in manifest.items]
+    normalized_urls = []
+    for url in urls:
+        try:
+            normalized_urls.append(canonical_content_url(url))
+        except ValueError:
+            normalized_urls.append(url)
     discovery_refs = [str(row.discovery_ref or "").strip() for row in manifest.items]
     if any(not value for value in item_ids):
         blockers.append("ITEM_ID_MISSING")
     if len(set(item_ids)) != len(item_ids):
         blockers.append("ITEM_ID_DUPLICATE")
-    if len(set(urls)) != len(urls):
+    if len(set(normalized_urls)) != len(normalized_urls):
         blockers.append("CANONICAL_URL_DUPLICATE")
     if any(not _safe_url(value) for value in urls):
         blockers.append("CANONICAL_URL_UNSAFE")
@@ -133,6 +152,8 @@ def evaluate_preflight(
     missing_families = sorted(REQUIRED_SOURCE_FAMILIES - families)
     if missing_families:
         blockers.append("SOURCE_FAMILY_COVERAGE_MISSING:" + ",".join(missing_families))
+    if families - REQUIRED_SOURCE_FAMILIES:
+        blockers.append("SOURCE_FAMILY_UNRECOGNIZED")
     if any(not str(row.rights_status or "").strip() for row in manifest.items):
         blockers.append("RIGHTS_STATUS_MISSING")
 

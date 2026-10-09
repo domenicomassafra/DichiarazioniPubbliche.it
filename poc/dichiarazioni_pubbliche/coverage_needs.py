@@ -21,6 +21,11 @@ NEED_TYPES = frozenset(
         "OTHER",
     }
 )
+REQUIREMENT_KINDS = frozenset({
+    "ROLE_ANY", "FIELD_MATCH", "AUTHORITY_SCOPE", "TEMPORAL_CUTOFF",
+    "MIN_INDEPENDENT_LINEAGES", "MANUAL_REVIEW", "OTHER",
+})
+_MAX_PG_INTEGER = (1 << 31) - 1
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,36 @@ def _stable_id(prefix: str, *parts: object) -> str:
     return prefix + ":" + hashlib.sha256(
         "\x1f".join(str(part) for part in parts).encode()
     ).hexdigest()
+
+
+def _bounded_attempts(value: object) -> int:
+    if type(value) is not int or not 1 <= value <= 10:
+        raise ValueError("COVERAGE_NEED_MAX_ATTEMPTS_INVALID")
+    return value
+
+
+def _independence(value: object) -> int | None:
+    if value is not None and (type(value) is not int or not 1 <= value <= _MAX_PG_INTEGER):
+        raise ValueError("COVERAGE_NEED_INDEPENDENCE_INVALID")
+    return value
+
+
+def _roles(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)) or any(
+        not isinstance(item, str) or not item.strip() for item in value
+    ):
+        raise ValueError("COVERAGE_NEED_ROLES_INVALID")
+    return tuple(sorted(set(value)))
+
+
+def _object(value: object, label: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping) or any(not isinstance(key, str) for key in value):
+        raise ValueError(f"COVERAGE_NEED_{label}_INVALID")
+    return dict(value)
 
 
 def _need_type(candidate: Mapping[str, Any]) -> str:
@@ -107,28 +142,41 @@ def materialize_coverage_need_specs(
     collection_ids: Sequence[str] = (),
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
 ) -> tuple[CoverageNeedSpec, ...]:
-    if target_type not in {"ATOMIC_CLAIM", "CLAIM_CANDIDATE"}:
+    if not isinstance(target_type, str) or target_type not in {"ATOMIC_CLAIM", "CLAIM_CANDIDATE"}:
         raise ValueError("COVERAGE_NEED_TARGET_TYPE_INVALID")
-    if not 1 <= int(max_attempts) <= 10:
-        raise ValueError("COVERAGE_NEED_MAX_ATTEMPTS_INVALID")
+    if not isinstance(target_id, str) or not target_id.strip():
+        raise ValueError("COVERAGE_NEED_TARGET_ID_INVALID")
+    max_attempts = _bounded_attempts(max_attempts)
+    if isinstance(collection_ids, (str, bytes)):
+        raise ValueError("COVERAGE_NEED_COLLECTION_SCOPE_INVALID")
+    if any(not isinstance(item, str) or not item.strip() for item in collection_ids):
+        raise ValueError("COVERAGE_NEED_COLLECTION_SCOPE_INVALID")
     scopes: tuple[str | None, ...] = tuple(dict.fromkeys(collection_ids)) or (None,)
     specs: list[CoverageNeedSpec] = []
+    seen_ids: set[str] = set()
     for raw_candidate in candidates:
+        if not isinstance(raw_candidate, Mapping):
+            raise ValueError("COVERAGE_NEED_CANDIDATE_INVALID")
         candidate = dict(raw_candidate)
         requirement_kind = str(candidate.get("requirement_kind") or "OTHER")
-        need_type = _need_type(candidate)
-        if need_type not in NEED_TYPES:
-            raise ValueError("COVERAGE_NEED_TYPE_INVALID")
+        if requirement_kind not in REQUIREMENT_KINDS:
+            raise ValueError("COVERAGE_NEED_REQUIREMENT_KIND_INVALID")
+        independence = _independence(candidate.get("independence_requirement"))
+        if requirement_kind == "MIN_INDEPENDENT_LINEAGES" and independence is None:
+            independence = 1
         normalized = {
-            "need_type": need_type,
             "requirement_kind": requirement_kind,
             "reason": str(candidate.get("reason") or ""),
-            "required_roles": sorted(str(item) for item in candidate.get("required_roles") or []),
-            "authority_scope": dict(candidate.get("authority_scope") or {}),
-            "temporal_constraints": dict(candidate.get("temporal_constraints") or {}),
-            "independence_requirement": candidate.get("independence_requirement"),
+            "required_roles": list(_roles(candidate.get("required_roles"))),
+            "authority_scope": _object(candidate.get("authority_scope"), "AUTHORITY_SCOPE"),
+            "temporal_constraints": _object(candidate.get("temporal_constraints"), "TEMPORAL_CONSTRAINTS"),
+            "independence_requirement": independence,
             "version": COVERAGE_NEED_VERSION,
         }
+        need_type = _need_type(normalized)
+        if need_type not in NEED_TYPES:
+            raise ValueError("COVERAGE_NEED_TYPE_INVALID")
+        normalized["need_type"] = need_type
         fingerprint = _sha(normalized)
         for collection_id in scopes:
             need_id = _stable_id(
@@ -139,6 +187,9 @@ def materialize_coverage_need_specs(
                 target_id,
                 fingerprint,
             )
+            if need_id in seen_ids:
+                continue
+            seen_ids.add(need_id)
             specs.append(
                 CoverageNeedSpec(
                     id=need_id,
@@ -149,16 +200,12 @@ def materialize_coverage_need_specs(
                     need_type=need_type,
                     requirement_kind=requirement_kind,
                     requirement_fingerprint=fingerprint,
-                    question=_question(need_type, candidate),
+                    question=_question(need_type, normalized),
                     required_roles=tuple(normalized["required_roles"]),
                     authority_scope=normalized["authority_scope"],
                     temporal_constraints=normalized["temporal_constraints"],
-                    independence_requirement=(
-                        None
-                        if normalized["independence_requirement"] is None
-                        else int(normalized["independence_requirement"])
-                    ),
-                    max_attempts=int(max_attempts),
+                    independence_requirement=independence,
+                    max_attempts=max_attempts,
                     metadata={"source_reason": normalized["reason"]},
                 )
             )
@@ -197,19 +244,31 @@ def discovery_hint_for_need(row: Mapping[str, Any]) -> dict[str, Any]:
     status = str(row.get("status") or "")
     if status not in {"OPEN", "SEARCHING"}:
         raise ValueError("COVERAGE_NEED_NOT_SEARCHABLE")
-    roles = list(row.get("required_roles") or [])
-    scope = dict(row.get("authority_scope") or {})
-    temporal = dict(row.get("temporal_constraints") or {})
+    need_id = row.get("id")
+    if not isinstance(need_id, str) or not need_id.strip():
+        raise ValueError("COVERAGE_NEED_ID_INVALID")
+    limit = _bounded_attempts(row.get("max_attempts"))
+    attempted = row.get("attempt_count")
+    if type(attempted) is not int or not 0 <= attempted < limit:
+        raise ValueError("COVERAGE_NEED_ATTEMPTS_EXHAUSTED_OR_INVALID")
+    roles = list(_roles(row.get("required_roles")))
+    scope = _object(row.get("authority_scope"), "AUTHORITY_SCOPE")
+    temporal = _object(row.get("temporal_constraints"), "TEMPORAL_CONSTRAINTS")
+    _independence(row.get("independence_requirement"))
+    question = row.get("question")
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("COVERAGE_NEED_QUESTION_INVALID")
+    need_type = row.get("need_type")
+    if not isinstance(need_type, str) or need_type not in NEED_TYPES:
+        raise ValueError("COVERAGE_NEED_TYPE_INVALID")
     return {
-        "coverage_need_id": str(row["id"]),
-        "question": str(row.get("question") or ""),
-        "need_type": str(row.get("need_type") or "OTHER"),
+        "coverage_need_id": need_id,
+        "question": question,
+        "need_type": need_type,
         "required_roles": roles,
         "authority_scope": scope,
         "temporal_constraints": temporal,
-        "remaining_attempts": max(
-            0, int(row.get("max_attempts") or 0) - int(row.get("attempt_count") or 0)
-        ),
+        "remaining_attempts": limit - attempted,
     }
 
 
