@@ -464,3 +464,35 @@ Python unit tests PASS**, restore drill PASS, benchmark **5/5 PASS**,
 repository ticket contract PASS, `compileall` and `git diff --check`
 PASS. Canonical preflight remained **NO-GO/41**, with no additional
 AC marked complete.
+
+### 2026-10-09 Wave 11 real public route and Studio match safety (source-only)
+
+Two independent file-owned worker lanes, reviewed by PRIME:
+**DP-407** gained a public-data-only descriptive accessible name
+for timed Content marker buttons on the **mounted** `ContentRecord`
+route, after real Chromium AX-tree RED proof showed only a timestamp;
+its GREEN harness builds the 12-moment authorized fictional
+projection fixture and verifies deep-link, Space keyboard activation,
+detail, focus and URL state. **DP-418** read-only persisted
+matching suggestions now validate deterministic run/result/target
+binding, strict rank, known algorithms/feature codes and
+scope-conflict `HOLD` semantics, blocking tampered cross-run
+records. The isolated legacy `ContentAuditClient` URL-selection
+experiment remains deliberately uncommitted because that
+component is not in the production Content route.
+
+Neither synthetic fixture nor browser automation fulfills
+DP-407.7 manual assistive-technology acceptance, DP-418 real
+reviewer/currentness/promotion decisions or DP-214/215's
+authentic rights-gated Garlasco tracer. All statuses remain
+**86 DONE / 24 IN PROGRESS / 6 BLOCKED / 9 FUTURE** and v1
+remains **NO-GO/41** until authority and real acceptance gates.
+
+Wave 11 integration was certified on the corrected frozen source:
+**2078/2078 Python tests PASS**, restore drill, **5/5** benchmark,
+Astro 0 diagnostics, real built Content route Chromium AX/keyboard,
+web design/route/quality, repository contract and compileall PASS.
+The first full run had correctly detected one outdated adjacent
+HTTP API test fixture, repaired by PRIME; its second full rerun
+is the cited PASS. No source license, live provider, reviewer approval,
+manual screen-reader pass or DP-417 schema authority is inferred.

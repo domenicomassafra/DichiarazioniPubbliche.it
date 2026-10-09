@@ -273,3 +273,27 @@ nonexistent membership. Rendering a named private workflow state would leak info
 projection intentionally withholds. The existing zero-finding fallback proves safe omission, not
 the AC's stronger explicit-state wording, so no pass is claimed without a contract/acceptance
 decision. AC-407.7 remains manual.
+
+### 2026-10-09 canonical Content route accessible timeline naming (source-only)
+
+The **actually mounted** `ContentRecord.astro` component on the canonical
+`/contenuti/{slug}/` and compatibility `/contents/{id}/` routes
+previously exposed a timed EvidenceTape marker whose browser accessible
+name was merely the timestamp (`2:30`). A real headless Chromium
+`Accessibility.getPartialAXTree` assertion failed RED because the
+button did not identify which published statement it selected.
+The marker now has a bounded `aria-label` made only from its existing
+approved public locator time and published `dossier.claim`. The
+visible time-label and routing remain unchanged.
+
+The isolated browser harness
+`node prototypes/v4-implementation/dp407/test-contentrecord-real-wave11.mjs`
+builds the **actual** Astro route using the existing fictional
+12-moment, public-schema-valid DP-407 projection fixture, asserts
+the sixth marker's accessible name includes its published claim,
+and checks keyboard Space activation, focus, selected detail,
+`aria-current`/`aria-expanded`, and shareable URL/query/hash state.
+GREEN in real Chromium; no private transcript/provider body data is
+introduced. Automated accessibility testing is **not** a manual
+screen-reader pass, live approved MiniPC projection or DP-407.7
+completion. Status remains IN PROGRESS.

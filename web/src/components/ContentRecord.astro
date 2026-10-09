@@ -148,6 +148,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                 data-content-select={dossier.finding_id}
                 aria-current={index === 0 ? "true" : undefined}
                 aria-controls={`content-detail-${dossierSlug(dossier)}`}
+                aria-label={`Seleziona il momento ${msLabel(locator.startMs)}: ${dossier.claim}`}
               >
                 <span class="dp-tape__dot" aria-hidden="true"></span>
                 <span class="dp-tape__label">{msLabel(locator.startMs)}</span>

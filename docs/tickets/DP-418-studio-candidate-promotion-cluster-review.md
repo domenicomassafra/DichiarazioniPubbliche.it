@@ -92,3 +92,24 @@ authenticated local read-only HTTP/HTML transport with PostgreSQL
 transaction-level read-only enforcement and bounded network/DB timeouts.
 No write endpoint exists. Matching currentness and reviewer authority
 remain unverified, so the UI cannot promote, accept or merge candidates.
+
+### 2026-10-09 persisted match-read binding and safe feature semantics
+
+The read-only inspector now checks deterministic DP-212 run/result
+identities against the requested candidate, run, target type and
+target ID. It rejects duplicate targets, noninteger/boolean ranks,
+unrecognized matching methods and unexpected structured feature
+codes before returning a private Studio suggestion. Existing
+ClaimType/temporal-scope contradiction codes can force `HOLD`
+even when lexical similarity yielded `SAME_PROPOSITION`; the
+inspector refuses a persisted `PROPOSE_CLUSTER` in that case.
+This keeps the audit from repeating altered suggestion rows as if
+they were valid matching output. Focused RED→GREEN tests exercise
+cross-run IDs, retargeting and conflicting scope, with the actual
+DP-212 matching algorithm remaining authoritative.
+
+`currentness=UNVERIFIED`, `review_authority=false`,
+`publication_authority=false` and disabled promotion are
+unchanged. No persisted review mutation, source rights, real
+MiniPC match canary, keyboard workflow or authority acceptance
+is introduced; DP-418 stays IN PROGRESS.

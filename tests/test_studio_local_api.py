@@ -25,7 +25,7 @@ from dichiarazioni_pubbliche.studio_local_api import (  # noqa: E402
     _StudioQueueReader,
 )
 from tests.test_studio_capture_inspector import A, B, FakeCaptureStore  # noqa: E402
-from tests.test_studio_candidate_review import Store as FakeMatchStore  # noqa: E402
+from tests.test_studio_candidate_review import Store as FakeMatchStore, RUN_ID as MATCH_RUN_ID  # noqa: E402
 from tests.test_studio_operator_search import FakeStore as FakeSearchStore  # noqa: E402
 from tests.test_studio_operator_queues import FakeOperatorQueues  # noqa: E402
 from tests.test_studio_discovery_inspect import fixture as discovery_inspect_fixture  # noqa: E402
@@ -73,7 +73,7 @@ class StudioLocalApiTests(unittest.TestCase):
         cases = (
             ("/v1/corpus/search", {"query": "Garlasco", "limit": 2}),
             ("/v1/capture/compare", {"content_id": "content:one", "earlier_hash": A, "later_hash": B}),
-            ("/v1/candidate/matches", {"run_id": "candidate-match-run:1", "claim_candidate_id": "candidate:1"}),
+            ("/v1/candidate/matches", {"run_id": MATCH_RUN_ID, "claim_candidate_id": "candidate:1"}),
         )
         for route, payload in cases:
             with self.subTest(route=route):

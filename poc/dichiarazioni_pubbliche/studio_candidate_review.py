@@ -9,6 +9,12 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Protocol
 
+from dichiarazioni_pubbliche.candidate_matching import (
+    MATCHING_VERSION,
+    deterministic_match_result_id,
+    deterministic_match_run_id,
+)
+
 STUDIO_CANDIDATE_REVIEW_VERSION = "studio-candidate-review-readonly-v1"
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
 _HASH = re.compile(r"^[0-9a-f]{64}$")
@@ -20,6 +26,22 @@ _DISPOSITION = {
     "DIFFERENT": "NO_CLUSTER",
     "UNCERTAIN": "HOLD",
 }
+_METHODS_BY_CLASS = {
+    "DUPLICATE_EXTRACTION": {"SOURCE_SELECTOR_OVERLAP"},
+    "SAME_PROPOSITION": {"EXACT_NORMALIZED", "LEXICAL_TRIGRAM"},
+    "RELATED": {"LEXICAL_TRIGRAM"},
+    "DIFFERENT": {"LEXICAL_TRIGRAM"},
+    "UNCERTAIN": {"LEXICAL_TRIGRAM"},
+}
+_SUPPORTING_CODES = {
+    "SAME_CONTENT_SELECTOR", "EXACT_NORMALIZED_TEXT", "HIGH_LEXICAL_OVERLAP",
+    "SHARED_ENTITIES", "SHARED_TOPICS", "RELATED_LEXICAL_OR_ENTITY_CONTEXT",
+    "AMBIGUOUS_LEXICAL_OVERLAP", "SAME_CLAIM_TYPE", "SAME_TEMPORAL_SCOPE",
+}
+_CONTRADICTING_CODES = {
+    "LOW_LEXICAL_NO_SHARED_CONTEXT", "CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS",
+}
+_SCOPE_CONFLICT_CODES = {"CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS"}
 
 
 class CandidateMatchReader(Protocol):
@@ -33,7 +55,7 @@ def _safe_id(value: object) -> str:
     return value
 
 
-def _features(value: object) -> tuple[str, ...]:
+def _features(value: object, allowed_codes: set[str]) -> tuple[str, ...]:
     if not isinstance(value, list) or len(value) > 24:
         raise ValueError("STUDIO_CANDIDATE_FEATURES_INVALID")
     codes: list[str] = []
@@ -41,7 +63,7 @@ def _features(value: object) -> tuple[str, ...]:
         if not isinstance(entry, Mapping) or not isinstance(entry.get("code"), str):
             raise ValueError("STUDIO_CANDIDATE_FEATURE_INVALID")
         code = entry["code"]
-        if not _CODE.fullmatch(code):
+        if not _CODE.fullmatch(code) or code not in allowed_codes:
             raise ValueError("STUDIO_CANDIDATE_FEATURE_CODE_INVALID")
         codes.append(code)
     return tuple(codes)
@@ -64,6 +86,8 @@ def inspect_candidate_match_run(
         fingerprint = run.get("input_fingerprint")
         if not isinstance(fingerprint, str) or not _HASH.fullmatch(fingerprint):
             raise ValueError("STUDIO_CANDIDATE_RUN_FINGERPRINT_INVALID")
+        if run_id != deterministic_match_run_id(claim_candidate_id, fingerprint):
+            raise ValueError("STUDIO_CANDIDATE_RUN_BINDING_MISMATCH")
         if run.get("status") != "COMPLETED":
             raise ValueError("STUDIO_CANDIDATE_RUN_INCOMPLETE")
         count = run.get("result_count")
@@ -74,28 +98,48 @@ def inspect_candidate_match_run(
             raise ValueError("STUDIO_CANDIDATE_RUN_RESULT_MISMATCH")
         results: list[dict[str, object]] = []
         seen_ids: set[str] = set()
+        seen_targets: set[tuple[str, str]] = set()
         for index, row in enumerate(rows, start=1):
             if not isinstance(row, Mapping):
                 raise ValueError("STUDIO_CANDIDATE_RESULT_INVALID")
             result_id = _safe_id(row.get("id"))
-            if result_id in seen_ids or row.get("rank") != index:
+            rank = row.get("rank")
+            if (result_id in seen_ids or type(rank) is not int or rank != index):
                 raise ValueError("STUDIO_CANDIDATE_RESULT_ORDER_INVALID")
             seen_ids.add(result_id)
             match_class = row.get("match_class")
+            target_type = row.get("target_type")
+            if target_type not in {"CLAIM_CANDIDATE", "ATOMIC_CLAIM"}:
+                raise ValueError("STUDIO_CANDIDATE_MATCH_CLASS_INVALID")
+            target_id = _safe_id(row.get("target_id"))
+            target = (target_type, target_id)
+            if (target in seen_targets or
+                    result_id != deterministic_match_result_id(run_id, target_type, target_id)):
+                raise ValueError("STUDIO_CANDIDATE_RESULT_BINDING_MISMATCH")
+            seen_targets.add(target)
+            supporting_codes = _features(row.get("supporting_features"), _SUPPORTING_CODES)
+            contradicting_codes = _features(row.get("contradicting_features"), _CONTRADICTING_CODES)
+            disposition = (
+                "HOLD" if _SCOPE_CONFLICT_CODES.intersection(contradicting_codes)
+                else _DISPOSITION.get(match_class)
+            )
             if (
                 match_class not in _DISPOSITION
-                or row.get("disposition") != _DISPOSITION[match_class]
-                or row.get("target_type") not in {"CLAIM_CANDIDATE", "ATOMIC_CLAIM"}
+                or row.get("method") not in _METHODS_BY_CLASS[match_class]
+                or row.get("disposition") != disposition
+                or (row.get("proposition_cluster_id") is not None) !=
+                   (disposition == "PROPOSE_CLUSTER")
             ):
                 raise ValueError("STUDIO_CANDIDATE_MATCH_CLASS_INVALID")
             results.append({
                 "result_id": result_id,
-                "target_id": _safe_id(row.get("target_id")),
-                "target_type": row["target_type"],
+                "target_id": target_id,
+                "target_type": target_type,
                 "match_class": match_class,
-                "suggested_disposition": row["disposition"],
-                "supporting_feature_codes": _features(row.get("supporting_features")),
-                "contradicting_feature_codes": _features(row.get("contradicting_features")),
+                "matching_method": row["method"],
+                "suggested_disposition": disposition,
+                "supporting_feature_codes": supporting_codes,
+                "contradicting_feature_codes": contradicting_codes,
                 "promotion_enabled": False,
             })
     except (ValueError, TypeError):
@@ -105,6 +149,7 @@ def inspect_candidate_match_run(
 
     return {
         "contract_version": STUDIO_CANDIDATE_REVIEW_VERSION,
+        "matching_version": MATCHING_VERSION,
         "run_id": run_id,
         "claim_candidate_id": claim_candidate_id,
         "input_fingerprint": fingerprint,
