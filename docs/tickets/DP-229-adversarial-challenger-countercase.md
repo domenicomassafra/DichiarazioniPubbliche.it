@@ -155,3 +155,33 @@ and high-risk tests passed. This is a breaking deterministic packet
 identity upgrade, not an automatically authorized review migration,
 waiver, signed high-risk approval or real Garlasco challenger
 acceptance; DP-229 remains IN PROGRESS.
+
+### 2026-10-10 retrieval replay / review authority integrity
+
+An isolated real PostgreSQL regression exposed a defect in the upstream
+evidence ledger: a retry of ClaimEvidenceObservationStore.link_claim_evidence
+with the same (claim_id, evidence_id, retrieval_version) performed an
+unconditional UPDATE. A reviewer-approved CONTRADICT evidence candidate
+could become SUPPORT/RETRIEVED, with new score/metadata, solely because
+the retriever replayed. REJECTED/QUARANTINED decisions could also be
+silently reverted to RETRIEVED.
+
+The writer now permits conflict updates only if the candidate is
+RETRIEVED and there is no existing review event for that exact candidate.
+An old review event also freezes previously demoted rows. Retrieval
+cannot approve, reject, overturn reviewer decisions or publish.
+
+The new tests/test_claim_evidence_retrieval_replay.py reproduced two
+real PostgreSQL RED failures and passed five GREEN cases (approved,
+rejected, quarantined, historical review event, and unreviewed replay).
+This corrects a material provenance invariant but DOES NOT establish
+durable challenger authority, qualified waiver, or runtime high-risk
+publication acceptance. DP-229 remains IN PROGRESS.
+
+The same integration pass closed a second review-ledger bug: reuse of
+an unrelated review_event ID previously allowed the candidate status
+to become APPROVED even though the event append conflicted and was
+discarded. The approval writer now requires a newly appended exact
+review event, or an exact idempotent replay against an already
+APPROVED candidate. Historical stale events cannot reapprove a
+demoted row. This does not relax DP-310 attestation requirements.

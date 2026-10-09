@@ -1084,6 +1084,22 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                     score = EXCLUDED.score,
                     statement_cutoff = EXCLUDED.statement_cutoff,
                     metadata = claim_evidence_candidate.metadata || EXCLUDED.metadata
+                -- A retriever is NOT a reviewer. A retry of the same
+                -- retrieval version may refresh only never-reviewed material.
+                -- In particular it must not erase APPROVED/REJECTED/
+                -- QUARANTINED state or laundering old approved lineage
+                -- through a fresh unreviewed relation and metadata.
+                WHERE claim_evidence_candidate.status = 'RETRIEVED'
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM review_event reviewer
+                    WHERE reviewer.entity_type = 'CLAIM_EVIDENCE_CANDIDATE'
+                      AND reviewer.entity_id = (
+                        claim_evidence_candidate.claim_id || '|' ||
+                        claim_evidence_candidate.evidence_id || '|' ||
+                        claim_evidence_candidate.retrieval_version
+                      )
+                  )
                 RETURNING (xmax = 0) AS created
             )
             SELECT COALESCE(bool_or(created), false)::text FROM inserted;

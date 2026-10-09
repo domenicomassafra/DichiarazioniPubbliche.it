@@ -1450,14 +1450,14 @@ class QueueRuntimeStore(PsqlRuntime):
         )
         raw = self.run(
             """
-            WITH changed AS (
-                UPDATE claim_evidence_candidate
-                SET status = 'APPROVED'
+            WITH locked_candidate AS (
+                SELECT claim_id, status
+                FROM claim_evidence_candidate
                 WHERE
                     claim_id = :'claim_id'
                     AND evidence_id = :'evidence_id'
                     AND retrieval_version = :'retrieval_version'
-                RETURNING claim_id
+                FOR UPDATE
             ),
             logged AS (
                 INSERT INTO review_event (
@@ -1472,9 +1472,37 @@ class QueueRuntimeStore(PsqlRuntime):
                     :'actor_ref',
                     NULLIF(:'reason',''),
                     :'metadata'::jsonb
-                FROM changed
+                FROM locked_candidate
                 ON CONFLICT (id) DO NOTHING
                 RETURNING id
+            ),
+            replayed_exact_review AS (
+                -- Replaying an already-persisted APPROVED event is idempotent
+                -- only if the same entity/actor/reason is still APPROVED.
+                -- A stale reviewed event cannot reapprove a previously
+                -- demoted or modified RETRIEVED candidate.
+                SELECT reviewer.id
+                FROM review_event reviewer
+                JOIN locked_candidate candidate ON candidate.status = 'APPROVED'
+                WHERE reviewer.id = :'event_id'
+                  AND reviewer.entity_type = 'CLAIM_EVIDENCE_CANDIDATE'
+                  AND reviewer.entity_id = :'entity_id'
+                  AND reviewer.action = 'APPROVED'
+                  AND reviewer.actor_ref = :'actor_ref'
+                  AND reviewer.reason IS NOT DISTINCT FROM NULLIF(:'reason','')
+            ),
+            changed AS (
+                UPDATE claim_evidence_candidate
+                SET status = 'APPROVED'
+                WHERE
+                    claim_id = :'claim_id'
+                    AND evidence_id = :'evidence_id'
+                    AND retrieval_version = :'retrieval_version'
+                    AND (
+                        EXISTS (SELECT 1 FROM logged)
+                        OR EXISTS (SELECT 1 FROM replayed_exact_review)
+                    )
+                RETURNING claim_id
             )
             SELECT EXISTS(SELECT 1 FROM changed)::text;
             """,
