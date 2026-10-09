@@ -12,8 +12,12 @@ LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v1"
 
 _PLAN_ROW = re.compile(r"^\| (DP-\d{3}) \| ([^|]+) \|", re.MULTILINE)
 _LEGAL_ROW = re.compile(
-    r"^\| (Q-306-\d{2})(?: \([^|]+\))? \|.*?\| `(OPEN|BLOCKED|DECIDED)` \|",
+    r"^\| (Q-306-\d{2})(?: \([^|]+\))? \|.*?\| `(OPEN|EVIDENCE_COLLECTED|DEFERRED|BLOCKED|DECIDED)` \|",
     re.MULTILINE,
+)
+
+REQUIRED_LEGAL_QUESTIONS: tuple[str, ...] = tuple(
+    f"Q-306-{number:02d}" for number in range(1, 17)
 )
 
 
@@ -74,7 +78,7 @@ def parse_plan_statuses(text: str) -> dict[str, str]:
 def parse_legal_statuses(text: str) -> dict[str, str]:
     statuses: dict[str, str] = {}
     for question_id, status in _LEGAL_ROW.findall(text):
-        if question_id in statuses and statuses[question_id] != status:
+        if question_id in statuses:
             raise ValueError(f"LAUNCH_LEGAL_DUPLICATE_STATUS:{question_id}")
         statuses[question_id] = status
     return statuses
@@ -106,9 +110,13 @@ def evaluate_launch_preflight(
         if decision != "NOT_APPLICABLE":
             blockers.append(f"CONDITIONAL_SURFACE_UNDECIDED:{ticket_id}:{status}")
 
-    legal_snapshot = dict(sorted((str(k), str(v).upper()) for k, v in legal_statuses.items()))
+    # Never treat an omitted or unrecognised Q-306 row as implicit clearance.
+    # An all-DECIDED subset of one item is not a complete legal decision set.
+    legal_snapshot = dict(sorted((str(k), str(v).strip().upper()) for k, v in legal_statuses.items()))
     if not legal_snapshot:
         blockers.append("LEGAL_DECISION_REGISTER_EMPTY")
+    for question_id in REQUIRED_LEGAL_QUESTIONS:
+        legal_snapshot.setdefault(question_id, "MISSING")
     for question_id, status in legal_snapshot.items():
         if status != "DECIDED":
             blockers.append(f"LEGAL_DECISION_NOT_CLOSED:{question_id}:{status}")
@@ -179,6 +187,7 @@ __all__ = [
     "LAUNCH_PREFLIGHT_VERSION",
     "LaunchPreflightResult",
     "REQUIRED_RELEASE_ARTIFACTS",
+    "REQUIRED_LEGAL_QUESTIONS",
     "REQUIRED_TICKETS",
     "evaluate_launch_preflight",
     "parse_legal_statuses",

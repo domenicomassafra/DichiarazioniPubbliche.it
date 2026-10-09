@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.launch_preflight import (  # noqa: E402
     CONDITIONAL_SURFACE_TICKETS,
     REQUIRED_RELEASE_ARTIFACTS,
+    REQUIRED_LEGAL_QUESTIONS,
     REQUIRED_TICKETS,
     evaluate_launch_preflight,
     parse_legal_statuses,
@@ -44,7 +45,7 @@ class LaunchPreflightTests(unittest.TestCase):
         plan.update({ticket_id: "DONE" for ticket_id in CONDITIONAL_SURFACE_TICKETS})
         result = evaluate_launch_preflight(
             plan_statuses=plan,
-            legal_statuses={"Q-306-01": "DECIDED"},
+            legal_statuses={question_id: "DECIDED" for question_id in REQUIRED_LEGAL_QUESTIONS},
             artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
         )
         self.assertEqual(result.disposition, "PENDING-OWNER")
@@ -56,7 +57,7 @@ class LaunchPreflightTests(unittest.TestCase):
         plan.update({"DP-507": "FUTURE", "DP-508": "FUTURE"})
         result = evaluate_launch_preflight(
             plan_statuses=plan,
-            legal_statuses={"Q-306-01": "DECIDED"},
+            legal_statuses={question_id: "DECIDED" for question_id in REQUIRED_LEGAL_QUESTIONS},
             artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
             conditional_surface_decisions={"DP-507": "NOT_APPLICABLE"},
         )
@@ -68,7 +69,7 @@ class LaunchPreflightTests(unittest.TestCase):
         plan.update({ticket_id: "DONE" for ticket_id in CONDITIONAL_SURFACE_TICKETS})
         result = evaluate_launch_preflight(
             plan_statuses=plan,
-            legal_statuses={"Q-306-01": "DECIDED"},
+            legal_statuses={question_id: "DECIDED" for question_id in REQUIRED_LEGAL_QUESTIONS},
             artifact_presence={name: False for name in REQUIRED_RELEASE_ARTIFACTS},
         )
         self.assertEqual(result.disposition, "NO-GO")
@@ -78,7 +79,7 @@ class LaunchPreflightTests(unittest.TestCase):
         plan = {ticket_id: "DONE" for ticket_id in REQUIRED_TICKETS}
         plan.update({ticket_id: "DONE" for ticket_id in CONDITIONAL_SURFACE_TICKETS})
         kwargs = dict(
-            legal_statuses={"Q-306-01": "DECIDED"},
+            legal_statuses={question_id: "DECIDED" for question_id in REQUIRED_LEGAL_QUESTIONS},
             artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
         )
         first = evaluate_launch_preflight(plan_statuses=plan, **kwargs)
@@ -104,6 +105,38 @@ class LaunchPreflightTests(unittest.TestCase):
             parse_legal_statuses(text),
             {"Q-306-01": "OPEN", "Q-306-02": "DECIDED"},
         )
+
+    def test_missing_15_legal_rows_cannot_turn_green_subset_into_pending_owner(self):
+        plan = {ticket_id: "DONE" for ticket_id in REQUIRED_TICKETS}
+        plan.update({ticket_id: "DONE" for ticket_id in CONDITIONAL_SURFACE_TICKETS})
+        result = evaluate_launch_preflight(
+            plan_statuses=plan,
+            legal_statuses={"Q-306-01": "DECIDED"},
+            artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
+        )
+        self.assertEqual(result.disposition, "NO-GO")
+        self.assertEqual(
+            sum(code.endswith(":MISSING") for code in result.blockers), 15,
+        )
+        self.assertFalse(result.launchable)
+
+    def test_deferred_and_evidence_collected_rows_remain_explicit_blockers(self):
+        rows = (
+            "| Q-306-01 (DP-301) | question | evidence | `EVIDENCE_COLLECTED` | reviewer | surface | default | `BLOCKER` |\n"
+            "| Q-306-02 (DP-301) | question | evidence | `DEFERRED` | reviewer | surface | default | `BLOCKER` |\n"
+        )
+        statuses = parse_legal_statuses(rows)
+        self.assertEqual(statuses, {"Q-306-01": "EVIDENCE_COLLECTED", "Q-306-02": "DEFERRED"})
+        with self.assertRaisesRegex(ValueError, "LAUNCH_LEGAL_DUPLICATE_STATUS"):
+            parse_legal_statuses(rows + rows.splitlines()[0] + "\n")
+        result = evaluate_launch_preflight(
+            plan_statuses={ticket: "DONE" for ticket in REQUIRED_TICKETS},
+            legal_statuses=statuses,
+            artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
+            conditional_surface_decisions={ticket: "NOT_APPLICABLE" for ticket in CONDITIONAL_SURFACE_TICKETS},
+        )
+        self.assertIn("LEGAL_DECISION_NOT_CLOSED:Q-306-01:EVIDENCE_COLLECTED", result.blockers)
+        self.assertIn("LEGAL_DECISION_NOT_CLOSED:Q-306-02:DEFERRED", result.blockers)
 
 
 if __name__ == "__main__":

@@ -113,3 +113,29 @@ authorizes changing those statuses or shipping v1.
 - Wave 2 code has no provider calls, no rights grants, no production migration,
   no public projection/data or publish path. Keep DP-417 IN PROGRESS and
   preserve every outstanding AC until independently proved.
+
+## Wave 3 — DP-214 research readiness consistency
+
+- Source-readiness Collection summary and bounded members now come from
+  **one PostgreSQL MVCC SELECT**, with safe scope, JSON, count and overflow
+  refusal instead of independent query snapshots.
+- **14/14** local readiness/provenance tests PASS after the extra negative
+  cases, `compileall`, ticket contract and `git diff --check` PASS.
+- On the actual MiniPC PostgreSQL, the *new SQL* was sent from Mac source
+  using `default_transaction_read_only=on`: `research:garlasco` remained
+  **PAUSED, 18/18 members, zero Discovery Runs, zero unlinked Hits**.
+  No code was deployed to the MiniPC, no source text fetched and no data
+  or rights decision modified.
+- Source commit: **`98df288`**, pushed to `origin/main`; GitHub CI
+  **`37929778112` succeeded 11/11 jobs**. DP-214/215 remain IN PROGRESS.
+
+## Wave 4 — DP-307 legal release gate completeness
+
+- The existing release preflight now always expects **all 16 Q-306**
+  decision IDs, fails closed for missing entries even if remaining rows
+  say DECIDED, and treats `DEFERRED`/`EVIDENCE_COLLECTED` as blockers.
+- Same-ID duplicate legal status table rows fail closed, including identical
+  duplicates. **10/10** focused release-gate tests PASS.
+- Canonical current register: 14 OPEN, 2 BLOCKED; preflight still
+  **NO-GO / 41 blockers** with the same receipt hash. This is neither
+  reviewer/owner approval nor a release.

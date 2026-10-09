@@ -194,4 +194,20 @@ or stale decisions remain visible blockers, and no affected public surface launc
 ## Completion receipt
   Pending qualified review, owner acceptance, resulting ADRs/policy changes, and the
 required runtime/documentation proof. Until then, the safe result is
-non-publication.
+  non-publication.
+
+### 2026-10-09 release-preflight register completeness fence
+
+`launch_preflight` now requires the entire **Q-306-01..16** decision universe
+even if one or several rows disappear from the parsed legal register. A
+missing row explicitly becomes `LEGAL_DECISION_NOT_CLOSED:<ID>:MISSING`,
+not silent clearance. `EVIDENCE_COLLECTED` and `DEFERRED` are recognised but
+remain launch blockers. Duplicate rows (even identical decisions) are
+refused by the parser. Focused tests confirm that a fully green technical
+ticket/artifact set with only Q-306-01 marked `DECIDED` still returns
+**NO-GO** with 15 distinct missing legal questions.
+
+Actual register remains **14 OPEN, 2 BLOCKED**, and preflight remains
+**NO-GO / 41 blockers**. This is a fail-closed *engineering gate*, not
+qualified legal review, a signed reviewer/owner opinion, approved policy,
+or closure of any DP-307 acceptance criterion.
