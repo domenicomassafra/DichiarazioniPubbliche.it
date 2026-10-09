@@ -66,6 +66,20 @@ appoint counsel, decide a lawful basis, or authorize a public launch.
 - No accepted qualified legal reviewer, public security contact, approved deployment
   profile, or production launch authorization is present.
 
+### 2026-10-10 dependency-integrity follow-up
+
+The M7 engineering preflight now includes the previously omitted DP-214
+real private corpus acceptance and DP-229 high-risk challenger requirement.
+It also requires the canonical M1R/M2 discovery-to-promotion ticket chain
+and rejects disagreement between the PLAN status and individual ticket header.
+RED fixtures demonstrated that DP-214/229 could previously be non-DONE
+while an otherwise fabricated all-green mechanical snapshot reached
+PENDING-OWNER; the corrected path holds NO-GO.
+
+This does not satisfy qualified legal dispositions, real source/rights/corpus
+acceptance, launch approval, or any DP-702 AC. More honest blockers must
+not be hidden by rewriting accepted history.
+
 ## Scope
 
 ### 1. Legal/privacy/rights closure

@@ -39,10 +39,16 @@ developer working tree. Record the commit SHA and clone URL in the receipt.
 
 ```bash
 python3 tools/check_repository_contract.py --only tickets
+PYTHONPATH=poc python3 tools/check_launch_preflight.py --expect-no-go
 ```
 
 Confirms: no duplicate ticket IDs, no duplicate filename IDs, valid status values, no
-unknown dependency IDs, no dependency cycles, required sections present.
+unknown dependency IDs, no dependency cycles, required sections present. The current
+NO-GO check is a non-release regression check; in future authorized release
+reviews run the preflight without the expect-no-go switch, inspect all blockers
+and require a separate release-authority/owner gate. The preflight cross-checks
+canonical ticket headers against PLAN and requires the M1R/M2 source/promotion
+chain, including DP-214 real corpus and DP-229 challenger.
 
 **Fails** → the ticket graph is inconsistent; do not release.
 

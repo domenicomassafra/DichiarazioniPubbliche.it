@@ -11,6 +11,10 @@ from typing import Mapping
 LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v1"
 
 _PLAN_ROW = re.compile(r"^\| (DP-\d{3}) \| ([^|]+) \|", re.MULTILINE)
+_TICKET_DETAIL_STATUS = re.compile(
+    r"^Status:[ \t]*(IN PROGRESS|IN_PROGRESS|PENDING-OWNER|DONE|READY|BLOCKED|FUTURE|PROPOSED|REJECTED)(?=\s|$)",
+    re.MULTILINE | re.IGNORECASE,
+)
 _LEGAL_ROW = re.compile(
     r"^\| (Q-306-\d{2})(?: \([^|]+\))? \|.*?\| `(OPEN|EVIDENCE_COLLECTED|DEFERRED|BLOCKED|DECIDED)` \|",
     re.MULTILINE,
@@ -25,8 +29,15 @@ REQUIRED_TICKETS: tuple[str, ...] = tuple(
     dict.fromkeys(
         [
             "DP-105",
+            # M1R is the canonical private provenance/promotion authority. A
+            # release cannot bypass that milestone even with green public UI.
+            *[f"DP-{number}" for number in range(112, 119)],
             *[f"DP-{number}" for number in range(201, 208)],
-            *[f"DP-{number}" for number in range(215, 225)],
+            # M2 private discovery -> Capture -> Passage -> Candidate ->
+            # reviewer/promotion, contextual evidence and high-risk challenger.
+            # DP-214 and DP-229 were previously omitted, making a forged
+            # all-DONE release set pass while real corpus/review were blocked.
+            *[f"DP-{number}" for number in range(209, 231)],
             *[f"DP-{number}" for number in range(301, 311)],
             *[f"DP-{number}" for number in range(401, 411)],
             *[f"DP-{number}" for number in range(501, 507)],
@@ -75,6 +86,23 @@ def parse_plan_statuses(text: str) -> dict[str, str]:
     return statuses
 
 
+def read_ticket_detail_statuses(root: Path) -> dict[str, str]:
+    """Read actual ticket headers instead of trusting PLAN.md as a completion receipt."""
+    statuses: dict[str, str] = {}
+    for path in sorted((root / "docs" / "tickets").glob("DP-*.md")):
+        ticket_id = path.name[:6]
+        if not re.fullmatch(r"DP-\d{3}", ticket_id) or path.name[6] not in "-.":
+            continue
+        if ticket_id in statuses:
+            raise ValueError(f"LAUNCH_TICKET_DETAIL_DUPLICATE:{ticket_id}")
+        match = _TICKET_DETAIL_STATUS.search(path.read_text(encoding="utf-8"))
+        statuses[ticket_id] = (
+            " ".join(match.group(1).upper().replace("_", " ").split())
+            if match else "INVALID"
+        )
+    return statuses
+
+
 def parse_legal_statuses(text: str) -> dict[str, str]:
     statuses: dict[str, str] = {}
     for question_id, status in _LEGAL_ROW.findall(text):
@@ -90,6 +118,7 @@ def evaluate_launch_preflight(
     legal_statuses: Mapping[str, str],
     artifact_presence: Mapping[str, bool],
     conditional_surface_decisions: Mapping[str, str] | None = None,
+    ticket_detail_statuses: Mapping[str, str] | None = None,
 ) -> LaunchPreflightResult:
     blockers: list[str] = []
     ticket_snapshot: dict[str, str] = {}
@@ -109,6 +138,18 @@ def evaluate_launch_preflight(
             continue
         if decision != "NOT_APPLICABLE":
             blockers.append(f"CONDITIONAL_SURFACE_UNDECIDED:{ticket_id}:{status}")
+
+    if ticket_detail_statuses is not None:
+        # A PLAN-only DONE can never supersede an incomplete individual ticket.
+        # Missing/broken tickets and discrepancies remain explicit NO-GO blockers.
+        for ticket_id in sorted(set((*REQUIRED_TICKETS, *CONDITIONAL_SURFACE_TICKETS))):
+            plan_state = ticket_snapshot[ticket_id]
+            detail_state = str(ticket_detail_statuses.get(ticket_id, "MISSING")).strip().upper()
+            if detail_state != plan_state:
+                blockers.append(
+                    f"TICKET_DETAIL_STATUS_MISMATCH:{ticket_id}:"
+                    f"PLAN={plan_state}:DETAIL={detail_state}"
+                )
 
     # Never treat an omitted or unrecognised Q-306 row as implicit clearance.
     # An all-DECIDED subset of one item is not a complete legal decision set.
@@ -179,6 +220,7 @@ def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
         legal_statuses=legal,
         artifact_presence=artifact_presence,
         conditional_surface_decisions=conditional_decisions,
+        ticket_detail_statuses=read_ticket_detail_statuses(root),
     )
 
 
@@ -192,5 +234,6 @@ __all__ = [
     "evaluate_launch_preflight",
     "parse_legal_statuses",
     "parse_plan_statuses",
+    "read_ticket_detail_statuses",
     "repository_launch_preflight",
 ]

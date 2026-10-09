@@ -394,8 +394,16 @@ def summarize_readiness(
 
 def load_unreviewed_public_leads(path: Path) -> dict[str, Any]:
     """Count candidate-only file hints separately; never treat as persisted Discovery."""
+    def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ReadinessReportError("PILOT_LEADS_DUPLICATE_JSON_KEY")
+            result[key] = value
+        return result
+
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_keys)
     except (OSError, json.JSONDecodeError) as exc:
         raise ReadinessReportError("PILOT_LEADS_FILE_UNREADABLE") from exc
     if not isinstance(raw, dict) or raw.get("version") != "garlasco-public-discovery-leads-v1" or raw.get("state") != "UNREVIEWED_CANDIDATES_ONLY":
@@ -405,6 +413,7 @@ def load_unreviewed_public_leads(path: Path) -> dict[str, Any]:
     if not isinstance(candidates, list) or not isinstance(locators, list) or len(candidates) > 200 or len(locators) > 50:
         raise ReadinessReportError("PILOT_LEADS_BOUNDS_INVALID")
     seen_ids: set[str] = set()
+    seen_urls: set[str] = set()
     for source, items in (("candidate", candidates), ("locator", locators)):
         for item in items:
             if not isinstance(item, dict):
@@ -419,6 +428,9 @@ def load_unreviewed_public_leads(path: Path) -> dict[str, Any]:
                     raise ValueError
             except ValueError as exc:
                 raise ReadinessReportError("PILOT_LEADS_URL_INVALID") from exc
+            if url in seen_urls:
+                raise ReadinessReportError("PILOT_LEADS_URL_DUPLICATE")
+            seen_urls.add(url)
             if source == "candidate" and (
                 item.get("candidate_only") is not True
                 or item.get("capture_authorized") is not False

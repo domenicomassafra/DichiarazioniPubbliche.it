@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from dichiarazioni_pubbliche.launch_preflight import (  # noqa: E402
     evaluate_launch_preflight,
     parse_legal_statuses,
     parse_plan_statuses,
+    read_ticket_detail_statuses,
     repository_launch_preflight,
 )
 
@@ -74,6 +76,98 @@ class LaunchPreflightTests(unittest.TestCase):
         )
         self.assertEqual(result.disposition, "NO-GO")
         self.assertEqual(set(result.missing_artifacts), set(REQUIRED_RELEASE_ARTIFACTS))
+
+    def test_real_corpus_challenger_and_qualified_review_are_release_dependencies(self):
+        # M2 real private corpus, DP-229 adversarial reviewer and DP-307 qualified
+        # legal review must not disappear from the M7 graph just because old M2
+        # ranges or Q-306 row statuses happened to be marked complete.
+        for critical in ("DP-214", "DP-229", "DP-307"):
+            with self.subTest(critical=critical):
+                plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
+                plan.update({ticket: "DONE" for ticket in CONDITIONAL_SURFACE_TICKETS})
+                plan[critical] = "IN PROGRESS"
+                result = evaluate_launch_preflight(
+                    plan_statuses=plan,
+                    legal_statuses={
+                        question: "DECIDED" for question in REQUIRED_LEGAL_QUESTIONS
+                    },
+                    artifact_presence={
+                        name: True for name in REQUIRED_RELEASE_ARTIFACTS
+                    },
+                )
+                self.assertIn(
+                    f"TICKET_NOT_DONE:{critical}:IN PROGRESS",
+                    result.blockers,
+                )
+                self.assertEqual(result.disposition, "NO-GO")
+
+    def test_source_promotion_dependencies_cannot_regress_after_completed_milestone(self):
+        # The critical private provenance/promotion path is a dependency, not a
+        # narrative assumption hidden behind a green UI/release status.
+        for critical in ("DP-112", "DP-113", "DP-117", "DP-118", "DP-209", "DP-210", "DP-211", "DP-212", "DP-213"):
+            with self.subTest(critical=critical):
+                self.assertIn(critical, REQUIRED_TICKETS)
+
+    def test_plan_done_does_not_override_a_still_open_canonical_ticket(self):
+        plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
+        plan.update({ticket: "DONE" for ticket in CONDITIONAL_SURFACE_TICKETS})
+        result = evaluate_launch_preflight(
+            plan_statuses=plan,
+            ticket_detail_statuses={**plan, "DP-214": "IN PROGRESS"},
+            legal_statuses={
+                question: "DECIDED" for question in REQUIRED_LEGAL_QUESTIONS
+            },
+            artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
+        )
+        self.assertEqual(result.disposition, "NO-GO")
+        self.assertIn(
+            "TICKET_DETAIL_STATUS_MISMATCH:DP-214:PLAN=DONE:DETAIL=IN PROGRESS",
+            result.blockers,
+        )
+
+    def test_status_file_cannot_disappear_or_become_undecodable(self):
+        plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
+        plan.update({ticket: "DONE" for ticket in CONDITIONAL_SURFACE_TICKETS})
+        for detail in ({}, {"DP-214": "BOGUS"}):
+            with self.subTest(detail=detail):
+                result = evaluate_launch_preflight(
+                    plan_statuses=plan,
+                    ticket_detail_statuses=detail,
+                    legal_statuses={
+                        question: "DECIDED" for question in REQUIRED_LEGAL_QUESTIONS
+                    },
+                    artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
+                )
+                self.assertEqual(result.disposition, "NO-GO")
+                self.assertTrue(any(
+                    blocker.startswith("TICKET_DETAIL_STATUS_MISMATCH:DP-214:")
+                    for blocker in result.blockers
+                ))
+
+    def test_real_ticket_header_reader_normalizes_annotations_and_rejects_duplicates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory) / "docs" / "tickets"
+            folder.mkdir(parents=True)
+            (folder / "DP-214-corpus.md").write_text(
+                "# DP-214\nStatus: IN PROGRESS\n", encoding="utf-8"
+            )
+            (folder / "DP-208-diarization.md").write_text(
+                "# DP-208\nStatus: FUTURE (blocked on real reference)\n",
+                encoding="utf-8",
+            )
+            (folder / "DP-229-challenger.md").write_text(
+                "# DP-229\nStatus: DONEISH\n", encoding="utf-8",
+            )
+            self.assertEqual(read_ticket_detail_statuses(Path(directory)), {
+                "DP-208": "FUTURE",
+                "DP-214": "IN PROGRESS",
+                "DP-229": "INVALID",
+            })
+            (folder / "DP-214-duplicate.md").write_text(
+                "# DP-214\nStatus: DONE\n", encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "LAUNCH_TICKET_DETAIL_DUPLICATE:DP-214"):
+                read_ticket_detail_statuses(Path(directory))
 
     def test_receipt_is_deterministic_and_changes_with_gate_state(self):
         plan = {ticket_id: "DONE" for ticket_id in REQUIRED_TICKETS}
