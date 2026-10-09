@@ -97,10 +97,12 @@ class PrivateCaptureBatchTests(unittest.TestCase):
 
     def test_manifest_fails_closed_on_duplicate_excess_noncanonical_and_extra_fields(self):
         item = vars(make_batch().items[0])
+        distinct_id_same_url = {**item, "content_id": "content:other-same-url"}
         cases = (
             {"version": BATCH_VERSION, "collection_id": "research:approved", "items": []},
             {"version": BATCH_VERSION, "collection_id": "research:approved", "items": [item] * 26},
             {"version": BATCH_VERSION, "collection_id": "research:approved", "items": [item] * 2},
+            {"version": BATCH_VERSION, "collection_id": "research:approved", "items": [item, distinct_id_same_url]},
             {"version": BATCH_VERSION, "collection_id": "research:approved", "items": [{**item, "canonical_url": "http://example.test/unsafe"}]},
             {"version": BATCH_VERSION, "collection_id": "research:approved", "items": [{**item, "unknown_permission": True}]},
             {"version": "stale", "collection_id": "research:approved", "items": [item]},
@@ -112,6 +114,18 @@ class PrivateCaptureBatchTests(unittest.TestCase):
                     path.write_text(json.dumps(payload), encoding="utf-8")
                     with self.assertRaises(ValueError):
                         load_private_capture_batch(path)
+
+    def test_same_locator_different_content_ids_is_rejected_before_any_fetch(self):
+        item = vars(make_batch().items[0])
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "manifest.json"
+            path.write_text(json.dumps({
+                "version": BATCH_VERSION,
+                "collection_id": "research:approved",
+                "items": [item, {**item, "content_id": "content:distinct"}],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "PRIVATE_CAPTURE_BATCH_DUPLICATE_URL"):
+                load_private_capture_batch(path)
 
     def test_persisted_discovery_requires_active_included_reviewed_hit(self):
         item = make_batch().items[0]

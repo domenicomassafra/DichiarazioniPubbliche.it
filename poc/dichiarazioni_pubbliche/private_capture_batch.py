@@ -54,6 +54,7 @@ def load_private_capture_batch(path: Path) -> CaptureBatch:
         raise ValueError("PRIVATE_CAPTURE_BATCH_BOUNDS_INVALID")
     items: list[CaptureBatchItem] = []
     seen: set[str] = set()
+    seen_urls: set[str] = set()
     required = {"content_id", "canonical_url", "source_family", "rights_record_id"}
     for raw_item in items_raw:
         if not isinstance(raw_item, dict) or set(raw_item) != required:
@@ -66,7 +67,13 @@ def load_private_capture_batch(path: Path) -> CaptureBatch:
             raise ValueError("PRIVATE_CAPTURE_BATCH_URL_NONCANONICAL")
         if raw_item["content_id"] in seen:
             raise ValueError("PRIVATE_CAPTURE_BATCH_DUPLICATE_CONTENT")
+        # The logical Content identity is URL-bound. Two different IDs for
+        # one canonical locator in the same execution batch would duplicate
+        # network capture and produce ambiguous discovery/rights receipts.
+        if canonical_url in seen_urls:
+            raise ValueError("PRIVATE_CAPTURE_BATCH_DUPLICATE_URL")
         seen.add(raw_item["content_id"])
+        seen_urls.add(canonical_url)
         items.append(CaptureBatchItem(**raw_item))
     canonical = {
         "version": BATCH_VERSION,

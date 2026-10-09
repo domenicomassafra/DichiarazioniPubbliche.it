@@ -175,3 +175,15 @@ AC-214.1/.2/.4/.5/.6/.7/.8 remain unchecked. No source/capture rights
 were granted, no discovery candidate was added to Content, no new
 candidate/claim/finding was promoted and no public projection was changed.
 Detailed receipt and rollback info: `docs/ops/garlasco-paused-baseline-20261008.md`.
+
+### 2026-10-09 batch capture identity fence
+
+The reviewed-input `private_capture_batch.load_private_capture_batch` now
+rejects a manifest containing two different logical Content IDs with the
+same canonical URL (`PRIVATE_CAPTURE_BATCH_DUPLICATE_URL`) before any
+network acquisition. This prevents a single source locator from being
+processed twice under competing logical identities in the same batch;
+persisted discovery lineage and current rights gates still apply to every
+item. Focused Capture/Candidate/Discovery tests passed **20/20** locally.
+This is an engineering guard, **not** a successful real Garlasco Capture,
+not rights clearance, and does not close any additional AC-214 criterion.
