@@ -110,3 +110,14 @@ Inconsistent mixed states are blocked without returning private receipts.
 Nine adversarial cases reproduced RED, then passed GREEN with a valid control.
 This is local source-only proof, not evidence of a real archive or MiniPC
 capture comparison. All DP-419 AC remain open.
+
+2026-10-09 Wave 13 chronology refinement: a completed archive
+(`SUCCEEDED` or `FAILED`) with otherwise present receipts could
+still be displayed when `archive_completed_at` preceded
+`archive_requested_at` (including timezone-offset disguises).
+The inspector now checks their aware instants in chronological
+order before reporting completion. RED→GREEN cases cover both
+terminal outcomes and offset inversions; an equivalent instant
+across offsets is accepted. This remains metadata-only and does
+not cryptographically attest an archive provider or install
+the private browser runtime.

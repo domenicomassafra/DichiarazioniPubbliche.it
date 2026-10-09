@@ -228,6 +228,58 @@ class SuccessfulArchive:
 
 
 class CapturePipelineTests(unittest.TestCase):
+    def test_private_capture_body_read_enforces_limit_during_read(self):
+        with tempfile.TemporaryDirectory() as temp:
+            storage = CaptureBodyStore(Path(temp))
+            body = b"Immutable verified test bytes."
+            digest = hashlib.sha256(body).hexdigest()
+            receipt = storage.write(
+                capture_id="capture:bounded-test", body=body, content_sha256=digest,
+            )
+            self.assertEqual(
+                storage.read(receipt.body_ref, expected_sha256=digest, max_bytes=len(body)),
+                body,
+            )
+            with self.assertRaisesRegex(CapturePipelineError, "BODY_FILE_TOO_LARGE"):
+                storage.read(receipt.body_ref, expected_sha256=digest, max_bytes=len(body) - 1)
+            for invalid in (True, 0, -1):
+                with self.subTest(bound=invalid), self.assertRaisesRegex(
+                    CapturePipelineError, "BODY_READ_BOUND_INVALID",
+                ):
+                    storage.read(receipt.body_ref, max_bytes=invalid)
+
+    def test_readonly_body_store_open_preserves_storage_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            absent = parent / "not-created"
+            with self.assertRaisesRegex(CapturePipelineError, "BODY_STORE_ROOT_UNAVAILABLE"):
+                CaptureBodyStore.open_existing_readonly(absent)
+            self.assertFalse(absent.exists())
+            existing = parent / "existing"
+            existing.mkdir(mode=0o700)
+            original_mode = stat.S_IMODE(existing.stat().st_mode)
+            self.assertEqual(CaptureBodyStore.open_existing_readonly(existing).root, existing.resolve())
+            self.assertEqual(stat.S_IMODE(existing.stat().st_mode), original_mode)
+            alias = parent / "alias"
+            alias.symlink_to(existing, target_is_directory=True)
+            with self.assertRaisesRegex(CapturePipelineError, "BODY_STORE_ROOT_UNAVAILABLE"):
+                CaptureBodyStore.open_existing_readonly(alias)
+
+    def test_capture_persists_original_decoder_policy_for_private_roundtrip(self):
+        for declared, expected in (("utf-8", "utf-8"), (None, "utf-8"), ("latin-1", "latin-1")):
+            with self.subTest(declared=declared), tempfile.TemporaryDirectory() as tmp:
+                store = FakeCaptureStore()
+                result = capture_content(
+                    content_id="content:decoder",
+                    url="https://example.test/decoder",
+                    store=store,
+                    body_store=CaptureBodyStore(Path(tmp)),
+                    observed_at="2026-09-29T10:00:00+00:00",
+                    fetcher=SequenceFetcher(replace(fetched(b"<p>Plain text</p>"), charset=declared)),
+                )
+                record = store.captures[("content:decoder", result.content_sha256)]["record"]
+                self.assertEqual(record.metadata["response_charset"], expected)
+
     def test_refuse_unsafe_initial_target_before_any_fetch_or_permit(self):
         unsafe_urls = (
             "https://127.0.0.1/secret",

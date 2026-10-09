@@ -1,6 +1,8 @@
+# ruff: noqa: E402 -- test suite inserts the local poc package before imports.
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -23,6 +25,11 @@ class CandidateCommandTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
+        self.storage_env = patch.dict(
+            os.environ, {"DICHIARAZIONI_PUBBLICHE_CAPTURE_STORAGE_ROOT": self.temp.name}
+        )
+        self.storage_env.start()
+        self.addCleanup(self.storage_env.stop)
         self.path = Path(self.temp.name) / "manifest.json"
         self.path.write_text(json.dumps({
             "version": VERSION,
@@ -52,6 +59,42 @@ class CandidateCommandTests(unittest.TestCase):
         self.assertEqual(json.loads(out.getvalue())["status"], "PREFLIGHT_PASS_NO_WRITES")
         provider.assert_not_called()
         extraction.assert_not_called()
+
+    def test_storage_root_is_mandatory_and_missing_directory_never_creates_it(self):
+        unavailable = Path(self.temp.name) / "not-a-root"
+        out = io.StringIO()
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_CAPTURE_STORAGE_ROOT": ""}), \
+             patch.object(extract_research_candidates, "CapturePipelineStore") as capture_store, \
+             patch.object(extract_research_candidates, "OmniRouteCandidateExtractionClient") as provider, \
+             contextlib.redirect_stdout(out):
+            result = extract_research_candidates.main(
+                ["--manifest", str(self.path), "--execute", "--max-cost-usd", "0.01"]
+            )
+        self.assertEqual(result, 2)
+        self.assertEqual(json.loads(out.getvalue())["status"], "BLOCKED_NO_MODEL_CALL")
+        self.assertEqual(json.loads(out.getvalue())["reason_code"], "PRIVATE_ANALYSIS_STORAGE_ROOT_UNAVAILABLE")
+        capture_store.assert_not_called()
+        provider.assert_not_called()
+
+        out = io.StringIO()
+        with patch.object(extract_research_candidates, "CapturePipelineStore") as capture_store, \
+             contextlib.redirect_stdout(out):
+            result = extract_research_candidates.main(
+                ["--manifest", str(self.path), "--storage-root", str(unavailable)]
+            )
+        self.assertEqual(result, 2)
+        self.assertFalse(unavailable.exists())
+        capture_store.assert_not_called()
+
+    def test_cli_passes_existing_storage_root_for_readonly_source_binding(self):
+        with patch.object(extract_research_candidates, "CapturePipelineStore"), \
+             patch.object(extract_research_candidates, "CandidateExtractionStore"), \
+             patch.object(extract_research_candidates, "PrivateRightsRegistryStore"), \
+             patch.object(extract_research_candidates, "preflight_candidate_batch",
+                          return_value=(lambda: None,)) as preflight, \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(extract_research_candidates.main(["--manifest", str(self.path)]), 0)
+        self.assertEqual(preflight.call_args.kwargs["storage_root"], Path(self.temp.name))
 
     def test_failed_authority_preflight_never_constructs_provider(self):
         out = io.StringIO()

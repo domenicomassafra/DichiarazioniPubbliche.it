@@ -8,7 +8,7 @@ from typing import Iterable
 from dichiarazioni_pubbliche.high_risk_assertion import HighRiskDecision
 
 
-COUNTERCASE_VERSION = "countercase-v1"
+COUNTERCASE_VERSION = "countercase-v2"
 COUNTER_RELATIONS = frozenset({"CONTRADICT", "LIMITATION", "CONTEXT", "UPDATE"})
 
 
@@ -110,6 +110,26 @@ def build_countercase_packet(
     material = {
         "claim_id": claim,
         "evidence_ids": sorted(row.evidence_id for row in admissible),
+        # A reviewed packet must bind each approved source to its exact
+        # rationale and lineage. Aggregate sets alone allow swapping those
+        # assignments without changing packet_id (and hence review freshness).
+        "evidence_bindings": [
+            {
+                "evidence_id": row.evidence_id,
+                "relation": row.relation,
+                "rationale_code": row.rationale_code,
+                "independence_group": row.independence_group,
+            }
+            for row in sorted(
+                admissible,
+                key=lambda row: (
+                    row.evidence_id,
+                    row.relation,
+                    row.rationale_code,
+                    row.independence_group or "",
+                ),
+            )
+        ],
         "relations": {
             key: list(value)
             for key, value in sorted(by_relation.items())

@@ -1401,6 +1401,43 @@ SELECT json_build_object(
 
 
 class CandidateExtractionStore(PsqlRuntime):
+    def read_private_passage_source_binding(self, passage_id: str) -> dict[str, Any] | None:
+        """Internal read-only immutable Capture/Passage roundtrip context.
+
+        Contains PRIVATE text and a private body reference: must never be
+        returned by Studio/public APIs or logged in operator receipts.
+        Authorization and local body byte/hash verification are separate
+        mandatory steps for a real operator extraction.
+        """
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'passage_id', passage.id,
+                'content_id', passage.content_id,
+                'capture_id', passage.capture_id,
+                'passage_sha256', passage.text_sha256,
+                'selector_type', passage.selector_type,
+                'start_char', passage.start_char,
+                'end_char', passage.end_char,
+                'passage_text', passage.private_text,
+                'extraction_method', passage.extraction_method,
+                'extraction_version', passage.extraction_version,
+                'capture_content_sha256', capture.content_sha256,
+                'capture_body_ref', capture.body_ref,
+                'capture_media_type', capture.media_type,
+                'capture_parser_method', capture.parser_method,
+                'capture_parser_version', capture.parser_version,
+                'capture_charset', capture.metadata->>'response_charset'
+            )::text
+            FROM passage
+            JOIN content_capture capture
+              ON capture.id=passage.capture_id AND capture.content_id=passage.content_id
+            WHERE passage.id=:'passage_id';
+            """,
+            passage_id=passage_id,
+        )
+        return json.loads(raw) if raw else None
+
     def read_operator_passage_state(self, passage_id: str) -> dict[str, Any] | None:
         """Rights/readiness read-back; never expose the private passage body."""
         raw = self.run(

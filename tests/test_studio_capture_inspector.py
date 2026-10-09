@@ -47,6 +47,32 @@ class FakeCaptureStore:
 
 
 class StudioCaptureInspectorTests(unittest.TestCase):
+    def test_archive_completion_cannot_precede_request_in_persisted_lifecycle(self):
+        # The actual archive request/completion SQL stamps both transitions
+        # with now(). A coherent receipt cannot complete before it was asked.
+        baseline = FakeCaptureStore().rows[B]
+        for outcome in ("SUCCEEDED", "FAILED"):
+            for completed_at in (
+                "2026-10-08T08:59:59Z",
+                "2026-10-08T10:00:00+02:00",  # 08:00Z, not 10:00Z
+            ):
+                with self.subTest(outcome=outcome, completed_at=completed_at):
+                    later = {**baseline, "archive_status": outcome,
+                             "archive_completed_at": completed_at}
+                    with self.assertRaisesRegex(ValueError, "STUDIO_CAPTURE_ARCHIVE_PROOF_INVALID"):
+                        inspect_capture_versions(
+                            FakeCaptureStore(rows={A: row(A), B: later}),
+                            content_id="content:one", earlier_hash=A, later_hash=B,
+                        )
+        # Timestamps with different offsets can represent the same instant.
+        equal_instant = {**baseline, "archive_completed_at": "2026-10-08T10:00:00+01:00"}
+        result = inspect_capture_versions(
+            FakeCaptureStore(rows={A: row(A), B: equal_instant}),
+            content_id="content:one", earlier_hash=A, later_hash=B,
+        )
+        self.assertEqual(result["later"]["archive_state"], "SUCCEEDED")
+        self.assertNotIn("archive_completed_at", json.dumps(result))
+
     def test_archive_success_and_purged_body_require_persisted_completion_receipts(self):
         baseline = FakeCaptureStore().rows[B]
         tampered = (

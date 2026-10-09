@@ -91,6 +91,13 @@ def _select_metadata(raw: Mapping[str, Any], content_id: str, expected_hash: str
         or not _has_receipt(raw.get("archive_receipt"))
     ):
         raise ValueError("STUDIO_CAPTURE_ARCHIVE_PROOF_INVALID")
+    if archive_state in {"SUCCEEDED", "FAILED"} and (
+        datetime.fromisoformat(raw["archive_completed_at"].replace("Z", "+00:00"))
+        < datetime.fromisoformat(raw["archive_requested_at"].replace("Z", "+00:00"))
+    ):
+        # The persisted request and completion transitions each use now().
+        # A reversed chronology is not proof of an archived Capture.
+        raise ValueError("STUDIO_CAPTURE_ARCHIVE_PROOF_INVALID")
     if capture_state == "PURGED_BODY":
         if (
             raw.get("body_ref") is not None

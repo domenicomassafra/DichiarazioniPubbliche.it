@@ -587,6 +587,24 @@ class CaptureBodyStore:
         except OSError:
             pass
 
+    @classmethod
+    def open_existing_readonly(cls, root: Path) -> "CaptureBodyStore":
+        """Use an existing operator storage root without mkdir/chmod writes.
+
+        A private Candidate preflight must never create a plausible empty
+        body store or mutate its permissions as a side effect of inspection.
+        """
+        candidate = Path(root).expanduser()
+        try:
+            if candidate.is_symlink() or not candidate.is_dir():
+                raise CapturePipelineError("BODY_STORE_ROOT_UNAVAILABLE")
+            resolved = candidate.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise CapturePipelineError("BODY_STORE_ROOT_UNAVAILABLE") from exc
+        instance = cls.__new__(cls)
+        instance.root = resolved
+        return instance
+
     @staticmethod
     def _relative_ref(capture_id: str) -> str:
         digest = hashlib.sha256(capture_id.encode("utf-8")).hexdigest()
@@ -638,11 +656,22 @@ class CaptureBodyStore:
                 tmp.unlink()
         return BodyStoreReceipt("WRITTEN", body_ref, content_sha256, len(body))
 
-    def read(self, body_ref: str, *, expected_sha256: str | None = None) -> bytes:
+    def read(
+        self, body_ref: str, *, expected_sha256: str | None = None,
+        max_bytes: int | None = None,
+    ) -> bytes:
         target = self._path(body_ref)
         if not target.exists() or not target.is_file() or target.is_symlink():
             raise CapturePipelineError("BODY_FILE_MISSING")
-        body = target.read_bytes()
+        if max_bytes is not None:
+            if type(max_bytes) is not int or max_bytes < 1:
+                raise CapturePipelineError("BODY_READ_BOUND_INVALID")
+            with target.open("rb") as source:
+                body = source.read(max_bytes + 1)
+            if len(body) > max_bytes:
+                raise CapturePipelineError("BODY_FILE_TOO_LARGE")
+        else:
+            body = target.read_bytes()
         if expected_sha256 and hashlib.sha256(body).hexdigest() != expected_sha256:
             raise CapturePipelineError("BODY_FILE_HASH_MISMATCH")
         return body
@@ -1088,6 +1117,15 @@ def _capture_record(
             "capture_pipeline_version": CAPTURE_PIPELINE_VERSION,
             "http_status": fetched.status_code,
             "response_bytes": fetched.content_length,
+            # Replay the same charset-first then UTF-8/Latin-1 fallback used
+            # by the canonical parser. A missing charset follows its
+            # deterministic UTF-8-first path, recorded explicitly rather
+            # than leaving future source-bound validation ambiguous.
+            "response_charset": (
+                fetched.charset.strip()
+                if isinstance(fetched.charset, str) and 0 < len(fetched.charset.strip()) <= 80
+                else "utf-8"
+            ),
             "etag": fetched.etag,
             "last_modified": fetched.last_modified,
             "parse_status": parse.status,

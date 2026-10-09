@@ -138,3 +138,20 @@ research, pure/runtime eligibility, durable publication review and high-risk per
 including disposable PostgreSQL; compileall and `git diff --check` also pass. The unchecked
 high-risk challenger AC therefore remains a deliberate fail-closed blocker rather than a
 machine-green placeholder.
+
+### 2026-10-09 Wave 13 per-evidence replay fingerprint
+
+The deterministic `countercase-v1` packet identity used only
+the aggregate evidence IDs, rationale codes, relations and independent
+lineage groups. Swapping the exact rationale/lineage assignments
+between two otherwise valid evidence records left the packet ID
+unchanged, allowing a stale incorporation/review marker to appear
+current for different challenger material. A RED fixture reproduced
+this collision. `countercase-v2` now fingerprints a canonical sorted
+**per-evidence** tuple of evidence ID, relation, rationale code and
+lineage, preserving order independence while invalidating changed
+assignments. Focused adversarial, challenger, publication-eligibility
+and high-risk tests passed. This is a breaking deterministic packet
+identity upgrade, not an automatically authorized review migration,
+waiver, signed high-risk approval or real Garlasco challenger
+acceptance; DP-229 remains IN PROGRESS.

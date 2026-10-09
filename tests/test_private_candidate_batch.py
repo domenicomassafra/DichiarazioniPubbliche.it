@@ -1,3 +1,4 @@
+# ruff: noqa: E402 -- test suite inserts the local poc package before imports.
 import hashlib
 import json
 import sys
@@ -11,6 +12,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
+from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore, STDLIB_HTML_PARSER_VERSION
 from dichiarazioni_pubbliche.private_candidate_batch import (
     VERSION, MODEL_USE, CandidateBatch, CandidateBatchItem, load_candidate_batch,
     preflight_candidate_batch, require_private_passage_state,
@@ -103,6 +105,94 @@ class FakeRights:
 
 
 class CandidateAuthorizationTests(unittest.TestCase):
+    def test_operator_immutable_capture_binding_requires_real_bytes_and_exact_selector(self):
+        body = b"Official captured source passage."
+        capture_sha = hashlib.sha256(body).hexdigest()
+        passage_text = body.decode("utf-8")
+        passage_sha = hashlib.sha256(passage_text.encode("utf-8")).hexdigest()
+        item = replace(ITEM, passage_sha256=passage_sha)
+        batch = CandidateBatch(BATCH.collection_id, (item,), "")
+        payload = {"version": VERSION, "collection_id": batch.collection_id,
+                   "items": [vars(item)]}
+        batch = replace(batch, sha256=hashlib.sha256(json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode()).hexdigest())
+        binding = dict(
+            passage_id=item.passage_id, content_id=item.content_id,
+            capture_id=item.capture_id, passage_sha256=passage_sha,
+            selector_type="TEXT_POSITION", start_char=0, end_char=len(passage_text),
+            passage_text=passage_text, extraction_method="STDLIB_VISIBLE_TEXT",
+            extraction_version=STDLIB_HTML_PARSER_VERSION,
+            capture_content_sha256=capture_sha,
+            capture_media_type="text/plain", capture_charset="utf-8",
+            capture_parser_method="STDLIB_VISIBLE_TEXT",
+            capture_parser_version=STDLIB_HTML_PARSER_VERSION,
+        )
+
+        class BoundCandidate(FakeCandidate):
+            def __init__(self):
+                super().__init__()
+                self.state = passage_state(passage_sha256=passage_sha)
+                self.binding = dict(binding)
+
+            def read_private_passage_source_binding(self, passage_id):
+                return dict(self.binding)
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = CaptureBodyStore(root)
+            receipt = store.write(
+                capture_id=item.capture_id, body=body, content_sha256=capture_sha,
+            )
+            binding["capture_body_ref"] = receipt.body_ref
+            candidate = BoundCandidate()
+
+            def guarded():
+                return preflight_candidate_batch(
+                    batch, capture_store=FakeCapture(), candidate_store=candidate,
+                    rights_store=FakeRights(), storage_root=root,
+                )
+
+            (check,) = guarded()
+            check()  # Must revalidate bytes and selector, not just trust preflight.
+
+            tamper_cases = (
+                ("shifted", {"start_char": 1, "end_char": len(passage_text) + 1}),
+                ("invented", {"passage_text": "A fabricated, same-length passage."}),
+                ("missing_charset", {"capture_charset": None}),
+                ("wrong_charset", {"capture_charset": "nonsense-charset"}),
+                ("missing_parser", {"capture_parser_version": None}),
+                ("wrong_parser", {"capture_parser_version": "other-parser"}),
+                ("wrong_method", {"extraction_method": "OTHER"}),
+                ("wrong_capture_sha", {"capture_content_sha256": "0" * 64}),
+                ("wrong_body_ref", {"capture_body_ref": "captures/other.body"}),
+                ("wrong_capture_id", {"capture_id": "capture:another"}),
+            )
+            for label, changes in tamper_cases:
+                with self.subTest(label=label):
+                    candidate.binding = {**binding, **changes}
+                    with self.assertRaises(PrivateCaptureAuthorizationBlocked):
+                        guarded()
+                    with self.assertRaises(PrivateCaptureAuthorizationBlocked):
+                        check()
+            candidate.binding = dict(binding)
+            # Metadata still claims body available: actual missing/tampered bytes MUST block.
+            file_path = store.path(receipt.body_ref)
+            file_path.write_bytes(b"corrupted body")
+            with self.assertRaises(PrivateCaptureAuthorizationBlocked):
+                guarded()
+            file_path.unlink()
+            with self.assertRaises(PrivateCaptureAuthorizationBlocked):
+                guarded()
+
+    def test_operator_storage_binding_requires_joined_source_proof(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaises(PrivateCaptureAuthorizationBlocked):
+                preflight_candidate_batch(
+                    BATCH, capture_store=FakeCapture(), candidate_store=FakeCandidate(),
+                    rights_store=FakeRights(), storage_root=Path(temp),
+                )
+
     def test_candidate_manifest_file_is_bounded_before_json_parsing(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "oversized-candidates.json"

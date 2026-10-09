@@ -301,3 +301,15 @@ budget. The operator's independent Capture body-reference boolean gate
 accepts only JSON `true`, not a truthy numeric/string value. Both paths
 were tested RED→GREEN without network/DB writes. Neither change claims
 that actual stored body bytes exist, or authorizes paid provider calls.
+
+2026-10-09 operator-specific follow-up: DP-214's production CLI now
+passes a governed existing private storage root to a source-binding
+guard that independently rereads the stored Capture SHA and pinned
+visible-text parser before the model. A Passage text/hash with
+length-correct but shifted coordinates fails exact canonical
+Capture substring/sha verification; missing bytes, charset or
+parser version block rather than falling back to a guessed proof.
+The pure `extract_passage_candidates` fixture adapter without an
+operator `authorization_guard` is intentionally **not** a source
+rights or immutable-Capture certification. DP-211's existing
+local acceptance does not authorize a real Garlasco model call.

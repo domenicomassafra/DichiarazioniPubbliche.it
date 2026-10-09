@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
@@ -291,6 +292,28 @@ class FakeStore:
 
 
 class CandidateExtractionTests(unittest.TestCase):
+    def test_private_roundtrip_snapshot_binds_capture_and_passage_without_network(self):
+        expected = {
+            "passage_id": "passage:parent",
+            "content_id": "content:1",
+            "capture_id": "capture:1",
+            "passage_text": TEXT,
+            "capture_content_sha256": "b" * 64,
+            "capture_charset": "utf-8",
+            "capture_parser_method": "STDLIB_VISIBLE_TEXT",
+            "capture_parser_version": "stdlib-visible-text-v1",
+        }
+        with patch.object(CandidateExtractionStore, "run", return_value=json.dumps(expected)) as run:
+            reader = CandidateExtractionStore.__new__(CandidateExtractionStore)
+            self.assertEqual(reader.read_private_passage_source_binding("passage:parent"), expected)
+        sql = run.call_args.args[0]
+        self.assertIn("JOIN content_capture capture", sql)
+        self.assertIn("capture.id=passage.capture_id", sql)
+        self.assertIn("capture.content_id=passage.content_id", sql)
+        self.assertIn("capture.metadata->>'response_charset'", sql)
+        self.assertIn("passage.private_text", sql)
+        self.assertEqual(run.call_args.kwargs["passage_id"], "passage:parent")
+
     def aliases(self):
         return (
             AliasLexiconRow("PERSON", "person:bruzzone", "Roberta Bruzzone", "Roberta Bruzzone", "CANONICAL_NAME"),

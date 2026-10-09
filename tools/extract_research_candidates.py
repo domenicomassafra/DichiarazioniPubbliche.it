@@ -42,6 +42,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--execute", action="store_true", help="Explicitly permit model calls and private candidate writes")
     parser.add_argument("--max-cost-usd", default="0", help="Positive TOTAL batch cap required for execution")
     parser.add_argument("--database-url", default=os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL"))
+    configured_storage = os.environ.get("DICHIARAZIONI_PUBBLICHE_CAPTURE_STORAGE_ROOT", "").strip()
+    parser.add_argument(
+        "--storage-root", type=Path,
+        default=Path(configured_storage).expanduser() if configured_storage else None,
+        help="Existing, approved private Capture storage root; required even for preflight",
+    )
     parser.add_argument("--omniroute-base-url", default=os.environ.get("OMNIROUTE_BASE_URL", "http://127.0.0.1:20128"))
     parser.add_argument("--api-key", default=os.environ.get("OMNIROUTE_API_KEY", ""))
     parser.add_argument("--model", default=os.environ.get("DICHIARAZIONI_PUBBLICHE_CANDIDATE_EXTRACTION_MODEL", ""))
@@ -55,13 +61,21 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--max-cost-usd must be a nonnegative finite amount <= 25")
     if args.execute and cap <= 0:
         parser.error("--execute requires an explicit positive --max-cost-usd")
+    root = args.storage_root
+    if (
+        root is None or not root.is_absolute()
+        or root.is_symlink() or not root.is_dir()
+    ):
+        _output("BLOCKED_NO_MODEL_CALL", reason_code="PRIVATE_ANALYSIS_STORAGE_ROOT_UNAVAILABLE")
+        return 2
 
     capture_store = CapturePipelineStore(database_url=args.database_url)
     candidate_store = CandidateExtractionStore(database_url=args.database_url)
     rights_store = PrivateRightsRegistryStore(database_url=args.database_url)
     try:
         guards = preflight_candidate_batch(
-            batch, capture_store=capture_store, candidate_store=candidate_store, rights_store=rights_store
+            batch, capture_store=capture_store, candidate_store=candidate_store,
+            rights_store=rights_store, storage_root=root,
         )
     except PrivateCaptureAuthorizationBlocked as exc:
         _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc), manifest_sha256=batch.sha256)

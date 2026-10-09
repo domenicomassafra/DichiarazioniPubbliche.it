@@ -524,3 +524,30 @@ restore drill, 5/5 verification benchmark, compileall, ticket contract
 and diff checks. Launch preflight remains **NO-GO/41** with unchanged
 receipt. No new AC or ticket is declared DONE; code-only approval
 does not replace real Camera/Senato rights or MiniPC corpus acceptance.
+
+### 2026-10-09 Wave 13 — real operator source binding, countercase replay, archive chronology
+
+The executable DP-214→DP-215 operator Candidate path no longer accepts
+a merely present Capture body reference plus a self-consistent Passage
+text/hash: with an approved **existing** storage root, preflight and
+repeated model/replay/commit guards read bounded actual bytes, check
+Capture SHA, exact persisted parent IDs, parser/version/decoding
+policy and the literal canonical selector substring. The first
+post-ingestion roundtrip is now a defensible source-bound *local*
+operator implementation; historical bodies lacking enough metadata
+block. DP-229 challenger packets moved to `countercase-v2` to
+fingerprint each evidence→relation→rationale→lineage binding,
+preventing stale reviewed packet replay after material reassignment.
+DP-419 validates archive completion chronology across timezone
+offsets before presenting a completed state. These local
+regressions plus the unchanged isolated pure fixture controls
+pass focused tests (**138/138** for the combined candidate,
+Capture, challenger, Studio and API modules). None asserts
+real Garlasco Discovery/rights/model approvals, reviewer
+authority, a MiniPC production upgrade or v1 release.
+**39 open, NO-GO/41**. The frozen Wave 13 source passed
+**2093/2093** Python tests (slow disposable PostgreSQL fixtures),
+100-table restore drill, benchmark **5/5**, ticket contract,
+compileall and diff checks, with preflight still **NO-GO/41**.
+Only the subsequent commit-specific GitHub CI remains to verify;
+no source rights or release authority are inferred.

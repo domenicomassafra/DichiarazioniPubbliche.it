@@ -298,3 +298,27 @@ processing. The database query still proves only the presence of a
 private body reference, not the physical bytes or a source-rights
 permission; the separate rights, relevance, Discovery lineage and
 model-use guards remain mandatory. No live Garlasco acceptance is implied.
+
+### 2026-10-09 Wave 13 immutable Capture→Passage operator source binding
+
+The real `tools/extract_research_candidates.py` operator entrypoint now
+requires an existing absolute approved private Capture storage root even
+in preflight. It never constructs the provider or database store when
+the storage root is missing, and opening it for inspection does not
+create directories or mutate permissions. The authorized operator
+guard uses a new exact joined, read-only persisted Capture/Passage
+snapshot, checks parent Content/Capture/Passage identities, Capture
+body SHA and body-ref, pinned parser method/version/charset, full
+private body bytes (with bounded reads), Passage SHA and exact
+canonical `TEXT_POSITION` slice. It revalidates these before
+provider/replay and commit through the existing guard contract.
+An independently self-consistent **one-character shifted** selector
+or forged same-length text now fails at the source roundtrip rather
+than reaching a paid Candidate model call.
+
+New Capture metadata records the deterministic decoding policy;
+historical records lacking sufficient parser/charset/body proof
+fail closed instead of receiving an inferred approval. This gate
+uses real temporary filesystem bytes only in local tests; it is
+not a real Garlasco source, a rights permit, a provider canary,
+or completed 100-item tracer. AC-214.1/.2/.4–.8 remain open.

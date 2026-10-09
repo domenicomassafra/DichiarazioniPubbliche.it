@@ -1,5 +1,6 @@
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -105,6 +106,71 @@ class CounterCaseTests(unittest.TestCase):
             research_complete=True,
         )
         self.assertNotEqual(empty.packet_id, counter.packet_id)
+
+    def test_changed_evidence_lineage_and_rationale_stales_exact_review(self):
+        # Same IDs, relations and aggregate sets must not hide a change in
+        # which source supports which rationale and independence lineage.
+        original_rows = (
+            CounterEvidence(
+                evidence_id="e:official:procedure-a",
+                relation="CONTRADICT",
+                rationale_code="OFFICIAL_RECORD_DISAGREES",
+                approved=True,
+                suitable=True,
+                independence_group="lineage:official-record",
+            ),
+            CounterEvidence(
+                evidence_id="e:report:method-b",
+                relation="LIMITATION",
+                rationale_code="REPORT_METHODOLOGY_LIMIT",
+                approved=True,
+                suitable=True,
+                independence_group="lineage:independent-report",
+            ),
+        )
+        original = build_countercase_packet(
+            claim_id="claim:countercase-replay",
+            evidence=original_rows,
+            research_complete=True,
+        )
+        replayed = build_countercase_packet(
+            claim_id="claim:countercase-replay",
+            evidence=tuple(reversed(original_rows)),
+            research_complete=True,
+        )
+        self.assertEqual(original.packet_id, replayed.packet_id)
+
+        revised = build_countercase_packet(
+            claim_id="claim:countercase-replay",
+            evidence=(
+                replace(
+                    original_rows[0],
+                    rationale_code=original_rows[1].rationale_code,
+                    independence_group=original_rows[1].independence_group,
+                ),
+                replace(
+                    original_rows[1],
+                    rationale_code=original_rows[0].rationale_code,
+                    independence_group=original_rows[0].independence_group,
+                ),
+            ),
+            research_complete=True,
+        )
+        self.assertEqual(original.evidence_ids, revised.evidence_ids)
+        self.assertEqual(original.rationale_codes, revised.rationale_codes)
+        self.assertEqual(original.independence_groups, revised.independence_groups)
+        self.assertEqual(original.contradicting_evidence_ids, revised.contradicting_evidence_ids)
+        self.assertEqual(original.limitation_evidence_ids, revised.limitation_evidence_ids)
+        self.assertNotEqual(original.packet_id, revised.packet_id)
+        decision = evaluate_challenger_readiness(
+            revised,
+            incorporated_packet_id=original.packet_id,
+            reviewed_packet_id=original.packet_id,
+        )
+        self.assertFalse(decision.ready)
+        self.assertTrue(decision.review_stale)
+        self.assertIn("MATERIAL_CHALLENGER_NOT_INCORPORATED", decision.blockers)
+        self.assertIn("CHALLENGER_REVIEW_STALE", decision.blockers)
 
     def test_material_challenger_gain_stales_prior_readiness_and_review(self):
         prior = build_countercase_packet(
