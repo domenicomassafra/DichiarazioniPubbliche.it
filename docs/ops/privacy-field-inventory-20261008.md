@@ -74,17 +74,19 @@ blockers based solely on this technical inventory.
 ## DP-417 follow-up — local schema inventory refresh, 2026-10-09
 
 The new `research_discovery_triage_decision` table in `db/schema.v1.sql`
-adds nine persisted fields: `actor_ref`, `collection_id`, `created_at`,
+  adds ten persisted fields: `actor_ref`, `attestation_receipt_id`, `collection_id`, `created_at`,
 `decision`, `expected_revision`, `hit_id`, `payload_sha256`, `request_key`,
 and `revision`. The intentionally regenerated inventory now covers
-**100 tables / 1,247 fields**, up from the 99 / 1,238 baseline above.
+  **100 tables / 1,248 fields**, up from the 99 / 1,238 baseline above.
 The public allowlist remains unchanged at **11 groups / 89 fields**.
 
-All nine new fields have `OPERATIONAL_PRIVATE` classification,
+All ten new fields have `OPERATIONAL_PRIVATE` classification,
 `AUTHENTICATED_PRIVATE_OPERATOR` access, and
 `DENY_DIRECT_DB_PROJECTION`; none has permission to appear directly in
 the public projection. `actor_ref` and `request_key` are opaque private
-operator/audit identifiers and require the same protection as the other
+operator/audit identifiers; `attestation_receipt_id` is an opaque private
+reference to an off-database HMAC proof, not a signature verification result.
+All require the same protection as the other
 triage history fields. The inventory continues to deny legal retention
 approval and publication authority by default.
 

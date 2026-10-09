@@ -582,6 +582,7 @@ CREATE TABLE IF NOT EXISTS research_discovery_triage_decision (
     decision            text NOT NULL,
     payload_sha256      text NOT NULL,
     actor_ref           text NOT NULL,
+    attestation_receipt_id text UNIQUE,
     created_at          timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (hit_id, revision),
     UNIQUE (request_key),
@@ -591,7 +592,9 @@ CREATE TABLE IF NOT EXISTS research_discovery_triage_decision (
     CHECK (request_key ~ '^[A-Za-z0-9_:/.-]{1,128}$'),
     CHECK (decision IN ('NEEDS_REVIEW', 'DEFERRED', 'REJECTED')),
     CHECK (payload_sha256 ~ '^[0-9a-f]{64}$'),
-    CHECK (actor_ref ~ '^[A-Za-z0-9_:/.-]{1,128}$')
+    CHECK (actor_ref ~ '^[A-Za-z0-9_:/.-]{1,128}$'),
+    CHECK (attestation_receipt_id IS NULL OR
+           attestation_receipt_id ~ '^triage-receipt-[0-9a-f]{64}$')
 );
 
 CREATE INDEX IF NOT EXISTS research_discovery_triage_decision_collection_idx

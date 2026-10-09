@@ -74,6 +74,15 @@ class AttestedMigratedPostgresTests(unittest.TestCase):
                         f"WHERE hit_id='{setup.hit}'"
                     ), "1",
                 )
+                self.assertEqual(
+                    cluster.require_sql(
+                        "SELECT attestation_receipt_id FROM research_discovery_triage_decision "
+                        f"WHERE hit_id='{setup.hit}'"
+                    ), proof["receipt_id"],
+                )
+                # An unsigned DB primitive cannot claim REPLAY of the signed
+                # event, even with the same opaque actor/request fingerprint.
+                self.assertEqual(store.record(**args)["result_code"], "IDEMPOTENCY_CONFLICT")
                 history = StudioOperatorQueues(database_url=cluster.url).inspect_discovery_triage(
                     collection_id="collection:one", hit_id=setup.hit,
                 )

@@ -48,6 +48,7 @@ CREATE TEMP TABLE research_discovery_triage_decision (
     decision text NOT NULL CHECK (decision IN ('NEEDS_REVIEW','DEFERRED','REJECTED')),
     payload_sha256 text NOT NULL CHECK (payload_sha256 ~ '^[0-9a-f]{64}$'),
     actor_ref text NOT NULL,
+    attestation_receipt_id text UNIQUE,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (hit_id, revision)
 );
@@ -75,6 +76,7 @@ def _scenario(*, request_key: str, decision: str, expected_revision: int,
         for key in ("collection_id", "hit_id", "request_key", "decision",
                     "expected_revision", "payload_sha256", "actor_ref")
     )
+    vars_sql += "\n\\set attestation_receipt_id ''"
     body = _WRITE_SQL.removeprefix("BEGIN;").removesuffix("COMMIT;").strip()
     return vars_sql + "\n" + body
 

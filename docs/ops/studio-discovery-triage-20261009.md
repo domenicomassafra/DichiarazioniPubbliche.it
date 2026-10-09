@@ -40,6 +40,11 @@ distinguishes `CREATED`, `REPLAY`, `IDEMPOTENCY_CONFLICT`,
 requests are not applied. A revoked credential cannot issue or verify new
 attestations. A verified credential alone is not source-rights or reviewer
 policy authority, and replay does not re-authorize any downstream action.
+The signed writer also binds the opaque receipt ID to its append-only ledger
+row. An unsigned direct DB primitive cannot replay a signed annotation as
+its own event. The DB does **not** verify HMACs on its own: validating the
+offline receipt still requires the protected reviewer authority root, and
+the presence of an ID is not human/editorial approval.
 
 ## Read-only inspection
 
@@ -57,6 +62,6 @@ Before treating this as an operational review workflow, verify governance
 for reviewer identity, denial/appeal and signed decisions, current rights,
 genuine Discovery Hits, safe state machine and bulk transitions, migration
 read-back, and protected backup/restore on real deployed data. The local
-privacy inventory labels all nine persisted ledger fields
+privacy inventory labels all ten persisted ledger fields
 `OPERATIONAL_PRIVATE` and denies direct public projection. Neither this
 runbook nor a passing canary marks DP-417 complete.

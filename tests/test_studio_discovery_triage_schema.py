@@ -157,14 +157,17 @@ class DiscoveryTriageSchemaTests(unittest.TestCase):
 
     def insert(self, hit=None, *, collection="collection:one", key="request:one",
                revision=1, expected=0, decision="NEEDS_REVIEW",
-               digest="a" * 64, actor="reviewer:fixture", raw_key=None):
+               digest="a" * 64, actor="reviewer:fixture", raw_key=None,
+               attestation_receipt_id=None):
         request_key = raw_key if raw_key is not None else f"{self._testMethodName}:{key}"
+        attestation_column = ", attestation_receipt_id" if attestation_receipt_id is not None else ""
+        attestation_value = f", '{attestation_receipt_id}'" if attestation_receipt_id is not None else ""
         return self.sql(
             "INSERT INTO research_discovery_triage_decision "
             "(collection_id, hit_id, revision, expected_revision, request_key, "
-            "decision, payload_sha256, actor_ref) VALUES "
+            f"decision, payload_sha256, actor_ref{attestation_column}) VALUES "
             f"('{collection}', '{hit or self.hit}', {revision}, {expected}, "
-            f"'{request_key}', '{decision}', '{digest}', '{actor}');"
+            f"'{request_key}', '{decision}', '{digest}', '{actor}'{attestation_value});"
         )
 
     def assert_failed(self, result, fragment):
@@ -188,6 +191,35 @@ class DiscoveryTriageSchemaTests(unittest.TestCase):
                     database=db,
                 ), "3"
             )
+
+    def test_signed_receipt_reference_is_unique_bounded_and_immutable(self):
+        receipt = "triage-receipt-" + "a" * 64
+        self.assertEqual(self.insert(attestation_receipt_id=receipt).returncode, 0)
+        self.assertEqual(
+            self.require_sql(
+                "SELECT attestation_receipt_id FROM research_discovery_triage_decision "
+                f"WHERE hit_id='{self.hit}'"
+            ), receipt,
+        )
+        reused = self.insert(
+            hit=self.other, key="reuse", attestation_receipt_id=receipt,
+        )
+        self.assert_failed(reused, "duplicate key")
+        malformed = self.insert(
+            hit=self.other, key="malformed", attestation_receipt_id="not-a-receipt",
+        )
+        self.assert_failed(malformed, "check constraint")
+        changed = self.sql(
+            "UPDATE research_discovery_triage_decision SET attestation_receipt_id = NULL "
+            f"WHERE hit_id='{self.hit}';"
+        )
+        self.assert_failed(changed, "append-only")
+        self.assertEqual(
+            self.require_sql(
+                "SELECT count(*) FROM research_discovery_triage_decision "
+                f"WHERE hit_id IN ('{self.hit}','{self.other}')"
+            ), "1",
+        )
 
     def test_append_only_history_preserves_disposition(self):
         self.assertEqual(self.insert().returncode, 0)

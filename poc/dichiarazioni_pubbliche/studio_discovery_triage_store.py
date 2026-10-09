@@ -15,6 +15,7 @@ import argparse
 import json
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.studio_discovery_triage_contract import (
+    StudioDiscoveryTriageRequest,
     make_triage_request,
     present_triage_receipt,
 )
@@ -43,7 +44,8 @@ WITH scope AS (
 ),
 existing AS (
     SELECT collection_id, hit_id, request_key, revision,
-           expected_revision, decision, payload_sha256, actor_ref
+           expected_revision, decision, payload_sha256, actor_ref,
+           attestation_receipt_id
     FROM research_discovery_triage_decision
     WHERE request_key = :'request_key'
 ),
@@ -58,19 +60,20 @@ current_rev AS (
 inserted AS (
     INSERT INTO research_discovery_triage_decision
         (collection_id, hit_id, revision, expected_revision, request_key,
-         decision, payload_sha256, actor_ref)
+         decision, payload_sha256, actor_ref, attestation_receipt_id)
     SELECT :'collection_id', :'hit_id', current_rev.revision + 1,
            :'expected_revision'::bigint, :'request_key',
-           :'decision', :'payload_sha256', :'actor_ref'
+           :'decision', :'payload_sha256', :'actor_ref',
+           NULLIF(:'attestation_receipt_id', '')
     FROM current_rev
     WHERE EXISTS (SELECT 1 FROM scope)
       AND NOT EXISTS (SELECT 1 FROM existing)
       AND current_rev.revision = :'expected_revision'::bigint
     ON CONFLICT DO NOTHING
-    RETURNING revision
+    RETURNING revision, attestation_receipt_id
 ),
 matched_replay AS (
-    SELECT revision FROM existing
+    SELECT revision, attestation_receipt_id FROM existing
     WHERE collection_id = :'collection_id'
       AND hit_id = :'hit_id'
       AND request_key = :'request_key'
@@ -78,6 +81,8 @@ matched_replay AS (
       AND decision = :'decision'
       AND actor_ref = :'actor_ref'
       AND payload_sha256 = :'payload_sha256'
+      AND attestation_receipt_id IS NOT DISTINCT FROM
+          NULLIF(:'attestation_receipt_id', '')
 )
 SELECT json_build_object(
     'result_code', CASE
@@ -93,6 +98,11 @@ SELECT json_build_object(
     'decision', :'decision',
     'expected_revision', :'expected_revision'::bigint,
     'payload_sha256', :'payload_sha256',
+    'signed_receipt_linked', COALESCE(
+        (SELECT attestation_receipt_id IS NOT NULL FROM matched_replay),
+        (SELECT attestation_receipt_id IS NOT NULL FROM inserted),
+        false
+    ),
     'revision', coalesce(
         (SELECT revision FROM matched_replay),
         (SELECT revision FROM inserted),
@@ -115,12 +125,20 @@ class StudioDiscoveryTriageStore(PsqlRuntime):
             decision=decision, expected_revision=expected_revision,
             actor_ref=actor_ref,
         )
+        return self._record_request(request, attestation_receipt_id="")
+
+    def _record_request(
+        self, request: StudioDiscoveryTriageRequest, *, attestation_receipt_id: str,
+    ) -> dict[str, object]:
+        # This is a DB primitive, not a reviewer-credential verifier. The
+        # signed path must verify the receipt separately before entering it.
         try:
             raw = self.run(
                 _WRITE_SQL, collection_id=request.collection_id,
                 hit_id=request.hit_id, request_key=request.request_key,
                 decision=request.decision, expected_revision=request.expected_revision,
                 payload_sha256=request.payload_sha256, actor_ref=request.actor_ref,
+                attestation_receipt_id=attestation_receipt_id,
             )
         except Exception:
             # Never relay psql error output: it can include schema and private data.
@@ -140,9 +158,17 @@ class StudioDiscoveryTriageStore(PsqlRuntime):
         allowed = {
             "result_code", "collection_id", "hit_id", "request_key",
             "decision", "expected_revision", "revision", "payload_sha256",
+            "signed_receipt_linked",
         }
         if set(parsed) != allowed:
             raise ValueError("STUDIO_TRIAGE_RESULT_INVALID")
+        code = parsed["result_code"]
+        linked = parsed["signed_receipt_linked"]
+        if type(linked) is not bool or (
+            code in {"CREATED", "REPLAY"}
+            and linked != bool(attestation_receipt_id)
+        ):
+            raise ValueError("STUDIO_TRIAGE_ATTESTATION_LINK_INVALID")
         try:
             receipt = present_triage_receipt(parsed, request=request)
         except (ValueError, TypeError):
@@ -173,10 +199,8 @@ class StudioDiscoveryTriageStore(PsqlRuntime):
             actor_ref=actor_ref,
         )
         proof = verify_triage_attestation(authority, request, receipt_id)
-        value = self.record(
-            collection_id=collection_id, hit_id=hit_id, request_key=request_key,
-            decision=decision, expected_revision=expected_revision,
-            actor_ref=actor_ref,
+        value = self._record_request(
+            request, attestation_receipt_id=proof["receipt_id"],
         )
         successful = value["result_code"] in {"CREATED", "REPLAY"}
         return {

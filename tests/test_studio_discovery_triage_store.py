@@ -61,6 +61,8 @@ class FakeStore(StudioDiscoveryTriageStore):
             "decision": kwargs["decision"],
             "expected_revision": kwargs["expected_revision"],
             "payload_sha256": kwargs["payload_sha256"],
+            "signed_receipt_linked": bool(kwargs["attestation_receipt_id"])
+                and self.result in {"CREATED", "REPLAY"},
             "revision": None if self.result == "SCOPE_NOT_FOUND" else 1,
         }
         if self.mutate:
@@ -98,6 +100,7 @@ class StudioTriageStoreTests(unittest.TestCase):
                 self.assertFalse(value["triage_action_authorized"])
                 self.assertFalse(value["capture_authorized"])
                 self.assertFalse(value["actor_attested"])
+                self.assertNotIn("signed_receipt_linked", value)
                 self.assertTrue(value["private_only"])
                 query, params = store.calls[0]
                 self.assertEqual(query, _WRITE_SQL)
@@ -140,6 +143,8 @@ class StudioTriageStoreTests(unittest.TestCase):
         ):
             with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "RESULT_INVALID"):
                 FakeStore(mutate=bad).record(**ARGS)
+        with self.assertRaisesRegex(ValueError, "ATTESTATION_LINK_INVALID"):
+            FakeStore(mutate={"signed_receipt_linked": "yes"}).record(**ARGS)
 
     def test_real_sql_fixture_generator_covers_all_collision_states(self):
         sql = synthetic_triage_sql()
@@ -183,6 +188,7 @@ class StudioTriageStoreTests(unittest.TestCase):
             self.assertTrue(created["actor_attested"])
             self.assertTrue(created["identity_receipt_verified"])
             self.assertEqual(created["attestation_receipt_id"], attestation["receipt_id"])
+            self.assertEqual(store.calls[0][1]["attestation_receipt_id"], attestation["receipt_id"])
             self.assertFalse(created["triage_action_authorized"])
             self.assertFalse(created["publication_authority"])
             self.assertFalse(created["capture_authorized"])

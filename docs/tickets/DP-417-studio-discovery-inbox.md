@@ -205,3 +205,24 @@ private-source rights policy, real safe row actions and reversibility,
 multi-family queues, bulk-state compatibility, nonempty real Discovery Hits
 and runtime migration/deployment acceptance remain open. DP-417 and all
 AC-417.1–.4 stay **IN PROGRESS / unchecked**.
+
+### Signed receipt-to-ledger reference — 2026-10-09 follow-up
+
+An additional `attestation_receipt_id` is persisted in the same append-only
+triage row, nullable only for explicitly **unattested** DB primitive writes.
+It has a strictly bounded `triage-receipt-<sha256>` shape and unique constraint;
+`record_attested` verifies an active credential-bound local receipt before
+inserting it. CAS and idempotency replay compare the persisted receipt ID as
+well as actor, scope, intent and request digest; attempting to replay a signed
+row via the unsigned primitive yields `IDEMPOTENCY_CONFLICT`. It cannot
+rewrite, duplicate, strip or substitute the immutable receipt link.
+
+This is a **private, cryptographically verifiable pointer**, not on-DB proof
+of the HMAC, complete reviewer governance, rights approval, workflow-action
+authority or a public safety sign-off. The reader still deliberately reports
+`reviewer_identity_attested=false` because it has no credential authority root
+and cannot establish live revocation or reviewer eligibility. Direct public
+projection remains denied. Updated migration/schema, privacy classification,
+SQL canary and isolated PostgreSQL tests cover this source-only addition.
+The new migration still has not been installed on production, and every
+AC-417.1–.4 remains unchecked.

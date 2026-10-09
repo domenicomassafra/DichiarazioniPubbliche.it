@@ -8165,6 +8165,14 @@
         "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
         "schema_origin": "CANONICAL_SCHEMA_V1"
       },
+      "attestation_receipt_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "CANONICAL_SCHEMA_V1"
+      },
       "collection_id": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
         "data_class": "OPERATIONAL_PRIVATE",
