@@ -299,3 +299,15 @@ Follow-up 2026-10-05: the detached clean-clone job now includes the package buil
 fresh-environment import/benchmark/CLI smoke promised by DP-601/DP-605, plus the DP-604
 reproducible-artifact checker. This keeps the hosted job aligned with the documented
 clean-clone acceptance path.
+
+Follow-up 2026-10-09 (Wave 17 CI runtime maintenance): GitHub's hosted receipt
+`37989978926` for the earlier completed DP-419 vertical had 11/11 green jobs,
+but generated Node 20 deprecation warnings for all seven action references:
+`checkout@v4`, `setup-python@v5`, `setup-node@v4`. The updated workflow now
+uses the first Node 24-native official major versions `checkout@v5`,
+`setup-python@v6`, `setup-node@v5`. There are no changed action inputs,
+job matrix, permissions, install commands, test gates, cache scope or public
+projection safeguards. The preexisting historical version receipt above is
+retained as historical, not rewritten. New RED→GREEN source tests cover all
+seven references and the fail-closed/no-deployment workflow contract. This
+maintenance does not grant production release authority or change DP-602 DONE.
