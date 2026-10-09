@@ -150,3 +150,30 @@ a separately bound, tested time-range/candidate jump; rights-gated source
 preview, real MiniPC installation, browser/manual AT and provider receipts
 remain unavailable. No migration, corpus mutation, rights decision, reviewer
 authority or production deployment was performed.
+
+### 2026-10-09 Wave 16: content-scoped media Candidate time locator
+
+Because a `MEDIA_SEGMENT_REF` Passage belongs to a **canonical Segment on
+logical Content**, not to a versioned Capture, it must not be put into the
+version-specific written selector list. A distinct authenticated loopback
+`/v1/media/segment` read now resolves the exact persisted
+StatementCandidate→statement_candidate_passage→Passage→canonical_transcript_segment
+join, requiring the supplied Content ID, Candidate ID and Passage ID and
+all three related Content bindings to agree. The SQL projection never
+fetches transcript/statement/passage wording, private metadata, URLs or
+speaker identity. The pure inspector also validates the media selector,
+stable source IDs, Passage hash, stored segment index/time range,
+transcript status and publication-blocked state.
+
+The private Studio Catture workspace offers an explicit keyboard-usable
+lookup form and a live region showing the stored canonical time interval in
+seconds, **not** a real media-player seek, attribution verification, playback
+right, approval or publication eligibility. An uncertain or held segment
+retains its actual persisted states and all authority flags are false.
+
+Additional synthetic RED→GREEN and HTTP/SQL projection regressions plus an
+isolated PostgreSQL fixture with actual linked Candidate/Passage/Segment
+records cover mismatched candidate/source IDs, wrong selector, missing joins
+and secret-text non-disclosure. This remains a partial DP-419.3 locator
+step, **not** AC-419.3 closure: real preview/seek synchronization and a
+rights-approved MiniPC/real-media operator replay are still pending.

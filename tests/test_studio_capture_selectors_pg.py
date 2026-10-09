@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'poc'))
 
 from dichiarazioni_pubbliche.studio_capture_inspector import inspect_capture_passage_selectors  # noqa: E402
+from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_media_selector  # noqa: E402
 from dichiarazioni_pubbliche.studio_local_api import _StudioCaptureReader  # noqa: E402
 
 
@@ -67,6 +68,31 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
                 ('passage:03', 'content:other', 'capture:bbbbbb', 'TEXT_POSITION',
                  0, 9, repeat('d', 64), 'SECRET other content', 'fixture', 'v1',
                  '{}'::jsonb);
+              INSERT INTO canonical_transcript_segment (
+                id, content_id, segment_index, start_ms, end_ms,
+                canonical_text, transcript_status, publication_blocked
+              ) VALUES (
+                'canonical:one', 'content:one', 2, 1200, 3400,
+                'SECRET canonical audio transcript', 'RESOLVED', false
+              );
+              INSERT INTO passage (
+                id, content_id, canonical_segment_id, selector_type,
+                text_sha256, private_text, extraction_method, extraction_version
+              ) VALUES (
+                'passage:media', 'content:one', 'canonical:one',
+                'MEDIA_SEGMENT_REF', repeat('c', 64),
+                'SECRET audio passage', 'fixture', 'v1'
+              );
+              INSERT INTO statement_candidate (
+                id, content_id, statement_text_hash, normalized_statement,
+                extraction_version
+              ) VALUES (
+                'statement:one', 'content:one', repeat('a', 64),
+                'SECRET statement', 'fixture-v1'
+              );
+              INSERT INTO statement_candidate_passage (
+                statement_candidate_id, passage_id, content_id
+              ) VALUES ('statement:one', 'passage:media', 'content:one');
             ''')
         except Exception:
             cls.tearDownClass()
@@ -111,6 +137,35 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
                 store, content_id='content:one', capture_hash='b' * 64)
         self.assertEqual(store.list_passage_selectors('capture:bbbbbb',
             limit=20, after_id=None)[0]['content_id'], 'content:other')
+
+    def test_persisted_candidate_media_passage_maps_to_exact_segment_time(self):
+        store = _StudioCaptureReader(self.dsn)
+        actual = inspect_candidate_media_selector(
+            store, content_id='content:one', statement_candidate_id='statement:one',
+            passage_id='passage:media')
+        self.assertEqual(actual['canonical_segment']['id'], 'canonical:one')
+        self.assertEqual(actual['canonical_segment']['segment_index'], 2)
+        self.assertEqual((actual['canonical_segment']['start_ms'],
+                          actual['canonical_segment']['end_ms']), (1200, 3400))
+        self.assertFalse(actual['rights_clearance'])
+        self.assertFalse(actual['attribution_authority'])
+        self.assertFalse(actual['publication_authority'])
+        for secret in ('SECRET', 'canonical_text', 'normalized_statement',
+                       'private_text', 'speaker_person_id'):
+            self.assertNotIn(secret, json.dumps(actual))
+        for changes in (
+            {'content_id': 'content:other'},
+            {'statement_candidate_id': 'statement:missing'},
+            {'passage_id': 'passage:01'},
+        ):
+            with self.subTest(changes=changes), self.assertRaisesRegex(
+                RuntimeError, 'STUDIO_MEDIA_LINK_MISSING',
+            ):
+                inspect_candidate_media_selector(store, **({
+                    'content_id': 'content:one',
+                    'statement_candidate_id': 'statement:one',
+                    'passage_id': 'passage:media',
+                } | changes))
 
 
 if __name__ == '__main__':

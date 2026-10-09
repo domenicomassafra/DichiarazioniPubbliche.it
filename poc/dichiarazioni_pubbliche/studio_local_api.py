@@ -29,6 +29,7 @@ from dichiarazioni_pubbliche.studio_candidate_review import inspect_candidate_ma
 from dichiarazioni_pubbliche.studio_capture_inspector import (
     inspect_capture_versions, inspect_capture_passage_selectors,
 )
+from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_media_selector
 from dichiarazioni_pubbliche.studio_operator_search import search_private_corpus
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
@@ -37,7 +38,8 @@ STUDIO_LOCAL_API_VERSION = "studio-local-readonly-api-v1"
 STUDIO_LOCAL_MAX_BODY_BYTES = 4096
 _TOKEN_HEX = re.compile(r"^[0-9a-f]{64,128}$")
 _ALLOWED_PATHS = frozenset({
-    "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages", "/v1/candidate/matches",
+    "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
+    "/v1/media/segment", "/v1/candidate/matches",
     "/v1/collections/list", "/v1/collections/members",
     "/v1/collections/member", "/v1/collections/claim-provenance",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
@@ -99,6 +101,51 @@ class _StudioCaptureReader(_StudioReadOnlyDb, CapturePipelineStore):
         )
         return [json.loads(line) for line in raw.splitlines() if line.strip()]
 
+    def read_candidate_media_selector(
+        self, *, content_id: str, statement_candidate_id: str, passage_id: str,
+    ) -> dict[str, Any] | None:
+        """Require a persisted Candidate→Passage→canonical Segment join, no raw words."""
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'statement_candidate_id', candidate.id,
+                'candidate_content_id', candidate.content_id,
+                'candidate_status', candidate.status,
+                'passage_id', passage.id,
+                'passage_content_id', passage.content_id,
+                'passage_capture_id', passage.capture_id,
+                'selector_type', passage.selector_type,
+                'text_sha256', passage.text_sha256,
+                'passage_segment_id', passage.canonical_segment_id,
+                'segment_id', segment.id,
+                'segment_content_id', segment.content_id,
+                'segment_index', segment.segment_index,
+                'start_ms', segment.start_ms,
+                'end_ms', segment.end_ms,
+                'transcript_status', segment.transcript_status,
+                'publication_blocked', segment.publication_blocked
+            )::text
+            FROM statement_candidate candidate
+            JOIN statement_candidate_passage link
+              ON link.statement_candidate_id=candidate.id
+             AND link.content_id=candidate.content_id
+            JOIN passage ON passage.id=link.passage_id
+                        AND passage.content_id=link.content_id
+            JOIN canonical_transcript_segment segment
+              ON segment.id=passage.canonical_segment_id
+             AND segment.content_id=passage.content_id
+            WHERE candidate.id=:'statement_candidate_id'
+              AND candidate.content_id=:'content_id'
+              AND passage.id=:'passage_id'
+              AND passage.selector_type='MEDIA_SEGMENT_REF'
+              AND passage.capture_id IS NULL
+            LIMIT 1;
+            """,
+            content_id=content_id, statement_candidate_id=statement_candidate_id,
+            passage_id=passage_id,
+        )
+        return json.loads(raw) if raw else None
+
 
 class _StudioCandidateReader(_StudioReadOnlyDb, CandidateMatchingStore):
     pass
@@ -115,6 +162,7 @@ class _CorpusReader(Protocol):
 class _CaptureReader(Protocol):
     def find_capture(self, content_id: str, content_sha256: str) -> dict[str, Any] | None: ...
     def list_passage_selectors(self, capture_id: str, *, limit: int, after_id: str | None) -> list[dict[str, Any]]: ...
+    def read_candidate_media_selector(self, *, content_id: str, statement_candidate_id: str, passage_id: str) -> dict[str, Any] | None: ...
 
 
 class _CandidateReader(Protocol):
@@ -166,6 +214,9 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
     if path == "/v1/capture/passages":
         _fields(body, required={"content_id", "capture_hash"}, optional={"limit", "after_id"})
         return inspect_capture_passage_selectors(readers.captures, **body)
+    if path == "/v1/media/segment":
+        _fields(body, required={"content_id", "statement_candidate_id", "passage_id"})
+        return inspect_candidate_media_selector(readers.captures, **body)
     if path == "/v1/candidate/matches":
         _fields(body, required={"run_id", "claim_candidate_id"})
         return inspect_candidate_match_run(readers.candidates, **body)

@@ -164,6 +164,15 @@ _PAGE = """<!doctype html>
         <label>Dopo Passage ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Mostra selettori</button></div>
       </form>
+      <h2>Passaggio multimediale e segmento canonico</h2>
+      <p>Verifica il collegamento persistito tra candidato, Passage multimediale e intervallo del segmento canonico. Nessun testo, identificazione certa del parlante, riproduzione media o permesso di pubblicazione.</p>
+      <form data-endpoint="/v1/media/segment">
+        <div class="controls"><label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Statement Candidate ID<input name="statement_candidate_id" maxlength="180" required></label>
+        <label>Passage ID<input name="passage_id" maxlength="180" required></label>
+        <button type="submit">Localizza segmento</button></div>
+      </form>
+      <p id="media-locator" role="status" aria-live="polite">Nessun segmento selezionato.</p>
     </section>
     <section class="pane" aria-labelledby="esito">
       <h2 id="esito">Esito</h2><p role="status" id="status" class="notice" aria-live="polite">Nessuna richiesta eseguita.</p>
@@ -178,6 +187,7 @@ _PAGE = """<!doctype html>
     const memberLinks = document.getElementById('member-links');
     const claimLinks = document.getElementById('claim-links');
     const captureLinks = document.getElementById('capture-links');
+    const mediaLocator = document.getElementById('media-locator');
     const capturePassageForm = document.querySelector('form[data-endpoint="/v1/capture/passages"]');
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
@@ -196,6 +206,7 @@ _PAGE = """<!doctype html>
         results.textContent = 'Nessuna richiesta per il workspace selezionato.';
         status.textContent = 'Pronto per una query.';
         captureLinks.replaceChildren();
+        mediaLocator.textContent = 'Nessun segmento selezionato.';
       });
     }
     for (const form of document.querySelectorAll('form[data-endpoint]')) {
@@ -222,6 +233,9 @@ _PAGE = """<!doctype html>
         if (form.dataset.endpoint === '/v1/capture/compare') {
           captureLinks.replaceChildren();
         }
+        if (form.dataset.endpoint === '/v1/media/segment') {
+          mediaLocator.textContent = 'Intervallo canonico non verificato.';
+        }
         try {
           const response = await fetch(form.dataset.endpoint, {
             method: 'POST', credentials: 'omit', redirect: 'error',
@@ -231,6 +245,15 @@ _PAGE = """<!doctype html>
           const receipt = await response.json();
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
           results.textContent = JSON.stringify(receipt, null, 2);
+          if (response.ok && form.dataset.endpoint === '/v1/media/segment'
+              && receipt.data?.canonical_segment) {
+            const segment = receipt.data.canonical_segment;
+            mediaLocator.textContent = 'Segmento ' + segment.id + ' · '
+              + (segment.start_ms / 1000) + '–' + (segment.end_ms / 1000)
+              + ' secondi · stato ' + segment.transcript_status
+              + (segment.publication_blocked ? ' · pubblicazione bloccata' : '')
+              + ' · sola posizione interna, non permesso di riprodurre';
+          }
           if (response.ok && form.dataset.endpoint === '/v1/capture/compare') {
             for (const position of ['earlier', 'later']) {
               const capture = receipt.data?.[position];

@@ -25,6 +25,7 @@ from dichiarazioni_pubbliche.studio_local_api import (  # noqa: E402
     _StudioQueueReader,
 )
 from tests.test_studio_capture_inspector import A, B, FakeCaptureStore  # noqa: E402
+from tests.test_studio_media_selector import media_row  # noqa: E402
 from tests.test_studio_candidate_review import Store as FakeMatchStore, RUN_ID as MATCH_RUN_ID  # noqa: E402
 from tests.test_studio_operator_search import FakeStore as FakeSearchStore  # noqa: E402
 from tests.test_studio_operator_queues import FakeOperatorQueues  # noqa: E402
@@ -125,6 +126,32 @@ class StudioLocalApiTests(unittest.TestCase):
         self.captures.selectors[0]['capture_id'] = 'capture:other'
         status, _, _ = self.call('POST', route, payload, self.auth())
         self.assertEqual(status, 422)
+
+    def test_canonical_media_time_locator_is_exact_and_not_an_attribution_or_playback_permit(self):
+        route = '/v1/media/segment'
+        request = {'content_id': 'content:one',
+                   'statement_candidate_id': 'statement:one', 'passage_id': 'passage:media'}
+        self.captures.read_candidate_media_selector = lambda **kwargs: media_row()
+        denied, _, _ = self.call('POST', route, request)
+        self.assertEqual(denied, 401)
+        ok, result, headers = self.call('POST', route, request, self.auth())
+        self.assertEqual(ok, 200, result)
+        self.assertEqual(result['data']['canonical_segment']['start_ms'], 1200)
+        self.assertEqual(result['data']['canonical_segment']['end_ms'], 3400)
+        self.assertFalse(result['data']['attribution_authority'])
+        self.assertFalse(result['data']['rights_clearance'])
+        self.assertFalse(result['data']['publication_authority'])
+        self.assertEqual(headers['Cache-Control'], 'no-store, private')
+        for forbidden in ('SECRET', 'VERY PRIVATE', 'private_text', 'metadata'):
+            self.assertNotIn(forbidden, json.dumps(result))
+        for invalid in ({'approve': True}, {'passage_id': 'passage:other'},
+                        {'content_id': 'content:other'}):
+            bad, _, _ = self.call('POST', route, request | invalid, self.auth())
+            self.assertEqual(bad, 422)
+        self.captures.read_candidate_media_selector = lambda **kwargs: None
+        missing, response, _ = self.call('POST', route, request, self.auth())
+        self.assertEqual(missing, 503)
+        self.assertEqual(response, {'error': 'STUDIO_LOCAL_BACKEND_UNAVAILABLE'})
 
     def test_default_denies_unauthenticated_wrong_and_duplicate_tokens(self):
         for headers in (
@@ -373,6 +400,9 @@ class StudioLocalApiTests(unittest.TestCase):
         self.assertIn('data-endpoint="/v1/collections/member"', page)
         self.assertIn('data-endpoint="/v1/collections/claim-provenance"', page)
         self.assertIn('data-endpoint="/v1/capture/passages"', page)
+        self.assertIn('data-endpoint="/v1/media/segment"', page)
+        self.assertIn('id="media-locator"', page)
+        self.assertIn('mediaLocator.textContent', page)
         self.assertIn('id="capture-links"', page)
         self.assertIn('capturePassageForm.requestSubmit()', page)
         self.assertIn('id="claim-links"', page)
@@ -431,6 +461,28 @@ class StudioLocalTokenTests(unittest.TestCase):
                 StudioLoopbackServer(port, StudioLocalReaders(None, None, None), TOKEN)
 
 class StudioLocalDatabaseTests(unittest.TestCase):
+    def test_studio_media_sql_joins_exact_candidate_passage_segment_without_raw_text(self):
+        recorder = []
+
+        def subprocess_run(args, **kwargs):
+            recorder.append((kwargs['input'], args))
+            return SimpleNamespace(returncode=0, stdout='', stderr='')
+
+        with patch('dichiarazioni_pubbliche.studio_local_api.subprocess.run', side_effect=subprocess_run):
+            self.assertIsNone(_StudioCaptureReader().read_candidate_media_selector(
+                content_id='content:one', statement_candidate_id='statement:one',
+                passage_id='passage:media'))
+        sql, args = recorder[0]
+        self.assertIn('JOIN statement_candidate_passage link', sql)
+        self.assertIn('JOIN canonical_transcript_segment segment', sql)
+        self.assertIn("candidate.content_id=:'content_id'", sql)
+        self.assertIn("passage.id=:'passage_id'", sql)
+        self.assertIn("passage.selector_type='MEDIA_SEGMENT_REF'", sql)
+        for forbidden in ('private_text', 'canonical_text', 'normalized_statement',
+                          'metadata', 'speaker_label', 'speaker_person_id'):
+            self.assertNotIn(forbidden, sql)
+        self.assertIn('statement_candidate_id=statement:one', args)
+
     def test_studio_capture_selector_sql_does_not_select_private_material(self):
         recorder = []
 
