@@ -251,3 +251,20 @@ cross-Collection isolation and detection of a deleted internal event after
 temporarily disabling the append-only protection on the **ephemeral test
 schema only**; those protections are never disabled in production. This
 does not install the pending DP-417 production migration or close its ACs.
+
+### 2026-10-09 stale triage-history lineage privacy correction
+
+An existing append-only history reader regression was reproduced against
+**real SQL on an ephemeral PostgreSQL cluster**: two synthetic annotation
+rows remained readable (including head revision) after the Hit's
+Attempt/Query lineage was deliberately made inconsistent, because its
+Collection ID still matched. The scoped reader now gates paginated
+selection, MAX(revision) and COUNT(*) on `lineage_ok`, returning
+`head_revision=0`, `results=[]` and
+`DISCOVERY_LINEAGE_MISMATCH` for incoherent lineage. Its presenter
+also rejects false-lineage read results containing private decisions
+or revision counts. RED→GREEN tests included actual disposable
+PostgreSQL mutation and an adversarial injected response; no live
+database write occurred. This does not certify reviewer rights,
+other queues, bulk transitions or the uninstalled production
+migration. DP-417 remains IN PROGRESS.

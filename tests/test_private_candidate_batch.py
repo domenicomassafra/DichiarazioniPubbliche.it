@@ -103,6 +103,23 @@ class FakeRights:
 
 
 class CandidateAuthorizationTests(unittest.TestCase):
+    def test_candidate_manifest_file_is_bounded_before_json_parsing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "oversized-candidates.json"
+            path.write_bytes(b" " * 1_100_000)
+            with self.assertRaisesRegex(ValueError, "CANDIDATE_BATCH_FILE_TOO_LARGE"):
+                load_candidate_batch(path)
+
+    def test_candidate_passage_body_availability_requires_exact_database_boolean(self):
+        for false_or_unknown in (None, False, 0, 1, "true", "false", {}, []):
+            with self.subTest(value=false_or_unknown):
+                with self.assertRaisesRegex(
+                    PrivateCaptureAuthorizationBlocked, "PRIVATE_ANALYSIS_CAPTURE_BODY_UNAVAILABLE",
+                ):
+                    require_private_passage_state(
+                        passage_state(body_ref=false_or_unknown), ITEM,
+                    )
+
     def test_noncanonical_persisted_discovery_locator_never_passes_model_preflight(self):
         capture = FakeCapture()
         original = capture.read_research_capture_context

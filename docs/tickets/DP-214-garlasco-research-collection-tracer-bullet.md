@@ -286,3 +286,15 @@ The parent selector is not yet independently proven against immutable
 Capture canonical text when a tampered span has the same length. Neither
 change supplies genuine Content, review authority or the 100-item
 acceptance, which remains open.
+
+### 2026-10-09 Candidate manifest and availability proof
+
+The 16-item operator Candidate manifest now bounds JSON input to one MiB
+before parsing (with a RED→GREEN oversized-file regression), and the
+Candidate authorization guard requires the persisted Capture body-ref
+availability query to return the literal JSON boolean `true`. A truthy
+string, number or malformed snapshot no longer authorizes private model
+processing. The database query still proves only the presence of a
+private body reference, not the physical bytes or a source-rights
+permission; the separate rights, relevance, Discovery lineage and
+model-use guards remain mandatory. No live Garlasco acceptance is implied.

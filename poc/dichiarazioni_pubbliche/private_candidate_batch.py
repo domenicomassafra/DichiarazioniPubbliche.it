@@ -24,6 +24,7 @@ from dichiarazioni_pubbliche.rights_registry import RightsSubject
 
 VERSION = "private-research-candidate-batch-v1"
 MAX_ITEMS = 16
+MAX_MANIFEST_BYTES = 1_048_576
 MODEL_USE = "OMNIROUTE_MODEL_EXTRACTION_PRIVATE"
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 _SHA = re.compile(r"^[a-f0-9]{64}$")
@@ -109,7 +110,11 @@ def _validate_batch(batch: CandidateBatch) -> None:
 
 
 def load_candidate_batch(path: Path) -> CandidateBatch:
-    payload = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object)
+    with path.open("rb") as manifest_file:
+        encoded = manifest_file.read(MAX_MANIFEST_BYTES + 1)
+    if len(encoded) > MAX_MANIFEST_BYTES:
+        raise ValueError("CANDIDATE_BATCH_FILE_TOO_LARGE")
+    payload = json.loads(encoded.decode("utf-8"), object_pairs_hook=_unique_json_object)
     if not isinstance(payload, dict) or set(payload) != {"version", "collection_id", "items"}:
         raise ValueError("CANDIDATE_BATCH_SCHEMA_INVALID")
     if payload["version"] != VERSION:
@@ -140,7 +145,9 @@ def require_private_passage_state(row: Mapping[str, Any] | None, item: Candidate
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_ANALYSIS_CAPTURE_RIGHTS_NOT_CLEARED")
     if row.get("capture_retention_class") not in {"EPHEMERAL", "DURABLE_PRIVATE", "DURABLE_PROVENANCE"}:
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_ANALYSIS_RETENTION_POLICY_PENDING")
-    if not row.get("body_ref"):
+    # The PostgreSQL expression returns a boolean. An arbitrary truthy
+    # string/number must not be promoted to proof of an available body.
+    if row.get("body_ref") is not True:
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_ANALYSIS_CAPTURE_BODY_UNAVAILABLE")
 
 

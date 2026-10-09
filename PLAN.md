@@ -439,3 +439,28 @@ repository contract and `git diff --check`. Astro check reported
 **0 diagnostics**; its **32-page demo-mode** build was successful,
 while a normal public build properly requires the absent authorized
 projection input. Release still **NO-GO/41**.
+
+### 2026-10-09 next candidate operator preflight batch
+
+After the published `90a154c` source wave, the real 16-item private
+Candidate loader now bounds JSON reads to 1 MiB, and its independent
+Capture body-ref availability gate accepts only the exact SQL/JSON
+boolean `true` rather than any truthy value. Two local RED→GREEN
+regressions and **55/55** focused tests pass; this remains a new
+source-only follow-up pending its own full-suite, commit and CI proof.
+The Garlasco corpus, qualified source rights, immutable selector
+roundtrip and DP-417 production migration remain blocked/unchanged.
+
+An independent DP-417 read-only triage-history lane reproduced a
+stale-history privacy disclosure when a Hit's Attempt/Query lineage
+turned inconsistent after annotations. The reader now returns no
+decisions or head revision for the invalid Hit, with fail-closed SQL
+and result validation; ephemeral PostgreSQL and injected-response
+regressions are GREEN. No reviewer transition or release approval
+is implied.
+
+The integrated Candidate + DP-417 history Wave 10 finished **2072/2072
+Python unit tests PASS**, restore drill PASS, benchmark **5/5 PASS**,
+repository ticket contract PASS, `compileall` and `git diff --check`
+PASS. Canonical preflight remained **NO-GO/41**, with no additional
+AC marked complete.

@@ -33,7 +33,7 @@ WITH scoped_hit AS (
 selected AS (
     SELECT history.revision, history.expected_revision, history.decision
     FROM research_discovery_triage_decision history
-    JOIN scoped_hit hit ON hit.id=history.hit_id
+    JOIN scoped_hit hit ON hit.id=history.hit_id AND hit.lineage_ok
     WHERE history.collection_id=:'collection_id'
       AND history.revision > :'after_revision'::bigint
     ORDER BY history.revision ASC
@@ -46,11 +46,13 @@ SELECT json_build_object(
         SELECT coalesce(max(history.revision),0)
         FROM research_discovery_triage_decision history
         WHERE history.hit_id=hit.id AND history.collection_id=:'collection_id'
+          AND hit.lineage_ok
     ),
     'ledger_count', (
         SELECT count(*)
         FROM research_discovery_triage_decision history
         WHERE history.hit_id=hit.id AND history.collection_id=:'collection_id'
+          AND hit.lineage_ok
     ),
     'decisions', (
         SELECT coalesce(
@@ -82,6 +84,10 @@ def _present(row: dict[str, Any], *, collection_id: str, hit_id: str,
     if ledger_count != head_revision:
         raise ValueError("STUDIO_TRIAGE_HISTORY_LEDGER_INCOMPLETE")
     decisions = row.get("decisions")
+    # Failed Hit -> Attempt -> Query lineage must not disclose old annotations,
+    # including their count/head, even if the ledger's Collection ID matches.
+    if not lineage_ok and (head_revision != 0 or ledger_count != 0 or decisions != []):
+        raise ValueError("STUDIO_TRIAGE_HISTORY_LINEAGE_DISCLOSURE")
     visible_count = min(limit, max(head_revision - after_revision, 0))
     if not isinstance(decisions, list) or len(decisions) != visible_count:
         raise ValueError("STUDIO_TRIAGE_HISTORY_LIMIT_INVALID")

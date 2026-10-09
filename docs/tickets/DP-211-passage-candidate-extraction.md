@@ -294,3 +294,10 @@ requires an independently readable, rights-gated immutable Capture
 text/selector roundtrip; that is not yet established at this module's
 current database interface. No new source or live candidate acceptance
 is claimed, and the original DP-211 certification is not widened.
+
+2026-10-09 operator hardening continuation: malformed/oversized private
+Candidate JSON manifests are refused before decoding above a one-MiB
+budget. The operator's independent Capture body-reference boolean gate
+accepts only JSON `true`, not a truthy numeric/string value. Both paths
+were tested RED→GREEN without network/DB writes. Neither change claims
+that actual stored body bytes exist, or authorizes paid provider calls.

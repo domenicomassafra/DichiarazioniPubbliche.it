@@ -89,6 +89,14 @@ class TriageHistoryTests(unittest.TestCase):
         self.assertIn("DISCOVERY_LINEAGE_MISMATCH", value["blockers"])
         self.assertFalse(value["publication_authority"])
 
+    def test_broken_lineage_cannot_disclose_stale_private_history(self):
+        # A malformed SQL read must never deliver decisions when the Hit's
+        # persisted Attempt/Query provenance is no longer coherent.
+        with self.assertRaisesRegex(ValueError, "RESULT_INVALID"):
+            Queue(fixture(lineage_ok=False)).inspect_discovery_triage(
+                collection_id="research:one", hit_id="hit:one",
+            )
+
     def test_scope_invalid_rows_and_bogus_history_fail_closed(self):
         for change in (
             {"collection_id": "research:other"},
@@ -225,6 +233,27 @@ class TriageHistoryTests(unittest.TestCase):
             self.assertTrue(part2["lineage_ok"])
             self.assertFalse(part2["reviewer_identity_attested"])
             self.assertNotIn("operator:fixture-only", json.dumps(part2))
+            # An already-annotated Hit can subsequently acquire inconsistent
+            # Attempt/Query linkage. Exercise the actual SQL against the local
+            # disposable cluster: neither its decisions nor its head may leak.
+            cluster.require_sql(
+                "UPDATE research_discovery_hit SET query_id='query:two' "
+                f"WHERE id='{fixture_test.hit}';"
+            )
+            try:
+                stale = queue.inspect_discovery_triage(
+                    collection_id="collection:one", hit_id=fixture_test.hit, limit=1,
+                )
+                self.assertFalse(stale["lineage_ok"])
+                self.assertEqual(stale["head_revision"], 0)
+                self.assertEqual(stale["results"], [])
+                self.assertIsNone(stale["next_after_revision"])
+                self.assertIn("DISCOVERY_LINEAGE_MISMATCH", stale["blockers"])
+            finally:
+                cluster.require_sql(
+                    "UPDATE research_discovery_hit SET query_id='query:one' "
+                    f"WHERE id='{fixture_test.hit}';"
+                )
             with self.assertRaisesRegex(ValueError, "NOT_FOUND"):
                 queue.inspect_discovery_triage(
                     collection_id="collection:two", hit_id=fixture_test.hit,
