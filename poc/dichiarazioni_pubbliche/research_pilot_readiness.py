@@ -110,6 +110,26 @@ SELECT json_build_object(
 FROM research_collection collection WHERE collection.id=:'collection_id';
 """.strip()
 
+# One PostgreSQL statement = one MVCC snapshot. The old two-run read could
+# silently combine a collection summary from T1 with members from T2, even
+# when their totals happened to match. Neither query includes source bodies
+# or source URLs. Retain the strict SQL-side 2001-row overflow sentinel.
+_COLLECTION_SNAPSHOT_SQL = f"""
+SELECT json_build_object(
+    'summary', (
+        SELECT summary_row.value::json
+        FROM ({_SUMMARY_READ_SQL.removesuffix(';')}) AS summary_row(value)
+    ),
+    'members', (
+        SELECT COALESCE(
+            json_agg(member_row.value::json ORDER BY (member_row.value::json->>'content_id')),
+            '[]'::json
+        )
+        FROM ({_MEMBER_READ_SQL.removesuffix(';')}) AS member_row(value)
+    )
+)::text;
+""".strip()
+
 
 class ReadinessReportError(ValueError):
     pass
@@ -119,13 +139,29 @@ class ResearchPilotReadinessStore(PsqlRuntime):
     def read_collection(self, collection_id: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         if not isinstance(collection_id, str) or not _ID.fullmatch(collection_id):
             raise ReadinessReportError("PILOT_COLLECTION_ID_INVALID")
-        raw = self.run(_SUMMARY_READ_SQL, collection_id=collection_id)
-        if not raw:
+        try:
+            raw = self.run(_COLLECTION_SNAPSHOT_SQL, collection_id=collection_id)
+        except Exception:
+            raise ReadinessReportError("PILOT_SNAPSHOT_STORE_UNAVAILABLE") from None
+        if not isinstance(raw, str) or not raw or len(raw) > 2_000_000:
+            raise ReadinessReportError("PILOT_SNAPSHOT_EMPTY_OR_OVERSIZE")
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            raise ReadinessReportError("PILOT_SNAPSHOT_INVALID") from None
+        if not isinstance(parsed, dict) or set(parsed) != {"summary", "members"}:
+            raise ReadinessReportError("PILOT_SNAPSHOT_INVALID")
+        summary, members = parsed["summary"], parsed["members"]
+        if summary is None:
             raise ReadinessReportError("PILOT_COLLECTION_NOT_FOUND")
-        summary = json.loads(raw)
-        raw_members = self.run(_MEMBER_READ_SQL, collection_id=collection_id)
-        members = [json.loads(line) for line in raw_members.splitlines() if line.strip()]
-        if len(members) > _BOUNDED_MEMBERS or len(members) != int(summary["members_total"]):
+        if not isinstance(summary, dict) or not isinstance(members, list):
+            raise ReadinessReportError("PILOT_SNAPSHOT_INVALID")
+        if summary.get("collection_id") != collection_id:
+            raise ReadinessReportError("PILOT_SNAPSHOT_COLLECTION_SCOPE_MISMATCH")
+        if any(not isinstance(row, dict) for row in members):
+            raise ReadinessReportError("PILOT_SNAPSHOT_MEMBER_INVALID")
+        total = _require_count(summary, "members_total")
+        if len(members) > _BOUNDED_MEMBERS or len(members) != total:
             raise ReadinessReportError("PILOT_SNAPSHOT_MEMBERSHIP_DRIFT_OR_TOO_LARGE")
         return summary, members
 

@@ -187,3 +187,14 @@ persisted discovery lineage and current rights gates still apply to every
 item. Focused Capture/Candidate/Discovery tests passed **20/20** locally.
 This is an engineering guard, **not** a successful real Garlasco Capture,
 not rights clearance, and does not close any additional AC-214 criterion.
+
+### 2026-10-09 readiness snapshot integrity
+
+The private, read-only pilot readiness inventory now uses one SQL/MVCC
+snapshot for Collection and Content membership metrics. Real MiniPC
+read-back with the new source query (read-only connection, no mirror
+deployment) confirms `research:garlasco` **PAUSED, 18/18 members**, no
+Discovery Runs or unlinked Discovery Hits. See
+`docs/ops/garlasco-research-readiness-20261008.md`. This is a monitoring
+integrity improvement, not a source/capture/Candidate acceptance proof.
+AC-214.1/.2/.4/.5/.6/.7/.8 remain open.

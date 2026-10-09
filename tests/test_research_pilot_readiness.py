@@ -105,18 +105,46 @@ class ReadinessReportTests(unittest.TestCase):
 
             def run(self, sql, **values):
                 self.queries.append((sql, values))
-                if len(self.queries) == 1:
-                    return json.dumps(summary(members_total=1))
-                return json.dumps(member())
+                return json.dumps({"summary": summary(members_total=1),
+                                   "members": [member()]})
 
         store = Probe()
         s, rows = store.read_collection("research:pilot")
         self.assertEqual(len(rows), 1)
         self.assertEqual(s["members_total"], 1)
+        self.assertEqual(len(store.queries), 1)
+        self.assertIn("json_agg(member_row.value::json", store.queries[0][0])
+        self.assertIn("LIMIT 2001", store.queries[0][0])
         self.assertTrue(all(q[1] == {"collection_id": "research:pilot"} for q in store.queries))
         self.assertTrue(all("private_text" not in q[0] for q in store.queries))
         with self.assertRaises(ReadinessReportError):
             store.read_collection("bad'\nSELECT 1; --")
+
+    def test_store_snapshot_denies_missing_malformed_drift_and_private_db_errors(self):
+        class Probe(ResearchPilotReadinessStore):
+            def __init__(self, value):
+                self.value = value
+            def run(self, sql, **values):
+                if isinstance(self.value, Exception):
+                    raise self.value
+                return self.value
+
+        for response, code in (
+            (json.dumps({"summary": None, "members": []}), "COLLECTION_NOT_FOUND"),
+            (json.dumps({"summary": summary(members_total=2), "members": [member()]}), "MEMBERSHIP_DRIFT"),
+            (json.dumps({"summary": summary(members_total=True), "members": [member()]}), "COUNT_INVALID"),
+            (json.dumps({"summary": summary(collection_id="research:other", members_total=1), "members": [member()]}), "COLLECTION_SCOPE_MISMATCH"),
+            (json.dumps({"summary": summary(members_total=1), "members": [None]}), "SNAPSHOT_MEMBER_INVALID"),
+            (json.dumps({"summary": {}, "members": []}), "COLLECTION_SCOPE_MISMATCH"),
+            (json.dumps({"summary": summary(), "members": "private content"}), "SNAPSHOT_INVALID"),
+            (json.dumps({"summary": summary(), "members": [], "extra": "leak"}), "SNAPSHOT_INVALID"),
+            ("{not-json}", "SNAPSHOT_INVALID"),
+            ("x" * 2_000_001, "SNAPSHOT_EMPTY_OR_OVERSIZE"),
+            (RuntimeError("password=DO_NOT_EXPOSE"), "SNAPSHOT_STORE_UNAVAILABLE"),
+        ):
+            with self.subTest(code=code), self.assertRaisesRegex(ReadinessReportError, code) as raised:
+                Probe(response).read_collection("research:pilot")
+            self.assertNotIn("DO_NOT_EXPOSE", str(raised.exception))
 
     def test_readonly_cli_returns_structured_report_no_mutation(self):
         with patch.object(report_research_pilot, "ResearchPilotReadinessStore") as store:

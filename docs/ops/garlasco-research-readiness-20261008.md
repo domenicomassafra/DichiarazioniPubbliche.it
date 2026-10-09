@@ -103,3 +103,24 @@ same strict helper as the private Capture and Candidate batch authorization
 guard. The MiniPC negative readback remains 0 valid hits, 0/5 families
 for 18 PAUSED Garlasco members; isolated PostgreSQL tamper/rollback proof
 is documented in `docs/ops/private-capture-batch-20261008.md`.
+
+## 2026-10-09 — consistent single-snapshot metadata read
+
+`ResearchPilotReadinessStore.read_collection` now obtains collection summary
+and its bounded member inventory from **one PostgreSQL SELECT**, not two
+independent `psql` sessions. This uses a single MVCC snapshot, including
+the existing 2001-member overflow sentinel. Invalid JSON, cross-Collection
+scope, missing summaries, malformed members, excessive responses, database
+errors and summary/member count mismatch fail closed with safe reason codes.
+
+**Actual MiniPC read-only SQL proof (no mirror deployment):** the new SELECT,
+sent from the Mac source to `psql` with `default_transaction_read_only=on`,
+returned `research:garlasco` **PAUSED, 18/18 members, 0 Discovery Runs,
+0 unlinked Hits**. There were no SQL writes, migrations, HTTP fetches or
+rights decisions. The source regression initially checked 14/14 tests,
+before additional cross-scope and malformed-member cases were included.
+
+This improves an operator's count consistency only. The required 100
+authentic Content, privacy/rights permissions, source-family provenance,
+Capture/Passage/Candidate and qualified review gates remain outstanding;
+DP-214 and DP-215 stay `IN PROGRESS`.
