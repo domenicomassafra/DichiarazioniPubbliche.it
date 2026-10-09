@@ -177,3 +177,20 @@ records cover mismatched candidate/source IDs, wrong selector, missing joins
 and secret-text non-disclosure. This remains a partial DP-419.3 locator
 step, **not** AC-419.3 closure: real preview/seek synchronization and a
 rights-approved MiniPC/real-media operator replay are still pending.
+
+### 2026-10-09: persisted Capture chronology and private UI clearing (Wave 18)
+
+The earlier/later labels in the private Capture comparison previously followed
+the order of user-supplied hashes without checking persisted observation time.
+Both captures now require valid timezone-aware \`observed_at\` values; an
+earlier/later request with reversed or indistinguishable UTC instants fails
+closed. The private metadata response exposes each validated observation
+timestamp (not any raw body/header/receipt). Regression fixtures proved RED for
+reversed, offset-disguised, equal, absent and naive timestamps before this
+change, and GREEN after it. The loopback browser also invalidates prior fetches
+and clears its private media locator and capture jump links on token removal
+or workspace switch, including delayed responses.
+
+No rights-gated source excerpt, player seek, real media permission, external
+archive proof, deployed MiniPC browser or assistive-technology acceptance is
+inferred. DP-419 and all four AC remain open pending their full criteria.

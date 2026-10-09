@@ -37,6 +37,10 @@ systemd service, VPC route, reverse proxy, Cloudflare route, or tunnel.
 Access http://127.0.0.1:18777/ from the same machine. Enter the
 secret locally in the password field; the browser holds it in memory
 only and uses Authorization: Bearer for same-origin POST requests.
+The **Cancella token** action clears the token and current private
+results, collection/claim/capture links and media locator; pending
+responses cannot restore them. Switching workspaces likewise discards
+stale responses. Close the tab to discard the session entirely.
 
 To reach the **already-running** MiniPC listener from a trusted Mac,
 use an authorized SSH local-forward instead of exposing the service:
@@ -50,7 +54,7 @@ with Ctrl-C; rotate by stopping it and provisioning a new secret.
 
 ## 3. Exact read-only interface
 
-Ten POST routes:
+Twelve POST routes:
 
 - /v1/corpus/search — private DP-116 query, safe IDs only.
 - /v1/collections/list — persisted collection IDs/status/INCLUDED counts.
@@ -71,7 +75,13 @@ Ten POST routes:
   no operator identity, source details, reviewer attestation or write capability.
 - /v1/candidate/matches — persisted match classes and feature codes;
   currentness/reviewer authority is **not verified**.
-- /v1/capture/compare — two exact capture hashes and operational states.
+- /v1/capture/compare — two exact, time-ordered Capture hashes,
+  validated observation instants and operational states.
+- /v1/capture/passages — bounded written Passage selectors for one exact
+  persisted Content/Capture version; no private text or preview authority.
+- /v1/media/segment — persisted Statement Candidate→media Passage→
+  canonical Content Segment time locator; not media playback, review,
+  attribution or rights approval.
 
 The unauthenticated GET / returns a **data-free** operator login
 shell, protected by a fresh nonce-based CSP, X-Frame-Options and

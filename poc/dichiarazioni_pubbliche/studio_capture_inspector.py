@@ -59,6 +59,7 @@ def _has_receipt(value: object) -> bool:
 @dataclass(frozen=True)
 class CaptureInspection:
     id: str
+    observed_at: str
     content_sha256: str
     capture_state: str
     hold_state: str
@@ -68,6 +69,7 @@ class CaptureInspection:
     def to_dict(self) -> dict[str, str]:
         return {
             "id": self.id,
+            "observed_at": self.observed_at,
             "content_sha256": self.content_sha256,
             "capture_state": self.capture_state,
             "hold_state": self.hold_state,
@@ -79,6 +81,8 @@ class CaptureInspection:
 def _select_metadata(raw: Mapping[str, Any], content_id: str, expected_hash: str) -> CaptureInspection:
     if raw.get("content_id") != content_id or raw.get("content_sha256") != expected_hash:
         raise ValueError("STUDIO_CAPTURE_BINDING_MISMATCH")
+    if not _has_aware_time(raw.get("observed_at")):
+        raise ValueError("STUDIO_CAPTURE_OBSERVED_AT_INVALID")
     capture_state = _safe_state(raw.get("status"), CAPTURE_STATUSES, "STATUS")
     hold_state = _safe_state(raw.get("hold_status"), CAPTURE_HOLD_STATUSES, "HOLD")
     archive_state = _safe_state(raw.get("archive_status"), CAPTURE_ARCHIVE_STATUSES, "ARCHIVE")
@@ -119,6 +123,7 @@ def _select_metadata(raw: Mapping[str, Any], content_id: str, expected_hash: str
     )
     return CaptureInspection(
         id=_safe_id(raw.get("id")),
+        observed_at=raw["observed_at"],
         content_sha256=expected_hash,
         capture_state=capture_state,
         hold_state=hold_state,
@@ -152,6 +157,11 @@ def inspect_capture_versions(
     later = _select_metadata(later_raw, content_id, later_hash)
     if earlier.id == later.id:
         raise RuntimeError("STUDIO_CAPTURE_IDENTITY_COLLISION")
+    # Hashes are caller-supplied. A displayed "earlier" / "later" timeline
+    # must be backed by persisted observation instants, not input field names.
+    if (datetime.fromisoformat(earlier.observed_at.replace("Z", "+00:00"))
+            >= datetime.fromisoformat(later.observed_at.replace("Z", "+00:00"))):
+        raise ValueError("STUDIO_CAPTURE_VERSION_ORDER_INVALID")
     return {
         "contract_version": CAPTURE_INSPECTION_VERSION,
         "private_only": True,

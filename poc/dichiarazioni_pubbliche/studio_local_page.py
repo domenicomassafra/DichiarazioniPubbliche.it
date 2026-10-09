@@ -147,7 +147,7 @@ _PAGE = """<!doctype html>
       </form>
     </section>
     <section class="pane" id="captures" hidden>
-      <h2>Confronto catture</h2><p>Due hash esatti dello stesso Content. I risultati sono metadati persistiti, non attestazioni di diritti o anteprime di testo.</p>
+      <h2>Confronto catture</h2><p>Due hash esatti dello stesso Content, in ordine temporale delle osservazioni persistite (precedente, poi successiva). I risultati sono metadati, non attestazioni di diritti o anteprime di testo.</p>
       <form data-endpoint="/v1/capture/compare">
         <div class="controls"><label>Content ID<input name="content_id" maxlength="180" required></label>
         <label>SHA-256 precedente<input name="earlier_hash" minlength="64" maxlength="64" required></label>
@@ -192,30 +192,51 @@ _PAGE = """<!doctype html>
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
+    let requestGeneration = 0;
+    let activeRequest = null;
+    function invalidateRequest() {
+      requestGeneration += 1;
+      if (activeRequest) activeRequest.abort();
+      activeRequest = null;
+    }
+    function hidePrivateLocators() {
+      memberLinks.replaceChildren();
+      claimLinks.replaceChildren();
+      captureLinks.replaceChildren();
+      mediaLocator.textContent = 'Nessun segmento selezionato.';
+    }
     document.getElementById('clear').addEventListener('click', () => {
       token.value = '';
+      invalidateRequest();
+      hidePrivateLocators();
       results.textContent = 'Token cancellato dalla pagina.';
       status.textContent = 'Accesso disconnesso.';
     });
     for (const button of document.querySelectorAll('[data-panel]')) {
       button.addEventListener('click', () => {
+        invalidateRequest();
         for (const other of document.querySelectorAll('[data-panel]')) {
           other.setAttribute('aria-pressed', other === button ? 'true' : 'false');
         }
         for (const panel of panels) panel.hidden = panel.id !== button.dataset.panel;
         results.textContent = 'Nessuna richiesta per il workspace selezionato.';
         status.textContent = 'Pronto per una query.';
-        captureLinks.replaceChildren();
-        mediaLocator.textContent = 'Nessun segmento selezionato.';
+        hidePrivateLocators();
       });
     }
     for (const form of document.querySelectorAll('form[data-endpoint]')) {
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        invalidateRequest();
         if (!/^[0-9a-f]{64,128}$/.test(token.value)) {
+          hidePrivateLocators();
+          results.textContent = 'Nessun risultato.';
           status.textContent = 'Token mancante o non valido.';
           return;
         }
+        const generation = requestGeneration;
+        const controller = new AbortController();
+        activeRequest = controller;
         const data = {};
         for (const [key, value] of new FormData(form).entries()) {
           if (value === '') continue;
@@ -240,9 +261,12 @@ _PAGE = """<!doctype html>
           const response = await fetch(form.dataset.endpoint, {
             method: 'POST', credentials: 'omit', redirect: 'error',
             headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + token.value},
+            signal: controller.signal,
             body: JSON.stringify(data),
           });
           const receipt = await response.json();
+          if (generation !== requestGeneration) return;
+          activeRequest = null;
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
           results.textContent = JSON.stringify(receipt, null, 2);
           if (response.ok && form.dataset.endpoint === '/v1/media/segment'
@@ -304,6 +328,8 @@ _PAGE = """<!doctype html>
             }
           }
         } catch (_) {
+          if (generation !== requestGeneration) return;
+          activeRequest = null;
           status.textContent = 'Servizio locale non disponibile.';
           results.textContent = 'Nessun risultato.';
         }

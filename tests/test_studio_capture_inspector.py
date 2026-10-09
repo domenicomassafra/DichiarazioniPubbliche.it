@@ -17,6 +17,8 @@ B = "b" * 64
 def row(digest, **override):
     return {
         "id": f"capture:{digest[:6]}", "content_id": "content:one",
+        "observed_at": ("2026-10-08T09:00:00Z" if digest == A
+                        else "2026-10-08T10:00:00Z"),
         "content_sha256": digest, "status": "CAPTURED",
         "hold_status": "NONE", "archive_status": "NOT_REQUESTED",
         "body_ref": f"private/body/{digest}",
@@ -67,6 +69,41 @@ def passage(pid, **override):
 
 
 class StudioCaptureInspectorTests(unittest.TestCase):
+    def test_capture_comparison_refuses_reversed_or_unproven_observation_order(self):
+        # The API labels caller-provided hashes "earlier" and "later"; do not
+        # mistake that label for persisted chronology of the two captures.
+        baseline = FakeCaptureStore()
+        for changes in (
+            {'observed_at': '2026-10-08T08:00:00Z'},
+            {'observed_at': '2026-10-08T10:00:00+02:00'},
+            {'observed_at': '2026-10-08T09:00:00Z'},
+        ):
+            with self.subTest(changes=changes), self.assertRaisesRegex(
+                ValueError, 'STUDIO_CAPTURE_VERSION_ORDER_INVALID',
+            ):
+                inspect_capture_versions(
+                    FakeCaptureStore(rows={A: baseline.rows[A],
+                                           B: baseline.rows[B] | changes}),
+                    content_id='content:one', earlier_hash=A, later_hash=B,
+                )
+        for bad in (None, 'not a timestamp', '2026-10-08T09:00:00'):
+            with self.subTest(bad=bad), self.assertRaisesRegex(
+                ValueError, 'STUDIO_CAPTURE_OBSERVED_AT_INVALID',
+            ):
+                inspect_capture_versions(
+                    FakeCaptureStore(rows={A: row(A, observed_at=bad), B: baseline.rows[B]}),
+                    content_id='content:one', earlier_hash=A, later_hash=B,
+                )
+        valid = inspect_capture_versions(
+            FakeCaptureStore(rows={
+                A: row(A, observed_at='2026-10-08T11:00:00+02:00'),
+                B: baseline.rows[B],
+            }),
+            content_id='content:one', earlier_hash=A, later_hash=B,
+        )
+        self.assertEqual(valid['earlier']['observed_at'], '2026-10-08T11:00:00+02:00')
+        self.assertEqual(valid['later']['observed_at'], '2026-10-08T10:00:00Z')
+
     def test_persisted_passage_selectors_are_bounded_source_bound_and_private(self):
         store = FakeCaptureStore()
         store.selectors = [passage('passage:01'), passage('passage:02',

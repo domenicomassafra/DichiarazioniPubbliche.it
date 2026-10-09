@@ -109,3 +109,21 @@ Operator instructions: docs/ops/studio-local-readonly.md. The live Garlasco
 top-K, full private source/passage browser flow, rights authorization,
 human accessibility testing and real persisted MiniPC acceptance are
 still **not proven**. DP-415 remains IN PROGRESS.
+
+### 2026-10-09: local browser disconnect and stale-response boundary (Wave 18)
+
+An operator could previously clear the bearer token while already-rendered
+private collection/member links and the media locator stayed visible. A pending
+request could also restore a private JSON response after disconnect, or an
+older workspace request could overwrite the results of a later query. A
+deterministic Node harness executes the actual nonce-scoped Studio inline JS
+with deliberately late responses. It first failed on retained private links
+(RED); after the fix, clear/disconnect scrubs all derived private locators,
+increments a request generation and aborts the active fetch. Late network
+completions are ignored by generation even when abort loses a race; workspace
+changes and replacement queries invalidate earlier results too (GREEN).
+
+This is a source-only privacy/interaction regression test, **not** a claim of
+real browser accessibility, operator consent/rights, MiniPC runtime acceptance
+or completion of AC-415.1. No public artifact, credential persistence or
+backend mutation was introduced.

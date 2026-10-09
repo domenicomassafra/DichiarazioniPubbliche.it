@@ -570,3 +570,25 @@ Wave 14's full frozen test matrix then passed **2097/2097 Python tests**,
 diff checks. Launch preflight still reports unchanged **NO-GO/41**.
 No additional DP-234/418 AC is declared DONE from these synthetic
 proofs; commit-specific GitHub CI is the remaining source-only gate.
+
+### 2026-10-09 Wave 18 — private Studio disconnect and true Capture order
+
+DP-415/DP-419's authenticated, loopback-only browser now invalidates outstanding
+read requests and removes cached-in-DOM private links/media locators when the
+operator clears their token or changes workspace. A generation check blocks
+late responses even when request cancellation loses a race; a Node harness
+executes the real inline script with a deferred fetch and proved RED→GREEN.
+DP-419 additionally requires timezone-aware persisted Content Capture
+observation times to establish the earlier/later comparison labels. It refuses
+reversed, equal, naive or missing instants, including offset-disguised reversals,
+and presents only the validated timestamp alongside existing safe metadata.
+
+Focused Studio Capture/HTTP/isolated PostgreSQL/JS tests: **31/31 PASS**;
+benchmark **5/5 PASS**, repository ticket contract PASS, and launch preflight
+unchanged at **NO-GO/41**. No runtime deployment, source rights approval,
+media playback, manual screen-reader acceptance or additional ticket closure
+is claimed. **86 DONE / 24 IN PROGRESS / 6 BLOCKED / 9 FUTURE**.
+The complete Wave 18 test run then passed **2113/2113** Python tests
+in **177.304s**, with 100-table backup/restore PASS, 1248 inventoried
+technical fields and 89 public-schema fields. This remains Mac-only
+verification, not MiniPC runtime or legal clearance.
