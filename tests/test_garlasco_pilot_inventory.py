@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
@@ -162,6 +163,47 @@ class GarlascoPilotInventoryTests(unittest.TestCase):
             os.chmod(parent, 0o755)
             with self.assertRaisesRegex(ValueError, "PERMISSIONS"):
                 write_private_draft(parent / "unsafe.json", result)
+
+    def test_private_draft_refuses_symlink_parent_without_writing_destination(self):
+        inventory = build_live_inventory(FakeReadOnly())
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            private = root / "trusted"
+            private.mkdir(mode=0o700)
+            alias = root / "alias"
+            alias.symlink_to(private, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "DESTINATION_UNSAFE"):
+                write_private_draft(alias / "draft.json", inventory)
+            self.assertFalse((private / "draft.json").exists())
+
+    def test_parent_path_swap_cannot_redirect_private_draft_to_attacker_directory(self):
+        inventory = build_live_inventory(FakeReadOnly())
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            private = root / "trusted"
+            private.mkdir(mode=0o700)
+            moved = root / "moved-trusted"
+            other = root / "untrusted"
+            other.mkdir(mode=0o700)
+            real_open = os.open
+            swapped = False
+
+            def simulated_race(filename, flags, mode=0o777, *, dir_fd=None):
+                nonlocal swapped
+                if dir_fd is not None and not swapped:
+                    swapped = True
+                    private.rename(moved)
+                    private.symlink_to(other, target_is_directory=True)
+                if dir_fd is not None:
+                    return real_open(filename, flags, mode, dir_fd=dir_fd)
+                return real_open(filename, flags, mode)
+
+            with patch("dichiarazioni_pubbliche.garlasco_pilot_inventory.os.open", side_effect=simulated_race):
+                write_private_draft(private / "draft.json", inventory)
+            self.assertTrue(swapped)
+            self.assertFalse((other / "draft.json").exists())
+            self.assertTrue((moved / "draft.json").is_file())
+            self.assertEqual(stat.S_IMODE((moved / "draft.json").stat().st_mode), 0o600)
 
     def test_bad_db_json_missing_fk_duplicate_out_of_scope_and_unsafe_urls_fail_closed(self):
         for version in (

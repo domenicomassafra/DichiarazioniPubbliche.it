@@ -350,21 +350,36 @@ def write_private_draft(path: Path, inventory: GarlascoInventory) -> None:
     """Create only once; prevent public-world-readable or symlinked destinations."""
     if path.is_symlink() or not path.parent.is_dir():
         raise ValueError("GARLASCO_DRAFT_DESTINATION_UNSAFE")
-    parent = path.parent.stat()
-    if parent.st_mode & 0o077 or parent.st_uid != os.getuid():
-        raise ValueError("GARLASCO_DRAFT_DIRECTORY_PERMISSIONS_INVALID")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     content = json.dumps(inventory.draft_payload(), sort_keys=True, indent=2) + "\n"
-    fd = os.open(path, flags, 0o600)
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            raise ValueError("GARLASCO_DRAFT_NOT_REGULAR_FILE")
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            fd = -1
-            stream.write(content)
+        directory_fd = os.open(path.parent, directory_flags)
+    except OSError as exc:
+        raise ValueError("GARLASCO_DRAFT_DESTINATION_UNSAFE") from exc
+    try:
+        parent = os.fstat(directory_fd)
+        if (not stat.S_ISDIR(parent.st_mode) or parent.st_mode & 0o077
+                or parent.st_uid != os.getuid()):
+            raise ValueError("GARLASCO_DRAFT_DIRECTORY_PERMISSIONS_INVALID")
+        # Detect an already substituted path. File creation is anchored to
+        # the verified descriptor even if the path changes after this check.
+        current = path.parent.lstat()
+        if (not stat.S_ISDIR(current.st_mode)
+                or (current.st_dev, current.st_ino) != (parent.st_dev, parent.st_ino)):
+            raise ValueError("GARLASCO_DRAFT_DESTINATION_UNSAFE")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(path.name, flags, 0o600, dir_fd=directory_fd)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise ValueError("GARLASCO_DRAFT_NOT_REGULAR_FILE")
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                fd = -1
+                stream.write(content)
+        finally:
+            if fd >= 0:
+                os.close(fd)
     finally:
-        if fd >= 0:
-            os.close(fd)
+        os.close(directory_fd)
 
 
 def main(argv: list[str] | None = None) -> int:

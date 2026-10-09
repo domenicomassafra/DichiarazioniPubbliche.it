@@ -161,3 +161,18 @@ Production proof:
 
 No claim extraction, promotion, evidence lookup, verification, publication, authenticated
 scraping or blanket durable body preservation was introduced.
+
+### 2026-10-09 follow-up: private fetch boundary hardening
+
+The pure Capture pipeline now rejects unsafe initial and returned/final HTTPS
+destinations before accepting bytes for persistence: local/internal hostnames,
+loopback/link-local/private literal IPs, ambiguous numeric IPv4 spellings,
+nonstandard ports, URL credentials and malformed authorities. Initial targets
+are checked before invoking a provided fetcher; returned locations are
+rechecked after a fetcher/browser step. A raw 3xx response no longer counts
+as a captured success; the pipeline requires a completed HTTP 2xx final
+response with exact integer status/content length and a bounded integer
+response budget. Deterministic adversarial tests proved these refusals without
+live network calls or production database changes. This protects the pipeline
+boundary only: arbitrary DNS resolution/rebinding inside a supplied fetcher
+remains a transport-level responsibility and is not claimed to be solved here.

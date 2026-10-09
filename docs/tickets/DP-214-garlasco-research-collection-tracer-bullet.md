@@ -236,3 +236,26 @@ intake with the stricter private Capture fetch destination restrictions.
 Adversarial local fixtures confirm private-network URLs and hidden duplicate
 locators cannot make a synthetic 100-item manifest appear structurally ready.
 No genuine Content was added, and AC-214.1/.2/.4-.8 remain unchecked.
+
+### 2026-10-09 follow-up: private inventory draft filesystem binding
+
+The Garlasco inventory's optional private 0600 export now opens the
+0700 owner-controlled destination directory without following a symlink,
+verifies its descriptor/inode and creates the file with `O_EXCL` relative
+to that descriptor. A concurrent pathname replacement can no longer
+redirect the write into the replacing directory. Tests prove refusal of a
+symlinked parent and safe containment under a simulated parent swap.
+This is an operator-local private draft, not an ingestible Discovery
+manifest or evidence of reviewed source rights.
+
+### 2026-10-09 follow-up: Discovery restart and uncertain provider cost
+
+The bounded Discovery runner now restores a persisted `cost_uncertain` state
+from its canonical provider-receipt ledger when resuming a partially completed
+run. A previous invoked paid adapter with `billing_basis=UNKNOWN` can no
+longer appear to have spent zero merely because `research_discovery_attempt`
+recorded `cost_usd=0`. The next adapter remains `BUDGET_BLOCKED` with
+`COST_STATE_UNCERTAIN` and receives no provider call. A deterministic
+restart fixture demonstrated a real RED on the prior code and GREEN after
+the correction. It creates no new approved Discovery Hits or source rights;
+the Garlasco tracer acceptance remains incomplete.

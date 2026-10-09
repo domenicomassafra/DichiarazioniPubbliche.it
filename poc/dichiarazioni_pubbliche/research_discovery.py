@@ -1149,15 +1149,27 @@ WITH accepted AS (
 ), costs AS (
     SELECT COALESCE(sum(cost_usd),0)::text AS value
     FROM research_discovery_attempt WHERE run_id=:'run_id' AND status<>'RUNNING'
+), uncertain_cost AS (
+    SELECT EXISTS (
+        SELECT 1 FROM research_discovery_attempt attempt
+        JOIN provider_receipt receipt
+          ON receipt.ledger_scope->>'attempt_id'=attempt.id
+        WHERE attempt.run_id=:'run_id'
+          AND receipt.ledger_scope->>'run_id'=:'run_id'
+          AND receipt.operation='RESEARCH_DISCOVERY'
+          AND receipt.billing_basis='UNKNOWN'
+    ) AS value
 )
 SELECT json_build_object(
     'accepted_urls', urls.value::json,
     'host_counts', host_counts.value::json,
     'query_counts', query_counts.value::json,
     'accepted_total', (SELECT count(*) FROM accepted),
-    'cost_usd', costs.value
+    'cost_usd', costs.value,
+    'cost_uncertain', uncertain_cost.value
 )::text
-FROM urls CROSS JOIN host_counts CROSS JOIN query_counts CROSS JOIN costs;
+FROM urls CROSS JOIN host_counts CROSS JOIN query_counts CROSS JOIN costs
+CROSS JOIN uncertain_cost;
 """.strip()
 
 
@@ -1758,7 +1770,10 @@ def run_discovery_manifest(
     accepted_total = int(resume.get("accepted_total") or 0)
     cost_total = _decimal(resume.get("cost_usd") or "0", "resume_cost_usd")
     cost_breached = cost_total > manifest.cost_cap_usd
-    cost_uncertain = False
+    # A prior invoked provider may have an UNKNOWN measured cost even when
+    # research_discovery_attempt.cost_usd is zero. Restore the receipt gate
+    # across a process restart, not only within one invocation of this runner.
+    cost_uncertain = resume.get("cost_uncertain") is True
 
     def finish_invoked_attempt(
         *,

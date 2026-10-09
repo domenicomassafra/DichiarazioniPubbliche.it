@@ -4,6 +4,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -16,12 +17,15 @@ from dichiarazioni_pubbliche.capture_pipeline import (  # noqa: E402
     CaptureEnrichmentPolicy,
     CapturePipelineError,
     StdlibVisibleTextParser,
+    _validate_fetched_resource,
     capture_enrichment_policy_from_source,
     capture_content,
     extract_source_metadata,
     verify_passage_roundtrip,
 )
-from dichiarazioni_pubbliche.source_watcher import FetchedBytes  # noqa: E402
+from dichiarazioni_pubbliche.source_watcher import (  # noqa: E402
+    FetchedBytes, MAX_DISCOVERY_RESPONSE_BYTES,
+)
 
 
 def fetched(body: bytes, *, media_type="text/html", url="https://example.test/article"):
@@ -224,6 +228,150 @@ class SuccessfulArchive:
 
 
 class CapturePipelineTests(unittest.TestCase):
+    def test_refuse_unsafe_initial_target_before_any_fetch_or_permit(self):
+        unsafe_urls = (
+            "https://127.0.0.1/secret",
+            "https://[::1]/secret",
+            "https://2130706433/secret",  # decimal IPv4 loopback alias
+            "https://0x7f000001/secret",  # hex IPv4 loopback alias
+            "https://169.254.169.254/latest/meta-data/",
+            "https://localhost./secret",
+            "https://service.internal/secret",
+            "https://service.local./secret",
+            "https://example.test:8443/path",
+            "https://operator:secret@example.test/path",
+            "https://[::1",  # malformed authority
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            for url in unsafe_urls:
+                fetcher = SequenceFetcher(fetched(b"<p>private bytes</p>"))
+                with self.subTest(url=url), self.assertRaisesRegex(
+                    CapturePipelineError, "CAPTURE_URL_"
+                ):
+                    capture_content(
+                        content_id="content:unsafe-url", url=url,
+                        store=store, body_store=CaptureBodyStore(Path(tmp)),
+                        fetcher=fetcher,
+                    )
+                self.assertEqual(fetcher.calls, 0)
+                self.assertEqual(store.captures, {})
+                self.assertEqual(store.passages, {})
+                self.assertFalse(list(Path(tmp).rglob("*.body")))
+
+    def test_refuse_unsafe_final_redirect_or_non_success_without_persistence(self):
+        valid = fetched(b"<p>Visible public body.</p>")
+        unsafe_responses = (
+            replace(valid, final_url="https://localhost/private"),
+            replace(valid, final_url="https://127.0.0.1/private"),
+            replace(valid, final_url="https://0x7f000001/private"),
+            replace(valid, final_url="https://2130706433/private"),
+            replace(valid, final_url="https://service.internal/private"),
+            replace(valid, final_url="https://service.local./private"),
+            replace(valid, final_url="https://169.254.169.254/metadata"),
+            replace(valid, final_url="https://example.test:8080/article"),
+            replace(valid, final_url="https://operator:password@example.test/article"),
+            replace(valid, final_url="https://[::1"),
+            replace(valid, status_code=301),
+            replace(valid, status_code=302),
+            replace(valid, status_code=307),
+            replace(valid, status_code=200.5),
+            replace(valid, content_length=True),
+            replace(valid, content_length=1.2),
+            replace(valid, content_length="26"),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            for response in unsafe_responses:
+                with self.subTest(response=(response.final_url, response.status_code, response.content_length)):
+                    with self.assertRaises(CapturePipelineError):
+                        capture_content(
+                            content_id="content:unsafe-final",
+                            url="https://example.test/article", store=store,
+                            body_store=CaptureBodyStore(Path(tmp)),
+                            fetcher=SequenceFetcher(response),
+                        )
+                    self.assertEqual(store.captures, {})
+                    self.assertEqual(store.passages, {})
+                    self.assertFalse(list(Path(tmp).rglob("*.body")))
+
+    def test_unbounded_or_invalid_response_limit_rejected_before_fetch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            for bad_limit in (True, 0, -1, 1.5, "4096", None, MAX_DISCOVERY_RESPONSE_BYTES + 1):
+                fetcher = SequenceFetcher(fetched(b"<p>not fetched</p>"))
+                with self.subTest(bad_limit=bad_limit), self.assertRaisesRegex(
+                    CapturePipelineError, "CAPTURE_RESPONSE_LIMIT_INVALID"
+                ):
+                    capture_content(
+                        content_id="content:bad-limit", url="https://example.test/article",
+                        store=store, body_store=CaptureBodyStore(Path(tmp)),
+                        max_response_bytes=bad_limit, fetcher=fetcher,
+                    )
+                self.assertEqual(fetcher.calls, 0)
+                self.assertEqual(store.captures, {})
+
+    def test_direct_fetch_validation_checks_complete_public_2xx_bytes(self):
+        safe = fetched(b"<p>Public representation.</p>")
+        _validate_fetched_resource(safe, max_response_bytes=len(safe.body))
+        _validate_fetched_resource(
+            replace(safe, final_url="https://1.1.1.1/verified", status_code=206),
+            max_response_bytes=len(safe.body),
+        )
+        cases = (
+            (replace(safe, status_code=304), "CAPTURE_HTTP_STATUS_BLOCKED"),
+            (replace(safe, body=bytearray(safe.body)), "CAPTURE_BODY_INVALID"),
+            (replace(safe, content_length=-1), "CAPTURE_CONTENT_LENGTH_MISMATCH"),
+            (replace(safe, content_length=False), "CAPTURE_CONTENT_LENGTH_MISMATCH"),
+            (replace(safe, final_url="https://127.1/hidden"), "CAPTURE_FINAL_URL_AMBIGUOUS_IP"),
+            (replace(safe, final_url="https://[::1]/hidden"), "CAPTURE_FINAL_URL_NONPUBLIC_IP"),
+        )
+        for response, expected in cases:
+            with self.subTest(expected=expected), self.assertRaisesRegex(
+                CapturePipelineError, expected
+            ):
+                _validate_fetched_resource(response, max_response_bytes=MAX_DISCOVERY_RESPONSE_BYTES)
+
+    def test_fetch_adapter_exception_redacts_private_error_before_persistence(self):
+        def unsafe_fetcher(url, *, max_response_bytes):
+            raise RuntimeError("https://private.example/api?token=supersecret")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            with self.assertRaisesRegex(CapturePipelineError, "CAPTURE_FETCH_FAILED") as caught:
+                capture_content(
+                    content_id="content:failed-fetch", url="https://example.test/article",
+                    store=store, body_store=CaptureBodyStore(Path(tmp)),
+                    fetcher=unsafe_fetcher,
+                )
+            self.assertNotIn("supersecret", str(caught.exception))
+            self.assertEqual(store.captures, {})
+            self.assertEqual(store.passages, {})
+            self.assertFalse(list(Path(tmp).rglob("*.body")))
+
+    def test_browser_fallback_cannot_persist_unsafe_final_url(self):
+        class UnsafeRedirectBrowser:
+            renderer_id = "fake-browser"
+            renderer_version = "v1"
+
+            def render(self, url, *, max_response_bytes):
+                return fetched(b"<article><p>private intranet text</p></article>",
+                               url="https://127.0.0.1/private")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = FakeCaptureStore()
+            receipt = capture_content(
+                content_id="content:browser-unsafe", url="https://example.test/article",
+                store=store, body_store=CaptureBodyStore(Path(tmp)),
+                fetcher=SequenceFetcher(fetched(b"<html><script>empty()</script></html>")),
+                browser_renderer=UnsafeRedirectBrowser(),
+            )
+            self.assertEqual(receipt.browser_status, "FAILED")
+            self.assertEqual(len(store.captures), 1)
+            self.assertFalse(store.passages)
+            self.assertTrue(any(key[1] == "BROWSER_FALLBACK_FAILED" for key in store.events))
+            self.assertNotIn("intranet", repr(store.events))
+
     def test_relevance_supersession_during_fetch_blocks_before_body_or_capture_persistence(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = FakeCaptureStore()

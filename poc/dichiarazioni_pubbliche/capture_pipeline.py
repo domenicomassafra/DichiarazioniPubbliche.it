@@ -5,6 +5,7 @@ import ipaddress
 import json
 import os
 import re
+import socket
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -195,30 +196,63 @@ def _normalize_media_type(value: str | None) -> str:
     return str(value or "application/octet-stream").split(";", 1)[0].strip().lower()
 
 
+def _capture_response_limit(value: object) -> int:
+    if type(value) is not int or not 1 <= value <= MAX_DISCOVERY_RESPONSE_BYTES:
+        raise CapturePipelineError("CAPTURE_RESPONSE_LIMIT_INVALID")
+    return value
+
+
+def _validate_capture_target(value: object, *, final: bool) -> None:
+    """No DNS calls: refuse unsafe literal/ambiguous URLs at both pipeline boundaries.
+
+    The transport's own DNS/redirect policy still owns address resolution and
+    connection safety; validation here cannot certify an arbitrary fetcher.
+    """
+    prefix = "CAPTURE_FINAL_URL" if final else "CAPTURE_URL"
+    if (not isinstance(value, str) or not value or len(value) > 4096
+            or any(ord(ch) <= 32 or ord(ch) == 127 for ch in value)):
+        raise CapturePipelineError(f"{prefix}_INVALID")
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        raise CapturePipelineError(f"{prefix}_INVALID") from None
+    if parsed.scheme.lower() != "https" or not hostname:
+        raise CapturePipelineError(f"{prefix}_HTTPS_REQUIRED")
+    if parsed.username is not None or parsed.password is not None or port not in {None, 443}:
+        raise CapturePipelineError(f"{prefix}_AUTHORITY_REFUSED")
+    host = hostname.rstrip(".")
+    if (not host or "%" in host or host == "localhost"
+            or host.endswith((".localhost", ".local", ".internal"))):
+        raise CapturePipelineError(f"{prefix}_LOCAL_HOST_REFUSED")
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        # libc accepts IPv4 aliases rejected by ipaddress, e.g. 2130706433,
+        # 0177.0.0.1 and 0x7f000001. Reject all such ambiguous IP spellings;
+        # a resolver might otherwise connect to loopback/link-local targets.
+        try:
+            socket.inet_aton(host)
+        except OSError:
+            pass
+        else:
+            raise CapturePipelineError(f"{prefix}_AMBIGUOUS_IP") from None
+    else:
+        if not literal.is_global:
+            raise CapturePipelineError(f"{prefix}_NONPUBLIC_IP")
+
+
 def _validate_fetched_resource(fetched: FetchedBytes, *, max_response_bytes: int) -> None:
     if not isinstance(fetched.body, bytes):
         raise CapturePipelineError("CAPTURE_BODY_INVALID")
-    if len(fetched.body) > max(int(max_response_bytes), 1):
+    if len(fetched.body) > _capture_response_limit(max_response_bytes):
         raise CapturePipelineError("CAPTURE_RESPONSE_TOO_LARGE")
-    if int(fetched.content_length) != len(fetched.body):
+    if type(fetched.content_length) is not int or fetched.content_length != len(fetched.body):
         raise CapturePipelineError("CAPTURE_CONTENT_LENGTH_MISMATCH")
-    if not 200 <= int(fetched.status_code) < 400:
+    if type(fetched.status_code) is not int or not 200 <= fetched.status_code < 300:
         raise CapturePipelineError("CAPTURE_HTTP_STATUS_BLOCKED")
-    parsed = urlsplit(str(fetched.final_url or "").strip())
-    try:
-        port = parsed.port
-    except ValueError as exc:
-        raise CapturePipelineError("CAPTURE_FINAL_URL_INVALID") from exc
-    if parsed.scheme.lower() != "https" or not parsed.hostname:
-        raise CapturePipelineError("CAPTURE_FINAL_URL_HTTPS_REQUIRED")
-    if parsed.username is not None or parsed.password is not None or port not in {None, 443}:
-        raise CapturePipelineError("CAPTURE_FINAL_URL_AUTHORITY_REFUSED")
-    try:
-        literal = ipaddress.ip_address(parsed.hostname)
-    except ValueError:
-        literal = None
-    if literal is not None and not literal.is_global:
-        raise CapturePipelineError("CAPTURE_FINAL_URL_NONPUBLIC_IP")
+    _validate_capture_target(fetched.final_url, final=True)
 
 
 def _decode(body: bytes, charset: str | None) -> str:
@@ -1323,9 +1357,8 @@ def capture_content(
 ) -> CapturePipelineReceipt:
     if not isinstance(content_id, str) or not content_id.strip():
         raise CapturePipelineError("CONTENT_ID_REQUIRED")
-    parsed_url = urlsplit(str(url).strip())
-    if parsed_url.scheme.lower() != "https" or not parsed_url.hostname:
-        raise CapturePipelineError("CAPTURE_URL_HTTPS_REQUIRED")
+    _validate_capture_target(url, final=False)
+    _capture_response_limit(max_response_bytes)
     enrichment_policy = enrichment_policy or CaptureEnrichmentPolicy()
     parser = parser or StdlibVisibleTextParser(
         extract_metadata=enrichment_policy.metadata_enabled
@@ -1353,7 +1386,14 @@ def capture_content(
     except RuntimeError as exc:
         raise CapturePipelineError(str(exc)) from exc
 
-    fetched = fetcher(url, max_response_bytes=max_response_bytes)
+    try:
+        fetched = fetcher(url, max_response_bytes=max_response_bytes)
+    except PrivateCaptureAuthorizationBlocked:
+        raise
+    except Exception:
+        # Adapters may include private URLs, headers or tokens in exceptions.
+        # Never relay their raw text to operator-facing pipeline errors.
+        raise CapturePipelineError("CAPTURE_FETCH_FAILED") from None
     _validate_fetched_resource(fetched, max_response_bytes=max_response_bytes)
     if rights_guard is not None:
         rights_guard()

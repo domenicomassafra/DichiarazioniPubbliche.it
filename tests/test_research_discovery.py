@@ -178,6 +178,11 @@ class FakeStore:
             "query_counts": query_counts,
             "accepted_total": len(accepted),
             "cost_usd": str(cost),
+            "cost_uncertain": any(
+                self.operation_receipts[receipt_id].billing_basis == "UNKNOWN"
+                and scope["run_id"] == run_id
+                for receipt_id, scope in self.operation_receipt_scopes.items()
+            ),
         }
 
     def start_attempt(self, **kwargs):
@@ -716,6 +721,56 @@ class ResearchDiscoveryTests(unittest.TestCase):
             if key[0] == "run:cost-uncertain"
         }
         self.assertEqual(statuses["search-b"], ("BUDGET_BLOCKED", "COST_STATE_UNCERTAIN"))
+
+    def test_resume_with_prior_unknown_paid_cost_never_invokes_later_provider(self):
+        payload = manifest_payload(cost_cap_usd="0.500000")
+        payload["queries"][0]["adapter_ids"] = ["search-a", "search-b"]
+        manifest = load_discovery_manifest(payload)
+        store = FakeStore()
+        run_id = "run:unknown-paid-cost-restart"
+        store.persist_manifest(manifest)
+        store.start_run(manifest, run_id)
+        query = manifest.queries[0]
+        from dichiarazioni_pubbliche.research_discovery import _attempt_id, _RESUME_STATE_SQL
+        attempt_id = _attempt_id(run_id, query.id, "search-a")
+        store.start_attempt(
+            attempt_id=attempt_id,
+            run_id=run_id,
+            query_id=query.id,
+            adapter_id="search-a",
+            adapter_version="static-test-v1",
+            cost_upper_bound_usd=Decimal("0.400000"),
+        )
+        # The prior provider call is over, but actual cost remains UNKNOWN;
+        # the persisted attempt cost of zero is not a billing assertion.
+        store.finish_attempt(
+            attempt_id=attempt_id, status="FAILED",
+            error_category="RATE_LIMITED", cost_usd=Decimal("0"),
+        )
+        store.record_operation_receipt(
+            manifest=manifest, query=query, run_id=run_id,
+            attempt_id=attempt_id, adapter_id="search-a",
+            adapter_version="static-test-v1", status="FAILED",
+            cost_upper_bound_usd=Decimal("0.400000"),
+            known_cost_usd=None, error_category="RATE_LIMITED",
+        )
+        resumed_state = store.resume_state(run_id)
+        self.assertEqual(resumed_state["cost_usd"], "0")
+        self.assertTrue(resumed_state["cost_uncertain"])
+
+        first = StaticAdapter("search-a", upper=Decimal("0.400000"))
+        later = StaticAdapter("search-b", upper=Decimal("0.100000"))
+        receipt = run_discovery_manifest(
+            manifest, store, {"search-a": first, "search-b": later}, run_id=run_id
+        )
+        self.assertEqual(first.calls, 0)
+        self.assertEqual(later.calls, 0, "unknown previous billing must prevent next provider call")
+        self.assertEqual(receipt.blocked_attempts, 1)
+        self.assertEqual(
+            store.attempts[(run_id, query.id, "search-b")]["error_category"],
+            "COST_STATE_UNCERTAIN",
+        )
+        self.assertIn("billing_basis='UNKNOWN'", _RESUME_STATE_SQL)
 
     def test_one_healthy_and_one_missing_adapter_is_partial(self):
         payload = manifest_payload()

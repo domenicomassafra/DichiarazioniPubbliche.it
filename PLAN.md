@@ -373,3 +373,34 @@ feature (BYOK, paid API, subscriptions, MCP, etc.).
 Do not select the next task by whichever file was most recently edited. Select the first
 READY ticket whose dependencies are satisfied and whose milestone is currently active.
 BLOCKED tickets stay blocked without workaround-by-quality-regression.
+
+## Implementation checkpoint — 2026-10-09 source safety waves
+
+This checkpoint records **verified implementation progress only**. It does
+not close an acceptance criterion, authorize a source/rights decision or
+change the M7 **NO-GO / 41 release blockers** disposition. The canonical
+backlog still contains **125 tickets: 86 DONE, 24 IN PROGRESS, 6 BLOCKED,
+9 FUTURE (39 open)**.
+
+- `82f4c2b`: research Discovery and Capture provenance, Candidate matching
+  contradictory-scope HOLD, Source Intelligence rights/readiness and DP-417
+  private HMAC attestation race guards; full suite **2,016/2,016 PASS**,
+  GitHub CI `37948202895` **11/11 SUCCESS**.
+- `41c30fe`: Candidate manifest/second-rights-read and deterministic
+  matching replay semantic integrity, private Studio triage ledger continuity;
+  full suite **2,025/2,025 PASS**, GitHub CI `37949761666` **11/11 SUCCESS**.
+- `3025370`: Garlasco manifest canonical HTTPS/global-address and family
+  safety, DP-215 temporal/role suitability and DP-213 Coverage Need bounded
+  retry/identity integrity; full suite **2,040/2,040 PASS**, GitHub CI
+  `37951300010` **11/11 SUCCESS**.
+
+All three waves retained deterministic benchmark **5/5 PASS**, restore-drill
+PASS and unchanged NO-GO preflight receipt
+`890103b989d86e2ad2a112c943aa57d1f0e52e24a50ddd14d64ff42cc3bf7399`.
+Real MiniPC PostgreSQL was queried read-only: `research:garlasco` remains
+PAUSED, with 18 included Content and 30 historical Claims, zero accepted
+Discovery Hits, Capture/Passage/Candidate records, and no current qualifying
+Source Intelligence profile/role/scope on the 18 Content. The pending DP-417
+production migration was not installed. See the three dated wave receipts
+in `docs/reviews/`. DP-214, DP-215 and DP-417 remain IN PROGRESS pending
+source rights, operator approvals and real canary/acceptance evidence.
