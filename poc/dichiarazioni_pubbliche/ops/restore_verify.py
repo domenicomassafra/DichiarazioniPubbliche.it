@@ -42,6 +42,7 @@ LOAD_BEARING_TABLES = (
     "research_discovery_run",
     "research_discovery_attempt",
     "research_discovery_hit",
+    "research_discovery_triage_decision",
     "content_derivation_family",
     "content_derivation_candidate",
     "proposition_cluster",

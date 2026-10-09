@@ -126,6 +126,17 @@ _PAGE = """<!doctype html>
           <button type="submit">Ispeziona provenienza</button>
         </div>
       </form>
+      <h2>Storico annotazioni Discovery (sola lettura)</h2>
+      <p>Decisioni private persistite, non autorizzazioni: ogni risultato resta soggetto a identità del revisore e diritti sulle fonti da verificare. L'archivio è disponibile soltanto dopo la migrazione SQL.</p>
+      <form data-endpoint="/v1/discovery/triage-history">
+        <div class="controls">
+          <label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+          <label>ID Discovery Hit<input name="hit_id" maxlength="180" required></label>
+          <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+          <label>Dopo revisione<input name="after_revision" type="number" min="0" step="1" value="0" required></label>
+          <button type="submit">Leggi annotazioni</button>
+        </div>
+      </form>
     </section>
     <section class="pane" id="matches" hidden>
       <h2>Candidati e corrispondenze</h2><p>Classificazioni suggerite da un match run persistito; attualità e autorità di revisione non verificate.</p>
@@ -184,7 +195,7 @@ _PAGE = """<!doctype html>
         const data = {};
         for (const [key, value] of new FormData(form).entries()) {
           if (value === '') continue;
-          data[key] = key === 'limit' ? Number(value) : value;
+          data[key] = key === 'limit' || key === 'after_revision' ? Number(value) : value;
         }
         status.textContent = 'Richiesta locale in corso…';
         results.textContent = 'Nessun risultato ancora disponibile.';

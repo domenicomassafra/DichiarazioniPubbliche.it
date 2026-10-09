@@ -200,6 +200,46 @@ class StudioLocalApiTests(unittest.TestCase):
         )
         self.assertEqual(invalid, 422)
 
+    def test_discovery_triage_history_loopback_is_scoped_read_only(self):
+        route = "/v1/discovery/triage-history"
+        request = {"collection_id": "research:1", "hit_id": "hit:1",
+                   "limit": 10, "after_revision": 0}
+        self.queues.rows = [{
+            "collection_id": "research:1", "hit_id": "hit:1",
+            "lineage_ok": True, "head_revision": 1,
+            "decisions": [{"revision": 1, "expected_revision": 0,
+                           "decision": "NEEDS_REVIEW",
+                           "url": "https://private.example/secret",
+                           "actor_ref": "PRIVATE REVIEWER"}],
+            "metadata": {"source_body": "SECRET"},
+        }]
+        denied, _, _ = self.call("POST", route, request)
+        self.assertEqual(denied, 401)
+        status, reply, headers = self.call("POST", route, request, self.auth())
+        self.assertEqual(status, 200, reply)
+        self.assertEqual(reply["data"]["head_revision"], 1)
+        self.assertEqual(reply["data"]["results"], [
+            {"revision": 1, "decision": "NEEDS_REVIEW"},
+        ])
+        self.assertFalse(reply["data"]["publication_authority"])
+        self.assertFalse(reply["data"]["reviewer_identity_attested"])
+        self.assertFalse(reply["data"]["triage_action_authorized"])
+        self.assertEqual(headers["Cache-Control"], "no-store, private")
+        self.assertNotIn("PRIVATE REVIEWER", json.dumps(reply))
+        self.assertNotIn("SECRET", json.dumps(reply))
+        for payload in (
+            request | {"publish": True},
+            request | {"approve": True},
+            request | {"after_revision": -1},
+            request | {"after_revision": True},
+        ):
+            rejected, _, _ = self.call("POST", route, payload, self.auth())
+            self.assertEqual(rejected, 422)
+        refused, _, _ = self.call(
+            "POST", "/v1/discovery/triage", request, self.auth(),
+        )
+        self.assertEqual(refused, 404)
+
     def test_member_listing_and_exact_detail_require_token_and_included_binding(self):
         cases = [
             ("/v1/collections/members", {"collection_id": "research:garlasco", "limit": 10},

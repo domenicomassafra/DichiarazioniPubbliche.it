@@ -114,3 +114,94 @@ unblock guidance **for Discovery Hit rows**, not for every DP-417 queue
 type. AC-417.1/.3 stay open until other queue families are implemented
 and runtime-proven. Durable review transitions, idempotent action replay,
 bulk-state compatibility and real source-family review remain open.
+
+### Durable private triage annotations — 2026-10-09 (source-only, not deployed)
+
+An additive `research_discovery_triage_decision` ledger now has a matching
+fresh schema and migration. It records **non-authoritative, append-only
+annotations** (`NEEDS_REVIEW`, `DEFERRED`, `REJECTED`) against a
+Collection-scoped Discovery Hit with an opaque actor reference, a canonical
+request digest, globally unique idempotency key and per-Hit compare-and-swap
+revision. PostgreSQL verifies Hit→Run→Manifest→Collection and
+Attempt/Query coherence before inserting, serializes concurrent writes by
+transaction advisory lock, and forbids UPDATE/DELETE/TRUNCATE of ledger
+records. It does not change a Hit's discovery disposition.
+
+The opt-in, DB-permission-bound CLI module
+`dichiarazioni_pubbliche.studio_discovery_triage_store` reports exact
+`CREATED`, `REPLAY`, `IDEMPOTENCY_CONFLICT`,
+`REVISION_CONFLICT` or `SCOPE_NOT_FOUND` results. A replay must
+match the entire stored request and fingerprint; cross-Collection inspection
+returns no ledger revision. Inputs and output receipts are allowlisted,
+with no source URL, text, provider secret or private metadata. The current
+loopback Studio API stays strictly read-only; the CLI is not linked to it.
+
+**Proof:** 21/21 focused Python tests for pure contract, runtime and real
+ephemeral PostgreSQL schema/migration (including concurrent insert
+competition) pass. A separate ephemeral PostgreSQL writer+real-migration
+integration probe passed six outcomes including conflict and cross-scope
+redaction. The live MiniPC PostgreSQL accepted a separate
+seven-case **pg_temp / ROLLBACK** actual SQL canary: create, replay,
+idempotency-key collision, stale revision, next revision, stale revision
+again and wrong Collection; zero durable production writes. The migration
+has **not** been applied to the MiniPC production schema.
+
+All nine new fields are denied direct public projection by the refreshed
+privacy inventory. Backup and restore table inventories include the ledger.
+After correcting these two inventory drift failures, the full Python suite
+passed **1,962/1,962**; the focused privacy/backup/restore tests passed
+**29/29**; `python3 -m compileall -q poc tests` and `git diff --check`
+passed. This is local source acceptance, **not** deployment/CI release
+acceptance or an authenticated human reviewer acceptance.
+
+### Signed local actor identity + read-only Inbox history — 2026-10-09
+
+The operator-private history reader provides scoped
+`/v1/discovery/triage-history` (Collection ID + Discovery Hit ID) on the
+authenticated loopback Studio API. It is paged by numeric revision, shows
+only safe annotation decision codes/revisions, detects malformed lineage,
+refuses guessed cross-Collection Hits, and never leaks reviewer identifiers,
+source URLs, text, receipts or credential data. This route is **read-only**,
+and will return an unavailable-data error on live databases where the
+new ledger migration has not been applied.
+
+Separately, an off-database HMAC attestation module binds each exact
+non-authoritative triage request to an **active** local reviewer credential
+from the existing 0700 authority root, with a dedicated
+`DP417_TRIAGE_V1` domain, a 0600 no-replacement receipt file, exact
+actor/scope/revision matching, and verification after revocation. The
+`record_attested` runtime verifies this signature before attempting the
+append-only annotation. The explicit CLI requires authority root and
+credential ID and issues+verifies the local receipt before DB write.
+This identity proof **does not authorize** rejection of source material,
+rights clearance, Content capture, merging, extraction, approval, promotion
+or publication. The primitive `record` API remains an intentionally
+unattested test/operator-DB primitive, and its response always reports
+`actor_attested=false`.
+
+Real ephemeral PostgreSQL writer tests cover exact replay, stale revisions,
+competing/deduplicated concurrent writers, invalid Run→Attempt→Query
+lineage, cross-Collection redaction and immutable annotation history.
+The reader additionally passed actual migrated ephemeral PostgreSQL
+pagination tests; authenticated loopback API tests verify token requirements,
+input denial and no private fields. Credentials are never sent through
+the HTTP API. MiniPC synthetic SQL checks were repeated with the coherent
+Attempt+Query scope and passed **7/7**, pg_temp/ROLLBACK only.
+An additional end-to-end isolated PostgreSQL + local private-root test
+demonstrates signed annotation CREATED→REPLAY with exactly one durable
+event, refused altered intent, and denied post-revocation write.
+The focused Studio/triage suites pass **55/55** and this added signed
+cross-layer test passes separately.
+The MiniPC live DB was queried read-only again: the new table is
+`NOT_DEPLOYED` and `research_discovery_hit` still has **0 rows**.
+These facts prohibit claiming live triage workflow acceptance.
+Final full source test run including the signed PostgreSQL acceptance and
+read-only HTTP history: **1,992/1,992 Python tests PASS**. No deployment,
+commit, push or migration to production accompanied this acceptance.
+
+**Remaining:** reviewed state-transition authority, durable linkage from
+HMAC receipts to ledger decisions, human credential governance, current
+private-source rights policy, real safe row actions and reversibility,
+multi-family queues, bulk-state compatibility, nonempty real Discovery Hits
+and runtime migration/deployment acceptance remain open. DP-417 and all
+AC-417.1–.4 stay **IN PROGRESS / unchecked**.

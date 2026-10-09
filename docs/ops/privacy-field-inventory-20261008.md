@@ -70,3 +70,27 @@ HTML, API, analytics and log boundaries, and sign Q-306/DP-307 dispositions.
 The public projection and private-access runtime continue to be guarded
 independently. Do not mark DP-304 DONE or reduce the launch preflight's legal
 blockers based solely on this technical inventory.
+
+## DP-417 follow-up — local schema inventory refresh, 2026-10-09
+
+The new `research_discovery_triage_decision` table in `db/schema.v1.sql`
+adds nine persisted fields: `actor_ref`, `collection_id`, `created_at`,
+`decision`, `expected_revision`, `hit_id`, `payload_sha256`, `request_key`,
+and `revision`. The intentionally regenerated inventory now covers
+**100 tables / 1,247 fields**, up from the 99 / 1,238 baseline above.
+The public allowlist remains unchanged at **11 groups / 89 fields**.
+
+All nine new fields have `OPERATIONAL_PRIVATE` classification,
+`AUTHENTICATED_PRIVATE_OPERATOR` access, and
+`DENY_DIRECT_DB_PROJECTION`; none has permission to appear directly in
+the public projection. `actor_ref` and `request_key` are opaque private
+operator/audit identifiers and require the same protection as the other
+triage history fields. The inventory continues to deny legal retention
+approval and publication authority by default.
+
+Verification: `PYTHONPATH=poc python3 tools/check_privacy_field_inventory.py
+--generate` and `PYTHONPATH=poc python3 -m unittest
+tests.test_privacy_field_inventory -v` passed (9/9 tests). The table and
+field totals above describe the **updated local canonical DDL**. The
+earlier 1,238-column MiniPC comparison remains a historical readback;
+this refresh neither queries nor proves deployment to the live database.

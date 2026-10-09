@@ -50,7 +50,7 @@ with Ctrl-C; rotate by stopping it and provisioning a new secret.
 
 ## 3. Exact read-only interface
 
-Eight POST routes:
+Ten POST routes:
 
 - /v1/corpus/search — private DP-116 query, safe IDs only.
 - /v1/collections/list — persisted collection IDs/status/INCLUDED counts.
@@ -64,6 +64,11 @@ Eight POST routes:
   metadata only; never quote text, source_ref, approved rights or
   current reviewer authority.
 - /v1/discovery/list — persisted discovery hit/run/Content IDs and disposition.
+- /v1/discovery/inspect — scoped Hit→Run→Attempt→Query→Manifest metadata
+  checks and safe unblock reason codes; no review mutation or rights approval.
+- /v1/discovery/triage-history — scoped, bounded, append-only triage decision
+  history with revision/status only (requires DP-417 DB migration). Read-only,
+  no operator identity, source details, reviewer attestation or write capability.
 - /v1/candidate/matches — persisted match classes and feature codes;
   currentness/reviewer authority is **not verified**.
 - /v1/capture/compare — two exact capture hashes and operational states.

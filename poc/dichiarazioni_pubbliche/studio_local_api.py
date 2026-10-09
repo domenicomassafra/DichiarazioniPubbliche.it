@@ -38,7 +38,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/candidate/matches",
     "/v1/collections/list", "/v1/collections/members",
     "/v1/collections/member", "/v1/collections/claim-provenance",
-    "/v1/discovery/list", "/v1/discovery/inspect",
+    "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
 })
 
 class _StudioReadOnlyDb(PsqlRuntime):
@@ -102,6 +102,7 @@ class _QueueReader(Protocol):
     def list_collections(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def inspect_discovery(self, *, collection_id: str, hit_id: str) -> dict[str, object]: ...
+    def inspect_discovery_triage(self, *, collection_id: str, hit_id: str, limit: int, after_revision: int) -> dict[str, object]: ...
     def list_collection_members(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
     def inspect_collection_member(self, *, collection_id: str, content_id: str, limit: int, after_claim_id: str | None) -> dict[str, object]: ...
     def inspect_claim_provenance(self, *, collection_id: str, content_id: str, claim_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
@@ -154,6 +155,11 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
         return readers.queues.inspect_discovery(**body)
+    if path == "/v1/discovery/triage-history":
+        _fields(body, required={"collection_id", "hit_id"}, optional={"limit", "after_revision"})
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.inspect_discovery_triage(**body)
     if path in {"/v1/collections/members", "/v1/collections/member", "/v1/collections/claim-provenance"}:
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")

@@ -13,6 +13,7 @@ from typing import Any
 
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.studio_discovery_detail import present_discovery_detail
+from dichiarazioni_pubbliche.studio_discovery_triage_reader import read_triage_history
 
 STUDIO_QUEUES_VERSION = "studio-operator-queues-v1"
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
@@ -341,6 +342,16 @@ class StudioOperatorQueues(PsqlRuntime):
         if row.get("id") != hit_id or row.get("collection_id") != collection_id:
             raise ValueError("STUDIO_DISCOVERY_DETAIL_SCOPE_MISMATCH")
         return present_discovery_detail(row)
+
+    def inspect_discovery_triage(
+        self, *, collection_id: str, hit_id: str,
+        limit: int = 20, after_revision: int = 0,
+    ) -> dict[str, object]:
+        """Read scoped annotation history; no identity, approval or mutation."""
+        return read_triage_history(
+            self, collection_id=collection_id, hit_id=hit_id,
+            limit=limit, after_revision=after_revision,
+        )
 
     def list_collection_members(
         self, *, collection_id: str, limit: int = 20, after_id: str | None = None,
