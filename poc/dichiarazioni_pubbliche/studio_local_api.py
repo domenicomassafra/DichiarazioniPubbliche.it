@@ -26,7 +26,9 @@ from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineStore
 from dichiarazioni_pubbliche.corpus_search import CorpusSearchStore
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime, _clean
 from dichiarazioni_pubbliche.studio_candidate_review import inspect_candidate_match_run
-from dichiarazioni_pubbliche.studio_capture_inspector import inspect_capture_versions
+from dichiarazioni_pubbliche.studio_capture_inspector import (
+    inspect_capture_versions, inspect_capture_passage_selectors,
+)
 from dichiarazioni_pubbliche.studio_operator_search import search_private_corpus
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
@@ -35,7 +37,7 @@ STUDIO_LOCAL_API_VERSION = "studio-local-readonly-api-v1"
 STUDIO_LOCAL_MAX_BODY_BYTES = 4096
 _TOKEN_HEX = re.compile(r"^[0-9a-f]{64,128}$")
 _ALLOWED_PATHS = frozenset({
-    "/v1/corpus/search", "/v1/capture/compare", "/v1/candidate/matches",
+    "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages", "/v1/candidate/matches",
     "/v1/collections/list", "/v1/collections/members",
     "/v1/collections/member", "/v1/collections/claim-provenance",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
@@ -75,7 +77,27 @@ class _StudioCorpusReader(_StudioReadOnlyDb, CorpusSearchStore):
 
 
 class _StudioCaptureReader(_StudioReadOnlyDb, CapturePipelineStore):
-    pass
+    def list_passage_selectors(self, capture_id: str, *, limit: int, after_id: str | None) -> list[dict[str, Any]]:
+        """Select only locator metadata; never transfer private passage text to the API."""
+        raw = self.run(
+            """
+            SELECT json_build_object(
+                'id', id, 'content_id', content_id, 'capture_id', capture_id,
+                'canonical_segment_id', canonical_segment_id,
+                'selector_type', selector_type, 'text_sha256', text_sha256,
+                'start_char', start_char, 'end_char', end_char,
+                'page_start', page_start, 'page_end', page_end
+            )::text
+            FROM passage
+            WHERE capture_id=:'capture_id' AND id > :'after_id'
+            ORDER BY id
+            LIMIT :'row_limit'::integer;
+            """,
+            capture_id=capture_id,
+            after_id=after_id or "",
+            row_limit=limit + 1,
+        )
+        return [json.loads(line) for line in raw.splitlines() if line.strip()]
 
 
 class _StudioCandidateReader(_StudioReadOnlyDb, CandidateMatchingStore):
@@ -92,6 +114,7 @@ class _CorpusReader(Protocol):
 
 class _CaptureReader(Protocol):
     def find_capture(self, content_id: str, content_sha256: str) -> dict[str, Any] | None: ...
+    def list_passage_selectors(self, capture_id: str, *, limit: int, after_id: str | None) -> list[dict[str, Any]]: ...
 
 
 class _CandidateReader(Protocol):
@@ -140,6 +163,9 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
     if path == "/v1/capture/compare":
         _fields(body, required={"content_id", "earlier_hash", "later_hash"})
         return inspect_capture_versions(readers.captures, **body)
+    if path == "/v1/capture/passages":
+        _fields(body, required={"content_id", "capture_hash"}, optional={"limit", "after_id"})
+        return inspect_capture_passage_selectors(readers.captures, **body)
     if path == "/v1/candidate/matches":
         _fields(body, required={"run_id", "claim_candidate_id"})
         return inspect_candidate_match_run(readers.candidates, **body)

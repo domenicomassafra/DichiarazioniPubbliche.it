@@ -91,6 +91,41 @@ class StudioLocalApiTests(unittest.TestCase):
                     self.assertNotIn(forbidden, json.dumps(body))
         self.assertEqual(len(self.search.requests), 1)
 
+    def test_capture_passage_selector_navigation_is_authenticated_bounded_and_private(self):
+        route = '/v1/capture/passages'
+        self.captures.selectors = [
+            {'id': f'passage:{n:02d}', 'content_id': 'content:one',
+             'capture_id': 'capture:aaaaaa', 'canonical_segment_id': None,
+             'selector_type': 'TEXT_POSITION', 'text_sha256': 'f' * 64,
+             'start_char': n * 5, 'end_char': n * 5 + 3,
+             'page_start': None, 'page_end': None,
+             'private_text': 'PRIVATE SOURCE', 'metadata': {'cookie': 'SECRET'}}
+            for n in range(3)
+        ]
+        payload = {'content_id': 'content:one', 'capture_hash': A, 'limit': 2}
+        status, _, _ = self.call('POST', route, payload)
+        self.assertEqual(status, 401)
+        status, response, headers = self.call('POST', route, payload, self.auth())
+        self.assertEqual(status, 200, response)
+        self.assertEqual([item['id'] for item in response['data']['selectors']],
+                         ['passage:00', 'passage:01'])
+        self.assertEqual(response['data']['next_after_id'], 'passage:01')
+        self.assertFalse(response['data']['publication_authority'])
+        self.assertFalse(response['data']['rights_clearance'])
+        self.assertEqual(headers['Cache-Control'], 'no-store, private')
+        for forbidden in ('PRIVATE SOURCE', 'SECRET', 'cookie', 'private_text'):
+            self.assertNotIn(forbidden, json.dumps(response))
+        status, next_page, _ = self.call('POST', route, payload | {'after_id': 'passage:01'}, self.auth())
+        self.assertEqual(status, 200, next_page)
+        self.assertEqual([item['id'] for item in next_page['data']['selectors']], ['passage:02'])
+        self.assertFalse(next_page['data']['has_more'])
+        for invalid in ({'approve': True}, {'limit': 21}, {'after_id': 'x\n'}):
+            status, _, _ = self.call('POST', route, payload | invalid, self.auth())
+            self.assertEqual(status, 422)
+        self.captures.selectors[0]['capture_id'] = 'capture:other'
+        status, _, _ = self.call('POST', route, payload, self.auth())
+        self.assertEqual(status, 422)
+
     def test_default_denies_unauthenticated_wrong_and_duplicate_tokens(self):
         for headers in (
             {}, {"Authorization": "Bearer invalid"},
@@ -337,6 +372,9 @@ class StudioLocalApiTests(unittest.TestCase):
         self.assertIn('data-endpoint="/v1/collections/members"', page)
         self.assertIn('data-endpoint="/v1/collections/member"', page)
         self.assertIn('data-endpoint="/v1/collections/claim-provenance"', page)
+        self.assertIn('data-endpoint="/v1/capture/passages"', page)
+        self.assertIn('id="capture-links"', page)
+        self.assertIn('capturePassageForm.requestSubmit()', page)
         self.assertIn('id="claim-links"', page)
         self.assertIn("provenanceForm.requestSubmit()", page)
         self.assertIn('id="member-links"', page)
@@ -393,6 +431,27 @@ class StudioLocalTokenTests(unittest.TestCase):
                 StudioLoopbackServer(port, StudioLocalReaders(None, None, None), TOKEN)
 
 class StudioLocalDatabaseTests(unittest.TestCase):
+    def test_studio_capture_selector_sql_does_not_select_private_material(self):
+        recorder = []
+
+        def subprocess_run(args, **kwargs):
+            recorder.append((kwargs['input'], args))
+            return SimpleNamespace(returncode=0, stdout='', stderr='')
+
+        with patch('dichiarazioni_pubbliche.studio_local_api.subprocess.run', side_effect=subprocess_run):
+            self.assertEqual(_StudioCaptureReader().list_passage_selectors(
+                'capture:aaaaaa', limit=2, after_id='passage:01'), [])
+        sql, args = recorder[0]
+        self.assertIn("capture_id=:'capture_id'", sql)
+        self.assertIn("id > :'after_id'", sql)
+        self.assertIn('ORDER BY id', sql)
+        self.assertIn("LIMIT :'row_limit'::integer", sql)
+        self.assertNotIn('private_text', sql)
+        self.assertNotIn('metadata', sql)
+        self.assertNotIn('canonical_text', sql)
+        self.assertIn('row_limit=3', args)
+        self.assertIn('after_id=passage:01', args)
+
     def test_db_connection_enforces_session_read_only_timeout_and_safe_errors(self):
         recorder = []
 

@@ -6,7 +6,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
-from dichiarazioni_pubbliche.studio_capture_inspector import inspect_capture_versions  # noqa: E402
+from dichiarazioni_pubbliche.studio_capture_inspector import (  # noqa: E402
+    inspect_capture_versions, inspect_capture_passage_selectors,
+)
 
 A = "a" * 64
 B = "b" * 64
@@ -38,6 +40,8 @@ class FakeCaptureStore:
         )} if rows is None else rows
         self.error = error
         self.calls = []
+        self.selectors = []
+        self.selector_error = None
 
     def find_capture(self, content_id, content_sha256):
         self.calls.append((content_id, content_sha256))
@@ -45,8 +49,85 @@ class FakeCaptureStore:
             raise self.error
         return self.rows.get(content_sha256)
 
+    def list_passage_selectors(self, capture_id, *, limit, after_id):
+        if self.selector_error is not None:
+            raise self.selector_error
+        self.calls.append((capture_id, limit, after_id))
+        return [p for p in self.selectors if p['id'] > (after_id or '')][:limit + 1]
+
+
+def passage(pid, **override):
+    return {
+        'id': pid, 'content_id': 'content:one', 'capture_id': 'capture:aaaaaa',
+        'canonical_segment_id': None, 'selector_type': 'TEXT_POSITION',
+        'start_char': 5, 'end_char': 18, 'page_start': None, 'page_end': None,
+        'text_sha256': 'f' * 64, 'private_text': 'SECRET SOURCE PASSAGE',
+        'metadata': {'authorization': 'Bearer PRIVATE TOKEN'}, **override,
+    }
+
 
 class StudioCaptureInspectorTests(unittest.TestCase):
+    def test_persisted_passage_selectors_are_bounded_source_bound_and_private(self):
+        store = FakeCaptureStore()
+        store.selectors = [passage('passage:01'), passage('passage:02',
+            selector_type='PAGE_RANGE', start_char=None, end_char=None,
+            page_start=1, page_end=3)]
+        first = inspect_capture_passage_selectors(
+            store, content_id='content:one', capture_hash=A, limit=1)
+        self.assertEqual(first['selectors'][0]['start_char'], 5)
+        self.assertEqual(first['next_after_id'], 'passage:01')
+        self.assertTrue(first['has_more'])
+        self.assertFalse(first['rights_clearance'])
+        self.assertFalse(first['publication_authority'])
+        second = inspect_capture_passage_selectors(
+            store, content_id='content:one', capture_hash=A, limit=1,
+            after_id=first['next_after_id'])
+        self.assertEqual(second['selectors'][0]['page_end'], 3)
+        self.assertFalse(second['has_more'])
+        self.assertEqual(store.calls, [
+            ('content:one', A), ('capture:aaaaaa', 1, None),
+            ('content:one', A), ('capture:aaaaaa', 1, 'passage:01'),
+        ])
+        for forbidden in ('SECRET SOURCE PASSAGE', 'PRIVATE TOKEN', 'metadata', 'private_text'):
+            self.assertNotIn(forbidden, json.dumps((first, second)))
+
+    def test_passage_inspection_rejects_cross_capture_unsupported_and_tampered_selectors(self):
+        for updates in (
+            {'capture_id': 'capture:other'}, {'content_id': 'content:other'},
+            {'canonical_segment_id': 'segment:foreign'},
+            {'selector_type': 'MEDIA_SEGMENT_REF'},
+            {'start_char': -1}, {'end_char': 5}, {'end_char': True},
+            {'text_sha256': 'bad'}, {'id': 'passage:secret\n'},
+            {'page_start': 1}, {'selector_type': 'PAGE_RANGE'},
+        ):
+            with self.subTest(updates=updates):
+                store = FakeCaptureStore()
+                store.selectors = [passage('passage:01', **updates)]
+                with self.assertRaises(ValueError):
+                    inspect_capture_passage_selectors(
+                        store, content_id='content:one', capture_hash=A)
+        for limit in (0, -1, 21, True, '1'):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                inspect_capture_passage_selectors(
+                    FakeCaptureStore(), content_id='content:one', capture_hash=A, limit=limit)
+        store = FakeCaptureStore()
+        store.selectors = [passage('passage:01'), passage('passage:01')]
+        with self.assertRaises(ValueError):
+            inspect_capture_passage_selectors(store, content_id='content:one', capture_hash=A)
+        with self.assertRaises(ValueError):
+            inspect_capture_passage_selectors(
+                FakeCaptureStore(), content_id='content:one', capture_hash=A,
+                after_id='unsafe\n')
+
+    def test_passage_inspection_missing_capture_and_store_error_fail_closed(self):
+        with self.assertRaisesRegex(RuntimeError, 'STUDIO_CAPTURE_VERSION_MISSING'):
+            inspect_capture_passage_selectors(
+                FakeCaptureStore(rows={}), content_id='content:one', capture_hash=A)
+        store = FakeCaptureStore()
+        store.selector_error = OSError('password=PRIVATE')
+        with self.assertRaisesRegex(RuntimeError, '^STUDIO_CAPTURE_STORE_UNAVAILABLE$') as ctx:
+            inspect_capture_passage_selectors(store, content_id='content:one', capture_hash=A)
+        self.assertNotIn('PRIVATE', str(ctx.exception))
     def test_archive_completion_cannot_precede_request_in_persisted_lifecycle(self):
         # The actual archive request/completion SQL stamps both transitions
         # with now(). A coherent receipt cannot complete before it was asked.

@@ -121,3 +121,32 @@ terminal outcomes and offset inversions; an equivalent instant
 across offsets is accepted. This remains metadata-only and does
 not cryptographically attest an archive provider or install
 the private browser runtime.
+
+### 2026-10-09 Wave 15: persisted written Passage selector drill-down
+
+The authenticated local Studio `/v1/capture/passages` read path now accepts an
+exact Content ID and Capture SHA-256, loads/revalidates the persisted Capture
+lifecycle before querying a strictly bounded (1–20) list of written Passage
+selectors. SQL fetches only ID, capture/content/segment bindings, selector type,
+hash and character/page positions; it **never selects** `private_text`,
+credentials, arbitrary `metadata` or canonical transcript body. Response
+excludes all backend-only fields, even when forged rows inject private text.
+
+The inspector rejects cross-Content and cross-Capture rows, unsupported media
+selectors, invalid hashes, non-increasing cursor pages, malformed selector
+coordinates and backend errors. The private HTML compare panel has keyboard-
+reachable buttons to inspect either known Capture's selectors; pagination is
+by validated after-ID, with explicit `rights_clearance=false` and
+`publication_authority=false`.
+
+Proof: RED missing import for new tests, then 25 focused Capture/HTTP tests
+GREEN. An independent disposable PostgreSQL cluster loaded actual
+`schema.v1.sql`, inserted two unrelated Contents, Captures and three Passages,
+and passed the real SQL + exact Capture/Content scoping + paginated projection
+acceptance. `AC-419.1..4` are **not** declared closed: this vertical supports
+written Passage navigation only. In particular, `MEDIA_SEGMENT_REF` belongs
+to canonical Content segments rather than Capture versions and still needs
+a separately bound, tested time-range/candidate jump; rights-gated source
+preview, real MiniPC installation, browser/manual AT and provider receipts
+remain unavailable. No migration, corpus mutation, rights decision, reviewer
+authority or production deployment was performed.

@@ -147,12 +147,22 @@ _PAGE = """<!doctype html>
       </form>
     </section>
     <section class="pane" id="captures" hidden>
-      <h2>Confronto catture</h2><p>Due hash esatti dello stesso Content. Nessuna anteprima di passaggi o testo protetto.</p>
+      <h2>Confronto catture</h2><p>Due hash esatti dello stesso Content. I risultati sono metadati persistiti, non attestazioni di diritti o anteprime di testo.</p>
       <form data-endpoint="/v1/capture/compare">
         <div class="controls"><label>Content ID<input name="content_id" maxlength="180" required></label>
         <label>SHA-256 precedente<input name="earlier_hash" minlength="64" maxlength="64" required></label>
         <label>SHA-256 successivo<input name="later_hash" minlength="64" maxlength="64" required></label>
         <button type="submit">Confronta</button></div>
+      </form>
+      <div id="capture-links" role="group" aria-label="Catture confrontate: ispeziona selettori"></div>
+      <h2>Selettori dei passaggi</h2>
+      <p>Passaggi scritti collegati a una singola versione di cattura. Gli eventuali segmenti multimediali appartengono al Content logico e non vengono attribuiti artificialmente a questa versione.</p>
+      <form data-endpoint="/v1/capture/passages">
+        <div class="controls"><label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>SHA-256 cattura<input name="capture_hash" minlength="64" maxlength="64" required></label>
+        <label>Limite (1–20)<input name="limit" type="number" min="1" max="20" value="20" required></label>
+        <label>Dopo Passage ID<input name="after_id" maxlength="180"></label>
+        <button type="submit">Mostra selettori</button></div>
       </form>
     </section>
     <section class="pane" aria-labelledby="esito">
@@ -167,6 +177,8 @@ _PAGE = """<!doctype html>
     const status = document.getElementById('status');
     const memberLinks = document.getElementById('member-links');
     const claimLinks = document.getElementById('claim-links');
+    const captureLinks = document.getElementById('capture-links');
+    const capturePassageForm = document.querySelector('form[data-endpoint="/v1/capture/passages"]');
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
@@ -183,6 +195,7 @@ _PAGE = """<!doctype html>
         for (const panel of panels) panel.hidden = panel.id !== button.dataset.panel;
         results.textContent = 'Nessuna richiesta per il workspace selezionato.';
         status.textContent = 'Pronto per una query.';
+        captureLinks.replaceChildren();
       });
     }
     for (const form of document.querySelectorAll('form[data-endpoint]')) {
@@ -206,6 +219,9 @@ _PAGE = """<!doctype html>
         if (form.dataset.endpoint === '/v1/collections/member') {
           claimLinks.replaceChildren();
         }
+        if (form.dataset.endpoint === '/v1/capture/compare') {
+          captureLinks.replaceChildren();
+        }
         try {
           const response = await fetch(form.dataset.endpoint, {
             method: 'POST', credentials: 'omit', redirect: 'error',
@@ -215,6 +231,22 @@ _PAGE = """<!doctype html>
           const receipt = await response.json();
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
           results.textContent = JSON.stringify(receipt, null, 2);
+          if (response.ok && form.dataset.endpoint === '/v1/capture/compare') {
+            for (const position of ['earlier', 'later']) {
+              const capture = receipt.data?.[position];
+              if (typeof capture?.content_sha256 !== 'string' || typeof receipt.data?.content_id !== 'string') continue;
+              const link = document.createElement('button');
+              link.type = 'button';
+              link.textContent = (position === 'earlier' ? 'Precedente' : 'Successiva') + ' · selettori di ' + capture.id;
+              link.addEventListener('click', () => {
+                capturePassageForm.elements.namedItem('content_id').value = receipt.data.content_id;
+                capturePassageForm.elements.namedItem('capture_hash').value = capture.content_sha256;
+                capturePassageForm.elements.namedItem('after_id').value = '';
+                capturePassageForm.requestSubmit();
+              });
+              captureLinks.append(link);
+            }
+          }
           if (response.ok && form.dataset.endpoint === '/v1/collections/members'
               && Array.isArray(receipt.data?.results)) {
             for (const member of receipt.data.results) {

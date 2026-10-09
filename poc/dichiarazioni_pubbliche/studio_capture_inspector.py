@@ -16,6 +16,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
     CAPTURE_ARCHIVE_STATUSES,
     CAPTURE_HOLD_STATUSES,
     CAPTURE_STATUSES,
+    PASSAGE_SELECTOR_TYPES,
 )
 
 CAPTURE_INSPECTION_VERSION = "studio-capture-inspection-v1"
@@ -25,6 +26,7 @@ _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
 
 class CaptureLookup(Protocol):
     def find_capture(self, content_id: str, content_sha256: str) -> dict[str, Any] | None: ...
+    def list_passage_selectors(self, capture_id: str, *, limit: int, after_id: str | None) -> list[dict[str, Any]]: ...
 
 
 def _safe_id(value: object) -> str:
@@ -167,6 +169,89 @@ def inspect_capture_versions(
     }
 
 
+def _selector(raw: Mapping[str, Any], *, content_id: str, capture_id: str) -> dict[str, Any]:
+    if (raw.get("content_id") != content_id or raw.get("capture_id") != capture_id
+            or raw.get("canonical_segment_id") is not None):
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_BINDING_INVALID")
+    kind = raw.get("selector_type")
+    if not isinstance(kind, str) or kind not in PASSAGE_SELECTOR_TYPES or kind == "MEDIA_SEGMENT_REF":
+        # Media segments refer to logical Content, not one capture version.
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_SELECTOR_INVALID")
+    digest = raw.get("text_sha256")
+    if not isinstance(digest, str) or not _SHA.fullmatch(digest):
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_HASH_INVALID")
+    coords = ("start_char", "end_char") if kind == "TEXT_POSITION" else ("page_start", "page_end")
+    other = ("page_start", "page_end") if kind == "TEXT_POSITION" else ("start_char", "end_char")
+    first, last = (raw.get(coord) for coord in coords)
+    if (type(first) is not int or type(last) is not int
+            or first < (0 if kind == "TEXT_POSITION" else 1)
+            or (last <= first if kind == "TEXT_POSITION" else last < first)):
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_RANGE_INVALID")
+    if any(raw.get(coord) is not None for coord in other):
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_EXTRA_RANGE_INVALID")
+    return {
+        "id": _safe_id(raw.get("id")),
+        "selector_type": kind,
+        "text_sha256": digest,
+        coords[0]: first,
+        coords[1]: last,
+    }
+
+
+def inspect_capture_passage_selectors(
+    store: CaptureLookup,
+    *,
+    content_id: str,
+    capture_hash: str,
+    limit: int = 20,
+    after_id: str | None = None,
+) -> dict[str, object]:
+    """Bounded, capture-version-exact selector metadata; never a source preview."""
+    content_id = _safe_id(content_id)
+    if not isinstance(capture_hash, str) or not _SHA.fullmatch(capture_hash):
+        raise ValueError("STUDIO_CAPTURE_HASH_INVALID")
+    if type(limit) is not int or not 1 <= limit <= 20:
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_LIMIT_INVALID")
+    if after_id is not None:
+        after_id = _safe_id(after_id)
+    try:
+        raw_capture = store.find_capture(content_id, capture_hash)
+    except Exception:
+        raise RuntimeError("STUDIO_CAPTURE_STORE_UNAVAILABLE") from None
+    if not isinstance(raw_capture, Mapping):
+        raise RuntimeError("STUDIO_CAPTURE_VERSION_MISSING")
+    capture = _select_metadata(raw_capture, content_id, capture_hash)
+    try:
+        rows = store.list_passage_selectors(capture.id, limit=limit, after_id=after_id)
+    except Exception:
+        raise RuntimeError("STUDIO_CAPTURE_STORE_UNAVAILABLE") from None
+    if not isinstance(rows, list) or len(rows) > limit + 1:
+        raise ValueError("STUDIO_CAPTURE_PASSAGE_PAGE_INVALID")
+    previous = after_id or ""
+    for raw in rows:
+        if not isinstance(raw, Mapping):
+            raise ValueError("STUDIO_CAPTURE_PASSAGE_ROW_INVALID")
+        pid = _safe_id(raw.get("id"))
+        if pid <= previous:
+            raise ValueError("STUDIO_CAPTURE_PASSAGE_CURSOR_INVALID")
+        previous = pid
+    shown = [_selector(row, content_id=content_id, capture_id=capture.id)
+             for row in rows[:limit]]
+    has_more = len(rows) > limit
+    return {
+        "contract_version": CAPTURE_INSPECTION_VERSION,
+        "private_only": True,
+        "publication_authority": False,
+        "rights_clearance": False,
+        "content_id": content_id,
+        "capture": capture.to_dict(),
+        "selectors": shown,
+        "has_more": has_more,
+        "next_after_id": shown[-1]["id"] if has_more else None,
+    }
+
+
 __all__ = [
-    "CAPTURE_INSPECTION_VERSION", "CaptureInspection", "CaptureLookup", "inspect_capture_versions",
+    "CAPTURE_INSPECTION_VERSION", "CaptureInspection", "CaptureLookup",
+    "inspect_capture_versions", "inspect_capture_passage_selectors",
 ]
