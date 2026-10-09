@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Mapping
 
 from dichiarazioni_pubbliche.dvns_structured_evidence import DvnsStructuredEvidenceImport
@@ -24,6 +25,11 @@ _DOMINANT_SOURCE_STATES = frozenset({"BLOCKED", "FAILED", "DEGRADED"})
 _AUTHORITY_FIELDS = ("jurisdiction", "organization", "record_type", "dataset_class")
 _RECORD_FIELDS = frozenset({"metric", "unit", "reference_period"})
 _TEMPORAL_FIELDS = frozenset({"reference_period", "effective_at"})
+_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_ISO_TIMESTAMP = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}"
+    r"(?::[0-9]{2}(?:[.,][0-9]+)?)?(?:Z|[+-][0-9]{2}:[0-9]{2})?"
+)
 
 
 class DvnsSourceSuitabilityError(RuntimeError):
@@ -78,14 +84,23 @@ def _normalized_state(value: Any) -> str:
 
 def _date(value: Any, name: str) -> date:
     raw = _text(value, name)
+    error_code = f"DVNS_DP215_{name}_INVALID"
+    # A source's authority/cutoff must never be inferred from an ISO-looking
+    # prefix of a malformed timestamp (or from implicit string coercion).
+    if not isinstance(value, str) or raw != value:
+        raise DvnsSourceSuitabilityError(error_code)
     try:
-        return date.fromisoformat(raw[:10])
+        if _ISO_DATE.fullmatch(raw):
+            return date.fromisoformat(raw)
+        if _ISO_TIMESTAMP.fullmatch(raw):
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
     except ValueError as exc:
-        raise DvnsSourceSuitabilityError(f"DVNS_DP215_{name}_INVALID") from exc
+        raise DvnsSourceSuitabilityError(error_code) from exc
+    raise DvnsSourceSuitabilityError(error_code)
 
 
 def _optional_date(value: Any, name: str) -> date | None:
-    if value is None or not str(value).strip():
+    if value is None or value == "":
         return None
     return _date(value, name)
 
@@ -244,7 +259,7 @@ def _temporal_matches(
     effective_at_raw = requirements.get("effective_at")
     effective_at = (
         _date(effective_at_raw, "EFFECTIVE_AT")
-        if effective_at_raw is not None and str(effective_at_raw).strip()
+        if effective_at_raw is not None and effective_at_raw != ""
         else None
     )
     if effective_at is not None:

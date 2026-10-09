@@ -167,6 +167,109 @@ class DvnsSourceSuitabilityTests(unittest.TestCase):
         self.assertIn("POST_STATEMENT_EVIDENCE", record.reason_codes)
         self.assertFalse(record.temporal_match)
 
+    def test_statement_date_requires_whole_valid_iso_date_or_timestamp(self):
+        for value in (
+            "2026-09-04NOT_A_DATE",
+            "2026-09-04T99:99:99+00:00",
+            "2026-09-04T12:30:00Zgarbage",
+            "2026-09-04T12:30:00+25:00",
+            "2026-02-30",
+            " 2026-09-04 ",
+        ):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(
+                    DvnsSourceSuitabilityError,
+                    "DVNS_DP215_STATEMENT_DATE_INVALID",
+                ):
+                    self.bridge(statement_date=value)
+
+        for value in (
+            "2026-09-04",
+            "2026-09-04T12:30:00+02:00",
+            "2026-09-04T12:30:00.123456Z",
+            "2026-09-04 12:30:00+02:00",
+            "2026-09-04T12:30Z",
+        ):
+            with self.subTest(valid=value):
+                self.assertEqual(
+                    self.bridge(statement_date=value).candidate_state,
+                    READY_FOR_DP215_ASSESSMENT,
+                )
+
+    def test_effective_at_requires_whole_valid_iso_date_or_timestamp(self):
+        basic_requirements = {
+            "metric": "employment_rate_pct",
+            "unit": "percent",
+            "population": "working_age",
+            "geography": "IT",
+            "reference_period": "2026-07",
+            "jurisdiction": "IT",
+            "dataset_class": "ISTAT_SDMX",
+        }
+        for value in (
+            "2026-07-15NOT_A_DATE",
+            "2026-07-15T99:99:99+00:00",
+            "2026-07-15T10:30:00Zgarbage",
+            "2026-07-15T10:30:00+25:00",
+            "2026-02-30",
+        ):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(
+                    DvnsSourceSuitabilityError,
+                    "DVNS_DP215_EFFECTIVE_AT_INVALID",
+                ):
+                    self.bridge(claim_requirements={**basic_requirements, "effective_at": value})
+
+        for value in (
+            "2026-07-15",
+            "2026-07-15T08:45:00+02:00",
+            "2026-07-15T08:45:00Z",
+        ):
+            with self.subTest(valid=value):
+                self.assertEqual(
+                    self.bridge(claim_requirements={**basic_requirements, "effective_at": value}).candidate_state,
+                    READY_FOR_DP215_ASSESSMENT,
+                )
+
+    def test_authority_scope_validity_requires_whole_valid_iso_dates(self):
+        for field, code in (
+            ("valid_from", "DVNS_DP215_AUTHORITY_VALID_FROM_INVALID"),
+            ("valid_until", "DVNS_DP215_AUTHORITY_VALID_UNTIL_INVALID"),
+        ):
+            for value in (
+                "2026-01-01garbage",
+                "2026-01-01T99:99:99Z",
+                "2026-01-01T10:00:00+25:00",
+            ):
+                with self.subTest(field=field, value=value):
+                    bad_scope = replace(self.scope, **{field: value})
+                    profile = replace(
+                        self.profile,
+                        authority_scopes=tuple(
+                            bad_scope if scope.id == self.scope.id else scope
+                            for scope in self.profile.authority_scopes
+                        ),
+                    )
+                    with self.assertRaisesRegex(DvnsSourceSuitabilityError, code):
+                        self.bridge(source_profile=profile, authority_scope=bad_scope)
+
+        valid_scope = replace(
+            self.scope,
+            valid_from="2026-01-01T00:00:00+01:00",
+            valid_until="2027-01-01T00:00:00Z",
+        )
+        profile = replace(
+            self.profile,
+            authority_scopes=tuple(
+                valid_scope if scope.id == self.scope.id else scope
+                for scope in self.profile.authority_scopes
+            ),
+        )
+        self.assertEqual(
+            self.bridge(source_profile=profile, authority_scope=valid_scope).candidate_state,
+            READY_FOR_DP215_ASSESSMENT,
+        )
+
     def test_blocked_failed_or_degraded_rights_availability_dominate(self):
         for field, state, reason in (
             ("rights_status", "BLOCKED", "DVNS_RIGHTS_BLOCKED"),

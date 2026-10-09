@@ -113,3 +113,16 @@ DP-212 matching algorithm remaining authoritative.
 unchanged. No persisted review mutation, source rights, real
 MiniPC match canary, keyboard workflow or authority acceptance
 is introduced; DP-418 stays IN PROGRESS.
+
+### 2026-10-09 Wave 14 — persisted matching version and result-state binding
+
+The read-only Studio inspector displayed the current `matching_version`
+constant without validating `candidate_match_run.matching_version` or
+each persisted `candidate_match_result.matching_version/status`. A stale
+row could therefore appear to use the current algorithm even when it did
+not. The SQL reader now returns these actual persisted fields and the
+inspector refuses missing/mismatched versions and non-`CANDIDATE` status
+before presenting a suggestion. Six adversarial RED subtests became
+GREEN. Its output still declares `currentness=UNVERIFIED`, no reviewer
+or publication authority and disabled promotion. This is not real
+reviewer authorization or a closed DP-418 runtime acceptance.

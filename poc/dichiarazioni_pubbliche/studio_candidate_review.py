@@ -83,6 +83,8 @@ def inspect_candidate_match_run(
             raise ValueError("STUDIO_CANDIDATE_RUN_MISSING")
         if run.get("id") != run_id or run.get("claim_candidate_id") != claim_candidate_id:
             raise ValueError("STUDIO_CANDIDATE_RUN_BINDING_MISMATCH")
+        if run.get("matching_version") != MATCHING_VERSION:
+            raise ValueError("STUDIO_CANDIDATE_RUN_VERSION_INVALID")
         fingerprint = run.get("input_fingerprint")
         if not isinstance(fingerprint, str) or not _HASH.fullmatch(fingerprint):
             raise ValueError("STUDIO_CANDIDATE_RUN_FINGERPRINT_INVALID")
@@ -102,6 +104,10 @@ def inspect_candidate_match_run(
         for index, row in enumerate(rows, start=1):
             if not isinstance(row, Mapping):
                 raise ValueError("STUDIO_CANDIDATE_RESULT_INVALID")
+            if row.get("matching_version") != MATCHING_VERSION:
+                raise ValueError("STUDIO_CANDIDATE_RESULT_VERSION_INVALID")
+            if row.get("status") != "CANDIDATE":
+                raise ValueError("STUDIO_CANDIDATE_RESULT_STATUS_INVALID")
             result_id = _safe_id(row.get("id"))
             rank = row.get("rank")
             if (result_id in seen_ids or type(rank) is not int or rank != index):

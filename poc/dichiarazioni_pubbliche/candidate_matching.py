@@ -325,7 +325,7 @@ class CandidateMatchingStore(PsqlRuntime):
             """
             SELECT COALESCE(json_build_object(
               'id', id, 'claim_candidate_id', claim_candidate_id,
-              'input_fingerprint', input_fingerprint, 'status', status,
+              'input_fingerprint', input_fingerprint, 'matching_version', matching_version, 'status', status,
               'result_count', result_count
             )::text, '')
             FROM candidate_match_run WHERE id=:'run_id';
@@ -341,6 +341,7 @@ class CandidateMatchingStore(PsqlRuntime):
               'id', result.id, 'rank', result.rank, 'target_type', result.target_type,
               'target_id', COALESCE(result.target_claim_candidate_id, result.target_atomic_claim_id),
               'match_class', result.match_class, 'method', result.method,
+              'matching_version', result.matching_version, 'status', result.status,
               'lexical_score', result.lexical_score, 'disposition', result.disposition,
               'proposition_cluster_id', result.proposition_cluster_id,
               'supporting_features', result.supporting_features,

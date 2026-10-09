@@ -74,3 +74,17 @@ runtime authority but closes none of the three external ACs: there is still no a
 DVNS/API/export provider wired into DP-228/DP-215, no source-specific compatible-license/rights
 decision, and therefore no production source family on which a meaningful MiniPC provider
 canary can run. The synthetic contract remains candidate-only and confers no source approval.
+
+### 2026-10-09 Wave 14 — no prefix-truncated temporal authority
+
+The DP-215 suitability bridge previously parsed only the first ten characters
+of any date-like value. Malformed statement dates, requested `effective_at`
+and authority-scope effective intervals, including impossible clocks and
+appended garbage, therefore evaluated as valid dates and could produce
+`READY_FOR_DP215_ASSESSMENT`. The adapter now validates the **entire**
+date or timestamp string and valid ISO clock/zone syntax without truncation.
+Existing valid ISO dates/timestamps remain supported; field-specific DVNS
+error codes remain stable. RED→GREEN tests cover malformed dates and both
+authority interval endpoints. This is source-only safety, not an approved
+DVNS provider, compatible license, owner scope decision, or MiniPC canary.
+DP-234 remains IN PROGRESS with external ACs open.

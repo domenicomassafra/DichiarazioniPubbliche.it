@@ -25,6 +25,7 @@ class Store:
         self.run = {
             "id": RUN_ID,
             "claim_candidate_id": CANDIDATE_ID,
+            "matching_version": MATCHING_VERSION,
             "input_fingerprint": F,
             "status": "COMPLETED",
             "result_count": 1,
@@ -32,6 +33,7 @@ class Store:
         self.results = ({
             "id": RESULT_ID, "rank": 1, "target_id": TARGET_ID,
             "target_type": "ATOMIC_CLAIM", "match_class": "UNCERTAIN",
+            "matching_version": MATCHING_VERSION, "status": "CANDIDATE",
             "disposition": "HOLD", "method": "LEXICAL_TRIGRAM", "lexical_score": 0.99,
             "proposition_cluster_id": None,
             "supporting_features": [{"code": "SAME_CLAIM_TYPE", "value": "SECRET"}],
@@ -47,6 +49,18 @@ class Store:
 
 
 class StudioCandidateReviewTests(unittest.TestCase):
+    def test_persisted_matching_versions_and_result_status_are_not_inferred(self):
+        for field, invalid in (("matching_version", None), ("matching_version", "candidate-matching-v0")):
+            store = Store()
+            store.run[field] = invalid
+            with self.subTest(run=invalid), self.assertRaisesRegex(ValueError, "RUN_VERSION_INVALID"):
+                inspect_candidate_match_run(store, run_id=RUN_ID, claim_candidate_id=CANDIDATE_ID)
+        for field, invalid in (("matching_version", None), ("matching_version", "candidate-matching-v0"), ("status", None), ("status", "REJECTED")):
+            store = Store()
+            store.results[0][field] = invalid
+            with self.subTest(result=invalid, field=field), self.assertRaisesRegex(ValueError, "RESULT_(VERSION|STATUS)_INVALID"):
+                inspect_candidate_match_run(store, run_id=RUN_ID, claim_candidate_id=CANDIDATE_ID)
+
     def test_persisted_run_is_read_only_and_does_not_expose_raw_data(self):
         result = inspect_candidate_match_run(Store(), run_id=RUN_ID, claim_candidate_id=CANDIDATE_ID)
         self.assertEqual(result["currentness"], "UNVERIFIED")

@@ -551,3 +551,22 @@ authority, a MiniPC production upgrade or v1 release.
 compileall and diff checks, with preflight still **NO-GO/41**.
 Only the subsequent commit-specific GitHub CI remains to verify;
 no source rights or release authority are inferred.
+
+### 2026-10-09 Wave 14 — DVNS dates and persisted matching provenance
+
+DP-234 no longer uses valid-looking date prefixes from invalid statement
+dates, effective request dates or authority-scope intervals; the full ISO
+date/timestamp, clock and offset must be valid. DP-418 read-only Studio
+now verifies the actual stored run/result matching versions and result
+lifecycle status rather than claiming the current algorithm version by
+constant. Both are local RED→GREEN regression fixes; combined DVNS,
+Studio API and matching focused tests **56/56 PASS**. Full suite,
+restore, benchmark and new CI remain pending. No external DVNS rights,
+approved matching decision, live Garlasco evidence or release authority
+were created. **39 open, NO-GO/41**.
+
+Wave 14's full frozen test matrix then passed **2097/2097 Python tests**,
+100-table restore, 5/5 benchmark, repository contract, compileall and
+diff checks. Launch preflight still reports unchanged **NO-GO/41**.
+No additional DP-234/418 AC is declared DONE from these synthetic
+proofs; commit-specific GitHub CI is the remaining source-only gate.
