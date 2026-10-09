@@ -57,6 +57,29 @@ class DiscoveryProvenanceAuthorizationTests(unittest.TestCase):
                     canonical_url_sql="content.canonical_url",
                 )
 
+    def test_sql_identifiers_are_role_bound_not_interchangeable(self):
+        for change in (
+            {"collection_id_sql": "content.id"},
+            {"collection_id_sql": "member.content_id"},
+            {"content_id_sql": "collection.id"},
+            {"content_id_sql": "member.collection_id"},
+            {"canonical_url_sql": "content.id"},
+            {"canonical_url_sql": "member.content_id"},
+        ):
+            with self.subTest(change=change), self.assertRaisesRegex(
+                ValueError, "DISCOVERY_PROVENANCE_SQL_EXPRESSION_INVALID"
+            ):
+                valid_discovery_hit_groups_sql(**({
+                    "collection_id_sql": "collection.id",
+                    "content_id_sql": "content.id",
+                    "canonical_url_sql": "content.canonical_url",
+                } | change))
+        self.assertIn("manifest.collection_id=member.collection_id", valid_discovery_hit_groups_sql(
+            collection_id_sql="member.collection_id",
+            content_id_sql="content.id",
+            canonical_url_sql="content.canonical_url",
+        ))
+
     def test_capture_operator_sql_and_report_share_same_verified_lineage(self):
         class QueryProbe(CapturePipelineStore):
             def __init__(self):
@@ -98,6 +121,41 @@ class DiscoveryProvenanceAuthorizationTests(unittest.TestCase):
                     {**row, **change},
                     collection_id="research:approved",
                     item=item,
+                )
+
+    def test_noncanonical_persisted_hit_url_cannot_authorize_canonical_item(self):
+        item = make_batch().items[0]
+        row = research_context(item)
+        variants = (
+            item.canonical_url.replace("example.test", "EXAMPLE.TEST"),
+            item.canonical_url.replace("example.test", "example.test:443"),
+            item.canonical_url + "#ignored-fragment",
+            item.canonical_url + " ",
+        )
+        for stored in variants:
+            with self.subTest(stored=stored):
+                # PostgreSQL's hit.canonical_url = content.canonical_url
+                # matches when both drift to this noncanonical value. The
+                # existing capture guard silently normalized them back to
+                # the approved batch URL and accepted that forged lineage.
+                with self.assertRaisesRegex(
+                    PrivateCaptureAuthorizationBlocked,
+                    "PRIVATE_CAPTURE_DISCOVERY_PROVENANCE_INVALID",
+                ):
+                    require_persisted_discovery(
+                        {**row, "canonical_url": stored},
+                        collection_id="research:approved", item=item,
+                    )
+
+    def test_inactive_collection_never_authorizes_existing_discovery_groups(self):
+        item = make_batch().items[0]
+        for status in ("PAUSED", "ARCHIVED"):
+            with self.subTest(status=status), self.assertRaisesRegex(
+                PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_COLLECTION_NOT_ACTIVE"
+            ):
+                require_persisted_discovery(
+                    research_context(item, collection_status=status),
+                    collection_id="research:approved", item=item,
                 )
 
     def test_valid_multiple_families_must_include_exact_authorized_source(self):

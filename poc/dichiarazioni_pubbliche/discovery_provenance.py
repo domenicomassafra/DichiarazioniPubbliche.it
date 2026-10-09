@@ -11,17 +11,20 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-_SQL_EXPRESSION = re.compile(
-    r"^(?:collection|member|content)\.(?:id|collection_id|content_id|canonical_url)$"
-)
+from dichiarazioni_pubbliche.ingestion_relevance import canonical_content_url
+
+_COLLECTION_ID_SQL = frozenset({"collection.id", "member.collection_id"})
+_CONTENT_ID_SQL = frozenset({"content.id", "member.content_id"})
+_CANONICAL_URL_SQL = frozenset({"content.canonical_url"})
 
 
 def valid_discovery_hit_groups_sql(
     *, collection_id_sql: str, content_id_sql: str, canonical_url_sql: str
 ) -> str:
     """SQL grouped by source family; accepts only fixed, validated SQL identifiers."""
-    if any(not _SQL_EXPRESSION.fullmatch(value) for value in
-           (collection_id_sql, content_id_sql, canonical_url_sql)):
+    if (collection_id_sql not in _COLLECTION_ID_SQL
+            or content_id_sql not in _CONTENT_ID_SQL
+            or canonical_url_sql not in _CANONICAL_URL_SQL):
         raise ValueError("DISCOVERY_PROVENANCE_SQL_EXPRESSION_INVALID")
     return f"""
         SELECT hit.source_family, count(*)::integer AS hit_count
@@ -53,6 +56,15 @@ def valid_discovery_hit_groups_sql(
 
 def accepted_discovery_family_counts(row: Mapping[str, Any]) -> dict[str, int]:
     """Validate the materialized DB group list; no hand-authored approval flags."""
+    stored_url = row.get("canonical_url")
+    if not isinstance(stored_url, str):
+        raise ValueError("DISCOVERY_PROVENANCE_URL_NONCANONICAL")
+    try:
+        canonical_url = canonical_content_url(stored_url)
+    except ValueError:
+        raise ValueError("DISCOVERY_PROVENANCE_URL_NONCANONICAL") from None
+    if stored_url != canonical_url:
+        raise ValueError("DISCOVERY_PROVENANCE_URL_NONCANONICAL")
     raw = row.get("accepted_discovery_groups")
     if not isinstance(raw, list) or len(raw) > 128:
         raise ValueError("DISCOVERY_PROVENANCE_GROUPS_INVALID")

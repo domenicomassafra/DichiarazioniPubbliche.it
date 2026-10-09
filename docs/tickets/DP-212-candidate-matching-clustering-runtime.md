@@ -136,3 +136,23 @@ Production MiniPC proof:
 
 No embedding/vector layer was added: DP-116's measured lexical/trigram baseline remains the
 candidate-generation seam, while proposition equivalence stays deterministic/reviewable.
+
+### 2026-10-09 follow-up: structured contradictions cannot propose clusters
+
+The private matcher now holds a lexical `SAME_PROPOSITION` or
+`DUPLICATE_EXTRACTION` when both inputs explicitly disagree on ClaimType or
+temporal scope. The conflicting pair remains visible for review with its
+`CLAIM_TYPE_MISMATCH` / `TEMPORAL_SCOPE_DIFFERS` feature, but receives no
+proposed cluster or cluster-member mutation. An explicit disposition-policy
+version enters the input fingerprint so a historical `v1` matching run cannot
+be silently replayed under the corrected rule; the existing database
+`candidate-matching-v1` storage format is unchanged. Existing old proposals
+remain subject to independent reviewer authority. This follow-up is a
+deterministic safety refinement, not evidence that DP-214's live Garlasco
+capture/review pipeline exists or that prior reviewer-approved clusters were
+automatically reclassified.
+The replay branch also refuses persisted `BLOCKED` runs and runs whose
+Candidate ID or input fingerprint differs from the current request, even
+when the recorded result count happens to be zero. It verifies the persisted
+result target identities and contiguous rank sequence instead of accepting
+an unchanged count as proof of a complete replay.

@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
@@ -24,6 +25,7 @@ from dichiarazioni_pubbliche.studio_discovery_triage_authority import (  # noqa:
     issue_triage_attestation,
     verify_triage_attestation,
 )
+from dichiarazioni_pubbliche import studio_discovery_triage_authority as triage_authority  # noqa: E402
 from dichiarazioni_pubbliche.studio_discovery_triage_contract import (  # noqa: E402
     make_triage_request,
 )
@@ -138,6 +140,100 @@ class PrivateDiscoveryTriageAuthorityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "REVOKED"):
             issue_triage_attestation(fresh_authority, self.request, "alice-v1")
         self.assertEqual(len(list((self.root / "triage-receipts").glob("*.json"))), 1)
+
+    def test_revocation_during_signature_check_blocks_verification(self):
+        issued = self._issue()
+        original = triage_authority._check_signed
+
+        def revoke_after_signature(*args):
+            original(*args)
+            self.authority.revoke("alice-v1")
+
+        with patch.object(triage_authority, "_check_signed", side_effect=revoke_after_signature):
+            with self.assertRaisesRegex(ValueError, "REVOKED"):
+                verify_triage_attestation(self.authority, self.request, issued["receipt_id"])
+
+    def test_receipt_replacement_during_credential_check_blocks_verification(self):
+        issued = self._issue()
+        path = self._file(issued)
+        original = triage_authority._credential
+
+        def alter_after_credential(*args):
+            identity = original(*args)
+            payload = json.loads(path.read_text())
+            payload["decision"] = "REJECTED"
+            path.write_text(json.dumps(payload))
+            return identity
+
+        with patch.object(triage_authority, "_credential", side_effect=alter_after_credential):
+            with self.assertRaisesRegex(ValueError, "DP417_TRIAGE_RECEIPT_INVALID"):
+                verify_triage_attestation(self.authority, self.request, issued["receipt_id"])
+
+    def test_child_directories_remain_anchored_to_open_authority_root(self):
+        alternate = Path(self.tmp.name) / "replacement-private"
+        initialize_authority_root(alternate)
+        provision_reviewer_credential(
+            alternate, credential_id="alice-v1", actor_ref="reviewer:alice",
+            key_version="v1", secret_hex="44" * 32,
+        )
+        (self.root / "triage-receipts").mkdir(mode=0o700)
+        (alternate / "triage-receipts").mkdir(mode=0o700)
+        original_receipts_inode = (self.root / "triage-receipts").stat().st_ino
+        replacement_receipts_inode = (alternate / "triage-receipts").stat().st_ino
+        saved_root = self.root.with_name("reviewer-original")
+        original_open = triage_authority._open_private_dir
+        switched = False
+
+        def swap_root_after_open(path):
+            nonlocal switched
+            fd = original_open(path)
+            if not switched and Path(path) == self.root:
+                self.root.rename(saved_root)
+                self.root.symlink_to(alternate, target_is_directory=True)
+                switched = True
+            return fd
+
+        try:
+            with patch.object(triage_authority, "_open_private_dir", side_effect=swap_root_after_open):
+                receipt_fd = triage_authority._receipt_dir(self.authority, create=False)
+            try:
+                self.assertNotEqual(original_receipts_inode, replacement_receipts_inode)
+                self.assertEqual(os.fstat(receipt_fd).st_ino, original_receipts_inode)
+            finally:
+                os.close(receipt_fd)
+        finally:
+            if switched:
+                self.root.unlink()
+                saved_root.rename(self.root)
+
+    def test_credential_root_swap_cannot_use_other_authority_credentials(self):
+        alternate = Path(self.tmp.name) / "replacement-private"
+        initialize_authority_root(alternate)
+        provision_reviewer_credential(
+            alternate, credential_id="alice-v1", actor_ref="reviewer:alice",
+            key_version="v1", secret_hex="44" * 32,
+        )
+        saved_root = self.root.with_name("reviewer-original")
+        original_open = triage_authority._open_private_dir
+        switched = False
+
+        def swap_root_after_open(path):
+            nonlocal switched
+            fd = original_open(path)
+            if not switched and Path(path) == self.root:
+                self.root.rename(saved_root)
+                self.root.symlink_to(alternate, target_is_directory=True)
+                switched = True
+            return fd
+
+        try:
+            with patch.object(triage_authority, "_open_private_dir", side_effect=swap_root_after_open):
+                with self.assertRaisesRegex(ValueError, "DP417_TRIAGE_CREDENTIAL_INVALID"):
+                    triage_authority._credential(self.authority, "alice-v1")
+        finally:
+            if switched:
+                self.root.unlink()
+                saved_root.rename(self.root)
 
     def test_receipt_mac_and_signed_field_tampering_rejected(self):
         issued = self._issue()

@@ -281,3 +281,12 @@ acceptance.
 
 Original pending note: implementation, migration, deterministic fixtures, MiniPC proof
 and DP-213/DP-214 integration were all pending before this Mac-side verification.
+
+2026-10-09 follow-up: the DP-214 read-only readiness adapter reports missing
+ACTIVE source profile, evidence role and authority scope separately for every
+included Content, and distinguishes exact-family capture rights from mere
+presence of a non-superseded rights row. The new SQL was run read-only against
+authoritative MiniPC PostgreSQL: the PAUSED Garlasco baseline has 18 included
+Contents and no active Source Intelligence profile/role/scope on those items.
+This adds accurate operator diagnostics; it does not create source authority,
+legal rights, lineage review or the 100-item tracer. **AC-215.9 remains open.**

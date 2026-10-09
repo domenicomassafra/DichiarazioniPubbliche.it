@@ -30,7 +30,10 @@ def member(content_id="content:one", **changes):
         content_id=content_id, membership_status="INCLUDED", capture_authorized=False,
         content_rights_status="UNKNOWN", accepted_discovery_hits=0,
         observed_accepted_source_families=[],
-        current_rights_records=0, current_relevance_records=0,
+        current_rights_records=0, current_capture_rights_records=0,
+        current_relevance_records=0,
+        active_source_profiles=0, active_source_roles=0, active_source_scopes=0,
+        pending_derivation_reviews=0, approved_derivation_edges=0,
         captures=0, captured_with_body=0, passages=0, statement_candidates=0,
         claim_candidates=0,
     )
@@ -62,8 +65,9 @@ class ReadinessReportTests(unittest.TestCase):
             capture_authorized=True, content_rights_status="CLEARED",
             accepted_discovery_hits=1,
             observed_accepted_source_families=["VIDEO_PODCAST"],
-            current_rights_records=1,
+            current_rights_records=1, current_capture_rights_records=1,
             current_relevance_records=1, captures=1, captured_with_body=1,
+            active_source_profiles=1, active_source_roles=1, active_source_scopes=1,
             passages=1, statement_candidates=1, claim_candidates=1,
         )
         report = summarize_readiness(summary(status="ACTIVE", members_total=1), [ready], include_ids=True)
@@ -76,6 +80,64 @@ class ReadinessReportTests(unittest.TestCase):
         self.assertFalse(report["target_proven"])
         self.assertEqual(report["members"][0]["content_id"], "content:one")
         self.assertNotIn("canonical_url", json.dumps(report))
+
+    def test_revoked_or_expired_rights_and_missing_source_intelligence_remain_blocked(self):
+        # A persisted current rights row can be REVOKED/EXPIRED, lack private
+        # capture use, or belong to another Discovery family. Its existence is
+        # not capture authorization. Content-level CLEARED can also be stale.
+        claimed_ready = member(
+            content_rights_status="CLEARED", capture_authorized=True,
+            accepted_discovery_hits=1,
+            observed_accepted_source_families=["VIDEO_PODCAST"],
+            current_rights_records=1, current_capture_rights_records=0,
+            current_relevance_records=1, captures=1, captured_with_body=1,
+            passages=1, statement_candidates=1, claim_candidates=1,
+            pending_derivation_reviews=1,
+        )
+        report = summarize_readiness(
+            summary(status="ACTIVE", members_total=1), [claimed_ready], include_ids=True,
+        )
+        missing = report["missing_prerequisite_counts"]
+        self.assertEqual(missing["CURRENT_CAPTURE_RIGHTS_NOT_PERMITTED"], 1)
+        self.assertEqual(missing["SOURCE_INTELLIGENCE_PROFILE_MISSING"], 1)
+        self.assertEqual(missing["SOURCE_INTELLIGENCE_ROLE_MISSING"], 1)
+        self.assertEqual(missing["SOURCE_INTELLIGENCE_SCOPE_MISSING"], 1)
+        self.assertEqual(missing["DERIVATION_REVIEW_PENDING"], 1)
+        self.assertEqual(report["stage_presence_counts"]["rights_recorded"], 1)
+        self.assertNotIn("capture_rights_recorded", report["stage_presence_counts"])
+        self.assertFalse(report["qualified_rights_verified"])
+        self.assertFalse(report["target_proven"])
+        self.assertEqual(report["members"][0]["pipeline_counts"]["pending_derivation_reviews"], 1)
+
+    def test_contradictory_snapshot_counts_or_discovery_families_fail_closed(self):
+        for change in (
+            {"current_rights_records": 0, "current_capture_rights_records": 1},
+            {"captures": 0, "captured_with_body": 1},
+            {"active_source_profiles": 0, "active_source_roles": 1},
+            {"active_source_roles": 0, "active_source_scopes": 1},
+            {"accepted_discovery_hits": 1},
+            {"accepted_discovery_hits": 1, "observed_accepted_source_families": ["VIDEO_PODCAST", "VIDEO_PODCAST"]},
+            {"accepted_discovery_hits": 1, "observed_accepted_source_families": ["VIDEO_PODCAST", "SECONDARY_REPORTING"]},
+        ):
+            with self.subTest(change=change), self.assertRaises(ReadinessReportError):
+                summarize_readiness(summary(members_total=1), [member(**change)])
+
+    def test_active_profile_and_role_without_authority_scope_remain_unresolved(self):
+        item = member(
+            capture_authorized=True, content_rights_status="CLEARED",
+            accepted_discovery_hits=1,
+            observed_accepted_source_families=["OFFICIAL_PROCEDURAL"],
+            current_rights_records=1, current_capture_rights_records=1,
+            current_relevance_records=1,
+            active_source_profiles=1, active_source_roles=1, active_source_scopes=0,
+            captures=1, captured_with_body=1, passages=1,
+            statement_candidates=1, claim_candidates=1,
+        )
+        report = summarize_readiness(summary(status="ACTIVE", members_total=1), [item])
+        self.assertEqual(report["missing_prerequisite_counts"],
+                         {"SOURCE_INTELLIGENCE_SCOPE_MISSING": 1})
+        self.assertNotIn("source_scope_recorded", report["stage_presence_counts"])
+        self.assertFalse(report["qualified_rights_verified"])
 
     def test_report_is_idempotent_and_order_independent(self):
         left = member("content:a")
@@ -115,6 +177,13 @@ class ReadinessReportTests(unittest.TestCase):
         self.assertEqual(len(store.queries), 1)
         self.assertIn("json_agg(member_row.value::json", store.queries[0][0])
         self.assertIn("LIMIT 2001", store.queries[0][0])
+        sql = store.queries[0][0]
+        self.assertIn("rights.rights_status='CLEARED'", sql)
+        self.assertIn("rights.permitted_uses @> ARRAY['RESEARCH_CAPTURE_PRIVATE']", sql)
+        self.assertIn("rights.expires_at > now()", sql)
+        self.assertIn("rights.source_family IN", sql)
+        self.assertIn("profile.source_id=content.source_id", sql)
+        self.assertIn("derivation.status='CANDIDATE'", sql)
         self.assertTrue(all(q[1] == {"collection_id": "research:pilot"} for q in store.queries))
         self.assertTrue(all("private_text" not in q[0] for q in store.queries))
         with self.assertRaises(ReadinessReportError):

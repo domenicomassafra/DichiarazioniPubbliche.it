@@ -226,3 +226,16 @@ projection remains denied. Updated migration/schema, privacy classification,
 SQL canary and isolated PostgreSQL tests cover this source-only addition.
 The new migration still has not been installed on production, and every
 AC-417.1–.4 remains unchecked.
+
+### 2026-10-09 attestation read-race hardening
+
+The off-DB triage verifier now opens receipt and credential subdirectories
+relative to a previously checked root directory descriptor, checks their
+inode identity, and revalidates the receipt HMAC plus current ACTIVE
+credential immediately before returning a proof. Deterministic local
+regressions reproduced and blocked four race cases: credential revocation,
+receipt replacement and two root path swaps. This tightens the private
+identity boundary while preserving the append-only receipt contract. It
+cannot provide atomic revocation across the separate credential filesystem
+and PostgreSQL ledger. This source-only hardening does not deploy the triage
+migration, authorize actions or close AC-417.1–.4.

@@ -40,50 +40,84 @@ class CaptureBatch:
     manifest_sha256: str = ""
 
 
-def load_private_capture_batch(path: Path) -> CaptureBatch:
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict) or set(raw) != {"version", "collection_id", "items"}:
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("PRIVATE_CAPTURE_BATCH_DUPLICATE_JSON_KEY")
+        value[key] = item
+    return value
+
+
+def _manifest_digest(batch: CaptureBatch) -> str:
+    canonical = {
+        "version": batch.version,
+        "collection_id": batch.collection_id,
+        "items": [vars(item) for item in batch.items],
+    }
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _validate_batch(batch: CaptureBatch) -> None:
+    """Same input contract for file-backed CLI and directly constructed batches."""
+    if not isinstance(batch, CaptureBatch):
         raise ValueError("PRIVATE_CAPTURE_BATCH_SCHEMA_INVALID")
-    if raw["version"] != BATCH_VERSION:
+    if batch.version != BATCH_VERSION:
         raise ValueError("PRIVATE_CAPTURE_BATCH_VERSION_INVALID")
-    collection_id = raw["collection_id"]
+    collection_id = batch.collection_id
     if not isinstance(collection_id, str) or not collection_id.strip() or len(collection_id) > 256:
         raise ValueError("PRIVATE_CAPTURE_BATCH_COLLECTION_INVALID")
-    items_raw = raw["items"]
-    if not isinstance(items_raw, list) or not 1 <= len(items_raw) <= MAX_BATCH_SIZE:
+    if not isinstance(batch.items, tuple) or not 1 <= len(batch.items) <= MAX_BATCH_SIZE:
         raise ValueError("PRIVATE_CAPTURE_BATCH_BOUNDS_INVALID")
-    items: list[CaptureBatchItem] = []
     seen: set[str] = set()
     seen_urls: set[str] = set()
-    required = {"content_id", "canonical_url", "source_family", "rights_record_id"}
-    for raw_item in items_raw:
-        if not isinstance(raw_item, dict) or set(raw_item) != required:
+    for item in batch.items:
+        if not isinstance(item, CaptureBatchItem):
             raise ValueError("PRIVATE_CAPTURE_BATCH_ITEM_SCHEMA_INVALID")
-        if any(not isinstance(raw_item[key], str) or not raw_item[key].strip()
-               or len(raw_item[key]) > 2048 for key in required):
+        if any(not isinstance(value, str) or not value.strip() or len(value) > 2048
+               for value in vars(item).values()):
             raise ValueError("PRIVATE_CAPTURE_BATCH_ITEM_INVALID")
-        canonical_url = canonical_content_url(raw_item["canonical_url"])
-        if canonical_url != raw_item["canonical_url"]:
+        canonical_url = canonical_content_url(item.canonical_url)
+        if canonical_url != item.canonical_url:
             raise ValueError("PRIVATE_CAPTURE_BATCH_URL_NONCANONICAL")
-        if raw_item["content_id"] in seen:
+        if item.content_id in seen:
             raise ValueError("PRIVATE_CAPTURE_BATCH_DUPLICATE_CONTENT")
         # The logical Content identity is URL-bound. Two different IDs for
         # one canonical locator in the same execution batch would duplicate
         # network capture and produce ambiguous discovery/rights receipts.
         if canonical_url in seen_urls:
             raise ValueError("PRIVATE_CAPTURE_BATCH_DUPLICATE_URL")
-        seen.add(raw_item["content_id"])
+        seen.add(item.content_id)
         seen_urls.add(canonical_url)
-        items.append(CaptureBatchItem(**raw_item))
-    canonical = {
-        "version": BATCH_VERSION,
-        "collection_id": collection_id,
-        "items": [vars(item) for item in items],
-    }
-    digest = hashlib.sha256(
-        json.dumps(canonical, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
-    return CaptureBatch(collection_id=collection_id, items=tuple(items), manifest_sha256=digest)
+    if batch.manifest_sha256:
+        if (not isinstance(batch.manifest_sha256, str)
+                or batch.manifest_sha256 != _manifest_digest(batch)):
+            raise ValueError("PRIVATE_CAPTURE_BATCH_MANIFEST_HASH_MISMATCH")
+
+
+def load_private_capture_batch(path: Path) -> CaptureBatch:
+    raw = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object)
+    if not isinstance(raw, dict) or set(raw) != {"version", "collection_id", "items"}:
+        raise ValueError("PRIVATE_CAPTURE_BATCH_SCHEMA_INVALID")
+    items_raw = raw["items"]
+    if not isinstance(items_raw, list):
+        raise ValueError("PRIVATE_CAPTURE_BATCH_BOUNDS_INVALID")
+    required = {"content_id", "canonical_url", "source_family", "rights_record_id"}
+    for raw_item in items_raw:
+        if not isinstance(raw_item, dict) or set(raw_item) != required:
+            raise ValueError("PRIVATE_CAPTURE_BATCH_ITEM_SCHEMA_INVALID")
+    batch = CaptureBatch(
+        collection_id=raw["collection_id"],
+        items=tuple(CaptureBatchItem(**item) for item in items_raw),
+        version=raw["version"],
+    )
+    _validate_batch(batch)
+    return CaptureBatch(
+        collection_id=batch.collection_id, items=batch.items,
+        manifest_sha256=_manifest_digest(batch),
+    )
 
 
 def require_persisted_discovery(
@@ -122,6 +156,10 @@ def require_persisted_discovery(
 
 def preflight_capture_batch(batch: CaptureBatch, *, capture_store: Any, rights_store: Any):
     """Precheck all members before executing the first remote network request."""
+    try:
+        _validate_batch(batch)
+    except ValueError as exc:
+        raise PrivateCaptureAuthorizationBlocked(str(exc)) from exc
     guards = []
     for item in batch.items:
         def context_check(item=item) -> None:

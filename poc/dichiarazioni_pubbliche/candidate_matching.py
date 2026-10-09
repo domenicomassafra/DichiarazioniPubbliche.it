@@ -19,6 +19,9 @@ from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 
 
 MATCHING_VERSION = "candidate-matching-v1"
+# A changed disposition rule must create a new run fingerprint so an existing
+# persisted proposal cannot be replayed as if it had passed the stricter gate.
+DISPOSITION_POLICY_VERSION = "structured-scope-conflict-hold-v2"
 DEFAULT_TARGET_LIMIT = 200
 
 
@@ -108,7 +111,13 @@ def _augment_features(
     return tuple(supporting), tuple(contradicting)
 
 
-def _disposition(match_class: str) -> str:
+def _disposition(match_class: str, contradicting_features: Sequence[Mapping[str, Any]]) -> str:
+    # The lexical classifier does not know ClaimType or the reference period.
+    # An exact string match alone cannot propose semantic equivalence when
+    # those typed inputs explicitly disagree. Preserve the match for review.
+    if any(feature.get("code") in {"CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS"}
+           for feature in contradicting_features):
+        return "HOLD"
     if match_class in {"DUPLICATE_EXTRACTION", "SAME_PROPOSITION"}:
         return "PROPOSE_CLUSTER"
     if match_class == "UNCERTAIN":
@@ -149,7 +158,7 @@ def rank_candidate_matches(
     )
     output: list[MatchResult] = []
     for index, (target, match, supporting, contradicting) in enumerate(provisional, start=1):
-        disposition = _disposition(match.match_class)
+        disposition = _disposition(match.match_class, contradicting)
         cluster_id = (
             make_cluster(candidate.proposition.normalized_text, match.method).id
             if disposition == "PROPOSE_CLUSTER"
@@ -175,6 +184,7 @@ def matching_input_fingerprint(
 ) -> str:
     payload = {
         "matching_version": MATCHING_VERSION,
+        "disposition_policy_version": DISPOSITION_POLICY_VERSION,
         "candidate": asdict(candidate),
         "targets": [
             asdict(item)
@@ -496,9 +506,25 @@ def match_claim_candidate(
     run_id = deterministic_match_run_id(claim_candidate_id, fingerprint)
     existing = store.get_run(run_id)
     if existing is not None:
+        if (existing.get("status") != "COMPLETED"
+                or existing.get("claim_candidate_id") != claim_candidate_id
+                or existing.get("input_fingerprint") != fingerprint):
+            raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_AUTHORITY_MISMATCH")
         rows = store.load_results(run_id)
         if int(existing.get("result_count") or 0) != len(rows):
             raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_INCOMPLETE")
+        expected_targets = {
+            (target.proposition.member_type, target.proposition.member_id)
+            for target in targets
+            if (target.proposition.member_type, target.proposition.member_id) !=
+               (candidate.proposition.member_type, candidate.proposition.member_id)
+        }
+        actual_targets = {
+            (row.get("target_type"), row.get("target_id")) for row in rows
+        }
+        if (len(actual_targets) != len(rows) or actual_targets != expected_targets
+                or {row.get("rank") for row in rows} != set(range(1, len(rows) + 1))):
+            raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_RESULTS_MISMATCH")
         return MatchRunReceipt(
             run_id=run_id,
             claim_candidate_id=claim_candidate_id,

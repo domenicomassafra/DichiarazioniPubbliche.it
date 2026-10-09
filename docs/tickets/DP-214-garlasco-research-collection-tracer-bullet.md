@@ -198,3 +198,29 @@ Discovery Runs or unlinked Discovery Hits. See
 `docs/ops/garlasco-research-readiness-20261008.md`. This is a monitoring
 integrity improvement, not a source/capture/Candidate acceptance proof.
 AC-214.1/.2/.4/.5/.6/.7/.8 remain open.
+
+### 2026-10-09 follow-up: capture readiness and Discovery authority
+
+The read-only readiness report now distinguishes a merely persisted rights
+record from **current, reviewed, unexpired, exact-family private-capture
+permission**. It reports missing active Source Intelligence profile, role
+and scope separately, along with pending/approved derivation relations;
+contradictory aggregate counts fail closed. The new SQL was evaluated against
+the real MiniPC PostgreSQL in a read-only transaction: `research:garlasco`
+remains PAUSED with 18 included Contents, no accepted Discovery provenance,
+and no current source profile/role/scope, Capture or Candidate readiness.
+
+The shared Discovery proof also refuses a database Content/Hit URL that is
+not already exactly canonical and constrains its SQL scope parameters to
+their semantic Collection/Content/URL roles. This blocks a noncanonical
+persisted locator from being normalized into apparently accepted discovery
+for a canonical operator batch. These are source-safety regressions and
+diagnostics, **not** any new completed AC-214.1/.2/.4-.8.
+
+The operator Capture preflight now applies the manifest's uniqueness,
+bounds, canonical URL and optional SHA-256 integrity checks even when a
+caller constructs a `CaptureBatch` directly instead of using the file
+loader. The file loader refuses repeated JSON keys rather than silently
+using the last `items` value. Both controls run before database reads or
+network acquisition; they do not grant capture rights or imply a live
+provider/corpus run.

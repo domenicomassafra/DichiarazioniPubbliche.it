@@ -127,6 +127,69 @@ class PrivateCaptureBatchTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PRIVATE_CAPTURE_BATCH_DUPLICATE_URL"):
                 load_private_capture_batch(path)
 
+    def test_manifest_duplicate_json_keys_cannot_disguise_executed_items(self):
+        first = vars(make_batch().items[0])
+        second = {**first, "content_id": "content:other", "canonical_url": "https://example.test/other"}
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "manifest.json"
+            # json.loads silently takes the last `items` key; an operator and
+            # a parser could otherwise be reviewing different logical batches.
+            path.write_text(
+                '{"version":' + json.dumps(BATCH_VERSION) +
+                ',"collection_id":"research:approved","items":' + json.dumps([first]) +
+                ',"items":' + json.dumps([second]) + '}', encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "PRIVATE_CAPTURE_BATCH_DUPLICATE_JSON_KEY"):
+                load_private_capture_batch(path)
+
+    def test_direct_batch_preflight_rejects_duplicate_locator_before_store_reads(self):
+        first = make_batch().items[0]
+        second = CaptureBatchItem(
+            content_id="content:other", canonical_url=first.canonical_url,
+            source_family=first.source_family, rights_record_id="private-rights:other",
+        )
+        direct = CaptureBatch(collection_id="research:approved", items=(first, second))
+        by_id = {item.content_id: item for item in direct.items}
+
+        class CaptureStore:
+            calls = 0
+
+            def read_research_capture_context(self, collection_id, content_id):
+                self.calls += 1
+                return research_context(by_id[content_id])
+
+            def read_operator_capture_content_state(self, content_id):
+                item = by_id[content_id]
+                return content_state(id=item.content_id, canonical_url=item.canonical_url)
+
+        class RightsStore:
+            def read_current(self, subject):
+                item = by_id[subject.content_id]
+                return record(
+                    id=item.rights_record_id, content_id=item.content_id,
+                    locator_value=item.canonical_url,
+                )
+
+        store = CaptureStore()
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_BATCH_DUPLICATE_URL"
+        ):
+            preflight_capture_batch(direct, capture_store=store, rights_store=RightsStore())
+        self.assertEqual(store.calls, 0)
+
+    def test_preflight_rejects_stale_manifest_fingerprint_before_store_reads(self):
+        item = make_batch().items[0]
+        forged = CaptureBatch(
+            collection_id="research:approved", items=(item,),
+            manifest_sha256="0" * 64,
+        )
+        store = FakeBatchCaptureStore()
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_BATCH_MANIFEST_HASH_MISMATCH"
+        ):
+            preflight_capture_batch(forged, capture_store=store, rights_store=FakeBatchRightsStore())
+        self.assertEqual(store.calls, 0)
+
     def test_persisted_discovery_requires_active_included_reviewed_hit(self):
         item = make_batch().items[0]
         require_persisted_discovery(

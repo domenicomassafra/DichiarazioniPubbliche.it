@@ -51,6 +51,62 @@ SELECT json_build_object(
               WHERE child.supersedes_id=rights.id
           )
     ),
+    'current_capture_rights_records', (
+        SELECT count(*) FROM private_source_rights_record rights
+        WHERE rights.content_id=content.id
+          AND rights.locator_kind='URL'
+          AND rights.locator_value=content.canonical_url
+          AND rights.evidence_id IS NULL
+          AND rights.passage_id IS NULL
+          AND rights.transcript_segment_id IS NULL
+          AND rights.canonical_segment_id IS NULL
+          AND rights.source_family IN (
+              SELECT json_array_elements_text(provenance.source_families)
+          )
+          AND rights.rights_status='CLEARED'
+          AND rights.record_visibility='PRIVATE'
+          AND rights.permitted_uses @> ARRAY['RESEARCH_CAPTURE_PRIVATE']::text[]
+          AND rights.reviewed_at IS NOT NULL
+          AND rights.reviewed_at <= now()
+          AND rights.reviewer_ref IS NOT NULL
+          AND (rights.expires_at IS NULL OR rights.expires_at > now())
+          AND NOT EXISTS (
+              SELECT 1 FROM private_source_rights_record child
+              WHERE child.supersedes_id=rights.id
+          )
+    ),
+    'active_source_profiles', (
+        SELECT count(*) FROM source_profile profile
+        WHERE profile.source_id=content.source_id AND profile.status='ACTIVE'
+    ),
+    'active_source_roles', (
+        SELECT count(*) FROM source_evidence_role role
+        JOIN source_profile profile ON profile.id=role.source_profile_id
+        WHERE profile.source_id=content.source_id
+          AND profile.status='ACTIVE' AND role.status='ACTIVE'
+    ),
+    'active_source_scopes', (
+        SELECT count(*) FROM source_authority_scope scope
+        JOIN source_profile profile ON profile.id=scope.source_profile_id
+        JOIN source_evidence_role role
+          ON role.source_profile_id=profile.id
+         AND role.evidence_role=scope.evidence_role
+         AND role.status='ACTIVE'
+        WHERE profile.source_id=content.source_id
+          AND profile.status='ACTIVE' AND scope.status='ACTIVE'
+    ),
+    'pending_derivation_reviews', (
+        SELECT count(*) FROM content_derivation_candidate derivation
+        WHERE derivation.status='CANDIDATE'
+          AND (derivation.origin_content_id=content.id
+               OR derivation.derived_content_id=content.id)
+    ),
+    'approved_derivation_edges', (
+        SELECT count(*) FROM content_derivation_candidate derivation
+        WHERE derivation.status='APPROVED'
+          AND (derivation.origin_content_id=content.id
+               OR derivation.derived_content_id=content.id)
+    ),
     'current_relevance_records', (
         SELECT count(*) FROM privacy_ingestion_relevance_authority relevance
         WHERE relevance.content_ref=content.id
@@ -210,17 +266,28 @@ def summarize_readiness(
         checked = tuple(
             _require_count(member, name) for name in (
                 "accepted_discovery_hits", "current_rights_records",
-                "current_relevance_records", "captures", "captured_with_body",
-                "passages", "statement_candidates", "claim_candidates",
+                "current_capture_rights_records", "current_relevance_records",
+                "active_source_profiles", "active_source_roles", "active_source_scopes",
+                "pending_derivation_reviews", "approved_derivation_edges",
+                "captures", "captured_with_body", "passages",
+                "statement_candidates", "claim_candidates",
             )
         )
-        discovery, rights_records, relevance, captures, ready_captures, passages, statements, claims = checked
+        (discovery, rights_records, capture_rights, relevance, profiles, roles, scopes,
+         pending_derivations, approved_derivations, captures, ready_captures,
+         passages, statements, claims) = checked
         source_families = member.get("observed_accepted_source_families")
         if (not isinstance(source_families, list)
                 or any(not isinstance(family, str) or not family or len(family) > 128
                        for family in source_families)
-                or (discovery == 0 and source_families)):
+                or len(set(source_families)) != len(source_families)
+                or (discovery == 0) != (len(source_families) == 0)
+                or len(source_families) > discovery):
             raise ReadinessReportError("PILOT_SOURCE_FAMILY_PROVENANCE_INVALID")
+        if (capture_rights > rights_records or ready_captures > captures
+                or (roles > 0 and profiles == 0)
+                or (scopes > 0 and roles == 0)):
+            raise ReadinessReportError("PILOT_PIPELINE_COUNT_CONTRADICTION")
         codes = []
         if membership_status != "INCLUDED":
             codes.append("MEMBERSHIP_NOT_INCLUDED")
@@ -237,8 +304,18 @@ def summarize_readiness(
                 codes.append("CONTENT_RIGHTS_NOT_CLEARED")
             if rights_records == 0:
                 codes.append("SOURCE_RIGHTS_RECORD_MISSING")
+            elif capture_rights == 0:
+                codes.append("CURRENT_CAPTURE_RIGHTS_NOT_PERMITTED")
             if relevance == 0:
                 codes.append("PRIVACY_RELEVANCE_RECORD_MISSING")
+            if profiles == 0:
+                codes.append("SOURCE_INTELLIGENCE_PROFILE_MISSING")
+            if roles == 0:
+                codes.append("SOURCE_INTELLIGENCE_ROLE_MISSING")
+            if scopes == 0:
+                codes.append("SOURCE_INTELLIGENCE_SCOPE_MISSING")
+            if pending_derivations:
+                codes.append("DERIVATION_REVIEW_PENDING")
             if captures == 0:
                 codes.append("CAPTURE_MISSING")
             elif ready_captures == 0:
@@ -250,10 +327,11 @@ def summarize_readiness(
             if claims == 0:
                 codes.append("CLAIM_CANDIDATES_MISSING")
             for name, count in zip(
-                ("discovered", "rights_recorded", "relevance_recorded",
-                 "captured", "capture_body_ready", "passaged",
-                 "statement_candidate", "claim_candidate"),
-                checked,
+                ("discovered", "rights_recorded", "capture_rights_recorded",
+                 "relevance_recorded", "source_profiled", "source_role_recorded",
+                 "source_scope_recorded", "derivation_review_pending",
+                 "derivation_reviewed", "captured", "capture_body_ready",
+                 "passaged", "statement_candidate", "claim_candidate"), checked,
             ):
                 if count > 0:
                     stages[name] += 1
@@ -267,6 +345,13 @@ def summarize_readiness(
                 # Presence is not current qualified authorization.
                 "pipeline_counts": {
                     "accepted_discovery_hits": discovery,
+                    "current_rights_records": rights_records,
+                    "current_capture_rights_records": capture_rights,
+                    "active_source_profiles": profiles,
+                    "active_source_roles": roles,
+                    "active_source_scopes": scopes,
+                    "pending_derivation_reviews": pending_derivations,
+                    "approved_derivation_edges": approved_derivations,
                     "captures": captures,
                     "passages": passages,
                     "statement_candidates": statements,

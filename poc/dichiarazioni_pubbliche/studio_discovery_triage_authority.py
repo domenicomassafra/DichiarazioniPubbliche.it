@@ -107,6 +107,25 @@ def _open_private_dir(path: Path) -> int:
         raise ValueError("DP417_TRIAGE_PRIVATE_PATH_UNAVAILABLE") from None
 
 
+def _open_private_child_dir(parent_fd: int, name: str) -> int:
+    """Resolve the child against the checked parent inode, not its path."""
+    try:
+        before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        _private_stat(before, directory=True)
+        fd = os.open(name, _DIR_FLAGS, dir_fd=parent_fd)
+        try:
+            after = os.fstat(fd)
+            _private_stat(after, directory=True)
+            if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino):
+                raise ValueError("DP417_TRIAGE_PRIVATE_PATH_CHANGED")
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
+    except OSError:
+        raise ValueError("DP417_TRIAGE_PRIVATE_PATH_UNAVAILABLE") from None
+
+
 def _read_private_json(dir_fd: int, name: str, *, maximum: int = 8192) -> dict[str, object]:
     fd: int | None = None
     try:
@@ -139,7 +158,7 @@ def _credential(authority: LocalFileReviewerIdentityAuthority, credential_id: st
     credential_id = _valid_credential_id(credential_id)
     root_fd = _open_private_dir(authority.root)
     try:
-        cred_fd = _open_private_dir(authority.root / "credentials")
+        cred_fd = _open_private_child_dir(root_fd, "credentials")
         try:
             # Legacy authority identity() enforces active status and rejects
             # fingerprint reuse across different actors. This snapshot adds
@@ -239,7 +258,7 @@ def _receipt_dir(authority: LocalFileReviewerIdentityAuthority, *, create: bool)
                 os.fsync(root_fd)
             except FileExistsError:
                 pass
-        return _open_private_dir(authority.root / _DIRECTORY)
+        return _open_private_child_dir(root_fd, _DIRECTORY)
     except OSError:
         raise ValueError("DP417_TRIAGE_RECEIPT_DIRECTORY_INVALID") from None
     finally:
@@ -340,6 +359,21 @@ def verify_triage_attestation(
     if receipt_id != expected["receipt_id"]:
         raise ValueError("DP417_TRIAGE_RECEIPT_BINDING_MISMATCH")
     _check_signed(stored, expected, secret)
+    # Authentication is invalid if the receipt changes while credentials are
+    # resolved or the credential is revoked while its MAC is checked. This
+    # second snapshot narrows both TOCTOU windows at the verification seam.
+    dir_fd = _receipt_dir(authority, create=False)
+    try:
+        latest_receipt = _read_private_json(dir_fd, f"{receipt_id}.json")
+    finally:
+        os.close(dir_fd)
+    _check_signed(latest_receipt, expected, secret)
+    last_actor, last_key_version, last_fingerprint, _ = _credential(authority, credential_id)
+    if (
+        last_actor != actor_ref or last_key_version != key_version
+        or not hmac.compare_digest(last_fingerprint, fingerprint)
+    ):
+        raise ValueError("DP417_TRIAGE_CREDENTIAL_CHANGED")
     return {"receipt_id": receipt_id, "payload_sha256": req.payload_sha256}
 
 
