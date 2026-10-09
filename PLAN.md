@@ -592,3 +592,19 @@ The complete Wave 18 test run then passed **2113/2113** Python tests
 in **177.304s**, with 100-table backup/restore PASS, 1248 inventoried
 technical fields and 89 public-schema fields. This remains Mac-only
 verification, not MiniPC runtime or legal clearance.
+
+### 2026-10-09 Wave 19 — persisted match explanation is a contract
+
+DP-418 private read-only matching now validates the classifier's
+canonical primary evidence codes for each class/method instead of
+trusting a known class/method label with missing, duplicated or
+contradictory supporting/contradicting features. Eight tampered rows
+first passed improperly (RED); seven classifier-possible signatures
+and the tamper rejects now pass (GREEN). The focused matching plus
+local Studio HTTP tests passed **31/31**. This creates no reviewer
+authority, currentness, match/equivalence approval or production
+mutation. **39 open; NO-GO/41** remains unchanged.
+The frozen Wave 19 full suite then passed **2115/2115 Python tests**
+in **175.612s** with 100-table restore drill PASS; benchmark **5/5**,
+ticket contract, compileall and diff checks PASS. No accepted MiniPC
+canary, publication rights or review authority is inferred.

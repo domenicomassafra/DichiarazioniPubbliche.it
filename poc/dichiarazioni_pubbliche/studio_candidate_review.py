@@ -42,6 +42,49 @@ _CONTRADICTING_CODES = {
     "LOW_LEXICAL_NO_SHARED_CONTEXT", "CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS",
 }
 _SCOPE_CONFLICT_CODES = {"CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS"}
+_SCOPE_SUPPORT_CODES = {"SAME_CLAIM_TYPE", "SAME_TEMPORAL_SCOPE"}
+
+
+def _validate_feature_semantics(
+    match_class: str, method: str,
+    supporting: tuple[str, ...], contradicting: tuple[str, ...],
+) -> None:
+    """Read the actual classifier's feature contract, not a class label alone."""
+    support, contrary = set(supporting), set(contradicting)
+    if (
+        len(support) != len(supporting) or len(contrary) != len(contradicting)
+        or ("SAME_CLAIM_TYPE" in support and "CLAIM_TYPE_MISMATCH" in contrary)
+        or ("SAME_TEMPORAL_SCOPE" in support and "TEMPORAL_SCOPE_DIFFERS" in contrary)
+    ):
+        raise ValueError("STUDIO_CANDIDATE_FEATURE_SEMANTICS_INVALID")
+    primary_support = support - _SCOPE_SUPPORT_CODES
+    primary_contrary = contrary - _SCOPE_CONFLICT_CODES
+    expected = {
+        ("DUPLICATE_EXTRACTION", "SOURCE_SELECTOR_OVERLAP"):
+            ({"SAME_CONTENT_SELECTOR", "EXACT_NORMALIZED_TEXT"}, set()),
+        ("SAME_PROPOSITION", "EXACT_NORMALIZED"):
+            ({"EXACT_NORMALIZED_TEXT"}, set()),
+        ("RELATED", "LEXICAL_TRIGRAM"):
+            ({"RELATED_LEXICAL_OR_ENTITY_CONTEXT"}, set()),
+        ("DIFFERENT", "LEXICAL_TRIGRAM"):
+            (set(), {"LOW_LEXICAL_NO_SHARED_CONTEXT"}),
+        ("UNCERTAIN", "LEXICAL_TRIGRAM"):
+            ({"AMBIGUOUS_LEXICAL_OVERLAP"}, set()),
+    }
+    if (match_class, method) == ("SAME_PROPOSITION", "LEXICAL_TRIGRAM"):
+        if (
+            "HIGH_LEXICAL_OVERLAP" not in primary_support
+            or not primary_support.intersection({"SHARED_ENTITIES", "SHARED_TOPICS"})
+            or not primary_support <= {
+                "HIGH_LEXICAL_OVERLAP", "SHARED_ENTITIES", "SHARED_TOPICS"
+            }
+            or primary_contrary
+        ):
+            raise ValueError("STUDIO_CANDIDATE_FEATURE_SEMANTICS_INVALID")
+    elif (primary_support, primary_contrary) != expected.get(
+        (match_class, method), (None, None)
+    ):
+        raise ValueError("STUDIO_CANDIDATE_FEATURE_SEMANTICS_INVALID")
 
 
 class CandidateMatchReader(Protocol):
@@ -137,6 +180,9 @@ def inspect_candidate_match_run(
                    (disposition == "PROPOSE_CLUSTER")
             ):
                 raise ValueError("STUDIO_CANDIDATE_MATCH_CLASS_INVALID")
+            _validate_feature_semantics(
+                match_class, row["method"], supporting_codes, contradicting_codes,
+            )
             results.append({
                 "result_id": result_id,
                 "target_id": target_id,

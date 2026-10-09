@@ -126,3 +126,27 @@ before presenting a suggestion. Six adversarial RED subtests became
 GREEN. Its output still declares `currentness=UNVERIFIED`, no reviewer
 or publication authority and disabled promotion. This is not real
 reviewer authorization or a closed DP-418 runtime acceptance.
+
+### 2026-10-09 Wave 19 — stored class feature integrity
+
+The read-only inspector previously checked known feature code names,
+match class and method, but not whether the classifier's persisted
+explanatory feature signature actually justified that class. An altered
+row could show SAME_PROPOSITION without exact normalized or lexical/context
+support, DUPLICATE_EXTRACTION without same-selector support, or another
+class without its canonical evidence code. Duplicated codes and mutually
+inconsistent ClaimType/time evidence were also accepted.
+
+The narrow fail-closed check follows the existing deterministic DP-212
+classifier without reprocessing private source words. Duplicate requires
+same selector and exact normalized text; exact same proposition requires
+exact normalized text; lexical same proposition requires high overlap
+plus shared entities or topics; related, different and uncertain require
+their own primary supporting/contradicting codes. Duplicate and
+contradictory feature codes are refused. Eight adversarial RED subtests
+and seven canonical positive signatures became GREEN.
+
+This validates persisted feature codes, not the underlying private
+text, mutable feature values, reviewer currentness, cluster equivalence
+or authority. No score, source body, promotion, cluster write or public
+output is exposed. DP-418 stays IN PROGRESS.

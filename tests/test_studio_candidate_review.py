@@ -36,7 +36,10 @@ class Store:
             "matching_version": MATCHING_VERSION, "status": "CANDIDATE",
             "disposition": "HOLD", "method": "LEXICAL_TRIGRAM", "lexical_score": 0.99,
             "proposition_cluster_id": None,
-            "supporting_features": [{"code": "SAME_CLAIM_TYPE", "value": "SECRET"}],
+            "supporting_features": [
+                {"code": "AMBIGUOUS_LEXICAL_OVERLAP", "score": 0.5},
+                {"code": "SAME_CLAIM_TYPE", "value": "SECRET"},
+            ],
             "contradicting_features": [{"code": "TEMPORAL_SCOPE_DIFFERS", "value": "PRIVATE"}],
             "private_transcript": "DO NOT EXPOSE",
         },)
@@ -49,6 +52,86 @@ class Store:
 
 
 class StudioCandidateReviewTests(unittest.TestCase):
+    def test_classifier_generated_primary_feature_signatures_are_admitted(self):
+        valid_cases = (
+            ("DUPLICATE_EXTRACTION", "SOURCE_SELECTOR_OVERLAP",
+             ["SAME_CONTENT_SELECTOR", "EXACT_NORMALIZED_TEXT"], [], "PROPOSE_CLUSTER"),
+            ("SAME_PROPOSITION", "EXACT_NORMALIZED",
+             ["EXACT_NORMALIZED_TEXT"], [], "PROPOSE_CLUSTER"),
+            ("SAME_PROPOSITION", "LEXICAL_TRIGRAM",
+             ["HIGH_LEXICAL_OVERLAP", "SHARED_ENTITIES"], [], "PROPOSE_CLUSTER"),
+            ("SAME_PROPOSITION", "LEXICAL_TRIGRAM",
+             ["HIGH_LEXICAL_OVERLAP", "SHARED_TOPICS"], [], "PROPOSE_CLUSTER"),
+            ("RELATED", "LEXICAL_TRIGRAM",
+             ["RELATED_LEXICAL_OR_ENTITY_CONTEXT"], [], "NO_CLUSTER"),
+            ("DIFFERENT", "LEXICAL_TRIGRAM",
+             [], ["LOW_LEXICAL_NO_SHARED_CONTEXT"], "NO_CLUSTER"),
+            ("UNCERTAIN", "LEXICAL_TRIGRAM",
+             ["AMBIGUOUS_LEXICAL_OVERLAP"], [], "HOLD"),
+        )
+        for kind, method, supports, contradicts, disposition in valid_cases:
+            with self.subTest(match_class=kind, method=method):
+                store = Store()
+                store.results[0].update({
+                    "match_class": kind, "method": method,
+                    "supporting_features": [{"code": code} for code in supports],
+                    "contradicting_features": [{"code": code} for code in contradicts],
+                    "disposition": disposition,
+                    "proposition_cluster_id": (
+                        "proposition-cluster:valid"
+                        if disposition == "PROPOSE_CLUSTER" else None
+                    ),
+                })
+                result = inspect_candidate_match_run(
+                    store, run_id=RUN_ID, claim_candidate_id=CANDIDATE_ID,
+                )
+                self.assertEqual(result["results"][0]["match_class"], kind)
+                self.assertFalse(result["results"][0]["promotion_enabled"])
+
+    def test_persisted_match_class_requires_canonical_explanatory_features(self):
+        # DP-212's classifier always persists class/method-specific evidence.
+        # A class + plausible method alone cannot substantiate its meaning.
+        invalid_cases = (
+            {"supporting_features": [{"code": "SAME_CLAIM_TYPE"}]},
+            {"supporting_features": [
+                {"code": "AMBIGUOUS_LEXICAL_OVERLAP"},
+                {"code": "AMBIGUOUS_LEXICAL_OVERLAP"},
+            ]},
+            {"match_class": "RELATED", "method": "LEXICAL_TRIGRAM",
+             "disposition": "NO_CLUSTER", "contradicting_features": [],
+             "supporting_features": [{"code": "SAME_CLAIM_TYPE"}]},
+            {"match_class": "DIFFERENT", "method": "LEXICAL_TRIGRAM",
+             "disposition": "NO_CLUSTER", "contradicting_features": [],
+             "supporting_features": []},
+            {"match_class": "SAME_PROPOSITION", "method": "EXACT_NORMALIZED",
+             "disposition": "PROPOSE_CLUSTER",
+             "proposition_cluster_id": "proposition-cluster:valid",
+             "contradicting_features": [],
+             "supporting_features": [{"code": "SAME_CLAIM_TYPE"}]},
+            {"match_class": "SAME_PROPOSITION", "method": "LEXICAL_TRIGRAM",
+             "disposition": "PROPOSE_CLUSTER",
+             "proposition_cluster_id": "proposition-cluster:valid",
+             "contradicting_features": [],
+             "supporting_features": [{"code": "HIGH_LEXICAL_OVERLAP"}]},
+            {"match_class": "DUPLICATE_EXTRACTION", "method": "SOURCE_SELECTOR_OVERLAP",
+             "disposition": "PROPOSE_CLUSTER",
+             "proposition_cluster_id": "proposition-cluster:valid",
+             "contradicting_features": [],
+             "supporting_features": [{"code": "EXACT_NORMALIZED_TEXT"}]},
+            {"supporting_features": [
+                {"code": "AMBIGUOUS_LEXICAL_OVERLAP"},
+                {"code": "SAME_CLAIM_TYPE"},
+            ], "contradicting_features": [{"code": "CLAIM_TYPE_MISMATCH"}]},
+        )
+        for updates in invalid_cases:
+            with self.subTest(updates=updates):
+                store = Store()
+                store.results[0].update(updates)
+                with self.assertRaisesRegex(ValueError, 'FEATURE_SEMANTICS_INVALID'):
+                    inspect_candidate_match_run(
+                        store, run_id=RUN_ID, claim_candidate_id=CANDIDATE_ID,
+                    )
+
     def test_persisted_matching_versions_and_result_status_are_not_inferred(self):
         for field, invalid in (("matching_version", None), ("matching_version", "candidate-matching-v0")):
             store = Store()
