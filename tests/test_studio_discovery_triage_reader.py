@@ -23,7 +23,7 @@ from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page  
 def fixture(**override):
     return {
         "collection_id": "research:one", "hit_id": "hit:one",
-        "lineage_ok": True, "head_revision": 2,
+        "lineage_ok": True, "head_revision": 2, "ledger_count": 2,
         "decisions": [
             {"revision": 1, "expected_revision": 0, "decision": "NEEDS_REVIEW",
              "source_url": "https://private.example/token"},
@@ -58,6 +58,7 @@ class TriageHistoryTests(unittest.TestCase):
             {"revision": 1, "decision": "NEEDS_REVIEW"},
             {"revision": 2, "decision": "DEFERRED"},
         ])
+        self.assertNotIn("ledger_count", value)
         self.assertEqual(value["next_after_revision"], 2)
         self.assertEqual(value["head_revision"], 2)
         self.assertFalse(value["publication_authority"])
@@ -80,7 +81,7 @@ class TriageHistoryTests(unittest.TestCase):
         self.assertNotIn("canonical_url", sql)
 
     def test_mutated_lineage_is_reported_not_hidden_or_authorized(self):
-        queue = Queue(fixture(lineage_ok=False, decisions=[]))
+        queue = Queue(fixture(lineage_ok=False, head_revision=0, ledger_count=0, decisions=[]))
         value = queue.inspect_discovery_triage(
             collection_id="research:one", hit_id="hit:one",
         )
@@ -125,12 +126,46 @@ class TriageHistoryTests(unittest.TestCase):
                     **({"collection_id": "research:one", "hit_id": "hit:one"} | wrong_args),
                 )
 
+    def test_reader_rejects_missing_deleted_or_inconsistent_ledger_events(self):
+        first = {"revision": 1, "expected_revision": 0, "decision": "NEEDS_REVIEW"}
+        second = {"revision": 2, "expected_revision": 1, "decision": "DEFERRED"}
+        third = {"revision": 3, "expected_revision": 2, "decision": "REJECTED"}
+        for change in (
+            # MAX(revision) cannot establish completeness if a row is lost.
+            {"head_revision": 3, "ledger_count": 2, "decisions": [first, third]},
+            {"head_revision": 3, "ledger_count": 3, "decisions": [second, third]},
+            {"ledger_count": 1},
+            {"ledger_count": 3},
+            {"ledger_count": True},
+            {"ledger_count": "2"},
+            {"ledger_count": -1},
+            # SQL LIMIT 20 would return both records for a genuine head 2.
+            {"decisions": [first]},
+            {"decisions": []},
+        ):
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "RESULT_INVALID"):
+                Queue(fixture(**change)).inspect_discovery_triage(
+                    collection_id="research:one", hit_id="hit:one",
+                )
+
+    def test_sql_counts_scoped_ledger_rows_before_redacting_history(self):
+        self.assertIn("'ledger_count'", _TRIAGE_HISTORY_SQL)
+        self.assertIn("count(*)", _TRIAGE_HISTORY_SQL.lower())
+        self.assertIn("history.collection_id=:'collection_id'", _TRIAGE_HISTORY_SQL)
+        # Overshot cursors are legitimate empty pages, but cannot reinterpret
+        # a missing history as a zero-head response.
+        value = Queue(fixture(decisions=[])).inspect_discovery_triage(
+            collection_id="research:one", hit_id="hit:one", after_revision=3,
+        )
+        self.assertEqual(value["results"], [])
+        self.assertIsNone(value["next_after_revision"])
+
     def test_local_api_and_browser_are_read_only(self):
         self.assertIn("/v1/discovery/triage-history", _ALLOWED_PATHS)
         self.assertNotIn("/v1/discovery/triage", _ALLOWED_PATHS)
         queue = Queue(fixture(decisions=[
             {"revision": 1, "expected_revision": 0, "decision": "REJECTED"}
-        ], head_revision=1))
+        ], head_revision=1, ledger_count=1))
         readers = StudioLocalReaders(corpus=None, captures=None, candidates=None, queues=queue)
         data = _dispatch(readers, "/v1/discovery/triage-history", {
             "collection_id": "research:one", "hit_id": "hit:one", "limit": 10,
@@ -197,6 +232,28 @@ class TriageHistoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "NOT_FOUND"):
                 queue.inspect_discovery_triage(
                     collection_id="collection:one", hit_id="hit:missing",
+                )
+            # Corrupt *only this disposable local fixture*, simulating a
+            # missing first event under an otherwise valid head revision.
+            # Production forbids DELETE; the reader must independently detect
+            # the broken chain if storage has been damaged or restored badly.
+            cluster.require_sql(
+                "ALTER TABLE research_discovery_triage_decision "
+                "DISABLE TRIGGER research_discovery_triage_decision_append_only;"
+            )
+            try:
+                self.assertEqual(cluster.require_sql(
+                    "DELETE FROM research_discovery_triage_decision "
+                    f"WHERE hit_id='{fixture_test.hit}' AND revision=1 RETURNING revision;"
+                ), "1")
+            finally:
+                cluster.require_sql(
+                    "ALTER TABLE research_discovery_triage_decision "
+                    "ENABLE TRIGGER research_discovery_triage_decision_append_only;"
+                )
+            with self.assertRaisesRegex(ValueError, "STUDIO_TRIAGE_HISTORY_RESULT_INVALID"):
+                queue.inspect_discovery_triage(
+                    collection_id="collection:one", hit_id=fixture_test.hit,
                 )
         finally:
             cluster.tearDownClass()

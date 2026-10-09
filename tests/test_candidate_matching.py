@@ -261,6 +261,64 @@ class CandidateMatchingTests(unittest.TestCase):
                 with self.assertRaisesRegex(CandidateMatchingError, "REPLAY_RESULTS_MISMATCH"):
                     match_claim_candidate(claim_candidate_id="candidate:replay", store=Store(row))
 
+    def test_replay_recomputes_semantic_disposition_and_feature_payload(self):
+        candidate = item(
+            "CLAIM_CANDIDATE", "candidate:replay", "Il tasso è 10.",
+            temporal_scope={"reference_period": "2025"},
+        )
+        target = item(
+            "ATOMIC_CLAIM", "claim:expected", "Il tasso è 10.",
+            temporal_scope={"reference_period": "2026"},
+        )
+        expected = rank_candidate_matches(candidate, (target,))[0]
+        self.assertEqual(expected.disposition, "HOLD")
+        valid = {
+            "rank": expected.rank,
+            "target_type": expected.target.proposition.member_type,
+            "target_id": expected.target.proposition.member_id,
+            "match_class": expected.match.match_class,
+            "method": expected.match.method,
+            "lexical_score": expected.match.lexical_score,
+            "disposition": expected.disposition,
+            "proposition_cluster_id": expected.cluster_id,
+            "supporting_features": list(expected.supporting_features),
+            "contradicting_features": list(expected.contradicting_features),
+        }
+
+        class Store:
+            def __init__(self, result):
+                self.result = result
+
+            def load_candidate(self, claim_candidate_id):
+                return candidate
+
+            def load_targets(self, claim_candidate_id, *, limit):
+                return (target,)
+
+            def get_run(self, run_id):
+                return {"status": "COMPLETED", "claim_candidate_id": "candidate:replay",
+                        "input_fingerprint": matching_input_fingerprint(candidate, (target,)),
+                        "result_count": 1}
+
+            def load_results(self, run_id):
+                return (self.result,)
+
+        self.assertTrue(match_claim_candidate(
+            claim_candidate_id="candidate:replay", store=Store(valid)
+        ).replayed)
+        for change in (
+            {"disposition": "PROPOSE_CLUSTER", "proposition_cluster_id": "cluster:wrong"},
+            {"match_class": "RELATED"},
+            {"contradicting_features": []},
+            {"lexical_score": 0.2},
+        ):
+            with self.subTest(change=change), self.assertRaisesRegex(
+                CandidateMatchingError, "REPLAY_(SEMANTICS_MISMATCH|SCORE_INVALID)"
+            ):
+                match_claim_candidate(
+                    claim_candidate_id="candidate:replay", store=Store({**valid, **change})
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

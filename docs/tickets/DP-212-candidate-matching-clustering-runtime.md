@@ -156,3 +156,8 @@ Candidate ID or input fingerprint differs from the current request, even
 when the recorded result count happens to be zero. It verifies the persisted
 result target identities and contiguous rank sequence instead of accepting
 an unchanged count as proof of a complete replay.
+An additional deterministic replay check now recomputes every stored match
+class, method, disposition, proposed cluster, lexical score and decision
+feature list from the currently fingerprint-bound inputs. Altered HOLD versus
+PROPOSE_CLUSTER decisions or contradiction features cannot be accepted as a
+successfully replayed match run. The private storage schema is unchanged.

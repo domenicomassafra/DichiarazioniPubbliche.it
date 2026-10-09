@@ -239,3 +239,15 @@ identity boundary while preserving the append-only receipt contract. It
 cannot provide atomic revocation across the separate credential filesystem
 and PostgreSQL ledger. This source-only hardening does not deploy the triage
 migration, authorize actions or close AC-417.1–.4.
+
+### 2026-10-09 private triage history continuity
+
+The read-only private history now reads `count(*)` together with
+`MAX(revision)` in one PostgreSQL statement snapshot. The reader rejects
+gaps, truncated pages and malformed counts, checks consecutive revision
+numbers relative to the cursor, and keeps the internal count out of API
+responses. Local ephemeral PostgreSQL tests verified ordinary pagination,
+cross-Collection isolation and detection of a deleted internal event after
+temporarily disabling the append-only protection on the **ephemeral test
+schema only**; those protections are never disabled in production. This
+does not install the pending DP-417 production migration or close its ACs.

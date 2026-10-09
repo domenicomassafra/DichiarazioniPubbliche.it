@@ -206,7 +206,7 @@ class StudioLocalApiTests(unittest.TestCase):
                    "limit": 10, "after_revision": 0}
         self.queues.rows = [{
             "collection_id": "research:1", "hit_id": "hit:1",
-            "lineage_ok": True, "head_revision": 1,
+            "lineage_ok": True, "head_revision": 1, "ledger_count": 1,
             "decisions": [{"revision": 1, "expected_revision": 0,
                            "decision": "NEEDS_REVIEW",
                            "url": "https://private.example/secret",
@@ -218,6 +218,7 @@ class StudioLocalApiTests(unittest.TestCase):
         status, reply, headers = self.call("POST", route, request, self.auth())
         self.assertEqual(status, 200, reply)
         self.assertEqual(reply["data"]["head_revision"], 1)
+        self.assertNotIn("ledger_count", reply["data"])
         self.assertEqual(reply["data"]["results"], [
             {"revision": 1, "decision": "NEEDS_REVIEW"},
         ])

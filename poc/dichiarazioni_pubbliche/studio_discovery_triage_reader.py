@@ -47,6 +47,11 @@ SELECT json_build_object(
         FROM research_discovery_triage_decision history
         WHERE history.hit_id=hit.id AND history.collection_id=:'collection_id'
     ),
+    'ledger_count', (
+        SELECT count(*)
+        FROM research_discovery_triage_decision history
+        WHERE history.hit_id=hit.id AND history.collection_id=:'collection_id'
+    ),
     'decisions', (
         SELECT coalesce(
             json_agg(json_build_object(
@@ -71,8 +76,14 @@ def _present(row: dict[str, Any], *, collection_id: str, hit_id: str,
     if type(lineage_ok) is not bool:
         raise ValueError("STUDIO_TRIAGE_HISTORY_LINEAGE_INVALID")
     head_revision = _validated_revision(row.get("head_revision"))
+    ledger_count = _validated_revision(row.get("ledger_count"))
+    # Revisions start at one and each insertion must increment by one. MAX()
+    # alone hides deleted or missing rows outside the requested page.
+    if ledger_count != head_revision:
+        raise ValueError("STUDIO_TRIAGE_HISTORY_LEDGER_INCOMPLETE")
     decisions = row.get("decisions")
-    if not isinstance(decisions, list) or len(decisions) > limit:
+    visible_count = min(limit, max(head_revision - after_revision, 0))
+    if not isinstance(decisions, list) or len(decisions) != visible_count:
         raise ValueError("STUDIO_TRIAGE_HISTORY_LIMIT_INVALID")
     output: list[dict[str, object]] = []
     last_revision = after_revision
@@ -83,7 +94,7 @@ def _present(row: dict[str, Any], *, collection_id: str, hit_id: str,
         expected = _validated_revision(record.get("expected_revision"), expected=True)
         decision = record.get("decision")
         if (
-            revision <= last_revision or revision > head_revision
+            revision != last_revision + 1 or revision > head_revision
             or revision != expected + 1
             or decision not in TRIAGE_DECISIONS
         ):

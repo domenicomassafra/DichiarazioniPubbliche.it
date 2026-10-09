@@ -43,6 +43,17 @@ concurrent work and use the smallest independently provable vertical slice.
 - [x] **AC-211.4:** Replay under same operation key is idempotent.
 - [x] **AC-211.5:** Cost/call counts are attributable per content/capture.
 
+2026-10-09 operator-boundary follow-up: `private_candidate_batch` now applies
+the same identity/bounds/SHA-256 contract to file-loaded and directly built
+Candidate batches. It rejects duplicate JSON object keys, reused Passage IDs,
+one URL with competing Content IDs and one Content with conflicting URLs,
+while allowing distinct Passages from the same Content. Current private
+capture rights are revalidated in full at the second lookup immediately
+before model extraction, including exact locator/family/reviewer/receipt/use
+binding; the independent model-processing use remains mandatory. Red/green
+adversarial fixtures confirm no store or provider work on invalid batches.
+This is source hardening, not a live Garlasco provider or rights receipt.
+
 ## Validation / proof
 
 - `python3 -m compileall -q poc tests` when Python/runtime code changes;

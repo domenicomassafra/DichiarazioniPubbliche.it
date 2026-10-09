@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 import tempfile
@@ -25,7 +26,12 @@ ITEM = CandidateBatchItem(
     source_family="REPORTING",
     rights_record_id="private-rights:reviewed",
 )
-BATCH = CandidateBatch("research:reviewed", (ITEM,), "b" * 64)
+_BATCH_BODY = {"version": VERSION, "collection_id": "research:reviewed", "items": [vars(ITEM)]}
+BATCH = CandidateBatch(
+    "research:reviewed", (ITEM,),
+    hashlib.sha256(json.dumps(_BATCH_BODY, ensure_ascii=False, sort_keys=True,
+                              separators=(",", ":")).encode("utf-8")).hexdigest(),
+)
 
 
 def passage_state(**changes):
@@ -97,6 +103,93 @@ class FakeRights:
 
 
 class CandidateAuthorizationTests(unittest.TestCase):
+    def test_loader_rejects_duplicate_json_items_keys_before_authority_reads(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "batch.json"
+            path.write_text(
+                '{"version":' + json.dumps(VERSION) +
+                ',"collection_id":"research:reviewed","items":' + json.dumps([vars(ITEM)]) +
+                ',"items":[]}', encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "CANDIDATE_BATCH_DUPLICATE_JSON_KEY"):
+                load_candidate_batch(path)
+
+    def test_loader_rejects_distinct_content_ids_sharing_one_url(self):
+        item = {**vars(ITEM), "passage_id": "passage:other", "content_id": "content:other",
+                "capture_id": "capture:other"}
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "batch.json"
+            path.write_text(json.dumps({
+                "version": VERSION, "collection_id": BATCH.collection_id,
+                "items": [vars(ITEM), item],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "CANDIDATE_BATCH_URL_CONTENT_COLLISION"):
+                load_candidate_batch(path)
+
+    def test_direct_batch_duplicate_passage_fails_before_any_store_reads(self):
+        capture, candidate, rights = FakeCapture(), FakeCandidate(), FakeRights()
+        calls = []
+        def should_not_read(*args, **kwargs):
+            calls.append("read")
+            return None
+        capture.read_research_capture_context = should_not_read
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "CANDIDATE_BATCH_PASSAGE_DUPLICATE"
+        ):
+            preflight_candidate_batch(
+                CandidateBatch(BATCH.collection_id, (ITEM, ITEM), BATCH.sha256),
+                capture_store=capture, candidate_store=candidate, rights_store=rights,
+            )
+        self.assertEqual(calls, [])
+
+    def test_direct_batch_stale_digest_blocks_before_store_reads(self):
+        capture = FakeCapture()
+        calls = []
+        def read(*args, **kwargs):
+            calls.append("read")
+            return None
+        capture.read_research_capture_context = read
+        altered = replace(ITEM, passage_sha256="c" * 64)
+        with self.assertRaisesRegex(PrivateCaptureAuthorizationBlocked, "MANIFEST_HASH_MISMATCH"):
+            preflight_candidate_batch(
+                CandidateBatch(BATCH.collection_id, (altered,), BATCH.sha256),
+                capture_store=capture, candidate_store=FakeCandidate(), rights_store=FakeRights(),
+            )
+        self.assertEqual(calls, [])
+
+    def test_multiple_distinct_passages_of_one_content_are_valid_manifest_members(self):
+        second = {**vars(ITEM), "passage_id": "passage:second", "passage_sha256": "c" * 64}
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "batch.json"
+            path.write_text(json.dumps({
+                "version": VERSION, "collection_id": BATCH.collection_id,
+                "items": [vars(ITEM), second],
+            }), encoding="utf-8")
+            loaded = load_candidate_batch(path)
+        self.assertEqual(len(loaded.items), 2)
+        self.assertEqual({item.content_id for item in loaded.items}, {ITEM.content_id})
+        self.assertEqual({item.canonical_url for item in loaded.items}, {ITEM.canonical_url})
+
+    def test_second_rights_read_wrong_locator_cannot_authorize_model_use(self):
+        class SwitchingRights(FakeRights):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+
+            def read_current(self, subject):
+                self.calls += 1
+                if self.calls == 1:
+                    return self.current
+                return replace(self.current, locator_value="https://example.test/other")
+
+        rights = SwitchingRights()
+        with self.assertRaisesRegex(PrivateCaptureAuthorizationBlocked, "RIGHTS_URL_MISMATCH"):
+            preflight_candidate_batch(
+                BATCH, capture_store=FakeCapture(),
+                candidate_store=FakeCandidate(), rights_store=rights,
+            )
+        self.assertEqual(rights.calls, 2)
+
     def test_manifest_identity_hash_and_hard_bounds(self):
         raw = {
             "version": VERSION,

@@ -525,6 +525,27 @@ def match_claim_candidate(
         if (len(actual_targets) != len(rows) or actual_targets != expected_targets
                 or {row.get("rank") for row in rows} != set(range(1, len(rows) + 1))):
             raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_RESULTS_MISMATCH")
+        # Fingerprints bind the inputs, but the persisted result rows have
+        # independent mutable fields. Recompute the deterministic decisions
+        # so a stale/tampered disposition or cluster cannot pass as replay.
+        expected_results = rank_candidate_matches(candidate, targets)
+        for row, expected in zip(sorted(rows, key=lambda value: value["rank"]), expected_results):
+            if (row.get("rank") != expected.rank
+                    or row.get("target_type") != expected.target.proposition.member_type
+                    or row.get("target_id") != expected.target.proposition.member_id
+                    or row.get("match_class") != expected.match.match_class
+                    or row.get("method") != expected.match.method
+                    or row.get("disposition") != expected.disposition
+                    or row.get("proposition_cluster_id") != expected.cluster_id
+                    or row.get("supporting_features") != list(expected.supporting_features)
+                    or row.get("contradicting_features") != list(expected.contradicting_features)):
+                raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_SEMANTICS_MISMATCH")
+            try:
+                score = float(row["lexical_score"])
+            except (KeyError, ValueError, TypeError):
+                raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_SCORE_INVALID") from None
+            if abs(score - expected.match.lexical_score) > 0.000001:
+                raise CandidateMatchingError("CANDIDATE_MATCH_REPLAY_SCORE_INVALID")
         return MatchRunReceipt(
             run_id=run_id,
             claim_candidate_id=claim_candidate_id,
