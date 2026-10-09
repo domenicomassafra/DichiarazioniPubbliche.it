@@ -310,3 +310,15 @@ revalidation. Focused local regressions prove the previously accepted
 upper-case-host mismatch is refused. This is a safety correction, not a
 qualified Source Intelligence role/scope/lineage/rights evaluation of genuine
 Garlasco Content; **AC-215.9 remains unchecked**.
+
+2026-10-09 Wave 12 review-state fail-closed safety: `evidence_item_from_row`
+previously inferred `APPROVED` when an otherwise plausible evidence row
+omitted or blanked `status`, allowing a known registry source to qualify
+without explicit observation review. It now defaults to `UNREVIEWED`, and
+`assess_evidence_set` excludes and reports non-`APPROVED` rows as
+`EVIDENCE_NOT_APPROVED`. Real guarded `approved_verification_evidence`
+SQL already selects and filters the explicit approved state; this patch
+protects other untrusted rows, not a newly proven provider. Synthetic
+missing/null/blank/PENDING RED→GREEN plus explicit APPROVED positive
+control passed. **AC-215.9 remains open** and no authentic Garlasco
+evidence/rights were added.

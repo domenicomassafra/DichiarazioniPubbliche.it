@@ -95,3 +95,18 @@ has 28 approved-state TEXT_QUOTE_HASH records but still zero
 Content Captures/Passages. This adds **no** archive verification,
 rights-granted passage preview or exact media-segment jump; all
 DP-419 AC remain open.
+
+### 2026-10-09 capture lifecycle receipt authenticity (Wave 12)
+
+The authenticated metadata-only two-version reader formerly trusted an
+`archive_status=SUCCEEDED` without an archive completion receipt or timestamp,
+and could show `PURGED` from a standalone purge timestamp while the row
+remained `CAPTURED`. This could present nonexistent archival/purge proof as
+established state. The reader now re-enforces the `ContentCaptureRecord`
+contract: completed archive status requires its timestamp and nonempty receipt,
+other non-new archive states require provider and request time, and
+`PURGED_BODY` requires absent body ref plus purge time, reason and receipt.
+Inconsistent mixed states are blocked without returning private receipts.
+Nine adversarial cases reproduced RED, then passed GREEN with a valid control.
+This is local source-only proof, not evidence of a real archive or MiniPC
+capture comparison. All DP-419 AC remain open.

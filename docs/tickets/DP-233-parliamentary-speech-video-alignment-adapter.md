@@ -197,3 +197,18 @@ MiniPC, using the existing synthetic Camera/Senato fixtures only: **32/32 PASS**
 the code path but deliberately does not change AC-233.10: the prerequisite remains an explicitly
 owner-approved official Camera/Senato source family with resolved rights/source disposition,
 which is still absent from the repository contracts audited above.
+
+### 2026-10-09 strict verbatim official-statement excerpt binding (Wave 12)
+
+The source-family adapter previously bound a requested public excerpt to
+official URL, version, transcript variant/hash, statement ID and video range,
+but did **not** compare the caller-supplied `excerpt_text` with the actual
+normalized statement span. Invented text or another speaker's words could
+therefore produce `ALLOWED` under synthetically `CLEARED` rights.
+The validator now additionally requires a nonempty **literal contiguous
+substring** of that official statement, without case/whitespace normalization
+or cross-speaker stitching, before DP-305 eligibility. Adversarial RED→GREEN
+tests cover invented/empty/disjoint quotes, wrong speaker, exact replay and
+amended source versions. This remains a **synthetic fixture** gate:
+no live Camera/Senato rights, owner approval, publication permission,
+or approved-source MiniPC canary is inferred. AC-233.10 stays open.

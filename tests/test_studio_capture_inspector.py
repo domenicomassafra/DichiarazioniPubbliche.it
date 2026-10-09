@@ -28,7 +28,14 @@ def row(digest, **override):
 
 class FakeCaptureStore:
     def __init__(self, rows=None, error=None):
-        self.rows = {A: row(A), B: row(B, archive_status="SUCCEEDED", body_purged_at="2026-10-08T12:00:00Z")} if rows is None else rows
+        self.rows = {A: row(A), B: row(
+            B, status="PURGED_BODY", archive_status="SUCCEEDED",
+            archive_provider="archive:fixture", archive_requested_at="2026-10-08T09:00:00Z",
+            archive_completed_at="2026-10-08T11:00:00Z",
+            archive_receipt={"receipt_id": "fixture:archive"},
+            body_ref=None, body_purged_at="2026-10-08T12:00:00Z",
+            purge_reason="retention_expired", purge_receipt={"receipt_id": "fixture:purge"},
+        )} if rows is None else rows
         self.error = error
         self.calls = []
 
@@ -40,6 +47,25 @@ class FakeCaptureStore:
 
 
 class StudioCaptureInspectorTests(unittest.TestCase):
+    def test_archive_success_and_purged_body_require_persisted_completion_receipts(self):
+        baseline = FakeCaptureStore().rows[B]
+        tampered = (
+            {"archive_completed_at": None},
+            {"archive_receipt": {}},
+            {"archive_provider": None},
+            {"archive_requested_at": None},
+            {"body_ref": "private/body/stale"},
+            {"body_purged_at": None},
+            {"purge_reason": None},
+            {"purge_receipt": {}},
+            {"status": "CAPTURED"},
+        )
+        for changes in tampered:
+            with self.subTest(changes=changes):
+                store = FakeCaptureStore(rows={A: row(A), B: {**baseline, **changes}})
+                with self.assertRaisesRegex(ValueError, "STUDIO_CAPTURE_(ARCHIVE|PURGE)_PROOF_INVALID"):
+                    inspect_capture_versions(store, content_id="content:one", earlier_hash=A, later_hash=B)
+
     def test_selects_only_source_version_metadata_and_detects_change(self):
         store = FakeCaptureStore()
         result = inspect_capture_versions(store, content_id="content:one", earlier_hash=A, later_hash=B)

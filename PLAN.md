@@ -496,3 +496,31 @@ The first full run had correctly detected one outdated adjacent
 HTTP API test fixture, repaired by PRIME; its second full rerun
 is the cited PASS. No source license, live provider, reviewer approval,
 manual screen-reader pass or DP-417 schema authority is inferred.
+
+### 2026-10-09 Wave 12 source excerpts and Studio archive proof
+
+**DP-233** now requires a requested official parliamentary excerpt to be a
+literal contiguous nonempty portion of the *same* normalized statement,
+in addition to exact source/version/hash/rights and amendment gates.
+Invented, other-speaker and stale-version text is rejected before any
+`ALLOWED` fixture response. **DP-419** private Capture comparison now
+refuses archive `SUCCEEDED` or body `PURGED` states without their persisted
+completion receipts and coherent lifecycle evidence, while never revealing
+private receipt data or bodies. The combined focused source/inspector/Studio
+loopback suite **32/32 PASS**, compileall and diff checks pass; a final
+full-suite and CI gate is still required. No source license, real provider
+permission, production migration or ticket status was changed.
+**39 open, NO-GO/41**.
+
+**DP-215** Source Intelligence now refuses to infer `APPROVED` from a
+missing/blank observation review state: unreviewed rows are excluded and
+reported, while explicitly approved canonical SQL observations remain
+eligible. This is an additional local fail-closed boundary, not evidence
+of rights approval or a real corpus. Combined three-lane focused
+tests **46/46 PASS**; full-suite/commit/CI are separate requirements.
+
+Wave 12's frozen full suite subsequently passed **2083/2083 tests**,
+restore drill, 5/5 verification benchmark, compileall, ticket contract
+and diff checks. Launch preflight remains **NO-GO/41** with unchanged
+receipt. No new AC or ticket is declared DONE; code-only approval
+does not replace real Camera/Senato rights or MiniPC corpus acceptance.

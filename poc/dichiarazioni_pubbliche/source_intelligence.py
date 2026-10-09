@@ -204,7 +204,7 @@ class EvidenceItem:
     dimensions: dict[str, Any] = field(default_factory=dict)
     value_numeric: float | None = None
     value_text: str | None = None
-    status: str = "APPROVED"
+    status: str = "UNREVIEWED"
 
 
 @dataclass(frozen=True)
@@ -561,7 +561,7 @@ def evidence_item_from_row(
             None if row.get("value_numeric") is None else float(row.get("value_numeric"))
         ),
         value_text=str(row.get("value_text") or "").strip() or None,
-        status=str(row.get("status") or "APPROVED"),
+        status=str(row.get("status") or "UNREVIEWED").strip() or "UNREVIEWED",
     )
 
 
@@ -702,7 +702,11 @@ def assess_evidence_set(
         raise SourceIntelligenceError(f"EVIDENCE_REQUIREMENT_PROFILE_MISSING:{claim_type}")
     rows = tuple(sorted(evidence, key=lambda item: item.evidence_id))
     approved = tuple(item for item in rows if item.status == "APPROVED")
-    rejected: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = [
+        {"evidence_id": item.evidence_id, "reason": "EVIDENCE_NOT_APPROVED"}
+        for item in rows
+        if item.status != "APPROVED"
+    ]
     qualified = list(approved)
     satisfied: list[str] = []
     missing: list[str] = []

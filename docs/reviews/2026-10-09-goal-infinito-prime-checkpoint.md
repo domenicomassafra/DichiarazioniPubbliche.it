@@ -151,3 +151,27 @@ source-only proof, awaiting Wave 11 full-suite and CI.
    rights/owner intent and actual Collection activation, with
    nonpublishing guards and read-only canary first. Never turn a
    synthetically green fixture into production/legal/release authority.
+
+## Post-checkpoint Wave 12 source-only continuation
+
+On baseline `4f0812e`, three disjoint real defects were reproduced
+RED→GREEN and integrated locally before publishing:
+
+- **DP-233**: official parliamentary Source Family excerpt text must be a
+  verbatim contiguous slice of its own normalized statement. URL/hash/
+  ID/version/timing alone no longer permit a forged/other-speaker quote.
+- **DP-419**: a private Capture inspector cannot display `SUCCEEDED`
+  archive or `PURGED` body status without the canonical persisted
+  archive/purge receipt, timing, and coherent lifecycle prerequisites.
+- **DP-215**: missing/blank observation review status no longer defaults
+  to `APPROVED`; `UNREVIEWED` is explicitly excluded and logged
+  `EVIDENCE_NOT_APPROVED` (canonical SQL approved row still accepted).
+
+Evidence: `docs/reviews/2026-10-09-goal-infinito-wave12-parliament-capture-gates.md`.
+The final frozen suite is **2083/2083 PASS**, restored 100-table
+fixture PASS, deterministic benchmark **5/5 PASS**, repository
+contract/compileall/diff PASS, and release remains **NO-GO/41**.
+No genuine source rights, new Garlasco Content or Candidate rows
+and no production migration were created. The original owner handoff
+and legacy orphan UI WIP remain excluded from git staging.
+Record matching Wave12 commit/CI separately after publication.

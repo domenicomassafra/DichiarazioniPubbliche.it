@@ -206,6 +206,18 @@ def _bind_excerpt_request(
             raise ParliamentarySourceFamilyExecutionError(
                 f"PARLIAMENTARY_SOURCE_FAMILY_EXCERPT_{field.upper()}_MISMATCH"
             )
+    # The source hash and statement ID bind provenance, not the caller's quote
+    # text. Require a nonempty, literal contiguous slice of this statement's
+    # official transcript span; do not casefold or normalize whitespace.
+    excerpt = request.excerpt_text
+    if (
+        not isinstance(excerpt, str)
+        or not excerpt.strip()
+        or excerpt not in record.transcript.statement_text
+    ):
+        raise ParliamentarySourceFamilyExecutionError(
+            "PARLIAMENTARY_SOURCE_FAMILY_EXCERPT_TEXT_MISMATCH"
+        )
     if record.video is not None:
         expected_start = record.video.start_ms / 1000
         expected_end = record.video.end_ms / 1000

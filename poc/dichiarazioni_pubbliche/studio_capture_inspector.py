@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Mapping, Protocol
 
 from dichiarazioni_pubbliche.corpus_repository import (
@@ -38,6 +39,21 @@ def _safe_state(value: object, allowed: frozenset[str], label: str) -> str:
     return value
 
 
+def _has_aware_time(value: object) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return stamp.tzinfo is not None and stamp.utcoffset() is not None
+
+
+def _has_receipt(value: object) -> bool:
+    # Never echo the receipt: the private inspector exposes status only.
+    return isinstance(value, Mapping) and bool(value)
+
+
 @dataclass(frozen=True)
 class CaptureInspection:
     id: str
@@ -64,8 +80,31 @@ def _select_metadata(raw: Mapping[str, Any], content_id: str, expected_hash: str
     capture_state = _safe_state(raw.get("status"), CAPTURE_STATUSES, "STATUS")
     hold_state = _safe_state(raw.get("hold_status"), CAPTURE_HOLD_STATUSES, "HOLD")
     archive_state = _safe_state(raw.get("archive_status"), CAPTURE_ARCHIVE_STATUSES, "ARCHIVE")
+    if archive_state != "NOT_REQUESTED" and (
+        not isinstance(raw.get("archive_provider"), str)
+        or not raw["archive_provider"].strip()
+        or not _has_aware_time(raw.get("archive_requested_at"))
+    ):
+        raise ValueError("STUDIO_CAPTURE_ARCHIVE_PROOF_INVALID")
+    if archive_state in {"SUCCEEDED", "FAILED"} and (
+        not _has_aware_time(raw.get("archive_completed_at"))
+        or not _has_receipt(raw.get("archive_receipt"))
+    ):
+        raise ValueError("STUDIO_CAPTURE_ARCHIVE_PROOF_INVALID")
+    if capture_state == "PURGED_BODY":
+        if (
+            raw.get("body_ref") is not None
+            or not _has_aware_time(raw.get("body_purged_at"))
+            or not isinstance(raw.get("purge_reason"), str)
+            or not raw["purge_reason"].strip()
+            or not _has_receipt(raw.get("purge_receipt"))
+        ):
+            raise ValueError("STUDIO_CAPTURE_PURGE_PROOF_INVALID")
+    elif raw.get("body_purged_at") is not None:
+        # A timestamp cannot independently impersonate a completed purge.
+        raise ValueError("STUDIO_CAPTURE_PURGE_PROOF_INVALID")
     body_state = (
-        "PURGED" if raw.get("body_purged_at") is not None
+        "PURGED" if capture_state == "PURGED_BODY"
         else "STORED_UNVERIFIED" if raw.get("body_ref")
         else "NOT_STORED"
     )

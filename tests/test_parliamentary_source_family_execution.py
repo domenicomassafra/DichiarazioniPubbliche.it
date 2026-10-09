@@ -265,6 +265,112 @@ class ParliamentarySourceFamilyExecutionTests(unittest.TestCase):
                 excerpt_requests={row.statement_id: bad},
             )
 
+    def test_excerpt_must_be_exact_contiguous_verbatim_of_this_official_statement(self):
+        raw = parliamentary_official_fixture_records()[0]
+        row = normalize_parliamentary_official_record(raw)
+        approved = excerpt_request(raw)
+        for invalid in (
+            "Il deputato ha promesso tagli immediati.",  # invented quote
+            "Chiedo la parola.",  # appears in the transcript, but spoken by someone else
+            "Non   aumenteremo le tasse.",  # whitespace normalization must not excuse tampering
+            "non aumenteremo le tasse.",  # case folding must not excuse tampering
+            "Non aumenteremo tasse.",  # disjoint substrings stitched together
+            "",
+            "   ",
+        ):
+            with self.subTest(excerpt_text=invalid), self.assertRaisesRegex(
+                ParliamentarySourceFamilyExecutionError, "EXCERPT_TEXT_MISMATCH"
+            ):
+                execute_parliamentary_source_family_fixture(
+                    manifest=camera_manifest(rights=RightsStatus.CLEARED),
+                    current_records=[raw],
+                    excerpt_requests={
+                        row.statement_id: replace(approved, excerpt_text=invalid)
+                    },
+                )
+
+        # A literal contiguous fragment of the actual official statement is valid.
+        receipt = execute_parliamentary_source_family_fixture(
+            manifest=camera_manifest(rights=RightsStatus.CLEARED),
+            current_records=[raw],
+            excerpt_requests={
+                row.statement_id: replace(approved, excerpt_text="aumenteremo le")
+            },
+        )
+        self.assertEqual(receipt.records[0].excerpt_disposition, ExcerptDisposition.ALLOWED.value)
+        self.assertTrue(receipt.records[0].public_excerpt_prerequisite_satisfied)
+
+    def test_replay_cannot_allow_unbound_quote_and_rights_remain_authoritative(self):
+        raw = parliamentary_official_fixture_records()[0]
+        row = normalize_parliamentary_official_record(raw)
+        approved = excerpt_request(raw)
+        for rights in (RightsStatus.UNKNOWN, RightsStatus.BLOCKED, RightsStatus.REVOKED):
+            with self.subTest(rights=rights):
+                receipt = execute_parliamentary_source_family_fixture(
+                    manifest=camera_manifest(rights=rights),
+                    previous_records=[raw],
+                    current_records=[copy.deepcopy(raw)],
+                    excerpt_requests={row.statement_id: approved},
+                )
+                self.assertEqual(receipt.records[0].state, "REPLAY")
+                self.assertEqual(
+                    receipt.records[0].excerpt_disposition, ExcerptDisposition.PROHIBITED.value
+                )
+                self.assertFalse(receipt.records[0].public_excerpt_prerequisite_satisfied)
+        with self.assertRaisesRegex(
+            ParliamentarySourceFamilyExecutionError, "EXCERPT_TEXT_MISMATCH"
+        ):
+            execute_parliamentary_source_family_fixture(
+                manifest=camera_manifest(rights=RightsStatus.CLEARED),
+                previous_records=[raw],
+                current_records=[copy.deepcopy(raw)],
+                excerpt_requests={
+                    row.statement_id: replace(approved, excerpt_text="Chiedo la parola.")
+                },
+            )
+
+    def test_amended_version_requires_current_verbatim_and_still_holds_unknown_rights(self):
+        previous, current = amendment_pair()
+        row = normalize_parliamentary_official_record(current)
+        statement_id = row.statement_id
+        review = amendment_review(previous, current)
+        current_request = excerpt_request(current)
+        with self.assertRaisesRegex(
+            ParliamentarySourceFamilyExecutionError, "AMENDMENT_REVIEW_REQUIRED"
+        ):
+            execute_parliamentary_source_family_fixture(
+                manifest=camera_manifest(rights=RightsStatus.CLEARED),
+                previous_records=[previous],
+                current_records=[current],
+                excerpt_requests={statement_id: current_request},
+            )
+        for invalid in (
+            replace(current_request, excerpt_text=previous["statement"]["text"]),
+            excerpt_request(previous),
+        ):
+            with self.subTest(invalid=invalid.transcript_variant_id), self.assertRaisesRegex(
+                ParliamentarySourceFamilyExecutionError,
+                "EXCERPT_(TEXT|CONTENT_ID|TRANSCRIPT_VARIANT_ID)_MISMATCH",
+            ):
+                execute_parliamentary_source_family_fixture(
+                    manifest=camera_manifest(rights=RightsStatus.CLEARED),
+                    previous_records=[previous],
+                    current_records=[current],
+                    reviewed_amendments={statement_id: review},
+                    excerpt_requests={statement_id: invalid},
+                )
+        receipt = execute_parliamentary_source_family_fixture(
+            manifest=camera_manifest(rights=RightsStatus.UNKNOWN),
+            previous_records=[previous],
+            current_records=[current],
+            reviewed_amendments={statement_id: review},
+            excerpt_requests={statement_id: current_request},
+        )
+        self.assertEqual(receipt.records[0].state, "AMENDED")
+        self.assertIsNotNone(receipt.records[0].hold_request_id)
+        self.assertEqual(receipt.records[0].excerpt_disposition, ExcerptDisposition.PROHIBITED.value)
+        self.assertFalse(receipt.records[0].public_excerpt_prerequisite_satisfied)
+
     def test_amended_record_requires_explicit_review_and_dp511_dp227_path(self):
         previous, current = amendment_pair()
         statement_id = previous["statement"]["id"]

@@ -108,6 +108,39 @@ class SourceIntelligenceTests(unittest.TestCase):
         self.assertEqual(result.qualifying_evidence_ids, ("e:1",))
         self.assertFalse(result.coverage_need_candidates)
 
+    def test_missing_evidence_review_status_does_not_become_approved(self):
+        # A registry match and a plausible observed value do not prove human
+        # approval. This adapter may also receive incomplete external rows.
+        row = {
+            "evidence_id": "e:istat-unreviewed",
+            "source_id": "istat-sdmx",
+            "publication_date": "2026-09-01",
+            "reference_period": "2026-07",
+            "metric": "employment_rate_pct",
+            "unit": "percent",
+            "value_numeric": 63.2,
+            "rights_status": "UNKNOWN",
+        }
+        for review_state in ("missing", None, "", "PENDING"):
+            with self.subTest(review_state=review_state):
+                candidate = dict(row)
+                if review_state != "missing":
+                    candidate["status"] = review_state
+                evidence = evidence_item_from_row(candidate, self.contract)
+                result = self.assess([evidence])
+                self.assertNotEqual(evidence.status, "APPROVED")
+                self.assertEqual(result.status, "INSUFFICIENT_PRIMARY_SOURCE")
+                self.assertEqual(result.qualifying_evidence_ids, ())
+                self.assertIn(
+                    {"evidence_id": "e:istat-unreviewed", "reason": "EVIDENCE_NOT_APPROVED"},
+                    result.rejected_evidence,
+                )
+                self.assertTrue(result.coverage_need_candidates)
+
+        # An explicit approved observation from the guarded store remains valid.
+        reviewed = evidence_item_from_row({**row, "status": "APPROVED"}, self.contract)
+        self.assertEqual(self.assess([reviewed]).status, "SUFFICIENT_FOR_RULE")
+
     def test_istat_wrong_period_is_temporal_mismatch(self):
         result = self.assess(
             [self.item("istat-sdmx", reference_period="2026-06")]
