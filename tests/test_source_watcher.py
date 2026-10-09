@@ -1,4 +1,6 @@
 import sys
+import socket
+import ssl
 import unittest
 from email.message import Message
 from unittest.mock import patch
@@ -76,6 +78,166 @@ PODCAST_RSS = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 class SourceWatcherTests(unittest.TestCase):
+    def test_dns_rebinding_is_rejected_before_any_socket_connect(self):
+        # The initial operator URL validates to public IP; by the time urllib
+        # opens the socket the DNS answer is private. No live network is used.
+        dns_reads = []
+
+        def rebinding_resolver(host, port, type=None):
+            dns_reads.append(host)
+            ip = "93.184.216.34" if len(dns_reads) == 1 else "127.0.0.1"
+            return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))]
+
+        def connection_boundary(handler, connection_type, request, **kwargs):
+            connection = connection_type(request.host, timeout=1, **kwargs)
+            connection.connect()
+            self.fail("a private peer was reached before SSRF refusal")
+
+        with patch("dichiarazioni_pubbliche.source_watcher.socket.getaddrinfo", side_effect=lambda host, port, *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", port))]), \
+             patch("dichiarazioni_pubbliche.source_watcher.socket.socket", side_effect=AssertionError("private socket attempted")) as socket_open, \
+             patch("dichiarazioni_pubbliche.source_watcher.urllib.request.AbstractHTTPHandler.do_open", new=connection_boundary):
+            with self.assertRaisesRegex(ValueError, "DISCOVERY_URL_NONPUBLIC_IP"):
+                fetch_bytes("https://rebind.example.test/feed", resolver=rebinding_resolver)
+        socket_open.assert_not_called()
+        self.assertGreaterEqual(len(dns_reads), 2)
+
+    def test_https_proxy_environment_cannot_change_connection_destination(self):
+        public_dns = lambda host, port, type=None: [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", port))
+        ]
+        destinations = []
+
+        class Response:
+            status = 200
+            code = 200
+            msg = "OK"
+            headers = Message()
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def geturl(self): return "https://example.test/feed"
+            def getcode(self): return 200
+            def info(self): return self.headers
+            def read(self, limit): return b"ok"
+
+        def connection_boundary(handler, connection_type, request, **kwargs):
+            destinations.append((request.host, request.get_full_url(), request.has_proxy()))
+            return Response()
+
+        with patch.dict("os.environ", {"https_proxy": "http://127.0.0.1:3128", "HTTPS_PROXY": "http://127.0.0.1:3128", "no_proxy": "", "NO_PROXY": ""}), \
+             patch("dichiarazioni_pubbliche.source_watcher.urllib.request.AbstractHTTPHandler.do_open", new=connection_boundary):
+            fetched = fetch_bytes("https://example.test/feed", resolver=public_dns)
+        self.assertEqual(fetched.body, b"ok")
+        self.assertEqual(destinations, [("example.test", "https://example.test/feed", False)])
+
+    def test_https_transport_pins_public_socket_peer_and_preserves_verified_hostname(self):
+        connections, tls_names = [], []
+
+        class FakeSocket:
+            def settimeout(self, value): self.timeout = value
+            def connect(self, sockaddr):
+                self.peer = sockaddr
+                connections.append(sockaddr)
+            def getpeername(self): return self.peer
+            def close(self): pass
+
+        class Response:
+            code = status = 200
+            msg = "OK"
+            headers = Message()
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def geturl(self): return "https://example.test/feed"
+            def getcode(self): return 200
+            def info(self): return self.headers
+            def read(self, limit): return b"ok"
+
+        public_dns = lambda host, port, type=None: [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", port))
+        ]
+
+        def fake_tls(context, raw_socket, server_hostname):
+            self.assertTrue(context.check_hostname)
+            self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+            tls_names.append(server_hostname)
+            return raw_socket
+
+        def boundary(handler, connection_type, request, **kwargs):
+            connection = connection_type(request.host, timeout=3, **kwargs)
+            connection.connect()
+            connection.close()
+            return Response()
+
+        with patch("dichiarazioni_pubbliche.source_watcher.socket.socket", side_effect=lambda *args: FakeSocket()), \
+             patch.object(ssl.SSLContext, "wrap_socket", new=fake_tls), \
+             patch("dichiarazioni_pubbliche.source_watcher.urllib.request.AbstractHTTPHandler.do_open", new=boundary), \
+             patch("dichiarazioni_pubbliche.source_watcher.socket.getaddrinfo", side_effect=AssertionError("socket connect must not resolve hostname again")):
+            fetched = fetch_bytes("https://example.test/feed", resolver=public_dns)
+        self.assertEqual(fetched.body, b"ok")
+        self.assertEqual(connections, [("93.184.216.34", 443)])
+        self.assertEqual(tls_names, ["example.test"])
+
+    def test_socket_peer_mismatch_is_rejected_before_tls(self):
+        attempts = []
+
+        class SwappedPeer:
+            def settimeout(self, value): pass
+            def connect(self, address): attempts.append(address)
+            def getpeername(self): return ("127.0.0.1", 443)
+            def close(self): pass
+
+        public_dns = lambda host, port, type=None: [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", port))
+        ]
+
+        def boundary(handler, connection_type, request, **kwargs):
+            connection = connection_type(request.host, timeout=3, **kwargs)
+            connection.connect()
+            self.fail("mismatched peer was allowed into TLS")
+
+        with patch("dichiarazioni_pubbliche.source_watcher.socket.socket", side_effect=lambda *args: SwappedPeer()), \
+             patch.object(ssl.SSLContext, "wrap_socket", side_effect=AssertionError("TLS with wrong peer")), \
+             patch("dichiarazioni_pubbliche.source_watcher.urllib.request.AbstractHTTPHandler.do_open", new=boundary):
+            with self.assertRaisesRegex(ValueError, "DISCOVERY_URL_PEER_MISMATCH"):
+                fetch_bytes("https://example.test/feed", resolver=public_dns)
+        self.assertEqual(attempts, [("93.184.216.34", 443)])
+
+    def test_dns_mixed_public_private_addresses_fail_closed_before_any_connect(self):
+        public_dns = lambda host, port, type=None: [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", port)),
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", port)),
+        ]
+        with patch("dichiarazioni_pubbliche.source_watcher.socket.socket") as socket_open:
+            with self.assertRaisesRegex(ValueError, "DISCOVERY_URL_NONPUBLIC_IP"):
+                fetch_bytes("https://example.test/feed", resolver=public_dns)
+        socket_open.assert_not_called()
+
+    def test_redirect_to_private_dns_is_blocked_before_followup_transport(self):
+        destinations = []
+
+        def resolver(host, port, type=None):
+            ip = "127.0.0.1" if host == "internal.example.test" else "93.184.216.34"
+            return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))]
+
+        class Redirect:
+            status = code = 302
+            msg = "Found"
+            headers = Message()
+            headers["Location"] = "https://internal.example.test/admin"
+            def info(self): return self.headers
+            def getcode(self): return 302
+            def geturl(self): return "https://example.test/start"
+            def read(self, *args): return b""
+            def close(self): pass
+
+        def boundary(handler, connection_type, request, **kwargs):
+            destinations.append(request.get_full_url())
+            return Redirect()
+
+        with patch("dichiarazioni_pubbliche.source_watcher.urllib.request.AbstractHTTPHandler.do_open", new=boundary):
+            with self.assertRaisesRegex(ValueError, "DISCOVERY_URL_NONPUBLIC_IP"):
+                fetch_bytes("https://example.test/start", resolver=resolver)
+        self.assertEqual(destinations, ["https://example.test/start"])
+
     def test_discovery_url_refuses_ssrf_shapes(self):
         public_dns = lambda host, port, type=None: [
             (2, 1, 6, "", ("93.184.216.34", port))

@@ -176,3 +176,23 @@ response budget. Deterministic adversarial tests proved these refusals without
 live network calls or production database changes. This protects the pipeline
 boundary only: arbitrary DNS resolution/rebinding inside a supplied fetcher
 remains a transport-level responsibility and is not claimed to be solved here.
+
+### 2026-10-09 HTTPS acquisition and optional oEmbed socket binding
+
+The shared `source_watcher` HTTPS handler now revalidates all resolved
+addresses at the actual TCP connection boundary, connects directly to a
+vetted public IP and verifies the socket peer before TLS, while retaining
+the original hostname for SNI/certificate verification. System proxy
+variables cannot redirect this transport, and each HTTPS redirect must
+pass the destination checks. Deterministic mocked sockets cover a
+public-to-private DNS rebinding, public/private mixed results, peer
+substitution, proxy configuration, and private redirect targets.
+
+The optional Vimeo oEmbed lookup separately acquired a DNS-pinned HTTPS
+handler after review found it still used an ordinary urllib HTTPS
+connection following its initial DNS check. It still enforces explicit
+provider opt-in, no automatic redirects, bounded content length, strict
+HTTP metadata and duplicate-key JSON refusal. These are isolated local
+transport tests without a live network canary, source license, browser
+renderer certification or deployment. DP-210's prior completion proof
+is unchanged; this does not enable the 100-item Garlasco pilot.

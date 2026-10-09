@@ -134,6 +134,29 @@ class PrivateCaptureAuthorizationTests(unittest.TestCase):
                         state, content_id=CONTENT_ID, canonical_url=URL
                     )
 
+    def test_content_state_missing_or_malformed_safety_counts_fail_closed(self):
+        # Missing SQL count fields must not turn an unknown Collection/rights
+        # safety state into the integer zero that authorizes acquisition.
+        for key in ("inactive_collection_count", "forbidden_membership_count"):
+            for malformed in (None, "0", False, -1, 0.0):
+                state = content_state(**{key: malformed})
+                with self.subTest(key=key, malformed=malformed):
+                    with self.assertRaisesRegex(
+                        PrivateCaptureAuthorizationBlocked,
+                        "PRIVATE_CAPTURE_CONTENT_SAFETY_COUNTS_INVALID",
+                    ):
+                        require_operator_capture_content(
+                            state, content_id=CONTENT_ID, canonical_url=URL
+                        )
+            state = content_state()
+            del state[key]
+            with self.subTest(key=key, malformed="MISSING"):
+                with self.assertRaisesRegex(
+                    PrivateCaptureAuthorizationBlocked,
+                    "PRIVATE_CAPTURE_CONTENT_SAFETY_COUNTS_INVALID",
+                ):
+                    require_operator_capture_content(state, content_id=CONTENT_ID, canonical_url=URL)
+
     def test_garlasco_paused_collection_blocks_even_with_a_cleared_rights_record(self):
         checks = []
 

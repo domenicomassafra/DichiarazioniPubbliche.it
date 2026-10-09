@@ -99,9 +99,16 @@ def require_operator_capture_content(
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_CONTENT_URL_MISMATCH")
     if state.get("rights_status") != "CLEARED":
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_CONTENT_RIGHTS_NOT_CLEARED")
-    if int(state.get("inactive_collection_count") or 0):
+    inactive = state.get("inactive_collection_count")
+    forbidden = state.get("forbidden_membership_count")
+    # These are PostgreSQL COUNT(*) aggregates. A missing/malformed field is
+    # unknown safety state, never evidence of zero blocking memberships.
+    if (type(inactive) is not int or inactive < 0
+            or type(forbidden) is not int or forbidden < 0):
+        raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_CONTENT_SAFETY_COUNTS_INVALID")
+    if inactive:
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_COLLECTION_NOT_ACTIVE")
-    if int(state.get("forbidden_membership_count") or 0):
+    if forbidden:
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_COLLECTION_CAPTURE_FORBIDDEN")
 
 

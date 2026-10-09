@@ -280,3 +280,17 @@ Production MiniPC proof:
 DP-211 creates no DP-212 downstream jobs and does not promote, verify, find or publish. The
 provider canary may be exercised later when the exact credential/model/rate contract is
 configured; its absence does not weaken the deterministic/runtime certification above.
+
+### 2026-10-09 candidate parent-selector safety refinement
+
+The private extraction runtime now refuses a `TEXT_POSITION` parent
+Passage whose Capture reference is absent, coordinates are missing or
+negative, or `end_char - start_char` disagrees with the hashed Passage
+text length. This occurs before a provider call, run start or replay.
+Deterministic tamper fixtures reproduced the former acceptance and now
+pass with `CANDIDATE_TEXT_PARENT_SELECTOR_INVALID`. A same-length
+shifted coordinate or forged self-consistent Passage text/hash still
+requires an independently readable, rights-gated immutable Capture
+text/selector roundtrip; that is not yet established at this module's
+current database interface. No new source or live candidate acceptance
+is claimed, and the original DP-211 certification is not widened.

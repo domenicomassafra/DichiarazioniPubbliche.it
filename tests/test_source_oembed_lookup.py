@@ -2,7 +2,10 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
+from email.message import Message
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -117,6 +120,113 @@ class OEmbedLookupTests(unittest.TestCase):
                 self.assertIsNone(result.title_candidate)
                 self.assertIsNone(result.response_sha256)
 
+    def test_custom_fetcher_must_not_fabricate_complete_http_200_from_bad_metadata(self):
+        body = vimeo_reply()
+        endpoint_reply = oembed_fetched("https://vimeo.com/api/oembed.json", body)
+        for override in (
+            {"content_length": len(body) + 1},
+            {"content_length": len(body) - 1},
+            {"content_length": 0},
+            {"content_length": -1},
+            {"content_length": True},
+            {"content_length": float(len(body))},
+            {"content_length": str(len(body))},
+            {"status_code": 200.0},
+            {"status_code": 200 + 0j},
+            {"status_code": True},
+        ):
+            def untrusted_fetcher(url, *, timeout, max_response_bytes):
+                return replace(endpoint_reply, final_url=url, **override)
+
+            with self.subTest(override=override):
+                result = lookup_vimeo_oembed("https://vimeo.com/123", fetcher=untrusted_fetcher)
+                self.assertEqual(result.status, "FAILED")
+                self.assertEqual(result.reason_code, "OEMBED_RESPONSE_INVALID")
+                self.assertIsNone(result.response_sha256)
+                self.assertIsNone(result.title_candidate)
+        def allowed_fetcher(url, *, timeout, max_response_bytes):
+            return replace(endpoint_reply, final_url=url,
+                           media_type="application/json; charset=utf-8")
+        self.assertEqual(
+            lookup_vimeo_oembed("https://vimeo.com/123", fetcher=allowed_fetcher).status,
+            "SUCCEEDED",
+        )
+
+    def test_duplicate_json_keys_cannot_override_conflicting_provider_or_private_fields(self):
+        for payload in (
+            b'{"version":"2.0","version":"1.0","type":"video","provider_name":"Vimeo","title":"T"}',
+            b'{"version":"1.0","type":"video","provider_name":"Other","provider_name":"Vimeo","title":"T"}',
+            b'{"version":"1.0","type":"video","provider_name":"Vimeo","title":"private key", "title":"T"}',
+        ):
+            def untrusted_fetcher(url, *, timeout, max_response_bytes):
+                return oembed_fetched(url, payload)
+
+            with self.subTest(payload=payload):
+                result = lookup_vimeo_oembed("https://vimeo.com/123", fetcher=untrusted_fetcher)
+                self.assertEqual(result.status, "FAILED")
+                self.assertEqual(result.reason_code, "OEMBED_SCHEMA_INVALID")
+                self.assertIsNone(result.response_sha256)
+                self.assertNotIn("private key", json.dumps(result.to_dict()))
+
+    def test_unexpected_custom_fetcher_error_never_discloses_private_exception(self):
+        def untrusted_fetcher(url, *, timeout, max_response_bytes):
+            raise RuntimeError("private provider url https://example.invalid/?api_key=DO_NOT_ECHO")
+
+        result = lookup_vimeo_oembed("https://vimeo.com/123", fetcher=untrusted_fetcher)
+        self.assertEqual(result.status, "FAILED")
+        self.assertEqual(result.reason_code, "OEMBED_FETCH_OR_PARSE_FAILED")
+        self.assertNotIn("DO_NOT_ECHO", str(result.to_dict()))
+
+    def test_pinned_network_fetch_refuses_declared_length_mismatch_or_bad_budget_no_network(self):
+        body = vimeo_reply()
+        endpoint = "https://vimeo.com/api/oembed.json?url=https%3A%2F%2Fvimeo.com%2F123"
+
+        class FakeReply:
+            status = 200
+
+            def __init__(self, content_length):
+                self.headers = Message()
+                self.headers["Content-Type"] = "application/json"
+                if content_length is not None:
+                    self.headers["Content-Length"] = str(content_length)
+                self.read_called = False
+
+            def geturl(self):
+                return endpoint
+
+            def read(self, size):
+                self.read_called = True
+                return body[:size]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        for declared in (str(len(body) - 1), str(len(body) + 1), "-1", "not-a-number",
+                         str(OEMBED_MAX_RESPONSE_BYTES + 1)):
+            response = FakeReply(declared)
+            with self.subTest(declared=declared), patch(
+                "dichiarazioni_pubbliche.source_oembed_lookup.validate_discovery_url",
+                return_value=endpoint,
+            ), patch(
+                "dichiarazioni_pubbliche.source_oembed_lookup.urllib.request.build_opener",
+                return_value=SimpleNamespace(open=lambda *args, **kwargs: response),
+            ):
+                with self.assertRaisesRegex(ValueError, "OEMBED_CONTENT_LENGTH_INVALID|OEMBED_RESPONSE_TOO_LARGE|OEMBED_RESPONSE_INCOMPLETE"):
+                    fetch_oembed_json(endpoint, timeout=OEMBED_TIMEOUT_SECONDS,
+                                     max_response_bytes=OEMBED_MAX_RESPONSE_BYTES)
+
+        for limit in (True, 0, -1, 1.5, "8192", None, OEMBED_MAX_RESPONSE_BYTES + 1):
+            with self.subTest(limit=limit), patch(
+                "dichiarazioni_pubbliche.source_oembed_lookup.urllib.request.build_opener",
+                side_effect=AssertionError("network must not be opened"),
+            ):
+                with self.assertRaisesRegex(ValueError, "OEMBED_RESPONSE_LIMIT_INVALID"):
+                    fetch_oembed_json(endpoint, timeout=OEMBED_TIMEOUT_SECONDS,
+                                     max_response_bytes=limit)
+
     def test_network_exception_never_echoes_exception_or_secret(self):
         def failing_fetcher(*args, **kwargs):
             raise OSError("token=not-for-logs")
@@ -138,6 +248,7 @@ class OEmbedLookupTests(unittest.TestCase):
 
     def test_network_fetch_uses_no_redirect_handler_and_no_proxy(self):
         from dichiarazioni_pubbliche.source_oembed_lookup import _NoRedirect
+        from dichiarazioni_pubbliche.source_watcher import _DiscoveryHTTPSHandler
         redirect = _NoRedirect()
         self.assertIsNone(
             redirect.redirect_request(None, None, 302, "Moved", {}, "https://other.example/")
@@ -162,6 +273,12 @@ class OEmbedLookupTests(unittest.TestCase):
                     max_response_bytes=OEMBED_MAX_RESPONSE_BYTES,
                 )
         self.assertTrue(any(isinstance(handler, _NoRedirect) for handler in build_args))
+        # A preflight-only DNS check would still permit DNS rebinding when
+        # urllib opens its socket. The actual transport must pin vetted IPs.
+        self.assertTrue(
+            any(isinstance(handler, _DiscoveryHTTPSHandler) for handler in build_args),
+            "oEmbed acquisition must share the DNS-pinned HTTPS transport",
+        )
         self.assertTrue(any(
             type(handler).__name__ == "ProxyHandler" and not handler.proxies
             for handler in build_args

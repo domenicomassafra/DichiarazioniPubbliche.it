@@ -103,6 +103,67 @@ class FakeRights:
 
 
 class CandidateAuthorizationTests(unittest.TestCase):
+    def test_noncanonical_persisted_discovery_locator_never_passes_model_preflight(self):
+        capture = FakeCapture()
+        original = capture.read_research_capture_context
+
+        def altered_context(collection_id, content_id):
+            return {**original(collection_id, content_id),
+                    "canonical_url": "https://EXAMPLE.test/reviewed"}
+
+        capture.read_research_capture_context = altered_context
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_DISCOVERY_PROVENANCE_INVALID"
+        ):
+            preflight_candidate_batch(
+                BATCH, capture_store=capture, candidate_store=FakeCandidate(), rights_store=FakeRights()
+            )
+
+    def test_noncanonical_persisted_content_locator_never_passes_model_preflight(self):
+        capture = FakeCapture()
+        original = capture.read_operator_capture_content_state
+
+        def altered_content(content_id):
+            return {**original(content_id), "canonical_url": "https://EXAMPLE.test/reviewed"}
+
+        capture.read_operator_capture_content_state = altered_content
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_ANALYSIS_CONTENT_URL_NONCANONICAL"
+        ):
+            preflight_candidate_batch(
+                BATCH, capture_store=capture, candidate_store=FakeCandidate(), rights_store=FakeRights()
+            )
+
+    def test_noncanonical_persisted_rights_locator_never_passes_model_preflight(self):
+        rights = FakeRights()
+        rights.current = replace(rights.current, locator_value="https://EXAMPLE.test/reviewed")
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_ANALYSIS_RIGHTS_URL_NONCANONICAL"
+        ):
+            preflight_candidate_batch(
+                BATCH, capture_store=FakeCapture(), candidate_store=FakeCandidate(), rights_store=rights
+            )
+
+    def test_guard_rechecks_exact_content_and_rights_locators_after_preflight(self):
+        capture, candidate, rights = FakeCapture(), FakeCandidate(), FakeRights()
+        (guard,) = preflight_candidate_batch(
+            BATCH, capture_store=capture, candidate_store=candidate, rights_store=rights
+        )
+        original_content = capture.read_operator_capture_content_state
+        capture.read_operator_capture_content_state = lambda content_id: {
+            **original_content(content_id), "canonical_url": "https://EXAMPLE.test/reviewed"
+        }
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_ANALYSIS_CONTENT_URL_NONCANONICAL"
+        ):
+            guard()
+        capture.read_operator_capture_content_state = original_content
+        rights.current = replace(rights.current, locator_value="https://EXAMPLE.test/reviewed")
+        with self.assertRaisesRegex(
+            PrivateCaptureAuthorizationBlocked, "PRIVATE_ANALYSIS_RIGHTS_URL_NONCANONICAL"
+        ):
+            guard()
+
     def test_loader_rejects_duplicate_json_items_keys_before_authority_reads(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "batch.json"

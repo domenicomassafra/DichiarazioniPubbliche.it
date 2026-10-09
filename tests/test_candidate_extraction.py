@@ -4,7 +4,7 @@ import json
 import os
 import sys
 import unittest
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -295,6 +295,45 @@ class CandidateExtractionTests(unittest.TestCase):
         return (
             AliasLexiconRow("PERSON", "person:bruzzone", "Roberta Bruzzone", "Roberta Bruzzone", "CANONICAL_NAME"),
         )
+
+    def test_written_parent_selector_span_must_match_passage_length_before_model(self):
+        """An unchanged body/hash cannot justify a parent range of another length."""
+        for changed in (
+            {"end_char": written_context().end_char + 3},
+            {"end_char": written_context().end_char - 1},
+            {"end_char": None},
+            {"start_char": -1, "end_char": len(TEXT) - 1},
+            {"capture_id": None},
+        ):
+            with self.subTest(changed=changed):
+                store = FakeStore(context=replace(written_context(), **changed))
+                provider = FakeProvider(valid_payload())
+                with self.assertRaisesRegex(CandidateExtractionError, "PARENT_SELECTOR_INVALID"):
+                    extract_passage_candidates(
+                        passage_id="passage:parent", store=store,
+                        provider=provider, max_cost_usd="1",
+                    )
+                self.assertEqual(provider.calls, 0)
+                self.assertEqual(store.start_calls, [])
+                self.assertEqual(store.committed_batches, [])
+
+    def test_stale_parent_selector_does_not_replay_existing_run(self):
+        store = FakeStore()
+        provider = FakeProvider(valid_payload())
+        receipt = extract_passage_candidates(
+            passage_id="passage:parent", store=store, provider=provider,
+            max_cost_usd="1",
+        )
+        self.assertEqual(receipt.status, "COMPLETED")
+        self.assertEqual(provider.calls, 1)
+        store.context = replace(written_context(), start_char=101)
+        with self.assertRaisesRegex(CandidateExtractionError, "PARENT_SELECTOR_INVALID"):
+            extract_passage_candidates(
+                passage_id="passage:parent", store=store, provider=provider,
+                max_cost_usd="1",
+            )
+        self.assertEqual(provider.calls, 1)
+        self.assertEqual(len(store.start_calls), 1)
 
     def test_config_taxonomy_is_current_and_model_is_not_hardcoded(self):
         config = load_candidate_extraction_config()

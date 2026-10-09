@@ -69,7 +69,7 @@ def parse_plan_statuses(text: str) -> dict[str, str]:
     statuses: dict[str, str] = {}
     for ticket_id, status in _PLAN_ROW.findall(text):
         normalized = " ".join(status.strip().upper().replace("_", " ").split())
-        if ticket_id in statuses and statuses[ticket_id] != normalized:
+        if ticket_id in statuses:
             raise ValueError(f"LAUNCH_PLAN_DUPLICATE_STATUS:{ticket_id}")
         statuses[ticket_id] = normalized
     return statuses

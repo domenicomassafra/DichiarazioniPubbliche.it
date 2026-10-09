@@ -1802,6 +1802,17 @@ def extract_passage_candidates(
         raise CandidateExtractionError("CANDIDATE_INPUT_TOO_LARGE")
     if _sha256_text(context.text) != context.text_sha256:
         raise CandidateExtractionError("CANDIDATE_PASSAGE_HASH_MISMATCH")
+    if context.selector_type == "TEXT_POSITION" and (
+        not context.capture_id
+        or type(context.start_char) is not int
+        or type(context.end_char) is not int
+        or context.start_char < 0
+        or context.end_char - context.start_char != len(context.text)
+    ):
+        # An internally hashed Passage still cannot justify child absolute
+        # offsets when its parent selector contradicts that very Passage.
+        # This does not prove the substring against the source Capture body.
+        raise CandidateExtractionError("CANDIDATE_TEXT_PARENT_SELECTOR_INVALID")
     if commit_fence is not None and (
         commit_fence.content_id != context.content_id
         or commit_fence.capture_id != context.capture_id

@@ -17,11 +17,16 @@ from dichiarazioni_pubbliche.capture_authorization import (
     PrivateCaptureAuthorizationBlocked,
     private_capture_rights_guard,
 )
+from dichiarazioni_pubbliche.capture_pipeline import (
+    CapturePipelineError,
+    _validate_capture_target,
+)
 from dichiarazioni_pubbliche.ingestion_relevance import canonical_content_url
 from dichiarazioni_pubbliche.discovery_provenance import accepted_discovery_family_counts
 
 BATCH_VERSION = "private-research-capture-batch-v1"
 MAX_BATCH_SIZE = 25
+MAX_MANIFEST_BYTES = 256_000
 
 
 @dataclass(frozen=True)
@@ -82,6 +87,14 @@ def _validate_batch(batch: CaptureBatch) -> None:
         canonical_url = canonical_content_url(item.canonical_url)
         if canonical_url != item.canonical_url:
             raise ValueError("PRIVATE_CAPTURE_BATCH_URL_NONCANONICAL")
+        # A successful operator preflight must not claim READY for a target
+        # rejected by the same acquisition boundary during --execute.
+        # This static check does not replace transport-level DNS/redirect
+        # enforcement, which must still run for each connection.
+        try:
+            _validate_capture_target(canonical_url, final=False)
+        except CapturePipelineError as exc:
+            raise ValueError("PRIVATE_CAPTURE_BATCH_URL_UNSAFE") from exc
         if item.content_id in seen:
             raise ValueError("PRIVATE_CAPTURE_BATCH_DUPLICATE_CONTENT")
         # The logical Content identity is URL-bound. Two different IDs for
@@ -98,7 +111,11 @@ def _validate_batch(batch: CaptureBatch) -> None:
 
 
 def load_private_capture_batch(path: Path) -> CaptureBatch:
-    raw = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_object)
+    with path.open("rb") as manifest_file:
+        encoded = manifest_file.read(MAX_MANIFEST_BYTES + 1)
+    if len(encoded) > MAX_MANIFEST_BYTES:
+        raise ValueError("PRIVATE_CAPTURE_BATCH_FILE_TOO_LARGE")
+    raw = json.loads(encoded.decode("utf-8"), object_pairs_hook=_unique_json_object)
     if not isinstance(raw, dict) or set(raw) != {"version", "collection_id", "items"}:
         raise ValueError("PRIVATE_CAPTURE_BATCH_SCHEMA_INVALID")
     items_raw = raw["items"]

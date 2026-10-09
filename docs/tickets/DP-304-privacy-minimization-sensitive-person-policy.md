@@ -530,3 +530,11 @@ interest, select a lawful basis, or authorize publication.
 
 AC-304.1 and the Q-304/Q-306/DP-307 qualified legal/privacy decisions remain open, so DP-304 stays
 `IN PROGRESS` and this receipt is not launch or legal-compliance authority.
+
+2026-10-09 follow-up: the operator's private Capture content gate previously
+coerced missing or malformed PostgreSQL aggregate safety counts to zero.
+It now requires nonnegative, exact integer values for inactive-Collection
+and forbidden-membership counts, denying unknown/malformed states before
+acquisition. Local RED→GREEN regression covers omitted, null, boolean,
+string, floating and negative counts. This does not change lawful basis,
+approve retention or resolve Q-306/DP-307; DP-304 remains IN PROGRESS.

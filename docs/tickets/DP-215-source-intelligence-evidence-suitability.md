@@ -301,3 +301,12 @@ when statement date is missing and emits an inspectable Coverage Need.
 Both valid timestamp controls and disjoint required-role groups are covered
 by focused tests. This does not certify a real Garlasco source or close
 AC-215.9.
+
+2026-10-09 private Candidate preflight safety follow-up: a persisted Content
+locator or private-rights locator that merely normalizes to the requested URL
+but is not *exactly* canonical now blocks model analysis before provider use.
+The same exact-string comparison is re-applied by the operator guard upon
+revalidation. Focused local regressions prove the previously accepted
+upper-case-host mismatch is refused. This is a safety correction, not a
+qualified Source Intelligence role/scope/lineage/rights evaluation of genuine
+Garlasco Content; **AC-215.9 remains unchecked**.

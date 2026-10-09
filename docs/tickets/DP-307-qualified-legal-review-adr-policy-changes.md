@@ -211,3 +211,10 @@ Actual register remains **14 OPEN, 2 BLOCKED**, and preflight remains
 **NO-GO / 41 blockers**. This is a fail-closed *engineering gate*, not
 qualified legal review, a signed reviewer/owner opinion, approved policy,
 or closure of any DP-307 acceptance criterion.
+
+2026-10-09 duplicate-ticket release parsing guard: the deterministic
+`launch_preflight` PLAN reader now refuses repeated canonical ticket IDs
+even if their states agree; previously equal duplicates were silently
+accepted. A RED→GREEN regression proves this. Existing 16 legal questions
+remain 14 OPEN/2 BLOCKED, with zero qualified dispositions, and the same
+41 release blockers. This adds no legal authority or DP-307 acceptance.

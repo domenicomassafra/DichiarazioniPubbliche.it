@@ -10,13 +10,16 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import socket
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Callable
 from urllib.parse import quote, urlsplit
 
-from dichiarazioni_pubbliche.source_watcher import FetchedBytes, validate_discovery_url
+from dichiarazioni_pubbliche.source_watcher import (
+    FetchedBytes, _DiscoveryHTTPSHandler, validate_discovery_url,
+)
 
 OEMBED_LOOKUP_VERSION = "private-oembed-lookup-v1"
 OEMBED_MAX_RESPONSE_BYTES = 8_192
@@ -47,10 +50,32 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+class _DuplicateOEmbedKey(ValueError):
+    """An ambiguous provider payload cannot establish a canonical identity."""
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateOEmbedKey("OEMBED_JSON_DUPLICATE_KEY")
+        result[key] = value
+    return result
+
+
 def fetch_oembed_json(url: str, *, timeout: float, max_response_bytes: int) -> FetchedBytes:
     """Perform one GET, with no redirects/cookies/auth and the existing DNS SSRF guard."""
+    if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= OEMBED_MAX_RESPONSE_BYTES:
+        raise ValueError("OEMBED_RESPONSE_LIMIT_INVALID")
     validate_discovery_url(url)
-    opener = urllib.request.build_opener(_NoRedirect(), urllib.request.ProxyHandler({}))
+    # URL prevalidation by itself is not a socket-level SSRF guarantee: DNS
+    # may change between validation and urllib's TCP connection. Reuse the
+    # HTTPS transport that vets answers again at connect and pins the peer,
+    # preserving the original hostname for TLS SNI/certificate validation.
+    opener = urllib.request.build_opener(
+        _NoRedirect(), urllib.request.ProxyHandler({}),
+        _DiscoveryHTTPSHandler(socket.getaddrinfo),
+    )
     request = urllib.request.Request(
         url,
         headers={
@@ -62,16 +87,30 @@ def fetch_oembed_json(url: str, *, timeout: float, max_response_bytes: int) -> F
     with opener.open(request, timeout=timeout) as response:
         if response.geturl() != url:
             raise ValueError("OEMBED_REDIRECT_REFUSED")
+        if type(response.status) is not int or response.status != 200:
+            raise ValueError("OEMBED_HTTP_STATUS_INVALID")
+        declared = response.headers.get("Content-Length")
+        if declared is not None:
+            try:
+                expected_length = int(declared)
+            except (TypeError, ValueError):
+                raise ValueError("OEMBED_CONTENT_LENGTH_INVALID") from None
+            if expected_length < 0:
+                raise ValueError("OEMBED_CONTENT_LENGTH_INVALID")
+            if expected_length > max_response_bytes:
+                raise ValueError("OEMBED_RESPONSE_TOO_LARGE")
         body = response.read(max_response_bytes + 1)
         if len(body) > max_response_bytes:
             raise ValueError("OEMBED_RESPONSE_TOO_LARGE")
+        if declared is not None and len(body) != expected_length:
+            raise ValueError("OEMBED_RESPONSE_INCOMPLETE")
         content_type = response.headers.get_content_type()
         if content_type != "application/json":
             raise ValueError("OEMBED_CONTENT_TYPE_INVALID")
         return FetchedBytes(
             body=body,
             final_url=url,
-            status_code=int(response.status),
+            status_code=response.status,
             media_type=content_type,
             charset=response.headers.get_content_charset(),
             content_length=len(body),
@@ -139,13 +178,22 @@ def lookup_vimeo_oembed(
             not isinstance(fetched, FetchedBytes)
             or
             fetched.final_url != endpoint
+            or type(fetched.status_code) is not int
             or fetched.status_code != 200
-            or fetched.media_type.split(";", 1)[0].lower() != "application/json"
+            or not isinstance(fetched.media_type, str)
+            or fetched.media_type.split(";", 1)[0].strip().lower() != "application/json"
             or not isinstance(fetched.body, bytes)
             or len(fetched.body) > OEMBED_MAX_RESPONSE_BYTES
+            or type(fetched.content_length) is not int
+            or fetched.content_length != len(fetched.body)
         ):
             return OEmbedLookupReceipt(status="FAILED", reason_code="OEMBED_RESPONSE_INVALID")
-        payload = json.loads(fetched.body.decode("utf-8"))
+        try:
+            payload = json.loads(
+                fetched.body.decode("utf-8"), object_pairs_hook=_unique_json_object,
+            )
+        except _DuplicateOEmbedKey:
+            return OEmbedLookupReceipt(status="FAILED", reason_code="OEMBED_SCHEMA_INVALID")
         if (
             not isinstance(payload, dict)
             or payload.get("version") != "1.0"
@@ -165,7 +213,9 @@ def lookup_vimeo_oembed(
             provider_candidate="Vimeo",
             response_sha256=hashlib.sha256(fetched.body).hexdigest(),
         )
-    except (OSError, ValueError, UnicodeError, urllib.error.URLError, TimeoutError, TypeError):
+    except Exception:
+        # Custom adapters may raise exceptions containing credentials or source
+        # metadata. Return only the stable, non-sensitive failure receipt.
         return OEmbedLookupReceipt(status="FAILED", reason_code="OEMBED_FETCH_OR_PARSE_FAILED")
 
 

@@ -153,9 +153,19 @@ def preflight_candidate_batch(batch: CandidateBatch, *, capture_store: Any, cand
     guards = []
     for item in batch.items:
         source_item = CaptureBatchItem(item.content_id, item.canonical_url, item.source_family, item.rights_record_id)
+
+        def read_exact_content_state(content_id=item.content_id, *, expected_url=item.canonical_url):
+            state = capture_store.read_operator_capture_content_state(content_id)
+            # SQL candidate persistence binds the raw canonical URL exactly.
+            # Reject a differently spelled database locator before model I/O,
+            # even if the capture authorization helper can normalize it.
+            if state and state.get("canonical_url") != expected_url:
+                raise PrivateCaptureAuthorizationBlocked("PRIVATE_ANALYSIS_CONTENT_URL_NONCANONICAL")
+            return state
+
         rights_guard = private_capture_rights_guard(
             read_current=rights_store.read_current,
-            read_content_state=capture_store.read_operator_capture_content_state,
+            read_content_state=read_exact_content_state,
             rights_record_id=item.rights_record_id,
             content_id=item.content_id,
             canonical_url=item.canonical_url,
@@ -189,6 +199,8 @@ def preflight_candidate_batch(batch: CandidateBatch, *, capture_store: Any, cand
                 canonical_url=item.canonical_url,
                 source_family=item.source_family,
             )
+            if rights.locator_value != item.canonical_url:
+                raise PrivateCaptureAuthorizationBlocked("PRIVATE_ANALYSIS_RIGHTS_URL_NONCANONICAL")
             if MODEL_USE not in rights.permitted_uses:
                 raise PrivateCaptureAuthorizationBlocked("PRIVATE_ANALYSIS_MODEL_USE_NOT_AUTHORIZED")
             require_private_passage_state(candidate_store.read_operator_passage_state(item.passage_id), item)

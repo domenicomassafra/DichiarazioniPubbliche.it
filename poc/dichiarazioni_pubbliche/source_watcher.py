@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import ipaddress
 import json
 import socket
+import ssl
 import subprocess
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -162,21 +164,97 @@ def validate_discovery_url(
         or port not in {None, 443}
     ):
         raise ValueError("DISCOVERY_URL_AUTHORITY_REFUSED")
+    _public_endpoints(parsed.hostname, resolver)
+    return raw
+
+
+def _public_endpoints(host: str, resolver) -> tuple[tuple[int, int, tuple, ipaddress.IPv4Address | ipaddress.IPv6Address], ...]:
+    """Validate every DNS answer, retaining the exact sockaddr for direct connect."""
     try:
-        addresses = resolver(parsed.hostname, 443, type=socket.SOCK_STREAM)
+        addresses = resolver(host, 443, type=socket.SOCK_STREAM)
     except OSError as exc:
         raise ValueError("DISCOVERY_URL_DNS_FAILED") from exc
     if not addresses:
         raise ValueError("DISCOVERY_URL_DNS_EMPTY")
+    result = []
     for row in addresses:
-        address = row[4][0]
         try:
-            ip = ipaddress.ip_address(address)
-        except ValueError as exc:
+            family, socktype, proto, _, sockaddr = row
+            if (family not in (socket.AF_INET, socket.AF_INET6)
+                    or socktype != socket.SOCK_STREAM
+                    or proto not in (0, socket.IPPROTO_TCP)
+                    or not isinstance(sockaddr, tuple)
+                    or len(sockaddr) < 2 or sockaddr[1] != 443
+                    or not isinstance(sockaddr[0], str) or "%" in sockaddr[0]):
+                raise ValueError("invalid endpoint")
+            ip = ipaddress.ip_address(sockaddr[0])
+            if (family == socket.AF_INET and ip.version != 4) or (
+                family == socket.AF_INET6 and ip.version != 6
+            ):
+                raise ValueError("address family mismatch")
+        except (TypeError, ValueError) as exc:
             raise ValueError("DISCOVERY_URL_DNS_INVALID") from exc
         if not ip.is_global:
             raise ValueError("DISCOVERY_URL_NONPUBLIC_IP")
-    return raw
+        result.append((family, proto, sockaddr, ip))
+    return tuple(result)
+
+
+class _DiscoveryHTTPSConnection(http.client.HTTPSConnection):
+    """Resolve at TCP connect; never pass a hostname to the socket connector."""
+
+    def __init__(self, host, *, resolver, **kwargs):
+        super().__init__(host, **kwargs)
+        self.discovery_resolver = resolver
+
+    def set_tunnel(self, host, port=None, headers=None):
+        raise ValueError("DISCOVERY_PROXY_REFUSED")
+
+    def connect(self):
+        if self.port != 443 or self._tunnel_host:
+            raise ValueError("DISCOVERY_PROXY_REFUSED")
+        # All answers are vetted before any socket is opened. Rebinding to a
+        # private address at this second DNS lookup therefore cannot connect.
+        endpoints = _public_endpoints(self.host, self.discovery_resolver)
+        last_error = None
+        for family, proto, sockaddr, expected_ip in endpoints:
+            raw_sock = socket.socket(family, socket.SOCK_STREAM, proto)
+            try:
+                if self.timeout is None or isinstance(self.timeout, (int, float)):
+                    raw_sock.settimeout(self.timeout)
+                if self.source_address:
+                    raw_sock.bind(self.source_address)
+                raw_sock.connect(sockaddr)
+                peer = raw_sock.getpeername()
+                if (ipaddress.ip_address(peer[0]) != expected_ip or peer[1] != 443):
+                    raise ValueError("DISCOVERY_URL_PEER_MISMATCH")
+                # Keep the original DNS hostname as SNI and as the certificate
+                # verification target, even though TCP uses the pinned IP.
+                self.sock = self._context.wrap_socket(raw_sock, server_hostname=self.host)
+                return
+            except OSError as exc:
+                last_error = exc
+                raw_sock.close()
+            except Exception:
+                raw_sock.close()
+                raise
+        raise OSError("DISCOVERY_URL_CONNECTION_FAILED") from last_error
+
+
+class _DiscoveryHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, resolver):
+        self.discovery_resolver = resolver
+        self.discovery_context = ssl.create_default_context()
+        super().__init__(context=self.discovery_context)
+
+    def https_open(self, req):
+        return self.do_open(
+            lambda host, **kwargs: _DiscoveryHTTPSConnection(
+                host, resolver=self.discovery_resolver, **kwargs
+            ),
+            req,
+            context=self.discovery_context,
+        )
 
 
 class _DiscoveryRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -202,7 +280,11 @@ def fetch_bytes(
         url,
         headers={"User-Agent": "DichiarazioniPubbliche.it/0.0.1"},
     )
-    opener = urllib.request.build_opener(_DiscoveryRedirectHandler(resolver=resolver))
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),  # Never route validated URLs through environment proxies.
+        _DiscoveryHTTPSHandler(resolver),
+        _DiscoveryRedirectHandler(resolver=resolver),
+    )
     with opener.open(request, timeout=timeout) as response:
         final_url = validate_discovery_url(response.geturl(), resolver=resolver)
         if final_url != response.geturl():

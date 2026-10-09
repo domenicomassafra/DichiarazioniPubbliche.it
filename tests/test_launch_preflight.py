@@ -96,6 +96,16 @@ class LaunchPreflightTests(unittest.TestCase):
         self.assertEqual(statuses["DP-201"], "BLOCKED")
         self.assertEqual(statuses["DP-705"], "DONE")
 
+    def test_duplicate_canonical_ticket_rows_fail_even_if_status_is_the_same(self):
+        # A duplicated plan ticket must not disappear silently when converting
+        # the canonical backlog to the release checklist snapshot.
+        text = (
+            "| DP-201 | BLOCKED | provider blocker | x |\n"
+            "| DP-201 | BLOCKED | duplicate hiding in another section | x |\n"
+        )
+        with self.assertRaisesRegex(ValueError, "LAUNCH_PLAN_DUPLICATE_STATUS:DP-201"):
+            parse_plan_statuses(text)
+
     def test_legal_parser_uses_only_explicit_decision_status_rows(self):
         text = (
             "| Q-306-01 (DP-301) | x | source | `OPEN` | owner | surface | default | `BLOCKER` |\n"

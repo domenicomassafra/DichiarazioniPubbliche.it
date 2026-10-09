@@ -404,3 +404,38 @@ Source Intelligence profile/role/scope on the 18 Content. The pending DP-417
 production migration was not installed. See the three dated wave receipts
 in `docs/reviews/`. DP-214, DP-215 and DP-417 remain IN PROGRESS pending
 source rights, operator approvals and real canary/acceptance evidence.
+
+### 2026-10-09 next private operator safety batch (source-only)
+
+Following `31e78cb`, local RED→GREEN regressions tightened the actual
+DP-214/DP-215 intake boundary: private Capture batch rejects statically
+unsafe destinations before DB preflight, bounds operator JSON file bytes,
+and private Candidate analysis requires exact persisted Content/rights URL
+canonicality before provider use and upon guard replay. DP-304's Capture
+authorization rejects absent/malformed aggregate safety counts rather than
+silently coercing them to zero. DP-307's launch preflight refuses duplicate
+PLAN ticket rows regardless of status equality. These controls are local
+engineering evidence only; the MiniPC corpus is still PAUSED (18/100
+Content, 30 historical Claims, zero Discovery Hit/Capture/Passage/Candidate
+and Garlasco Coverage Need). **No additional AC or ticket marked DONE: 86
+DONE, 24 IN PROGRESS, 6 BLOCKED, 9 FUTURE / 39 open**. Release stays
+**NO-GO / 41 blockers**, including 16 unresolved legal questions, four
+unaccepted launch artifacts and missing owner decisions. The pending
+DP-417 production migration is not authorized by these code changes.
+
+The same next safety wave additionally reviewed the preexisting
+`source_watcher`/oEmbed local changes and closed the oEmbed socket-level
+DNS-rebinding seam by reusing the verified, no-proxy, DNS-pinned HTTPS
+handler. DP-211 Candidate extraction now holds impossible parent
+`TEXT_POSITION` coordinates before any provider invocation or replay.
+Both changes have isolated RED→GREEN regressions, **not** live source or
+provider acceptance. The unresolved exact immutable Capture text
+roundtrip (including equal-length shifted source spans) remains a
+specific next engineering prerequisite, not an implicit approved match.
+
+Full deterministic verification for this source tranche passed
+**2069/2069 unit tests**, restore drill, **5/5** verification benchmark,
+repository contract and `git diff --check`. Astro check reported
+**0 diagnostics**; its **32-page demo-mode** build was successful,
+while a normal public build properly requires the absent authorized
+projection input. Release still **NO-GO/41**.

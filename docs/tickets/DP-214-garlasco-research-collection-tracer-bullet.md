@@ -259,3 +259,30 @@ recorded `cost_usd=0`. The next adapter remains `BUDGET_BLOCKED` with
 restart fixture demonstrated a real RED on the prior code and GREEN after
 the correction. It creates no new approved Discovery Hits or source rights;
 the Garlasco tracer acceptance remains incomplete.
+
+### 2026-10-09 private operator intake preflight hardening
+
+The bounded private Capture batch now rejects syntactically canonical URLs
+that the acquisition pipeline's *static* destination policy would reject
+(loopback, ambiguous IP literals, internal names, non-443 ports), before
+reading rights or Discovery state. The 25-item JSON manifest loader reads at
+most 256,001 bytes and rejects over-limit files before parsing. Both failures
+were reproduced RED and verified GREEN in focused local tests.
+
+The Candidate batch also enforces exact stored Content and private-rights URL
+spelling before model use, rather than allowing equivalent normalization
+where the downstream persistence contract requires literal canonical URL
+equality. Revalidation guards repeat this check after initial preflight.
+These checks cannot certify DNS binding, rights, a real source, or model
+processing. The MiniPC read-only snapshot remains **PAUSED / 18 included
+Content / 30 historical Atomic Claims / 0 Discovery Hits, Captures, Passages,
+Statement Candidates, Claim Candidates and collection Coverage Needs**.
+AC-214.1/.2/.4-.8 remain open; these checks are not a live corpus tracer.
+
+2026-10-09 follow-up: candidate `TEXT_POSITION` extraction also refuses
+an internally inconsistent parent selector before invoking the model;
+the safe DNS-pinned transport has been shared with optional Vimeo oEmbed.
+The parent selector is not yet independently proven against immutable
+Capture canonical text when a tampered span has the same length. Neither
+change supplies genuine Content, review authority or the 100-item
+acceptance, which remains open.

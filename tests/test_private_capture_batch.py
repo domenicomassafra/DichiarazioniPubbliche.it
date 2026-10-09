@@ -142,6 +142,15 @@ class PrivateCaptureBatchTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PRIVATE_CAPTURE_BATCH_DUPLICATE_JSON_KEY"):
                 load_private_capture_batch(path)
 
+    def test_manifest_rejects_oversized_operator_file_before_json_parsing(self):
+        # The 25-item operator contract has a bounded input size. Even an
+        # otherwise valid manifest must not cause an unbounded JSON read.
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "oversized.json"
+            path.write_bytes(b" " * 300_000)
+            with self.assertRaisesRegex(ValueError, "PRIVATE_CAPTURE_BATCH_FILE_TOO_LARGE"):
+                load_private_capture_batch(path)
+
     def test_direct_batch_preflight_rejects_duplicate_locator_before_store_reads(self):
         first = make_batch().items[0]
         second = CaptureBatchItem(
@@ -176,6 +185,39 @@ class PrivateCaptureBatchTests(unittest.TestCase):
         ):
             preflight_capture_batch(direct, capture_store=store, rights_store=RightsStore())
         self.assertEqual(store.calls, 0)
+
+    def test_private_capture_preflight_rejects_unsafe_targets_before_store_reads(self):
+        # The operator's preflight must not report a batch READY for URLs
+        # that the capture pipeline itself would refuse before acquisition.
+        # This is static URL validation only: it does not assert DNS safety.
+        urls = (
+            "https://127.0.0.1/admin",
+            "https://2130706433/hidden",
+            "https://metadata.internal/latest",
+            "https://example.test:8443/page",
+        )
+        for url in urls:
+            with self.subTest(url=url):
+                batch = CaptureBatch(
+                    collection_id="research:approved",
+                    items=(CaptureBatchItem(
+                        content_id=CONTENT_ID,
+                        canonical_url=url,
+                        source_family=SOURCE_FAMILY,
+                        rights_record_id="private-rights:reviewed",
+                    ),),
+                )
+
+                class NoDatabaseCalls:
+                    def __getattr__(self, name):
+                        raise AssertionError(f"preflight read before URL check: {name}")
+
+                with self.assertRaisesRegex(
+                    PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_BATCH_URL_UNSAFE"
+                ):
+                    preflight_capture_batch(
+                        batch, capture_store=NoDatabaseCalls(), rights_store=NoDatabaseCalls()
+                    )
 
     def test_preflight_rejects_stale_manifest_fingerprint_before_store_reads(self):
         item = make_batch().items[0]
