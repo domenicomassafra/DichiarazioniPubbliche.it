@@ -139,3 +139,26 @@ authorizes changing those statuses or shipping v1.
 - Canonical current register: 14 OPEN, 2 BLOCKED; preflight still
   **NO-GO / 41 blockers** with the same receipt hash. This is neither
   reviewer/owner approval nor a release.
+- Published code commit: **`1da8b66`**, `main` and `origin/main` synchronized.
+  CI run **`37930195782` passed all 11 jobs** on the published source.
+  The wave 3 CI **`37929778112`** also passed all 11 jobs.
+
+## Continue from this checkpoint
+
+At completion of wave 4, the canonical backlog still reads **125 total,
+86 DONE, 24 IN PROGRESS, 6 BLOCKED, 9 FUTURE = 39 open**. `PLAN.md`
+and ticket ACs were deliberately not promoted without acceptance evidence.
+The authoritative MiniPC is still **14 Source / 50 Content / 0 Discovery
+Hit / 0 Capture / 0 Passage / 0 Statement Candidate / 0 Claim Candidate**,
+and Garlasco remains PAUSED with 18 members. The new DP-417 migration is
+**not deployed**, and no public release or production update was made.
+
+The only pre-existing untracked file to preserve is
+`docs/reviews/2026-10-09-goal-infinito-tutti-ticket.md`. The two browser
+subagents failed to start; do not claim delegation occurred or endlessly
+open duplicate browser tabs. The next real bottleneck is obtaining one
+genuinely reviewable/rights-cleared source with exact DP-209 Discovery
+provenance, operator capture/model authorization and budget before attempting
+DP-214→DP-215 live Capture→Passage→Candidate→matching. Independently, the
+16 DP-307 legal dispositions need **qualified counsel and owner acceptance**.
+The release gate and unapproved public intake remain fail-closed.
