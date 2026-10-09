@@ -281,3 +281,19 @@ generated before an accepted DP-604 decision, and CI never chooses or bumps a re
 Current local read-back also passes `tools/check_issue_workflow.py` and the full repository
 contract. AC-606.10 remains open for the hosted export/rollback proof after an owner-authorized
 setup; no hosted label/project/branch-protection mutation was performed.
+
+2026-10-09 follow-up: `tools/issue_label_rollback.py` now prepares an owner-only
+read-only hosted label snapshot and a deterministic, no-mutation forward/rollback
+simulation from the canonical label manifest. A real GitHub GET of the existing
+10 labels produced 22 proposed create/update operations, 30 proposed labels,
+and exact baseline restoration under SHA-256
+`3f6e9c18359be9764fa59ceb80f355ebae4346630cf7e8b8b913da15e6f25106`.
+Three focused tests pass. The operational instructions live in
+`docs/ops/issue-hosted-rollback.md`. Actual owner-authorized hosted changes,
+project and protection state, conflict-safe re-read and real rollback
+acceptance remain missing: AC-606.10 is still unchecked, not DONE.
+The frozen full regression subsequently passed **2118/2118 Python tests**
+in **126.146s**, with the 100-table PostgreSQL restore drill PASS,
+the deterministic benchmark **5/5**, ticket/governance contract,
+compileall and whitespace checks PASS. No local-only snapshot was added
+to the repository and no GitHub mutation was made.
