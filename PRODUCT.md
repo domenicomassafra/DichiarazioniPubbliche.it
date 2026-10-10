@@ -157,7 +157,12 @@ policy review.
   evidence, not production proof.
 
 **Current owner operating constraints, 2026-10-10:** no human editorial reviewer
-is available. The product must be designed and evaluated for rigorous automated
+is currently confirmed; one person providing approximately five hours of weekly
+review has subsequently been proposed as a tentative capacity scenario. The scope
+of that review and publication cadence remain undecided. Historical dossiers are
+intended as permanent product content; broad collection follows acceptance of
+the acquisition/transcription/catalog/ingestion/frontend/verification path.
+The product must be designed and evaluated for rigorous automated
 fact-checking, preserving uncertainty and stopping unsupported factual conclusions.
 There is no established infallibility guarantee. Publication authority under this
 constraint is an unresolved decision; the existing human-review and publication

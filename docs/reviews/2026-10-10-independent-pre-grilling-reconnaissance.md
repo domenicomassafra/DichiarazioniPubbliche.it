@@ -282,9 +282,13 @@ prima**, Antigravity/audio/modelli locali dopo che il percorso funziona; prima
 grilling, poi ticket futuri e automazioni economiche. Hitler/Mussolini sono casi
 proposti, con periodo/temi/limiti ancora aperti. La quota temporaneamente abbondante
 è un input dell'owner, non una misurazione o una disponibilità garantita futura.
-Riprendere dal corpus storico bounded e dalla prova di correttezza indipendente;
-pubblicazione con zero reviewer resta una decisione aperta prima del rilascio.
-scheduling e soglie quantitative dipendono dalle misure.
+**Risposte successive Q4/Q5:** storico permanente; finire prima acquisizione,
+trascrizioni/testo, catalogo, immissione, frontend, verifica e test end-to-end,
+poi mega raccolta. **Capacità proposta, non confermata:** una persona per circa
+cinque ore di revisione settimanale. Riprendere dal significato operativo della
+review: approvazione di ogni candidato/versione pubblica oppure controllo a
+campione. Non assumere un reviewer già incaricato, pubblicazione automatica o
+un throughput garantito. Scheduling e soglie quantitative dipendono dalle misure.
 Registrare le decisioni durevoli nei file canonici
 appropriati e ricalcolare la frontiera. Nessun redesign o cambiamento di contratto
 prima della comprensione condivisa confermata dall'owner.

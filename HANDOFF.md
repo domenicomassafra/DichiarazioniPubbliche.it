@@ -33,6 +33,12 @@ Il nuovo agente deve **prima leggere e valutare tutto il prodotto**, il codice, 
 
 ## Confini non negoziabili
 
+**Ultime risposte del grilling:** storico permanente; prima completare il percorso
+acquisizione→trascrizioni/testo→catalogo→immissione→frontend→verifica/test,
+poi raccolta massiva. Proposta ancora indicativa: una persona/circa cinque ore di
+review settimanale. Prossima decisione: approvare ogni candidato pubblico o
+controllare a campione; nessun reviewer confermato o automatismo di pubblicazione.
+
 - Nessuna pubblicazione automatica, identificazione biometrica o classifica di attendibilità delle persone.
 - Provenienza e diritti espliciti prima di riusare fonti/transcript, anche se pubblicamente visibili.
 - Review e quote/autorialità/verifica umane **prima** di promuovere un candidato a pubblicazione.

@@ -72,12 +72,31 @@ then measure sustainable daily consumption, reset cycles, retries and energy.
 EUR10/month is a tentative future operating target, distinct from the temporarily
 available entitlement; allocation and numeric limits depend on observations.
 
-Current frontier: bounded historical corpus and source/evidence coverage, plus
-how to establish correctness independently of the model being tested. Publication
-automation with zero reviewers remains unresolved and must be settled before any
-public record; private research can be planned without presuming that decision.
-Future daily workload and account scheduling follow the initial corpus acceptance.
-Preserve all existing ticket AC; no new ticket or supersession is approved yet.
+**Owner answers Q4/Q5 and capacity refinement, 2026-10-10:** historical content is
+intended to be **permanent product content**. First finish the complete bounded
+source acquisition → transcription/text → catalog → ingestion → frontend →
+verification/test path; only after acceptance begin the large historical
+collection. Do not mistake approval of permanent content for permission to publish
+unreviewed records. The owner proposes, tentatively, **one person for about five
+hours of weekly editorial review**. No reviewer is yet named or confirmed; zero
+current availability is not retrospectively changed into an active staffing grant.
+
+The acceptance slice must prove real source/rights/identity/text lineage, exact
+locators and hashes, catalog deduplication/versioning, verification and uncertainty,
+frontend source navigation/Person/Topic/comparisons, private/public isolation and
+correction/withdrawal on the authoritative runtime. Reuse original ticket AC;
+this is sequencing, not a declaration that every historical/future feature is
+required before testing one coherent bounded slice. No bulk or background service
+is started during the grilling.
+
+Current frontier: determine whether proposed weekly review approves every public
+candidate/version or only samples automated output; decide how review time covers
+attribution/context, factual reasoning, comparisons and corrections. Recommend
+private automated preparation with explicit approval before publication, keeping
+backlog private when capacity is exceeded. Throughput must be measured; five hours
+cannot be converted to a guaranteed number of records without a trial.
+Future daily workload and account scheduling follow pipeline acceptance. Preserve
+all existing ticket AC; no new ticket or supersession is approved yet.
 
 ## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
 
