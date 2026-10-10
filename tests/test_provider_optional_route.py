@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.provider_optional_route import (  # noqa: E402
-    plan_optional_private_candidate, read_sanitized_catalog,
+    ModelChoice, plan_optional_private_candidate, read_sanitized_catalog,
     validate_optional_omniroute_dispatch,
 )
 
@@ -89,6 +89,60 @@ class OptionalRouteTests(unittest.TestCase):
                 )
                 self.assertIsNone(result.selected)
                 self.assertEqual(result.blocked[0]["reason"], reason)
+
+    def test_plan_receipt_cannot_be_replayed_across_account_or_quota_changes(self):
+        """A plan ID must bind the actual safety admission, not only model name."""
+        original = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
+                       quota_source="ANTIGRAVITY_CLI_LIVE_USAGE", overage_policy="NEVER",
+                       single_account_scope="a" * 64, cli_batch_request_cap=4,
+                       cli_batch_token_cap=160_000, separate_api_entitlement_verified=False)
+
+        def choose(candidate):
+            return plan_optional_private_candidate(
+                catalog(candidate), input_bytes_sha256=SHA,
+                max_total_tokens=12000, requests_needed=2,
+                max_batch_cost_usd=Decimal("0"),
+                source_approved_for_external_api=True,
+            )
+
+        baseline = choose(original)
+        self.assertIsNotNone(baseline.selected)
+        self.assertEqual(baseline.receipt_id, choose(dict(reversed(list(original.items())))).receipt_id)
+        for mutation in (
+            {"single_account_scope": "b" * 64},
+            {"cli_batch_request_cap": 6},
+            {"cli_batch_token_cap": 180_000},
+            {"quota_observed_at": "2026-10-10T18:00:00Z"},
+        ):
+            with self.subTest(mutation=tuple(mutation)):
+                changed = choose(original | mutation)
+                self.assertIsNotNone(changed.selected)
+                self.assertNotEqual(baseline.receipt_id, changed.receipt_id)
+
+    def test_programmatic_catalog_does_not_bypass_rejection_of_sensitive_unknown_fields(self):
+        unsafe = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
+                     quota_source="ANTIGRAVITY_CLI_LIVE_USAGE", overage_policy="NEVER",
+                     single_account_scope="a" * 64, cli_batch_request_cap=2,
+                     cli_batch_token_cap=12000, api_key="DO_NOT_LOG")
+        with self.assertRaisesRegex(ValueError, "OPTIONAL_CATALOG_SENSITIVE_FIELD_FORBIDDEN") as captured:
+            plan_optional_private_candidate(
+                catalog(unsafe), input_bytes_sha256=SHA,
+                max_total_tokens=12000, requests_needed=2,
+                max_batch_cost_usd=Decimal("0"),
+                source_approved_for_external_api=True,
+            )
+        self.assertNotIn("DO_NOT_LOG", str(captured.exception))
+        safe_row = dict(unsafe)
+        safe_row.pop("api_key")
+        untrusted_top_level = catalog(safe_row) | {"credential": "DO_NOT_LOG"}
+        with self.assertRaisesRegex(ValueError, "OPTIONAL_CATALOG_FIELDS_INVALID") as captured:
+            plan_optional_private_candidate(
+                untrusted_top_level, input_bytes_sha256=SHA,
+                max_total_tokens=12000, requests_needed=2,
+                max_batch_cost_usd=Decimal("0"),
+                source_approved_for_external_api=True,
+            )
+        self.assertNotIn("DO_NOT_LOG", str(captured.exception))
     def test_local_plan_cannot_transmit_through_omniroute_gateway(self):
         local = plan(catalog(row("local/qwen3-4b", "local", "LOCAL_ZERO_EXTERNAL"))).selected
         with self.assertRaisesRegex(ValueError, "LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE"):
@@ -101,6 +155,17 @@ class OptionalRouteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "GATEWAY_NOT_PINNED_TO_LOOPBACK"):
             validate_optional_omniroute_dispatch(remote, "https://example.invalid")
         validate_optional_omniroute_dispatch(remote, "http://127.0.0.1:20128")
+
+    def test_dispatch_guard_rejects_forged_family_tier_pair_independently(self):
+        for family, model, reason in (
+            ("antigravity-cli", "gemini-3.8-flash-low", "DIRECT_CLI_ADAPTER"),
+            ("local", "local/qwen3-4b", "LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE"),
+        ):
+            with self.subTest(family=family):
+                forged = ModelChoice(model, family, "API_FREE_VERIFIED",
+                                     Decimal("0"), Decimal("0"))
+                with self.assertRaisesRegex(ValueError, reason):
+                    validate_optional_omniroute_dispatch(forged, "http://127.0.0.1:20128")
     def test_non_boolean_remote_approval_cannot_enable_api_path(self):
         remote = catalog(row("openrouter/free-model", "openrouter", "API_FREE_VERIFIED"))
         for deceptive in ("false", "0", 1, [], None):

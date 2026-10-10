@@ -106,6 +106,20 @@ class AntigravityCliTests(unittest.TestCase):
         self.assertEqual(run.call_count, 3)
         self.assertEqual(instance.quota_requests, 3)
 
+    def test_conflicting_reported_model_fields_fail_closed(self):
+        """A matching display model may not mask a different served-model field."""
+        instance = client()
+        conflicting = json.loads(output().splitlines()[-1])
+        conflicting["result"].update({"model": MODEL, "served_model": "gemini-3.7-flash-low"})
+        with patch.object(instance, "_run", side_effect=[
+            usage(), MODEL + "\tName\n", json.dumps(conflicting) + "\n",
+        ]) as run:
+            with self.assertRaisesRegex(CandidateExtractionError, "SERVED_MODEL_DRIFT"):
+                instance._post("synthetic private passage")
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(instance.quota_requests, 3)
+        self.assertEqual(instance.quota_tokens, 0)
+
     def test_nonzero_failure_exhausts_local_admission_until_new_snapshot(self):
         instance = client()
         with patch.object(instance, "_run", side_effect=[usage(), MODEL + "\tName\n",
@@ -128,6 +142,28 @@ class AntigravityCliTests(unittest.TestCase):
                 with patch.object(instance, "_run", side_effect=[usage(), MODEL + "\tName\n", data]):
                     with self.assertRaisesRegex(CandidateExtractionError, error):
                         instance._post("private synthetic text")
+
+    def test_underreported_or_malformed_component_usage_cannot_preserve_quota(self):
+        base = json.loads(output().splitlines()[-1])
+        for modifications in (
+            {"total_tokens": 1},  # 25,700 reported component tokens
+            {"total_tokens": 0, "input_tokens": 0, "output_tokens": 0},
+            {"input_tokens": -1},
+            {"output_tokens": True},
+            {"output_tokens": None},
+        ):
+            with self.subTest(changes=modifications):
+                instance = client()
+                event = json.loads(json.dumps(base))
+                event["result"]["usage"].update(modifications)
+                with patch.object(instance, "_run", side_effect=[
+                    usage(), MODEL + "\tName\n", json.dumps(event) + "\n",
+                ]) as run:
+                    with self.assertRaisesRegex(CandidateExtractionError, "USAGE_INVALID"):
+                        instance._post("synthetic private passage")
+                self.assertEqual(run.call_count, 3)
+                self.assertEqual(instance.quota_requests, 3)
+                self.assertEqual(instance.quota_tokens, 0)
 
     def test_invalid_account_model_quota_or_executable_block(self):
         for update, error in (

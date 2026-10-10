@@ -66,6 +66,42 @@ def _money(value: Any) -> Decimal | None:
     return amount
 
 
+def _validate_model_fields(row: object) -> None:
+    """Apply the same export boundary to callers passing catalogs in memory."""
+    sensitive = ("secret", "api_key", "password", "credential", "token",
+                 "access_token", "refresh_token")
+    if not isinstance(row, dict):
+        raise ValueError("OPTIONAL_MODEL_ENTRY_INVALID")
+    if any(
+        str(key).lower() in sensitive
+        or any(str(key).lower().endswith("_" + part) for part in sensitive)
+        for key in row
+    ):
+        raise ValueError("OPTIONAL_CATALOG_SENSITIVE_FIELD_FORBIDDEN")
+    if set(row) - _MODEL_FIELDS:
+        raise ValueError("OPTIONAL_CATALOG_FIELDS_INVALID")
+
+
+def _catalog_contract_sha256(catalog: Mapping[str, Any]) -> str:
+    """Bind an offline plan to its exact admission snapshot, including quotas.
+
+    The caller must separately pin the operator catalog file's SHA-256: this
+    digest identifies the model/account/quota/terms inputs and is not a signature.
+    """
+    def json_default(value: object) -> str:
+        if isinstance(value, Decimal):
+            return str(value)
+        raise TypeError
+
+    try:
+        canonical = json.dumps(catalog, ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"), allow_nan=False,
+                               default=json_default)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("OPTIONAL_CATALOG_SERIALIZATION_INVALID") from exc
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def read_sanitized_catalog(path: Path, *, expected_sha256: str) -> dict[str, Any]:
     """Require an independently pinned operator catalog receipt before selection."""
     if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
@@ -96,17 +132,8 @@ def read_sanitized_catalog(path: Path, *, expected_sha256: str) -> dict[str, Any
     if not isinstance(paid, list) or any(not isinstance(x, str) for x in paid):
         raise ValueError("OPTIONAL_CATALOG_PAID_ALLOWLIST_INVALID")
     # Reject credential-bearing exports, even if a caller promises to hide it.
-    sensitive = ("secret", "api_key", "password", "credential", "token",
-                 "access_token", "refresh_token")
     for row in rows:
-        if not isinstance(row, dict) or any(
-            str(key).lower() in sensitive
-            or any(str(key).lower().endswith("_" + part) for part in sensitive)
-            for key in row
-        ):
-            raise ValueError("OPTIONAL_CATALOG_SENSITIVE_FIELD_FORBIDDEN")
-        if set(row) - _MODEL_FIELDS:
-            raise ValueError("OPTIONAL_CATALOG_FIELDS_INVALID")
+        _validate_model_fields(row)
     return payload
 
 
@@ -133,14 +160,25 @@ def plan_optional_private_candidate(
     budget = _money(max_batch_cost_usd)
     if budget is None or budget > Decimal("25"):
         raise ValueError("OPTIONAL_BUDGET_INVALID")
-    if catalog.get("schema_version") != 1 or catalog.get("catalog_origin") != "OWNER_VERIFIED_SANITIZED_OMNIROUTE_CATALOG":
+    if (type(catalog.get("schema_version")) is not int or catalog.get("schema_version") != 1
+            or catalog.get("catalog_origin") != "OWNER_VERIFIED_SANITIZED_OMNIROUTE_CATALOG"):
         raise ValueError("OPTIONAL_CATALOG_PROVENANCE_MISSING")
+    if set(catalog) != {"schema_version", "catalog_origin", "models", "approved_paid_model_ids"}:
+        raise ValueError("OPTIONAL_CATALOG_FIELDS_INVALID")
     rows = catalog.get("models")
     if not isinstance(rows, list) or not 0 < len(rows) <= _MAX_MODELS:
         raise ValueError("OPTIONAL_CATALOG_MODELS_INVALID")
     allowlist = catalog.get("approved_paid_model_ids")
     if not isinstance(allowlist, list) or any(not isinstance(s, str) for s in allowlist):
         raise ValueError("OPTIONAL_CATALOG_PAID_ALLOWLIST_INVALID")
+
+    for row in rows:
+        _validate_model_fields(row)
+    # Previously this receipt only committed to selected model and blockers:
+    # changing the Antigravity account, quota caps, or overage evidence could
+    # silently reuse the same provider-plan ID. Commit to the entire validated
+    # catalog without copying account pseudonyms or proprietary data to logs.
+    catalog_contract_sha256 = _catalog_contract_sha256(catalog)
 
     blocked: list[dict[str, str]] = []
     candidates: list[tuple[int, Decimal, str, ModelChoice]] = []
@@ -231,6 +269,7 @@ def plan_optional_private_candidate(
         candidates.append((priority, estimated, mid, choice))
     selected = sorted(candidates, key=lambda x: (x[0], x[1], x[2]))[0][3] if candidates else None
     stable = {
+        "catalog_contract_sha256": catalog_contract_sha256,
         "scope": "PRIVATE_CANDIDATE_ONLY", "input_sha256": input_bytes_sha256,
         "tokens": max_total_tokens, "requests": requests_needed,
         "budget": str(budget), "external_approved": source_approved_for_external_api,
@@ -243,9 +282,11 @@ def plan_optional_private_candidate(
 
 def validate_optional_omniroute_dispatch(choice: ModelChoice, base_url: str) -> None:
     """Optional local plans must never run through the remote OmniRoute transport."""
-    if choice.billing_tier == "LOCAL_ZERO_EXTERNAL":
+    # Verify both dimensions at dispatch, even when a caller bypasses the
+    # offline planner or constructs a mismatched ModelChoice directly.
+    if choice.billing_tier == "LOCAL_ZERO_EXTERNAL" or choice.family == "local":
         raise ValueError("OPTIONAL_LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE")
-    if choice.billing_tier == "ANTIGRAVITY_CLI_QUOTA":
+    if choice.billing_tier == "ANTIGRAVITY_CLI_QUOTA" or choice.family == "antigravity-cli":
         raise ValueError("ANTIGRAVITY_CLI_REQUIRES_DIRECT_CLI_ADAPTER")
     # The local OmniRoute gateway must stay loopback and without URL tricks;
     # account/provider dispatch is still subject to its own credentials/grants.

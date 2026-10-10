@@ -202,16 +202,32 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
         if not isinstance(response, str) or not response.strip() or len(response.encode("utf-8")) > 120_000:
             self.quota_tokens = 0
             raise CandidateExtractionError("ANTIGRAVITY_CLI_RESPONSE_TEXT_INVALID")
-        if not isinstance(usage, dict) or type(usage.get("total_tokens")) is not int or usage["total_tokens"] < 0:
+        if not isinstance(usage, dict) or type(usage.get("total_tokens")) is not int:
             self.quota_tokens = 0
             raise CandidateExtractionError("ANTIGRAVITY_CLI_USAGE_MISSING")
+        # A successful, nonempty model response necessarily consumed tokens.
+        # If the CLI supplies component counts they must be nonnegative
+        # integers and must fit inside its claimed total. An underreported
+        # total otherwise lets repeated calls escape the local quota cap.
+        components = ("input_tokens", "output_tokens")
+        supplied = [key for key in components if key in usage]
+        if (usage["total_tokens"] <= 0 or
+                (supplied and len(supplied) != len(components)) or
+                any(type(usage[key]) is not int or usage[key] < 0 for key in supplied) or
+                (len(supplied) == len(components) and
+                 sum(usage[key] for key in components) > usage["total_tokens"])):
+            self.quota_tokens = 0
+            raise CandidateExtractionError("ANTIGRAVITY_CLI_USAGE_INVALID")
         self.quota_tokens -= usage["total_tokens"]
         if self.quota_tokens < 0:
             raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_OVERRUN")
         # The native CLI output does not report a signed served-model ID.
         # A changed model/served identity MUST NOT be silently accepted.
-        reported = data.get("model") or data.get("served_model")
-        if reported is not None and reported != self.model_id:
+        # Some response envelopes expose both a display/requested model and a
+        # served-model hint. Never let the first matching value mask a second
+        # explicit conflicting value. Neither field is a signed attestation.
+        if any(key in data and data[key] != self.model_id
+               for key in ("model", "served_model")):
             self.quota_tokens = 0
             raise CandidateExtractionError("ANTIGRAVITY_CLI_SERVED_MODEL_DRIFT")
         return ({
