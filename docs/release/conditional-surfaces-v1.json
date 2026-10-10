@@ -1,0 +1,19 @@
+{
+  "version": "conditional-surfaces-v1",
+  "scope": "Current public HTTP deployment only. Public Google membership is separate from admin mutation and public editorial intake.",
+  "decisions": {
+    "DP-507": "NOT_APPLICABLE",
+    "DP-508": "NOT_APPLICABLE"
+  },
+  "reasons": {
+    "DP-507": "NO_REMOTELY_REACHABLE_ADMIN_MUTATION",
+    "DP-508": "NO_PUBLIC_EDITORIAL_INTAKE"
+  },
+  "safety": {
+    "member_account_is_not_admin": true,
+    "studio_loopback_is_read_only": true,
+    "public_intake_disabled": true,
+    "revalidation_required_before_exposure": true,
+    "legal_or_release_approval_granted": false
+  }
+}

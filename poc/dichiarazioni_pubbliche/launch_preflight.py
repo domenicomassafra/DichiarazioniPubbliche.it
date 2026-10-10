@@ -216,11 +216,32 @@ def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
     conditional_decisions: dict[str, str] = {}
     if conditional_decisions_path.is_file():
         parsed = json.loads(conditional_decisions_path.read_text(encoding="utf-8"))
-        if not isinstance(parsed, dict):
+        if not isinstance(parsed, dict) or set(parsed) != {
+            "version", "scope", "decisions", "reasons", "safety",
+        } or parsed.get("version") != "conditional-surfaces-v1":
             raise ValueError("LAUNCH_CONDITIONAL_SURFACE_FILE_INVALID")
         raw = parsed.get("decisions")
-        if not isinstance(raw, dict):
+        if not isinstance(raw, dict) or set(raw) != set(CONDITIONAL_SURFACE_TICKETS):
             raise ValueError("LAUNCH_CONDITIONAL_SURFACE_DECISIONS_INVALID")
+        if any(value != "NOT_APPLICABLE" for value in raw.values()):
+            raise ValueError("LAUNCH_CONDITIONAL_SURFACE_DECISIONS_INVALID")
+        if not isinstance(parsed.get("scope"), str) or not parsed["scope"].strip():
+            raise ValueError("LAUNCH_CONDITIONAL_SURFACE_SCOPE_INVALID")
+        if parsed.get("reasons") != {
+            "DP-507": "NO_REMOTELY_REACHABLE_ADMIN_MUTATION",
+            "DP-508": "NO_PUBLIC_EDITORIAL_INTAKE",
+        } or parsed.get("safety") != {
+            "member_account_is_not_admin": True,
+            "studio_loopback_is_read_only": True,
+            "public_intake_disabled": True,
+            "revalidation_required_before_exposure": True,
+            "legal_or_release_approval_granted": False,
+        }:
+            raise ValueError("LAUNCH_CONDITIONAL_SURFACE_UNSUPPORTED_ATTESTATION")
+        # Evidence is checked against the actual source/runtime contracts in
+        # the repository gate, not accepted solely on a hand-edited JSON flag.
+        from dichiarazioni_pubbliche.conditional_surface_absence import verify_surface_absence
+        verify_surface_absence(root)
         conditional_decisions = {str(key): str(value) for key, value in raw.items()}
     return evaluate_launch_preflight(
         plan_statuses=plan,
