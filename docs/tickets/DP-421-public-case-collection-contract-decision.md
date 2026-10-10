@@ -64,3 +64,7 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE. First accept DP-420 operator/research results; then choose explicitly between a sanitized public Case/Collection contract or NO-GO/reuse of existing Topic/Content/Trace. Private Research Collection is never auto-published.

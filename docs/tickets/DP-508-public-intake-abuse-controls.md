@@ -46,3 +46,7 @@ Local validation: `tests.test_public_intake_abuse` passes 15/15 and the existing
 the repository/version/governance/release gates but remains red on the pre-existing DP-603
 fixture-inventory mismatch for `web/src/data/studio.ts`; that unrelated dirty licensing
 surface is not modified by this tranche.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE / disabled while public intake remains off. Trigger immediately **before** any owner-authorized intake launch, with abuse/SSRF/rate/privacy/retention/rollback evidence. Never let intake imply publication authority.

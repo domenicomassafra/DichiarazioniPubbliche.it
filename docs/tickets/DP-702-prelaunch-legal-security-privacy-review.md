@@ -469,3 +469,7 @@ tickets and absent release artifacts. DP-602 contributor acceptance runs this ch
 
 This proves only AC-702.12. It is not qualified legal/security/privacy closure and does not
 close any other AC in this ticket.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE but an active release decision dependency: owner+qualified legal/privacy/security reviewers must sign off the actual chosen scope (informational-only separately from full editorial v1), live hosting, logs, domain/contact and source rights. Q-306 open decisions remain blockers, not engineering TODOs that tests can waive.

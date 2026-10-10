@@ -292,3 +292,7 @@ synthetic state with every mechanical gate complete can reach only `PENDING-OWNE
 checker can never authorize `GO-CANARY` or `GO-PUBLIC`. Version strings, local tests and a
 package/web build therefore cannot satisfy release authority. This proves AC-705.1 only;
 all remaining release, rehearsal, rollback, owner and deployment ACs stay open.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE until all v1 gates close and explicit release authority, migration/release artifact, rollback and live readback are accepted. A clean pushed `main` or refreshed six-page informational site is NOT v1.0.0 deployment.

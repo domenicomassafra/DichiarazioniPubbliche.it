@@ -27,3 +27,7 @@ tested. Public-member runtime enablement also remains gated by the real OAuth
 client, approved DP-304/307/702 privacy/legal controls and MiniPC canary.
 The exact configuration and remaining conditions are recorded in
 `docs/release/account-oidc-activation.md`.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE / disabled while no remote admin mutation endpoint exists. Trigger immediately **before** any owner-authorized exposure, with AuthN/AuthZ, CSRF/roles/negative tests, audit receipts and MiniPC validation. Do not build unneeded surface for ticket closure.

@@ -66,3 +66,7 @@ older than it is.
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE until real Garlasco source rights and DP-214/215 corpus path are accepted and the private Studio DP-416..419 workflows are usable. Test real researcher tasks/accessibility/retrieval with measured acceptance; no synthetic-only UX DONE.

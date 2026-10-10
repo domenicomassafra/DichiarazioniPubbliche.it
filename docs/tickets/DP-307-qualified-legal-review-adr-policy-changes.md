@@ -218,3 +218,7 @@ even if their states agree; previously equal duplicates were silently
 accepted. A RED→GREEN regression proves this. Existing 16 legal questions
 remain 14 OPEN/2 BLOCKED, with zero qualified dispositions, and the same
 41 release blockers. This adds no legal authority or DP-307 acceptance.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE, but it is a near-term **external owner/counsel decision**, not low-priority engineering. Obtain named qualified Italy/EU reviewer and specific deployment/source/publication scope; address Q-306-01..16 with accepted dated decisions, including separate informational-preview profile. Do not infer clearance from technical checks.

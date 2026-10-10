@@ -297,3 +297,7 @@ rehearsal without MiniPC evidence is development proof only and cannot close DP-
 Pending all prerequisite gates, MiniPC full-path and failure-path receipts, correction
 read-back, rollback verification, and owner decision. This ticket does not claim that
 stable v1 is launchable or that a public deployment/release has occurred.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE until DP-701/702/703 and source/provider gates permit one real approved source→public projection→correction run on MiniPC with backup/restore, rollback and permission/failure receipts. No local fixture rehearsal replaces an accepted run.

@@ -2,10 +2,41 @@
 
 Status: canonical  
 Plan version: 1.2
-Last updated: 2026-10-07
+Last updated: 2026-10-10
 
 This is the single ordered execution map for the project. Detailed implementation specs
 live in `docs/tickets/`. Historical roadmap files are evidence, not competing backlogs.
+
+## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
+
+**Repository state:** `main` integrated and GitHub CI successful at `a66e987`,
+with a single local worktree and no stash/other branch at the audit. **This is not
+MiniPC deployment or editorial launch acceptance.** The canonical check
+`python3 tools/report_ticket_status.py --json` gave **125 tickets: 90 DONE,
+20 IN PROGRESS, 6 BLOCKED, 9 FUTURE; 35 not DONE**. The stable-v1 gate
+`python3 tools/check_launch_preflight.py --expect-no-go` yielded **NO-GO / 49**
+(16 unresolved qualified Q-306 dispositions + four missing release artifacts
++ 29 ticket gates). Acceptance criteria remain authoritative in their own files.
+
+**Sequence for the nine FUTURE tickets (unchanged statuses):**
+
+| Order | Tickets | Trigger for unblocking / deliberate deferral |
+|---|---|---|
+| 0: qualified decisions, not agent implementation | **DP-307**, **DP-702** | Name Italy/EU reviewer/owner authority, accept scoped legal/privacy/security/hosting decisions including informational-only preview vs public-source archive. No self-approval. |
+| 1: only after real authorized corpus | **DP-208**, **DP-420** | Live remote-ASR/rights/profile prerequisite for an objective diarization benchmark; accepted Garlasco sources/candidates and operator tasks before Studio usability tests. |
+| 2: separate product decision | **DP-421** | Decide NO-GO or contract for public Case/Collection based on reviewed pilot, never expose private Studio records to fill the UI. |
+| 3: opt-in attack surfaces, otherwise remain dormant | **DP-507**, **DP-508** | Activate **only before** exposing remotely reachable admin mutations or user/public intake; no implementation sprint just to inflate completion. |
+| 4: actual stable release | **DP-704**, **DP-705** | Owner-approved real source→correction MiniPC rehearsal, accepted rollback and immutable receipts, then explicit v1 cutover; failed or missing gate means no deployment. |
+
+**Two independent scopes:** `LAUNCH.md` describes six truthful, static
+informational pages (zero approved records is valid), not a full v1. Even the
+informational refresh needs the specific privacy/identity/domain/contact/manual
+accessibility/owner-signoff profile (DP-304/307/410/701/702) and an independently
+approved projection; a synthetic empty-shape proof is not that approval.
+The existing website is hosted via Cloudflare Tunnel → MiniPC and can be online
+while serving an older build. Do not confuse GitHub CI/push with production rollout.
+See `HANDOFF.md` and `MEGA-HANDOFF-2026-10-10.md` for verified details.
+
 
 ## Status vocabulary
 

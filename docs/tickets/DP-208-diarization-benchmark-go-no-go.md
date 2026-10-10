@@ -275,3 +275,7 @@ the ≥10 minute reviewed private reference set does not yet exist, no candidate
 has been approved, and MiniPC resource/model-cache proof has not been run. The local harness
 only freezes the test-first metric/policy seam required by this ticket before real results are
 available.
+
+## Checkpoint 2026-10-10 — future activation boundary
+
+Keep FUTURE. Start only after an authorized DP-204 audio/ASR receipt plus labeled reference with reliable speaker-turn boundaries. Test non-biometric diarization with false-attribution guard, compare against manual baseline and record an explicit go/no-go; a fixture score cannot close it.
