@@ -322,3 +322,15 @@ protects other untrusted rows, not a newly proven provider. Synthetic
 missing/null/blank/PENDING RED→GREEN plus explicit APPROVED positive
 control passed. **AC-215.9 remains open** and no authentic Garlasco
 evidence/rights were added.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-215.1–.8 checked**, exact source-role/scope/lineage/period/source assessment contracts and MiniPC isolated canary. **AC-215.9 OPEN**. Historical rights facts and source-counts preserved.
+
+**Target delta and remaining acceptance:** Only close AC-215.9 on **real selected DP-214 sources**, each traceable by role, derivative grouping, context scope/time, version and rights, before promotion. A role/authority classification is not an independent public quote grant or factual verdict. Avoid a second "source ranking" system.
+
+**Phase / dependencies:** Phase 1 ongoing through Garlasco; hard DP-214 real corpus/rights decisions; soft B evidence requirements, A-NEW-02, D launch set.
+
+**Related future specifications (separate ownership):** DP-236, DP-314. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

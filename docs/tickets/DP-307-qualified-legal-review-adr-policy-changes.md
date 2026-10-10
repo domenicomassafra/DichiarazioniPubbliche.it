@@ -222,3 +222,7 @@ remain 14 OPEN/2 BLOCKED, with zero qualified dispositions, and the same
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE, but it is a near-term **external owner/counsel decision**, not low-priority engineering. Obtain named qualified Italy/EU reviewer and specific deployment/source/publication scope; address Q-306-01..16 with accepted dated decisions, including separate informational-preview profile. Do not infer clearance from technical checks.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Keep FUTURE as an active EXTERNAL decision gate, not automated legal approval. The source-family exact-quotation decision DP-317, machine release policy DP-316, public Source Statement DP-435/437, account DP-517 and revocation DP-320/518 each require Q-306 disposition scoped by source, use, jurisdiction, effective date and responsible qualified reviewer. No generalized assumption that public/historical sources have universal quotation rights; source-specific denial blocks actual publication, not specification work. Preserve AC-307.1–.9 and historical evidence. Planning-only delta; no new AC marked complete, no production or provider mutation.

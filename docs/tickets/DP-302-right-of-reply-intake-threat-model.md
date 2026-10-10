@@ -4,7 +4,8 @@ Status: DONE
 
 Milestone: M3
 
-Depends on: M0 baseline; coordinate with DP-303, DP-304, DP-505, and DP-508
+Depends on: M0 baseline
+Coordination only (not hard prerequisites): DP-303, DP-304, DP-505, DP-508
 
 Launch state: BLOCKED until the intake security/privacy profile and DP-306/DP-307
 qualified review are accepted

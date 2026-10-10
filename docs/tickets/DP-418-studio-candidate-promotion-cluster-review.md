@@ -208,3 +208,7 @@ the statement snapshot checks the latest committed event visible when its
 query starts, and additional transaction-authority design is still needed
 before claiming a universal race-free legal/human approval gate. No MiniPC
 live runtime acceptance or public enablement is asserted.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Keep IN PROGRESS: existing private reviewer read model, latest events and dry-run have not completed AC-418.1–.4. DP-242 owns Studio source-to-candidate machine handoff; DP-316 owns attested machine authority, DP-320 owns revocation and DP-312 preserves quotation/reporting meaning. A candidate decision is durable and provenance-versioned; machine path must never be written as a human reviewer signoff. Race with changed source/rights or revoked permission HOLDS before promotion; real authorized MiniPC positive/negative and accessibility proof still required. Planning-only delta; no new AC marked complete, no production or provider mutation.

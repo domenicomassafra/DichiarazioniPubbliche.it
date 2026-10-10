@@ -2,7 +2,8 @@
 
 Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
-Depends on: DP-215, DP-210; coordinate with DP-216 and DP-308
+Depends on: DP-215, DP-210
+Coordination only (not hard prerequisites): DP-216, DP-308
 
 ## Problem
 

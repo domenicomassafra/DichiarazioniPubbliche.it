@@ -4,7 +4,8 @@ Status: IN PROGRESS
 
 Milestone: M3
 
-Depends on: M0 baseline; coordinate with DP-302, DP-303, DP-305, and DP-503
+Depends on: M0 baseline
+Coordination only (not hard prerequisites): DP-302, DP-303, DP-305, DP-503
 
 Launch state: BLOCKED until the data inventory, retention rules, and qualified
 Italy/EU review are accepted
@@ -628,3 +629,7 @@ retention, access and the actual release profile are pending. No neighboring
 security/compliance ticket can be made `DONE` by reusing this limited evidence:
 DP-301.8 and DP-307 need qualified decisions, while DP-702/703/704 require
 their own accepted release, rights, source and MiniPC rehearsal receipts.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Keep IN PROGRESS and AC-304.1 open: current data census evidence does not exhaust nested document/OCR/ASR, generated JSON, logs, third-party providers or cached verbatim excerpts. DP-313 must distinguish testimony/allegation from established procedural outcome and redact incidentally named minors/victims/third parties; DP-317 handles legally supported exact excerpts; DP-320 controls revocation. Require versioned purpose, lawful basis, retention and external processor review before public data; original AC/receipts preserved. Planning-only delta; no new AC marked complete, no production or provider mutation.

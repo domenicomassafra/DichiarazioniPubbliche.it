@@ -297,3 +297,7 @@ GREEN in real Chromium; no private transcript/provider body data is
 introduced. Automated accessibility testing is **not** a manual
 screen-reader pass, live approved MiniPC projection or DP-407.7
 completion. Status remains IN PROGRESS.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS. DP-435/436 migrate Content moments from normalized claim disguised as quotation to legally approved exact source words, original language, selector/hash or timed locator, with separately labeled translation/summary and optional Finding. Internal under-review/blocked status is not a public disclosure category; only deliberate public checking states can render without leak. Keep AC-407.4/.7 open until valid public-state contract and real accessibility/device proof. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

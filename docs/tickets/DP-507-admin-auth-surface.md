@@ -31,3 +31,7 @@ The exact configuration and remaining conditions are recorded in
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE / disabled while no remote admin mutation endpoint exists. Trigger immediately **before** any owner-authorized exposure, with AuthN/AuthZ, CSRF/roles/negative tests, audit receipts and MiniPC validation. Do not build unneeded surface for ticket closure.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain FUTURE and dormant until owner actually approves remotely reachable privileged mutations. DP-517 Google reader accounts never grant Studio, rights, moderation or publication authority; DP-316 machine publication cannot forge user or human-reviewer attestations. Before enabling admin, prove endpoint inventory, signed role checks, CSRF/origin/session protections, negative tests and MiniPC rollback, otherwise fail closed. No artificial admin endpoint solely for ticket completion. Preserve all original AC/status and dated receipts; this new target is documentation only.

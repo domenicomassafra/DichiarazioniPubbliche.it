@@ -2,7 +2,8 @@
 
 Status: FUTURE
 Milestone: M7 — stable v1 launch
-Depends on: M3 (DP-301..DP-310), M5 (DP-501..DP-511), and DP-223; coordinate with DP-105, DP-401, DP-431/DP-432, and DP-603
+Depends on: M3 (DP-301..DP-310), M5 (DP-501..DP-511), and DP-223
+Coordination only (not hard prerequisites): DP-105, DP-401, DP-431, DP-432, DP-603
 Launch state: BLOCKED until qualified legal decisions, security/privacy controls, and MiniPC acceptance close every required launch surface
 
 ## Problem
@@ -473,3 +474,7 @@ close any other AC in this ticket.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE but an active release decision dependency: owner+qualified legal/privacy/security reviewers must sign off the actual chosen scope (informational-only separately from full editorial v1), live hosting, logs, domain/contact and source rights. Q-306 open decisions remain blockers, not engineering TODOs that tests can waive.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain FUTURE but an active **EXTERNAL** gate for the selected profile (informational preview, private full-pilot or stable public v1). Expand qualified Q-306 review to exact public quotes DP-317/435, procedural allegations DP-313, machine outcomes DP-316, Google reader accounts DP-517, ongoing provider/cost policy DP-512–515 and revoke/cached routes DP-518. Each profile needs dated scope/owner/reviewer and privacy/security/legal evidence; no model can sign its own waiver. Preserve all original AC/status and dated receipts; this new target is documentation only.

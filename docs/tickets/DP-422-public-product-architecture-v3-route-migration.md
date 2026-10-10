@@ -303,3 +303,7 @@ canonical route-family set with immutable fingerprint and live HTTP readback.
 AC-422.2–.9 retain their existing independently proven *local/structural*
 acceptance; this correction claims neither downstream ticket completion nor
 site launch. **DP-422 and PLAN remain IN PROGRESS; no fake runtime GO.**
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS: legacy route/alias fixture evidence does not prove the actual populated public source flow. DP-435/436/437/438/439/440 provide first-class source-wording Statement, optional Finding, approved Person and Topic and dated synthesis. Canonical/legacy routes, API, search, RDF, sitemap and correction/revocation must be on one immutable fingerprint with denied/private records absent; a six-page informational site and HTTP 200 are not approval. Owner-selected visual redesign DP-441/442 is an additional separate phase. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

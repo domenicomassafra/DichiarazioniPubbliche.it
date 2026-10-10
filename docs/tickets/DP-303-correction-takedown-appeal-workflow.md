@@ -4,7 +4,8 @@ Status: DONE
 
 Milestone: M3
 
-Depends on: DP-302; coordinate with DP-304, DP-305, and DP-506
+Depends on: DP-302
+Coordination only (not hard prerequisites): DP-304, DP-305, DP-506
 
 Launch state: BLOCKED until the workflow, retention, notice, and appeal policy is
 accepted by the owner and qualified Italy/EU counsel

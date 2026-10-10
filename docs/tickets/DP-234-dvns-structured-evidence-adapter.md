@@ -149,3 +149,15 @@ DVNS/API/export provider and an explicit project-specific compatible licensing,
 schema, and rights decision. Senato's observed CC BY 3.0 OpenData metadata notice
 does not grant DVNS provider entitlement, source permit, production family
 authorization, reviewer signoff, archival rights, or attribution of speech.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **12/14 existing bullets checked**; the two unchecked are real approved DVNS/API/export provider integration and source-specific compatible license/schema/rights. Verified **Senato OpenData RDF** technical read-only probe: 186 assembly-sitting *metadata* records, archive SHA256 `5d6b9e3ca95c51c457d26065374389090ac0ac5ca93cf91ee921db2f3c958b29`; held DP-215 suitability/rights.
+
+**Target delta and remaining acceptance:** Do not treat Senato RDF sitting metadata as the AKN stenographic corpus or proof that DVNS provider itself exists. The technical MiniPC RDF canary is scoped to that official metadata family; retain unmet DVNS external gates. Recheck immutable schema/right mappings for each approved integration.
+
+**Phase / dependencies:** Phase 2 optional structured evidence; hard actual DVNS contract + compatibility decision; soft DP-215/228 B evidence and D license review; adapter owner.
+
+**Related future specifications (separate ownership):** DP-236. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

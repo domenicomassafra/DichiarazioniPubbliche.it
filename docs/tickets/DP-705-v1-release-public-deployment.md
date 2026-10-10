@@ -296,3 +296,7 @@ all remaining release, rehearsal, rollback, owner and deployment ACs stay open.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE until all v1 gates close and explicit release authority, migration/release artifact, rollback and live readback are accepted. A clean pushed `main` or refreshed six-page informational site is NOT v1.0.0 deployment.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain FUTURE / no release: the full stable-v1 gate preserves the original DP-701..704 approvals, qualified legal/rights/safety review, source-to-correction sample, budget/cap and release authority, plus DP-518 immutable public-host readback/revoke/rollback proof. A successful ticket documentation check, git commit, static preview or Cloudflare HTTP 200 does not satisfy release acceptance. No push, tag or deploy approved by this planning task. Preserve all original AC/status and dated receipts; this new target is documentation only.

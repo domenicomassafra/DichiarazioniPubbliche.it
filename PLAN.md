@@ -1,11 +1,19 @@
 # Dichiarazioni Pubbliche — Master Plan to Stable v1
 
 Status: canonical  
-Plan version: 1.2
+Plan version: 1.3 (post-grilling planning)
 Last updated: 2026-10-10
 
 This is the single ordered execution map for the project. Detailed implementation specs
 live in `docs/tickets/`. Historical roadmap files are evidence, not competing backlogs.
+
+## 2026-10-10 post-grilling integration — planning contract, not completion
+
+The four actual native Chat On Steroids lanes are integrated into the **one** canonical PLAN. The master traceability matrix and gated execution path are in [post-grilling coverage and sequencing](docs/reviews/2026-10-10-post-grilling-coverage-and-sequencing.md); owner-facing semantics and superseded proposals are in [target reconciliation](docs/reviews/2026-10-10-post-grilling-target-reconciliation.md).
+
+35 original non-DONE ticket files retain their statuses, historical acceptance checkmarks and proofs with explicit planning delta sections. 37 new FUTURE ticket specifications cover source/corpus DP-235..244, semantic/verification/authority DP-312..321, public Statement/search/Person×Topic/redesign DP-435..443, and operations/account/cost/release DP-512..519. **First complete approved end-to-end pilot DP-443 is the scaling gate** before historical bulk DP-243/516, and is not DP-214's 100-item Garlasco criterion, DP-703's three-family release set or stable-v1 release DP-705.
+
+The existing fail-closed publication/review and no-body rules remain operative until a separately approved rights, policy, data and runtime cutover. Qualified external legal and owner decisions are not inferred from this plan. The owner alone selects visual redesign at DP-441; DP-442 is later implementation. This run changes no application or public data and authorizes no push/deploy.
 
 ## Owner clarification for the active grilling — 2026-10-10
 
@@ -425,7 +433,7 @@ without manual DB surgery.
 | DP-221 | DONE | Original wording vs paraphrase/summary/translation separation; public serializers/search + DP-305 no-body exact-copy guard proven locally and on MiniPC | DP-216 |
 | DP-222 | DONE | Public-attribution Person identity + same-name/role-at-time gate; projection/read-time fail-closed identity/role proof + persisted tamper + MiniPC acceptance complete | DP-101, DP-114, DP-216, DP-218 |
 | DP-223 | DONE | False-attribution/fabricated-quote adversarial benchmark; 59-case zero-tolerance gate, persisted full-corpus projection/serializer replay and isolated MiniPC release-candidate attribution-integrity read-back all pass with zero known false attribution/fabricated quote | DP-216..222, DP-224 |
-| DP-224 | DONE | Material-assertion citation assurance over approved evidence/passages; exact Passage/source-hash binding + persisted tamper + MiniPC acceptance complete | DP-215, DP-210; coordinate DP-216/DP-308 |
+| DP-224 | DONE | Material-assertion citation assurance over approved evidence/passages; exact Passage/source-hash binding + persisted tamper + MiniPC acceptance complete | DP-215, DP-210 |
 | DP-225 | DONE | Reviewed original-source resolver over approved derivation families; persisted receipt + private Studio inspection proven on MiniPC | DP-115, DP-215 |
 | DP-226 | DONE | Compound numerical verification: delta/ratio/percent change + unit/denominator policy; structured-provider fixture + MiniPC proof complete | DP-215 |
 | DP-227 | DONE | Effective-time/validity/supersession verification; selectors + reviewed supersession -> persisted reanalysis consumer proven with law/policy/statistical MiniPC canary | DP-215, DP-210 |
@@ -436,6 +444,23 @@ without manual DB surgery.
 | DP-232 | DONE | Existing fact-check provider-neutral adapter complete: bounded DP-228→DP-209 runtime, append-only mirror lineage/replay, fail-closed UNKNOWN rights and metadata/link-only public surface proven; any future owner-selected live provider requires a separate authorized network/source canary | DP-228, DP-215 |
 | DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video adapter; fixture execution distinguishes NEW/REPLAY/AMENDED and delegates amended records to DP-511/DP-227 with DP-305 fail-closed rights; approved official source-family MiniPC canary pending | DP-206, DP-217, DP-218, DP-231 |
 | DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter; strict offline normalization + explicit DP-215 role/authority/suitability bridge implemented, real approved provider/licensing + MiniPC source-family canary pending | DP-215, DP-228, external contract/API |
+| DP-235 | FUTURE | Bounded rights-authorized private source-to-candidate pilot | DP-209, DP-210, DP-211, DP-212, DP-213, DP-236 |
+| DP-236 | FUTURE | Source-family acquisition/use profile with real permission decisions | DP-210, DP-305 |
+| DP-237 | FUTURE | Versioned exact locator and cross-format provenance chain | DP-210, DP-216, DP-224, DP-225 |
+| DP-238 | FUTURE | Document, PDF/OCR and text extraction with role-preserving provenance | DP-210, DP-211 |
+| DP-239 | FUTURE | Multilingual original and translation derivation in the private corpus | DP-210, DP-211, DP-221 |
+| DP-240 | FUTURE | Bounded multi-person candidate batch with cross-source identity isolation | DP-211, DP-212, DP-218, DP-222 |
+| DP-241 | FUTURE | Active original-source recovery and finite investigation log | DP-209, DP-213, DP-225, DP-228 |
+| DP-242 | FUTURE | Studio source-to-candidate machine handoff and exception lifecycle | DP-416, DP-417, DP-418, DP-419 |
+| DP-243 | FUTURE | Initial permanent historical corpus from mixed Italian/German primary sources | DP-210, DP-215, DP-703, DP-443 |
+| DP-244 | FUTURE | Source coverage inventory, version refresh and incremental catalog | DP-209, DP-213, DP-215, DP-511 |
+| DP-312 | FUTURE | Speech act, contesto adattivo e fedeltà semantica multilingue | DP-216, DP-217, DP-218, DP-219, DP-220, DP-222 |
+| DP-313 | FUTURE | Documento processuale: persone, ruoli, affermazioni e stati | DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312 |
+| DP-314 | FUTURE | Verificatore fattuale generalista per claim type e requirement profile | DP-215, DP-224, DP-226, DP-227, DP-228, DP-229, DP-312 |
+| DP-315 | FUTURE | «Non ho mai detto X»: tre verifiche e relazione storica | DP-216, DP-219, DP-220, DP-222, DP-227, DP-312, DP-314 |
+| DP-318 | FUTURE | Same-take e relazioni corrette tra e dentro le Persone | DP-104, DP-114, DP-219, DP-222, DP-227, DP-312 |
+| DP-319 | FUTURE | Indagine attiva dei casi dubbi con coda minima | DP-213, DP-215, DP-225, DP-228 |
+| DP-321 | FUTURE | Gold credibile e metriche indipendenti di errore, coverage e abstention | DP-223, DP-226, DP-228, DP-229, DP-312, DP-314 |
 
 Exit criteria: at least three source families run through the same contracts; provider
 failure remains a blocked state; any diarization adoption is evidence-driven and never
@@ -469,6 +494,9 @@ handled before opening the product to users.
 | DP-309 | DONE | High-risk/legal-status engineering gate complete: current reviewed packet + DP-310/311 separation are mandatory before serialization; full local/MiniPC regression green, while missing DP-307 qualified authority still correctly holds public enablement | DP-215, DP-304, DP-306, DP-308; DP-307 for launch |
 | DP-310 | DONE | Independent HIGH/LEGAL dual-control engineering complete with off-DB identity-attested durable replay, canonical production enforcement, clean full-suite/DP-223/MiniPC/PostgreSQL acceptance green; no claim of legal correctness | DP-308, DP-309 |
 | DP-311 | DONE | Local/off-DB reviewer identity authority + exact-event attested receipts for DP-310; restart/tamper/revocation, private backup/restore, disposable-PostgreSQL replay and isolated MiniPC acceptance complete | DP-310; coordinate DP-303, DP-507 |
+| DP-316 | FUTURE | Machine verification authority, review migration e eligibility per risultato | DP-308, DP-309, DP-310, DP-311, DP-229, DP-301, DP-304, DP-314, DP-321 |
+| DP-317 | FUTURE | Percorso lecito per citazione pubblica esatta per source family | DP-118, DP-216, DP-221, DP-305, DP-304, DP-306 |
+| DP-320 | FUTURE | Revoca e correzione transazionali fino all'ultimo lettore | DP-303, DP-308, DP-431, DP-510, DP-511, DP-117 |
 
 Exit criteria: public submission and publication behavior have explicit policy, abuse,
 privacy, retention, appeal and evidence-safety rules; high-risk assertions cannot bypass
@@ -520,6 +548,15 @@ LLM in the request path.
 | DP-432 | DONE | Public trust/provenance disclosure and correction-history integration AC-432.1-.8 machine-proven; upstream DP-223 attribution-integrity release sub-gate is now closed, while real screen-reader/manual judgment remains owned by DP-410 | DP-216..223, DP-308, DP-427, DP-428 |
 | DP-433 | DONE | Stable-URI + linked-data/RDF interoperability projection; deployed `/index.nt` read-back and discovery green | DP-105, DP-403, DP-430, DP-432, DP-434 |
 | DP-434 | DONE | First-class reviewed public Content resource independent of published findings; projection/API/web/RDF + isolated MiniPC migration/same-origin canary complete | DP-105, DP-210, DP-401, DP-403 |
+| DP-435 | FUTURE | Public Statement with exact original wording | DP-216, DP-221, DP-305, DP-312, DP-317 |
+| DP-436 | FUTURE | Verbatim search, cards, relations and linked-data consumers | DP-435, DP-402, DP-403, DP-433 |
+| DP-437 | FUTURE | Independent public Statements for opinions and positions | DP-435, DP-104, DP-111, DP-312 |
+| DP-438 | FUTURE | Person pubblica autonoma, anche senza Statement | DP-105, DP-222, DP-402, DP-437 |
+| DP-439 | FUTURE | Filtri pubblici Persona × Tema e dati incrociati | DP-105, DP-402, DP-430, DP-437, DP-438 |
+| DP-440 | FUTURE | Sintesi Persona × Tema precomputata e citata | DP-224, DP-303, DP-431, DP-435, DP-439 |
+| DP-441 | FUTURE | Brief e alternative comparabili del redesign, decisione owner | DP-413, DP-423 |
+| DP-442 | FUTURE | Implementazione futura del redesign scelto e migrazione controllata | DP-425, DP-441, DP-436 |
+| DP-443 | FUTURE | First complete source-to-reader and correction pilot | DP-235, DP-312, DP-314, DP-316, DP-317, DP-318, DP-320, DP-321, DP-435, DP-436, DP-437, DP-438, DP-439, DP-440 |
 
 Exit criteria: public pages and API read only approved projection data, are useful with
 providers offline, expose provenance/correction history without private raw content, and
@@ -547,6 +584,13 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-509 | DONE | Harden claim/ASR/verification provenance inputs | M0 baseline |
 | DP-510 | DONE | Durable targeted provenance quarantine/hold + DP-431 cleanup + MiniPC restart/revalidation incident canary complete | DP-308; coordinate DP-501/504/505/431 |
 | DP-511 | DONE | Source drift/supersession/rights-expiry revalidation watch + durable MiniPC canary complete | DP-210, DP-215, DP-308, DP-510 |
+| DP-512 | FUTURE | Truthful operation billing classification and retrospective reconciliation | DP-230, DP-506 |
+| DP-513 | FUTURE | Bounded empirical GPT-6/Antigravity/Groq/local-capacity pilot | DP-512, DP-506 |
+| DP-514 | FUTURE | EUR10-month planning envelope with atomic multi-interval dispatch caps | DP-512, DP-513, DP-506 |
+| DP-515 | FUTURE | Economical incremental source monitoring with coverage and safe backoff | DP-209, DP-210, DP-211, DP-511, DP-512, DP-514 |
+| DP-517 | FUTURE | Reader Google sign-up/login/logout/delete MiniPC activation | DP-304, DP-307, DP-501, DP-502 |
+| DP-518 | FUTURE | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |
+| DP-519 | FUTURE | Operator visual-quality capacity and exception time budget | DP-417, DP-304 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
 observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad
@@ -586,6 +630,7 @@ Goal: first release that can be operated publicly without calling the code a pro
 | DP-703 | IN PROGRESS | Production dataset/source launch set and disclosure; launch set/rights/provider/snapshot gates remain blocked | M2, M3 |
 | DP-704 | FUTURE | End-to-end launch rehearsal from source to correction | M2..M6 |
 | DP-705 | FUTURE | v1.0.0 release and public deployment | DP-701..704 |
+| DP-516 | FUTURE | Historical permanent corpus backfill with bounded batches and refresh | DP-210, DP-215, DP-703, DP-511, DP-514, DP-443 |
 
 Stable v1 requires all launch blockers closed; it does not require every FUTURE business
 feature (BYOK, paid API, subscriptions, MCP, etc.).

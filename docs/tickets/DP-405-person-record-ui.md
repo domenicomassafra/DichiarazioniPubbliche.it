@@ -279,3 +279,7 @@ exact 200% browser zoom with no horizontal overflow. These machine proofs do
 not replace the AC-405.6 required real human screen-reader/keyboard/contrast
 review. No active VoiceOver session was available in the current Mac run;
 **AC-405.3 and AC-405.6 remain unchecked, DP-405 IN PROGRESS.**
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS. DP-438 supplies first-class approved Person even with zero Statements; DP-437 supplies independent non-factual Statement; DP-439/440 public Person×Topic and cited synthesis. Future Person chronology must be dated, show exact original source words (DP-435/436) and no invented current role, verdict or endorsed stance from somebody else's quotation. Approved-zero Person has a public empty state, private-only/unknown are indistinguishable. AC-405.3 and real manual accessibility AC-405.6 remain independently OPEN. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

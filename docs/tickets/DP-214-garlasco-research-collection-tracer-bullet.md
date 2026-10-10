@@ -349,3 +349,15 @@ their dataset licenses remain scope-specific and do not authorize launch
 family, model extraction, speaker approval or source quotation rights.
 There is no new real `research:garlasco` Capture/Passage/Candidate proof;
 AC-214.1/.2/.4/.5/.6/.7/.8 remain unchecked, and AC-215.9 also remains open.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-214.3 checked:** real MiniPC 30 distinct Garlasco claims, 30/30 exact indexed retrieval and linked historical Content; scoped historical-baseline search 13/13. **AC-214.1/.2/.4/.5/.6/.7/.8 OPEN** for the stipulated 100-item real collection. `garlasco_tracer` enforces manifest shape/replay; seed ledger and preflight guard results preserved.
+
+**Target delta and remaining acceptance:** Preserve the **100-item** outcome; do not silently substitute A-NEW-01. Current `research:garlasco` is **PAUSED with 18 included historical Content, rights UNKNOWN for all, 0 real Captures, 0 Passages/Candidates/Discovery Hits**. Need 82 additional reviewed logical items with five families, source/rights profiles, versioned manifest, real immutable captures, duplicates, Coverage Needs, repeat ingestion, PUBLISH unchanged, private/public leak checks. Official/processual material cannot be inferred clear simply because it is reachable.
+
+**Phase / dependencies:** Phase 3/4 Garlasco campaign after smallest integrated pilot; hard DP-209..213/117 and actual source-family permits, A-NEW-02/03/04 as applicable; soft B rights, D budget; corpus owner.
+
+**Related future specifications (separate ownership):** DP-235, DP-236, DP-237, DP-243. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

@@ -243,3 +243,15 @@ the persisted segment interval and operator/keyboard replay. The existing
 media locator is metadata-only. No source rights review, publication authority,
 manual 200% zoom/screen-reader pass or approved media body was obtained;
 DP-419 stays `IN PROGRESS`.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-419.1–.4 OPEN.** Read-only capture version compare/hash/selector diff, purge receipts and content-scoped media Candidate locator; 40/40 focused Mac + isolated MiniPC proof, but live production Garlasco Capture still zero. Historic full 2242-suite had one unrelated concurrent failure, not full green.
+
+**Target delta and remaining acceptance:** Real rights-permitted dual Capture versions in persistent MiniPC and operator/browser readback; body purged still legible from private receipt; exact media player seek to canonical segment/time on approved clip (current locator only metadata), safe bounded excerpt, keyboard/zoom/AT, no secrets. Expose copyable *private* audit locators, not raw body to public.
+
+**Phase / dependencies:** Phase 2/3; hard DP-210, DP-414, real source captures and preview/media use permits; soft A-NEW-03/B rights; Studio owner.
+
+**Related future specifications (separate ownership):** DP-237, DP-320. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

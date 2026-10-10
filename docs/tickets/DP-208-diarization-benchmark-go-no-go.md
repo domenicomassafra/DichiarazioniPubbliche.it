@@ -279,3 +279,15 @@ available.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE. Start only after an authorized DP-204 audio/ASR receipt plus labeled reference with reliable speaker-turn boundaries. Test non-biometric diarization with false-attribution guard, compare against manual baseline and record an explicit go/no-go; a fixture score cannot close it.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-208.1–.10 all OPEN.** Existing metric-only harness `diarization_benchmark.py` with anonymous `TURN_*`, DER, speaker change, 250 ms collar, inserted clip and sensitive holds is historical local proof, not a live decision.
+
+**Target delta and remaining acceptance:** Keep preregistered ≥10-minute annotated/authorized sample and Giuliani inserted clip (414–434s), comparables, resource/license, MiniPC and GO/GO_BOUNDED/NO_GO. Anonymous speaker turns never grant Person identity or verbatim publication. Current "reviewer" decision must be owned by qualified experiment/governance role, not imagined routine editor.
+
+**Phase / dependencies:** Phase 3 optional engine decision; hard DP-204, DP-207, approved model/license/reference; soft B false-attribution benchmark.
+
+**Related future specifications (separate ownership):** DP-312, DP-321. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

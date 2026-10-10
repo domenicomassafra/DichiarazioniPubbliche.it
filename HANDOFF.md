@@ -5,14 +5,16 @@ non una seconda fonte di verità per i ticket o una certificazione di release.
 
 ## Leggere nell’ordine
 
-0. [**Prompt unico post-grilling — quattro subagenti nativi, solo backlog**](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md) — **mandato corrente per la nuova chat Chat On Steroids**. Grilling concluso; crea/aggiorna ticket e piano senza implementazione. Il precedente prompt audit/grilling/redesign resta storia del mandato precedente.
+0. [**Prompt unico post-grilling — quattro subagenti nativi, solo backlog**](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md) — **mandato eseguito nella nuova sessione**. Il risultato integrato è nel PLAN, nelle due review post-grilling e nel file di risposta adiacente al prompt. Nessuna implementazione; i prompt di audit/grilling precedenti restano storia.
 1. [`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md) — stato completo dei pending e prompt per il grilling nella prossima chat.
 2. [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md) — dettaglio delle prove e dei limiti, tabella della pipeline e analisi del rallentamento.
 3. [`LAUNCH.md`](LAUNCH.md) — pubblicazione informativa essenziale **distinta** dalla release editoriale stabile.
-4. [`PLAN.md`](PLAN.md) e [`docs/tickets/`](docs/tickets/) — registro **canonico** dei 125 ticket e delle acceptance criterion; mai modificare stati per semplificare i numeri.
+4. [`PLAN.md`](PLAN.md) e [`docs/tickets/`](docs/tickets/) — registro **canonico**; baseline storica 125 ticket, dopo rivalutazione 162 (37 FUTURE aggiunti), 35 originari non conclusi mantenuti e riconciliati.
 5. [`PRODUCT.md`](PRODUCT.md), [`CONTEXT.md`](CONTEXT.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`AGENTS.md`](AGENTS.md) — invarianti, architettura e regole di lavoro.
 6. [`docs/reviews/2026-10-10-open-ticket-reprioritization.md`](docs/reviews/2026-10-10-open-ticket-reprioritization.md) — decision queue 35/35: possibili accorpamenti e rinvii senza cancellare acceptance criterion.
 7. [`docs/reviews/2026-10-10-ux-redesign-audit-and-brief.md`](docs/reviews/2026-10-10-ux-redesign-audit-and-brief.md) — critica verificata del frontend, quattro direzioni visuali alternative e redesign da decidere **solo dopo il grilling**.
+8. [`docs/reviews/2026-10-10-post-grilling-coverage-and-sequencing.md`](docs/reviews/2026-10-10-post-grilling-coverage-and-sequencing.md) — matrice R01–R42, ID nuovi, gate di pilot/diritti/bulk e non-goal.
+9. [`docs/reviews/2026-10-10-post-grilling-target-reconciliation.md`](docs/reviews/2026-10-10-post-grilling-target-reconciliation.md) — decisioni definitive su verbatim, Persona×Tema, automazione e limiti delle vecchie acceptance.
 
 ## Stato verificato al 10 ottobre (ricontrollare live)
 

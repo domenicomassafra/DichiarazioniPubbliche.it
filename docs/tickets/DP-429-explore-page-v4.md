@@ -123,3 +123,7 @@ opens/closes the filter dialog with focus restoration, exposes the overlong-quer
 reduced motion, stays within the 375 px phone viewport and exact 200% browser zoom, and performs
 zero external/provider requests. Populated demo QA still requires result/history links. The mixed
 accessibility AC remains unchecked solely because real screen-reader judgment is still required.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS. Explore needs independent Person and Topic URL filters whose intersection is approved Statement IDs, not a chatbot or one inferred opinion profile (DP-439); optional precomputed sourced synopsis is separate (DP-440). Correct messages distinguish zero total approved corpus, filters returning no match and unavailable/stale projection. Cards must never turn normalized paraphrases into exact quotes (DP-436). Preserve existing search and 320–1440/200% QA receipts but AC-429 manual screen reader remains open. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

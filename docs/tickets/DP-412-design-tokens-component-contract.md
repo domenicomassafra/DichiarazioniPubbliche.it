@@ -434,3 +434,7 @@ actual screen-reader pass or exact 200% zoom exercise across the component contr
 markup, browser focus proof, grayscale and reduced-motion evidence are not treated as substitutes.
 The previously recorded runtime/page-adoption risks remain separate and are not converted into
 acceptance failures unless their owning tickets require them.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS with old v4 proof preserved, not a new design selection. DP-441 owns side-by-side redesign alternatives and owner decision; DP-442 can only implement the selected one. Source words (DP-435/436), Italian translation, synopsis, optional factual Finding, date and source locator need visually and screen-reader-distinct primitives; 320/390 viewport and exact 200% zoom are future manual requirements. AC-412.5 stays open. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

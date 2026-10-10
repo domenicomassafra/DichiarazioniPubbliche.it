@@ -315,3 +315,7 @@ criteria are still unproven. `PLAN.md` now matches those statuses, as well as DP
 the current M2/M3 closure state. DP-410 therefore remains a cross-surface quality gate without
 claiming ownership of those page/design contracts, closing AC-410.8. This does not close
 AC-410.1/.2 or any real screen-reader/manual visual acceptance.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS as shared independent manual acceptance campaign, without merging page-specific AC. Add future test coverage for exact quotation versus separately identified summary/translation, opinion without Finding, original source locators, Person×Topic, two-person versus one-person relations, revocation, 320-px overflow, honest approved-empty corpus, zoom 200%, real VoiceOver and a mobile screen reader. DP-441/442 redesign requires owner selection and subsequent measured AT, perf and API/HTML readback. Current automated green does not close AC-410.1/.2. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

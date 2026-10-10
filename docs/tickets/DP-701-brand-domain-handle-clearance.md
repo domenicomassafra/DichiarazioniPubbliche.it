@@ -360,3 +360,7 @@ Repository validation after this handoff is green: `tools/check_repository_contr
 returns `NO-GO` with **41 blockers** and explicitly includes `TICKET_NOT_DONE:DP-701:IN PROGRESS`,
 so the handoff cannot be misread by DP-705 as release authority while the deleted-preimage
 rollback blocker or the external clearance rows remain open.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS on actual owner/domain/handle/trademark clearance and identity rollback. Existing canonical restore of 94 tables is not the missing pre-rename reversible snapshot: explicitly document an authentic recovery or a qualified owner-approved alternative policy with residual risk; do not mark AC-701.7 complete by paper waiver. DP-518 must bind final release candidate domain/DNS/redirect/published identity to current source hashes and real rollback, not infer release from public HTTPS 200. Preserve all original AC/status and dated receipts; this new target is documentation only.

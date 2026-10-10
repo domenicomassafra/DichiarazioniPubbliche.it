@@ -263,3 +263,7 @@ an **untrusted private source-material fingerprint**, not an independently
 attested challenger review, an approved DP-307 legal waiver, an incorporation
 receipt or proof of completion for AC-229.8. Runtime high-risk publication
 eligibility remains fail-closed.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Status remains **IN PROGRESS**, with historic AC/proofs preserved. The new autonomous verifier target (DP-314/316/321) requires attested, current challenger material, explicitly completed counter-investigation, incorporated counter-evidence, independent review authority and a qualified high-risk waiver where applicable. A model-produced challenger answer or caller-provided READY flag is not approval. Future AC-229.8 acceptance needs authorized real-source and MiniPC evidence; source/rights revocation during evaluation must HOLD rather than publish. This is specification only, not a waiver, signed decision or implementation.

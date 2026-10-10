@@ -301,3 +301,7 @@ stable v1 is launchable or that a public deployment/release has occurred.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE until DP-701/702/703 and source/provider gates permit one real approved source→public projection→correction run on MiniPC with backup/restore, rollback and permission/failure receipts. No local fixture rehearsal replaces an accepted run.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain FUTURE: plan one replayable source→capture→exact Statement→optional Finding/opinion→Person×Topic/source-linked synthesis→correction/withdrawal rehearsal, with scope/rights/quality accepted before MiniPC release readback. Include wrong-person/semantic-clipping negative cases, concurrent rights revoke DP-320/518, provider quota outages, caches/API/search/linked data, backup/restore and actual rollback. DP-441/442 owner-chosen redesign is not a prereq to documenting readiness; production GO requires the named authority. Preserve all original AC/status and dated receipts; this new target is documentation only.

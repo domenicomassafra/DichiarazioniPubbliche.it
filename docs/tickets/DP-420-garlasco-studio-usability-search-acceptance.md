@@ -70,3 +70,15 @@ marking DONE.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE until real Garlasco source rights and DP-214/215 corpus path are accepted and the private Studio DP-416..419 workflows are usable. Test real researcher tasks/accessibility/retrieval with measured acceptance; no synthetic-only UX DONE.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-420.1–.5 OPEN.** No authentic corpus-backed operator usability/Recall@K acceptance; synthetic UI/path evidence is insufficient.
+
+**Target delta and remaining acceptance:** Version **15–25 actual** tasks with frozen search gold/Recall@K, time-to-source, navigation failures, zoom, keyboard, responsive, screen-reader and design usability; record defects separately. Real Garlasco right-cleared source/candidate workflow prerequisites. No assertion of public UI quality or dataset completeness.
+
+**Phase / dependencies:** Phase 3 acceptance; hard DP-214, DP-415..419 and authorized corpus; soft C UX, B provenance; Studio QA owner.
+
+**Related future specifications (separate ownership):** DP-235, DP-442. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

@@ -325,3 +325,15 @@ owner-approved Senato launch family under DP-703 B-703-03/04. The documented
 CC BY 4.0 bulk-dataset license does not grant unrelated WebTV/media/ASR rights
 or substitute for the required explicit source-family disposition. Therefore
 **AC-233.10 remains unchecked and DP-233 stays IN PROGRESS**.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-233.1–.9 checked; AC-233.10 OPEN.** Synthetic Camera/Senato multi-speaker and supersession contracts; independently observed immutable official Senato AKN source: commit `bfac144eb5c54820971bc1020fece11aae56ec90`, XML SHA256 `1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`, 393817 bytes. Isolated Mac/MiniPC parser produced 121 speech candidates, 5 speaker/text holds; 104 bounded Passages and 104 **HELD** Statement Candidates (22 total unavailable/oversize).
+
+**Target delta and remaining acceptance:** AC-233.10: a project-*approved* source family with rights + source scope, then bounded real official MiniPC source-family canary and candidate/store readback. Keep XML official speech/written provenance separate from (absent) WebTV timing and unapproved Person mapping. Ensure oversize discourse chunking strategy is reviewed instead of losing 17 candidate segments silently. Dataset notice CC BY 4.0 is scoped to the AKN repo, **not** WebTV footage/ASR/other pages.
+
+**Phase / dependencies:** Phase 1 source family; hard project-specific source/rights disposition DP-703/305 and A-NEW-02; soft A-NEW-04, B speaker identity; parliamentary adapter owner.
+
+**Related future specifications (separate ownership):** DP-238, DP-317. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

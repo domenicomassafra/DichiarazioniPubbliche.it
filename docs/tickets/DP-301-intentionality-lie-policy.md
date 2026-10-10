@@ -257,3 +257,7 @@ engineering safeguard for machine-generated/reviewer-entered public copy, not
 a new classification or inference about someone's intentions. **AC-301.8
 remains open** until qualified DP-306/307 decisions exist; no launch permission,
 person verdict or legal interpretation is granted by this change.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Keep IN PROGRESS: prior no-intent policy acceptance is scoped to existing checks; AC-301.8 still needs qualified Q-306 disposition. Coordinate DP-312 (speech act), DP-315 (prior-utterance denial), DP-318 (cross-person vs same-person relation), DP-437 (non-factual Statement). In future tests distinguish FALSE about a specific supported proposition from intent to deceive, and checked-insufficient-evidence from unchecked; no Person-level verdict, ideology or mind-reading. Preserve original checked AC and all receipts; no legal/public-copy approval is assumed. Planning-only delta; no new AC marked complete, no production or provider mutation.

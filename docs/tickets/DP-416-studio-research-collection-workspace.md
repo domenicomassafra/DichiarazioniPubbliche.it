@@ -159,3 +159,15 @@ and no Garlasco Capture/Passage is stored. Full Source→Passage→
 Candidate and browser/accessibility acceptance still require
 independent evidence. No DP-416 AC closed.
 Receipt: `docs/reviews/2026-10-08-studio-garlasco-text-provenance.md`.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-416.1–.4 OPEN.** Existing loopback read-only MiniPC Collection→18 historical Contents→30 claims; 28 approved-state claim text-provenance hashes are not rights clearance; 0 real Garlasco Capture/Passage/Candidate.
+
+**Target delta and remaining acceptance:** Real persisted Collection→source→capture→exact Passage→Candidate→promoted Claim route; paginated large corpus, no client-side full load; accessible keyboard/color-independent hierarchy; membership changes need reviewed/authorized and safe replay. No unreviewed content in public projection.
+
+**Phase / dependencies:** Phase 2/3; hard DP-214/414 and persisted source/candidate records, soft A-NEW-08/B promotion; Studio owner.
+
+**Related future specifications (separate ownership):** DP-242. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.

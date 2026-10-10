@@ -50,3 +50,7 @@ surface is not modified by this tranche.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE / disabled while public intake remains off. Trigger immediately **before** any owner-authorized intake launch, with abuse/SSRF/rate/privacy/retention/rollback evidence. Never let intake imply publication authority.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain FUTURE and dormant while public intake is not approved. A reader login (DP-517) is not a correction/appeal submission entitlement and never grants direct publication. Before any public intake, specify field/URL/media no-SSRF rules, rate/per-user/global quotas, privacy/consent/retention, duplicate/replay semantics, qualified legal policy, operator exception capacity and disabled/rollback MiniPC negative acceptance. Disable safely on unmet constraints. Preserve all original AC/status and dated receipts; this new target is documentation only.

@@ -331,3 +331,7 @@ source-adapter suites **35/35 PASS**; missing-Groq plus budget-before-dispatch w
 **2/2 PASS**. `tools/check_launch_preflight.py --expect-no-go` remains `NO-GO` with the same
 **41** launch blockers; this closure removes no provider, legal, owner, launch-set, snapshot,
 or release-authority gate.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS. Keep distinct stage manifests: bounded rights-cleared FIRST-PILOT (DP-235), PRODUCTION-LAUNCH's original three-family requirement, and permanent HISTORICAL-BACKFILL (DP-243/516 only after full first reader pipeline acceptance). DP-214's 100-item Garlasco criterion still exists and cannot be silently reduced to a small first pilot. Source visibility or official archive status does not prove rights. Signed per-family version/hash/use, exact quote and source lineage plus consumer/correction MiniPC receipt precede public approval. Preserve all original AC/status and dated receipts; this new target is documentation only.

@@ -247,3 +247,7 @@ accessibility sign-off. Chrome captures remain outside Git under
 `ControlCenter/_local/dp-m4-worker12-20261010/topic-{desktop,phone}.png`.
 AC-406.6, the real MiniPC reviewed Topic/membership canary and DP-406 overall
 `BLOCKED` status remain unchanged. No fixture was publicly promoted.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain BLOCKED until a genuinely approved public Topic/membership readback and manual AT, not fixtures. DP-439 owns public Person×Topic intersection; DP-437 permits opinion-only Statements without a Finding and DP-440 a dated cited synopsis. Topic membership requires a reviewed relation to the source Statement, not mere mention or inferred political ideology. A private Topic, revoked Statement or doubtful speaker produces no public count/suggestion, and the same public version fingerprint must reach all consumers. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

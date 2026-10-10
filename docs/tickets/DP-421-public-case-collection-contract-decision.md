@@ -68,3 +68,7 @@ marking DONE.
 ## Checkpoint 2026-10-10 — future activation boundary
 
 Keep FUTURE. First accept DP-420 operator/research results; then choose explicitly between a sanitized public Case/Collection contract or NO-GO/reuse of existing Topic/Content/Trace. Private Research Collection is never auto-published.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain FUTURE: Case/Collection is a distinct owner GO/NO-GO decision after DP-214/420's authentic operator evidence and the integrated source-to-reader pilot. DP-437/439/440 already enable primary Statement/Person/Topic reading without Case. A public Case GO requires approved public-only member IDs, rights, corrections and versioned privacy policy; NO-GO is a legitimate recorded decision and must not imply private Studio records visible. Preserve original AC. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

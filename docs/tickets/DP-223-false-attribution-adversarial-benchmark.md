@@ -2,7 +2,8 @@
 
 Status: DONE
 Milestone: M2 — Live pipeline readiness and source coverage
-Depends on: DP-216..DP-222, DP-224; coordinate with DP-602 and DP-704
+Depends on: DP-216..DP-222, DP-224
+Coordination only (not hard prerequisites): DP-602, DP-704
 
 ## Problem
 

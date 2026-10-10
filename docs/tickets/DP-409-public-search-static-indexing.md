@@ -241,3 +241,7 @@ flows, reduced motion, phone reflow and exact 200% browser zoom, and records zer
 requests. Populated demo acceptance still requires the correction-history link and all populated
 route families. AC-409.8 remains open only for actual screen-reader/manual accessibility judgment;
 the live-static promotion blocker is closed. Dependency gate DP-408 remains authoritative.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain IN PROGRESS. The public search index must use first-class Statement IDs, exact approved quote and locator as primary display while explicitly distinguishing summary/translation metadata (DP-436), plus approved zero-record Persons (DP-438) and safe Person×Topic intersection (DP-439). Revoked or private membership must be absent from results, facets, cursor and snippets; empty corpus, populated no-match and stale index are distinct. Existing keyboard/screen-reader AC-409.8 remains OPEN. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

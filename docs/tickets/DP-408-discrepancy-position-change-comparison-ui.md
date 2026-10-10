@@ -283,3 +283,7 @@ qualified editorial approval. Chrome captures remain outside Git under
 `ControlCenter/_local/dp-m4-worker12-20261010/trace-{desktop,phone}.png`.
 AC-408.5, a real approved/reviewed MiniPC relation canary and DP-408 overall
 `BLOCKED` status remain unchanged. No fixture was publicly promoted.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+Remain BLOCKED pending a genuine reviewed longitudinal relation and manual AT. DP-318 enforces different Persons = cross-person comparison, same Person over time = possible reviewed position change, compatible proposition/scope/time mandatory; DP-315 treats a denial of earlier words separately from truth of the underlying claim. DP-435/437 supply literal original Statements even without a factual Finding. No client inference of lie, motive or identity from a similarity score. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.

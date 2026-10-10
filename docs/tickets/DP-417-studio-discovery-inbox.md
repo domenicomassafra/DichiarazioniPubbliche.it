@@ -326,3 +326,15 @@ never a durable action, rights/reviewer permit, promotion or publication.
 Tests include ephemeral PostgreSQL, cross-state refusal and HTTP 200/401/422.
 Isolated MiniPC source 44/44 focused tests passed without a production write.
 Other queue families and actual reviewed transitions are absent, so ACs remain open.
+
+## Post-grilling planning reconciliation — 2026-10-10
+
+**Status unchanged; original acceptance checkboxes and dated proof remain authoritative.** This is a future target update, not source-rights approval or completion. Source: native lane A packet.
+
+**Baseline and preserved proof:** **AC-417.1–.4 OPEN.** Preserve append-only triage ledger; MiniPC migration **already installed** 2026-10-10 with backup/replay and private loopback inbox HTTP 200/401/422. Current persisted Hit rows zero. `/v1/discovery/bulk-preview` handles 1–10 compatible Hits read-only and explicitly `DRY_RUN_ONLY`.
+
+**Target delta and remaining acceptance:** Finish all genuine queue families (changed capture/entity/candidate/coverage/quarantine) with exact provenance, specific unblock actions, real authorized conflict-detecting durable transitions/replay and state-compatible bulk. A private annotation is not reviewer approval. Wire to future unattended machine research path under B authority rather than assuming a human will empty text queues.
+
+**Phase / dependencies:** Phase 1/2; hard actual discovery/capture/candidate state plus reviewed authority, A-NEW-08; soft B/D; Studio ingest owner.
+
+**Related future specifications (separate ownership):** DP-242, DP-319. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
