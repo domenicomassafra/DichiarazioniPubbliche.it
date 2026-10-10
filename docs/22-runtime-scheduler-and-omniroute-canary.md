@@ -158,3 +158,30 @@ appends `CAPTURE_REOBSERVED`. Parser failures append `PARSE_FAILED`; browser fai
 appends `BROWSER_FALLBACK_FAILED`. Passage offsets are defined over deterministic canonical
 text reproducible from the captured bytes/parser version and can be checked with
 `verify_passage_roundtrip()`.
+
+## Official RSS discovery-only extension — 2026-10-10 (Mac source proof)
+
+The existing source-due and daily full-source timers now recognize `public_rss`
+for bounded public RSS 2.0, Atom and RSS 1.0/RDF metadata discovery. The registry
+adds official Camera dei deputati and Council of the EU feeds, with verifiable
+publisher-directory links recorded in `endpoint_proof`. The entries use
+`poll_minutes` (720/1440) and `max_items_per_poll` (8/12); the hard per-source
+cap remains 20. The scheduler preserves adapter omitted-item counts and uses
+the existing deterministic daily run ID and replay contract.
+
+For `public_rss`, `RIGHTS_HOLD` is the fail-closed default irrespective of what
+the public endpoint exposes. A successful feed parse records a private
+`source_poll_run_source` receipt with the bounded `discovered` count, omitted
+count, source ID and `BLOCKED`/`RIGHTS_HOLD`, while `content_upserts`,
+`jobs_enqueued`, and downstream Capture/Passage/Candidate work remain zero.
+It does not persist individual titles, excerpts or full article bodies. The
+existing source-health poll time still advances on a successful fetch; rights
+HOLD is not treated as an HTTP failure. A successful daily timer invocation
+therefore does **not** imply accepted source material or substantial ingestion.
+
+The feed directories establish endpoint provenance, not permission to reuse
+article bodies, transcripts or images. Actual Content ingestion needs a
+separate reviewed rights/acquisition path and current privacy relevance permit;
+changing `rights_status` in registry alone never unlocks it. No changes to
+the MiniPC runtime, provider configuration or existing DP-214 100-item
+research acceptance are implied by these Mac changes.

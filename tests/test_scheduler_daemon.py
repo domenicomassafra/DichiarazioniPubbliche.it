@@ -391,7 +391,7 @@ class FullSourceSchedulerTests(unittest.TestCase):
 
         self.assertEqual(
             set(SUPPORTED_SOURCE_KINDS),
-            {"youtube_channel", "podcast_rss", "public_creator_accounts"},
+            {"youtube_channel", "podcast_rss", "public_creator_accounts", "public_rss"},
         )
 
     def setUp(self):

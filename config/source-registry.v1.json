@@ -78,6 +78,36 @@
         "example_instagram_reel": "DdZseq2tjn4",
         "example_tiktok_video": "7686596204074896672"
       }
+    },
+    {
+      "id": "official-camera-temi",
+      "name": "Camera dei deputati - temi in evidenza",
+      "kind": "public_rss",
+      "priority": "medium",
+      "discovery_url": "https://documenti.camera.it/rss/temi/bridgeTemiEvidenzaRss.xml",
+      "poll_minutes": 720,
+      "max_items_per_poll": 8,
+      "rights_status": "RIGHTS_HOLD",
+      "content_policy": { "metadata_only": true },
+      "endpoint_proof": {
+        "checked_at": "2026-10-10",
+        "official_directory": "https://documenti.camera.it/apps/rssFeeds/index.asp"
+      }
+    },
+    {
+      "id": "official-consilium-press",
+      "name": "Consiglio UE - comunicati stampa",
+      "kind": "public_rss",
+      "priority": "medium",
+      "discovery_url": "https://www.consilium.europa.eu/it/rss/pressreleases.ashx",
+      "poll_minutes": 1440,
+      "max_items_per_poll": 12,
+      "rights_status": "RIGHTS_HOLD",
+      "content_policy": { "metadata_only": true },
+      "endpoint_proof": {
+        "checked_at": "2026-10-10",
+        "official_directory": "https://www.consilium.europa.eu/it/about-site/rss/"
+      }
     }
   ]
 }

@@ -9,6 +9,7 @@ import urllib.error
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
@@ -20,7 +21,7 @@ MAX_TITLE_LENGTH = 1000
 MAX_ID_LENGTH = 512
 MAX_DURATION_SECONDS = 7 * 24 * 60 * 60
 SUPPORTED_SOURCE_KINDS = frozenset(
-    {"youtube_channel", "podcast_rss", "public_creator_accounts"}
+    {"youtube_channel", "podcast_rss", "public_creator_accounts", "public_rss"}
 )
 _BLOCKED_CATEGORIES = frozenset(
     {
@@ -268,7 +269,7 @@ def _content(
     source_id = _text(source.get("id"), MAX_ID_LENGTH, required=True)
     stable_id = _text(external_id, MAX_ID_LENGTH, required=True)
     platform_value = _text(platform, 64, required=True).lower()
-    if platform_value not in {"youtube", "podcast_rss", "instagram", "tiktok"}:
+    if platform_value not in {"youtube", "podcast_rss", "instagram", "tiktok", "public_rss"}:
         raise SourceAdapterError("UNSUPPORTED", f"platform:{platform_value}")
     title_value = _text(title, MAX_TITLE_LENGTH)
     canonical = _validate_public_url(
@@ -523,6 +524,110 @@ class PodcastRssAdapter(SourceAdapter):
             _legacy_filter_discovered_content(source, normalized), limit
         )
         return result
+
+
+class PublicRssAdapter(SourceAdapter):
+    """Official RSS/Atom item locators. Discovery never retrieves linked articles."""
+
+    kind = "public_rss"
+
+    def discover(
+        self,
+        source: dict[str, Any],
+        *,
+        limit: int = MAX_DISCOVERED_ITEMS_PER_SOURCE,
+        feed_xml: str | None = None,
+        metadata: Any = None,
+        fetcher: Callable[[str], str] | None = None,
+        resolver: Callable[..., list[Any]] | None = None,
+        timeout: float = 15.0,
+        max_response_bytes: int = MAX_DISCOVERY_RESPONSE_BYTES,
+    ) -> list[DiscoveredContent]:
+        url = _text(source.get("discovery_url"), 2048, required=True)
+        _validate_feed_url(url, resolver=resolver)
+        xml_text = _feed_text(
+            url, feed_xml=feed_xml, fetcher=fetcher,
+            timeout=timeout, max_response_bytes=max_response_bytes,
+        )
+        if len(xml_text.encode("utf-8")) > min(max_response_bytes, MAX_DISCOVERY_RESPONSE_BYTES):
+            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_RESPONSE_TOO_LARGE")
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError as exc:
+            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_XML_INVALID") from exc
+
+        rows: list[DiscoveredContent] = []
+        if root.tag == "rss":
+            channel = root.find("channel")
+            if channel is None:
+                raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_CHANNEL_MISSING")
+            author = channel.findtext("title")
+            entries = [
+                (
+                    node.findtext("guid") or "",
+                    node.findtext("link") or "",
+                    node.findtext("title") or "",
+                    node.findtext("pubDate") or "",
+                    author,
+                )
+                for node in channel.findall("item")
+            ]
+        elif root.tag == "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF":
+            rss = "{http://purl.org/rss/1.0/}"
+            dc = "{http://purl.org/dc/elements/1.1/}"
+            author = root.findtext(f"{rss}channel/{rss}title")
+            entries = [
+                (
+                    node.attrib.get("{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about", ""),
+                    node.findtext(f"{rss}link") or "",
+                    node.findtext(f"{rss}title") or "",
+                    node.findtext(f"{dc}date") or "",
+                    author,
+                )
+                for node in root.findall(f"{rss}item")
+            ]
+        elif root.tag == "{http://www.w3.org/2005/Atom}feed":
+            atom = "{http://www.w3.org/2005/Atom}"
+            author = root.findtext(f"{atom}title")
+            entries = []
+            for node in root.findall(f"{atom}entry"):
+                links = [link.attrib.get("href", "") for link in node.findall(f"{atom}link")
+                         if link.attrib.get("rel", "alternate") == "alternate"]
+                entries.append((
+                    node.findtext(f"{atom}id") or "",
+                    links[0] if links else "",
+                    node.findtext(f"{atom}title") or "",
+                    node.findtext(f"{atom}published") or node.findtext(f"{atom}updated") or "",
+                    node.findtext(f"{atom}author/{atom}name") or author,
+                ))
+        else:
+            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_OR_ATOM_EXPECTED")
+
+        for stable_id, item_url, title, published_at, author in entries:
+            stable_id = stable_id.strip()
+            item_url = item_url.strip()
+            if not stable_id and not item_url:
+                raise SourceAdapterError("MISSING_ID", "RSS_ITEM_ID")
+            if not item_url:
+                # An opaque GUID alone cannot be used to invent an article locator.
+                if stable_id.startswith("https://"):
+                    item_url = stable_id
+                else:
+                    raise SourceAdapterError("MISSING_ID", "RSS_ITEM_LINK")
+            published_at = published_at.strip()
+            if published_at and "," in published_at:
+                try:
+                    published_at = parsedate_to_datetime(published_at).isoformat()
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_DATE_INVALID") from exc
+            rows.append(_content(
+                source=source, source_kind=self.kind, platform="public_rss",
+                external_id=stable_id or item_url, title=title,
+                canonical_url=item_url, published_at=published_at, author=author,
+                resolver=resolver,
+            ))
+        bounded, _ = _limited(rows, limit)
+        return bounded
 
 
 class PublicCreatorAccountsAdapter(SourceAdapter):
@@ -799,6 +904,7 @@ def get_source_adapter(kind: str) -> SourceAdapter:
     adapters: dict[str, SourceAdapter] = {
         YouTubeChannelAdapter.kind: YouTubeChannelAdapter(),
         PodcastRssAdapter.kind: PodcastRssAdapter(),
+        PublicRssAdapter.kind: PublicRssAdapter(),
         PublicCreatorAccountsAdapter.kind: PublicCreatorAccountsAdapter(),
     }
     try:
@@ -870,6 +976,7 @@ __all__ = [
     "SourceAdapterError",
     "YouTubeChannelAdapter",
     "PodcastRssAdapter",
+    "PublicRssAdapter",
     "PublicCreatorAccountsAdapter",
     "discover_source",
     "discover_source_result",

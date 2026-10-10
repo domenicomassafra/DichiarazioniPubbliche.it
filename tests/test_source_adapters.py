@@ -269,7 +269,7 @@ class SourceAdapterContractTests(unittest.TestCase):
         sources = {source["id"]: source for source in registry["sources"]}
         self.assertEqual(
             {source["kind"] for source in sources.values()},
-            {"youtube_channel", "podcast_rss", "public_creator_accounts"},
+            {"youtube_channel", "podcast_rss", "public_creator_accounts", "public_rss"},
         )
 
         youtube_source = sources["youtube-pulp-podcast"]
