@@ -49,6 +49,13 @@ reviews run the preflight without the expect-no-go switch, inspect all blockers
 and require a separate release-authority/owner gate. The preflight cross-checks
 canonical ticket headers against PLAN and requires the M1R/M2 source/promotion
 chain, including DP-214 real corpus and DP-229 challenger.
+The **full v1** preflight also requires the complete M4 Public/Studio graph
+DP-400..DP-434, including Garlasco operator usability (DP-420), an explicit
+public Case/Collection decision (DP-421), canonical route migration (DP-422)
+and Explore screen-reader acceptance (DP-429). This release gate does not
+govern the separately scoped, six-page informational publication described
+in `LAUNCH.md`, which must still pass its own approved-projection, security,
+privacy and human/legal readiness checks.
 
 **Fails** → the ticket graph is inconsistent; do not release.
 

@@ -108,6 +108,32 @@ class LaunchPreflightTests(unittest.TestCase):
             with self.subTest(critical=critical):
                 self.assertIn(critical, REQUIRED_TICKETS)
 
+    def test_full_v1_requires_public_and_studio_m4_closure(self):
+        # The informational six-page preview is independently scoped in
+        # LAUNCH.md. A full v1 release additionally needs the complete M4
+        # public/Studio chain, including corpus UX and explicit Case decision.
+        self.assertTrue(
+            {f"DP-{number}" for number in range(400, 435)}.issubset(REQUIRED_TICKETS)
+        )
+        for critical in ("DP-416", "DP-418", "DP-420", "DP-421", "DP-422", "DP-429"):
+            with self.subTest(critical=critical):
+                plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
+                plan.update({ticket: "DONE" for ticket in CONDITIONAL_SURFACE_TICKETS})
+                plan[critical] = "IN PROGRESS"
+                result = evaluate_launch_preflight(
+                    plan_statuses=plan,
+                    legal_statuses={
+                        question: "DECIDED" for question in REQUIRED_LEGAL_QUESTIONS
+                    },
+                    artifact_presence={
+                        name: True for name in REQUIRED_RELEASE_ARTIFACTS
+                    },
+                )
+                self.assertEqual(result.disposition, "NO-GO")
+                self.assertIn(
+                    f"TICKET_NOT_DONE:{critical}:IN PROGRESS", result.blockers
+                )
+
     def test_plan_done_does_not_override_a_still_open_canonical_ticket(self):
         plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
         plan.update({ticket: "DONE" for ticket in CONDITIONAL_SURFACE_TICKETS})

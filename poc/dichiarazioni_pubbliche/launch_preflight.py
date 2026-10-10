@@ -39,7 +39,14 @@ REQUIRED_TICKETS: tuple[str, ...] = tuple(
             # all-DONE release set pass while real corpus/review were blocked.
             *[f"DP-{number}" for number in range(209, 231)],
             *[f"DP-{number}" for number in range(301, 311)],
-            *[f"DP-{number}" for number in range(401, 411)],
+            # M4's public UI, Studio and usability decisions are all part of
+            # the stable-v1 milestone, including the downstream v4 route,
+            # search and accessibility gates. Checking only DP-401..410 used
+            # to allow a PENDING-OWNER result while DP-420/421/422/429 and
+            # their operator/visual dependencies remained unfinished.
+            # The earlier six-page informational preview has a separate
+            # launch scope; this gate is for the full v1 release only.
+            *[f"DP-{number}" for number in range(400, 435)],
             *[f"DP-{number}" for number in range(501, 507)],
             "DP-510",
             "DP-511",
