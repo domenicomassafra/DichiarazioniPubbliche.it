@@ -1,6 +1,6 @@
 # DP-241 — Active original-source recovery and finite investigation log
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-209, DP-213, DP-225, DP-228
 
@@ -48,4 +48,23 @@ Add attempt-level facts to existing discovery/Coverage Need histories or one nar
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+**2026-10-11 — bounded source-only partial prototype, NOT a real investigation:**
+`poc/dichiarazioni_pubbliche/original_source_investigation_v1.py` and
+`tests/test_dp241_original_source_investigation.py` add opt-in private
+source-recovery planning/reconciliation over existing DP-228 ResearchAssignment,
+DP-237 exact source/Capture/Passage resolver, DP-225 root-derivation resolver
+and DP-236 per-operation source use decisions. The plan requires two distinct
+permitted method families (not two mirrors/adapters of the same method), exact
+source/version/quote selector, reviewed query references, bounded attempt/US-dollar
+caps and deterministic no-dispatch identity. Result reconciliation distinguishes
+NOT_FOUND, CHECKED_INSUFFICIENT, OUTAGE, RIGHTS_BLOCKED and COST_BLOCKED,
+collapses provenance duplicates, rejects wrong person/date/unsupported fuller
+quote, holds changed source versions for DP-511 reanalysis, and validates plan
+integrity and receipt replay. **16/16 synthetic focused tests PASS** at the
+current source checkpoint; commit/full suite are checked separately.
+The stored references, `APPROVED` lineage/rights annotations and receipt hashes
+are caller-supplied in this standalone fixture, not real authorities or proof
+that lookup/search occurred. No source was fetched, no query was executed, no
+provider used, no audit ledger persisted, and no Studio/MiniPC readback performed.
+**All AC-241.1–.6 remain open** until end-to-end verified source, permission,
+persistence, independent review and MiniPC acceptance.

@@ -450,7 +450,7 @@ without manual DB surgery.
 | DP-238 | IN PROGRESS | Document, PDF/OCR and text extraction with role-preserving provenance | DP-210, DP-211 |
 | DP-239 | IN PROGRESS | Multilingual original and translation derivation in the private corpus | DP-210, DP-211, DP-221 |
 | DP-240 | IN PROGRESS | Bounded multi-person candidate batch with cross-source identity isolation | DP-211, DP-212, DP-218, DP-222 |
-| DP-241 | FUTURE | Active original-source recovery and finite investigation log | DP-209, DP-213, DP-225, DP-228 |
+| DP-241 | IN PROGRESS | Active original-source recovery and finite investigation log | DP-209, DP-213, DP-225, DP-228 |
 | DP-242 | FUTURE | Studio source-to-candidate machine handoff and exception lifecycle | DP-416, DP-417, DP-418, DP-419 |
 | DP-243 | FUTURE | Initial permanent historical corpus from mixed Italian/German primary sources | DP-210, DP-215, DP-703, DP-443 |
 | DP-244 | IN PROGRESS | Source coverage inventory, version refresh and incremental catalog | DP-209, DP-213, DP-215, DP-511 |
