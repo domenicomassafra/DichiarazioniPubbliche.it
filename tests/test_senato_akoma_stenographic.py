@@ -61,6 +61,11 @@ class SenatoAkomaTests(unittest.TestCase):
         result = imported(fixture())
         self.assertEqual((result.sitting_date, result.sitting_number), ("2025-05-29", 310))
         self.assertEqual(result.source_license_id, "CC-BY-4.0")
+        self.assertEqual(
+            result.source_license_url,
+            "https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/"
+            + "a" * 40 + "/LICENSE.MD",
+        )
         self.assertEqual(len(result.speeches), 2)
         self.assertEqual(len(result.held_speeches), 1)
         self.assertEqual(result.held_speeches[0].ordinal, 2)

@@ -20,7 +20,7 @@ from xml.etree import ElementTree as ET
 
 ADAPTER_VERSION = "senato-akoma-stenographic-candidates-v1"
 LICENSE_ID = "CC-BY-4.0"
-LICENSE_URL = "https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/master/LICENSE.MD"
+LICENSE_PATH = "https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob"
 SOURCE_REPOSITORY = "https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData"
 MAX_XML_BYTES = 3_000_000
 MAX_SPEECHES = 1500
@@ -206,6 +206,8 @@ def import_senato_akoma_stenographic(
         sitting_number=int(sitting_num), source_raw_url=source_raw_url,
         source_commit_sha=commit.lower(), source_blob_sha1=blob_hash,
         source_sha256=source_hash, source_license_id=LICENSE_ID,
-        source_license_url=LICENSE_URL,
+        # Bind the claimed license to this immutable source commit, not
+        # today's mutable master branch.  This is provenance, NOT clearance.
+        source_license_url=f"{LICENSE_PATH}/{commit.lower()}/LICENSE.MD",
         speeches=tuple(candidates), held_speeches=tuple(held),
     )

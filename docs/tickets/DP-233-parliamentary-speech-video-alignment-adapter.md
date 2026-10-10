@@ -292,3 +292,36 @@ This demonstrates real Senato format processing and MiniPC runtime only. It
 **does not close AC-233.10** because no owner-approved parliamentary launch
 source family / source-specific rights disposition exists and no production
 source-family ingest, speaker approval or publication decision was authorized.
+
+### 2026-10-10 — Immutable Senato license evidence, source approval unchanged
+
+The canonical AKN adapter's license evidence URL previously pointed to the
+**mutable** `master/LICENSE.MD`, even when XML source bytes were bound to a
+40-character commit. It now points to the **same immutable commit**. The
+repeatable official read-only smoke additionally checks that the exact commit
+is accessible in the official GitHub repository and verifies the README's
+`Licenza / CC BY 4.0` notice alongside the CC BY 4.0 text of `LICENSE.MD`
+**at that same commit**. SHA-256 hashes and fixed URLs of both license-evidence
+files are included in the metadata-only receipt; malformed/foreign commit,
+missing/changed license or wrong-license text fail closed. These checks do not
+create a private rights record, an operator decision, a verified speaker or
+permission to publish excerpts.
+
+**Observed official-source proof, Mac and MiniPC isolated:** commit
+`bfac144eb5c54820971bc1020fece11aae56ec90`; XML Git blob
+`bec30c067a1a79e8b377af483cfc4bfb44d13896` and source SHA-256
+`1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`
+(393,817 bytes); commit membership confirmed via official GitHub API;
+README SHA-256 `cd01c53874c63df20d18ea151b3e5528af329dbc64ee573be4d480368f5a34dc`;
+LICENSE SHA-256 `9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411`.
+Actual isolated MiniPC execution produced 104 bounded Passages and
+104 HELD Statement Candidates, 22 total held/oversize speeches, all
+with `rights_status=UNKNOWN`, `RIGHTS_HOLD`, no Person attribution and no
+public permit. Synthetic and negative focused tests **13/13 PASS** on
+both Mac and MiniPC. No live database write or operational service restart.
+
+The live MiniPC has **zero** private source-rights decisions and no
+owner-approved Senato launch family under DP-703 B-703-03/04. The documented
+CC BY 4.0 bulk-dataset license does not grant unrelated WebTV/media/ASR rights
+or substitute for the required explicit source-family disposition. Therefore
+**AC-233.10 remains unchecked and DP-233 stays IN PROGRESS**.
