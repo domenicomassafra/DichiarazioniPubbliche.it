@@ -289,8 +289,15 @@ settimanali indicative per controlli rapidi soprattutto non testuali, per esempi
 immagini corrette delle persone. Non è revisione editoriale completa del testo
 o dei verdetti. L'intenzione è automatizzare il lavoro testuale; comportamento
 nei casi incerti e autorità di pubblicazione restano aperti. Approvazione foto,
-attribuzione e fact-check sono decisioni distinte. Riprendere dalla presentazione
-di dichiarazioni correttamente attribuite ma non verificabili in modo conclusivo.
+attribuzione e fact-check sono decisioni distinte. **Ultimo steering:** aumentare
+le domande indipendenti per round; esempi concreti. Il caso ipotetico di uno storico
+che cita e critica slogan chiarisce che estrarre parole senza contesto non
+attribuisce una posizione. Citazione/imitazione/discorso riportato/confutazione
+devono restare distinti dall'adesione; non si registra il caso come frase autentica
+di Barbero. Contesto sufficiente e adattivo, non una finestra temporale universale;
+anche un filmato apparentemente esplicito richiede autenticità/identità/sequenza.
+Riprendere con un round multiplo su astensione, incertezza fattuale, eccezioni,
+pilot storico, traduzioni e pubblicazione futura. Nessuna risposta è presunta.
 Scheduling e soglie quantitative dipendono dalle misure.
 Registrare le decisioni durevoli nei file canonici
 appropriati e ricalcolare la frontiera. Nessun redesign o cambiamento di contratto

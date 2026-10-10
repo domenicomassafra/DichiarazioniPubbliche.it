@@ -99,11 +99,30 @@ an absent/unapproved image must not be filled with an invented portrait. The
 owner intends automated textual work, but publication-authority changes remain
 unresolved under the existing no-auto-publication contract.
 
-Current frontier: how to present an accurately attributed statement whose factual
-assessment is unresolved or lacks sufficient evidence, and how doubtful identities,
-quotes or comparisons are held. Establish abstention and escalation behavior
-before claiming textual automation is accepted. The proposed five-hour availability
-and visual-review workload remain approximate and must be measured.
+**Owner context clarification and grilling cadence, 2026-10-10:** ask multiple
+independent frontier decisions per round, with concrete scenarios; do not continue
+one-question turns or reopen settled mission requirements. The owner's hypothetical
+historian/edited-clip example is not evidence of an actual quotation by Barbero.
+It establishes that spoken words and endorsed positions differ: historical
+quotation, reported speech, impersonation, irony and repudiation must retain their
+context and must not populate a Person/Topic stance as endorsement. Attribution
+and context integrity precede factual assessment and comparisons.
+
+Context is sufficient meaning-preserving material, not a universal seconds count
+or a requirement to watch every complete source. A clear scene may provide relevant
+context; an apparently clear hidden-camera recording still needs authentic source,
+speaker attribution and edit/sequence checks. Do not infer lack of context from
+brevity alone, or correctness/intent from vivid footage alone. Retain original
+locator, exact passage and the surrounding material necessary to interpret it.
+User emphasis was context/attribution; the separate policy for correctly attributed
+but factually unresolved statements remains unanswered.
+
+Current frontier: acceptable abstention vs coverage, surfaced factual uncertainty,
+owner exception workload, pilot breadth, historical translations and the future
+boundary of automatic publication. Ask these independent decisions together;
+their implementation, thresholds and visual design follow the answers. The
+proposed five-hour availability and visual-review workload remain approximate
+and must be measured.
 Future daily workload and account scheduling follow pipeline acceptance. Preserve
 all existing ticket AC; no new ticket or supersession is approved yet.
 
