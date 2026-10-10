@@ -1,6 +1,6 @@
 # DP-415 — studio corpus search workspace
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-116, DP-414
 
@@ -35,10 +35,10 @@ concurrent work and use the smallest independently provable vertical slice.
 
 ## Acceptance criteria
 
-- [ ] **AC-415.1:** Keyboard-only user can query/filter/open/return while retaining state.
-- [ ] **AC-415.2:** Known benchmark questions return expected top-K records.
-- [ ] **AC-415.3:** Private result bodies never enter public build artifacts.
-- [ ] **AC-415.4:** Provider offline state does not break lexical baseline.
+- [x] **AC-415.1:** Keyboard-only user can query/filter/open/return while retaining state.
+- [x] **AC-415.2:** Known benchmark questions return expected top-K records.
+- [x] **AC-415.3:** Private result bodies never enter public build artifacts.
+- [x] **AC-415.4:** Provider offline state does not break lexical baseline.
 
 ## Validation / proof
 
@@ -127,3 +127,64 @@ This is a source-only privacy/interaction regression test, **not** a claim of
 real browser accessibility, operator consent/rights, MiniPC runtime acceptance
 or completion of AC-415.1. No public artifact, credential persistence or
 backend mutation was introduced.
+
+### Closure: live private Corpus and keyboard workflow — 2026-10-10
+
+**DP-415 is DONE for its four bounded acceptance criteria and private
+metadata-only search contract.** The older partial receipts above are
+historical; the operator must still explicitly start the loopback Studio.
+
+- **AC-415.1:** The authenticated loopback Corpus form now exposes DP-116
+  filters for result kind, Collection, Source, Person, Topic, Event, date
+  bounds, state, claim type and check-worthiness. Requests are transformed
+  into the canonical `CorpusSearchRequest` and an allowlisted source-scoped
+  response containing *only* kind/Content/Source/Passage/record IDs. Chrome
+  headless ran the **actual nonce-bound operator HTML** with native Space
+  input: filtered POST with bearer credential, selected-result inspector,
+  exact Collection/Content/Source jump via the independently authenticated
+  persisted-membership reader, return preserving search form/filter state
+  and focus, plus workspace-switch scrubbing of private identifiers. The
+  delayed-response harness separately proves token clearing, request
+  cancellation/generation rejection, and private extra-field refusal.
+  Source/Passage references that have no approved Capture are displayed as
+  **opaque locators**, never fabricated content bodies or media players.
+- **AC-415.2:** On the authoritative MiniPC PostgreSQL database
+  `dichiarazioni_pubbliche`, `CorpusSearchStore` was exercised read-only
+  (`PGOPTIONS=default_transaction_read_only=on` with statement timeout) against
+  **all 13 real Italian Garlasco benchmark questions**, including trigram
+  misspellings. Expected genuine persisted IDs appeared within top five for
+  **13/13 cases**. This is acceptance for the current *existing* private
+  corpus/claim baseline, not a claim that DP-214 has 100 accepted Contents.
+- **AC-415.3:** The MiniPC served private operator endpoint was exercised
+  with a new, ephemeral, loopback-only server and ephemeral credential:
+  invalid auth **401**, valid auth **200** with exactly two persisted matching
+  atomic-claim ID rows, `private_only=true`,
+  `publication_authority=false` and the strict ID-only response keyset.
+  Public `web/dist` inspection found no private Garlasco identifiers or
+  raw source/credential markers; unchanged public index HTML SHA-256 remains
+  `60e76f42a138b8a5fde390cee1c21c8b2053ee3f661c7a3ef78f49aebe49a1b0`.
+  No separate public Studio surface was enabled.
+- **AC-415.4:** MiniPC real PostgreSQL top-five benchmark rerun with
+  `OMNIROUTE_API_KEY`, `GROQ_API_KEY`, `OPENAI_API_KEY`, and
+  `ANTHROPIC_API_KEY` all removed from the process environment: **13/13**
+  expected matches without a provider call or fallback.
+
+**Integration/runtime evidence:** Source commit `54c906cc41255aa0ab613889235adee21ee1962c`
+was pushed to `origin/main`. Seven changed source/test paths were promoted
+to the existing non-Git MiniPC source mirror after verifying no running
+private Studio listener; existing files were backed up in the private
+`/home/udodo/src/.dpub-dp415-rollback-20261010-pre-54c906c` directory.
+No public service restart, production SQL write, SQL migration or web build
+replacement was performed. MiniPC checksum parity for the seven paths was
+**7/7 MATCH**. MiniPC **31/31** focused Studio/identity Python tests passed
+and the **actual MiniPC Chrome** keyboard/filtered-request/inspector/return
+regression passed with `CHROME_BIN=/usr/bin/google-chrome`. Existing public
+web and Cloudflare services remained active.
+
+**Strict non-claims:** This ticket closes the private **search** workspace,
+not DP-416 Collection→Capture→Passage→Candidate research navigation,
+DP-417 triage writes, DP-419 rights-gated source-body/player preview,
+DP-420 100-item operator usability, native screen-reader acceptance under
+DP-410, qualified legal permission or public launch. Those continue to be
+tracked in their distinct still-open tickets; no rights or reviewers were
+invented and the production projection remains unchanged.
