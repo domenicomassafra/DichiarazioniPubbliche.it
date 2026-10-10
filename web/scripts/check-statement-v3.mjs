@@ -62,6 +62,8 @@ for (const [description, changes] of [
   ["unauthorized finding placeholder", { finding_id: "" }],
   ["missing reviewer", { review_provenance: { ...base.review_provenance, rights: "" } }],
   ["duplicated reviewer", { review_provenance: { ...base.review_provenance, rights: "review:publication" } }],
+  ["unrecognized review kind", { review_provenance: { a: "1", b: "2", c: "3", d: "4", e: "5" } }],
+  ["nonexistent calendar date", { statement_date: "2026-99-99" }],
   ["translation passed off as original", { translation: { ...base.translation, language: "it" } }],
   ["derived text with unrelated source", { summary: { ...base.summary, source_quote_sha256: "a".repeat(64) } }],
 ]) {

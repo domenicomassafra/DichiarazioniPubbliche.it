@@ -89,6 +89,8 @@ export async function validateOriginalStatement(value: unknown): Promise<PublicO
     !SHA256.test(statement.source_sha256) ||
     !SHA256.test(statement.quote_sha256) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(statement.statement_date) ||
+    !Number.isFinite(Date.parse(statement.statement_date)) ||
+    new Date(statement.statement_date).toISOString().slice(0, 10) !== statement.statement_date ||
     !["WRITTEN", "TIMED"].includes(statement.source_kind) ||
     !VALID_ACTS.has(statement.speech_act) ||
     typeof statement.endorsed !== "boolean"
@@ -125,9 +127,11 @@ export async function validateOriginalStatement(value: unknown): Promise<PublicO
     throw new Error("PUBLIC_STATEMENT_TIMED_LOCATOR_INVALID");
   }
   const reviews = statement.review_provenance;
-  const ids = reviews && Object.values(reviews);
+  const expectedReviewKinds = ["rights", "attribution", "context", "wording", "publication"] as const;
+  const ids = reviews && expectedReviewKinds.map((kind) => reviews[kind]);
   if (
-    !ids || ids.length !== 5 || !ids.every(nonempty) || new Set(ids).size !== 5
+    !ids || Object.keys(reviews).length !== expectedReviewKinds.length ||
+    !ids.every(nonempty) || new Set(ids).size !== expectedReviewKinds.length
   ) {
     throw new Error("PUBLIC_STATEMENT_REVIEW_MISSING");
   }
@@ -144,6 +148,7 @@ export async function validateOriginalStatement(value: unknown): Promise<PublicO
       !derived ||
       derived.wording_type !== kind.toUpperCase() ||
       !nonempty(derived.text) ||
+      derived.text.length > 2000 ||
       derived.text === statement.original_text ||
       !nonempty(derived.review_event_id) ||
       derived.source_quote_sha256 !== statement.quote_sha256 ||
