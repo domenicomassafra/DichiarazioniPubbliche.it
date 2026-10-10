@@ -5,7 +5,7 @@ non una seconda fonte di verità per i ticket o una certificazione di release.
 
 ## Leggere nell’ordine
 
-1. `FINAL-PENDING-GRILLING-2026-10-10.md` — stato dei pending, decisioni e domande per la prossima chat (quando presente).
+1. [`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md) — stato completo dei pending e prompt per il grilling nella prossima chat.
 2. [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md) — dettaglio delle prove e dei limiti, tabella della pipeline e analisi del rallentamento.
 3. [`LAUNCH.md`](LAUNCH.md) — pubblicazione informativa essenziale **distinta** dalla release editoriale stabile.
 4. [`PLAN.md`](PLAN.md) e [`docs/tickets/`](docs/tickets/) — registro **canonico** dei 125 ticket e delle acceptance criterion; mai modificare stati per semplificare i numeri.

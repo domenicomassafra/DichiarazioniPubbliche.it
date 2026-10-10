@@ -17,6 +17,7 @@ publication, reply, and correction are separate auditable stages.
 Canonical source repository: `domenicomassafra/DichiarazioniPubbliche.it`.
 
 **Current status / next-agent entry point (2026-10-10):** [`HANDOFF.md`](HANDOFF.md),
+[`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md),
 [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md), and
 [`LAUNCH.md`](LAUNCH.md). The repository being merged and CI passing does **not**
 mean the editorial product or latest website build has been released; the
@@ -185,9 +186,11 @@ npm run check
 npm run build
 ```
 
-`web/README.md` documents how to build from an explicit fail-closed public projection. A
-fictional demo projection is used only when no projection path is configured, and the UI
-marks that state visibly.
+`web/README.md` documents how to build from an explicitly supplied, fail-closed
+public projection. Missing/invalid public projection paths **fail the build**;
+the fictional demo is enabled only by setting
+`DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1` for local tests, and may never be
+deployed publicly.
 
 Useful entry points:
 
