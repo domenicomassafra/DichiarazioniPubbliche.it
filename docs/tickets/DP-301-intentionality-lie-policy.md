@@ -244,3 +244,16 @@ decisions. They do not authorize a public allegation of intentional deception
 or provide DP-307's qualified Italy/EU editorial decision. The Q-306-01 and
 Q-306-02 entries remain `OPEN`, the policy still prohibits intent inference,
 and **AC-301.8 remains unchecked**.
+
+### 2026-10-10 — Unicode-format bypass of intent/public-score vocabulary
+
+The shared public-label guard previously removed accents but retained invisible
+Unicode format controls (`Cf`), including zero-width spaces/joiners, soft
+hyphens and directionality marks. Inserting such a character into an otherwise
+explicitly prohibited intent or person-ranking word made the deterministic scan
+accept it. A RED test reproduced six such labels; `normalize_label()` now removes
+invisible formatting before the existing token checks. This is an additional
+engineering safeguard for machine-generated/reviewer-entered public copy, not
+a new classification or inference about someone's intentions. **AC-301.8
+remains open** until qualified DP-306/307 decisions exist; no launch permission,
+person verdict or legal interpretation is granted by this change.

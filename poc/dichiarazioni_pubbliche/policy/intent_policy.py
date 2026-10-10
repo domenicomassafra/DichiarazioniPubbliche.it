@@ -211,10 +211,18 @@ PUBLIC_INTENT_PROHIBITED_TERMS: frozenset[str] = (
 
 
 def normalize_label(value: object) -> str:
-    """Casefold, strip accents, and split identifier separators into spaces."""
+    """Casefold/strip accents and invisible format controls before token scan.
+
+    Zero-width and bidi formatting characters must not split a forbidden
+    accusation or person-score token. This is only a defensive public-label
+    normalization; it neither infers a person's intent nor rewrites evidence.
+    """
     text = "" if value is None else str(value)
     text = unicodedata.normalize("NFKD", text)
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = "".join(
+        ch for ch in text
+        if not unicodedata.combining(ch) and unicodedata.category(ch) != "Cf"
+    )
     return " ".join(_SEPARATORS.split(text.casefold())).strip()
 
 

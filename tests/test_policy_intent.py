@@ -192,6 +192,16 @@ class ProhibitedTermDetectionTests(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertIsNotNone(find_prohibited_intent_term(label), label)
 
+    def test_invisible_format_characters_cannot_hide_intent_or_person_scores(self):
+        # These zero-width/bidi controls are invisible to readers, but previously
+        # split a forbidden token so the public-label gate silently accepted it.
+        for label in ("men\u200bzogna", "bu\u00adgiardo", "diso\u200cnesto", "intenzion\u200dalmente"):
+            with self.subTest(intent=repr(label)):
+                self.assertEqual(scan_public_label(label), "INTENT_LANGUAGE_IN_LABEL")
+        for label in ("affida\u200bbilita", "reliab\u2060ility", "perso\u200bnRanking"):
+            with self.subTest(person_score=repr(label)):
+                self.assertEqual(scan_public_label(label), "PERSON_SCORE_LANGUAGE_IN_LABEL")
+
     def test_clean_claim_level_labels_are_not_flagged(self):
         for label in (
             "SUPPORTED",
