@@ -74,3 +74,29 @@ qualified legal/owner release gate for DP-307/DP-702..705. The
 frontend preview build was not replaced because unresolved launch
 gates and unrelated uncommitted UI work must not be silently published.
 This mirror promotion does not mark any of the 39 open tickets DONE.
+
+## Follow-up source reconciliation (same day)
+
+After the backend cutover, three previously uncommitted frontend/
+historical-review WIP files were accepted **separately** after a
+real Chromium keyboard/URL/focus test, Astro check with zero
+errors and an explicitly demo-only 32-page static build:
+
+- \`b1a3d71\` — Content Audit component and Chromium deep-link test;
+- \`ea63db0\` — preserved 9 October historical integrator handoff.
+
+These follow the independent source promotion receipt commit
+\`d91e079\`. The complete \`ea63db0\` Git-tracked source set was then
+copied without \`--delete\` into the MiniPC source mirror. Final
+checksum-mode readback showed **985/985 matching Git-tracked paths**
+and \`tools/check_minipc_mirror_parity.py\` showed **568/568 runtime
+paths MATCH**, with no drift, missing files or unsafe paths.
+
+The updated frontend **source** is installed, but its **compiled
+public build has not been activated**: the same-origin service still
+serves the unchanged prior \`web/dist\` and the same existing
+public projection \`index.json\`. Both SHA-256 values above remained
+identical, Cloudflare tunnel/web service were ACTIVE, and loopback
+HTTP returned 200. This separation is intentional while the release
+preflight remains NO-GO. No public-claim content, rights status,
+database schema or live user data was changed by the follow-up sync.
