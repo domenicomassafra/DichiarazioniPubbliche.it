@@ -16,9 +16,20 @@ class TicketStatusTests(unittest.TestCase):
     def test_real_backlog_has_one_canonical_status_for_each_ticket(self):
         result = ticket_snapshot()
         self.assertEqual(result["total"], 125)
-        self.assertEqual(result["done"], 86)
-        self.assertEqual(result["not_done"], 39)
-        self.assertEqual(len(result["not_done_ticket_ids"]), 39)
+        # Ticket closure must NEVER make CI fail just because the count got
+        # better. Preserve a proven minimum so a lost DONE is a regression,
+        # and derive remaining counts from the single canonical PLAN snapshot.
+        self.assertGreaterEqual(result["done"], 87)
+        self.assertLessEqual(result["not_done"], 38)
+        self.assertEqual(result["done"] + result["not_done"], result["total"])
+        self.assertEqual(
+            sum(result[key] for key in ("done", "in_progress", "blocked", "future", "ready")),
+            result["total"],
+        )
+        self.assertEqual(len(result["not_done_ticket_ids"]), result["not_done"])
+        self.assertEqual(len(set(result["not_done_ticket_ids"])), result["not_done"])
+        self.assertNotIn("DP-607", result["not_done_ticket_ids"])
+        self.assertIn("DP-705", result["not_done_ticket_ids"])
         self.assertTrue(result["files_agree_with_plan"])
 
     def test_duplicate_and_missing_ticket_files_are_rejected(self):
