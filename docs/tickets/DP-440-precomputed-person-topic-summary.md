@@ -1,6 +1,6 @@
 # DP-440 — Sintesi Persona × Tema precomputata e citata
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-224, DP-303, DP-431, DP-435, DP-439
 
@@ -48,4 +48,21 @@ New bounded immutable-ish materialized synthesis read model and version invalida
 
 ## Completion receipt
 
-Non implementato; pianificazione soltanto. Future cited statement IDs + source hashes + snapshot/quality receipt, negative redaction/reanalysis check, corpus coverage note, MiniPC projection and route proof.
+Historical planning-only receipt; the limited offline contract below supersedes it, not the unfinished real acceptance.
+
+## 2026-10-11 — Opt-in cited synopsis read model (partial)
+
+New `public_synopsis_v3.py` with focused adversarial tests prepares a
+precomputed **read model**, never a prompt or provider request. It only
+accepts an externally approved Person×Topic membership and independent
+source-lineage proof for already validated public-v3 exact original
+Statements. Every independently reviewed sentence carries exact
+Statement/version/quote SHA, source SHA, source date/locator and coverage
+note; stale projection, changed quote, source repost mistaken for two
+independent lineages, unapproved/quoted speech promoted to endorsement,
+absent or sparse source, wrong Person or topic reference all WITHHOLD.
+Original text remains a separate resource from synopsis and translation.
+Synthetic tests PASS; no runtime LLM or live public route was activated.
+**All AC-440.1–.7 remain unchecked** pending independent editorial semantic
+entailment, real approved topic membership, atomic revoke/cache/served-build
+proof, and MiniPC positive/negative canary before any public release.

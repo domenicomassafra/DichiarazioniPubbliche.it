@@ -1,0 +1,163 @@
+"""DP-440 synthetic opt-in citation-bound synopsis, never real editorial approval."""
+
+from __future__ import annotations
+
+import copy
+import sys
+import unittest
+from dataclasses import replace
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "poc"))
+sys.path.insert(0, str(ROOT / "tests"))
+
+from dichiarazioni_pubbliche.public_projection import build_public_projection  # noqa: E402
+from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256  # noqa: E402
+from dichiarazioni_pubbliche.public_synopsis_v3 import (  # noqa: E402
+    ApprovedTopicIntersection,
+    ReviewedSynopsisSentence,
+    prepare_public_synopsis,
+)
+from test_dp435_public_statement_seam import IsolatedStatementSource, STAMP  # noqa: E402
+
+
+NOW = datetime(2026, 10, 11, 16, tzinfo=timezone.utc)
+
+
+def bundle(two_sources=True):
+    source = IsolatedStatementSource()
+    value = build_public_projection(source, generated_at=STAMP, include_public_statements=True)
+    if two_sources:
+        second = copy.deepcopy(value["statements"][0])
+        second.update({
+            "statement_id": "statement:2", "version_id": "statement-version:2",
+            "content_id": "content:2", "source_url": "https://example.test/second",
+            "source_title": "Seconda fonte sintetica", "source_version": "source-version:2",
+            "source_sha256": "a" * 64, "statement_date": "2026-10-09",
+            "review_provenance": {key: f"review:{key}:2" for key in second["review_provenance"]},
+        })
+        value["statements"].append(second)
+        value["dataset_sha256"] = projection_dataset_sha256(value)
+    return value
+
+
+def intersection(value, **overrides):
+    keys = tuple((row["statement_id"], row["version_id"]) for row in value["statements"])
+    lineages = tuple((*key, f"original-lineage:{i}") for i, key in enumerate(keys))
+    return replace(ApprovedTopicIntersection(
+        person_id="person:1", topic_id="topic:official-test",
+        dataset_sha256=value["dataset_sha256"], statement_versions=keys,
+        statement_lineages=lineages,
+        review_event_id="review:topic:1", status="APPROVED",
+        currentness_attestation_id="attested:snapshot:1",
+    ), **overrides)
+
+
+def sentence(value, index=0, **overrides):
+    record = value["statements"][index]
+    return replace(ReviewedSynopsisSentence(
+        text="Nel corpus raccolto appare una posizione dichiarata in una fonte delimitata.",
+        source_statement_versions=((record["statement_id"], record["version_id"]),),
+        source_quote_sha256=(record["quote_sha256"],),
+        review_event_id="review:summary:1", kind="REVIEWED_DESCRIPTIVE_SUMMARY",
+    ), **overrides)
+
+
+def prepare(value=None, proof=None, sentences=None, **extra):
+    value = value or bundle()
+    note = extra.pop("coverage_note", "Nel corpus raccolto, soltanto due fonti sintetiche verificate; copertura non esaustiva.")
+    return prepare_public_synopsis(
+        bundle=value, intersection=proof or intersection(value),
+        reviewed_sentences=sentences if sentences is not None else (
+            sentence(value), sentence(value, 1, review_event_id="review:summary:2")
+        ),
+        current_public_dataset_sha256=value["dataset_sha256"],
+        coverage_note=note,
+        now=NOW, **extra,
+    )
+
+
+class PublicSynopsisContractTests(unittest.TestCase):
+    def test_two_sources_sentence_level_exact_citations_and_zero_model_calls(self):
+        result = prepare()
+        self.assertEqual(result.status, "READY_READ_MODEL")
+        self.assertEqual(len(result.sentences), 2)
+        self.assertTrue(all(len(s["citations"]) == 1 for s in result.sentences))
+        self.assertTrue(all(s["citations"][0]["quote_sha256"] for s in result.sentences))
+        self.assertEqual(result.provider_calls, 0)
+        self.assertEqual(result, prepare())
+        self.assertIsNone(result.sentences[0].get("person_truth_score"))
+
+    def test_sparse_source_withholds_not_hallucinates_coverage(self):
+        value = bundle(two_sources=False)
+        result = prepare(value, sentences=(sentence(value),))
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
+        self.assertFalse(result.sentences)
+
+    def test_duplicate_mirror_lineages_cannot_fabricate_independent_sources(self):
+        value = bundle()
+        proof = intersection(value)
+        proof = replace(proof, statement_lineages=(
+            (*proof.statement_versions[0], "lineage:same"),
+            (*proof.statement_versions[1], "lineage:same"),
+        ))
+        self.assertEqual(prepare(value, proof=proof).reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
+
+    def test_changed_dataset_and_unapproved_topic_permission_hold(self):
+        value = bundle()
+        self.assertEqual(prepare(value, proof=intersection(value, status="REVOKED")).status, "WITHHELD")
+        self.assertEqual(prepare(value, proof=intersection(value, dataset_sha256="0" * 64)).reason_code,
+                         "SYNOPSIS_STALE_OR_UNAPPROVED_SNAPSHOT")
+        result = prepare_public_synopsis(
+            bundle=value, intersection=intersection(value), reviewed_sentences=(sentence(value),),
+            current_public_dataset_sha256="0" * 64, coverage_note="corpus delimitato", now=NOW,
+        )
+        self.assertEqual(result.reason_code, "SYNOPSIS_STALE_OR_UNAPPROVED_SNAPSHOT")
+
+    def test_wrong_person_or_missing_topic_membership_fails_closed(self):
+        value = bundle()
+        first = sentence(value)
+        bad_proof = intersection(value, person_id="person:other")
+        self.assertEqual(prepare(value, proof=bad_proof).reason_code, "SYNOPSIS_CITATION_NOT_PUBLIC_MEMBERSHIP")
+        missing_proof = intersection(value, statement_versions=(("statement:unknown", "version:unknown"),),
+                                     statement_lineages=(("statement:unknown", "version:unknown", "lineage:unknown"),))
+        self.assertEqual(prepare(value, proof=missing_proof, sentences=(first,)).reason_code,
+                         "SYNOPSIS_CITATION_NOT_PUBLIC_MEMBERSHIP")
+
+    def test_wrong_quote_hash_and_repeat_citation_review_hold(self):
+        value = bundle()
+        self.assertEqual(prepare(value, sentences=(sentence(value, source_quote_sha256=("f" * 64,)),)).reason_code,
+                         "SYNOPSIS_ORIGINAL_QUOTE_CHANGED")
+        self.assertEqual(prepare(value, sentences=(sentence(value), sentence(value))).reason_code,
+                         "SYNOPSIS_SENTENCE_PROVENANCE_INVALID")
+
+    def test_quoted_criticism_not_turned_into_stance(self):
+        value = bundle()
+        value["statements"][0]["speech_act"] = "REPORTED_QUOTE"
+        value["statements"][0]["endorsed"] = False
+        value["dataset_sha256"] = projection_dataset_sha256(value)
+        self.assertEqual(prepare(value).reason_code, "SYNOPSIS_REPORTED_SPEECH_NOT_ENDORSEMENT")
+        first = sentence(value, kind="SOURCE_LIST_ONLY")
+        second = sentence(value, 1, review_event_id="review:summary:2")
+        self.assertEqual(prepare(value, sentences=(first, second)).status, "READY_READ_MODEL")
+
+    def test_no_unreviewed_generation_or_original_quote_disguised_as_summary(self):
+        value = bundle()
+        original = value["statements"][0]["original_text"]
+        self.assertEqual(prepare(value, sentences=(sentence(value, text="La fonte dice: " + original),)).reason_code,
+                         "SYNOPSIS_VERBATIM_IN_SYNTHESIS")
+        self.assertEqual(prepare(value, sentences=(sentence(value, review_event_id=""),)).status, "WITHHELD")
+
+    def test_bad_coverage_note_and_non_verbatim_v2_bundle_rejected(self):
+        value = bundle()
+        self.assertEqual(prepare(value, coverage_note="Risultati completi di ogni dichiarazione").status, "WITHHELD")
+        value["schema_version"] = "dichiarazioni-pubbliche-public-v2"
+        with self.assertRaises(Exception):
+            prepare(value)
+
+
+if __name__ == "__main__":
+    unittest.main()

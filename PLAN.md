@@ -448,7 +448,7 @@ without manual DB surgery.
 | DP-236 | IN PROGRESS | Source-family acquisition/use profile with real permission decisions | DP-210, DP-305 |
 | DP-237 | IN PROGRESS | Versioned exact locator and cross-format provenance chain | DP-210, DP-216, DP-224, DP-225 |
 | DP-238 | IN PROGRESS | Document, PDF/OCR and text extraction with role-preserving provenance | DP-210, DP-211 |
-| DP-239 | FUTURE | Multilingual original and translation derivation in the private corpus | DP-210, DP-211, DP-221 |
+| DP-239 | IN PROGRESS | Multilingual original and translation derivation in the private corpus | DP-210, DP-211, DP-221 |
 | DP-240 | FUTURE | Bounded multi-person candidate batch with cross-source identity isolation | DP-211, DP-212, DP-218, DP-222 |
 | DP-241 | FUTURE | Active original-source recovery and finite investigation log | DP-209, DP-213, DP-225, DP-228 |
 | DP-242 | FUTURE | Studio source-to-candidate machine handoff and exception lifecycle | DP-416, DP-417, DP-418, DP-419 |
@@ -553,7 +553,7 @@ LLM in the request path.
 | DP-437 | IN PROGRESS | Independent public Statements for opinions and positions | DP-435, DP-104, DP-111, DP-312 |
 | DP-438 | IN PROGRESS | Person pubblica autonoma, anche senza Statement | DP-105, DP-222, DP-402, DP-437 |
 | DP-439 | IN PROGRESS | Filtri pubblici Persona × Tema e dati incrociati | DP-105, DP-402, DP-430, DP-437, DP-438 |
-| DP-440 | FUTURE | Sintesi Persona × Tema precomputata e citata | DP-224, DP-303, DP-431, DP-435, DP-439 |
+| DP-440 | IN PROGRESS | Sintesi Persona × Tema precomputata e citata | DP-224, DP-303, DP-431, DP-435, DP-439 |
 | DP-441 | FUTURE | Brief e alternative comparabili del redesign, decisione owner | DP-413, DP-423 |
 | DP-442 | FUTURE | Implementazione futura del redesign scelto e migrazione controllata | DP-425, DP-441, DP-436 |
 | DP-443 | FUTURE | First complete source-to-reader and correction pilot | DP-235, DP-312, DP-314, DP-316, DP-317, DP-318, DP-320, DP-321, DP-435, DP-436, DP-437, DP-438, DP-439, DP-440 |
