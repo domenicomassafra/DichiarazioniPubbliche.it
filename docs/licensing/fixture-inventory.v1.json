@@ -5,7 +5,7 @@
   "generated_on": "2026-10-10",
   "code_license": "Apache-2.0",
   "note": "Machine-readable fixture/data licensing inventory (DP-603). Rights are curated human decisions, not inferred from the Apache-2.0 code license. UNKNOWN license rows are blocked/pending-review and must NOT be shipped in a release or public projection until owner/legal review. Enforced by tools/check_licensing_inventory.py.",
-  "asset_count": 46,
+  "asset_count": 47,
   "assets": [
     {
       "asset_id": "docs:ux:prototypes-v3:generated-style-02:index.html",
@@ -946,6 +946,29 @@
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:private_pipeline_reconciliation.sql",
+      "path_or_locator": "tests/fixtures/private_pipeline_reconciliation.sql",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "authored in-repo (isolated PostgreSQL private source-to-candidate lineage acceptance fixture)",
+      "retrieved_at": "2026-10-10",
+      "content_hash": "da47e42ca5b056cc14930530fd88f7ff3515b187e35ac99c6ddcfaa7cff39990",
+      "license_or_terms": "Apache-2.0",
+      "license_evidence": "LICENSE (project-authored PostgreSQL canary)",
+      "attribution": "No external attribution required; fictional source IDs, rights states and candidate rows only.",
+      "modifications": "Synthetic privacy-held, revoked-rights and stale-capture regression rows; no real sourced materials.",
+      "personal_data": "synthetic-only; no production source text or personal identity",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal isolated-DB regression fixture; never promoted or publicly projected",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-10-10",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
       "blocker": null
