@@ -957,7 +957,7 @@
       "origin": "Dichiarazioni Pubbliche contributors",
       "source_reference": "authored in-repo (isolated PostgreSQL private source-to-candidate lineage acceptance fixture)",
       "retrieved_at": "2026-10-10",
-      "content_hash": "da47e42ca5b056cc14930530fd88f7ff3515b187e35ac99c6ddcfaa7cff39990",
+      "content_hash": "c92197a74f52b41a6ae4841b9188641bab8154a28f9a19e144f255680ca1897c",
       "license_or_terms": "Apache-2.0",
       "license_evidence": "LICENSE (project-authored PostgreSQL canary)",
       "attribution": "No external attribution required; fictional source IDs, rights states and candidate rows only.",
