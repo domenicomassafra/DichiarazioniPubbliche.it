@@ -318,6 +318,11 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
                 <div className="claim-row-main">
                   <div className="eyebrow">{kindLabels[record.kind]}</div>
                   <a className="claim-row-claim" href={record.route}>{record.title}</a>
+                  {record.kind === "finding" && record.wording_type === "PARAPHRASE" && (
+                    <div className="claim-row-meta">
+                      Formulazione normalizzata · non è una citazione testuale
+                    </div>
+                  )}
                   {record.subtitle && <div className="claim-row-meta"><span>{record.subtitle}</span></div>}
                   {(record.has_corrections || record.has_rights_of_reply) && (
                     <div className="claim-row-meta">
