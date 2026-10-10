@@ -1527,11 +1527,11 @@ class QueueRuntimeStore(PsqlRuntime):
     ) -> bool:
         raw = self.run(
             """
-            WITH changed AS (
-                UPDATE evidence_observation
-                SET status = 'APPROVED'
+            WITH locked_candidate AS (
+                SELECT id, status
+                FROM evidence_observation
                 WHERE id = :'observation_id'
-                RETURNING id
+                FOR UPDATE
             ),
             logged AS (
                 INSERT INTO review_event (
@@ -1546,8 +1546,29 @@ class QueueRuntimeStore(PsqlRuntime):
                     :'actor_ref',
                     NULLIF(:'reason',''),
                     '{}'::jsonb
-                FROM changed
+                FROM locked_candidate
                 ON CONFLICT (id) DO NOTHING
+                RETURNING id
+            ),
+            replayed_exact_review AS (
+                SELECT reviewer.id
+                FROM review_event reviewer
+                JOIN locked_candidate candidate ON candidate.status = 'APPROVED'
+                WHERE reviewer.id = :'event_id'
+                  AND reviewer.entity_type = 'EVIDENCE_OBSERVATION'
+                  AND reviewer.entity_id = :'observation_id'
+                  AND reviewer.action = 'APPROVED'
+                  AND reviewer.actor_ref = :'actor_ref'
+                  AND reviewer.reason IS NOT DISTINCT FROM NULLIF(:'reason','')
+            ),
+            changed AS (
+                UPDATE evidence_observation
+                SET status = 'APPROVED'
+                WHERE id = :'observation_id'
+                  AND (
+                      EXISTS (SELECT 1 FROM logged)
+                      OR EXISTS (SELECT 1 FROM replayed_exact_review)
+                  )
                 RETURNING id
             )
             SELECT EXISTS(SELECT 1 FROM changed)::text;

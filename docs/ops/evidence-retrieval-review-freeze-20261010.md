@@ -70,3 +70,29 @@ that every review state has a complete provenance/rights explanation.
 The patched Mac source has not been promoted to the MiniPC production
 mirror in this step. Runtime acceptance of the deployed implementation
 remains distinct from a successful read-only database inventory.
+
+## 2026-10-10 continuation: evidence observation approval authority
+
+Reviewing the adjacent canonical observation path found the same
+collision error in \`QueueRuntimeStore.approve_evidence_observation_with_review\`:
+an unconditional UPDATE could set an observation to APPROVED even if a
+different observation already owned the deterministic review-event ID.
+It also allowed an existing event to be replayed with another reviewer or
+reason, and to reapprove an unexpectedly downgraded observation.
+
+Two added real PostgreSQL regression tests were RED before the fix. The
+operation now locks the exact observation, inserts the required review event
+and changes status only after a successful insert. A repeated event is an
+idempotent replay solely if its entity/action/actor/reason match and the
+observation is still APPROVED. Neither a collided event ID nor a stale event
+can confer new authority.
+
+**MiniPC read-only aggregate, no production change:** 13 evidence
+observations, 9 APPROVED with corresponding APPROVED review events, zero
+APPROVED without corresponding event and zero approved-event receipts
+attached to a currently non-approved observation. These are inventory
+counts, not proof of the authority/rights or correctness of any content.
+
+This continuation adds no legal/owner permission, publication, migration
+or deployment. DP-229 remains open on the independently attested
+challenger-material authority and high-risk integration.

@@ -185,3 +185,15 @@ discarded. The approval writer now requires a newly appended exact
 review event, or an exact idempotent replay against an already
 APPROVED candidate. Historical stale events cannot reapprove a
 demoted row. This does not relax DP-310 attestation requirements.
+
+### 2026-10-10 evidence observation approval replay gate
+
+The same update-before-review-event failure also affected
+\`approve_evidence_observation_with_review\`. A real disposable PostgreSQL
+RED fixture reproduced an unrelated event-ID collision setting an
+observation to APPROVED without its own approval receipt. A second fixture
+showed that an altered reviewer/reason could replay an event and that a
+stale event could reapprove a downgraded observation. The observation
+writer now gates approval on a newly inserted event or an exact replay
+of a current APPROVED observation, preserving the DP-310 publication
+review boundary. No DP-229 AC is marked done by this prerequisite fix.

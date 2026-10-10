@@ -1589,6 +1589,22 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             """
             WITH current AS (
               SELECT * FROM coverage_need WHERE id=:'coverage_need_id' FOR UPDATE
+            ), logged AS (
+              -- Claim the immutable event ID before mutating attempt budget.
+              -- Replays/collisions must not consume retries without receipts.
+              INSERT INTO coverage_need_event(
+                id,coverage_need_id,event_type,from_status,to_status,attempt_number,
+                actor_ref,reason,metadata
+              )
+              SELECT :'event_id',current.id,'SEARCH_ATTEMPT',current.status,
+                     CASE WHEN current.attempt_count+1 >= current.max_attempts
+                          THEN 'BLOCKED' ELSE 'SEARCHING' END,
+                     current.attempt_count+1,
+                     :'actor_ref',NULLIF(:'reason',''),:'metadata'::jsonb
+              FROM current
+              WHERE current.status IN ('OPEN','SEARCHING')
+                AND current.attempt_count < current.max_attempts
+              ON CONFLICT (id) DO NOTHING RETURNING id
             ), changed AS (
               UPDATE coverage_need need
               SET attempt_count=current.attempt_count+1,
@@ -1600,15 +1616,8 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
               WHERE need.id=current.id
                 AND current.status IN ('OPEN','SEARCHING')
                 AND current.attempt_count < current.max_attempts
+                AND EXISTS (SELECT 1 FROM logged)
               RETURNING need.id,current.status AS from_status,need.status AS to_status,need.attempt_count
-            ), logged AS (
-              INSERT INTO coverage_need_event(
-                id,coverage_need_id,event_type,from_status,to_status,attempt_number,
-                actor_ref,reason,metadata
-              )
-              SELECT :'event_id',id,'SEARCH_ATTEMPT',from_status,to_status,attempt_count,
-                     :'actor_ref',NULLIF(:'reason',''),:'metadata'::jsonb
-              FROM changed ON CONFLICT (id) DO NOTHING RETURNING id
             )
             SELECT COALESCE(json_build_object(
               'changed', EXISTS(SELECT 1 FROM changed),
@@ -1668,6 +1677,24 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             """
             WITH current AS (
               SELECT * FROM coverage_need WHERE id=:'coverage_need_id' FOR UPDATE
+            ), logged AS (
+              INSERT INTO coverage_need_event(
+                id,coverage_need_id,event_type,from_status,to_status,content_id,evidence_id,
+                source_profile_id,actor_ref,reason,metadata
+              )
+              SELECT :'event_id',current.id,'SATISFIED',current.status,'SATISFIED',
+                     NULLIF(:'content_id',''),NULLIF(:'evidence_id',''),NULLIF(:'source_profile_id',''),
+                     :'actor_ref',NULLIF(:'reason',''),
+                     CASE
+                       WHEN :'original_source_resolution'::jsonb <> '{}'::jsonb
+                       THEN jsonb_build_object(
+                         'original_source_resolution', :'original_source_resolution'::jsonb
+                       )
+                       ELSE '{}'::jsonb
+                     END
+              FROM current
+              WHERE current.status IN ('OPEN','SEARCHING')
+              ON CONFLICT (id) DO NOTHING RETURNING id
             ), changed AS (
               UPDATE coverage_need need
               SET status='SATISFIED', resolved_at=now(), updated_at=now(), blocker_code=NULL,
@@ -1683,6 +1710,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                   END
               FROM current
               WHERE need.id=current.id AND current.status IN ('OPEN','SEARCHING')
+                AND EXISTS (SELECT 1 FROM logged)
               RETURNING need.id,current.status AS from_status,current.source_intelligence_assessment_id
             ), assessment_updated AS (
               UPDATE evidence_set_assessment assessment
@@ -1694,22 +1722,6 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 AND :'original_source_resolution'::jsonb <> '{}'::jsonb
                 AND assessment.id=changed.source_intelligence_assessment_id
               RETURNING assessment.id
-            ), logged AS (
-              INSERT INTO coverage_need_event(
-                id,coverage_need_id,event_type,from_status,to_status,content_id,evidence_id,
-                source_profile_id,actor_ref,reason,metadata
-              )
-              SELECT :'event_id',id,'SATISFIED',from_status,'SATISFIED',
-                     NULLIF(:'content_id',''),NULLIF(:'evidence_id',''),NULLIF(:'source_profile_id',''),
-                     :'actor_ref',NULLIF(:'reason',''),
-                     CASE
-                       WHEN :'original_source_resolution'::jsonb <> '{}'::jsonb
-                       THEN jsonb_build_object(
-                         'original_source_resolution', :'original_source_resolution'::jsonb
-                       )
-                       ELSE '{}'::jsonb
-                     END
-              FROM changed ON CONFLICT (id) DO NOTHING RETURNING id
             )
             SELECT CASE
               WHEN EXISTS(SELECT 1 FROM changed) THEN 'SATISFIED'
@@ -1862,19 +1874,22 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             """
             WITH current AS (
               SELECT * FROM coverage_need WHERE id=:'coverage_need_id' FOR UPDATE
+            ), logged AS (
+              INSERT INTO coverage_need_event(
+                id,coverage_need_id,event_type,from_status,to_status,actor_ref,reason,metadata
+              )
+              SELECT :'event_id',current.id,'BLOCKED',current.status,'BLOCKED',:'actor_ref',
+                     NULLIF(:'reason',''),:'metadata'::jsonb
+              FROM current
+              WHERE current.status IN ('OPEN','SEARCHING')
+              ON CONFLICT (id) DO NOTHING RETURNING id
             ), changed AS (
               UPDATE coverage_need need
               SET status='BLOCKED',blocker_code=:'blocker_code',resolved_at=now(),updated_at=now()
               FROM current
               WHERE need.id=current.id AND current.status IN ('OPEN','SEARCHING')
+                AND EXISTS (SELECT 1 FROM logged)
               RETURNING need.id,current.status AS from_status
-            ), logged AS (
-              INSERT INTO coverage_need_event(
-                id,coverage_need_id,event_type,from_status,to_status,actor_ref,reason,metadata
-              )
-              SELECT :'event_id',id,'BLOCKED',from_status,'BLOCKED',:'actor_ref',
-                     NULLIF(:'reason',''),:'metadata'::jsonb
-              FROM changed ON CONFLICT (id) DO NOTHING RETURNING id
             )
             SELECT CASE
               WHEN EXISTS(SELECT 1 FROM changed) THEN 'BLOCKED'

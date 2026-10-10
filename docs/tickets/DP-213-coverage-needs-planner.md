@@ -81,6 +81,20 @@ not only a green unit-test summary.
 
 Private workflow only; useful bridge between research and evidence retrieval.
 
+### 2026-10-10 collision/replay integrity maintenance
+
+Disposable PostgreSQL RED tests exposed that a reused
+\`coverage_need_event.id\` could still consume research attempts or
+mark a need SATISFIED/BLOCKED even though \`ON CONFLICT DO NOTHING\`
+had suppressed the corresponding event. These three operations now
+append the event first and gate the corresponding state transition on
+the newly inserted event in the same SQL statement. Six real database
+cases verify refusal on collision and successful, idempotent normal
+attempt/satisfaction/blocking. See
+[\`coverage-need-immutable-event-20261010.md\`](../ops/coverage-need-immutable-event-20261010.md).
+This is post-DONE correctness maintenance, not a new or silently
+approved DP-214 source or a production deployment.
+
 Update canonical docs only where actual implementation changes the contract. Historical
 research/receipts stay historical; do not rewrite them to make the new architecture look
 older than it is.
