@@ -1,6 +1,6 @@
 # DP-314 — Verificatore fattuale generalista per claim type e requirement profile
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-215, DP-224, DP-226, DP-227, DP-228, DP-229, DP-312
 
@@ -36,4 +36,20 @@ Depends on: DP-215, DP-224, DP-226, DP-227, DP-228, DP-229, DP-312
 ## Documentation, data, and migration impact
  Versioned requirement/rule registry; expand existing verification ledger with optional fields or new narrow attested result, retain old numeric-v1 runs and API compatibility with explicit migration.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+**2026-10-11 — partial opt-in source-only implementation, NOT a Finding:**
+`verification_requirements_v1.py` provides a bounded `VerificationRequirementProfile`
+registry for EVENT_SEQUENCE, DOCUMENTARY_LEGAL_STATUS, FACTUAL_DENIAL,
+NUMERIC and FACTUAL_TEXT_COMPARISON. It checks caller-declared source-use and
+review statuses, roles, date cutoff, jurisdiction, independent original roots
+and duplicate source bytes. It distinguishes NOT_CHECKED, NON_FACTUAL,
+NOT_CHECKABLE_PROFILE_UNAVAILABLE, CHECKED_INSUFFICIENT_EVIDENCE,
+UNRESOLVED_CONFLICT and CHECKABLE_PENDING. No outcome maps to a factually
+SUPPORTED/FALSE verdict: the preflight does not verify original provenance,
+reviewer identity, source rights, semantic independence, a mathematical rule,
+or challenger truth. The existing numeric/text verifier is not replaced.
+Input snapshots are deterministic but not cryptographically authenticated.
+**10/10 synthetic focused tests PASS; 19/19 existing verification runtime
+regressions PASS**, Python compile and diff check PASS. External genuine
+source lineage/rights, durable append-only decisions and MiniPC pipeline,
+independent blind gold/DP-321, DP-316 authority and DP-229 challenger proof
+remain missing. **All AC-314.1–.6 remain unmarked** pending complete evidence.
