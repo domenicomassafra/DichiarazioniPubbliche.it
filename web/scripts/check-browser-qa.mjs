@@ -225,8 +225,13 @@ async function launchChrome(origin, { scale = 1, zoomFactor = 1 } = {}) {
       cdp,
       profile,
       async close() {
-        try { await cdp.send("Browser.close"); } catch {}
-        await cleanup();
+        // Chrome can close the DevTools transport before answering Browser.close.
+        // Always release the child/profile and WebSocket so CI terminates.
+        try { await Promise.race([cdp.send("Browser.close"), sleep(750)]); } catch {}
+        finally {
+          cdp.ws.close();
+          await cleanup();
+        }
       },
     };
   } catch (error) {
@@ -299,8 +304,101 @@ browser.cdp.on("Network.requestWillBeSent", ({ request }) => {
   if (!request.url.startsWith(origin)) externalRequests.push(request.url);
 });
 
+async function runBrowserChecks() {
 try {
   const { cdp } = browser;
+  // An approved empty projection has no React search controls to hydrate.
+  // Verify the actual static launch experience in one Chrome process instead.
+  if (searchIndex.records.length === 0) {
+    const checked = [];
+    const screenshots = {};
+    await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+    for (const width of [1280, 390, 320]) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width, height: 840, deviceScaleFactor: 1, mobile: width < 500 });
+      for (const route of ["/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"]) {
+        await navigate(cdp, `${origin}${route}`);
+        const state = await cdp.evaluate(`({
+          viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+          heading: document.querySelector('main h1')?.textContent ?? '',
+          headings: document.querySelectorAll('main h1').length,
+          mainCount: document.querySelectorAll('main').length,
+          demo: /garlasco|ambiente dimostrativo|finding-demo/i.test(document.body.innerText),
+          reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+          canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+          navigation: [...document.querySelectorAll('header a')].filter(a => a.getAttribute('href')?.startsWith('/')).map(a => a.getAttribute('href'))
+        })`);
+        assert.equal(state.viewport, width, `${route}: viewport mismatch`);
+        assert(state.scrollWidth <= width + 1, `${route} ${width}px: horizontal overflow ${state.scrollWidth}`);
+        assert.equal(state.mainCount, 1, `${route}: expected one main landmark`);
+        assert.equal(state.headings, 1, `${route}: expected one primary heading`);
+        assert(state.heading.trim().length > 0, `${route}: page h1 missing`);
+        assert.equal(state.reducedMotion, true, `${route}: reduced-motion preference was lost`);
+        assert.equal(state.canonical, route, `${route}: canonical URL mismatch`);
+        assert.equal(state.demo, false, `${route}: demo or forbidden topic visible`);
+        if (route === "/esplora/") {
+          assert.equal(await cdp.evaluate("!!document.querySelector('.launch-empty-state')"), true, "approved empty state missing");
+          assert.equal(await cdp.evaluate("!!document.querySelector('.claim-row')"), false, "phantom public row on empty state");
+        }
+        if (route === "/") {
+          assert.equal(await cdp.evaluate("!!document.querySelector('.home-launch-status')"), true, "launch readiness status missing");
+          assert.equal(await cdp.evaluate("!!document.querySelector('.home-recent .claim-row')"), false, "phantom recent finding");
+        }
+        if (width === 1280 && route === "/") screenshots.homeDesktop = await screenshot(cdp, "launch-home-desktop");
+        if (width === 390 && route === "/esplora/") screenshots.exploreMobile = await screenshot(cdp, "launch-explore-mobile");
+        checked.push(`${route}@${width}`);
+      }
+    }
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 840, deviceScaleFactor: 1, mobile: true });
+    await navigate(cdp, `${origin}/esplora/`);
+    const axNodes = (await cdp.send("Accessibility.getFullAXTree")).nodes;
+    assert(axNodes.some((node) => axValue(node, "role") === "heading" && axValue(node, "name") === "Non ci sono ancora record pubblicati."), "empty state is not exposed as an accessibility heading");
+    assert(axNodes.some((node) => axValue(node, "role") === "navigation" && axValue(node, "name") === "Informazioni sul progetto"), "empty-state links lack a named navigation landmark");
+    await cdp.evaluate("document.querySelector('.launch-empty-links a[href=\"/metodo/\"]').focus()");
+    assert.equal(await cdp.evaluate("document.activeElement?.getAttribute('href')"), "/metodo/", "empty-state link is not keyboard focusable");
+    await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
+    await waitFor(cdp, "location.pathname === '/metodo/'", "empty-state keyboard navigation failed");
+
+    await navigate(cdp, `${origin}/esplora/`);
+    await cdp.send("Emulation.setEmulatedVisionDeficiency", { type: "achromatopsia" });
+    screenshots.exploreGrayscale = await screenshot(cdp, "launch-explore-grayscale");
+    await cdp.send("Emulation.setEmulatedVisionDeficiency", { type: "none" });
+    await cdp.send("Emulation.clearDeviceMetricsOverride");
+
+    // The second Chrome session applies actual 200% browser zoom via profile
+    // settings; viewport emulation or pinch scaling would not prove reflow.
+    const zoomBrowser = await launchChrome(origin, { zoomFactor: 2 });
+    zoomBrowser.cdp.on("Network.requestWillBeSent", ({ request }) => {
+      if (!request?.url || request.url.startsWith("data:") || request.url.startsWith("blob:")) return;
+      if (!request.url.startsWith(origin)) externalRequests.push(request.url);
+    });
+    const zoomed = [];
+    try {
+      for (const route of ["/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"]) {
+        await navigate(zoomBrowser.cdp, `${origin}${route}`);
+        const metrics = await zoomBrowser.cdp.evaluate(`({
+          viewport: innerWidth,
+          outerWidth,
+          devicePixelRatio,
+          visualScale: visualViewport.scale,
+          scrollWidth: document.documentElement.scrollWidth,
+          headings: document.querySelectorAll('main h1').length
+        })`);
+        assert.equal(metrics.outerWidth, 1280, `${route}: unexpected physical browser width at 200% zoom`);
+        assert.equal(metrics.viewport, 640, `${route}: browser zoom did not halve CSS viewport`);
+        assert.equal(metrics.devicePixelRatio, 2, `${route}: browser zoom did not double devicePixelRatio`);
+        assert.equal(metrics.visualScale, 1, `${route}: browser zoom was replaced by pinch scaling`);
+        assert(metrics.scrollWidth <= metrics.viewport + 1, `${route}: overflow at real 200% browser zoom`);
+        assert.equal(metrics.headings, 1, `${route}: primary heading missing at 200% zoom`);
+        await dp422Screenshot(zoomBrowser.cdp, `launch-${route === "/" ? "home" : route.split("/")[1]}`, "zoom200");
+        zoomed.push(route);
+      }
+    } finally {
+      await zoomBrowser.close();
+    }
+    assert.deepEqual(externalRequests, [], "empty public launch requested an external provider");
+    console.log(JSON.stringify({ status: "PASS", state: "empty-public-projection", pages: checked.length, actual_zoom_200_pages: zoomed.length, keyboard_navigation: "PASS", grayscale: "CHECKED", reduced_motion: "PASS", screenshots, external_requests: externalRequests.length }, null, 2));
+    return;
+  }
   await navigate(cdp, `${origin}/esplora/`);
   await waitFor(cdp, "document.querySelector('.results-count')?.textContent?.includes('risultat')", "Explore did not hydrate");
   const correctionHistoryHref = await cdp.evaluate("document.querySelector('.claim-row-meta a')?.getAttribute('href') ?? ''");
@@ -545,5 +643,11 @@ try {
   }, null, 2));
 } finally {
   await browser.close();
+  // A renderer may outlive Chrome's DevTools browser target briefly; its
+  // keep-alive connection must not leave the test server hanging in CI.
+  server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
 }
+}
+
+await runBrowserChecks();

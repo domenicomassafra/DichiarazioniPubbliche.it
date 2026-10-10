@@ -10,27 +10,37 @@ const recent = [...projection.dossiers]
   .sort((a, b) => new Date(b.finding.published_at ?? 0).getTime() - new Date(a.finding.published_at ?? 0).getTime())
   .slice(0, 4);
 const featuredContent = recent[0];
+const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0;
 ---
 
 <BaseLayout title="Dichiarazioni Pubbliche" canonicalPath="/">
   <section class="shell home-hero home-hero-v4">
     <div class="hero-copy hero-copy-v4">
-      <p class="eyebrow">Registro pubblico delle dichiarazioni</p>
-      <h1 class="display-title">La parola lascia una traccia.</h1>
-      <p class="lede">Un registro consultabile di ciò che è stato detto in pubblico: parole, fonti, verifiche e cambiamenti nel tempo, senza punteggi alle persone.</p>
+      <p class="eyebrow">Dichiarazioni Pubbliche</p>
+      <h1 class="display-title">Le parole contano. Le fonti anche.</h1>
+      <p class="lede">Un archivio per ritrovare le dichiarazioni pubbliche, leggere le fonti originali e capire come sono state verificate. Senza classifiche delle persone.</p>
     </div>
-    <div class="hero-search hero-search-v4" aria-label="Ricerca principale">
-      <strong>Cerca nel registro</strong>
-      <SearchField placeholder="Dichiarazione, persona, tema o contenuto…" />
-      <p class="search-note">Cerca ciò che è già pubblicato nel record oppure <a href="/esplora/">esplora tutto →</a></p>
-    </div>
+    {hasPublicRecords ? (
+      <div class="hero-search hero-search-v4" aria-label="Ricerca principale">
+        <strong>Cerca nell'archivio</strong>
+        <SearchField placeholder="Cerca una dichiarazione, una persona o un tema…" />
+        <p class="search-note">Solo risultati con una fonte e una revisione pubblicate. <a href="/esplora/">Esplora l'archivio →</a></p>
+      </div>
+    ) : (
+      <aside class="hero-search hero-search-v4 home-launch-status" aria-labelledby="archivio-stato">
+        <p class="eyebrow">Stato dell'archivio</p>
+        <h2 id="archivio-stato">Nessuna dichiarazione ancora pubblicata.</h2>
+        <p>Il sito è consultabile. Le schede compariranno solo dopo il controllo delle fonti, delle attribuzioni e delle verifiche.</p>
+        <a class="text-link" href="/metodo/">Scopri come funziona <span aria-hidden="true">→</span></a>
+      </aside>
+    )}
   </section>
 
-  <section class="shell page-section-tight home-recent">
+  {hasPublicRecords && <section class="shell page-section-tight home-recent">
     <div class="section-heading ruled-heading">
       <div class="section-heading-copy">
         <h2 class="section-title">Dichiarazioni recenti</h2>
-        <p>Il record parte sempre dalle parole e dalla fonte.</p>
+        <p>Ogni scheda rimanda alle fonti pubblicate.</p>
       </div>
       <a class="text-link" href="/esplora/">Esplora tutto <span aria-hidden="true">→</span></a>
     </div>
@@ -40,18 +50,18 @@ const featuredContent = recent[0];
       </div>
     ) : (
       <div class="dp-utility-empty">
-        <h2>Nessuna dichiarazione pubblicata in questo snapshot.</h2>
-        <p>La navigazione e il Metodo restano disponibili anche quando la projection non contiene record pubblicabili.</p>
+        <h2>Non ci sono ancora dichiarazioni pubblicate.</h2>
+        <p>Puoi comunque consultare i contenuti già approvati in <a href="/esplora/">Esplora</a>.</p>
       </div>
     )}
-  </section>
+  </section>}
 
   {featuredContent && (
     <section class="shell page-section-tight home-source">
       <div class="section-heading ruled-heading">
         <div class="section-heading-copy">
           <h2 class="section-title">Dentro la fonte</h2>
-          <p>Un esempio del percorso che riporta il record al contenuto originale.</p>
+          <p>Dal testo alla sua fonte originale.</p>
         </div>
       </div>
       <MediaFeature
@@ -65,14 +75,15 @@ const featuredContent = recent[0];
 
   <section class="shell home-trust-path">
     <div>
-      <div class="eyebrow">Come fidarsi del percorso</div>
-      <h2>Non chiediamo di fidarti di un punteggio.</h2>
-      <p>Apri la dichiarazione, torna alla fonte, leggi le evidenze e controlla come gestiamo limiti e correzioni.</p>
+      <div class="eyebrow">Prima le fonti</div>
+      <h2>Come riconoscere una verifica controllabile.</h2>
+      <p>Ogni scheda pubblicata deve permettere di risalire alle parole originali, vedere quali prove sono state usate e leggere eventuali correzioni. Il metodo è pubblico anche quando l'archivio è vuoto.</p>
     </div>
     <nav aria-label="Percorsi di fiducia">
-      <a href="/metodo/">Metodo →</a>
-      <a href="/correzioni/">Correzioni →</a>
-      <a href="/dati/">Dati &amp; API →</a>
+      <a href="/metodo/">Come verifichiamo →</a>
+      <a href="/progetto/">Il progetto →</a>
+      <a href="/correzioni/">Correzioni e repliche →</a>
+      <a href="/dati/">Dati pubblici e API →</a>
     </nav>
   </section>
 </BaseLayout>

@@ -4,19 +4,19 @@ import UtilityDocument from "../components/UtilityDocument.astro";
 ---
 
 <BaseLayout title="Dati & API" description="Risorse machine-readable, schema pubblico e API di Dichiarazioni Pubbliche." canonicalPath="/dati/">
-  <UtilityDocument eyebrow="Dati & API" title="Lo stesso record pubblico, in forma machine-readable." lede="Le interfacce pubbliche derivano dalla stessa proiezione fail-closed usata dal sito. Non espongono trascrizioni grezze, materiale privato o punteggi sulle persone.">
+  <UtilityDocument eyebrow="Dati & API" title="I dati pubblicati, anche per chi sviluppa." lede="Le risorse qui sotto permettono di leggere i dati pubblici in formato JSON. Se l'archivio è vuoto, anche i risultati sono vuoti: non aggiungiamo dati di prova.">
     <section class="dp-utility-section">
       <h2>Risorse pubbliche</h2>
       <ul class="dp-resource-list">
-        <li><a href="/api/v1/openapi.json">OpenAPI JSON</a> — descrizione machine-readable delle route pubbliche.</li>
-        <li><a href="/api/v1/schema">Schema</a> — versioni e vocabolari del contratto pubblico.</li>
-        <li><a href="/api/v1/findings">Findings</a> — record di verifica pubblicati.</li>
-        <li><a href="/api/v1/index.json">Indice JSON</a> — indice pubblico derivato dalla projection.</li>
+        <li><a href="/api/v1/index.json">Archivio JSON</a> — tutti i record attualmente pubblicati.</li>
+        <li><a href="/api/v1/findings">Verifiche JSON</a> — le valutazioni disponibili.</li>
+        <li><a href="/api/v1/openapi.json">Documentazione API</a> — elenco tecnico delle richieste disponibili.</li>
+        <li><a href="/api/v1/schema">Schema dei dati</a> — struttura e versioni del formato pubblico.</li>
       </ul>
     </section>
     <section class="dp-utility-section">
       <h2>Versionamento</h2>
-      <p>L’URL API e la versione della projection sono assi separati. Il runtime pubblico attuale usa il contratto <code>dichiarazioni-pubbliche-public-v2</code>; una modifica incompatibile richiede una decisione esplicita di compatibilità/versionamento.</p>
+      <p>Il formato pubblico ha una versione, così le applicazioni possono riconoscere eventuali cambiamenti. Il formato corrente è <code>dichiarazioni-pubbliche-public-v2</code>.</p>
     </section>
     <section class="dp-utility-section">
       <h2>Licenza e diritti</h2>

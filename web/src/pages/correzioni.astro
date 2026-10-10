@@ -15,11 +15,11 @@ const entries = projection.dossiers
 ---
 
 <BaseLayout title="Correzioni" description="Registro cronologico delle correzioni pubblicate da Dichiarazioni Pubbliche." canonicalPath="/correzioni/">
-  <UtilityDocument eyebrow="Correzioni" title="Le modifiche materiali restano visibili." lede="Questo registro mostra soltanto correzioni già approvate nella proiezione pubblica. Una nuova versione non cancella silenziosamente quella precedente.">
+  <UtilityDocument eyebrow="Correzioni" title="Gli errori si correggono. La storia resta." lede="Qui raccogliamo le correzioni pubblicate e le colleghiamo alle schede originali, senza cancellare silenziosamente le versioni precedenti.">
     {entries.length === 0 ? (
       <section class="dp-utility-empty" aria-labelledby="correzioni-vuote">
-        <h2 id="correzioni-vuote">Nessuna correzione pubblicata in questo snapshot.</h2>
-        <p>Il registro viene popolato solo quando una correzione supera i gate di revisione e pubblicazione. L’assenza di voci non implica l’assenza di controlli interni.</p>
+        <h2 id="correzioni-vuote">Nessuna correzione pubblicata.</h2>
+        <p>Quando viene approvata una correzione a una scheda pubblica, la troverai qui con il collegamento alla versione interessata. Questo elenco riguarda solo ciò che è pubblicato.</p>
         <p><a href="/metodo/#correzioni">Come funzionano correzioni e versioni</a></p>
       </section>
     ) : (

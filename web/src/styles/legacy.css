@@ -2039,6 +2039,57 @@ body:not(.is-studio) .main-nav {
   font-weight: var(--weight-semibold);
 }
 
+/* Public archive launch: no search controls or empty results posing as content. */
+.home-launch-status {
+  padding-block: var(--space-5);
+}
+
+.home-launch-status h2 {
+  max-width: 22ch;
+  margin: var(--space-3) 0;
+  font-family: var(--font-claim);
+  font-size: var(--text-headline);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-headline);
+  color: var(--ink-900);
+}
+
+.home-launch-status p:not(.eyebrow) {
+  max-width: 36ch;
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--ink-700);
+}
+
+.launch-empty-state {
+  max-width: 48rem;
+  margin: var(--space-7) 0 var(--space-9);
+  padding: var(--space-6);
+  border-inline-start: 3px solid var(--cobalt-700);
+  background: var(--paper-1);
+}
+
+.launch-empty-state .dp-state__title {
+  margin-top: var(--space-3);
+}
+
+.launch-empty-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-5);
+}
+
+.launch-empty-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--cobalt-700);
+  font-weight: var(--weight-semibold);
+  text-underline-offset: var(--space-1);
+}
+
 @media (max-width: 40rem) {
   body:not(.is-studio) .header-inner {
     min-height: var(--space-8);

@@ -32,7 +32,7 @@ const corrected = searchIndex.records.filter((record) =>
 const correctionRegister = pages.get("/correzioni/");
 assert(correctionRegister, "correction register route missing");
 if (corrected.length === 0) {
-  assert.match(correctionRegister, /Nessuna correzione pubblicata in questo snapshot/i, "empty correction register state missing");
+  assert.match(correctionRegister, /Nessuna correzione pubblicata(?: in questo snapshot)?\./i, "empty correction register state missing");
 }
 
 const surfacePrefixes = ["/persone/", "/temi/", "/contenuti/", "/tracce/"];

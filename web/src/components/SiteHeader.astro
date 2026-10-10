@@ -14,8 +14,8 @@ const studioNav = [
 <header class:list={["site-header", studio && "studio-header"]}>
   {!studio && (
     <div class="shell masthead-note">
-      <span>Registro pubblico delle dichiarazioni</span>
-      <span>Fonti · tempo · correzioni</span>
+      <span>Le dichiarazioni. Le fonti. Il contesto.</span>
+      <span>Un archivio da consultare, non una classifica.</span>
     </div>
   )}
   <div class="shell header-inner">
@@ -41,6 +41,7 @@ const studioNav = [
       <nav class="main-nav" aria-label="Navigazione principale">
         <a class:list={[active("/esplora") && "is-active"]} aria-current={active("/esplora") ? "page" : undefined} href="/esplora/">Esplora</a>
         <a class:list={[active("/metodo") && "is-active"]} aria-current={active("/metodo") ? "page" : undefined} href="/metodo/">Metodo</a>
+        <a class:list={[active("/progetto") && "is-active"]} aria-current={active("/progetto") ? "page" : undefined} href="/progetto/">Progetto</a>
       </nav>
     )}
 
@@ -57,6 +58,8 @@ const studioNav = [
           <>
             <a aria-current={active("/esplora") ? "page" : undefined} href="/esplora/">Esplora</a>
             <a aria-current={active("/metodo") ? "page" : undefined} href="/metodo/">Metodo</a>
+            <a aria-current={active("/progetto") ? "page" : undefined} href="/progetto/">Progetto</a>
+            <a aria-current={active("/correzioni") ? "page" : undefined} href="/correzioni/">Correzioni</a>
           </>
         )}
       </nav>
