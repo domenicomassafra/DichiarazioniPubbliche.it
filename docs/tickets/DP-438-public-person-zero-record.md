@@ -1,6 +1,6 @@
 # DP-438 — Person pubblica autonoma, anche senza Statement
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-222, DP-402, DP-437
 
@@ -48,3 +48,7 @@ Additive public people collection with approved-vs-private identity discriminant
 ## Completion receipt
 
 Non implementato; pianificazione soltanto. Future schema replay, identity approval refs, public projection SHA, zero-record live Person and private/unknown negative evidence, rollback.
+
+## 2026-10-11 — First implementation slice
+
+Commit `7e8bbbb`. Added standalone opt-in `public_person_v3.py` and 10 tests PASS: an independently approved public Person can have zero Statement members, with source-reviewed dated roles, disambiguation and fail-closed private/unknown records. v2 and public router are unchanged. No authentic approved Person, v3 public route/API/search integration or MiniPC positive readback exists. **All original AC remain unchecked**; this is a local source-only test receipt, not permission for live publication.

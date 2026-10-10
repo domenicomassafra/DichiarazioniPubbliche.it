@@ -1,6 +1,6 @@
 # DP-313 — Documento processuale: persone, ruoli, affermazioni e stati
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312
 
@@ -37,3 +37,7 @@ Depends on: DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312
  Nuovi role/act/status records/version links additivi solo se il domain model esistente non basta, retention/privacy audit e policy jurisdiction map.
 ## Completion receipt
  non implementato; pianificazione soltanto.
+
+## 2026-10-11 — First implementation slice
+
+Commit `6afb00f`. Added private `procedural_document_roles.py` with typed SOURCE/AUTHOR/REPORTER/WITNESS/ALLEGATION/COURT_DECISION status/role distinctions, date/jurisdiction/negation/privacy holds and no factual verdict from mere quotation. 24 new cases plus targeted semantic/high-risk regressions PASS. No real procedurally authorized document, independent OCR source proof, qualified legal permission or release/MinIPC canary has been accepted. **All original AC remain unchecked**; this is a local source-only test receipt, not permission for live publication.

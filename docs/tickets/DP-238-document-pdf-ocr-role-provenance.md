@@ -1,6 +1,6 @@
 # DP-238 — Document, PDF/OCR and text extraction with role-preserving provenance
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-210, DP-211
 
@@ -49,3 +49,7 @@ Reuse `capture_pipeline` parser interface, `PassageRecord` and existing rights/p
 ## Completion receipt
 
 **NOT IMPLEMENTED — planning only**.
+
+## 2026-10-11 — First implementation slice
+
+Commit `c366514`. Added opt-in `document_text_extraction.py` and tests: bounded native UTF-8 text/XML/AKN/HTML parser and source/passage/page hash + selector checks. 11 new and 28 related capture regression tests PASS. PDF native text/OCR, independent fidelity gold, actual source permits and MiniPC acquisition remain absent. No automatic speaker/court role, copyright or verbatim publication is inferred. **All original AC remain unchecked**; this is a local source-only test receipt, not permission for live publication.
