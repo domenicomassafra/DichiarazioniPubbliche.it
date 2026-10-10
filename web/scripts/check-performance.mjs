@@ -278,8 +278,15 @@ try {
     const preflight = await fetch(`${origin}${route}`, { redirect: "manual" });
     assert(preflight.ok, `${route}: representative performance route returned HTTP ${preflight.status}`);
     await navigate(cdp, `${origin}${route}`);
+    let exploreEmpty = false;
     if (route === "/esplora/") {
-      await waitFor(cdp, "document.querySelector('.results-count')?.textContent?.includes('risultat')", "Explore did not hydrate in performance run");
+      exploreEmpty = await cdp.evaluate("Boolean(document.querySelector('.launch-empty-state[data-state=empty]'))");
+      if (exploreEmpty) {
+        assert.equal(await cdp.evaluate("document.querySelectorAll('astro-island').length"), 0,
+          "approved-empty Explore unexpectedly hydrated the search client");
+      } else {
+        await waitFor(cdp, "document.querySelector('.results-count')?.textContent?.includes('risultat')", "Explore did not hydrate in performance run");
+      }
     }
     await sleep(350);
     const paint = await cdp.evaluate(`({
@@ -301,7 +308,7 @@ try {
     assert.equal(paint.mediaOverflowCount, 0, `${route}: media overflows representative mobile viewport`);
 
     let interactionProxyMs = null;
-    if (route === "/esplora/") {
+    if (route === "/esplora/" && !exploreEmpty) {
       interactionProxyMs = await cdp.evaluate(`(async () => {
         const button = document.querySelector('.filter-button');
         if (!button) return null;

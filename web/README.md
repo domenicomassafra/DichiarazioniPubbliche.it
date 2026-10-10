@@ -47,6 +47,17 @@ DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build
 ```
 
 Do not set `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1` in a deployed/public build.
+Configured public builds reject the repository's known demo record IDs and dataset
+fingerprint even when the fixture is copied under another filename. When demo mode
+is explicitly enabled, the generated pages and sitemap remain non-indexable.
+All public builds validate the dossier count and fingerprint, including older v2
+projections without a first-class Content collection.
+Run `npm run check:projection-boundary` for isolated regression builds of both cases
+and an intentionally empty public projection shape. This test fixture is not
+editorially approved content and must never be deployed.
+Public builds exclude the Studio route and discard otherwise-unreferenced
+Studio hydration chunks; the independent informational-preview audit verifies
+that no private Studio JS is shipped.
 
 The build fails closed when:
 

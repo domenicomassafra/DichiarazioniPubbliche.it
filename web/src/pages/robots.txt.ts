@@ -6,7 +6,8 @@ const PUBLIC_BASE_URL = "https://dichiarazionipubbliche.it";
 
 export const GET: APIRoute = async () => {
   const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
-  const demoBuild = !projectionPath || projectionPath.endsWith("demo-projection.json");
+  const demoBuild = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1" ||
+    !projectionPath || projectionPath.endsWith("demo-projection.json");
   const body = demoBuild
     ? "User-agent: *\nDisallow: /\n"
     : `User-agent: *\nAllow: /\nSitemap: ${PUBLIC_BASE_URL}/sitemap.xml\n`;

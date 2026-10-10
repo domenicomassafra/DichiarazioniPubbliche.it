@@ -19,7 +19,8 @@ function escapeXml(value: string): string {
 
 export const GET: APIRoute = async () => {
   const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
-  const demoBuild = !projectionPath || projectionPath.endsWith("demo-projection.json");
+  const demoBuild = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1" ||
+    !projectionPath || projectionPath.endsWith("demo-projection.json");
   const projection = await loadPublicProjection();
   const routes = new Set<string>();
 

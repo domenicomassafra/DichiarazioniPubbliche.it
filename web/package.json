@@ -12,6 +12,7 @@
     "check:search": "node --experimental-strip-types scripts/check-search-index.mjs",
     "check:quality": "node scripts/check-public-quality.mjs",
     "check:routes": "node scripts/check-route-contract.mjs",
+    "check:projection-boundary": "node scripts/check-production-projection-boundary.mjs",
     "check:m4-grammar": "node scripts/check-m4-page-grammar.mjs",
     "check:trust": "node scripts/check-trust-disclosure.mjs",
     "check:corrections": "node scripts/check-correction-consistency.mjs",

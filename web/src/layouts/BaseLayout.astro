@@ -24,7 +24,8 @@ const {
 } = Astro.props;
 const pageTitle = title === "Dichiarazioni Pubbliche" ? title : `${title} — Dichiarazioni Pubbliche`;
 const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
-const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-projection.json");
+const usingDemoProjection = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1" ||
+  !projectionPath || projectionPath.endsWith("demo-projection.json");
 const robotsPolicy = studio || privatePage || usingDemoProjection ? "noindex,nofollow" : "index,follow";
 const structuredDataJson = structuredData === undefined
   ? null

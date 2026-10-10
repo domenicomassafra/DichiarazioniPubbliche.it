@@ -6,6 +6,18 @@ import { assertUniquePublicRoutes } from "./format.ts";
 import type { PublicProjection } from "./types";
 
 const EXPECTED_SCHEMA = "dichiarazioni-pubbliche-public-v2";
+const DEMO_FINDING_IDS = new Set(demoProjection.dossiers.map((dossier) => dossier.finding_id));
+const DEMO_TOPIC_IDS = new Set((demoProjection.topics ?? []).map((topic) => topic.topic_id));
+const DEMO_CONTENT_IDS = new Set(demoProjection.dossiers.map((dossier) => dossier.source.content_id));
+
+function containsKnownDemoRecords(projection: PublicProjection): boolean {
+  // The fixture may be copied or renamed, or partially edited before being used as
+  // an alleged public projection. A filename check cannot protect the public build.
+  return projection.dataset_sha256 === demoProjection.dataset_sha256 ||
+    projection.dossiers.some((dossier) => DEMO_FINDING_IDS.has(dossier.finding_id)) ||
+    (projection.topics ?? []).some((topic) => DEMO_TOPIC_IDS.has(topic.topic_id)) ||
+    (projection.contents ?? []).some((content) => DEMO_CONTENT_IDS.has(content.content_id));
+}
 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -29,6 +41,15 @@ function assertProjection(value: unknown): asserts value is PublicProjection {
   }
   if (!Array.isArray(candidate.dossiers)) {
     throw new Error("Public projection dossiers must be an array.");
+  }
+  if (candidate.dossier_count !== candidate.dossiers.length) {
+    throw new Error("Public projection dossier_count does not match published dossiers.");
+  }
+  if (typeof candidate.generated_at !== "string" || !Number.isFinite(Date.parse(candidate.generated_at))) {
+    throw new Error("Public projection must have a valid generated_at timestamp.");
+  }
+  if (!/^[0-9a-f]{64}$/.test(String(candidate.dataset_sha256 ?? ""))) {
+    throw new Error("Public projection must have a valid dataset_sha256 fingerprint.");
   }
   if (candidate.methodology?.aggregate_person_score !== false) {
     throw new Error("Public projection must explicitly disable aggregate person scores.");
@@ -130,16 +151,19 @@ function assertProjection(value: unknown): asserts value is PublicProjection {
         }
       }
     }
+  }
 
-    const material: Record<string, unknown> = { dossiers: candidate.dossiers };
-    if (candidate.topics !== undefined) material.topics = candidate.topics;
-    material.contents = candidate.contents;
-    const fingerprint = createHash("sha256")
-      .update(canonicalJson(material), "utf8")
-      .digest("hex");
-    if (candidate.dataset_sha256 !== fingerprint) {
-      throw new Error("Public projection fingerprint does not match dossiers/topics/contents.");
-    }
+  // A legacy v2 bundle may omit additive Topic/Content collections, but its
+  // fingerprint still covers every collection actually present. Do not render
+  // tampered legacy dossiers simply because `contents` is absent.
+  const material: Record<string, unknown> = { dossiers: candidate.dossiers };
+  if (candidate.topics !== undefined) material.topics = candidate.topics;
+  if (candidate.contents !== undefined) material.contents = candidate.contents;
+  const fingerprint = createHash("sha256")
+    .update(canonicalJson(material), "utf8")
+    .digest("hex");
+  if (candidate.dataset_sha256 !== fingerprint) {
+    throw new Error("Public projection fingerprint does not match dossiers/topics/contents.");
   }
 }
 
@@ -160,6 +184,9 @@ export async function loadPublicProjection(): Promise<PublicProjection> {
   const raw = await fs.readFile(resolved, "utf8");
   const parsed: unknown = JSON.parse(raw);
   assertProjection(parsed);
+  if (containsKnownDemoRecords(parsed) && process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION !== "1") {
+    throw new Error("Demo projection records cannot be used in a public build. Explicit local demo mode is required.");
+  }
   return parsed;
 }
 
