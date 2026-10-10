@@ -65,7 +65,7 @@ The maintained visual references are the nine mockups in `prototypes/final-hybri
 
 ## Acceptance criteria
 
-- [x] `AC-422.1` The real public route set contains all canonical v3 primary templates and
+- [ ] `AC-422.1` The real public route set contains all canonical v3 primary templates and
   no new public template without a distinct page job.
 - [x] `AC-422.2` Legacy public URLs resolve through deterministic canonical redirects (or
   remain explicit aliases until such redirects are safe); no content becomes unreachable.
@@ -287,3 +287,19 @@ of checkmarks. **DP-422 remains IN PROGRESS — no false DONE, no `PLAN.md`
 status change.** Once editorially approved dynamic resources exist, rerun
 the published canonical/legacy/API/readback contract against that exact
 fingerprint, complete the declared dependencies, and then change status.
+
+### 2026-10-10 — final AC-422.1 literal production-state correction
+
+The earlier **9/9 checked** bookkeeping inadvertently treated an isolated
+fictional fixture's dynamic routes as proof of the **real public route set**
+required by the literal AC-422.1. The committed route templates are present
+and clean-clone/Chrome fixture integration passes, but the real MiniPC
+approved-empty projection intentionally generates only the six public
+informational routes (plus separately noindex Account utility pages). It
+does **not** contain published canonical Statement/Person/Topic/Content/Trace
+resources or their canonical/legacy readback. Thus **AC-422.1 is re-opened**
+until one independently approved populated projection exercises the real
+canonical route-family set with immutable fingerprint and live HTTP readback.
+AC-422.2–.9 retain their existing independently proven *local/structural*
+acceptance; this correction claims neither downstream ticket completion nor
+site launch. **DP-422 and PLAN remain IN PROGRESS; no fake runtime GO.**

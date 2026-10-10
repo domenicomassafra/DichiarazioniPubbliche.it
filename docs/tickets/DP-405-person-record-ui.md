@@ -258,3 +258,24 @@ projectable dossiers rather than a first-class zero-record Person resource, so a
 public records has no static route to render. The first-class zero-finding Content and empty Topic
 contracts cannot be reused as Person proof. AC-405.6 remains the separate manual accessibility
 gate.
+
+### 2026-10-10 — live private-only Person negative boundary; no false closure
+
+Read-only MiniPC Postgres reports 2 Person rows but the published approved
+projection has 0 people and 0 findings. One existing private-only Person ID
+was transformed using the exact public `publicIdSlug` URL rule **on MiniPC**;
+the source ID, name and generated slug were not emitted. The live `/persone/`
+path for that identity returned HTTP **404**; an invented unknown Person
+slug returned HTTP **404** as well. This proves the negative private-only
+boundary for the current approved-empty production snapshot without
+publishing or revealing an operational identity. It **does not** prove the
+positive AC-405.3 state, which still needs an independently approved
+zero-record first-class public Person resource (currently not representable
+in the ratified dossier-derived public-v2 contract).
+
+Existing real Chrome fixture QA checks Person headings in the accessibility
+tree, grayscale emulation, phone keyboard open/close plus focus restore and
+exact 200% browser zoom with no horizontal overflow. These machine proofs do
+not replace the AC-405.6 required real human screen-reader/keyboard/contrast
+review. No active VoiceOver session was available in the current Mac run;
+**AC-405.3 and AC-405.6 remain unchecked, DP-405 IN PROGRESS.**
