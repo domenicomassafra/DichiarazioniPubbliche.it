@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import unicodedata
+from datetime import date
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -15,6 +16,7 @@ from dichiarazioni_pubbliche.domain_vocabulary import (
 from dichiarazioni_pubbliche.public_internal_guard import forbidden_public_internal_paths
 
 PUBLIC_SCHEMA_VERSION = "dichiarazioni-pubbliche-public-v2"
+PUBLIC_STATEMENT_SCHEMA_VERSION = "dichiarazioni-pubbliche-public-v3-statement-opt-in"
 
 
 def _public_route_slug(value: object, *, field: str) -> str:
@@ -213,6 +215,21 @@ PROJECTION_BUNDLE_ALLOWED_KEYS = frozenset(
     }
 )
 
+# The v2 consumer contract is intentionally unchanged. A v3 bundle must be
+# explicitly accepted by its caller; the current public API/web do not opt in.
+PUBLIC_STATEMENT_REQUIRED_KEYS = frozenset({
+    "statement_id", "version_id", "person_id", "speaker_name", "content_id",
+    "source_title", "source_url", "source_version", "source_sha256",
+    "original_text", "quote_sha256", "language", "statement_date",
+    "source_kind", "locator", "speech_act", "endorsed",
+    "review_provenance", "finding_id", "summary", "translation",
+})
+PUBLIC_STATEMENT_ALLOWED_KEYS = PUBLIC_STATEMENT_REQUIRED_KEYS
+PUBLIC_STATEMENT_SOURCE_KINDS = frozenset({"WRITTEN", "TIMED"})
+PUBLIC_STATEMENT_SPEECH_ACTS = frozenset({
+    "DIRECT_ASSERTION", "OPINION", "REPORTED_QUOTE", "CRITICISM", "IRONY",
+})
+
 TOPIC_REQUIRED_KEYS = frozenset(
     {
         "topic_id",
@@ -272,6 +289,8 @@ def projection_dataset_sha256(bundle: dict[str, Any]) -> str:
         material["topics"] = bundle.get("topics", [])
     if "contents" in bundle:
         material["contents"] = bundle.get("contents", [])
+    if bundle.get("schema_version") == PUBLIC_STATEMENT_SCHEMA_VERSION:
+        material["statements"] = bundle.get("statements", [])
     canonical = json.dumps(
         material,
         ensure_ascii=False,
@@ -422,6 +441,112 @@ def _validate_exact_keys(
             f"missing {field} key(s): {', '.join(sorted(missing))}"
         )
     return value
+
+
+def validate_public_statement(statement: dict[str, Any]) -> dict[str, Any]:
+    """Validate a bounded, reviewed *original* quotation, never a paraphrase."""
+    record = _validate_exact_keys(
+        statement, field="public_statement",
+        required=PUBLIC_STATEMENT_REQUIRED_KEYS,
+        allowed=PUBLIC_STATEMENT_ALLOWED_KEYS,
+    )
+    for field in (
+        "statement_id", "version_id", "person_id", "speaker_name", "content_id",
+        "source_title", "source_version", "language",
+    ):
+        value = record[field]
+        if not isinstance(value, str) or not value.strip() or len(value) > 300:
+            raise PublicSchemaValidationError(f"public_statement.{field} invalid")
+    try:
+        if date.fromisoformat(record["statement_date"]).isoformat() != record["statement_date"]:
+            raise ValueError("noncanonical statement date")
+    except (ValueError, TypeError) as exc:
+        raise PublicSchemaValidationError("public_statement.statement_date invalid") from exc
+    url = record["source_url"]
+    if not isinstance(url, str) or not (
+        urlsplit(url).scheme == "https" and urlsplit(url).hostname
+        and not urlsplit(url).username and not urlsplit(url).password
+    ):
+        raise PublicSchemaValidationError("public_statement.source_url invalid")
+    original = record["original_text"]
+    if not isinstance(original, str) or not original.strip() or len(original) > 2000:
+        raise PublicSchemaValidationError("public_statement.original_text invalid")
+    if "\x00" in original or "\r" in original:
+        raise PublicSchemaValidationError("public_statement.original_text control characters")
+    source_sha = _validate_sha256(record["source_sha256"], field="statement.source_sha256")
+    quote_sha = _validate_sha256(record["quote_sha256"], field="statement.quote_sha256")
+    if hashlib.sha256(original.encode("utf-8")).hexdigest() != quote_sha:
+        raise PublicSchemaValidationError("public_statement original wording hash mismatch")
+    if record["source_kind"] not in PUBLIC_STATEMENT_SOURCE_KINDS:
+        raise PublicSchemaValidationError("public_statement.source_kind invalid")
+    if record["speech_act"] not in PUBLIC_STATEMENT_SPEECH_ACTS:
+        raise PublicSchemaValidationError("public_statement.speech_act invalid")
+    if type(record["endorsed"]) is not bool:
+        raise PublicSchemaValidationError("public_statement.endorsed invalid")
+    if record["speech_act"] in {"REPORTED_QUOTE", "CRITICISM", "IRONY"} and record["endorsed"]:
+        raise PublicSchemaValidationError("reported/critical speech cannot assert endorsement")
+    locator = record["locator"]
+    required_locator = {"start_char", "end_char"} | (
+        {"segment_id", "start_ms", "end_ms"} if record["source_kind"] == "TIMED" else set()
+    )
+    location = _validate_exact_keys(
+        locator, field="public_statement.locator",
+        required=frozenset(required_locator), allowed=frozenset(required_locator),
+    )
+    start, end = location["start_char"], location["end_char"]
+    if type(start) is not int or type(end) is not int or start < 0 or end <= start:
+        raise PublicSchemaValidationError("public_statement.locator char range invalid")
+    if end - start != len(original):
+        raise PublicSchemaValidationError("public_statement.locator length mismatch")
+    if record["source_kind"] == "TIMED":
+        if (
+            not isinstance(location["segment_id"], str) or not location["segment_id"].strip()
+            or type(location["start_ms"]) is not int or type(location["end_ms"]) is not int
+            or location["start_ms"] < 0 or location["end_ms"] <= location["start_ms"]
+        ):
+            raise PublicSchemaValidationError("public_statement.locator media interval invalid")
+    reviews = _validate_exact_keys(
+        record["review_provenance"], field="public_statement.review_provenance",
+        required=frozenset({"rights", "attribution", "context", "wording", "publication"}),
+        allowed=frozenset({"rights", "attribution", "context", "wording", "publication"}),
+    )
+    if any(
+        not isinstance(value, str) or not value.strip()
+        for value in reviews.values()
+    ) or len(set(reviews.values())) != len(reviews):
+        raise PublicSchemaValidationError("statement requires independent review event IDs")
+    if record["finding_id"] is not None and (
+        not isinstance(record["finding_id"], str) or not record["finding_id"].strip()
+    ):
+        raise PublicSchemaValidationError("public_statement.finding_id invalid")
+    for kind in ("summary", "translation"):
+        representation = record[kind]
+        if representation is None:
+            continue
+        fields = {"wording_type", "text", "review_event_id", "source_quote_sha256"}
+        if kind == "translation":
+            fields |= {"source_language", "language"}
+        value = _validate_exact_keys(
+            representation, field=f"public_statement.{kind}",
+            required=frozenset(fields), allowed=frozenset(fields),
+        )
+        if value["wording_type"] != kind.upper():
+            raise PublicSchemaValidationError(f"public_statement.{kind} wording_type invalid")
+        if not isinstance(value["text"], str) or not value["text"].strip() or len(value["text"]) > 2000:
+            raise PublicSchemaValidationError(f"public_statement.{kind} text invalid")
+        if value["text"] == original:
+            raise PublicSchemaValidationError(f"public_statement.{kind} duplicates original")
+        if not isinstance(value["review_event_id"], str) or not value["review_event_id"].strip():
+            raise PublicSchemaValidationError(f"public_statement.{kind} review missing")
+        if _validate_sha256(
+            value["source_quote_sha256"], field=f"public_statement.{kind}.source_quote_sha256"
+        ) != quote_sha:
+            raise PublicSchemaValidationError(f"public_statement.{kind} source mismatch")
+        if kind == "translation":
+            if value["source_language"] != record["language"] or not isinstance(value["language"], str) or not value["language"].strip() or value["language"] == record["language"]:
+                raise PublicSchemaValidationError("public_statement translation language mismatch")
+    _scan_forbidden_tokens(record)
+    return record
 
 
 def _validate_public_wording(
@@ -1069,11 +1194,18 @@ def validate_content(content: dict[str, Any]) -> dict[str, Any]:
     return content
 
 
-def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+def validate_public_bundle(
+    bundle: dict[str, Any], *, allow_statement_v3: bool = False,
+) -> dict[str, Any]:
     if not isinstance(bundle, dict):
         raise PublicSchemaValidationError("bundle must be a dictionary")
-
-    unknown = set(bundle.keys()) - PROJECTION_BUNDLE_ALLOWED_KEYS
+    statement_v3 = bundle.get("schema_version") == PUBLIC_STATEMENT_SCHEMA_VERSION
+    if statement_v3 and not allow_statement_v3:
+        raise PublicSchemaValidationError("public Statement v3 requires explicit opt-in")
+    allowed_bundle_keys = PROJECTION_BUNDLE_ALLOWED_KEYS | (
+        {"statements"} if statement_v3 else set()
+    )
+    unknown = set(bundle.keys()) - allowed_bundle_keys
     if unknown:
         raise PublicSchemaValidationError(
             f"unknown bundle key(s): {', '.join(sorted(unknown))}"
@@ -1089,7 +1221,10 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             f"missing required bundle key(s): {', '.join(sorted(missing))}"
         )
 
-    if bundle["schema_version"] != PUBLIC_SCHEMA_VERSION:
+    if bundle["schema_version"] not in (
+        {PUBLIC_SCHEMA_VERSION, PUBLIC_STATEMENT_SCHEMA_VERSION}
+        if allow_statement_v3 else {PUBLIC_SCHEMA_VERSION}
+    ):
         raise PublicSchemaValidationError(
             f"unexpected schema_version: '{bundle['schema_version']}' (expected '{PUBLIC_SCHEMA_VERSION}')"
         )
@@ -1106,6 +1241,11 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         raise PublicSchemaValidationError(
             "bundle methodology must specify claim_level_only = True"
         )
+    if statement_v3:
+        if bundle["methodology"].get("statement_publication_requires_independent_gates") is not True:
+            raise PublicSchemaValidationError("statement v3 must assert independent gates")
+        if not isinstance(bundle.get("statements"), list):
+            raise PublicSchemaValidationError("statement v3 requires statements list")
 
     if not isinstance(bundle["dossiers"], list):
         raise PublicSchemaValidationError("bundle dossiers must be a list")
@@ -1153,6 +1293,36 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                 identifier=dossier["source"]["content_id"],
                 field="source.content_id",
             )
+
+    if statement_v3:
+        seen_statements: set[str] = set()
+        seen_versions: set[str] = set()
+        for statement in bundle["statements"]:
+            validate_public_statement(statement)
+            statement_id = statement["statement_id"]
+            version_id = statement["version_id"]
+            if statement_id in seen_statements or version_id in seen_versions:
+                raise PublicSchemaValidationError("duplicate public Statement identity/version")
+            seen_statements.add(statement_id)
+            seen_versions.add(version_id)
+            _register_public_route(
+                route_owners, prefix="/dichiarazioni/",
+                identifier=statement_id, field="statement_id",
+            )
+            _register_public_route(
+                route_owners, prefix="/persone/",
+                identifier=statement["person_id"], field="statement.person_id",
+            )
+            if statement["finding_id"] is not None:
+                linked = next(
+                    (d for d in bundle["dossiers"] if d["finding_id"] == statement["finding_id"]),
+                    None,
+                )
+                if (
+                    linked is None or linked["speaker"]["id"] != statement["person_id"]
+                    or linked["source"]["content_id"] != statement["content_id"]
+                ):
+                    raise PublicSchemaValidationError("Statement finding is not public/matching")
 
     topics = bundle.get("topics", [])
     if not isinstance(topics, list):
@@ -1227,7 +1397,7 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                     "content finding belongs to a different source content_id"
                 )
 
-    if "contents" in bundle:
+    if "contents" in bundle or statement_v3:
         expected_fingerprint = projection_dataset_sha256(bundle)
         if bundle["dataset_sha256"] != expected_fingerprint:
             raise PublicSchemaValidationError(
@@ -1238,6 +1408,9 @@ def validate_public_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
+    "PUBLIC_STATEMENT_SCHEMA_VERSION",
+    "PUBLIC_STATEMENT_ALLOWED_KEYS",
+    "validate_public_statement",
     "DOSSIER_ALLOWED_KEYS",
     "DOSSIER_REQUIRED_KEYS",
     "PROJECTION_BUNDLE_ALLOWED_KEYS",

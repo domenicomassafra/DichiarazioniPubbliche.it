@@ -42,10 +42,12 @@ from dichiarazioni_pubbliche.public_schema import (
     EXISTING_FACTCHECK_PUBLIC_KEYS,
     PUBLIC_FINDING_STATUSES,
     PUBLIC_SCHEMA_VERSION,
+    PUBLIC_STATEMENT_SCHEMA_VERSION,
     projection_dataset_sha256,
     validate_content,
     validate_dossier,
     validate_public_bundle,
+    validate_public_statement,
     validate_topic,
 )
 from dichiarazioni_pubbliche.linked_data import (
@@ -1794,6 +1796,176 @@ def _sanitize_public_wording(
     return public_wording
 
 
+def _sanitize_public_statement(
+    row: dict[str, Any],
+    source: ProjectionSource,
+    *,
+    generated_at: str,
+) -> dict[str, Any]:
+    """Opt-in only: original bytes from an independent source reader + five gates.
+
+    The caller's candidate row cannot grant itself rights, attribution, review,
+    context or transcript fidelity. No raw source body reaches the read model.
+    """
+    required = {
+        "statement_id", "version_id", "person_id", "speaker_name", "content_id",
+        "source_title", "source_url", "source_version", "source_sha256",
+        "original_text", "language", "statement_date", "source_kind", "locator",
+        "finding_id", "summary", "translation",
+    }
+    if not isinstance(row, dict) or set(row) != required:
+        raise ValueError("Statement candidate keys are not the bounded contract")
+    source_reader = getattr(source, "get_statement_source_text", None)
+    attestation_reader = getattr(source, "statement_publication_attestations", None)
+    if not callable(source_reader) or not callable(attestation_reader):
+        raise ValueError("independent Statement provenance readers are missing")
+    content_id, source_version = row["content_id"], row["source_version"]
+    text = source_reader(content_id, source_version)
+    if not isinstance(text, str) or len(text) > 2_000_000:
+        raise ValueError("independent source text absent or unbounded")
+    source_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if source_hash != _sha256_hex(row["source_sha256"]):
+        raise ValueError("immutable source hash mismatch")
+    locator = row["locator"]
+    if not isinstance(locator, dict):
+        raise ValueError("statement locator missing")
+    start, end = locator.get("start_char"), locator.get("end_char")
+    if (
+        type(start) is not int or type(end) is not int
+        or start < 0 or end <= start or end > len(text)
+    ):
+        raise ValueError("statement exact source span is invalid")
+    original = text[start:end]
+    if original != row["original_text"] or not original.strip() or len(original) > 2000:
+        raise ValueError("statement claim does not reproduce original source span")
+    quote_hash = hashlib.sha256(original.encode("utf-8")).hexdigest()
+    attestations = attestation_reader(row["statement_id"], row["version_id"])
+    if not isinstance(attestations, dict):
+        raise ValueError("independent Statement attestations missing")
+    reviewed = {}
+    decision_ids = set()
+    for gate in ("rights", "attribution", "context", "wording", "publication"):
+        proof = attestations.get(gate)
+        if not isinstance(proof, dict) or proof.get("status") != "APPROVED":
+            raise ValueError(f"Statement {gate} is not independently approved")
+        for key, expected in (
+            ("statement_id", row["statement_id"]),
+            ("version_id", row["version_id"]),
+            ("source_sha256", source_hash),
+            ("quote_sha256", quote_hash),
+            ("person_id", row["person_id"]),
+            ("content_id", content_id),
+            ("source_version", source_version),
+            ("statement_date", row["statement_date"]),
+            ("span_start", start),
+            ("span_end", end),
+            ("source_url", row["source_url"]),
+            ("source_title", row["source_title"]),
+        ):
+            if proof.get(key) != expected:
+                raise ValueError(f"Statement {gate} authority binding mismatch")
+        decision_id = proof.get("decision_id")
+        review_id = proof.get("review_event_id")
+        if (
+            not isinstance(decision_id, str) or not decision_id.strip()
+            or not isinstance(review_id, str) or not review_id.strip()
+            or decision_id in decision_ids or review_id in reviewed.values()
+        ):
+            raise ValueError("Statement proof decisions/reviews must be independent")
+        decision_ids.add(decision_id)
+        reviewed[gate] = review_id
+    rights = attestations["rights"]
+    if (
+        rights.get("use_scope") != "PUBLIC_EXACT_EXCERPT"
+        or not isinstance(rights.get("policy_version"), str)
+        or not rights["policy_version"].strip()
+        or not isinstance(rights.get("jurisdiction"), str)
+        or not rights["jurisdiction"].strip()
+        or "expires_at" not in rights
+    ):
+        raise ValueError("source use right does not include exact public excerpt")
+    expires_at = rights.get("expires_at")
+    if expires_at is not None:
+        if not isinstance(expires_at, str):
+            raise ValueError("rights expiry invalid")
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            built = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+            if expiry.tzinfo is None or built.tzinfo is None or expiry <= built:
+                raise ValueError("rights expired or dates are naive")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("rights expiry cannot be confirmed") from exc
+    context = attestations["context"]
+    speech_act = context.get("speech_act")
+    endorsed = context.get("endorsed")
+    if speech_act not in {"DIRECT_ASSERTION", "OPINION", "REPORTED_QUOTE", "CRITICISM", "IRONY"}:
+        raise ValueError("Statement speech act not established")
+    if type(endorsed) is not bool:
+        raise ValueError("Statement endorsement not established")
+    if attestations["attribution"].get("speaker_name") != row["speaker_name"]:
+        raise ValueError("Statement public display identity not independently bound")
+    wording = attestations["wording"]
+    method = wording.get("method")
+    if (
+        wording.get("language") != row["language"]
+        or wording.get("source_kind") != row["source_kind"]
+        or (row["source_kind"] == "WRITTEN" and method != "SOURCE_TEXT_VERIFIED")
+        or (
+            row["source_kind"] == "TIMED"
+            and method not in {"OFFICIAL_TRANSCRIPT", "HUMAN_AUDIO_VERIFIED"}
+        )
+    ):
+        raise ValueError("independent verbatim transcription/text proof missing")
+    if row["source_kind"] == "TIMED":
+        if (
+            wording.get("segment_id") != locator.get("segment_id")
+            or wording.get("start_ms") != locator.get("start_ms")
+            or wording.get("end_ms") != locator.get("end_ms")
+            or attestations["attribution"].get("segment_id") != locator.get("segment_id")
+            or attestations["attribution"].get("start_ms") != locator.get("start_ms")
+            or attestations["attribution"].get("end_ms") != locator.get("end_ms")
+        ):
+            raise ValueError("timed source and speaker segment coverage mismatch")
+    elif row["source_kind"] != "WRITTEN":
+        raise ValueError("unknown Statement source kind")
+
+    derived = {}
+    for kind in ("summary", "translation"):
+        value = row[kind]
+        if value is None:
+            derived[kind] = None
+            continue
+        proof = attestations.get(kind)
+        if (
+            not isinstance(value, dict) or not isinstance(value.get("text"), str)
+            or not isinstance(proof, dict) or proof.get("status") != "APPROVED"
+            or proof.get("source_quote_sha256") != quote_hash
+            or proof.get("text_sha256") != hashlib.sha256(value["text"].encode()).hexdigest()
+            or not isinstance(proof.get("review_event_id"), str)
+            or not proof["review_event_id"].strip()
+        ):
+            raise ValueError(f"Statement {kind} derived text lacks independent approval")
+        derived[kind] = {
+            **value,
+            "wording_type": kind.upper(),
+            "source_quote_sha256": quote_hash,
+            "review_event_id": proof["review_event_id"],
+        }
+
+    statement = {
+        "statement_id": row["statement_id"], "version_id": row["version_id"],
+        "person_id": row["person_id"], "speaker_name": row["speaker_name"],
+        "content_id": content_id, "source_title": row["source_title"],
+        "source_url": row["source_url"], "source_version": source_version,
+        "source_sha256": source_hash, "original_text": original,
+        "quote_sha256": quote_hash, "language": row["language"],
+        "statement_date": row["statement_date"], "source_kind": row["source_kind"],
+        "locator": locator, "speech_act": speech_act, "endorsed": endorsed,
+        "review_provenance": reviewed, "finding_id": row["finding_id"], **derived,
+    }
+    return validate_public_statement(statement)
+
+
 def _sanitize_row(row: dict[str, Any]) -> dict[str, Any]:
     status = str(row.get("publication_status") or "")
     try:
@@ -2335,7 +2507,11 @@ def build_public_projection(
     source: ProjectionSource,
     *,
     generated_at: str | None = None,
+    include_public_statements: bool = False,
 ) -> dict[str, Any]:
+    # Explicit opt-in never comes from env, CLI or the production projection
+    # store. Current web/API consumers continue to receive public-v2.
+    stamp = generated_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     dossiers = []
     omitted = 0
     for row in source.projectable_findings():
@@ -2386,10 +2562,28 @@ def build_public_projection(
                 # reviewed metadata is omitted without hiding valid findings.
                 continue
     contents.sort(key=lambda item: (item["title"].casefold(), item["content_id"]))
+    statements: list[dict[str, Any]] = []
+    if include_public_statements:
+        provider = getattr(source, "projectable_public_statements", None)
+        source_reader = getattr(source, "get_statement_source_text", None)
+        attestation_reader = getattr(source, "statement_publication_attestations", None)
+        if not all(callable(callback) for callback in (provider, source_reader, attestation_reader)):
+            raise ValueError("opt-in Statement mode requires separate private source and proof readers")
+        for row in provider():
+            try:
+                statements.append(_sanitize_public_statement(row, source, generated_at=stamp))
+            except (KeyError, TypeError, ValueError):
+                # A failed Statement proof is omission, never fallback to the
+                # normalized/finding-based v2 paraphrase as quoted original;
+                # no private candidate count is exposed.
+                continue
+        statements.sort(key=lambda item: (item["statement_id"], item["version_id"]))
     bundle = {
-        "schema_version": PUBLIC_SCHEMA_VERSION,
-        "generated_at": generated_at
-        or datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "schema_version": (
+            PUBLIC_STATEMENT_SCHEMA_VERSION if include_public_statements
+            else PUBLIC_SCHEMA_VERSION
+        ),
+        "generated_at": stamp,
         "dataset_sha256": "",
         "methodology": {
             "claim_level_only": True,
@@ -2397,6 +2591,10 @@ def build_public_projection(
             "requires_publication_gate": True,
             "requires_approved_evidence": True,
             "requires_resolved_transcript": True,
+            **(
+                {"statement_publication_requires_independent_gates": True}
+                if include_public_statements else {}
+            ),
         },
         "dossier_count": len(dossiers),
         "omitted_count": omitted,
@@ -2404,8 +2602,12 @@ def build_public_projection(
         "topics": topics,
         "contents": contents,
     }
+    if include_public_statements:
+        bundle["statements"] = statements
+        # Never leak number of private/denied statement candidates to readers.
+        # Existing v2 omitted_count remains the unchanged Finding-side metric.
     bundle["dataset_sha256"] = projection_dataset_sha256(bundle)
-    return validate_public_bundle(bundle)
+    return validate_public_bundle(bundle, allow_statement_v3=include_public_statements)
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -2776,6 +2978,11 @@ def render_dossier_html(dossier: dict[str, Any]) -> str:
 
 
 def write_public_bundle(output_dir: Path, payload: dict[str, Any]) -> None:
+    if payload.get("schema_version") == PUBLIC_STATEMENT_SCHEMA_VERSION:
+        raise ValueError(
+            "public Statement v3 has no approved HTML/API/linked-data consumers; "
+            "write path remains disabled pending DP-436"
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
     claims_dir = output_dir / "claims"
     desired_claim_files: set[str] = set()
