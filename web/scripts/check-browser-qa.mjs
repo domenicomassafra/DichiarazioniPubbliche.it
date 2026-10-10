@@ -459,6 +459,38 @@ try {
   assert(personLinks.every((route) => route.startsWith("/persone/") && routes.includes(route)),
     "Person results link outside built canonical destinations");
 
+  // DP-439: no Topic membership may be inferred from a mention or private roster.
+  const facetFinding = searchIndex.records.find((record) =>
+    record.kind === "finding" && record.person_id && record.topic_ids?.length > 0
+  );
+  if (facetFinding) {
+    const facetTopic = facetFinding.topic_ids[0];
+    const facetQuery = new URLSearchParams({ persona: facetFinding.person_id, tema: facetTopic });
+    await navigate(cdp, origin + "/esplora/?" + facetQuery.toString());
+    const expectedIntersection = searchIndex.records.filter((record) =>
+      record.kind === "finding" && record.person_id === facetFinding.person_id &&
+      record.topic_ids?.includes(facetTopic)
+    ).map((record) => record.route).sort();
+    await waitFor(
+      cdp,
+      "document.querySelectorAll('.explore-row').length === " + expectedIntersection.length,
+      "Person × Topic intersection did not hydrate",
+    );
+    const visibleIntersection = await cdp.evaluate(
+      "[...document.querySelectorAll('.explore-row .claim-row-claim')].map(link => link.getAttribute('href')).sort()"
+    );
+    assert.deepEqual(visibleIntersection, expectedIntersection,
+      "Person × Topic browser results differ from approved public-index membership");
+    await cdp.evaluate("document.querySelector('.filter-button').click()");
+    await waitFor(cdp, "document.querySelector('dialog')?.open === true", "facet dialog did not open");
+    const selected = await cdp.evaluate("({person: document.querySelector('select[aria-label=\"Filtra dichiarazioni per persona pubblica\"]')?.value, topic: document.querySelector('select[aria-label=\"Filtra dichiarazioni per tema pubblico\"]')?.value})");
+    assert.deepEqual(selected, { person: facetFinding.person_id, topic: facetTopic },
+      "URL did not restore both public-only facet selections");
+    await key(cdp, "Escape", { code: "Escape", keyCode: 27 });
+    assert.match(await cdp.evaluate("location.search"), /persona=/);
+    assert.match(await cdp.evaluate("location.search"), /tema=/);
+  }
+
   await cdp.evaluate("document.querySelector('.filter-button').focus()");
   await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
   await waitFor(cdp, "document.querySelector('dialog')?.open === true", "filter dialog did not open from keyboard");
