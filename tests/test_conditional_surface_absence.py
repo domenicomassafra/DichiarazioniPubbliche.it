@@ -41,6 +41,9 @@ class ConditionalSurfaceAbsenceTests(unittest.TestCase):
         with patch.object(gate, "_ALLOWED_PATHS", gate._ALLOWED_PATHS | {"/v1/admin/approve"}):
             with self.assertRaisesRegex(ValueError, "PRIVATE_STUDIO_PATH"):
                 verify_surface_absence(ROOT)
+        with patch.object(gate, "_ALLOWED_PATHS",
+                          gate._PRIVATE_STUDIO_READ_PATHS - gate._STUDIO_PENDING_READ_ONLY_ADDITIONS):
+            verify_surface_absence(ROOT)
 
     def test_actual_default_public_http_refuses_admin_intake_and_account_mutation(self):
         with build_server(None, host="127.0.0.1", port=0) as server:

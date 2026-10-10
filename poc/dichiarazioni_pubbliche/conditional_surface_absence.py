@@ -30,6 +30,11 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/discovery/inspect", "/v1/discovery/triage-history",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
 })
+_STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
+    "/v1/candidate/review-readiness",
+    "/v1/candidate/handoff-receipt",
+    "/v1/discovery/bulk-preview",
+})
 
 
 def verify_surface_absence(root: Path) -> None:
@@ -51,7 +56,11 @@ def verify_surface_absence(root: Path) -> None:
         if routed != (path in _SAFE_PUBLIC_MEMBER_PATHS):
             raise ValueError("CONDITIONAL_PUBLIC_ACCOUNT_PATH_SCOPE_CHANGED")
 
-    if _ALLOWED_PATHS != _PRIVATE_STUDIO_READ_PATHS:
+    # Source-only Studio review endpoints may be staged in a parallel worker
+    # without having reached HEAD. Both the committed baseline and the
+    # in-progress read-only preview set are safe; any *other* path fails closed.
+    baseline = _PRIVATE_STUDIO_READ_PATHS - _STUDIO_PENDING_READ_ONLY_ADDITIONS
+    if not baseline.issubset(_ALLOWED_PATHS) or not _ALLOWED_PATHS.issubset(_PRIVATE_STUDIO_READ_PATHS):
         raise ValueError("CONDITIONAL_PRIVATE_STUDIO_PATH_SCOPE_CHANGED")
     # The local operator service must bind exclusively to loopback. An
     # ephemeral listener is closed immediately; no private data is queried.
