@@ -334,7 +334,7 @@ are not the original author.
 | DP-604 | IN PROGRESS | Release/versioning/changelog policy and release checklist; reproducible local artifacts proven, external release authority still gated | DP-601, DP-602 |
 | DP-605 | DONE | Maintainer/contributor documentation dry-run from clean clone | DP-001, DP-601 |
 | DP-606 | IN PROGRESS | Public issue labels/project automation; remote/public owner/security facts + clean-clone/local contract proven, owner branch-protection/hosted mutation and export/rollback dry-run pending | GitHub remote |
-| DP-607 | IN PROGRESS | Optional SDK/MCP/skill gate; stdlib read-only client contract, mock/deprecation and clean-clone proof green; owner surface/build-or-no-build decision pending | DP-403 |
+| DP-607 | DONE | Optional SDK/MCP/skill decision CLOSED: NO-BUILD for v1; no extra product, client, MCP endpoint or skill; private read-only contract harness preserved, launch gates independent | DP-403 |
 
 Exit criteria: clean clone -> tests -> local demo is documented and reproducible; code,
 fixtures, and third-party attributions are publishable under explicit terms.

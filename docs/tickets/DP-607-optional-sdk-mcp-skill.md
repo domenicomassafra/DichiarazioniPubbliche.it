@@ -1,9 +1,9 @@
 # DP-607 — Optional SDK, MCP, or agent skill after the HTTP contract is stable
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M6 — open-source and release hardening / post-M4 client ecosystem
 Depends on: DP-105 public schema, DP-402 read-only HTTP API, DP-403 OpenAPI and versioning policy; legal/publication gates remain prerequisites
-Launch state: stable API/OpenAPI prerequisites are closed; blocked on the owner surface/build decision and applicable launch/legal gates; no client, MCP server, skill, or external publication is authorized here
+Launch state: optional ecosystem decision closed **NO-BUILD for v1**; existing API stays DRAFT and all legal/publication gates remain separate and blocked. No SDK, MCP server, agent skill, or external client publication is authorized.
 
 ## Problem
 
@@ -195,7 +195,7 @@ A skill is not an autonomous reviewer, publisher, browser session, or replacemen
 
 ## Acceptance criteria
 
-- [ ] **AC-607.1 — API-before-client gate:** No SDK, MCP server, or skill implementation
+- [x] **AC-607.1 — API-before-client gate:** No SDK, MCP server, or skill implementation
   is marked stable or published until DP-105, DP-402, and DP-403 close their contract
   gates and the owner selects one surface.
 - [x] **AC-607.2 — Single authority:** The selected client consumes the same HTTP API and
@@ -225,7 +225,7 @@ A skill is not an autonomous reviewer, publisher, browser session, or replacemen
 - [x] **AC-607.10 — Migration/contract safety:** No client-specific database migration is
   introduced. A public contract change follows DP-105/DP-403 migration and compatibility
   policy, with old clients held or deprecated explicitly.
-- [ ] **AC-607.11 — Optionality:** If no safe, useful client surface is justified, the
+- [x] **AC-607.11 — Optionality:** If no safe, useful client surface is justified, the
   accepted outcome is “do not build” with the decision receipt; no placeholder SDK/MCP
   or skill is shipped.
 - [x] **AC-607.12 — No external publication:** This specification does not publish an
@@ -331,3 +331,38 @@ stdlib-only and introduces no generated client artifact, bundled external exampl
 dependency requiring a DP-603 row; any future shipped/generated client reopens that inventory
 gate. AC-607.1 remains open for explicit owner surface/stability selection, and AC-607.11
 remains open for the owner build/no-build decision.
+
+### 2026-10-10 — Final optionality decision: NO-BUILD for v1
+
+**Decision:** Do not build or ship an SDK, MCP server, or agent skill for the
+v1 product scope. Product direction in the current owner conversation is to
+finish the existing tickets rather than create any other product/project.
+This decision changes **no API contract**, deploy, registry, database, public
+projection, reviewer authority or legal/rights disposition; it also does not
+delete the existing internal read-only `public_http_client.py` contract harness,
+which remains test-only and is not marketed as an SDK.
+
+**Decision basis:** DP-105/402/403 already own the single public schema and
+read-only HTTP/OpenAPI surface. The production-facing site/API is still
+pre-release/DRAFT, the approved public snapshot has no independently accepted
+v1 Garlasco 100-item dataset, and there is no documented external consumer
+request requiring a separately distributed client. An additional SDK/MCP/skill
+would require independent compatibility, licensing, security, maintenance and
+privacy review but **would not** close the existing source/provider/legal or
+launch blockers. The reversible no-build choice is therefore the smallest
+safe accepted outcome of this expressly optional decision ticket.
+
+**AC-607.1:** DP-105, DP-402, DP-403 already DONE; no selected external
+client exists, so nothing can be mislabeled stable, installed or published.
+**AC-607.11:** explicit `NO-BUILD` outcome accepted for v1; do not create a
+placeholder, auto-install any integration, or use the internal mock harness as
+proof of an external client. AC-607.2–.10 and .12 retain their already
+recorded contract evidence, applying only to the internal harness while no
+new distribution exists. The decision is terminal **for DP-607/v1 scope**:
+future demand for a real SDK/MCP/skill must use a **new owner-approved ticket**
+and cannot silently reopen external publication through this receipt.
+
+**Non-goals unchanged:** No change to legal/rights/security decisions,
+DP-604 owner release authority, DP-705 stable public release or the current
+public/no-private-data boundary. DP-607 DONE does not imply any launch gate
+passed and does not reduce the independent M7 preflight blockers.
