@@ -16,6 +16,12 @@ publication, reply, and correction are separate auditable stages.
 
 Canonical source repository: `domenicomassafra/DichiarazioniPubbliche.it`.
 
+**Current status / next-agent entry point (2026-10-10):** [`HANDOFF.md`](HANDOFF.md),
+[`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md), and
+[`LAUNCH.md`](LAUNCH.md). The repository being merged and CI passing does **not**
+mean the editorial product or latest website build has been released; the
+current 125-ticket ledger is in [`PLAN.md`](PLAN.md).
+
 ## Why this exists
 
 Public statements are easy to publish and hard to remember accurately over time.
@@ -100,10 +106,13 @@ Known external live blockers are tracked as tickets rather than hidden by fallba
 - `DP-201` — official OmniRoute tiered claim-extraction path;
 - `DP-204` — live remote-ASR receipt requires configured provider credential.
 
-The Git checkout itself is consolidated: `main` is the only active local branch/worktree,
-with no stash or pending source changes. See
-[`docs/reviews/consolidation-baseline-2026-10-03.md`](docs/reviews/consolidation-baseline-2026-10-03.md)
-for the current code/feature/frontend inventory and the remaining product gaps.
+At the verified 2026-10-10 checkpoint, `main` and `origin/main` matched,
+GitHub CI passed, and no other local branch, worktree or stash existed.
+**90/125 tickets were DONE**; a full editorial release remained **NO-GO** and a
+production website deployment was not implied by the GitHub push. Read
+[`HANDOFF.md`](HANDOFF.md) for the exact current verification steps; the
+[`2026-10-03 consolidation`](docs/reviews/consolidation-baseline-2026-10-03.md)
+remains historical evidence, not a current runtime report.
 
 See [`PLAN.md`](PLAN.md) for the complete path to stable v1.
 

@@ -1,175 +1,47 @@
-# Dichiarazioni Pubbliche — Current Operational Handoff
+# Dichiarazioni Pubbliche — handoff operativo attuale
 
-Last updated: 2026-10-10
+**Checkpoint:** 10 ottobre 2026. Questo documento è la porta di ingresso operativa,
+non una seconda fonte di verità per i ticket o una certificazione di release.
 
-## START HERE — verified checkpoint (2026-10-10)
+## Leggere nell’ordine
 
-**Read `MEGA-HANDOFF-2026-10-10.md` first** for the complete technical/strategic
-handoff, all 35 remaining original ticket groups, pipeline/provider/legal
-dependencies, reasons for slowdown, proposed donor/fork evaluation, and
-questions for the next owner-agent grilling. `LAUNCH.md` separately scopes the
-six-page **informational-only** preview; it is not a stable-v1 authorization.
+1. `FINAL-PENDING-GRILLING-2026-10-10.md` — stato dei pending, decisioni e domande per la prossima chat (quando presente).
+2. [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md) — dettaglio delle prove e dei limiti, tabella della pipeline e analisi del rallentamento.
+3. [`LAUNCH.md`](LAUNCH.md) — pubblicazione informativa essenziale **distinta** dalla release editoriale stabile.
+4. [`PLAN.md`](PLAN.md) e [`docs/tickets/`](docs/tickets/) — registro **canonico** dei 125 ticket e delle acceptance criterion; mai modificare stati per semplificare i numeri.
+5. [`PRODUCT.md`](PRODUCT.md), [`CONTEXT.md`](CONTEXT.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`AGENTS.md`](AGENTS.md) — invarianti, architettura e regole di lavoro.
 
-The integrated source snapshot before the handoff documentation commit was
-`4a9f782`; the final Git head is determined by `git log -1 --oneline`.
-Current code verification: **2390/2390 Python tests PASS**, deterministic
-benchmark **5/5 PASS**, repository contract/fixture license inventory PASS.
-Ticket status: **90 DONE / 20 IN PROGRESS / 6 BLOCKED / 9 FUTURE** out of 125;
-release preflight **NO-GO** with 49 blockers. 2026-10-10 handoff does **not**
-include a MiniPC deployment, live provider canary, an approved populated
-public projection, or qualified legal/editorial authorization.
+## Stato verificato al 10 ottobre (ricontrollare live)
 
-**Everything below is an archived 2026-10-03 operational baseline.** Its
-numbers, preview scope, and MiniPC/projection observations are historical and
-must not be substituted for the 2026-10-10 checkpoint or fresh runtime readback.
+- **Sorgente autorevole:** `/Users/domenico/Code/DichiarazioniPubbliche.it`; repo GitHub `domenicomassafra/DichiarazioniPubbliche.it`.
+- **Git al checkpoint:** `main` locale e `origin/main` al commit `a66e987`; nessun altro branch/worktree/stash e working tree pulito. `git log -1` prevale sulla fotografia storica.
+- **CI GitHub:** esecuzione `38072548106` sul commit `a66e987`: success.
+- **Ticket al checkpoint:** 125 totali; 90 DONE, 20 IN PROGRESS, 6 BLOCKED, 9 FUTURE; 35 non DONE.
+- **Test integrati già eseguiti:** Python 2390/2390 PASS; benchmark deterministico 5/5 PASS. Non equipararli al canary di un corpus reale.
+- **Release v1:** `tools/check_launch_preflight.py --expect-no-go` segnala 49 blocker. Non pubblicare claim o dati di diritti non approvati.
+- **HTTPS:** online, ma risposta verificata il 10 ottobre segnalava file datati 7 ottobre: GitHub push e deploy web **non sono la stessa cosa**.
+- **Runtime autorevole:** MiniPC, mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; PostgreSQL `dichiarazioni_pubbliche`. Non inferire deploy MiniPC da un nuovo SHA Git.
 
-This file is intentionally short. It is an operational continuation note, not the
-project constitution, architecture, or backlog.
+## Confini non negoziabili
 
-## Read first
+- Nessuna pubblicazione automatica, identificazione biometrica o classifica di attendibilità delle persone.
+- Provenienza e diritti espliciti prima di riusare fonti/transcript, anche se pubblicamente visibili.
+- Review e quote/autorialità/verifica umane **prima** di promuovere un candidato a pubblicazione.
+- Studio privata e dati non approvati non devono entrare nel bundle statico pubblico.
+- Il sito informativo con indice legittimamente vuoto può essere un obiettivo distinto; le decisioni su privacy, titolarità, contatti e testi legali non possono essere dichiarate approvate per decreto tecnico.
 
-1. `PRODUCT.md`
-2. `CONTEXT.md`
-3. `ARCHITECTURE.md`
-4. `PLAN.md`
-5. `AGENTS.md`
-6. relevant ADR/ticket
-
-## Authorities
-
-- Git/source authority: `/Users/domenico/Code/DichiarazioniPubbliche.it`
-- Branch policy: keep `main` clean; avoid unnecessary branches/worktrees.
-- Runtime authority: MiniPC.
-- MiniPC deployment mirror: `/home/udodo/src/DichiarazioniPubbliche.it` (not a Git checkout).
-- Production PostgreSQL DB: `dichiarazioni_pubbliche` on MiniPC.
-- Production contract registry: `dichiarazioni-pubbliche-public-v2` ACTIVE.
-- Current canonical backup set: `~/.local/share/dichiarazioni-pubbliche-backups/20261004T014945Z/`.
-
-## Current code/runtime baseline
-
-The 2026-10-04 consolidation closes the previously uncommitted 2026-10-03
-rename/cutover and owner WIP on `main`. The canonical Git remote is
-`https://github.com/domenicomassafra/DichiarazioniPubbliche.it.git`. Use
-`git log -1 --oneline` for the exact current commit rather than copying a stale hash into
-this handoff.
-
-The preserved pre-rebrand WIP in `queue_runtime.py`, `tests/test_queue_runtime.py`,
-`poc/dichiarazioni_pubbliche/timestamp_acceptance.py` and
-`tests/test_timestamp_acceptance.py` is now validated as part of the canonical tree.
-
-Latest validation after the consolidation:
-
-- Mac full Python suite: **977/977 PASS**;
-- MiniPC pre-cutover full Python suite: **977/977 PASS**;
-- deterministic benchmark: **5/5 PASS**;
-- compileall: PASS;
-- timestamp acceptance fixture: 84 segments / 36 claims / 0 provider calls;
-- Astro check: 47 files, 0 diagnostics;
-- design-system check: PASS;
-- explicit demo static build: **16 routes PASS**;
-- normal static build without a public projection remains fail-closed as designed;
-- git diff --check: PASS;
-- MiniPC worker/source-poll/health post-cutover oneshots: exit 0;
-- five renamed MiniPC timer/web surfaces: active;
-- loopback web read-back: HTTP 200;
-- production projection: dichiarazioni-pubbliche-public-v2, 2 dossiers, 0 omitted.
-- MiniPC source/config/runtime scan: zero obsolete project-identity matches;
-- rename-era backup/rollback/timer-stamp residues removed after a fresh canonical backup.
-
-The exact rebrand/runtime receipt is
-docs/reviews/rebrand-cutover-2026-10-03.md.
-
-The public IA decision is now frozen in `docs/35-public-product-architecture-v3.md`.
-The maintained visual reference set is the nine page families under
-`prototypes/final-hybrid/`. The real Astro route migration is intentionally the next
-bounded implementation ticket, `DP-422`; it is not hidden WIP.
-
-## Known external blockers
-
-### Claim extraction
-
-The official OmniRoute tiered path does not currently complete the required governed
-claim-extraction flow.
-
-Rules:
-
-- do not change model/provider to hide the blocker;
-- do not use a local-fork OmniRoute runtime;
-- do not recreate claim-extraction child jobs while downstream capability is unavailable;
-- resume with `DP-201` only when an official artifact makes a meaningful canary possible;
-- then `DP-202` one parent canary + Giuliani benchmark;
-- only then `DP-203` controlled fan-out.
-
-### Remote ASR
-
-Live remote ASR remains blocked until the required provider credential is configured
-outside Git. Resume through `DP-204` with a bounded canary and cost receipt.
-
-## Current program state (updated 2026-10-03, Mac + MiniPC)
-
-DP-211 and DP-212 are DONE (runtime-certified 2026-09-30). DP-213 is DONE
-(Mac-verified + MiniPC runtime proof 2026-10-01: migration replay, isolated
-tracer, zero side effects, 968/968 suite, backups `20261001T154412Z` /
-`20261001T160005Z`). DP-215 implementation is Mac-verified (8/9 ACs) with
-MiniPC proof recorded in-ticket; it stays IN_PROGRESS until AC-215.9 via
-FUTURE DP-214. Full Mac suite: 968/968 PASS, benchmark 5/5 PASS. See the two
-tickets for the exact receipts.
-
-Read `docs/34-research-corpus-knowledge-architecture-v1.md`, ADR 0007 and ADR 0008 before
-implementing corpus work. The key path is now:
-
-`Discovery -> Content -> ContentCapture -> Passage/transcript -> StatementCandidate -> ClaimCandidate -> explicit promotion -> AtomicClaim -> Evidence -> Verification -> Finding -> Public Projection`.
-
-Do not start mass ingestion or broad visual polishing outside the frozen public architecture
-before the corpus tracer bullet is usable. Public Product Architecture v3 in
-`docs/35-public-product-architecture-v3.md` is now the canonical public IA; Public UX v2
-is superseded as route/page guidance. The implementation sequence is DP-211 -> DP-212 -> DP-213 -> DP-214,
-then DP-414..420; DP-421 decides whether a distinct public case/collection surface is
-justified after the Garlasco pilot.
-
-External provider blockers DP-201..204 remain unchanged and must not be hidden by the new
-architecture.
-
-The consolidated code/feature/UI snapshot is recorded in
-docs/reviews/consolidation-baseline-2026-10-03.md. The owner-approved product and
-technical identity is now **Dichiarazioni Pubbliche** /
-DichiarazioniPubbliche.it / dichiarazioni_pubbliche. Domain purchase, handles and
-qualified trademark/legal clearance remain separate launch gates.
-
-## Safety invariants that must survive every change
-
-- no auto-publication;
-- evidence retrieval != approval != verification != publication;
-- no person truth/reliability/political score;
-- no political recommendation;
-- no biometric speaker identity;
-- public claim attribution requires approved speaker provenance;
-- correction/right-of-reply are append-only and private by default;
-- public projection is bounded and fail-closed;
-- no raw/canonical transcript body or evidence body in public projection by default;
-- no future evidence silently judging earlier claims;
-- no generic model-invented evidence URLs/queries in the evidence core;
-- no unnecessary major infrastructure;
-- runtime completion requires MiniPC proof when the ticket says so.
-
-## Standard validation
+## Comandi rapidi di ripresa
 
 ```bash
 cd /Users/domenico/Code/DichiarazioniPubbliche.it
-python3 -m compileall -q poc tests
-PYTHONPATH=poc python3 -m unittest discover -s tests -v
-PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark
-git diff --check
-git status --short --branch
+git fetch origin main && git status -sb && git branch -avv && git worktree list --porcelain && git stash list
+python3 tools/report_ticket_status.py --json
+python3 tools/check_launch_preflight.py --expect-no-go
+python3 tools/check_repository_contract.py
+python3 tools/check_licensing_inventory.py --check-hashes
 ```
 
-## Handoff discipline
-
-Future handoffs should only record:
-
-- current ticket/status;
-- exact commit/state;
-- runtime receipts relevant to unfinished work;
-- blockers and the next deterministic action.
-
-Durable product decisions belong in canonical docs or ADRs, not here.
+Le vecchie fotografie del **3 ottobre** che apparivano in questo file sono state
+rimosse dal percorso operativo perché generavano contraddizioni con le prove del 10 ottobre.
+Non sono state cancellate dalla storia Git: leggere i commit precedenti o i
+receipt datati in `docs/reviews/` soltanto per ricostruire una decisione storica.
