@@ -1,7 +1,52 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
-**Checkpoint:** 10 ottobre 2026. Questo documento è la porta di ingresso operativa,
+**Checkpoint operativo aggiornato:** 11 ottobre 2026. Questo documento è la porta di ingresso operativa,
 non una seconda fonte di verità per i ticket o una certificazione di release.
+
+## Implementazione autorizzata il 2026-10-11 — source-only, NO-GO produzione
+
+Il mandato precedente di pianificazione (Q19, 10 ottobre) è stato completato.
+L'owner ha poi autorizzato **l'implementazione** dei ticket, senza conferire
+licenze di sorgenti reali, diritti alle citazioni, spesa per provider, publish,
+ingestione massiva o deployment. Partenza `573de7f`; le nuove modifiche
+sono in commit locali su `main`, non pubblicati.
+
+Prima e seconda ondata:
+
+- Fonte/diritti: DP-236 `acf6541` (uso/rights exact-artifact fail-closed);
+  DP-237 `6bd8532` (locator Source/Capture/Passage con hash/versioni);
+- Contesto/relazioni: DP-312 `6404079` (speech-act semantico privato),
+  DP-318 `d01fb22` (same-Person vs cross-Person, senza poteri pubblicativi);
+- Verbatim: DP-435/437 `2405049` schema/proiezione v3 opt-in, DP-436
+  `4a7afbf` serializzatori API/RDF/JSON-LD opt-in, componenti web isolati
+  `caa5c5c`/`ce60baf`. I reader HTTP pubblici restano v2;
+- Search UX: DP-429/439 `df6fa42`/`5c72563`/`f8b2b6e` (filtri
+  Persona × Tema sulle membership già autorizzate nel v2; no parafrasi
+  travestita da citazione), documentazione `2f2dba4`;
+- Costo: DP-512 `c6d55c7` (non presentare stima come fatturato), DP-514
+  `e2df061` (proposta cap mensile EUR **disabled**, nessun dispatch);
+- `5b8edb7`: classificazione inventario privacy aggiornata per i 21 campi
+  v3 condizionali, no public authorization, correzione test status ticket,
+  PLAN e primi receipt implementativi. Il backlog è **162 ticket: 90 DONE,
+  30 IN PROGRESS, 6 BLOCKED, 36 FUTURE**; 72 non DONE. Le nuove AC restano
+  aperte dove mancano prove reali.
+
+Test puntuali e web sono stati eseguiti: `check:search`, `check:statement`,
+`check:design`, Astro check (88 file, 0 diagnostici),
+`check:projection-boundary`, suite DP-236/237/312/318/435/436/512/514,
+con le regressioni mirate dei worker. Prima suite Python integrata: 2492
+test, 5 non PASS dovuti a inventario privacy v3 non rigenerato (4) e
+conteggio ticket congelato a 125 (1); problemi corretti al sorgente e
+17/17 test privacy mirati PASS. Il risultato **della ripetizione totale**
+deve essere letto nella review di questa wave prima di chiamarla green.
+
+Restano **NO-GO:** rights source-family e Q-306/DP-307/317 qualificati,
+fonti/contesto autentici, attestazioni DB e dual control/machine
+policy DP-316, gold reale DP-321, API/v3 web route e revoca cache,
+inserimento `person_id` nei chiamanti legacy DP-318, CAS persistente
+budget EUR DP-514, pilot integrato MiniPC DP-443, stable v1 DP-705.
+Nessun daemon, chiave, worker host, DB di produzione, deploy, push o
+provider pagato è stato usato da questa implementazione.
 
 ## Leggere nell’ordine
 

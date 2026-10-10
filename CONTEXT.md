@@ -6,9 +6,16 @@ Last updated: 2026-10-10 (planning target addendum)
 This glossary gives stable names to the domain. Code, tickets, ADRs, and documentation
 should use these terms consistently.
 
-## Post-grilling domain target, not current schema
+## Post-grilling domain target and implementation boundary
 
 Future `PublicStatement` (DP-437) has a stable identity and version independent of a factual Finding; its approved original-language exact wording, source span/locator and source-use clearance are separately governed by DP-435 and DP-317. `Summary` and `Translation` are derived, labeled and version-bound, never the literal statement quote. A completed check with insufficient evidence differs from a check not yet performed and from a non-factual opinion. Speaker/author/quoted speaker and expressed endorsement are distinct speech acts (DP-312); one person's chronology does not equate with a comparison across two people (DP-318). `PublicPerson` may independently be approved with zero eligible Statements (DP-438), while unknown/private Person identities remain invisible. `PersonTopicSynthesis` (DP-440) is a precomputed, dated, citation-backed artifact from approved Person×Topic intersection DP-439, not an online chatbot or belief inference. These are **new planned types**, not claims that existing source code or public v2 JSON already implements them.
+
+**2026-10-11 source-only implementation readback:** the opt-in `public-v3-statement-opt-in`
+schema/projection, DTO and linked-data serializers, and an isolated Astro
+verbatim component now have deterministic tests. No real-source authorization,
+DB-backed attestation, public v3 route or MiniPC cutover has been accepted.
+The v2 public projection remains the default. These target records are not
+active public types merely because contract code exists.
 
 ## Core records
 

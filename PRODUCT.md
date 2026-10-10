@@ -48,8 +48,10 @@ attribution, checks and writing also for public procedural/judicial documents,
 preserving the distinction between exact documentary words, reported allegations
 and independently established facts. Future source selection prioritizes
 continuity and relevant events with disclosed coverage/freshness. The owner
-selects the visual redesign later. Current authorized deliverable is ticket and
-planning-document revision only; implementation and deployment follow separately.
+ selects the visual redesign later. The 2026-10-10 planning-only mandate ended
+ with the backlog integration. On 2026-10-11 the owner separately authorized
+ local source implementation, **not** publication, licensed-source clearance,
+ paid-provider trials, bulk collection, deploy or a visual design selection.
 
 ## Primary users
 

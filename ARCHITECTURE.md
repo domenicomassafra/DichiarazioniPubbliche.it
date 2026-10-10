@@ -10,9 +10,18 @@ architecture optimizes for auditability, fail-closed publication, low operating 
 replaceable external providers, and a public read path that keeps working without live
 LLM calls.
 
-## Post-grilling architecture delta — not implemented
+## Post-grilling architecture delta — partially implemented, not activated
 
 Keep one existing discovery/Capture/Passage/statement candidate/verification and governed public projection path. Planned source-family permission check (DP-236/317) precedes body fetch and exact public quote; context/speech-act (DP-312), factual role/evidence (DP-313/314), challenger and versioned machine authority (DP-316/321) precede eligible publish. The old human-review gate stays active unless a separate qualified versioned machine cutover passes independent gold, revocation races and owner authority. DP-435/437 establish exact-wording, opinion-capable PublicStatement; DP-436 updates every HTML/API/search/RDF/JSON-LD consumer atomically and DP-438–440 build public-first-class Person and Persona×Tema with offline cited summaries. DP-443 is the first real authorized source-to-frontend-to-correction pilot gate. Larger historical capture DP-243/516 must wait for its signed acceptance. DP-512–515 meter actual-versus-estimated/plan/energy usage and bound recurring queue cost. No new parallel data store, online chatbot or extra inference service is warranted by the planning target.
+
+**2026-10-11 source-only checkpoint:** optional per-use source/capture rights
+guard, exact locator validator, private speech-act and identity-aware relation
+preflight, opt-in public Statement v3 schema/serializer, frontend private
+v3 rendering primitive, and bounded accounting/cost preflight have tests and
+local commits. The full source→real authorized corpus→attested publish→
+HTML/API/search/retraction runtime remains a future integration. Existing
+production v2 publication gates, default USD caps and MiniPC deployments
+have not changed.
 
 ## System context
 
