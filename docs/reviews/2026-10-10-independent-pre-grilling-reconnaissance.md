@@ -273,11 +273,49 @@ Le contraddizioni Person vuoto, stato pubblico blocked e paraphrase/citazione
 devono entrare nei round pertinenti; non saranno corrette tacitamente.
 
 Checkpoint aggiornato: ricognizione consegnata, missione integrata riaffermata
-dall'owner e Q1 ritirata. Riprendere sui comportamenti concreti e sui confini
-editoriali/operativi; capacità e budget restano senza risposta. Registrare
-le decisioni durevoli nei file canonici
+dall'owner e Q1 ritirata. L'owner ha risposto a capacità/budget: **zero reviewer
+editoriali disponibili**, circa **EUR10/mese come ipotesi da misurare**, prove
+empiriche di quota quotidiana Antigravity, audio e consumo elettrico locale.
+Nessuna promessa di infallibilità o nuova autorità di pubblicazione è approvata.
+L'owner ha poi ordinato il lavoro: **GPT-6 in Codex/ChatGPT-web e corpus storico
+prima**, Antigravity/audio/modelli locali dopo che il percorso funziona; prima
+grilling, poi ticket futuri e automazioni economiche. Hitler/Mussolini sono casi
+proposti, con periodo/temi/limiti ancora aperti. La quota temporaneamente abbondante
+è un input dell'owner, non una misurazione o una disponibilità garantita futura.
+Riprendere dal corpus storico bounded e dalla prova di correttezza indipendente;
+pubblicazione con zero reviewer resta una decisione aperta prima del rilascio.
+scheduling e soglie quantitative dipendono dalle misure.
+Registrare le decisioni durevoli nei file canonici
 appropriati e ricalcolare la frontiera. Nessun redesign o cambiamento di contratto
 prima della comprensione condivisa confermata dall'owner.
+
+### Ricognizione dei consumi, destinata alla fase successiva
+
+Esistono receipt e ledger per provider/model/task, request/attempt, token,
+audio-secondi e aggregazioni per data/source/content/claim/collection. Non sono
+ancora una misura completa del costo operativo: candidate_extraction.py:1341
+persistisce MEASURED_PROVIDER_COST anche quando :2415–2431 ha calcolato una stima
+da token/rate o upper bound; Antigravity con rate zero può così apparire measured
+zero. worker_handlers_transcript.py:584–606 conserva LOCAL_COMPUTE_UNMETERED nel
+receipt locale ma il totale zero API può essere classificato ZERO_COST. Non esiste
+misura Wh/kWh. Questi gap vanno corretti al seam canonico prima di usare i totali
+per stimare il budget; non è stata apportata una patch durante il grilling.
+
+Gli attuali cap USD5/day, USD1/source/day e USD0.25/job non impongono EUR10/month.
+[Antigravity /usage](https://antigravity.google/docs/cli/commands/usage) e
+[plans](https://www.antigravity.google/docs/plans) offrono quota/crediti e overage
+Never; la quota non equivale a un numero di token convertibile in prezzo fisso.
+[Groq ASR](https://console.groq.com/docs/speech-to-text), il provider audio già
+configurato, documenta tariffe per durata e minimo10s/call; le stime locali
+attuali non includono quel minimo. Nessun account/quota è stato interrogato,
+nessuna inferenza o chiamata audio eseguita per questa ricognizione.
+
+Fonti storiche primarie da valutare, non importate né licenziate per decreto:
+[Archivio Luce — Mussolini](https://www.archivioluce.com/tag/benito-mussolini/)
+e [Bundesarchiv — Hitler](https://www.bundesarchiv.de/im-archiv-recherchieren/archivgut-recherchieren/nach-themen/archivalien-zu-adolf-hitler/).
+Il [programma di digitalizzazione del Bundesarchiv](https://www.bundesarchiv.de/das-bundesarchiv/aus-unserer-archivarbeit/digitalisierung-von-archivgut-zum-nationalsozialismus-1933-1945/)
+mostra perché un corpus storico resta aggiornabile. Inventario/fonti/testi,
+registrazioni ed edizioni/traduzioni richiedono provenienza e permessi distinti.
 
 ## Riproducibilità e limiti
 

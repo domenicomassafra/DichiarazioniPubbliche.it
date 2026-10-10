@@ -27,8 +27,57 @@ Resume grilling on concrete behavior and unresolved implementation/editorial
 boundaries under this mission: what each verification state means, how factual
 propositions differ from opinions, what makes comparisons valid, how Person/Topic
 pages preserve source/context/time, and operator capacity and budget. Record
-answers before approving redesign or rescoping the backlog. Previous questions
-about capacity and budget remain unanswered; they do not imply a reduced product.
+answers before approving redesign or rescoping the backlog.
+
+**Owner answers, active grilling, 2026-10-10:** editorial reviewer availability
+is currently **zero**. The intended automated fact-checking must have rigorous
+source/attribution/evidence checks and prevent unsupported conclusions. An
+infallibility or zero-error guarantee is not established and must not be promised;
+accuracy, abstention, false attribution and false verdicts require measured proof.
+The existing human-review/no-auto-publication contract remains unchanged until
+the owner explicitly resolves the publication-authority conflict in the grilling.
+
+**Budget answer:** approximately **EUR10/month is a tentative target to estimate**,
+not a verified bill, quota entitlement or authorization to incur charges. The
+owner requires real daily consumption trials across Antigravity account/model
+quotas, audio provider usage and local-model electricity. Resolve the audio
+provider from the configured route (currently Groq in the project); do not assume
+that the owner's spoken "Grok" names a new provider. Reuse existing receipts/cost
+ledger and supported account usage interfaces. Measure before/after quota,
+requests, input/output tokens or reported quota units, retries, reset time, audio
+duration, elapsed time and incremental energy where observable. Keep measured,
+estimated and unknown cost distinct; no automatic overage, account switching,
+new subscription or paid call is approved by the tentative number.
+
+**Owner sequencing update, 2026-10-10:** use the owner's temporarily abundant
+existing GPT-6 entitlement through Codex/ChatGPT-web first, to acquire and validate
+a bounded historical corpus and the integrated product path. Model preference is
+recorded, not proof of a model switch or an API entitlement. Historical public
+figures Hitler and Mussolini are proposed initial cases; breadth, periods, themes
+and source permissions remain to be decided. This pilot must exercise source,
+attribution, factual assessment, Person/Topic and longitudinal/cross-person
+comparisons, not reduce the mission to quotation storage.
+
+The owner wants economical background automation and an organized future backlog,
+with grilling first and future tickets after decisions. Do not start recurring
+jobs, bulk captures or paid experiments merely from this planning request. Reuse
+existing source/discovery/capture/ledger paths when the source and run are approved.
+Historical backfill and future incremental ingestion are separate workloads.
+Death ends new statements by the person, not new discoveries, digitizations,
+source revisions or corrections. No claim of collecting "all sources" or automatic
+rights clearance follows from choosing historical figures.
+
+Defer Antigravity/audio/local-key comparison until the corpus/model path works;
+then measure sustainable daily consumption, reset cycles, retries and energy.
+EUR10/month is a tentative future operating target, distinct from the temporarily
+available entitlement; allocation and numeric limits depend on observations.
+
+Current frontier: bounded historical corpus and source/evidence coverage, plus
+how to establish correctness independently of the model being tested. Publication
+automation with zero reviewers remains unresolved and must be settled before any
+public record; private research can be planned without presuming that decision.
+Future daily workload and account scheduling follow the initial corpus acceptance.
+Preserve all existing ticket AC; no new ticket or supersession is approved yet.
 
 ## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
 

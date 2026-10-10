@@ -156,6 +156,15 @@ policy review.
 - The runtime authority for backend claims is the MiniPC; Mac results are development
   evidence, not production proof.
 
+**Current owner operating constraints, 2026-10-10:** no human editorial reviewer
+is available. The product must be designed and evaluated for rigorous automated
+fact-checking, preserving uncertainty and stopping unsupported factual conclusions.
+There is no established infallibility guarantee. Publication authority under this
+constraint is an unresolved decision; the existing human-review and publication
+invariants are not silently removed. Approximately EUR10/month is a tentative
+operating-cost target, to be calibrated through measured Antigravity quotas,
+audio usage and local-model electricity rather than assumed free/unlimited use.
+
 ## Scope
 
 ### In scope
