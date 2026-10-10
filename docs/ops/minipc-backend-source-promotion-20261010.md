@@ -100,3 +100,20 @@ identical, Cloudflare tunnel/web service were ACTIVE, and loopback
 HTTP returned 200. This separation is intentional while the release
 preflight remains NO-GO. No public-claim content, rights status,
 database schema or live user data was changed by the follow-up sync.
+
+## Independent public Internet parity check — 2026-10-10
+
+From the Mac Studio across the public Cloudflare host, an external HTTPS GET
+of `https://dichiarazionipubbliche.it/` returned HTTP **200**, with TLS
+verification result `0`; `https://www.dichiarazionipubbliche.it/` also
+returned **200** and resolved to the canonical non-www URL. The external
+response SHA-256 was exactly
+`60e76f42a138b8a5fde390cee1c21c8b2053ee3f661c7a3ef78f49aebe49a1b0`,
+identical to the MiniPC loopback GET and its installed `web/dist/index.html`.
+Both web and Cloudflare user services were ACTIVE. The independently observed
+existing public projection SHA-256 remained
+`adffa37fcd7c3b85af33c9c09ce0cb8b3c37925ed529894473dd5621f769dc73`.
+This closes the previously **unverified Internet-ingress observation** only:
+the currently deployed preview is externally reachable and byte-identical.
+It does **not** authorize the unbuilt frontend changes, new dataset,
+provider costs, database migrations or v1 release; NO-GO/43 still applies.

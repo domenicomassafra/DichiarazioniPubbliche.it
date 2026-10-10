@@ -1,0 +1,12 @@
+{
+  "fixture_only": true,
+  "response": {
+    "choices": [
+      {
+        "message": {
+          "content": "{\"claims\":[{\"source_timestamp\":\"0:00\",\"source_segment_indices\":[0],\"speaker\":\"\",\"claim_type\":\"PRICE_STATISTIC\",\"claim_text\":\"Il prezzo è 10 euro.\",\"check_worthy\":true,\"numeric_sensitive\":true}]}"
+        }
+      }
+    ]
+  }
+}

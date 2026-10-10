@@ -297,3 +297,12 @@ in **126.146s**, with the 100-table PostgreSQL restore drill PASS,
 the deterministic benchmark **5/5**, ticket/governance contract,
 compileall and whitespace checks PASS. No local-only snapshot was added
 to the repository and no GitHub mutation was made.
+
+2026-10-10 supplemental governance export: `tools/issue_hosted_governance_backup.py`
+captured actual public repository branch-protection **ABSENT**, **zero rulesets**
+and a private SHA-256-addressed backup without making any hosted mutation.
+GitHub Projects V2 remain **UNVERIFIED** because the current token lacks
+`read:project`. AC-606.10 remains **unchecked**; owner authorization for
+hosted setup/protection and real rollback is still a distinct requirement.
+Procedure, exact snapshot digest and targeted tests are in
+`docs/ops/issue-hosted-rollback.md`.

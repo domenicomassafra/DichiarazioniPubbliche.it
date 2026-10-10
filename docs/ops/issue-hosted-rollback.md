@@ -68,3 +68,28 @@ unowned existing labels and the read-only GitHub pagination seam.
 This is preparatory AC-606.10 evidence **not full acceptance**.
 DP-606 remains IN PROGRESS until the exact authorized hosted
 setup/export/rollback and protection policy are accepted.
+
+## Read-only branch/ruleset/project governance export — 2026-10-10
+
+The complementary exporter now captures the exact main-branch protection
+response and **full** ruleset definitions, rather than assuming the label
+backup also covered those policy objects:
+
+`python3 tools/issue_hosted_governance_backup.py --output-snapshot /tmp/dp606-hosted-governance-20261010.json`
+
+It uses only fixed-argument GitHub API reads, rejects repository identity
+drift and incomplete ruleset pages, creates an exclusive 0600 snapshot
+outside Git, and reports a digest without dumping hosted metadata. It does
+not change labels, projects, protection, issues, releases, or permissions.
+
+Actual 2026-10-10 read receipt: the public canonical repo still has **no
+main-branch protection** and **zero rulesets**. Backup SHA-256 is
+`74d8365e64ff5f5417b56dbce7fe229ef8c4096a80cce57566e0439cfd6e0ca1`.
+Project V2 was **not** readable: the authenticated token lacks GitHub
+`read:project` permission. That means `UNVERIFIED_MISSING_READ_PROJECT_SCOPE`,
+**not** evidence that the repository has zero projects. The governance export
+is deliberately classified **incomplete** until the owner supplies bounded
+project read permission and accepts policy/rollback evidence. A read-only
+backup does not count as an executed or successful rollback. Four new tests
+prove identity drift, full ruleset snapshot, missing-scope fail-closed
+behavior and private exclusive backups; 11 focused issue tests pass.

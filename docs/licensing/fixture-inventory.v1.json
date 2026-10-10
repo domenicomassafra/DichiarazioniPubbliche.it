@@ -2,10 +2,10 @@
   "schema_version": "fixture-inventory/v1",
   "policy_version": "DP-603@2026-09-26",
   "generated_by": "tools/generate_fixture_inventory.py",
-  "generated_on": "2026-10-07",
+  "generated_on": "2026-10-10",
   "code_license": "Apache-2.0",
   "note": "Machine-readable fixture/data licensing inventory (DP-603). Rights are curated human decisions, not inferred from the Apache-2.0 code license. UNKNOWN license rows are blocked/pending-review and must NOT be shipped in a release or public projection until owner/legal review. Enforced by tools/check_licensing_inventory.py.",
-  "asset_count": 45,
+  "asset_count": 46,
   "assets": [
     {
       "asset_id": "docs:ux:prototypes-v3:generated-style-02:index.html",
@@ -785,6 +785,29 @@
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:dp201-shadow-response-wave26.json",
+      "path_or_locator": "tests/fixtures/dp201-shadow-response-wave26.json",
+      "artifact_kind": "synthetic",
+      "origin": "Dichiarazioni Pubbliche contributors",
+      "source_reference": "project-authored offline mock OmniRoute response for DP-201 Wave26 preflight, not a provider API response",
+      "retrieved_at": "2026-10-10",
+      "content_hash": "71c24320a30f66f720ae296a35346fe45afff29ec59d26a31e1f7c3b43c8782e",
+      "license_or_terms": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0",
+      "license_evidence": "docs/licensing/README.md#synthetic-fixture-policy",
+      "attribution": "Project-authored Italian synthetic price statement and schema; no external content, publisher text or actual provider response embedded.",
+      "modifications": "Synthetic non-network fixture created to test canonical claim-parser contract without representing live OmniRoute output.",
+      "personal_data": "none; fictional unassigned speaker and price text only",
+      "redistribution_status": "allowed",
+      "public_projection_status": "internal offline shadow-test fixture only; cannot serve as provider receipt or public finding",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-10-10",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
       "blocker": null
