@@ -397,15 +397,324 @@ def curated_context_approval(
     }
 
 
+# A private semantic hypothesis, deliberately separate from v1's publication-facing
+# CLEAR_AUTOMATIC / APPROVED_CURATED context-review states.
+SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
+_SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
+_SPEECH_ACT_MAX_TURN_CHARS = 12000
+_QUOTED_TEXT_RE = re.compile(
+    r"""«[^«»]+»|“[^“”]+”|‘[^‘’]+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+)
+_SPEECH_ACT_CUES = {
+    "it": {
+        "opinion": re.compile(r"\b(?:secondo\s+me|a\s+mio\s+parere)\b", re.I),
+        "critique": re.compile(r"\b(?:critico|condanno|contesto|respingo|non\s+condivido)\b", re.I),
+        "performance": re.compile(r"\b(?:recito|interpreto|imito|insceno)\b", re.I),
+        "report": re.compile(r"\b(?:secondo|ha\s+detto|diceva|riporto|cito)\b", re.I),
+        "denial": re.compile(r"\b(?:non\s+(?:ho\s+)?(?:mai\s+)?(?:detto|sostengo|affermo|condivido|ritengo)|nego\s+che)\b", re.I),
+        "endorse": re.compile(r"\b(?:io\s+)?(?:sostengo|affermo|ritengo)\s+che\b", re.I),
+        "support": re.compile(r"\b(?:io\s+)?(?:sostengo|appoggio|condivido)\b", re.I),
+        "negation": re.compile(r"\b(?:non|mai|nessuno|nessuna|senza)\b", re.I),
+        "qualification": re.compile(r"\b(?:ma|però|tuttavia|salvo|tranne|in\s+realtà)\b", re.I),
+        "conditional": re.compile(r"\b(?:se|qualora|purché|a\s+condizione\s+che)\b", re.I),
+    },
+    "en": {
+        "opinion": re.compile(r"\b(?:in\s+my\s+opinion|i\s+think\s+that)\b", re.I),
+        "critique": re.compile(r"\b(?:criticize|criticise|condemn|reject|disavow)\b", re.I),
+        "performance": re.compile(r"\b(?:recite|perform|impersonate|act\s+out)\b", re.I),
+        "report": re.compile(r"\b(?:according\s+to|said|reported|quoting)\b", re.I),
+        "denial": re.compile(r"\b(?:i\s+(?:do\s+not|don't|never)\s+(?:say|said|support|endorse|believe)|i\s+deny\s+that)\b", re.I),
+        "endorse": re.compile(r"\b(?:i\s+(?:support|maintain|affirm|believe)\s+that|i\s+support)\b", re.I),
+        "support": re.compile(r"\bi\s+(?:support|endorse)\b", re.I),
+        "negation": re.compile(r"\b(?:not|never|no|without|don't|didn't)\b", re.I),
+        "qualification": re.compile(r"\b(?:but|however|except|unless|although)\b", re.I),
+        "conditional": re.compile(r"\b(?:if|provided\s+that|only\s+when)\b", re.I),
+    },
+    "de": {
+        "opinion": re.compile(r"\b(?:meiner\s+meinung\s+nach|ich\s+denke\s*,?\s+dass)\b", re.I),
+        "critique": re.compile(r"\b(?:kritisiere|verurteile|lehne\s+ab|distanziere)\b", re.I),
+        "performance": re.compile(r"\b(?:rezitiere|spiele\s+nach|imitiere|trage\s+vor)\b", re.I),
+        "report": re.compile(r"\b(?:laut|zufolge|sagte|berichtete|zitiere)\b", re.I),
+        "denial": re.compile(r"\b(?:ich\s+habe\s+(?:nie|nicht)\s+gesagt|ich\s+unterstütze\s+nicht)\b", re.I),
+        "endorse": re.compile(r"\b(?:ich\s+(?:unterstütze|befürworte|behaupte)|ich\s+sage\s*,?\s+dass)\b", re.I),
+        "support": re.compile(r"\bich\s+(?:unterstütze|befürworte)\b", re.I),
+        "negation": re.compile(r"\b(?:nicht|nie|kein|keine|keinen|niemals|ohne)\b", re.I),
+        "qualification": re.compile(r"\b(?:aber|jedoch|außer|obwohl|es\s+sei\s+denn)\b", re.I),
+        "conditional": re.compile(r"\b(?:wenn|falls|sofern|vorausgesetzt)\b", re.I),
+    },
+}
+
+
+@dataclass(frozen=True)
+class SpeechActContextDecision:
+    """An inspectable private hypothesis; it never approves speaker or publication."""
+
+    state: str
+    speech_act: str
+    stance: str
+    polarity: str
+    language: str
+    utterer_id: str
+    quoted_author_id: str | None
+    source_part_ref: str
+    turn_speaker_ids: tuple[str, ...]
+    context_parts: tuple[tuple[int, int, str], ...]
+    turn_complete: bool
+    source_sha256: str
+    quote_sha256: str
+    context_sha256: str
+    quote_start: int
+    quote_end: int
+    context_start: int
+    context_end: int
+    signal_codes: tuple[str, ...]
+    binding_sha256: str
+    version: str = SPEECH_ACT_CONTEXT_VERSION
+
+    @property
+    def publication_authority(self) -> bool:
+        return False
+
+    def to_metadata(self) -> dict[str, object]:
+        # No raw text, source URL, reviewer identity or publicly consumable READY flag.
+        return asdict(self)
+
+
+def assess_speech_act_context(
+    *,
+    source_text: str,
+    source_sha256: str,
+    quote_start: int,
+    quote_end: int,
+    turn_start: int,
+    turn_end: int,
+    utterer_id: str,
+    language: str,
+    turn_speaker_ids: Sequence[str] = (),
+    source_part_ref: str = "",
+    turn_complete: bool = False,
+    quoted_author_id: str | None = None,
+    context_parts: Sequence[tuple[int, int, str]] = (),
+) -> SpeechActContextDecision:
+    """Conservative lexical cues for a *private* speech-act candidate.
+
+    Completeness, speaker and source-part inputs are supplied provenance assertions,
+    not independent attestations. Only the existing review/publication authorities
+    can approve an attribution. Unsupported language and ambiguous phrasing hold.
+    """
+    if not isinstance(source_text, str) or _sha256(source_text) != _sha256_value(
+        source_sha256, "SOURCE_SHA256"
+    ):
+        raise ValueError("CONTEXT_SOURCE_HASH_MISMATCH")
+    if any(
+        not isinstance(value, int) or isinstance(value, bool)
+        for value in (quote_start, quote_end, turn_start, turn_end)
+    ) or not (0 <= turn_start <= quote_start < quote_end <= turn_end <= len(source_text)):
+        raise ValueError("SPEECH_ACT_RANGE_INVALID")
+    if not isinstance(turn_complete, bool):
+        raise ValueError("SPEECH_ACT_TURN_COMPLETENESS_INVALID")
+    if not isinstance(language, str):
+        raise ValueError("SPEECH_ACT_LANGUAGE_INVALID")
+    if not isinstance(utterer_id, str) or not isinstance(source_part_ref, str):
+        raise ValueError("SPEECH_ACT_PROVENANCE_REF_INVALID")
+    if quoted_author_id is not None and not isinstance(quoted_author_id, str):
+        raise ValueError("SPEECH_ACT_QUOTED_AUTHOR_REF_INVALID")
+    if not isinstance(turn_speaker_ids, (tuple, list)) or any(
+        not isinstance(ref, str) or not ref.strip() for ref in turn_speaker_ids
+    ):
+        raise ValueError("SPEECH_ACT_SPEAKER_REFS_INVALID")
+    if not isinstance(context_parts, (tuple, list)) or len(context_parts) > 16:
+        raise ValueError("SPEECH_ACT_CONTEXT_PARTS_INVALID")
+
+    parts: list[tuple[int, int, str]] = []
+    previous_end = turn_start
+    for raw in context_parts:
+        if (
+            not isinstance(raw, (tuple, list)) or len(raw) != 3
+            or any(not isinstance(x, int) or isinstance(x, bool) for x in raw[:2])
+            or not isinstance(raw[2], str) or not raw[2].strip()
+            or raw[0] != previous_end or not raw[0] < raw[1] <= turn_end
+        ):
+            raise ValueError("SPEECH_ACT_CONTEXT_PARTS_INVALID")
+        parts.append((raw[0], raw[1], raw[2].strip()))
+        previous_end = raw[1]
+    if parts and previous_end != turn_end:
+        raise ValueError("SPEECH_ACT_CONTEXT_PARTS_INVALID")
+
+    lang = language.strip().casefold()
+    speaker = utterer_id.strip()
+    author = quoted_author_id.strip() or None if quoted_author_id is not None else None
+    part = source_part_ref.strip()
+    speakers = tuple(ref.strip() for ref in turn_speaker_ids)
+    turn = source_text[turn_start:turn_end]
+    quote = source_text[quote_start:quote_end]
+    signals: list[str] = []
+    if lang not in _SPEECH_ACT_LANGUAGES:
+        signals.append("LANGUAGE_SEMANTICS_UNSUPPORTED")
+    if not speaker or not part or not speakers:
+        signals.append("UTTERER_PROVENANCE_REQUIRED")
+    if speakers and (len(speakers) != 1 or speakers[0] != speaker):
+        signals.append("SPEAKER_TURN_CONFLICT")
+    if not turn_complete:
+        signals.append("TURN_COMPLETENESS_UNVERIFIED")
+    if len(turn) > _SPEECH_ACT_MAX_TURN_CHARS:
+        signals.append("TURN_LENGTH_UNSUPPORTED")
+    if (turn_start and source_text[:turn_start].rstrip()
+            and source_text[:turn_start].rstrip()[-1] not in ".!?\n") or (
+        turn_end < len(source_text) and turn.rstrip()
+        and turn.rstrip()[-1] not in ".!?\n"
+    ):
+        signals.append("TURN_BOUNDARY_UNVERIFIED")
+    if len({row[2] for row in parts}) > 1:
+        signals.append("MONTAGE_OR_SOURCE_BOUNDARY")
+    if parts and parts[0][2] != part:
+        signals.append("SOURCE_PART_BINDING_MISMATCH")
+    if not parts and not part:
+        signals.append("SOURCE_PART_REQUIRED")
+
+    # Treat every pair as a single nested quote. Mark unbalanced delimiters as
+    # ambiguous rather than interpreting a possibly chopped endorsement.
+    quote_spans = list(_QUOTED_TEXT_RE.finditer(turn))
+    for opener, closer in (("«", "»"), ("“", "”")):
+        if turn.count(opener) != turn.count(closer):
+            signals.append("UNBALANCED_QUOTATION")
+    if turn.count('"') % 2:
+        signals.append("UNBALANCED_QUOTATION")
+    if len(re.findall(r"[.!?](?=\s|$)", turn)) > 1:
+        signals.append("MULTI_SENTENCE_CONTEXT_REQUIRES_SPLIT")
+    local_start = quote_start - turn_start
+    local_end = quote_end - turn_start
+    nested_target = any(
+        local_start >= match.start() + 1 and local_end <= match.end() - 1
+        for match in quote_spans
+    )
+    quoted_whole_turn = bool(
+        len(quote_spans) == 1 and turn.strip() == quote_spans[0].group(0)
+    )
+    unquoted = _QUOTED_TEXT_RE.sub(" ", turn)
+    cues = _SPEECH_ACT_CUES.get(lang)
+    act, stance = "UNKNOWN", "UNKNOWN"
+    polarity = "UNKNOWN"
+    if cues and "UNBALANCED_QUOTATION" not in signals:
+        negative = bool(cues["negation"].search(turn))
+        polarity = "NEGATED" if negative else "POSITIVE"
+        if cues["critique"].search(unquoted):
+            act, stance = "CRITIQUE", "DISTANCE"
+        elif cues["performance"].search(unquoted):
+            act, stance = "PERFORMANCE", "NON_COMMITTAL"
+        elif cues["opinion"].search(unquoted):
+            if negative:
+                signals.append("OPINION_NEGATION_SCOPE_UNRESOLVED")
+            else:
+                act, stance = "OPINION", "ENDORSE"
+        elif cues["report"].search(unquoted):
+            act, stance = "REPORT", "NON_COMMITTAL"
+        elif cues["denial"].search(unquoted):
+            act, stance = "DENIAL", "REFUTE"
+        elif "?" in unquoted:
+            act, stance = "QUESTION", "NON_COMMITTAL"
+        elif nested_target or quoted_whole_turn:
+            act, stance = "QUOTE", "NON_COMMITTAL"
+        else:
+            explicit_support = cues["endorse"].search(unquoted) or cues["support"].search(unquoted)
+            if explicit_support and not negative:
+                act, stance = "ASSERTION", "ENDORSE"
+            elif explicit_support and negative:
+                # "Sostengo che non X" endorses a *negative proposition*;
+                # "non sostengo che X" denies endorsement. Other scope/order
+                # ambiguities need a contextual verifier, not a guessed stance.
+                if lang == "it" and re.search(
+                    r"\b(?:sostengo|affermo|ritengo)\s+che\s+non\b", unquoted, re.I
+                ):
+                    act, stance = "ASSERTION", "ENDORSE"
+                else:
+                    signals.append("NEGATION_SCOPE_UNRESOLVED")
+        if cues["qualification"].search(unquoted):
+            signals.append("QUALIFICATION_REQUIRES_INTERPRETATION")
+        if cues["conditional"].search(unquoted):
+            signals.append("CONDITIONAL_CONTEXT_REQUIRES_INTERPRETATION")
+    if author is not None and not quote_spans and act not in {"REPORT", "QUOTE"}:
+        signals.append("QUOTED_AUTHOR_WITHOUT_QUOTE")
+    if act == "UNKNOWN":
+        signals.append("SPEECH_ACT_NOT_DETERMINED")
+    if nested_target and author is None:
+        signals.append("QUOTED_AUTHOR_UNVERIFIED")
+    if (
+        quote_start != turn_start or quote_end != turn_end
+    ) and not nested_target:
+        signals.append("FRAGMENTARY_SOURCE_QUOTE")
+        if cues and cues["negation"].search(turn) and not cues["negation"].search(quote):
+            signals.append("NEGATION_OUTSIDE_QUOTE")
+
+    if signals:
+        if stance == "ENDORSE":
+            stance = "UNKNOWN"
+        state = "HOLD_FOR_CONTEXT"
+    else:
+        state = "CANDIDATE_PRIVATE"
+    material = {
+        "state": state, "speech_act": act, "stance": stance, "polarity": polarity,
+        "language": lang, "utterer_id": speaker, "quoted_author_id": author,
+        "source_part_ref": part, "turn_speaker_ids": speakers,
+        "context_parts": tuple(parts), "turn_complete": turn_complete,
+        "source_sha256": _sha256(source_text), "quote_sha256": _sha256(quote),
+        "context_sha256": _sha256(turn), "quote_start": quote_start,
+        "quote_end": quote_end, "context_start": turn_start,
+        "context_end": turn_end, "signal_codes": tuple(dict.fromkeys(signals)),
+        "version": SPEECH_ACT_CONTEXT_VERSION,
+    }
+    binding = hashlib.sha256(
+        json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+    return SpeechActContextDecision(binding_sha256=binding, **material)
+
+
+def verify_speech_act_context_metadata(
+    metadata: Mapping[str, object], *, source_text: str
+) -> SpeechActContextDecision:
+    """Replay the same private hypothesis against exact source bytes, never a signature."""
+    if not isinstance(metadata, Mapping):
+        raise ValueError("SPEECH_ACT_METADATA_INVALID")
+    if metadata.get("version") != SPEECH_ACT_CONTEXT_VERSION:
+        raise ValueError("SPEECH_ACT_VERSION_INVALID")
+    try:
+        result = assess_speech_act_context(
+            source_text=source_text,
+            source_sha256=metadata["source_sha256"],
+            quote_start=metadata["quote_start"],
+            quote_end=metadata["quote_end"],
+            turn_start=metadata["context_start"],
+            turn_end=metadata["context_end"],
+            utterer_id=metadata["utterer_id"],
+            quoted_author_id=metadata["quoted_author_id"],
+            turn_speaker_ids=metadata["turn_speaker_ids"],
+            source_part_ref=metadata["source_part_ref"],
+            context_parts=metadata["context_parts"],
+            turn_complete=metadata["turn_complete"],
+            language=metadata["language"],
+        )
+    except (KeyError, TypeError) as exc:
+        raise ValueError("SPEECH_ACT_METADATA_INVALID") from exc
+    if json.dumps(result.to_metadata(), sort_keys=True) != json.dumps(
+        dict(metadata), sort_keys=True
+    ):
+        raise ValueError("SPEECH_ACT_BINDING_MISMATCH")
+    return result
+
+
 __all__ = [
     "CLEAR_STATES",
     "CONTEXT_INTEGRITY_VERSION",
     "ContextIntegrityAssessment",
+    "SPEECH_ACT_CONTEXT_VERSION",
+    "SpeechActContextDecision",
     "StructuredContextIntegrityAssessment",
     "StructuredContextSpan",
     "assess_context_integrity",
+    "assess_speech_act_context",
     "assess_structured_context_integrity",
     "curated_context_approval",
     "structured_context_binding_sha256",
     "verify_structured_context_integrity_metadata",
+    "verify_speech_act_context_metadata",
 ]
