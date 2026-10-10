@@ -210,14 +210,22 @@ class MixedPersonPrivateBatchTests(unittest.TestCase):
                 reconcile_isolated_private_results(mutated, ())
 
     def test_same_source_distinct_passages_stay_distinct_partitions(self):
-        batch = manifest(2)
+        original = manifest(2)
+        first, second = original.items
+        # Two exact Passages from ONE Content/Capture/source are still separate
+        # source-bound extraction units (the earlier fixture used two sources).
+        second = replace(second, content_id=first.content_id, capture_id=first.capture_id,
+                         canonical_url=first.canonical_url, source_family=first.source_family)
+        batch = replace(original, items=(first, second), sha256="")
+        batch = replace(batch, sha256=_batch_digest(batch))
         contexts = reviewed_contexts(batch)
         contexts["passage:1"] = replace(contexts["passage:1"],
-            content_id="content:1", capture_id="capture:1", source_family="source-family:1",
             speaker_candidate_id=contexts["passage:0"].speaker_candidate_id,
             language_tag="it")
-        original = plan(batch, contexts)
-        self.assertNotEqual(original.items[0].partition_id, original.items[1].partition_id)
+        planned = plan(batch, contexts)
+        self.assertEqual(planned.items[0].source_sha256, planned.items[1].source_sha256)
+        self.assertEqual(planned.items[0].capture_id, planned.items[1].capture_id)
+        self.assertNotEqual(planned.items[0].partition_id, planned.items[1].partition_id)
 
     def test_unbounded_observations_and_unjustified_result_metadata_rejected(self):
         original = plan()
