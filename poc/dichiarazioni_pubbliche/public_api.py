@@ -41,7 +41,7 @@ import re
 import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
-from email.utils import formatdate, parsedate_to_datetime
+from email.utils import formatdate
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterable

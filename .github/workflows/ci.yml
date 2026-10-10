@@ -149,6 +149,13 @@ jobs:
           fi
           echo "invalid explicit projection correctly rejected"
 
+      - name: Reject disguised demo projections and verify isolated empty public build
+        working-directory: web
+        # Explicit opt-in demos must be noindex. A renamed fictional fixture is
+        # never an approved public dataset; the isolated empty source is CI-only
+        # and grants no live editorial/legal/release authority.
+        run: npm run check:projection-boundary
+
   repository-contract:
     name: repository contract
     runs-on: ubuntu-latest
