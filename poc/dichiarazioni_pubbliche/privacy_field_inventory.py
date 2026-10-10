@@ -56,6 +56,36 @@ _ACCOUNT_PURPOSE = {
 }
 _ACCOUNT_HTTP_HEADER_FIELDS = ("Location", "Set-Cookie")
 
+# These are the metadata keys observed in the 2026-10-10 MiniPC read-only
+# journal sample across seven project/proxy/database units. MESSAGE is an
+# unbounded private payload, not a safe text field.
+# Dynamic systemd fields absent from this registry require another review.
+_HOST_JOURNAL_FIELDS = frozenset({
+    "CODE_FILE", "CODE_LINE", "MESSAGE", "MESSAGE_ID", "PRIORITY",
+    "SYSLOG_IDENTIFIER", "_COMM", "_EXE", "_HOSTNAME", "_PID",
+    "_SYSTEMD_UNIT", "_SYSTEMD_USER_UNIT", "_TRANSPORT", "_UID",
+    "__REALTIME_TIMESTAMP",
+    "CODE_FUNC", "COMMAND", "CPU_USAGE_NSEC", "EXIT_CODE", "EXIT_STATUS",
+    "INVOCATION_ID", "JOB_ID", "JOB_RESULT", "JOB_TYPE", "MEMORY_PEAK",
+    "MEMORY_SWAP_PEAK", "N_RESTARTS", "SYSLOG_FACILITY", "TID", "UNIT",
+    "UNIT_RESULT", "USER_INVOCATION_ID", "USER_UNIT", "_AUDIT_LOGINUID",
+    "_AUDIT_SESSION", "_BOOT_ID", "_CAP_EFFECTIVE", "_CMDLINE", "_GID",
+    "_MACHINE_ID", "_RUNTIME_SCOPE", "_SOURCE_REALTIME_TIMESTAMP",
+    "_STREAM_ID", "_SYSTEMD_CGROUP", "_SYSTEMD_INVOCATION_ID",
+    "_SYSTEMD_OWNER_UID", "_SYSTEMD_SLICE", "_SYSTEMD_USER_SLICE",
+    "__CURSOR", "__MONOTONIC_TIMESTAMP", "__SEQNUM", "__SEQNUM_ID",
+})
+_HOST_SERVICE_UNITS = frozenset({
+    "dichiarazioni-pubbliche-web.service",
+    "dichiarazioni-pubbliche-worker.service",
+    "dichiarazioni-pubbliche-source-poll.service",
+    "dichiarazioni-pubbliche-health.service",
+    "cloudflared-dichiarazioni-pubbliche.service",
+    "caddy.service",
+    "postgresql.service",
+})
+_HOST_BACKUP_MANIFEST_FIELDS = frozenset({"set", "tables"})
+
 
 class FieldInventoryError(ValueError):
     pass
@@ -257,6 +287,64 @@ def compare_account_sqlite_columns(inventory: Mapping[str, Any], actual: tuple[t
     }
 
 
+def compare_host_surface_metadata(inventory: Mapping[str, Any], observed: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate a sanitized metadata-only MiniPC observation, never private log bodies.
+
+    This is a bounded read-back, not an exhaustive host-wide log or legal audit.
+    Fail on unknown journal fields, missing units, nonprivate backups, and an
+    active optional account or proxy access logger without separate inspection.
+    """
+    if not isinstance(observed, Mapping) or set(observed) != {
+        "journal_units", "backup", "account_opt_in_enabled", "caddy_access_log_enabled",
+        "journald_limits",
+    }:
+        raise FieldInventoryError("PRIVACY_HOST_OBSERVATION_SHAPE_INVALID")
+    sources = observed["journal_units"]
+    if not isinstance(sources, dict) or set(sources) != _HOST_SERVICE_UNITS:
+        raise FieldInventoryError("PRIVACY_HOST_JOURNAL_UNITS_UNVERIFIED")
+    allowed = set(inventory["observed_host_runtime_fields"]["systemd_journal"])
+    unclassified: set[str] = set()
+    for unit, metadata in sources.items():
+        if not isinstance(metadata, dict) or set(metadata) != {"fields", "sample_count", "readable"}:
+            raise FieldInventoryError("PRIVACY_HOST_JOURNAL_METADATA_INVALID")
+        fields, count, readable = metadata["fields"], metadata["sample_count"], metadata["readable"]
+        if (not isinstance(fields, list) or any(not isinstance(v, str) for v in fields)
+                or len(set(fields)) != len(fields) or not isinstance(count, int)
+                or isinstance(count, bool) or count < 1 or not fields or readable is not True):
+            raise FieldInventoryError("PRIVACY_HOST_JOURNAL_FIELDS_UNVERIFIED")
+        unclassified.update(set(fields) - allowed)
+    backup = observed["backup"]
+    if not isinstance(backup, dict) or set(backup) != {"present", "private", "set_count", "manifest_fields"}:
+        raise FieldInventoryError("PRIVACY_HOST_BACKUP_METADATA_INVALID")
+    if (backup["present"] is not True or backup["private"] is not True
+            or not isinstance(backup["set_count"], int) or isinstance(backup["set_count"], bool)
+            or backup["set_count"] < 1 or not isinstance(backup["manifest_fields"], list)
+            or any(not isinstance(v, str) for v in backup["manifest_fields"])):
+        raise FieldInventoryError("PRIVACY_HOST_BACKUP_UNVERIFIED")
+    if len(backup["manifest_fields"]) != len(set(backup["manifest_fields"])):
+        raise FieldInventoryError("PRIVACY_HOST_BACKUP_UNVERIFIED")
+    unclassified.update(set(backup["manifest_fields"]) - set(inventory["observed_host_runtime_fields"]["private_backup_manifest"]))
+    if not backup["manifest_fields"] or set(backup["manifest_fields"]) != _HOST_BACKUP_MANIFEST_FIELDS:
+        raise FieldInventoryError("PRIVACY_HOST_BACKUP_MANIFEST_INCOMPLETE")
+    limits = observed["journald_limits"]
+    if not isinstance(limits, dict) or set(limits) != {"SystemMaxUse", "RuntimeMaxUse"}:
+        raise FieldInventoryError("PRIVACY_HOST_JOURNAL_RETENTION_UNVERIFIED")
+    if any(not isinstance(v, str) or not re.fullmatch(r"[1-9][0-9]*[KMG]", v) for v in limits.values()):
+        raise FieldInventoryError("PRIVACY_HOST_JOURNAL_RETENTION_UNVERIFIED")
+    if not isinstance(observed["account_opt_in_enabled"], bool) or not isinstance(observed["caddy_access_log_enabled"], bool):
+        raise FieldInventoryError("PRIVACY_HOST_OPTIONAL_SURFACE_INVALID")
+    covered = not unclassified and not observed["account_opt_in_enabled"] and not observed["caddy_access_log_enabled"]
+    return {
+        "status": "BOUNDED_METADATA_COVERED_NOT_LEGAL_CLEARANCE" if covered else "HOST_PRIVACY_REVIEW_REQUIRED",
+        "observed_units": len(sources), "journal_sample_count": sum(v["sample_count"] for v in sources.values()),
+        "unclassified_metadata_field_count": len(unclassified),
+        "host_metadata_covered": covered,
+        "external_provider_and_nested_log_payloads_verified": False,
+        "retention_periods_approved": False,
+        "public_projection_authorized": False,
+    }
+
+
 def make_inventory(schema: str) -> dict[str, Any]:
     tables = parse_schema_fields(schema)
     # Production includes two historical migration-only additions not folded
@@ -332,6 +420,28 @@ def make_inventory(schema: str) -> dict[str, Any]:
         }
         for group, fields in _RUNTIME_LOG_FIELDS.items()
     }
+    observed_host_runtime_fields = {
+        "systemd_journal": {
+            key: {
+                "data_class": DataClass.OPERATIONAL_PRIVATE.value,
+                "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+                "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+                "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING",
+                "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+            }
+            for key in sorted(_HOST_JOURNAL_FIELDS)
+        },
+        "private_backup_manifest": {
+            key: {
+                "data_class": DataClass.OPERATIONAL_PRIVATE.value,
+                "purpose": "PRIVATE_POSTGRESQL_BACKUP_RESTORE_INTEGRITY",
+                "access_role": "AUTHORIZED_BACKUP_OPERATOR_ONLY",
+                "retention_behavior": "BACKUP_RETENTION_OWNER_REVIEW_PENDING",
+                "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+            }
+            for key in sorted(_HOST_BACKUP_MANIFEST_FIELDS)
+        },
+    }
     return {
         "version": INVENTORY_VERSION,
         "privacy_policy_version": PRIVACY_POLICY_VERSION,
@@ -361,6 +471,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
             for name in _ACCOUNT_HTTP_HEADER_FIELDS
         },
         "runtime_log_fields": runtime_logs,
+        "observed_host_runtime_fields": observed_host_runtime_fields,
     }
 
 
@@ -388,6 +499,7 @@ def check_inventory(schema_path: Path, inventory_path: Path) -> dict[str, int | 
         "account_sqlite_field_count": sum(len(v) for v in expected["account_sqlite_fields"].values()),
         "account_http_response_field_count": len(expected["account_http_response_fields"]),
         "runtime_log_field_count": sum(len(v) for v in expected["runtime_log_fields"].values()),
+        "observed_host_runtime_field_count": sum(len(v) for v in expected["observed_host_runtime_fields"].values()),
         "inventory_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         "status": "TECHNICAL_ONLY_NOT_LEGAL_CLOSURE",
     }

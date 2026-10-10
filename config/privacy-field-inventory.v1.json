@@ -10384,6 +10384,390 @@
     }
   },
   "inventory_scope": "POSTGRESQL_COLUMNS_PUBLIC_SCHEMA_OPT_IN_ACCOUNT_SQLITE_AND_SOURCE_OWNED_PUBLIC_HTTP_LOGS",
+  "observed_host_runtime_fields": {
+    "private_backup_manifest": {
+      "set": {
+        "access_role": "AUTHORIZED_BACKUP_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "PRIVATE_POSTGRESQL_BACKUP_RESTORE_INTEGRITY",
+        "retention_behavior": "BACKUP_RETENTION_OWNER_REVIEW_PENDING"
+      },
+      "tables": {
+        "access_role": "AUTHORIZED_BACKUP_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "PRIVATE_POSTGRESQL_BACKUP_RESTORE_INTEGRITY",
+        "retention_behavior": "BACKUP_RETENTION_OWNER_REVIEW_PENDING"
+      }
+    },
+    "systemd_journal": {
+      "CODE_FILE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "CODE_FUNC": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "CODE_LINE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "COMMAND": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "CPU_USAGE_NSEC": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "EXIT_CODE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "EXIT_STATUS": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "INVOCATION_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "JOB_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "JOB_RESULT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "JOB_TYPE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "MEMORY_PEAK": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "MEMORY_SWAP_PEAK": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "MESSAGE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "MESSAGE_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "N_RESTARTS": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "PRIORITY": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "SYSLOG_FACILITY": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "SYSLOG_IDENTIFIER": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "TID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "UNIT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "UNIT_RESULT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "USER_INVOCATION_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "USER_UNIT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_AUDIT_LOGINUID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_AUDIT_SESSION": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_BOOT_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_CAP_EFFECTIVE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_CMDLINE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_COMM": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_EXE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_GID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_HOSTNAME": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_MACHINE_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_PID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_RUNTIME_SCOPE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SOURCE_REALTIME_TIMESTAMP": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_STREAM_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_CGROUP": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_INVOCATION_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_OWNER_UID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_SLICE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_UNIT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_USER_SLICE": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_SYSTEMD_USER_UNIT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_TRANSPORT": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "_UID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "__CURSOR": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "__MONOTONIC_TIMESTAMP": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "__REALTIME_TIMESTAMP": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "__SEQNUM": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      },
+      "__SEQNUM_ID": {
+        "access_role": "AUTHORIZED_HOST_JOURNAL_READER_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "MINIPC_SYSTEMD_RUNTIME_DIAGNOSTICS",
+        "retention_behavior": "SYSTEMD_JOURNAL_SIZE_CAP_OWNER_RETENTION_REVIEW_PENDING"
+      }
+    }
+  },
   "privacy_policy_version": "privacy-minimization-v1",
   "public_projection_authorized": false,
   "public_projection_fields": {

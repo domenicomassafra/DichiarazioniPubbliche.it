@@ -15,6 +15,7 @@ from dichiarazioni_pubbliche.privacy_field_inventory import (
     compare_live_columns, make_inventory, parse_schema_fields,
     parse_sqlite_account_fields, account_response_field_inventory,
     read_account_sqlite_columns, compare_account_sqlite_columns,
+    compare_host_surface_metadata,
 )
 from dichiarazioni_pubbliche.public_account import AccountStore
 from dichiarazioni_pubbliche import public_schema
@@ -174,6 +175,69 @@ class PrivacyFieldInventoryTests(unittest.TestCase):
             db.chmod(0o644)
             with self.assertRaisesRegex(FieldInventoryError, "PERMISSIONS"):
                 read_account_sqlite_columns(db)
+
+    def _safe_host_snapshot(self):
+        units = (
+            "dichiarazioni-pubbliche-web.service", "dichiarazioni-pubbliche-worker.service",
+            "dichiarazioni-pubbliche-source-poll.service", "dichiarazioni-pubbliche-health.service",
+            "cloudflared-dichiarazioni-pubbliche.service", "caddy.service", "postgresql.service",
+        )
+        return {
+            "journal_units": {name: {
+                "fields": ["MESSAGE", "_SYSTEMD_UNIT", "_UID", "__REALTIME_TIMESTAMP"],
+                "sample_count": 12, "readable": True,
+            } for name in units},
+            "backup": {"present": True, "private": True, "set_count": 9, "manifest_fields": ["set", "tables"]},
+            "account_opt_in_enabled": False,
+            "caddy_access_log_enabled": False,
+            "journald_limits": {"SystemMaxUse": "512M", "RuntimeMaxUse": "128M"},
+        }
+
+    def test_live_host_metadata_receipt_classifies_only_field_names_and_fails_closed(self):
+        inventory = make_inventory((ROOT / "db/schema.v1.sql").read_text())
+        receipt = self._safe_host_snapshot()
+        result = compare_host_surface_metadata(inventory, receipt)
+        self.assertTrue(result["host_metadata_covered"])
+        self.assertFalse(result["external_provider_and_nested_log_payloads_verified"])
+        self.assertFalse(result["retention_periods_approved"])
+        for group in inventory["observed_host_runtime_fields"].values():
+            self.assertTrue(all(field["public_allowlist_decision"] == "DENY_PUBLIC_PROJECTION" for field in group.values()))
+        leaked = copy.deepcopy(receipt)
+        leaked["journal_units"]["caddy.service"]["fields"].append("UNREVIEWED_CLIENT_ADDRESS")
+        self.assertEqual(compare_host_surface_metadata(inventory, leaked)["status"], "HOST_PRIVACY_REVIEW_REQUIRED")
+        for modified in ("account_opt_in_enabled", "caddy_access_log_enabled"):
+            changed = copy.deepcopy(receipt)
+            changed[modified] = True
+            self.assertFalse(compare_host_surface_metadata(inventory, changed)["host_metadata_covered"])
+
+    def test_host_receipt_refuses_uninspected_unit_invalid_evidence_or_backup(self):
+        inventory = make_inventory((ROOT / "db/schema.v1.sql").read_text())
+        sample = self._safe_host_snapshot()
+        with self.assertRaisesRegex(FieldInventoryError, "JOURNAL_UNITS_UNVERIFIED"):
+            altered = copy.deepcopy(sample)
+            altered["journal_units"].pop("postgresql.service")
+            compare_host_surface_metadata(inventory, altered)
+        for edit, expected in (
+            (lambda d: d["backup"].update(private=False), "BACKUP_UNVERIFIED"),
+            (lambda d: d["backup"].update(manifest_fields=[]), "BACKUP_MANIFEST_INCOMPLETE"),
+            (lambda d: d["journald_limits"].update(SystemMaxUse="unlimited"), "RETENTION_UNVERIFIED"),
+            (lambda d: d["journal_units"]["caddy.service"].update(readable=False), "FIELDS_UNVERIFIED"),
+            (lambda d: d["journal_units"]["caddy.service"].update(sample_count=0), "FIELDS_UNVERIFIED"),
+        ):
+            with self.subTest(expected=expected), self.assertRaisesRegex(FieldInventoryError, expected):
+                altered = copy.deepcopy(sample)
+                edit(altered)
+                compare_host_surface_metadata(inventory, altered)
+
+    def test_host_receipt_cli_requires_exact_sanitized_shape(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "host.json"
+            path.write_text(json.dumps(self._safe_host_snapshot()))
+            self.assertEqual(main(["--verify-host-metadata", str(path)]), 0)
+            altered = self._safe_host_snapshot()
+            altered["account_opt_in_enabled"] = True
+            path.write_text(json.dumps(altered))
+            self.assertEqual(main(["--verify-host-metadata", str(path)]), 2)
 
 
 if __name__ == "__main__":

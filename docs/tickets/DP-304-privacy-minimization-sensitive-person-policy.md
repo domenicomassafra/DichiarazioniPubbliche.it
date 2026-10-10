@@ -566,3 +566,65 @@ recorded in `docs/ops/privacy-account-log-inventory-20261010.md`.
 public-schema census has improved, but no complete qualified purpose,
 retention, nested-payload, external log and deployment acceptance exists.
 Q-306-05/-08/-10 and DP-307 remain unapproved, so DP-304 stays IN PROGRESS.
+
+### Authoritative MiniPC host metadata readback — 2026-10-10
+
+A new read-only comparison `python3 tools/check_privacy_field_inventory.py
+--verify-host-metadata <sanitized-json>` requires observed named service
+units, journal metadata fields, sample counts, backup manifest keys and
+private permissions, journald size settings, explicit account enablement and
+explicit Caddy access-log enablement. Unexpected fields, unreadable samples,
+missing units/backups and uninspected optional surfaces block the comparison.
+The source-backed canonical registry now additionally classifies **52
+systemd-journal metadata field names** and **2 private-backup manifest keys**
+with purpose, access role, retention behavior and direct public DENY. It treats
+`MESSAGE` and command-line/process metadata as private, including where a
+value could contain a token or identifier.
+
+The actual `udodo` MiniPC was queried over its existing authenticated SSH
+transport. The queries read only metadata/configuration and bounded journal
+records locally on the host; no log messages, database account records, source
+texts, tokens, or private backup bodies were transmitted into the receipt:
+
+- Live PostgreSQL `dichiarazioni_pubbliche`: **100 tables / 1,248 columns**
+  match the canonical catalog, **0 missing / 0 unclassified**.
+- Seven named project/proxy/database systemd journals yielded **2,171** bounded
+  sample entries. The union of **52 journal field names** (15 initially known
+  plus 37 found by the expanded readback) is inventoried. Heuristic remote
+  scans of at most 500 messages per unit detected **zero** direct OAuth
+  callback-query, bearer-token, email-address and obvious secret-assignment
+  patterns in that sample. These patterns cannot establish absence of all leaks.
+- The project web unit is active with no `--account-*` opt-in flags and no
+  `EnvironmentFile`; no SQLite files were observed under two known account
+  private roots. This proves the observed web-unit account state only, not
+  absence of an account database elsewhere or deletion from backups.
+- Caddy is active. The inspected `/etc/caddy/Caddyfile` has no `log` directive
+  or `import` and exposes no dedicated access-log output in that file.
+  Cloudflare Tunnel runs as an enabled user service; its journal was sampled.
+  Provider-side Cloudflare logs and off-host retention were not accessible.
+- The private project backup root contains **9 set directories**, **24 files**
+  (8 PostgreSQL dumps, 7 JSON manifests, 9 SHA files) with private observed
+  permissions. JSON manifest top-level keys are `set` and `tables`; nested
+  row counts, dump bodies and off-host backup lifecycle were not inspected.
+- Effective local journald override config declares `SystemMaxUse=512M` and
+  `RuntimeMaxUse=128M`. These are **storage caps, not owner-approved time-based
+  retention periods**. Journal messages can include other arbitrary private
+  values and require actual deployment-specific retention review.
+
+The controlled host-field comparison returned
+`BOUNDED_METADATA_COVERED_NOT_LEGAL_CLEARANCE` with **0 unclassified observed
+metadata field names**; `external_provider_and_nested_log_payloads_verified`,
+`retention_periods_approved` and `public_projection_authorized` remained
+`false`. The local 16/16 focused inventory tests also exercise newly observed
+journald fields, unreviewed optional logging/account states, missing backup
+manifests and unreadable samples. Nothing was changed on the MiniPC.
+
+**AC-304.1 stays unchecked.** Metadata checks cover only named local units and
+sampled fields. Full dynamic/nested PostgreSQL JSON, HTTP/API error bodies,
+filesystem captures, any account-store activation, proxy/provider dashboards,
+off-host logs and backup retention still lack an approved exhaustive data-field
+and deployment review. Qualified owner/counsel decisions on lawful purposes,
+retention, access and the actual release profile are pending. No neighboring
+security/compliance ticket can be made `DONE` by reusing this limited evidence:
+DP-301.8 and DP-307 need qualified decisions, while DP-702/703/704 require
+their own accepted release, rights, source and MiniPC rehearsal receipts.

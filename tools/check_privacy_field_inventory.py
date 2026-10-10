@@ -15,6 +15,7 @@ from dichiarazioni_pubbliche.privacy_field_inventory import (  # noqa: E402
     FieldInventoryError, LivePrivacyFieldStore, compare_live_columns,
     make_inventory, canonical_inventory, check_inventory,
     read_account_sqlite_columns, compare_account_sqlite_columns,
+    compare_host_surface_metadata,
 )
 
 
@@ -24,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--verify-live-db", action="store_true", help="Read-only PostgreSQL metadata comparison, never a legal clearance")
     parser.add_argument("--database-url", default=None, help="Optional PostgreSQL DSN/database; omitted uses PGDATABASE")
     parser.add_argument("--verify-account-db", type=Path, help="Read-only optional account SQLite catalog comparison")
+    parser.add_argument("--verify-host-metadata", type=Path, help="Sanitized MiniPC field-name/counter JSON readback, not journal message contents")
     args = parser.parse_args(argv)
     source = ROOT / "db/schema.v1.sql"
     target = ROOT / "config/privacy-field-inventory.v1.json"
@@ -42,12 +44,16 @@ def main(argv: list[str] | None = None) -> int:
             result["account_sqlite_catalog"] = compare_account_sqlite_columns(
                 actual, read_account_sqlite_columns(args.verify_account_db)
             )
+        if args.verify_host_metadata is not None:
+            observed = json.loads(args.verify_host_metadata.read_text(encoding="utf-8"))
+            actual = json.loads(target.read_text(encoding="utf-8"))
+            result["host_runtime_metadata"] = compare_host_surface_metadata(actual, observed)
         print(json.dumps(result, sort_keys=True))
         return 0 if all(
             result[key]["live_matches_inventory"]
             for key in ("live_catalog", "account_sqlite_catalog") if key in result
-        ) else 2
-    except FieldInventoryError as exc:
+        ) and ("host_runtime_metadata" not in result or result["host_runtime_metadata"]["host_metadata_covered"]) else 2
+    except (FieldInventoryError, OSError, UnicodeError, json.JSONDecodeError) as exc:
         print(json.dumps({"status": "BLOCKED", "reason_code": str(exc)}, sort_keys=True))
         return 2
 
