@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, urlsplit
 
-from dichiarazioni_pubbliche.public_schema import validate_public_bundle
+from dichiarazioni_pubbliche.public_schema import (
+    PUBLIC_STATEMENT_SCHEMA_VERSION,
+    PublicSchemaValidationError,
+    validate_public_bundle,
+)
 
 
 LINKED_DATA_VERSION = "linked-data-v1"
@@ -86,6 +90,201 @@ def _add_literal(triples: set[Triple], subject: str, predicate: str, value: Any)
     if value is None or str(value).strip() == "":
         return
     triples.add(Triple(_uri(subject), _uri(predicate), _literal(value)))
+
+
+def _validate_statement_v3_source_url(value: object) -> str:
+    """Guard the IRI and JSON-LD link against syntax injection beyond v3 schema."""
+    if (
+        not isinstance(value, str)
+        or value != value.strip()
+        or any(ord(char) <= 32 or ord(char) == 127 or char in '<>"\\^\x60{}|' for char in value)
+    ):
+        raise PublicSchemaValidationError("Statement source URL unsafe for linked data")
+    try:
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+        ):
+            raise PublicSchemaValidationError("Statement source URL is not approved HTTPS")
+    except ValueError as exc:
+        raise PublicSchemaValidationError("Statement source URL invalid") from exc
+    return value
+
+
+def _statement_v3_bundle(
+    payload: dict[str, Any], *, allow_statement_v3: bool,
+) -> dict[str, Any]:
+    """Only explicitly admitted, fully validated Statement v3 is consumable."""
+    if not allow_statement_v3:
+        raise PublicSchemaValidationError("Statement v3 linked data requires explicit opt-in")
+    if not isinstance(payload, dict) or payload.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
+        raise PublicSchemaValidationError("Statement v3 linked data schema incompatible")
+    bundle = validate_public_bundle(payload, allow_statement_v3=True)
+    for record in bundle["statements"]:
+        _validate_statement_v3_source_url(record["source_url"])
+    return bundle
+
+
+def _add_v3_literal(triples: set[Triple], subject: str, predicate: str, value: Any) -> None:
+    """N-Triples escaping for authorized source text, without changing v2 bytes."""
+    if value is None or str(value).strip() == "":
+        return
+    raw = str(value)
+    escaped = "".join(
+        {
+            "\\": "\\\\",
+            '"': '\\"',
+            "\n": "\\n",
+            "\r": "\\r",
+            "\t": "\\t",
+        }.get(char, f"\\u{ord(char):04X}" if ord(char) < 32 or ord(char) == 127 else char)
+        for char in raw
+    )
+    triples.add(Triple(_uri(subject), _uri(predicate), f'"{escaped}"'))
+
+
+def projection_statement_v3_triples(
+    payload: dict[str, Any], *, allow_statement_v3: bool = False,
+) -> tuple[Triple, ...]:
+    """A separate Statement-only graph. Legacy dossiers never provide quote text."""
+    bundle = _statement_v3_bundle(payload, allow_statement_v3=allow_statement_v3)
+    triples: set[Triple] = set()
+    dataset_uri = public_resource_uri("dataset", bundle["dataset_sha256"])
+    _add_uri(triples, dataset_uri, RDF + "type", SCHEMA + "Dataset")
+    _add_v3_literal(triples, dataset_uri, SCHEMA + "version", bundle["schema_version"])
+    _add_v3_literal(triples, dataset_uri, SCHEMA + "dateModified", bundle["generated_at"])
+    _add_v3_literal(triples, dataset_uri, DP + "projectionFingerprint", bundle["dataset_sha256"])
+    _add_v3_literal(triples, dataset_uri, DP + "linkedDataVersion", "linked-data-statement-v3-opt-in")
+    for record in sorted(bundle["statements"], key=lambda s: (s["statement_id"], s["version_id"])):
+        statement_uri = public_resource_uri("statement", record["statement_id"])
+        person_uri = public_resource_uri("person", record["person_id"])
+        content_uri = public_resource_uri("content", record["content_id"])
+        _add_uri(triples, dataset_uri, SCHEMA + "hasPart", statement_uri)
+        _add_uri(triples, statement_uri, RDF + "type", SCHEMA + "Quotation")
+        _add_v3_literal(triples, statement_uri, SCHEMA + "identifier", record["statement_id"])
+        _add_v3_literal(triples, statement_uri, SCHEMA + "version", record["version_id"])
+        _add_v3_literal(triples, statement_uri, SCHEMA + "text", record["original_text"])
+        _add_v3_literal(triples, statement_uri, SCHEMA + "inLanguage", record["language"])
+        _add_v3_literal(triples, statement_uri, SCHEMA + "dateCreated", record["statement_date"])
+        _add_v3_literal(triples, statement_uri, DP + "wordingType", "VERBATIM_ORIGINAL")
+        _add_v3_literal(triples, statement_uri, DP + "quoteSha256", record["quote_sha256"])
+        _add_v3_literal(triples, statement_uri, DP + "sourceSha256", record["source_sha256"])
+        _add_v3_literal(triples, statement_uri, DP + "sourceVersion", record["source_version"])
+        _add_v3_literal(triples, statement_uri, DP + "sourceKind", record["source_kind"])
+        _add_v3_literal(triples, statement_uri, DP + "speechAct", record["speech_act"])
+        _add_v3_literal(triples, statement_uri, DP + "endorsed", str(record["endorsed"]).lower())
+        _add_uri(triples, statement_uri, DP + "recordedSpeaker", person_uri)
+        if record["endorsed"]:
+            _add_uri(triples, statement_uri, SCHEMA + "author", person_uri)
+        _add_uri(triples, statement_uri, SCHEMA + "isPartOf", content_uri)
+        _add_v3_literal(triples, content_uri, SCHEMA + "name", record["source_title"])
+        _add_uri(triples, content_uri, SCHEMA + "url", record["source_url"])
+        for locator_field, locator_value in record["locator"].items():
+            _add_v3_literal(
+                triples, statement_uri,
+                DP + {
+                    "start_char": "startChar", "end_char": "endChar",
+                    "segment_id": "segmentId", "start_ms": "startMs", "end_ms": "endMs",
+                }[locator_field], locator_value,
+            )
+        if record["finding_id"] is not None:
+            _add_uri(
+                triples, statement_uri, SCHEMA + "subjectOf",
+                public_resource_uri("finding", record["finding_id"]),
+            )
+        for kind in ("summary", "translation"):
+            derived = record[kind]
+            if derived is None:
+                continue
+            uri = public_resource_uri("representation", f'{record["version_id"]}:{kind}')
+            _add_uri(triples, statement_uri, SCHEMA + "hasPart", uri)
+            _add_uri(triples, uri, RDF + "type", SCHEMA + "CreativeWork")
+            _add_v3_literal(triples, uri, DP + "wordingType", derived["wording_type"])
+            _add_v3_literal(triples, uri, SCHEMA + "text", derived["text"])
+            _add_uri(triples, uri, PROV + "wasDerivedFrom", statement_uri)
+            _add_v3_literal(triples, uri, DP + "sourceQuoteSha256", derived["source_quote_sha256"])
+            if kind == "translation":
+                _add_v3_literal(triples, uri, SCHEMA + "inLanguage", derived["language"])
+                _add_v3_literal(triples, uri, DP + "sourceLanguage", derived["source_language"])
+    return tuple(sorted(triples))
+
+
+def projection_statement_v3_ntriples(
+    payload: dict[str, Any], *, allow_statement_v3: bool = False,
+) -> str:
+    triples = projection_statement_v3_triples(payload, allow_statement_v3=allow_statement_v3)
+    return "\n".join(triple.ntriples() for triple in triples) + ("\n" if triples else "")
+
+
+def projection_statement_v3_jsonld(
+    payload: dict[str, Any], *, allow_statement_v3: bool = False,
+) -> dict[str, Any]:
+    """Typed JSON-LD: only original is a Quotation; derived text is CreativeWork."""
+    bundle = _statement_v3_bundle(payload, allow_statement_v3=allow_statement_v3)
+    dataset_uri = public_resource_uri("dataset", bundle["dataset_sha256"])
+    graph: list[dict[str, Any]] = [{
+        "@id": dataset_uri,
+        "@type": "Dataset",
+        "version": bundle["schema_version"],
+        "dateModified": bundle["generated_at"],
+        "dp:projectionFingerprint": bundle["dataset_sha256"],
+    }]
+    for record in sorted(bundle["statements"], key=lambda s: (s["statement_id"], s["version_id"])):
+        statement_uri = public_resource_uri("statement", record["statement_id"])
+        speaker = {"@id": public_resource_uri("person", record["person_id"])}
+        original: dict[str, Any] = {
+            "@id": statement_uri,
+            "@type": "Quotation",
+            "identifier": record["statement_id"],
+            "version": record["version_id"],
+            "text": record["original_text"],
+            "inLanguage": record["language"],
+            "dateCreated": record["statement_date"],
+            "dp:wordingType": "VERBATIM_ORIGINAL",
+            "dp:quoteSha256": record["quote_sha256"],
+            "dp:sourceSha256": record["source_sha256"],
+            "dp:sourceVersion": record["source_version"],
+            "dp:sourceKind": record["source_kind"],
+            "dp:locator": dict(record["locator"]),
+            "dp:speechAct": record["speech_act"],
+            "dp:endorsed": record["endorsed"],
+            "dp:recordedSpeaker": speaker,
+            "isPartOf": {
+                "@id": public_resource_uri("content", record["content_id"]),
+                "@type": "CreativeWork",
+                "name": record["source_title"],
+                "url": record["source_url"],
+            },
+        }
+        if record["endorsed"]:
+            original["author"] = speaker
+        if record["finding_id"] is not None:
+            original["subjectOf"] = {"@id": public_resource_uri("finding", record["finding_id"])}
+        derived_parts: list[dict[str, Any]] = []
+        for kind in ("summary", "translation"):
+            derived = record[kind]
+            if derived is None:
+                continue
+            part: dict[str, Any] = {
+                "@id": public_resource_uri("representation", f'{record["version_id"]}:{kind}'),
+                "@type": "CreativeWork",
+                "text": derived["text"],
+                "dp:wordingType": derived["wording_type"],
+                "dp:sourceQuoteSha256": derived["source_quote_sha256"],
+                "isBasedOn": {"@id": statement_uri},
+            }
+            if kind == "translation":
+                part["inLanguage"] = derived["language"]
+                part["dp:sourceLanguage"] = derived["source_language"]
+            derived_parts.append(part)
+        if derived_parts:
+            original["hasPart"] = derived_parts
+        graph.append(original)
+    return {
+        "@context": {"@vocab": SCHEMA, "dp": DP},
+        "@graph": graph,
+    }
 
 
 def projection_triples(payload: dict[str, Any]) -> tuple[Triple, ...]:
@@ -478,6 +677,9 @@ __all__ = [
     "Triple",
     "projection_linked_data_receipt",
     "projection_ntriples",
+    "projection_statement_v3_jsonld",
+    "projection_statement_v3_ntriples",
+    "projection_statement_v3_triples",
     "projection_triples",
     "public_resource_uri",
     "topic_public_uri",

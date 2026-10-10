@@ -62,6 +62,7 @@ from dichiarazioni_pubbliche.domain_vocabulary import (
 )
 from dichiarazioni_pubbliche.linked_data import (
     LINKED_DATA_VERSION,
+    _validate_statement_v3_source_url,
     projection_linked_data_receipt,
 )
 from dichiarazioni_pubbliche.public_schema import (
@@ -70,6 +71,7 @@ from dichiarazioni_pubbliche.public_schema import (
     PROJECTION_BUNDLE_ALLOWED_KEYS,
     PUBLIC_FINDING_STATUSES,
     PUBLIC_SCHEMA_VERSION,
+    PUBLIC_STATEMENT_SCHEMA_VERSION,
     PUBLISHABLE_ASSESSMENTS,
     PublicSchemaValidationError,
     validate_public_bundle,
@@ -184,6 +186,128 @@ def canonical_json_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+# DP-436: preparatory pure serializers. These are NOT HTTP handlers, routes,
+# loader options or permission grants. The live /api/v1 remains public-v2 only.
+def _statement_v3_snapshot(
+    bundle: dict[str, Any], *, allow_statement_v3: bool,
+) -> dict[str, Any]:
+    if not allow_statement_v3:
+        raise _unavailable()
+    try:
+        if not isinstance(bundle, dict) or bundle.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
+            raise _unavailable()
+        validated = validate_public_bundle(bundle, allow_statement_v3=True)
+        for record in validated["statements"]:
+            _validate_statement_v3_source_url(record["source_url"])
+        return validated
+    except (PublicSchemaValidationError, KeyError, TypeError, ValueError) as exc:
+        raise _unavailable() from exc
+
+
+def _statement_v3_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Explicit public allowlist; never return the source or internal review rows."""
+    locator = record["locator"]
+    public_locator = {
+        "start_char": locator["start_char"],
+        "end_char": locator["end_char"],
+    }
+    if record["source_kind"] == "TIMED":
+        public_locator.update({
+            "segment_id": locator["segment_id"],
+            "start_ms": locator["start_ms"],
+            "end_ms": locator["end_ms"],
+        })
+    representations: dict[str, dict[str, Any] | None] = {}
+    for name in ("summary", "translation"):
+        value = record[name]
+        if value is None:
+            representations[name] = None
+            continue
+        # A secondary representation has its own type and cannot occupy the
+        # "original" field, regardless of its content.
+        derived = {
+            "wording_type": value["wording_type"],
+            "text": value["text"],
+            "source_quote_sha256": value["source_quote_sha256"],
+        }
+        if name == "translation":
+            derived["source_language"] = value["source_language"]
+            derived["language"] = value["language"]
+        representations[name] = derived
+    return {
+        "statement_id": record["statement_id"],
+        "version_id": record["version_id"],
+        "statement_date": record["statement_date"],
+        "person": {
+            "id": record["person_id"],
+            "name": record["speaker_name"],
+        },
+        "source": {
+            "content_id": record["content_id"],
+            "title": record["source_title"],
+            "url": record["source_url"],
+            "version_id": record["source_version"],
+            "sha256": record["source_sha256"],
+            "kind": record["source_kind"],
+        },
+        "original": {
+            "wording_type": "VERBATIM_ORIGINAL",
+            "text": record["original_text"],
+            "language": record["language"],
+            "quote_sha256": record["quote_sha256"],
+            "locator": public_locator,
+        },
+        "speech_act": record["speech_act"],
+        "endorsed": record["endorsed"],
+        "finding_id": record["finding_id"],
+        **representations,
+    }
+
+
+def list_public_statements_v3(
+    bundle: dict[str, Any], *, allow_statement_v3: bool = False,
+) -> dict[str, Any]:
+    """Build a deterministic versioned read payload, without opening an endpoint."""
+    validated = _statement_v3_snapshot(bundle, allow_statement_v3=allow_statement_v3)
+    statements = [
+        _statement_v3_record(record)
+        for record in sorted(
+            validated["statements"],
+            key=lambda record: (record["statement_id"], record["version_id"]),
+        )
+    ]
+    return {
+        "meta": {
+            "public_schema_version": validated["schema_version"],
+            "dataset_sha256": validated["dataset_sha256"],
+            "generated_at": validated["generated_at"],
+            "count": len(statements),
+        },
+        "data": statements,
+    }
+
+
+def get_public_statement_v3(
+    bundle: dict[str, Any], statement_id: str, *, allow_statement_v3: bool = False,
+) -> dict[str, Any]:
+    """An unknown or withheld ID gets the same generic absence; never a fallback."""
+    validated = _statement_v3_snapshot(bundle, allow_statement_v3=allow_statement_v3)
+    record = next(
+        (item for item in validated["statements"] if item["statement_id"] == statement_id),
+        None,
+    )
+    if record is None:
+        raise _not_found()
+    return {
+        "meta": {
+            "public_schema_version": validated["schema_version"],
+            "dataset_sha256": validated["dataset_sha256"],
+            "generated_at": validated["generated_at"],
+        },
+        "data": _statement_v3_record(record),
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Bundle loading (fail-closed, cached on filesystem identity and revision)
 # --------------------------------------------------------------------------- #
@@ -283,6 +407,8 @@ def build_index(bundle: dict[str, Any], *, source_path: str = "", mtime: float =
     already rejected every non-public dossier, and a bundle that fails it is not
     loaded at all.
     """
+    if bundle.get("schema_version") != PUBLIC_SCHEMA_VERSION:
+        raise _unavailable()
     entries: list[FindingEntry] = []
     for dossier in bundle["dossiers"]:
         finding = dossier["finding"]
@@ -1737,12 +1863,14 @@ __all__ = [
     "dispatch",
     "encode_cursor",
     "get_finding",
+    "get_public_statement_v3",
     "get_record",
     "health_payload",
     "index_full_bundle_payload",
     "linked_data_response",
     "llms_response",
     "list_people",
+    "list_public_statements_v3",
     "list_topics",
     "list_records",
     "load_index",
