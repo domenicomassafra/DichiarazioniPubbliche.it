@@ -1,6 +1,6 @@
 # DP-315 — «Non ho mai detto X»: tre verifiche e relazione storica
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-216, DP-219, DP-220, DP-222, DP-227, DP-312, DP-314
 
@@ -35,4 +35,19 @@ Depends on: DP-216, DP-219, DP-220, DP-222, DP-227, DP-312, DP-314
 ## Documentation, data, and migration impact
  Add bounded typed denial target/quantifier/scope relation and lineage; preserve claim/projection v1 identifiers.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+ Historical planning-only note, superseded solely by the source-only slice below.
+
+## 2026-10-11 — Bounded private three-track evaluator
+
+Implemented opt-in `denial_prior_utterance.py` and new adversarial
+`test_dp315_denial_prior_utterance.py` cases. Separate source-reviewed prior
+utterance, explicit endorsement, and NEVER_UTTERED versus NEVER_ENDORSED
+versus unverifiable NEVER_MEANT targets use version/hash/Person/time/scope
+checks. A direct verified same-speaker occurrence can create a **private**
+counterexample candidate; quotation, irony, reported speech, different
+speaker, unknown currentness, changed source, absent review and sparse corpus
+all HOLD or remain `CHECKED_INSUFFICIENT_EVIDENCE`. The underlying factual
+truth of proposition X is always `NOT_EVALUATED`; there is no intent, lie,
+human review or public publication authority inference. Focused offline tests
+PASS. **No original AC-315.1–.5 is fully closed** without independent source
+evidence/currentness, downstream DP-318 and public consumer, MiniPC pilot.

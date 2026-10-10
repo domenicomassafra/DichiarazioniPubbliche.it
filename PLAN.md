@@ -457,7 +457,7 @@ without manual DB surgery.
 | DP-312 | IN PROGRESS | Speech act, contesto adattivo e fedeltà semantica multilingue | DP-216, DP-217, DP-218, DP-219, DP-220, DP-222 |
 | DP-313 | IN PROGRESS | Documento processuale: persone, ruoli, affermazioni e stati | DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312 |
 | DP-314 | FUTURE | Verificatore fattuale generalista per claim type e requirement profile | DP-215, DP-224, DP-226, DP-227, DP-228, DP-229, DP-312 |
-| DP-315 | FUTURE | «Non ho mai detto X»: tre verifiche e relazione storica | DP-216, DP-219, DP-220, DP-222, DP-227, DP-312, DP-314 |
+| DP-315 | IN PROGRESS | «Non ho mai detto X»: tre verifiche e relazione storica | DP-216, DP-219, DP-220, DP-222, DP-227, DP-312, DP-314 |
 | DP-318 | IN PROGRESS | Same-take e relazioni corrette tra e dentro le Persone | DP-104, DP-114, DP-219, DP-222, DP-227, DP-312 |
 | DP-319 | IN PROGRESS | Indagine attiva dei casi dubbi con coda minima | DP-213, DP-215, DP-225, DP-228 |
 | DP-321 | FUTURE | Gold credibile e metriche indipendenti di errore, coverage e abstention | DP-223, DP-226, DP-228, DP-229, DP-312, DP-314 |
