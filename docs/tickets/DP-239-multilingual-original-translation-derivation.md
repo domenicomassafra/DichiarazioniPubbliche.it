@@ -1,6 +1,6 @@
 # DP-239 — Multilingual original and translation derivation in the private corpus
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-210, DP-211, DP-221
 
@@ -48,4 +48,19 @@ Extend `wording_contract`/Corpus derivative seam after B designs automated meani
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+Planning-only note superseded by the limited 2026-10-11 receipt below.
+
+## 2026-10-11 — Original and machine-translation private seam
+
+Commit `aedced9` adds opt-in `multilingual_derivation.py` and focused tests.
+The private original text, immutable Capture/Passage locator and source hash,
+parser/version, speaker and BCP-47/script/code-switch identity remain distinct
+from a versioned machine-translation artifact with provider/model/config
+fingerprints and source bind. German-to-Italian **heuristic risk flags** hold
+negation, date, number, actor, modality, legal status and reported-quotation
+mismatches. Translation is never relabeled a human-reviewed original, and
+even low-risk machine output remains `NEEDS_REVIEW` and without public quote
+authority. 13 focused DP-239 cases plus 37 adjacent DP-221/237/238 cases PASS;
+no real provider, source rights, local DB, publishing or MiniPC used. Original
+AC remain unchecked pending an independently accepted multilingual reference
+gold, actual source/translation rights, durable pipeline and host readback.
