@@ -10,6 +10,7 @@
     "check": "astro check",
     "check:design": "node scripts/check-design-system.mjs",
     "check:search": "node --experimental-strip-types scripts/check-search-index.mjs",
+    "check:statement": "node --experimental-strip-types scripts/check-statement-v3.mjs",
     "check:quality": "node scripts/check-public-quality.mjs",
     "check:routes": "node scripts/check-route-contract.mjs",
     "check:projection-boundary": "node scripts/check-production-projection-boundary.mjs",
