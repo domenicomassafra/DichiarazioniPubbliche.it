@@ -35,9 +35,11 @@ Il nuovo agente deve **prima leggere e valutare tutto il prodotto**, il codice, 
 
 **Ultime risposte del grilling:** storico permanente; prima completare il percorso
 acquisizione→trascrizioni/testo→catalogo→immissione→frontend→verifica/test,
-poi raccolta massiva. Proposta ancora indicativa: una persona/circa cinque ore di
-review settimanale. Prossima decisione: approvare ogni candidato pubblico o
-controllare a campione; nessun reviewer confermato o automatismo di pubblicazione.
+poi raccolta massiva. La persona proposta è **l'owner**, circa cinque ore settimanali
+indicative di controllo rapido soprattutto visivo/non testuale (es. immagini).
+Non convertirle in revisione editoriale di tutti i fact-check. Lavoro testuale
+inteso come automatizzato; riprendere da stati incerti/astensione/escalation,
+mantenendo aperta l'autorità di pubblicazione e distinti foto/testo/verdetti.
 
 - Nessuna pubblicazione automatica, identificazione biometrica o classifica di attendibilità delle persone.
 - Provenienza e diritti espliciti prima di riusare fonti/transcript, anche se pubblicamente visibili.

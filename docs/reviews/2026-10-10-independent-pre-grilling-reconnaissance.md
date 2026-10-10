@@ -284,11 +284,14 @@ proposti, con periodo/temi/limiti ancora aperti. La quota temporaneamente abbond
 è un input dell'owner, non una misurazione o una disponibilità garantita futura.
 **Risposte successive Q4/Q5:** storico permanente; finire prima acquisizione,
 trascrizioni/testo, catalogo, immissione, frontend, verifica e test end-to-end,
-poi mega raccolta. **Capacità proposta, non confermata:** una persona per circa
-cinque ore di revisione settimanale. Riprendere dal significato operativo della
-review: approvazione di ogni candidato/versione pubblica oppure controllo a
-campione. Non assumere un reviewer già incaricato, pubblicazione automatica o
-un throughput garantito. Scheduling e soglie quantitative dipendono dalle misure.
+poi mega raccolta. **Chiarimento Q7:** la persona è l'owner, con circa cinque ore
+settimanali indicative per controlli rapidi soprattutto non testuali, per esempio
+immagini corrette delle persone. Non è revisione editoriale completa del testo
+o dei verdetti. L'intenzione è automatizzare il lavoro testuale; comportamento
+nei casi incerti e autorità di pubblicazione restano aperti. Approvazione foto,
+attribuzione e fact-check sono decisioni distinte. Riprendere dalla presentazione
+di dichiarazioni correttamente attribuite ma non verificabili in modo conclusivo.
+Scheduling e soglie quantitative dipendono dalle misure.
 Registrare le decisioni durevoli nei file canonici
 appropriati e ricalcolare la frontiera. Nessun redesign o cambiamento di contratto
 prima della comprensione condivisa confermata dall'owner.

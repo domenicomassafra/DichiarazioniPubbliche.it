@@ -77,9 +77,11 @@ intended to be **permanent product content**. First finish the complete bounded
 source acquisition → transcription/text → catalog → ingestion → frontend →
 verification/test path; only after acceptance begin the large historical
 collection. Do not mistake approval of permanent content for permission to publish
-unreviewed records. The owner proposes, tentatively, **one person for about five
-hours of weekly editorial review**. No reviewer is yet named or confirmed; zero
-current availability is not retrospectively changed into an active staffing grant.
+unreviewed records. The owner subsequently clarified that **he is the person**
+offering roughly five hours weekly, provisionally, for quick non-textual checks
+such as whether a person's image is correct. This is owner visual/asset review,
+not an offer to validate every factual verdict, source interpretation or textual
+comparison. Full editorial fact-check reviewer capacity remains unavailable.
 
 The acceptance slice must prove real source/rights/identity/text lineage, exact
 locators and hashes, catalog deduplication/versioning, verification and uncertainty,
@@ -89,12 +91,19 @@ this is sequencing, not a declaration that every historical/future feature is
 required before testing one coherent bounded slice. No bulk or background service
 is started during the grilling.
 
-Current frontier: determine whether proposed weekly review approves every public
-candidate/version or only samples automated output; decide how review time covers
-attribution/context, factual reasoning, comparisons and corrections. Recommend
-private automated preparation with explicit approval before publication, keeping
-backlog private when capacity is exceeded. Throughput must be measured; five hours
-cannot be converted to a guaranteed number of records without a trial.
+**Q7 clarification:** do not reassign the owner's visual-check time to full
+pre-publication editorial approval. Treat visual asset approval, textual
+attribution and factual assessment as distinct decisions; approving a photograph
+must not approve statements, verdicts or source rights. Avoid biometric matching;
+an absent/unapproved image must not be filled with an invented portrait. The
+owner intends automated textual work, but publication-authority changes remain
+unresolved under the existing no-auto-publication contract.
+
+Current frontier: how to present an accurately attributed statement whose factual
+assessment is unresolved or lacks sufficient evidence, and how doubtful identities,
+quotes or comparisons are held. Establish abstention and escalation behavior
+before claiming textual automation is accepted. The proposed five-hour availability
+and visual-review workload remain approximate and must be measured.
 Future daily workload and account scheduling follow pipeline acceptance. Preserve
 all existing ticket AC; no new ticket or supersession is approved yet.
 
