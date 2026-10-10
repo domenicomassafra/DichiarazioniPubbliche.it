@@ -5,7 +5,9 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const root = path.resolve("dist");
+// Allow a complete browser acceptance pass against a freshly built isolated
+// artifact; QA must never depend on a previously populated shared web/dist.
+const root = path.resolve(process.env.DP_BROWSER_DIST || "dist");
 const chromeBin = process.env.CHROME_BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const screenshotRoot = path.join(tmpdir(), "dichiarazioni-pubbliche-browser-qa");
 const dp422CaptureDir = process.env.DP422_CAPTURE_DIR;
@@ -355,6 +357,10 @@ try {
     assert(axNodes.some((node) => axValue(node, "role") === "navigation" && axValue(node, "name") === "Informazioni sul progetto"), "empty-state links lack a named navigation landmark");
     await cdp.evaluate("document.querySelector('.launch-empty-links a[href=\"/metodo/\"]').focus()");
     assert.equal(await cdp.evaluate("document.activeElement?.getAttribute('href')"), "/metodo/", "empty-state link is not keyboard focusable");
+    await key(cdp, "Tab", { code: "Tab", keyCode: 9 });
+    assert.equal(await cdp.evaluate("document.activeElement?.getAttribute('href')"), "/progetto/", "empty-state link order is not keyboard accessible");
+    await key(cdp, "Tab", { code: "Tab", keyCode: 9, modifiers: 8 });
+    assert.equal(await cdp.evaluate("document.activeElement?.getAttribute('href')"), "/metodo/", "reverse keyboard tab order failed in empty state");
     await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
     await waitFor(cdp, "location.pathname === '/metodo/'", "empty-state keyboard navigation failed");
 
@@ -413,11 +419,45 @@ try {
   assert(ax.some((node) => axValue(node, "role") === "radiogroup" && axValue(node, "name") === "Tipo di record"), "record-type radiogroup missing from accessibility tree");
   assert(ax.some((node) => axValue(node, "role") === "button" && axValue(node, "name").startsWith("Filtri")), "filter button missing from accessibility tree");
 
+  const allRecords = searchIndex.records.length;
+  assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), allRecords,
+    "default Explore list differs from the approved search index");
+  assert.equal(await cdp.evaluate("document.querySelector('.results-count[aria-live=polite]')?.textContent.trim()"),
+    `${allRecords} risultati`, "initial announced result count does not match the visible list");
+  const assertRadioAx = async (name, checked) => {
+    const nodes = (await cdp.send("Accessibility.getFullAXTree")).nodes;
+    const radio = nodes.find((node) => axValue(node, "role") === "radio" && axValue(node, "name") === name);
+    assert(radio, `${name}: selected state absent from accessibility tree`);
+    const checkedValue = radio.properties?.find((property) => property.name === "checked")?.value?.value;
+    assert.equal(String(checkedValue), String(checked), `${name}: assistive-tech checked state differs from DOM selection`);
+  };
+  await assertRadioAx("Tutto", "true");
+
   await cdp.evaluate("document.querySelector('input[type=radio][value=ALL]').focus()");
   await key(cdp, "ArrowRight", { code: "ArrowRight", keyCode: 39 });
   await waitFor(cdp, "document.querySelector('input[type=radio][value=finding]').checked", "arrow-key radio transition failed");
   assert.equal(await cdp.evaluate("document.activeElement?.value"), "finding", "selected radio did not retain keyboard focus");
   assert.match(await cdp.evaluate("location.search"), /tipo=finding/, "keyboard filter transition did not serialize URL state");
+  const findingCount = searchIndex.records.filter((record) => record.kind === "finding").length;
+  await waitFor(cdp, `document.querySelector('.results-count')?.textContent?.includes('${findingCount} risultat')`, "filtered finding count not updated for screen readers");
+  assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), findingCount,
+    "filtered findings did not match visible result list");
+  await assertRadioAx("Dichiarazioni", "true");
+  await assertRadioAx("Tutto", "false");
+
+  await key(cdp, "ArrowRight", { code: "ArrowRight", keyCode: 39 });
+  await waitFor(cdp, "document.querySelector('input[type=radio][value=person]').checked", "keyboard next-kind transition failed");
+  const personCount = searchIndex.records.filter((record) => record.kind === "person").length;
+  assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), personCount,
+    "People radio filter does not match approved public Person records");
+  assert.equal(await cdp.evaluate("document.querySelector('.results-count[aria-live=polite]')?.textContent.trim()"),
+    `${personCount} ${personCount === 1 ? "risultato" : "risultati"}`,
+    "filtered Person result count not announced semantically");
+  assert.match(await cdp.evaluate("location.search"), /tipo=person/, "Person filter did not serialize shareable URL");
+  await assertRadioAx("Persone", "true");
+  const personLinks = await cdp.evaluate("[...document.querySelectorAll('.explore-row .claim-row-claim')].map(link => link.getAttribute('href'))");
+  assert(personLinks.every((route) => route.startsWith("/persone/") && routes.includes(route)),
+    "Person results link outside built canonical destinations");
 
   await cdp.evaluate("document.querySelector('.filter-button').focus()");
   await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });

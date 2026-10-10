@@ -17,6 +17,7 @@
     "check:trust": "node scripts/check-trust-disclosure.mjs",
     "check:corrections": "node scripts/check-correction-consistency.mjs",
     "check:browser": "node scripts/check-browser-qa.mjs",
+    "check:browser:isolated": "DP_RUN_BROWSER_QA=1 node scripts/check-production-projection-boundary.mjs",
     "check:performance": "node scripts/check-performance.mjs",
     "check:rebuild": "python3 scripts/check_dp431_rebuild.py",
     "check:private-hold": "python3 scripts/check_dp431_private_hold.py"

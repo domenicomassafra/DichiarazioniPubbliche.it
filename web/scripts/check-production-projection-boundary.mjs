@@ -99,6 +99,31 @@ try {
   assert.notEqual(wrongFingerprint.status, 0, "independent preview audit accepted a wrong source fingerprint");
   assert.match(output(wrongFingerprint), /PROJECTION_FINGERPRINT_DRIFT/);
 
+  // Browser evidence is an explicit opt-in for a host with Chrome installed.
+  // It uses the same isolated bundles checked above, never an old web/dist.
+  if (process.env.DP_RUN_BROWSER_QA === "1") {
+    for (const [name, expectedRecords] of [["empty", 0], ["demo", 1]]) {
+      const browser = spawnSync("node", ["scripts/check-browser-qa.mjs"], {
+        cwd: root, encoding: "utf8", maxBuffer: 1024 * 1024,
+        env: { ...cleanEnv, DP_BROWSER_DIST: join(directory, name) },
+      });
+      assert.equal(browser.status, 0, `${name}: isolated keyboard/AX/zoom browser matrix failed: ${output(browser)}`);
+      const proof = JSON.parse(browser.stdout.trim());
+      assert.equal(proof.status, "PASS", `${name}: browser matrix did not pass`);
+      if (expectedRecords === 0) {
+        assert.equal(proof.state, "empty-public-projection");
+        assert.equal(proof.actual_zoom_200_pages, 6);
+      } else {
+        assert(proof.search_records > 0, "populated QA lacked searchable demo records");
+        assert(new Set(proof.dp422_visual_matrix.map((entry) => entry.family)).size >= 9,
+          "populated DP-422 QA omitted a canonical template family");
+        assert.equal(proof.browser_zoom_200_exact.devicePixelRatio, 2);
+      }
+      assert.equal(proof.external_requests, 0, `${name}: browser made external requests`);
+      console.log(`isolated ${name} keyboard/AX/zoom matrix PASS`);
+    }
+  }
+
   const legacy = join(directory, "legacy-v2-empty.json");
   const legacyProjection = {
     schema_version: "dichiarazioni-pubbliche-public-v2",

@@ -55,6 +55,10 @@ projections without a first-class Content collection.
 Run `npm run check:projection-boundary` for isolated regression builds of both cases
 and an intentionally empty public projection shape. This test fixture is not
 editorially approved content and must never be deployed.
+On a host with Chrome installed, `npm run check:browser:isolated` additionally
+reuses the two isolated build outputs for keyboard, accessibility-tree, phone,
+reduced-motion and actual 200%-browser-zoom checks. This local test does not
+assert that any mock statement was approved for publication.
 Public builds exclude the Studio route and discard otherwise-unreferenced
 Studio hydration chunks; the independent informational-preview audit verifies
 that no private Studio JS is shipped.
