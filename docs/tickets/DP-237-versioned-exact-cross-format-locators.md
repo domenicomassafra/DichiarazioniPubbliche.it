@@ -1,6 +1,6 @@
 # DP-237 — Versioned exact locator and cross-format provenance chain
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-210, DP-216, DP-224, DP-225
 
@@ -49,3 +49,7 @@ Prefer additive selector metadata preserving old IDs and DP-216 hashes, old API 
 ## Completion receipt
 
 **NOT IMPLEMENTED — planning only**.
+
+## 2026-10-11 — First implementation slice
+
+Pure opt-in immutable Capture/Passage locator resolver implemented in `original_source_resolver.py` (commit `6bd8532`), covering text position, PDF page and media segment with strict source/version/hash/speaker/timing guards. 11 focused + 10 legacy tests and deterministic benchmark pass. No real parser authentication, source Studio/media seek, rights or MiniPC acceptance; all AC remain unchecked.

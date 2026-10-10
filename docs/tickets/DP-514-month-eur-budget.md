@@ -1,6 +1,6 @@
 # DP-514 — EUR10-month planning envelope with atomic multi-interval dispatch caps
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-512, DP-513, DP-506
 
@@ -40,3 +40,7 @@ Depends on: DP-512, DP-513, DP-506
 
 ## Completion receipt
  Not implemented; planning only. Future candidate/policy/FX reference, monthly threshold authority, concurrent proof, MiniPC receipt and residual estimate/unknown must be recorded.
+
+## 2026-10-11 — First implementation slice
+
+An owner-versioned, **disabled by default** monthly EUR budget/reservation proposal was added in `ops/cost_policy.py` (commit `e2df061`), with conservative FX and Rome-month/DST boundaries, explicit UNKNOWN holds and no weakening of USD daily guards. 19 focused tests pass including simulated revision/CAS. `dispatch_authorized` stays false; actual transactional persistent multi-worker CAS, billing settlement, owner-approved cap and MiniPC acceptance are still missing.

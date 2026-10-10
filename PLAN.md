@@ -445,8 +445,8 @@ without manual DB surgery.
 | DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video adapter; fixture execution distinguishes NEW/REPLAY/AMENDED and delegates amended records to DP-511/DP-227 with DP-305 fail-closed rights; approved official source-family MiniPC canary pending | DP-206, DP-217, DP-218, DP-231 |
 | DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter; strict offline normalization + explicit DP-215 role/authority/suitability bridge implemented, real approved provider/licensing + MiniPC source-family canary pending | DP-215, DP-228, external contract/API |
 | DP-235 | FUTURE | Bounded rights-authorized private source-to-candidate pilot | DP-209, DP-210, DP-211, DP-212, DP-213, DP-236 |
-| DP-236 | FUTURE | Source-family acquisition/use profile with real permission decisions | DP-210, DP-305 |
-| DP-237 | FUTURE | Versioned exact locator and cross-format provenance chain | DP-210, DP-216, DP-224, DP-225 |
+| DP-236 | IN PROGRESS | Source-family acquisition/use profile with real permission decisions | DP-210, DP-305 |
+| DP-237 | IN PROGRESS | Versioned exact locator and cross-format provenance chain | DP-210, DP-216, DP-224, DP-225 |
 | DP-238 | FUTURE | Document, PDF/OCR and text extraction with role-preserving provenance | DP-210, DP-211 |
 | DP-239 | FUTURE | Multilingual original and translation derivation in the private corpus | DP-210, DP-211, DP-221 |
 | DP-240 | FUTURE | Bounded multi-person candidate batch with cross-source identity isolation | DP-211, DP-212, DP-218, DP-222 |
@@ -454,11 +454,11 @@ without manual DB surgery.
 | DP-242 | FUTURE | Studio source-to-candidate machine handoff and exception lifecycle | DP-416, DP-417, DP-418, DP-419 |
 | DP-243 | FUTURE | Initial permanent historical corpus from mixed Italian/German primary sources | DP-210, DP-215, DP-703, DP-443 |
 | DP-244 | FUTURE | Source coverage inventory, version refresh and incremental catalog | DP-209, DP-213, DP-215, DP-511 |
-| DP-312 | FUTURE | Speech act, contesto adattivo e fedeltà semantica multilingue | DP-216, DP-217, DP-218, DP-219, DP-220, DP-222 |
+| DP-312 | IN PROGRESS | Speech act, contesto adattivo e fedeltà semantica multilingue | DP-216, DP-217, DP-218, DP-219, DP-220, DP-222 |
 | DP-313 | FUTURE | Documento processuale: persone, ruoli, affermazioni e stati | DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312 |
 | DP-314 | FUTURE | Verificatore fattuale generalista per claim type e requirement profile | DP-215, DP-224, DP-226, DP-227, DP-228, DP-229, DP-312 |
 | DP-315 | FUTURE | «Non ho mai detto X»: tre verifiche e relazione storica | DP-216, DP-219, DP-220, DP-222, DP-227, DP-312, DP-314 |
-| DP-318 | FUTURE | Same-take e relazioni corrette tra e dentro le Persone | DP-104, DP-114, DP-219, DP-222, DP-227, DP-312 |
+| DP-318 | IN PROGRESS | Same-take e relazioni corrette tra e dentro le Persone | DP-104, DP-114, DP-219, DP-222, DP-227, DP-312 |
 | DP-319 | FUTURE | Indagine attiva dei casi dubbi con coda minima | DP-213, DP-215, DP-225, DP-228 |
 | DP-321 | FUTURE | Gold credibile e metriche indipendenti di errore, coverage e abstention | DP-223, DP-226, DP-228, DP-229, DP-312, DP-314 |
 
@@ -548,11 +548,11 @@ LLM in the request path.
 | DP-432 | DONE | Public trust/provenance disclosure and correction-history integration AC-432.1-.8 machine-proven; upstream DP-223 attribution-integrity release sub-gate is now closed, while real screen-reader/manual judgment remains owned by DP-410 | DP-216..223, DP-308, DP-427, DP-428 |
 | DP-433 | DONE | Stable-URI + linked-data/RDF interoperability projection; deployed `/index.nt` read-back and discovery green | DP-105, DP-403, DP-430, DP-432, DP-434 |
 | DP-434 | DONE | First-class reviewed public Content resource independent of published findings; projection/API/web/RDF + isolated MiniPC migration/same-origin canary complete | DP-105, DP-210, DP-401, DP-403 |
-| DP-435 | FUTURE | Public Statement with exact original wording | DP-216, DP-221, DP-305, DP-312, DP-317 |
-| DP-436 | FUTURE | Verbatim search, cards, relations and linked-data consumers | DP-435, DP-402, DP-403, DP-433 |
-| DP-437 | FUTURE | Independent public Statements for opinions and positions | DP-435, DP-104, DP-111, DP-312 |
+| DP-435 | IN PROGRESS | Public Statement with exact original wording | DP-216, DP-221, DP-305, DP-312, DP-317 |
+| DP-436 | IN PROGRESS | Verbatim search, cards, relations and linked-data consumers | DP-435, DP-402, DP-403, DP-433 |
+| DP-437 | IN PROGRESS | Independent public Statements for opinions and positions | DP-435, DP-104, DP-111, DP-312 |
 | DP-438 | FUTURE | Person pubblica autonoma, anche senza Statement | DP-105, DP-222, DP-402, DP-437 |
-| DP-439 | FUTURE | Filtri pubblici Persona × Tema e dati incrociati | DP-105, DP-402, DP-430, DP-437, DP-438 |
+| DP-439 | IN PROGRESS | Filtri pubblici Persona × Tema e dati incrociati | DP-105, DP-402, DP-430, DP-437, DP-438 |
 | DP-440 | FUTURE | Sintesi Persona × Tema precomputata e citata | DP-224, DP-303, DP-431, DP-435, DP-439 |
 | DP-441 | FUTURE | Brief e alternative comparabili del redesign, decisione owner | DP-413, DP-423 |
 | DP-442 | FUTURE | Implementazione futura del redesign scelto e migrazione controllata | DP-425, DP-441, DP-436 |
@@ -584,9 +584,9 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-509 | DONE | Harden claim/ASR/verification provenance inputs | M0 baseline |
 | DP-510 | DONE | Durable targeted provenance quarantine/hold + DP-431 cleanup + MiniPC restart/revalidation incident canary complete | DP-308; coordinate DP-501/504/505/431 |
 | DP-511 | DONE | Source drift/supersession/rights-expiry revalidation watch + durable MiniPC canary complete | DP-210, DP-215, DP-308, DP-510 |
-| DP-512 | FUTURE | Truthful operation billing classification and retrospective reconciliation | DP-230, DP-506 |
+| DP-512 | IN PROGRESS | Truthful operation billing classification and retrospective reconciliation | DP-230, DP-506 |
 | DP-513 | FUTURE | Bounded empirical GPT-6/Antigravity/Groq/local-capacity pilot | DP-512, DP-506 |
-| DP-514 | FUTURE | EUR10-month planning envelope with atomic multi-interval dispatch caps | DP-512, DP-513, DP-506 |
+| DP-514 | IN PROGRESS | EUR10-month planning envelope with atomic multi-interval dispatch caps | DP-512, DP-513, DP-506 |
 | DP-515 | FUTURE | Economical incremental source monitoring with coverage and safe backoff | DP-209, DP-210, DP-211, DP-511, DP-512, DP-514 |
 | DP-517 | FUTURE | Reader Google sign-up/login/logout/delete MiniPC activation | DP-304, DP-307, DP-501, DP-502 |
 | DP-518 | FUTURE | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |

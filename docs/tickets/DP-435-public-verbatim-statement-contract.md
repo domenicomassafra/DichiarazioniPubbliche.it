@@ -1,6 +1,6 @@
 # DP-435 — Public Statement with exact original wording
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-216, DP-221, DP-305, DP-312, DP-317
 
@@ -51,3 +51,7 @@ Record additional `PublicStatement` fields/representation semantics in CONTEXT, 
 ## Completion receipt
 
 2026-10-10: Planning-only new ticket; **not implemented**; zero new acceptance evidence, rights approval or MiniPC promotion.
+
+## 2026-10-11 — First implementation slice
+
+Opt-in v3 public Statement contract in `public_schema.py`/`public_projection.py` (commit `2405049`) validates source literal against independent source span/SHA, distinct attribution/context/wording/rights/publication attestation fields, optional Finding and typed separate summary/translation. Ten focused tests pass; v2 default unchanged, v3 writer still held before consumer cutover. No real approved source/qualified rights, DB attestation, public activation or MiniPC readback; AC remain open.

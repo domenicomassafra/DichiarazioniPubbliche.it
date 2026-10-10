@@ -1,6 +1,6 @@
 # DP-318 — Same-take e relazioni corrette tra e dentro le Persone
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-104, DP-114, DP-219, DP-222, DP-227, DP-312
 
@@ -36,3 +36,7 @@ Depends on: DP-104, DP-114, DP-219, DP-222, DP-227, DP-312
  Existing relation schema may need additive subject/person-context bindings and upgraded relation policy instead of duplicate graph; preserve v1 edges under explicit compatibility/migration.
 ## Completion receipt
  non implementato; pianificazione soltanto.
+
+## 2026-10-11 — First implementation slice
+
+Versioned private pair-comparison preflight in `relation_runtime.py`/`relation_policy.py` (commit `d01fb22`) distinguishes same Person over time from cross-person differences, holds uncertain quote/identity/context and never grants public relation authority. 23 focused and 30 legacy relation tests pass. Legacy callers without `person_id`, independently approved semantic/reference gold, currentness/revocation and real MiniPC Trace remain to be integrated.

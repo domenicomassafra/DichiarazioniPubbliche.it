@@ -1,6 +1,6 @@
 # DP-436 — Verbatim search, cards, relations and linked-data consumers
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-435, DP-402, DP-403, DP-433
 
@@ -46,3 +46,7 @@ Update schema/API consumer contracts and source map after implementation; increm
 ## Completion receipt
 
 2026-10-10: planning only, **not implemented**; all new AC unchecked.
+
+## 2026-10-11 — First implementation slice
+
+Opt-in v3 Statement serializations in `public_api.py` and `linked_data.py` (commit `4a7afbf`) plus isolated web `statementV3.ts`/`VerbatimStatementRecord.astro` (commits `caa5c5c`, `ce60baf`). Original quote, locator/source, summary/translation and optional Finding have distinct types. 13 backend consumer tests and synthetic web statement test pass; existing v2 endpoints/routes unchanged. No real v3 HTTP route, public-host cache/revocation, source rights or MiniPC proof.

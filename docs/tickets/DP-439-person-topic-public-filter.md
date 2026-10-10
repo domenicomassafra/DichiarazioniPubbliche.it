@@ -1,6 +1,6 @@
 # DP-439 — Filtri pubblici Persona × Tema e dati incrociati
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-402, DP-430, DP-437, DP-438
 
@@ -54,4 +54,8 @@ Non implementato; pianificazione soltanto. Future SHA, intersection IDs + source
 
 Code landed in `df6fa42` and `5c72563`. `web/src/lib/searchIndex.ts` now carries approved public-v2 Finding→Person and reviewed Topic-finding membership as bounded facet IDs; source rows absent from the verified public projection are not synthesized into results. The Explore dialog filters Person and Topic together with URL restoration, and `check-search-index.mjs` covers positive intersection, unrelated public Person, private/absent membership, malformed URLs and an invented public Topic facet even with recomputed index hash. `npm run check:search`, `npm run check` (0 diagnostics), design check and isolated projection-boundary check passed locally. Search remains browser-only with no per-request LLM.
 
-**Scope limit:** v2 Finding membership is not the new first-class exact-wording PublicStatement membership: DP-435–438 and the additional typed public projection/reader upgrade still precede full AC-439.1/.2/.6. No approved real Person×Topic MiniPC runtime sample, original quote, precomputed synopsis, mobile screen-reader or revoked-v3 release readback is claimed. **All AC-439.1–.7 remain unchecked; status FUTURE until contract migration and runtime proof.**
+**Scope limit:** v2 Finding membership is not the new first-class exact-wording PublicStatement membership: DP-435–438 and the additional typed public projection/reader upgrade still precede full AC-439.1/.2/.6. No approved real Person×Topic MiniPC runtime sample, original quote, precomputed synopsis, mobile screen-reader or revoked-v3 release readback is claimed. **All AC-439.1–.7 remain unchecked; ticket IN PROGRESS, contract migration and runtime proof pending.**
+
+## 2026-10-11 — First implementation slice
+
+The public-v2 static search-index now supports exact public Person×Topic Finding intersections without private candidates or inferred endorsement; React Explore exposes shareable URL filters, old normalized text is expressly not a quote (commits `df6fa42`, `5c72563`, `f8b2b6e`). Web search, design, Astro and isolated projection-boundary checks pass. First-class opinion-only v3 Statement membership, synopsis, source citation, real mobile AT and MiniPC approval remain outstanding, so none of AC-439.1–.7 is closed.

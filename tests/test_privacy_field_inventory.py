@@ -67,6 +67,19 @@ class PrivacyFieldInventoryTests(unittest.TestCase):
                         for row in groups[key].values()
                     ))
 
+    def test_verbatim_v3_requires_conditional_review_without_general_public_authority(self):
+        inventory = make_inventory((ROOT / "db/schema.v1.sql").read_text())
+        fields = inventory["public_projection_fields"]["PUBLIC_STATEMENT_ALLOWED_KEYS"]
+        self.assertIn("original_text", fields)
+        self.assertIn("review_provenance", fields)
+        self.assertIn("locator", fields)
+        self.assertTrue(all(
+            row["public_allowlist_decision"] == "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW"
+            for row in fields.values()
+        ))
+        self.assertFalse(inventory["public_projection_authorized"])
+        self.assertFalse(inventory["retention_periods_approved"])
+
     def test_schema_change_fails_without_explicit_inventory_update(self):
         source = (ROOT / "db/schema.v1.sql").read_text()
         with tempfile.TemporaryDirectory() as d:

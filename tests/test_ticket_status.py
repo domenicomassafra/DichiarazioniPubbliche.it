@@ -15,12 +15,13 @@ from tools.report_ticket_status import ticket_snapshot
 class TicketStatusTests(unittest.TestCase):
     def test_real_backlog_has_one_canonical_status_for_each_ticket(self):
         result = ticket_snapshot()
-        self.assertEqual(result["total"], 125)
-        # Ticket closure must NEVER make CI fail just because the count got
-        # better. Preserve a proven minimum so a lost DONE is a regression,
-        # and derive remaining counts from the single canonical PLAN snapshot.
-        self.assertGreaterEqual(result["done"], 87)
-        self.assertLessEqual(result["not_done"], 38)
+        # The post-grilling 2026-10-10 implementation roadmap added 37
+        # explicitly specced FUTURE tickets (125 -> 162). Future additions or
+        # genuine ticket closures must not fail CI solely for changing counts.
+        # Preserve historical minimums and check the canonical PLAN/files
+        # agreement rather than freezing the open backlog at an obsolete size.
+        self.assertGreaterEqual(result["total"], 162)
+        self.assertGreaterEqual(result["done"], 90)
         self.assertEqual(result["done"] + result["not_done"], result["total"])
         self.assertEqual(
             sum(result[key] for key in ("done", "in_progress", "blocked", "future", "ready")),
@@ -30,6 +31,7 @@ class TicketStatusTests(unittest.TestCase):
         self.assertEqual(len(set(result["not_done_ticket_ids"])), result["not_done"])
         self.assertNotIn("DP-607", result["not_done_ticket_ids"])
         self.assertIn("DP-705", result["not_done_ticket_ids"])
+        self.assertTrue((ROOT / "docs/tickets/DP-443-first-integrated-source-reader-pilot.md").is_file())
         self.assertTrue(result["files_agree_with_plan"])
 
     def test_duplicate_and_missing_ticket_files_are_rejected(self):

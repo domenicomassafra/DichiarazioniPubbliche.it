@@ -11029,6 +11029,155 @@
         "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
       }
     },
+    "PUBLIC_STATEMENT_ALLOWED_KEYS": {
+      "content_id": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "endorsed": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "finding_id": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "language": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "locator": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "original_text": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "person_id": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "quote_sha256": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "review_provenance": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "source_kind": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "source_sha256": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "source_title": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "source_url": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "source_version": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "speaker_name": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "speech_act": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "statement_date": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "statement_id": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "summary": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "translation": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      },
+      "version_id": {
+        "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "CONDITIONAL_VIA_PUBLIC_SCHEMA_AND_REVIEW",
+        "purpose": "REVIEWED_PUBLIC_SCHEMA_CONTRACT",
+        "retention_behavior": "REVIEWED_PUBLIC_VERSION_HISTORY"
+      }
+    },
     "TOPIC_ALLOWED_KEYS": {
       "canonical_name": {
         "access_role": "PUBLIC_ONLY_AFTER_PUBLICATION_APPROVAL",

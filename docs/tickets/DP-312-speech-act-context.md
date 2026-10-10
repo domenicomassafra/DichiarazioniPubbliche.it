@@ -1,6 +1,6 @@
 # DP-312 — Speech act, contesto adattivo e fedeltà semantica multilingue
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-216, DP-217, DP-218, DP-219, DP-220, DP-222
 
@@ -38,3 +38,7 @@ Depends on: DP-216, DP-217, DP-218, DP-219, DP-220, DP-222
  Additive `speech_act_context_decision`/serialized equivalent bound to Statement occurrence and revision (do not decide storage before inspecting stores). Preserve legacy `speech_mode` as v1 input, explicit version migration; no silent old approval carry-over.
 ## Completion receipt
  non implementato; pianificazione soltanto.
+
+## 2026-10-11 — First implementation slice
+
+Bounded private `SpeechActContextDecision` in `context_integrity.py` (commit `6404079`) distinguishes assertion, quote, criticism, denial, question and incomplete context; never grants publication. 22 focused and 14 legacy context cases pass; multilingual reference gold, German translation assurance, downstream source reanalysis and MiniPC receipt are still missing. No AC can be closed solely from lexical fixtures.

@@ -1,6 +1,6 @@
 # DP-437 — Independent public Statements for opinions and positions
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-435, DP-104, DP-111, DP-312
 
@@ -46,3 +46,7 @@ Extend CONTEXT vocabulary and the public read model additively; decouple Stateme
 ## Completion receipt
 
 2026-10-10: specification only, **not implemented**, all new AC unchecked.
+
+## 2026-10-11 — First implementation slice
+
+New `PublicStatement` v3 opt-in projection (`2405049`) supports an attributable opinion with nullable Finding, separate checking semantics and source literal approval. Focused schema/projection tests pass. No genuine opinion public page, rights/publication eligibility, person/topic consumer, historical correction or real runtime acceptance; AC remain open.

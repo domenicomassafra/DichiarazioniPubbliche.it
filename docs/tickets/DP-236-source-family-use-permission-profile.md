@@ -1,6 +1,6 @@
 # DP-236 — Source-family acquisition/use profile with real permission decisions
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-210, DP-305
 
@@ -49,3 +49,7 @@ Extend existing registry schema only where current `RightsSubject` cannot expres
 ## Completion receipt
 
 **NOT IMPLEMENTED — planning only**.
+
+## 2026-10-11 — First implementation slice
+
+Source-use guard implemented as an optional exact RightsSubject/PrivateRightsRecord operation check in `private_capture_rights.py` and opt-in `capture_pipeline.py` integration (commit `acf6541`). Exact source, status, expiry, per-use and redirect/revocation checks are fail closed; public EXCERPT use is denied pending separate qualified clearance. Focused offline tests pass. No production source-family approval, DB-backed current-rights receipt or MiniPC acceptance; all original AC remain unchecked.

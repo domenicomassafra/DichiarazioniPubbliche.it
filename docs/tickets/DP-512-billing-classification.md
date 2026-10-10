@@ -1,6 +1,6 @@
 # DP-512 — Truthful operation billing classification and retrospective reconciliation
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-230, DP-506
 
@@ -39,3 +39,7 @@ Depends on: DP-230, DP-506
 
 ## Completion receipt
  Not implemented; planning only. Future completion binds commit, exact writer/consumer test results, migration hash, legacy reclassification count, MiniPC readback and residual UNKNOWN.
+
+## 2026-10-11 — First implementation slice
+
+Current operation writer misclassification was repaired in `candidate_extraction.py`/`operation_ledger.py`/`queue_store.py`/`worker_handlers_transcript.py` (commit `c6d55c7`). A provider estimate no longer masquerades as MEASURED billed spend; absent local energy cannot silently become zero, with focused replay tests. Live billing/FX reconciliation, missing historical revisions, cross-worker reservations and MiniPC authoritative ledger acceptance remain open.
