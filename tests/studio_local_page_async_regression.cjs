@@ -38,7 +38,10 @@ assert.ok(inlineScript, 'rendered page must contain its nonce-bound script');
 
 const ids = new Map();
 for (const id of ['token', 'results', 'status', 'clear', 'member-links',
-                  'claim-links', 'capture-links', 'media-locator', 'corpus-list',
+                  'claim-links', 'capture-links', 'collection-capture-links',
+                  'collection-capture-summary', 'capture-passage-links',
+                  'passage-candidate-links', 'passage-candidate-summary',
+                  'media-locator', 'corpus-list',
                   'corpus-links', 'corpus-summary', 'corpus-inspector',
                   'corpus-references', 'corpus-inspector-title', 'corpus-back',
                   'corpus-source-jump', 'corpus-jump-status']) {
@@ -46,12 +49,14 @@ for (const id of ['token', 'results', 'status', 'clear', 'member-links',
 }
 const forms = {};
 for (const path of [
-  '/v1/collections/members', '/v1/collections/member',
+  '/v1/collections/members', '/v1/collections/member', '/v1/collections/captures',
+  '/v1/collections/passage-candidates',
   '/v1/collections/claim-provenance', '/v1/capture/compare',
   '/v1/capture/passages', '/v1/corpus/search', '/v1/media/segment',
 ]) {
   const fields = {
-    query: 'demo', limit: '2', kind: '',
+    query: 'demo', limit: '2', kind: '', after_id: '', after_claim_id: '',
+    earlier_hash: '', later_hash: '', capture_hash: '',
     collection_id: '', source_id: '', person_id: '', topic_id: '',
     event_id: '', from_date: '', to_date: '', status: '', claim_type: '', check_worthy: '',
   };

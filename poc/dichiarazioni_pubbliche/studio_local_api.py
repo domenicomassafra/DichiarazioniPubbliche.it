@@ -9,6 +9,7 @@ provide a protected token file.  The API has no review/promotion authority.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import hmac
 import json
 import os
@@ -37,11 +38,17 @@ from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
 STUDIO_LOCAL_API_VERSION = "studio-local-readonly-api-v1"
 STUDIO_LOCAL_MAX_BODY_BYTES = 4096
 _TOKEN_HEX = re.compile(r"^[0-9a-f]{64,128}$")
+_STUDIO_REF = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
+_CAPTURE_SHA = re.compile(r"^[0-9a-f]{64}$")
+_CAPTURE_STATES = frozenset({"CAPTURED", "QUARANTINED", "PURGE_PENDING", "PURGED_BODY"})
+_ARCHIVE_STATES = frozenset({"NOT_REQUESTED", "REQUESTED", "PENDING", "SUCCEEDED", "FAILED"})
 _ALLOWED_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/collections/list", "/v1/collections/members",
     "/v1/collections/member", "/v1/collections/claim-provenance",
+    "/v1/collections/captures",
+    "/v1/collections/passage-candidates",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
 })
 
@@ -79,6 +86,232 @@ class _StudioCorpusReader(_StudioReadOnlyDb, CorpusSearchStore):
 
 
 class _StudioCaptureReader(_StudioReadOnlyDb, CapturePipelineStore):
+    def list_collection_passage_candidates(
+        self, *, collection_id: str, content_id: str, passage_id: str,
+        limit: int = 20, after_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Persisted included Content→Passage→Statement→Claim IDs, never texts.
+
+        An exact Content/Passage binding is required even when no candidate
+        exists; one wrong or missing foreign key must not become an empty
+        successful fake edge. Claim candidate children are capped per row.
+        """
+        for ref in (collection_id, content_id, passage_id):
+            if not isinstance(ref, str) or not _STUDIO_REF.fullmatch(ref):
+                raise ValueError("STUDIO_PASSAGE_CANDIDATE_REF_INVALID")
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 20:
+            raise ValueError("STUDIO_PASSAGE_CANDIDATE_LIMIT_INVALID")
+        if after_id is not None and (not isinstance(after_id, str) or not _STUDIO_REF.fullmatch(after_id)):
+            raise ValueError("STUDIO_PASSAGE_CANDIDATE_CURSOR_INVALID")
+        raw = self.run("""
+            SELECT json_build_object(
+                'collection_id', member.collection_id,
+                'content_id', item.id, 'source_id', item.source_id,
+                'source_exists', source.id IS NOT NULL,
+                'rights_status', item.rights_status,
+                'passage_id', passage.id, 'selector_type', passage.selector_type,
+                'candidates', (
+                    SELECT coalesce(json_agg(row_to_json(selected) ORDER BY selected.id), '[]'::json)
+                    FROM (
+                        SELECT candidate.id, candidate.status,
+                            (SELECT coalesce(json_agg(row_to_json(child) ORDER BY child.id), '[]'::json)
+                             FROM (SELECT claim.id, claim.status, claim.promoted_claim_id
+                                   FROM claim_candidate claim
+                                   WHERE claim.statement_candidate_id=candidate.id
+                                     AND claim.content_id=item.id
+                                   ORDER BY claim.id LIMIT 20) child
+                            ) AS claims
+                        FROM statement_candidate_passage link
+                        JOIN statement_candidate candidate
+                          ON candidate.id=link.statement_candidate_id
+                         AND candidate.content_id=link.content_id
+                        WHERE link.passage_id=passage.id
+                          AND link.content_id=item.id
+                          AND candidate.id > :'after_id'
+                        ORDER BY candidate.id LIMIT :'row_limit'::integer
+                    ) selected
+                )
+            )::text
+            FROM research_collection_content member
+            JOIN content_item item ON item.id=member.content_id
+            JOIN passage ON passage.id=:'passage_id' AND passage.content_id=item.id
+            LEFT JOIN source source ON source.id=item.source_id
+            WHERE member.collection_id=:'collection_id'
+              AND member.content_id=:'content_id' AND member.status='INCLUDED';
+        """, collection_id=collection_id, content_id=content_id,
+            passage_id=passage_id, after_id=after_id or "", row_limit=limit + 1)
+        if not raw:
+            raise ValueError("STUDIO_PASSAGE_NOT_IN_INCLUDED_COLLECTION")
+        try:
+            record = json.loads(raw)
+        except (TypeError, ValueError):
+            raise ValueError("STUDIO_PASSAGE_CANDIDATE_RESULT_INVALID") from None
+        if (not isinstance(record, dict)
+                or record.get("collection_id") != collection_id
+                or record.get("content_id") != content_id
+                or record.get("passage_id") != passage_id
+                or record.get("selector_type") not in {"TEXT_POSITION", "PAGE_RANGE", "MEDIA_SEGMENT_REF"}
+                or record.get("source_exists") is not True
+                or not isinstance(record.get("source_id"), str)
+                or not _STUDIO_REF.fullmatch(record["source_id"])
+                or not isinstance(record.get("rights_status"), str)
+                or not isinstance(record.get("candidates"), list)):
+            raise ValueError("STUDIO_PASSAGE_CANDIDATE_SCOPE_INVALID")
+        rows = record["candidates"]
+        if len(rows) > limit + 1:
+            raise ValueError("STUDIO_PASSAGE_CANDIDATE_PAGE_INVALID")
+        next_id = after_id or ""
+        result = []
+        for row in rows:
+            if (not isinstance(row, dict) or set(row) != {"id", "status", "claims"}
+                    or not isinstance(row["id"], str) or not _STUDIO_REF.fullmatch(row["id"])
+                    or row["id"] <= next_id
+                    or row["status"] not in {"CANDIDATE", "APPROVED", "REJECTED", "HELD", "SUPERSEDED"}
+                    or not isinstance(row["claims"], list) or len(row["claims"]) > 20):
+                raise ValueError("STUDIO_PASSAGE_CANDIDATE_ROW_INVALID")
+            next_id = row["id"]
+            claims = []
+            prev_claim = ""
+            for child in row["claims"]:
+                if (not isinstance(child, dict) or set(child) != {"id", "status", "promoted_claim_id"}
+                        or not isinstance(child["id"], str)
+                        or not _STUDIO_REF.fullmatch(child["id"])
+                        or child["id"] <= prev_claim
+                        or child["status"] not in {"CANDIDATE", "DUPLICATE", "PROMOTED", "REJECTED", "HELD"}
+                        or (child["promoted_claim_id"] is not None
+                            and (not isinstance(child["promoted_claim_id"], str)
+                                 or not _STUDIO_REF.fullmatch(child["promoted_claim_id"])))):
+                    raise ValueError("STUDIO_PASSAGE_CLAIM_ROW_INVALID")
+                prev_claim = child["id"]
+                claims.append({"id": child["id"], "status": child["status"],
+                               "promoted_claim_id": child["promoted_claim_id"]})
+            if len(result) < limit:
+                result.append({"statement_candidate_id": row["id"], "status": row["status"],
+                               "claim_candidates": claims})
+        more = len(rows) > limit
+        return {"contract_version": "studio-passage-candidates-v1",
+                "private_only": True, "publication_authority": False,
+                "rights_clearance": False, "review_authority": False,
+                "collection_id": collection_id, "content_id": content_id,
+                "source_id": record["source_id"], "rights_status": record["rights_status"],
+                "passage_id": passage_id, "selector_type": record["selector_type"],
+                "candidates": result, "has_more": more,
+                "next_after_id": result[-1]["statement_candidate_id"] if more else None}
+
+    def list_collection_captures(
+        self, *, collection_id: str, content_id: str,
+        limit: int = 20, after_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Collection membership-bound, paginated Capture navigation; hashes only.
+
+        The query selects no Capture body, title, URL, provider headers,
+        private metadata or archive/purge receipts. The source existence flag
+        is a DB reference check, not rights or reviewer authority.
+        """
+        if any(not isinstance(ref, str) or not _STUDIO_REF.fullmatch(ref)
+               for ref in (collection_id, content_id)):
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_REF_INVALID")
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 20:
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_LIMIT_INVALID")
+        if after_id is not None and (not isinstance(after_id, str) or not _STUDIO_REF.fullmatch(after_id)):
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_CURSOR_INVALID")
+        raw = self.run("""
+            SELECT json_build_object(
+                'collection_id', member.collection_id,
+                'content_id', content.id, 'source_id', content.source_id,
+                'source_exists', source.id IS NOT NULL,
+                'collection_state', collection.status,
+                'rights_status', content.rights_status,
+                'processing_status', content.processing_status,
+                'captures', (
+                    SELECT coalesce(json_agg(row_to_json(item) ORDER BY item.id), '[]'::json)
+                    FROM (
+                        SELECT capture.id, capture.content_sha256,
+                               capture.observed_at, capture.status,
+                               capture.archive_status
+                        FROM content_capture capture
+                        WHERE capture.content_id=content.id
+                          AND capture.id > :'after_id'
+                        ORDER BY capture.id
+                        LIMIT :'row_limit'::integer
+                    ) item
+                )
+            )::text
+            FROM research_collection_content member
+            JOIN research_collection collection ON collection.id=member.collection_id
+            JOIN content_item content ON content.id=member.content_id
+            LEFT JOIN source source ON source.id=content.source_id
+            WHERE member.collection_id=:'collection_id'
+              AND member.content_id=:'content_id'
+              AND member.status='INCLUDED';
+        """, collection_id=collection_id, content_id=content_id,
+            after_id=after_id or "", row_limit=limit + 1)
+        if not raw:
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_MEMBER_NOT_FOUND")
+        try:
+            record = json.loads(raw)
+        except (ValueError, TypeError):
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_RESULT_INVALID") from None
+        if (not isinstance(record, dict)
+                or record.get("collection_id") != collection_id
+                or record.get("content_id") != content_id
+                or record.get("collection_state") not in {"PAUSED", "ACTIVE", "ARCHIVED"}
+                or not isinstance(record.get("source_exists"), bool)
+                or not isinstance(record.get("rights_status"), str)
+                or not isinstance(record.get("processing_status"), str)
+                or not isinstance(record.get("captures"), list)):
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_SCOPE_INVALID")
+        source_id = record.get("source_id")
+        if (source_id is not None and
+                (not isinstance(source_id, str) or not _STUDIO_REF.fullmatch(source_id))):
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_SOURCE_INVALID")
+        if bool(source_id) != record["source_exists"]:
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_SOURCE_INVALID")
+        rows = record["captures"]
+        if len(rows) > limit + 1:
+            raise ValueError("STUDIO_CAPTURE_COLLECTION_PAGE_INVALID")
+        selected: list[dict[str, str]] = []
+        previous_id = after_id or ""
+        for row in rows:
+            if not isinstance(row, dict) or set(row) != {
+                "id", "content_sha256", "observed_at", "status", "archive_status",
+            }:
+                raise ValueError("STUDIO_CAPTURE_COLLECTION_ROW_INVALID")
+            capture_id, digest = row["id"], row["content_sha256"]
+            if (not isinstance(capture_id, str) or not _STUDIO_REF.fullmatch(capture_id)
+                    or capture_id <= previous_id or not isinstance(digest, str)
+                    or not _CAPTURE_SHA.fullmatch(digest)
+                    or row["status"] not in _CAPTURE_STATES
+                    or row["archive_status"] not in _ARCHIVE_STATES):
+                raise ValueError("STUDIO_CAPTURE_COLLECTION_ROW_INVALID")
+            observed = row["observed_at"]
+            try:
+                when = datetime.fromisoformat(observed)
+            except (TypeError, ValueError):
+                raise ValueError("STUDIO_CAPTURE_COLLECTION_TIME_INVALID") from None
+            if when.tzinfo is None or when.utcoffset() is None:
+                raise ValueError("STUDIO_CAPTURE_COLLECTION_TIME_INVALID")
+            previous_id = capture_id
+            if len(selected) < limit:
+                selected.append({
+                    "id": capture_id, "content_sha256": digest,
+                    "observed_at": observed, "status": row["status"],
+                    "archive_status": row["archive_status"],
+                })
+        has_more = len(rows) > limit
+        return {
+            "contract_version": "studio-collection-captures-v1",
+            "private_only": True, "publication_authority": False,
+            "rights_clearance": False, "capture_authorized": False,
+            "collection_id": collection_id, "content_id": content_id,
+            "source_id": source_id, "source_exists": record["source_exists"],
+            "collection_state": record["collection_state"],
+            "rights_status": record["rights_status"],
+            "processing_status": record["processing_status"],
+            "captures": selected, "has_more": has_more,
+            "next_after_id": selected[-1]["id"] if has_more else None,
+        }
+
     def list_passage_selectors(self, capture_id: str, *, limit: int, after_id: str | None) -> list[dict[str, Any]]:
         """Select only locator metadata; never transfer private passage text to the API."""
         raw = self.run(
@@ -163,6 +396,8 @@ class _CaptureReader(Protocol):
     def find_capture(self, content_id: str, content_sha256: str) -> dict[str, Any] | None: ...
     def list_passage_selectors(self, capture_id: str, *, limit: int, after_id: str | None) -> list[dict[str, Any]]: ...
     def read_candidate_media_selector(self, *, content_id: str, statement_candidate_id: str, passage_id: str) -> dict[str, Any] | None: ...
+    def list_collection_captures(self, *, collection_id: str, content_id: str, limit: int, after_id: str | None) -> dict[str, Any]: ...
+    def list_collection_passage_candidates(self, *, collection_id: str, content_id: str, passage_id: str, limit: int, after_id: str | None) -> dict[str, Any]: ...
 
 
 class _CandidateReader(Protocol):
@@ -225,6 +460,12 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
     if path == "/v1/capture/passages":
         _fields(body, required={"content_id", "capture_hash"}, optional={"limit", "after_id"})
         return inspect_capture_passage_selectors(readers.captures, **body)
+    if path == "/v1/collections/captures":
+        _fields(body, required={"collection_id", "content_id"}, optional={"limit", "after_id"})
+        return readers.captures.list_collection_captures(**body)
+    if path == "/v1/collections/passage-candidates":
+        _fields(body, required={"collection_id", "content_id", "passage_id"}, optional={"limit", "after_id"})
+        return readers.captures.list_collection_passage_candidates(**body)
     if path == "/v1/media/segment":
         _fields(body, required={"content_id", "statement_candidate_id", "passage_id"})
         return inspect_candidate_media_selector(readers.captures, **body)

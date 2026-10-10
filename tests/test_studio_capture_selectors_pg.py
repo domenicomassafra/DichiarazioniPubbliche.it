@@ -91,8 +91,29 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
                 'SECRET statement', 'fixture-v1'
               );
               INSERT INTO statement_candidate_passage (
-                statement_candidate_id, passage_id, content_id
+                  statement_candidate_id, passage_id, content_id
               ) VALUES ('statement:one', 'passage:media', 'content:one');
+              INSERT INTO statement_candidate_passage (
+                  statement_candidate_id, passage_id, content_id
+              ) VALUES ('statement:one', 'passage:01', 'content:one');
+              INSERT INTO claim_candidate (
+                  id, statement_candidate_id, content_id, normalized_claim,
+                  proposed_claim_type, extraction_version
+              ) VALUES ('claimcandidate:one', 'statement:one', 'content:one',
+                        'SECRET unreviewed claim', 'HISTORICAL_CLAIM', 'fixture-v1');
+              INSERT INTO source (id, canonical_name, source_type, canonical_url)
+              VALUES ('source:one', 'SECRET original', 'NEWS', 'https://secret.example/source');
+              UPDATE content_item SET source_id='source:one' WHERE id='content:one';
+              INSERT INTO research_collection (id, slug, name, scope_text, policy_version, status)
+              VALUES ('research:pilot', 'pilot', 'SECRET case name', 'SECRET scope', 'v1', 'PAUSED');
+              INSERT INTO research_collection_content (
+                  collection_id, content_id, inclusion_method, inclusion_version
+              ) VALUES ('research:pilot', 'content:one', 'MANUAL_REVIEW', 'v1');
+              INSERT INTO content_capture (
+                  id, content_id, observed_at, final_url, content_sha256,
+                  retrieval_method, retrieval_version
+              ) VALUES ('capture:cccccc', 'content:one', '2026-10-09T10:00:00Z',
+                        'https://SECRET.example/other', repeat('c', 64), 'fixture', 'v1');
             ''')
         except Exception:
             cls.tearDownClass()
@@ -166,6 +187,47 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
                     'statement_candidate_id': 'statement:one',
                     'passage_id': 'passage:media',
                 } | changes))
+
+    def test_persisted_collection_source_capture_passage_candidate_claim_chain(self):
+        """Actual SQL under disposable PostgreSQL; no fixture HTML data masking joins."""
+        store = _StudioCaptureReader(self.dsn)
+        page1 = store.list_collection_captures(
+            collection_id='research:pilot', content_id='content:one', limit=1)
+        self.assertEqual(page1['source_id'], 'source:one')
+        self.assertEqual([x['id'] for x in page1['captures']], ['capture:aaaaaa'])
+        self.assertEqual(page1['captures'][0]['content_sha256'], 'a' * 64)
+        self.assertTrue(page1['has_more'])
+        page2 = store.list_collection_captures(
+            collection_id='research:pilot', content_id='content:one', limit=1,
+            after_id=page1['next_after_id'])
+        self.assertEqual([x['id'] for x in page2['captures']], ['capture:cccccc'])
+        self.assertFalse(page2['has_more'])
+        self.assertFalse(page2['rights_clearance'])
+        selector = inspect_capture_passage_selectors(
+            store, content_id='content:one', capture_hash=page1['captures'][0]['content_sha256'])
+        self.assertEqual(selector['selectors'][0]['id'], 'passage:01')
+        linked = store.list_collection_passage_candidates(
+            collection_id='research:pilot', content_id='content:one', passage_id='passage:01')
+        self.assertEqual(linked['source_id'], 'source:one')
+        self.assertEqual(linked['candidates'][0]['statement_candidate_id'], 'statement:one')
+        self.assertEqual(linked['candidates'][0]['claim_candidates'][0]['id'], 'claimcandidate:one')
+        self.assertIsNone(linked['candidates'][0]['claim_candidates'][0]['promoted_claim_id'])
+        self.assertFalse(linked['rights_clearance'])
+        media = store.list_collection_passage_candidates(
+            collection_id='research:pilot', content_id='content:one', passage_id='passage:media')
+        self.assertEqual(media['selector_type'], 'MEDIA_SEGMENT_REF')
+        for obj in (page1, page2, linked, media):
+            for forbidden in ('SECRET', 'private_text', 'normalized_claim',
+                              'canonical_url', 'scope_text', 'final_url', 'body_ref'):
+                self.assertNotIn(forbidden, json.dumps(obj))
+        with self.assertRaisesRegex(ValueError, 'STUDIO_CAPTURE_COLLECTION_MEMBER_NOT_FOUND'):
+            store.list_collection_captures(collection_id='research:pilot', content_id='content:other')
+        with self.assertRaisesRegex(ValueError, 'STUDIO_PASSAGE_NOT_IN_INCLUDED_COLLECTION'):
+            store.list_collection_passage_candidates(collection_id='research:pilot',
+                content_id='content:one', passage_id='passage:03')
+        with self.assertRaisesRegex(ValueError, 'STUDIO_PASSAGE_NOT_IN_INCLUDED_COLLECTION'):
+            store.list_collection_passage_candidates(collection_id='research:pilot',
+                content_id='content:other', passage_id='passage:03')
 
 
 if __name__ == '__main__':

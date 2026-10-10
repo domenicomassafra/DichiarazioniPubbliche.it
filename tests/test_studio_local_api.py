@@ -161,6 +161,55 @@ class StudioLocalApiTests(unittest.TestCase):
         status, _, _ = self.call('POST', route, payload, self.auth())
         self.assertEqual(status, 422)
 
+    def test_included_collection_capture_and_passage_candidate_navigation_is_private(self):
+        """Real HTTP boundary, no source bodies and no unauthenticated browsing."""
+        self.captures.list_collection_captures = lambda **kwargs: {
+            'contract_version': 'studio-collection-captures-v1',
+            'private_only': True, 'publication_authority': False,
+            'rights_clearance': False, 'capture_authorized': False,
+            'collection_id': kwargs['collection_id'], 'content_id': kwargs['content_id'],
+            'source_id': 'source:one', 'source_exists': True,
+            'collection_state': 'PAUSED', 'rights_status': 'UNKNOWN',
+            'processing_status': 'REVIEW_REQUIRED', 'captures': [{
+                'id': 'capture:one', 'content_sha256': A,
+                'observed_at': '2026-10-08T09:00:00+00:00', 'status': 'CAPTURED',
+                'archive_status': 'NOT_REQUESTED',
+            }], 'next_after_id': None, 'has_more': False,
+        }
+        self.captures.list_collection_passage_candidates = lambda **kwargs: {
+            'contract_version': 'studio-passage-candidates-v1',
+            'private_only': True, 'publication_authority': False,
+            'rights_clearance': False, 'review_authority': False,
+            'collection_id': kwargs['collection_id'], 'content_id': kwargs['content_id'],
+            'source_id': 'source:one', 'rights_status': 'UNKNOWN',
+            'passage_id': kwargs['passage_id'], 'selector_type': 'TEXT_POSITION',
+            'candidates': [{
+                'statement_candidate_id': 'statement:one', 'status': 'CANDIDATE',
+                'claim_candidates': [{'id': 'claimcandidate:one', 'status': 'CANDIDATE',
+                                      'promoted_claim_id': None}],
+            }], 'has_more': False, 'next_after_id': None,
+        }
+        paths = (
+            ('/v1/collections/captures', {'collection_id': 'research:garlasco',
+                                         'content_id': 'content:one', 'limit': 1}),
+            ('/v1/collections/passage-candidates', {'collection_id': 'research:garlasco',
+                                                  'content_id': 'content:one',
+                                                  'passage_id': 'passage:01', 'limit': 1}),
+        )
+        for path, payload in paths:
+            with self.subTest(path=path):
+                self.assertEqual(self.call('POST', path, payload)[0], 401)
+                code, data, headers = self.call('POST', path, payload, self.auth())
+                self.assertEqual(code, 200, data)
+                self.assertEqual(headers['Cache-Control'], 'no-store, private')
+                self.assertTrue(data['data']['private_only'])
+                self.assertFalse(data['data']['publication_authority'])
+                self.assertFalse(data['data']['rights_clearance'])
+                for forbidden in ('SECRET', 'private_text', 'canonical_url', 'body_ref'):
+                    self.assertNotIn(forbidden, json.dumps(data))
+                self.assertEqual(self.call('POST', path, payload | {'publish': True}, self.auth())[0], 422)
+                self.assertEqual(self.call('POST', path, payload, self.auth() | {'Origin': 'https://evil.test'})[0], 403)
+
     def test_canonical_media_time_locator_is_exact_and_not_an_attribution_or_playback_permit(self):
         route = '/v1/media/segment'
         request = {'content_id': 'content:one',

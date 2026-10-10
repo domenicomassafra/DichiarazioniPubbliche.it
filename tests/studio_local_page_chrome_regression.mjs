@@ -46,8 +46,44 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify({ contract_version: 'studio-local-readonly-api-v1', data: {
       collection_id: payload.collection_id, content_id: payload.content_id,
       source_id: 'source:keyboard', source_exists: true, private_only: true,
-      publication_authority: false, private_marker: 'SHOULD_NOT_APPEAR',
+      publication_authority: false, private_marker: 'SHOULD_NOT_APPEAR', claims: [],
     }}));
+    return;
+  }
+  if (req.method === 'POST' && [
+      '/v1/collections/captures', '/v1/capture/passages',
+      '/v1/collections/passage-candidates',
+    ].includes(req.url)) {
+    let body = '';
+    for await (const part of req) body += part;
+    const payload = JSON.parse(body);
+    requests.push({ payload, authorization: req.headers.authorization, path: req.url });
+    const common = {private_only: true, publication_authority: false, rights_clearance: false};
+    const data = req.url === '/v1/collections/captures' ? {
+      ...common, capture_authorized: false,
+      contract_version: 'studio-collection-captures-v1',
+      collection_id: 'research:garlasco', content_id: 'content:keyboard',
+      source_id: 'source:keyboard', source_exists: true,
+      collection_state: 'PAUSED', rights_status: 'UNKNOWN', processing_status: 'REVIEW_REQUIRED',
+      captures: [{id: 'capture:keyboard', content_sha256: 'a'.repeat(64),
+                  observed_at: '2026-10-08T09:00:00Z',
+                  status: 'CAPTURED', archive_status: 'NOT_REQUESTED'}],
+      has_more: false, next_after_id: null,
+    } : req.url === '/v1/capture/passages' ? {
+      ...common, selectors: [{id: 'passage:keyboard', selector_type: 'TEXT_POSITION'}],
+    } : {
+      ...common, review_authority: false,
+      contract_version: 'studio-passage-candidates-v1',
+      collection_id: 'research:garlasco', content_id: 'content:keyboard',
+      passage_id: 'passage:keyboard', source_id: 'source:keyboard',
+      rights_status: 'UNKNOWN', selector_type: 'TEXT_POSITION',
+      candidates: [{statement_candidate_id: 'statement:keyboard', status: 'HELD',
+                    claim_candidates: [{id: 'claimcandidate:keyboard', status: 'CANDIDATE',
+                                        promoted_claim_id: null}]}],
+      has_more: false, next_after_id: null,
+    };
+    res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'});
+    res.end(JSON.stringify({contract_version: 'studio-local-readonly-api-v1', data}));
     return;
   }
   res.writeHead(404).end();
@@ -114,7 +150,11 @@ try {
       if (await evaluate(expression)) return;
       await sleep(50);
     }
-    throw new Error('Chrome DOM condition never became true: ' + expression);
+    throw new Error('Chrome DOM condition never became true: ' + expression
+      + ' routes=' + requests.map(row => row.path || '/v1/corpus/search').join(',')
+      + ' captureRequest=' + JSON.stringify(requests.at(-1)?.payload)
+      + ' collectionStatus=' + await evaluate('document.getElementById("collection-capture-summary").textContent')
+      + ' receipt=' + await evaluate('document.getElementById("results").textContent'));
   };
   const space = async () => {
     for (const type of ['rawKeyDown', 'char', 'keyUp']) {
@@ -169,7 +209,30 @@ try {
   assert.equal(await evaluate('document.querySelector("#corpus-links").children.length'), 0);
   assert.equal(await evaluate('document.querySelector("#corpus-references").children.length'), 0);
   assert.equal(await evaluate('document.getElementById("results").textContent.includes("source:keyboard")'), false);
-  console.log('PASS real Chrome: full DP116 filters, Space selection, scoped source jump, inspector IDs, return/focus, workspace scrub');
+  await evaluate(`(() => { document.querySelector('[data-panel="collections"]').click();
+    const form = document.querySelector('form[data-endpoint="/v1/collections/member"]');
+    form.elements.namedItem('collection_id').value = 'research:garlasco';
+    form.elements.namedItem('content_id').value = 'content:keyboard';
+    form.requestSubmit(); })()`);
+  await wait('document.querySelectorAll("#collection-capture-links button").length === 1');
+  assert.equal(requests.at(-1).path, '/v1/collections/captures', 'detail must auto-link persisted capture versions');
+  assert.equal(requests.at(-1).payload.content_id, 'content:keyboard');
+  assert.equal(await evaluate('document.getElementById("collection-capture-summary").textContent.includes("UNKNOWN")'), true);
+  await evaluate('document.querySelector("#collection-capture-links button").click()');
+  await wait('document.querySelectorAll("#capture-passage-links button").length === 1');
+  assert.equal(requests.at(-1).path, '/v1/capture/passages');
+  assert.equal(requests.at(-1).payload.capture_hash, 'a'.repeat(64));
+  await evaluate('document.querySelector("#capture-passage-links button").focus()');
+  await space();
+  await wait('document.querySelectorAll("#passage-candidate-links button").length === 1');
+  assert.equal(requests.at(-1).path, '/v1/collections/passage-candidates');
+  assert.equal(requests.at(-1).payload.passage_id, 'passage:keyboard');
+  assert.equal(await evaluate('document.getElementById("passage-candidate-links").textContent.includes("claimcandidate:keyboard")'), true);
+  assert.equal(await evaluate('document.getElementById("passage-candidate-links").textContent.includes("SECRET")'), false);
+  await evaluate('document.getElementById("clear").click()');
+  assert.equal(await evaluate('document.querySelectorAll("#passage-candidate-links button").length'), 0,
+               'disconnect must clear private candidate navigation');
+  console.log('PASS real Chrome: DP416/419 collection -> source -> capture -> passage -> candidate/claim keyboard navigation + scrub');
 } finally {
   try { ws?.close(); } catch {}
   child.kill('SIGTERM');

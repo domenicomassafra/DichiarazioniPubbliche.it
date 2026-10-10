@@ -145,6 +145,17 @@ _PAGE = """<!doctype html>
         <button type="submit">Ispeziona fonte e claim</button></div>
       </form>
       <div id="claim-links" role="group" aria-label="Claim storici selezionabili"></div>
+      <h2>Versioni di cattura per Content incluso</h2>
+      <p>Solo hash, date e stati persistiti. Nessun URL, corpo, estratto o autorizzazione di acquisizione. La raccolta e il Content devono risultare collegati nel database.</p>
+      <form data-endpoint="/v1/collections/captures">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Limite (1–20)<input name="limit" type="number" min="1" max="20" value="20" required></label>
+        <label>Dopo Capture ID<input name="after_id" maxlength="180"></label>
+        <button type="submit">Mostra versioni persistite</button></div>
+      </form>
+      <p id="collection-capture-summary" role="status" aria-live="polite">Nessun Content selezionato per le catture.</p>
+      <div id="collection-capture-links" role="group" aria-label="Catture e selettori privati per Content"></div>
       <h2>Provenienza di un claim storico</h2>
       <p>Stati e hash di attribuzione persistiti. APPROVED indica lo stato del record di attribuzione, non autorizza la riproduzione della fonte o la pubblicazione.</p>
       <form data-endpoint="/v1/collections/claim-provenance">
@@ -210,6 +221,19 @@ _PAGE = """<!doctype html>
         <label>Dopo Passage ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Mostra selettori</button></div>
       </form>
+      <div id="capture-passage-links" role="group" aria-label="Passaggi selezionabili dalla cattura"></div>
+      <h2>Candidati collegati a un Passage</h2>
+      <p>Richiede un Content incluso e un Passage persistito. Mostra solo identificativi e stati: una proposta o un claim storico non implicano approvazione editoriale.</p>
+      <form data-endpoint="/v1/collections/passage-candidates">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" required></label>
+        <label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Passage ID<input name="passage_id" maxlength="180" required></label>
+        <label>Limite (1–20)<input name="limit" type="number" min="1" max="20" value="20" required></label>
+        <label>Dopo Statement Candidate ID<input name="after_id" maxlength="180"></label>
+        <button type="submit">Cerca candidati di questo Passage</button></div>
+      </form>
+      <div id="passage-candidate-links" role="group" aria-label="Statement, Claim Candidate e Claim storici collegati"></div>
+      <p id="passage-candidate-summary" role="status" aria-live="polite">Nessun Passage selezionato.</p>
       <h2>Passaggio multimediale e segmento canonico</h2>
       <p>Verifica il collegamento persistito tra candidato, Passage multimediale e intervallo del segmento canonico. Nessun testo, identificazione certa del parlante, riproduzione media o permesso di pubblicazione.</p>
       <form data-endpoint="/v1/media/segment">
@@ -233,6 +257,13 @@ _PAGE = """<!doctype html>
     const memberLinks = document.getElementById('member-links');
     const claimLinks = document.getElementById('claim-links');
     const captureLinks = document.getElementById('capture-links');
+    const capturePassageLinks = document.getElementById('capture-passage-links');
+    const passageCandidateLinks = document.getElementById('passage-candidate-links');
+    const passageCandidateSummary = document.getElementById('passage-candidate-summary');
+    const collectionCaptureLinks = document.getElementById('collection-capture-links');
+    const collectionCaptureSummary = document.getElementById('collection-capture-summary');
+    const collectionCaptureForm = document.querySelector('form[data-endpoint="/v1/collections/captures"]');
+    const compareForm = document.querySelector('form[data-endpoint="/v1/capture/compare"]');
     const corpusForm = document.querySelector('form[data-endpoint="/v1/corpus/search"]');
     const corpusList = document.getElementById('corpus-list');
     const corpusLinks = document.getElementById('corpus-links');
@@ -251,11 +282,14 @@ _PAGE = """<!doctype html>
     let selectedCorpusReference = null;
     const mediaLocator = document.getElementById('media-locator');
     const capturePassageForm = document.querySelector('form[data-endpoint="/v1/capture/passages"]');
+    const passageCandidateForm = document.querySelector('form[data-endpoint="/v1/collections/passage-candidates"]');
+    const mediaForm = document.querySelector('form[data-endpoint="/v1/media/segment"]');
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
     let requestGeneration = 0;
     let activeRequest = null;
+    let scopedCaptureReference = null;
     function invalidateRequest() {
       requestGeneration += 1;
       if (activeRequest) activeRequest.abort();
@@ -386,6 +420,12 @@ _PAGE = """<!doctype html>
       memberLinks.replaceChildren();
       claimLinks.replaceChildren();
       captureLinks.replaceChildren();
+      capturePassageLinks.replaceChildren();
+      passageCandidateLinks.replaceChildren();
+      passageCandidateSummary.textContent = 'Nessun Passage selezionato.';
+      scopedCaptureReference = null;
+      collectionCaptureLinks.replaceChildren();
+      collectionCaptureSummary.textContent = 'Nessun Content selezionato per le catture.';
       mediaLocator.textContent = 'Nessun segmento selezionato.';
     }
     document.getElementById('clear').addEventListener('click', () => {
@@ -438,9 +478,24 @@ _PAGE = """<!doctype html>
         }
         if (form.dataset.endpoint === '/v1/collections/member') {
           claimLinks.replaceChildren();
+          collectionCaptureLinks.replaceChildren();
+          collectionCaptureSummary.textContent = 'Caricamento del Content selezionato.';
+        }
+        if (form === collectionCaptureForm) {
+          collectionCaptureLinks.replaceChildren();
+          collectionCaptureSummary.textContent = 'Ricerca versioni in corso…';
         }
         if (form.dataset.endpoint === '/v1/capture/compare') {
           captureLinks.replaceChildren();
+        }
+        if (form === capturePassageForm) {
+          capturePassageLinks.replaceChildren();
+          passageCandidateLinks.replaceChildren();
+          passageCandidateSummary.textContent = 'Ricerca selettori in corso…';
+        }
+        if (form === passageCandidateForm) {
+          passageCandidateLinks.replaceChildren();
+          passageCandidateSummary.textContent = 'Ricerca candidati in corso…';
         }
         if (form.dataset.endpoint === '/v1/media/segment') {
           mediaLocator.textContent = 'Intervallo canonico non verificato.';
@@ -495,6 +550,29 @@ _PAGE = """<!doctype html>
               captureLinks.append(link);
             }
           }
+          if (form === capturePassageForm && response.ok && Array.isArray(receipt.data?.selectors)) {
+            const dataForPassages = receipt.data;
+            if (scopedCaptureReference && scopedCaptureReference.content_id === data.content_id
+                && SAFE_REF.test(scopedCaptureReference.collection_id)
+                && dataForPassages.rights_clearance === false
+                && dataForPassages.publication_authority === false) {
+              for (const passage of dataForPassages.selectors) {
+                if (!SAFE_REF.test(passage.id)) continue;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = 'Passage ' + passage.id + ' · ' + passage.selector_type;
+                button.addEventListener('click', () => {
+                  if (!capturePassageLinks.contains(button)) return;
+                  passageCandidateForm.elements.namedItem('collection_id').value = scopedCaptureReference.collection_id;
+                  passageCandidateForm.elements.namedItem('content_id').value = scopedCaptureReference.content_id;
+                  passageCandidateForm.elements.namedItem('passage_id').value = passage.id;
+                  passageCandidateForm.elements.namedItem('after_id').value = '';
+                  passageCandidateForm.requestSubmit();
+                });
+                capturePassageLinks.append(button);
+              }
+            }
+          }
           if (response.ok && form.dataset.endpoint === '/v1/collections/members'
               && Array.isArray(receipt.data?.results)) {
             for (const member of receipt.data.results) {
@@ -513,6 +591,18 @@ _PAGE = """<!doctype html>
           }
           if (response.ok && form.dataset.endpoint === '/v1/collections/member'
               && Array.isArray(receipt.data?.claims)) {
+            if (receipt.data?.private_only === true
+                && receipt.data?.publication_authority === false
+                && SAFE_REF.test(receipt.data.collection_id)
+                && SAFE_REF.test(receipt.data.content_id)
+                && receipt.data?.source_exists === true) {
+              collectionCaptureForm.elements.namedItem('collection_id').value = receipt.data.collection_id;
+              collectionCaptureForm.elements.namedItem('content_id').value = receipt.data.content_id;
+              collectionCaptureForm.elements.namedItem('after_id').value = '';
+              collectionCaptureForm.requestSubmit();
+            } else {
+              collectionCaptureSummary.textContent = 'Nessun collegamento persistito valido alla fonte.';
+            }
             for (const claim of receipt.data.claims) {
               if (typeof claim.id !== 'string') continue;
               const link = document.createElement('button');
@@ -526,6 +616,132 @@ _PAGE = """<!doctype html>
                 provenanceForm.requestSubmit();
               });
               claimLinks.append(link);
+            }
+          }
+          if (form === collectionCaptureForm) {
+            const captureData = receipt.data;
+            if (!response.ok || receipt.contract_version !== 'studio-local-readonly-api-v1'
+                || captureData?.contract_version !== 'studio-collection-captures-v1'
+                || captureData.private_only !== true || captureData.publication_authority !== false
+                || captureData.rights_clearance !== false || captureData.capture_authorized !== false
+                || captureData.collection_id !== data.collection_id || captureData.content_id !== data.content_id
+                || !SAFE_REF.test(captureData.source_id) || captureData.source_exists !== true
+                || !Array.isArray(captureData.captures) || captureData.captures.length > 20) {
+              collectionCaptureSummary.textContent = 'Versioni non verificabili: nessun riferimento disponibile.';
+              return;
+            }
+            const captures = captureData.captures;
+            const valid = captures.every(item => SAFE_REF.test(item.id)
+              && SAFE_SHA256.test(item.content_sha256)
+              && typeof item.observed_at === 'string' && !Number.isNaN(Date.parse(item.observed_at)));
+            if (!valid) {
+              collectionCaptureSummary.textContent = 'Risposta non conforme: nessun riferimento disponibile.';
+              return;
+            }
+            collectionCaptureSummary.textContent = captures.length
+              ? 'Content ' + captureData.content_id + ' · fonte ' + captureData.source_id
+                + ' · diritti ' + captureData.rights_status
+                + ' · ' + captures.length + ' versioni in questa pagina. Nessun permesso di riprodurre.'
+              : 'Content ' + captureData.content_id + ' · fonte ' + captureData.source_id
+                + ': nessuna cattura persistita. Non esistono selettori di cattura navigabili.';
+            for (const capture of captures) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = 'Cattura ' + capture.id + ' · ' + capture.observed_at
+                + ' · ' + capture.status + ' · archivio ' + capture.archive_status;
+              button.addEventListener('click', () => {
+                if (!collectionCaptureLinks.contains(button)) return;
+                scopedCaptureReference = {collection_id: captureData.collection_id,
+                                          content_id: captureData.content_id,
+                                          source_id: captureData.source_id};
+                for (const panelButton of document.querySelectorAll('[data-panel]')) {
+                  panelButton.setAttribute('aria-pressed', panelButton.dataset.panel === 'captures' ? 'true' : 'false');
+                }
+                for (const panel of panels) panel.hidden = panel.id !== 'captures';
+                capturePassageForm.elements.namedItem('content_id').value = captureData.content_id;
+                capturePassageForm.elements.namedItem('capture_hash').value = capture.content_sha256;
+                capturePassageForm.elements.namedItem('after_id').value = '';
+                capturePassageForm.requestSubmit();
+              });
+              collectionCaptureLinks.append(button);
+            }
+            // Keyset continuation only; no unbounded fetch or client-side full-corpus load.
+            if (captureData.has_more === true && SAFE_REF.test(captureData.next_after_id)) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Carica pagina successiva delle catture';
+              more.addEventListener('click', () => {
+                collectionCaptureForm.elements.namedItem('after_id').value = captureData.next_after_id;
+                collectionCaptureForm.requestSubmit();
+              });
+              collectionCaptureLinks.append(more);
+            }
+            if (captures.length >= 2) {
+              const byTime = [...captures].sort((left, right) =>
+                Date.parse(left.observed_at) - Date.parse(right.observed_at));
+              const first = byTime[0], last = byTime[byTime.length - 1];
+              if (Date.parse(first.observed_at) < Date.parse(last.observed_at)) {
+                const compare = document.createElement('button');
+                compare.type = 'button';
+                compare.textContent = 'Confronta prima e ultima cattura visibili';
+                compare.addEventListener('click', () => {
+                  for (const panelButton of document.querySelectorAll('[data-panel]')) {
+                    panelButton.setAttribute('aria-pressed', panelButton.dataset.panel === 'captures' ? 'true' : 'false');
+                  }
+                  for (const panel of panels) panel.hidden = panel.id !== 'captures';
+                  compareForm.elements.namedItem('content_id').value = captureData.content_id;
+                  compareForm.elements.namedItem('earlier_hash').value = first.content_sha256;
+                  compareForm.elements.namedItem('later_hash').value = last.content_sha256;
+                  compareForm.requestSubmit();
+                });
+                collectionCaptureLinks.append(compare);
+              }
+            }
+          }
+          if (form === passageCandidateForm) {
+            const match = receipt.data;
+            if (!response.ok || receipt.contract_version !== 'studio-local-readonly-api-v1'
+                || match?.contract_version !== 'studio-passage-candidates-v1'
+                || match.private_only !== true || match.publication_authority !== false
+                || match.review_authority !== false || match.rights_clearance !== false
+                || match.collection_id !== data.collection_id
+                || match.content_id !== data.content_id || match.passage_id !== data.passage_id
+                || !Array.isArray(match.candidates) || match.candidates.length > 20) {
+              passageCandidateSummary.textContent = 'Collegamenti non verificabili.';
+              return;
+            }
+            passageCandidateSummary.textContent = match.candidates.length
+              ? match.candidates.length + ' Statement Candidate con collegamento persistito. Revisione non verificata.'
+              : 'Nessun candidato persistito collegato a questo Passage.';
+            for (const candidate of match.candidates) {
+              if (!SAFE_REF.test(candidate.statement_candidate_id)
+                  || !Array.isArray(candidate.claim_candidates)) continue;
+              const button = document.createElement('button');
+              button.type = 'button';
+              const linkedClaims = candidate.claim_candidates.map(c =>
+                SAFE_REF.test(c.id) ? c.id + (SAFE_REF.test(c.promoted_claim_id)
+                  ? ' → ' + c.promoted_claim_id : '') : '').filter(Boolean);
+              button.textContent = 'Statement ' + candidate.statement_candidate_id
+                + ' · ' + candidate.status + ' · Claim candidate/storici: '
+                + (linkedClaims.join(', ') || 'nessuno');
+              button.addEventListener('click', () => {
+                if (match.selector_type !== 'MEDIA_SEGMENT_REF') return;
+                mediaForm.elements.namedItem('content_id').value = match.content_id;
+                mediaForm.elements.namedItem('statement_candidate_id').value = candidate.statement_candidate_id;
+                mediaForm.elements.namedItem('passage_id').value = match.passage_id;
+                mediaForm.requestSubmit();
+              });
+              passageCandidateLinks.append(button);
+            }
+            if (match.has_more === true && SAFE_REF.test(match.next_after_id)) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva dei candidati';
+              more.addEventListener('click', () => {
+                passageCandidateForm.elements.namedItem('after_id').value = match.next_after_id;
+                passageCandidateForm.requestSubmit();
+              });
+              passageCandidateLinks.append(more);
             }
           }
         } catch (_) {
