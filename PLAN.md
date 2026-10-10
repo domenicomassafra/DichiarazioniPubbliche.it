@@ -496,7 +496,7 @@ handled before opening the product to users.
 | DP-311 | DONE | Local/off-DB reviewer identity authority + exact-event attested receipts for DP-310; restart/tamper/revocation, private backup/restore, disposable-PostgreSQL replay and isolated MiniPC acceptance complete | DP-310; coordinate DP-303, DP-507 |
 | DP-316 | FUTURE | Machine verification authority, review migration e eligibility per risultato | DP-308, DP-309, DP-310, DP-311, DP-229, DP-301, DP-304, DP-314, DP-321 |
 | DP-317 | FUTURE | Percorso lecito per citazione pubblica esatta per source family | DP-118, DP-216, DP-221, DP-305, DP-304, DP-306 |
-| DP-320 | FUTURE | Revoca e correzione transazionali fino all'ultimo lettore | DP-303, DP-308, DP-431, DP-510, DP-511, DP-117 |
+| DP-320 | IN PROGRESS | Revoca e correzione transazionali fino all'ultimo lettore | DP-303, DP-308, DP-431, DP-510, DP-511, DP-117 |
 
 Exit criteria: public submission and publication behavior have explicit policy, abuse,
 privacy, retention, appeal and evidence-safety rules; high-risk assertions cannot bypass

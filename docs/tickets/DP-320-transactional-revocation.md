@@ -1,6 +1,6 @@
 # DP-320 — Revoca e correzione transazionali fino all'ultimo lettore
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M3 — editorial, correction, privacy, and legal policy
 Depends on: DP-303, DP-308, DP-431, DP-510, DP-511, DP-117
 
@@ -35,4 +35,20 @@ Depends on: DP-303, DP-308, DP-431, DP-510, DP-511, DP-117
 ## Documentation, data, and migration impact
  Additive epochs/queue/event link and component consumption contract; don't mutate existing DONE receipts.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+ Historical planning receipt; now superseded only in the limited source-only slice below.
+
+## 2026-10-11 — Local transactional reference contract (partial)
+
+Added opt-in `poc/dichiarazioni_pubbliche/revocation_epoch_fence.py` with
+`tests/test_dp320_revocation_epoch_fence.py`: one bounded immutable material-
+dependency set/fingerprint per release, explicit monotone revocation epoch,
+SQLite `BEGIN IMMEDIATE` compare-and-swap fixture for competing revoke versus
+public-artifact-reference commit, durable append-only revocation event/outbox,
+idempotent event replay and current-epoch checks on an isolated simulated
+reader. Seven focused tests pass, including source-rights invalidation after
+prior release and restart/transaction races. No real rights or publication
+authority is created by the fixture and no writer automatically restores a
+revoked subject. All original acceptance criteria remain **unchecked**:
+runtime PostgreSQL migrations/CAS, complete material lineage graph, actual
+public HTML/API/search/edge/TTL purge/swap and measured MiniPC withdrawal
+latency have not been implemented or verified. NO-GO public activation.
