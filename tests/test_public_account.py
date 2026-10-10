@@ -1,6 +1,8 @@
 import base64
+from contextlib import redirect_stderr
 import hashlib
 import http.client
+import io
 import json
 import os
 import stat
@@ -180,6 +182,40 @@ class PublicAccountTests(unittest.TestCase):
                 finally:
                     server.shutdown()
                     thread.join(timeout=3)
+
+    def test_verbose_http_logging_never_prints_account_oauth_code_state_or_queries(self):
+        # Real HTTPServer logging, with `quiet=False`, must protect rejected
+        # OAuth callbacks and sensitive queries even when debug logging is on.
+        with tempfile.TemporaryDirectory() as directory:
+            service = self._service(directory)
+            with build_server(None, host="127.0.0.1", port=0, account_service=service) as server:
+                server.RequestHandlerClass.quiet = False
+                emitted = io.StringIO()
+                with redirect_stderr(emitted):
+                    thread = threading.Thread(target=server.serve_forever, daemon=True)
+                    thread.start()
+                    try:
+                        for target in (
+                            "/account/oauth/callback?code=secret-oauth-code&state=secret-oauth-state",
+                            "/account/unknown?code=secret-oauth-code&state=secret-oauth-state",
+                            "/api/v1/findings?person=sensitive-search-query",
+                        ):
+                            connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+                            try:
+                                connection.request("GET", target, headers={"Host": "dichiarazionipubbliche.it"})
+                                response = connection.getresponse()
+                                response.read()
+                            finally:
+                                connection.close()
+                    finally:
+                        server.shutdown()
+                        thread.join(timeout=3)
+                output = emitted.getvalue()
+                self.assertIn("redacted", output)
+                self.assertNotIn("secret-oauth-code", output)
+                self.assertNotIn("secret-oauth-state", output)
+                self.assertNotIn("sensitive-search-query", output)
+                self.assertNotIn("/account/oauth/callback", output)
 
 
 class SignedGoogleTokenTests(unittest.TestCase):
