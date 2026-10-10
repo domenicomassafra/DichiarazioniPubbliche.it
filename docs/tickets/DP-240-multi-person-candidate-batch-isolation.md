@@ -1,6 +1,6 @@
 # DP-240 — Bounded multi-person candidate batch with cross-source identity isolation
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-211, DP-212, DP-218, DP-222
 
@@ -48,4 +48,21 @@ Reuse `private_candidate_batch`, candidate matching, DP-218/222; change only nec
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+**2026-10-11 — partial local implementation, NOT acceptance:** added
+`poc/dichiarazioni_pubbliche/multi_person_batch_v1.py` and
+`tests/test_dp240_multi_person_batch.py`. The private, no-provider planner
+reuses the existing immutable candidate-batch manifest, enforces exact
+Content/Capture/Passage/source SHA and selector context, distinct Passage
+partitions, candidate speaker roles, rights/context holds, and bounded token
+allocation. Reconciliation records per-item partial/failed/held observations
+as private-only, never as a published attribution. Plan fingerprint, cardinality,
+count consistency, per-item provenance and reserved authorization fields are
+rechecked before replay; checksum is **not** a signature or evidence of
+upstream approval. Adversarial cases cover quote vs endorsement, homonyms,
+cross-source mismatches, held-item fabricated success, plan tampering, duplicate
+and conflicting replay, unbounded input and retries. **15/15 focused tests PASS**;
+**27/27 candidate-batch regression tests PASS**, `compileall` and `git diff
+--check` PASS. Test contexts are synthetic; no actual candidate or provider
+call, published Statement, measured cost/latency/false-attribution baseline,
+independent gold, durable store or MiniPC/Studio operator readback exists.
+**AC-240.1–.6 remain open** pending those corresponding end-to-end proofs.
