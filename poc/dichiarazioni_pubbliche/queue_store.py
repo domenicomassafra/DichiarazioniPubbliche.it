@@ -344,7 +344,9 @@ class QueueExecutionCostStore(PsqlRuntime):
                 'claim_id', NULLIF(r.ledger_scope->>'claim_id',''),
                 'content_id', r.content_id,
                 'source_id', c.source_id,
-                'collection_id', NULLIF(r.ledger_scope->>'collection_id','')
+                'collection_id', NULLIF(r.ledger_scope->>'collection_id',''),
+                'local_energy_basis', NULLIF(r.receipt->>'local_energy_basis',''),
+                'cash_cost_uncertainty', NULLIF(r.receipt->>'cash_cost_uncertainty','')
             ) ORDER BY COALESCE(r.started_at,r.completed_at), r.id)::text, '[]')
             FROM provider_receipt r
             LEFT JOIN content_item c ON c.id=r.content_id

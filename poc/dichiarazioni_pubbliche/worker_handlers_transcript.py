@@ -585,6 +585,11 @@ class TranscriptAsrJobHandlers:
                 "LOCAL_COMPUTE_UNMETERED" if source_kind == "LOCAL_ASR"
                 else "PROVIDER_COST_ESTIMATE"
             ),
+            # Keep the legacy nested classification, and make the canonical
+            # monetary ledger and independent local energy uncertainty explicit.
+            "ledger_billing_basis": "ESTIMATED_ONLY",
+            "local_energy_basis": "UNKNOWN" if source_kind == "LOCAL_ASR" else None,
+            "local_energy_wh": None,
         }
         self.private_store.persist_asr_response(
             content_id=content.content_id,
@@ -602,6 +607,7 @@ class TranscriptAsrJobHandlers:
             input_bytes=input_bytes,
             input_seconds=result.duration_seconds,
             estimated_cost_usd=estimated_cost,
+            billing_basis="ESTIMATED_ONLY",
             status="SUCCESS",
             receipt=receipt,
             request_key=result.request_id or result.text_sha256,

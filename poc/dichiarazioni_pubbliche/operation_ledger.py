@@ -65,6 +65,8 @@ class OperationUsageReceipt:
     content_id: str | None = None
     source_id: str | None = None
     collection_id: str | None = None
+    local_energy_basis: str | None = None
+    cash_cost_uncertainty: str | None = None
 
     def __post_init__(self) -> None:
         if not str(self.operation_key or "").strip():
@@ -98,6 +100,10 @@ class OperationUsageReceipt:
                 raise ValueError("OPERATION_RECEIPT_ZERO_COST_CONFLICT")
             if self.estimated_cost_usd not in {None, Decimal("0")}:
                 raise ValueError("OPERATION_RECEIPT_ZERO_COST_CONFLICT")
+        if self.local_energy_basis not in (None, "UNKNOWN", "ESTIMATED", "MEASURED"):
+            raise ValueError("OPERATION_RECEIPT_LOCAL_ENERGY_BASIS_INVALID")
+        if self.cash_cost_uncertainty not in (None, "UNKNOWN"):
+            raise ValueError("OPERATION_RECEIPT_CASH_COST_UNCERTAINTY_INVALID")
 
 
 @dataclass(frozen=True)
@@ -112,10 +118,14 @@ class OperationLedgerSummary:
     total_tokens: int
     input_seconds: Decimal
     request_count: int
+    unknown_local_energy_operation_count: int = 0
 
     @property
     def cost_complete(self) -> bool:
-        return self.unknown_cost_operation_count == 0
+        return (
+            self.unknown_cost_operation_count == 0
+            and self.unknown_local_energy_operation_count == 0
+        )
 
 
 def aggregate_operation_receipts(
@@ -131,6 +141,7 @@ def aggregate_operation_receipts(
     external_keys: set[str] = set()
     unknown_keys: set[str] = set()
     zero_keys: set[str] = set()
+    unknown_energy_keys: set[str] = set()
     total_tokens = 0
     input_seconds = Decimal("0")
     request_count = 0
@@ -146,6 +157,10 @@ def aggregate_operation_receipts(
             unknown_keys.add(row.operation_key)
         elif row.billing_basis == "ZERO_COST":
             zero_keys.add(row.operation_key)
+        if row.cash_cost_uncertainty == "UNKNOWN":
+            unknown_keys.add(row.operation_key)
+        if row.local_energy_basis == "UNKNOWN":
+            unknown_energy_keys.add(row.operation_key)
 
         total_tokens += row.total_tokens or 0
         input_seconds += row.input_seconds or Decimal("0")
@@ -162,6 +177,7 @@ def aggregate_operation_receipts(
         total_tokens=total_tokens,
         input_seconds=input_seconds,
         request_count=request_count,
+        unknown_local_energy_operation_count=len(unknown_energy_keys),
     )
 
 
@@ -216,6 +232,8 @@ def operation_usage_receipt_from_row(
         content_id=str(row.get("content_id") or "").strip() or None,
         source_id=str(row.get("source_id") or "").strip() or None,
         collection_id=str(row.get("collection_id") or "").strip() or None,
+        local_energy_basis=str(row.get("local_energy_basis") or "").strip() or None,
+        cash_cost_uncertainty=str(row.get("cash_cost_uncertainty") or "").strip() or None,
     )
 
 

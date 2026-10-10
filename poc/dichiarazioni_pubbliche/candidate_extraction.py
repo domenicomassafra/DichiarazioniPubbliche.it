@@ -1162,7 +1162,10 @@ WITH locked AS (
            :'cost_usd'::numeric, NULL,
            CASE
                WHEN :'cost_usd'::numeric > 0 THEN 'UNKNOWN'
-               ELSE 'ZERO_COST'
+               -- A zero upper bound does not prove a failed provider call was free.
+               -- The existing schema requires a positive bound for UNKNOWN;
+               -- keep zero as an unverified estimate, never ZERO_COST.
+               ELSE 'ESTIMATED_ONLY'
            END,
            1, jsonb_build_object('candidate_extraction_run_id', id),
            :'receipt_status', :'provider_receipt'::jsonb
@@ -1338,7 +1341,7 @@ WITH commit_authority AS MATERIALIZED (
            'CANDIDATE_EXTRACT', NULLIF(:'request_id',''), operation_key, 1,
            started_at, now(),
            :'input_bytes'::bigint, cost_upper_bound_usd,
-           :'cost_usd'::numeric, 'MEASURED_PROVIDER_COST',
+           NULL, 'ESTIMATED_ONLY',
            NULLIF(:'total_tokens','')::bigint, 1,
            jsonb_build_object('candidate_extraction_run_id', id),
            'SUCCESS', :'provider_receipt'::jsonb
@@ -1584,6 +1587,13 @@ class CandidateExtractionStore(PsqlRuntime):
         receipt_status: str,
         record_provider_receipt: bool,
     ) -> dict[str, Any]:
+        safe_receipt = _safe_json_mapping(provider_receipt, field_name="provider_receipt")
+        if record_provider_receipt:
+            # An attempted call can incur charges even if its configured upper
+            # bound is zero. Existing PostgreSQL constraints require UNKNOWN
+            # to have a positive cost bound, so retain that zero as ESTIMATED_ONLY
+            # on disk and expose this independent unknown-cost evidence.
+            safe_receipt["cash_cost_uncertainty"] = "UNKNOWN"
         raw = self.run(
             _FINISH_NO_CANDIDATES_SQL,
             run_id=run_id,
@@ -1595,7 +1605,7 @@ class CandidateExtractionStore(PsqlRuntime):
             input_bytes=input_bytes,
             provider_receipt_id=provider_receipt_id,
             request_id=request_id or "",
-            provider_receipt=_strict_json_dumps(_safe_json_mapping(provider_receipt, field_name="provider_receipt")),
+            provider_receipt=_strict_json_dumps(safe_receipt),
             receipt_status=receipt_status,
             record_provider_receipt=str(bool(record_provider_receipt)).lower(),
         )
@@ -1728,6 +1738,10 @@ class CandidateExtractionStore(PsqlRuntime):
         ]
         receipt = {
             **_safe_json_mapping(provider_result.receipt, field_name="provider_receipt"),
+            # provider_result.cost_usd can originate from an upper bound or an
+            # unverified model-token rate. Neither establishes billed spend.
+            "billing_classification": "ESTIMATED_ONLY",
+            "provider_cost_input_usd": str(actual_cost),
             "extractor_version": EXTRACTOR_VERSION,
             "provider_version": provider.provider_version,
             "usage": _safe_json_mapping(provider_result.usage, field_name="provider_usage") if provider_result.usage else None,
@@ -2397,6 +2411,7 @@ PASSAGE_TEXT_JSON:
             raise CandidateExtractionError("CANDIDATE_PROVIDER_USAGE_NOT_OBJECT")
         usage = raw_usage if isinstance(raw_usage, Mapping) else None
         observed: Decimal | None = None
+        cost_basis = "provider_response_unverified"
         for container in (usage, response):
             if not isinstance(container, Mapping):
                 continue
@@ -2419,8 +2434,10 @@ PASSAGE_TEXT_JSON:
                     Decimal(total_tokens) / Decimal(1000) * self.cost_rate,
                     "CANDIDATE_PROVIDER_COST_INVALID",
                 )
+                cost_basis = "token_rate_estimate"
         if observed is None:
             observed = upper
+            cost_basis = "upper_bound_estimate"
         return ProviderExtractionResult(
             payload=payload,
             request_id=_provider_request_id(response.get("id")),
@@ -2428,7 +2445,7 @@ PASSAGE_TEXT_JSON:
             usage=dict(usage) if usage else None,
             cost_usd=observed,
             receipt={
-                "cost_basis": "observed_or_rate_estimate",
+                "cost_basis": cost_basis,
                 "prompt_version": self.config["prompt_version"],
                 "prompt_contract_sha256": self.prompt_contract_sha256,
             },
