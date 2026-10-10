@@ -331,7 +331,7 @@ are not the original author.
 | DP-601 | DONE | Package/development environment cleanup beyond POC naming | M1 |
 | DP-602 | DONE | CI matrix and deterministic contributor acceptance | DP-601 |
 | DP-603 | DONE | Fixture/data licensing inventory and attribution | M3 |
-| DP-604 | IN PROGRESS | Release/versioning/changelog policy and release checklist; reproducible local artifacts proven, external release authority still gated | DP-601, DP-602 |
+| DP-604 | DONE | Release/versioning/changelog POLICY and reproducible candidate checklist 12/12 AC complete; actual tag/release/signing/legal owner authority still blocked under DP-702..705 | DP-601, DP-602 |
 | DP-605 | DONE | Maintainer/contributor documentation dry-run from clean clone | DP-001, DP-601 |
 | DP-606 | IN PROGRESS | Public issue labels/project automation; remote/public owner/security facts + clean-clone/local contract proven, owner branch-protection/hosted mutation and export/rollback dry-run pending | GitHub remote |
 | DP-607 | DONE | Optional SDK/MCP/skill decision CLOSED: NO-BUILD for v1; no extra product, client, MCP endpoint or skill; private read-only contract harness preserved, launch gates independent | DP-403 |

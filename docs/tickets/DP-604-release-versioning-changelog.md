@@ -1,9 +1,9 @@
 # DP-604 — Release, versioning, changelog policy, and release checklist
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M6 — open-source and release hardening
 Depends on: DP-601 package contract, DP-602 CI contract, DP-603 licensing/data gate, and the relevant M1–M5 acceptance gates
-Launch state: no release is authorized; owner, legal, registry/signing, dataset and runtime decisions remain open
+Launch state: POLICY/RELEASE-CHECKLIST ONLY DONE; no actual release authorized. Owner, legal, registry/signing, dataset and runtime acceptance remain open under DP-702..705.
 
 ## Problem
 
@@ -421,3 +421,30 @@ at zero records, and the private linked-data receipt remained intentionally non-
 This remains release-readiness evidence, not release authority. Gate 11 is still BLOCKED: no
 stable-v1 tag, GitHub Release, registry/signing action, qualified legal/security closure, or
 owner release authorization is inferred from this promotion.
+
+### 2026-10-10 — Scope clarification: close the checklist, not the release
+
+**DONE for the ticket's expressly specified deliverable: the release policy,
+versioning/changelog contract, reproducible candidate and fail-closed checklist.**
+All **12/12 AC-604** are checked with the evidence above. In particular,
+AC-604.11 requires **no external publication**. Keeping this documentation-
+and-build-policy ticket indefinitely IN PROGRESS until *a different* ticket
+publishes a stable version would make its own non-publication requirement
+circular: completing DP-705 is **not** an outcome of DP-604.
+
+This is not a release receipt: the version stays `0.0.1` (private web
+component `0.2.0`), no tag/registry/signature is invented, no authority
+or licensing disposition is fabricated. Gate 11 remains explicitly **BLOCKED**
+for any actual release. DP-702/703/704/705 still own qualified legal
+decisions, approved launch dataset, end-to-end rehearsal, and owner-authorized
+v1 deployment; DP-606 independently owns hosted GitHub governance. The
+checklist *refuses* release until their prerequisites pass. Closing the
+policy ticket neither changes those statuses nor the M7 NO-GO gate.
+
+Evidence recheck on 2026-10-10: canonical `VERSION`, Python/package and
+web component metadata pass `tools/check_version_consistency.py` with no
+released changelog heading; `tools/check_repository_contract.py` passes;
+the recent GitHub Actions run on public source commit `e792e92815e1a2c7feb541f9b6c42591802f81e4`
+passes all 11 jobs, including clean-clone reproducibility, Linux/macOS
+Python and frontend. No additional source/runtime artifact was shipped by
+this status change.
