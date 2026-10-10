@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from dichiarazioni_pubbliche.relation_runtime import (
+    ScopedStatementRelationDecision,
+    StatementRelationKind,
+)
+
 from dichiarazioni_pubbliche.domain_vocabulary import (
     RELATION_VERSION,
     RelationCandidateType,
@@ -204,14 +209,115 @@ def evaluate_relation_publication_eligibility(
     return RelationPublicationEligibility.PUBLIC_ELIGIBLE
 
 
+# DP-318 is an independent Statement candidate preflight, not a v1 Finding
+# publication-policy override. A caller-supplied "approved" flag/ref or an LLM
+# result cannot create a public relation without the authoritative append-only
+# store review, source/currentness, rights and correction revalidation.
+STATEMENT_RELATION_PREFLIGHT_VERSION = "statement-relation-preflight-v1"
+
+
+class StatementRelationPreflightState(StrEnum):
+    HOLD = "HOLD"
+    PRIVATE_HANDOFF = "PRIVATE_HANDOFF"
+
+
+@dataclass(frozen=True)
+class StatementRelationPreflight:
+    relation: ScopedStatementRelationDecision
+    endpoint_public_statement_versions: tuple[str, str]
+    source_context_current: bool
+    person_identity_current: bool
+    corrections_current: bool
+    rights_current: bool
+    relation_review_event_ref: str | None = None
+
+
+@dataclass(frozen=True)
+class StatementRelationPreflightDecision:
+    state: StatementRelationPreflightState
+    finding_required: bool
+    reason_codes: tuple[str, ...]
+    version: str = STATEMENT_RELATION_PREFLIGHT_VERSION
+
+    @property
+    def publication_authority(self) -> bool:
+        return False
+
+
+def evaluate_statement_relation_preflight(
+    value: StatementRelationPreflight,
+) -> StatementRelationPreflightDecision:
+    """Private, fail-closed handoff for opinion-capable Statement relations.
+
+    Even PRIVATE_HANDOFF cannot authorize publication: all supplied references
+    and freshness flags are untrusted until independently verified by an
+    authoritative store/public projection adapter (not implemented here).
+    """
+    if not isinstance(value, StatementRelationPreflight):
+        raise ValueError("STATEMENT_RELATION_PREFLIGHT_INPUT_INVALID")
+    reasons: list[str] = []
+    relation = value.relation
+    if (
+        not isinstance(relation, ScopedStatementRelationDecision)
+        or relation.kind == StatementRelationKind.HOLD
+        or relation.state != "CANDIDATE_PRIVATE"
+        or any(
+            code not in {"RETROSPECTIVE_CONTINUITY_CANDIDATE"}
+            for code in relation.rationale_codes
+        )
+        or relation.review_authority
+        or relation.publication_authority
+    ):
+        reasons.append("RELATION_SEMANTICS_NOT_READY")
+    if (
+        not isinstance(value.endpoint_public_statement_versions, tuple)
+        or len(value.endpoint_public_statement_versions) != 2
+        or any(
+            not isinstance(ref, str) or not ref.strip()
+            for ref in value.endpoint_public_statement_versions
+        )
+    ):
+        reasons.append("PUBLISHED_STATEMENT_VERSIONS_UNVERIFIED")
+    if not isinstance(value.relation_review_event_ref, str) or not (
+        value.relation_review_event_ref.strip()
+    ):
+        reasons.append("RELATION_REVIEW_EVENT_UNVERIFIED")
+    for field, code in (
+        ("source_context_current", "SOURCE_CONTEXT_STALE_OR_UNKNOWN"),
+        ("person_identity_current", "PERSON_IDENTITY_STALE_OR_UNKNOWN"),
+        ("corrections_current", "CORRECTION_SUPERSESSION_STALE_OR_UNKNOWN"),
+        ("rights_current", "SOURCE_RIGHTS_STALE_OR_UNKNOWN"),
+    ):
+        if getattr(value, field) is not True:
+            reasons.append(code)
+    return StatementRelationPreflightDecision(
+        state=(
+            StatementRelationPreflightState.HOLD
+            if reasons
+            else StatementRelationPreflightState.PRIVATE_HANDOFF
+        ),
+        finding_required=(
+            relation.finding_required
+            if isinstance(relation, ScopedStatementRelationDecision)
+            else True
+        ),
+        reason_codes=tuple(reasons),
+    )
+
+
 __all__ = [
     "ALLOWED_RELATION_CANDIDATE_STATUSES",
     "ALLOWED_RELATION_TYPES",
     "PROHIBITED_INTENT_TERMS",
     "RELATION_PUBLICATION_POLICY_VERSION",
     "RELATION_VERSION",
+    "STATEMENT_RELATION_PREFLIGHT_VERSION",
     "RelationCandidateStatus",
     "RelationPublicationEligibility",
     "RelationPublicationInput",
+    "StatementRelationPreflight",
+    "StatementRelationPreflightDecision",
+    "StatementRelationPreflightState",
     "evaluate_relation_publication_eligibility",
+    "evaluate_statement_relation_preflight",
 ]
