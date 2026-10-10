@@ -237,3 +237,29 @@ This adds a canonical source-material fingerprint prerequisite, **not**
 AC-229.8. Independent reviewer, research-completion, approved rationale
 and incorporation authorities remain unavailable, and runtime high-risk
 publication remains fail-closed.
+
+### 2026-10-10 generic review target and content-hash integrity (private inventory v2)
+
+An additional disposable PostgreSQL test exercised the actual generic
+`approve_claim_evidence_with_review` writer against two valid claim-evidence
+identities whose `claim_id|evidence_id|retrieval_version` strings collide.
+Because the generic `review_event.entity_id` format has no escaping, a review
+for one candidate also appears when querying the other. The inventory now
+reads the writer's structured `review_event.metadata` and rejects mismatched
+claim/evidence/retrieval bindings from its verified count, with the explicit
+`CHALLENGER_REVIEW_BINDING_MISMATCH` blocker. Reviewer actor and reason are
+also included in the material fingerprint, without being returned to callers.
+
+The canonical `evidence.content_sha256` column permits NULL. Previously the
+private inventory counted a generic APPROVED candidate with no digest as
+verified material. Missing/malformed SHA-256 now contributes to pending and
+adds `CHALLENGER_MATERIAL_PROVENANCE_INCOMPLETE`. These additional fields and
+checks change the inventory identity to `challenger-material-inventory-v2`;
+old digests do not implicitly transfer review freshness or authority.
+
+Focused fake-runtime tests and two actual disposable PostgreSQL regressions
+pass, including the colliding identity and null-hash cases. This is still
+an **untrusted private source-material fingerprint**, not an independently
+attested challenger review, an approved DP-307 legal waiver, an incorporation
+receipt or proof of completion for AC-229.8. Runtime high-risk publication
+eligibility remains fail-closed.

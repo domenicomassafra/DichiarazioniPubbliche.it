@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
 
-INVENTORY_VERSION = "challenger-material-inventory-v1"
+INVENTORY_VERSION = "challenger-material-inventory-v2"
 
 
 class QueryRuntime(Protocol):
@@ -53,11 +54,32 @@ def _validate_row(value: object) -> dict[str, object]:
     if not isinstance(value["review_events"], list):
         raise ValueError("CHALLENGER_MATERIAL_EVENTS_INVALID")
     for event in value["review_events"]:
-        if not isinstance(event, dict) or set(event) != {"id", "action"}:
+        if not isinstance(event, dict) or set(event) != {
+            "id", "action", "actor_ref", "reason", "metadata",
+        }:
             raise ValueError("CHALLENGER_MATERIAL_EVENTS_INVALID")
-        if not all(isinstance(event[key], str) and event[key] for key in ("id", "action")):
+        if not all(
+            isinstance(event[key], str) and event[key]
+            for key in ("id", "action", "actor_ref")
+        ) or (event["reason"] is not None and not isinstance(event["reason"], str)):
+            raise ValueError("CHALLENGER_MATERIAL_EVENTS_INVALID")
+        if not isinstance(event["metadata"], dict):
             raise ValueError("CHALLENGER_MATERIAL_EVENTS_INVALID")
     return value
+
+
+def _review_matches_candidate(
+    event: dict[str, object], claim_id: str, row: dict[str, object],
+) -> bool:
+    # The existing review writer concatenates three unconstrained text IDs
+    # with '|'. Distinct (evidence, retrieval) pairs can therefore have the
+    # same review_event.entity_id. Its stored structured metadata is needed
+    # to check the actual review target rather than trusting that string.
+    return event["metadata"] == {
+        "claim_id": claim_id,
+        "evidence_id": row["evidence_id"],
+        "retrieval_version": row["retrieval_version"],
+    }
 
 
 def load_challenger_material_inventory(
@@ -82,7 +104,9 @@ def load_challenger_material_inventory(
             'independence_group', evidence.independence_group,
             'review_events', COALESCE((
                 SELECT jsonb_agg(jsonb_build_object(
-                    'id', event.id, 'action', event.action
+                    'id', event.id, 'action', event.action,
+                    'actor_ref', event.actor_ref, 'reason', event.reason,
+                    'metadata', event.metadata
                 ) ORDER BY event.created_at, event.id)
                 FROM review_event event
                 WHERE event.entity_type = 'CLAIM_EVIDENCE_CANDIDATE'
@@ -110,8 +134,18 @@ def load_challenger_material_inventory(
     material = {"version": INVENTORY_VERSION, "claim_id": clean_claim, "rows": canonical}
     digest = hashlib.sha256(json.dumps(material, ensure_ascii=False, sort_keys=True,
                                       separators=(",", ":")).encode()).hexdigest()
-    # Even a genuine generic APPROVED event does not grant permission to reclassify
-    # a relation as LIMITATION, approve a rationale or complete challenger research.
+    # An APPROVED generic review is not a challenger approval. Additionally,
+    # legacy/misbound generic reviews and evidence without a canonical digest
+    # must never be summarized as verified material. The DB allows NULL hashes.
+    missing_provenance = any(
+        not isinstance(row["content_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", row["content_sha256"]) is None
+        for row in canonical
+    )
+    misbound_review = any(
+        not _review_matches_candidate(event, clean_claim, row)
+        for row in canonical for event in row["review_events"]
+    )
     pending = sum(
         row["status"] != "APPROVED"
         # A historical approval cannot outweigh a later reject/quarantine.
@@ -119,6 +153,12 @@ def load_challenger_material_inventory(
         or row["review_events"][-1]["action"] != "APPROVED"
         or row["record_status"] != "ACTIVE"
         or row["rights_status"] not in {"CLEARED", "PUBLIC_DOMAIN", "OPEN_LICENSE"}
+        or not isinstance(row["content_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", row["content_sha256"]) is None
+        or any(
+            not _review_matches_candidate(event, clean_claim, row)
+            for event in row["review_events"]
+        )
         for row in canonical
     )
     blockers = [
@@ -130,6 +170,10 @@ def load_challenger_material_inventory(
         blockers.append("CHALLENGER_MATERIAL_EMPTY")
     if pending:
         blockers.append("CHALLENGER_MATERIAL_PENDING_OR_UNVERIFIED")
+    if missing_provenance:
+        blockers.append("CHALLENGER_MATERIAL_PROVENANCE_INCOMPLETE")
+    if misbound_review:
+        blockers.append("CHALLENGER_REVIEW_BINDING_MISMATCH")
     return ChallengerMaterialInventory(
         claim_id=clean_claim,
         material_sha256=digest,
