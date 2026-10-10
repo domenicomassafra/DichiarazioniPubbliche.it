@@ -9,9 +9,11 @@ live in `docs/tickets/`. Historical roadmap files are evidence, not competing ba
 
 ## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
 
-**Repository state:** `main` integrated and GitHub CI successful at `a66e987`,
-with a single local worktree and no stash/other branch at the audit. **This is not
-MiniPC deployment or editorial launch acceptance.** The canonical check
+**Repository state:** `main` at `a104f0f` at the 2026-10-10
+reprioritization audit, with a single clean local worktree, no stash or other
+local branch; `a66e987` was the preceding source/CI checkpoint, not proof of a
+fresh CI run on the later documentation commits. **This is not MiniPC deployment
+or editorial launch acceptance.** The canonical check
 `python3 tools/report_ticket_status.py --json` gave **125 tickets: 90 DONE,
 20 IN PROGRESS, 6 BLOCKED, 9 FUTURE; 35 not DONE**. The stable-v1 gate
 `python3 tools/check_launch_preflight.py --expect-no-go` yielded **NO-GO / 49**
@@ -28,6 +30,18 @@ MiniPC deployment or editorial launch acceptance.** The canonical check
 | 3: opt-in attack surfaces, otherwise remain dormant | **DP-507**, **DP-508** | Activate **only before** exposing remotely reachable admin mutations or user/public intake; no implementation sprint just to inflate completion. |
 | 4: actual stable release | **DP-704**, **DP-705** | Owner-approved real source→correction MiniPC rehearsal, accepted rollback and immutable receipts, then explicit v1 cutover; failed or missing gate means no deployment. |
 
+**Working backlog triage, not a status migration:**
+[`docs/reviews/2026-10-10-open-ticket-reprioritization.md`](docs/reviews/2026-10-10-open-ticket-reprioritization.md)
+maps **all 35 not-DONE tickets** to a proposed DO NOW / DEFER / MERGE CANDIDATE /
+DELETE ONLY AFTER OWNER DECISION queue with evidence gates and a dependency tree.
+Several `IN PROGRESS` tickets have integrated implementation and pending external
+or manual acceptance; they are **not** evidence of 20 dirty Git WIP changes.
+One AT/manual acceptance campaign can collect distinct DP-405/407/409/412/422/429
+receipts under DP-410 without merging their AC. Preserve the canonical 125 statuses
+until the ticket-specific acceptance criteria and owner decisions are proven.
+An independent product/UX audit and owner grilling must precede any newly approved
+full redesign scope; historical v4 `DONE` tickets remain historical facts.
+
 **Two independent scopes:** `LAUNCH.md` describes six truthful, static
 informational pages (zero approved records is valid), not a full v1. Even the
 informational refresh needs the specific privacy/identity/domain/contact/manual
@@ -41,7 +55,8 @@ See `HANDOFF.md` and `MEGA-HANDOFF-2026-10-10.md` for verified details.
 ## Status vocabulary
 
 - **DONE** — merged, tested, and runtime-proved where required.
-- **IN PROGRESS** — currently being implemented.
+- **IN PROGRESS** — implementation or ticket-specific acceptance still incomplete;
+  the code may already be integrated and awaiting runtime/manual/external proof.
 - **READY** — no known prerequisite blocks execution.
 - **BLOCKED** — cannot honestly complete because an explicit prerequisite is unavailable.
 - **FUTURE** — intentionally sequenced after earlier milestones.
