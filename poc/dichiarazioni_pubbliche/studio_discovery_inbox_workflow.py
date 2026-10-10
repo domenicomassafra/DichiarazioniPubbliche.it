@@ -83,6 +83,14 @@ ORDER BY hit.id ASC
 LIMIT :'limit'::integer;
 """.strip()
 
+# The selection is re-read from the authoritative database in ONE statement.
+# IDs cannot contain commas, and are passed as a psql variable, never SQL source.
+_SELECTED_SQL = _SCOPED_SQL.replace(
+    "  AND hit.id > :'after_id'",
+    "  AND hit.id = ANY(string_to_array(:'selected_ids', ','))",
+)
+assert _SELECTED_SQL != _SCOPED_SQL
+
 
 def _state(value: object, allowed: frozenset[str], *, nullable: bool = False) -> str | None:
     if nullable and value is None:
@@ -256,6 +264,49 @@ class DiscoveryInboxWorkflow:
             "action_authorized": False, "publication_authority": False,
             "rows": rows, "next_after_id": last if len(rows) == limit else None,
         }
+
+    def preview_bulk(self, *, collection_id: str, hit_ids: list[str],
+                     decision: str) -> dict[str, object]:
+        """Atomically re-read a bounded selection, refusing missing/mixed rows.
+
+        A dry run grants no authority and never produces a reusable write
+        command; an actual reviewer action must independently revalidate.
+        """
+        collection_id = _validated_ref(collection_id)
+        if not isinstance(hit_ids, list) or not 1 <= len(hit_ids) <= 10:
+            raise ValueError("BULK_SIZE_INVALID")
+        ids = [_validated_ref(value) for value in hit_ids]
+        if len(set(ids)) != len(ids):
+            raise ValueError("BULK_DUPLICATE_SELECTION")
+        if decision not in {"NEEDS_REVIEW", "DEFERRED"}:
+            raise ValueError("BULK_ACTION_NOT_ALLOWED")
+        try:
+            raw = self.store.run(
+                _SELECTED_SQL, collection_id=collection_id,
+                selected_ids=",".join(ids), limit=len(ids),
+            )
+        except Exception:
+            raise RuntimeError("STUDIO_INBOX_STORE_UNAVAILABLE") from None
+        if not isinstance(raw, str) or len(raw) > 48000:
+            raise ValueError("BULK_ROWS_INVALID")
+        lines = [line for line in raw.splitlines() if line.strip()]
+        if len(lines) != len(ids):
+            raise ValueError("BULK_SELECTION_CHANGED_OR_MISSING")
+        rows = []
+        seen: set[str] = set()
+        for line in lines:
+            try:
+                item = _present(json.loads(line), collection_id=collection_id)
+            except (ValueError, TypeError, json.JSONDecodeError):
+                raise ValueError("BULK_ROWS_INVALID") from None
+            if item["hit_id"] not in ids or item["hit_id"] in seen:
+                raise ValueError("BULK_SELECTION_CHANGED_OR_MISSING")
+            rows.append(item)
+            seen.add(item["hit_id"])
+        if seen != set(ids):
+            raise ValueError("BULK_SELECTION_CHANGED_OR_MISSING")
+        return plan_bulk_annotation(rows, decision=decision,
+                                    expected_collection_id=collection_id)
 
 
 def plan_bulk_annotation(rows: Sequence[dict[str, object]], *, decision: str,

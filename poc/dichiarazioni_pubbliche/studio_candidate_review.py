@@ -514,6 +514,59 @@ class LocalCandidateReviewHandoffQueue:
         return self.read(handoff_id) or complete
 
 
+def inspect_persisted_review_handoff(
+    queue: LocalCandidateReviewHandoffQueue, *,
+    handoff_id: str, run_id: str, claim_candidate_id: str,
+) -> dict[str, object]:
+    """Read an existing queue receipt without disclosing an actor or credential.
+
+    The immutable spool is a *request* for review, not a review decision.
+    A byte-level digest detects accidental mutation, not an independent
+    attestation of the named reviewer or a guarantee of currentness.
+    """
+    run_id = _safe_id(run_id)
+    claim_candidate_id = _safe_id(claim_candidate_id)
+    if not isinstance(handoff_id, str) or not re.fullmatch(
+        r"candidate-review:[0-9a-f]{64}", handoff_id
+    ):
+        raise ValueError("STUDIO_REVIEW_HANDOFF_ID_INVALID")
+    receipt = queue.read(handoff_id)
+    if receipt is None:
+        raise RuntimeError("STUDIO_REVIEW_HANDOFF_NOT_FOUND")
+    if receipt["run_id"] != run_id or receipt["candidate_id"] != claim_candidate_id:
+        raise ValueError("STUDIO_REVIEW_HANDOFF_SCOPE_INVALID")
+    for key in ("result_id", "action", "reason_code", "input_fingerprint",
+                "review_context_sha256", "receipt_sha256"):
+        value = receipt.get(key)
+        if key in {"input_fingerprint", "review_context_sha256", "receipt_sha256"}:
+            if not isinstance(value, str) or not _HASH.fullmatch(value):
+                raise ValueError("STUDIO_REVIEW_HANDOFF_FIELD_INVALID")
+        elif key == "action":
+            if value not in _HANDOFF_ACTIONS:
+                raise ValueError("STUDIO_REVIEW_HANDOFF_FIELD_INVALID")
+        elif key == "reason_code":
+            if not isinstance(value, str) or not _CODE.fullmatch(value):
+                raise ValueError("STUDIO_REVIEW_HANDOFF_FIELD_INVALID")
+        else:
+            _safe_id(value)
+    return {
+        "contract_version": "studio-candidate-review-queue-inspection-v1",
+        "private_only": True, "read_only": True,
+        "candidate_id": claim_candidate_id, "run_id": run_id,
+        "handoff_id": handoff_id, "result_id": receipt["result_id"],
+        "action_requested": receipt["action"],
+        "reason_code": receipt["reason_code"],
+        "input_fingerprint_at_enqueue": receipt["input_fingerprint"],
+        "context_sha256_at_enqueue": receipt["review_context_sha256"],
+        "receipt_sha256": receipt["receipt_sha256"],
+        "status": "QUEUED_FOR_HUMAN_REVIEW",
+        "currentness": "NOT_REVALIDATED",
+        "persisted": True, "reviewer_identity_verified": False,
+        "review_decision_recorded": False, "promotion_authority": False,
+        "review_authority": False, "publication_authority": False,
+    }
+
+
 def submit_candidate_review_handoff(
     store: CandidateMatchCurrentReader,
     promotion_store: CandidatePromotionContextReader,
@@ -628,5 +681,5 @@ __all__ = [
     "STUDIO_CANDIDATE_REVIEW_VERSION", "inspect_candidate_match_run",
     "inspect_candidate_review_readiness",
     "REVIEW_HANDOFF_VERSION", "LocalCandidateReviewHandoffQueue",
-    "submit_candidate_review_handoff",
+    "submit_candidate_review_handoff", "inspect_persisted_review_handoff",
 ]

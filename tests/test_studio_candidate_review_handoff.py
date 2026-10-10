@@ -17,7 +17,7 @@ from dichiarazioni_pubbliche.candidate_matching import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.studio_candidate_review import (  # noqa: E402
     LocalCandidateReviewHandoffQueue, inspect_candidate_review_readiness,
-    submit_candidate_review_handoff,
+    submit_candidate_review_handoff, inspect_persisted_review_handoff,
 )
 from dichiarazioni_pubbliche.reviewer_identity_authority import (  # noqa: E402
     LocalFileReviewerIdentityAuthority, provision_reviewer_credential,
@@ -94,6 +94,37 @@ class PromotionContext:
 
 
 class CandidateReviewHandoffTests(unittest.TestCase):
+    def test_persisted_handoff_reloads_disk_and_redacts_reviewer_identity(self):
+        receipt = self.submit()
+        view = inspect_persisted_review_handoff(
+            self.queue, handoff_id=receipt["handoff_id"],
+            run_id=self.match.run_id, claim_candidate_id="candidate:1",
+        )
+        self.assertTrue(view["persisted"])
+        self.assertEqual(view["status"], "QUEUED_FOR_HUMAN_REVIEW")
+        self.assertFalse(view["review_decision_recorded"])
+        self.assertFalse(view["reviewer_identity_verified"])
+        self.assertEqual(view["currentness"], "NOT_REVALIDATED")
+        for secret in ("reviewer-one", "operator:reviewer-one",
+                       "actor_ref", "credential_id", "credential_fingerprint"):
+            self.assertNotIn(secret, json.dumps(view))
+        for changed in ({"run_id": "run:other"}, {"claim_candidate_id": "candidate:other"}):
+            with self.assertRaisesRegex(ValueError, "SCOPE_INVALID"):
+                inspect_persisted_review_handoff(
+                    self.queue, handoff_id=receipt["handoff_id"],
+                    **({"run_id": self.match.run_id,
+                        "claim_candidate_id": "candidate:1"} | changed),
+                )
+        path = self.queue_root / (receipt["handoff_id"] + ".json")
+        saved = json.loads(path.read_text())
+        saved["reason_code"] = "TAMPERED"
+        path.write_text(json.dumps(saved))
+        with self.assertRaisesRegex(ValueError, "TAMPERED"):
+            inspect_persisted_review_handoff(
+                self.queue, handoff_id=receipt["handoff_id"],
+                run_id=self.match.run_id, claim_candidate_id="candidate:1",
+            )
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

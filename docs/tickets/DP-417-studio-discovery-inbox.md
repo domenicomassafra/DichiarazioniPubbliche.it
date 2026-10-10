@@ -314,3 +314,15 @@ publication/action authority. MiniPC focused suites ran **40/40 PASS**
 (one skip). Both public static HTML and approved projection SHA-256 stayed
 byte-identical, and Cloudflare/web systemd units remained active. No
 operational database row was written or review authority inferred.
+
+### 2026-10-10 — Current DB-derived bulk compatibility preview
+
+Authenticated loopback `/v1/discovery/bulk-preview` re-reads 1–10 exact
+Collection-scoped Hit IDs in **one SQL snapshot**, checks persisted
+run/manifest/attempt lineage and triage ledger revisions, and refuses
+missing or mixed review states. Only `NEEDS_REVIEW` or `DEFERRED`
+non-authoritative annotation may be previewed. The result is `DRY_RUN_ONLY`,
+never a durable action, rights/reviewer permit, promotion or publication.
+Tests include ephemeral PostgreSQL, cross-state refusal and HTTP 200/401/422.
+Isolated MiniPC source 44/44 focused tests passed without a production write.
+Other queue families and actual reviewed transitions are absent, so ACs remain open.

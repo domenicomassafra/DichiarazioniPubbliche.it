@@ -150,3 +150,18 @@ This validates persisted feature codes, not the underlying private
 text, mutable feature values, reviewer currentness, cluster equivalence
 or authority. No score, source body, promotion, cluster write or public
 output is exposed. DP-418 stays IN PROGRESS.
+
+### 2026-10-10 — Currentness/blocker and persisted handoff readback
+
+The operator-local authenticated `/v1/candidate/review-readiness` exposes
+the existing deterministic DP-212 input/result replay and current DP-117
+promotion blockers **before mutation**. Optional read-only
+`/v1/candidate/handoff-receipt` loads an immutable previously enqueued
+candidate review request from an explicitly configured owner-private 0700
+spool, enforces exact Candidate/Run binding, and redacts reviewer identity
+and credential references. It cannot approve, promote, record a decision
+or claim persisted request currentness; the spool defaults to disabled.
+Mac full test suite 2266/2266 and isolated MiniPC focused 44/44 passed;
+benchmark 5/5. No live candidate/match/capture data is present on MiniPC.
+Actual reviewer decision readback, rights and keyboard/200% acceptance
+remain open; no AC is marked complete by this metadata-only prerequisite.

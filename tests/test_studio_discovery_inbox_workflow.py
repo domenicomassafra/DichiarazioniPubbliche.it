@@ -39,11 +39,41 @@ class FakeRuntime:
 
     def run(self, sql, **variables):
         self.calls.append((sql, variables))
-        output = [r for r in self.rows if r["hit_id"] > variables["after_id"]]
+        if "selected_ids" in variables:
+            selected = set(variables["selected_ids"].split(","))
+            output = [r for r in self.rows if r["hit_id"] in selected]
+        else:
+            output = [r for r in self.rows if r["hit_id"] > variables["after_id"]]
         return "\n".join(json.dumps(v) for v in output[:variables["limit"]])
 
 
 class InboxWorkflowTests(unittest.TestCase):
+    def test_bulk_preview_is_reloaded_from_one_authoritative_sql_snapshot(self):
+        runtime = FakeRuntime([row(), row("hit:02")])
+        wf = DiscoveryInboxWorkflow(runtime)
+        preview = wf.preview_bulk(
+            collection_id="collection:01", hit_ids=["hit:02", "hit:01"],
+            decision="DEFERRED",
+        )
+        self.assertEqual(preview["result_code"], "DRY_RUN_ONLY")
+        self.assertEqual([entry["hit_id"] for entry in preview["items"]], ["hit:01", "hit:02"])
+        self.assertFalse(preview["mutation_authorized"])
+        self.assertEqual(len(runtime.calls), 1)
+        sql, vars_ = runtime.calls[0]
+        self.assertIn("string_to_array(:'selected_ids', ',')", sql)
+        self.assertEqual(vars_["selected_ids"], "hit:02,hit:01")
+        self.assertNotIn("SHOULD_NEVER_LEAK", json.dumps(preview))
+        for ids in (["hit:01", "hit:01"], ["hit:01", "hit:missing"], [], ["hit:01"] * 11):
+            with self.subTest(ids=ids), self.assertRaises(ValueError):
+                wf.preview_bulk(collection_id="collection:01", hit_ids=ids, decision="NEEDS_REVIEW")
+        with self.assertRaisesRegex(ValueError, "BULK_ACTION_NOT_ALLOWED"):
+            wf.preview_bulk(collection_id="collection:01", hit_ids=["hit:01"], decision="REJECTED")
+        runtime.rows = [row(), row("hit:02", latest="REJECTED", revision=1)]
+        with self.assertRaisesRegex(ValueError, "BULK_REVIEW_STATES_INCOMPATIBLE"):
+            wf.preview_bulk(collection_id="collection:01", hit_ids=["hit:01", "hit:02"], decision="NEEDS_REVIEW")
+        runtime.rows = [row(), row("hit:02", manifest="SUPERSEDED")]
+        with self.assertRaisesRegex(ValueError, "BULK_ROW_NOT_CURRENT"):
+            wf.preview_bulk(collection_id="collection:01", hit_ids=["hit:01", "hit:02"], decision="NEEDS_REVIEW")
     def test_database_derived_scoped_queue_provenance_and_no_leak(self):
         runtime = FakeRuntime([row(), row("hit:02", disposition="EXISTING_CONTENT", revision=1, latest="NEEDS_REVIEW")])
         receipt = DiscoveryInboxWorkflow(runtime).list_rows(collection_id="collection:01", limit=2)
@@ -198,6 +228,12 @@ class InboxWorkflowTests(unittest.TestCase):
             self.assertEqual(rows[0]["annotation_revision"], 0)
             self.assertIn("DISCOVERY_CONTENT_UNRESOLVED", rows[0]["blockers"])
             self.assertNotIn("PRIVATE SYNTHETIC", json.dumps(rows))
+            preview = queue.preview_bulk(
+                collection_id=scope, hit_ids=[f"{prefix}:hit"], decision="NEEDS_REVIEW",
+            )
+            self.assertEqual(preview["result_code"], "DRY_RUN_ONLY")
+            self.assertFalse(preview["mutation_authorized"])
+            self.assertEqual(preview["items"][0]["expected_revision"], 0)
             store = StudioDiscoveryTriageStore(database_url=pg.fresh_url)
             created = store.record(
                 collection_id=scope, hit_id=f"{prefix}:hit",

@@ -23,10 +23,14 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from dichiarazioni_pubbliche.candidate_matching import CandidateMatchingStore
+from dichiarazioni_pubbliche.claim_promotion import ClaimPromotionStore
 from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineStore
 from dichiarazioni_pubbliche.corpus_search import CorpusSearchStore
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime, _clean
-from dichiarazioni_pubbliche.studio_candidate_review import inspect_candidate_match_run
+from dichiarazioni_pubbliche.studio_candidate_review import (
+    inspect_candidate_match_run, inspect_candidate_review_readiness,
+    inspect_persisted_review_handoff, LocalCandidateReviewHandoffQueue,
+)
 from dichiarazioni_pubbliche.studio_capture_inspector import (
     inspect_capture_versions, inspect_capture_passage_selectors,
 )
@@ -46,12 +50,13 @@ _ARCHIVE_STATES = frozenset({"NOT_REQUESTED", "REQUESTED", "PENDING", "SUCCEEDED
 _ALLOWED_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
     "/v1/media/segment", "/v1/candidate/matches",
+    "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
     "/v1/collections/list", "/v1/collections/members",
     "/v1/collections/member", "/v1/collections/claim-provenance",
     "/v1/collections/captures",
     "/v1/collections/passage-candidates",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
-    "/v1/discovery/inbox",
+    "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
 })
 
 class _StudioReadOnlyDb(PsqlRuntime):
@@ -386,6 +391,10 @@ class _StudioCandidateReader(_StudioReadOnlyDb, CandidateMatchingStore):
     pass
 
 
+class _StudioPromotionContextReader(_StudioReadOnlyDb, ClaimPromotionStore):
+    """DP-117 context is read under PG read-only settings, never writable HTTP."""
+
+
 class _StudioQueueReader(_StudioReadOnlyDb, StudioOperatorQueues):
     def list_discovery_inbox(
         self, *, collection_id: str, limit: int = 20, after_id: str | None = None,
@@ -397,6 +406,13 @@ class _StudioQueueReader(_StudioReadOnlyDb, StudioOperatorQueues):
         """
         return DiscoveryInboxWorkflow(self).list_rows(
             collection_id=collection_id, limit=limit, after_id=after_id,
+        )
+
+    def preview_bulk_discovery(
+        self, *, collection_id: str, hit_ids: list[str], decision: str,
+    ) -> dict[str, object]:
+        return DiscoveryInboxWorkflow(self).preview_bulk(
+            collection_id=collection_id, hit_ids=hit_ids, decision=decision,
         )
 
 
@@ -420,6 +436,7 @@ class _QueueReader(Protocol):
     def list_collections(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery_inbox(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
+    def preview_bulk_discovery(self, *, collection_id: str, hit_ids: list[str], decision: str) -> dict[str, object]: ...
     def inspect_discovery(self, *, collection_id: str, hit_id: str) -> dict[str, object]: ...
     def inspect_discovery_triage(self, *, collection_id: str, hit_id: str, limit: int, after_revision: int) -> dict[str, object]: ...
     def list_collection_members(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
@@ -433,6 +450,8 @@ class StudioLocalReaders:
     captures: _CaptureReader
     candidates: _CandidateReader
     queues: _QueueReader | None = None
+    promotion_context: Any | None = None
+    handoffs: LocalCandidateReviewHandoffQueue | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -485,6 +504,18 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
     if path == "/v1/candidate/matches":
         _fields(body, required={"run_id", "claim_candidate_id"})
         return inspect_candidate_match_run(readers.candidates, **body)
+    if path == "/v1/candidate/review-readiness":
+        _fields(body, required={"run_id", "claim_candidate_id"})
+        if readers.promotion_context is None:
+            raise RuntimeError("STUDIO_REVIEW_CONTEXT_UNAVAILABLE")
+        return inspect_candidate_review_readiness(
+            readers.candidates, readers.promotion_context, **body,
+        )
+    if path == "/v1/candidate/handoff-receipt":
+        _fields(body, required={"handoff_id", "run_id", "claim_candidate_id"})
+        if readers.handoffs is None:
+            raise RuntimeError("STUDIO_REVIEW_SPOOL_NOT_CONFIGURED")
+        return inspect_persisted_review_handoff(readers.handoffs, **body)
     if path in {"/v1/collections/list", "/v1/discovery/list"}:
         _fields(body, required=set(), optional={"limit", "after_id"})
         if readers.queues is None:
@@ -507,6 +538,11 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
         return readers.queues.list_discovery_inbox(**body)
+    if path == "/v1/discovery/bulk-preview":
+        _fields(body, required={"collection_id", "hit_ids", "decision"})
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.preview_bulk_discovery(**body)
     if path in {"/v1/collections/members", "/v1/collections/member", "/v1/collections/claim-provenance"}:
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
@@ -686,12 +722,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only Studio loopback API; never run behind an edge proxy")
     parser.add_argument("--token-file", required=True, type=Path)
     parser.add_argument("--port", type=int, default=18777)
+    parser.add_argument(
+        "--handoff-root", type=Path,
+        help="Optional existing private 0700 candidate handoff spool for read-only receipts",
+    )
     args = parser.parse_args(argv)
     try:
         token = load_private_token(args.token_file)
+        handoffs = LocalCandidateReviewHandoffQueue(args.handoff_root) if args.handoff_root else None
         readers = StudioLocalReaders(
             corpus=_StudioCorpusReader(), captures=_StudioCaptureReader(),
             candidates=_StudioCandidateReader(), queues=_StudioQueueReader(),
+            promotion_context=_StudioPromotionContextReader(), handoffs=handoffs,
         )
         with StudioLoopbackServer(args.port, readers, token) as server:
             print(f"Studio local API ready on 127.0.0.1:{server.server_port} (read-only)", flush=True)

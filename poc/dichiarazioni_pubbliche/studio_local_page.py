@@ -177,6 +177,14 @@ _PAGE = """<!doctype html>
         <label>Dopo Discovery Hit ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Consulta Inbox persistita</button></div>
       </form>
+      <h2>Verifica compatibilità selezione multipla</h2>
+      <p>Controllo sullo stesso snapshot SQL per massimo 10 Hit. Anteprima soltanto, senza approvazioni, rifiuti o scritture.</p>
+      <form data-endpoint="/v1/discovery/bulk-preview">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Hit ID separati da virgole<input name="hit_ids_csv" maxlength="1809" required></label>
+        <label>Annotazione non vincolante<select name="decision"><option value="NEEDS_REVIEW">NEEDS_REVIEW</option><option value="DEFERRED">DEFERRED</option></select></label>
+        <button type="submit">Verifica senza modificare</button></div>
+      </form>
       <form data-endpoint="/v1/discovery/list">
         <div class="controls"><label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
         <label>Dopo ID<input name="after_id" maxlength="180"></label>
@@ -204,11 +212,24 @@ _PAGE = """<!doctype html>
       </form>
     </section>
     <section class="pane" id="matches" hidden>
-      <h2>Candidati e corrispondenze</h2><p>Classificazioni suggerite da un match run persistito; attualità e autorità di revisione non verificate.</p>
+      <h2>Candidati e corrispondenze</h2><p>Le classificazioni non conferiscono autorizzazione. La verifica approfondita confronta il run con input persistiti e contesto attuale DP-117, mostrando i blocchi prima di qualunque azione.</p>
       <form data-endpoint="/v1/candidate/matches">
         <div class="controls"><label>ID match run<input name="run_id" maxlength="180" required></label>
         <label>ID candidato<input name="claim_candidate_id" maxlength="180" required></label>
         <button type="submit">Ispeziona match</button></div>
+      </form>
+      <form data-endpoint="/v1/candidate/review-readiness">
+        <div class="controls"><label>ID match run<input name="run_id" maxlength="180" required></label>
+        <label>ID candidato<input name="claim_candidate_id" maxlength="180" required></label>
+        <button type="submit">Verifica attualità e blocchi promozione</button></div>
+      </form>
+      <h2>Richiesta di revisione già registrata</h2>
+      <p>Rilegge unicamente un handoff persistito su disco e configurato dall'operatore. Non è una decisione umana e non rivalida la sua attualità; identificativi del revisore esclusi.</p>
+      <form data-endpoint="/v1/candidate/handoff-receipt">
+        <div class="controls"><label>ID handoff<input name="handoff_id" maxlength="81" required></label>
+        <label>ID match run<input name="run_id" maxlength="180" required></label>
+        <label>ID candidato<input name="claim_candidate_id" maxlength="180" required></label>
+        <button type="submit">Rileggi richiesta persistita</button></div>
       </form>
     </section>
     <section class="pane" id="captures" hidden>
@@ -475,6 +496,7 @@ _PAGE = """<!doctype html>
         for (const [key, value] of new FormData(form).entries()) {
           if (value === '') continue;
           if (key === 'kind') data.kinds = [value];
+          else if (key === 'hit_ids_csv') data.hit_ids = value.split(',').map(item => item.trim());
           else if (key === 'from_date') data.from_at = value + 'T00:00:00Z';
           else if (key === 'to_date') data.to_at = value + 'T23:59:59Z';
           else if (key === 'check_worthy') data.check_worthy = value === 'true';

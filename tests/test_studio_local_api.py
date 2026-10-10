@@ -38,6 +38,89 @@ TOKEN = "a" * 64
 
 
 class StudioLocalApiTests(unittest.TestCase):
+    def test_review_readiness_and_persisted_handoff_are_authenticated_and_private(self):
+        from tests.test_studio_candidate_review_handoff import CandidateReviewHandoffTests
+        fixture = CandidateReviewHandoffTests()
+        fixture.setUp()
+        try:
+            self.server.readers = StudioLocalReaders(
+                self.search, self.captures, fixture.match, self.queues,
+                fixture.promotion, fixture.queue,
+            )
+            payload = {"run_id": fixture.match.run_id, "claim_candidate_id": "candidate:1"}
+            self.assertEqual(self.call("POST", "/v1/candidate/review-readiness", payload)[0], 401)
+            status, data, headers = self.call(
+                "POST", "/v1/candidate/review-readiness", payload, self.auth(),
+            )
+            self.assertEqual(status, 200, data)
+            self.assertEqual(data["data"]["currentness"], "CURRENT")
+            self.assertIn("DP117_TRANSACTIONAL_PROMOTION_REVALIDATION_REQUIRED",
+                          data["data"]["promotion_blockers"])
+            self.assertFalse(data["data"]["review_authority"])
+            self.assertFalse(data["data"]["promotion_authority"])
+            self.assertEqual(headers["Cache-Control"], "no-store, private")
+            first = fixture.submit()
+            scoped = {**payload, "handoff_id": first["handoff_id"]}
+            self.assertEqual(self.call("POST", "/v1/candidate/handoff-receipt", scoped)[0], 401)
+            status, response, _ = self.call(
+                "POST", "/v1/candidate/handoff-receipt", scoped, self.auth(),
+            )
+            self.assertEqual(status, 200, response)
+            self.assertTrue(response["data"]["persisted"])
+            self.assertFalse(response["data"]["review_decision_recorded"])
+            self.assertFalse(response["data"]["reviewer_identity_verified"])
+            self.assertEqual(response["data"]["currentness"], "NOT_REVALIDATED")
+            for secret in ("SECRET", "actor_ref", "credential_id",
+                           "operator:reviewer-one", "credential_fingerprint",
+                           "private_raw_source", "private_text"):
+                self.assertNotIn(secret, json.dumps(response))
+            self.assertEqual(self.call(
+                "POST", "/v1/candidate/handoff-receipt",
+                scoped | {"claim_candidate_id": "candidate:wrong"}, self.auth(),
+            )[0], 422)
+            self.assertEqual(self.call(
+                "POST", "/v1/candidate/review-readiness", payload | {"promote": True}, self.auth(),
+            )[0], 422)
+            self.assertEqual(self.call(
+                "POST", "/v1/candidate/handoff-receipt", scoped | {"approve": True}, self.auth(),
+            )[0], 422)
+            self.assertEqual(self.call(
+                "POST", "/v1/candidate/handoff-receipt", scoped,
+                self.auth() | {"Origin": "https://evil.invalid"},
+            )[0], 403)
+            self.server.readers = StudioLocalReaders(
+                self.search, self.captures, fixture.match, self.queues,
+                fixture.promotion, None,
+            )
+            self.assertEqual(self.call(
+                "POST", "/v1/candidate/handoff-receipt", scoped, self.auth(),
+            )[0], 503)
+        finally:
+            fixture.doCleanups()
+
+    def test_discovery_bulk_is_readonly_database_snapshot_and_denies_mixed_states(self):
+        from tests.test_studio_discovery_inbox_workflow import FakeRuntime, row
+        runtime = FakeRuntime([row(), row("hit:02")])
+        self.queues.preview_bulk_discovery = (
+            lambda **kwargs: DiscoveryInboxWorkflow(runtime).preview_bulk(**kwargs)
+        )
+        payload = {"collection_id": "collection:01", "hit_ids": ["hit:01", "hit:02"],
+                   "decision": "NEEDS_REVIEW"}
+        path = "/v1/discovery/bulk-preview"
+        self.assertEqual(self.call("POST", path, payload)[0], 401)
+        status, receipt, headers = self.call("POST", path, payload, self.auth())
+        self.assertEqual(status, 200, receipt)
+        self.assertEqual(receipt["data"]["result_code"], "DRY_RUN_ONLY")
+        self.assertFalse(receipt["data"]["mutation_authorized"])
+        self.assertEqual(headers["Cache-Control"], "no-store, private")
+        self.assertNotIn("private.invalid", json.dumps(receipt))
+        for changed in ({"decision": "REJECTED"}, {"hit_ids": ["hit:01", "hit:missing"]},
+                        {"hit_ids": ["hit:01", "hit:01"]}, {"approve": True}):
+            with self.subTest(changed=changed):
+                self.assertEqual(self.call("POST", path, payload | changed, self.auth())[0], 422)
+        runtime.rows = [row(), row("hit:02", revision=1, latest="REJECTED")]
+        self.assertEqual(self.call("POST", path, payload, self.auth())[0], 422)
+
     def test_discovery_inbox_real_workflow_is_authenticated_scoped_and_private(self):
         """One guarded HTTP call exercises the actual database read-model validator."""
         runtime = FakeRuntime([row()])
