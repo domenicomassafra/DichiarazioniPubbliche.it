@@ -201,6 +201,48 @@ class CounterCaseTests(unittest.TestCase):
         self.assertTrue(refreshed.ready)
         self.assertFalse(refreshed.review_stale)
 
+    def test_context_or_update_material_stales_previously_reviewed_packet(self):
+        prior = build_countercase_packet(
+            claim_id="claim:context", evidence=[], research_complete=True,
+        )
+        for relation in ("CONTEXT", "UPDATE"):
+            with self.subTest(relation=relation):
+                gained = build_countercase_packet(
+                    claim_id="claim:context",
+                    evidence=[evidence("ev:later", relation)],
+                    research_complete=True,
+                )
+                self.assertTrue(gained.has_material_countercase)
+                stale = evaluate_challenger_readiness(
+                    gained,
+                    incorporated_packet_id=prior.packet_id,
+                    reviewed_packet_id=prior.packet_id,
+                )
+                self.assertFalse(stale.ready)
+                self.assertIn("MATERIAL_CHALLENGER_NOT_INCORPORATED", stale.blockers)
+                self.assertIn("CHALLENGER_REVIEW_STALE", stale.blockers)
+
+    def test_malformed_boolean_or_duplicate_evidence_cannot_authorize_ready(self):
+        for value in ("false", "true", 1, 0, None):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "MUST_BE_BOOLEAN"):
+                    build_countercase_packet(claim_id="c", evidence=[], research_complete=value)
+        for key in ("approved", "suitable"):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "MUST_BE_BOOLEAN"):
+                CounterEvidence(
+                    evidence_id="ev", relation="CONTEXT",
+                    rationale_code="CONTEXT_REASON",
+                    approved=True if key != "approved" else "false",
+                    suitable=True if key != "suitable" else "false",
+                )
+        for altered in (("CONTEXT", "CONTEXT"), ("CONTEXT", "UPDATE")):
+            with self.subTest(altered=altered), self.assertRaisesRegex(ValueError, "DUPLICATE"):
+                build_countercase_packet(
+                    claim_id="c",
+                    evidence=(evidence("same-id", altered[0]), evidence("same-id", altered[1])),
+                    research_complete=True,
+                )
+
     def test_high_risk_requires_exact_challenger_unless_qualified_policy_waives_it(self):
         packet = build_countercase_packet(
             claim_id="claim:1",

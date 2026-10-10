@@ -209,6 +209,24 @@ independence group, relation, rights, supersession or latest review action
 invalidates the previous fingerprint. Its public return type has only
 aggregates, digest and blocker codes, not URLs, excerpts or reviewer identities.
 
+### 2026-10-10 challenger pure-input ambiguity hardening
+
+During the follow-up audit, the pure packet builder would treat a caller's
+nonboolean `research_complete="false"` as true, and nonboolean
+`CounterEvidence.approved="false"` or `suitable="false"` as truthy. It
+also accepted duplicate evidence IDs with potentially incompatible relations.
+These states now fail closed rather than creating an apparently READY packet.
+Newly approved CONTEXT or UPDATE material also invalidates an older reviewed/
+incorporated packet; it is not considered harmless merely because no
+CONTRADICT/LIMITATION was found. Regression covers forged values, duplicate
+conflicts and stale exact-packet review.
+
+This fixes only the deterministic pure-policy seam: runtime
+`evaluate_publication_eligibility()` **still refuses caller-supplied
+challenger readiness or waiver**, so no high-risk publication authority was
+introduced and AC-229.8 remains open pending independently signed durable
+review and incorporation.
+
 A read-only MiniPC canary (`default_transaction_read_only=on`) chose an
 existing claim internally without printing its ID: **2 candidates,
 2 pending/unverified, 2 counterevidence candidates,

@@ -22,12 +22,20 @@ class CounterEvidence:
     independence_group: str | None = None
 
     def __post_init__(self) -> None:
-        if not str(self.evidence_id or "").strip():
+        if not isinstance(self.evidence_id, str) or not self.evidence_id.strip() or len(self.evidence_id) > 512:
             raise ValueError("COUNTER_EVIDENCE_ID_REQUIRED")
         if self.relation not in COUNTER_RELATIONS:
             raise ValueError("COUNTER_EVIDENCE_RELATION_INVALID")
-        if not str(self.rationale_code or "").strip():
+        if not isinstance(self.rationale_code, str) or not self.rationale_code.strip() or len(self.rationale_code) > 512:
             raise ValueError("COUNTER_EVIDENCE_RATIONALE_REQUIRED")
+        if type(self.approved) is not bool or type(self.suitable) is not bool:
+            raise ValueError("COUNTER_EVIDENCE_APPROVAL_MUST_BE_BOOLEAN")
+        if self.independence_group is not None and (
+            not isinstance(self.independence_group, str)
+            or not self.independence_group.strip()
+            or len(self.independence_group) > 512
+        ):
+            raise ValueError("COUNTER_EVIDENCE_LINEAGE_INVALID")
 
 
 @dataclass(frozen=True)
@@ -47,7 +55,12 @@ class CounterCasePacket:
 
     @property
     def has_material_countercase(self) -> bool:
-        return bool(self.contradicting_evidence_ids or self.limitation_evidence_ids)
+        # CONTEXT/UPDATE are not verdicts, but newly approved contextual or
+        # later-outcome evidence must also stale a previously reviewed packet.
+        return bool(
+            self.contradicting_evidence_ids or self.limitation_evidence_ids
+            or self.context_evidence_ids or self.update_evidence_ids
+        )
 
 
 @dataclass(frozen=True)
@@ -70,9 +83,16 @@ def build_countercase_packet(
     research_complete: bool,
 ) -> CounterCasePacket:
     claim = str(claim_id or "").strip()
-    if not claim:
+    if not isinstance(claim_id, str) or not claim or len(claim) > 512:
         raise ValueError("COUNTERCASE_CLAIM_ID_REQUIRED")
+    if type(research_complete) is not bool:
+        raise ValueError("COUNTERCASE_RESEARCH_COMPLETE_MUST_BE_BOOLEAN")
     rows = tuple(evidence)
+    # Never allow two versions or reviewer interpretations of one evidence ID
+    # to masquerade as separate independent challenger material.
+    identities = [row.evidence_id for row in rows]
+    if len(identities) != len(set(identities)):
+        raise ValueError("COUNTERCASE_DUPLICATE_EVIDENCE_ID")
     admissible = tuple(row for row in rows if row.approved and row.suitable)
     rejected_count = len(rows) - len(admissible)
 
