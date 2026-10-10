@@ -21,12 +21,14 @@ _SAFE_PUBLIC_MEMBER_PATHS = frozenset({
 _MUTATING_METHODS = ("POST", "PUT", "PATCH", "DELETE", "OPTIONS")
 _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
-    "/v1/media/segment", "/v1/candidate/matches", "/v1/collections/list",
+    "/v1/media/segment", "/v1/candidate/matches",
+    "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
+    "/v1/collections/list",
     "/v1/collections/members", "/v1/collections/member",
     "/v1/collections/claim-provenance", "/v1/collections/captures",
     "/v1/collections/passage-candidates", "/v1/discovery/list",
     "/v1/discovery/inspect", "/v1/discovery/triage-history",
-    "/v1/discovery/inbox",
+    "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
 })
 
 
