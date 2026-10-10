@@ -1,15 +1,16 @@
 # Dichiarazioni Pubbliche — Product Constitution
 
 Status: canonical  
-Last updated: 2026-09-29
+Last updated: 2026-10-10
 
 This file defines the product. If a historical note, implementation detail, prototype,
 or handoff conflicts with this document, this document wins unless superseded by an ADR.
 
 ## Mission
 
-Dichiarazioni Pubbliche is an open-source, Italy-first public-record system for verifiable public
-statements.
+Dichiarazioni Pubbliche is an open-source public-record system for verifiable
+public statements. An initial Italian audience does not restrict source languages
+or public figures to Italy.
 
 Its job is to preserve what a public figure said, when and where they said it, the
 source and wording that support the attribution, the evidence relevant to a checkable
@@ -160,15 +161,21 @@ policy review.
 is available for full fact-check review. The owner proposes approximately five
 hours weekly of quick non-textual/visual checks, such as correct Person imagery;
 this is distinct from editorial approval of textual attribution or factual
-verdicts. Textual analysis is intended to be automated; publication authority and
-uncertainty/escalation behavior remain undecided. Historical dossiers are
+verdicts. Textual analysis and final factual checking are intended to be automated.
+In answers Q9–Q14 the owner selected future per-result publication autonomy after
+validation, active investigation of ambiguous cases followed by a small exception
+queue, withholding unsupported conclusions and explicit insufficient-evidence
+results distinct from checks not yet performed. Historical dossiers are
 intended as permanent product content; broad collection follows acceptance of
 the acquisition/transcription/catalog/ingestion/frontend/verification path.
 The product must be designed and evaluated for rigorous automated
 fact-checking, preserving uncertainty and stopping unsupported factual conclusions.
-There is no established infallibility guarantee. Publication authority under this
-constraint is an unresolved decision; the existing human-review and publication
-invariants are not silently removed. Approximately EUR10/month is a tentative
+There is no established infallibility guarantee. The autonomous target does not
+silently remove current human-review/runtime gates: implementation must reconcile
+the policy contracts explicitly and prove the replacement gates before cutover.
+Investigations may group multiple people and must support other source languages,
+with preserved originals and identified Italian translations; no one-person or
+Italian-only restriction is approved. Approximately EUR10/month is a tentative
 operating-cost target, to be calibrated through measured Antigravity quotas,
 audio usage and local-model electricity rather than assumed free/unlimited use.
 

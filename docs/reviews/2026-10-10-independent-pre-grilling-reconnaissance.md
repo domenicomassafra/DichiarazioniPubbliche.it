@@ -331,6 +331,48 @@ Il [programma di digitalizzazione del Bundesarchiv](https://www.bundesarchiv.de/
 mostra perché un corpus storico resta aggiornabile. Inventario/fonti/testi,
 registrazioni ed edizioni/traduzioni richiedono provenienza e permessi distinti.
 
+## Final-round code inspection and owner answers Q9–Q14
+
+The authoritative current decision checkpoint is PLAN.md's active grilling
+section. Earlier unresolved-authority/frontier statements above describe earlier
+rounds: Q14 now selects autonomous final fact-checking and future per-result
+publication after validation. Current gates, launch status and ticket AC have
+not changed. Q9/Q10 accept abstention and distinct insufficient-evidence results;
+Q11 requires active ambiguity investigation plus a small exception queue;
+Q12/Q13 require multiple people and multilingual sources/originals/Italian
+translations. Do not reduce this to one person or Italian-only coverage.
+
+Fresh source inspection, without runtime execution, identifies these deltas for
+the eventual prompt/backlog:
+
+- `verification_runtime.py:903` supports numeric and exact-text/status rules,
+  not general fact-checking of every claim type. `finding_runtime.py:37` still
+  maps conclusive runs to POLICY_HOLD. Autonomous final review needs a versioned
+  contract, not a model-confidence shortcut or fabricated human credentials.
+- `relation_runtime.py:14` receives no Person identity; distinguish same-person
+  position changes from cross-person divergence before classifying relations.
+  Opposite opinions do not independently establish factual falsity or intent.
+- `context_integrity.py:15` uses Italian lexical signals; `:211` uses a bounded
+  character window. Neither constitutes multilingual semantic context assurance.
+- `wording_contract.py:638` holds unsupported language rules and unreviewed
+  machine translation. Public-v2 currently exposes wording metadata, not original
+  or translated bodies; DP-221 DONE covers that baseline, not the new requirement.
+- `relation_policy.py:44` requires both published Findings; `public_projection.py`
+  projects finding-centered dossiers. Attributable opinions and documented
+  statements without a factual verdict need an explicit public-record contract.
+- DP-309/310/311 implement human HIGH/LEGAL review and credential separation.
+  The new automated authority target must be reconciled explicitly, preserving
+  auditability/rights/privacy and any separately qualified legal requirements.
+- Denial of an earlier utterance is a check about a documented speech act; it
+  differs from truth of its content, endorsement, position change and intent.
+  Absence from the collected corpus cannot prove that something was never said.
+
+The owner requests one final central-question round before one complete
+Prompt2Prompt handoff for four native Chat On Steroids subagents. Prompt creation
+and implementation remain subsequent deliverables; no such execution is claimed
+by this read-only inspection. The prompt must preserve all 35 outstanding tickets
+and explicitly reconcile any DONE baseline affected by the new requirements.
+
 ## Riproducibilità e limiti
 
 Eseguiti: git fetch/status/log/branch/worktree/stash, gh PR/run readback;

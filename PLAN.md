@@ -34,8 +34,9 @@ is currently **zero**. The intended automated fact-checking must have rigorous
 source/attribution/evidence checks and prevent unsupported conclusions. An
 infallibility or zero-error guarantee is not established and must not be promised;
 accuracy, abstention, false attribution and false verdicts require measured proof.
-The existing human-review/no-auto-publication contract remains unchanged until
-the owner explicitly resolves the publication-authority conflict in the grilling.
+At that checkpoint, the existing human-review/no-auto-publication contract stayed
+unchanged pending the authority answer. Q14 below now settles the autonomous
+target; runtime gates remain unchanged pending explicit implementation/acceptance.
 
 **Budget answer:** approximately **EUR10/month is a tentative target to estimate**,
 not a verified bill, quota entitlement or authorization to incur charges. The
@@ -96,8 +97,8 @@ pre-publication editorial approval. Treat visual asset approval, textual
 attribution and factual assessment as distinct decisions; approving a photograph
 must not approve statements, verdicts or source rights. Avoid biometric matching;
 an absent/unapproved image must not be filled with an invented portrait. The
-owner intends automated textual work, but publication-authority changes remain
-unresolved under the existing no-auto-publication contract.
+owner intends automated textual work. The target authority is subsequently
+settled in Q14 below; the existing runtime contract has not yet been migrated.
 
 **Owner context clarification and grilling cadence, 2026-10-10:** ask multiple
 independent frontier decisions per round, with concrete scenarios; do not continue
@@ -114,17 +115,54 @@ context; an apparently clear hidden-camera recording still needs authentic sourc
 speaker attribution and edit/sequence checks. Do not infer lack of context from
 brevity alone, or correctness/intent from vivid footage alone. Retain original
 locator, exact passage and the surrounding material necessary to interpret it.
-User emphasis was context/attribution; the separate policy for correctly attributed
-but factually unresolved statements remains unanswered.
+User emphasis was context/attribution; Q9/Q10 below subsequently accept abstention
+and explicit insufficient-evidence results for correctly attributed statements.
 
-Current frontier: acceptable abstention vs coverage, surfaced factual uncertainty,
-owner exception workload, pilot breadth, historical translations and the future
-boundary of automatic publication. Ask these independent decisions together;
-their implementation, thresholds and visual design follow the answers. The
+The preceding frontier has now received answers Q9–Q14 below; do not ask these
+settled choices again. Implementation, thresholds and visual design follow the
+remaining central decisions and final shared-understanding confirmation. The
 proposed five-hour availability and visual-review workload remain approximate
 and must be measured.
 Future daily workload and account scheduling follow pipeline acceptance. Preserve
 all existing ticket AC; no new ticket or supersession is approved yet.
+
+**Owner answers Q9–Q14 and final-round instruction, 2026-10-10:** the owner
+accepts withholding unsupported attributions/verdicts and distinguishing a
+completed check with insufficient evidence from a check not yet performed.
+He accepts a small, fast exception queue, but requires active investigation of
+who said what, when, why and in which context before escalation. Merely marking
+cases pending/blocked does not resolve them. Current/future AI capability is not
+proof of 100% accuracy or permission to fabricate missing evidence.
+
+Analyze multiple people together where appropriate, with bounded replayable
+batching; do not impose a one-person-at-a-time product restriction. Sources must
+include other languages, preserving originals and explicitly identified Italian
+translations. A large context window is a possible tool, not proof that unlimited
+batch sizes are efficient, supported or correct.
+
+The owner explicitly chooses autonomous final factual checking and accepts the
+proposed future per-result publication autonomy after validation. This settles
+the target authority decision: full human textual review is not a prerequisite
+of the intended system. It does not switch the current runtime or erase current
+publication safeguards during this interview. The final implementation plan must
+explicitly reconcile AGENTS/PRODUCT/ADRs/tickets, distinguish machine review from
+owner/legal approval and prove the new gates before any cutover.
+
+The hypothetical denial-of-prior-utterance example establishes separate checks:
+whether the earlier utterance is authenticated, whether a later denial is
+refuted by that record, and whether there is a documented longitudinal relation.
+It is not evidence about an actual named person's words, nor proof that the
+content of the earlier utterance is true or that the speaker intended deception.
+
+Next deliverable: inspect the codebase, then ask one final batch of central owner
+decisions. After the answers, create one comprehensive execution prompt covering
+the full conversation and evidence, using the requested "prompt to prompt"
+capability if available. The prompt must request four subagents through native
+Chat On Steroids orchestration, update existing/future tickets and canonical
+documentation/code coherently, and leave one clean ordered plan. Verify the
+named skill/platform and native capability instead of inventing tools, silently
+substituting Orca, or claiming agents ran. This turn performs reconnaissance and
+records requirements; it does not implement that future prompt's work.
 
 ## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
 
