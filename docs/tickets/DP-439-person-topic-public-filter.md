@@ -49,3 +49,9 @@ Version index materialization with join and membership provenance, URL filters/A
 ## Completion receipt
 
 Non implementato; pianificazione soltanto. Future SHA, intersection IDs + source anchors, responsive AT receipt, corrections replay and MiniPC proof.
+
+### 2026-10-11 — v2 public-index intersection slice (partial, local)
+
+Code landed in `df6fa42` and `5c72563`. `web/src/lib/searchIndex.ts` now carries approved public-v2 Finding→Person and reviewed Topic-finding membership as bounded facet IDs; source rows absent from the verified public projection are not synthesized into results. The Explore dialog filters Person and Topic together with URL restoration, and `check-search-index.mjs` covers positive intersection, unrelated public Person, private/absent membership, malformed URLs and an invented public Topic facet even with recomputed index hash. `npm run check:search`, `npm run check` (0 diagnostics), design check and isolated projection-boundary check passed locally. Search remains browser-only with no per-request LLM.
+
+**Scope limit:** v2 Finding membership is not the new first-class exact-wording PublicStatement membership: DP-435–438 and the additional typed public projection/reader upgrade still precede full AC-439.1/.2/.6. No approved real Person×Topic MiniPC runtime sample, original quote, precomputed synopsis, mobile screen-reader or revoked-v3 release readback is claimed. **All AC-439.1–.7 remain unchecked; status FUTURE until contract migration and runtime proof.**

@@ -127,3 +127,7 @@ accessibility AC remains unchecked solely because real screen-reader judgment is
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS. Explore needs independent Person and Topic URL filters whose intersection is approved Statement IDs, not a chatbot or one inferred opinion profile (DP-439); optional precomputed sourced synopsis is separate (DP-440). Correct messages distinguish zero total approved corpus, filters returning no match and unavailable/stale projection. Cards must never turn normalized paraphrases into exact quotes (DP-436). Preserve existing search and 320–1440/200% QA receipts but AC-429 manual screen reader remains open. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+### 2026-10-11 — limited Explorer hardening, source-only
+
+Commits `df6fa42`, `5c72563`, `f8b2b6e` add Person×Topic filtered public-index search, reject unpublished topic facet references and visually/semantically label old `PARAPHRASE` Finding titles as **not literal quotes**. The empty/filtered-no-match/unavailable paths remain distinct; historical paraphrase bodies are not transformed into quotations. Focused search, design, Astro (0 diagnostics) and isolated projection boundary checks pass locally. No real device AT check, owner-selected redesign, live approved corpus or MiniPC release/readback; no old manual accessibility AC closed.
