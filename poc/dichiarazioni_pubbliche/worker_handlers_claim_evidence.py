@@ -260,7 +260,7 @@ class ClaimEvidenceJobHandlers:
         self.store.record_receipt(
             job_id=job.job_id,
             content_id=content.content_id,
-            provider_id="omniroute",
+            provider_id=getattr(self.claim_client, "provider_id", "omniroute"),
             model_id=self.claim_client.model,
             operation="CLAIM_EXTRACT",
             request_id=result.request_id,

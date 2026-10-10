@@ -158,6 +158,8 @@ def _json_object(text: str) -> dict[str, Any]:
 
 
 class OmniRouteClaimClient:
+    provider_id = "omniroute"
+
     def __init__(
         self,
         *,
