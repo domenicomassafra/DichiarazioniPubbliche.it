@@ -197,3 +197,25 @@ stale event could reapprove a downgraded observation. The observation
 writer now gates approval on a newly inserted event or an exact replay
 of a current APPROVED observation, preserving the DP-310 publication
 review boundary. No DP-229 AC is marked done by this prerequisite fix.
+
+### 2026-10-10 canonical live-material inventory (private, read-only)
+
+Added `challenger_material_inventory.py` and adversarial tests. The inventory
+uses one PostgreSQL statement over the real claim-evidence candidates,
+their canonical evidence hashes/rights/record state and exact-identity
+review events. Its deterministic digest includes pending and rejected
+items, not only approved rows: new material, changed source bytes,
+independence group, relation, rights, supersession or latest review action
+invalidates the previous fingerprint. Its public return type has only
+aggregates, digest and blocker codes, not URLs, excerpts or reviewer identities.
+
+A read-only MiniPC canary (`default_transaction_read_only=on`) chose an
+existing claim internally without printing its ID: **2 candidates,
+2 pending/unverified, 2 counterevidence candidates,
+`publication_authority=False`**. No DB write, service restart, reviewer
+attestation or publication was performed.
+
+This adds a canonical source-material fingerprint prerequisite, **not**
+AC-229.8. Independent reviewer, research-completion, approved rationale
+and incorporation authorities remain unavailable, and runtime high-risk
+publication remains fail-closed.
