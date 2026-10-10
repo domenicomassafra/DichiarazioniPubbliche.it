@@ -1,0 +1,136 @@
+"""DP-244 source-only bounded coverage, never proof of global completeness."""
+
+import sys
+import unittest
+from dataclasses import replace
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
+
+from dichiarazioni_pubbliche.coverage_catalog_v1 import (  # noqa: E402
+    CoverageObservation, CoverageUnit, build_source_coverage,
+    public_freshness_descriptor,
+)
+
+NOW = datetime(2026, 10, 11, 17, tzinfo=timezone.utc)
+SHA = "a" * 64
+
+
+def unit(**changes):
+    return replace(CoverageUnit(
+        unit_id="coverage:synthetic", source_family="OFFICIAL_TEST_FAMILY",
+        source_id="source:synthetic", collection_id="private:collection",
+        language="de", source_format="text/xml", expected_content_class="OFFICIAL_RECORD",
+        interval_start=datetime(1930, 1, 1, tzinfo=timezone.utc),
+        interval_end=datetime(1940, 1, 1, tzinfo=timezone.utc),
+        mode="HISTORICAL_BACKFILL", policy_version="policy:approved-test",
+        max_staleness_seconds=86400,
+    ), **changes)
+
+
+def observation(**changes):
+    return replace(CoverageObservation(
+        attempt_id="attempt:1", source_id="source:synthetic",
+        policy_version="policy:approved-test", attempted_at=NOW - timedelta(minutes=5),
+        status="UNCHANGED", source_version="version:1", content_sha256=SHA,
+        observation_receipt_id="receipt:official:test:1",
+        enumerated_scope_review_id="review:scope:1",
+        enumeration_complete_within_scope=True, rights_status="CLEARED",
+    ), **changes)
+
+
+def reconcile(rows=(), **changes):
+    return build_source_coverage(
+        unit(), tuple(rows), now=NOW, rights_ready=True,
+        budget_ready=True, capability_ready=True, **changes,
+    )
+
+
+class CoverageCatalogTests(unittest.TestCase):
+    def test_unknown_unwatched_has_no_worldwide_completeness_claim(self):
+        result = reconcile()
+        self.assertEqual(result.state, "NOT_COVERED")
+        self.assertIsNone(result.last_successful_observed_at)
+        self.assertIsNone(public_freshness_descriptor(result, public_scope_review_id="review:public"))
+        self.assertFalse(result.dispatch_authorized)
+
+    def test_scope_reviewed_not_global_makes_bounded_freshness(self):
+        result = reconcile((observation(),), baseline_sha256=SHA)
+        self.assertEqual(result.state, "CURRENT_WITHIN_OBSERVED_SCOPE")
+        self.assertEqual(result.delta_proposal, "NONE")
+        self.assertEqual(result, reconcile((observation(), observation()), baseline_sha256=SHA))
+        descriptor = public_freshness_descriptor(result, public_scope_review_id="review:public")
+        self.assertEqual(descriptor["source_family"], "OFFICIAL_TEST_FAMILY")
+        self.assertIn("non garantito", descriptor["coverage_limit"])
+        self.assertNotIn("private:collection", str(descriptor))
+        self.assertNotIn("source:synthetic", str(descriptor))
+
+    def test_success_without_independent_scope_enumeration_is_partial(self):
+        row = observation(enumeration_complete_within_scope=False, enumerated_scope_review_id=None)
+        result = reconcile((row,))
+        self.assertEqual(result.state, "PARTIAL")
+        self.assertIsNone(public_freshness_descriptor(result, public_scope_review_id="review:public"))
+
+    def test_changed_source_requires_reanalysis_and_real_cost_rights_gates(self):
+        row = observation(status="CHANGED", source_version="version:2", content_sha256="b" * 64)
+        result = reconcile((row,), baseline_sha256=SHA)
+        self.assertEqual(result.state, "STALE")
+        self.assertEqual(result.delta_proposal, "REVIEW_CHANGED_SOURCE")
+        self.assertFalse(result.dispatch_authorized)
+        limited = build_source_coverage(unit(), (row,), now=NOW, baseline_sha256=SHA,
+                                        rights_ready=True, budget_ready=False, capability_ready=True)
+        self.assertEqual(limited.delta_proposal, "NONE")
+        self.assertEqual(limited.reason_code, "COVERAGE_CHANGE_CHILD_GATES_NOT_READY")
+
+    def test_outage_attempt_does_not_replace_last_good_observation(self):
+        previous = observation(attempt_id="attempt:1", attempted_at=NOW - timedelta(minutes=20))
+        failed = observation(attempt_id="attempt:2", status="OUTAGE", attempted_at=NOW,
+                             source_version=None, content_sha256=None, observation_receipt_id=None,
+                             enumerated_scope_review_id=None,
+                             enumeration_complete_within_scope=False)
+        result = reconcile((previous, failed), baseline_sha256=SHA)
+        self.assertEqual(result.state, "STALE")
+        self.assertEqual(result.last_successful_observed_at, previous.attempted_at.isoformat())
+        self.assertEqual(result.last_attempted_at, NOW.isoformat())
+
+    def test_rights_unknown_and_expired_source_not_current(self):
+        for rights in ("UNKNOWN", "EXPIRED", "REVOKED", "DENIED"):
+            row = observation(rights_status=rights,
+                              enumeration_complete_within_scope=False,
+                              enumerated_scope_review_id=None)
+            with self.subTest(rights=rights):
+                result = reconcile((row,))
+                self.assertEqual(result.state, "UNKNOWN")
+                self.assertFalse(result.dispatch_authorized)
+
+    def test_old_success_is_stale_even_without_latest_failure(self):
+        old = observation(attempted_at=NOW - timedelta(days=5))
+        result = reconcile((old,), baseline_sha256=SHA)
+        self.assertEqual(result.state, "STALE")
+
+    def test_strict_scope_and_replay_conflicts_are_rejected(self):
+        a = observation()
+        with self.assertRaisesRegex(ValueError, "REPLAY_CONFLICT"):
+            reconcile((a, replace(a, content_sha256="c" * 64)))
+        with self.assertRaisesRegex(ValueError, "MIXED_SCOPE"):
+            reconcile((replace(a, source_id="source:other"),))
+        with self.assertRaisesRegex(ValueError, "FUTURE_OBSERVATION"):
+            reconcile((replace(a, attempted_at=NOW + timedelta(days=1)),))
+
+    def test_backfill_and_subscription_modes_do_not_fabricate_shared_coverage(self):
+        one = reconcile((observation(),))
+        subscription = build_source_coverage(
+            unit(mode="INCREMENTAL_SUBSCRIPTION"), (observation(),), now=NOW, rights_ready=True)
+        self.assertEqual(one.mode, "HISTORICAL_BACKFILL")
+        self.assertEqual(subscription.mode, "INCREMENTAL_SUBSCRIPTION")
+        self.assertNotEqual(subscription.observation_fingerprint, one.observation_fingerprint)
+
+    def test_incomplete_scope_cannot_be_self_attested_by_error(self):
+        with self.assertRaisesRegex(ValueError, "UNREVIEWED_COMPLETENESS"):
+            observation(status="OUTAGE", source_version=None, content_sha256=None,
+                        observation_receipt_id=None, rights_status="UNKNOWN")
+
+
+if __name__ == "__main__":
+    unittest.main()

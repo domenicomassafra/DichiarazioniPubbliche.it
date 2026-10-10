@@ -453,7 +453,7 @@ without manual DB surgery.
 | DP-241 | FUTURE | Active original-source recovery and finite investigation log | DP-209, DP-213, DP-225, DP-228 |
 | DP-242 | FUTURE | Studio source-to-candidate machine handoff and exception lifecycle | DP-416, DP-417, DP-418, DP-419 |
 | DP-243 | FUTURE | Initial permanent historical corpus from mixed Italian/German primary sources | DP-210, DP-215, DP-703, DP-443 |
-| DP-244 | FUTURE | Source coverage inventory, version refresh and incremental catalog | DP-209, DP-213, DP-215, DP-511 |
+| DP-244 | IN PROGRESS | Source coverage inventory, version refresh and incremental catalog | DP-209, DP-213, DP-215, DP-511 |
 | DP-312 | IN PROGRESS | Speech act, contesto adattivo e fedeltà semantica multilingue | DP-216, DP-217, DP-218, DP-219, DP-220, DP-222 |
 | DP-313 | IN PROGRESS | Documento processuale: persone, ruoli, affermazioni e stati | DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312 |
 | DP-314 | FUTURE | Verificatore fattuale generalista per claim type e requirement profile | DP-215, DP-224, DP-226, DP-227, DP-228, DP-229, DP-312 |

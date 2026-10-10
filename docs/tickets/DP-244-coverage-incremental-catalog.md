@@ -1,6 +1,6 @@
 # DP-244 — Source coverage inventory, version refresh and incremental catalog
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M7 — stable v1 launch
 Depends on: DP-209, DP-213, DP-215, DP-511
 
@@ -48,4 +48,23 @@ Extend Discovery/Source Health/Coverage Need/DP-511 version store rather than st
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+Historical planning-only note, superseded solely for the local slice below.
+
+## 2026-10-11 — Bounded observed-coverage catalog (partial)
+
+Added opt-in `coverage_catalog_v1.py` with 10 focused synthetic tests PASS.
+The private read model records precise source family, format, language,
+scope/time, historical backfill versus incremental subscription, separate
+last attempted/last **successful** observation, reviewed enumeration
+completeness *only within the declared bounded source scope*, rights status
+and exact source version/hash. The five explicit states distinguish
+`NOT_COVERED`, `UNKNOWN`, `PARTIAL`, `STALE` and
+`CURRENT_WITHIN_OBSERVED_SCOPE`; changed hashes trigger **only** a new
+review proposal when downstream cost/rights/capability are ready and keep
+current public derived views stale until reanalysis. Unchanged source
+versions, retries and outages do not invent new jobs or general coverage.
+An optional redacted freshness descriptor omits private collection/source
+identities and corpus membership. No runtime watcher/timer/provider/DB has
+been activated. **All original AC-244.1–.6 remain unchecked** pending
+authenticated rights and source receipts, persistent idempotent scheduling,
+freshness invalidation of actual readers and MiniPC permitted-source proof.
