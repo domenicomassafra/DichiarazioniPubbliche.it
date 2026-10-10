@@ -1937,7 +1937,8 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                 SELECT
                     finding.id,
                     finding.claim_id,
-                    finding.verification_run_id
+                    finding.verification_run_id,
+                    finding.publication_status
                 FROM finding
                 JOIN atomic_claim claim ON claim.id = finding.claim_id
                 JOIN verification_run verification
@@ -2147,16 +2148,6 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                         )
                 FOR UPDATE OF finding
             ),
-            changed AS (
-                UPDATE finding target
-                SET publication_status = 'PUBLISH'
-                FROM eligible
-                WHERE target.id = eligible.id
-                RETURNING
-                    target.id,
-                    target.claim_id,
-                    target.verification_run_id
-            ),
             logged AS (
                 INSERT INTO review_event (
                     id, entity_type, entity_id, action, actor_ref, reason,
@@ -2165,18 +2156,43 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                 SELECT
                     :'event_id',
                     'FINDING',
-                    changed.id,
+                    eligible.id,
                     'APPROVED',
                     :'actor_ref',
                     NULLIF(:'reason',''),
                     jsonb_build_object(
-                        'claim_id', changed.claim_id,
-                        'verification_run_id', changed.verification_run_id,
+                        'claim_id', eligible.claim_id,
+                        'verification_run_id', eligible.verification_run_id,
                         'publication_status', 'PUBLISH'
                     )
-                FROM changed
+                FROM eligible
                 ON CONFLICT (id) DO NOTHING
                 RETURNING id
+            ),
+            replayed_exact_review AS (
+                SELECT existing.id
+                FROM review_event existing
+                JOIN eligible ON eligible.publication_status = 'PUBLISH'
+                WHERE existing.id = :'event_id'
+                  AND existing.entity_type = 'FINDING'
+                  AND existing.entity_id = eligible.id
+                  AND existing.action = 'APPROVED'
+                  AND existing.actor_ref = :'actor_ref'
+                  AND existing.reason IS NOT DISTINCT FROM NULLIF(:'reason','')
+            ),
+            changed AS (
+                UPDATE finding target
+                SET publication_status = 'PUBLISH'
+                FROM eligible
+                WHERE target.id = eligible.id
+                  AND (
+                      EXISTS (SELECT 1 FROM logged)
+                      OR EXISTS (SELECT 1 FROM replayed_exact_review)
+                  )
+                RETURNING
+                    target.id,
+                    target.claim_id,
+                    target.verification_run_id
             )
             SELECT EXISTS(SELECT 1 FROM changed)::text;
             """,
@@ -2867,7 +2883,7 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
         raw = self.run(
             """
             WITH eligible AS (
-                SELECT reply.id, reply.finding_id
+                SELECT reply.id, reply.finding_id, reply.status, reply.public_visibility
                 FROM right_of_reply reply
                 JOIN finding ON finding.id = reply.finding_id
                 WHERE
@@ -2899,15 +2915,6 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                     )
                 FOR UPDATE OF reply
             ),
-            changed AS (
-                UPDATE right_of_reply reply
-                SET
-                    status = 'PUBLISHED',
-                    public_visibility = 'PUBLIC'
-                FROM eligible
-                WHERE reply.id = eligible.id
-                RETURNING reply.id, reply.finding_id
-            ),
             logged AS (
                 INSERT INTO review_event (
                     id, entity_type, entity_id, action, actor_ref, reason,
@@ -2916,14 +2923,40 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                 SELECT
                     :'event_id',
                     'RIGHT_OF_REPLY',
-                    changed.id,
+                    eligible.id,
                     'APPROVED',
                     :'actor_ref',
                     NULLIF(:'reason',''),
-                    jsonb_build_object('finding_id', changed.finding_id)
-                FROM changed
+                    jsonb_build_object('finding_id', eligible.finding_id)
+                FROM eligible
                 ON CONFLICT (id) DO NOTHING
                 RETURNING id
+            ),
+            replayed_exact_review AS (
+                SELECT existing.id
+                FROM review_event existing
+                JOIN eligible
+                  ON eligible.status = 'PUBLISHED'
+                 AND eligible.public_visibility = 'PUBLIC'
+                WHERE existing.id = :'event_id'
+                  AND existing.entity_type = 'RIGHT_OF_REPLY'
+                  AND existing.entity_id = eligible.id
+                  AND existing.action = 'APPROVED'
+                  AND existing.actor_ref = :'actor_ref'
+                  AND existing.reason IS NOT DISTINCT FROM NULLIF(:'reason','')
+            ),
+            changed AS (
+                UPDATE right_of_reply reply
+                SET
+                    status = 'PUBLISHED',
+                    public_visibility = 'PUBLIC'
+                FROM eligible
+                WHERE reply.id = eligible.id
+                  AND (
+                      EXISTS (SELECT 1 FROM logged)
+                      OR EXISTS (SELECT 1 FROM replayed_exact_review)
+                  )
+                RETURNING reply.id, reply.finding_id
             )
             SELECT EXISTS(SELECT 1 FROM changed)::text;
             """,
@@ -3011,7 +3044,9 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                 SELECT
                     correction.id,
                     correction.finding_id,
-                    correction.previous_finding_id
+                    correction.previous_finding_id,
+                    correction.public_visibility,
+                    previous.publication_status AS previous_publication_status
                 FROM correction
                 JOIN finding current
                     ON current.id = correction.finding_id
@@ -3060,11 +3095,48 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                     )
                 FOR UPDATE OF correction, previous
             ),
+            logged AS (
+                INSERT INTO review_event (
+                    id, entity_type, entity_id, action, actor_ref, reason,
+                    metadata
+                )
+                SELECT
+                    :'event_id',
+                    'CORRECTION',
+                    eligible.id,
+                    'APPROVED',
+                    :'actor_ref',
+                    NULLIF(:'reason',''),
+                    jsonb_build_object(
+                        'finding_id', eligible.finding_id,
+                        'previous_finding_id', eligible.previous_finding_id
+                    )
+                FROM eligible
+                ON CONFLICT (id) DO NOTHING
+                RETURNING id
+            ),
+            replayed_exact_review AS (
+                SELECT existing.id
+                FROM review_event existing
+                JOIN eligible
+                  ON eligible.public_visibility = 'PUBLIC'
+                 AND eligible.previous_publication_status = 'CORRECTED'
+                WHERE existing.id = :'event_id'
+                  AND existing.entity_type = 'CORRECTION'
+                  AND existing.entity_id = eligible.id
+                  AND existing.action = 'APPROVED'
+                  AND existing.actor_ref = :'actor_ref'
+                  AND existing.reason IS NOT DISTINCT FROM NULLIF(:'reason','')
+            ),
             changed_correction AS (
                 UPDATE correction target
                 SET public_visibility = 'PUBLIC'
                 FROM eligible
                 WHERE target.id = eligible.id
+                  AND (
+                      EXISTS (SELECT 1 FROM logged)
+                      OR EXISTS (SELECT 1 FROM replayed_exact_review)
+                  )
                 RETURNING
                     target.id,
                     target.finding_id,
@@ -3076,26 +3148,6 @@ class ReviewPublicationDecisionStore(PsqlRuntime):
                 FROM changed_correction changed
                 WHERE previous.id = changed.previous_finding_id
                 RETURNING previous.id
-            ),
-            logged AS (
-                INSERT INTO review_event (
-                    id, entity_type, entity_id, action, actor_ref, reason,
-                    metadata
-                )
-                SELECT
-                    :'event_id',
-                    'CORRECTION',
-                    changed.id,
-                    'APPROVED',
-                    :'actor_ref',
-                    NULLIF(:'reason',''),
-                    jsonb_build_object(
-                        'finding_id', changed.finding_id,
-                        'previous_finding_id', changed.previous_finding_id
-                    )
-                FROM changed_correction changed
-                ON CONFLICT (id) DO NOTHING
-                RETURNING id
             )
             SELECT EXISTS(SELECT 1 FROM changed_correction)::text;
             """,

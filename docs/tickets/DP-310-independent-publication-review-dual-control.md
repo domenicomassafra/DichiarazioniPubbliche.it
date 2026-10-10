@@ -69,6 +69,20 @@ Reuse the append-only review ledger where possible. If actor/review-stage constr
 new persistence, use additive schema and document the operator identity model without
 prematurely building DP-507's future admin auth surface.
 
+### 2026-10-10 legacy public-writer review-event collision maintenance
+
+Disposable PostgreSQL RED tests exposed a defect below the independently
+attested DP-310 projection gate: direct Finding, reply and correction
+writers could move a record to PUBLISH/PUBLIC even if their
+\`review_event\` insert was skipped by an unrelated event-ID collision.
+The repaired SQL gates each public status transition on the new matching
+event, with idempotency only for an already-public record and the
+unchanged event/entity/actor/reason. A correction cannot mark the prior
+Finding CORRECTED without its own receipt. See
+[\`public-review-event-publication-fence-20261010.md\`](../ops/public-review-event-publication-fence-20261010.md).
+This is additional source integrity, not a substitute for qualified
+reviewer identity, legal sign-off or launch authorization.
+
 ## Completion receipt
 
 Local `publication-review-control-v1` now provides the dependency-safe pure review contract

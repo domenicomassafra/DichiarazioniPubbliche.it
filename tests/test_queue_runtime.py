@@ -407,7 +407,12 @@ class QueueRuntimeTests(unittest.TestCase):
         )
         self.assertIn("current_review.entity_type = 'FINDING'", store.sql)
         self.assertIn("previous_review.entity_type = 'FINDING'", store.sql)
-        self.assertEqual(store.sql.count("action = 'APPROVED'"), 2)
+        self.assertIn("current_review.action = 'APPROVED'", store.sql)
+        self.assertIn("previous_review.action = 'APPROVED'", store.sql)
+        # A third exact-action check is intentional: only an already
+        # published correction may replay its own review event; it cannot
+        # substitute for either required Finding approval.
+        self.assertIn("existing.action = 'APPROVED'", store.sql)
         self.assertIn("trigger.status = 'PROCESSED'", store.sql)
         self.assertIn("child.supersedes_id = current.id", store.sql)
 
