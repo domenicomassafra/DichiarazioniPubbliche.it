@@ -1,5 +1,7 @@
 # Dichiarazioni Pubbliche — pending definitivi e briefing per il grilling
 
+**Per la nuova chat usa come istruzione principale il prompt più esteso** [`PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md`](PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md). Questo documento resta l'inventario di riferimento dei 35 ticket, non va letto come autorizzazione a interrogare il proprietario senza prima aver valutato autonomamente l'intero prodotto. Le skill realmente installate sono `plan-grilling`, `plan-grill-with-docs` e `plan-domain-modeling`: il grilling si svolge per frontiere di decisioni indipendenti, con raccomandazioni e dipendenze, non come questionario casuale. Il redesign completo viene **dopo** la comprensione condivisa e l'approvazione della direzione.
+
 **Checkpoint:** 10 ottobre 2026, Europe/Rome. **Scopo:** consegna critica a un agente nuovo, senza promuovere ticket o release. Questo documento è una fotografia ragionata; le autorità correnti sono [PRODUCT.md](PRODUCT.md), [CONTEXT.md](CONTEXT.md), [ARCHITECTURE.md](ARCHITECTURE.md), [PLAN.md](PLAN.md), [docs/tickets/](docs/tickets/), [AGENTS.md](AGENTS.md) e [LAUNCH.md](LAUNCH.md). Il contesto tecnico dettagliato sta in [MEGA-HANDOFF-2026-10-10.md](MEGA-HANDOFF-2026-10-10.md). I documenti storici sotto docs/reviews/ rimangono prove datate, non un backlog parallelo.
 
 ## 1. Stato accertato e limite delle prove

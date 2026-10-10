@@ -5,22 +5,29 @@ non una seconda fonte di verità per i ticket o una certificazione di release.
 
 ## Leggere nell’ordine
 
+0. [`PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md`](PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md) — **mandato master da incollare nella nuova chat**: valutazione indipendente prima di domande, skill di grilling reali, poi redesign completo non generico.
 1. [`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md) — stato completo dei pending e prompt per il grilling nella prossima chat.
 2. [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md) — dettaglio delle prove e dei limiti, tabella della pipeline e analisi del rallentamento.
 3. [`LAUNCH.md`](LAUNCH.md) — pubblicazione informativa essenziale **distinta** dalla release editoriale stabile.
 4. [`PLAN.md`](PLAN.md) e [`docs/tickets/`](docs/tickets/) — registro **canonico** dei 125 ticket e delle acceptance criterion; mai modificare stati per semplificare i numeri.
 5. [`PRODUCT.md`](PRODUCT.md), [`CONTEXT.md`](CONTEXT.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`AGENTS.md`](AGENTS.md) — invarianti, architettura e regole di lavoro.
+6. [`docs/reviews/2026-10-10-open-ticket-reprioritization.md`](docs/reviews/2026-10-10-open-ticket-reprioritization.md) — decision queue 35/35: possibili accorpamenti e rinvii senza cancellare acceptance criterion.
+7. [`docs/reviews/2026-10-10-ux-redesign-audit-and-brief.md`](docs/reviews/2026-10-10-ux-redesign-audit-and-brief.md) — critica verificata del frontend, quattro direzioni visuali alternative e redesign da decidere **solo dopo il grilling**.
 
 ## Stato verificato al 10 ottobre (ricontrollare live)
 
 - **Sorgente autorevole:** `/Users/domenico/Code/DichiarazioniPubbliche.it`; repo GitHub `domenicomassafra/DichiarazioniPubbliche.it`.
-- **Git al checkpoint:** `main` locale e `origin/main` al commit `a66e987`; nessun altro branch/worktree/stash e working tree pulito. `git log -1` prevale sulla fotografia storica.
-- **CI GitHub:** esecuzione `38072548106` sul commit `a66e987`: success.
+- **Git alla baseline pubblicata precedente:** `main` locale e `origin/main` al commit `a104f0f`; nessun altro branch/worktree/stash al controllo. I commit successivi di review/handoff sono documentali e richiedono nuova verifica con `git log -1`.
+- **CI GitHub:** esecuzione `38073576869` sul commit `a104f0f`: **11/11 job PASS** (backend macOS/Linux, web, repository contract e clean clone).
 - **Ticket al checkpoint:** 125 totali; 90 DONE, 20 IN PROGRESS, 6 BLOCKED, 9 FUTURE; 35 non DONE.
 - **Test integrati già eseguiti:** Python 2390/2390 PASS; benchmark deterministico 5/5 PASS. Non equipararli al canary di un corpus reale.
 - **Release v1:** `tools/check_launch_preflight.py --expect-no-go` segnala 49 blocker. Non pubblicare claim o dati di diritti non approvati.
 - **HTTPS:** online, ma risposta verificata il 10 ottobre segnalava file datati 7 ottobre: GitHub push e deploy web **non sono la stessa cosa**.
 - **Runtime autorevole:** MiniPC, mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; PostgreSQL `dichiarazioni_pubbliche`. Non inferire deploy MiniPC da un nuovo SHA Git.
+
+## Prossimo ciclo: audit indipendente, grilling e redesign
+
+Il nuovo agente deve **prima leggere e valutare tutto il prodotto**, il codice, la roadmap, il runtime e l'interfaccia con prove; non deve iniziare chiedendo informazioni già presenti nel repository. Solo dopo questa ricognizione usa le skill realmente presenti `~/.agents/skills/plan-grilling`, `plan-grill-with-docs` e `plan-domain-modeling`: albero delle decisioni, round delle domande indipendenti con risposta consigliata, conseguenze e documentazione delle scelte. Il redesign completo richiesto dal proprietario non va confuso con il lavoro già eseguito: prima chiarire missione, target, scope, contenuti autorizzati e costo umano; poi quattro direzioni di design distinte, prototipi desktop/mobile, confronto e piano di migrazione misurabile. L'attuale UI è ritenuta troppo generica dal proprietario, ma questo non autorizza a introdurre falsi dati o aggirare privacy e diritti.
 
 ## Confini non negoziabili
 

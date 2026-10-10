@@ -17,6 +17,7 @@ publication, reply, and correction are separate auditable stages.
 Canonical source repository: `domenicomassafra/DichiarazioniPubbliche.it`.
 
 **Current status / next-agent entry point (2026-10-10):** [`HANDOFF.md`](HANDOFF.md),
+[`PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md`](PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md),
 [`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md),
 [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md), and
 [`LAUNCH.md`](LAUNCH.md). The repository being merged and CI passing does **not**
