@@ -22,6 +22,13 @@ _CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _METHODS = {"EXACT_NORMALIZED", "LEXICAL_TRIGRAM", "SOURCE_SELECTOR_OVERLAP"}
 _CLASSES = {"DUPLICATE_EXTRACTION", "SAME_PROPOSITION", "RELATED", "DIFFERENT", "UNCERTAIN"}
+_CLASS_EXPLANATIONS = {
+    "DUPLICATE_EXTRACTION": "Possibile duplicato della stessa estrazione e dello stesso passaggio fonte",
+    "SAME_PROPOSITION": "Stessa proposizione suggerita, senza prova di duplicazione dell'estrazione",
+    "RELATED": "Proposizioni collegate, equivalenza non dimostrata",
+    "DIFFERENT": "Proposizioni distinte nella classificazione proposta",
+    "UNCERTAIN": "Confronto incerto: mantenere in verifica umana",
+}
 _DISPOSITIONS = {"PROPOSE_CLUSTER", "NO_CLUSTER", "HOLD"}
 
 
@@ -100,6 +107,8 @@ def render_candidate_review_workspace(
         matches.append(
             "<details><summary>" + escape(cls) + " · "
             + _reference(row.get("target_id")) + "</summary><dl>"
+            + "<dt>Significato del confronto</dt><dd>"
+            + escape(_CLASS_EXPLANATIONS[cls]) + "</dd>"
             + "<dt>Risultato</dt><dd>" + _reference(row.get("result_id")) + "</dd>"
             + "<dt>Tipo target</dt><dd>" + _codes([row.get("target_type")]) + "</dd>"
             + "<dt>Metodo</dt><dd>" + escape(method) + "</dd>"

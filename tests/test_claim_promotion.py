@@ -495,6 +495,34 @@ class ClaimPromotionTests(unittest.TestCase):
         self.assertEqual(receipt.reason_code, "PROMOTION_AMBIGUOUS_DUPLICATE")
         self.assertEqual([c[0] for c in store.calls], ["context"])
 
+    def test_same_proposition_is_not_automatically_a_duplicate_extraction(self):
+        context = written_context()
+        context["same_proposition_target_ids"] = ["claim:related-equivalent"]
+        store = FakePromotionStore(context)
+        receipt = promote_claim_candidate(store, self.request())
+        self.assertEqual(receipt.reason_code, "PROMOTION_SAME_PROPOSITION_REVIEW_REQUIRED")
+        self.assertFalse(receipt.promoted)
+        self.assertEqual([item[0] for item in store.calls], ["context"])
+
+    def test_promotion_sql_never_uses_prior_approval_after_a_later_revocation(self):
+        for sql in (PROMOTION_CONTEXT_SQL_V1, _LINK_EXISTING_SQL,
+                    _PROMOTE_WRITTEN_NEW_SQL, _PROMOTE_MEDIA_NEW_SQL):
+            with self.subTest(name=sql[:55]):
+                self.assertIn("ORDER BY r.created_at DESC, r.id DESC", sql)
+                self.assertNotIn("AND r.action='APPROVED'", sql)
+                self.assertIn("'CLAIM_CANDIDATE'", sql)
+                self.assertIn("'STATEMENT_CANDIDATE'", sql)
+
+    def test_sql_keeps_duplicate_extraction_distinct_from_same_proposition(self):
+        self.assertIn("'same_proposition_target_ids'", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("source.match_class = 'DUPLICATE_EXTRACTION'", PROMOTION_CONTEXT_SQL_V1)
+        self.assertIn("target.match_class = 'DUPLICATE_EXTRACTION'", PROMOTION_CONTEXT_SQL_V1)
+        link = _LINK_EXISTING_SQL.split("), target_valid AS (", 1)[1].split("), receipt AS (", 1)[0]
+        self.assertNotIn("'SAME_PROPOSITION'", link)
+        self.assertNotIn("ac.normalized_claim=c.normalized_claim", link)
+        for sql in (_PROMOTE_WRITTEN_NEW_SQL, _PROMOTE_MEDIA_NEW_SQL):
+            self.assertIn("'SAME_PROPOSITION'", sql)
+
     def test_reported_speech_cannot_promote_or_link_existing_without_origin(self):
         for duplicate_targets in ([], ["claim:existing"]):
             with self.subTest(duplicate_targets=duplicate_targets):
@@ -664,20 +692,51 @@ class ClaimPromotionTests(unittest.TestCase):
     def test_existing_promotion_replays_same_receipt(self):
         context = written_context()
         context["candidate_status"] = "PROMOTED"
-        context["promoted_claim_id"] = "claim:existing"
+        context["promoted_claim_id"] = deterministic_promoted_claim_id("candidate:1")
         context["existing_promotion"] = {
-            "id": "promotion:1",
-            "target_claim_id": "claim:existing",
+            "id": deterministic_promotion_id("candidate:1"),
+            "claim_candidate_id": "candidate:1",
+            "target_claim_id": deterministic_promoted_claim_id("candidate:1"),
             "action": "CREATED",
             "provenance_channel": "WRITTEN",
+            "promotion_version": PROMOTION_VERSION,
             "provenance_refs": ["text-provenance:1"],
-            "idempotency_key": "key:1",
+            "idempotency_key": deterministic_promotion_key("candidate:1", "WRITTEN"),
         }
         receipt = promote_claim_candidate(FakePromotionStore(context), self.request())
         self.assertTrue(receipt.promoted)
         self.assertTrue(receipt.replayed)
-        self.assertEqual(receipt.target_claim_id, "claim:existing")
+        self.assertEqual(receipt.target_claim_id, deterministic_promoted_claim_id("candidate:1"))
         self.assertEqual(receipt.provenance_refs, ("text-provenance:1",))
+
+    def test_replay_rejects_wrong_channel_or_inconsistent_persisted_identity(self):
+        baseline = written_context()
+        baseline["candidate_status"] = "PROMOTED"
+        baseline["promoted_claim_id"] = deterministic_promoted_claim_id("candidate:1")
+        baseline["existing_promotion"] = {
+            "id": deterministic_promotion_id("candidate:1"),
+            "claim_candidate_id": "candidate:1",
+            "target_claim_id": deterministic_promoted_claim_id("candidate:1"), "action": "CREATED",
+            "provenance_channel": "WRITTEN", "promotion_version": PROMOTION_VERSION,
+            "provenance_refs": ["ref:1"],
+            "idempotency_key": deterministic_promotion_key("candidate:1", "WRITTEN"),
+        }
+        for overrides, channel in (
+            ({}, "MEDIA"),
+            ({"id": "promotion:other"}, "WRITTEN"),
+            ({"claim_candidate_id": "candidate:other"}, "WRITTEN"),
+            ({"promotion_version": "v0"}, "WRITTEN"),
+            ({"idempotency_key": "key:other"}, "WRITTEN"),
+            ({"target_claim_id": "claim:other"}, "WRITTEN"),
+            ({"action": "UNKNOWN"}, "WRITTEN"),
+            ({"provenance_refs": []}, "WRITTEN"),
+        ):
+            with self.subTest(overrides=overrides, channel=channel):
+                context = copy.deepcopy(baseline)
+                context["existing_promotion"].update(overrides)
+                receipt = promote_claim_candidate(FakePromotionStore(context), self.request(channel))
+                self.assertFalse(receipt.promoted)
+                self.assertEqual(receipt.reason_code, "PROMOTION_REPLAY_CONFLICT")
 
     def test_promoted_candidate_without_ledger_fails_closed(self):
         context = written_context()

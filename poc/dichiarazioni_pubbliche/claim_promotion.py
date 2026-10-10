@@ -318,7 +318,22 @@ WITH candidate AS (
      AND ac.claim_type_version = c.claim_type_version
      AND ac.temporal_scope = c.temporal_scope
      AND ac.check_worthy = c.check_worthy
-), approved_cluster_targets AS (
+), approved_duplicate_targets AS (
+    SELECT DISTINCT target.atomic_claim_id AS id
+    FROM candidate c
+    JOIN proposition_cluster_member source
+      ON source.claim_candidate_id = c.candidate_id
+     AND source.member_type = 'CLAIM_CANDIDATE'
+     AND source.status = 'APPROVED'
+     AND source.match_class = 'DUPLICATE_EXTRACTION'
+    JOIN proposition_cluster cluster
+      ON cluster.id = source.cluster_id AND cluster.status = 'APPROVED'
+    JOIN proposition_cluster_member target
+      ON target.cluster_id = cluster.id
+     AND target.member_type = 'ATOMIC_CLAIM'
+     AND target.status = 'APPROVED'
+     AND target.match_class = 'DUPLICATE_EXTRACTION'
+), approved_same_proposition_targets AS (
     SELECT DISTINCT target.atomic_claim_id AS id
     FROM candidate c
     JOIN proposition_cluster_member source
@@ -333,16 +348,20 @@ WITH candidate AS (
      AND target.member_type = 'ATOMIC_CLAIM'
      AND target.status = 'APPROVED'
      AND target.match_class IN ('DUPLICATE_EXTRACTION', 'SAME_PROPOSITION')
-), targets AS (
+), same_proposition_targets AS (
     SELECT id FROM exact_targets
     UNION
-    SELECT id FROM approved_cluster_targets
+    SELECT id FROM approved_same_proposition_targets
+    EXCEPT
+    SELECT id FROM approved_duplicate_targets
 ), existing_promotion AS (
     SELECT
         promotion.id,
+        promotion.claim_candidate_id,
         promotion.target_claim_id,
         promotion.action,
         promotion.provenance_channel,
+        promotion.promotion_version,
         promotion.provenance_refs,
         promotion.idempotency_key
     FROM claim_candidate_promotion promotion
@@ -365,18 +384,18 @@ SELECT COALESCE((
         'promoted_claim_id', c.promoted_claim_id,
         'statement_candidate_id', c.statement_candidate_id,
         'statement_status', c.statement_status,
-        'statement_reviewed', EXISTS (
-            SELECT 1 FROM review_event r
+        'statement_reviewed', (
+            SELECT r.action FROM review_event r
             WHERE r.entity_type='STATEMENT_CANDIDATE'
               AND r.entity_id=c.statement_candidate_id
-              AND r.action='APPROVED'
-        ),
-        'claim_candidate_reviewed', EXISTS (
-            SELECT 1 FROM review_event r
+            ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+        ) = 'APPROVED',
+        'claim_candidate_reviewed', (
+            SELECT r.action FROM review_event r
             WHERE r.entity_type='CLAIM_CANDIDATE'
               AND r.entity_id=c.candidate_id
-              AND r.action='APPROVED'
-        ),
+            ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+        ) = 'APPROVED',
         'speaker_person_id', c.speaker_person_id,
         'speaker_is_public', COALESCE(c.is_public_figure, false),
         'statement_text_hash', c.statement_text_hash,
@@ -390,7 +409,8 @@ SELECT COALESCE((
         'written_count', ps.written_count,
         'media_count', ps.media_count,
         'passages', ps.passages,
-        'duplicate_target_ids', COALESCE((SELECT jsonb_agg(id ORDER BY id) FROM targets), '[]'::jsonb),
+        'duplicate_target_ids', COALESCE((SELECT jsonb_agg(id ORDER BY id) FROM approved_duplicate_targets), '[]'::jsonb),
+        'same_proposition_target_ids', COALESCE((SELECT jsonb_agg(id ORDER BY id) FROM same_proposition_targets), '[]'::jsonb),
         'existing_promotion', (SELECT row_to_json(ep) FROM existing_promotion ep LIMIT 1)
     )
     FROM candidate c CROSS JOIN passage_summary ps
@@ -417,14 +437,16 @@ WITH lock_row AS (
       AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
-      AND EXISTS (
-          SELECT 1 FROM review_event r
-          WHERE r.entity_type='CLAIM_CANDIDATE' AND r.entity_id=cc.id AND r.action='APPROVED'
-      )
-      AND EXISTS (
-          SELECT 1 FROM review_event r
-          WHERE r.entity_type='STATEMENT_CANDIDATE' AND r.entity_id=sc.id AND r.action='APPROVED'
-      )
+      AND (
+          SELECT r.action FROM review_event r
+          WHERE r.entity_type='CLAIM_CANDIDATE' AND r.entity_id=cc.id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+      ) = 'APPROVED'
+      AND (
+          SELECT r.action FROM review_event r
+          WHERE r.entity_type='STATEMENT_CANDIDATE' AND r.entity_id=sc.id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+      ) = 'APPROVED'
       AND (SELECT count(*) FROM statement_candidate_passage x WHERE x.statement_candidate_id=sc.id)=1
     FOR UPDATE OF cc
 ), valid_provenance AS (
@@ -524,17 +546,7 @@ WITH lock_row AS (
     SELECT ac.id
     FROM candidate c
     JOIN atomic_claim ac ON ac.id=:'target_claim_id'
-    WHERE
-      (
-        ac.content_id=c.content_id
-        AND ac.speaker_person_id IS NOT DISTINCT FROM c.speaker_person_id
-        AND ac.normalized_claim=c.normalized_claim
-        AND ac.claim_type=c.proposed_claim_type
-        AND ac.claim_type_version=c.claim_type_version
-        AND ac.temporal_scope=c.temporal_scope
-        AND ac.check_worthy=c.check_worthy
-      )
-      OR EXISTS (
+    WHERE EXISTS (
         SELECT 1
         FROM proposition_cluster_member source
         JOIN proposition_cluster cluster ON cluster.id=source.cluster_id AND cluster.status='APPROVED'
@@ -543,11 +555,11 @@ WITH lock_row AS (
          AND target.atomic_claim_id=ac.id
          AND target.member_type='ATOMIC_CLAIM'
          AND target.status='APPROVED'
-         AND target.match_class IN ('DUPLICATE_EXTRACTION','SAME_PROPOSITION')
+         AND target.match_class = 'DUPLICATE_EXTRACTION'
         WHERE source.claim_candidate_id=c.id
           AND source.member_type='CLAIM_CANDIDATE'
           AND source.status='APPROVED'
-          AND source.match_class IN ('DUPLICATE_EXTRACTION','SAME_PROPOSITION')
+          AND source.match_class = 'DUPLICATE_EXTRACTION'
       )
 ), receipt AS (
     INSERT INTO claim_candidate_promotion (
@@ -595,14 +607,16 @@ WITH lock_row AS (
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
-      AND EXISTS (
-          SELECT 1 FROM review_event r
-          WHERE r.entity_type='CLAIM_CANDIDATE' AND r.entity_id=cc.id AND r.action='APPROVED'
-      )
-      AND EXISTS (
-          SELECT 1 FROM review_event r
-          WHERE r.entity_type='STATEMENT_CANDIDATE' AND r.entity_id=sc.id AND r.action='APPROVED'
-      )
+      AND (
+          SELECT r.action FROM review_event r
+          WHERE r.entity_type='CLAIM_CANDIDATE' AND r.entity_id=cc.id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+      ) = 'APPROVED'
+      AND (
+          SELECT r.action FROM review_event r
+          WHERE r.entity_type='STATEMENT_CANDIDATE' AND r.entity_id=sc.id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+      ) = 'APPROVED'
       AND (SELECT count(*) FROM statement_candidate_passage x WHERE x.statement_candidate_id=sc.id)=1
     FOR UPDATE OF cc
 ), written AS (
@@ -716,14 +730,16 @@ WITH lock_row AS (
       AND sc.status='APPROVED'
       AND sc.speaker_person_id IS NOT NULL
       AND EXISTS (SELECT 1 FROM person p WHERE p.id=sc.speaker_person_id AND p.is_public_figure=true)
-      AND EXISTS (
-          SELECT 1 FROM review_event r
-          WHERE r.entity_type='CLAIM_CANDIDATE' AND r.entity_id=cc.id AND r.action='APPROVED'
-      )
-      AND EXISTS (
-          SELECT 1 FROM review_event r
-          WHERE r.entity_type='STATEMENT_CANDIDATE' AND r.entity_id=sc.id AND r.action='APPROVED'
-      )
+      AND (
+          SELECT r.action FROM review_event r
+          WHERE r.entity_type='CLAIM_CANDIDATE' AND r.entity_id=cc.id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+      ) = 'APPROVED'
+      AND (
+          SELECT r.action FROM review_event r
+          WHERE r.entity_type='STATEMENT_CANDIDATE' AND r.entity_id=sc.id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1
+      ) = 'APPROVED'
       AND (SELECT count(*) FROM statement_candidate_passage x WHERE x.statement_candidate_id=sc.id)=1
     FOR UPDATE OF cc
 ), media AS (
@@ -924,9 +940,32 @@ def promote_claim_candidate(
     context = store.context(request.candidate_id)
     if context is None:
         return _blocked(request, "PROMOTION_CANDIDATE_NOT_FOUND")
+    if not isinstance(context, Mapping) or context.get("candidate_id") != request.candidate_id:
+        return _blocked(request, "PROMOTION_CONTEXT_BINDING_MISMATCH")
 
     existing = context.get("existing_promotion")
     if isinstance(existing, Mapping):
+        refs = existing.get("provenance_refs")
+        if (
+            context.get("candidate_status") != "PROMOTED"
+            or context.get("promoted_claim_id") != existing.get("target_claim_id")
+            or existing.get("claim_candidate_id") != request.candidate_id
+            or existing.get("promotion_version") != PROMOTION_VERSION
+            or existing.get("id") != deterministic_promotion_id(request.candidate_id)
+            or existing.get("idempotency_key") != deterministic_promotion_key(
+                request.candidate_id, request.provenance_channel
+            )
+            or existing.get("provenance_channel") != request.provenance_channel
+            or existing.get("action") not in {"CREATED", "LINKED_EXISTING"}
+            or not isinstance(existing.get("target_claim_id"), str)
+            or not existing["target_claim_id"].strip()
+            or (existing["action"] == "CREATED" and existing["target_claim_id"]
+                != deterministic_promoted_claim_id(request.candidate_id))
+            or not isinstance(refs, list)
+            or len(refs) != 1
+            or any(not isinstance(ref, str) or not ref.strip() for ref in refs)
+        ):
+            return _blocked(request, "PROMOTION_REPLAY_CONFLICT")
         return _existing_receipt(request, existing)
 
     state = str(context.get("candidate_status") or "")
@@ -1041,6 +1080,16 @@ def promote_claim_candidate(
             return _blocked(request, "PROMOTION_MEDIA_QUOTE_CONTEXT_MISMATCH")
 
     duplicate_ids = tuple(str(x) for x in (context.get("duplicate_target_ids") or []))
+    same_proposition_ids = context.get("same_proposition_target_ids") or []
+    if (not isinstance(same_proposition_ids, list)
+            or any(not isinstance(value, str) or not value.strip()
+                   for value in same_proposition_ids)):
+        return _blocked(request, "PROMOTION_SAME_PROPOSITION_TARGETS_INVALID")
+    # Proposition equivalence (including exact normalized wording) is not
+    # evidence that this is the same extraction. It needs a separate human
+    # decision before DP-117 may create/link a public-record Atomic Claim.
+    if same_proposition_ids:
+        return _blocked(request, "PROMOTION_SAME_PROPOSITION_REVIEW_REQUIRED")
     if len(set(duplicate_ids)) > 1:
         return _blocked(request, "PROMOTION_AMBIGUOUS_DUPLICATE")
 

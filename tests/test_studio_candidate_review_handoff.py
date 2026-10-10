@@ -180,6 +180,20 @@ class CandidateReviewHandoffTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, encoded)
 
+    def test_same_proposition_requires_human_review_and_cannot_queue_direct_link(self):
+        baseline = self.packet()
+        self.promotion.data["same_proposition_target_ids"] = ["claim:1"]
+        preview = self.packet()
+        self.assertEqual(preview["currentness"], "CURRENT")
+        self.assertIn("PROMOTION_SAME_PROPOSITION_REVIEW_REQUIRED", preview["promotion_blockers"])
+        self.assertNotEqual(baseline["review_context_sha256"], preview["review_context_sha256"])
+        with self.assertRaisesRegex(ValueError, "LINK_NOT_SUGGESTED"):
+            self.submit(action="REVIEW_LINK")
+        self.assertEqual(list(self.queue_root.iterdir()), [])
+        receipt = self.submit(action="REVIEW_PROMOTION")
+        self.assertEqual(receipt["status"], "QUEUED_FOR_HUMAN_REVIEW")
+        self.assertFalse(receipt["promotion_authority"])
+
     def test_exact_input_or_feature_change_becomes_stale(self):
         self.match.targets = (
             item("ATOMIC_CLAIM", "claim:1", "Un testo nuovo e diverso.",
@@ -239,6 +253,7 @@ class CandidateReviewHandoffTests(unittest.TestCase):
         self.assertIn("candidate-review:", html)
         self.assertIn("QUEUED_FOR_HUMAN_REVIEW", html)
         self.assertIn("SAME_PROPOSITION", html)
+        self.assertIn("Stessa proposizione suggerita, senza prova di duplicazione", html)
         self.assertIn("Attualità: CURRENT", html)
         for raw in ("SECRET SHOULD NEVER", "Il primo evento", "private_text", "lexical_score"):
             self.assertNotIn(raw, html)

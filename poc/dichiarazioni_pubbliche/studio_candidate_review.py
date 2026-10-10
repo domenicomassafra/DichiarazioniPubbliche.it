@@ -327,6 +327,7 @@ def inspect_candidate_review_readiness(
                 "statement_candidate_id", "statement_status", "statement_reviewed",
                 "claim_candidate_reviewed", "speaker_person_id", "speaker_is_public",
                 "passage_count", "written_count", "media_count", "duplicate_target_ids",
+                "same_proposition_target_ids",
             ):
                 context_snapshot[key] = context.get(key)
             passages = context.get("passages")
@@ -359,6 +360,11 @@ def inspect_candidate_review_readiness(
                 blockers.append("PROMOTION_PROVENANCE_NOT_ATOMIC")
             if len(context.get("duplicate_target_ids") or []) > 1:
                 blockers.append("PROMOTION_AMBIGUOUS_DUPLICATE")
+            same_proposition_targets = context.get("same_proposition_target_ids")
+            if same_proposition_targets is not None and not isinstance(same_proposition_targets, list):
+                raise ValueError("STUDIO_CANDIDATE_SAME_PROPOSITION_TARGETS_INVALID")
+            if same_proposition_targets:
+                blockers.append("PROMOTION_SAME_PROPOSITION_REVIEW_REQUIRED")
         # DP-117 performs additional channel/quote/rights/reviewer checks and
         # mandatory read-back in its own transaction. Never claim READY here.
         blockers.append("DP117_TRANSACTIONAL_PROMOTION_REVALIDATION_REQUIRED")
@@ -639,7 +645,10 @@ def submit_candidate_review_handoff(
     )
     if selected is None:
         raise ValueError("STUDIO_REVIEW_HANDOFF_RESULT_NOT_FOUND")
-    if action == "REVIEW_LINK" and selected["suggested_disposition"] != "PROPOSE_CLUSTER":
+    if action == "REVIEW_LINK" and (
+        selected["suggested_disposition"] != "PROPOSE_CLUSTER"
+        or selected["match_class"] != "DUPLICATE_EXTRACTION"
+    ):
         raise ValueError("STUDIO_REVIEW_HANDOFF_LINK_NOT_SUGGESTED")
     # Recheck the source snapshot and identity before enqueue. The recorded
     # fingerprint remains a proof of checked inputs, not permanent freshness.

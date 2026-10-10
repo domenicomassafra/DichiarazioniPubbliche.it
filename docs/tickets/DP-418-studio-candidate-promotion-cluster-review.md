@@ -165,3 +165,46 @@ Mac full test suite 2266/2266 and isolated MiniPC focused 44/44 passed;
 benchmark 5/5. No live candidate/match/capture data is present on MiniPC.
 Actual reviewer decision readback, rights and keyboard/200% acceptance
 remain open; no AC is marked complete by this metadata-only prerequisite.
+
+### 2026-10-10 — persisted review-currentness and duplicate classification guard
+
+DP-117's persisted preflight and each promotion mutation previously used
+`EXISTS(review_event ... action='APPROVED')`, which treated an old approval
+as current even when a later REJECTED or QUARANTINED event existed. The
+canonical context and all three SQL mutation branches now require the
+**latest event by `created_at DESC, id DESC`** for the exact candidate or
+statement identity to be APPROVED. The preflight propagates this state to
+Studio blockers and remains a read-only preview until DP-117 revalidates.
+
+Matching an identical normalized proposition is insufficient to prove the
+same source extraction. The preflight exposes it as
+`same_proposition_target_ids`, separately from approved, matched
+`DUPLICATE_EXTRACTION` cluster edges. A same-proposition target now blocks
+promotion with `PROMOTION_SAME_PROPOSITION_REVIEW_REQUIRED`, and the
+`LINKED_EXISTING` mutation refuses the previous exact-wording shortcut or
+SAME_PROPOSITION cluster edges. New-claim mutation SQL continues to refuse
+creation while a known equivalent or duplicate target exists. Studio displays
+the distinction and refuses a direct `REVIEW_LINK` handoff for a mere
+SAME_PROPOSITION model suggestion; review request storage remains private
+and grants no promotion/review/publication authority.
+
+Persisted promotion replay now checks its exact candidate ID, promotion
+version, deterministic receipt/key, selected provenance channel, candidate
+status/target and a single bounded provenance reference before returning an
+existing receipt. Inconsistent rows report `PROMOTION_REPLAY_CONFLICT`.
+
+Focused tests cover revoked approvals, same-proposition preflight, replay
+conflicts, Studio blockers and review-link handoff refusal. Two tests on an
+isolated real PostgreSQL database using `db/schema.v1.sql` confirm the
+latest persisted review actions and the actual distinction between exact
+proposition and reviewed duplicate cluster members.
+
+These changes are prerequisites only. Original AC-418.1–AC-418.4 stay open:
+the reviewer still lacks the full authenticated compare/decision workflow,
+the complete channel/rights blocker preview, independently persisted human
+decision readback, and measured 200%-zoom/keyboard acceptance. Concurrent
+review-event writers are not serialized with all DP-117 SQL transactions;
+the statement snapshot checks the latest committed event visible when its
+query starts, and additional transaction-authority design is still needed
+before claiming a universal race-free legal/human approval gate. No MiniPC
+live runtime acceptance or public enablement is asserted.
