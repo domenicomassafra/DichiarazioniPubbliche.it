@@ -16,16 +16,22 @@ from dichiarazioni_pubbliche.ingestion_relevance import canonical_content_url
 _COLLECTION_ID_SQL = frozenset({"collection.id", "member.collection_id"})
 _CONTENT_ID_SQL = frozenset({"content.id", "member.content_id"})
 _CANONICAL_URL_SQL = frozenset({"content.canonical_url"})
+_SOURCE_ID_SQL = frozenset({"content.source_id"})
 
 
 def valid_discovery_hit_groups_sql(
-    *, collection_id_sql: str, content_id_sql: str, canonical_url_sql: str
+    *, collection_id_sql: str, content_id_sql: str, canonical_url_sql: str,
+    source_id_sql: str | None = None,
 ) -> str:
     """SQL grouped by source family; accepts only fixed, validated SQL identifiers."""
     if (collection_id_sql not in _COLLECTION_ID_SQL
             or content_id_sql not in _CONTENT_ID_SQL
-            or canonical_url_sql not in _CANONICAL_URL_SQL):
+            or canonical_url_sql not in _CANONICAL_URL_SQL
+            or (source_id_sql is not None and source_id_sql not in _SOURCE_ID_SQL)):
         raise ValueError("DISCOVERY_PROVENANCE_SQL_EXPRESSION_INVALID")
+    # Some legacy fixtures predate persisted Source identity. The private
+    # source-to-review report opts into the additional exact Source binding.
+    source_binding = f"AND hit.source_id={source_id_sql}" if source_id_sql else ""
     return f"""
         SELECT hit.source_family, count(*)::integer AS hit_count
         FROM research_discovery_hit hit
@@ -44,6 +50,7 @@ def valid_discovery_hit_groups_sql(
          AND discovery_query.adapter_ids ? attempt.adapter_id
         WHERE hit.content_id={content_id_sql}
           AND hit.canonical_url={canonical_url_sql}
+          {source_binding}
           AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
           AND run.status IN ('COMPLETED','PARTIAL')
           AND manifest.collection_id={collection_id_sql}

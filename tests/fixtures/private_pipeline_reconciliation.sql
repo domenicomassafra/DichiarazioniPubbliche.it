@@ -10,6 +10,10 @@ CREATE TABLE source (LIKE public.source INCLUDING CONSTRAINTS INCLUDING DEFAULTS
 CREATE TABLE research_collection (LIKE public.research_collection INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
 CREATE TABLE content_item (LIKE public.content_item INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
 CREATE TABLE research_collection_content (LIKE public.research_collection_content INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
+CREATE TABLE research_discovery_manifest (LIKE public.research_discovery_manifest INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
+CREATE TABLE research_discovery_run (LIKE public.research_discovery_run INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
+CREATE TABLE research_discovery_query (LIKE public.research_discovery_query INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
+CREATE TABLE research_discovery_attempt (LIKE public.research_discovery_attempt INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
 CREATE TABLE research_discovery_hit (LIKE public.research_discovery_hit INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
 CREATE TABLE content_capture (LIKE public.content_capture INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
 CREATE TABLE passage (LIKE public.passage INCLUDING CONSTRAINTS INCLUDING DEFAULTS);
@@ -33,6 +37,22 @@ INSERT INTO content_item (id,source_id,canonical_url,rights_status) VALUES
 INSERT INTO research_collection_content
   (collection_id,content_id,inclusion_method,inclusion_version,metadata)
 SELECT 'synthetic:collection',id,'MANUAL','fixture-v1','{"capture_authorized":true}'::jsonb FROM content_item;
+-- Required source-to-Content lineage: an orphan Hit cannot qualify for
+-- private review or unlock its family-matched rights record.
+INSERT INTO research_discovery_manifest
+  (id,collection_id,manifest_sha256,max_results,max_results_per_host,cost_cap_usd,source_families)
+VALUES ('synthetic:manifest-1','synthetic:collection',repeat('d',64),10,10,0,
+        '["synthetic-family"]'::jsonb);
+INSERT INTO research_discovery_run (id,manifest_id,manifest_sha256,status)
+VALUES ('synthetic:run-1','synthetic:manifest-1',repeat('d',64),'COMPLETED');
+INSERT INTO research_discovery_query
+  (id,manifest_id,ordinal,query_text,source_families,adapter_ids,max_results)
+VALUES ('synthetic:query-1','synthetic:manifest-1',0,'Synthetic-only local test',
+        '["synthetic-family"]'::jsonb,'["synthetic-adapter"]'::jsonb,10);
+INSERT INTO research_discovery_attempt
+  (id,run_id,query_id,adapter_id,adapter_version,status)
+VALUES ('synthetic:attempt-1','synthetic:run-1','synthetic:query-1',
+        'synthetic-adapter','fixture-v1','HEALTHY');
 INSERT INTO research_discovery_hit
   (id,run_id,attempt_id,query_id,hit_key,ordinal,canonical_url,source_host,
    source_family,source_id,content_id,disposition)

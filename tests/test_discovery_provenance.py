@@ -80,6 +80,19 @@ class DiscoveryProvenanceAuthorizationTests(unittest.TestCase):
             canonical_url_sql="content.canonical_url",
         ))
 
+    def test_optional_persisted_source_identity_binding_is_strict(self):
+        query = valid_discovery_hit_groups_sql(
+            collection_id_sql="member.collection_id", content_id_sql="content.id",
+            canonical_url_sql="content.canonical_url", source_id_sql="content.source_id",
+        )
+        self.assertIn("hit.source_id=content.source_id", query)
+        with self.assertRaisesRegex(ValueError, "DISCOVERY_PROVENANCE_SQL_EXPRESSION_INVALID"):
+            valid_discovery_hit_groups_sql(
+                collection_id_sql="member.collection_id", content_id_sql="content.id",
+                canonical_url_sql="content.canonical_url",
+                source_id_sql="content.source_id OR true",
+            )
+
     def test_capture_operator_sql_and_report_share_same_verified_lineage(self):
         class QueryProbe(CapturePipelineStore):
             def __init__(self):

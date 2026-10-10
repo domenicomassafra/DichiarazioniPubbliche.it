@@ -12,6 +12,7 @@ import re
 from typing import Any, Mapping
 
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
+from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 
 VERSION = "private-pipeline-reconciliation-v1"
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
@@ -19,10 +20,15 @@ _HASH = re.compile(r"^[0-9a-f]{64}$")
 MAX_ITEMS = 25
 MAX_CANDIDATES_PER_MEMBER = 24
 
+_VALID_DISCOVERY_GROUPS_SQL = valid_discovery_hit_groups_sql(
+    collection_id_sql="member.collection_id", content_id_sql="content.id",
+    canonical_url_sql="content.canonical_url", source_id_sql="content.source_id",
+)
+
 # Join by persisted foreign keys, not by text resemblance or inferred source.
 # Latest Capture is only a freshness comparison; older Capture links remain
 # historical and must NOT be silently reused after a new observed version.
-_CHAIN_SQL = """
+_CHAIN_SQL = f"""
 BEGIN READ ONLY;
 WITH members AS (
   SELECT member.content_id, member.status AS member_status,
@@ -37,12 +43,7 @@ WITH members AS (
           WHERE capture.content_id=content.id) AS capture_count,
          (SELECT count(*) FROM passage passage
           WHERE passage.content_id=content.id) AS passage_count,
-         (SELECT count(*) FROM research_discovery_hit hit
-          WHERE hit.content_id=content.id
-            AND hit.canonical_url=content.canonical_url
-            AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
-            AND hit.source_id=content.source_id
-         ) AS discovery_count,
+         provenance.hit_count AS discovery_count,
          (SELECT count(*) FROM claim_candidate candidate
           WHERE candidate.content_id=content.id) AS candidate_count,
          EXISTS (
@@ -62,14 +63,7 @@ WITH members AS (
              AND rights.permitted_uses @> ARRAY[
                'RESEARCH_CAPTURE_PRIVATE','OMNIROUTE_MODEL_EXTRACTION_PRIVATE'
              ]::text[]
-             AND EXISTS (
-               SELECT 1 FROM research_discovery_hit hit
-               WHERE hit.content_id=content.id
-                 AND hit.canonical_url=content.canonical_url
-                 AND hit.source_family=rights.source_family
-                 AND hit.disposition IN ('NEW_CONTENT','EXISTING_CONTENT')
-                 AND hit.source_id=content.source_id
-             )
+             AND rights.source_family = ANY(provenance.source_families)
              AND NOT EXISTS (
                SELECT 1 FROM private_source_rights_record successor
                WHERE successor.supersedes_id=rights.id
@@ -79,6 +73,11 @@ WITH members AS (
   JOIN research_collection collection ON collection.id=member.collection_id
   JOIN content_item content ON content.id=member.content_id
   LEFT JOIN source source ON source.id=content.source_id
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(sum(groups.hit_count),0)::integer AS hit_count,
+           COALESCE(array_agg(groups.source_family), ARRAY[]::text[]) AS source_families
+    FROM ({_VALID_DISCOVERY_GROUPS_SQL}) groups
+  ) provenance
   WHERE member.collection_id=:'collection_id'
     AND member.content_id > :'after_id'
   ORDER BY member.content_id ASC

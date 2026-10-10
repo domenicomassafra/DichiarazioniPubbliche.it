@@ -65,6 +65,31 @@ def row(**overrides):
 
 
 class PipelineReconciliationTests(unittest.TestCase):
+    def test_private_review_readiness_counts_only_proven_healthy_discovery_lineage(self):
+        # A raw Hit can have an FAILED attempt, stale manifest or different
+        # Source even when its Content ID and URL match. Such a hit must not
+        # unlock the private review queue or bind an unrelated rights family.
+        for needle in (
+            "attempt.status='HEALTHY'",
+            "attempt.run_id=run.id",
+            "attempt.query_id=hit.query_id",
+            "discovery_query.manifest_id=manifest.id",
+            "discovery_query.adapter_ids ? attempt.adapter_id",
+            "manifest.collection_id=member.collection_id",
+            "manifest.status='ACTIVE'",
+            "manifest.manifest_sha256=run.manifest_sha256",
+            "hit.source_id=content.source_id",
+            "rights.source_family = ANY(provenance.source_families)",
+        ):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, _CHAIN_SQL)
+        self.assertNotIn("SELECT count(*) FROM research_discovery_hit hit", _CHAIN_SQL)
+
+        fixture = (ROOT / "tests/fixtures/private_pipeline_reconciliation.sql").read_text()
+        for table in ("manifest", "run", "query", "attempt"):
+            self.assertIn(f"CREATE TABLE research_discovery_{table}", fixture)
+        self.assertIn("'synthetic-adapter','fixture-v1','HEALTHY'", fixture)
+
     def test_read_only_query_uses_strict_foreign_key_chain_and_current_private_rights(self):
         self.assertIn("BEGIN READ ONLY;", _CHAIN_SQL)
         self.assertIn("COMMIT;", _CHAIN_SQL)

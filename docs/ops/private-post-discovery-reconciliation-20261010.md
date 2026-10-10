@@ -70,3 +70,22 @@ Remaining real gates: source mapping, owner-reviewed rights, ingestion
 relevance, capture, provider extraction/budget, independent source-byte
 verification, review of match and speaker provenance. No new tickets or
 legal/owner/provider grants were fabricated.
+
+## 2026-10-10 local Discovery-lineage correction (pending MiniPC proof)
+
+The initial private reconciliation counted bare `research_discovery_hit` rows
+to infer Discovery presence and the source family eligible for current rights.
+That count could include a failed attempt or superseded manifest with matching
+Content/URL/Source, falsely labeling a synthetic complete chain as
+`REVIEW_READY_PRIVATE_NOT_APPROVED`. The SQL now shares the exact verified
+Discovery chain with private Capture: matching run/attempt/query/manifest,
+`HEALTHY` adapter attempt, allowed family and adapter, successful run, active
+manifest, bound manifest hash, matching collection/Content/URL and exact
+persisted Source ID. The rights family must be among these verified hits.
+
+The negative SQL-contract test was RED before correction and GREEN afterward;
+the disposable PostgreSQL fixture includes matching manifest/run/query/attempt
+records. This is local code and fixture proof only: the revised SQL has not
+received a new MiniPC readback, no disposable schema was executed there, and
+no real Discovery/Capture/Passage/Candidate rights or corpus were created.
+DP-214's 100-item acceptance and DP-215.9 remain open.

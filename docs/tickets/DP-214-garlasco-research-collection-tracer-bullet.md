@@ -322,3 +322,15 @@ fail closed instead of receiving an inferred approval. This gate
 uses real temporary filesystem bytes only in local tests; it is
 not a real Garlasco source, a rights permit, a provider canary,
 or completed 100-item tracer. AC-214.1/.2/.4–.8 remain open.
+
+### 2026-10-10 private reconciliation Discovery-count guard
+
+The read-only private post-Discovery reconciliation now counts only the
+persisted, ACTIVE-manifest/HEALTHY-attempt verified Discovery chain for its
+private-review readiness summary and requires an exact persisted Source ID
+and source-family binding for any relevant rights record. Previously raw
+Discovery Hit rows with unsuccessful attempts could look sufficient in this
+diagnostic despite being rejected by Capture preflight. Focused negative
+tests passed RED→GREEN; the isolated fixture's Discovery parents have been
+added for the next PostgreSQL proof. This local code correction changes no
+real pilot data or permissions and does not close AC-214.1/.2/.4–.8.
