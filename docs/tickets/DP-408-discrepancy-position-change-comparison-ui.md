@@ -135,7 +135,7 @@ UI must preserve the exact domain label and explanation supplied by the public c
 - [ ] `AC-408.5`: Given desktop and mobile layouts, when the comparison is navigated by
   keyboard, at 200% zoom, and with a screen reader, then each participant, relation
   explanation, source link, and state is perceivable and operable with visible focus.
-- [ ] `AC-408.6`: Given the visual implementation, when compared with architecture v3
+- [x] `AC-408.6`: Given the visual implementation, when compared with architecture v3
   and DP-425, then chronology and the Segno evidence rail are primary; side-by-side
   comparison is secondary; no dashboard, graph, or color-coded person history appears.
 - [x] `AC-408.7`: Given providers are offline, when an approved comparison projection
@@ -261,3 +261,25 @@ browser QA PASS (**31 routes**, **0 external requests**, exact 200% zoom, phone 
 motion); performance PASS with the contradiction Trace included as a representative route and no
 overflow/autoplay. The temporary projection lives outside the repository and no production data,
 runtime relation, provider, or public service was mutated.
+
+### AC-408.6 current browser visual acceptance — 2026-10-10
+
+The actual current frontend WIP was built against the separate **fictional**
+DP-407 public-schema-valid projection and exercised in real Chrome at desktop
+1440, phone 375, exact 200% zoom and reduced motion. All assertions passed
+with zero external/provider requests. Fresh Trace screenshots were visually
+compared to the selected `prototypes/final-hybrid/trace.png` reference. The
+source-first page prioritizes chronological selectable events with the Segno
+selection rail, while the adjacent selected-event detail is subordinate on
+desktop and follows the event in mobile reading order. Relation review
+provenance stays in secondary disclosure. The independent regression
+`npm run check:m4-grammar` now verifies the ordered chronology, two real
+fixture event/detail pairs, secondary provenance and absent scores/dashboards
+in rendered HTML.
+
+**AC-408.6 visual hierarchy contract now closed.** This is current rendered
+fixture inspection by the implementing agent, not a human screen-reader or
+qualified editorial approval. Chrome captures remain outside Git under
+`ControlCenter/_local/dp-m4-worker12-20261010/trace-{desktop,phone}.png`.
+AC-408.5, a real approved/reviewed MiniPC relation canary and DP-408 overall
+`BLOCKED` status remain unchanged. No fixture was publicly promoted.

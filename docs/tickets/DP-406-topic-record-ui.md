@@ -117,7 +117,7 @@ the same information architecture. Topic is a research dossier; Person is a chro
 - [ ] `AC-406.6`: Given any state, when viewed without color, at 200% zoom, and with
   keyboard/screen-reader navigation, then scope, chronology, filters, links, and finding
   states remain understandable and operable.
-- [ ] `AC-406.7`: Given the visual implementation, when compared with DP-405, Topic is
+- [x] `AC-406.7`: Given the visual implementation, when compared with DP-405, Topic is
   visibly a dossier rather than a Person chronology while both reuse system components;
   the page has one dominant task with no dashboard/KPI/scorecard additions.
 - [x] `AC-406.8`: Given the collision/dependency audit runs, then DP-406 owns only the
@@ -226,3 +226,24 @@ AC-406.6 and AC-406.7 remain open because they require real assistive-technology
 judgment. The ticket remains `BLOCKED` for runtime DONE because the production authority still has
 no real reviewed Topic+membership canary; the isolated/public-schema fixture is deliberately not
 relabeled as production data.
+
+### AC-406.7 current browser visual acceptance — 2026-10-10
+
+Supersedes only the 2026-10-07 visual hold above. Actual current frontend WIP was
+built against the separate **fictional** DP-407 schema-valid projection: 56 HTML
+pages, zero Astro diagnostics, route/design/quality/correction checks PASS.
+Real Chrome QA exercised nine families at desktop 1440, phone 375 and exact
+200% browser zoom with zero external requests. Fresh Topic screenshots were
+visually compared with frozen `prototypes/final-hybrid/topic.png` and the
+actual Person route. Topic is a distinct dossier with scoped header, primary
+Statement stream, bounded filters and contextual alphabetical Person/original
+source indices; Person remains a chronology-first archive. Neither shows a
+KPI, person score or dashboard. An independent `npm run check:m4-grammar`
+checks the actual rendered DOM hierarchy, source order and no-score boundary.
+
+**AC-406.7 visual layout contract now closed.** This is rendered-fixture
+inspection by the implementing agent, not a human screen-reader/qualified
+accessibility sign-off. Chrome captures remain outside Git under
+`ControlCenter/_local/dp-m4-worker12-20261010/topic-{desktop,phone}.png`.
+AC-406.6, the real MiniPC reviewed Topic/membership canary and DP-406 overall
+`BLOCKED` status remain unchanged. No fixture was publicly promoted.
