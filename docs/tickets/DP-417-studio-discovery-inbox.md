@@ -268,3 +268,37 @@ PostgreSQL mutation and an adversarial injected response; no live
 database write occurred. This does not certify reviewer rights,
 other queues, bulk transitions or the uninstalled production
 migration. DP-417 remains IN PROGRESS.
+
+### 2026-10-10 — Live MiniPC migration and private Inbox API integration
+
+The previously pending `20261009-add-discovery-triage-decisions.sql` migration
+is now **installed** on MiniPC PostgreSQL. A complete pre-migration backup
+(SHA-256 `abf9a1ae5d0bc64a2d0e677c36e25693d63823bbaf7e652718dde3611e01d3be`)
+was restored into a disposable database and the exact migration applied
+**twice**, going from 99 to 100 tables without replay drift. Production
+received the same additive migration twice with `ON_ERROR_STOP`. The
+post-migration governed backup `20261010T110415Z` passed a full disposable
+restore with exact table row-count parity; Cloudflare/web units and public
+projection/static artifacts remained unchanged. No live Discovery Hit or
+triage review was created.
+
+The source-backed, bounded `DiscoveryInboxWorkflow` read model is now wired
+to authenticated **loopback-only** `POST /v1/discovery/inbox`, and a
+Collection-scoped form in the operator Studio page. Request shape accepts
+exactly `collection_id`, optional `limit<=30` and optional `after_id`;
+host/origin, bearer token, HTTP no-store, CSP and read-only PostgreSQL
+boundaries are unchanged. Results contain only run/attempt/query/manifest
+references, status/currentness, and inspectable blocker/retry codes; no
+source URLs, unreviewed text, credentials, write authorization or public
+publication authority is supplied.
+
+Focused Mac HTTP/SQL validator/queue tests **40/40 PASS**; real Chrome
+private workspace keyboard/regression PASS; repository-contract and
+diff checks PASS. MiniPC production read-only Inbox SQL runs successfully
+against the new table and reports zero rows, matching zero Discovery Hits
+and zero real triage annotations. This proves installed schema and query
+readiness, **not** a real reviewed or rights-authorized triage decision.
+
+DP-417 remains IN PROGRESS and AC-417.1–4 unchecked: real authorized
+Discovery records, independent reviewer action authority, all queue
+families, and atomic safe bulk transitions are still required.

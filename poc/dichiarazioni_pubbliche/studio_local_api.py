@@ -33,6 +33,7 @@ from dichiarazioni_pubbliche.studio_capture_inspector import (
 from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_media_selector
 from dichiarazioni_pubbliche.studio_operator_search import search_private_corpus
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
+from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInboxWorkflow
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
 
 STUDIO_LOCAL_API_VERSION = "studio-local-readonly-api-v1"
@@ -50,6 +51,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/collections/captures",
     "/v1/collections/passage-candidates",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
+    "/v1/discovery/inbox",
 })
 
 class _StudioReadOnlyDb(PsqlRuntime):
@@ -385,7 +387,17 @@ class _StudioCandidateReader(_StudioReadOnlyDb, CandidateMatchingStore):
 
 
 class _StudioQueueReader(_StudioReadOnlyDb, StudioOperatorQueues):
-    pass
+    def list_discovery_inbox(
+        self, *, collection_id: str, limit: int = 20, after_id: str | None = None,
+    ) -> dict[str, object]:
+        """Render only current, collection-scoped persisted Discovery metadata.
+
+        This is deliberately a read operation. The local bearer token confers
+        no review identity, capture permission, triage write or publication role.
+        """
+        return DiscoveryInboxWorkflow(self).list_rows(
+            collection_id=collection_id, limit=limit, after_id=after_id,
+        )
 
 
 class _CorpusReader(Protocol):
@@ -407,6 +419,7 @@ class _CandidateReader(Protocol):
 class _QueueReader(Protocol):
     def list_collections(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
+    def list_discovery_inbox(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
     def inspect_discovery(self, *, collection_id: str, hit_id: str) -> dict[str, object]: ...
     def inspect_discovery_triage(self, *, collection_id: str, hit_id: str, limit: int, after_revision: int) -> dict[str, object]: ...
     def list_collection_members(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
@@ -489,6 +502,11 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
         return readers.queues.inspect_discovery_triage(**body)
+    if path == "/v1/discovery/inbox":
+        _fields(body, required={"collection_id"}, optional={"limit", "after_id"})
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.list_discovery_inbox(**body)
     if path in {"/v1/collections/members", "/v1/collections/member", "/v1/collections/claim-provenance"}:
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")

@@ -169,6 +169,14 @@ _PAGE = """<!doctype html>
     </section>
     <section class="pane" id="inbox" hidden>
       <h2>Discovery Inbox</h2><p>Record di discovery e codici di blocco senza URL, corpi o titoli non revisionati.</p>
+      <h2>Catalogo Discovery per raccolta</h2>
+      <p>Provenienza, stato della raccolta, diritti e motivi di blocco dal database. Nessuna azione di revisione, cattura o pubblicazione è abilitata da questa pagina.</p>
+      <form data-endpoint="/v1/discovery/inbox">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo Discovery Hit ID<input name="after_id" maxlength="180"></label>
+        <button type="submit">Consulta Inbox persistita</button></div>
+      </form>
       <form data-endpoint="/v1/discovery/list">
         <div class="controls"><label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
         <label>Dopo ID<input name="after_id" maxlength="180"></label>

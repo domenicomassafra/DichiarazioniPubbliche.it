@@ -30,12 +30,37 @@ from tests.test_studio_candidate_review import Store as FakeMatchStore, RUN_ID a
 from tests.test_studio_operator_search import FakeStore as FakeSearchStore  # noqa: E402
 from tests.test_studio_operator_queues import FakeOperatorQueues  # noqa: E402
 from tests.test_studio_discovery_inspect import fixture as discovery_inspect_fixture  # noqa: E402
+from tests.test_studio_discovery_inbox_workflow import FakeRuntime, row  # noqa: E402
+from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInboxWorkflow  # noqa: E402
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page  # noqa: E402
 
 TOKEN = "a" * 64
 
 
 class StudioLocalApiTests(unittest.TestCase):
+    def test_discovery_inbox_real_workflow_is_authenticated_scoped_and_private(self):
+        """One guarded HTTP call exercises the actual database read-model validator."""
+        runtime = FakeRuntime([row()])
+        self.queues.list_discovery_inbox = (
+            lambda **kwargs: DiscoveryInboxWorkflow(runtime).list_rows(**kwargs)
+        )
+        route = "/v1/discovery/inbox"
+        payload = {"collection_id": "collection:01", "limit": 1}
+        self.assertEqual(self.call("POST", route, payload)[0], 401)
+        status, body, headers = self.call("POST", route, payload, self.auth())
+        self.assertEqual(status, 200, body)
+        self.assertEqual(body["data"]["contract_version"], "studio-discovery-inbox-v2")
+        self.assertEqual(body["data"]["rows"][0]["provenance_path"]["manifest_id"], "manifest:01")
+        self.assertFalse(body["data"]["action_authorized"])
+        self.assertFalse(body["data"]["publication_authority"])
+        self.assertEqual(headers["Cache-Control"], "no-store, private")
+        for forbidden in ("private.invalid", "PRIVATE QUERY", "actor_ref", "publish_url"):
+            self.assertNotIn(forbidden, json.dumps(body))
+        self.assertEqual(self.call("POST", route, payload | {"publish": True}, self.auth())[0], 422)
+        self.assertEqual(self.call("POST", route, payload | {"limit": 31}, self.auth())[0], 422)
+        self.assertEqual(self.call("POST", route, payload | {"collection_id": "../unsafe"}, self.auth())[0], 422)
+        self.assertEqual(self.call("POST", route, payload, self.auth() | {"Origin": "https://remote.invalid"})[0], 403)
+
     def test_corpus_full_filtered_http_contract_is_private_and_typed(self):
         payload = {
             "query": "ricerca privata", "kinds": ["ATOMIC_CLAIM"],
