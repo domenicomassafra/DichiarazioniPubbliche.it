@@ -18,6 +18,18 @@ claim, and the history of later review, correction, reply, clarification, or cha
 The product is not a leaderboard of people and it is not a machine that decides who is
 "good", "bad", "reliable", or politically preferable.
 
+**Owner clarification, 2026-10-10:** the reader experience is one integrated
+product. Readers must be able to inspect statements and public sources, understand
+what factual checks establish or refute and where evidence is insufficient or
+uncertain, compare the same proposition or publicly expressed position across
+people and over time, and navigate Person and Topic pages to see what particular
+people have publicly said about a subject. Source inspection, verification,
+cross-person comparison and longitudinal comparison are complementary core
+capabilities. A bounded technical pilot validates this experience rather than
+replacing it with an archive-only mission. Expressed positions remain attributed
+statements; opinions do not acquire a factual true/false verdict merely because
+they are included in a comparison.
+
 ## Primary users
 
 - citizens who want to inspect the record behind a public claim;
@@ -149,7 +161,7 @@ policy review.
 ### In scope
 
 - public officials and politicians;
-- journalists, presenters, commentators, creators, and other public figures when the
+- journalists, hosts/presenters, commentators, influencers/creators, actors, and other public figures when the
   statement is relevant to their public role;
 - official/public records and primary evidence;
 - public interviews, speeches, podcasts, videos, articles, and other attributable

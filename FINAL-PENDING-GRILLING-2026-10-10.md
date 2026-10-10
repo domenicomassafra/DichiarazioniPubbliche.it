@@ -126,7 +126,7 @@ Le colonne usano le intestazioni canoniche degli esatti ticket; l'azione propost
 
 ## 5. Grilling: 12 domande decisive, con output richiesto
 
-1. **Promessa:** il primo sito deve far consultare parole citate e corrette, o produrre fact-check completi? Scrivere una promessa verificabile e le tre funzionalità indispensabili.
+1. **Missione integrata riaffermata dall'owner il 10 ottobre:** dichiarazioni e fonti, verifiche fattuali e incertezze, confronti nel tempo e tra persone, pagine Persona/Tema sono core complementari. Non chiedere di sceglierne uno come missione. Precisare scenari di confronto e criteri di verifica senza ridurre il prodotto a un archivio.
 2. **Ambito:** chi autorizza la distinzione fra sei pagine informative e archivio v1? Firma owner, testi pubblici, timeline e rischio residuale.
 3. **Prima fonte:** Garlasco 100/5, resoconto ufficiale Camera/Senato o un corpus già autorizzato? Mostrare il primo Content con URL, data, versione, speaker e rights.
 4. **Licenza reale:** per quella singola fonte quali permessi di accesso, retention, elaborazione, citazione breve, link e ripubblicazione sono documentati? Quale azione è vietata?

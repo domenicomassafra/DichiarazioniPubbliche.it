@@ -9,6 +9,16 @@ Autorità: PRODUCT, CONTEXT, ARCHITECTURE, PLAN e ticket originali; HANDOFF è i
 `tasks/index.md` non esiste in questo repository: non sono stati importati task DStack
 di altri progetti. Le proposte sotto rimangono aperte fino alle decisioni dell'owner.
 
+**Correzione dopo il primo round, 10 ottobre:** l'owner ha riaffermato la missione
+integrata già descritta in PRODUCT: dichiarazioni/fonti/verifiche, confronti nel
+tempo e tra persone sulla stessa proposizione o posizione, pagine Persona/Tema
+e posizioni pubblicamente espresse da politici, influencer, attori, conduttori e
+altre figure pubbliche. Q1 aveva erroneamente presentato archivio, confronti e
+fact-check come missioni alternative. Q1 e la raccomandazione di una prima release
+popolata solo archivistica sono ritirate. Le prove tecniche restano valide; i gap
+del contratto pubblico sono lavoro da allineare alla missione, non ragioni per
+ridurla. Le proposte della matrice sono ancora ipotesi, non rescope approvati.
+
 ## 1. Giudizio indipendente
 
 Il progetto è una piattaforma privata di ricerca/verifica e un sito informativo
@@ -18,7 +28,7 @@ la proiezione pubblica è vuota. Questo non significa che i moduli siano inesist
 
 I tre nodi dominanti sono:
 
-1. **Promessa e modello pubblico divergono.** La promessa comprende le parole
+1. **Il modello pubblico deve coprire la missione integrata.** La promessa comprende le parole
    originali; la proiezione attuale è centrata su Claim + Finding e consente una
    PARAPHRASE, con testo originale privato e profilo excerpt non approvato.
 2. **Manca la catena di autorità su un caso reale.** Diritti specifici, attribuzione,
@@ -79,14 +89,15 @@ solo provider extraction, reviewer o profilo di citazione.
 
 Sequenza proposta, subordinata al grilling:
 
-1. Scegliere promessa e responsabilità editoriale; autorizzare una fonte/Content e
+1. Preservare la missione integrata e definirne l'acceptance sul primo caso;
+   assegnare responsabilità editoriale, autorizzare una fonte/Content e
    gli usi distinti di capture, retention, model, link e excerpt.
 2. Persistire manifest/lineage → una Capture → un Passage → un Candidate; usare il
    percorso supportato e autorizzato, oppure progettare esplicitamente il seam
    manuale se manca. Non assumere che sia già disponibile.
 3. Reviewer autenticato: testo, speaker, contesto, matching e decisione persistita;
    promotion e replay con prova a due transazioni della revoca.
-4. Se la promessa include verifica fattuale: evidenze/Observation APPROVED, cutoff,
+4. Per le proposizioni fattuali: evidenze/Observation APPROVED, cutoff,
    Finding e autorità editoriale; nei casi high-risk challenger indipendente.
 5. Rights/privacy/publication per la versione esatta; proiezione isolata e readback
    sito/API/search; correzione/ritiro misurati prima di dichiarare il flusso accettato.
@@ -243,9 +254,12 @@ locali. Si usa frontiera per round, non dodici domande sequenziali indipendenti.
 Nessuna decisione editoriale è stata assunta o scritta come approvata.
 
 ```text
-Radici indipendenti: promessa del primo prodotto; capacità umana; budget operativo
-  promessa + capacità → pubblico prioritario e valore misurabile
-  promessa + capacità + budget → fonte/caso, permessi e via text/media/provider
+Missione integrata: fissata dall'owner, non alternativa da scegliere
+  → significato degli stati di verifica e distinzione fatto/opinione
+  → criteri di confronto cross-person e nel tempo, con contesto e fonti
+  → percorsi Persona/Tema e valore misurabile per il lettore
+Radici operative ancora aperte: capacità umana; budget operativo
+  missione + capacità + budget → fonte/caso, permessi e via text/media/provider
   fonte + permessi → attribuzione, Candidate/review, contract Statement/Claim/Finding
   contract + responsabilità → pubblicazione/correzione/ritiro e costo per caso
   compito lettore + dati pubblicabili → IA, quattro direzioni e prototipi/test UX
@@ -254,12 +268,14 @@ Radici indipendenti: promessa del primo prodotto; capacità umana; budget operat
 
 La preview a sei route resta separata secondo LAUNCH; profili legali/identity/AT
 rimangono PENDING-OWNER/EXTERNAL o non provati. Le scelte fonte, design, provider
-e rescope non sono frontiera iniziale, perché dipendono dalle radici.
+e rescope dipendono dai comportamenti e dalle risorse ancora da discutere.
 Le contraddizioni Person vuoto, stato pubblico blocked e paraphrase/citazione
 devono entrare nei round pertinenti; non saranno corrette tacitamente.
 
-Checkpoint: ricognizione consegnata; prossima attività è il primo round sulle tre
-radici. Attendere risposte, registrare le decisioni durevoli nei file canonici
+Checkpoint aggiornato: ricognizione consegnata, missione integrata riaffermata
+dall'owner e Q1 ritirata. Riprendere sui comportamenti concreti e sui confini
+editoriali/operativi; capacità e budget restano senza risposta. Registrare
+le decisioni durevoli nei file canonici
 appropriati e ricalcolare la frontiera. Nessun redesign o cambiamento di contratto
 prima della comprensione condivisa confermata dall'owner.
 

@@ -7,6 +7,29 @@ Last updated: 2026-10-10
 This is the single ordered execution map for the project. Detailed implementation specs
 live in `docs/tickets/`. Historical roadmap files are evidence, not competing backlogs.
 
+## Owner clarification for the active grilling — 2026-10-10
+
+The owner reaffirmed one integrated product: inspect public statements and their
+sources; understand factual verification, refutation, insufficient evidence and
+uncertainty; compare the same proposition or expressed position across people and
+over time; browse Person and Topic pages to discover publicly expressed positions.
+Scope includes politicians, influencers/creators, actors, hosts/presenters and
+other public figures within their public-interest activity. These are complementary
+core capabilities, not alternatives for the owner to choose between.
+
+The initial grilling Q1 incorrectly proposed choosing an archive, chronology or
+fact-checking as the mission. It is withdrawn, as is the recommendation to make
+an archive-only product the first populated release. A one-case technical pilot
+may validate the integrated path; it does not authorize reducing this mission.
+No ticket status, acceptance criterion or release permission changes here.
+
+Resume grilling on concrete behavior and unresolved implementation/editorial
+boundaries under this mission: what each verification state means, how factual
+propositions differ from opinions, what makes comparisons valid, how Person/Topic
+pages preserve source/context/time, and operator capacity and budget. Record
+answers before approving redesign or rescoping the backlog. Previous questions
+about capacity and budget remain unanswered; they do not imply a reduced product.
+
 ## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
 
 **Repository state:** `main` at `a104f0f` at the 2026-10-10
