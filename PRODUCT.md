@@ -31,6 +31,26 @@ replacing it with an archive-only mission. Expressed positions remain attributed
 statements; opinions do not acquire a factual true/false verdict merely because
 they are included in a comparison.
 
+**Final owner decisions Q15–Q20, 2026-10-10 (target requirements):** a public
+Statement displays the exact source words; a normalized proposition/paraphrase
+must never replace its declaration text, title-as-quotation, card or comparison
+quotation. Paraphrase is allowed in a visibly distinct summary only. Original
+wording and identified translations remain separate. The public-v2 implementation
+currently projects paraphrase-centered dossiers and wording hashes, not this
+target; the new backlog must specify that migration without claiming it is done.
+Exact wording does not establish a universal copyright exemption; source-specific
+quotation rights remain separate from wording fidelity. A rights-unavailable
+record must not be filled with a substitute paraphrase.
+
+Person × Topic combines intersected filters and a dated, source-linked summary
+of publicly expressed positions; no chatbot is required. Automate research,
+attribution, checks and writing also for public procedural/judicial documents,
+preserving the distinction between exact documentary words, reported allegations
+and independently established facts. Future source selection prioritizes
+continuity and relevant events with disclosed coverage/freshness. The owner
+selects the visual redesign later. Current authorized deliverable is ticket and
+planning-document revision only; implementation and deployment follow separately.
+
 ## Primary users
 
 - citizens who want to inspect the record behind a public claim;

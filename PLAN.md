@@ -124,7 +124,8 @@ remaining central decisions and final shared-understanding confirmation. The
 proposed five-hour availability and visual-review workload remain approximate
 and must be measured.
 Future daily workload and account scheduling follow pipeline acceptance. Preserve
-all existing ticket AC; no new ticket or supersession is approved yet.
+all existing ticket AC and their proof history; Q19 below authorizes their planned
+revision and new tickets, not implementation or artificial completion.
 
 **Owner answers Q9–Q14 and final-round instruction, 2026-10-10:** the owner
 accepts withholding unsupported attributions/verdicts and distinguishing a
@@ -154,15 +155,45 @@ refuted by that record, and whether there is a documented longitudinal relation.
 It is not evidence about an actual named person's words, nor proof that the
 content of the earlier utterance is true or that the speaker intended deception.
 
-Next deliverable: inspect the codebase, then ask one final batch of central owner
-decisions. After the answers, create one comprehensive execution prompt covering
-the full conversation and evidence, using the requested "prompt to prompt"
-capability if available. The prompt must request four subagents through native
-Chat On Steroids orchestration, update existing/future tickets and canonical
-documentation/code coherently, and leave one clean ordered plan. Verify the
-named skill/platform and native capability instead of inventing tools, silently
-substituting Orca, or claiming agents ran. This turn performs reconnaissance and
-records requirements; it does not implement that future prompt's work.
+**Final owner answers Q15–Q20, 2026-10-10:** the public Statement must contain
+the exact source words, never a paraphrase substituted for the declaration.
+Paraphrases are permitted only in explicitly separate summaries. Preserve the
+original and identify translations separately; do not call translated words the
+verbatim original. The owner's claim of universal absence of copyright is not
+an established legal clearance: do not substitute a paraphrase when quotation
+rights cannot be established, and do not invent a rights grant. Research and
+ticket the source-specific lawful exact-quotation path.
+
+Person × Topic is an intersected filter/view with a dated, source-linked summary
+of documented expressed positions, not a mandatory chatbot. The owner requires
+strong automation including textual procedural/judicial documents and does not
+choose a general high-risk exclusion or routine human textual review. Literal
+documentary wording, what a document reports/alleges, and truth of the reported
+event remain separate checks. Distinct procedural states and precise time,
+jurisdiction, identity and source versions must survive automation.
+
+Future incremental collection prioritizes continuity of followed sources/people/
+topics, with room for relevant events/new people; disclose coverage and freshness
+rather than using virality as the sole criterion. Redesign selection belongs to
+the owner later; image generation or another model are possible future aids,
+not tools authorized for this deliverable.
+
+**Q19 overrides the earlier implementation request:** prepare one comprehensive
+Prompt2Prompt master handoff for four native Chat On Steroids subagents, focused
+ONLY on creating, modifying and updating the complete future/existing ticket
+backlog and necessary planning documentation. No application source/test/schema
+change, source ingestion, provider trial, scheduling, migration or deployment
+is included. Implementation is a separate later task. The native tool is `agents`
+(spawn/message/status/finish); discover its live schema in the target chat.
+The external master uses one adjacent terminal response file; native workers use
+native task/result channels, not separate Prompt2Prompt response files. Produce
+one canonical ordered plan and requirement-to-ticket coverage without lost AC,
+duplicate work, fake DONE or unsupported claims of agents launched.
+
+**Current handoff:** [one post-grilling master prompt](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md)
+is prepared for owner launch in Chat On Steroids. It requests four native workers
+and complete ticket reconciliation; no external launch/result is implied by the
+file's presence. Ticket status/counts remain the baseline until that work runs.
 
 ## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
 

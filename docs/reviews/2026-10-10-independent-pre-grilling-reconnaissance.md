@@ -384,6 +384,28 @@ This is documentation/capability evidence, not proof of four workers launched or
 of live connector authorization in a future chat. The external master handoff
 and native worker task/result channels must remain distinct.
 
+## Risposte definitive Q15–Q20 e consegna del prompt
+
+L'owner richiede parole esatte nella dichiarazione pubblica, mai una parafrasi
+sostitutiva; riassunti separati sono ammessi. Originale e traduzione identificata
+restano distinti. La sua affermazione universale sul copyright non costituisce
+clearance: la [CGUE in Infopaq](https://eur-lex.europa.eu/legal-content/IT/TXT/?uri=CELEX:62008CJ0005)
+riconosce che anche estratti brevi possono contenere espressione creativa protetta.
+Specifica il percorso applicabile per citazioni esatte senza ripiego parafrastico
+nella dichiarazione; non è un nuovo parere giuridico o un grant a una fonte.
+
+Persona × Tema usa filtri incrociati e sintesi precomputate, datate e citate,
+non richiede un chatbot. Automazione forte anche per documenti processuali;
+verbatim documentario, allegazione e accertamento del fatto sono controlli diversi.
+Continuità fonti/temi con eventi rilevanti accettata. Redesign scelto dall'owner
+più avanti, senza immagini o implementazione in questo incarico.
+
+**Q19 restringe il mandato precedente:** un solo prompt esterno per coordinatore
+con quattro worker nativi, SOLO creazione/modifica/aggiornamento ticket e documenti
+di piano; implementazione in un incarico separato. Prompt corrente indicizzato
+in HANDOFF.md. Preparato non significa lanciato: nessun worker Chat On Steroids
+o risposta esterna è dichiarato eseguito dalla preparazione del file.
+
 ## Riproducibilità e limiti
 
 Eseguiti: git fetch/status/log/branch/worktree/stash, gh PR/run readback;

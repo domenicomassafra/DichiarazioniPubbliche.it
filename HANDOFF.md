@@ -5,7 +5,7 @@ non una seconda fonte di verità per i ticket o una certificazione di release.
 
 ## Leggere nell’ordine
 
-0. [`PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md`](PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md) — **mandato master da incollare nella nuova chat**: valutazione indipendente prima di domande, skill di grilling reali, poi redesign completo non generico.
+0. [**Prompt unico post-grilling — quattro subagenti nativi, solo backlog**](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md) — **mandato corrente per la nuova chat Chat On Steroids**. Grilling concluso; crea/aggiorna ticket e piano senza implementazione. Il precedente prompt audit/grilling/redesign resta storia del mandato precedente.
 1. [`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md) — stato completo dei pending e prompt per il grilling nella prossima chat.
 2. [`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md) — dettaglio delle prove e dei limiti, tabella della pipeline e analisi del rallentamento.
 3. [`LAUNCH.md`](LAUNCH.md) — pubblicazione informativa essenziale **distinta** dalla release editoriale stabile.
@@ -25,7 +25,21 @@ non una seconda fonte di verità per i ticket o una certificazione di release.
 - **HTTPS:** online, ma risposta verificata il 10 ottobre segnalava file datati 7 ottobre: GitHub push e deploy web **non sono la stessa cosa**.
 - **Runtime autorevole:** MiniPC, mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; PostgreSQL `dichiarazioni_pubbliche`. Non inferire deploy MiniPC da un nuovo SHA Git.
 
-## Prossimo ciclo: audit indipendente, grilling e redesign
+## Prossimo ciclo: backlog post-grilling, senza implementazione
+
+**Risposte definitive registrate:** dichiarazioni pubbliche con parole esatte,
+mai parafrasi sostitutive; riassunti separati; vista Persona × Tema con filtri
+incrociati e sintesi citate; forte automazione anche sui documenti processuali;
+più persone e lingue; storico permanente; continuità di fonti/temi ed eventi.
+L'owner sceglierà il redesign. Autonomia finale di fact-check e futura pubblicazione
+è il target dopo validation, non un gate runtime già attivato. L'ultima Q19
+autorizza **solo creazione/modifica/aggiornamento dei ticket e documenti di piano**.
+Nessuna implementazione, quota trial, bulk capture, automazione o deploy ora.
+
+Il prompt corrente è un solo handoff esterno; il coordinatore avvierà quattro
+worker tramite il tool nativo `agents`. Non sono quattro lanci manuali dell'owner.
+Le note e i vecchi prompt pre-grilling sotto restano fotografie storiche e non
+riaprono decisioni già risolte. Il checkpoint canonico è in PLAN.md.
 
 **Ricognizione indipendente eseguita:** [verbale pre-grilling del 10 ottobre](docs/reviews/2026-10-10-independent-pre-grilling-reconnaissance.md) — baseline `ebdc4f8`, matrice35/35, readback runtime e gap. Il grilling ha riaffermato la missione integrata e registrato zero reviewer editoriali/EUR10 mensili indicativi. **Ripresa attiva:** GPT-6 in Codex/ChatGPT-web e corpus storico prima (Hitler/Mussolini proposti); grilling su corpus/prove, poi ticket/automazioni economiche. Misure Antigravity/audio/locale dopo che il percorso funziona. Seguire gli aggiornamenti owner in PLAN e il checkpoint del verbale; nessuna infallibilità, pubblicazione automatica, bulk capture o spesa è approvata per inferenza.
 
@@ -38,12 +52,16 @@ acquisizione→trascrizioni/testo→catalogo→immissione→frontend→verifica/
 poi raccolta massiva. La persona proposta è **l'owner**, circa cinque ore settimanali
 indicative di controllo rapido soprattutto visivo/non testuale (es. immagini).
 Non convertirle in revisione editoriale di tutti i fact-check. Lavoro testuale
-inteso come automatizzato; riprendere da stati incerti/astensione/escalation,
-mantenendo aperta l'autorità di pubblicazione e distinti foto/testo/verdetti.
+inteso come automatizzato; autorità futura scelta nelle Q14/Q17, con ricerca
+attiva prima della coda eccezioni e controlli verificabili. Foto/testo/verdetti
+restano decisioni distinte; il runtime corrente non è migrato.
 
-- Nessuna pubblicazione automatica, identificazione biometrica o classifica di attendibilità delle persone.
+- Il runtime attuale mantiene i gate di pubblicazione; il target autonomo è da
+  specificare nei ticket. Nessuna biometria o classifica di attendibilità delle persone.
 - Provenienza e diritti espliciti prima di riusare fonti/transcript, anche se pubblicamente visibili.
-- Review e quote/autorialità/verifica umane **prima** di promuovere un candidato a pubblicazione.
+- Gli attuali gate di review umana non sono stati modificati; i ticket devono
+  specificarne la migrazione verso autorità automatica auditabile, senza fingere
+  che l'owner offra revisione editoriale ordinaria o che l'implementazione sia fatta.
 - Studio privata e dati non approvati non devono entrare nel bundle statico pubblico.
 - Il sito informativo con indice legittimamente vuoto può essere un obiettivo distinto; le decisioni su privacy, titolarità, contatti e testi legali non possono essere dichiarate approvate per decreto tecnico.
 
