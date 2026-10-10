@@ -9,6 +9,7 @@ interface Props {
   title?: string;
   description?: string;
   studio?: boolean;
+  privatePage?: boolean;
   canonicalPath?: string;
   structuredData?: unknown;
 }
@@ -17,13 +18,14 @@ const {
   title = "Dichiarazioni Pubbliche",
   description = "Dichiarazioni pubbliche, fonti, contesto, verifiche, cambi e correzioni in un record consultabile e versionato.",
   studio = false,
+  privatePage = false,
   canonicalPath,
   structuredData
 } = Astro.props;
 const pageTitle = title === "Dichiarazioni Pubbliche" ? title : `${title} — Dichiarazioni Pubbliche`;
 const projectionPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
 const usingDemoProjection = !projectionPath || projectionPath.endsWith("demo-projection.json");
-const robotsPolicy = studio || usingDemoProjection ? "noindex,nofollow" : "index,follow";
+const robotsPolicy = studio || privatePage || usingDemoProjection ? "noindex,nofollow" : "index,follow";
 const structuredDataJson = structuredData === undefined
   ? null
   : JSON.stringify(structuredData).replaceAll("<", "\\u003c");
@@ -68,6 +70,7 @@ const structuredDataJson = structuredData === undefined
           <a href="/correzioni/">Correzioni</a>
           <a href="/dati/">Dati &amp; API</a>
           <a href="/progetto/">Progetto</a>
+          <a href="/accedi/">Accedi</a>
           <a href="https://github.com/domenicomassafra/DichiarazioniPubbliche.it" rel="noreferrer">GitHub ↗</a>
         </nav>
       </footer>

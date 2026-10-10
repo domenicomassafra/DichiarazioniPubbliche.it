@@ -367,13 +367,21 @@ They must not share one ambiguous “send us something” form.
 | Media player | feature only | no | original moment | no | no | when timed | no | no |
 | Full technical provenance | no | no | disclosure | no | no | no | disclosure | explanation |
 | Person portrait | no/rare | disambiguation | small context | optional small | no | contextual only | small context | no |
-| Account/follow/save | no | no | no | no | no | no | no | no |
+| Account/follow/save | utility only | utility only | no | no | no | no | no | no |
+
+The 2026-10-10 owner extension permits an isolated, noindex public **Account** utility:
+Google OIDC registration/login, viewing verified account email, logout and deletion.
+It does not add a ninth primary reader template, a member feed or editorial rights.
+Public content remains readable without login. The new pages are operable only after
+the provider, deployment, privacy and legal launch gates close; until then they show
+an explicit unavailable state. This later authorization supersedes the original
+blanket login prohibition below only for the narrow Account utility.
 
 ## Product features deliberately deferred
 
 Do not add these to the public v1 merely because polished websites often have them:
 
-- login/account system;
+- member personalization or account privileges beyond the scoped Account utility;
 - follow people/topics;
 - bookmarks/favorites;
 - notifications;
@@ -485,5 +493,7 @@ The v3 architecture is successful when:
 - politics is visually and structurally one domain among many;
 - search is global and Explore owns filtering complexity;
 - no page duplicates another page's job;
-- no login, personalization, trend ranking or dashboard is required for v1;
+- a separate self-service Account utility is available only after OAuth/privacy gates;
+  no login is required to read the public archive, and no personalization, trend ranking
+  or dashboard is required for v1;
 - every public claim remains source-linked, time-aware, versioned and compatible with the fail-closed public projection.

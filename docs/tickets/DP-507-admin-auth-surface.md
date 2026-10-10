@@ -14,3 +14,16 @@ Depends on: an approved admin HTTP surface
 No public/admin mutation HTTP surface is part of the current architecture. Review/approval remains local/operator-only. This ticket becomes active before any administrative HTTP route is exposed.
 
 Re-review trigger: a design or code change introduces a remotely reachable review, approval, moderation, queue-control, or publication mutation endpoint. At that point the change must define AuthN, authorization roles, CSRF/session behavior where applicable, audit receipts, secret handling, rate limits, and negative tests before exposure.
+
+## 2026-10-10 narrow public membership addition (separate from admin authorization)
+
+The product owner subsequently requested public registration/accounts. The opt-in
+`public_account.py` Google OIDC implementation and `/accedi/` + `/account/` static
+utility pages implement a **member** identity only. No member token/cookie can
+authorize Studio, approval, moderation, queue control or publication. The existing
+admin trigger and all DP-507 acceptance criteria remain unchanged; **Status: FUTURE**
+until a remotely reachable admin mutation surface is actually proposed and safely
+tested. Public-member runtime enablement also remains gated by the real OAuth
+client, approved DP-304/307/702 privacy/legal controls and MiniPC canary.
+The exact configuration and remaining conditions are recorded in
+`docs/release/account-oidc-activation.md`.

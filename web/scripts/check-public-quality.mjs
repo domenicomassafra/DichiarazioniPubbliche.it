@@ -36,8 +36,9 @@ const forbiddenPublicMarkers = [
   "person_truth_score",
 ];
 
-const robotsPolicies = new Set();
 const canonicalRoutes = new Set();
+const privateAccountRoutes = new Set(["/accedi/", "/account/"]);
+const publicCanonicalRoutes = new Set();
 for (const path of htmlFiles) {
   const html = await readFile(path, "utf8");
   const name = relative(distPath, path);
@@ -45,10 +46,14 @@ for (const path of htmlFiles) {
   assert.match(html, /<meta\s+name="description"\s+content="[^"]+"/i, `${name}: missing description`);
   const robots = html.match(/<meta\s+name="robots"\s+content="([^"]+)"/i)?.[1];
   assert(["noindex,nofollow", "index,follow"].includes(robots), `${name}: invalid robots policy ${robots}`);
-  robotsPolicies.add(robots);
   const canonical = html.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i)?.[1];
   assert(canonical, `${name}: missing canonical`);
   canonicalRoutes.add(canonical);
+  if (privateAccountRoutes.has(canonical)) {
+    assert.equal(robots, "noindex,nofollow", `${name}: account sign-in/profile routes must stay noindex`);
+  } else {
+    publicCanonicalRoutes.add(canonical);
+  }
   assert.match(html, /<main\s+id="main"/i, `${name}: missing main landmark`);
   const mainCount = (html.match(/<main\b/gi) ?? []).length;
   assert.equal(mainCount, 1, `${name}: expected exactly one main landmark, found ${mainCount}`);
@@ -68,14 +73,19 @@ for (const path of htmlFiles) {
     assert.equal(typeof structured.name, "string", `${name}: JSON-LD statement wording missing`);
   }
 }
-assert.equal(robotsPolicies.size, 1, `static build mixed robots policies: ${[...robotsPolicies].join(", ")}`);
-
-const buildRobotsPolicy = [...robotsPolicies][0];
+const publicPolicies = await Promise.all([...publicCanonicalRoutes].map(async (route) => {
+  const filename = route === "/" ? "index.html" : `${route.slice(1)}index.html`;
+  const html = await readFile(join(distPath, filename), "utf8");
+  return html.match(/<meta\s+name="robots"\s+content="([^"]+)"/i)?.[1];
+}));
+assert.equal(new Set(publicPolicies).size, 1, "public reader pages must share one build robots policy");
+const buildRobotsPolicy = publicPolicies[0];
 const sitemap = await readFile(sitemapPath, "utf8");
 const robotsText = await readFile(robotsPath, "utf8");
 const sitemapRoutes = [...sitemap.matchAll(/<loc>https:\/\/dichiarazionipubbliche\.it([^<]*)<\/loc>/g)].map((match) => match[1]);
 for (const route of sitemapRoutes) {
   assert(!route.startsWith("/studio/"), `sitemap leaked private Studio route ${route}`);
+  assert(!privateAccountRoutes.has(route), `sitemap leaked account route ${route}`);
   for (const legacy of ["/fact-check/", "/record/", "/contents/", "/compare/"]) {
     assert(!route.startsWith(legacy), `sitemap leaked legacy alias ${route}`);
   }
@@ -87,7 +97,7 @@ if (buildRobotsPolicy === "noindex,nofollow") {
   assert.match(robotsText, /^User-agent: \*\nAllow: \/\nSitemap: https:\/\/dichiarazionipubbliche\.it\/sitemap\.xml\n$/);
   assert.deepEqual(
     [...new Set(sitemapRoutes)].sort(),
-    [...canonicalRoutes].sort(),
+    [...publicCanonicalRoutes].sort(),
     "production sitemap must equal the unique canonical public route set",
   );
 }
@@ -112,5 +122,5 @@ for (const marker of ["postgresql://", "omniroute", "openai.com/v1", "anthropic.
 }
 
 console.log(
-  `public-quality checks PASS (${htmlFiles.length} HTML, ${jsFiles.length} JS; ${sitemapRoutes.length} sitemap URLs; ${buildRobotsPolicy}; largest gzip JS ${maxCompressed} bytes: ${maxAsset})`,
+  `public-quality checks PASS (${htmlFiles.length} HTML, ${jsFiles.length} JS; ${sitemapRoutes.length} sitemap URLs; public=${buildRobotsPolicy}; account=noindex; largest gzip JS ${maxCompressed} bytes: ${maxAsset})`,
 );

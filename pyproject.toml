@@ -30,6 +30,9 @@ dependencies = []
 # backend-postgres profile. The runtime reaches PostgreSQL through the `psql` CLI,
 # not a Python driver, so this profile intentionally declares no Python package.
 postgres = []
+# Only explicit Google OIDC account deployments install this runtime crypto.
+# The default public reader/contributor install remains stdlib-only.
+account = ["cryptography>=45.0,<50.0"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [

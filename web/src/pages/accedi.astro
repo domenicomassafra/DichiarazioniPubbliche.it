@@ -1,0 +1,35 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Accesso e iscrizione" description="Accesso con Google all'account personale Dichiarazioni Pubbliche." canonicalPath="/accedi/" privatePage>
+  <article class="shell dp-utility-section" style="max-width: 46rem; padding-block: 3rem 5rem;">
+    <p class="dp-eyebrow">Account personale</p>
+    <h1>Accedi o iscriviti</h1>
+    <p>Un solo accesso con Google: alla prima autenticazione viene creato un account, alle successive si accede allo stesso account.</p>
+    <p>L'account non permette di approvare dichiarazioni, modificare l'archivio o pubblicare contenuti. Nessun dato Google viene usato per dedurre identità di chi parla nelle fonti.</p>
+    <p id="account-login-state" role="status" aria-live="polite">Verifica disponibilità dell'accesso…</p>
+    <form method="POST" action="/account/auth/google" id="account-login-form" hidden>
+      <button type="submit" class="dp-button" data-intent="primary">Continua con Google</button>
+    </form>
+    <p><a href="/account/">Hai già effettuato l'accesso? Vai al tuo account.</a></p>
+  </article>
+  <script>
+    const status = document.querySelector<HTMLElement>("#account-login-state");
+    const form = document.querySelector<HTMLFormElement>("#account-login-form");
+    fetch("/account/api/session", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => {
+        if (response.status === 200) {
+          if (status) status.textContent = "Hai già effettuato l'accesso.";
+          return;
+        }
+        if (response.status === 401) {
+          if (status) status.textContent = "L'accesso con Google è disponibile.";
+          if (form) form.hidden = false;
+          return;
+        }
+        if (status) status.textContent = "L'accesso non è ancora disponibile su questo sito.";
+      })
+      .catch(() => { if (status) status.textContent = "L'accesso non è temporaneamente disponibile."; });
+  </script>
+</BaseLayout>

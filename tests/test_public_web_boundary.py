@@ -22,10 +22,13 @@ class PublicWebBoundaryTests(unittest.TestCase):
 
         layout = (WEB / "src" / "layouts" / "BaseLayout.astro").read_text()
         self.assertIn(
-            'const robotsPolicy = studio || usingDemoProjection ? "noindex,nofollow" : "index,follow";',
+            'const robotsPolicy = studio || privatePage || usingDemoProjection ? "noindex,nofollow" : "index,follow";',
             layout,
         )
         self.assertIn('<meta name="robots" content={robotsPolicy}', layout)
+        for page in ("accedi.astro", "account.astro"):
+            content = (WEB / "src" / "pages" / page).read_text()
+            self.assertIn("privatePage", content, f"{page} must remain noindex")
 
         prototype = WEB / "prototypes" / "verify-studio" / "README.md"
         self.assertTrue(prototype.is_file())

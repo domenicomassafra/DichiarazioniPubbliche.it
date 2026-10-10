@@ -52,6 +52,15 @@ Supporting trust/utility documents include Corrections, Data & API, Project and,
 after the intake abuse/legal gates are ready, Contribute. They reuse document grammar and
 do not create additional primary product templates.
 
+**Account (owner-requested extension, 2026-10-10):** `/accedi/` and `/account/`
+are separate private-by-default utility pages for first-time Google registration,
+subsequent login, logout and account deletion. Account membership grants **no**
+editorial, moderation, review, Studio, attribution or publication permission and
+does not activate public intake. Remote login remains disabled until real Google
+OAuth credentials, approved privacy/retention/contact terms and MiniPC security
+acceptance are available. Reader pages and the approved public projection do not
+require an account.
+
 Dichiarazioni Pubbliche also has one private/operator product with several modes:
 
 9. **Dichiarazioni Pubbliche Studio** — the research and verification workspace. It can discover and

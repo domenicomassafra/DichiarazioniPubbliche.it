@@ -46,6 +46,12 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterable
 from urllib.parse import parse_qsl, unquote, urlsplit
+from urllib.parse import parse_qs
+
+from dichiarazioni_pubbliche.public_account import (
+    AccountService, AccountStore, GoogleOidcProvider,
+    FLOW_COOKIE, SESSION_COOKIE, VISITOR_COOKIE, read_secret_file,
+)
 
 from dichiarazioni_pubbliche.domain_vocabulary import (
     ClaimType,
@@ -1376,6 +1382,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
     projection_path: str | None = None
     static_dir: str | None = None
     quiet: bool = True
+    account_service: AccountService | None = None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         directory = type(self).static_dir
@@ -1437,9 +1444,124 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         path = urlsplit(self.path).path
         return path == API_BASE_PATH or path.startswith(API_BASE_PATH + "/")
 
+    def _account_cookie(self, name: str) -> str:
+        # Duplicate headers/keys are ambiguous and must never select one
+        # attacker-chosen session or OAuth browser binding.
+        values = self.headers.get_all("Cookie", [])
+        if len(values) != 1 or len(values[0]) > 1024:
+            return ""
+        items = [entry.strip().split("=", 1) for entry in values[0].split(";")]
+        matches = [item[1] for item in items if len(item) == 2 and item[0] == name]
+        return matches[0] if len(matches) == 1 else ""
+
+    def _serve_account(self) -> None:
+        service = type(self).account_service
+        path = urlsplit(self.path).path
+        self.close_connection = True  # Never parse a rejected POST body as another request.
+
+        def reply(status: int, body: bytes = b"", *, location: str = "", cookie: str = "", clear_flow: bool = False) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store, private")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Vary", "Cookie")
+            self.send_header("Surrogate-Control", "no-store")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+            self.send_header("Connection", "close")
+            if location:
+                self.send_header("Location", location)
+            if cookie:
+                self.send_header("Set-Cookie", cookie)
+            if clear_flow:
+                self.send_header("Set-Cookie", f"{FLOW_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0")
+            self.end_headers()
+            if self.command != "HEAD" and body:
+                self.wfile.write(body)
+
+        if service is None:
+            reply(404)
+            return
+        from urllib.parse import urlsplit as _split
+        expected_host = _split(service.site_origin).netloc
+        if (self.headers.get_all("Host", []) != [expected_host]
+                or self.headers.get("Transfer-Encoding")
+                or self.headers.get_all("Cookie", []) and len(self.headers.get_all("Cookie", [])) != 1):
+            reply(403)
+            return
+        now = int(__import__("time").time())
+        try:
+            if self.command == "POST":
+                if self.headers.get_all("Origin", []) != [service.site_origin]:
+                    reply(403)
+                    return
+                if self.headers.get("Sec-Fetch-Site", "same-origin") != "same-origin":
+                    reply(403)
+                    return
+                lengths = self.headers.get_all("Content-Length", [])
+                if lengths not in ([], ["0"]):
+                    reply(413)
+                    return
+                if urlsplit(self.path).query:
+                    reply(400)
+                    return
+                if path == "/account/auth/google":
+                    result = service.start(now, self._account_cookie(VISITOR_COOKIE))
+                elif path in ("/account/api/logout", "/account/api/delete"):
+                    values = self.headers.get_all("X-CSRF-Token", [])
+                    token = values[0] if len(values) == 1 and len(values[0]) <= 128 else ""
+                    result = service.finish(self._account_cookie(SESSION_COOKIE), token, now,
+                                            delete_account=path.endswith("/delete"))
+                else:
+                    reply(404)
+                    return
+            elif self.command == "GET":
+                if path == "/account/api/session" and not urlsplit(self.path).query:
+                    result = service.inspect(self._account_cookie(SESSION_COOKIE), now)
+                    if result.status == 401:
+                        reply(401, result.body, cookie=(
+                            f"{VISITOR_COOKIE}={service.new_visitor()}; Path=/; Secure; "
+                            "HttpOnly; SameSite=Lax; Max-Age=2592000"
+                        ))
+                        return
+                elif path == "/account/oauth/callback":
+                    query = urlsplit(self.path).query
+                    if len(query) > 4096:
+                        raise ValueError("ACCOUNT_CALLBACK_TOO_LARGE")
+                    args = parse_qs(query, keep_blank_values=True, strict_parsing=True)
+                    if set(args) != {"state", "code"} or any(len(values) != 1 for values in args.values()):
+                        raise ValueError("ACCOUNT_CALLBACK_INVALID")
+                    result = service.callback_response(args["state"][0], args["code"][0],
+                                                       self._account_cookie(FLOW_COOKIE), now)
+                else:
+                    reply(404)
+                    return
+            else:
+                reply(405)
+                return
+            reply(result.status, result.body, location=result.location, cookie=result.cookie,
+                  clear_flow=result.clear_flow)
+        except Exception as exc:
+            # Provider failures never expose token, email, identity or status to
+            # public callers or to the HTTP access log.
+            reply(429 if isinstance(exc, ValueError) and str(exc) == "ACCOUNT_LOGIN_RATE_LIMIT" else
+                  (503 if path == "/account/auth/google" else 400),
+                  b'{"error":"ACCOUNT_OPERATION_UNAVAILABLE"}')
+
+    def _is_account_path(self) -> bool:
+        return urlsplit(self.path).path in {
+            "/account/auth/google", "/account/oauth/callback",
+            "/account/api/session", "/account/api/logout", "/account/api/delete",
+        }
+
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if self._is_api_path() or path == LINKED_DATA_PATH:
+        if self._is_account_path():
+            self._serve_account()
+        elif self._is_api_path() or path == LINKED_DATA_PATH:
             self._serve_api("GET")
         elif path == LLMS_PATH:
             self._serve_llms("GET")
@@ -1450,7 +1572,10 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
 
     def do_HEAD(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if self._is_api_path() or path == LINKED_DATA_PATH:
+        if self._is_account_path():
+            self.close_connection = True
+            self.send_error(405)
+        elif self._is_api_path() or path == LINKED_DATA_PATH:
             self._serve_api("HEAD")
         elif path == LLMS_PATH:
             self._serve_llms("HEAD")
@@ -1460,6 +1585,9 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
             self._serve_api("HEAD")
 
     def _reject(self) -> None:
+        if self._is_account_path():
+            self._serve_account()
+            return
         request_id = self._request_id()
         response = error_response(
             PublicApiError(
@@ -1483,7 +1611,10 @@ def build_server(
     host: str = "127.0.0.1",
     port: int = 0,
     static_dir: str | os.PathLike[str] | None = None,
+    account_service: AccountService | None = None,
 ) -> ThreadingHTTPServer:
+    if account_service is not None and host not in ("127.0.0.1", "::1"):
+        raise ValueError("ACCOUNT_LOOPBACK_BIND_REQUIRED")
     resolved_static = str(Path(static_dir).resolve()) if static_dir is not None else None
     handler = type(
         "BoundPublicApiRequestHandler",
@@ -1491,6 +1622,7 @@ def build_server(
         {
             "projection_path": str(projection_path) if projection_path else None,
             "static_dir": resolved_static,
+            "account_service": account_service,
         },
     )
     return ThreadingHTTPServer((host, port), handler)
@@ -1505,6 +1637,10 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--projection-path", default=projection_path_from_env())
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument("--account-client-id", default="")
+    parser.add_argument("--account-client-secret-file", type=Path)
+    parser.add_argument("--account-db", type=Path)
+    parser.add_argument("--account-site-origin", default="")
     parser.add_argument(
         "--static-dir",
         help="Optional static site directory to serve from the same origin as /api/v1.",
@@ -1514,11 +1650,28 @@ def main(argv: Iterable[str] | None = None) -> int:
         parser.error(f"set {PROJECTION_PATH_ENV} or pass --projection-path")
     if args.static_dir and not Path(args.static_dir).is_dir():
         parser.error(f"static directory does not exist: {args.static_dir}")
+    account_options = (args.account_client_id, args.account_client_secret_file,
+                       args.account_db, args.account_site_origin)
+    if any(account_options) and not all(account_options):
+        parser.error("account OIDC requires client ID, protected secret file, private DB and HTTPS site origin")
+    account_service = None
+    if all(account_options):
+        try:
+            secret = read_secret_file(args.account_client_secret_file)
+            store = AccountStore(args.account_db)
+            provider = GoogleOidcProvider(args.account_client_id, secret,
+                                          args.account_site_origin + "/account/oauth/callback")
+            account_service = AccountService(args.account_client_id,
+                                             args.account_site_origin, store, provider,
+                                             visitor_key=secret)
+        except (OSError, ValueError, UnicodeError) as exc:
+            parser.error(f"account OIDC configuration refused: {exc}")
     server = build_server(
         args.projection_path,
         host=args.host,
         port=args.port,
         static_dir=args.static_dir,
+        account_service=account_service,
     )
     host, port = server.server_address[0], server.server_address[1]
     surface = "public host" if args.static_dir else "public API"

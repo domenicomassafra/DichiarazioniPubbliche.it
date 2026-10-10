@@ -1,0 +1,70 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Il tuo account" description="Gestione accesso e cancellazione del tuo account personale." canonicalPath="/account/" privatePage>
+  <article class="shell dp-utility-section" style="max-width: 46rem; padding-block: 3rem 5rem;">
+    <p class="dp-eyebrow">Account personale</p>
+    <h1>Il tuo account</h1>
+    <p id="account-state" role="status" aria-live="polite">Caricamento dello stato di accesso…</p>
+    <section id="account-controls" hidden aria-label="Gestione account">
+      <p>Indirizzo email verificato da Google: <strong id="account-email"></strong></p>
+      <p>Puoi uscire o eliminare il tuo account. L'eliminazione revoca le sessioni dell'account e cancella i dati personali conservati nel registro account.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+        <button type="button" id="account-logout" class="dp-button" data-intent="secondary">Esci</button>
+        <button type="button" id="account-delete" class="dp-button" data-intent="secondary">Elimina account</button>
+      </div>
+    </section>
+    <p><a href="/accedi/">Vai alla pagina di accesso</a></p>
+  </article>
+  <script>
+    const state = document.querySelector<HTMLElement>("#account-state");
+    const controls = document.querySelector<HTMLElement>("#account-controls");
+    const email = document.querySelector<HTMLElement>("#account-email");
+    const exitButton = document.querySelector<HTMLButtonElement>("#account-logout");
+    const deleteButton = document.querySelector<HTMLButtonElement>("#account-delete");
+    let csrf = "";
+    async function refresh() {
+      try {
+        const response = await fetch("/account/api/session", { credentials: "same-origin", cache: "no-store" });
+        if (response.status !== 200) {
+          if (state) state.textContent = response.status === 401 ? "Non hai effettuato l'accesso." : "L'account non è ancora disponibile.";
+          if (controls) controls.hidden = true;
+          return;
+        }
+        const body = await response.json();
+        if (body.authenticated !== true || typeof body.csrf !== "string" || typeof body.email !== "string") throw new Error("Invalid session");
+        csrf = body.csrf;
+        if (email) email.textContent = body.email;
+        if (controls) controls.hidden = false;
+        if (state) state.textContent = "Accesso effettuato.";
+      } catch {
+        if (state) state.textContent = "Impossibile recuperare la sessione. Riprova.";
+      }
+    }
+    async function submitAction(action: "logout" | "delete") {
+      if (!csrf) return;
+      if (action === "delete" && !window.confirm("Eliminare definitivamente questo account e tutte le sue sessioni?")) return;
+      if (exitButton) exitButton.disabled = true;
+      if (deleteButton) deleteButton.disabled = true;
+      try {
+        const response = await fetch(`/account/api/${action}`, {
+          method: "POST", credentials: "same-origin", cache: "no-store",
+          headers: { "X-CSRF-Token": csrf }
+        });
+        if (!response.ok) throw new Error("Operation refused");
+        csrf = "";
+        if (controls) controls.hidden = true;
+        if (state) state.textContent = action === "delete" ? "Account eliminato." : "Hai effettuato l'uscita.";
+      } catch {
+        if (state) state.textContent = "Operazione non riuscita. Riprova.";
+      } finally {
+        if (exitButton) exitButton.disabled = false;
+        if (deleteButton) deleteButton.disabled = false;
+      }
+    }
+    exitButton?.addEventListener("click", () => void submitAction("logout"));
+    deleteButton?.addEventListener("click", () => void submitAction("delete"));
+    void refresh();
+  </script>
+</BaseLayout>
