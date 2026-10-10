@@ -1223,29 +1223,77 @@
    Shared document grammar for Metodo / Correzioni / Dati & API / Progetto.
    -------------------------------------------------------------------------- */
 .dp-utility-document {
-  max-width: var(--width-document);
-  padding-block: var(--space-9) var(--space-8);
+  max-width: var(--width-shell);
+  display: grid;
+  grid-template-columns: minmax(0, var(--width-document)) minmax(14rem, 1fr);
+  grid-template-areas: "intro rail" "content rail";
+  align-items: start;
+  gap: 0 var(--space-9);
+  padding-block: var(--space-8) var(--space-8);
 }
 
 .dp-utility-document__header {
-  padding-bottom: var(--space-7);
+  grid-area: intro;
+  min-width: 0;
+  padding-bottom: var(--space-5);
   border-bottom: 1px solid var(--rule-ink);
 }
 
 .dp-utility-document__header h1 {
   margin: var(--space-2) 0 var(--space-5);
-  max-width: var(--measure-brief);
+  max-width: 25ch;
   color: var(--ink-900);
   font-family: var(--font-claim);
-  font-size: var(--text-display);
-  line-height: var(--leading-display);
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-display);
   text-wrap: balance;
 }
 
 .dp-utility-document__header .lede {
-  max-width: var(--measure-brief);
+  max-width: var(--measure-prose);
+}
+
+.dp-utility-document__body {
+  grid-area: content;
+  min-width: 0;
+}
+
+.dp-utility-document__rail {
+  grid-area: rail;
+  min-width: 0;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-ink);
+}
+
+.dp-utility-document__rail nav {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dp-utility-document__rail h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-claim);
+  font-size: var(--text-subhead);
+  line-height: var(--leading-subhead);
+}
+
+.dp-utility-document__rail a {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+  color: var(--ink-700);
+  font-size: var(--text-label);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.dp-utility-document__rail a:hover {
+  color: var(--cobalt-700);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
 }
 
 .dp-utility-index {
@@ -1341,11 +1389,34 @@
   color: var(--ink-500);
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 56rem) {
   .dp-utility-document {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "intro" "rail" "content";
     padding-block: var(--space-7) var(--space-6);
   }
 
+  .dp-utility-document__rail {
+    margin-top: var(--space-5);
+  }
+
+  .dp-utility-document__rail nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+  }
+
+  .dp-utility-document__rail h2 {
+    flex-basis: 100%;
+  }
+
+  .dp-utility-document__rail a {
+    min-height: var(--target-min);
+  }
+
+}
+
+@media (max-width: 40rem) {
   .dp-utility-document__header h1 {
     font-size: var(--text-title);
     line-height: var(--leading-title);

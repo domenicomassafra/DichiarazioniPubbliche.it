@@ -14,6 +14,19 @@ const { eyebrow, title, lede } = Astro.props;
     <h1>{title}</h1>
     <p class="lede">{lede}</p>
   </header>
+  <aside class="dp-utility-document__rail" aria-label="Orientamento nel registro">
+    {Astro.slots.has("rail") ? (
+      <slot name="rail" />
+    ) : (
+      <nav aria-label="Documenti di fiducia">
+        <h2>Documenti di fiducia</h2>
+        <a href="/metodo/">Metodo</a>
+        <a href="/correzioni/">Correzioni</a>
+        <a href="/dati/">Dati &amp; API</a>
+        <a href="/progetto/">Progetto</a>
+      </nav>
+    )}
+  </aside>
   <div class="dp-utility-document__body">
     <slot />
   </div>

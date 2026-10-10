@@ -31,7 +31,7 @@ const entries = projection.dossiers
               <h2><a href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a></h2>
               <p class="dp-correction-item__meta">{dossier.speaker.name} · {dossier.source.title}</p>
               {correction.reason && <p>{String(correction.reason)}</p>}
-              <p class="dp-correction-item__version">Versione precedente: {String(correction.previous_finding_id ?? "non indicata")} · versione corrente: {String(correction.finding_id ?? dossier.finding_id)}</p>
+              <p class="dp-correction-item__version"><a href={`/dichiarazioni/${dossierSlug(dossier)}/#storia`}>Consulta lo storico pubblico delle versioni →</a></p>
             </div>
           </li>
         ))}

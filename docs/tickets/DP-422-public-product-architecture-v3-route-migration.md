@@ -78,7 +78,7 @@ The maintained visual references are the nine mockups in `prototypes/final-hybri
   and the no-intent-inference rule.
 - [x] `AC-422.7` Public pages continue to consume only the approved fail-closed projection;
   no LLM/provider call appears in a public request path.
-- [ ] `AC-422.8` Desktop and mobile QA match the selected v4 design contract and the
+- [x] `AC-422.8` Desktop and mobile QA match the selected v4 design contract and the
   maintained `prototypes/final-hybrid/` page families.
 - [x] `AC-422.9` Astro check/build, Python boundary tests and legacy-route/canonical-route
   tests pass from a clean clone.
@@ -146,3 +146,94 @@ fabricated Statement/Person/Topic/Content/Trace or legacy alias when the search 
 records. The same checker retains the full populated-fixture assertions above. This is machine
 route-contract evidence only; it does not close AC-422.8's manual comparison with the selected v4
 visual references.
+
+### 2026-10-10 — literal DP-422.8 desktop/phone closure audit (still open)
+
+At Mac `f0357ba`, an explicit demo-projection `npm run build` emitted **32 pages**;
+`npm run check` reported **0 errors/warnings/hints**, and `npm run check:routes`
+reported **16** deterministic compatibility aliases and **443** valid internal links.
+The real Chrome `npm run check:browser` now audits **all nine canonical page
+families** at **1440×900 desktop**, **375×812 phone**, and **exact 200% browser
+zoom** (1280 outer / 640 CSS / DPR 2), without horizontal overflow. It also
+exercises grayscale Person rendering, the accessible Person heading, keyboard
+opening/closing of Person phone filters with focus restoration, and detects
+external/provider requests (**0**). All browser assertions pass. This is a
+fuller route QA matrix, not a real VoiceOver human session.
+
+Visual evidence (the 18 desktop/phone, nine zoom, grayscale and three annotated
+comparison PNGs) is retained outside Git at
+`/Users/domenico/ControlCenter/_local/dp422-qa-20261010/screenshots/`.
+Comparing each desktop family with the frozen
+`prototypes/final-hybrid/{home,explore,statement,person,topic,content,trace,method,utility}.png`
+shows remaining significant visual differences: Home uses a stacked oversized
+hero/search composition where the reference places search alongside the
+introductory statement; Method renders a centered, oversized trust-document
+opening rather than the reference's two-column explanatory/document layout;
+the Corrections utility route uses an oversized standalone hero instead of
+the reference's compact shared utility-document composition. These are
+layout differences, not merely different demo text. The Content reference
+shows a player, but the current public fixture correctly refuses to fabricate
+a media player without a separately approved playable source; that boundary
+must be kept when reconciling the design.
+
+Read-only MiniPC runtime on 2026-10-10: `dichiarazioni-pubbliche-web.service`
+is active, and the approved public search index fingerprint is
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`
+with **zero** public search records. All six canonical static routes return
+HTTP 200; the explicit demo Person and Statement routes return **404**, as
+required by fail-closed production. Consequently the dynamic screenshot
+matrix exercises **local demo** content only; no demonstration figure was
+promoted into the approved projection. A native VoiceOver user pass was not
+available in this Mac session and is not claimed.
+
+**Closure decision: keep AC-422.8 unchecked and DP-422 IN PROGRESS.** The
+selected-v4 desktop composition differences have not been reconciled by their
+page owners; populated routes cannot yet be observed from the approved
+production projection, and dependency completion for DP-408/409/429 remains
+open. The additional browser QA cannot by itself certify the literal visual
+contract or complete the dependent ticket graph. No production deployment,
+rights change, migration or ticket closure was performed.
+
+### 2026-10-10 — AC-422.8 actual implementation and acceptance (supersedes previous visual hold)
+
+The three concrete composition defects above were corrected in live Public
+templates rather than waived: `index.astro` now places the search alongside
+the source-first Home introduction under the frozen brand line “La parola
+lascia una traccia”; `UtilityDocument.astro`, `metodo.astro`,
+`primitives.css` and `legacy.css` render the shared two-column trust document
+with a contextual Method index and compact Corrections/Data/Project document
+headings. On phone, the contextual rail follows the introduction in DOM order
+and precedes the body; it is not visually reordered with CSS. The Corrections
+page also replaces raw Finding version IDs with the canonical public Statement
+history link, maintaining the append-only version path.
+
+Manual inspection of the new 1440px desktop and 375px phone Chrome receipts
+against the nine frozen `prototypes/final-hybrid` reference families confirms
+that the Home hero/search, Method document/side index and utility-document
+compositions now follow the maintained page jobs. The runtime-dependent
+Content reference's playable-media panel is **conditional**: no player is
+invented when rights and playable source URL are absent from the approved
+projection. Source path and approved public locators remain accessible. The
+visual check accepts this required data/rights difference; it does not treat
+the separate demo text/people as approved production data.
+
+The strengthened `web/scripts/check-browser-qa.mjs` now asserts real layout
+geometry for Home/Method/Utility on desktop and phone, full-nine-family
+desktop/phone and exact 200% zoom, Person grayscale/keyboard/AX checks,
+without-color/reduced-motion behavior and zero external/provider fetches.
+Twenty-seven family/viewport captures, plus the earlier comparison proofs,
+are held **outside Git** under
+`/Users/domenico/ControlCenter/_local/dp422-qa-20261010/layout-fix/`.
+Astro check/build, route/canonical, design, correction-consistency and
+public-quality checks pass. The existing released MiniPC approved projection
+remains intentionally empty; no dynamic Person/Statement/Topic/Content/Trace
+or fake fixture has been published, and no human VoiceOver test is claimed
+for the separate DP-410/429 accessibility acceptance.
+
+**AC-422.8 is now complete for its defined local visual/route QA contract.**
+DP-422 itself stays **IN PROGRESS** because its declared downstream
+integration dependencies DP-408 (BLOCKED reviewed live Trace), DP-409 and
+DP-429 (manual AT and upstream gates) remain unfinished; the accepted
+projection has no dynamic records for the final production route integration
+proof. No status or approval of those tickets is inferred here. No
+production deployment, commits or changes to `PLAN.md` were performed.

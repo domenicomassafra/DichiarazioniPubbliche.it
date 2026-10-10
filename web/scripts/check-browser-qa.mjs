@@ -8,6 +8,7 @@ import path from "node:path";
 const root = path.resolve("dist");
 const chromeBin = process.env.CHROME_BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const screenshotRoot = path.join(tmpdir(), "dichiarazioni-pubbliche-browser-qa");
+const dp422CaptureDir = process.env.DP422_CAPTURE_DIR;
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -274,6 +275,15 @@ async function screenshot(cdp, name) {
   return output;
 }
 
+async function dp422Screenshot(cdp, family, variant) {
+  if (!dp422CaptureDir) return null;
+  await mkdir(dp422CaptureDir, { recursive: true });
+  const shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
+  const output = path.join(dp422CaptureDir, `${family}-${variant}.png`);
+  await writeFile(output, Buffer.from(shot.data, "base64"));
+  return output;
+}
+
 const { server, origin } = await startStaticServer();
 const externalRequests = [];
 const canonicalFiles = (await walk(root)).filter((file) => file.endsWith("index.html"));
@@ -397,6 +407,92 @@ try {
     topicShot = await screenshot(cdp, "topic-desktop");
   }
 
+  // DP-422.8: exercise every canonical v4 page family in one real Chrome
+  // session, both desktop and phone. A fixture route is not runtime approval;
+  // the matrix is reported explicitly and missing families are never forged.
+  const dp422Families = new Map([
+    ["home", "/"], ["explore", "/esplora/"],
+    ["statement", scanRoutes.find((route) => route.startsWith("/dichiarazioni/"))],
+    ["person", scanRoutes.find((route) => route.startsWith("/persone/"))],
+    ["topic", scanRoutes.find((route) => route.startsWith("/temi/"))],
+    ["content", scanRoutes.find((route) => route.startsWith("/contenuti/"))],
+    ["trace", scanRoutes.find((route) => route.startsWith("/tracce/"))],
+    ["method", "/metodo/"], ["utility", "/correzioni/"],
+  ]);
+  const dp422Matrix = [];
+  for (const [variant, width, height, mobile] of [
+    ["desktop", 1440, 900, false],
+    ["phone", 375, 812, true],
+  ]) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
+    for (const [family, route] of dp422Families) {
+      if (!route) continue;
+      await navigate(cdp, `${origin}${route}`);
+      if (family === "explore") await waitFor(cdp, "Boolean(document.querySelector('.results-count'))", "Explore hydration missing in v4 QA");
+      const state = await cdp.evaluate(`(() => ({
+        viewport: innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        h1: [...document.querySelectorAll('h1')].map(node => node.textContent.trim()),
+        main: Boolean(document.querySelector('main')),
+        horizontalScroll: document.documentElement.scrollWidth > innerWidth + 1,
+      }))()`);
+      assert.equal(state.viewport, width, `${family} ${variant}: wrong CSS viewport ${JSON.stringify(state)}`);
+      assert(!state.horizontalScroll, `${family} ${variant}: horizontal page overflow ${JSON.stringify(state)}`);
+      assert.equal(state.h1.length, 1, `${family} ${variant}: must have exactly one primary heading`);
+      assert(state.h1[0].length > 0 && state.main, `${family} ${variant}: primary heading or main missing`);
+      if (family === "home" || family === "method" || family === "utility") {
+        const geometry = await cdp.evaluate(`(() => {
+          const box = (selector) => {
+            const element = document.querySelector(selector);
+            if (!element) return null;
+            const rect = element.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+          };
+          return {
+            intro: box('${family === "home" ? ".hero-copy-v4" : ".dp-utility-document__header"}'),
+            partner: box('${family === "home" ? ".hero-search-v4" : ".dp-utility-document__rail"}'),
+            body: box('${family === "home" ? ".home-recent" : ".dp-utility-document__body"}'),
+          };
+        })()`);
+        assert(geometry.intro && geometry.partner && geometry.body, `${family} ${variant}: split template element missing`);
+        if (variant === "desktop") {
+          assert(geometry.partner.left >= geometry.intro.right - 1, `${family}: primary search/context rail must occupy right desktop column: ${JSON.stringify(geometry)}`);
+          assert(geometry.partner.top < geometry.intro.bottom, `${family}: right column must be alongside introduction, not stacked below: ${JSON.stringify(geometry)}`);
+        } else {
+          assert(geometry.partner.top >= geometry.intro.bottom - 1, `${family}: phone reading order must put context after introduction: ${JSON.stringify(geometry)}`);
+          assert(geometry.body.top >= geometry.partner.bottom - 1, `${family}: phone context must not appear below document/results: ${JSON.stringify(geometry)}`);
+        }
+      }
+      const shot = await dp422Screenshot(cdp, family, variant);
+      dp422Matrix.push({ family, route, variant, viewport: width, screenshot: shot });
+    }
+  }
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 720, deviceScaleFactor: 1, mobile: true });
+  for (const [family, route] of dp422Families) {
+    if (!route || !["home", "method", "utility"].includes(family)) continue;
+    await navigate(cdp, `${origin}${route}`);
+    const bounds = await cdp.evaluate("({ viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth })");
+    assert.equal(bounds.viewport, 320, `${family}: 320px phone width not observed`);
+    assert(bounds.scrollWidth <= bounds.viewport + 1, `${family}: 320px phone horizontal overflow ${JSON.stringify(bounds)}`);
+  }
+  if (dp422Families.has("person") && personRoute) {
+    await navigate(cdp, `${origin}${personRoute}`);
+    await cdp.send("Emulation.setEmulatedVisionDeficiency", { type: "achromatopsia" });
+    await dp422Screenshot(cdp, "person", "phone-grayscale");
+    await cdp.send("Emulation.setEmulatedVisionDeficiency", { type: "none" });
+    const mobilePersonAx = (await cdp.send("Accessibility.getFullAXTree")).nodes;
+    const personHeading = await cdp.evaluate("document.querySelector('h1')?.textContent.trim()");
+    assert(mobilePersonAx.some((node) => axValue(node, "role") === "heading" && axValue(node, "name") === personHeading), "Person primary heading absent from mobile AX tree");
+    const filterButton = await cdp.evaluate("document.querySelector('[data-record-filter-toggle]')?.getBoundingClientRect().toJSON() ?? null");
+    assert(filterButton && filterButton.height >= 44, `Person phone filter tap target too small: ${JSON.stringify(filterButton)}`);
+    await cdp.evaluate("document.querySelector('[data-record-filter-toggle]').focus()");
+    await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
+    assert.equal(await cdp.evaluate("document.querySelector('[data-record-filter-toggle]').getAttribute('aria-expanded')"), "true", "Person filters did not open from keyboard");
+    await cdp.evaluate("document.querySelector('[data-record-filter-close]').click()");
+    assert.equal(await cdp.evaluate("document.activeElement?.hasAttribute('data-record-filter-toggle')"), true, "Person filter close failed to restore keyboard focus");
+  }
+  await cdp.send("Emulation.clearDeviceMetricsOverride");
+
   const zoomBrowser = await launchChrome(origin, { zoomFactor: 2 });
   let zoom200;
   try {
@@ -422,6 +518,14 @@ try {
     assert(zoom200.scrollWidth <= zoom200.innerWidth + 1, `exact 200% browser zoom has horizontal page overflow: ${JSON.stringify(zoom200)}`);
     assert(zoom200.filterHeight >= 44, `200% browser zoom filter target below 44px: ${zoom200.filterHeight}`);
     assert(zoom200.searchWidth > 0, "search input disappeared at exact 200% browser zoom");
+    for (const [family, route] of dp422Families) {
+      if (!route) continue;
+      await navigate(zoomBrowser.cdp, `${origin}${route}`);
+      const width = await zoomBrowser.cdp.evaluate("({ viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth })");
+      assert.equal(width.viewport, 640, `${family}: browser must stay at exact 200% zoom`);
+      assert(width.scrollWidth <= width.viewport + 1, `${family}: horizontal overflow at exact 200% zoom: ${JSON.stringify(width)}`);
+      await dp422Screenshot(zoomBrowser.cdp, family, "zoom200");
+    }
   } finally {
     await zoomBrowser.close();
   }
@@ -436,6 +540,7 @@ try {
     reflow_200_equivalent: reflow,
     browser_zoom_200_exact: zoom200,
     phone,
+    dp422_visual_matrix: dp422Matrix,
     screenshots: { mobileShot, personShot, topicShot },
   }, null, 2));
 } finally {
