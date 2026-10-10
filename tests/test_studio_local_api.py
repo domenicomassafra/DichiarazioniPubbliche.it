@@ -36,6 +36,40 @@ TOKEN = "a" * 64
 
 
 class StudioLocalApiTests(unittest.TestCase):
+    def test_corpus_full_filtered_http_contract_is_private_and_typed(self):
+        payload = {
+            "query": "ricerca privata", "kinds": ["ATOMIC_CLAIM"],
+            "collection_id": "research:garlasco", "source_id": "source:official",
+            "person_id": "person:one", "topic_id": "topic:one",
+            "event_id": "event:one", "status": "APPROVED",
+            "claim_type": "FACTUAL", "check_worthy": True,
+            "from_at": "2026-01-01T00:00:00Z", "to_at": "2026-10-01T23:59:59Z",
+            "limit": 2,
+        }
+        status, response, headers = self.call("POST", "/v1/corpus/search", payload, self.auth())
+        self.assertEqual(status, 200, response)
+        query = self.search.requests[-1]
+        for key in (
+            "collection_id", "source_id", "person_id", "topic_id", "event_id",
+            "status", "claim_type", "check_worthy", "from_at", "to_at", "limit",
+        ):
+            self.assertEqual(getattr(query, key), payload[key], key)
+        self.assertEqual(query.kinds, ("ATOMIC_CLAIM",))
+        self.assertEqual(response["contract_version"], "studio-local-readonly-api-v1")
+        self.assertEqual(response["data"]["contract_version"], "studio-operator-search-v1")
+        self.assertTrue(response["data"]["private_only"])
+        self.assertFalse(response["data"]["publication_authority"])
+        self.assertNotIn("ricerca privata", json.dumps(response))
+        self.assertEqual(headers["Cache-Control"], "no-store, private")
+        for bad in (
+            payload | {"check_worthy": "true"},
+            payload | {"from_at": "2026-01-01"},
+            payload | {"source_id": "wrong\nsource"},
+            payload | {"person_id": ["person:one"]},
+        ):
+            code, _, _ = self.call("POST", "/v1/corpus/search", bad, self.auth())
+            self.assertEqual(code, 422)
+
     def setUp(self):
         self.search = FakeSearchStore()
         self.captures = FakeCaptureStore()

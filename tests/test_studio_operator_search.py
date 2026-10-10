@@ -47,6 +47,46 @@ class FakeStore:
 
 
 class StudioOperatorSearchTests(unittest.TestCase):
+    def test_full_dp116_filter_contract_reaches_lexical_store_without_raw_response(self):
+        store = FakeStore()
+        receipt = search_private_corpus(
+            store, query="ricerca mirata", kinds=("PASSAGE",),
+            collection_id="research:garlasco", source_id="source:official",
+            person_id="person:one", topic_id="topic:one", event_id="event:one",
+            status="APPROVED", claim_type="FACTUAL", check_worthy=False,
+            from_at="2026-01-01T00:00:00Z", to_at="2026-10-01T23:59:59Z",
+            limit=5,
+        )
+        request = store.requests[0]
+        self.assertEqual(request.collection_id, "research:garlasco")
+        self.assertEqual(request.source_id, "source:official")
+        self.assertEqual(request.person_id, "person:one")
+        self.assertEqual(request.topic_id, "topic:one")
+        self.assertEqual(request.event_id, "event:one")
+        self.assertEqual(request.kinds, ("PASSAGE",))
+        self.assertEqual(request.status, "APPROVED")
+        self.assertEqual(request.claim_type, "FACTUAL")
+        self.assertIs(request.check_worthy, False)
+        self.assertEqual(request.from_at, "2026-01-01T00:00:00Z")
+        self.assertEqual(request.to_at, "2026-10-01T23:59:59Z")
+        self.assertEqual(request.limit, 5)
+        self.assertNotIn("ricerca mirata", json.dumps(receipt.to_dict()))
+        self.assertNotIn("Unpublished private transcript body", json.dumps(receipt.to_dict()))
+
+    def test_invalid_optional_filter_dates_and_booleans_fail_closed(self):
+        for extras in (
+            {"check_worthy": "false"},
+            {"check_worthy": 0},
+            {"person_id": "bad\nref"},
+            {"status": "invalid\nstatus"},
+            {"from_at": "2026-01-01"},
+            {"to_at": "2026-01-01"},
+            {"from_at": "x" * 41},
+            {"to_at": 42},
+        ):
+            with self.subTest(extras=extras), self.assertRaises(ValueError):
+                search_private_corpus(FakeStore(), query="valid", **extras)
+
     def test_result_is_metadata_only_and_uses_private_lexical_backend(self):
         store = FakeStore()
         receipt = search_private_corpus(

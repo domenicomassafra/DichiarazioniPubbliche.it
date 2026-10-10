@@ -64,6 +64,14 @@ def search_private_corpus(
     kinds: tuple[str, ...] = (),
     collection_id: str | None = None,
     source_id: str | None = None,
+    person_id: str | None = None,
+    topic_id: str | None = None,
+    event_id: str | None = None,
+    status: str | None = None,
+    claim_type: str | None = None,
+    check_worthy: bool | None = None,
+    from_at: str | None = None,
+    to_at: str | None = None,
     limit: int = 20,
 ) -> StudioOperatorSearchReceipt:
     if not isinstance(query, str) or not 1 <= len(query.strip()) <= 128:
@@ -72,14 +80,30 @@ def search_private_corpus(
         raise ValueError("STUDIO_SEARCH_LIMIT_INVALID")
     if any(kind not in SEARCH_RESULT_KINDS for kind in kinds):
         raise ValueError("STUDIO_SEARCH_KIND_INVALID")
-    for value in (collection_id, source_id):
+    for value in (collection_id, source_id, person_id, topic_id, event_id, status, claim_type):
         if value is not None:
             _ref(value)
+    if check_worthy is not None and not isinstance(check_worthy, bool):
+        raise ValueError("STUDIO_SEARCH_CHECK_WORTHY_INVALID")
+    if from_at is not None and not isinstance(from_at, str):
+        raise ValueError("STUDIO_SEARCH_FROM_AT_INVALID")
+    if to_at is not None and not isinstance(to_at, str):
+        raise ValueError("STUDIO_SEARCH_TO_AT_INVALID")
+    if from_at is not None and len(from_at) > 40 or to_at is not None and len(to_at) > 40:
+        raise ValueError("STUDIO_SEARCH_DATE_LIMIT")
     request = CorpusSearchRequest(
         query=query.strip(),
         kinds=kinds,
         collection_id=collection_id,
         source_id=source_id,
+        person_id=person_id,
+        topic_id=topic_id,
+        event_id=event_id,
+        status=status,
+        claim_type=claim_type,
+        check_worthy=check_worthy,
+        from_at=from_at,
+        to_at=to_at,
         limit=limit,
     )
     try:

@@ -195,7 +195,10 @@ def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | No
 
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
     if path == "/v1/corpus/search":
-        _fields(body, required={"query"}, optional={"kinds", "source_id", "collection_id", "limit"})
+        _fields(body, required={"query"}, optional={
+            "kinds", "source_id", "collection_id", "person_id", "topic_id", "event_id",
+            "status", "claim_type", "check_worthy", "from_at", "to_at", "limit",
+        })
         kinds = body.get("kinds", [])
         if not isinstance(kinds, list) or len(kinds) > 10 or any(not isinstance(k, str) for k in kinds):
             raise ValueError("STUDIO_LOCAL_KINDS_INVALID")
@@ -205,6 +208,14 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
             kinds=tuple(kinds),
             source_id=body.get("source_id"),
             collection_id=body.get("collection_id"),
+            person_id=body.get("person_id"),
+            topic_id=body.get("topic_id"),
+            event_id=body.get("event_id"),
+            status=body.get("status"),
+            claim_type=body.get("claim_type"),
+            check_worthy=body.get("check_worthy"),
+            from_at=body.get("from_at"),
+            to_at=body.get("to_at"),
             limit=body.get("limit", 20),
         )
         return receipt.to_dict()
