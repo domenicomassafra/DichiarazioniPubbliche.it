@@ -65,6 +65,32 @@ The regression tests cover duplicates, malformed hosted names/colors,
 invalid manifests, omitted private-security labels, preservation of
 unowned existing labels and the read-only GitHub pagination seam.
 
+## 2026-10-10 owner-authorized hosted label-only deployment
+
+This later execution supersedes the **historical** read-only-only state
+described above **for labels only**. Before mutation, a new private
+0600 baseline export was captured; the canonical manifest proposed 22 bounded
+operations on 10 existing labels. Exactly 20 were created and two updated;
+zero labels were deleted, and `security-private` remains excluded. A new
+GitHub GET proved 30 labels and the manifest target SHA-256
+`b074fb3d31db52a8fbd2ab658f96c54c14cf8bfcc295ce81ebc221a9405b5f5d`.
+The original snapshot digest is
+`3f6e9c18359be9764fa59ceb80f355ebae4346630cf7e8b8b913da15e6f25106`.
+No snapshot containing hosted metadata was added to Git.
+
+The rollback path was exercised on one separately created unreferenced test
+label `dp606-rollback-canary-20261010`: POST, GET, DELETE, then 404 and
+30-label total all passed. **This does not assert a live rollback of the
+production 22-operation set.** For such a rollback, use the private pre-state
+snapshot to restore the previous metadata of the two updated labels and
+delete only created labels independently confirmed to have no issue references
+or newer manual edits. Resolve all conflicts before destructive action.
+
+No GitHub Project, ruleset, branch-protection setting, webhook, issue or
+remote automation was created or changed. Existing GitHub Projects V2
+remain UNVERIFIED (missing `read:project` scope); if projects/branch-policy
+are ever adopted, **back them up separately and require owner authorization**.
+
 This is preparatory AC-606.10 evidence **not full acceptance**.
 DP-606 remains IN PROGRESS until the exact authorized hosted
 setup/export/rollback and protection policy are accepted.

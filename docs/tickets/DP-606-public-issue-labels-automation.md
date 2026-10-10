@@ -1,9 +1,9 @@
 # DP-606 — Public issue labels and project automation after a remote exists
 
-Status: IN PROGRESS
+Status: DONE
 Milestone: M6 — open-source and release hardening
 Depends on: DP-001, a confirmed canonical remote, owner authorization, and the repository governance/security contracts
-Launch state: BLOCKED on owner-approved hosted mutation/branch-protection policy and hosted export/rollback dry-run; canonical GitHub remote, public visibility, owner, security channel, and current permission facts are confirmed
+Launch state: labels-only hosted contributor workflow installed and reversible; no GitHub Projects V2, branch-protection or automated remote mutations enabled or authorized by this ticket. Stable-v1 release gates remain separately blocked.
 
 ## Problem
 
@@ -186,7 +186,7 @@ closed, or that a release occurred.
 - [x] **AC-606.9 — Versioning:** Milestone/release labels are generated only from an
   accepted DP-604 version decision; CI does not bump a version or alter the changelog
   automatically.
-- [ ] **AC-606.10 — Migration/rollback:** Existing repo-local tickets remain readable;
+- [x] **AC-606.10 — Migration/rollback:** Existing repo-local tickets remain readable;
   label/project changes have a versioned manifest, an export/backup, and a rollback
   procedure. No database migration or production data change is involved.
 - [x] **AC-606.11 — No publication:** This ticket does not create a remote, issue,
@@ -306,3 +306,41 @@ GitHub Projects V2 remain **UNVERIFIED** because the current token lacks
 hosted setup/protection and real rollback is still a distinct requirement.
 Procedure, exact snapshot digest and targeted tests are in
 `docs/ops/issue-hosted-rollback.md`.
+
+### 2026-10-10 — Actual hosted label-only setup and rollback proof
+
+The owner subsequently directed completion of the existing tickets and authorized the
+minimum reversible hosted workflow. The confirmed scope is **GitHub Issues with native
+triage labels only**; GitHub Projects V2, hosted automatic status transitions, releases,
+webhooks and changes to `main` branch protection are **not** part of this setup.
+Project state remains explicitly **UNVERIFIED** because the authenticated token lacks
+`read:project`; no claim that projects are absent or backed up is made. No project
+was created, modified, deleted or synchronized. This bounds AC-606.10 to the labels
+actually changed; a future project/protection change would require its *own*
+authorization, project-specific export and rollback receipt before execution.
+
+Actual `gh api` read-before-write captured the canonical repository's 10 existing
+labels and the pre-mutation private snapshot. Existing labels were preserved;
+20 manifest-approved public labels were created and two existing labels' display
+metadata were updated. The explicitly private `security-private` label was not
+created. Live read-back has **30 labels**, matching the exact proposed manifest
+overlay: baseline normalized SHA-256
+`3f6e9c18359be9764fa59ceb80f355ebae4346630cf7e8b8b913da15e6f25106`,
+post-state SHA-256
+`b074fb3d31db52a8fbd2ab658f96c54c14cf8bfcc295ce81ebc221a9405b5f5d`.
+The rollback simulator reconstructs the exact ten-label baseline without deleting
+unowned labels. To prove the GitHub write/delete transport **in reality**, the
+isolated unreferenced label `dp606-rollback-canary-20261010` was created,
+read back and deleted; follow-up GET returned 404 and the total returned to
+30 labels. This was a bounded hosted canary, not an issue/branch/project rollback
+or a claim that all 30 production labels were rolled back.
+
+`tools/check_issue_workflow.py` PASS and nine focused
+`test_issue_label_rollback`/`test_issue_hosted_governance_backup` tests PASS;
+repository-local tickets, templates and private security-reporting path are
+unchanged. The canonical runtime and dataset are unaffected. All 11/11 ticket
+AC are satisfied for the **label-only** scope; no GitHub issue, project,
+webhook, release, public page, repository, provider permission or production
+database mutation was introduced. The workflow keeps automatic remote
+mutation **disabled**. Branch/ruleset protection and Projects V2 remain
+separate owner-governance concerns, not a made-up `GO` for the M7 release.
