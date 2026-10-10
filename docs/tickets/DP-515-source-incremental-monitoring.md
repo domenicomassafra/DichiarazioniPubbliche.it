@@ -1,6 +1,6 @@
 # DP-515 — Economical incremental source monitoring with coverage and safe backoff
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-209, DP-210, DP-211, DP-511, DP-512, DP-514
 
@@ -39,4 +39,19 @@ Depends on: DP-209, DP-210, DP-211, DP-511, DP-512, DP-514
  Reuse source registry/health, discovery run, coverage needs and operation ledger, adding only conditional-validator/version/watch state where absent; private watch rule + public safe freshness projection. Rollback pauses the watcher, preserves source history, leaves unrelated public readers available.
 
 ## Completion receipt
- Not implemented; planning only. Future policy hash, source-version before/after, job/no-child counts, MiniPC digest and public freshness/projection fingerprints.
+Not implemented; planning only. Future policy hash, source-version before/after, job/no-child counts, MiniPC digest and public freshness/projection fingerprints.
+
+## 2026-10-11 — First implementation slice
+
+Source-only commit `3cb5d93` adds opt-in, disabled-by-default
+`incremental_source_watch.py` plus `test_dp515_incremental_watch.py`.
+Seventeen focused tests and 50 related source/cost/regression tests pass.
+The bounded pure policy evaluates source version/hash/ETag, conditional
+304/no-change, changed source, rate-limit/outage backoff, private attempted
+versus last-successful timestamps and rights/capability/cost before proposing
+any child. No actual fetch, DB store, scheduler or provider was run.
+
+All original AC are still unchecked. The real watcher remains **NO-GO**
+until authenticated permission/quota records, atomic durable state/lease/CAS
+with job admission, downstream DP-511 revoke/reanalysis, source-family
+MiniPC proof, operator authorization and cost measurement are accepted.

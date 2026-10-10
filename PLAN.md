@@ -587,7 +587,7 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-512 | IN PROGRESS | Truthful operation billing classification and retrospective reconciliation | DP-230, DP-506 |
 | DP-513 | FUTURE | Bounded empirical GPT-6/Antigravity/Groq/local-capacity pilot | DP-512, DP-506 |
 | DP-514 | IN PROGRESS | EUR10-month planning envelope with atomic multi-interval dispatch caps | DP-512, DP-513, DP-506 |
-| DP-515 | FUTURE | Economical incremental source monitoring with coverage and safe backoff | DP-209, DP-210, DP-211, DP-511, DP-512, DP-514 |
+| DP-515 | IN PROGRESS | Economical incremental source monitoring with coverage and safe backoff | DP-209, DP-210, DP-211, DP-511, DP-512, DP-514 |
 | DP-517 | FUTURE | Reader Google sign-up/login/logout/delete MiniPC activation | DP-304, DP-307, DP-501, DP-502 |
 | DP-518 | FUTURE | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |
 | DP-519 | FUTURE | Operator visual-quality capacity and exception time budget | DP-417, DP-304 |

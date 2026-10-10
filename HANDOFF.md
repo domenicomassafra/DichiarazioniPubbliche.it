@@ -31,6 +31,16 @@ Prima e seconda ondata:
   30 IN PROGRESS, 6 BLOCKED, 36 FUTURE**; 72 non DONE. Le nuove AC restano
   aperte dove mancano prove reali.
 
+**Terza tranche source-only, 2026-10-11:** DP-238 `c366514` (testo
+HTML/XML/UTF-8 page-aligned, OCR scan/PDF non ancora supportati), DP-313
+`6afb00f` (ruoli/stati documenti processuali separati), DP-438 `7e8bbbb`
+(Persona pubblica autonoma v3, opt-in senza rotta live) e DP-515 `3cb5d93`
+(watch incrementale disattivato e bounded). Browser Esplora
+`b4caa2a` ha superato QA in Chrome isolato su build vuota e demo,
+inclusa intersezione Persona × Tema con URL. Il passaggio allo stato
+`IN PROGRESS` non chiude le loro AC; il nuovo registro è **162 totali,
+90 DONE, 34 IN PROGRESS, 6 BLOCKED, 32 FUTURE**, sempre 72 non DONE.
+
 Test puntuali e web sono stati eseguiti: `check:search`, `check:statement`,
 `check:design`, Astro check (88 file, 0 diagnostici),
 `check:projection-boundary`, suite DP-236/237/312/318/435/436/512/514,
