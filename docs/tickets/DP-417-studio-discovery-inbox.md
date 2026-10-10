@@ -302,3 +302,15 @@ readiness, **not** a real reviewed or rights-authorized triage decision.
 DP-417 remains IN PROGRESS and AC-417.1–4 unchecked: real authorized
 Discovery records, independent reviewer action authority, all queue
 families, and atomic safe bulk transitions are still required.
+
+**MiniPC deployed-source read-back:** Four new source/test/document files from
+commit `830f9a0162be3e5eb86e37053d2db586457c9827` were checksum-synced
+with exact parity and preexisting-file rollback backups. An actual ephemeral
+`127.0.0.1` Studio HTTP server reading the real production PostgreSQL returned
+**200** for an authenticated Collection-scoped Inbox query with zero records,
+**401** without the bearer token and **422** for an unauthorized `publish`
+field. The response preserved `no-store, private` and false
+publication/action authority. MiniPC focused suites ran **40/40 PASS**
+(one skip). Both public static HTML and approved projection SHA-256 stayed
+byte-identical, and Cloudflare/web systemd units remained active. No
+operational database row was written or review authority inferred.
