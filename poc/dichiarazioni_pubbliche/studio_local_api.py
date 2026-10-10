@@ -469,7 +469,7 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         return receipt.to_dict()
     if path == "/v1/capture/compare":
         _fields(body, required={"content_id", "earlier_hash", "later_hash"})
-        return inspect_capture_versions(readers.captures, **body)
+        return inspect_capture_versions(readers.captures, **body, include_selector_diff=True)
     if path == "/v1/capture/passages":
         _fields(body, required={"content_id", "capture_hash"}, optional={"limit", "after_id"})
         return inspect_capture_passage_selectors(readers.captures, **body)

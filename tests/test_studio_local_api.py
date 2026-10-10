@@ -186,6 +186,31 @@ class StudioLocalApiTests(unittest.TestCase):
         status, _, _ = self.call('POST', route, payload, self.auth())
         self.assertEqual(status, 422)
 
+    def test_capture_pair_http_returns_selector_diff_with_no_rights_or_private_text(self):
+        from tests.test_studio_capture_inspector import passage
+        self.captures.selectors_by_capture = {
+            'capture:aaaaaa': [passage('passage:01', text_sha256='1' * 64)],
+            'capture:bbbbbb': [passage('passage:02', capture_id='capture:bbbbbb',
+                                      text_sha256='2' * 64)],
+        }
+        payload = {'content_id': 'content:one', 'earlier_hash': A, 'later_hash': B}
+        route = '/v1/capture/compare'
+        self.assertEqual(self.call('POST', route, payload)[0], 401)
+        status, response, headers = self.call('POST', route, payload, self.auth())
+        self.assertEqual(status, 200, response)
+        diff = response['data']['selector_comparison']
+        self.assertEqual(diff['status'], 'COMPLETE')
+        self.assertEqual(diff['counts']['CHANGED'], 1)
+        self.assertTrue(response['data']['later']['purge_receipt_recorded'])
+        self.assertEqual(response['data']['later']['body_state'], 'PURGED')
+        self.assertEqual(headers['Cache-Control'], 'no-store, private')
+        self.assertFalse(response['data']['rights_clearance'])
+        self.assertFalse(response['data']['publication_authority'])
+        for secret in ('SECRET SOURCE PASSAGE', 'PRIVATE TOKEN', 'private_text', 'final_url'):
+            self.assertNotIn(secret, json.dumps(response))
+        status, _, _ = self.call('POST', route, payload | {'approve': True}, self.auth())
+        self.assertEqual(status, 422)
+
     def test_included_collection_capture_and_passage_candidate_navigation_is_private(self):
         """Real HTTP boundary, no source bodies and no unauthenticated browsing."""
         self.captures.list_collection_captures = lambda **kwargs: {

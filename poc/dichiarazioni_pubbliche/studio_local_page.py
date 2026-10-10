@@ -220,6 +220,7 @@ _PAGE = """<!doctype html>
         <button type="submit">Confronta</button></div>
       </form>
       <div id="capture-links" role="group" aria-label="Catture confrontate: ispeziona selettori"></div>
+      <p id="capture-selector-diff-summary" role="status" aria-live="polite">Nessun confronto di selettori eseguito.</p>
       <h2>Selettori dei passaggi</h2>
       <p>Passaggi scritti collegati a una singola versione di cattura. Gli eventuali segmenti multimediali appartengono al Content logico e non vengono attribuiti artificialmente a questa versione.</p>
       <form data-endpoint="/v1/capture/passages">
@@ -265,6 +266,7 @@ _PAGE = """<!doctype html>
     const memberLinks = document.getElementById('member-links');
     const claimLinks = document.getElementById('claim-links');
     const captureLinks = document.getElementById('capture-links');
+    const captureSelectorDiffSummary = document.getElementById('capture-selector-diff-summary');
     const capturePassageLinks = document.getElementById('capture-passage-links');
     const passageCandidateLinks = document.getElementById('passage-candidate-links');
     const passageCandidateSummary = document.getElementById('passage-candidate-summary');
@@ -428,6 +430,7 @@ _PAGE = """<!doctype html>
       memberLinks.replaceChildren();
       claimLinks.replaceChildren();
       captureLinks.replaceChildren();
+      captureSelectorDiffSummary.textContent = 'Nessun confronto di selettori eseguito.';
       capturePassageLinks.replaceChildren();
       passageCandidateLinks.replaceChildren();
       passageCandidateSummary.textContent = 'Nessun Passage selezionato.';
@@ -495,6 +498,7 @@ _PAGE = """<!doctype html>
         }
         if (form.dataset.endpoint === '/v1/capture/compare') {
           captureLinks.replaceChildren();
+          captureSelectorDiffSummary.textContent = 'Confronto selettori in corso…';
         }
         if (form === capturePassageForm) {
           capturePassageLinks.replaceChildren();
@@ -543,6 +547,24 @@ _PAGE = """<!doctype html>
               + ' · sola posizione interna, non permesso di riprodurre';
           }
           if (response.ok && form.dataset.endpoint === '/v1/capture/compare') {
+            const comparison = receipt.data?.selector_comparison;
+            if (receipt.data?.private_only === true && receipt.data?.rights_clearance === false
+                && receipt.data?.publication_authority === false && comparison?.complete === true
+                && comparison.status === 'COMPLETE' && comparison.counts
+                && ['UNCHANGED', 'CHANGED', 'ADDED', 'REMOVED'].every(
+                  key => Number.isInteger(comparison.counts[key]) && comparison.counts[key] >= 0)) {
+              captureSelectorDiffSummary.textContent = 'Selettori delle catture: '
+                + comparison.counts.UNCHANGED + ' invariati, '
+                + comparison.counts.CHANGED + ' modificati, '
+                + comparison.counts.ADDED + ' aggiunti, '
+                + comparison.counts.REMOVED + ' rimossi. '
+                + 'Confronto di soli hash e coordinate, nessun permesso di riproduzione.';
+            } else if (comparison?.status === 'TRUNCATED' && comparison.complete === false) {
+              captureSelectorDiffSummary.textContent = 'Confronto non completo: oltre 20 selettori in almeno una versione. '
+                + 'Aprire i selettori paginati per ispezionarli. Nessuna differenza totale deducibile.';
+            } else {
+              captureSelectorDiffSummary.textContent = 'Confronto di selettori non disponibile.';
+            }
             for (const position of ['earlier', 'later']) {
               const capture = receipt.data?.[position];
               if (typeof capture?.content_sha256 !== 'string' || typeof receipt.data?.content_id !== 'string') continue;

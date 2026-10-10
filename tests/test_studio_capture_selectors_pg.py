@@ -7,12 +7,15 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'poc'))
 
-from dichiarazioni_pubbliche.studio_capture_inspector import inspect_capture_passage_selectors  # noqa: E402
+from dichiarazioni_pubbliche.studio_capture_inspector import (  # noqa: E402
+    inspect_capture_passage_selectors, inspect_capture_versions,
+)
 from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_media_selector  # noqa: E402
 from dichiarazioni_pubbliche.studio_local_api import _StudioCaptureReader  # noqa: E402
 
@@ -41,7 +44,8 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
             cls._sql('''
               INSERT INTO content_item (id, canonical_url) VALUES
                 ('content:one', 'https://source.test/one'),
-                ('content:other', 'https://source.test/other');
+                ('content:other', 'https://source.test/other'),
+                ('content:purged', 'https://source.test/purged');
               INSERT INTO content_capture (
                 id, content_id, observed_at, final_url, content_sha256,
                 retrieval_method, retrieval_version, body_ref, metadata
@@ -114,6 +118,32 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
                   retrieval_method, retrieval_version
               ) VALUES ('capture:cccccc', 'content:one', '2026-10-09T10:00:00Z',
                         'https://SECRET.example/other', repeat('c', 64), 'fixture', 'v1');
+              INSERT INTO content_capture (
+                id, content_id, observed_at, final_url, content_sha256,
+                retrieval_method, retrieval_version, status, archive_status,
+                archive_provider, archive_requested_at, archive_completed_at,
+                archive_receipt, body_purged_at, purge_reason, purge_receipt,
+                body_ref
+              ) VALUES (
+                'capture:purged', 'content:purged', '2026-10-08T00:00:00Z',
+                'https://SECRET.example/purged', repeat('d', 64), 'fixture', 'v1',
+                'PURGED_BODY', 'SUCCEEDED', 'archive:fixture',
+                '2026-10-08T03:00:00Z', '2026-10-08T04:00:00Z',
+                '{"sensitive_archive_receipt": "SECRET"}'::jsonb,
+                '2026-10-09T06:00:00Z', 'retention_expired',
+                '{"sensitive_purge_receipt": "SECRET"}'::jsonb, NULL
+              );
+              INSERT INTO passage (
+                id, content_id, capture_id, selector_type, start_char, end_char,
+                text_sha256, private_text, extraction_method, extraction_version,
+                metadata
+              ) VALUES
+                ('passage:04', 'content:one', 'capture:cccccc', 'TEXT_POSITION',
+                 2, 16, repeat('b', 64), 'SECRET changed passage', 'fixture', 'v1',
+                 '{"private_token": "SECRET"}'::jsonb),
+                ('passage:05', 'content:one', 'capture:cccccc', 'TEXT_POSITION',
+                 31, 44, repeat('9', 64), 'SECRET added passage', 'fixture', 'v1',
+                 '{}'::jsonb);
             ''')
         except Exception:
             cls.tearDownClass()
@@ -158,6 +188,44 @@ class StudioCaptureSelectorPostgresTests(unittest.TestCase):
                 store, content_id='content:one', capture_hash='b' * 64)
         self.assertEqual(store.list_passage_selectors('capture:bbbbbb',
             limit=20, after_id=None)[0]['content_id'], 'content:other')
+
+    def test_two_real_persisted_captures_compare_written_selector_deltas_privately(self):
+        store = _StudioCaptureReader(self.dsn)
+        comparison = inspect_capture_versions(
+            store, content_id='content:one', earlier_hash='a' * 64,
+            later_hash='c' * 64, include_selector_diff=True,
+        )
+        self.assertEqual(comparison['selector_comparison']['status'], 'COMPLETE')
+        self.assertEqual(comparison['selector_comparison']['counts'], {
+            'UNCHANGED': 0, 'CHANGED': 1, 'REMOVED': 1, 'ADDED': 1,
+        })
+        self.assertEqual([change['change'] for change in comparison['selector_comparison']['changes']],
+                         ['CHANGED', 'REMOVED', 'ADDED'])
+        self.assertFalse(comparison['rights_clearance'])
+        self.assertFalse(comparison['publication_authority'])
+        for forbidden in ('SECRET', 'private_text', 'private_token', 'final_url', 'body_ref'):
+            self.assertNotIn(forbidden, json.dumps(comparison))
+        with self.assertRaisesRegex((RuntimeError, ValueError), 'STUDIO_CAPTURE'):
+            inspect_capture_versions(store, content_id='content:other',
+                                     earlier_hash='a' * 64, later_hash='c' * 64,
+                                     include_selector_diff=True)
+
+    def test_persisted_purged_body_keeps_hash_and_receipt_presence_without_leak(self):
+        response = inspect_capture_passage_selectors(
+            _StudioCaptureReader(self.dsn), content_id='content:purged',
+            capture_hash='d' * 64,
+        )
+        capture = response['capture']
+        self.assertEqual(capture['content_sha256'], 'd' * 64)
+        self.assertEqual(capture['body_state'], 'PURGED')
+        self.assertTrue(capture['archive_receipt_recorded'])
+        self.assertTrue(capture['purge_receipt_recorded'])
+        self.assertEqual(datetime.fromisoformat(capture['body_purged_at']).astimezone(timezone.utc),
+                         datetime(2026, 10, 9, 6, tzinfo=timezone.utc))
+        self.assertEqual(response['selectors'], [])
+        self.assertFalse(response['rights_clearance'])
+        for secret in ('SECRET', 'sensitive_', 'retention_expired', 'final_url', 'body_ref'):
+            self.assertNotIn(secret, json.dumps(response))
 
     def test_persisted_candidate_media_passage_maps_to_exact_segment_time(self):
         store = _StudioCaptureReader(self.dsn)

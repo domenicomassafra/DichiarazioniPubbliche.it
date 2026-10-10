@@ -38,7 +38,7 @@ assert.ok(inlineScript, 'rendered page must contain its nonce-bound script');
 
 const ids = new Map();
 for (const id of ['token', 'results', 'status', 'clear', 'member-links',
-                  'claim-links', 'capture-links', 'collection-capture-links',
+                  'claim-links', 'capture-links', 'capture-selector-diff-summary', 'collection-capture-links',
                   'collection-capture-summary', 'capture-passage-links',
                   'passage-candidate-links', 'passage-candidate-summary',
                   'media-locator', 'corpus-list',
@@ -249,6 +249,35 @@ async function main() {
   assert.doesNotMatch(results.textContent, /STALE_PRIOR_WORKSPACE/,
                       'older workspace response must not overwrite newer result');
   assert.match(media.textContent, /segment:latest/);
+  const compareForm = forms['/v1/capture/compare'];
+  compareForm.fields.earlier_hash = 'a'.repeat(64);
+  compareForm.fields.later_hash = 'c'.repeat(64);
+  const compareRequest = compareForm.fire('submit');
+  assert.equal(requests[9].path, '/v1/capture/compare');
+  complete(9, {
+    private_only: true, rights_clearance: false, publication_authority: false,
+    content_id: 'content:one',
+    selector_comparison: {complete: true, status: 'COMPLETE', counts: {
+      UNCHANGED: 1, CHANGED: 2, ADDED: 3, REMOVED: 4,
+    }},
+  });
+  await compareRequest;
+  const diff = ids.get('capture-selector-diff-summary');
+  assert.match(diff.textContent, /2 modificati/);
+  assert.match(diff.textContent, /3 aggiunti/);
+  assert.match(diff.textContent, /4 rimossi/);
+  const moreRequest = compareForm.fire('submit');
+  complete(10, {selector_comparison: {complete: false, status: 'TRUNCATED'}});
+  await moreRequest;
+  assert.match(diff.textContent, /Confronto non completo/);
+  const staleDiff = compareForm.fire('submit');
+  clear.fire('click');
+  complete(11, {selector_comparison: {complete: true, status: 'COMPLETE', counts: {
+    UNCHANGED: 999, CHANGED: 999, ADDED: 999, REMOVED: 999,
+  }}});
+  await staleDiff;
+  assert.doesNotMatch(diff.textContent, /999/);
+  assert.match(diff.textContent, /Nessun confronto/);
   process.stdout.write('Studio Corpus filters, keyboard inspector, return, private scrub and stale-response regression PASS\n');
 }
 

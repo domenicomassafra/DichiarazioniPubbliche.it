@@ -65,8 +65,11 @@ class CaptureInspection:
     hold_state: str
     archive_state: str
     body_state: str
+    archive_receipt_recorded: bool
+    purge_receipt_recorded: bool
+    body_purged_at: str | None
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "id": self.id,
             "observed_at": self.observed_at,
@@ -75,6 +78,9 @@ class CaptureInspection:
             "hold_state": self.hold_state,
             "archive_state": self.archive_state,
             "body_state": self.body_state,
+            "archive_receipt_recorded": self.archive_receipt_recorded,
+            "purge_receipt_recorded": self.purge_receipt_recorded,
+            "body_purged_at": self.body_purged_at,
         }
 
 
@@ -129,6 +135,11 @@ def _select_metadata(raw: Mapping[str, Any], content_id: str, expected_hash: str
         hold_state=hold_state,
         archive_state=archive_state,
         body_state=body_state,
+        archive_receipt_recorded=(archive_state in {"SUCCEEDED", "FAILED"}
+                                  and _has_receipt(raw.get("archive_receipt"))),
+        purge_receipt_recorded=(capture_state == "PURGED_BODY"
+                                and _has_receipt(raw.get("purge_receipt"))),
+        body_purged_at=raw.get("body_purged_at") if capture_state == "PURGED_BODY" else None,
     )
 
 
@@ -138,6 +149,7 @@ def inspect_capture_versions(
     content_id: str,
     earlier_hash: str,
     later_hash: str,
+    include_selector_diff: bool = False,
 ) -> dict[str, object]:
     content_id = _safe_id(content_id)
     if not isinstance(earlier_hash, str) or not _SHA.fullmatch(earlier_hash):
@@ -162,10 +174,11 @@ def inspect_capture_versions(
     if (datetime.fromisoformat(earlier.observed_at.replace("Z", "+00:00"))
             >= datetime.fromisoformat(later.observed_at.replace("Z", "+00:00"))):
         raise ValueError("STUDIO_CAPTURE_VERSION_ORDER_INVALID")
-    return {
+    result: dict[str, object] = {
         "contract_version": CAPTURE_INSPECTION_VERSION,
         "private_only": True,
         "publication_authority": False,
+        "rights_clearance": False,
         "content_id": content_id,
         "earlier": earlier.to_dict(),
         "later": later.to_dict(),
@@ -177,6 +190,12 @@ def inspect_capture_versions(
             "body_storage_changed": earlier.body_state != later.body_state,
         },
     }
+    if include_selector_diff:
+        result["selector_comparison"] = _compare_capture_selectors(
+            store, content_id=content_id,
+            earlier_capture_id=earlier.id, later_capture_id=later.id,
+        )
+    return result
 
 
 def _selector(raw: Mapping[str, Any], *, content_id: str, capture_id: str) -> dict[str, Any]:
@@ -205,6 +224,84 @@ def _selector(raw: Mapping[str, Any], *, content_id: str, capture_id: str) -> di
         "text_sha256": digest,
         coords[0]: first,
         coords[1]: last,
+    }
+
+
+def _compare_capture_selectors(
+    store: CaptureLookup, *, content_id: str,
+    earlier_capture_id: str, later_capture_id: str,
+) -> dict[str, object]:
+    """Compare at most 20 persisted written passage anchors per Capture.
+
+    A passage ID belongs to a Capture version, not a stable cross-version
+    identity. Only selector coordinates identify the comparison anchor; hashes
+    express changed wording without returning the wording. Never infer a
+    missing/added Passage from a truncated page.
+    """
+    maximum = 20
+
+    def read(capture_id: str) -> tuple[dict[tuple[object, ...], dict[str, Any]], bool]:
+        try:
+            rows = store.list_passage_selectors(capture_id, limit=maximum, after_id=None)
+        except Exception:
+            raise RuntimeError("STUDIO_CAPTURE_STORE_UNAVAILABLE") from None
+        if not isinstance(rows, list) or len(rows) > maximum + 1:
+            raise ValueError("STUDIO_CAPTURE_SELECTOR_PAGE_INVALID")
+        found: dict[tuple[object, ...], dict[str, Any]] = {}
+        previous = ""
+        for raw in rows:
+            if not isinstance(raw, Mapping):
+                raise ValueError("STUDIO_CAPTURE_SELECTOR_ROW_INVALID")
+            item = _selector(raw, content_id=content_id, capture_id=capture_id)
+            if item["id"] <= previous:
+                raise ValueError("STUDIO_CAPTURE_SELECTOR_CURSOR_INVALID")
+            previous = item["id"]
+            anchor = (
+                item["selector_type"], item.get("start_char"), item.get("end_char"),
+                item.get("page_start"), item.get("page_end"),
+            )
+            if anchor in found:
+                raise ValueError("STUDIO_CAPTURE_SELECTOR_ANCHOR_DUPLICATE")
+            found[anchor] = item
+        return found, len(rows) > maximum
+
+    earlier, earlier_truncated = read(earlier_capture_id)
+    later, later_truncated = read(later_capture_id)
+    if earlier_truncated or later_truncated:
+        return {
+            "status": "TRUNCATED", "complete": False,
+            "max_per_version": maximum,
+            "earlier_truncated": earlier_truncated,
+            "later_truncated": later_truncated,
+            "reason_code": "CAPTURE_SELECTOR_COMPARISON_TRUNCATED",
+            "unblock_condition": "INSPECT_CAPTURE_PAGINATED_SELECTORS",
+            "changes": [],
+        }
+
+    counts = {kind: 0 for kind in ("UNCHANGED", "CHANGED", "REMOVED", "ADDED")}
+    changes: list[dict[str, object]] = []
+    for anchor in sorted(earlier.keys() | later.keys()):
+        before, after = earlier.get(anchor), later.get(anchor)
+        kind = (
+            "ADDED" if before is None else
+            "REMOVED" if after is None else
+            "UNCHANGED" if before["text_sha256"] == after["text_sha256"] else
+            "CHANGED"
+        )
+        counts[kind] += 1
+        changes.append({
+            "selector_type": anchor[0],
+            "start_char": anchor[1], "end_char": anchor[2],
+            "page_start": anchor[3], "page_end": anchor[4],
+            "earlier_passage_id": before["id"] if before else None,
+            "later_passage_id": after["id"] if after else None,
+            "earlier_text_sha256": before["text_sha256"] if before else None,
+            "later_text_sha256": after["text_sha256"] if after else None,
+            "change": kind,
+        })
+    return {
+        "status": "COMPLETE", "complete": True, "max_per_version": maximum,
+        "counts": counts, "changes": changes,
     }
 
 

@@ -194,3 +194,52 @@ or workspace switch, including delayed responses.
 No rights-gated source excerpt, player seek, real media permission, external
 archive proof, deployed MiniPC browser or assistive-technology acceptance is
 inferred. DP-419 and all four AC remain open pending their full criteria.
+
+### 2026-10-10 — persisted written selector difference and purge receipts
+
+The authenticated private `/v1/capture/compare` now compares both persisted
+Capture versions by exact written Passage selector coordinates and content
+SHA-256. The bounded diff reports `UNCHANGED`, `CHANGED`, `ADDED` and `REMOVED`
+for at most 20 Passages in each version. Passage IDs are version-local; changed
+text at the same location is identified by hashes, without returning text.
+Duplicate selector anchors, cross-Content/Capture bindings, invalid selectors,
+unordered DB pages and secret-bearing backend exceptions fail closed. For an
+over-limit version the diff reports `TRUNCATED` with **no inferred complete
+counts**; the existing paginated selectors remain available for manual review.
+The keyboard-reachable Studio Catture panel displays a summary and clears it
+on disconnect or workspace switch, including stale asynchronous responses.
+
+The Capture lifecycle metadata also exposes `purge_receipt_recorded`,
+`archive_receipt_recorded` and a validated, timezone-aware `body_purged_at`
+timestamp, alongside the original hash and PURGED state. Original receipt
+contents, private source body, headers, URLs and purge reasons remain excluded;
+receipt presence does not independently attest an archive provider or rights.
+
+Focused Mac acceptance: **40/40 PASS** including actual disposable PostgreSQL
+for two changed Capture versions and one purged-body Capture, loopback
+authenticated HTTP, privacy negatives, and JS stale-response regression;
+`compileall` and `git diff --check` PASS. The preceding full repository suite
+ran **2241 tests PASS** before the final purge-receipt fixture addition;
+focused regressions cover that addition. On MiniPC `udodo`, an **isolated
+temporary copy** of the candidate source/tests ran the same **40/40 PASS**
+with PostgreSQL 18 binaries and ephemeral database. This does **not** install
+the feature in the production mirror or alter the real DB/public projection.
+Production `content_capture` count remains **zero**, so no real source Capture
+was represented as a live two-version acceptance.
+
+The subsequent full-suite run after the fixture addition executed **2242 tests
+with 1 failure outside DP-419**: `test_public_web_boundary` asserts the old
+literal `robotsPolicy` expression, while concurrent uncommitted public-account
+work had added `privatePage` to `BaseLayout.astro`. That overlapping public-web
+source/test correction belongs to its other worker; the DP-419 source and
+privacy-focused tests continued to pass. Full-suite GREEN is not claimed for
+this moving shared-worktree snapshot.
+
+**Still open:** AC-419.1/.2/.4 are functionally exercised by genuine SQL
+with synthetic persisted rows but require installed/runtime live-source and
+operator acceptance before final sign-off. AC-419.3 requires a rights-permitted
+media artifact bound to its canonical Content, synchronized player seek to
+the persisted segment interval and operator/keyboard replay. The existing
+media locator is metadata-only. No source rights review, publication authority,
+manual 200% zoom/screen-reader pass or approved media body was obtained;
+DP-419 stays `IN PROGRESS`.

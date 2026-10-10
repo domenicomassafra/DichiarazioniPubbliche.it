@@ -43,6 +43,7 @@ class FakeCaptureStore:
         self.error = error
         self.calls = []
         self.selectors = []
+        self.selectors_by_capture = None
         self.selector_error = None
 
     def find_capture(self, content_id, content_sha256):
@@ -55,7 +56,8 @@ class FakeCaptureStore:
         if self.selector_error is not None:
             raise self.selector_error
         self.calls.append((capture_id, limit, after_id))
-        return [p for p in self.selectors if p['id'] > (after_id or '')][:limit + 1]
+        source = self.selectors if self.selectors_by_capture is None else self.selectors_by_capture.get(capture_id, [])
+        return [p for p in source if p['id'] > (after_id or '')][:limit + 1]
 
 
 def passage(pid, **override):
@@ -69,6 +71,62 @@ def passage(pid, **override):
 
 
 class StudioCaptureInspectorTests(unittest.TestCase):
+    def test_compare_capture_selector_changes_is_exact_bounded_and_private(self):
+        from dichiarazioni_pubbliche.studio_capture_inspector import inspect_capture_versions
+        store = FakeCaptureStore()
+        store.selectors_by_capture = {
+            'capture:aaaaaa': [
+                passage('passage:a1', start_char=0, end_char=4, text_sha256='1' * 64),
+                passage('passage:a2', start_char=10, end_char=14, text_sha256='2' * 64),
+                passage('passage:a3', start_char=20, end_char=24, text_sha256='3' * 64),
+            ],
+            'capture:bbbbbb': [
+                passage('passage:b1', capture_id='capture:bbbbbb', start_char=0, end_char=4, text_sha256='1' * 64),
+                passage('passage:b2', capture_id='capture:bbbbbb', start_char=10, end_char=14, text_sha256='4' * 64),
+                passage('passage:b4', capture_id='capture:bbbbbb', start_char=30, end_char=34, text_sha256='5' * 64),
+            ],
+        }
+        reply = inspect_capture_versions(store, content_id='content:one', earlier_hash=A,
+                                         later_hash=B, include_selector_diff=True)
+        diff = reply['selector_comparison']
+        self.assertTrue(diff['complete'])
+        self.assertEqual(diff['status'], 'COMPLETE')
+        self.assertEqual(diff['counts'], {'UNCHANGED': 1, 'CHANGED': 1, 'REMOVED': 1, 'ADDED': 1})
+        self.assertEqual({entry['change'] for entry in diff['changes']},
+                         {'UNCHANGED', 'CHANGED', 'REMOVED', 'ADDED'})
+        self.assertFalse(reply['rights_clearance'])
+        self.assertFalse(reply['publication_authority'])
+        self.assertIn(('capture:aaaaaa', 20, None), store.calls)
+        for secret in ('SECRET SOURCE PASSAGE', 'PRIVATE TOKEN', 'private_text', 'metadata', 'authorization'):
+            self.assertNotIn(secret, json.dumps(reply))
+
+    def test_comparison_refuses_ambiguous_selectors_and_partial_false_diff(self):
+        store = FakeCaptureStore()
+        store.selectors_by_capture = {
+            'capture:aaaaaa': [passage(f'passage:{i:02d}', start_char=i * 5, end_char=i * 5 + 4)
+                                for i in range(21)],
+            'capture:bbbbbb': [passage('passage:b1', capture_id='capture:bbbbbb')],
+        }
+        partial = inspect_capture_versions(store, content_id='content:one', earlier_hash=A,
+                                           later_hash=B, include_selector_diff=True)['selector_comparison']
+        self.assertEqual(partial['status'], 'TRUNCATED')
+        self.assertFalse(partial['complete'])
+        self.assertEqual(partial['changes'], [])
+        self.assertNotIn('counts', partial)
+
+        store.selectors_by_capture['capture:aaaaaa'] = [
+            passage('passage:a1'), passage('passage:a2', text_sha256='a' * 64),
+        ]
+        with self.assertRaisesRegex(ValueError, 'STUDIO_CAPTURE_SELECTOR_ANCHOR_DUPLICATE'):
+            inspect_capture_versions(store, content_id='content:one', earlier_hash=A,
+                                     later_hash=B, include_selector_diff=True)
+
+        store.selector_error = OSError('PRIVATE_DATABASE_PASSWORD')
+        with self.assertRaisesRegex(RuntimeError, '^STUDIO_CAPTURE_STORE_UNAVAILABLE$') as failure:
+            inspect_capture_versions(store, content_id='content:one', earlier_hash=A,
+                                     later_hash=B, include_selector_diff=True)
+        self.assertNotIn('PRIVATE_DATABASE_PASSWORD', str(failure.exception))
+
     def test_capture_comparison_refuses_reversed_or_unproven_observation_order(self):
         # The API labels caller-provided hashes "earlier" and "later"; do not
         # mistake that label for persisted chronology of the two captures.
@@ -219,6 +277,12 @@ class StudioCaptureInspectorTests(unittest.TestCase):
         self.assertTrue(result["changes"]["body_storage_changed"])
         self.assertEqual(result["earlier"]["body_state"], "STORED_UNVERIFIED")
         self.assertEqual(result["later"]["body_state"], "PURGED")
+        self.assertTrue(result['later']['purge_receipt_recorded'])
+        self.assertEqual(result['later']['body_purged_at'], '2026-10-08T12:00:00Z')
+        self.assertTrue(result['later']['archive_receipt_recorded'])
+        self.assertFalse(result['earlier']['purge_receipt_recorded'])
+        self.assertIsNone(result['earlier']['body_purged_at'])
+        self.assertFalse(result['earlier']['archive_receipt_recorded'])
         self.assertFalse(result["publication_authority"])
         encoded = json.dumps(result)
         for forbidden in ("private_transcript", "must never leak", "api_key", "secret", "private_archive_url", "private.example"):
