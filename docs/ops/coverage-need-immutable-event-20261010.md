@@ -49,3 +49,23 @@ mirror has not received this source patch as part of this work.
 This addresses event correctness, not actual coverage: DP-214 remains
 18/100 Garlasco contents with required source rights and real
 Discovery/Capture still absent.
+
+## Additional root cause closed: creation and assessment refresh
+
+The initial collision audit also identified two related paths in
+\`upsert_coverage_need\`: creating a new OPEN Coverage Need or refreshing
+its associated source-intelligence assessment was permitted even if
+\`ON CONFLICT DO NOTHING\` had swallowed the corresponding
+\`CREATED\` / \`OBSERVED_AGAIN\` receipt.
+
+Two additional real PostgreSQL RED cases were added. Both event inserts
+now **fail the SQL statement on a conflicting event ID**, which rolls
+back the newly created need or the assessment refresh atomically.
+Existing exact upsert replays still return EXISTING because no new
+event is needed. Healthy creation and the first actual assessment
+refresh still produce their own receipts.
+
+Coverage Need proof now covers **9/9** real database cases across
+CREATED, OBSERVED_AGAIN, SEARCH_ATTEMPT, SATISFIED and BLOCKED events.
+The absence of any durable Garlasco Coverage Need on the MiniPC remains
+a separate real-data/corpus blocker.

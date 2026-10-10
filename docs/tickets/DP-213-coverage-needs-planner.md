@@ -95,6 +95,13 @@ attempt/satisfaction/blocking. See
 This is post-DONE correctness maintenance, not a new or silently
 approved DP-214 source or a production deployment.
 
+The continuation also proved RED→GREEN that both initial CREATED
+events and OBSERVED_AGAIN assessment-refresh receipts must be
+atomic with their associated rows. A conflicting event ID now raises
+and rolls back that operation instead of silently creating/updating
+an unreceipted need. Nine isolated PostgreSQL tests now cover the
+complete five-event family without changing production data.
+
 Update canonical docs only where actual implementation changes the contract. Historical
 research/receipts stay historical; do not rewrite them to make the new architecture look
 older than it is.

@@ -1500,7 +1500,10 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                      NULLIF(:'source_intelligence_assessment_id',''),'system',
                      'SOURCE_INTELLIGENCE_REQUIREMENT_MISSING','{}'::jsonb
               FROM inserted
-              ON CONFLICT (id) DO NOTHING RETURNING id
+              -- If an unrelated event already owns this ID, fail the whole
+              -- statement and roll back the just-created need. A swallowed
+              -- collision would leave an unreceipted OPEN research need.
+              RETURNING id
             ), observed_event AS (
               INSERT INTO coverage_need_event(
                 id,coverage_need_id,event_type,from_status,to_status,
@@ -1510,7 +1513,9 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                      NULLIF(:'source_intelligence_assessment_id',''),'system',
                      'SOURCE_INTELLIGENCE_REQUIREMENT_STILL_MISSING','{}'::jsonb
               FROM refreshed
-              ON CONFLICT (id) DO NOTHING RETURNING id
+              -- A refresh and its immutable OBSERVED_AGAIN receipt must
+              -- commit together; duplicate event IDs abort the refresh.
+              RETURNING id
             )
             SELECT CASE
               WHEN EXISTS(SELECT 1 FROM inserted) THEN 'CREATED'

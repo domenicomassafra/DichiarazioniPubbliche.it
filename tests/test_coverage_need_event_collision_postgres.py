@@ -45,6 +45,7 @@ class CoverageNeedEventCollisionPostgresTests(unittest.TestCase):
              CREATE TABLE source_profile (id text PRIMARY KEY);
              INSERT INTO atomic_claim(id) VALUES ('claim:fixture');
              INSERT INTO evidence(id) VALUES ('evidence:fixture');
+             INSERT INTO evidence_set_assessment(id) VALUES ('assessment:fixture');
              """)
         source = (ROOT / "db/schema.v1.sql").read_text(encoding="utf-8")
         need_ddl = "CREATE TABLE IF NOT EXISTS coverage_need (\n" + source.split(
@@ -86,6 +87,30 @@ class CoverageNeedEventCollisionPostgresTests(unittest.TestCase):
                          satisfied_by_evidence_id
                   FROM coverage_need WHERE id=:'need_id') n;
         """, need_id=need_id))
+
+    def upsert(self, need_id: str, *, assessment_id: str = "",
+               created_event: str = "event:new-created",
+               observed_event: str = "event:new-observed") -> str:
+        return self.store.upsert_coverage_need(
+            id=need_id,
+            collection_id="",
+            atomic_claim_id="claim:fixture",
+            claim_candidate_id="",
+            source_intelligence_assessment_id=assessment_id,
+            need_type="OTHER",
+            requirement_kind="OTHER",
+            requirement_fingerprint="1" * 64,
+            question="Coverage source needed",
+            required_roles="[]",
+            authority_scope="{}",
+            temporal_constraints="{}",
+            independence_requirement="",
+            max_attempts="3",
+            created_by="SOURCE_INTELLIGENCE",
+            metadata="{}",
+            created_event_id=created_event,
+            observed_event_id=observed_event,
+        )
 
     def test_attempt_collision_must_not_consume_budget_without_new_receipt(self):
         before = self.need("need:attempt")
@@ -155,6 +180,55 @@ class CoverageNeedEventCollisionPostgresTests(unittest.TestCase):
             SELECT count(*)::text FROM coverage_need_event
             WHERE id='event:real-block' AND event_type='BLOCKED'
         """), "1")
+
+    def test_create_event_collision_must_roll_back_new_coverage_need(self):
+        with self.assertRaises(RuntimeError):
+            self.upsert("need:create-collision", created_event="event:unrelated")
+        self.assertEqual(self.store.run("""
+            SELECT count(*)::text FROM coverage_need
+            WHERE id='need:create-collision'
+        """), "0")
+
+    def test_observed_again_event_collision_must_roll_back_assessment_refresh(self):
+        self.assertEqual(self.upsert(
+            "need:upsert-refresh", created_event="event:upsert-created"
+        ), "CREATED")
+        self.assertEqual(self.store.run("""
+            SELECT COALESCE(source_intelligence_assessment_id,'')
+            FROM coverage_need WHERE id='need:upsert-refresh'
+        """), "")
+        with self.assertRaises(RuntimeError):
+            self.upsert(
+                "need:upsert-refresh", assessment_id="assessment:fixture",
+                created_event="event:upsert-created",
+                observed_event="event:unrelated",
+            )
+        self.assertEqual(self.store.run("""
+            SELECT COALESCE(source_intelligence_assessment_id,'')
+            FROM coverage_need WHERE id='need:upsert-refresh'
+        """), "")
+
+    def test_upsert_create_refresh_and_replay_have_own_exact_events(self):
+        self.assertEqual(self.upsert(
+            "need:upsert-ok", created_event="event:upsert-ok-created"
+        ), "CREATED")
+        self.assertEqual(self.upsert(
+            "need:upsert-ok", created_event="event:upsert-ok-created"
+        ), "EXISTING")
+        self.assertEqual(self.upsert(
+            "need:upsert-ok", assessment_id="assessment:fixture",
+            created_event="event:upsert-ok-created",
+            observed_event="event:upsert-ok-observed",
+        ), "UPDATED")
+        self.assertEqual(self.upsert(
+            "need:upsert-ok", assessment_id="assessment:fixture",
+            created_event="event:upsert-ok-created",
+            observed_event="event:upsert-ok-observed",
+        ), "EXISTING")
+        self.assertEqual(self.store.run("""
+            SELECT count(*)::text FROM coverage_need_event
+            WHERE coverage_need_id='need:upsert-ok'
+        """), "2")
 
 
 if __name__ == "__main__":
