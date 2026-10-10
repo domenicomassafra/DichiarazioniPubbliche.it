@@ -189,6 +189,20 @@ await assert.rejects(
   () => validateSearchIndex(signedInvalidFacet, projection.dataset_sha256),
   /SEARCH_INDEX_RECORD_INVALID/,
 );
+const inventedTopicFacet = structuredClone(index);
+inventedTopicFacet.records.find((record) => record.kind === "finding").topic_ids = ["topic:unapproved"];
+const signedInventedFacet = await finalizeSearchIndex({
+  schema_version: inventedTopicFacet.schema_version,
+  projection_schema_version: inventedTopicFacet.projection_schema_version,
+  projection_sha256: inventedTopicFacet.projection_sha256,
+  generated_at: inventedTopicFacet.generated_at,
+  records: inventedTopicFacet.records,
+});
+await assert.rejects(
+  () => validateSearchIndex(signedInventedFacet, projection.dataset_sha256),
+  /SEARCH_INDEX_RECORD_INVALID/,
+  "a facet pointing outside approved public topic roster is not publishable",
+);
 await assert.rejects(() => validateSearchIndex(index, "b".repeat(64)), /INCOMPATIBLE/);
 
 const duplicateRouteMaterial = structuredClone(material);

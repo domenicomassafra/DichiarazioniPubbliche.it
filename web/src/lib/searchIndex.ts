@@ -330,6 +330,8 @@ export async function validateSearchIndex(
   if (claimed !== actual) throw new Error("SEARCH_INDEX_TAMPERED");
   const identities = new Set<string>();
   const routes = new Set<string>();
+  const publicPersonIds = new Set(index.records.filter((record) => record.kind === "person").map((record) => record.id));
+  const publicTopicIds = new Set(index.records.filter((record) => record.kind === "topic").map((record) => record.id));
   for (const record of index.records) {
     const identity = `${record.kind}:${record.id}`;
     if (
@@ -344,9 +346,13 @@ export async function validateSearchIndex(
       !Array.isArray(record.primary_terms) ||
       !Array.isArray(record.secondary_terms)
       || (record.kind === "finding" && (
-        (record.person_id !== undefined && (typeof record.person_id !== "string" || !PUBLIC_FACET_ID.test(record.person_id))) ||
+        (record.person_id !== undefined && (
+          typeof record.person_id !== "string" ||
+          !PUBLIC_FACET_ID.test(record.person_id) ||
+          !publicPersonIds.has(record.person_id)
+        )) ||
         (record.topic_ids !== undefined && (!Array.isArray(record.topic_ids) ||
-          record.topic_ids.some((id) => typeof id !== "string" || !PUBLIC_FACET_ID.test(id)) ||
+          record.topic_ids.some((id) => typeof id !== "string" || !PUBLIC_FACET_ID.test(id) || !publicTopicIds.has(id)) ||
           new Set(record.topic_ids).size !== record.topic_ids.length))
       ))
       || (record.kind !== "finding" && (record.person_id !== undefined || record.topic_ids !== undefined))
