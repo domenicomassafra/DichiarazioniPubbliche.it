@@ -31,6 +31,8 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   const [assessment, setAssessment] = useState<AssessmentFilter>("ALL");
   const [kind, setKind] = useState<SearchRecordKind | "ALL">("ALL");
   const [sort, setSort] = useState<SortOrder>("relevance");
+  const [personId, setPersonId] = useState<string>("ALL");
+  const [topicId, setTopicId] = useState<string>("ALL");
   const [urlReady, setUrlReady] = useState(false);
   const [index, setIndex] = useState<PublicSearchIndex | null>(null);
   const [indexState, setIndexState] = useState<"loading" | "ready" | "unavailable">("loading");
@@ -44,6 +46,8 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
       setAssessment(restored.assessment);
       setKind(restored.kind);
       setSort(restored.sort);
+      setPersonId(restored.personId ?? "ALL");
+      setTopicId(restored.topicId ?? "ALL");
     }
     restoreFromUrl();
     window.addEventListener("popstate", restoreFromUrl);
@@ -76,15 +80,25 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
 
   useEffect(() => {
     if (!urlReady) return;
-    const search = buildExploreSearch({ query, assessment, kind, sort });
+    const search = buildExploreSearch({ query, assessment, kind, sort, personId, topicId });
     const next = `${window.location.pathname}${search ? `?${search}` : ""}`;
     window.history.replaceState(null, "", next);
-  }, [assessment, kind, query, sort, urlReady]);
+  }, [assessment, kind, query, sort, personId, topicId, urlReady]);
 
   const response = useMemo(() => {
     if (!index) return null;
-    return searchPublicIndex(index, query, { assessment, kind, sort });
-  }, [assessment, index, kind, query, sort]);
+    return searchPublicIndex(index, query, { assessment, kind, sort, personId, topicId });
+  }, [assessment, index, kind, query, sort, personId, topicId]);
+
+  // Facet choices are exclusively from this verified public projection.
+  const people = useMemo(
+    () => index?.records.filter((record) => record.kind === "person") ?? [],
+    [index],
+  );
+  const topics = useMemo(
+    () => index?.records.filter((record) => record.kind === "topic") ?? [],
+    [index],
+  );
 
   const kindCounts = useMemo(() => {
     const counts: Record<SearchRecordKind | "ALL", number> = {
@@ -95,13 +109,14 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
       content: 0,
     };
     if (!index) return counts;
-    const rows = searchPublicIndex(index, query, { assessment, kind: "ALL", sort }).records;
+    const rows = searchPublicIndex(index, query, { assessment, kind: "ALL", sort, personId, topicId }).records;
     counts.ALL = rows.length;
     for (const record of rows) counts[record.kind] += 1;
     return counts;
-  }, [assessment, index, query, sort]);
+  }, [assessment, index, query, sort, personId, topicId]);
 
-  const activeFilterCount = Number(assessment !== "ALL") + Number(kind !== "ALL") + Number(sort !== "relevance");
+  const activeFilterCount = Number(assessment !== "ALL") + Number(kind !== "ALL") +
+    Number(sort !== "relevance") + Number(personId !== "ALL") + Number(topicId !== "ALL");
   const records = response?.records ?? [];
 
   function closeFilters() {
@@ -113,15 +128,21 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     assessment?: AssessmentFilter;
     kind?: SearchRecordKind | "ALL";
     sort?: SortOrder;
+    personId?: string;
+    topicId?: string;
   }) {
     const nextAssessment = overrides.assessment ?? assessment;
     const nextKind = overrides.kind ?? kind;
     const nextSort = overrides.sort ?? sort;
+    const nextPersonId = overrides.personId ?? personId;
+    const nextTopicId = overrides.topicId ?? topicId;
     const search = buildExploreSearch({
       query,
       assessment: nextAssessment,
       kind: nextKind,
       sort: nextSort,
+      personId: nextPersonId,
+      topicId: nextTopicId,
     });
     window.history.pushState(null, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
   }
@@ -142,10 +163,12 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   }
 
   function resetFilters() {
-    pushFilterState({ assessment: "ALL", kind: "ALL", sort: "relevance" });
+    pushFilterState({ assessment: "ALL", kind: "ALL", sort: "relevance", personId: "ALL", topicId: "ALL" });
     setAssessment("ALL");
     setKind("ALL");
     setSort("relevance");
+    setPersonId("ALL");
+    setTopicId("ALL");
   }
 
   if (indexState === "unavailable") {
@@ -239,6 +262,38 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
             </select>
           </label>
           <label>
+            Persona
+            <select
+              className="filter-button"
+              aria-label="Filtra dichiarazioni per persona pubblica"
+              value={personId}
+              onChange={(event) => {
+                const next = event.target.value;
+                pushFilterState({ personId: next });
+                setPersonId(next);
+              }}
+            >
+              <option value="ALL">Tutte le persone pubbliche</option>
+              {people.map((person) => <option key={person.id} value={person.id}>{person.title}</option>)}
+            </select>
+          </label>
+          <label>
+            Tema
+            <select
+              className="filter-button"
+              aria-label="Filtra dichiarazioni per tema pubblico"
+              value={topicId}
+              onChange={(event) => {
+                const next = event.target.value;
+                pushFilterState({ topicId: next });
+                setTopicId(next);
+              }}
+            >
+              <option value="ALL">Tutti i temi pubblici</option>
+              {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}
+            </select>
+          </label>
+          <label>
             Ordine
             <select className="sort-select" value={sort} onChange={(event) => changeSort(event.target.value as SortOrder)}>
               <option value="relevance">Più pertinenti</option>
@@ -288,9 +343,15 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           </div>
           {records.length === 0 && (
             <div className="dp-state" data-state="empty" aria-live="polite">
-              <h2 className="dp-state__title">Nessun record pubblico corrisponde.</h2>
-              <p className="dp-state__body">Modifica la ricerca o azzera i filtri. Non viene avviata una nuova analisi live.</p>
-              <button className="quiet-button" type="button" onClick={() => { setQuery(""); setAssessment("ALL"); setKind("ALL"); setSort("relevance"); }}>Azzera ricerca e filtri</button>
+              <h2 className="dp-state__title">
+                {index?.records.length === 0 ? "L'archivio pubblico è ancora vuoto." : "Nessun record pubblico corrisponde."}
+              </h2>
+              <p className="dp-state__body">
+                {index?.records.length === 0
+                  ? "Non ci sono ancora dichiarazioni o risorse autorizzate nello snapshot pubblico. Nessun risultato privato viene mostrato."
+                  : "Modifica la ricerca o azzera i filtri. La combinazione Persona × Tema considera soltanto dichiarazioni pubblicate, senza avviare analisi live."}
+              </p>
+              <button className="quiet-button" type="button" onClick={() => { setQuery(""); resetFilters(); }}>Azzera ricerca e filtri</button>
             </div>
           )}
         </>

@@ -79,7 +79,12 @@ const projection = {
     scope_text: "Dati economici",
     entity_version: "topic-v1",
     review_event_ids: ["review:topic"],
-    memberships: [],
+    memberships: [{
+      membership_id: "membership:1",
+      claim_id: "claim:finding:esatto",
+      finding_ids: ["finding:esatto", "finding:held-private"],
+      review_event_ids: ["review:topic-membership"],
+    }],
   }],
   contents: [],
 };
@@ -106,6 +111,20 @@ assert.equal(searchPublicIndex(index, "").records[0]?.id, "finding:esatto", "emp
 assert.equal(searchPublicIndex(index, "x".repeat(SEARCH_QUERY_MAX_CHARS + 1)).status, "QUERY_TOO_LONG");
 assert.equal(searchPublicIndex(index, "spesa", { assessment: "SUPPORTED" }).records.length, 0);
 assert.equal(searchPublicIndex(index, "economia").records[0]?.kind, "topic");
+assert.deepEqual(
+  searchPublicIndex(index, "", { personId: "person:josé rossi", topicId: "topic:economia" }).records.map((record) => record.id),
+  ["finding:esatto"],
+  "public person and topic filters intersect verified public finding membership only",
+);
+assert.equal(
+  searchPublicIndex(index, "", { personId: "person:anna bianchi", topicId: "topic:economia" }).records.length,
+  0,
+  "topic mention does not infer a relation for a different person",
+);
+assert.equal(index.records.some((record) => record.id === "finding:held-private"), false, "private membership must never become an indexed result");
+assert.deepEqual(index.records.find((record) => record.id === "finding:esatto")?.topic_ids, ["topic:economia"]);
+assert.equal(index.records.find((record) => record.id === "finding:fonte")?.topic_ids?.length, 0);
+assert.equal(index.records.filter((record) => record.kind !== "finding").every((record) => record.person_id === undefined && record.topic_ids === undefined), true);
 assert.equal(publicIdSlug("person:José_Rossi"), "person-jose-rossi", "all web route builders must share one canonical public slug");
 
 const collidingProjection = structuredClone(projection);
@@ -131,6 +150,8 @@ const urlState = {
   kind: "person",
   assessment: "SUPPORTED",
   sort: "recent",
+  personId: "person:josé rossi",
+  topicId: "topic:economia",
 };
 const encodedState = buildExploreSearch(urlState);
 assert.deepEqual(parseExploreSearch(`?${encodedState}`), { ...urlState, query: "José Rossi" });
@@ -139,11 +160,35 @@ assert.deepEqual(parseExploreSearch("?tipo=private&esito=SECRET&ordine=random"),
   kind: "ALL",
   assessment: "ALL",
   sort: "relevance",
+  personId: "ALL",
+  topicId: "ALL",
+});
+assert.deepEqual(parseExploreSearch("?persona=%00private&tema=SECRET%2Furl"), {
+  query: "",
+  kind: "ALL",
+  assessment: "ALL",
+  sort: "relevance",
+  personId: "ALL",
+  topicId: "ALL",
 });
 
 const tampered = structuredClone(index);
 tampered.records[0].title = "tampered";
 await assert.rejects(() => validateSearchIndex(tampered, projection.dataset_sha256), /TAMPERED/);
+const invalidFacet = structuredClone(index);
+const publicFinding = invalidFacet.records.find((record) => record.kind === "finding");
+publicFinding.topic_ids = ["topic:economia", "topic:economia"];
+const signedInvalidFacet = await finalizeSearchIndex({
+  schema_version: invalidFacet.schema_version,
+  projection_schema_version: invalidFacet.projection_schema_version,
+  projection_sha256: invalidFacet.projection_sha256,
+  generated_at: invalidFacet.generated_at,
+  records: invalidFacet.records,
+});
+await assert.rejects(
+  () => validateSearchIndex(signedInvalidFacet, projection.dataset_sha256),
+  /SEARCH_INDEX_RECORD_INVALID/,
+);
 await assert.rejects(() => validateSearchIndex(index, "b".repeat(64)), /INCOMPATIBLE/);
 
 const duplicateRouteMaterial = structuredClone(material);

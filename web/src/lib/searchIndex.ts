@@ -21,6 +21,9 @@ export interface PublicSearchRecord {
   direct_quote_eligible: false;
   primary_terms: string[];
   secondary_terms: string[];
+  /** Public-only facet membership. Never populate from private candidates. */
+  person_id?: string;
+  topic_ids?: string[];
 }
 
 export interface PublicSearchIndex {
@@ -36,6 +39,8 @@ export interface SearchFilters {
   kind?: SearchRecordKind | "ALL";
   assessment?: PublicDossier["finding"]["assessment"] | "ALL";
   sort?: "relevance" | "recent" | "old";
+  personId?: string | "ALL";
+  topicId?: string | "ALL";
 }
 
 export interface SearchResponse {
@@ -48,6 +53,8 @@ export interface ExploreUrlState {
   kind: SearchRecordKind | "ALL";
   assessment: PublicDossier["finding"]["assessment"] | "ALL";
   sort: "relevance" | "recent" | "old";
+  personId?: string | "ALL";
+  topicId?: string | "ALL";
 }
 
 const ASSESSMENT_FILTERS = new Set([
@@ -59,6 +66,13 @@ const ASSESSMENT_FILTERS = new Set([
 ]);
 const KIND_FILTERS = new Set(["finding", "content", "person", "topic"]);
 const SORT_FILTERS = new Set(["relevance", "recent", "old"]);
+// Opaque public IDs may contain spaces (historical IDs and Unicode display
+// disambiguators); disallow delimiters/control bytes and bound URL length.
+const PUBLIC_FACET_ID = /^[\p{L}\p{N}:._ -]{1,120}$/u;
+
+function publicFacetId(value: string): string | "ALL" {
+  return PUBLIC_FACET_ID.test(value) ? value : "ALL";
+}
 
 export function parseExploreSearch(search: string): ExploreUrlState {
   const params = new URLSearchParams(search);
@@ -72,6 +86,8 @@ export function parseExploreSearch(search: string): ExploreUrlState {
       : "ALL",
     kind: KIND_FILTERS.has(rawKind) ? rawKind as ExploreUrlState["kind"] : "ALL",
     sort: SORT_FILTERS.has(rawSort) ? rawSort as ExploreUrlState["sort"] : "relevance",
+    personId: publicFacetId(params.get("persona") ?? ""),
+    topicId: publicFacetId(params.get("tema") ?? ""),
   };
 }
 
@@ -82,6 +98,12 @@ export function buildExploreSearch(state: ExploreUrlState): string {
   if (state.assessment !== "ALL") params.set("esito", state.assessment);
   if (state.kind !== "ALL") params.set("tipo", state.kind);
   if (state.sort !== "relevance") params.set("ordine", state.sort);
+  if (state.personId && state.personId !== "ALL" && publicFacetId(state.personId) !== "ALL") {
+    params.set("persona", state.personId);
+  }
+  if (state.topicId && state.topicId !== "ALL" && publicFacetId(state.topicId) !== "ALL") {
+    params.set("tema", state.topicId);
+  }
   return params.toString();
 }
 
@@ -133,11 +155,32 @@ function findingRecord(dossier: PublicDossier): PublicSearchRecord {
       dossier.finding.assessment,
       ...roles,
     ]),
+    person_id: dossier.speaker.id,
+    topic_ids: [],
   };
 }
 
 export function buildSearchIndexMaterial(projection: PublicProjection): Omit<PublicSearchIndex, "index_sha256"> {
   const records: PublicSearchRecord[] = projection.dossiers.map(findingRecord);
+
+  // A reviewed public Topic membership may name findings, but private/held
+  // members must never create searchable records, facets or membership hints.
+  const publishedFindings = new Map(
+    records.filter((record) => record.kind === "finding").map((record) => [record.id, record]),
+  );
+  for (const topic of projection.topics ?? []) {
+    for (const membership of topic.memberships) {
+      for (const findingId of membership.finding_ids) {
+        const record = publishedFindings.get(findingId);
+        if (record && !record.topic_ids?.includes(topic.topic_id)) {
+          record.topic_ids?.push(topic.topic_id);
+        }
+      }
+    }
+  }
+  for (const record of publishedFindings.values()) {
+    record.topic_ids?.sort();
+  }
 
   const people = new Map<string, PublicSearchRecord>();
   for (const dossier of projection.dossiers) {
@@ -300,6 +343,13 @@ export async function validateSearchIndex(
       (record.kind !== "finding" && record.wording_type !== null) ||
       !Array.isArray(record.primary_terms) ||
       !Array.isArray(record.secondary_terms)
+      || (record.kind === "finding" && (
+        (record.person_id !== undefined && (typeof record.person_id !== "string" || !PUBLIC_FACET_ID.test(record.person_id))) ||
+        (record.topic_ids !== undefined && (!Array.isArray(record.topic_ids) ||
+          record.topic_ids.some((id) => typeof id !== "string" || !PUBLIC_FACET_ID.test(id)) ||
+          new Set(record.topic_ids).size !== record.topic_ids.length))
+      ))
+      || (record.kind !== "finding" && (record.person_id !== undefined || record.topic_ids !== undefined))
     ) {
       throw new Error("SEARCH_INDEX_RECORD_INVALID");
     }
@@ -337,6 +387,8 @@ export function searchPublicIndex(
   const needle = normalizeSearchText(query);
   const kind = filters.kind ?? "ALL";
   const assessment = filters.assessment ?? "ALL";
+  const personId = filters.personId ?? "ALL";
+  const topicId = filters.topicId ?? "ALL";
   const sort = filters.sort ?? (needle ? "relevance" : "recent");
 
   const rows = index.records
@@ -344,7 +396,9 @@ export function searchPublicIndex(
     .filter(({ record, score }) =>
       (!needle || score >= 0) &&
       (kind === "ALL" || record.kind === kind) &&
-      (assessment === "ALL" || record.assessment === assessment)
+      (assessment === "ALL" || record.assessment === assessment) &&
+      (personId === "ALL" || (record.kind === "finding" && record.person_id === personId)) &&
+      (topicId === "ALL" || (record.kind === "finding" && record.topic_ids?.includes(topicId)))
     );
 
   rows.sort((left, right) => {
