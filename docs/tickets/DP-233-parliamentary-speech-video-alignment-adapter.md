@@ -212,3 +212,83 @@ tests cover invented/empty/disjoint quotes, wrong speaker, exact replay and
 amended source versions. This remains a **synthetic fixture** gate:
 no live Camera/Senato rights, owner approval, publication permission,
 or approved-source MiniPC canary is inferred. AC-233.10 stays open.
+
+### 2026-10-10 — Official Senato Akoma Ntoso stenographic candidate import
+
+Official [SenatoDellaRepubblica/AkomaNtosoBulkData](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData)
+publishes assembly resoconti under `LegNUM/AttoNUM/resaula/*-ra.akn.xml` and labels
+its bulk repository **CC BY 4.0**. This is a different licensed dataset from
+the [Senato OpenData RDF dumps](https://github.com/SenatoDellaRepubblica/OpenData)
+(CC BY 3.0), whose README explicitly says that they contain **no document text**.
+The two licenses cannot be transferred to unrelated Senato webpages, WebTV footage,
+ASR/model use, or a source-family approval without their own rights review.
+
+`poc/dichiarazioni_pubbliche/senato_akoma_stenographic.py` is a bounded independent
+read-only parser of **already obtained** AKN 3.0/CSD03 official XML. It requires an
+immutable 40-character commit URL in the precise official GitHub raw-data tree and
+checks the actual bytes against an independently obtained Git blob SHA-1. It binds
+`FRBRWork` date/sitting to the debate title; resolves each `speech by` only through
+a matching `TLCPerson` identifier and `from refersTo`; and returns explicit holds
+for unresolved speakers or invalid review text. Review text is whitespace-normalized
+for **private inspection only**, never passed off as an approved literal quote.
+It cannot connect the senator to a public Person, synthesize video timing, perform
+DP-305 excerpt clearance or assign publication authority. Source commit membership,
+source-family rights, speaker-resolution and quotation signoff remain independent
+operator responsibilities; SHA verification alone cannot authenticate a repository.
+
+**Real source readback (Mac, read-only, no stored XML/media):** official
+`Leg19/Atto00055187/resaula/01457617-ra.akn.xml`, commit beginning
+`bfac144eb5c5`, blob SHA-1 beginning `bec30c067a1a`, 393,817 bytes;
+`FRBRWork` identifies sitting **310, 2025-05-29**. The importer produced **121
+private speech review candidates and 5 held turns**, no publicly attributable
+speaker identity, quote authorization, or published statement. A new synthetic
+regression suite exercises official-person mismatch, mutable branch/repository
+impersonation, wrong sitting, XML DTD, exact blob replay/revision, and unknown
+speaker holds. This is an authentic *source-format* smoke test on the Mac,
+**not** the owner-approved source-family MiniPC canary required by AC-233.10.
+
+To complete AC-233.10, an owner-approved Senato source-family/rights disposition
+must explicitly scope the specific bulk-data reuse, then a bounded MiniPC run
+must independently verify the pinned source/version and preserve operator review,
+DP-305 rights and speaker approval. Until then DP-233 remains **IN PROGRESS**.
+
+#### Canonical handoff and authentic isolated MiniPC readback — 2026-10-10
+
+The separate `senato_akoma_corpus_handoff.py` now connects the parsed source to
+the existing **canonical `ContentCaptureRecord`, `PassageRecord` and
+`StatementCandidateRecord`** types without editing Studio/API code or issuing
+a live DB write. Its `SenatoAkomaParser` plugs into the existing
+`capture_content(parser=...)` seam **only after** the canonical discovery,
+ingestion permit and rights checks. The offline preview is always
+`QUARANTINED`, `RIGHTS_HOLD`, `rights_status=UNKNOWN`,
+`retention_class=POLICY_PENDING` and `body_ref=None`, with each private
+Statement Candidate `HELD`, no `speaker_person_id`, no inferred video time and
+no provider/model extraction. Git commit, blob hash, source SHA-256 and CC BY
+4.0 dataset license notice remain in the capture/parse receipts. The exact
+byte-to-source, canonical text/spans and per-passage text hash are checked;
+`verify_senato_handoff_roundtrip` rejects readback edits to selectors, text,
+speaker attribution, rights and immutable source bytes.
+
+The repeatable bounded command
+`PYTHONPATH=poc python3 tools/senato_akoma_official_readonly_smoke.py --official-readonly-format-probe`
+reads one authentic, pinned **official** XML document with zero credentials,
+external paid calls or production DB/storage mutation, creates actual canonical
+records, serializes them into a private temporary store and verifies readback
+before automatic deletion. Both Mac and **MiniPC** were run using the same
+source bytes (393,817), immutable commit
+`bfac144eb5c54820971bc1020fece11aae56ec90`, Git blob
+`bec30c067a1a79e8b377af483cfc4bfb44d13896` and SHA-256
+`1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`.
+Both produced 121 parsed private speech candidates, 5 unresolved original
+speaker/text holds, then **104 bounded Passage records and 104 HELD Statement
+Candidates**; the remaining 17 parsed speeches exceed canonical passage
+limits, giving **22 total held/oversize speeches**. Both isolated persisted
+readbacks passed and their temporary folders were deleted. Ten focused local
+tests verify this bridge, tampering, replay, strict rights and identity;
+Ruff passes. A baseline full suite before this follow-up passed 2,241 tests,
+with deterministic benchmark 5/5; **that full suite predates the new bridge**.
+
+This demonstrates real Senato format processing and MiniPC runtime only. It
+**does not close AC-233.10** because no owner-approved parliamentary launch
+source family / source-specific rights disposition exists and no production
+source-family ingest, speaker approval or publication decision was authorized.

@@ -88,3 +88,12 @@ error codes remain stable. RED→GREEN tests cover malformed dates and both
 authority interval endpoints. This is source-only safety, not an approved
 DVNS provider, compatible license, owner scope decision, or MiniPC canary.
 DP-234 remains IN PROGRESS with external ACs open.
+
+### 2026-10-10 — Scope boundary for official Senate data
+
+The official Senato `OpenData` RDF sitting-metadata import remains the relevant
+CC BY 3.0 **metadata candidate** route under the existing DP-234 contract.
+Separate Senato `AkomaNtosoBulkData` assembly resoconti are CC BY 4.0 and now
+have a pure DP-233 **private speech candidate** importer; they do not constitute
+an approved DVNS provider/export, a DP-215 evidence-suitability decision, or a
+source-specific source-family grant for the three unchecked DP-234 ACs.
