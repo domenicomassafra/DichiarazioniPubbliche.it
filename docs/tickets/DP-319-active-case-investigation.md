@@ -1,6 +1,6 @@
 # DP-319 — Indagine attiva dei casi dubbi con coda minima
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-213, DP-215, DP-225, DP-228
 
@@ -35,4 +35,20 @@ Depends on: DP-213, DP-215, DP-225, DP-228
 ## Documentation, data, and migration impact
  Append-only attempt/counter receipts referencing existing discovery/coverage source tables, no parallel scheduler.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+ The earlier planning-only receipt is superseded only for the narrow offline slice below.
+
+## 2026-10-11 — Private bounded attempt planner (partial)
+
+New `investigation_attempts_v1.py` consumes existing `ResearchAssignment`
+objects and exact `CoverageNeed`/material versions to propose one deterministic,
+deduplicated, budget- and rights-gated private attempt **without executing it**.
+Receipts distinguish `WAIT_EXTERNAL` (outage, permission, cost/capability),
+`CHECKED_INSUFFICIENT`, `EXHAUSTED` and `RESOLVED_PRIVATE_CANDIDATE`; absence
+does not produce a negative factual verdict, one copied lineage is not
+independent corroboration and a source-version change reopens only the new
+bounded scope. Existing adapter IDs are required: no fabricated URL or query.
+Offline focused tests cover idempotent replay and conflict, material freshness,
+reviewed source hash and unknown-rights negative cases. No MiniPC job queue,
+atomic Postgres ledger, real researcher/owner review, source fetch or provider
+cost has been accepted. **No original DP-319 acceptance criterion is fully
+closed**; this is source-only, with all public and real investigation gates held.
