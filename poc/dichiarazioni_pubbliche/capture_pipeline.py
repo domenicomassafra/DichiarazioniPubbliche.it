@@ -21,6 +21,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
     deterministic_corpus_id,
 )
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
+from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
 from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 from dichiarazioni_pubbliche.corpus_retention import (
     COMPLETE_CAPTURE_ARCHIVE_SQL_V1,
@@ -1098,6 +1099,7 @@ def _capture_record(
     retention_class: str,
     metadata_enabled: bool,
     archive_enabled: bool,
+    source_use_fingerprint: str | None = None,
 ) -> ContentCaptureRecord:
     return ContentCaptureRecord(
         id=capture_id,
@@ -1133,6 +1135,8 @@ def _capture_record(
             "source_metadata_policy": "ENABLED" if metadata_enabled else "DISABLED",
             "source_archive_policy": "ENABLED" if archive_enabled else "DISABLED",
             "source_metadata": parse.metadata,
+            **({"source_use_fingerprint": source_use_fingerprint}
+               if source_use_fingerprint is not None else {}),
         },
     )
 
@@ -1229,6 +1233,7 @@ def _persist_fetched_capture(
     permit_canonical_url: str,
     permit_operation_ref: str,
     rights_guard: Callable[[], None] | None = None,
+    source_use_guard: SourceFamilyUseGuard | None = None,
 ) -> tuple[ContentCaptureRecord, str, ParseResult, tuple[PassageRecord, ...], tuple[str, ...]]:
     _validate_fetched_resource(fetched, max_response_bytes=MAX_DISCOVERY_RESPONSE_BYTES)
     try:
@@ -1242,9 +1247,25 @@ def _persist_fetched_capture(
     except RuntimeError as exc:
         raise CapturePipelineError(str(exc)) from exc
     content_sha256 = hashlib.sha256(fetched.body).hexdigest()
+    parse_use = "PARSE_OCR" if "OCR" in parser.parser_method.upper() else "PARSE_TEXT"
+    source_use_fingerprint: str | None = None
+    if source_use_guard is not None:
+        body_decision = source_use_guard.require(
+            "STORE_BODY", content_sha256=content_sha256, media_type=fetched.media_type,
+        )
+        source_use_fingerprint = hashlib.sha256(
+            (str(body_decision.decision_fingerprint) + ":" + content_sha256).encode("ascii")
+        ).hexdigest()
+        source_use_guard.require(
+            parse_use, content_sha256=content_sha256, media_type=fetched.media_type,
+        )
     existing = store.find_capture(content_id, content_sha256)
     if rights_guard is not None:
         rights_guard()
+    if source_use_guard is not None:
+        source_use_guard.require(
+            "STORE_BODY", content_sha256=content_sha256, media_type=fetched.media_type,
+        )
     proposed_id = str(existing.get("id")) if existing else _capture_id(content_id, content_sha256)
     body_ref: str | None = None
     if existing:
@@ -1255,6 +1276,10 @@ def _persist_fetched_capture(
             body=fetched.body,
             content_sha256=content_sha256,
         ).body_ref
+    if source_use_guard is not None:
+        source_use_guard.require(
+            parse_use, content_sha256=content_sha256, media_type=fetched.media_type,
+        )
     parse = parser.parse(fetched)
     if not metadata_enabled and parse.metadata:
         parse = ParseResult(
@@ -1280,9 +1305,14 @@ def _persist_fetched_capture(
         retention_class=retention_class,
         metadata_enabled=metadata_enabled,
         archive_enabled=archive_enabled,
+        source_use_fingerprint=source_use_fingerprint,
     )
     if rights_guard is not None:
         rights_guard()
+    if source_use_guard is not None:
+        source_use_guard.require(
+            "STORE_BODY", content_sha256=content_sha256, media_type=fetched.media_type,
+        )
     persisted = store.upsert_capture(record)
     actual_id = str(persisted["id"])
     if actual_id != record.id:
@@ -1327,6 +1357,8 @@ def _persist_fetched_capture(
                 "retrieval_method": retrieval_method,
                 "retrieval_version": retrieval_version,
                 "response_bytes": fetched.content_length,
+                **({"source_use_fingerprint": source_use_fingerprint}
+                   if source_use_fingerprint is not None else {}),
             },
         )
     passages: tuple[PassageRecord, ...] = ()
@@ -1334,6 +1366,10 @@ def _persist_fetched_capture(
     if parse.status == "SUCCEEDED":
         if rights_guard is not None:
             rights_guard()
+        if source_use_guard is not None:
+            source_use_guard.require(
+                parse_use, content_sha256=content_sha256, media_type=fetched.media_type,
+            )
         passages = _passage_records(
             content_id=content_id,
             capture_id=actual_id,
@@ -1392,6 +1428,7 @@ def capture_content(
     oembed_fetcher: Callable[..., FetchedBytes] = fetch_oembed_json,
     max_response_bytes: int = MAX_DISCOVERY_RESPONSE_BYTES,
     rights_guard: Callable[[], None] | None = None,
+    source_use_guard: SourceFamilyUseGuard | None = None,
 ) -> CapturePipelineReceipt:
     if not isinstance(content_id, str) or not content_id.strip():
         raise CapturePipelineError("CONTENT_ID_REQUIRED")
@@ -1407,6 +1444,16 @@ def capture_content(
     except ValueError as exc:
         raise CapturePipelineError("OBSERVED_AT_INVALID") from exc
 
+    if source_use_guard is not None:
+        source_use_guard.bind_capture(content_id=content_id, url=url)
+        source_use_guard.require("FETCH")
+        source_use_guard.require("STORE_BODY")
+        parse_use = "PARSE_OCR" if "OCR" in parser.parser_method.upper() else "PARSE_TEXT"
+        source_use_guard.require(parse_use)
+        if archive_adapter is not None and enrichment_policy.archive_enabled:
+            source_use_guard.require("ARCHIVE")
+        if enrichment_policy.oembed_lookup_enabled and enrichment_policy.metadata_enabled:
+            source_use_guard.require("DISCOVER_METADATA")
     if rights_guard is not None:
         rights_guard()
     try:
@@ -1433,6 +1480,13 @@ def capture_content(
         # Never relay their raw text to operator-facing pipeline errors.
         raise CapturePipelineError("CAPTURE_FETCH_FAILED") from None
     _validate_fetched_resource(fetched, max_response_bytes=max_response_bytes)
+    if source_use_guard is not None:
+        source_use_guard.bind_fetched(final_url=fetched.final_url)
+        source_use_guard.require(
+            "FETCH",
+            content_sha256=hashlib.sha256(fetched.body).hexdigest(),
+            media_type=fetched.media_type,
+        )
     if rights_guard is not None:
         rights_guard()
     primary, state, parse, passages, passage_states = _persist_fetched_capture(
@@ -1454,6 +1508,7 @@ def capture_content(
         permit_canonical_url=url,
         permit_operation_ref=operation_ref,
         rights_guard=rights_guard,
+        source_use_guard=source_use_guard,
     )
     selected = primary
     selected_parse = parse
@@ -1462,6 +1517,8 @@ def capture_content(
     browser_status = "NOT_REQUESTED"
 
     if parse.status != "SUCCEEDED" and browser_renderer is not None and _normalize_media_type(fetched.media_type) in {"text/html", "application/xhtml+xml"}:
+        if source_use_guard is not None:
+            source_use_guard.require("FETCH")
         if rights_guard is not None:
             rights_guard()
         try:
@@ -1477,6 +1534,13 @@ def capture_content(
         try:
             rendered = browser_renderer.render(url, max_response_bytes=max_response_bytes)
             _validate_fetched_resource(rendered, max_response_bytes=max_response_bytes)
+            if source_use_guard is not None:
+                source_use_guard.bind_fetched(final_url=rendered.final_url)
+                source_use_guard.require(
+                    "FETCH",
+                    content_sha256=hashlib.sha256(rendered.body).hexdigest(),
+                    media_type=rendered.media_type,
+                )
             if rights_guard is not None:
                 rights_guard()
             selected, _, selected_parse, selected_passages, selected_states = _persist_fetched_capture(
@@ -1498,6 +1562,7 @@ def capture_content(
                 permit_canonical_url=url,
                 permit_operation_ref=operation_ref,
                 rights_guard=rights_guard,
+                source_use_guard=source_use_guard,
             )
             browser_status = "SUCCEEDED" if selected_parse.status == "SUCCEEDED" else "PARSE_FAILED"
         except PrivateCaptureAuthorizationBlocked:
@@ -1523,6 +1588,10 @@ def capture_content(
     if archive_adapter is not None and not enrichment_policy.archive_enabled:
         archive_status = "DISABLED_POLICY"
     elif archive_adapter is not None and state == "INSERTED":
+        if source_use_guard is not None:
+            source_use_guard.require(
+                "ARCHIVE", content_sha256=primary.content_sha256, media_type=primary.media_type,
+            )
         if rights_guard is not None:
             rights_guard()
         try:
@@ -1549,6 +1618,8 @@ def capture_content(
         and enrichment_policy.metadata_enabled
         and state == "INSERTED"
     ):
+        if source_use_guard is not None:
+            source_use_guard.require("DISCOVER_METADATA")
         if rights_guard is not None:
             rights_guard()
         # This is a separate, explicitly allowed *private* enrichment event,
