@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from dichiarazioni_pubbliche.asr_router import plan_asr
+from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_PROVIDER_ID
+from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ROUTE
 from dichiarazioni_pubbliche.platform_transcript import (
     CaptionProbe,
     PlatformAccessRestricted,
@@ -411,6 +413,9 @@ class TranscriptAsrJobHandlers:
     def acquire_asr(self, job: ProcessingJob, content: ContentRecord) -> None:
         provider_id = str(job.payload.get("provider_id") or "").strip()
         route = str(job.payload.get("route") or "").strip()
+        if provider_id == LOCAL_PROVIDER_ID and route == LOCAL_ROUTE:
+            self._acquire_local_asr(job, content)
+            return
         audio_url = str(job.payload.get("canonical_url") or content.canonical_url).strip()
         if provider_id != "groq-whisper-large-v3-turbo":
             raise BlockedJob(f"ASR_PROVIDER_NOT_IMPLEMENTED:{provider_id or 'missing'}")
@@ -467,10 +472,73 @@ class TranscriptAsrJobHandlers:
             raise BlockedJob(str(exc)) from exc
 
         self._require_current_ingestion_relevance(content)
+        self._persist_asr_result(
+            job, content, result, provider_id=provider_id,
+            source_kind="REMOTE_ASR", audio_transport="REMOTE_URL",
+            input_sha256=None, model_sha256=None, rights_receipt_id=None,
+            input_bytes=None,
+        )
+
+    def _acquire_local_asr(self, job: ProcessingJob, content: ContentRecord) -> None:
+        payload = job.payload
+        # An operator explicitly enqueues a bounded, rights-cleared local WAV;
+        # discovery and generic fallback routing never create this job.
+        if self.local_asr is None:
+            raise BlockedJob("LOCAL_ASR_RUNTIME_NOT_CONFIGURED")
+        try:
+            requested_duration = float(payload.get("duration_seconds"))
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise BlockedJob("LOCAL_ASR_CONTENT_DURATION_MISMATCH") from exc
+        if (not content.duration_ms or content.duration_ms <= 0
+                or content.duration_ms > 30_000
+                or not 0 < requested_duration <= 30.0
+                or abs(content.duration_ms / 1000.0 - requested_duration) > 0.25):
+            raise BlockedJob("LOCAL_ASR_CONTENT_DURATION_MISMATCH")
+        if str(payload.get("canonical_url") or "") != content.canonical_url:
+            raise BlockedJob("LOCAL_ASR_CONTENT_URL_MISMATCH")
+        if not self.store.renew(
+            job.job_id, self.worker_id, lease_seconds=max(self.lease_seconds, 180)
+        ):
+            raise RetryableJob("LEASE_LOST_BEFORE_LOCAL_ASR", 0)
+        self._require_current_ingestion_relevance(content)
+        try:
+            result = self.local_asr.transcribe(
+                audio_path=payload.get("local_audio_path"),
+                input_sha256=payload.get("audio_sha256"),
+                rights_basis=payload.get("rights_basis"),
+                rights_receipt_id=payload.get("rights_receipt_id"),
+                authorization=payload.get("local_audio_authorized"),
+                consent_confirmed=payload.get("consent_confirmed"),
+                duration_seconds=payload.get("duration_seconds"),
+                language=payload.get("language", "it"),
+            )
+        except AsrRequestRejected as exc:
+            self.store.update_content_status(
+                content.content_id, "TRANSCRIPT_ASR_BLOCKED",
+                {"runtime_blocker": str(exc)},
+            )
+            raise BlockedJob(str(exc)) from exc
+        self._require_current_ingestion_relevance(content)
+        audio_sha = str(payload["audio_sha256"])
+        self._persist_asr_result(
+            job, content, result, provider_id=LOCAL_PROVIDER_ID,
+            source_kind="LOCAL_ASR", audio_transport="PRIVATE_WAV",
+            input_sha256=audio_sha,
+            model_sha256=self.local_asr.model_sha256,
+            rights_receipt_id=str(payload["rights_receipt_id"]),
+            input_bytes=None,
+        )
+
+    def _persist_asr_result(
+        self, job: ProcessingJob, content: ContentRecord, result,
+        *, provider_id: str, source_kind: str, audio_transport: str,
+        input_sha256: str | None, model_sha256: str | None,
+        rights_receipt_id: str | None, input_bytes: int | None,
+    ) -> None:
         variant_id, inserted = self.store.insert_transcript_variant(
             content_id=content.content_id,
             provider_id=provider_id,
-            source_kind="REMOTE_ASR",
+            source_kind=source_kind,
             language=result.language,
             raw_text=result.text,
             raw_text_sha256=result.text_sha256,
@@ -479,7 +547,10 @@ class TranscriptAsrJobHandlers:
             metadata={
                 "model_id": result.model_id,
                 "request_id": result.request_id,
-                "audio_transport": "REMOTE_URL",
+                "audio_transport": audio_transport,
+                "input_audio_sha256": input_sha256,
+                "model_sha256": model_sha256,
+                "rights_receipt_id": rights_receipt_id,
             },
         )
         if inserted:
@@ -501,8 +572,11 @@ class TranscriptAsrJobHandlers:
             "variant_id": variant_id,
             "text_sha256": result.text_sha256,
             "segment_count": len(result.segments),
-            "audio_transport": "REMOTE_URL",
+            "audio_transport": audio_transport,
             "source_audio_persisted": False,
+            "input_audio_sha256": input_sha256,
+            "model_sha256": model_sha256,
+            "rights_receipt_id": rights_receipt_id,
         }
         self.private_store.persist_asr_response(
             content_id=content.content_id,
@@ -517,7 +591,7 @@ class TranscriptAsrJobHandlers:
             model_id=result.model_id,
             operation="AUDIO_TRANSCRIPTION",
             request_id=result.request_id,
-            input_bytes=None,
+            input_bytes=input_bytes,
             input_seconds=result.duration_seconds,
             estimated_cost_usd=estimated_cost,
             status="SUCCESS",

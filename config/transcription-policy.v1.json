@@ -70,6 +70,15 @@
       "notes": "Cheap CPU fallback or second opinion on MiniPC. Not treated as editorial truth."
     },
     {
+      "id": "whisper-cpp-local",
+      "role": "local_second_opinion",
+      "route": "local/whisper.cpp",
+      "timestamp_support": true,
+      "italian": true,
+      "proven_in_owner_runtime": false,
+      "notes": "Explicit operator-only bounded WAV route. Requires local media rights receipt, SHA-256 input and model, preinstalled whisper-cli, and <=30 seconds; never auto-selected by routing."
+    },
+    {
       "id": "faster-whisper-large-v3-turbo-local",
       "role": "local_accuracy_fallback",
       "route": "local/faster-whisper-large-v3-turbo",
