@@ -237,3 +237,53 @@ DP-429 (manual AT and upstream gates) remain unfinished; the accepted
 projection has no dynamic records for the final production route integration
 proof. No status or approval of those tickets is inferred here. No
 production deployment, commits or changes to `PLAN.md` were performed.
+
+### 2026-10-10 — independently pinned live MiniPC readback and clean-clone E2E
+
+This follow-up checks the original AC-422.1–.9 against the actual runtime,
+without recasting the **9/9 locally checked AC** as completion of the declared
+dependencies. Added `tools/check_dp422_live_readback.py` and adversarial
+`tests/test_dp422_live_readback.py` (5 negative/positive cases). The CLI
+executes its own source on MiniPC via a **single read-only SSH session**: no
+file write, site rebuild, fixture import, runtime promotion or service restart.
+It requires an **externally pinned** approved projection fingerprint, so an
+inconsistent or silently replaced index/API cannot self-certify.
+
+Actual `minipc` same-origin `127.0.0.1:18090` readback on the approved
+fingerprint `501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`
+returns `PASS_APPROVED_EMPTY_ONLY`: 6 informational canonical routes HTTP 200,
+8 explicit demo/private/legacy routes HTTP 404, index/API/health/four public
+resource-list fingerprints identical and empty, 6 sitemap canonical URLs,
+safe robots/meta/canonical headings/navigation, and 1 actual static stylesheet
+fetched successfully. The checker **always** reports
+`production_dynamic_route_approval=false` and `dp422_done=false` in this mode;
+a six-page site can never impersonate a populated v3 route cutover.
+
+Clean Git clone at committed `1e15db5` (independent of the 10 intentionally
+dirty frontend WIP files): `npm ci` PASS; Astro check 0 diagnostics; build
+against the exact approved-empty MiniPC public JSON emitted 8 HTML pages
+(6 canonical informational + 2 noindex Account utilities); route/quality/
+design/correction checkers PASS with **0 legacy aliases and 121 internal
+links**. The same clean clone was rebuilt with the isolated **fictional**
+DP-407 schema-valid fixture for integration testing only: 56 HTML pages, 27
+legacy aliases, 872 internal links, 2 timed Content locator pages, 1 written
+locator page, 2 versioned correction/reply results; route/quality/correction/
+`check:m4-grammar` all PASS. Actual Chrome `check:browser` PASS for nine v3
+page families desktop/phone, keyboard, reduced motion, real 200% zoom, and
+**zero external/provider requests**. This fixture stayed on the local Mac
+clean clone and was **never** promoted to MiniPC or public production.
+
+**Literal closing gate still absent:** the present approved projection has
+zero public dossiers, Topic memberships and reviewed Trace relations. Its
+true runtime therefore cannot supply representative canonical/legacy dynamic
+route readback required by this ticket's Validation/Proof, notwithstanding the
+complete clean-clone **structural** acceptance. Furthermore its explicit
+Depends-on set contains unresolved DP-405/406/407/408/409/429: DP-405.3 needs
+an approved first-class zero-record Person (not representable by the current
+dossier-derived route set); DP-406/408 need real approved Topic/relation
+canaries; DP-409/429 and adjacent M4 surfaces retain independent human AT
+checks. These cannot be closed by a demo, an empty HTTP 200 or the presence
+of checkmarks. **DP-422 remains IN PROGRESS — no false DONE, no `PLAN.md`
+status change.** Once editorially approved dynamic resources exist, rerun
+the published canonical/legacy/API/readback contract against that exact
+fingerprint, complete the declared dependencies, and then change status.
