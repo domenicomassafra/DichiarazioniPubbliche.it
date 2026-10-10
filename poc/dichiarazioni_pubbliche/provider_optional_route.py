@@ -13,7 +13,6 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from pathlib import Path
 from typing import Any, Mapping
@@ -33,6 +32,7 @@ _MODEL_FIELDS = frozenset({
     "quota_remaining_requests", "quota_remaining_tokens",
     "usd_per_1k_total_tokens", "paid_owner_authorized",
     "quota_observed_at", "quota_source", "overage_policy", "single_account_scope",
+    "cli_batch_request_cap", "cli_batch_token_cap",
 })
 
 
@@ -183,23 +183,22 @@ def plan_optional_private_candidate(
             if tier != "ANTIGRAVITY_CLI_QUOTA":
                 reason = "SEPARATE_API_ENTITLEMENT_UNVERIFIED"
         if reason is None and tier == "ANTIGRAVITY_CLI_QUOTA":
-            if row.get("quota_source") != "ANTIGRAVITY_CLI_USAGE_PANEL":
+            if row.get("quota_source") != "ANTIGRAVITY_CLI_LIVE_USAGE":
                 reason = "ANTIGRAVITY_QUOTA_SOURCE_UNVERIFIED"
             elif row.get("overage_policy") != "NEVER":
                 reason = "ANTIGRAVITY_CREDIT_OVERAGE_NOT_DISABLED"
             elif (not isinstance(row.get("single_account_scope"), str)
                   or not re.fullmatch(r"[a-f0-9]{64}", row["single_account_scope"])):
                 reason = "ANTIGRAVITY_ACCOUNT_SCOPE_UNVERIFIED"
-            else:
-                try:
-                    observed = datetime.fromisoformat(str(row.get("quota_observed_at", "")))
-                    now = datetime.now(timezone.utc)
-                    if (observed.utcoffset() is None or observed > now
-                            or now - observed > timedelta(minutes=15)):
-                        reason = "ANTIGRAVITY_QUOTA_SNAPSHOT_STALE"
-                except ValueError:
-                    reason = "ANTIGRAVITY_QUOTA_SNAPSHOT_STALE"
-        if reason is None and tier != "LOCAL_ZERO_EXTERNAL" and (
+            elif (type(row.get("cli_batch_request_cap")) is not int
+                  or not 0 < row["cli_batch_request_cap"] <= 12
+                  or type(row.get("cli_batch_token_cap")) is not int
+                  or not 0 < row["cli_batch_token_cap"] <= 5_000_000):
+                reason = "ANTIGRAVITY_BATCH_BUDGET_UNVERIFIED"
+            elif (row["cli_batch_request_cap"] < requests_needed
+                  or row["cli_batch_token_cap"] < max_total_tokens):
+                reason = "ANTIGRAVITY_BATCH_BUDGET_INSUFFICIENT"
+        if reason is None and tier not in {"LOCAL_ZERO_EXTERNAL", "ANTIGRAVITY_CLI_QUOTA"} and (
             type(row.get("quota_remaining_requests")) is not int
             or row["quota_remaining_requests"] < requests_needed
             or type(row.get("quota_remaining_tokens")) is not int

@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -28,6 +28,46 @@ from dichiarazioni_pubbliche.candidate_extraction import (
 _CLI_ID = re.compile(r"gemini-[0-9]+\.[0-9]+-(?:flash|pro)-(?:low|medium|high)\Z")
 _MAX_STDOUT = 262_144
 _MAX_PROMPT_BYTES = 48_000
+_QUOTA_MIN_PERCENT = 5
+
+
+def parse_antigravity_usage(json_envelope: str) -> dict[str, Any]:
+    """Extract only Gemini family quota percentages from native `/usage` JSON.
+
+    These are *family* quotas, not provider-reported absolute requests/tokens
+    or a signed served-model identity. Missing/ambiguous resets block.
+    """
+    try:
+        data = json.loads(json_envelope)
+    except (UnicodeError, ValueError) as exc:
+        raise CandidateExtractionError("ANTIGRAVITY_USAGE_NOT_JSON") from exc
+    if not isinstance(data, dict) or data.get("status") != "SUCCESS":
+        raise CandidateExtractionError("ANTIGRAVITY_USAGE_NOT_SUCCESS")
+    body = data.get("response")
+    if not isinstance(body, str) or len(body) > 10_000:
+        raise CandidateExtractionError("ANTIGRAVITY_USAGE_RESPONSE_INVALID")
+    selected = {}
+    required = {"Weekly Limit Remaining", "Five Hour Limit Remaining"}
+    for line in body.splitlines():
+        cells = line.split("\t")
+        if len(cells) != 4 or cells[0] != "Gemini Models" or cells[1] not in required:
+            continue
+        if cells[1] in selected or not re.fullmatch(r"(100|[0-9]{1,2})%", cells[2]):
+            raise CandidateExtractionError("ANTIGRAVITY_USAGE_AMBIGUOUS")
+        try:
+            refresh = datetime.fromisoformat(cells[3])
+        except ValueError as exc:
+            raise CandidateExtractionError("ANTIGRAVITY_USAGE_RESET_INVALID") from exc
+        if refresh.utcoffset() is None or refresh <= datetime.now(timezone.utc):
+            raise CandidateExtractionError("ANTIGRAVITY_USAGE_RESET_INVALID")
+        selected[cells[1]] = {"remaining_percent": int(cells[2][:-1]),
+                              "reset_at": refresh.isoformat()}
+    if set(selected) != required:
+        raise CandidateExtractionError("ANTIGRAVITY_USAGE_GEMINI_QUOTA_MISSING")
+    if any(entry["remaining_percent"] < _QUOTA_MIN_PERCENT for entry in selected.values()):
+        raise CandidateExtractionError("ANTIGRAVITY_USAGE_GEMINI_QUOTA_LOW")
+    return {"scope": "Gemini Models", "weekly": selected["Weekly Limit Remaining"],
+            "five_hour": selected["Five Hour Limit Remaining"]}
 
 
 class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient):
@@ -39,7 +79,6 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
         self, *, model_id: str, account_scope_sha256: str,
         quota_remaining_requests: int, quota_remaining_tokens: int,
         quota_receipt_id: str,
-        quota_observed_at: str,
         cli_path: str | None = None,
         timeout_seconds: int = 40,
     ) -> None:
@@ -52,14 +91,6 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
             raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_INSUFFICIENT")
         if not isinstance(quota_receipt_id, str) or not re.fullmatch(r"provider-plan:[a-f0-9]{64}", quota_receipt_id):
             raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_RECEIPT_INVALID")
-        try:
-            quota_time = datetime.fromisoformat(quota_observed_at)
-            now = datetime.now(timezone.utc)
-            if (quota_time.utcoffset() is None or quota_time > now
-                    or now - quota_time > timedelta(minutes=15)):
-                raise ValueError("stale")
-        except (TypeError, ValueError) as exc:
-            raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_SNAPSHOT_STALE") from exc
         if type(timeout_seconds) is not int or not 10 <= timeout_seconds <= 90:
             raise CandidateExtractionError("ANTIGRAVITY_CLI_TIMEOUT_INVALID")
         self.executable = cli_path or shutil.which("agy")
@@ -67,9 +98,9 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
             raise CandidateExtractionError("ANTIGRAVITY_CLI_EXECUTABLE_MISSING")
         self.account_scope_sha256 = account_scope_sha256
         self.quota_receipt_id = quota_receipt_id
-        self.quota_observed_at = quota_time
         self.quota_requests = quota_remaining_requests
         self.quota_tokens = quota_remaining_tokens
+        self.last_live_quota: dict[str, Any] | None = None
         self.timeout_seconds = timeout_seconds
         super().__init__(api_key="", model_id=model_id,
                          cost_rate_usd_per_1k_total_tokens=Decimal("0"))
@@ -78,15 +109,9 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
     def cost_upper_bound_usd(self, request: ProviderExtractionRequest) -> Decimal:
         # Zero external API billing is admitted only after the operator
         # verified quota+NEVER overage in the SHA-pinned capability catalog.
-        if self._quota_stale():
-            raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_SNAPSHOT_STALE")
         if self.quota_requests <= 0 or self.quota_tokens < self._estimated_tokens(request) + 32_000:
             raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_INSUFFICIENT")
         return Decimal("0")
-
-    def _quota_stale(self) -> bool:
-        now = datetime.now(timezone.utc)
-        return now < self.quota_observed_at or now - self.quota_observed_at > timedelta(minutes=15)
 
     @staticmethod
     def _safe_env() -> dict[str, str]:
@@ -123,8 +148,6 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
         return result.stdout
 
     def _post(self, prompt: str) -> tuple[dict[str, Any], float]:
-        if self._quota_stale():
-            raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_SNAPSHOT_STALE")
         if not isinstance(prompt, str) or not 0 < len(prompt.encode("utf-8")) <= _MAX_PROMPT_BYTES:
             raise CandidateExtractionError("ANTIGRAVITY_CLI_PROMPT_INVALID")
         conservative = len(prompt.encode("utf-8")) + 32_000
@@ -132,6 +155,10 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
             raise CandidateExtractionError("ANTIGRAVITY_CLI_QUOTA_INSUFFICIENT")
         started = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="dp-agy-private-") as tmp:
+            self.last_live_quota = parse_antigravity_usage(self._run([
+                "--print", "/usage", "--output-format", "json",
+                "--print-timeout", "20s",
+            ], cwd=tmp, timeout=26))
             catalog = self._run(["models"], cwd=tmp, timeout=12)
             found = {line.split("\t", 1)[0] for line in catalog.splitlines() if "\t" in line}
             if self.model_id not in found:
@@ -211,5 +238,6 @@ class AntigravityCliCandidateExtractionClient(OmniRouteCandidateExtractionClient
                      "billing_basis": "ANTIGRAVITY_CLI_QUOTA_OVERAGE_DISABLED",
                      "remaining_requests": self.quota_requests,
                      "remaining_tokens": self.quota_tokens,
+                     "live_gemini_family_quota": self.last_live_quota,
                      "private_review_required": True},
         )

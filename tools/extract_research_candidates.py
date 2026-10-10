@@ -155,10 +155,9 @@ def main(argv: list[str] | None = None) -> int:
             client = AntigravityCliCandidateExtractionClient(
                 model_id=optional_plan.selected.model_id,
                 account_scope_sha256=selected_row["single_account_scope"],
-                quota_remaining_requests=selected_row["quota_remaining_requests"],
-                quota_remaining_tokens=selected_row["quota_remaining_tokens"],
+                quota_remaining_requests=selected_row["cli_batch_request_cap"],
+                quota_remaining_tokens=selected_row["cli_batch_token_cap"],
                 quota_receipt_id=optional_plan.receipt_id,
-                quota_observed_at=selected_row["quota_observed_at"],
             )
         except (RuntimeError, ValueError) as exc:
             _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc), provider_calls=0)

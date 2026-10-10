@@ -280,22 +280,25 @@ model `antigravity/gemini-3.8-flash-tiered` remains the DP-201 pinned route.
 A real MiniPC native CLI loopback/session canary used
 `agy --model gemini-3.8-flash-low --mode plan --sandbox --print` on one
 synthetic sentence. It returned `SUCCESS`, the exact requested marker and
-usage of 25,574 total tokens (25,149 input, 425 output). The CLI JSON did
-**not** expose an independently attested served-model identifier or per-model
-remaining quota. This proves the exact-option CLI invocation and successful
-synthetic output, not correctness, quotas for bulk processing or provider
-model identity independently signed by Google.
+usage of 25,574 total tokens (25,149 input, 425 output). The ordinary CLI
+response did **not** expose an independently attested served-model identifier.
+Separately, live read-only `agy -p /usage --output-format json` on the MiniPC
+returned machine-readable **Gemini family** remaining quota: **99% weekly**
+and **99% five-hour**, with corresponding reset timestamps. This proves
+substantial Gemini CLI quota availability at that instant, but does not prove
+per-model absolute remaining tokens, a particular model's completed answer
+quality or an independently signed served-model identity.
 
 `ANTIGRAVITY_CLI_QUOTA` on the optional private Passage selector calls the
 native `agy` binary **directly**, not OmniRoute `/v1/chat/completions` with
 an auto-picked fallback. The catalog must contain a currently advertised
-`gemini-*-(flash|pro)-(low|medium|high)` native CLI model and an operator
-verified, independently SHA-pinned `/usage` receipt no older than 15 minutes:
-`quota_source=ANTIGRAVITY_CLI_USAGE_PANEL`, UTC `quota_observed_at`, positive
-`quota_remaining_requests` and `quota_remaining_tokens`, `overage_policy=NEVER`
-verified in Antigravity settings, and a SHA-256 pseudonym for the **one** active
-CLI account in `single_account_scope`. The exact model and active account must
-agree with the verified snapshot. Source rights and the explicit
+`gemini-*-(flash|pro)-(low|medium|high)` native CLI model, with
+`quota_source=ANTIGRAVITY_CLI_LIVE_USAGE`, bounded `cli_batch_request_cap`
+(at most 12), `cli_batch_token_cap` (a conservative per-batch consumption cap),
+`overage_policy=NEVER` independently verified in Antigravity settings, and a
+SHA-256 pseudonym for the **one** active CLI account in
+`single_account_scope`. The exact model and active account must agree with the
+approved catalog. Source rights and the explicit
 `--external-model-data-approved` flag are mandatory. Use `--max-cost-usd 0`
 for quota-only work; any paid lane needs separate approval and a positive cap.
 
@@ -308,10 +311,14 @@ workdir, which is deleted after each request; CLI-owned conversation retention
 still needs the independent privacy approval recorded in the catalog.
 Only the CLI's necessary HOME/PATH/XDG environment is
 passed; no OmniRoute/Groq/API keys enter the process. It validates live
-`agy models`, tracks request/token usage, refuses non-success/missing usage,
-model mismatch, stale quota or exhaustion, and never rotates accounts or
-falls back to another model. Failed calls exhaust local admission until a
-fresh quota snapshot is verified. Private candidate schema/offset/review
+`agy models` and refreshes `/usage` **before every model request**, requiring
+both Gemini-family weekly and five-hour quota to remain at least 5% with
+future reset times. It independently limits per-batch requests and consumed
+tokens (these local caps are **not** claims of Google-provided absolute quota),
+refuses non-success/missing usage, model mismatch or quota exhaustion, and
+never rotates accounts or falls back to another model. Failed calls exhaust
+local admission until an operator restarts with a newly approved batch cap.
+Private candidate schema/offset/review
 gates stay unchanged. The receipt records requested CLI model, anonymous
 account scope, quota plan/usage and explicitly marks the lack of signed
 served-model reporting; it never claims the CLI response independently
