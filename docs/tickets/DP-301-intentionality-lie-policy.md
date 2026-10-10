@@ -236,3 +236,11 @@ proof. The clean-HEAD M3 boundary is 523/523 PASS and the complete suite is 1720
 AC-301.8 remains open: DP-306 records the questions, but no Q-306 row has a qualified
 disposition and DP-307 has no accepted owner/counsel decision. No legal conclusion or launch
 approval is inferred from the engineering proof.
+
+2026-10-10 primary-source review: [GDPR Regulation 2016/679](https://eur-lex.europa.eu/legal-content/IT-EN/TXT/?uri=CELEX%3A32016R0679)
+and the [Garante register guidance](https://www.garanteprivacy.it/home/faq/registro-delle-attivita-di-trattamento)
+reinforce the need to document purpose, data processing, and accountable
+decisions. They do not authorize a public allegation of intentional deception
+or provide DP-307's qualified Italy/EU editorial decision. The Q-306-01 and
+Q-306-02 entries remain `OPEN`, the policy still prohibits intent inference,
+and **AC-301.8 remains unchecked**.

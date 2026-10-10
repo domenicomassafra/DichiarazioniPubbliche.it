@@ -1,4 +1,202 @@
 {
+  "account_http_response_fields": {
+    "authenticated": {
+      "access_role": "ACCOUNT_SESSION_OWNER_OR_UNAUTHENTICATED_ERROR_ONLY",
+      "data_class": "OPERATIONAL_PRIVATE",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_SELF_SERVICE_RESPONSE",
+      "retention_behavior": "EPHEMERAL_HTTP_NO_STORE_PRIVATE_RESPONSE"
+    },
+    "csrf": {
+      "access_role": "ACCOUNT_SESSION_OWNER_OR_UNAUTHENTICATED_ERROR_ONLY",
+      "data_class": "OPERATIONAL_PRIVATE",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_SELF_SERVICE_RESPONSE",
+      "retention_behavior": "EPHEMERAL_HTTP_NO_STORE_PRIVATE_RESPONSE"
+    },
+    "email": {
+      "access_role": "ACCOUNT_SESSION_OWNER_OR_UNAUTHENTICATED_ERROR_ONLY",
+      "data_class": "HIGH_RISK_IDENTITY",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_SELF_SERVICE_RESPONSE",
+      "retention_behavior": "EPHEMERAL_HTTP_NO_STORE_PRIVATE_RESPONSE"
+    },
+    "error": {
+      "access_role": "ACCOUNT_SESSION_OWNER_OR_UNAUTHENTICATED_ERROR_ONLY",
+      "data_class": "OPERATIONAL_PRIVATE",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_SELF_SERVICE_RESPONSE",
+      "retention_behavior": "EPHEMERAL_HTTP_NO_STORE_PRIVATE_RESPONSE"
+    },
+    "ok": {
+      "access_role": "ACCOUNT_SESSION_OWNER_OR_UNAUTHENTICATED_ERROR_ONLY",
+      "data_class": "OPERATIONAL_PRIVATE",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_SELF_SERVICE_RESPONSE",
+      "retention_behavior": "EPHEMERAL_HTTP_NO_STORE_PRIVATE_RESPONSE"
+    }
+  },
+  "account_http_sensitive_headers": {
+    "Location": {
+      "access_role": "USER_BROWSER_AND_ACCOUNT_SERVICE_ONLY",
+      "data_class": "OPERATIONAL_PRIVATE",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_OIDC_REDIRECT_OR_SECURE_COOKIE",
+      "retention_behavior": "NO_STORE_OIDC_REDIRECT_VALUE"
+    },
+    "Set-Cookie": {
+      "access_role": "USER_BROWSER_AND_ACCOUNT_SERVICE_ONLY",
+      "data_class": "OPERATIONAL_PRIVATE",
+      "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+      "purpose": "ACCOUNT_OIDC_REDIRECT_OR_SECURE_COOKIE",
+      "retention_behavior": "TECHNICAL_COOKIE_TTL_FLOW_5MIN_SESSION_24H_VISITOR_30D_PENDING_REVIEW"
+    }
+  },
+  "account_sqlite_activation_approved": false,
+  "account_sqlite_fields": {
+    "pending": {
+      "browser_hash": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "OIDC_ANTI_CSRF_AND_PKCE_FLOW",
+        "retention_behavior": "TECHNICAL_5_MINUTE_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "expires_at": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "OIDC_ANTI_CSRF_AND_PKCE_FLOW",
+        "retention_behavior": "TECHNICAL_5_MINUTE_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "nonce": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "OIDC_ANTI_CSRF_AND_PKCE_FLOW",
+        "retention_behavior": "TECHNICAL_5_MINUTE_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "state_hash": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "OIDC_ANTI_CSRF_AND_PKCE_FLOW",
+        "retention_behavior": "TECHNICAL_5_MINUTE_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "verifier": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "OIDC_ANTI_CSRF_AND_PKCE_FLOW",
+        "retention_behavior": "TECHNICAL_5_MINUTE_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      }
+    },
+    "sessions": {
+      "csrf": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_SESSION_AND_CSRF_PROTECTION",
+        "retention_behavior": "TECHNICAL_24_HOUR_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "expires_at": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_SESSION_AND_CSRF_PROTECTION",
+        "retention_behavior": "TECHNICAL_24_HOUR_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "session_hash": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_SESSION_AND_CSRF_PROTECTION",
+        "retention_behavior": "TECHNICAL_24_HOUR_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "subject": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_SESSION_AND_CSRF_PROTECTION",
+        "retention_behavior": "TECHNICAL_24_HOUR_EXPIRY_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      }
+    },
+    "throttle": {
+      "bucket": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "HIGH_RISK_IDENTITY",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "PSEUDONYMOUS_LOGIN_ABUSE_CONTROL",
+        "retention_behavior": "TECHNICAL_MINUTE_WINDOW_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "used": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "PSEUDONYMOUS_LOGIN_ABUSE_CONTROL",
+        "retention_behavior": "TECHNICAL_MINUTE_WINDOW_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "window": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "PSEUDONYMOUS_LOGIN_ABUSE_CONTROL",
+        "retention_behavior": "TECHNICAL_MINUTE_WINDOW_REQUEST_TIME_PURGE",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      }
+    },
+    "users": {
+      "created_at": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_MEMBERSHIP_AND_IDENTITY_DISPLAY",
+        "retention_behavior": "MEMBER_DELETION_PENDING_QUALIFIED_RETENTION_REVIEW",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "email": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "HIGH_RISK_IDENTITY",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_MEMBERSHIP_AND_IDENTITY_DISPLAY",
+        "retention_behavior": "MEMBER_DELETION_PENDING_QUALIFIED_RETENTION_REVIEW",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "last_login": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_MEMBERSHIP_AND_IDENTITY_DISPLAY",
+        "retention_behavior": "MEMBER_DELETION_PENDING_QUALIFIED_RETENTION_REVIEW",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      },
+      "subject": {
+        "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+        "data_class": "HIGH_RISK_IDENTITY",
+        "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+        "purpose": "ACCOUNT_MEMBERSHIP_AND_IDENTITY_DISPLAY",
+        "retention_behavior": "MEMBER_DELETION_PENDING_QUALIFIED_RETENTION_REVIEW",
+        "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL"
+      }
+    }
+  },
+  "external_runtime_log_fields_verified": false,
+  "external_runtime_log_review_required": [
+    "systemd_journald",
+    "reverse_proxy_access_and_error",
+    "provider_and_backup_logs"
+  ],
   "fields": {
     "appearance": {
       "confidence": {
@@ -10185,6 +10383,7 @@
       }
     }
   },
+  "inventory_scope": "POSTGRESQL_COLUMNS_PUBLIC_SCHEMA_OPT_IN_ACCOUNT_SQLITE_AND_SOURCE_OWNED_PUBLIC_HTTP_LOGS",
   "privacy_policy_version": "privacy-minimization-v1",
   "public_projection_authorized": false,
   "public_projection_fields": {
@@ -10835,6 +11034,69 @@
     }
   },
   "retention_periods_approved": false,
+  "runtime_log_fields": {
+    "public_api_http_access_optional": {
+      "client_address": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      },
+      "request_line": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      },
+      "response_code": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      },
+      "response_size": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      },
+      "timestamp": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      }
+    },
+    "public_api_startup_stdout": {
+      "api_version": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      },
+      "bind_address": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      },
+      "bind_port": {
+        "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+        "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+        "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW"
+      }
+    }
+  },
+  "runtime_log_retention_approved": false,
   "status": "TECHNICAL_CLASSIFICATION_NOT_LEGAL_APPROVAL",
   "version": "privacy-field-inventory-v1"
 }

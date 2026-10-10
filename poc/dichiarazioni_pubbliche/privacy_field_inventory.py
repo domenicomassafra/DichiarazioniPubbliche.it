@@ -6,9 +6,12 @@ New SQL columns must be inventoried before the repository acceptance can pass.
 
 from __future__ import annotations
 
+import ast
+from contextlib import closing
 import hashlib
 import json
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -28,6 +31,30 @@ _FREE_TEXT_PRIVATE = frozenset({"raw_text", "canonical_text", "private_text", "e
 ROOT = Path(__file__).resolve().parents[2]
 _PUBLIC_SCHEMA_MIGRATION = ROOT / "db/migrations/20260926-add-public-schema-v1-contract.sql"
 _RELATION_POLICY_MIGRATION = ROOT / "db/migrations/20260926-add-relation-approval-policy.sql"
+_ACCOUNT_SOURCE = ROOT / "poc/dichiarazioni_pubbliche/public_account.py"
+
+# These are the fields emitted by the optional stdlib public HTTP access logger.
+# The entire request line is potentially identifying and can contain OAuth codes.
+# Neither its default-off state nor this inventory authorizes its use in production.
+_RUNTIME_LOG_FIELDS = {
+    "public_api_http_access_optional": (
+        "client_address", "request_line", "response_code", "response_size", "timestamp"
+    ),
+    "public_api_startup_stdout": ("api_version", "bind_address", "bind_port"),
+}
+_ACCOUNT_RETENTION = {
+    "pending": "TECHNICAL_5_MINUTE_EXPIRY_REQUEST_TIME_PURGE",
+    "sessions": "TECHNICAL_24_HOUR_EXPIRY_REQUEST_TIME_PURGE",
+    "throttle": "TECHNICAL_MINUTE_WINDOW_REQUEST_TIME_PURGE",
+    "users": "MEMBER_DELETION_PENDING_QUALIFIED_RETENTION_REVIEW",
+}
+_ACCOUNT_PURPOSE = {
+    "pending": "OIDC_ANTI_CSRF_AND_PKCE_FLOW",
+    "sessions": "ACCOUNT_SESSION_AND_CSRF_PROTECTION",
+    "throttle": "PSEUDONYMOUS_LOGIN_ABUSE_CONTROL",
+    "users": "ACCOUNT_MEMBERSHIP_AND_IDENTITY_DISPLAY",
+}
+_ACCOUNT_HTTP_HEADER_FIELDS = ("Location", "Set-Cookie")
 
 
 class FieldInventoryError(ValueError):
@@ -98,6 +125,138 @@ def classify_field(table: str, column: str) -> str:
     return DataClass.OPERATIONAL_PRIVATE.value
 
 
+def parse_sqlite_account_fields(python_source: str) -> dict[str, tuple[str, ...]]:
+    """Extract AccountStore's literal SQLite DDL without executing account code."""
+    try:
+        module = ast.parse(python_source)
+    except SyntaxError as exc:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_SOURCE_INVALID") from exc
+    ddl: list[str] = []
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr == "executescript":
+            if len(node.args) != 1 or not isinstance(node.args[0], ast.Constant) or not isinstance(node.args[0].value, str):
+                raise FieldInventoryError("PRIVACY_ACCOUNT_DYNAMIC_DDL_UNREVIEWED")
+            ddl.append(node.args[0].value)
+    if len(ddl) != 1:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_SCHEMA_SOURCE_DRIFT")
+    raw = ddl[0]
+    starts = tuple(re.finditer(r"\bCREATE\s+TABLE\b", raw, re.I))
+    matches = tuple(re.finditer(
+        r"CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([a-z][a-z0-9_]*)\s*\((.*?)\)\s*;",
+        raw, re.I | re.S,
+    ))
+    if not starts or len(starts) != len(matches):
+        raise FieldInventoryError("PRIVACY_ACCOUNT_UNRECOGNIZED_DDL")
+    tables: dict[str, tuple[str, ...]] = {}
+    for match in matches:
+        table = match.group(1).lower()
+        columns: list[str] = []
+        for declaration in match.group(2).split(","):
+            item = re.fullmatch(r"\s*([a-z][a-z0-9_]*)\s+(TEXT|INTEGER|REAL|BLOB|NUMERIC)\b[^,]*", declaration, re.I | re.S)
+            if not item:
+                raise FieldInventoryError(f"PRIVACY_ACCOUNT_COLUMN_UNRECOGNIZED:{table}")
+            column = item.group(1).lower()
+            if column in columns:
+                raise FieldInventoryError(f"PRIVACY_ACCOUNT_DUPLICATE_COLUMN:{table}.{column}")
+            columns.append(column)
+        if not columns or table in tables:
+            raise FieldInventoryError(f"PRIVACY_ACCOUNT_DUPLICATE_OR_EMPTY_TABLE:{table}")
+        tables[table] = tuple(columns)
+    if set(tables) != set(_ACCOUNT_RETENTION):
+        raise FieldInventoryError("PRIVACY_ACCOUNT_UNREVIEWED_TABLE")
+    return dict(sorted(tables.items()))
+
+
+def account_sqlite_field_inventory(python_source: str) -> dict[str, dict[str, dict[str, str]]]:
+    tables = parse_sqlite_account_fields(python_source)
+    return {
+        table: {
+            column: {
+                "schema_origin": "OPT_IN_ACCOUNTSTORE_SQLITE_DDL",
+                "data_class": (
+                    DataClass.HIGH_RISK_IDENTITY.value
+                    if (table, column) in {("users", "subject"), ("users", "email"), ("throttle", "bucket")}
+                    else DataClass.OPERATIONAL_PRIVATE.value
+                ),
+                "purpose": _ACCOUNT_PURPOSE[table],
+                "access_role": "ACCOUNT_PRIVATE_SERVICE_ONLY",
+                "retention_behavior": _ACCOUNT_RETENTION[table],
+                "public_allowlist_decision": "DENY_ACCOUNT_STORE_PUBLIC_PROJECTION",
+            }
+            for column in columns
+        }
+        for table, columns in tables.items()
+    }
+
+
+def account_response_field_inventory(python_source: str) -> dict[str, dict[str, str]]:
+    """Account response JSON keys are a separate, private user-specific projection."""
+    try:
+        module = ast.parse(python_source)
+    except SyntaxError as exc:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_SOURCE_INVALID") from exc
+    fields: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != "_json":
+            continue
+        if len(node.args) != 2 or not isinstance(node.args[1], ast.Dict):
+            raise FieldInventoryError("PRIVACY_ACCOUNT_DYNAMIC_RESPONSE_UNREVIEWED")
+        for key in node.args[1].keys:
+            if not isinstance(key, ast.Constant) or not isinstance(key.value, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", key.value):
+                raise FieldInventoryError("PRIVACY_ACCOUNT_DYNAMIC_RESPONSE_FIELD")
+            fields.add(key.value)
+    if not fields:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_RESPONSE_FIELDS_MISSING")
+    return {
+        name: {
+            "data_class": DataClass.HIGH_RISK_IDENTITY.value if name == "email" else DataClass.OPERATIONAL_PRIVATE.value,
+            "purpose": "ACCOUNT_SELF_SERVICE_RESPONSE",
+            "access_role": "ACCOUNT_SESSION_OWNER_OR_UNAUTHENTICATED_ERROR_ONLY",
+            "retention_behavior": "EPHEMERAL_HTTP_NO_STORE_PRIVATE_RESPONSE",
+            "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+        }
+        for name in sorted(fields)
+    }
+
+
+def read_account_sqlite_columns(path: Path) -> tuple[tuple[str, str], ...]:
+    """Opt-in catalog read-back; opens SQLite read-only and never selects user rows."""
+    db_path = Path(path)
+    if db_path.is_symlink() or not db_path.is_file():
+        raise FieldInventoryError("PRIVACY_ACCOUNT_DB_MISSING_OR_SYMLINK")
+    if db_path.stat().st_mode & 0o077:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_DB_PERMISSIONS")
+    try:
+        with closing(sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            tables = [row[0] for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            )]
+            if not tables or any(not re.fullmatch(r"[a-z][a-z0-9_]*", name) for name in tables):
+                raise FieldInventoryError("PRIVACY_ACCOUNT_LIVE_UNEXPECTED_TABLE")
+            fields = [(table, row[1]) for table in tables for row in db.execute(f"PRAGMA table_info('{table}')")]
+    except sqlite3.DatabaseError as exc:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_LIVE_CATALOG_FAILED") from exc
+    if len(set(fields)) != len(fields) or not fields:
+        raise FieldInventoryError("PRIVACY_ACCOUNT_LIVE_DUPLICATE_OR_EMPTY")
+    return tuple(fields)
+
+
+def compare_account_sqlite_columns(inventory: Mapping[str, Any], actual: tuple[tuple[str, str], ...]) -> dict[str, Any]:
+    expected = {(table, col) for table, cols in inventory["account_sqlite_fields"].items() for col in cols}
+    rows = set(actual)
+    matching = len(rows) == len(actual) and expected == rows
+    return {
+        "status": "ACCOUNT_SQLITE_CATALOG_MATCH_TECHNICAL_ONLY" if matching else "ACCOUNT_SQLITE_SCHEMA_DRIFT_BLOCKED",
+        "expected_fields": len(expected), "live_fields": len(actual),
+        "unclassified_live_fields": len(rows - expected),
+        "missing_from_live": len(expected - rows),
+        "live_matches_inventory": matching,
+        "public_projection_authorized": False,
+    }
+
+
 def make_inventory(schema: str) -> dict[str, Any]:
     tables = parse_schema_fields(schema)
     # Production includes two historical migration-only additions not folded
@@ -157,14 +316,51 @@ def make_inventory(schema: str) -> dict[str, Any]:
     }
     if len(projection_groups) < 10:
         raise FieldInventoryError("PRIVACY_PUBLIC_SCHEMA_GROUPS_MISSING")
+    account_source = _ACCOUNT_SOURCE.read_text(encoding="utf-8")
+    account_fields = account_sqlite_field_inventory(account_source)
+    account_response_fields = account_response_field_inventory(account_source)
+    runtime_logs = {
+        group: {
+            field: {
+                "data_class": DataClass.OPERATIONAL_PRIVATE.value,
+                "purpose": "OPTIONAL_PUBLIC_HOST_DIAGNOSTICS",
+                "access_role": "AUTHORIZED_RUNTIME_OPERATOR_ONLY",
+                "retention_behavior": "HOST_JOURNAL_OR_LOG_POLICY_PENDING_OWNER_REVIEW",
+                "public_allowlist_decision": "DENY_PUBLIC_PROJECTION",
+            }
+            for field in fields
+        }
+        for group, fields in _RUNTIME_LOG_FIELDS.items()
+    }
     return {
         "version": INVENTORY_VERSION,
         "privacy_policy_version": PRIVACY_POLICY_VERSION,
         "status": "TECHNICAL_CLASSIFICATION_NOT_LEGAL_APPROVAL",
         "public_projection_authorized": False,
         "retention_periods_approved": False,
+        "runtime_log_retention_approved": False,
+        "account_sqlite_activation_approved": False,
+        "inventory_scope": "POSTGRESQL_COLUMNS_PUBLIC_SCHEMA_OPT_IN_ACCOUNT_SQLITE_AND_SOURCE_OWNED_PUBLIC_HTTP_LOGS",
+        "external_runtime_log_fields_verified": False,
+        "external_runtime_log_review_required": ["systemd_journald", "reverse_proxy_access_and_error", "provider_and_backup_logs"],
         "fields": records,
         "public_projection_fields": projection_groups,
+        "account_sqlite_fields": account_fields,
+        "account_http_response_fields": account_response_fields,
+        "account_http_sensitive_headers": {
+            name: {
+                "data_class": DataClass.OPERATIONAL_PRIVATE.value,
+                "purpose": "ACCOUNT_OIDC_REDIRECT_OR_SECURE_COOKIE",
+                "access_role": "USER_BROWSER_AND_ACCOUNT_SERVICE_ONLY",
+                "retention_behavior": (
+                    "TECHNICAL_COOKIE_TTL_FLOW_5MIN_SESSION_24H_VISITOR_30D_PENDING_REVIEW"
+                    if name == "Set-Cookie" else "NO_STORE_OIDC_REDIRECT_VALUE"
+                ),
+                "public_allowlist_decision": "DENY_SHARED_PUBLIC_PROJECTION",
+            }
+            for name in _ACCOUNT_HTTP_HEADER_FIELDS
+        },
+        "runtime_log_fields": runtime_logs,
     }
 
 
@@ -188,6 +384,10 @@ def check_inventory(schema_path: Path, inventory_path: Path) -> dict[str, int | 
         "field_count": sum(len(v) for v in expected["fields"].values()),
         "public_schema_field_count": sum(len(v) for v in expected["public_projection_fields"].values()),
         "public_schema_group_count": len(expected["public_projection_fields"]),
+        "account_sqlite_table_count": len(expected["account_sqlite_fields"]),
+        "account_sqlite_field_count": sum(len(v) for v in expected["account_sqlite_fields"].values()),
+        "account_http_response_field_count": len(expected["account_http_response_fields"]),
+        "runtime_log_field_count": sum(len(v) for v in expected["runtime_log_fields"].values()),
         "inventory_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         "status": "TECHNICAL_ONLY_NOT_LEGAL_CLOSURE",
     }

@@ -538,3 +538,31 @@ and forbidden-membership counts, denying unknown/malformed states before
 acquisition. Local RED→GREEN regression covers omitted, null, boolean,
 string, floating and negative counts. This does not change lawful basis,
 approve retention or resolve Q-306/DP-307; DP-304 remains IN PROGRESS.
+
+### Optional account and log field census — 2026-10-10
+
+The canonical inventory now also enumerates the opt-in local account SQLite
+tables (**4 tables, 16 columns**) from the literal `AccountStore` DDL, the
+user-specific account JSON responses (**5 keys**), and sensitive HTTP account
+headers (`Location`, `Set-Cookie`). Account subjects, email addresses and
+pseudonymous abuse buckets are private identity-relevant data. An unauthorized
+new SQLite column or account response key fails inventory drift checks. A
+metadata-only read-only SQLite catalog comparison is available through
+`tools/check_privacy_field_inventory.py --verify-account-db`; it does not query
+account values. On an isolated disposable account store, **16/16 columns**
+matched; the focused suite passed **13/13**.
+
+The source-owned public-host log namespace now inventories eight named
+diagnostic fields. Optional verbose access logs may contain OAuth callback
+authorization query values, so host logging, reverse proxy, journald, WAL,
+backups, identity-provider logs and retention must undergo an actual operator
+and qualified privacy review before enabling accounts or verbose logging.
+The machine-readable inventory explicitly marks these external/runtime log
+surfaces unverified and cannot authorize their persistence. Full technical
+scope, deployment limitations and cited official GDPR/Garante guidance are
+recorded in `docs/ops/privacy-account-log-inventory-20261010.md`.
+
+**AC-304.1 remains open:** source-owned PostgreSQL, optional account and
+public-schema census has improved, but no complete qualified purpose,
+retention, nested-payload, external log and deployment acceptance exists.
+Q-306-05/-08/-10 and DP-307 remain unapproved, so DP-304 stays IN PROGRESS.
