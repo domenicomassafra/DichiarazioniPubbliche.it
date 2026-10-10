@@ -93,7 +93,21 @@ class SourceIntelligenceTests(unittest.TestCase):
             set(self.contract.evidence_profiles_by_registry_id),
             {row["id"] for row in evidence_registry["sources"]},
         )
-        self.assertEqual(len(self.contract.profiles), 13)
+        source_registry = __import__("json").loads(
+            (ROOT / "config" / "source-registry.v1.json").read_text()
+        )
+        self.assertEqual(
+            {(profile.registry_kind, profile.registry_source_id) for profile in self.contract.profiles},
+            {("EVIDENCE_REGISTRY", row["id"]) for row in evidence_registry["sources"]}
+            | {("DISCOVERY_REGISTRY", row["id"]) for row in source_registry["sources"]},
+        )
+        for source_id in ("official-camera-temi", "official-consilium-press"):
+            profile = next(
+                row for row in self.contract.profiles
+                if row.registry_kind == "DISCOVERY_REGISTRY" and row.registry_source_id == source_id
+            )
+            self.assertEqual(profile.access_status, "DISCOVERY_ONLY")
+            self.assertEqual(profile.rights_status, "RIGHTS_HOLD")
 
     def test_same_source_can_have_multiple_roles_without_global_rating(self):
         profile = self.contract.evidence_profiles_by_registry_id["istat-sdmx"]

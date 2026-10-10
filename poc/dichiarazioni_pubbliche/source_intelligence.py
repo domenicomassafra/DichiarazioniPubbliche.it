@@ -409,7 +409,7 @@ def load_source_intelligence_contract(
                     }
                 ),
                 access_status="DISCOVERY_ONLY",
-                rights_status="UNKNOWN",
+                rights_status=str(registry_row.get("rights_status") or "UNKNOWN"),
             )
         )
 
