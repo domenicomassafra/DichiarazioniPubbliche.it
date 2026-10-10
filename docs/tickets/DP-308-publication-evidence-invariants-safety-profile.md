@@ -182,3 +182,20 @@ the PostgreSQL-backed classes initially skipped because `initdb/pg_ctl` were out
 were rerun with `/usr/lib/postgresql/18/bin` and passed **69/69** against disposable PostgreSQL.
 Temporary trees were removed; no production DB/provider was used. This closes engineering only
 and does not answer Q-306 or DP-307.
+
+### 2026-10-10 — Current public-link rights must be explicit
+
+Projection-time rights revalidation previously treated a reviewed, non-expired
+`private_source_rights_record` with `rights_status=CLEARED` as sufficient for
+the source and evidence records, even when `permitted_uses` contained **only**
+private fetch/model-processing permissions or was empty. The public dossier
+emits canonical source/evidence URLs, so private use clearance alone is not a
+public-link grant. The fail-closed production revalidator now additionally
+requires exact `LINK_PUBLIC` on each current source/evidence rights record and
+a valid current timezone-aware `reviewed_at`; only then may these rights
+inputs become `PASSED`. An excerpt/media quotation still requires the separate
+DP-305 grant/profile/review chain. Pure negative regressions cover private-only,
+missing, wrong-shaped and revoked rights, stale/future/naive review dates and
+explicit current link permission. No existing source permission was modified,
+and this engineering repair grants **no** source-specific copyright/license,
+editorial or legal authorization. Stable-v1 remains NO-GO.

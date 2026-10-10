@@ -188,6 +188,23 @@ class ProductionProjectionRevalidator(PsqlRuntime):
             return False
         if not record.get("rights_receipt_ref") or not record.get("reviewer_ref"):
             return False
+        # A source may be cleared for private fetch/retention/model work, but
+        # that does not grant the ability to display even its link in a public
+        # Finding. Our published dossiers expose both the source and evidence
+        # URLs; require a separate, explicit public-link use on *each* record.
+        # Quotation/media remain subject to their independent DP-305 policies.
+        uses = record.get("permitted_uses")
+        if not isinstance(uses, list) or "LINK_PUBLIC" not in uses:
+            return False
+        reviewed = record.get("reviewed_at")
+        if not isinstance(reviewed, str) or not reviewed.strip():
+            return False
+        try:
+            reviewed_at = datetime.fromisoformat(reviewed.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if reviewed_at.tzinfo is None or reviewed_at > now:
+            return False
         expires = record.get("expires_at")
         if expires:
             try:

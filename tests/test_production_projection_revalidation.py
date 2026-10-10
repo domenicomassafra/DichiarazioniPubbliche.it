@@ -244,5 +244,52 @@ class ProductionProjectionLocalHoldTests(unittest.TestCase):
             )
 
 
+class ProductionProjectionRightsScopeTests(unittest.TestCase):
+    """A reviewed private fetch grant must not become public-link authority."""
+
+    def test_clearance_without_explicit_public_link_permission_stays_held(self):
+        current = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+        record = {
+            "record_visibility": "PRIVATE",
+            "rights_status": "CLEARED",
+            "rights_receipt_ref": "rights:reviewed",
+            "reviewer_ref": "reviewer:authorized",
+            "reviewed_at": "2026-10-09T12:00:00+00:00",
+            "permitted_uses": ["PRIVATE_FETCH", "PRIVATE_MODEL_PROCESSING"],
+            "expires_at": None,
+        }
+        passed = ProductionProjectionRevalidator._rights_pass
+        self.assertFalse(passed((record,), now=current))
+        self.assertFalse(passed(({**record, "permitted_uses": []},), now=current))
+        self.assertFalse(passed(({**record, "permitted_uses": "LINK_PUBLIC"},), now=current))
+        self.assertTrue(passed(({**record, "permitted_uses": ["LINK_PUBLIC"]},), now=current))
+
+    def test_public_link_permission_requires_current_reviewed_clearance(self):
+        current = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+        record = {
+            "record_visibility": "PRIVATE",
+            "rights_status": "CLEARED",
+            "rights_receipt_ref": "rights:reviewed",
+            "reviewer_ref": "reviewer:authorized",
+            "reviewed_at": "2026-10-09T12:00:00+00:00",
+            "permitted_uses": ["LINK_PUBLIC"],
+            "expires_at": "2026-10-11T00:00:00+00:00",
+        }
+        passed = ProductionProjectionRevalidator._rights_pass
+        for field, value in (
+            ("rights_status", "UNKNOWN"),
+            ("record_visibility", "PUBLIC"),
+            ("rights_receipt_ref", None),
+            ("reviewer_ref", None),
+            ("reviewed_at", None),
+            ("reviewed_at", "2026-10-12T00:00:00+00:00"),
+            ("reviewed_at", "2026-10-09T12:00:00"),
+            ("expires_at", "2026-10-09T00:00:00+00:00"),
+        ):
+            with self.subTest(field=field, value=value):
+                self.assertFalse(passed(({**record, field: value},), now=current))
+        self.assertTrue(passed((record,), now=current))
+
+
 if __name__ == "__main__":
     unittest.main()
