@@ -373,6 +373,17 @@ and implementation remain subsequent deliverables; no such execution is claimed
 by this read-only inspection. The prompt must preserve all 35 outstanding tickets
 and explicitly reconcile any DONE baseline affected by the new requirements.
 
+Native orchestration verification: Chat On Steroids is installed locally; its
+current upstream [tool-surface reference](https://github.com/totec448-spec/chat-on-steroids/blob/main/docs/tool-surface.md)
+documents the Core tool `agents` with `spawn`, `message`, `status` and `finish`.
+Use the actually discovered schema in the target chat, not a fabricated
+`spawn_agent` call or a substitute Orca workflow. One run creates its worker set
+once and reuses sleeping workers via message. The documented worker context
+ceiling is 400,000 app-accounted tokens, not an assumed 500,000–1,000,000.
+This is documentation/capability evidence, not proof of four workers launched or
+of live connector authorization in a future chat. The external master handoff
+and native worker task/result channels must remain distinct.
+
 ## Riproducibilità e limiti
 
 Eseguiti: git fetch/status/log/branch/worktree/stash, gh PR/run readback;
