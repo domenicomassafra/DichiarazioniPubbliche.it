@@ -23,6 +23,12 @@ were not authorized or performed in this run.
 | DP-313 | `6afb00f` | Private procedural role/jurisdiction/negation/status guard; no allegation→fact or legal approval |
 | DP-438 | `7e8bbbb` | Isolated v3 PublicPerson read model with separately approved zero-Statement identity |
 | DP-515 | `3cb5d93` | Source-version, conditional 304, outage/backoff and gate-checked incremental watch proposals, disabled |
+| DP-319 | `6152dd0` | Bounded private investigation plan over existing reviewed ResearchAssignments; no invented URLs or infinite/paid actions |
+| DP-320 | `7ed9eb3` | Isolated SQLite epoch/CAS source-vs-artifact revocation and read fence with durable outbox, NO production Postgres/edge claims |
+| DP-315 | `20c63eb` | Private three-track denial: uttered vs endorsed vs meant, scope/source/currentness, no universal-absence proof |
+| DP-239 | `aedced9`, `45167d2` | Original-language immutable text and separately versioned, always-held machine translation risk contract |
+| DP-440 | `fbecfea` | Opt-in offline sentence-level pre-reviewed synopsis with exact v3 Statement citations, conservative abstention |
+| DP-244 | `10dd9af` | Bounded source coverage status and version delta with no fabricated global completeness or dispatch |
 | Inventory/status | `5b8edb7` | Versioned privacy allowlist extended conditionally, historical test count unfrozen, ten ticket statuses reconciled |
 
 ## Verifications (local Mac, not MiniPC production)
@@ -31,9 +37,10 @@ were not authorized or performed in this run.
 - Regenerated the canonical `privacy-field-inventory.v1.json` with the provided `--generate` tool. Compared output: only one new `PUBLIC_STATEMENT_ALLOWED_KEYS` conditional group (21 fields), no DB schema change or public-authority grant. Targeted inventory tests **17/17 PASS**.
 - Final integrated Python suite: **2499/2499 PASS** (`PYTHONPATH=poc python3 -m unittest discover -s tests -q`, **147.424 seconds**); deterministic benchmark **5/5 PASS**; compileall PASS.
 - Wave 3 additions were checked independently: DP-238 11 new tests (plus 28 relevant baseline checks), DP-313 24 new tests, DP-438 10 new tests, DP-515 17 new tests (plus 33 selected regressions) PASS. The all-repository rerun including wave 3 is a **separate gate** and must not be inferred from the earlier 2499/2499 run.
+- Wave 3 integrated backend suite: **2561/2561 PASS**. Wave 4 focused tests PASS for DP-319 (11), DP-320 (7), DP-315 (10), DP-239 (13), DP-440 (9), DP-244 (10). **Final Wave4 integrated Python suite: 2621/2621 PASS in 154.305 seconds**, directly rerun from the shared completed source state; benchmark deterministic **5/5 PASS**, compileall and repository contract PASS.
 - Web: search-index and v3 statement synthetic tests PASS; **backend→Astro v3 parity PASS**; `npm run check:design` PASS; Astro check **89 files, 0 errors/warnings/hints**; isolated production projection boundary PASS (renamed demo excluded, private Studio absent, public-empty sitemap correct, legacy v2 compatibility and drift rejection).
 - Browser QA on **both isolated approved-empty and opt-in populated demo** passes keyboard, automatic accessibility tree, zoom and the public Person × Topic URL intersection; no live device VoiceOver or v3 release implied (`b4caa2a`).
-- Repository contract PASS and `report_ticket_status.py --json` reports exact file/PLAN agreement. `check_launch_preflight.py --expect-no-go` remains explicitly NO-GO for unclosed Q-306/legal/source/release artifacts.
+- Repository contract PASS and `report_ticket_status.py --json` reports exact file/PLAN agreement: **162 total, 90 DONE, 40 IN PROGRESS, 6 BLOCKED, 26 FUTURE (72 not DONE)**. `check_launch_preflight.py --expect-no-go` returned **NO-GO with 49 blockers**, mostly Q-306/legal/source/release artifacts; this is the expected safe stop, not evidence of an authorized release.
 
 ## Invariants / not yet achieved
 
@@ -63,6 +70,16 @@ Important dependencies still open:
    need authenticated real judicial source and independent semantic gold; DP-438
    requires true public-identity authorization plus reader/API route; DP-515
    needs persisted CAS/lease and source-family permissions before dispatch.
+8. DP-319 source investigation requires a durable append-only attempt ledger,
+   actual permissible adapter/credential receipts and private Studio inspection;
+   DP-315 authentic denial/speech acts and independent completeness evidence
+   remain held; DP-239 needs independent de→it meaning gold and rights.
+9. DP-320 only has a local SQLite transaction reference: production Postgres
+   CAS, material dependency graph, edge/CDN stale-response denial and measured
+   MiniPC revocation latency are unproved. DP-440 accepts externally reviewed
+   sentence/topic proofs only as an opt-in private contract; no real autonomous
+   factual synthesis/public website route is live. DP-244 freshness is bounded
+   to observed source/window, with no global-corpus completeness assertion.
 
 No owner redesign has been chosen. No public feed, Google member account or
 remote privileged administration has been enabled. The 2026-10-10 planning

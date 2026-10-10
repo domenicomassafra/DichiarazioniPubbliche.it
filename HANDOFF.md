@@ -41,6 +41,19 @@ inclusa intersezione Persona × Tema con URL. Il passaggio allo stato
 `IN PROGRESS` non chiude le loro AC; il nuovo registro è **162 totali,
 90 DONE, 34 IN PROGRESS, 6 BLOCKED, 32 FUTURE**, sempre 72 non DONE.
 
+**Quarta tranche source-only:** DP-319 `6152dd0` (attempt ledger proposte finite),
+DP-320 `7ed9eb3` (revocation epoch SQLite isolato), DP-315 `20c63eb`
+(nega parole vs endorsement vs intento), DP-239 `aedced9`
+(originale/de→it distinto e machine translation HELD), DP-440 `fbecfea`
+(sintesi offline solo con frasi autonomamente revisionate, citazioni v3 e
+source-lineage), DP-244 `10dd9af` (coverage osservata e version refresh).
+Contratti privati/opzionali, non nuovi servizi attivi. Baseline verificata:
+**2561/2561** suite Python post-Wave3; **2621/2621 PASS post-Wave4**
+(154.305 s) e benchmark 5/5 PASS. Registro: **162 totali, 90 DONE, 40 IN PROGRESS,
+6 BLOCKED, 26 FUTURE, 72 non DONE**. Nessun nuovo DONE è stato assegnato
+senza diritti/authority/MiniPC, né alcun push o deploy. Preflight release
+rimane **NO-GO con 49 blocker** (Q-306, fonte reale/diritti, release).
+
 Test puntuali e web sono stati eseguiti: `check:search`, `check:statement`,
 `check:design`, Astro check (88 file, 0 diagnostici),
 `check:projection-boundary`, suite DP-236/237/312/318/435/436/512/514,
