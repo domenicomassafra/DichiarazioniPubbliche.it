@@ -1,6 +1,27 @@
 # Dichiarazioni Pubbliche — Current Operational Handoff
 
-Last updated: 2026-10-03
+Last updated: 2026-10-10
+
+## START HERE — verified checkpoint (2026-10-10)
+
+**Read `MEGA-HANDOFF-2026-10-10.md` first** for the complete technical/strategic
+handoff, all 35 remaining original ticket groups, pipeline/provider/legal
+dependencies, reasons for slowdown, proposed donor/fork evaluation, and
+questions for the next owner-agent grilling. `LAUNCH.md` separately scopes the
+six-page **informational-only** preview; it is not a stable-v1 authorization.
+
+The integrated source snapshot before the handoff documentation commit was
+`4a9f782`; the final Git head is determined by `git log -1 --oneline`.
+Current code verification: **2390/2390 Python tests PASS**, deterministic
+benchmark **5/5 PASS**, repository contract/fixture license inventory PASS.
+Ticket status: **90 DONE / 20 IN PROGRESS / 6 BLOCKED / 9 FUTURE** out of 125;
+release preflight **NO-GO** with 49 blockers. 2026-10-10 handoff does **not**
+include a MiniPC deployment, live provider canary, an approved populated
+public projection, or qualified legal/editorial authorization.
+
+**Everything below is an archived 2026-10-03 operational baseline.** Its
+numbers, preview scope, and MiniPC/projection observations are historical and
+must not be substituted for the 2026-10-10 checkpoint or fresh runtime readback.
 
 This file is intentionally short. It is an operational continuation note, not the
 project constitution, architecture, or backlog.
