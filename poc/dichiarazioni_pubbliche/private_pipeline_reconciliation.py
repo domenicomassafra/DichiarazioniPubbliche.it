@@ -54,6 +54,7 @@ WITH members AS (
              AND rights.rights_status='CLEARED'
              AND rights.record_visibility='PRIVATE'
              AND rights.reviewed_at IS NOT NULL
+             AND rights.reviewed_at <= statement_timestamp()
              AND rights.reviewer_ref IS NOT NULL
              AND rights.rights_receipt_ref IS NOT NULL
              AND (rights.expires_at IS NULL OR rights.expires_at > statement_timestamp())
@@ -231,6 +232,11 @@ def _analyze(row: Mapping[str, Any]) -> dict[str, object]:
     if candidate_id is not None:
         if statement_id is None:
             blockers.append("STATEMENT_BINDING_MISSING")
+        elif row.get("statement_status") not in {"CANDIDATE", "APPROVED"}:
+            # Candidate and Statement lifecycle states are independent DB
+            # columns. A rejected/held/superseded parent cannot authorize a
+            # live Claim Candidate for private review.
+            blockers.append("STATEMENT_NOT_PENDING_REVIEW")
         if _count(row["passage_link_count"]) != 1 or passage_id is None:
             blockers.append("PASSAGE_BINDING_NOT_ATOMIC")
         if row.get("parent_passage_id") not in (None, passage_id):

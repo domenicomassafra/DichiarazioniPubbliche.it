@@ -89,3 +89,35 @@ records. This is local code and fixture proof only: the revised SQL has not
 received a new MiniPC readback, no disposable schema was executed there, and
 no real Discovery/Capture/Passage/Candidate rights or corpus were created.
 DP-214's 100-item acceptance and DP-215.9 remain open.
+
+## 2026-10-10 local PostgreSQL source-to-Candidate negative acceptance
+
+`tests/test_private_pipeline_reconciliation_postgres.py` executes the real
+read-only reconciliation query against an independently initialized, disposable
+PostgreSQL server. The accepted synthetic Source→Discovery Hit→Capture→Passage→
+Statement Candidate→Claim Candidate chain remains **private review-ready only**.
+The same persisted chain becomes a HOLD if its attempt fails, the manifest is
+superseded, the run digest changes, the adapter is outside the approved query
+scope or the Hit's Source ID differs from the Content's Source ID. These five
+negative cases verify the earlier shared-provenance correction at SQL level.
+
+The SQL exercise exposed two more incorrect positive states, reproduced RED
+before correction: `statement_candidate.status='REJECTED'` allowed a pending
+Claim Candidate to appear review-ready, and a private rights record dated
+*after the current transaction* counted as reviewed permission. The reader now
+accepts only `CANDIDATE` or `APPROVED` parent Statement lifecycle status and
+requires `rights.reviewed_at <= statement_timestamp()`. `HELD`, `REJECTED` and
+`SUPERSEDED` parents require repair/review; the source or its old Capture is not
+silently promoted. A still-pending Claim under an already-APPROVED Statement
+may be reviewed privately but gains no publication authority.
+
+The isolated SQL tests were **RED (2 of 4 failing)** before the targeted fix
+and **GREEN (4/4 PASS)** afterward. The test server and synthetic contents
+were deleted by teardown. Source-specific Senato OpenData CC BY 3.0 sitting
+metadata and separately licensed CC BY 4.0 AKN speech corpus remain held:
+their documented authentic format/readback proof cannot provide a Source
+family/rights grant, model permission, Person attribution or quote approval.
+No official/live fetch or MiniPC/production database write was performed.
+DP-209..213 implementation statuses are unchanged, DP-214 original AC-214.3
+remains the only closed 214 acceptance, DP-215.9 remains open, and this local
+test does not replace the required current MiniPC SQL readback.

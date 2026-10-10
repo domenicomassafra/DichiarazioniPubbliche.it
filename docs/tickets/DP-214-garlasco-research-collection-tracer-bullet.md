@@ -334,3 +334,18 @@ diagnostic despite being rejected by Capture preflight. Focused negative
 tests passed RED→GREEN; the isolated fixture's Discovery parents have been
 added for the next PostgreSQL proof. This local code correction changes no
 real pilot data or permissions and does not close AC-214.1/.2/.4–.8.
+
+### 2026-10-10 SQL-negative source-to-Candidate readiness regression
+
+Local disposable PostgreSQL now runs the actual metadata-only private chain
+reader against a full, synthetic persisted source-to-Candidate fixture.
+Five negative Discovery manifest/attempt/adapter/Source-ID scenarios fail
+closed. Two genuine false-positive readiness cases were corrected after RED
+SQL tests: future-dated private-rights reviews, and `REJECTED`/`HELD`/
+`SUPERSEDED` parent Statement status under a still-pending Claim Candidate.
+All four SQL acceptance tests pass; local Python and static guards also pass.
+The separate official Senato OpenData/AKN candidate routes were inspected:
+their dataset licenses remain scope-specific and do not authorize launch
+family, model extraction, speaker approval or source quotation rights.
+There is no new real `research:garlasco` Capture/Passage/Candidate proof;
+AC-214.1/.2/.4/.5/.6/.7/.8 remain unchecked, and AC-215.9 also remains open.

@@ -152,6 +152,9 @@ class PipelineReconciliationTests(unittest.TestCase):
 
     def test_stale_capture_hash_or_non_atomic_link_never_review_ready(self):
         for altered, expected in (
+            ({"statement_status": "REJECTED"}, "STATEMENT_NOT_PENDING_REVIEW"),
+            ({"statement_status": "HELD"}, "STATEMENT_NOT_PENDING_REVIEW"),
+            ({"statement_status": "SUPERSEDED"}, "STATEMENT_NOT_PENDING_REVIEW"),
             ({"latest_capture_id": "synthetic:capture-new"}, "CAPTURE_VERSION_STALE"),
             ({"passage_link_count": 2}, "PASSAGE_BINDING_NOT_ATOMIC"),
             ({"parent_passage_id": "synthetic:passage-other"}, "CANDIDATE_PARENT_PASSAGE_MISMATCH"),
@@ -163,6 +166,11 @@ class PipelineReconciliationTests(unittest.TestCase):
                 result = _analyze(row(**altered))
                 self.assertIn(expected, result["blockers"])
                 self.assertFalse(result["private_review_queue_eligible"])
+
+    def test_approved_statement_with_still_pending_claim_is_private_reviewable(self):
+        result = _analyze(row(statement_status="APPROVED"))
+        self.assertTrue(result["private_review_queue_eligible"])
+        self.assertFalse(result["publication_authority"])
 
     def test_cross_source_only_when_persisted_match_targets_distinct_source(self):
         matched = row(
