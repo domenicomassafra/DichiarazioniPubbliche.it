@@ -176,6 +176,88 @@ This is actual Italian CPU inference, not a representative accuracy benchmark
 or automatic fallback approval. The private WAV and model are temporary
 test artifacts; no service or production worker was reconfigured.
 
+### Explicit provider admission in the queue worker (2026-10-10)
+
+`provider_optin.configure_provider_clients()` now gates the **actual** worker
+runtime. Its defaults disable local ASR, local claim extraction and remote Groq
+ASR. `LOCAL_CLAIM_ENABLED=1` and a pinned 64-character
+`LOCAL_CLAIM_MODEL_SHA256` require the explicit zero external-token-cost rate
+`CLAIM_MAX_USD_PER_1K_TOTAL_TOKENS=0` (all names prefixed by
+`DICHIARAZIONI_PUBBLICHE_`). Local claim extraction cannot coexist with an
+official `OMNIROUTE_API_KEY`; the official model remains exactly as configured
+in `config/claim-extraction.v1.json`. The local canary uses synthetic text and
+must produce a bound numeric claim before private jobs can be processed.
+
+`LOCAL_ASR_ENABLED=1` separately requires `LOCAL_ASR_AUDIO_ROOT`,
+`LOCAL_ASR_CLI`, `LOCAL_ASR_MODEL`, and `LOCAL_ASR_MODEL_SHA256` under that same
+prefix, plus the existing per-job rights and input-hash requirements. Even when
+enabled, local ASR is never selected automatically from discovery. Both local
+adapters share a nonblocking filesystem CPU admission lock; a busy MiniPC
+retries later, with an explicit `LOCAL_INFERENCE_BUSY` status and no inference
+or publication. Audio and claim receipts carry model provenance, bounded cost
+basis, and an explicit unreconciled/private-review quality status.
+
+A `GROQ_API_KEY` by itself no longer permits the worker to transfer audio to
+Groq. Remote ASR requires `GROQ_REMOTE_ASR_ENABLED=1`,
+`GROQ_REMOTE_ASR_TERMS_ACCEPTED=1`,
+`GROQ_REMOTE_ASR_CONFIDENTIALITY_APPROVED=1`, and
+`GROQ_REMOTE_ASR_SPEND_APPROVED=1`, each with the same prefix, plus the separate
+`GROQ_API_KEY`. These are explicit owner decisions, not inferred free-tier
+entitlement. Runtime quotas remain provider/account-specific and require
+separate reservation/accounting before a free-tier-only dispatch claim can be
+made. No Gemini API dispatch or Antigravity quota fallback is implemented.
+
+For a real MiniPC synthetic Ollama proof, run
+`python3 tools/check_local_provider_loopback.py` on an isolated checkout or
+temporary source bundle with Ollama on localhost. It sends only a project-written
+numeric sentence; it does not read production corpus data or provider secrets.
+
+### Optional OmniRoute capability selector for private Passage candidates
+
+`provider_optional_route.py` is a fail-closed offline selector linked to the
+existing **private** `tools/extract_research_candidates.py` entrypoint through
+`--optional-model-catalog <sanitized-json>` and a separately verified
+`--optional-model-catalog-sha256 <64-hex-digest>`; an unpinned or changed file
+is rejected before provider construction. The catalog must have
+`schema_version: 1`, `catalog_origin:
+OWNER_VERIFIED_SANITIZED_OMNIROUTE_CATALOG`, `approved_paid_model_ids` and
+`models` with exact capability fields (`model_id`, `family`, `billing_tier`,
+`catalog_model_verified`, `schema_canary_passed`, `operator_enabled`,
+`terms_accepted`, `confidentiality_approved`,
+`separate_api_entitlement_verified`, `quota_remaining_requests`,
+`quota_remaining_tokens`, `usd_per_1k_total_tokens`,
+`paid_owner_authorized`). Credential fields and unknown model fields are
+rejected; do not export credentials into this catalog.
+
+The planner evaluates **every supplied actual model** in recognized families:
+local, OpenRouter, Cerebras, Cloudflare AI, Cohere, Groq, Gemini *API*,
+Mistral, Moonshot, Nvidia, OpenCode GO and OmniRoute. It chooses exactly one
+supported route per batch: verified local zero-external-cost first, then
+verified OpenRouter free, then other separately approved API-free routes,
+then explicit paid-model whitelist within a hard dollar budget. The sanitized
+receipt records the chosen model, deterministic plan ID and per-model blocker
+codes without source text or tokens. Missing rate, schema canary, terms,
+privacy grant, quota snapshot, separate API entitlement or spending approval
+blocks the route. The `--external-model-data-approved` flag is additionally
+required for external APIs. Optional preflight makes **zero** model calls;
+actual execution still requires `--execute`, a positive `--max-cost-usd`,
+rights clearance, fixed source hashes, commit fences, provider credentials,
+and the exact local OmniRoute gateway `http://127.0.0.1:20128`. A selected
+`LOCAL_ZERO_EXTERNAL` route is **preflight-only** for private Passage
+extraction: execution blocks with
+`OPTIONAL_LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE` until a dedicated loopback
+candidate adapter exists. An Ollama *atomic claim* adapter does not fulfill
+this separate Passage extraction schema. Decimal upper bounds round upward
+before cost-cap comparison. No automatic cross-model retry occurs, and the
+official DP-201 model remains unchanged.
+
+A verified quota snapshot is an **admission estimate**, not an atomic remote
+reservation: it may expire before execution, so a 429/quota response must block
+or defer rather than switching provider/accounts. Antigravity IDE agent quota
+is never a Gemini API grant. There is no owner-verified sanitized live catalog
+or approved paid whitelist in this repository; free remote routes cannot be
+claimed available until real account/model evidence is supplied.
+
 ### Lane 3B — Cohere provider-diverse second opinion
 
 OmniRoute ha già una route owner-proven:

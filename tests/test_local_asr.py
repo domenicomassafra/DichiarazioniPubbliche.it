@@ -14,6 +14,7 @@ from dichiarazioni_pubbliche.local_asr import (  # noqa: E402
     WhisperCppLocalTranscriber,
     parse_whisper_cpp_json,
 )
+from dichiarazioni_pubbliche.local_inference_guard import local_inference_slot  # noqa: E402
 from dichiarazioni_pubbliche.remote_asr import AsrRequestRejected  # noqa: E402
 from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob  # noqa: E402
 from dichiarazioni_pubbliche.transcript_contract import (  # noqa: E402
@@ -199,6 +200,14 @@ class LocalAsrTests(unittest.TestCase):
                 self.assertEqual(store.block_reasons["job:local"], reason)
                 self.assertFalse(store.followups)
                 self.assertFalse(store.receipts)
+
+        # A concurrent local Ollama/ASR job consumes no transcript or provider
+        # receipt; queue processing retries this job after the shared CPU slot.
+        with local_inference_slot():
+            summary, store, private = run({})
+        self.assertEqual(summary.retried, 1)
+        self.assertFalse(store.receipts)
+        self.assertFalse(store.followups)
 
 
 if __name__ == "__main__":

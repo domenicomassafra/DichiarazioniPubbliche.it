@@ -14,11 +14,11 @@ DIGEST = "3" * 64
 SOURCE = "[seg=4 0:00.000-0:03.000] Il costo previsto è 10 euro."
 
 
-def response(source_quote, *, indices=None, worthy=True, done=True):
+def response(source_quote, *, indices=None, worthy=True, done=True, speaker=""):
     body = {"claims": [{
         "source_timestamp": "0:00",
         "source_segment_indices": indices if indices is not None else [4],
-        "speaker": "",
+        "speaker": speaker,
         "claim_type": "PRICE_STATISTIC",
         "claim_text": "Il costo previsto è 10 euro.",
         "check_worthy": worthy,
@@ -94,6 +94,31 @@ class LocalOllamaClaimClientTests(unittest.TestCase):
                     if path == "/api/tags" else attacker)
         with patch.object(local, "_request", fake), self.assertRaisesRegex(ValueError, "QUOTE_UNBOUND"):
             self.client.extract(window_text=source, allowed_segment_indices=(4, 5))
+
+    def test_unbound_speaker_guess_rejected_even_with_source_quote(self):
+        with patch.object(local, "_request", lambda path, *, payload=None: (
+            {"models": [{"name": "qwen3:4b", "digest": DIGEST}]}
+            if path == "/api/tags" else response("Il costo previsto è 10 euro.", speaker="Persona inventata")
+        )), self.assertRaisesRegex(ValueError, "SPEAKER_UNBOUND"):
+            self.client.extract(window_text=SOURCE, allowed_segment_indices=(4,))
+
+    def test_meaningful_local_canary_requires_source_bound_numeric_claim(self):
+        def synthetic(path, *, payload=None):
+            if path == "/api/tags":
+                return {"models": [{"name": "qwen3:4b", "digest": DIGEST}]}
+            return response("Il prezzo dichiarato è 10 euro.", indices=[0])
+        with patch.object(local, "_request", synthetic):
+            check = self.client.probe()
+        self.assertTrue(check.healthy)
+        self.assertEqual(check.reason, "LOCAL_CLAIM_SYNTHETIC_CANARY_OK")
+        with patch.object(local, "_request", lambda path, *, payload=None: (
+            {"models": [{"name": "qwen3:4b", "digest": DIGEST}]}
+            if path == "/api/tags" else {**response("Il prezzo dichiarato è 10 euro.", indices=[0]),
+                                          "message": {"content": '{"claims":[]}'}}
+        )):
+            check = self.client.probe()
+        self.assertFalse(check.healthy)
+        self.assertEqual(check.reason, "LOCAL_CLAIM_MEANINGFUL_CANARY_FAILED")
 
     def test_fabricated_or_duplicate_source_segment_identity_fails_closed(self):
         source = SOURCE + "\n" + SOURCE

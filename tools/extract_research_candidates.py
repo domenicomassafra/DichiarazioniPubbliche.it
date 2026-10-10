@@ -29,6 +29,10 @@ from dichiarazioni_pubbliche.private_candidate_batch import (  # noqa: E402
     preflight_candidate_batch,
 )
 from dichiarazioni_pubbliche.private_candidate_commit_fence import PrivateCandidateCommitFence  # noqa: E402
+from dichiarazioni_pubbliche.provider_optional_route import (  # noqa: E402
+    plan_optional_private_candidate, read_sanitized_catalog,
+    validate_optional_omniroute_dispatch,
+)
 from dichiarazioni_pubbliche.rights_registry import PrivateRightsRegistryStore  # noqa: E402
 
 
@@ -51,6 +55,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--omniroute-base-url", default=os.environ.get("OMNIROUTE_BASE_URL", "http://127.0.0.1:20128"))
     parser.add_argument("--api-key", default=os.environ.get("OMNIROUTE_API_KEY", ""))
     parser.add_argument("--model", default=os.environ.get("DICHIARAZIONI_PUBBLICHE_CANDIDATE_EXTRACTION_MODEL", ""))
+    parser.add_argument(
+        "--optional-model-catalog", type=Path,
+        help="Operator-exported sanitized model/quota catalog; select one approved private candidate model",
+    )
+    parser.add_argument(
+        "--optional-model-catalog-sha256", default="",
+        help="Independent SHA-256 approval of the exact sanitized catalog bytes",
+    )
+    parser.add_argument(
+        "--external-model-data-approved", action="store_true",
+        help="Explicit permission to send rights-reviewed passages to an external API",
+    )
     args = parser.parse_args(argv)
     batch = load_candidate_batch(args.manifest)
     try:
@@ -80,14 +96,58 @@ def main(argv: list[str] | None = None) -> int:
     except PrivateCaptureAuthorizationBlocked as exc:
         _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc), manifest_sha256=batch.sha256)
         return 2
+    optional_plan = None
+    if args.optional_model_catalog is not None:
+        if args.model:
+            _output("BLOCKED_NO_MODEL_CALL", reason_code="OPTIONAL_MODEL_CONFLICTS_WITH_FIXED_MODEL")
+            return 2
+        try:
+            catalog = read_sanitized_catalog(
+                args.optional_model_catalog,
+                expected_sha256=args.optional_model_catalog_sha256,
+            )
+            # Conservative UTF-8/input+prompt+output budget per bounded passage.
+            # The candidate runtime independently estimates each *actual* call.
+            total_token_bound = len(guards) * (6000 * 4 + 4096 + 12000)
+            optional_plan = plan_optional_private_candidate(
+                catalog, input_bytes_sha256=batch.sha256,
+                max_total_tokens=total_token_bound,
+                requests_needed=len(guards),
+                max_batch_cost_usd=cap,
+                source_approved_for_external_api=args.external_model_data_approved,
+            )
+        except ValueError as exc:
+            _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc))
+            return 2
+        if optional_plan.selected is None:
+            _output("BLOCKED_OPTIONAL_PROVIDER", reason_code="NO_ELIGIBLE_MODEL",
+                    provider_calls=0, blocked=list(optional_plan.blocked),
+                    plan_receipt_id=optional_plan.receipt_id)
+            return 2
     if not args.execute:
-        _output("PREFLIGHT_PASS_NO_WRITES", ready_passages=len(guards), manifest_sha256=batch.sha256)
+        _output("PREFLIGHT_PASS_NO_WRITES", ready_passages=len(guards), manifest_sha256=batch.sha256,
+                selected_optional_model=(optional_plan.selected.model_id if optional_plan else None),
+                plan_receipt_id=(optional_plan.receipt_id if optional_plan else None))
         return 0
+
+    if optional_plan is not None:
+        try:
+            validate_optional_omniroute_dispatch(
+                optional_plan.selected, args.omniroute_base_url,
+            )
+        except ValueError as exc:
+            _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc),
+                    plan_receipt_id=optional_plan.receipt_id, provider_calls=0)
+            return 2
 
     client = OmniRouteCandidateExtractionClient(
         api_key=args.api_key,
-        model_id=args.model or None,
+        model_id=optional_plan.selected.model_id if optional_plan else args.model or None,
         base_url=args.omniroute_base_url,
+        cost_rate_usd_per_1k_total_tokens=(
+            optional_plan.selected.rate_usd_per_1k_total_tokens
+            if optional_plan else None
+        ),
     )
     # A missing configured provider is not a zero-cost success or a fake canary.
     if not client.api_key or not client.model_id or client.cost_rate is None:

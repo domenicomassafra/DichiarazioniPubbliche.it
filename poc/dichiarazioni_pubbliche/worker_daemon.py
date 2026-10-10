@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient
-from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient
+from dichiarazioni_pubbliche.provider_optin import configure_provider_clients
 from dichiarazioni_pubbliche.evidence_runtime import (
     SafeEvidenceFetcher,
 )
@@ -334,35 +334,10 @@ def main() -> None:
     parser.add_argument("--max-cost-usd-job", type=float, default=0.25)
     args = parser.parse_args()
 
-    claim_rate_raw = os.environ.get(
-        "DICHIARAZIONI_PUBBLICHE_CLAIM_MAX_USD_PER_1K_TOTAL_TOKENS"
-    )
-    claim_rate = float(claim_rate_raw) if claim_rate_raw not in {None, ""} else None
-    omni_key = os.environ.get("OMNIROUTE_API_KEY", "").strip()
-    local_enabled = os.environ.get("DICHIARAZIONI_PUBBLICHE_LOCAL_CLAIM_ENABLED", "0")
-    if local_enabled not in {"0", "1"}:
-        parser.error("LOCAL_CLAIM_ENABLED must be explicitly 0 or 1")
-    if local_enabled == "1" and omni_key:
-        parser.error("LOCAL_CLAIM conflicts with configured OmniRoute route")
-    if local_enabled == "1" and claim_rate_raw != "0":
-        parser.error("LOCAL_CLAIM requires an explicitly approved zero external-token-cost rate")
-    claim_client = (
-        LocalOllamaClaimClient(
-            expected_model_digest=os.environ.get(
-                "DICHIARAZIONI_PUBBLICHE_LOCAL_CLAIM_MODEL_SHA256", ""
-            ),
-        )
-        if local_enabled == "1"
-        else OmniRouteClaimClient(
-            api_key=omni_key,
-            base_url=os.environ.get(
-                "DICHIARAZIONI_PUBBLICHE_OMNIROUTE_BASE_URL",
-                "http://127.0.0.1:20128",
-            ),
-        )
-        if omni_key
-        else None
-    )
+    try:
+        provider_clients = configure_provider_clients(os.environ)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     lock = WorkerProcessLock(args.lock_file)
     if not lock.acquire():
@@ -378,24 +353,6 @@ def main() -> None:
         )
         return
     try:
-        from dichiarazioni_pubbliche.local_asr import WhisperCppLocalTranscriber
-
-        # No implicit local engine: all four inputs must be operator-provisioned.
-        local_env = (
-            "DICHIARAZIONI_PUBBLICHE_LOCAL_ASR_AUDIO_ROOT",
-            "DICHIARAZIONI_PUBBLICHE_LOCAL_ASR_CLI",
-            "DICHIARAZIONI_PUBBLICHE_LOCAL_ASR_MODEL",
-            "DICHIARAZIONI_PUBBLICHE_LOCAL_ASR_MODEL_SHA256",
-        )
-        local_asr = (
-            WhisperCppLocalTranscriber(
-                audio_root=Path(os.environ[local_env[0]]),
-                cli_path=Path(os.environ[local_env[1]]),
-                model_path=Path(os.environ[local_env[2]]),
-                model_sha256=os.environ[local_env[3]],
-            )
-            if all(os.environ.get(name) for name in local_env) else None
-        )
         worker = ProcessingWorker(
             store=QueueRuntimeStore(args.database_url),
             registry=load_registry(args.registry),
@@ -409,10 +366,10 @@ def main() -> None:
             ),
             lease_seconds=args.lease_seconds,
             max_attempts=args.max_attempts,
-            groq_api_key=os.environ.get("GROQ_API_KEY"),
-            local_asr=local_asr,
-            claim_client=claim_client,
-            claim_max_usd_per_1k_total_tokens=claim_rate,
+            groq_api_key=provider_clients.groq_api_key,
+            local_asr=provider_clients.local_asr,
+            claim_client=provider_clients.claim_client,
+            claim_max_usd_per_1k_total_tokens=provider_clients.claim_rate,
             evidence_fetcher=SafeEvidenceFetcher(),
         )
         print(json.dumps(asdict(worker.run(args.max_jobs)), ensure_ascii=False, indent=2))

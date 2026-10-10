@@ -15,7 +15,10 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient, load_claim_config
+from dichiarazioni_pubbliche.local_inference_guard import local_inference_slot
+from dichiarazioni_pubbliche.claim_runtime import (
+    ClaimRuntimeProbe, OmniRouteClaimClient, load_claim_config,
+)
 
 
 _MODEL = "qwen3:4b"
@@ -126,9 +129,7 @@ class LocalOllamaClaimClient(OmniRouteClaimClient):
         super().__init__(api_key="", base_url=_URL, config=config)
         self.expected_model_digest = expected_model_digest
 
-    def _post(self, prompt: str, *, max_tokens: int) -> tuple[dict[str, Any], float]:
-        # Never submit private transcript bytes until the exact operator-pinned
-        # model is present locally. An updated/mismatched tag refuses processing.
+    def _verify_model_pin(self) -> None:
         tags = _request("/api/tags")
         rows = tags.get("models")
         if not isinstance(rows, list):
@@ -136,6 +137,32 @@ class LocalOllamaClaimClient(OmniRouteClaimClient):
         matches = [x for x in rows if isinstance(x, dict) and x.get("name") == self.model]
         if len(matches) != 1 or matches[0].get("digest") != self.expected_model_digest:
             raise RuntimeError("LOCAL_CLAIM_MODEL_NOT_PINNED_OR_CHANGED")
+
+    def probe(self) -> ClaimRuntimeProbe:
+        """Meaningful synthetic canary; catalog presence alone is insufficient.
+
+        Quality and quote-binding failures continue to block this optional lane.
+        No personal transcript is sent during the canary.
+        """
+        sample = "[seg=0 0:00.000-0:03.000] Il prezzo dichiarato è 10 euro."
+        started = time.monotonic()
+        try:
+            self._verify_model_pin()
+            result = self.extract(window_text=sample, allowed_segment_indices=(0,))
+            if not any("10" in c.normalized_claim and "euro" in c.normalized_claim.lower()
+                       and c.source_segment_indices == (0,) for c in result.claims):
+                return ClaimRuntimeProbe(False, "LOCAL_CLAIM_MEANINGFUL_CANARY_FAILED",
+                                         time.monotonic() - started, 200)
+            return ClaimRuntimeProbe(True, "LOCAL_CLAIM_SYNTHETIC_CANARY_OK",
+                                     time.monotonic() - started, 200)
+        except (RuntimeError, ValueError) as exc:
+            # Never include transcript/model outputs or network response bodies.
+            reason = str(exc).splitlines()[0][:120]
+            return ClaimRuntimeProbe(False, reason, time.monotonic() - started, None)
+
+    def _post(self, prompt: str, *, max_tokens: int) -> tuple[dict[str, Any], float]:
+        # Never submit private transcript bytes until the exact operator-pinned
+        # model is present locally. An updated/mismatched tag refuses processing.
         start_marker, end_marker = "TRANSCRIPT WINDOW:\n---BEGIN---\n", "\n---END---"
         if prompt.count(start_marker) != 1 or not prompt.endswith(end_marker):
             raise RuntimeError("LOCAL_CLAIM_WINDOW_MARKER_MISMATCH")
@@ -150,19 +177,21 @@ class LocalOllamaClaimClient(OmniRouteClaimClient):
             list(self.config["allowed_claim_types"]), int(self.config["max_claims_per_window"])
         )
         started = time.monotonic()
-        result = _request("/api/chat", payload={
-            "model": self.model, "stream": False, "think": False, "format": schema,
-            "messages": [
-                {"role": "system", "content": (
-                    "/no_think\nExtract ONLY explicitly supported atomic claims from the "
-                    "source. Return JSON only. Every source_quote MUST be a nonempty "
-                    "verbatim substring of the source window and the segment IDs must "
-                    "belong to the allowed list. Do not invent speakers, dates or facts."
-                )},
-                {"role": "user", "content": prompt},
-            ],
-            "options": {"temperature": 0, "num_predict": limit, "num_ctx": 4096},
-        })
+        with local_inference_slot():
+            self._verify_model_pin()
+            result = _request("/api/chat", payload={
+                "model": self.model, "stream": False, "think": False, "format": schema,
+                "messages": [
+                    {"role": "system", "content": (
+                        "/no_think\nExtract ONLY explicitly supported atomic claims from the "
+                        "source. Return JSON only. Every source_quote MUST be a nonempty "
+                        "verbatim substring of the source window and the segment IDs must "
+                        "belong to the allowed list. Do not invent speakers, dates or facts."
+                    )},
+                    {"role": "user", "content": prompt},
+                ],
+                "options": {"temperature": 0, "num_predict": limit, "num_ctx": 4096},
+            })
         elapsed = time.monotonic() - started
         if (result.get("model") != self.model or result.get("done") is not True
                 or result.get("done_reason") != "stop"):
@@ -190,6 +219,12 @@ class LocalOllamaClaimClient(OmniRouteClaimClient):
             cited_text = "\n".join(segment_texts[number] for number in indexes)
             if not isinstance(quote, str) or not quote.strip() or quote not in cited_text:
                 raise ValueError("LOCAL_CLAIM_SOURCE_QUOTE_UNBOUND")
+            # A speaker identity is not authorized by a model guess. Any
+            # suggested speaker must at least literally occur in cited text;
+            # downstream attribution approval is still independently required.
+            speaker = row["speaker"]
+            if not isinstance(speaker, str) or (speaker.strip() and speaker.strip() not in cited_text):
+                raise ValueError("LOCAL_CLAIM_SPEAKER_UNBOUND")
         # The shared strict parser separately enforces types, claim taxonomy,
         # allowed segment indices, non-factual check-worthy and replay identity.
         return {

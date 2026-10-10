@@ -16,7 +16,11 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from dichiarazioni_pubbliche.local_inference_guard import (
+    LocalInferenceBusy, local_inference_slot,
+)
 from dichiarazioni_pubbliche.remote_asr import AsrRequestRejected, AsrResult, AsrSegment
+from dichiarazioni_pubbliche.remote_asr import AsrTransientError
 
 
 PROVIDER_ID = "whisper-cpp-local"
@@ -148,12 +152,15 @@ class WhisperCppLocalTranscriber:
                     raise AsrRequestRejected("LOCAL_ASR_INPUT_CHANGED")
                 output = Path(tmp) / "result"
                 try:
-                    finished = subprocess.run(
-                        [str(cli), "-m", str(model), "-f", str(staged),
-                         "-l", language, "-ojf", "-of", str(output),
-                         "-ng", "-t", "4", "-np"],
-                        timeout=self.timeout_seconds, capture_output=True, check=False,
-                    )
+                    with local_inference_slot():
+                        finished = subprocess.run(
+                            [str(cli), "-m", str(model), "-f", str(staged),
+                             "-l", language, "-ojf", "-of", str(output),
+                             "-ng", "-t", "4", "-np"],
+                            timeout=self.timeout_seconds, capture_output=True, check=False,
+                        )
+                except LocalInferenceBusy as exc:
+                    raise AsrTransientError("LOCAL_INFERENCE_BUSY") from exc
                 except subprocess.TimeoutExpired as exc:
                     raise AsrRequestRejected("LOCAL_ASR_TIMEOUT") from exc
                 if finished.returncode != 0:

@@ -512,6 +512,8 @@ class TranscriptAsrJobHandlers:
                 duration_seconds=payload.get("duration_seconds"),
                 language=payload.get("language", "it"),
             )
+        except AsrTransientError as exc:
+            raise RetryableJob(str(exc), 60) from exc
         except AsrRequestRejected as exc:
             self.store.update_content_status(
                 content.content_id, "TRANSCRIPT_ASR_BLOCKED",
@@ -577,6 +579,12 @@ class TranscriptAsrJobHandlers:
             "input_audio_sha256": input_sha256,
             "model_sha256": model_sha256,
             "rights_receipt_id": rights_receipt_id,
+            "quality_gate": "UNRECONCILED_ASR_CANDIDATE",
+            "publication_approved": False,
+            "billing_basis": (
+                "LOCAL_COMPUTE_UNMETERED" if source_kind == "LOCAL_ASR"
+                else "PROVIDER_COST_ESTIMATE"
+            ),
         }
         self.private_store.persist_asr_response(
             content_id=content.content_id,

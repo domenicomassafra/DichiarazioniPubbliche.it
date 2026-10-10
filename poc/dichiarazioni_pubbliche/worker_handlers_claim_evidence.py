@@ -115,6 +115,9 @@ class ClaimEvidenceJobHandlers:
         if self._claim_probe is None:
             self._claim_probe = self.claim_client.probe()
         if not self._claim_probe.healthy:
+            if self._claim_probe.reason == "LOCAL_INFERENCE_BUSY":
+                self._claim_probe = None
+                raise RetryableJob("LOCAL_INFERENCE_BUSY", 60)
             reason = self._claim_probe.reason.replace(" ", "_")[:180]
             return f"CLAIM_EXTRACTION_CANARY_FAILED:{reason}"
         return None
@@ -147,7 +150,8 @@ class ClaimEvidenceJobHandlers:
             )
         except RuntimeError as exc:
             message = str(exc)
-            if "HTTP_429" in message or "HTTP_503" in message or "timed out" in message:
+            if ("HTTP_429" in message or "HTTP_503" in message
+                    or "timed out" in message or message == "LOCAL_INFERENCE_BUSY"):
                 raise RetryableJob(
                     f"CLAIM_PROVIDER_TRANSIENT:{message[:160]}",
                     300,
@@ -277,6 +281,17 @@ class ClaimEvidenceJobHandlers:
                 "claims_inserted": inserted,
                 "latency_seconds": round(result.latency_seconds, 3),
                 "usage": result.usage,
+                "quality_gate": "PRIVATE_CANDIDATE_REVIEW_REQUIRED",
+                "local_model_sha256": (
+                    getattr(self.claim_client, "expected_model_digest", None)
+                    if getattr(self.claim_client, "provider_id", None) == "ollama-local"
+                    else None
+                ),
+                "billing_basis": (
+                    "LOCAL_COMPUTE_UNMETERED"
+                    if getattr(self.claim_client, "provider_id", None) == "ollama-local"
+                    else "PROVIDER_USAGE"
+                ),
             },
             request_key=window.input_sha256,
         )
