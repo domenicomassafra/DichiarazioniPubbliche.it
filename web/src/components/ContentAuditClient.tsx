@@ -1,10 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { assessmentLabel, assessmentTone } from "../lib/format";
 import type { ContentAuditFixture } from "../lib/types";
 
 export default function ContentAuditClient({ audit }: { audit: ContentAuditFixture }) {
   const [selectedId, setSelectedId] = useState(audit.moments[0]?.id ?? "");
   const selected = audit.moments.find((item) => item.id === selectedId) ?? audit.moments[0];
+
+  useEffect(() => {
+    // Read only IDs present in this already-public, demo-only moment list.
+    // Keep the initial render deterministic for server/client hydration.
+    const requested = new URLSearchParams(window.location.search).get("momento");
+    if (requested && audit.moments.some((moment) => moment.id === requested)) {
+      setSelectedId(requested);
+    }
+  }, [audit.moments]);
+
+  const selectMoment = (id: string) => {
+    setSelectedId(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set("momento", id);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  };
 
   return (
     <div className="audit-layout">
@@ -16,7 +32,7 @@ export default function ContentAuditClient({ audit }: { audit: ContentAuditFixtu
         <div className="evidence-tape" aria-label="Momenti verificati nel contenuto">
           <div className="tape-marks">
             {audit.moments.map((moment) => (
-              <button key={moment.id} className={`tape-mark ${selectedId === moment.id ? "is-active" : ""}`} type="button" onClick={() => setSelectedId(moment.id)} aria-pressed={selectedId === moment.id}>
+              <button key={moment.id} className={`tape-mark ${selectedId === moment.id ? "is-active" : ""}`} type="button" onClick={() => selectMoment(moment.id)} aria-pressed={selectedId === moment.id}>
                 <span className="tape-dot" aria-hidden="true" />
                 <span>{moment.timestamp}</span>
               </button>
@@ -26,7 +42,7 @@ export default function ContentAuditClient({ audit }: { audit: ContentAuditFixtu
 
         <div className="moment-list">
           {audit.moments.map((moment) => (
-            <button key={moment.id} type="button" className={`moment-row ${selectedId === moment.id ? "is-active" : ""}`} onClick={() => setSelectedId(moment.id)} aria-pressed={selectedId === moment.id}>
+            <button key={moment.id} type="button" className={`moment-row ${selectedId === moment.id ? "is-active" : ""}`} onClick={() => selectMoment(moment.id)} aria-pressed={selectedId === moment.id}>
               <span className="moment-time">{moment.timestamp}</span>
               <span className="moment-claim">{moment.claim}</span>
               <span className={`assessment assessment-${assessmentTone(moment.assessment)} assessment-compact`}>
