@@ -3,6 +3,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -48,6 +49,47 @@ def plan(data, **patch):
 
 
 class OptionalRouteTests(unittest.TestCase):
+    def test_antigravity_cli_quota_selected_without_gemini_developer_entitlement(self):
+        now = datetime.now(timezone.utc).isoformat()
+        agy = row("gemini-3.8-flash-low", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
+                  quota_source="ANTIGRAVITY_CLI_USAGE_PANEL", quota_observed_at=now,
+                  overage_policy="NEVER", single_account_scope="a" * 64,
+                  separate_api_entitlement_verified=False)
+        choices = catalog(agy,
+            row("openrouter/free-model", "openrouter", "API_FREE_VERIFIED"))
+        selected = plan_optional_private_candidate(
+            choices, input_bytes_sha256=SHA, max_total_tokens=12000,
+            requests_needed=2, max_batch_cost_usd=Decimal("0"),
+            source_approved_for_external_api=True,
+        )
+        self.assertEqual(selected.selected.model_id, "gemini-3.8-flash-low")
+        self.assertEqual(selected.selected.billing_tier, "ANTIGRAVITY_CLI_QUOTA")
+        with self.assertRaisesRegex(ValueError, "DIRECT_CLI_ADAPTER"):
+            validate_optional_omniroute_dispatch(selected.selected, "http://127.0.0.1:20128")
+
+    def test_antigravity_cli_blocks_overage_stale_quota_wrong_model_and_unverified_account(self):
+        baseline = row("gemini-3.8-flash-medium", "antigravity-cli", "ANTIGRAVITY_CLI_QUOTA",
+                       quota_source="ANTIGRAVITY_CLI_USAGE_PANEL",
+                       quota_observed_at=datetime.now(timezone.utc).isoformat(),
+                       overage_policy="NEVER", single_account_scope="a" * 64)
+        cases = (
+            ({"overage_policy": "ALWAYS"}, "ANTIGRAVITY_CREDIT_OVERAGE_NOT_DISABLED"),
+            ({"quota_observed_at": (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()}, "ANTIGRAVITY_QUOTA_SNAPSHOT_STALE"),
+            ({"quota_source": "GEMINI_DEVELOPER_API"}, "ANTIGRAVITY_QUOTA_SOURCE_UNVERIFIED"),
+            ({"single_account_scope": ""}, "ANTIGRAVITY_ACCOUNT_SCOPE_UNVERIFIED"),
+            ({"quota_remaining_tokens": 0}, "VERIFIED_FREE_OR_PAID_QUOTA_INSUFFICIENT"),
+            ({"model_id": "agy/gemini-3.8-flash-low"}, "ANTIGRAVITY_CLI_MODEL_ID_NOT_OBSERVED"),
+        )
+        for changes, reason in cases:
+            with self.subTest(reason=reason):
+                result = plan_optional_private_candidate(
+                    catalog(baseline | changes), input_bytes_sha256=SHA,
+                    max_total_tokens=12000, requests_needed=2,
+                    max_batch_cost_usd=Decimal("0"),
+                    source_approved_for_external_api=True,
+                )
+                self.assertIsNone(result.selected)
+                self.assertEqual(result.blocked[0]["reason"], reason)
     def test_local_plan_cannot_transmit_through_omniroute_gateway(self):
         local = plan(catalog(row("local/qwen3-4b", "local", "LOCAL_ZERO_EXTERNAL"))).selected
         with self.assertRaisesRegex(ValueError, "LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE"):

@@ -205,7 +205,8 @@ Groq. Remote ASR requires `GROQ_REMOTE_ASR_ENABLED=1`,
 `GROQ_API_KEY`. These are explicit owner decisions, not inferred free-tier
 entitlement. Runtime quotas remain provider/account-specific and require
 separate reservation/accounting before a free-tier-only dispatch claim can be
-made. No Gemini API dispatch or Antigravity quota fallback is implemented.
+made. A separate opt-in Antigravity CLI quota transport exists for private
+Passage analysis, as documented below; Gemini Developer API use remains separate.
 
 For a real MiniPC synthetic Ollama proof, run
 `python3 tools/check_local_provider_loopback.py` on an isolated checkout or
@@ -226,23 +227,25 @@ OWNER_VERIFIED_SANITIZED_OMNIROUTE_CATALOG`, `approved_paid_model_ids` and
 `terms_accepted`, `confidentiality_approved`,
 `separate_api_entitlement_verified`, `quota_remaining_requests`,
 `quota_remaining_tokens`, `usd_per_1k_total_tokens`,
-`paid_owner_authorized`). Credential fields and unknown model fields are
+`paid_owner_authorized`, and for Antigravity CLI `quota_source`,
+`quota_observed_at`, `overage_policy`, `single_account_scope`). Credential fields and unknown model fields are
 rejected; do not export credentials into this catalog.
 
 The planner evaluates **every supplied actual model** in recognized families:
-local, OpenRouter, Cerebras, Cloudflare AI, Cohere, Groq, Gemini *API*,
+local, Antigravity **CLI quota**, OpenRouter, Cerebras, Cloudflare AI, Cohere, Groq, Gemini *Developer API*,
 Mistral, Moonshot, Nvidia, OpenCode GO and OmniRoute. It chooses exactly one
 supported route per batch: verified local zero-external-cost first, then
-verified OpenRouter free, then other separately approved API-free routes,
+verified Antigravity CLI quota, verified OpenRouter free, then other separately approved API-free routes,
 then explicit paid-model whitelist within a hard dollar budget. The sanitized
 receipt records the chosen model, deterministic plan ID and per-model blocker
 codes without source text or tokens. Missing rate, schema canary, terms,
 privacy grant, quota snapshot, separate API entitlement or spending approval
 blocks the route. The `--external-model-data-approved` flag is additionally
-required for external APIs. Optional preflight makes **zero** model calls;
-actual execution still requires `--execute`, a positive `--max-cost-usd`,
-rights clearance, fixed source hashes, commit fences, provider credentials,
-and the exact local OmniRoute gateway `http://127.0.0.1:20128`. A selected
+required for sending externally. Optional preflight makes **zero** model calls;
+actual execution still requires `--execute`, a hard `--max-cost-usd` cap,
+rights clearance, fixed source hashes and commit fences. Paid/API routes also
+require the approved provider credential and exact local OmniRoute gateway
+`http://127.0.0.1:20128`. A selected
 `LOCAL_ZERO_EXTERNAL` route is **preflight-only** for private Passage
 extraction: execution blocks with
 `OPTIONAL_LOCAL_CANDIDATE_ADAPTER_UNAVAILABLE` until a dedicated loopback
@@ -253,10 +256,67 @@ official DP-201 model remains unchanged.
 
 A verified quota snapshot is an **admission estimate**, not an atomic remote
 reservation: it may expire before execution, so a 429/quota response must block
-or defer rather than switching provider/accounts. Antigravity IDE agent quota
-is never a Gemini API grant. There is no owner-verified sanitized live catalog
+or defer rather than switching provider/accounts. Antigravity CLI quota is a
+real supported and distinct capacity; it is not a Gemini Developer API grant.
+There is no owner-verified sanitized live catalog
 or approved paid whitelist in this repository; free remote routes cannot be
 claimed available until real account/model evidence is supplied.
+
+### Antigravity native CLI quota: real, opt-in private Passage adapter
+
+Google's Antigravity CLI supports `/usage` (alias `/quota`) to view current
+model-specific remaining requests/tokens. Its quotas are distinct from the
+Gemini Developer API's API-key/free-tier quotas; do not demand a separate Gemini
+Developer API entitlement for this native CLI route. The verified current
+owner runtimes are `agy` 1.3.3 on Mac Studio and 1.3.0 on MiniPC, alongside
+official OmniRoute 3.8.50 on MiniPC. `agy models` on both hosts advertised
+literal CLI model identifiers `gemini-3.8-flash-low`,
+`gemini-3.8-flash-medium` and `gemini-3.8-flash-high`, among others.
+`gemini-2.5` variants were **not shown by the tested native `agy models`**;
+they may be separately available through verified OmniRoute `agy/` routes,
+but may not be invented as CLI choices. OmniRoute's distinct existing official
+model `antigravity/gemini-3.8-flash-tiered` remains the DP-201 pinned route.
+
+A real MiniPC native CLI loopback/session canary used
+`agy --model gemini-3.8-flash-low --mode plan --sandbox --print` on one
+synthetic sentence. It returned `SUCCESS`, the exact requested marker and
+usage of 25,574 total tokens (25,149 input, 425 output). The CLI JSON did
+**not** expose an independently attested served-model identifier or per-model
+remaining quota. This proves the exact-option CLI invocation and successful
+synthetic output, not correctness, quotas for bulk processing or provider
+model identity independently signed by Google.
+
+`ANTIGRAVITY_CLI_QUOTA` on the optional private Passage selector calls the
+native `agy` binary **directly**, not OmniRoute `/v1/chat/completions` with
+an auto-picked fallback. The catalog must contain a currently advertised
+`gemini-*-(flash|pro)-(low|medium|high)` native CLI model and an operator
+verified, independently SHA-pinned `/usage` receipt no older than 15 minutes:
+`quota_source=ANTIGRAVITY_CLI_USAGE_PANEL`, UTC `quota_observed_at`, positive
+`quota_remaining_requests` and `quota_remaining_tokens`, `overage_policy=NEVER`
+verified in Antigravity settings, and a SHA-256 pseudonym for the **one** active
+CLI account in `single_account_scope`. The exact model and active account must
+agree with the verified snapshot. Source rights and the explicit
+`--external-model-data-approved` flag are mandatory. Use `--max-cost-usd 0`
+for quota-only work; any paid lane needs separate approval and a positive cap.
+
+The adapter runs `agy` from an empty temporary workdir with explicit model,
+plan mode, sandbox, disabled slash-command expansion, finite timeout and
+bounded response size. It delivers the private prompt through the official
+`--input-format stream-json` stdin protocol, so raw source text never appears
+in process command-line arguments. Its CLI log file stays inside the temporary
+workdir, which is deleted after each request; CLI-owned conversation retention
+still needs the independent privacy approval recorded in the catalog.
+Only the CLI's necessary HOME/PATH/XDG environment is
+passed; no OmniRoute/Groq/API keys enter the process. It validates live
+`agy models`, tracks request/token usage, refuses non-success/missing usage,
+model mismatch, stale quota or exhaustion, and never rotates accounts or
+falls back to another model. Failed calls exhaust local admission until a
+fresh quota snapshot is verified. Private candidate schema/offset/review
+gates stay unchanged. The receipt records requested CLI model, anonymous
+account scope, quota plan/usage and explicitly marks the lack of signed
+served-model reporting; it never claims the CLI response independently
+certifies upstream model identity. No production profile, service or source
+was enabled by these changes.
 
 ### Lane 3B — Cohere provider-diverse second opinion
 

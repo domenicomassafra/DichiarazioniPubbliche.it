@@ -1,0 +1,156 @@
+"""Exact native CLI selection and quota-guarded private extraction failures."""
+
+import json
+import sys
+import unittest
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "poc"))
+
+from dichiarazioni_pubbliche.antigravity_cli_candidate import (  # noqa: E402
+    AntigravityCliCandidateExtractionClient,
+)
+from dichiarazioni_pubbliche.candidate_extraction import (  # noqa: E402
+    CandidateExtractionError, ProviderExtractionRequest,
+)
+
+
+MODEL = "gemini-3.8-flash-low"
+QUOTA = "provider-plan:" + "a" * 64
+
+
+def client(**overrides):
+    return AntigravityCliCandidateExtractionClient(**({
+        "model_id": MODEL,
+        "account_scope_sha256": "b" * 64,
+        "quota_remaining_requests": 4,
+        "quota_remaining_tokens": 180_000,
+        "quota_receipt_id": QUOTA,
+        "quota_observed_at": datetime.now(timezone.utc).isoformat(),
+        "cli_path": "/usr/local/bin/agy",
+    } | overrides))
+
+
+def output(*, response='{"statements":[]}', status="SUCCESS", model=None, tokens=25700):
+    item = {"status": status, "response": response, "num_turns": 1,
+            "usage": {"total_tokens": tokens, "input_tokens": 25200, "output_tokens": 500}}
+    if model is not None:
+        item["model"] = model
+    return json.dumps({"event": "init", "init": {"tools": []}}) + "\n" + json.dumps({
+        "event": "result", "result": item,
+    }) + "\n"
+
+
+class AntigravityCliTests(unittest.TestCase):
+    def test_pins_real_cli_model_and_sandboxes_private_prompt_without_secrets(self):
+        instance = client()
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            if cmd[1:] == ["models"]:
+                return SimpleNamespace(returncode=0, stdout="Fetching available models...\n" + MODEL + "\tGemini Flash Low\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout=output(), stderr="")
+
+        with patch("subprocess.run", fake_run), patch.dict("os.environ", {
+                "OMNIROUTE_API_KEY": "DO_NOT_PASS", "GROQ_API_KEY": "DO_NOT_PASS",
+                "PATH": "/usr/local/bin", "HOME": "/home/demo",
+        }):
+            response, seconds = instance._post("Generate one private candidate only.")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1][0][:4], ["/usr/local/bin/agy", "--model", MODEL, "--mode"])
+        self.assertIn("--sandbox", calls[1][0])
+        self.assertIn("--disable-slash-commands", calls[1][0])
+        self.assertIn("--input-format", calls[1][0])
+        self.assertIn("stream-json", calls[1][0])
+        self.assertNotIn("Generate one private candidate only.", " ".join(calls[1][0]))
+        self.assertIn("Generate one private candidate only.", calls[1][1]["input"])
+        self.assertNotIn("stdin", calls[1][1])
+        self.assertEqual(calls[1][1]["env"].get("HOME"), "/home/demo")
+        self.assertNotIn("OMNIROUTE_API_KEY", calls[1][1]["env"])
+        self.assertNotIn("GROQ_API_KEY", calls[1][1]["env"])
+        self.assertEqual(response["usage"]["total_tokens"], 25700)
+        self.assertEqual(instance.quota_requests, 3)
+        self.assertEqual(instance.quota_tokens, 154300)
+
+    def test_block_missing_model_before_sending_source(self):
+        instance = client()
+        with patch.object(instance, "_run", return_value="gemini-3.7-flash-low\tNot requested\n") as run:
+            with self.assertRaisesRegex(CandidateExtractionError, "MODEL_NOT_ADVERTISED"):
+                instance._post("private statement window")
+        run.assert_called_once()
+
+    def test_declared_serve_model_drift_blocks_without_retries(self):
+        instance = client()
+        with patch.object(instance, "_run", side_effect=[MODEL + "\tName\n",
+               output(model="gemini-3.7-flash-low")]) as run:
+            with self.assertRaisesRegex(CandidateExtractionError, "SERVED_MODEL_DRIFT"):
+                instance._post("private synthetic text")
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(instance.quota_requests, 3)
+
+    def test_nonzero_failure_exhausts_local_admission_until_new_snapshot(self):
+        instance = client()
+        with patch.object(instance, "_run", side_effect=[MODEL + "\tName\n",
+                  CandidateExtractionError("ANTIGRAVITY_CLI_NONZERO_EXIT")]):
+            with self.assertRaisesRegex(CandidateExtractionError, "NONZERO_EXIT"):
+                instance._post("private synthetic text")
+        self.assertEqual(instance.quota_tokens, 0)
+        self.assertEqual(instance.quota_requests, 3)
+
+    def test_malformed_usage_status_and_overdraw_block(self):
+        for data, error in (
+            (output(status="FAILED"), "NOT_SUCCESS"),
+            (output(tokens=200_001), "QUOTA_OVERRUN"),
+            (json.dumps({"event": "result", "result": {
+                "status": "SUCCESS", "response": "{}", "num_turns": 1,
+            }}), "USAGE_MISSING"),
+        ):
+            with self.subTest(error=error):
+                instance = client()
+                with patch.object(instance, "_run", side_effect=[MODEL + "\tName\n", data]):
+                    with self.assertRaisesRegex(CandidateExtractionError, error):
+                        instance._post("private synthetic text")
+
+    def test_invalid_account_model_quota_or_executable_block(self):
+        for update, error in (
+            ({"model_id": "agy/gemini-2.5-flash-low"}, "MODEL_ID_INVALID"),
+            ({"model_id": "gemini-3.8-flash-invented"}, "MODEL_ID_INVALID"),
+            ({"account_scope_sha256": "not-a-hash"}, "ACCOUNT_SCOPE_INVALID"),
+            ({"quota_remaining_tokens": 1}, "QUOTA_INSUFFICIENT"),
+            ({"quota_remaining_requests": 0}, "QUOTA_INSUFFICIENT"),
+            ({"quota_observed_at": (datetime.now(timezone.utc) - timedelta(minutes=17)).isoformat()}, "QUOTA_SNAPSHOT_STALE"),
+            ({"cli_path": "./fake-binary"}, "EXECUTABLE_MISSING"),
+        ):
+            with self.subTest(update=update), self.assertRaisesRegex(CandidateExtractionError, error):
+                client(**update)
+
+    def test_real_candidate_result_has_explicit_billing_and_unverified_serve_identity(self):
+        instance = client()
+        req = ProviderExtractionRequest(
+            operation_key="operation:synthetic", run_id="run:synthetic",
+            passage_id="passage:synthetic", content_id="content:synthetic",
+            text="La fonte dice dieci euro.", language="it", alias_hints=(),
+            max_statements=1, max_claims_per_statement=1,
+            max_entity_mentions_per_statement=1,
+            cost_upper_bound_usd=Decimal("0"),
+        )
+        with patch.object(instance, "_post", return_value=({
+            "id": "agy:test", "choices": [{"message": {"content": '{"statements":[]}'}}],
+            "usage": {"total_tokens": 100},
+        }, 0.12)):
+            receipt = instance.extract(req)
+        self.assertEqual(receipt.payload, {"statements": []})
+        self.assertEqual(receipt.cost_usd, Decimal("0"))
+        self.assertEqual(receipt.receipt["billing_basis"], "ANTIGRAVITY_CLI_QUOTA_OVERAGE_DISABLED")
+        self.assertEqual(receipt.receipt["served_model_identity"], "CLI_DOES_NOT_REPORT_SIGNED_SERVED_MODEL")
+        self.assertTrue(receipt.receipt["private_review_required"])
+
+
+if __name__ == "__main__":
+    unittest.main()
