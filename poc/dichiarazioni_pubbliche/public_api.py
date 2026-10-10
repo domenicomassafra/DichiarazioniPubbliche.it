@@ -185,11 +185,21 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
-# Bundle loading (fail-closed, cached on the file fingerprint)
+# Bundle loading (fail-closed, cached on filesystem identity and revision)
 # --------------------------------------------------------------------------- #
 
 _LOCK = threading.Lock()
-_CACHE: dict[str, tuple[tuple[int, int], "PublicIndex"]] = {}
+_CACHE: dict[str, tuple[tuple[int, int, int, int, int], "PublicIndex"]] = {}
+
+
+def _projection_file_stamp(stat: os.stat_result) -> tuple[int, int, int, int, int]:
+    """Include replacement identity and ctime, not just user-restorable mtime.
+
+    An atomic correction/withdrawal can preserve both mtime and byte length.
+    Without inode/ctime the public read cache can continue returning the old
+    approved snapshot rather than revalidating its replacement.
+    """
+    return (stat.st_dev, stat.st_ino, stat.st_ctime_ns, stat.st_mtime_ns, stat.st_size)
 
 
 def slugify(value: str) -> str:
@@ -481,7 +491,7 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
     except OSError as exc:
         raise _unavailable() from exc
     key = str(resolved)
-    stamp = (stat.st_mtime_ns, stat.st_size)
+    stamp = _projection_file_stamp(stat)
     if use_cache:
         with _LOCK:
             cached = _CACHE.get(key)
@@ -489,6 +499,10 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
             return cached[1]
     try:
         raw = resolved.read_bytes()
+        # A concurrent atomic replacement during the read must not attach
+        # the previous snapshot's cache identity to another file's contents.
+        if _projection_file_stamp(resolved.stat()) != stamp:
+            raise _unavailable()
     except OSError as exc:
         raise _unavailable() from exc
     try:
@@ -1173,16 +1187,12 @@ def _is_fresh(headers: dict[str, str], etag: str, last_modified: str) -> bool:
         }:
             return True
         return False
-    if_modified_since = headers.get("if-modified-since")
-    if if_modified_since:
-        try:
-            since = parsedate_to_datetime(if_modified_since)
-        except (TypeError, ValueError):
-            return False
-        if since.tzinfo is None:
-            since = since.replace(tzinfo=timezone.utc)
-        current = parsedate_to_datetime(last_modified)
-        return current <= since
+    # A valid immutable-dataset ETag is the only sufficient 304 authority.
+    # A corrected/withdrawn projection may legitimately preserve an artifact's
+    # mtime (and HTTP Last-Modified is only second-precision), so replying 304
+    # solely to If-Modified-Since risks retaining the previous public record.
+    # Keep Last-Modified for informational HTTP compatibility; IMS-only clients
+    # receive a safe 200 and a fresh content-derived ETag.
     return False
 
 

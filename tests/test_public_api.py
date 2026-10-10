@@ -10,6 +10,7 @@ the HTTP handler uses, so the tested contract is the served contract.
 import json
 import hashlib
 import http.client
+import os
 import sys
 import tempfile
 import threading
@@ -47,6 +48,7 @@ from dichiarazioni_pubbliche.public_api import (  # noqa: E402
     decode_cursor,
     dispatch,
     encode_cursor,
+    load_index,
     query_findings,
     select_findings,
     validate_params,
@@ -493,6 +495,64 @@ class NotFoundContractTest(unittest.TestCase):
 class CacheContractTest(unittest.TestCase):
     def setUp(self):
         self.path = str(DEMO_PROJECTION)
+
+    def test_replaced_projection_with_preserved_mtime_and_size_fails_closed(self):
+        """A correction/hold must invalidate the cached API index after atomic replacement.
+
+        Preserving mtime and length is legitimate for reproducible artifacts and can
+        happen during restores.  The old cache key missed an inode replacement and
+        would keep serving an already-withdrawn projection indefinitely.
+        """
+        original = DEMO_PROJECTION.read_bytes()
+        with tempfile.TemporaryDirectory() as root:
+            target = Path(root) / "index.json"
+            target.write_bytes(original)
+            first = load_index(target)
+            self.assertGreater(len(first.entries), 0)
+            stamp = target.stat()
+
+            bad = b'{"invalid":true}'
+            replacement = Path(root) / "replacement.json"
+            replacement.write_bytes(bad + b" " * (len(original) - len(bad)))
+            os.utime(replacement, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+            self.assertEqual(replacement.stat().st_size, stamp.st_size)
+            os.replace(replacement, target)
+            self.assertEqual(target.stat().st_mtime_ns, stamp.st_mtime_ns)
+
+            response = dispatch("GET", f"{API_BASE_PATH}/findings", projection_path=str(target))
+            self.assertEqual(response.status, 503)
+            self.assertEqual(json.loads(response.body)["error"]["code"],
+                             "PUBLIC_PROJECTION_UNAVAILABLE")
+
+    def test_same_length_atomic_revision_refreshes_a_valid_public_index(self):
+        original = DEMO_PROJECTION.read_bytes()
+        old_instant = b'"generated_at": "2026-09-23T20:50:00+00:00"'
+        new_instant = b'"generated_at": "2026-09-24T20:50:00+00:00"'
+        self.assertIn(old_instant, original)
+        revised = original.replace(old_instant, new_instant, 1)
+        self.assertEqual(len(revised), len(original))
+        with tempfile.TemporaryDirectory() as root:
+            target = Path(root) / "index.json"
+            target.write_bytes(original)
+            before = dispatch("GET", f"{API_BASE_PATH}/findings", projection_path=str(target))
+            stamp = target.stat()
+            replacement = Path(root) / "revision.json"
+            replacement.write_bytes(revised)
+            os.utime(replacement, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+            os.replace(replacement, target)
+
+            after = dispatch("GET", f"{API_BASE_PATH}/findings", projection_path=str(target),
+                             conditional_headers={"if-none-match": before.headers["ETag"]})
+            self.assertEqual(after.status, 200)
+            self.assertNotEqual(before.headers["ETag"], after.headers["ETag"])
+
+            # Last-Modified is intentionally not a sufficient authority for
+            # a 304: an atomic withdrawal can preserve the HTTP-date second.
+            last_modified_only = dispatch(
+                "GET", f"{API_BASE_PATH}/findings", projection_path=str(target),
+                conditional_headers={"if-modified-since": before.headers["Last-Modified"]},
+            )
+            self.assertEqual(last_modified_only.status, 200)
 
     def test_data_responses_are_cdn_cacheable(self):
         response = dispatch("GET", f"{API_BASE_PATH}/findings", projection_path=self.path)
