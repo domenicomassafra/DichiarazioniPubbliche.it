@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const dist = new URL("../dist/", import.meta.url).pathname;
+// An explicit build directory permits real isolated positive/negative route
+// regression checks without mutating the shared web/dist during parallel work.
+const dist = resolve(process.env.DP_ROUTE_DIST ?? fileURLToPath(new URL("../dist/", import.meta.url)));
 
 async function walk(dir) {
   const output = [];
@@ -83,6 +86,29 @@ const legacyToCanonical = new Map([
   ["/contents/", "/contenuti/"],
   ["/compare/", "/tracce/"],
 ]);
+
+// AC-422.1 also forbids introducing a public template without its own page
+// job. Canonical/self-linked HTML alone is not evidence that an extra route is
+// approved. Account is an independently authorized, noindex utility surface,
+// not a ninth primary public-record template.
+function assertKnownPublicPageFamilies(routes) {
+  const staticPages = new Set([...requiredStatic, "/accedi/", "/account/"]);
+  const dynamicFamilies = [...kindToPrefix.values(), "/tracce/", ...legacyToCanonical.keys()];
+  for (const route of routes) {
+    assert(
+      staticPages.has(route) || dynamicFamilies.some((prefix) => route.startsWith(prefix)),
+      `${route}: unapproved public page family without a distinct page job`,
+    );
+  }
+}
+// A future self-canonical page must not silently pass this route inventory.
+assert.throws(
+  () => assertKnownPublicPageFamilies([...pages.keys(), "/nuovo-hub/"]),
+  /unapproved public page family/,
+  "a new route family needs an explicit page-owner contract",
+);
+assertKnownPublicPageFamilies(pages.keys());
+
 let legacyCount = 0;
 let compareAliasCount = 0;
 for (const [route, html] of pages) {
@@ -179,6 +205,14 @@ for (const [route, html] of pages) {
 const snapshotShape = demoSnapshot
   ? "populated demo fixture"
   : searchIndex.records.length === 0
-    ? "approved empty snapshot"
+    ? "non-demo empty snapshot (approval requires external proof)"
     : `search-driven snapshot (${[...new Set(searchIndex.records.map((record) => record.kind))].sort().join(", ")})`;
-console.log(`route-contract checks PASS (${snapshotShape}; ${pages.size} HTML routes, ${legacyCount} compatibility aliases, ${internalLinks} internal links, ${timedLocatorPages} timed locator pages, ${writtenLocatorPages} written locator pages)`);
+const canonicalFamilies = ["/", "/esplora/", "/metodo/", ...kindToPrefix.values(), "/tracce/"];
+const presentFamilies = canonicalFamilies.filter((family) =>
+  family === "/" || family === "/esplora/" || family === "/metodo/"
+    ? pages.has(family)
+    : [...pages.keys()].some((route) => route.startsWith(family)),
+);
+// Even 8/8 in a fixture is only structural proof: AC-422.1 asks for the real
+// approved public route set with independent live published-resource readback.
+console.log(`route-contract checks PASS (${snapshotShape}; canonical v3 families ${presentFamilies.length}/${canonicalFamilies.length}; AC-422.1 live acceptance NOT_ATTESTED; ${pages.size} HTML routes, ${legacyCount} compatibility aliases, ${internalLinks} internal links, ${timedLocatorPages} timed locator pages, ${writtenLocatorPages} written locator pages)`);

@@ -307,3 +307,41 @@ site launch. **DP-422 and PLAN remain IN PROGRESS; no fake runtime GO.**
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS: legacy route/alias fixture evidence does not prove the actual populated public source flow. DP-435/436/437/438/439/440 provide first-class source-wording Statement, optional Finding, approved Person and Topic and dated synthesis. Canonical/legacy routes, API, search, RDF, sitemap and correction/revocation must be on one immutable fingerprint with denied/private records absent; a six-page informational site and HTTP 200 are not approval. Owner-selected visual redesign DP-441/442 is an additional separate phase. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+### 2026-10-11 — Independent AC-422.1 literal closeout audit
+
+The real approved production projection remains empty. Its **six** public
+informational pages cover Home, Explore, Method and three utility documents;
+the build can also include two separately authorized, noindex Account utility
+routes. No approved Statement, Person, Topic, Content or Trace route instance
+exists. By the literal wording of AC-422.1, **3/8 primary v3 template
+families** are currently represented in the empty public route set; the
+remaining five require editorially approved published resource instances and
+a same-fingerprint live readback. Demo fixtures never satisfy that release
+gate. The historical `AC-422.1` checkbox therefore remains **unchecked**.
+
+The local route checker had one concrete completeness gap: an arbitrary new
+self-canonical top-level public template could pass the existing inventory
+if it contained no broken internal links. `web/scripts/check-route-contract.mjs`
+now restricts generated HTML to the documented canonical page families,
+legacy compatibility aliases and the independently authorized Account
+utilities. It supports an isolated output root via `DP_ROUTE_DIST` for
+parallel-safe regression checks, and reports the number of canonical v3
+families present while explicitly labelling live AC-422.1 acceptance
+`NOT_ATTESTED`.
+
+An isolated local demo build passes the route contract with **34 HTML
+routes, 16 legacy aliases, 8/8 canonical families and 618 internal links**.
+Injecting `/nuovo-hub/` with a self-canonical copied page makes the same
+checker fail with `unapproved public page family`; restoring the isolated
+approved-empty projection build passes with **8 HTML routes, 0 legacy
+aliases, 3/8 canonical families and 149 internal links**. Both builds
+explicitly say `AC-422.1 live acceptance NOT_ATTESTED`. These are isolated
+Mac fixtures: no live MiniPC promotion/readback, editorial publication,
+commit or deploy occurred.
+
+**DP-422 remains IN PROGRESS.** The external blocker is an independently
+approved populated projection containing publishable instances for the five
+dynamic template families, followed by an exact-fingerprint live route,
+alias, index/API/sitemap and privacy readback and completion of declared
+dependencies. Do not create fake records to turn this gate green.
