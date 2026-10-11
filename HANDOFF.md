@@ -1,5 +1,25 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Consolidamento Git + CI + cleanup del 11 ottobre 2026:**
+[review, push e misure di pulizia sui quattro host](docs/reviews/2026-10-11-main-push-code-review.md).
+Il main Studio è stato sincronizzato a GitHub con fast-forward
+`f21c15c` (74 commit precedentemente locali, nessun force),
+GitHub Actions run `38155719467` **11/11 job SUCCESS**
+(otto backend macOS/Ubuntu Py3.11–3.14, web, contract,
+clone pulito). L'unico Prompt2Prompt storico untracked
+è stato preservato in Git, worktree/branch/stash locali
+riconciliati. Pulizia selettiva di cache inutilizzate:
+**770101248 byte (734,43 MiB)** su Mac Studio e MiniPC;
+Air e MateBook Linux senza duplicati rilevati nel perimetro.
+Il MiniPC ha ancora **304 file tracked differenti/mancanti**
+rispetto al codice Studio e non è stato sincronizzato;
+web service e tunnel rimangono attivi e HTTP localhost 200.
+**Il push sorgente NON è un deploy del nuovo codice,
+nessuna nuova pubblicazione editoriale, release NO-GO/49.**
+Archivi Git e rollback conservati. Il checkpoint Git
+di questo stesso verbale può avere SHA successivo a
+`f21c15c`, senza cambiare questi esiti.
+
 **Nona tranche locale, 11 ottobre 2026 — sviluppo + riconciliazione:**
 [verbale implementazione DP-235/321/443 e checker CI](docs/reviews/2026-10-11-post-reconciliation-ticket-wave.md).
 Commit sorgente/test locali `7fb263d` (DP-235), `30ce724` (DP-321),
