@@ -66,3 +66,32 @@ and conflicting replay, unbounded input and retries. **15/15 focused tests PASS*
 call, published Statement, measured cost/latency/false-attribution baseline,
 independent gold, durable store or MiniPC/Studio operator readback exists.
 **AC-240.1–.6 remain open** pending those corresponding end-to-end proofs.
+
+**2026-10-11 — local replay lineage hardening, still partial:** Five new
+regressions expose that the plan checksum originally omitted the upstream
+manifest digest, the readback accepted a reordered plan with a recalculated
+checksum, a `FAILED` provider observation overrode an explicit `HELD` item,
+and a truthy non-boolean provider gate could propose private extraction.
+The plan checksum now includes the original ordered manifest SHA, and
+reconciliation rejects reordered plan items, failures reported for held rows,
+and ready rows missing a nonempty speaker-candidate ID. The provider gate
+requires an actual boolean. Retrying the **same** manifest has a stable plan
+fingerprint; two manifests containing the same items in different orders
+have identical canonical item partitions but **different** plan fingerprints
+because their source manifest hashes differ. This explicitly binds the
+replay identity to upstream manifest order; observation order remains
+independent. These local SHA checks only detect inconsistent input; callers
+must still obtain their manifest and review evidence from trusted storage.
+No provider, external capture, public attribution or downstream dispatch was
+performed. End-to-end acceptance criteria remain open.
+Local validation: **20/20 DP-240 tests PASS**, **39/39 DP-240 plus
+private-candidate-batch regression tests PASS**, targeted `compileall` and
+`git diff --check` PASS. Five new tests reproduced failing behavior before
+the source fix; the historical 15-test receipt above describes the earlier
+snapshot.
+
+**Integration validation reported by prime, 2026-10-11:** **74/74 combined
+focused tests PASS**, including DP-240 alongside the other active M2 ticket
+changes; **Ruff PASS**. Full repository suite was still running when this
+receipt was written, so no full-suite result is asserted. This is local
+source/test evidence only; the acceptance checks above remain open.

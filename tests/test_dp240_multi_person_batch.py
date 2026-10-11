@@ -75,6 +75,20 @@ def plan(batch=None, contexts=None, **kwargs):
     )
 
 
+def rehash_plan(original):
+    return replace(
+        original,
+        plan_sha256=_stable_hash(
+            {
+                "version": original.version,
+                "collection": original.collection_id,
+                "manifest_sha256": original.manifest_sha256,
+                "items": [vars(row) for row in original.items],
+            }
+        ),
+    )
+
+
 class MixedPersonPrivateBatchTests(unittest.TestCase):
     def test_three_contents_three_person_candidates_never_share_source_partition(self):
         result = plan()
@@ -90,13 +104,47 @@ class MixedPersonPrivateBatchTests(unittest.TestCase):
         self.assertFalse(result.dispatch_authorized)
         self.assertEqual(result.provider_calls, 0)
 
-    def test_batch_manifest_order_does_not_change_source_bound_plan_fingerprint(self):
+    def test_batch_manifest_order_preserves_rows_but_has_distinct_lineage(self):
         ordered = plan(manifest())
+        retried = plan(manifest())
         reversed_manifest = manifest(reverse=True)
         reversed_plan = plan(reversed_manifest)
-        self.assertEqual(ordered.plan_sha256, reversed_plan.plan_sha256)
+        self.assertEqual(ordered.plan_sha256, retried.plan_sha256)
         self.assertEqual(ordered.items, reversed_plan.items)
         self.assertNotEqual(ordered.manifest_sha256, reversed_plan.manifest_sha256)
+        self.assertNotEqual(ordered.plan_sha256, reversed_plan.plan_sha256)
+
+    def test_original_manifest_digest_is_bound_into_replay_plan(self):
+        original = plan()
+        with self.assertRaisesRegex(ValueError, "TAMPERED"):
+            reconcile_isolated_private_results(
+                replace(original, manifest_sha256="f" * 64), ()
+            )
+
+    def test_rehashed_reordered_plan_is_not_canonical(self):
+        original = plan()
+        reordered = rehash_plan(replace(original, items=tuple(reversed(original.items))))
+        with self.assertRaisesRegex(ValueError, "ORDER_INVALID"):
+            reconcile_isolated_private_results(reordered, ())
+
+    def test_rehashed_ready_plan_requires_a_nonempty_person_candidate(self):
+        original = plan()
+        for speaker in (None, "", "  "):
+            mutated = replace(
+                original,
+                items=(
+                    replace(original.items[0], speaker_candidate_id=speaker),
+                    *original.items[1:],
+                ),
+            )
+            with self.subTest(speaker=speaker), self.assertRaisesRegex(
+                ValueError, "PLAN_(ITEM|STATUS)_INVALID"
+            ):
+                reconcile_isolated_private_results(rehash_plan(mutated), ())
+
+    def test_provider_capability_gate_rejects_truthy_nonboolean_value(self):
+        with self.assertRaisesRegex(ValueError, "CAPABILITY_INVALID"):
+            plan(provider_capability_ready="false")
 
     def test_wrong_content_capture_or_source_sha_assignment_fails_before_plan(self):
         batch = manifest()
@@ -251,6 +299,25 @@ class MixedPersonPrivateBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "UNAUTHORIZED_SUCCESS"):
             reconcile_isolated_private_results(held, (observed,))
 
+    def test_held_item_cannot_claim_provider_failure_or_override_hold(self):
+        held = plan(provider_capability_ready=False)
+        item = held.items[0]
+        failed = PrivateBatchResult(
+            item.passage_id,
+            item.content_id,
+            item.capture_id,
+            item.passage_sha256,
+            "FAILED",
+            "PROVIDER_UNAVAILABLE",
+            None,
+        )
+        with self.assertRaisesRegex(ValueError, "UNAUTHORIZED_RESULT"):
+            reconcile_isolated_private_results(held, (failed,))
+        self.assertEqual(
+            reconcile_isolated_private_results(held, ()).statuses[0],
+            (item.passage_id, "HELD"),
+        )
+
     def test_conflicting_replay_and_unbounded_batch_rejected(self):
         planned = plan()
         item = planned.items[0]
@@ -317,16 +384,7 @@ class MixedPersonPrivateBatchTests(unittest.TestCase):
             dict(items=(replace(item, status="HELD"), *original.items[1:])),
         ):
             mutated = replace(original, **change)
-            mutated = replace(
-                mutated,
-                plan_sha256=_stable_hash(
-                    {
-                        "version": mutated.version,
-                        "collection": mutated.collection_id,
-                        "items": [vars(row) for row in mutated.items],
-                    }
-                ),
-            )
+            mutated = rehash_plan(mutated)
             with (
                 self.subTest(change=change),
                 self.assertRaisesRegex(

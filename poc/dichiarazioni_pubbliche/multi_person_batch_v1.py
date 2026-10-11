@@ -57,6 +57,22 @@ def _stable_hash(material: object) -> str:
     ).hexdigest()
 
 
+def _plan_digest(
+    collection_id: str,
+    manifest_sha256: str,
+    rows: tuple[IsolatedBatchItem, ...] | list[IsolatedBatchItem],
+) -> str:
+    """Bind replay identity to the exact ordered upstream manifest."""
+    return _stable_hash(
+        {
+            "version": VERSION,
+            "collection": collection_id,
+            "manifest_sha256": manifest_sha256,
+            "items": [vars(row) for row in rows],
+        }
+    )
+
+
 @dataclass(frozen=True)
 class ReviewedPassageContext:
     passage_id: str
@@ -177,6 +193,8 @@ def plan_isolated_candidate_batch(
 ) -> IsolatedBatchPlan:
     """Every item is evaluated separately; no source/speaker text is combined."""
     _validate_batch(batch)
+    if type(provider_capability_ready) is not bool:
+        raise ValueError("MULTIPERSON_PROVIDER_CAPABILITY_INVALID")
     if not isinstance(contexts, Mapping) or set(contexts) != {
         item.passage_id for item in batch.items
     }:
@@ -266,16 +284,11 @@ def plan_isolated_candidate_batch(
                 context.estimated_tokens,
             )
         )
-    material = {
-        "version": VERSION,
-        "collection": batch.collection_id,
-        "items": [vars(row) for row in rows],
-    }
     return IsolatedBatchPlan(
         VERSION,
         batch.collection_id,
         batch.sha256,
-        _stable_hash(material),
+        _plan_digest(batch.collection_id, batch.sha256, rows),
         tuple(rows),
         used,
         len({row.partition_id for row in rows}),
@@ -337,12 +350,22 @@ def _validate_isolated_plan(plan: IsolatedBatchPlan) -> None:
             or item.status not in {"HELD", "PRIVATE_EXTRACTION_PROPOSED"}
         ):
             raise ValueError("MULTIPERSON_PLAN_ITEM_INVALID")
+        if item.speaker_candidate_id is not None:
+            if (
+                not item.speaker_candidate_id.strip()
+                or len(item.speaker_candidate_id) > 256
+                or "\x00" in item.speaker_candidate_id
+            ):
+                raise ValueError("MULTIPERSON_PLAN_ITEM_INVALID")
         if item.passage_id in passages or item.partition_id in partitions:
             raise ValueError("MULTIPERSON_PLAN_ITEM_DUPLICATE")
         passages.add(item.passage_id)
         partitions.add(item.partition_id)
         if item.status == "PRIVATE_EXTRACTION_PROPOSED":
-            if item.reason_code != "MULTIPERSON_ISOLATED_SOURCE_READY":
+            if (
+                item.reason_code != "MULTIPERSON_ISOLATED_SOURCE_READY"
+                or item.speaker_candidate_id is None
+            ):
                 raise ValueError("MULTIPERSON_PLAN_STATUS_INVALID")
             used += item.estimated_tokens
         elif item.reason_code not in {
@@ -355,6 +378,10 @@ def _validate_isolated_plan(plan: IsolatedBatchPlan) -> None:
             "MULTIPERSON_BATCH_TOKEN_CAP",
         }:
             raise ValueError("MULTIPERSON_PLAN_STATUS_INVALID")
+    if tuple(row.passage_id for row in plan.items) != tuple(
+        sorted(row.passage_id for row in plan.items)
+    ):
+        raise ValueError("MULTIPERSON_PLAN_ORDER_INVALID")
     if (
         type(plan.total_estimated_tokens) is not int
         or plan.total_estimated_tokens != used
@@ -362,12 +389,7 @@ def _validate_isolated_plan(plan: IsolatedBatchPlan) -> None:
         or plan.proposed_group_count != len(partitions)
     ):
         raise ValueError("MULTIPERSON_PLAN_COUNTS_INVALID")
-    material = {
-        "version": VERSION,
-        "collection": plan.collection_id,
-        "items": [vars(row) for row in plan.items],
-    }
-    if plan.plan_sha256 != _stable_hash(material):
+    if plan.plan_sha256 != _plan_digest(plan.collection_id, plan.manifest_sha256, plan.items):
         raise ValueError("MULTIPERSON_PLAN_TAMPERED")
 
 
@@ -402,6 +424,8 @@ def reconcile_isolated_private_results(
                 raise ValueError("MULTIPERSON_RESULT_UNAUTHORIZED_SUCCESS")
             _required(row.extraction_version, "EXTRACTION_VERSION")
         elif row.result == "FAILED":
+            if item.status != "PRIVATE_EXTRACTION_PROPOSED":
+                raise ValueError("MULTIPERSON_RESULT_UNAUTHORIZED_RESULT")
             if not row.failure_reason:
                 raise ValueError("MULTIPERSON_RESULT_FAILURE_REASON_MISSING")
             _required(row.failure_reason, "FAILURE_REASON")
