@@ -105,3 +105,67 @@ idempotency ledger or transactional CAS, independent B API/signature/rights
 attestation, real candidate execution/downstream receipt, MiniPC real-source
 acceptance or keyboard/UI proof. Therefore **all AC-242 boxes remain open**;
 no publish/dispatch/review authority is asserted.
+
+## 2026-10-11 — DP-240 mixed-Person batch → private Studio exception preview
+
+Added a distinct read-only `preview_private_batch_machine_handoff` entry
+point and `CurrentBatchStudioItem` source/identity/rights snapshot contract
+in the **existing** DP-242 module; DP-240's source and tests were not changed.
+This consumes the new `PrivateBatchReceiptIndex` only after its DP-240
+`export_private_batch_receipt_index` revalidates the exact ordered
+manifest/plan, source lineage, duplicate/replay rules, item statuses, count
+integrity and no-authority flags. A **separately supplied, pinned current
+receipt SHA-256 is mandatory**: absence, malformed pin or a superseded
+receipt refuses the whole preview. The private read side also requires
+independently fetched current per-Passage Content, Capture, original source
+and Passage hashes, selector, Person **candidate** reference, context version/
+review reference, speech role/act, identity review status, rights status,
+rights evidence hash and source/identity/rights revisions. Missing/invalid,
+foreign, revoked, or changed source/identity/rights snapshots cannot be
+classified as clean machine-handoff preflights. Any readback that changes
+while the preview is constructed invalidates the whole result; this double
+read is **not** a transactional database lock.
+
+Each record has an exact Capture→Passage→source hash and partition, separate
+language and candidate Person IDs (including same-name homonyms), a
+deterministic per-item intent fingerprint, one actionable sanitized reason
+and operator action. Example negative states include
+`HELD_CURRENT_READBACK_MISSING`, `HELD_SOURCE_SCOPE_MISMATCH`,
+`HELD_STALE_SOURCE`, `HELD_SOURCE_RIGHTS`,
+`HELD_RIGHTS_EVIDENCE_MISSING`, `HELD_IDENTITY_CHANGED`,
+`HELD_EXTRACTION_FAILED` and `HELD_EXTRACTION_UNOBSERVED`.
+Quote/reporting-role and attribution ambiguity retain explicit investigation
+actions. Only an unchanged, separately source-checked
+`PRIVATE_CANDIDATE_UNVERIFIED` receipt reaches
+`HELD_MACHINE_AUTHORITY_UNAVAILABLE` with
+`AWAIT_INDEPENDENT_B_MACHINE_AUTHORITY`—**not** a real authority receipt,
+dispatch or human review. Arbitrary provider failure payloads are reduced
+to a boolean recorded flag, never rendered as source/private text.
+
+Five new adversarial test methods were RED initially because the batch
+handoff and current-source interface did not exist, then GREEN for mixed
+IT/DE Persons/Contents, homonyms, quoted speech, partial failures,
+unobserved retries, changed/revoked rights, missing rights evidence,
+missing/changed current identity/source, wrong Capture/Content,
+stale/missing receipt pin, forged DP-240 checksum/replay, invalid request
+keys and a mid-preview readback mutation. No source, reviewer, Person
+identity or B credentials were forged. Final local validation:
+`PYTHONPATH=poc python3 -m unittest
+tests.test_dp242_studio_machine_handoff
+tests.test_dp242_studio_machine_http
+tests.test_dp240_multi_person_batch
+tests.test_studio_discovery_inbox_workflow
+tests.test_studio_candidate_review_handoff -q`: **61/61 PASS**;
+`ruff check`, `ruff format --check`, targeted Python compilation and
+`git diff --check` PASS. No live network, provider, persisted DB write,
+MiniPC, Cloudflare, publication or authorization used.
+
+**All AC-242.1–.6 remain OPEN, status IN PROGRESS.** This is an
+offline caller-supplied source-only operator proposal contract, not actual
+authenticated Studio lookup, persistent idempotency/CAS/exceptions,
+independently qualified source/rights/currentness attestation,
+reviewed Person attribution, B machine authority API/receipt, downstream
+candidate extraction, MiniPC replay, measured latency, live counter
+invariance or keyboard/viewport proof. A future real adapter must obtain
+the independent snapshots and pinned receipt from trusted storage and
+recheck under a transactional fence. No public machine acceptance implied.

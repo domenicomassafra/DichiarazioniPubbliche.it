@@ -12,8 +12,14 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
+from dichiarazioni_pubbliche.multi_person_batch_v1 import (
+    IsolatedBatchPlan,
+    PrivateBatchReceiptIndex,
+    export_private_batch_receipt_index,
+)
 from dichiarazioni_pubbliche.studio_candidate_review import (
     inspect_candidate_review_readiness,
 )
@@ -31,6 +37,34 @@ from dichiarazioni_pubbliche.studio_discovery_triage_contract import (
 STUDIO_MACHINE_PREVIEW_VERSION = "studio-machine-candidate-preflight-v1"
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
 _REQUEST = re.compile(r"[A-Za-z][A-Za-z0-9_:-]{0,127}\Z")
+
+
+@dataclass(frozen=True)
+class CurrentBatchStudioItem:
+    """Caller-read current private corpus/rights/identity metadata for one Passage.
+
+    A revision and a hash identify *what* was read; neither establishes an
+    authenticated store, independent license review, or machine authority.
+    Caller must obtain this independently of the DP-240 receipt.
+    """
+
+    passage_id: str
+    content_id: str
+    capture_id: str
+    source_sha256: str
+    passage_sha256: str
+    selector_fingerprint: str
+    speaker_candidate_id: str | None
+    identity_review_status: str
+    speech_role: str
+    speech_act: str
+    context_version: str
+    context_review_id: str | None
+    rights_status: str
+    rights_evidence_sha256: str | None
+    source_revision: int
+    identity_revision: int
+    rights_revision: int
 
 
 def _sha(value: object, name: str) -> str:
@@ -296,8 +330,298 @@ def preview_candidate_machine_handoff(
     )
 
 
+def _batch_snapshot_valid(snapshot: CurrentBatchStudioItem) -> bool:
+    """Currentness metadata is mandatory, even for an operator-only preview."""
+    if not isinstance(snapshot, CurrentBatchStudioItem):
+        return False
+    ids = (
+        snapshot.passage_id,
+        snapshot.content_id,
+        snapshot.capture_id,
+        snapshot.selector_fingerprint,
+        snapshot.context_version,
+    )
+    if any(
+        not isinstance(value, str) or not value or len(value) > 256 for value in ids
+    ):
+        return False
+    if snapshot.speaker_candidate_id is not None and (
+        not isinstance(snapshot.speaker_candidate_id, str)
+        or not snapshot.speaker_candidate_id.strip()
+        or len(snapshot.speaker_candidate_id) > 256
+    ):
+        return False
+    if snapshot.context_review_id is not None and (
+        not isinstance(snapshot.context_review_id, str)
+        or not snapshot.context_review_id.strip()
+        or len(snapshot.context_review_id) > 256
+    ):
+        return False
+    if any(
+        not isinstance(value, str) or not _HASH.fullmatch(value)
+        for value in (
+            snapshot.source_sha256,
+            snapshot.passage_sha256,
+        )
+    ):
+        return False
+    if snapshot.rights_evidence_sha256 is not None and (
+        not isinstance(snapshot.rights_evidence_sha256, str)
+        or not _HASH.fullmatch(snapshot.rights_evidence_sha256)
+    ):
+        return False
+    if any(
+        type(value) is not int or value < 0
+        for value in (
+            snapshot.source_revision,
+            snapshot.identity_revision,
+            snapshot.rights_revision,
+        )
+    ):
+        return False
+    return (
+        snapshot.rights_status in {"CLEARED", "UNKNOWN", "EXPIRED", "REVOKED", "DENIED"}
+        and snapshot.identity_review_status
+        in {"UNRESOLVED", "CANDIDATE_MATCH", "REVIEWED_SAME_PERSON"}
+        and snapshot.speech_role
+        in {"DIRECT_SPEAKER", "AUTHOR", "REPORTER", "QUOTED_SPEAKER", "UNRESOLVED"}
+        and snapshot.speech_act
+        in {
+            "DIRECT_ASSERTION",
+            "OPINION",
+            "REPORTED_QUOTE",
+            "CRITICISM",
+            "IRONY",
+            "UNKNOWN",
+        }
+    )
+
+
+def _batch_exception_action(reason: str) -> str:
+    """Operator actions depend on reviewed source holds, never model scoring."""
+    return {
+        "MULTIPERSON_QUOTATION_NOT_ENDORSEMENT": "INVESTIGATE_QUOTED_SPEAKER_NOT_ENDORSEMENT",
+        "MULTIPERSON_SOURCE_RIGHTS_HELD": "REVALIDATE_SOURCE_RIGHTS",
+        "MULTIPERSON_CONTEXT_UNREVIEWED": "REVIEW_SOURCE_CONTEXT_PROVENANCE",
+        "MULTIPERSON_SPEAKER_AMBIGUOUS": "INVESTIGATE_SPEAKER_PERSON_IDENTITY",
+        "MULTIPERSON_PROVIDER_CAPABILITY_UNAVAILABLE": "CHECK_PRIVATE_PROVIDER_CAPABILITY",
+        "MULTIPERSON_BATCH_TOKEN_CAP": "REPLAN_PRIVATE_TOKEN_ALLOCATION",
+        "MULTIPERSON_UNATTRIBUTED_CONTEXT": "INVESTIGATE_SOURCE_OR_ATTRIBUTION",
+        "MULTIPERSON_OBSERVED_HELD": "INVESTIGATE_HELD_EXTRACTION",
+    }.get(reason, "INVESTIGATE_SOURCE_OR_ATTRIBUTION")
+
+
+def preview_private_batch_machine_handoff(
+    plan: IsolatedBatchPlan,
+    index: PrivateBatchReceiptIndex,
+    *,
+    current_items: Mapping[str, CurrentBatchStudioItem],
+    expected_receipt_sha256: str | None = None,
+    request_key: str,
+) -> dict[str, object]:
+    """Read-only DP-240 receipts → bounded, actionable private Studio queue.
+
+    Requires a valid exact DP-240 receipt and **independently obtained** current
+    Capture/Passage/person-candidate/context/rights snapshots by Passage ID.
+    It is not a machine authority adapter, durable job, rights certificate, or
+    transactional CAS. Not even a matching current readback enables dispatch.
+    A future Studio adapter must re-read under its own authenticated fence.
+    """
+    key = _key(request_key)
+    expected = _sha(expected_receipt_sha256, "BATCH_RECEIPT_SHA256")
+    # DP-240 itself validates the original manifest, immutable per-item
+    # provenance, digest, observation/status, counts and no-authority flags.
+    persisted = export_private_batch_receipt_index(plan, index)
+    if expected != persisted["receipt_sha256"]:
+        raise ValueError("STUDIO_MACHINE_BATCH_RECEIPT_STALE")
+    if not isinstance(current_items, Mapping) or set(current_items) - {
+        row.passage_id for row in index.items
+    }:
+        raise ValueError("STUDIO_MACHINE_BATCH_CURRENT_SCOPE_INVALID")
+
+    # Snapshot each separately retrieved row at the start, then verify none
+    # drifted while constructing the preview. This is not a DB transaction.
+    current_before = {
+        row.passage_id: current_items.get(row.passage_id) for row in index.items
+    }
+    output: list[dict[str, object]] = []
+    for receipt in index.items:
+        current = current_before[receipt.passage_id]
+        if current is None:
+            status, action, reason = (
+                "HELD_CURRENT_READBACK_MISSING",
+                "RETRIEVE_CURRENT_SOURCE_RIGHTS_IDENTITY",
+                "CURRENT_ITEM_READBACK_MISSING",
+            )
+        elif (
+            not _batch_snapshot_valid(current)
+            or current.passage_id != receipt.passage_id
+        ):
+            status, action, reason = (
+                "HELD_CURRENT_READBACK_INVALID",
+                "RETRIEVE_CURRENT_SOURCE_RIGHTS_IDENTITY",
+                "CURRENT_ITEM_READBACK_INVALID",
+            )
+        elif (current.content_id, current.capture_id) != (
+            receipt.content_id,
+            receipt.capture_id,
+        ):
+            status, action, reason = (
+                "HELD_SOURCE_SCOPE_MISMATCH",
+                "INVESTIGATE_SOURCE_BINDING",
+                "CURRENT_CONTENT_CAPTURE_SCOPE_MISMATCH",
+            )
+        elif (
+            current.source_sha256 != receipt.source_sha256
+            or current.passage_sha256 != receipt.passage_sha256
+            or current.selector_fingerprint != receipt.selector_fingerprint
+        ):
+            status, action, reason = (
+                "HELD_STALE_SOURCE",
+                "REFRESH_CAPTURE_PASSAGE_AND_REPLAN",
+                "CURRENT_ORIGINAL_VERSION_OR_SELECTOR_CHANGED",
+            )
+        elif current.rights_status != "CLEARED" or receipt.rights_status != "CLEARED":
+            status, action, reason = (
+                "HELD_SOURCE_RIGHTS",
+                "REVALIDATE_SOURCE_RIGHTS",
+                "CURRENT_OR_PLAN_RIGHTS_NOT_CLEARED",
+            )
+        elif current.rights_evidence_sha256 is None:
+            status, action, reason = (
+                "HELD_RIGHTS_EVIDENCE_MISSING",
+                "RETRIEVE_SOURCE_RIGHTS_EVIDENCE",
+                "CURRENT_RIGHTS_EVIDENCE_MISSING",
+            )
+        elif (
+            current.speaker_candidate_id != receipt.speaker_candidate_id
+            or current.identity_review_status != receipt.identity_review_status
+            or current.speech_role != receipt.speech_role
+            or current.speech_act != receipt.speech_act
+            or current.context_version != receipt.context_version
+            or current.context_review_id != receipt.context_review_id
+        ):
+            status, action, reason = (
+                "HELD_IDENTITY_CHANGED",
+                "RECHECK_SPEAKER_PERSON_AND_CONTEXT",
+                "CURRENT_IDENTITY_CONTEXT_CHANGED",
+            )
+        elif receipt.status == "HELD":
+            status, action, reason = (
+                "HELD_SOURCE_OR_ATTRIBUTION",
+                _batch_exception_action(receipt.reason_code),
+                receipt.reason_code,
+            )
+        elif receipt.status == "FAILED":
+            status, action, reason = (
+                "HELD_EXTRACTION_FAILED",
+                "INVESTIGATE_FAILED_EXTRACTION",
+                "PRIVATE_EXTRACTION_FAILED",
+            )
+        elif receipt.status == "UNOBSERVED":
+            status, action, reason = (
+                "HELD_EXTRACTION_UNOBSERVED",
+                "INSPECT_EXTRACTION_ATTEMPT_BEFORE_RETRY",
+                "PRIVATE_EXTRACTION_RESULT_MISSING",
+            )
+        else:
+            # PRIVATE_CANDIDATE_UNVERIFIED still does not prove the result
+            # text, machine B permission, author Person or any public Finding.
+            status, action, reason = (
+                "HELD_MACHINE_AUTHORITY_UNAVAILABLE",
+                "AWAIT_INDEPENDENT_B_MACHINE_AUTHORITY",
+                "B_MACHINE_AUTHORITY_NOT_ATTESTED",
+            )
+        source = {
+            "content_id": receipt.content_id,
+            "capture_id": receipt.capture_id,
+            "passage_id": receipt.passage_id,
+            "source_family": receipt.source_family,
+            "source_sha256": receipt.source_sha256,
+            "passage_sha256": receipt.passage_sha256,
+            "selector_fingerprint": receipt.selector_fingerprint,
+            "partition_id": receipt.partition_id,
+            "language_tag": receipt.language_tag,
+            "speaker_candidate_id": receipt.speaker_candidate_id,
+            "identity_review_status": receipt.identity_review_status,
+            "speech_role": receipt.speech_role,
+            "speech_act": receipt.speech_act,
+            "context_version": receipt.context_version,
+            "context_review_id": receipt.context_review_id,
+            "planned_rights_status": receipt.rights_status,
+            "current_rights_status": (
+                current.rights_status if _batch_snapshot_valid(current) else None
+            ),
+            "source_revision": (
+                current.source_revision if _batch_snapshot_valid(current) else None
+            ),
+            "identity_revision": (
+                current.identity_revision if _batch_snapshot_valid(current) else None
+            ),
+            "rights_revision": (
+                current.rights_revision if _batch_snapshot_valid(current) else None
+            ),
+            "rights_evidence_sha256": (
+                current.rights_evidence_sha256
+                if _batch_snapshot_valid(current)
+                else None
+            ),
+        }
+        output.append(
+            _receipt(
+                {
+                    "family": "DP240_BATCH_ITEM",
+                    "plan_sha256": plan.plan_sha256,
+                    "status": status,
+                    "action": action,
+                    "reason_code": reason,
+                    "source": source,
+                    "observed_result": receipt.observation_result,
+                    "extraction_version": receipt.extraction_version,
+                    # Failure reasons can be arbitrary private provider payloads;
+                    # acknowledge their presence, never render their content.
+                    "failure_reason_recorded": receipt.failure_reason is not None,
+                    "requires_fresh_transactional_cas": True,
+                    "machine_authority_status": "NOT_CONFIGURED_OR_NOT_ATTESTED",
+                },
+                request_key=key,
+            )
+        )
+    if any(
+        current_items.get(row.passage_id) != current_before[row.passage_id]
+        for row in index.items
+    ):
+        raise ValueError("STUDIO_MACHINE_BATCH_CHANGED_DURING_PREFLIGHT")
+    summary = {
+        "item_count": len(output),
+        "authority_pending_count": sum(
+            row["status"] == "HELD_MACHINE_AUTHORITY_UNAVAILABLE" for row in output
+        ),
+        "exception_count": sum(
+            row["status"] != "HELD_MACHINE_AUTHORITY_UNAVAILABLE" for row in output
+        ),
+    }
+    return _receipt(
+        {
+            "family": "DP240_PRIVATE_CANDIDATE_BATCH",
+            "collection_id": plan.collection_id,
+            "manifest_sha256": plan.manifest_sha256,
+            "plan_sha256": plan.plan_sha256,
+            "batch_receipt_sha256": persisted["receipt_sha256"],
+            "status": "HELD_PRIVATE_OPERATOR_PREVIEW",
+            "items": tuple(output),
+            "summary": summary,
+            "requires_fresh_transactional_cas": True,
+            "machine_authority_status": "NOT_CONFIGURED_OR_NOT_ATTESTED",
+        },
+        request_key=key,
+    )
+
+
 __all__ = [
     "STUDIO_MACHINE_PREVIEW_VERSION",
     "preview_discovery_machine_exception",
     "preview_candidate_machine_handoff",
+    "CurrentBatchStudioItem",
+    "preview_private_batch_machine_handoff",
 ]
