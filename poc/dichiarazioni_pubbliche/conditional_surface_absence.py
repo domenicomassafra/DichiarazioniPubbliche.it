@@ -29,6 +29,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/collections/passage-candidates", "/v1/discovery/list",
     "/v1/discovery/inspect", "/v1/discovery/triage-history",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
+    "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
 })
 _STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
     "/v1/candidate/review-readiness",

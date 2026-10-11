@@ -10,10 +10,10 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
-from dichiarazioni_pubbliche.conditional_surface_absence import verify_surface_absence
-from dichiarazioni_pubbliche.launch_preflight import repository_launch_preflight
-from dichiarazioni_pubbliche.public_api import PublicApiRequestHandler, build_server
-import dichiarazioni_pubbliche.conditional_surface_absence as gate
+from dichiarazioni_pubbliche.conditional_surface_absence import verify_surface_absence  # noqa: E402
+from dichiarazioni_pubbliche.launch_preflight import repository_launch_preflight  # noqa: E402
+from dichiarazioni_pubbliche.public_api import PublicApiRequestHandler, build_server  # noqa: E402
+import dichiarazioni_pubbliche.conditional_surface_absence as gate  # noqa: E402
 
 
 class ConditionalSurfaceAbsenceTests(unittest.TestCase):
@@ -44,6 +44,22 @@ class ConditionalSurfaceAbsenceTests(unittest.TestCase):
         with patch.object(gate, "_ALLOWED_PATHS",
                           gate._PRIVATE_STUDIO_READ_PATHS - gate._STUDIO_PENDING_READ_ONLY_ADDITIONS):
             verify_surface_absence(ROOT)
+
+    def test_machine_previews_are_exact_read_only_studio_only_paths(self):
+        self.assertTrue({
+            "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
+        }.issubset(gate._PRIVATE_STUDIO_READ_PATHS))
+        self.assertTrue({
+            "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
+        }.issubset(gate._ALLOWED_PATHS))
+        for forbidden in (
+            "/v1/candidate/machine-approve", "/v1/discovery/machine-enqueue",
+            "/v1/candidate/publish", "/v1/admin/machine-review",
+        ):
+            with self.subTest(path=forbidden):
+                with patch.object(gate, "_ALLOWED_PATHS", gate._ALLOWED_PATHS | {forbidden}):
+                    with self.assertRaisesRegex(ValueError, "PRIVATE_STUDIO_PATH"):
+                        verify_surface_absence(ROOT)
 
     def test_actual_default_public_http_refuses_admin_intake_and_account_mutation(self):
         with build_server(None, host="127.0.0.1", port=0) as server:
