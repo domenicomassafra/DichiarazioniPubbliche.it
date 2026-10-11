@@ -349,6 +349,45 @@ class ProceduralDocumentRoleTests(unittest.TestCase):
         )
         self.assertEqual(court.spans[0].state, "CANDIDATE_PRIVATE")
 
+    def test_embedded_witness_or_quote_cannot_attest_court_status(self):
+        """A court order may quote a conviction allegation without ordering it."""
+        phrase = "Mario è condannato."
+        person_records = (
+            DocumentPerson("person:ada", PrivacyClass.PUBLIC_FIGURE),
+            DocumentPerson("person:mario", PrivacyClass.PUBLIC_FIGURE),
+        )
+        cases = (
+            (AssertionKind.TESTIMONY, DocumentaryRole.WITNESS, "person:ada", None),
+            (AssertionKind.QUOTED_TEXT, DocumentaryRole.REPORTER, "body:reporter", "person:ada"),
+            (AssertionKind.ALLEGATION, DocumentaryRole.ALLEGATION, "body:prosecutor", None),
+        )
+        for kind, role, speaker, quoted_author in cases:
+            with self.subTest(kind=kind, role=role):
+                claim = span(
+                    phrase, text=phrase, kind=kind, role=role, speaker=speaker,
+                    subjects=("person:mario",),
+                    procedural_party_refs=("person:mario",),
+                    quoted_author_ref=quoted_author,
+                    status=ProceduralStatus.CONVICTED,
+                    negation_polarity="AFFIRMED",
+                )
+                result = evaluate_procedural_document(source(phrase), person_records, (claim,))
+                self.assertEqual(result.state, "HOLD")
+                self.assertIn("ASSERTION_ROLE_NOT_STATUS_AUTHORITY", result.spans[0].reason_codes)
+                self.assertEqual(result.spans[0].underlying_fact_assessment, "NOT_EVALUATED")
+                self.assertFalse(result.spans[0].publication_authority)
+        institutional = span(
+            phrase, text=phrase, kind=AssertionKind.INSTITUTIONAL_FACT,
+            role=DocumentaryRole.AUTHOR, speaker="body:judge",
+            subjects=("person:mario",), procedural_party_refs=("person:mario",),
+            status=ProceduralStatus.CONVICTED, negation_polarity="AFFIRMED",
+        )
+        held_only_when_quoted = evaluate_procedural_document(
+            source(phrase), person_records, (institutional,)
+        )
+        self.assertEqual(held_only_when_quoted.state, "CANDIDATE_PRIVATE")
+        self.assertFalse(held_only_when_quoted.publication_authority)
+
     def test_conflicting_status_words_do_not_become_single_definite_status(self):
         phrase = "Mario è indagato e imputato."
         result = evaluate_procedural_document(

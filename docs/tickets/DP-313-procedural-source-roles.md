@@ -50,3 +50,34 @@ Two adversarial synthetic regressions reproduced genuine `CANDIDATE_PRIVATE` fai
 - A first-person `WITNESS_STATEMENT` could return a definitive `CONVICTED` procedural status candidate just because the witness text said `Mario è condannato.` and an annotation labeled it `INSTITUTIONAL_FACT`. Such a document is now held with `WITNESS_SOURCE_NOT_STATUS_AUTHORITY`. A properly annotated `COURT_ORDER` stays a private candidate; fact assessment remains `NOT_EVALUATED` in both cases.
 
 Local proof: focused DP-313 tests **26/26 PASS**, `compileall` PASS, deterministic benchmark **5/5 PASS**, `git diff --check` PASS. Repository-wide caller search found no consumer of the private DP-313 receipt other than these tests; its v1 schema/version remains unchanged and fail-open cases now produce changed decision hashes. All original AC-313.1–6 remain **open**: no independently authorized official document/OCR original, source rights or qualified legal/privacy review, cross-module revocation/invalidation replay, MiniPC pilot or public conditional revalidation has been accepted. No public dataset/permission or deploy was produced by these local checks.
+
+## 2026-10-11 — Embedded testimony/status authority fix (source only)
+
+The court-document classifier previously accepted a specific procedural status
+such as `CONVICTED` solely because the words appeared in a `COURT_ORDER`, even
+when the annotation identified the sentence as **witness testimony**, a
+**reporter's quotation**, or a **party allegation**. Three independent synthetic
+adversarial subcases reproduced `CANDIDATE_PRIVATE` before the patch (RED):
+`TESTIMONY/WITNESS`, `QUOTED_TEXT/REPORTER` and
+`ALLEGATION/ALLEGATION`, all with a claimed `CONVICTED` status. This could
+misrepresent a quoted assertion as the court's own procedural determination.
+
+For a *specific* typed status, `evaluate_procedural_document` now requires
+an institutional `AUTHOR/INSTITUTIONAL_FACT` or a court
+`COURT_DECISION/FINDING_ORDER` role/kind pair; other roles produce `HOLD` with
+`ASSERTION_ROLE_NOT_STATUS_AUTHORITY`, preserving the exact source wording,
+attribution, and `NOT_EVALUATED` underlying-fact state. A source-attributed
+institutional court statement still yields only a private candidate, never an
+independent verdict or publish grant. Existing source-kind, negation, original
+OCR, version, rights and privacy boundaries are unchanged.
+
+After the fix the entire focused DP-313 suite passes **27/27**, including the
+three formerly failing cases and institutional positive control. The combined
+DP-313 + DP-312 speech act + high-risk assertion + DP-314 requirement suite
+passes **75/75**; `ruff check`, `compileall` and `git diff --check` pass.
+These are **synthetic local unit
+tests only**. Original **AC-313.1–6 remain unchecked**, pending a legitimately
+authorized official judicial source and original/OCR inspection, qualified
+privacy/rights policy and MiniPC source-to-public conditional-revalidation
+pilot. No source rights, human/machine approval, judicial truth or publication
+authority is inferred.

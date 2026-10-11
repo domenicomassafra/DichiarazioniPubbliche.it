@@ -411,6 +411,17 @@ def evaluate_procedural_document(
         if not isinstance(span.status, ProceduralStatus):
             codes.append("PROCEDURAL_STATUS_UNSUPPORTED")
         else:
+            # A status mentioned in testimony, a reporter's quotation or a
+            # party allegation does not attest that procedural state, even
+            # when embedded verbatim in an authentic court order. Keep such
+            # words attributable without inheriting the court's authority.
+            if span.status != ProceduralStatus.UNKNOWN and (
+                span.speaker_role, span.assertion_kind
+            ) not in {
+                (DocumentaryRole.AUTHOR, AssertionKind.INSTITUTIONAL_FACT),
+                (DocumentaryRole.COURT_DECISION, AssertionKind.FINDING_ORDER),
+            }:
+                codes.append("ASSERTION_ROLE_NOT_STATUS_AUTHORITY")
             hits = {
                 status for status, pattern in _PROCEDURAL_WORDS.items()
                 if pattern.search(excerpt)
