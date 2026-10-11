@@ -1,5 +1,6 @@
 import sys
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -92,6 +93,22 @@ class OperationLedgerTests(unittest.TestCase):
         self.assertEqual(summary.attempt_count, 2)
         self.assertEqual(summary.measured_cost_usd, Decimal("0.15"))
         self.assertEqual(summary.unknown_cost_operation_count, 1)
+
+    def test_replayed_immutable_provider_receipt_is_not_double_billed(self):
+        paid = receipt("op:charge", 1, "MEASURED_PROVIDER_COST", measured="0.11")
+        retry = receipt("op:charge", 2, "ESTIMATED_ONLY", estimated="0.18")
+        one = aggregate_operation_receipts((paid, retry))
+        replayed = aggregate_operation_receipts((paid, retry, paid, retry))
+        self.assertEqual(one, replayed)
+        self.assertEqual(replayed.operation_count, 1)
+        self.assertEqual(replayed.attempt_count, 2)
+        self.assertEqual(replayed.measured_cost_usd, Decimal("0.11"))
+        self.assertEqual(replayed.estimated_only_cost_usd, Decimal("0.18"))
+        self.assertEqual(replayed.request_count, 2)
+        with self.assertRaisesRegex(ValueError, "OPERATION_RECEIPT_REPLAY_CONFLICT"):
+            aggregate_operation_receipts((paid, replace(paid, measured_cost_usd=Decimal("0.99"))))
+        with self.assertRaisesRegex(ValueError, "OPERATION_ATTEMPT_ID_CONFLICT"):
+            aggregate_operation_receipts((paid, replace(paid, receipt_id="different-receipt")))
 
     def test_unknown_is_not_zero(self):
         summary = aggregate_operation_receipts([receipt("op:1", 1, "UNKNOWN")])

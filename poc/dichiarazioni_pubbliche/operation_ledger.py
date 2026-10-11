@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Iterable, Mapping
 
@@ -73,15 +75,19 @@ class OperationUsageReceipt:
             raise ValueError("OPERATION_RECEIPT_KEY_REQUIRED")
         if self.receipt_id is not None and not str(self.receipt_id).strip():
             raise ValueError("OPERATION_RECEIPT_ID_INVALID")
-        if self.attempt < 1:
+        if type(self.attempt) is not int or self.attempt < 1:
             raise ValueError("OPERATION_RECEIPT_ATTEMPT_INVALID")
         if not str(self.provider_id or "").strip() or not str(self.operation or "").strip():
             raise ValueError("OPERATION_RECEIPT_PROVIDER_OPERATION_REQUIRED")
         if self.billing_basis not in BILLING_BASES:
             raise ValueError("OPERATION_RECEIPT_BILLING_BASIS_INVALID")
-        if self.estimated_cost_usd is not None and self.estimated_cost_usd < 0:
+        if self.estimated_cost_usd is not None and (
+            not self.estimated_cost_usd.is_finite() or self.estimated_cost_usd < 0
+        ):
             raise ValueError("OPERATION_RECEIPT_ESTIMATE_INVALID")
-        if self.measured_cost_usd is not None and self.measured_cost_usd < 0:
+        if self.measured_cost_usd is not None and (
+            not self.measured_cost_usd.is_finite() or self.measured_cost_usd < 0
+        ):
             raise ValueError("OPERATION_RECEIPT_MEASURED_COST_INVALID")
         if self.total_tokens is not None and self.total_tokens < 0:
             raise ValueError("OPERATION_RECEIPT_TOKENS_INVALID")
@@ -131,7 +137,7 @@ class OperationLedgerSummary:
 def aggregate_operation_receipts(
     receipts: Iterable[OperationUsageReceipt],
 ) -> OperationLedgerSummary:
-    rows = tuple(receipts)
+    rows, _ = _unique_operation_attempts(receipts)
     # Multiple attempts for one operation are retained as usage evidence, but a completed
     # operation identity counts once in operation_count. This avoids double-counting
     # logical work while still exposing retry/attempt consumption.
@@ -181,6 +187,257 @@ def aggregate_operation_receipts(
     )
 
 
+def _unique_operation_attempts(
+    receipts: Iterable[OperationUsageReceipt],
+) -> tuple[tuple[OperationUsageReceipt, ...], int]:
+    """A provider attempt is one immutable row, even across repeated reads.
+
+    The existing PostgreSQL ledger indexes (operation_key, attempt) but does
+    not declare that pair UNIQUE. Detect rather than silently bill two rows
+    for one attempt; do not repair, replace or rewrite the underlying rows.
+    """
+    by_attempt: dict[tuple[str, int], OperationUsageReceipt] = {}
+    by_receipt: dict[str, OperationUsageReceipt] = {}
+    duplicates = 0
+    for row in receipts:
+        if not isinstance(row, OperationUsageReceipt):
+            raise ValueError("OPERATION_RECEIPT_INVALID")
+        identity = (row.operation_key, row.attempt)
+        prior = by_attempt.get(identity)
+        receipt_prior = by_receipt.get(row.receipt_id) if row.receipt_id is not None else None
+        if prior is not None:
+            if prior != row:
+                if prior.receipt_id != row.receipt_id:
+                    raise ValueError("OPERATION_ATTEMPT_ID_CONFLICT")
+                raise ValueError("OPERATION_RECEIPT_REPLAY_CONFLICT")
+            duplicates += 1
+            continue
+        if receipt_prior is not None:
+            raise ValueError("OPERATION_RECEIPT_REPLAY_CONFLICT")
+        by_attempt[identity] = row
+        if row.receipt_id is not None:
+            by_receipt[row.receipt_id] = row
+    return tuple(by_attempt.values()), duplicates
+
+
+_BILLING_REF = re.compile(r"[A-Za-z0-9_:/.-]{1,180}\Z", re.ASCII)
+_BILLING_STATUS = re.compile(r"[A-Z][A-Z0-9_]{0,63}\Z", re.ASCII)
+
+
+@dataclass(frozen=True)
+class BillingStatementLine:
+    """Operator-supplied invoice/usage comparison *candidate*, not attestation.
+
+    A reference string and a numerical amount are not authentication of a
+    provider bill. This read-only model never upgrades provider receipt basis.
+    """
+
+    line_id: str
+    receipt_id: str
+    operation_key: str
+    attempt: int
+    provider_id: str
+    currency: str
+    amount: Decimal
+    source_reference: str
+    observed_at: str
+
+    def __post_init__(self) -> None:
+        for field in ("line_id", "receipt_id", "operation_key", "provider_id", "source_reference"):
+            value = getattr(self, field)
+            if not isinstance(value, str) or not _BILLING_REF.fullmatch(value):
+                raise ValueError("BILLING_LINE_REFERENCE_INVALID")
+        if type(self.attempt) is not int or self.attempt < 1:
+            raise ValueError("BILLING_LINE_ATTEMPT_INVALID")
+        if (not isinstance(self.currency, str) or
+                not re.fullmatch(r"[A-Z]{3}", self.currency, re.ASCII)):
+            raise ValueError("BILLING_LINE_CURRENCY_INVALID")
+        if not isinstance(self.amount, Decimal) or not self.amount.is_finite() or self.amount < 0:
+            raise ValueError("BILLING_LINE_AMOUNT_INVALID")
+        try:
+            when = datetime.fromisoformat(self.observed_at)
+            if when.tzinfo is None or when.utcoffset() is None:
+                raise ValueError
+        except (ValueError, TypeError, OverflowError):
+            raise ValueError("BILLING_LINE_OBSERVATION_TIME_INVALID") from None
+
+
+@dataclass(frozen=True)
+class OperationBillingAttempt:
+    """Allowlisted immutable private receipt metadata, never a paid approval."""
+
+    receipt_id: str | None
+    attempt: int
+    status: str
+    billing_basis: str
+    recorded_measured_usd: Decimal | None
+    provisional_estimated_usd: Decimal | None
+    cash_uncertainty: bool
+    local_energy_basis: str | None
+    comparison_status: str
+
+
+@dataclass(frozen=True)
+class OperationBillingGroup:
+    operation_key: str
+    provider_id: str
+    operation: str
+    attempt_count: int
+    attempts: tuple[OperationBillingAttempt, ...]
+    private_only: bool = True
+    publication_authority: bool = False
+
+
+@dataclass(frozen=True)
+class OperationBillingReconciliation:
+    """Non-authorizing private readout over unmodified usage receipts."""
+
+    operation_count: int
+    attempt_count: int
+    duplicate_receipt_replays: int
+    duplicate_billing_line_replays: int
+    recorded_measured_usd: Decimal
+    provisional_estimated_usd: Decimal
+    unknown_cash_attempts: int
+    external_plan_attempts: int
+    zero_cost_attempts: int
+    unknown_energy_attempts: int
+    matched_unverified_billing_lines: int
+    disputed_billing_lines: int
+    unmatched_billing_lines: int
+    uncomparable_currency_lines: int
+    groups: tuple[OperationBillingGroup, ...] = ()
+    # Receipt basis and caller-supplied statement lines are not invoice proof.
+    authoritative_billed_usd: None = None
+    plan_quota_consumed: None = None
+    subscription_allocation_eur: None = None
+    measured_energy_wh: None = None
+    invoice_attested: bool = False
+    authorizes_dispatch: bool = False
+
+    @property
+    def cost_complete(self) -> bool:
+        # No independently authenticated provider statement, billing authority,
+        # quota entitlement or energy measurement is present in this seam.
+        return False
+
+
+def reconcile_operation_billing(
+    receipts: Iterable[OperationUsageReceipt],
+    statement_lines: Iterable[BillingStatementLine] = (),
+) -> OperationBillingReconciliation:
+    """Read-only attempt-to-statement comparison; no inferred invoice amounts.
+
+    Uses the exact OperationUsageReceipt objects produced by the existing
+    queue-store PostgreSQL consumer. A recorded MEASURED_PROVIDER_COST remains
+    a *recorded* cost pending independently verified provider reference; even
+    a matching externally supplied line is only MATCHED_UNVERIFIED. Different
+    currencies cannot be compared without a separately evidenced FX rate.
+    """
+    rows, duplicate_receipts = _unique_operation_attempts(receipts)
+    by_attempt = {(r.operation_key, r.attempt): r for r in rows}
+    grouped: dict[str, list[OperationUsageReceipt]] = {}
+    for r in rows:
+        if any(
+            not isinstance(label, str) or not _BILLING_REF.fullmatch(label)
+            for label in (r.operation_key, r.provider_id, r.operation, r.receipt_id)
+        ):
+            raise ValueError("OPERATION_RECONCILIATION_IDENTIFIER_INVALID")
+        prior = grouped.get(r.operation_key)
+        if prior is not None and (
+            prior[0].provider_id != r.provider_id
+            or prior[0].model_id != r.model_id
+            or prior[0].operation != r.operation
+        ):
+            raise ValueError("OPERATION_KEY_SCOPE_CONFLICT")
+        grouped.setdefault(r.operation_key, []).append(r)
+    seen_line_ids: dict[str, BillingStatementLine] = {}
+    seen_invoice_attempts: set[tuple[str, int, str]] = set()
+    comparison: dict[tuple[str, int], str] = {}
+    duplicate_lines = matched = disputed = unmatched = foreign_currency = 0
+    for line in statement_lines:
+        if not isinstance(line, BillingStatementLine):
+            raise ValueError("BILLING_LINE_INVALID")
+        prior = seen_line_ids.get(line.line_id)
+        if prior is not None:
+            if prior != line:
+                raise ValueError("BILLING_LINE_REPLAY_CONFLICT")
+            duplicate_lines += 1
+            continue
+        statement_identity = (line.operation_key, line.attempt, line.receipt_id)
+        if statement_identity in seen_invoice_attempts:
+            # One attempt could legitimately have split invoice lines, but
+            # without a verified line-allocation rule it cannot be matched
+            # more than once or added as an independent settled amount.
+            raise ValueError("BILLING_ATTEMPT_MULTIPLE_LINES_UNVERIFIED")
+        seen_invoice_attempts.add(statement_identity)
+        seen_line_ids[line.line_id] = line
+        original = by_attempt.get((line.operation_key, line.attempt))
+        if (original is None or original.receipt_id != line.receipt_id
+                or original.provider_id != line.provider_id):
+            unmatched += 1
+        elif line.currency != "USD":
+            foreign_currency += 1
+            comparison[(line.operation_key, line.attempt)] = "FX_REQUIRED"
+        elif (original.billing_basis != "MEASURED_PROVIDER_COST"
+              or original.measured_cost_usd != line.amount):
+            disputed += 1
+            comparison[(line.operation_key, line.attempt)] = "AMOUNT_DISPUTED"
+        else:
+            matched += 1
+            comparison[(line.operation_key, line.attempt)] = "MATCHED_UNVERIFIED"
+
+    groups = tuple(
+        OperationBillingGroup(
+            operation_key=key,
+            provider_id=items[0].provider_id,
+            operation=items[0].operation,
+            attempt_count=len(items),
+            attempts=tuple(
+                OperationBillingAttempt(
+                    receipt_id=r.receipt_id, attempt=r.attempt,
+                    status=(r.status if isinstance(r.status, str)
+                        and _BILLING_STATUS.fullmatch(r.status)
+                        else "UNRECOGNIZED_STATUS"),
+                    billing_basis=r.billing_basis,
+                    recorded_measured_usd=(r.measured_cost_usd
+                        if r.billing_basis == "MEASURED_PROVIDER_COST" else None),
+                    provisional_estimated_usd=(r.estimated_cost_usd
+                        if r.billing_basis == "ESTIMATED_ONLY" else None),
+                    cash_uncertainty=(r.billing_basis == "UNKNOWN"
+                        or r.cash_cost_uncertainty == "UNKNOWN"),
+                    local_energy_basis=r.local_energy_basis,
+                    comparison_status=comparison.get(
+                        (r.operation_key, r.attempt), "NO_STATEMENT_LINE"),
+                )
+                for r in sorted(items, key=lambda item: item.attempt)
+            ),
+        )
+        for key, items in sorted(grouped.items())
+    )
+
+    return OperationBillingReconciliation(
+        operation_count=len({r.operation_key for r in rows}),
+        attempt_count=len(rows),
+        duplicate_receipt_replays=duplicate_receipts,
+        duplicate_billing_line_replays=duplicate_lines,
+        recorded_measured_usd=sum((r.measured_cost_usd for r in rows
+                                   if r.billing_basis == "MEASURED_PROVIDER_COST"), Decimal("0")),
+        provisional_estimated_usd=sum((r.estimated_cost_usd for r in rows
+                                      if r.billing_basis == "ESTIMATED_ONLY"), Decimal("0")),
+        unknown_cash_attempts=sum(r.billing_basis == "UNKNOWN" or
+                                  r.cash_cost_uncertainty == "UNKNOWN" for r in rows),
+        external_plan_attempts=sum(r.billing_basis == "EXTERNAL_PLAN" for r in rows),
+        zero_cost_attempts=sum(r.billing_basis == "ZERO_COST" for r in rows),
+        unknown_energy_attempts=sum(r.local_energy_basis == "UNKNOWN" for r in rows),
+        matched_unverified_billing_lines=matched,
+        disputed_billing_lines=disputed,
+        unmatched_billing_lines=unmatched,
+        uncomparable_currency_lines=foreign_currency,
+        groups=groups,
+    )
+
+
 def operation_usage_receipt_from_row(
     row: Mapping[str, Any],
 ) -> OperationUsageReceipt:
@@ -202,7 +459,7 @@ def operation_usage_receipt_from_row(
     return OperationUsageReceipt(
         receipt_id=receipt_id,
         operation_key=operation_key,
-        attempt=int(row.get("attempt") or 1),
+        attempt=int(1 if row.get("attempt") is None else row["attempt"]),
         provider_id=str(row.get("provider_id") or "").strip(),
         model_id=str(row.get("model_id") or "").strip() or None,
         operation=str(row.get("operation") or "").strip(),
@@ -266,6 +523,8 @@ def filter_operation_receipts(
 
 
 __all__ = [
+    "BillingStatementLine", "OperationBillingAttempt", "OperationBillingGroup",
+    "OperationBillingReconciliation", "reconcile_operation_billing",
     "BILLING_BASES",
     "OPERATION_LEDGER_VERSION",
     "OperationLedgerSummary",

@@ -72,3 +72,69 @@ tests are **GREEN: 21/21**, after RED: 3 errors. No MiniPC production migration
 was applied; older databases and owner-authorized migration readback remain
 pending. `UNKNOWN` does not authorize billing, provider dispatch or publication.
 The remaining original DP-512 AC remain unchecked.
+
+## 2026-10-11 — Immutable attempt reconciliation, source-only readout
+
+The existing `operation_ledger.py` aggregator counted any repeated immutable
+`provider_receipt` row **twice** (including its measured/provisional monetary
+amount, tokens and requests). The PostgreSQL schema indexes
+`(operation_key, attempt)` but does not enforce that pair as UNIQUE, so two
+different receipt IDs could also claim the same attempt without triggering
+an explicit conflict in this consumer. Missing invoice provenance was not
+distinguishable from an externally verified bill in an aggregate number.
+
+The read-only operation-ledger consumer now normalizes **exact** receipt
+replays idempotently by receipt ID and `(operation_key, attempt)`, and rejects
+changed contents under a reused receipt ID or competing IDs for the same
+logical attempt. A new `reconcile_operation_billing` report accepts the
+existing `QueueExecutionCostStore.operation_ledger_receipts` result directly.
+It retains failed + retried provider attempts as separate charges, separates
+**recorded measured-labeled USD** from **provisional estimated USD**, unknown
+cash liability, external-plan attempts, explicit zero-cost attempts and
+unknown local energy. Plan quota quantities, subscription allocations,
+measured energy and independently confirmed billed amount remain `None`
+instead of fabricated zeros or allocation rules.
+
+The report additionally groups the **real consumer's** receipt identities by
+logical operation, ordered attempt and provider, with allowlisted status,
+original billing basis, optional recorded/provisional amount, cost uncertainty,
+energy basis and `NO_STATEMENT_LINE` / `MATCHED_UNVERIFIED` /
+`AMOUNT_DISPUTED` / `FX_REQUIRED` per-attempt comparison. Mixed provider/model
+or operation under one logical operation key now raises a scope conflict
+instead of presenting an incoherent grouped charge. This is a private,
+non-publishing summary and does not include provider receipt JSON, source
+bodies, URLs, prompts, tokens or account credentials. Untrusted free-form
+receipt status strings are rendered only as `UNRECOGNIZED_STATUS`, never
+echoed into the grouped report; malformed receipt/provider/operation IDs
+fail closed instead of exposing private metadata.
+
+Optional synthetic/manual statement lines bind exact receipt ID, operation
+key, attempt and provider, and are replay-idempotent. Disagreeing USD amounts,
+missing attempt identities, mixed currency without FX and multiple distinct
+statement lines for one attempt are separately disputed/uncomparable or held.
+Even a numerical match is **MATCHED_UNVERIFIED**, not provider invoice proof:
+no API/provider source authentication, plan entitlement, monetary adjustment,
+cost threshold, refund, cash settlement or dispatch authority is inferred
+from caller-provided references. The immutable original receipt is never
+modified or retrospectively reclassified. NaN/Infinity and zero attempt
+numbers are rejected rather than becoming a free or valid charge.
+
+TDD RED→GREEN: the new reconciliation API initially failed import; the
+multiple-distinct-invoice-lines adversarial test subsequently failed until
+the no-double-attribution fence was implemented. Tests exercise the **real
+queue-store receipt consumer method with synthetic persisted rows**, without
+changing `queue_store.py` or the private digest. Final targeted local run:
+**61/61 PASS** across the DP-512 reconciliation, operation ledger, earlier
+DP-512 billing, queue store, queue runtime and health-digest suites; compileall and
+`git diff --check` PASS. This is neither a real invoice nor PostgreSQL/MiniPC
+billing acceptance. In particular, the existing `health_digest.py` still
+groups `cost_usd` using fallback arithmetic that does not express true UNKNOWN
+or authenticated billing; it was inspected **read-only** under this worker's
+strict ownership. No source schema, migration, provider, MiniPC, commit, push
+or paid dispatch was modified.
+
+**DP-512 remains IN PROGRESS; all AC-512.1–.6 unchecked.** Remaining gates:
+authoritative invoice/usage API account-scope evidence and FX/provenance,
+durable append-only corrections and refunds, transactionally reserved budgets,
+actual provider-plan quota/local-energy observation, digest/worker parity,
+safe historic backfill preview and MiniPC isolated PostgreSQL replay.
