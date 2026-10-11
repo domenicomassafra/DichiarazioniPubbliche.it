@@ -13,6 +13,8 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from dataclasses import asdict
+from pathlib import Path
 
 from dichiarazioni_pubbliche.revocation_epoch_fence import (
     MaterialEpoch,
@@ -90,6 +92,15 @@ class PublicReadback:
     generation_ref: str
     status_code: int
     body_sha256: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class LocalConsumerPath:
+    """One concrete public output relative to an isolated static release directory."""
+
+    entity_id: str
+    surface: str
+    relative_path: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,13 +393,146 @@ def audit_withdrawal_readback(
     return WithdrawalReadbackAudit("CONSISTENT_UNATTESTED", (), len(inventory), ())
 
 
+def audit_local_static_withdrawal(
+    root: Path,
+    receipt_path: Path,
+    manifest: ReleaseSnapshot,
+    paths: tuple[LocalConsumerPath, ...],
+    *,
+    revoked_dependencies: tuple[str, ...],
+    current_fence: PublicationEpochTicket,
+) -> WithdrawalReadbackAudit:
+    """Read real bytes in a *local fixture* tree, including a simulated edge cache.
+
+    A separate private sidecar receipt (outside the public document root)
+    binds release hashes, inventory digest and every material epoch.
+    This function only reads paths: it cannot purge caches, deploy, authorize,
+    or attest a live host. The complete path inventory must be explicit.
+    """
+    inventory = _validate_manifest(manifest)
+    root = Path(root)
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("DP518_LOCAL_ROOT_INVALID")
+    if not isinstance(paths, tuple) or len(paths) != len(inventory):
+        raise ValueError("DP518_LOCAL_ROUTE_COVERAGE_INVALID")
+    routes: dict[tuple[str, str], str] = {}
+    seen_paths: set[str] = set()
+    for route in paths:
+        if (
+            not isinstance(route, LocalConsumerPath)
+            or (route.entity_id, route.surface) not in inventory
+            or not isinstance(route.relative_path, str)
+            or len(route.relative_path) > 400
+            or not re.fullmatch(r"[A-Za-z0-9._:-]+(?:/[A-Za-z0-9._:-]+)*", route.relative_path)
+            or any(part in {".", ".."} for part in route.relative_path.split("/"))
+        ):
+            raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+        key = (route.entity_id, route.surface)
+        if key in routes or route.relative_path in seen_paths:
+            raise ValueError("DP518_LOCAL_ROUTE_COVERAGE_INVALID")
+        routes[key] = route.relative_path
+        seen_paths.add(route.relative_path)
+    if set(routes) != set(inventory):
+        raise ValueError("DP518_LOCAL_ROUTE_COVERAGE_INVALID")
+
+    def checked_path(relative: str) -> Path:
+        current = root
+        for component in relative.split("/"):
+            current = current / component
+            if current.is_symlink():
+                raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+        return current
+
+    receipt = Path(receipt_path)
+    if (
+        receipt.is_symlink()
+        or not receipt.is_file()
+        or receipt.resolve().is_relative_to(root.resolve())
+        or receipt.stat().st_size > 65536
+    ):
+        raise ValueError("DP518_LOCAL_RELEASE_RECEIPT_INVALID")
+    try:
+        document = json.loads(receipt.read_text(encoding="utf-8"))
+        if (
+            not isinstance(document, dict)
+            or set(document) != {"version", "release", "epochs"}
+            or document["version"] != VERSION
+            or not isinstance(document["release"], dict)
+            or set(document["release"]) != set(ReleaseReadback.__dataclass_fields__)
+            or not isinstance(document["epochs"], list)
+        ):
+            raise ValueError("DP518_LOCAL_RELEASE_RECEIPT_INVALID")
+        observed = ReleaseReadback(**document["release"])
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, KeyError) as exc:
+        raise ValueError("DP518_LOCAL_RELEASE_RECEIPT_INVALID") from exc
+    if (
+        not _ref(observed.release_id)
+        or not _ref(observed.host_ref)
+        or not all(
+            _sha(value) for value in (
+                observed.code_sha256, observed.mirror_sha256,
+                observed.migration_sha256, observed.policy_sha256,
+                observed.generation_sha256, observed.fence_fingerprint,
+                observed.inventory_sha256,
+            )
+        )
+    ):
+        raise ValueError("DP518_LOCAL_RELEASE_RECEIPT_INVALID")
+    if document["epochs"] != [asdict(row) for row in manifest.fence.dependencies]:
+        return WithdrawalReadbackAudit(
+            "READBACK_UNTRUSTED_OR_DRIFT", ("LOCAL_EPOCH_READBACK_DRIFT",),
+            len(inventory), (),
+        )
+
+    readbacks: list[PublicReadback] = []
+    for (entity, surface), relative in sorted(routes.items()):
+        file = checked_path(relative)
+        if file.exists() and not file.is_file():
+            raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+        digest = None
+        if file.is_file():
+            hasher = hashlib.sha256()
+            with file.open("rb") as stream:
+                for block in iter(lambda: stream.read(65536), b""):
+                    hasher.update(block)
+            digest = hasher.hexdigest()
+        readbacks.append(
+            PublicReadback(
+                entity, surface, observed.host_ref,
+                "generation:" + observed.generation_sha256,
+                200 if digest is not None else 404, digest,
+            )
+        )
+
+    result = audit_withdrawal_readback(
+        manifest, tuple(readbacks), revoked_dependencies=revoked_dependencies,
+        observed_release=observed, current_fence=current_fence,
+    )
+    if result.status != "CONSISTENT_UNATTESTED":
+        return result
+    # A withdrawn release may retain unaffected content. Those bytes must
+    # still match the pinned local inventory or the rehearsal is incomplete.
+    if any(
+        (row.status_code == 200) != (inventory[(row.entity_id, row.surface)].state == "PRESENT")
+        or (row.status_code == 200 and row.body_sha256 != inventory[(row.entity_id, row.surface)].artifact_sha256)
+        for row in readbacks
+    ):
+        return WithdrawalReadbackAudit(
+            "READBACK_UNTRUSTED_OR_DRIFT", ("LOCAL_UNAFFECTED_ARTIFACT_DRIFT",),
+            len(inventory), (),
+        )
+    return result
+
+
 __all__ = [
     "REQUIRED_PUBLIC_CONSUMERS",
+    "LocalConsumerPath",
     "ReleaseArtifact",
     "ReleaseReadback",
     "ReleaseSnapshot",
     "PublicReadback",
     "WithdrawalReadbackAudit",
     "audit_withdrawal_readback",
+    "audit_local_static_withdrawal",
     "release_inventory_sha256",
 ]

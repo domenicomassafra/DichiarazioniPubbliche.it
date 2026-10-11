@@ -107,3 +107,36 @@ unchecked**, status **IN PROGRESS**; signed/current MiniPC source and
 release attestations, immutable fence/CAS, real public/CDN cache responses,
 measured propagation, qualified authority, rollback and owner acceptance
 remain to be provided without pretending local metadata is host proof.
+
+**2026-10-12 — fourth-wave local static-release consumer readback, source-only.**
+Added a distinct *filesystem-backed* rehearsal, `audit_local_static_withdrawal`,
+to the existing private DP-518 audit module. It reads real local static output
+bytes and checks the complete explicit route inventory for all twelve consumer
+types rather than trusting synthetic caller-supplied HTTP statuses. The local
+fixture produces separate HTML, JSON/API, search, sitemap, JSON-LD, RDF,
+navigation, trace, Person×Topic and simulated edge-cache paths for two entities
+(24 routes). The public document root contains public fixture content only;
+release/code/mirror/migration/policy/generation hashes, canonical artifact
+inventory checksum and exact DP-320 dependency epochs live in a **separate
+private sidecar receipt** which the reader refuses to open from the public root.
+Paths must be complete, unique, relative and free of symlink traversal.
+
+**RED:** the new functional regression suite could not import this operation.
+An additional private-receipt separation regression also failed before the
+control file was moved outside the served fixture root. **GREEN:** deletion of
+all revoked surfaces permits `CONSISTENT_UNATTESTED`; a surviving old HTML,
+API/search/sitemap/RDF or edge-cache file is observed from actual bytes as an
+unsafe 200-equivalent; old-release rollback receipt, stale current epoch,
+tampered dependency epoch, missing receipt, altered unaffected search bytes,
+incomplete route inventory and symlink escape fail closed. Restoring the known
+safe fixture receipt and removing the stale restored output returns the local
+rehearsal to `CONSISTENT_UNATTESTED`, without deleting source history.
+**Proof:** seven new functional tests, sixteen original DP-518 and eleven
+DP-320 tests, **34/34 PASS**; Ruff, targeted compilation and `git diff --check`
+PASS. Source and receipt remain private synthetic fixtures. The operation
+only reads and hashes local files: no real static build, writer/publisher,
+atomic live pointer, CDN/cache purge, MiniPC, signed release attestation,
+independent source rights or latency was exercised. Its local cache path is
+only a test double for edge bytes. `release_authorized`,
+`withdrawal_verified_on_live_host` and `cache_purge_verified` remain false;
+**AC-518.1–.7 open, release NO-GO**.
