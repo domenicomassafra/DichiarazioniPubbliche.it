@@ -1,8 +1,9 @@
 """DP-240 source-only mixed Person/Content isolation fixtures."""
 
 import sys
+import json
 import unittest
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
@@ -11,6 +12,10 @@ from dichiarazioni_pubbliche.multi_person_batch_v1 import (  # noqa: E402
     PrivateBatchResult,
     ReviewedPassageContext,
     _stable_hash,
+    build_private_batch_receipt_index,
+    export_private_batch_receipt_index,
+    load_private_batch_receipt_index,
+    lookup_private_batch_item_receipt,
     plan_isolated_candidate_batch,
     reconcile_isolated_private_results,
 )
@@ -90,6 +95,211 @@ def rehash_plan(original):
 
 
 class MixedPersonPrivateBatchTests(unittest.TestCase):
+    def test_receipt_index_durable_json_roundtrip_replay_and_corruption_refused(self):
+        planned = plan()
+        first, second, _ = planned.items
+        observation = PrivateBatchResult(
+            first.passage_id, first.content_id, first.capture_id,
+            first.passage_sha256, "FAILED", "NETWORK_TIMEOUT", None,
+        )
+        initial = build_private_batch_receipt_index(planned, (observation,))
+        persisted = json.loads(json.dumps(export_private_batch_receipt_index(planned, initial)))
+        recovered = load_private_batch_receipt_index(planned, persisted)
+        self.assertEqual(initial, recovered)
+        subsequent = PrivateBatchResult(
+            second.passage_id, second.content_id, second.capture_id,
+            second.passage_sha256, "CANDIDATE_EXTRACTED", None, "fixture:de:v2",
+        )
+        combined = build_private_batch_receipt_index(
+            planned, (subsequent,), previous_index=recovered,
+        )
+        self.assertEqual(
+            load_private_batch_receipt_index(
+                planned,
+                json.loads(json.dumps(export_private_batch_receipt_index(planned, combined))),
+            ), combined,
+        )
+        self.assertEqual(combined.failed_count, 1)
+        self.assertEqual(combined.private_candidate_count, 1)
+        for tampered in (
+            {**persisted, "receipt_sha256": "0" * 64},
+            {**persisted, "items": [
+                {**persisted["items"][0], "source_sha256": "f" * 64},
+                *persisted["items"][1:],
+            ]},
+            {**persisted, "items": [*persisted["items"], persisted["items"][0]]},
+            {**persisted, "publication_authority": True},
+            {**persisted, "observed_count": True},
+            {**persisted, "items": [dict(persisted["items"][0],
+                hidden_private_text="source secret"), *persisted["items"][1:]]},
+        ):
+            with self.subTest(tampered=tampered), self.assertRaisesRegex(
+                ValueError, "RECEIPT_(?:INTEGRITY|PROVENANCE)_INVALID",
+            ):
+                load_private_batch_receipt_index(planned, tampered)
+        # In-memory dataclass serialization uses the same lossless, read-only
+        # schema as JSON; it never stores raw source words or model output.
+        self.assertEqual(json.loads(json.dumps(asdict(initial))), persisted)
+        self.assertNotIn("private_text", json.dumps(persisted))
+
+    def test_receipt_index_isolates_multiple_contents_languages_and_homonyms(self):
+        batch = manifest()
+        contexts = reviewed_contexts(batch)
+        contexts["passage:0"] = replace(
+            contexts["passage:0"],
+            speaker_candidate_id="person-candidate:anna:source-a",
+        )
+        contexts["passage:1"] = replace(
+            contexts["passage:1"],
+            speaker_candidate_id="person-candidate:anna:source-b",
+            speech_role="QUOTED_SPEAKER",
+            speech_act="REPORTED_QUOTE",
+        )
+        contexts["passage:2"] = replace(
+            contexts["passage:2"], rights_status="REVOKED",
+        )
+        planned = plan(batch, contexts)
+        first = planned.items[0]
+        observation = PrivateBatchResult(
+            first.passage_id, first.content_id, first.capture_id, first.passage_sha256,
+            "CANDIDATE_EXTRACTED", None, "extractor:de-it:v1",
+        )
+        indexed = build_private_batch_receipt_index(planned, (observation,))
+        self.assertEqual([row.status for row in indexed.items], [
+            "PRIVATE_CANDIDATE_UNVERIFIED", "HELD", "HELD",
+        ])
+        self.assertEqual(indexed.observed_count, 1)
+        self.assertEqual(indexed.pending_count, 0)
+        self.assertEqual(indexed.failed_count, 0)
+        self.assertEqual(indexed.held_count, 2)
+        self.assertEqual(indexed.private_candidate_count, 1)
+        self.assertEqual(indexed.items[0].language_tag, "it")
+        self.assertEqual(indexed.items[1].language_tag, "de")
+        self.assertNotEqual(
+            indexed.items[0].speaker_candidate_id,
+            indexed.items[1].speaker_candidate_id,
+        )
+        self.assertEqual(indexed.items[1].reason_code,
+                         "MULTIPERSON_QUOTATION_NOT_ENDORSEMENT")
+        self.assertEqual(indexed.items[1].speech_role, "QUOTED_SPEAKER")
+        self.assertEqual(indexed.items[1].speech_act, "REPORTED_QUOTE")
+        self.assertEqual(indexed.items[1].identity_review_status, "CANDIDATE_MATCH")
+        self.assertEqual(indexed.items[2].rights_status, "REVOKED")
+        self.assertEqual(indexed.items[2].reason_code,
+                         "MULTIPERSON_SOURCE_RIGHTS_HELD")
+        for expected in planned.items:
+            item = lookup_private_batch_item_receipt(
+                planned, indexed, passage_id=expected.passage_id,
+                content_id=expected.content_id,
+                capture_id=expected.capture_id,
+                source_sha256=expected.source_sha256,
+            )
+            self.assertEqual(item.partition_id, expected.partition_id)
+            self.assertEqual(item.source_family, expected.source_family)
+            self.assertEqual(item.selector_fingerprint, expected.selector_fingerprint)
+            self.assertEqual(item.passage_sha256, expected.passage_sha256)
+            self.assertFalse(item.public_attribution_authority)
+        with self.assertRaisesRegex(ValueError, "RECEIPT_SOURCE_MISMATCH"):
+            lookup_private_batch_item_receipt(
+                planned, indexed, passage_id=first.passage_id,
+                content_id=planned.items[1].content_id,
+                capture_id=first.capture_id, source_sha256=first.source_sha256,
+            )
+        self.assertEqual(indexed, build_private_batch_receipt_index(planned, (observation, observation)))
+
+    def test_partial_failure_index_retry_only_completes_previous_unobserved_item(self):
+        planned = plan()
+        first, second, third = planned.items
+        failure = PrivateBatchResult(
+            first.passage_id, first.content_id, first.capture_id, first.passage_sha256,
+            "FAILED", "PROVIDER_UNAVAILABLE", None,
+        )
+        successful = PrivateBatchResult(
+            third.passage_id, third.content_id, third.capture_id, third.passage_sha256,
+            "CANDIDATE_EXTRACTED", None, "extractor:it:v1",
+        )
+        partial = build_private_batch_receipt_index(planned, (failure,))
+        self.assertEqual([r.status for r in partial.items],
+                         ["FAILED", "UNOBSERVED", "UNOBSERVED"])
+        self.assertEqual(partial.pending_count, 2)
+        self.assertEqual(partial.failed_count, 1)
+        completed = build_private_batch_receipt_index(
+            planned, (successful,), previous_index=partial,
+        )
+        self.assertEqual([r.status for r in completed.items],
+                         ["FAILED", "UNOBSERVED", "PRIVATE_CANDIDATE_UNVERIFIED"])
+        self.assertEqual(completed.pending_count, 1)
+        self.assertEqual(completed.failed_count, 1)
+        self.assertEqual(completed.private_candidate_count, 1)
+        self.assertNotEqual(partial.receipt_sha256, completed.receipt_sha256)
+        self.assertEqual(
+            completed,
+            build_private_batch_receipt_index(
+                planned, (failure, successful, successful), previous_index=partial,
+            ),
+        )
+        self.assertEqual(
+            completed,
+            build_private_batch_receipt_index(planned, (), previous_index=completed),
+        )
+        # Even a later legitimate-looking provider result cannot silently
+        # rewrite a committed failure without a separately scoped retry run.
+        revised = replace(failure, result="CANDIDATE_EXTRACTED",
+                          failure_reason=None, extraction_version="extractor:retry:v2")
+        with self.assertRaisesRegex(ValueError, "RECEIPT_REPLAY_CONFLICT"):
+            build_private_batch_receipt_index(
+                planned, (revised,), previous_index=completed,
+            )
+        with self.assertRaisesRegex(ValueError, "RECEIPT_REPLAY_CONFLICT"):
+            build_private_batch_receipt_index(
+                planned, (replace(failure, failure_reason="OTHER"),),
+                previous_index=completed,
+            )
+
+    def test_receipt_index_rejects_foreign_plan_forgery_and_reordered_provenance(self):
+        planned = plan()
+        first = planned.items[0]
+        observation = PrivateBatchResult(
+            first.passage_id, first.content_id, first.capture_id, first.passage_sha256,
+            "FAILED", "TIMEOUT", None,
+        )
+        index = build_private_batch_receipt_index(planned, (observation,))
+        changes = (
+            replace(index, receipt_sha256="0" * 64),
+            replace(index, items=tuple(reversed(index.items))),
+            replace(index, items=(replace(index.items[0], content_id="content:foreign"), *index.items[1:])),
+            replace(index, items=(replace(index.items[0], failure_reason="FORGED"), *index.items[1:])),
+            replace(index, items=(replace(index.items[0], speaker_candidate_id="person-candidate:other"), *index.items[1:])),
+            replace(index, items=(replace(index.items[0], status="PRIVATE_CANDIDATE_UNVERIFIED"), *index.items[1:])),
+            replace(index, observed_count=0),
+        )
+        for corrupted in changes:
+            with self.subTest(corrupted=corrupted), self.assertRaisesRegex(
+                ValueError, "RECEIPT_(?:INTEGRITY|PROVENANCE|COUNTS|ORDER)_INVALID",
+            ):
+                build_private_batch_receipt_index(planned, (), previous_index=corrupted)
+        unrelated = plan(manifest(reverse=True))
+        with self.assertRaisesRegex(ValueError, "RECEIPT_PLAN_MISMATCH"):
+            build_private_batch_receipt_index(unrelated, (), previous_index=index)
+
+    def test_rehashed_plan_cannot_override_rights_or_quoted_speaker_context(self):
+        original = plan()
+        item = original.items[0]
+        cases = (
+            {"rights_status": "REVOKED"},
+            {"identity_review_status": "UNRESOLVED"},
+            {"speech_role": "QUOTED_SPEAKER", "speech_act": "REPORTED_QUOTE"},
+            {"context_review_id": None},
+        )
+        for change in cases:
+            changed = rehash_plan(replace(
+                original, items=(replace(item, **change), *original.items[1:]),
+            ))
+            with self.subTest(change=change), self.assertRaisesRegex(
+                ValueError, "PLAN_STATUS_INVALID",
+            ):
+                build_private_batch_receipt_index(changed, ())
+
     def test_three_contents_three_person_candidates_never_share_source_partition(self):
         result = plan()
         self.assertEqual(len(result.items), 3)

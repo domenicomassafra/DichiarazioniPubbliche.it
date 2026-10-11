@@ -95,3 +95,57 @@ focused tests PASS**, including DP-240 alongside the other active M2 ticket
 changes; **Ruff PASS**. Full repository suite was still running when this
 receipt was written, so no full-suite result is asserted. This is local
 source/test evidence only; the acceptance checks above remain open.
+
+## 2026-10-11 — Per-item private durable-format receipt index and replay
+
+New **functional read-only** interface in `multi_person_batch_v1.py`:
+`PrivateBatchItemReceipt`, `PrivateBatchReceiptIndex`,
+`build_private_batch_receipt_index`, `lookup_private_batch_item_receipt`,
+`export_private_batch_receipt_index` and
+`load_private_batch_receipt_index`. This extends, but does not replace,
+the existing private candidate batch manifest and status-only reconciler.
+Every proposed/held item now retains explicitly scoped immutable identity
+fields—Content, Capture, source SHA-256, Passage and text SHA-256, selector
+fingerprint, batch partition, candidate Person ID, language, source family,
+identity review state, speech role/act, context review ID and rights state.
+The added context also remains part of the deterministic plan fingerprint;
+a rehashed ready item claiming revoked rights, unresolved speaker, reported
+quotation or absent context review cannot pass plan validation.
+
+The per-item receipt distinguishes **UNOBSERVED** from an explicit source/
+identity/rights **HELD**, observed **FAILED**, and
+`PRIVATE_CANDIDATE_UNVERIFIED`. Missing observations never become successes.
+Receipt snapshots are immutable data objects with a canonical integrity hash
+and exact plan binding; JSON export/import validates all fields, provenance,
+per-item observation semantics, counts, ordering and unknown fields before
+consumer readback. Read-only lookup requires matching Passage **and** Content,
+Capture and source hash, not a shared Person name or topic. Repeat identical
+observations are idempotent and observation ordering is irrelevant. A new
+observation may fill an **UNOBSERVED** item in a later snapshot, but may not
+rewrite a previously recorded failure/held/success outcome on the same plan;
+a real new provider retry requires a separately authorized, durable execution
+scope. No raw original text or model output is serialized into these receipts.
+
+The newly added tests demonstrated **RED** before implementation (missing
+receipt-index interface) and **GREEN** after implementation: different
+Contents and Italian/German language items, candidate homonyms separated by
+source, quoted-speech and revoked-rights holds, partial failure with resumed
+unobserved items, conflicting replay, forged result/provenance, reordered
+items, exact source lookup, JSON roundtrip after simulated process reload,
+bad counter type/extra private field, and rehashed ready plans contradicting
+their own rights/role/identity context. **25/25 DP-240 focused tests PASS**;
+DP-240 plus the existing candidate-batch and CLI suites **52/52 PASS**.
+Ruff lint, targeted Python compilation and `git diff --check` pass.
+No real provider, cost measurement, persistent DB, image/voice model, public
+attribution or production MiniPC was involved.
+
+This is a **persistable private receipt format**, not an implemented durable
+store or an authenticated proof that extraction happened. SHA-256 is not a
+signature; caller-supplied source rights, speaker candidates and receipt
+content still require independent source/rights/runtime authority. The
+original **AC-240.1–.6 remain unchecked**: approved multi-Person, original
+Passage/role evidence and independently annotated wrong-attribution gold,
+real candidate mapping, authenticated transactional persistence/idempotency,
+measured isolated-vs-batch cost/latency/error rates, and MiniPC+Studio
+consumer readback with no public contamination remain external gates.
+**Status IN PROGRESS; release NO-GO.**
