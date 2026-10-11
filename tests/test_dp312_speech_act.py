@@ -77,6 +77,42 @@ class SpeechActContextTests(unittest.TestCase):
         self.assertNotEqual(result.stance, "ENDORSE")
         self.assertNotIn(text, repr(result.to_metadata()))
 
+    def test_negated_criticism_does_not_ascribe_dissent_to_utterer(self):
+        # Synthetic, source-independent contrast pairs. A negated critical verb
+        # is not evidence that the speaker actually criticized the proposal.
+        cases = (
+            ("Critico questa misura.", "Non critico questa misura.", "it"),
+            ("I condemn the measure.", "I do not condemn the measure.", "en"),
+            ("Ich kritisiere diese Maßnahme.", "Ich kritisiere diese Maßnahme nicht.", "de"),
+        )
+        for affirmative, negated, language in cases:
+            with self.subTest(language=language):
+                def run(text):
+                    return assess_speech_act_context(
+                        source_text=text,
+                        source_sha256=hashlib.sha256(text.encode()).hexdigest(),
+                        quote_start=0, quote_end=len(text), turn_start=0,
+                        turn_end=len(text), utterer_id="person:a",
+                        turn_speaker_ids=("person:a",), source_part_ref="part:a",
+                        turn_complete=True, language=language,
+                    )
+
+                direct = run(affirmative)
+                self.assertEqual((direct.speech_act, direct.stance, direct.state),
+                                 ("CRITIQUE", "DISTANCE", "CANDIDATE_PRIVATE"))
+                result = run(negated)
+                self.assertEqual(result.state, "HOLD_FOR_CONTEXT")
+                self.assertEqual(result.stance, "UNKNOWN")
+                self.assertEqual(result.speech_act, "UNKNOWN")
+                self.assertIn("CRITIQUE_NEGATION_SCOPE_UNRESOLVED", result.signal_codes)
+                self.assertNotEqual(result.binding_sha256, direct.binding_sha256)
+                self.assertEqual(
+                    verify_speech_act_context_metadata(
+                        result.to_metadata(), source_text=negated
+                    ).binding_sha256,
+                    result.binding_sha256,
+                )
+
     def test_reported_quote_and_performance_do_not_endorse(self):
         for source, act in (
             ("Secondo Ada, «Io sostengo che il piano è utile».", "REPORT"),

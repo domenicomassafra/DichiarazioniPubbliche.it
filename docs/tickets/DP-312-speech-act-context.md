@@ -42,3 +42,7 @@ Depends on: DP-216, DP-217, DP-218, DP-219, DP-220, DP-222
 ## 2026-10-11 — First implementation slice
 
 Bounded private `SpeechActContextDecision` in `context_integrity.py` (commit `6404079`) distinguishes assertion, quote, criticism, denial, question and incomplete context; never grants publication. 22 focused and 14 legacy context cases pass; multilingual reference gold, German translation assurance, downstream source reanalysis and MiniPC receipt are still missing. No AC can be closed solely from lexical fixtures.
+
+## 2026-10-11 — Negated criticism fail-closed regression
+
+Three synthetic contrast pairs in Italian, English and German reproduced an unsafe private semantic classification: `Non critico questa misura.` (and equivalent negated critical predicates) previously returned `CRITIQUE / DISTANCE / CANDIDATE_PRIVATE`, falsely attributing dissent to the utterer. The lexical preflight now returns `UNKNOWN / UNKNOWN / HOLD_FOR_CONTEXT` with `CRITIQUE_NEGATION_SCOPE_UNRESOLVED` whenever a criticism cue co-occurs with negation whose scope has not been independently established. Positive direct criticism remains a private candidate; source revision changes the fingerprint and metadata replays deterministically. RED: three failing language subtests. GREEN: 23/23 focused speech-act cases, 14/14 legacy context cases. This is a bounded conservative rule, not multilingual semantic calibration, quote/source clearance, downstream invalidation, or MiniPC runtime proof; all original AC-312.1–312.6 remain pending.

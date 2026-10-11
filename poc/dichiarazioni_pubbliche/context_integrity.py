@@ -599,7 +599,13 @@ def assess_speech_act_context(
         negative = bool(cues["negation"].search(turn))
         polarity = "NEGATED" if negative else "POSITIVE"
         if cues["critique"].search(unquoted):
-            act, stance = "CRITIQUE", "DISTANCE"
+            if negative:
+                # A lexical criticism cue under negation does not establish
+                # that the utterer distanced themselves from the target.
+                # Scope must be resolved against the full source context.
+                signals.append("CRITIQUE_NEGATION_SCOPE_UNRESOLVED")
+            else:
+                act, stance = "CRITIQUE", "DISTANCE"
         elif cues["performance"].search(unquoted):
             act, stance = "PERFORMANCE", "NON_COMMITTAL"
         elif cues["opinion"].search(unquoted):
