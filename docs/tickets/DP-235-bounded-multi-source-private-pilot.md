@@ -56,3 +56,63 @@ media/source families, or connect to persistent Capture/Passage/Candidate flow.
 Therefore this is not an accepted or authorized manifest; all five AC remain
 open pending source permissions, adequate private negative-case tests and
 MiniPC readback. No provider execution or public exposure has been approved.
+
+## 2026-10-11 — Source-only manifest hardening, no runtime acceptance
+
+Implementation now checks the **proposal descriptor** through the existing
+`PrivatePilotSample` / `freeze_private_pilot_manifest` /
+`validate_private_pilot_manifest` interfaces. The original seven sample
+constructor arguments are retained; the added fields must be provided before
+the descriptor can be frozen:
+
+- Versioned source identity: exact HTTPS `source_locator`, named
+  `source_version` and lowercase 64-hex `source_version_sha256`, together
+  with a concrete `content_id` and non-placeholder `source_family`.
+  The hash is an **expected input pin**, not proof bytes were fetched or
+  verified. Altering source bytes requires an independently reviewed new
+  manifest and immutable capture/version history later in the actual pipeline.
+- Attribution and method: original `language` tag, `person_id` and
+  `attribution_role` (`AUTHOR`, `SPEAKER`, `REPORTED`, `UNKNOWN`),
+  `medium` (`written`, `audio`, `video`) with an explicit supported
+  `media_type`. `UNKNOWN` requires no Person ID; `REPORTED` and
+  `UNKNOWN` are held for attribution review. A role descriptor **never**
+  attests speaker identity or verifies a political statement.
+- Rights pointer: absent `rights_reference` requires all optional
+  `rights_source_family`, `rights_content_id`,
+  `rights_source_locator`, and `rights_version_sha256` to be absent;
+  this yields `HELD`. Present `rights:<id>` requires exact equality of
+  family/content/locator/version hash to that sample's scope. Even a matching
+  pointer remains **unverified**: this component cannot read, authenticate,
+  date-check, revoke or grant actual DP-236 per-use permissions.
+  `capture_permission` remains `APPROVED_EXTERNAL_REQUIRED`.
+- Bounds: at most eight unique samples, four source families and an explicit
+  per-manifest `max_samples` (1–8), `budget_eur_cents` (0–10,000)
+  and nonnegative `estimated_cost_eur_cents` per sample, all exact integers.
+  The declared estimates must fit the budget. They are not measured charges,
+  a budget reservation or permission to invoke a provider.
+- Frozen integrity: rejects duplicate sample IDs, logical Content IDs,
+  source-family/locator/version triples and identical declared version bytes;
+  deterministically sorts rows, binds metadata and budget/status/reasons to
+  a SHA-256 checksum, and **rechecks all invariants** on validation (including
+  manually constructed/tampered dataclasses). A checksum is not a signature:
+  only trusted surrounding review can establish document authorship.
+
+`review_status=HELD` means the declared rights reference is absent or
+the subject attribution is unresolved, with stable private
+`sample_id:reason` entries in `hold_reasons`. `PROPOSED` only means
+the descriptor is internally well formed and has an exactly scoped
+**unauthenticated reference**; it never means rights, attribution, funding or
+the source bytes were approved. Both states set
+`dispatch_authorized=False` and perform no I/O, publication or pipeline
+dispatch. Malformed/inconsistent descriptors fail closed with ValueError
+instead of a third approval-like state.
+
+**Test scope:** deterministic source-only unittest cases for URL/version/hash,
+source family, person/role, language/media pairing, rights scope, duplicate
+logical content/bytes, cap/estimate overrun, and forged manifests. This
+does not satisfy the real-source portions of AC-235.1, AC-235.2–5:
+permission authenticity, byte hash comparison to an actual Capture,
+cross-source identity and replay in persisted DB, MiniPC/private Studio
+receipt, provider budget metering, and public counter readback still require
+independent live acceptance. All five original AC stay unchecked, and issue
+status stays **IN PROGRESS**.
