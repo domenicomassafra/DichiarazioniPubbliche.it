@@ -403,7 +403,7 @@ SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
 _SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
 _SPEECH_ACT_MAX_TURN_CHARS = 12000
 _QUOTED_TEXT_RE = re.compile(
-    r"""«[^«»]+»|“[^“”]+”|‘[^‘’]+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|‘[^‘’]+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
 )
 _SPEECH_ACT_CUES = {
     "it": {
@@ -575,7 +575,7 @@ def assess_speech_act_context(
     # Treat every pair as a single nested quote. Mark unbalanced delimiters as
     # ambiguous rather than interpreting a possibly chopped endorsement.
     quote_spans = list(_QUOTED_TEXT_RE.finditer(turn))
-    for opener, closer in (("«", "»"), ("“", "”")):
+    for opener, closer in (("«", "»"), ("‹", "›"), ("“", "”")):
         if turn.count(opener) != turn.count(closer):
             signals.append("UNBALANCED_QUOTATION")
     if turn.count('"') % 2:

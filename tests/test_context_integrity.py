@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.context_integrity import (  # noqa: E402
     assess_context_integrity,
+    assess_speech_act_context,
     assess_structured_context_integrity,
     curated_context_approval,
     verify_structured_context_integrity_metadata,
@@ -26,6 +27,48 @@ def assess(text, start, end, **kwargs):
 
 
 class ContextIntegrityTests(unittest.TestCase):
+    def test_german_reversed_guillemets_do_not_endorse_quoted_support(self):
+        for text in (
+            "»Ich unterstütze diese Maßnahme.«",
+            "›Ich unterstütze diese Maßnahme.‹",
+        ):
+            with self.subTest(text=text):
+                result = assess_speech_act_context(
+                    source_text=text,
+                    source_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                    quote_start=0,
+                    quote_end=len(text),
+                    turn_start=0,
+                    turn_end=len(text),
+                    utterer_id="person:reader",
+                    quoted_author_id="person:historic",
+                    language="de",
+                    turn_speaker_ids=("person:reader",),
+                    source_part_ref="capture:part-a",
+                    turn_complete=True,
+                )
+                self.assertEqual(result.speech_act, "QUOTE")
+                self.assertEqual(result.stance, "NON_COMMITTAL")
+                self.assertFalse(result.publication_authority)
+
+        incomplete = "›Ich unterstütze diese Maßnahme."
+        held = assess_speech_act_context(
+            source_text=incomplete,
+            source_sha256=hashlib.sha256(incomplete.encode("utf-8")).hexdigest(),
+            quote_start=0,
+            quote_end=len(incomplete),
+            turn_start=0,
+            turn_end=len(incomplete),
+            utterer_id="person:reader",
+            language="de",
+            turn_speaker_ids=("person:reader",),
+            source_part_ref="capture:part-a",
+            turn_complete=True,
+        )
+        self.assertEqual(held.state, "HOLD_FOR_CONTEXT")
+        self.assertEqual(held.stance, "UNKNOWN")
+        self.assertIn("UNBALANCED_QUOTATION", held.signal_codes)
+
     def test_complete_autonomous_sentence_is_clear(self):
         text = "Il dato ufficiale è 10."
         result = assess(text, 0, len(text))
