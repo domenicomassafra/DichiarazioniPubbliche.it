@@ -3,8 +3,9 @@
 // This is NOT a live projection, deployment, or manual screen-reader acceptance.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,15 +20,48 @@ assert.equal(relevant.length, 12, "bounded public-schema fixture must contain 12
 const target = relevant.find((item) => item.finding_id.endsWith("moment-06"));
 assert(target, "sixth fixture moment missing");
 
+// Exercise only public publication statuses. Internal REVIEW/HOLD/UNRESOLVED
+// statuses are deliberately forbidden by the public schema and cannot be shown.
+const statusCases = [
+  { suffix: "moment-04", status: "DISPUTED", label: "Valutazione contestata" },
+  { suffix: "moment-05", status: "CORRECTED", label: "Valutazione corretta" },
+  { suffix: "moment-06", status: "RETRACTED", label: "Valutazione ritirata" },
+];
+const testBundle = structuredClone(fixtureData);
+for (const { suffix, status } of statusCases) {
+  const dossier = testBundle.dossiers.find((item) => item.finding_id.endsWith(suffix));
+  assert(dossier, `missing synthetic status moment: ${suffix}`);
+  dossier.finding.publication_status = status;
+}
+const canonicalJson = (value) => value === null || typeof value !== "object"
+  ? JSON.stringify(value)
+  : Array.isArray(value) ? `[${value.map(canonicalJson).join(",")}]`
+    : `{${Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      .map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+const material = { dossiers: testBundle.dossiers };
+if (testBundle.topics !== undefined) material.topics = testBundle.topics;
+if (testBundle.contents !== undefined) material.contents = testBundle.contents;
+testBundle.dataset_sha256 = createHash("sha256").update(canonicalJson(material), "utf8").digest("hex");
+const fixtureDir = await mkdtemp(path.join(tmpdir(), "dp407-public-state-"));
+const syntheticFixture = path.join(fixtureDir, "public-projection.json");
+await writeFile(syntheticFixture, JSON.stringify(testBundle), "utf8");
+const schemaCheck = spawnSync("python3", ["-c",
+  "import json,sys; from dichiarazioni_pubbliche.public_schema import validate_public_bundle; validate_public_bundle(json.load(open(sys.argv[1])))",
+  syntheticFixture], {
+  cwd: root, encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(root, "poc") },
+});
+assert.equal(schemaCheck.status, 0, `synthetic public projection rejected: ${schemaCheck.stderr}`);
+
 const built = spawnSync("npm", ["run", "build"], {
   cwd: webRoot, encoding: "utf8", maxBuffer: 8 * 1024 * 1024,
   env: {
     ...process.env,
     DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: "1",
-    DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: fixture,
+    DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: syntheticFixture,
   },
 });
 if (built.status !== 0) {
+  await rm(fixtureDir, { recursive: true, force: true });
   throw new Error(`DP-407 isolated static build failed:\n${(built.stderr || built.stdout).slice(-5000)}`);
 }
 const dist = path.join(webRoot, "dist");
@@ -132,6 +166,23 @@ try {
   assert(accessibleName.includes(target.claim),
     `Timed marker accessible name does not identify its published claim: ${JSON.stringify(accessibleName)}`);
 
+  for (const { suffix, status, label } of statusCases) {
+    const findingId = `finding:demo:maintenance-${suffix}`;
+    const stateMarkup = JSON.parse(await evaluate(`JSON.stringify({
+      list: document.querySelector('.content-moment__button[data-content-select="${findingId}"]')?.textContent,
+      detail: document.querySelector('[data-content-detail="${findingId}"]')?.textContent,
+      link: document.querySelector('[data-content-detail="${findingId}"] .content-detail-paths a')?.getAttribute('href')
+    })`));
+    assert(stateMarkup.list?.includes(label), `${status}: Content list omits public editorial state`);
+    assert(stateMarkup.detail?.includes(label), `${status}: Content detail omits public editorial state`);
+    assert(stateMarkup.link?.startsWith('/dichiarazioni/'), `${status}: reader cannot navigate to canonical history`);
+    if (status === "RETRACTED") {
+      const withdrawnRationale = relevant.find((item) => item.finding_id === findingId).finding.rationale;
+      assert(!stateMarkup.detail.includes(withdrawnRationale),
+        "Retracted Content must not present a withdrawn rationale as a current finding");
+    }
+  }
+
   await evaluate(`document.querySelector(${JSON.stringify(markerSelector)}).focus()`);
   assert(await evaluate(`document.activeElement?.matches(${JSON.stringify(markerSelector)})`), "marker focus was not set");
   for (const type of ["keyDown", "keyUp"]) {
@@ -173,4 +224,5 @@ try {
   if (child.exitCode === null) child.kill("SIGKILL");
   await new Promise((resolve) => server.close(resolve));
   await rm(profile, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  await rm(fixtureDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 }

@@ -301,3 +301,38 @@ completion. Status remains IN PROGRESS.
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS. DP-435/436 migrate Content moments from normalized claim disguised as quotation to legally approved exact source words, original language, selector/hash or timed locator, with separately labeled translation/summary and optional Finding. Internal under-review/blocked status is not a public disclosure category; only deliberate public checking states can render without leak. Keep AC-407.4/.7 open until valid public-state contract and real accessibility/device proof. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+### 2026-10-11 Content editorial-state fail-closed correction (source-only)
+
+The real `ContentRecord.astro` previously ignored the approved Finding
+`publication_status`. A `DISPUTED`, `CORRECTED`, or `RETRACTED` moment retained its
+assessment badge and rationale as though the Finding were simply `PUBLISH`.
+The canonical and legacy Content routes now distinguish these three **public**
+states in their list and selected detail, preserving the canonical Statement
+link. A withdrawn (`RETRACTED`) Finding no longer displays its previous
+assessment, rationale, or evidence as a current verdict. The component also
+omits moments with non-public publication status or non-publishable assessment,
+including malformed projection inputs, instead of describing internal queue
+states to readers.
+
+The mounted-route Chromium regression
+`node prototypes/v4-implementation/dp407/test-contentrecord-real-wave11.mjs`
+derives a temporary **fictional** Content projection containing all three
+public editorial states, recomputes the projection fingerprint, and first
+passes `validate_public_bundle`. It failed **RED** on the missing `DISPUTED`
+label before the UI fix, then passed **GREEN** after the change, including
+visible list/detail wording, canonical navigation, withdrawn-rationale
+omission, keyboard Space, accessible marker name, deep-link state, and
+same-origin resource isolation. `cd web && npm run check` reports 0 errors,
+0 warnings, 0 hints; `git diff --check` passed. No private transcript,
+operational body, source licensing, public database write, or production
+deployment was involved.
+
+**AC-407.4 remains open:** `UNRESOLVED`, `NEEDS_MORE_EVIDENCE`,
+`INTERNAL_CANDIDATE`/under-review and `POLICY_HOLD` are excluded by the actual
+public schema, so this is legitimate editorial-state UI coverage, not proof
+that those private workflow states can be displayed publicly. The owner must
+settle any separate, safe public checking-state contract before its literal
+wording can be accepted. **AC-407.7 remains open** until the specified real
+screen-reader/manual accessibility pass. Ticket stays **IN PROGRESS** with
+the previously accepted seven criteria unchanged.

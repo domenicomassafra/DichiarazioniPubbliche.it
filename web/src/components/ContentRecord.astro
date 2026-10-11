@@ -11,9 +11,29 @@ interface Props {
 }
 
 const { content = null, dossiers } = Astro.props;
-const source = content ?? dossiers[0]?.source;
+// The public projection contract never includes internal review/hold states or
+// unfinished assessments. Keep the UI fail-closed even for a malformed input.
+const publicStatuses = new Set(["PUBLISH", "DISPUTED", "CORRECTED", "RETRACTED"]);
+const publicAssessments = new Set(["SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA"]);
+const publicDossiers = dossiers.filter((dossier) =>
+  publicStatuses.has(dossier.finding.publication_status) &&
+  publicAssessments.has(dossier.finding.assessment)
+);
+const publicationState = (status: string) => {
+  switch (status) {
+    case "DISPUTED":
+      return { label: "Valutazione contestata", detail: "Questa valutazione pubblicata è contestata. La contestazione non è risolta da questa pagina: consulta la scheda della dichiarazione per lo stato e il contesto disponibili." };
+    case "CORRECTED":
+      return { label: "Valutazione corretta", detail: "La valutazione pubblicata è stata corretta. Consulta la scheda della dichiarazione per la versione e la cronologia pubblica disponibili." };
+    case "RETRACTED":
+      return { label: "Valutazione ritirata", detail: "Questa valutazione è stata ritirata: il precedente esito e il suo razionale non costituiscono una valutazione attuale. Consulta la scheda della dichiarazione per il contesto pubblico disponibile." };
+    default:
+      return null;
+  }
+};
+const source = content ?? publicDossiers[0]?.source;
 if (!source) throw new Error("Content page requires a reviewed Content or one legacy public dossier.");
-const canonicalSlug = content?.slug ?? contentSlug(dossiers[0]);
+const canonicalSlug = content?.slug ?? contentSlug(publicDossiers[0]);
 const canonical = `/contenuti/${canonicalSlug}/`;
 
 const msLabel = (ms?: number | null) => {
@@ -74,7 +94,7 @@ const momentLocator = (dossier: PublicDossier) => {
   };
 };
 
-const moments = [...dossiers]
+const moments = [...publicDossiers]
   .map((dossier) => ({ dossier, locator: momentLocator(dossier) }))
   .sort((a, b) => {
     if (a.locator.startMs !== null && b.locator.startMs !== null) {
@@ -98,7 +118,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
 
 <BaseLayout
   title={source.title}
-  description={`Fonte pubblica e dichiarazioni verificate collegate a ${source.title}.`}
+  description={`Fonte pubblica e dichiarazioni con valutazioni pubblicate collegate a ${source.title}.`}
   canonicalPath={canonical}
 >
   <header class="record-header content-record-header">
@@ -148,7 +168,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                 data-content-select={dossier.finding_id}
                 aria-current={index === 0 ? "true" : undefined}
                 aria-controls={`content-detail-${dossierSlug(dossier)}`}
-                aria-label={`Seleziona il momento ${msLabel(locator.startMs)}: ${dossier.claim}`}
+                aria-label={`Seleziona il momento ${msLabel(locator.startMs)}: ${dossier.claim}${publicationState(dossier.finding.publication_status) ? ` · ${publicationState(dossier.finding.publication_status)?.label}` : ""}`}
               >
                 <span class="dp-tape__dot" aria-hidden="true"></span>
                 <span class="dp-tape__label">{msLabel(locator.startMs)}</span>
@@ -178,6 +198,8 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
           <ol class="content-moment-list">
             {moments.map(({ dossier, locator }, index) => {
             const slug = dossierSlug(dossier);
+            const state = publicationState(dossier.finding.publication_status);
+            const retracted = dossier.finding.publication_status === "RETRACTED";
             const hasHistory = dossier.corrections.length > 0 || dossier.rights_of_reply.length > 0;
             const relations = [...new Set((dossier.relations ?? [])
               .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
@@ -195,7 +217,8 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                   <span class="content-moment__locator">{locator.label}</span>
                   <span class="content-moment__claim">“{dossier.claim}”</span>
                   <span class="content-moment__person">{dossier.speaker.name}</span>
-                  <Assessment code={dossier.finding.assessment} compact />
+                  {state && <span class="content-moment__status">{state.label}</span>}
+                  {!retracted && <Assessment code={dossier.finding.assessment} compact />}
                 </button>
 
                 <article
@@ -209,10 +232,18 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                     {locator.kind === "timed" ? "Momento selezionato" : locator.kind === "written" ? "Passaggio selezionato" : "Elemento selezionato"} · {locator.label}
                   </div>
                   <h3>“{dossier.claim}”</h3>
-                  <div class="content-detail-finding">
-                    <Assessment code={dossier.finding.assessment} />
-                    <p>{dossier.finding.rationale}</p>
-                  </div>
+                  {state && (
+                    <section class="dp-state content-publication-state" aria-label="Stato della valutazione pubblicata">
+                      <h4 class="dp-state__title">{state.label}</h4>
+                      <p class="dp-state__body">{state.detail}</p>
+                    </section>
+                  )}
+                  {!retracted && (
+                    <div class="content-detail-finding">
+                      <Assessment code={dossier.finding.assessment} />
+                      <p>{dossier.finding.rationale}</p>
+                    </div>
+                  )}
 
                   <div class="content-detail-locator">
                     <div>
@@ -224,7 +255,9 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
 
                   <section class="content-detail-sources" aria-labelledby={`sources-${slug}`}>
                     <h4 id={`sources-${slug}`}>Evidenze pubbliche</h4>
-                    {dossier.evidence.length > 0 ? (
+                    {retracted ? (
+                      <p class="content-no-evidence">La valutazione è ritirata; questa pagina non presenta le evidenze della versione ritirata come supporto a un esito attuale.</p>
+                    ) : dossier.evidence.length > 0 ? (
                       <div class="source-stack">
                         {dossier.evidence.map((evidence, sourceIndex) => <SourceRow evidence={evidence} index={sourceIndex + 1} />)}
                       </div>
