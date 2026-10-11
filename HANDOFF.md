@@ -1,5 +1,27 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nuova tranche operativa dopo d5ab8e1, 12 ottobre 2026:**
+[Studio annotazioni firmate reali con CAS PostgreSQL, media-context,
+cost/usage PG e preview sintesi v3](docs/reviews/2026-10-12-private-studio-triage-media-billing-recovery-wave.md).
+Lo Studio predefinito rimane read-only: la scrittura di un'annotazione
+Discovery privata avviene solo tramite servizio loopback esplicitamente
+avviato, receipt HMAC di revisore emessa separatamente e CAS PostgreSQL
+con prova del retry dopo restart. Non confondere NEEDS_REVIEW/DEFERRED/
+REJECTED come annotazioni con un'autorizzazione a usare fonti, rifiutare
+un contenuto, approvare Claim o pubblicare. L'Inspector media presenta
+intervallo canonico e metadati di Capture ma riporta
+capture_segment_binding=UNPROVEN e seek_authorized=false perché manca
+una FK/versione certa Segment→Capture nello schema. DP-512/513
+distinguono report canonical provider e costo registrato da fattura
+verificata, senza spend. DP-440 congiunge synopsis citata al
+Person×Topic×Statement originale sotto pin esterni e SSR isolato.
+MacBook Air online; MateBook Linux ancora Tailscale offline/SSH
+timeout, WIP remoto non attestato. MiniPC mirror non-Git
+inalterato, nessuna produzione, 0 byte rimossi. Originali AC
+ancora OPEN e **90 DONE / 72 pendenti, release NO-GO/49**
+senza nuove approvazioni legali/editoriali. Verificare CI
+sullo SHA finale della tranche, non sul precedente 11/11.
+
 **Tranche successiva a b239d20, 12 ottobre 2026:**
 [integrazione operativa Studio PostgreSQL, decisioni Candidate firmate,
 preview privata Statement v3](docs/reviews/2026-10-12-studio-pg-navigation-and-opinion.md).
