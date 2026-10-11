@@ -183,6 +183,7 @@ class IndependentReferenceReport:
     drift_comparable_to: str | None = None
     release_eligible: bool = False
     publication_authority: bool = False
+    admitted_case_ids_sha256: str | None = None  # legacy reports lack this scope proof
 
     def to_dict(self) -> dict[str, object]:
         data = asdict(self)
@@ -413,24 +414,24 @@ def _counts(
 ) -> dict[str, MetricCount]:
     numerator = dict.fromkeys(_METRICS, 0)
     denominator = dict.fromkeys(_METRICS, 0)
-    # Total manifest denominator always includes missing and unverified references;
-    # risk-specific labels only use externally admitted reference cases.
+    # Coverage and prediction-only abstention include every manifest case;
+    # semantic/rights labels require independently admitted reference cases.
     denominator["sample_coverage"] = len(cases)
     for row in cases:
         p = predictions.get(row.case_id)
+        state = p.state if p else "MISSING"
+        denominator["abstention"] += 1
+        numerator["abstention"] += state in {"ABSTAIN", "MISSING"}
         if row.case_id not in eligible:
             continue
         label = row.label
-        state = p.state if p else "MISSING"
         published = state == "PUBLIC"
         decidable = label.kind == "DECIDABLE"
         safe_possible = (
             decidable and label.publication_allowed and row.rights_state == "CLEARED"
         )
-        denominator["abstention"] += 1
         denominator["unsupported_publication"] += 1
         denominator["rights_privacy_leak"] += 1
-        numerator["abstention"] += state in {"ABSTAIN", "MISSING"}
         numerator["sample_coverage"] += published
         numerator["unsupported_publication"] += published and (
             not safe_possible or not p.claimed_rights_clearance
@@ -507,8 +508,9 @@ def evaluate_independent_reference(
 
     `external_attestation_check` is a future trust boundary controlled by an
     independently approved verifier; locally supplied lambdas are TEST FAKES.
-    A verifier refusal/outage excludes the case from semantic denominators,
-    not from the manifest coverage denominator.
+    A verifier refusal/outage excludes a case from semantic denominators,
+    never from prediction-only abstention (ABSTAIN or missing prediction) or
+    the manifest coverage denominator.
     """
     validate_reference_manifest(manifest)
     if not isinstance(predictions, tuple) or len(predictions) > _MAX_PREDICTIONS:
@@ -554,6 +556,12 @@ def evaluate_independent_reference(
     received = tuple(seen.values())
     cost = sum((p.cost_usd for p in received if p.cost_usd is not None), Decimal("0"))
     latency = sum(p.latency_ms for p in received if p.latency_ms is not None)
+    admitted_ids = sorted(admitted)
+    admitted_scope_hash = hashlib.sha256(
+        json.dumps(
+            [manifest.manifest_sha256, admitted_ids], separators=(",", ":")
+        ).encode()
+    ).hexdigest()
     evaluation_material = {
         "version": VERSION,
         "manifest": manifest.manifest_sha256,
@@ -567,7 +575,7 @@ def evaluate_independent_reference(
             }
             for key in sorted(seen)
         ],
-        "admitted_case_ids": sorted(admitted),
+        "admitted_case_ids": admitted_ids,
         "contract_only": True,
     }
     report_hash = hashlib.sha256(
@@ -590,6 +598,7 @@ def evaluate_independent_reference(
         cost_observed_count=sum(p.cost_usd is not None for p in received),
         latency_total_ms=latency,
         latency_observed_count=sum(p.latency_ms is not None for p in received),
+        admitted_case_ids_sha256=admitted_scope_hash,
     )
 
 
@@ -609,6 +618,9 @@ def compare_reference_reports(
         and baseline.case_count == current.case_count
         and baseline.reference_eligible_cases == current.reference_eligible_cases
         and baseline.unverified_reference_cases == current.unverified_reference_cases
+        and isinstance(baseline.admitted_case_ids_sha256, str)
+        and _SHA.fullmatch(baseline.admitted_case_ids_sha256) is not None
+        and baseline.admitted_case_ids_sha256 == current.admitted_case_ids_sha256
         and set(baseline.metrics) == set(current.metrics) == set(_METRICS)
     )
     return ReferenceDrift(

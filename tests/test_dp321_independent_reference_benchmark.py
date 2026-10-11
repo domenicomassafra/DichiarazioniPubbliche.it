@@ -290,6 +290,43 @@ class IndependentReferenceBenchmarkTests(unittest.TestCase):
             "BLOCKED_INCOMPARABLE_REFERENCE_SCOPE",
         )
 
+    def test_drift_refuses_swapped_admitted_case_ids_with_equal_counts(self):
+        a, b, c = case("a"), case("b"), case("c")
+        data = manifest(a, b, c)
+        predictions = (pred(a), pred(b), pred(c))
+        baseline = evaluate_independent_reference(
+            data,
+            predictions,
+            external_attestation_check=lambda row: (
+                row.case_id in {a.case_id, b.case_id}
+            ),
+        )
+        swapped = evaluate_independent_reference(
+            data,
+            predictions,
+            external_attestation_check=lambda row: (
+                row.case_id in {b.case_id, c.case_id}
+            ),
+        )
+        self.assertEqual(baseline.manifest_sha256, swapped.manifest_sha256)
+        self.assertEqual(baseline.reference_eligible_cases, 2)
+        self.assertEqual(swapped.reference_eligible_cases, 2)
+        self.assertEqual(baseline.metrics, swapped.metrics)
+        self.assertNotEqual(
+            baseline.admitted_case_ids_sha256, swapped.admitted_case_ids_sha256
+        )
+        self.assertEqual(baseline.status, "BLOCKED_EXTERNAL_GOLD")
+        self.assertEqual(swapped.status, "BLOCKED_EXTERNAL_GOLD")
+        drift = compare_reference_reports(baseline, swapped)
+        self.assertEqual(drift.status, "BLOCKED_INCOMPARABLE_REFERENCE_SCOPE")
+        self.assertEqual(drift.metric_rate_deltas, {})
+        self.assertFalse(drift.release_eligible)
+        legacy = replace(baseline, admitted_case_ids_sha256=None)
+        self.assertEqual(
+            compare_reference_reports(legacy, baseline).status,
+            "BLOCKED_INCOMPARABLE_REFERENCE_SCOPE",
+        )
+
     def test_independent_metric_numerators_denominators_are_separate(self):
         row = case("bad")
         wrong = pred(
@@ -376,6 +413,43 @@ class IndependentReferenceBenchmarkTests(unittest.TestCase):
         self.assertEqual(result.missing_predictions, 1)
         self.assertEqual(result.metrics["eligible_recall"].denominator, 2)
         self.assertEqual(result.metrics["abstention"].numerator, 1)
+
+    def test_unattested_reference_cannot_hide_abstention_or_missing_predictions(self):
+        accepted = case("accepted")
+        denied = case("denied", kind="ABSTENTION_ONLY")
+        missing = case("missing")
+        report = evaluate_independent_reference(
+            manifest(accepted, denied, missing),
+            (pred(accepted), pred(denied, state="ABSTAIN")),
+            external_attestation_check=lambda row: row.case_id == accepted.case_id,
+        )
+        self.assertEqual(report.status, "BLOCKED_EXTERNAL_GOLD")
+        self.assertEqual(report.reference_eligible_cases, 1)
+        self.assertEqual(report.unverified_reference_cases, 2)
+        self.assertEqual(report.missing_predictions, 1)
+        self.assertEqual(
+            (
+                report.metrics["abstention"].numerator,
+                report.metrics["abstention"].denominator,
+            ),
+            (2, 3),
+        )
+        self.assertEqual(
+            (
+                report.metrics["sample_coverage"].numerator,
+                report.metrics["sample_coverage"].denominator,
+            ),
+            (1, 3),
+        )
+        self.assertEqual(report.metrics["false_person"].denominator, 1)
+        self.assertEqual(report.metrics["eligible_recall"].denominator, 1)
+        self.assertEqual(
+            report.strata["ambiguity:CONTESTED"]["abstention"].numerator, 1
+        )
+        self.assertEqual(
+            report.strata["ambiguity:CONTESTED"]["abstention"].denominator, 1
+        )
+        self.assertFalse(report.release_eligible)
 
     def test_strata_expose_language_claim_source_split_and_risk(self):
         a = case("a", risks=("DENIAL", "NEGATION"))

@@ -50,3 +50,26 @@ or real independent source labels. Source/test commit `12bfb5a`: **15** focused
 adversarial synthetic tests PASS and Ruff PASS. None of AC-321.1–.6 is closed:
 genuine independently attested/licensed holdout, qualified gold, owner acceptance
 and MiniPC end-to-end evidence remain absent.
+
+**2026-10-11 local denominator regression — source-only, still IN PROGRESS.**
+Prediction-only `abstention` counts explicit `ABSTAIN` and missing predictions
+over the entire frozen manifest, including cases whose external reference
+verification is unavailable or refused. These cases remain excluded from
+semantic, rights and eligible-recall denominators. A synthetic three-case
+regression (one admitted, one unverified abstention, one unverified missing)
+previously reported `0/1` abstentions and now reports `2/3` while retaining
+`BLOCKED_EXTERNAL_GOLD` and zero release/publication authority. This checks
+accounting consistency only; the external verification callback in tests is
+fake, and no independent human labels, actual source rights or MiniPC pilot
+have been accepted. AC-321.1–.6 remain unchecked.
+
+**2026-10-11 local drift-scope regression — source-only, still IN PROGRESS.**
+`compare_reference_reports` now requires matching SHA-256 fingerprints of the
+exact admitted case-ID set bound to the manifest, in addition to existing
+manifest/count checks. Previously two different admitted subsets with equal
+counts and identical metrics could be marked `CONTRACT_ONLY_COMPARABLE`.
+A synthetic three-case RED→GREEN regression confirms swapped equal-count
+subsets are `BLOCKED_INCOMPARABLE_REFERENCE_SCOPE`; existing reports lacking
+the optional fingerprint also fail closed. Fingerprints are consistency
+metadata, **not** independent signatures or accepted gold. All AC-321.1–.6
+remain open pending independently attested real sources and MiniPC proof.
