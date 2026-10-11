@@ -255,3 +255,46 @@ DP-419 stays `IN PROGRESS`.
 **Phase / dependencies:** Phase 2/3; hard DP-210, DP-414, real source captures and preview/media use permits; soft A-NEW-03/B rights; Studio owner.
 
 **Related future specifications (separate ownership):** DP-237, DP-320. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+### 2026-10-11 — Persisted written Passage→Capture version locators (local-only)
+
+The existing authenticated, loopback-only `/v1/capture/compare` and
+`/v1/capture/passages` now return a bounded, copyable **metadata-only audit
+locator** for each exact written Passage. Each locator contains the previously
+validated `content_id`, `capture_id`, `capture_sha256` and persisted
+`passage_id`; it contains no source URL, body, transcript, private headers,
+receipt payload, permission or speaker identity. A comparison row has
+`earlier_locator` and `later_locator`, set to `null` when that version has no
+Passage at the selector anchor. The selector-page entry has `capture_locator`.
+This preserves explicit provenance when a hash changes at the same character
+range, or a Passage is added or removed in a later Capture. The caller can
+copy the complete tuple for audit and correlate it with the already available
+private Capture selector page, rather than guessing the Capture from the
+Passage ID. No new route, database write or browser code was required.
+
+The `limit+1` lookahead row for selector pagination now receives the same
+full persisted Content/Capture/selector validation as displayed rows, so an
+out-of-scope Passage cannot fabricate `has_more` for another Capture. An
+adversarial fake store formerly returned success with a foreign sentinel;
+after the change it refuses the page. No cross-version identity or textual
+equivalence is inferred merely from coordinates and IDs.
+
+**RED→GREEN receipts:** Two synthetic regression cases were RED on the
+original code (missing per-version locator and cross-Capture sentinel
+accepted). A third dedicated test exercises real `schema.v1.sql` on disposable
+local PostgreSQL, two persisted Capture versions and their written Passages,
+with exact `CHANGED`/`REMOVED`/`ADDED` metadata, page continuation, and the
+existing `/v1/capture/compare` + `/v1/capture/passages` dispatch. The fixture
+ensures no private text/URLs/headers appear and authority flags remain false.
+`PYTHONPATH=poc python3 -m unittest tests.test_studio_capture_inspector
+tests.test_studio_capture_selectors_pg tests.test_studio_local_api
+tests.test_studio_media_selector -q`: **47/47 PASS**. The proof uses only
+local, disposable data and no MiniPC or production source.
+
+**AC-419.1–.4 remain OPEN** despite their metadata-only partial coverage:
+no real rights-cleared two-version Capture corpus on the MiniPC; no authorized
+private excerpt/receipt verification; no keyboard/operator and 200%-zoom
+acceptance; no real authorized media artifact with synchronized player seek
+to a canonical segment. These audit locators do *not* independently perform
+a browser seek or authorize passage preview. No provider, rights, review,
+publication, migration or deployment state changed.

@@ -71,6 +71,65 @@ def passage(pid, **override):
 
 
 class StudioCaptureInspectorTests(unittest.TestCase):
+    def test_changed_written_passage_comparison_returns_exact_versioned_audit_locators(self):
+        """An operator can carry an actual Passage ID to its Capture version."""
+        store = FakeCaptureStore()
+        store.selectors_by_capture = {
+            'capture:aaaaaa': [
+                passage('passage:a1', start_char=0, end_char=4, text_sha256='1' * 64),
+                passage('passage:a2', start_char=10, end_char=14, text_sha256='2' * 64),
+            ],
+            'capture:bbbbbb': [
+                passage('passage:b1', capture_id='capture:bbbbbb',
+                        start_char=0, end_char=4, text_sha256='3' * 64),
+                passage('passage:b2', capture_id='capture:bbbbbb',
+                        start_char=20, end_char=24, text_sha256='4' * 64),
+            ],
+        }
+        compared = inspect_capture_versions(
+            store, content_id='content:one', earlier_hash=A, later_hash=B,
+            include_selector_diff=True,
+        )
+        changes = compared['selector_comparison']['changes']
+        changed = next(entry for entry in changes if entry['change'] == 'CHANGED')
+        self.assertEqual(changed['earlier_locator'], {
+            'content_id': 'content:one', 'capture_id': 'capture:aaaaaa',
+            'capture_sha256': A, 'passage_id': 'passage:a1',
+        })
+        self.assertEqual(changed['later_locator'], {
+            'content_id': 'content:one', 'capture_id': 'capture:bbbbbb',
+            'capture_sha256': B, 'passage_id': 'passage:b1',
+        })
+        added = next(entry for entry in changes if entry['change'] == 'ADDED')
+        self.assertIsNone(added['earlier_locator'])
+        self.assertEqual(added['later_locator']['passage_id'], 'passage:b2')
+        removed = next(entry for entry in changes if entry['change'] == 'REMOVED')
+        self.assertEqual(removed['earlier_locator']['passage_id'], 'passage:a2')
+        self.assertIsNone(removed['later_locator'])
+
+        later = inspect_capture_passage_selectors(
+            store, content_id='content:one', capture_hash=B, limit=1,
+        )
+        self.assertEqual(later['selectors'][0]['capture_locator'], changed['later_locator'])
+        self.assertEqual(later['next_after_id'], 'passage:b1')
+        for private in ('SECRET SOURCE PASSAGE', 'PRIVATE TOKEN', 'private_text',
+                        'metadata', 'fixture:archive', 'fixture:purge',
+                        'body_ref', 'final_url'):
+            self.assertNotIn(private, json.dumps((compared, later)))
+
+    def test_page_lookahead_cannot_claim_more_from_foreign_capture(self):
+        """The extra paging sentinel must have a real exact Capture binding."""
+        store = FakeCaptureStore()
+        store.selectors = [
+            passage('passage:01'),
+            passage('passage:02', content_id='content:other',
+                    capture_id='capture:foreign', private_text='SECRET FOREIGN'),
+        ]
+        with self.assertRaisesRegex(ValueError, 'STUDIO_CAPTURE_PASSAGE_BINDING_INVALID'):
+            inspect_capture_passage_selectors(
+                store, content_id='content:one', capture_hash=A, limit=1,
+            )
+
     def test_compare_capture_selector_changes_is_exact_bounded_and_private(self):
         from dichiarazioni_pubbliche.studio_capture_inspector import inspect_capture_versions
         store = FakeCaptureStore()
@@ -312,6 +371,75 @@ class StudioCaptureInspectorTests(unittest.TestCase):
             inspect_capture_versions(FakeCaptureStore(error=OSError("PASSWORD=do-not-log")), content_id="content:one", earlier_hash=A, later_hash=B)
         self.assertIsNone(ctx.exception.__cause__)
         self.assertNotIn("do-not-log", str(ctx.exception))
+
+
+class StudioCapturePersistedLocatorTests(unittest.TestCase):
+    """Real private query projection over an isolated ephemeral PostgreSQL corpus."""
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.test_studio_capture_selectors_pg import StudioCaptureSelectorPostgresTests
+
+        cls.fixture = StudioCaptureSelectorPostgresTests
+        cls.fixture.setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, 'fixture'):
+            cls.fixture.tearDownClass()
+
+    def test_real_persisted_passage_to_capture_version_linkage_and_privacy(self):
+        from dichiarazioni_pubbliche.studio_local_api import (
+            _StudioCaptureReader, StudioLocalReaders, _dispatch,
+        )
+
+        reader = _StudioCaptureReader(self.fixture.dsn)
+        api = StudioLocalReaders(corpus=None, captures=reader, candidates=None)
+        compared = inspect_capture_versions(
+            reader, content_id='content:one', earlier_hash=A, later_hash='c' * 64,
+            include_selector_diff=True,
+        )
+        # The existing authenticated /v1 routes dispatch this added navigation
+        # without any source edit, browser mutation or new public endpoint.
+        routed = _dispatch(api, '/v1/capture/compare', {
+            'content_id': 'content:one', 'earlier_hash': A, 'later_hash': 'c' * 64,
+        })
+        self.assertEqual(routed, compared)
+        self.assertTrue(compared['selector_comparison']['complete'])
+        self.assertEqual(compared['selector_comparison']['counts'], {
+            'UNCHANGED': 0, 'CHANGED': 1, 'REMOVED': 1, 'ADDED': 1,
+        })
+        delta = next(entry for entry in compared['selector_comparison']['changes']
+                     if entry['change'] == 'CHANGED')
+        self.assertEqual(delta['earlier_locator'], {
+            'content_id': 'content:one', 'capture_id': 'capture:aaaaaa',
+            'capture_sha256': A, 'passage_id': 'passage:01',
+        })
+        self.assertEqual(delta['later_locator'], {
+            'content_id': 'content:one', 'capture_id': 'capture:cccccc',
+            'capture_sha256': 'c' * 64, 'passage_id': 'passage:04',
+        })
+        page = inspect_capture_passage_selectors(
+            reader, content_id='content:one', capture_hash='c' * 64, limit=1,
+        )
+        self.assertEqual(_dispatch(api, '/v1/capture/passages', {
+            'content_id': 'content:one', 'capture_hash': 'c' * 64, 'limit': 1,
+        }), page)
+        self.assertEqual(page['selectors'][0]['capture_locator'], delta['later_locator'])
+        self.assertTrue(page['has_more'])
+        self.assertEqual(page['next_after_id'], 'passage:04')
+        second = inspect_capture_passage_selectors(
+            reader, content_id='content:one', capture_hash='c' * 64,
+            after_id=page['next_after_id'], limit=1,
+        )
+        self.assertEqual(second['selectors'][0]['capture_locator']['passage_id'], 'passage:05')
+        self.assertFalse(second['has_more'])
+        for value in (compared, page, second):
+            self.assertFalse(value['publication_authority'])
+            self.assertFalse(value['rights_clearance'])
+            for secret in ('SECRET', 'private_text', 'canonical_url', 'final_url',
+                           'normalized_statement', 'body_ref', 'authorization'):
+                self.assertNotIn(secret, json.dumps(value))
 
 
 if __name__ == "__main__":

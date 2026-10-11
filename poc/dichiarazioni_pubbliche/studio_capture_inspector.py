@@ -194,6 +194,7 @@ def inspect_capture_versions(
         result["selector_comparison"] = _compare_capture_selectors(
             store, content_id=content_id,
             earlier_capture_id=earlier.id, later_capture_id=later.id,
+            earlier_hash=earlier_hash, later_hash=later_hash,
         )
     return result
 
@@ -227,9 +228,28 @@ def _selector(raw: Mapping[str, Any], *, content_id: str, capture_id: str) -> di
     }
 
 
+def _passage_locator(
+    item: Mapping[str, Any], *, content_id: str, capture_id: str,
+    capture_sha256: str,
+) -> dict[str, str]:
+    """Copyable private Passage→version reference, never a content/rights permit.
+
+    Called only after both the persisted Capture and Passage bindings were
+    validated by the respective readers. In particular, a Passage ID by itself
+    is not a stable cross-version comparison or a link to a public page.
+    """
+    return {
+        "content_id": content_id,
+        "capture_id": capture_id,
+        "capture_sha256": capture_sha256,
+        "passage_id": item["id"],
+    }
+
+
 def _compare_capture_selectors(
     store: CaptureLookup, *, content_id: str,
     earlier_capture_id: str, later_capture_id: str,
+    earlier_hash: str, later_hash: str,
 ) -> dict[str, object]:
     """Compare at most 20 persisted written passage anchors per Capture.
 
@@ -297,6 +317,14 @@ def _compare_capture_selectors(
             "later_passage_id": after["id"] if after else None,
             "earlier_text_sha256": before["text_sha256"] if before else None,
             "later_text_sha256": after["text_sha256"] if after else None,
+            "earlier_locator": _passage_locator(
+                before, content_id=content_id, capture_id=earlier_capture_id,
+                capture_sha256=earlier_hash,
+            ) if before else None,
+            "later_locator": _passage_locator(
+                after, content_id=content_id, capture_id=later_capture_id,
+                capture_sha256=later_hash,
+            ) if after else None,
             "change": kind,
         })
     return {
@@ -335,15 +363,25 @@ def inspect_capture_passage_selectors(
     if not isinstance(rows, list) or len(rows) > limit + 1:
         raise ValueError("STUDIO_CAPTURE_PASSAGE_PAGE_INVALID")
     previous = after_id or ""
+    # The extra LIMIT+1 row is the proof of a next page. Validate its full
+    # persisted Capture/Content/selector binding as rigorously as displayed
+    # rows; a foreign row may not manufacture `has_more` for this version.
+    validated: list[dict[str, Any]] = []
     for raw in rows:
         if not isinstance(raw, Mapping):
             raise ValueError("STUDIO_CAPTURE_PASSAGE_ROW_INVALID")
-        pid = _safe_id(raw.get("id"))
-        if pid <= previous:
+        item = _selector(raw, content_id=content_id, capture_id=capture.id)
+        if item["id"] <= previous:
             raise ValueError("STUDIO_CAPTURE_PASSAGE_CURSOR_INVALID")
-        previous = pid
-    shown = [_selector(row, content_id=content_id, capture_id=capture.id)
-             for row in rows[:limit]]
+        previous = item["id"]
+        validated.append(item)
+    shown = [{
+        **item,
+        "capture_locator": _passage_locator(
+            item, content_id=content_id, capture_id=capture.id,
+            capture_sha256=capture_hash,
+        ),
+    } for item in validated[:limit]]
     has_more = len(rows) > limit
     return {
         "contract_version": CAPTURE_INSPECTION_VERSION,
