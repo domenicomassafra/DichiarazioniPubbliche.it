@@ -2,17 +2,20 @@ import hashlib
 import sys
 import unittest
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.incremental_source_watch import (  # noqa: E402
+    WatchCommittedAttempt,
+    WatchCoverageSnapshot,
     WatchObservation,
     WatchPolicy,
     WatchReadiness,
     WatchState,
+    build_private_watch_daily_digest,
     plan_watch_poll,
     policy_fingerprint,
     reconcile_watch_observation,
@@ -82,6 +85,147 @@ def check(p, s, *, g=None, at=T0, attempt_id="poll-42", outcome=None, after_gate
 
 
 class IncrementalWatchTests(unittest.TestCase):
+    def test_daily_private_health_digest_replays_real_attempts_and_exposes_unknowns(self):
+        today = date(2026, 10, 11)
+        p = policy()
+        prior = state(p, last_attempted_at=T0 - timedelta(days=1),
+                      last_successful_observed_at=T0 - timedelta(days=1))
+        before_success = gate(p)
+        first_plan, first = check(
+            p, prior, at=T0, outcome=WatchObservation(
+                observed_at=T0 + timedelta(seconds=2), status_code=304,
+            ),
+        )
+        new_version = response(
+            observed_at=T0 + timedelta(minutes=10, seconds=2),
+            content_sha256=SHA_B, source_version="record-v2", etag='"etag-b"',
+        )
+        second_plan, second = check(
+            p, first.next_state, at=T0 + timedelta(minutes=10),
+            attempt_id="amended", outcome=new_version,
+        )
+        throttle = response(observed_at=T0 + timedelta(hours=1, seconds=2),
+                            status_code=429, content_sha256=None, retry_after_seconds=120)
+        third_plan, third = check(
+            p, second.next_state, at=T0 + timedelta(hours=1),
+            attempt_id="throttle", outcome=throttle,
+        )
+        p_new = policy(source_id="official:new", locator_id="official:new:feed")
+        empty = WatchState(source_id=p_new.source_id)
+        new_plan, new = check(p_new, empty, attempt_id="first-new", outcome=response())
+        self.assertEqual(new.disposition, "CHANGED")
+
+        p_rights = policy(source_id="official:rights", locator_id="official:rights:feed")
+        rights_prior = state(p_rights, last_attempted_at=T0 - timedelta(days=1),
+                             last_successful_observed_at=T0 - timedelta(days=1))
+        revoked = gate(p_rights, rights_status="REVOKED")
+        rights_plan, rights_decision = check(
+            p_rights, rights_prior, attempt_id="rights-attempt",
+            outcome=response(content_sha256=SHA_B, etag='"etag-b"', source_version="record-v2"),
+            after_gate=revoked,
+        )
+        p_paused = policy(source_id="official:paused", locator_id="official:paused:feed", enabled=False)
+        p_budget = policy(source_id="official:budget", locator_id="official:budget:feed")
+        budget_prior = state(p_budget, last_attempted_at=T0 - timedelta(days=1),
+                             last_successful_observed_at=T0 - timedelta(days=1))
+        snapshots = (
+            WatchCoverageSnapshot(p, third.next_state, before_success),
+            WatchCoverageSnapshot(p_new, new.next_state, gate(p_new)),
+            WatchCoverageSnapshot(p_rights, rights_decision.next_state, revoked),
+            WatchCoverageSnapshot(p_paused, WatchState(source_id=p_paused.source_id)),
+            WatchCoverageSnapshot(p_budget, budget_prior,
+                                  gate(p_budget, budget_status="CAPPED")),
+        )
+        receipts = (
+            WatchCommittedAttempt(p.source_id, prior, before_success, before_success,
+                                  first_plan, WatchObservation(
+                                      observed_at=T0 + timedelta(seconds=2), status_code=304,
+                                  ), first, measured_cost_micro_eur=100),
+            WatchCommittedAttempt(p.source_id, first.next_state, before_success, before_success,
+                                  second_plan, new_version, second, measured_cost_micro_eur=200),
+            WatchCommittedAttempt(p.source_id, second.next_state, before_success, before_success,
+                                  third_plan, throttle, third),
+            WatchCommittedAttempt(p_new.source_id, empty, gate(p_new), gate(p_new),
+                                  new_plan, response(), new, measured_cost_micro_eur=0),
+            WatchCommittedAttempt(p_rights.source_id, rights_prior, gate(p_rights), revoked,
+                                  rights_plan, response(content_sha256=SHA_B, etag='"etag-b"',
+                                                        source_version="record-v2"), rights_decision),
+        )
+        digest = build_private_watch_daily_digest(
+            day=today, as_of=T0 + timedelta(hours=1, seconds=10),
+            snapshots=snapshots, committed_attempts=tuple(reversed(receipts)),
+        )
+        self.assertEqual((digest.attempts, digest.new, digest.modified, digest.unchanged,
+                          digest.unavailable, digest.blocked, digest.rate_limited),
+                         (5, 1, 1, 1, 1, 1, 1))
+        self.assertEqual((digest.metered_cost_micro_eur, digest.unknown_cost_attempts), (300, 2))
+        self.assertEqual((digest.watched_sources, digest.unwatched_sources), (4, 1))
+        by_source = {item.source_id: item for item in digest.sources}
+        changed = by_source[p.source_id]
+        self.assertEqual(changed.last_successful_observed_at,
+                         T0 + timedelta(minutes=10, seconds=2))
+        self.assertEqual(changed.last_attempted_at, T0 + timedelta(hours=1))
+        self.assertEqual(changed.last_disposition, "UNAVAILABLE")
+        self.assertEqual(changed.consecutive_failures, 1)
+        self.assertIn("SOURCE_BACKOFF", changed.known_gaps)
+        self.assertIn("SOURCE_FAILURES_RECORDED", changed.known_gaps)
+        self.assertIn("CORPUS_CUTOFF_LIMITED", changed.known_gaps)
+        self.assertEqual(by_source[p_paused.source_id].watch_status, "NOT_WATCHED")
+        self.assertEqual(by_source[p_budget.source_id].watch_status, "BLOCKED")
+        self.assertIn("BUDGET_BLOCKED", by_source[p_budget.source_id].known_gaps)
+        self.assertIn("RIGHTS_BLOCKED", by_source[p_rights.source_id].known_gaps)
+        self.assertEqual(by_source[p_rights.source_id].last_successful_observed_at,
+                         rights_prior.last_successful_observed_at)
+        self.assertEqual(by_source[p_new.source_id].daily_new, 1)
+
+        for bad in (
+            receipts + (receipts[0],),
+            tuple(r for r in receipts if r is not receipts[1]),
+            (replace(receipts[1], decision=replace(second, disposition="UNCHANGED")),)
+            + receipts[:1] + receipts[2:],
+            (replace(receipts[3], source_id=p.source_id),) + receipts[:3] + receipts[4:],
+            (replace(receipts[3], measured_cost_micro_eur=-1),) + receipts[:3] + receipts[4:],
+        ):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(ValueError, "DAILY_WATCH_"):
+                    build_private_watch_daily_digest(day=today,
+                                                     as_of=T0 + timedelta(hours=1, seconds=10),
+                                                     snapshots=snapshots, committed_attempts=bad)
+
+        with self.assertRaisesRegex(ValueError, "DAILY_WATCH_UNACCOUNTED_ATTEMPT"):
+            build_private_watch_daily_digest(
+                day=today, as_of=T0 + timedelta(hours=1, seconds=10), snapshots=snapshots,
+                committed_attempts=(),
+            )
+
+    def test_daily_digest_rejects_future_receipts_and_preserves_utc_day_boundary(self):
+        p = policy()
+        before = state(p, last_attempted_at=T0 - timedelta(days=1),
+                       last_successful_observed_at=T0 - timedelta(days=1))
+        plan, decision = check(p, before, outcome=response())
+        receipt = WatchCommittedAttempt(p.source_id, before, gate(p), gate(p),
+                                        plan, response(), decision)
+        snapshot = WatchCoverageSnapshot(p, decision.next_state, gate(p))
+        with self.assertRaisesRegex(ValueError, "DAILY_WATCH_FUTURE_RECEIPT"):
+            build_private_watch_daily_digest(day=T0.date(), as_of=T0 + timedelta(seconds=1),
+                                             snapshots=(WatchCoverageSnapshot(p, before, gate(p)),),
+                                             committed_attempts=(receipt,))
+        with self.assertRaisesRegex(ValueError, "DAILY_WATCH_FUTURE_STATE"):
+            build_private_watch_daily_digest(day=T0.date(), as_of=T0 + timedelta(seconds=1),
+                                             snapshots=(snapshot,), committed_attempts=())
+        with self.assertRaisesRegex(ValueError, "DAILY_WATCH_OUTSIDE_DAY"):
+            build_private_watch_daily_digest(day=T0.date() - timedelta(days=1),
+                                             as_of=T0 + timedelta(hours=1),
+                                             snapshots=(WatchCoverageSnapshot(p, before, gate(p)),),
+                                             committed_attempts=(receipt,))
+        with self.assertRaisesRegex(ValueError, "DAILY_WATCH_DUPLICATE_SOURCE"):
+            build_private_watch_daily_digest(day=T0.date(), as_of=T0 + timedelta(hours=1),
+                                             snapshots=(snapshot, snapshot), committed_attempts=(receipt,))
+        with self.assertRaisesRegex(ValueError, "DAILY_WATCH_SNAPSHOT_OUTSIDE_DAY"):
+            build_private_watch_daily_digest(day=T0.date() - timedelta(days=1),
+                                             as_of=T0 + timedelta(hours=1),
+                                             snapshots=(snapshot,), committed_attempts=())
+
     def test_default_disabled_and_no_plan_headers(self):
         p = WatchPolicy(
             "source", "locator", "FAMILY", "corpus", "2026-10-01", "r1",

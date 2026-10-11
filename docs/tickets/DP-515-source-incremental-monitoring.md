@@ -106,3 +106,40 @@ source/test compileall and `git diff --check` pass. All observations and
 timestamps are synthetic; no provider, live source, MiniPC or runtime state
 was accessed. AC-515.1–515.7 remain unchecked pending durable admission,
 rights/cost/lease authority, public revocation/cache proof and MiniPC canary.
+
+## 2026-10-11 — Private daily source-health/coverage digest (source-only)
+
+The initial watcher operated on individual poll decisions and did not provide
+the operator-facing, daily coverage/health read model in AC-515.4/6. A new
+`build_private_watch_daily_digest(day, as_of, snapshots, committed_attempts)`
+pure function accepts a bounded UTC-day set of *externally persisted* source
+snapshots and attempt readbacks. It produces a deterministic private digest
+with source family/corpus cutoff, watched/disabled/blocked state, per-source
+attempted vs last successfully observed times, backoff/failure health, and
+explicit known gaps; totals separately count NEW, MODIFIED, UNCHANGED,
+UNAVAILABLE, BLOCKED and HTTP 429 checks. Metered micro-EUR cost is aggregated
+only when an actual cost measurement is supplied; missing measurements remain
+an explicit unknown-attempt count, never an invented zero or cost estimate.
+
+Every counted attempt replays its source-bound admission plan and observation
+decision, verifies status and source/corpus/policy lineage, unique attempt IDs,
+in-day chronological state revisions and the final snapshot. Gaps, duplicates,
+future readbacks, forged decisions, wrong source, mismatched state and malformed
+cost fail closed. A downstream change remains a proposal under the existing
+capability/rights/budget rules. The only output is a private read model; the
+presence of a last successfully *observed* version never claims full corpus
+coverage, approval, publication or global currency. Corpus cutoff is always
+called out as a limitation, and there is no inferred correction lag without
+actual correction/review readback.
+
+RED proof: adding acceptance tests first made the module fail to import the
+new digest and receipt types. GREEN proof: **21/21** focused tests, **80/80**
+DP-515/DP-516/source-watcher/coverage/cost tests; synthetic fixtures exercise
+200/new/amended/304/429, revoked rights, capped budget, disabled watch,
+missing cost and duplicate/missing/forged receipt rejection. No HTTP, DB,
+provider, scheduler, production or MiniPC execution occurred. The adapter
+must still authenticate current rights/capability/budget receipts and load
+atomically committed snapshots/attempts/metered costs; this pure projection
+does not implement those integrations or provide an operator permission layer.
+Original AC-515.1–515.7 remain **unchecked** and unattended watch remains
+**NO-GO** until the original durable and runtime evidence is available.

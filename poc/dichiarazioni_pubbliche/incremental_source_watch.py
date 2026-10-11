@@ -12,7 +12,7 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
 
@@ -124,6 +124,82 @@ class WatchDecision:
     # This flag asks the DP-511/DP-510 owner to assess a changed/blocked source.
     # It is never an automatic publication or an authorized hold event.
     needs_source_review: bool = False
+
+
+@dataclass(frozen=True)
+class WatchCoverageSnapshot:
+    """Private operator readback of one source's admitted policy and latest state.
+
+    The caller must load an authorized, transactionally committed state and an
+    authenticated current gate; this read model cannot certify external receipts.
+    """
+
+    policy: WatchPolicy
+    state: WatchState
+    readiness: WatchReadiness | None = None
+
+
+@dataclass(frozen=True)
+class WatchCommittedAttempt:
+    """Private persisted attempt with enough lineage for independent replay.
+
+    Planning and reconciliation gates differ if rights/budget/capability changed
+    during a request. Cost is measured externally; None is *unknown*, not free.
+    """
+
+    source_id: str
+    previous_state: WatchState
+    planning_readiness: WatchReadiness
+    reconciliation_readiness: WatchReadiness
+    plan: WatchPlan
+    observation: WatchObservation
+    decision: WatchDecision
+    measured_cost_micro_eur: int | None = None
+
+
+@dataclass(frozen=True)
+class WatchDailySourceHealth:
+    source_id: str
+    source_family: str
+    corpus_id: str
+    corpus_cutoff: str
+    watch_status: str
+    blocker_reason: str | None
+    last_attempted_at: datetime | None
+    last_successful_observed_at: datetime | None
+    retry_not_before: datetime | None
+    consecutive_failures: int
+    last_disposition: str | None
+    known_gaps: tuple[str, ...]
+    daily_attempts: int
+    daily_new: int
+    daily_modified: int
+    daily_unchanged: int
+    daily_unavailable: int
+    daily_blocked: int
+    daily_rate_limited: int
+    daily_metered_cost_micro_eur: int
+    daily_unknown_cost_attempts: int
+
+
+@dataclass(frozen=True)
+class WatchDailyHealthDigest:
+    """Daily private coverage/attempt projection; never a public freshness claim."""
+
+    day: date
+    through_at: datetime
+    sources: tuple[WatchDailySourceHealth, ...]
+    watched_sources: int
+    unwatched_sources: int
+    attempts: int
+    new: int
+    modified: int
+    unchanged: int
+    unavailable: int
+    blocked: int
+    rate_limited: int
+    metered_cost_micro_eur: int
+    unknown_cost_attempts: int
 
 
 def _require_label(value: str, name: str) -> str:
@@ -466,8 +542,181 @@ def reconcile_watch_observation(
     )
 
 
+def build_private_watch_daily_digest(
+    *,
+    day: date,
+    as_of: datetime,
+    snapshots: tuple[WatchCoverageSnapshot, ...],
+    committed_attempts: tuple[WatchCommittedAttempt, ...],
+) -> WatchDailyHealthDigest:
+    """Project a bounded private UTC-day digest from *committed* readbacks.
+
+    Replays each observation and verifies the full in-day source-state chain
+    through the latest snapshot. Missing/duplicated entries fail closed instead
+    of making a source look healthy. The adapter must authenticate DB snapshots,
+    rights/capability/budget and actual metered costs before calling this pure
+    function; passing a forged in-memory readback is not a durable proof.
+    """
+    if type(day) is not date or not isinstance(snapshots, tuple) or not isinstance(committed_attempts, tuple):
+        raise ValueError("DAILY_WATCH_INPUT_INVALID")
+    through = _utc(as_of, "DIGEST_AS_OF")
+    if through is None or day > through.date():
+        raise ValueError("DAILY_WATCH_AS_OF_INVALID")
+    if len(snapshots) > 500 or len(committed_attempts) > 5000:
+        raise ValueError("DAILY_WATCH_BOUND_EXCEEDED")
+
+    coverage: dict[str, WatchCoverageSnapshot] = {}
+    for snapshot in snapshots:
+        p, s = snapshot.policy, snapshot.state
+        fingerprint = policy_fingerprint(p)
+        _validate_state(p, s, fingerprint if p.enabled else (s.policy_fingerprint or fingerprint))
+        if p.source_id in coverage:
+            raise ValueError("DAILY_WATCH_DUPLICATE_SOURCE")
+        for recorded in (s.last_attempted_at, s.last_successful_observed_at):
+            if recorded is not None and _utc(recorded, "DIGEST_STATE_TIME") > through:
+                raise ValueError("DAILY_WATCH_FUTURE_STATE")
+        if s.last_attempted_at is not None and _utc(s.last_attempted_at, "LAST_ATTEMPT").date() > day:
+            raise ValueError("DAILY_WATCH_SNAPSHOT_OUTSIDE_DAY")
+        if snapshot.readiness is not None and (
+            snapshot.readiness.source_id != p.source_id
+            or snapshot.readiness.corpus_id != p.corpus_id
+            or snapshot.readiness.policy_fingerprint != fingerprint
+        ):
+            raise ValueError("DAILY_WATCH_GATE_SCOPE_MISMATCH")
+        coverage[p.source_id] = snapshot
+
+    counters = (
+        "attempts", "new", "modified", "unchanged", "unavailable", "blocked",
+        "rate_limited", "metered_cost_micro_eur", "unknown_cost_attempts",
+    )
+    totals = {key: 0 for key in counters}
+    by_source: dict[str, list[WatchCommittedAttempt]] = {source_id: [] for source_id in coverage}
+    seen_attempts: set[tuple[str, str]] = set()
+    for entry in committed_attempts:
+        snapshot = coverage.get(entry.source_id)
+        if snapshot is None:
+            raise ValueError("DAILY_WATCH_UNKNOWN_SOURCE")
+        if entry.plan.source_id != entry.source_id or entry.previous_state.source_id != entry.source_id:
+            raise ValueError("DAILY_WATCH_SOURCE_MISMATCH")
+        if not isinstance(entry.plan.attempted_at, datetime) or entry.plan.attempted_at.tzinfo is None:
+            raise ValueError("DAILY_WATCH_ATTEMPT_TIME_INVALID")
+        attempted = _utc(entry.plan.attempted_at, "DIGEST_ATTEMPTED_AT")
+        if attempted.date() != day:
+            raise ValueError("DAILY_WATCH_OUTSIDE_DAY")
+        if attempted > through or _utc(entry.observation.observed_at, "DIGEST_OBSERVED_AT") > through:
+            raise ValueError("DAILY_WATCH_FUTURE_RECEIPT")
+        key = (entry.source_id, entry.plan.attempt_id)
+        if key in seen_attempts:
+            raise ValueError("DAILY_WATCH_DUPLICATE_ATTEMPT")
+        seen_attempts.add(key)
+        cost = entry.measured_cost_micro_eur
+        if cost is not None and (type(cost) is not int or not 0 <= cost <= 10**12):
+            raise ValueError("DAILY_WATCH_COST_INVALID")
+        try:
+            replanned = plan_watch_poll(
+                snapshot.policy, entry.previous_state, entry.planning_readiness,
+                attempt_id=entry.plan.attempt_id, attempted_at=entry.plan.attempted_at,
+            )
+            if not replanned.allowed or replanned != entry.plan:
+                raise ValueError("replayed plan differs")
+            replayed = reconcile_watch_observation(
+                snapshot.policy, entry.previous_state,
+                entry.reconciliation_readiness, entry.plan, entry.observation,
+            )
+            if replayed != entry.decision:
+                raise ValueError("replayed decision differs")
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ValueError("DAILY_WATCH_INVALID_RECEIPT") from exc
+        by_source[entry.source_id].append(entry)
+
+    source_rows: list[WatchDailySourceHealth] = []
+    watched = 0
+    for source_id, snapshot in sorted(coverage.items()):
+        policy, state = snapshot.policy, snapshot.state
+        attempts = sorted(by_source[source_id], key=lambda e: e.plan.attempted_at)
+        latest_disposition: str | None = None
+        count = {key: 0 for key in counters}
+        current: WatchState | None = None
+        for entry in attempts:
+            if current is None:
+                previous_attempt = entry.previous_state.last_attempted_at
+                if previous_attempt is not None and _utc(previous_attempt, "PREVIOUS_ATTEMPT").date() >= day:
+                    raise ValueError("DAILY_WATCH_UNACCOUNTED_ATTEMPT")
+            elif entry.previous_state != current:
+                raise ValueError("DAILY_WATCH_CHAIN_MISMATCH")
+            current = entry.decision.next_state
+            latest_disposition = entry.decision.disposition
+            count["attempts"] += 1
+            disposition = entry.decision.disposition
+            if disposition == "CHANGED":
+                if entry.previous_state.content_sha256 is None:
+                    count["new"] += 1
+                else:
+                    count["modified"] += 1
+            elif disposition == "UNCHANGED":
+                count["unchanged"] += 1
+            elif disposition == "UNAVAILABLE":
+                count["unavailable"] += 1
+            elif disposition == "BLOCKED":
+                count["blocked"] += 1
+            if disposition == "UNAVAILABLE" and entry.observation.status_code == 429:
+                count["rate_limited"] += 1
+            if entry.measured_cost_micro_eur is None:
+                count["unknown_cost_attempts"] += 1
+            else:
+                count["metered_cost_micro_eur"] += entry.measured_cost_micro_eur
+        if current is not None and current != state:
+            raise ValueError("DAILY_WATCH_SNAPSHOT_MISMATCH")
+        if current is None and (state.last_attempted_at is not None
+                                and day <= _utc(state.last_attempted_at, "LAST_ATTEMPT").date()):
+            raise ValueError("DAILY_WATCH_UNACCOUNTED_ATTEMPT")
+
+        fingerprint = policy_fingerprint(policy)
+        reason = (_gate_reason(policy, snapshot.readiness, fingerprint)
+                  if snapshot.readiness is not None else "GATE_READBACK_MISSING")
+        watch_status = "NOT_WATCHED" if not policy.enabled else ("BLOCKED" if reason else "WATCHED")
+        watched += int(policy.enabled)
+        gaps = ["CORPUS_CUTOFF_LIMITED"]
+        if not policy.enabled:
+            gaps.append("NOT_WATCHED")
+        elif reason is not None:
+            if reason.startswith("RIGHTS_"):
+                gaps.append("RIGHTS_BLOCKED")
+            elif reason.startswith("CAPABILITY_"):
+                gaps.append("CAPABILITY_BLOCKED")
+            elif reason.startswith("BUDGET_") or reason == "CAP_EXHAUSTED":
+                gaps.append("BUDGET_BLOCKED")
+            else:
+                gaps.append("READINESS_UNKNOWN")
+        if state.last_successful_observed_at is None:
+            gaps.append("NO_SUCCESSFUL_OBSERVATION")
+        if state.retry_not_before is not None and _utc(state.retry_not_before, "RETRY") > through:
+            gaps.append("SOURCE_BACKOFF")
+        if state.consecutive_failures:
+            gaps.append("SOURCE_FAILURES_RECORDED")
+        if latest_disposition == "UNAVAILABLE":
+            gaps.append("SOURCE_UNAVAILABLE")
+        source_rows.append(WatchDailySourceHealth(
+            source_id, policy.source_family, policy.corpus_id, policy.corpus_cutoff,
+            watch_status, "WATCH_DISABLED" if not policy.enabled else reason,
+            state.last_attempted_at, state.last_successful_observed_at,
+            state.retry_not_before, state.consecutive_failures,
+            latest_disposition, tuple(gaps),
+            *(count[key] for key in counters),
+        ))
+        for key in counters:
+            totals[key] += count[key]
+
+    return WatchDailyHealthDigest(
+        day, through, tuple(source_rows), watched, len(source_rows) - watched,
+        *(totals[key] for key in counters),
+    )
+
+
 __all__ = [
     "WATCH_VERSION", "WatchPolicy", "WatchState", "WatchReadiness", "WatchPlan",
     "WatchObservation", "WatchChildProposal", "WatchDecision",
     "policy_fingerprint", "plan_watch_poll", "reconcile_watch_observation",
+    "WatchCoverageSnapshot", "WatchCommittedAttempt", "WatchDailySourceHealth",
+    "WatchDailyHealthDigest", "build_private_watch_daily_digest",
 ]
