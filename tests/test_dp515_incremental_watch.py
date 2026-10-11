@@ -379,6 +379,30 @@ class IncrementalWatchTests(unittest.TestCase):
                 replace(planned, conditional_headers=()), response(),
             )
 
+    def test_forged_attempt_identity_and_clock_cannot_replay_or_regress_state(self):
+        p = policy()
+        s = state(p)
+        planned = plan_watch_poll(p, s, gate(p), attempt_id="poll-42", attempted_at=T0)
+        self.assertTrue(planned.allowed)
+        for forged in (
+            replace(planned, attempt_id=s.last_attempt_id),
+            replace(planned, attempt_id="bad\nidentity"),
+            replace(planned, attempted_at=s.last_attempted_at),
+            replace(planned, attempted_at=T0.replace(tzinfo=None)),
+        ):
+            with self.subTest(forged=forged):
+                with self.assertRaisesRegex(ValueError, "WATCH_PLAN_STALE_OR_UNAUTHORIZED"):
+                    reconcile_watch_observation(p, s, gate(p), forged, response())
+        # A forged plan can also skip a source-specific retry window.
+        delayed = state(p, retry_not_before=T0 - timedelta(minutes=5))
+        ready = plan_watch_poll(p, delayed, gate(p), attempt_id="ready", attempted_at=T0)
+        self.assertTrue(ready.allowed)
+        with self.assertRaisesRegex(ValueError, "WATCH_PLAN_STALE_OR_UNAUTHORIZED"):
+            reconcile_watch_observation(
+                p, delayed, gate(p),
+                replace(ready, attempted_at=T0 - timedelta(minutes=6)), response(),
+            )
+
     def test_200_missing_version_still_matches_existing_hash_version(self):
         p = policy()
         _, d = check(p, state(p), outcome=response(source_version=None))

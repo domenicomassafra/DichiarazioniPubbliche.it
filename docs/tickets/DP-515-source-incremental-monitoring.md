@@ -55,3 +55,25 @@ All original AC are still unchecked. The real watcher remains **NO-GO**
 until authenticated permission/quota records, atomic durable state/lease/CAS
 with job admission, downstream DP-511 revoke/reanalysis, source-family
 MiniPC proof, operator authorization and cost measurement are accepted.
+
+## 2026-10-11 — Attempt replay guard regression
+
+Local source-only review found that a previously authorized `WatchPlan` could
+be altered before reconciliation: changing its attempt ID to the previous ID,
+or moving its timestamp back before a recorded attempt/backoff window, bypassed
+the admission checks. A naive timestamp instead raised `TypeError`. This could
+corrupt the private attempted-check ledger or admit a replay on a stale attempt.
+
+`reconcile_watch_observation` now revalidates attempt ID, aware timestamp,
+monotonic ordering and source backoff against the original state before
+reconciling any supplied HTTP result. Regression
+`test_forged_attempt_identity_and_clock_cannot_replay_or_regress_state` in
+`tests/test_dp515_incremental_watch.py` was **RED before the fix** (4 assertion
+failures, 1 `TypeError`) and **GREEN after** (five adversarial variants).
+All 18 DP-515 and 15 DP-516 tests pass locally; Python compile and
+`git diff --check` pass. Tests use only synthetic observations and receipts.
+
+This local hardening does not authorize polling, supply a durable transaction,
+prove a real source/cost/rights receipt or satisfy the MiniPC/public readback.
+DP-515 remains **IN PROGRESS** with all AC unchecked and unattended monitoring
+**NO-GO**.

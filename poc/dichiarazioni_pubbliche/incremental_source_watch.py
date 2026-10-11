@@ -338,9 +338,22 @@ def reconcile_watch_observation(
                 if value is not None and state.content_sha256 is not None
             )):
         raise ValueError("WATCH_PLAN_STALE_OR_UNAUTHORIZED")
+    try:
+        _require_label(plan.attempt_id, "ATTEMPT_ID")
+        attempt_at = _utc(plan.attempted_at, "ATTEMPTED_AT")
+    except ValueError as exc:
+        raise ValueError("WATCH_PLAN_STALE_OR_UNAUTHORIZED") from exc
+    if (attempt_at is None or plan.attempt_id == state.last_attempt_id
+            or (state.last_attempted_at is not None
+                and attempt_at <= _utc(state.last_attempted_at, "LAST_ATTEMPT"))
+            or (state.last_successful_observed_at is not None
+                and attempt_at <= _utc(state.last_successful_observed_at, "LAST_SUCCESS"))
+            or (state.retry_not_before is not None
+                and attempt_at < _utc(state.retry_not_before, "RETRY"))):
+        raise ValueError("WATCH_PLAN_STALE_OR_UNAUTHORIZED")
     at = _utc(observation.observed_at, "OBSERVED_AT")
     assert at is not None
-    if at < plan.attempted_at or (state.last_successful_observed_at is not None
+    if at < attempt_at or (state.last_successful_observed_at is not None
                                 and at < _utc(state.last_successful_observed_at, "LAST_SUCCESS")):
         raise ValueError("WATCH_OBSERVATION_TIME_INVALID")
 
