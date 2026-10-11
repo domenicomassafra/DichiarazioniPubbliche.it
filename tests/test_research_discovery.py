@@ -172,12 +172,26 @@ class FakeStore:
             ),
             Decimal("0"),
         )
+        invoked_attempt_ids = {
+            scope["attempt_id"] for scope in self.operation_receipt_scopes.values()
+            if scope["run_id"] == run_id
+        }
+        reserved = sum(
+            (
+                max(Decimal(str(row.get("cost_upper_bound_usd") or 0)),
+                    Decimal(str(row.get("cost_usd") or 0)))
+                for (rid, _, _), row in self.attempts.items()
+                if rid == run_id and row["id"] in invoked_attempt_ids and row["status"] != "RUNNING"
+            ),
+            Decimal("0"),
+        )
         return {
             "accepted_urls": [row["canonical_url"] for row in accepted],
             "host_counts": host_counts,
             "query_counts": query_counts,
             "accepted_total": len(accepted),
             "cost_usd": str(cost),
+            "cost_reservation_usd": str(reserved),
             "cost_uncertain": any(
                 self.operation_receipts[receipt_id].billing_basis == "UNKNOWN"
                 and scope["run_id"] == run_id
@@ -194,6 +208,7 @@ class FakeStore:
         row = {
             "id": kwargs["attempt_id"],
             "status": "RUNNING",
+            "cost_upper_bound_usd": kwargs["cost_upper_bound_usd"],
             "cost_usd": Decimal("0"),
             "raw_hits": 0,
             "accepted_hits": 0,
@@ -382,8 +397,8 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertIn("'RESEARCH_DISCOVERY'", store.sql)
         self.assertEqual(store.variables["adapter_id"], "search-a")
         self.assertEqual(store.variables["adapter_version"], "search-a-v7")
-        self.assertEqual(store.variables["billing_basis"], "MEASURED_PROVIDER_COST")
-        self.assertEqual(store.variables["measured_cost_usd"], "0.125000")
+        self.assertEqual(store.variables["billing_basis"], "ESTIMATED_ONLY")
+        self.assertEqual(store.variables["measured_cost_usd"], "")
         self.assertEqual(store.variables["estimated_cost_usd"], "0.500000")
         scope = json.loads(store.variables["ledger_scope"])
         self.assertEqual(
@@ -398,6 +413,8 @@ class ResearchDiscoveryTests(unittest.TestCase):
         )
         payload = json.loads(store.variables["receipt"])
         self.assertEqual(payload["schema"], "research-discovery-operation-receipt-v1")
+        self.assertEqual(payload["cost_basis"], "adapter_estimate_unverified")
+        self.assertEqual(payload["adapter_reported_cost_usd"], "0.125000")
         self.assertNotIn("provider_receipt", payload)
         self.assertNotIn("raw_response", payload)
 
@@ -510,11 +527,12 @@ class ResearchDiscoveryTests(unittest.TestCase):
         summary = store.collection_ledger_summary("collection:test")
         self.assertEqual(summary.operation_count, 2)
         self.assertEqual(summary.attempt_count, 2)
-        self.assertEqual(summary.measured_cost_usd, Decimal("0.300000"))
+        self.assertEqual(summary.measured_cost_usd, Decimal("0"))
+        self.assertEqual(summary.estimated_only_cost_usd, Decimal("0.500000"))
         self.assertEqual(summary.request_count, 2)
         self.assertEqual(
             {row.billing_basis for row in store.operation_receipts.values()},
-            {"MEASURED_PROVIDER_COST"},
+            {"ESTIMATED_ONLY"},
         )
         for receipt_id, scope in store.operation_receipt_scopes.items():
             self.assertEqual(scope["collection_id"], "collection:test", receipt_id)
@@ -523,7 +541,7 @@ class ResearchDiscoveryTests(unittest.TestCase):
             self.assertTrue(scope["query_id"].startswith("query:test:"), receipt_id)
             self.assertTrue(scope["attempt_id"].startswith("discovery-attempt:"), receipt_id)
 
-    def test_zero_cost_discovery_uses_zero_cost_only_when_upper_bound_is_zero(self):
+    def test_zero_discovery_estimate_never_proves_zero_provider_bill(self):
         manifest = load_discovery_manifest(manifest_payload())
 
         zero_store = FakeStore()
@@ -539,7 +557,8 @@ class ResearchDiscoveryTests(unittest.TestCase):
             run_id="run:ledger-zero",
         )
         zero_receipt = next(iter(zero_store.operation_receipts.values()))
-        self.assertEqual(zero_receipt.billing_basis, "ZERO_COST")
+        self.assertEqual(zero_receipt.billing_basis, "UNKNOWN")
+        self.assertIsNone(zero_receipt.measured_cost_usd)
 
         measured_store = FakeStore()
         measured_adapter = StaticAdapter(
@@ -554,10 +573,11 @@ class ResearchDiscoveryTests(unittest.TestCase):
             run_id="run:ledger-measured-zero",
         )
         measured_receipt = next(iter(measured_store.operation_receipts.values()))
-        self.assertEqual(measured_receipt.billing_basis, "MEASURED_PROVIDER_COST")
-        self.assertEqual(measured_receipt.measured_cost_usd, Decimal("0"))
+        self.assertEqual(measured_receipt.billing_basis, "ESTIMATED_ONLY")
+        self.assertEqual(measured_receipt.estimated_cost_usd, Decimal("0.500000"))
+        self.assertIsNone(measured_receipt.measured_cost_usd)
 
-    def test_invoked_adapter_exception_records_unknown_or_zero_cost_without_raw_receipt(self):
+    def test_invoked_adapter_exception_records_unknown_cost_without_raw_receipt(self):
         manifest = load_discovery_manifest(manifest_payload())
 
         unknown_store = FakeStore()
@@ -597,7 +617,8 @@ class ResearchDiscoveryTests(unittest.TestCase):
             run_id="run:ledger-free-failure",
         )
         free_receipt = next(iter(free_store.operation_receipts.values()))
-        self.assertEqual(free_receipt.billing_basis, "ZERO_COST")
+        self.assertEqual(free_receipt.billing_basis, "UNKNOWN")
+        self.assertIsNone(free_receipt.measured_cost_usd)
 
     def test_same_manifest_separate_runs_reuse_content_identity(self):
         manifest = load_discovery_manifest(manifest_payload())
@@ -721,6 +742,84 @@ class ResearchDiscoveryTests(unittest.TestCase):
             if key[0] == "run:cost-uncertain"
         }
         self.assertEqual(statuses["search-b"], ("BUDGET_BLOCKED", "COST_STATE_UNCERTAIN"))
+
+    def test_zero_ceiling_unverified_attempt_blocks_later_paid_adapter(self):
+        payload = manifest_payload()
+        payload["queries"][0]["adapter_ids"] = ["search-a", "search-b"]
+        manifest = load_discovery_manifest(payload)
+        for first_status in ("OK", "RAISE"):
+            with self.subTest(first_status=first_status):
+                first = StaticAdapter(
+                    "search-a", status=first_status,
+                    upper=Decimal("0"), cost=Decimal("0"),
+                )
+                second = StaticAdapter(
+                    "search-b", upper=Decimal("0.2"), cost=Decimal("0.1"),
+                )
+                store = FakeStore()
+                run_discovery_manifest(
+                    manifest, store, {"search-a": first, "search-b": second},
+                    run_id=f"run:zero-unverified:{first_status}",
+                )
+                self.assertEqual(first.calls, 1)
+                self.assertEqual(second.calls, 0)
+                self.assertEqual(
+                    store.attempts[(f"run:zero-unverified:{first_status}",
+                                    manifest.queries[0].id, "search-b")]["error_category"],
+                    "COST_STATE_UNCERTAIN",
+                )
+                first_receipt = next(iter(store.operation_receipts.values()))
+                self.assertEqual(first_receipt.billing_basis, "UNKNOWN")
+
+    def test_discovery_preflight_keeps_unverified_upper_bound_reserved(self):
+        payload = manifest_payload(cost_cap_usd="0.500000")
+        payload["queries"][0]["adapter_ids"] = ["search-a", "search-b"]
+        manifest = load_discovery_manifest(payload)
+        first = StaticAdapter("search-a", upper=Decimal("0.4"), cost=Decimal("0.1"))
+        second = StaticAdapter("search-b", upper=Decimal("0.2"), cost=Decimal("0.1"))
+        store = FakeStore()
+        run_discovery_manifest(
+            manifest, store, {"search-a": first, "search-b": second},
+            run_id="run:upper-reserved",
+        )
+        self.assertEqual(first.calls, 1)
+        self.assertEqual(second.calls, 0, "an unverified discount must not release the reserved ceiling")
+        self.assertEqual(store.attempts[("run:upper-reserved", manifest.queries[0].id, "search-b")]["error_category"], "COST_CAP_PRECALL")
+        self.assertEqual(Decimal(store.resume_state("run:upper-reserved")["cost_usd"]), Decimal("0.1"))
+        self.assertEqual(Decimal(store.resume_state("run:upper-reserved")["cost_reservation_usd"]), Decimal("0.4"))
+
+    def test_resumed_discovery_reuses_unverified_ceiling_reservation(self):
+        payload = manifest_payload(cost_cap_usd="0.500000")
+        payload["queries"][0]["adapter_ids"] = ["search-a", "search-b"]
+        manifest = load_discovery_manifest(payload)
+        store = FakeStore()
+        run_id = "run:upper-reservation-restart"
+        store.persist_manifest(manifest)
+        store.start_run(manifest, run_id)
+        query = manifest.queries[0]
+        from dichiarazioni_pubbliche.research_discovery import _attempt_id, _RESUME_STATE_SQL
+        attempt_id = _attempt_id(run_id, query.id, "search-a")
+        store.start_attempt(
+            attempt_id=attempt_id, run_id=run_id, query_id=query.id,
+            adapter_id="search-a", adapter_version="static-test-v1",
+            cost_upper_bound_usd=Decimal("0.4"),
+        )
+        store.finish_attempt(attempt_id=attempt_id, status="HEALTHY", cost_usd=Decimal("0.1"))
+        store.record_operation_receipt(
+            manifest=manifest, query=query, run_id=run_id, attempt_id=attempt_id,
+            adapter_id="search-a", adapter_version="static-test-v1", status="HEALTHY",
+            cost_upper_bound_usd=Decimal("0.4"), known_cost_usd=Decimal("0.1"),
+        )
+        self.assertEqual(store.resume_state(run_id)["cost_reservation_usd"], "0.4")
+        second = StaticAdapter("search-b", upper=Decimal("0.2"), cost=Decimal("0.1"))
+        run_discovery_manifest(
+            manifest, store,
+            {"search-a": StaticAdapter("search-a"), "search-b": second},
+            run_id=run_id,
+        )
+        self.assertEqual(second.calls, 0)
+        self.assertEqual(store.attempts[(run_id, query.id, "search-b")]["error_category"], "COST_CAP_PRECALL")
+        self.assertIn("cost_reservation_usd", _RESUME_STATE_SQL)
 
     def test_resume_with_prior_unknown_paid_cost_never_invokes_later_provider(self):
         payload = manifest_payload(cost_cap_usd="0.500000")
@@ -857,8 +956,9 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertEqual(adapter.calls, 1)
         self.assertEqual(len(store.operation_receipts), 1)
         operation_receipt = next(iter(store.operation_receipts.values()))
-        self.assertEqual(operation_receipt.billing_basis, "MEASURED_PROVIDER_COST")
-        self.assertEqual(operation_receipt.measured_cost_usd, Decimal("0.125000"))
+        self.assertEqual(operation_receipt.billing_basis, "ESTIMATED_ONLY")
+        self.assertEqual(operation_receipt.estimated_cost_usd, Decimal("0.300000"))
+        self.assertIsNone(operation_receipt.measured_cost_usd)
         self.assertEqual(operation_receipt.status, "FAILED")
         canonical = next(iter(store.operation_receipt_payloads.values()))
         self.assertEqual(canonical["error_category"], "DISCOVERY_HIT_WRITE_FAILED")

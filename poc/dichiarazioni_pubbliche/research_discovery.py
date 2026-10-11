@@ -569,15 +569,16 @@ def _discovery_billing(
     known_cost_usd: Decimal | None,
     cost_upper_bound_usd: Decimal,
 ) -> tuple[str, Decimal, Decimal | None]:
+    # The adapter contract reports its own cost estimate, not a provider invoice
+    # or verified billing API observation. An advertised zero ceiling is not
+    # evidence of a free provider or included subscription quota.
     upper = _decimal(cost_upper_bound_usd, "adapter_cost_upper_bound")
     if known_cost_usd is None:
-        if upper == 0:
-            return "ZERO_COST", Decimal("0"), None
         return "UNKNOWN", upper, None
-    measured = _decimal(known_cost_usd, "adapter_cost_usd")
-    if measured == 0 and upper == 0:
-        return "ZERO_COST", Decimal("0"), None
-    return "MEASURED_PROVIDER_COST", upper, measured
+    reported = _decimal(known_cost_usd, "adapter_cost_usd")
+    if upper == 0:
+        return "UNKNOWN", reported, None
+    return "ESTIMATED_ONLY", max(upper, reported), None
 
 
 def new_discovery_run_id(manifest: DiscoveryManifest, nonce: str | None = None) -> str:
@@ -1149,6 +1150,16 @@ WITH accepted AS (
 ), costs AS (
     SELECT COALESCE(sum(cost_usd),0)::text AS value
     FROM research_discovery_attempt WHERE run_id=:'run_id' AND status<>'RUNNING'
+), reserved_costs AS (
+    SELECT COALESCE(sum(GREATEST(attempt.cost_upper_bound_usd, attempt.cost_usd)),0)::text AS value
+    FROM research_discovery_attempt attempt
+    WHERE attempt.run_id=:'run_id' AND attempt.status<>'RUNNING'
+      AND EXISTS (
+          SELECT 1 FROM provider_receipt receipt
+          WHERE receipt.operation='RESEARCH_DISCOVERY'
+            AND receipt.ledger_scope->>'attempt_id'=attempt.id
+            AND receipt.ledger_scope->>'run_id'=:'run_id'
+      )
 ), uncertain_cost AS (
     SELECT EXISTS (
         SELECT 1 FROM research_discovery_attempt attempt
@@ -1166,10 +1177,11 @@ SELECT json_build_object(
     'query_counts', query_counts.value::json,
     'accepted_total', (SELECT count(*) FROM accepted),
     'cost_usd', costs.value,
+    'cost_reservation_usd', reserved_costs.value,
     'cost_uncertain', uncertain_cost.value
 )::text
 FROM urls CROSS JOIN host_counts CROSS JOIN query_counts CROSS JOIN costs
-CROSS JOIN uncertain_cost;
+CROSS JOIN reserved_costs CROSS JOIN uncertain_cost;
 """.strip()
 
 
@@ -1447,7 +1459,12 @@ class ResearchDiscoveryStore(PsqlRuntime):
             "query_id": query.id,
             "attempt_id": attempt_id,
             "status": sanitize_category(status),
+            "cost_basis": "adapter_estimate_unverified",
         }
+        if known_cost_usd is not None:
+            canonical_receipt["adapter_reported_cost_usd"] = str(
+                _decimal(known_cost_usd, "adapter_cost_usd")
+            )
         if error_category:
             canonical_receipt["error_category"] = sanitize_category(error_category)
         raw = self.run(
@@ -1592,9 +1609,10 @@ class ResearchDiscoveryStore(PsqlRuntime):
                 "query_counts": {},
                 "accepted_total": 0,
                 "cost_usd": "0",
+                "cost_reservation_usd": "0",
             }
         parsed = json.loads(raw)
-        if not isinstance(parsed, dict):
+        if not isinstance(parsed, dict) or "cost_reservation_usd" not in parsed:
             raise RuntimeError("DISCOVERY_RESUME_STATE_INVALID")
         return parsed
 
@@ -1769,7 +1787,8 @@ def run_discovery_manifest(
     }
     accepted_total = int(resume.get("accepted_total") or 0)
     cost_total = _decimal(resume.get("cost_usd") or "0", "resume_cost_usd")
-    cost_breached = cost_total > manifest.cost_cap_usd
+    cost_reserved = _decimal(resume["cost_reservation_usd"], "resume_cost_reservation_usd")
+    cost_breached = cost_reserved > manifest.cost_cap_usd
     # A prior invoked provider may have an UNKNOWN measured cost even when
     # research_discovery_attempt.cost_usd is zero. Restore the receipt gate
     # across a process restart, not only within one invocation of this runner.
@@ -1791,6 +1810,7 @@ def run_discovery_manifest(
         error_category: str = "",
         provider_receipt: Mapping[str, Any] | None = None,
     ) -> None:
+        nonlocal cost_uncertain, cost_reserved
         store.finish_attempt(
             attempt_id=attempt_id,
             status=status,
@@ -1814,6 +1834,13 @@ def run_discovery_manifest(
             known_cost_usd=known_cost_usd,
             error_category=error_category,
         )
+        # The adapter's quoted cost is unverified; retain the full upper bound
+        # as a liability for later preflight, even if it reports a lower charge.
+        cost_reserved += max(upper_bound, known_cost_usd or Decimal("0"))
+        # Keep the in-process budget fence consistent with the UNKNOWN basis
+        # that resume_state will read from the persisted receipt after restart.
+        if known_cost_usd is None or upper_bound == 0:
+            cost_uncertain = True
 
     for query in manifest.queries:
         accepted_query = query_counts.get(query.id, 0)
@@ -1827,7 +1854,7 @@ def run_discovery_manifest(
                 query=query,
                 date_from=manifest.date_from,
                 date_to=manifest.date_to,
-                remaining_cost_usd=max(manifest.cost_cap_usd - cost_total, Decimal("0")),
+                remaining_cost_usd=max(manifest.cost_cap_usd - cost_reserved, Decimal("0")),
             )
             upper_bound = Decimal("0")
             adapter_contract_error = ""
@@ -1908,7 +1935,6 @@ def run_discovery_manifest(
                     known_cost_usd=None,
                     error_category=exc.category,
                 )
-                cost_uncertain = upper_bound > 0
                 continue
             except SourceAdapterError as exc:
                 finish_invoked_attempt(
@@ -1921,7 +1947,6 @@ def run_discovery_manifest(
                     known_cost_usd=None,
                     error_category=exc.category,
                 )
-                cost_uncertain = upper_bound > 0
                 continue
             except Exception:
                 finish_invoked_attempt(
@@ -1934,7 +1959,6 @@ def run_discovery_manifest(
                     known_cost_usd=None,
                     error_category="ADAPTER_FAILURE",
                 )
-                cost_uncertain = upper_bound > 0
                 continue
 
             cost: Decimal | None = None
@@ -1954,8 +1978,6 @@ def run_discovery_manifest(
                     known_cost_usd=cost,
                     error_category="ADAPTER_RESULT_INVALID",
                 )
-                if cost is None and upper_bound > 0:
-                    cost_uncertain = True
                 continue
             assert cost is not None
             if len(result_hits) > MAX_QUERY_RESULTS:
@@ -1971,7 +1993,7 @@ def run_discovery_manifest(
                     omitted_hits=omitted_hits,
                     error_category="ADAPTER_RESULT_BOUND_EXCEEDED",
                 )
-                if cost_total + cost > manifest.cost_cap_usd:
+                if cost_reserved > manifest.cost_cap_usd:
                     cost_breached = True
                 cost_total += cost
                 continue
@@ -1990,10 +2012,10 @@ def run_discovery_manifest(
                     error_category=exc.category,
                 )
                 cost_total += cost
-                if cost_total > manifest.cost_cap_usd:
+                if cost_reserved > manifest.cost_cap_usd:
                     cost_breached = True
                 continue
-            if cost > upper_bound or cost_total + cost > manifest.cost_cap_usd:
+            if cost > upper_bound or cost_reserved + max(upper_bound, cost) > manifest.cost_cap_usd:
                 finish_invoked_attempt(
                     query=query,
                     attempt_id=attempt_id,

@@ -27,10 +27,88 @@ from dichiarazioni_pubbliche.operation_ledger import (  # noqa: E402
     operation_usage_receipt_from_row,
 )
 from dichiarazioni_pubbliche.queue_store import QueueExecutionCostStore  # noqa: E402
+from dichiarazioni_pubbliche.research_discovery import (  # noqa: E402
+    ResearchDiscoveryStore,
+    _discovery_billing,
+    load_discovery_manifest,
+)
 from dichiarazioni_pubbliche.worker_handlers_transcript import TranscriptAsrJobHandlers  # noqa: E402
 
 
 class DP512BillingTests(unittest.TestCase):
+    def test_discovery_adapter_estimates_are_never_verified_provider_bills(self):
+        cases = (
+            ("0.125000", "0.500000", "ESTIMATED_ONLY", "0.500000"),
+            ("0", "0.500000", "ESTIMATED_ONLY", "0.500000"),
+            ("0.600000", "0.500000", "ESTIMATED_ONLY", "0.600000"),
+            (None, "0.500000", "UNKNOWN", "0.500000"),
+            ("0", "0", "UNKNOWN", "0.000000"),
+            (None, "0", "UNKNOWN", "0.000000"),
+        )
+        for reported, upper_bound, expected_basis, expected_estimate in cases:
+            with self.subTest(reported=reported, upper_bound=upper_bound):
+                basis, estimate, measured = _discovery_billing(
+                    known_cost_usd=None if reported is None else Decimal(reported),
+                    cost_upper_bound_usd=Decimal(upper_bound),
+                )
+                self.assertEqual(basis, expected_basis)
+                self.assertEqual(estimate, Decimal(expected_estimate))
+                self.assertIsNone(measured)
+
+    def test_discovery_writer_retains_unverified_adapter_amount_without_measured_charge(self):
+        payload = {
+            "schema_version": 1,
+            "id": "manifest:dp512", "collection_id": "collection:dp512",
+            "seeds": [{"kind": "term", "value": "public record"}],
+            "source_families": ["web"],
+            "limits": {"max_results": 2, "max_results_per_host": 2, "cost_cap_usd": "1"},
+            "queries": [{
+                "id": "query:dp512", "query": "public record", "source_families": ["web"],
+                "adapter_ids": ["search-a"], "max_results": 2,
+            }],
+        }
+        manifest = load_discovery_manifest(payload)
+        store = object.__new__(ResearchDiscoveryStore)
+        recorded = []
+
+        def fake_run(sql, **params):
+            recorded.append(params)
+            return params["receipt_id"]
+
+        store.run = fake_run
+        fields = dict(
+            manifest=manifest, query=manifest.queries[0], run_id="run:dp512",
+            attempt_id="attempt:dp512", adapter_id="search-a",
+            adapter_version="search-a:v1", status="HEALTHY",
+            cost_upper_bound_usd=Decimal("0.5"), known_cost_usd=Decimal("0.125"),
+        )
+        first = store.record_operation_receipt(**fields)
+        second = store.record_operation_receipt(**fields)
+        self.assertEqual(first, second)
+        self.assertEqual(recorded[0], recorded[1])
+        params = recorded[0]
+        self.assertEqual(params["billing_basis"], "ESTIMATED_ONLY")
+        self.assertEqual(params["estimated_cost_usd"], "0.500000")
+        self.assertEqual(params["measured_cost_usd"], "")
+        nested = json.loads(params["receipt"])
+        self.assertEqual(nested["adapter_reported_cost_usd"], "0.125000")
+        self.assertNotIn("invoice_reference", nested)
+
+    def test_discovery_zero_upper_bound_exception_stays_unknown_in_ledger(self):
+        basis, estimate, measured = _discovery_billing(
+            known_cost_usd=None, cost_upper_bound_usd=Decimal("0"),
+        )
+        receipt = operation_usage_receipt_from_row({
+            "receipt_id": "receipt:zero-unverified", "operation_key": "op:zero-unverified",
+            "attempt": 1, "provider_id": "search-a", "operation": "RESEARCH_DISCOVERY",
+            "status": "FAILED", "billing_basis": basis,
+            "estimated_cost_usd": str(estimate), "measured_cost_usd": measured,
+        })
+        summary = aggregate_operation_receipts((receipt,))
+        self.assertEqual(summary.unknown_cost_operation_count, 1)
+        self.assertEqual(summary.zero_cost_operation_count, 0)
+        self.assertFalse(summary.cost_complete)
+
     def test_provider_response_cost_is_unverified_not_billed(self):
         client = OmniRouteCandidateExtractionClient(
             api_key="offline-placeholder", model_id="test/model",
