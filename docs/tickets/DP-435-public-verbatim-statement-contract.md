@@ -63,3 +63,21 @@ The opt-in `_sanitize_public_statement` previously took `row["locator"]` directl
 Two deterministic synthetic negative tests reproduced both bugs (**RED: 2 failures**). The v3 sanitizer now snapshots the locator before the external attestation callback, fails closed if the private locator changes before the callback returns, and returns the independent snapshot so later candidate mutations cannot change an already built public bundle (**GREEN: 12/12 DP-435 seam tests**). `python3 -m compileall -q poc tests`, `git diff --check` and the deterministic benchmark (**5/5**) pass. This modifies only the isolated, explicitly opted-in Statement v3 sanitization boundary; the public-v2 default and the five separate approval requirements remain unchanged.
 
 Source-only evidence improves the negative selector-provenance and replay aspects of AC-435.1/.3/.4. Full acceptance still needs a source-specific authorized quotation-rights decision, real statement/source and approved publication attestations, coordinated API/HTML/index migration, and MiniPC readback with correction/withdrawal proof. **DP-435 remains IN PROGRESS; all AC unchecked.**
+
+## 2026-10-11 — Public excerpt expiry must be explicit
+
+The opt-in v3 projection previously accepted a rights gate with
+`expires_at=None`, allowing a private candidate with otherwise synthetic
+approvals to become a public original-wording Statement without any bounded
+review horizon. An adversarial test in `test_dp435_public_statement_seam.py`
+was **RED** (one published row, expected none). The sanitizer now requires
+a nonblank timezone-aware future expiration date for the current explicitly
+bounded `PUBLIC_EXACT_EXCERPT` authorization. Missing/unbounded expiry is
+held, not treated as implied perpetual rights. After the correction the
+DP-435 suite passes **12/12**; scoped lint and diff checks pass.
+
+This is an engineering deny-by-default contract, not a legal determination
+that perpetual licenses cannot exist. Such an exception would require a
+qualified, versioned policy and its own proof. No source-use rights, review,
+MiniPC readback, consumer cutover or publication authority was granted;
+the original AC-435.1–.5 remain unchecked.

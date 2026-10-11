@@ -209,13 +209,17 @@ class PublicStatementContractTests(unittest.TestCase):
                     self.assertEqual(self.build_v3(source)["statements"], [])
 
     def test_rights_unknown_expired_invalid_scope_and_reused_review_event(self):
-        for damage in ("rights_unknown", "expired", "scope", "same_reviewer"):
+        for damage in ("rights_unknown", "expired", "no_expiry", "scope", "same_reviewer"):
             with self.subTest(damage=damage):
                 source = IsolatedStatementSource()
                 if damage == "rights_unknown":
                     source.gates["rights"]["status"] = "UNKNOWN"
                 elif damage == "expired":
                     source.gates["rights"]["expires_at"] = "2026-01-01T00:00:00+00:00"
+                elif damage == "no_expiry":
+                    # An unbounded rights clearance is not an authorized
+                    # perpetual license for public verbatim reproduction.
+                    source.gates["rights"]["expires_at"] = None
                 elif damage == "scope":
                     source.gates["rights"]["use_scope"] = "INTERNAL_ONLY"
                 else:

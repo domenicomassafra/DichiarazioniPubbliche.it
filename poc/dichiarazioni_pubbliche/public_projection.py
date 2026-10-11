@@ -1891,16 +1891,17 @@ def _sanitize_public_statement(
     ):
         raise ValueError("source use right does not include exact public excerpt")
     expires_at = rights.get("expires_at")
-    if expires_at is not None:
-        if not isinstance(expires_at, str):
-            raise ValueError("rights expiry invalid")
-        try:
-            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-            built = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
-            if expiry.tzinfo is None or built.tzinfo is None or expiry <= built:
-                raise ValueError("rights expired or dates are naive")
-        except (TypeError, ValueError) as exc:
-            raise ValueError("rights expiry cannot be confirmed") from exc
+    # The current owner policy grants no unbounded quotation use. A missing
+    # expiry must not silently become perpetual public reproduction rights.
+    if not isinstance(expires_at, str) or not expires_at.strip():
+        raise ValueError("rights expiry invalid")
+    try:
+        expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        built = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+        if expiry.tzinfo is None or built.tzinfo is None or expiry <= built:
+            raise ValueError("rights expired or dates are naive")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("rights expiry cannot be confirmed") from exc
     context = attestations["context"]
     speech_act = context.get("speech_act")
     endorsed = context.get("endorsed")
