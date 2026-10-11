@@ -143,3 +143,58 @@ atomically committed snapshots/attempts/metered costs; this pure projection
 does not implement those integrations or provide an operator permission layer.
 Original AC-515.1–515.7 remain **unchecked** and unattended watch remains
 **NO-GO** until the original durable and runtime evidence is available.
+
+## 2026-10-12 — Opt-in private SQLite watch attempt/state CAS and replay
+
+Added `poc/dichiarazioni_pubbliche/source_watch_store_v1.py` and
+`tests/test_dp515_durable_watch_next.py` as an **isolated, disposable
+on-disk SQLite fixture adapter** to the existing pure
+`plan_watch_poll` / `reconcile_watch_observation` contracts. This is
+not the canonical PostgreSQL watcher, a new scheduler, or a live fetcher.
+The operator seeds a private, source-exact policy/state/readiness fixture;
+the adapter pins the canonical policy fingerprint, source identity and
+conditional ETag/Last-Modified and version/hash state to an atomic
+`BEGIN IMMEDIATE` attempt record, allowing at most one active poll per
+source. It then reconciles an **externally supplied** HTTP observation under
+the newly reread, source-scoped rights/capability/budget gate and writes the
+new state, committed attempt, observed metadata and at most one deterministic
+`SOURCE_REVALIDATION_REVIEW` **held private proposal** in the same
+transaction. No provider/HTTP calls, Capture or child jobs occur.
+
+The durable gate revision is pinned separately from the source/state CAS.
+A revocation between plan and observation results in `BLOCKED` while
+retaining prior successful source hash/version/validators and generating
+zero proposals; a revoke-then-restore cycle cannot reuse a plan from the
+old rights epoch. An explicit CAS `abandon_stale_attempt` records the
+orphaned attempt as `ABANDONED` without advancing attempted/successful
+freshness, then permits a distinct new attempt. Revocation after a changed
+observation permanently withdraws its held proposals, even if a gate is
+restored. Existing receipt replay is accepted only for identical bytes and
+the current source/gate revision; stale/out-of-order retries and conflicting
+observation payloads fail. Changed source SHA/version produces exactly one
+durably deduplicated private proposal; unchanged `304` or same-body `200`
+creates none; `429` preserves last success and source backoff across restart.
+
+**TDD:** the ten-method new integration suite was initially RED because
+the persistence module did not exist; GREEN against a real temporary disk
+database. Tests include closing/reopening SQLite between commits/retries,
+ETag/Last-Modified replay, simultaneous competing writer connections,
+revoked/mismatched gate/policy, source-state ordering, legacy successful
+version preservation, injected SQL trigger failure rolling back state **and**
+proposal atomically, safe obsolete-attempt abandonment and permanent
+private proposal withdrawal. Combined
+`tests.test_dp515_durable_watch_next`,
+`tests.test_dp515_incremental_watch` and `tests.test_source_watcher`
+**46/46 PASS**, plus Ruff lint/format, targeted `compileall` and
+`git diff --check` PASS. The test's supplied READY strings and status-code
+observations are **synthetic and not authenticated rights, DP-514 metering,
+HTTP readback, signed origin, release epoch or production permission**.
+The adapter never dispatches a task and makes no freshness/public claims.
+
+Original **AC-515.1–515.7 remain unchecked**, status **IN PROGRESS**,
+unattended production watch **NO-GO**. Still required: canonical PG
+transactional writer/lease integration, actually authorized source rights,
+capability/cost records and downstream DP-511/510 admission, persisted
+health digest from authenticated data, MiniPC canary and public cache/rights
+revocation acceptance. No production DB, provider, HTTP, real source,
+MiniPC, deploy, commit or push used in this slice.
