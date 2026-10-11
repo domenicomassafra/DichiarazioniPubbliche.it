@@ -62,6 +62,28 @@ older than it is.
 
 ## Completion receipt
 
+### 2026-10-12 — Real read-only media Capture context linked to authenticated Studio
+
+The new PostgreSQL media context inspector from this tranche has been wired
+into the existing bearer-authenticated Studio API at /v1/media/capture-context
+and its operator Catture panel. The operator supplies one Content, exact
+Statement Candidate and canonical-media Passage plus one Capture ID/SHA.
+One canonical-schema PostgreSQL SELECT binds them and reports canonical
+time range, duration, Capture retention/body/hold/rights state and explicit
+source-version blocker codes. The browser validates the typed private-only
+response; never receives raw media, URLs, transcript wording, provider headers
+or secrets. A second real HTTP PostgreSQL suite tested 401/403/422 and
+cross-Content/wrong SHA negatives; the executable UI script fixture validates
+non-rendering of an injected unapproved media URL and clearing on logout.
+
+Crucial schema blocker: MEDIA_SEGMENT_REF Passage requires canonical_segment_id
+and prohibits capture_id, and there is no independent canonical Segment to
+Capture-version FK. Therefore even an apparently CLEARED Capture cannot certify
+the segment belongs to its exact immutable version. The interface explicitly
+reports capture_segment_binding=UNPROVEN and seek_authorized=false, never
+pretends playback access; AC419.3 and original ticket closure remain open
+pending real source/version provenance, rights and MiniPC acceptance.
+
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
@@ -298,3 +320,51 @@ acceptance; no real authorized media artifact with synchronized player seek
 to a canonical segment. These audit locators do *not* independently perform
 a browser seek or authorize passage preview. No provider, rights, review,
 publication, migration or deployment state changed.
+
+### 2026-10-12 — Separate persisted media interval and Capture retention context
+
+Added `inspect_candidate_media_capture_context()` as a source-only, opt-in
+read model over the **real canonical PostgreSQL schema**, exercised against
+disposable local PostgreSQL. One database SELECT joins exact
+StatementCandidate → Passage → canonical_transcript_segment while independently
+requiring a requested Content Capture ID *and* SHA-256 from the same logical
+Content. It projects the canonical start/end milliseconds, Content duration,
+Capture observation time, digest, body-presence state, retention class, hold,
+and stored rights status. The projection is bounded to explicit metadata;
+source URL, body reference, private text, credentials, receipt payloads and
+speaker Person are excluded from both the SELECT and returned response.
+
+The source schema **does not persist a Capture→canonical media Segment FK**:
+`passage` requires exactly one of `capture_id` and `canonical_segment_id`,
+and media Passages use the latter. The matching Capture returned here is
+therefore only independently verified *same-Content context*, and the new
+contract states `capture_segment_binding=UNPROVEN` for every result. It cannot
+bind this media timestamp to a particular captured media version and it never
+authorizes a seek, player URL, playback, attribution, publication or rights.
+This is an operator diagnosis of the missing version link, not completion of
+AC-419.3. All authority flags remain false regardless of a persisted
+`rights_status='CLEARED'`; a fresh DP-236 use decision would still be needed.
+
+Adversarial readback rejects foreign Content, Capture ID/hash mismatch, missing
+Candidate/Passage or wrong selector, and a canonical media interval extending
+beyond the persisted Content duration. Unknown duration, unresolved transcript,
+blocked segment, unapproved Candidate, pending retention, held/purged Capture
+and unverified rights remain visible as **private hold reason codes**. A false
+purge timestamp on a non-purged Capture is rejected, with untrusted
+body/archive/purge text never copied. No new public/private route or
+schema was added, and existing `/v1/media/segment` remains unchanged.
+
+**Evidence:** First regression RED on missing source API; later a dedicated
+`TRANSCRIPT_UNCERTAIN` hold test was RED until the actual hold was implemented.
+After the fix:
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest
+tests.test_dp419_media_timeline_next tests.test_studio_media_selector
+tests.test_studio_capture_selectors_pg tests.test_studio_local_api -q` —
+**51/51 PASS**, including
+disposable PostgreSQL built from `db/schema.v1.sql` with linked synthetic
+Candidate, Passage, canonical Segment and two different Capture versions;
+`ruff check` on the changed Python files and `git diff --check` PASS.
+No MiniPC, provider, real source, publisher, installed Studio player or
+production DB was touched. **Status: IN PROGRESS; AC-419.1–.4 remain unchecked.**
+The missing durable media Capture-version linkage, independently checked
+playback rights and real operator seek are still external integration blockers.
