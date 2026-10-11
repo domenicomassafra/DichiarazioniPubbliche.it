@@ -331,3 +331,92 @@ AC-418.1–.4 remain unchecked**: live persisted source-compare integration,
 full channel/rights/currentness gate at the mutation boundary, durable
 qualified review decision/replay and keyboard/200% zoom acceptance on
 actual Studio/MiniPC are still required.
+
+### 2026-10-11 — Independent, genuinely persisted PostgreSQL target source reader
+
+Follow-up strictly limited to **NEW**
+`poc/dichiarazioni_pubbliche/studio_candidate_target_pg.py`, **NEW**
+`tests/test_dp418_target_source_pg_next.py` and this original ticket.
+`StudioCandidateTargetPg.source_context(member_type, member_id)` now fulfills
+the already-established optional DP-418 `PersistedTargetSourceReader`
+interface for the subset of **Claim Candidate** targets with an explicitly
+persisted, source-exact parent Passage. This is a *functional independent*
+PostgreSQL readback, not a second fake read model derived from the match
+results. A single bounded query joins `claim_candidate` (exact requested ID)
+→ its exact-Content `statement_candidate` →
+`statement_candidate_passage` (true persisted Statement/Passage FK) →
+same-Content `passage` whose ID **equals**
+`claim_candidate.metadata.parent_passage_id` → same-Content immutable
+`content_capture` ID and SHA-256 → `content_item` rights. The query
+requires a real written Capture Passage and eligible candidate/statement
+states; missing target, forged parent, unrelated or other-Content Passage,
+missing edge, unsupported media-only Passage, or nonunique/invalid results
+cannot turn into a positive readback. The caller receives only target
+type/ID, Content/Passage/Capture IDs, exact Capture SHA-256, effective rights
+status and persisted Capture/hold status. It never reads/returns source URLs,
+titles, private quote/body text, metadata values other than the exact
+parent-Passage selector, match scores, actor names or provider receipts.
+
+The reader uses a PostgreSQL **read-only session** with bounded query/
+connection timeouts and generic DB error messages even if supplied an
+otherwise privileged DSN. A real separate `SELECT`-only database role is
+covered by the tests. Each call re-reads mutable Content/Capture rights
+and Capture holds; `APPROVED` is **not** converted into `CLEARED` and hard
+`DENIED`/`REVOKED`/`EXPIRED` overrides clearance. Only explicit `CLEARED`
+on **both** persisted Content and Capture yields that *recorded state*.
+No such state attests legal source-use permission or grants reviewer,
+equivalence, promotion or publication authority. An unsupported
+`PURGE_PENDING` Capture returns unavailable rather than masquerading as
+`CAPTURED`. A source-rights change between the two independent reads of
+the existing `build_candidate_comparison_read_model` rejects the complete
+comparison (`DP418_COMPARISON_CHANGED_DURING_READ`). This is a read-model
+drift check, **not** a cross-connection atomic snapshot or mutation permit.
+
+**Important explicit schema limitation:** DP-212's canonical
+`CandidateMatchingStore.load_targets` uses for `ATOMIC_CLAIM` a
+`claim_segment.segment_id`, `claim_text_provenance.id` or bare Claim ID
+as `provenance_key`. The canonical schema does **not** link those keys
+directly to a versioned written Passage+Capture. Even a promotion receipt
+does not establish that a specific Passage is the target Claim's recorded
+provenance. Hence `source_context('ATOMIC_CLAIM', ...)` deliberately returns
+**unavailable**, making DP-418 block the comparison rather than invent a
+Claim→Passage edge or manufacture a Capture. Claim Candidates without the
+explicit metadata parent and real Statement Passage edge similarly remain
+unavailable. No matching, provenance, schema, API or Studio UI code was
+rewritten to hide this gap.
+
+**TDD / actual local proof:** the new test first failed **RED** on the missing
+adapter import, then **GREEN** against a genuine disposable PostgreSQL
+initialized from canonical `db/schema.v1.sql`, with synthetic Content,
+Capture, written and media Passages, Statement/Claim Candidates, recorded
+promotion and source-proof records, a separate `SELECT`-only role, and
+real rights/hold changes. It rejects absent/foreign target IDs, forged
+parent pointing to other Content or a same-Content Passage with no FK,
+unavailable Atomic claim, improper status and ambiguous/fabricated response,
+DB write attempts even under privileged DSN, and privacy leakage. The
+unchanged `build_candidate_comparison_read_model` is exercised directly
+with the *real* target reader and a canonical validated synthetic match-run
+fixture: missing clearance stays `BLOCKED_TARGET_SOURCE_RIGHTS`, explicit
+current source rights permit **only** `OPERATOR_COMPARE_PENDING` (not an
+editorial or equivalence decision), and actual rights revocation during the
+second target read fails closed. These are local fixtures, **not** a real
+persisted DP-212 match-run readback or production rights evidence.
+
+Focused command:
+`PYTHONPATH=poc python3 -m unittest tests.test_dp418_target_source_pg_next
+tests.test_dp418_comparison_next tests.test_studio_candidate_review_handoff -q`
+**22/22 PASS**. Ruff lint/format checks, Python compileall and scoped Git
+diff-check are retained in the final worker validation receipt. No production
+DB, MiniPC, provider, account, review/promotion decision, commit, push or
+deployment. **DP-418 stays IN PROGRESS; original AC-418.1–.4 all OPEN**
+pending actual target/atomic lineage coverage, authorized original-source
+rights and context, durable approved decision/replay, local UI accessibility
+and real MiniPC source-to-reader integration proof.
+
+Final extended read-only/source acceptance run also includes
+`tests.test_studio_candidate_review`, `tests.test_candidate_matching` and
+`tests.test_studio_capture_selectors_pg` alongside both DP-418 suites and the
+handoff tests: **53/53 PASS** with canonical disposable PostgreSQL. Both new
+files pass `ruff check` and `ruff format --check`; `python3 -m compileall -q
+poc tests` and scoped `git diff --check` PASS. This does not claim that
+external authorization, a production match run or MiniPC approval occurred.
