@@ -1,5 +1,21 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nuova tranche successiva a `aca8809`, 11 ottobre 2026:**
+[cinque funzionalità Studio/Watch/v3 e relativa prova locale](docs/reviews/2026-10-11-private-ops-v3-release-consistency-wave.md).
+Commits locali `da56998` (DP-422 consumer v3 coerenti), `7fb3bdb`
+(DP-416 Collection→Passage→Candidate), `3b50e62` (DP-418 confronto
+sorgenti Candidate), `2dcb5a1` (DP-417 coda Capture con revoche rights
+RED→GREEN), `1979ce8` (DP-515 digest quotidiano watch/coverage).
+Non ripetere questi interventi senza regressione diversa e dimostrabile.
+**MateBook Linux ora raggiungibile**, ma nessuna copia DP nei soli root
+analizzati: non equipararlo a una scansione completa. MiniPC mirror non-Git
+immutato; servizio web e Cloudflare attivi tramite `systemctl --user`.
+Il programma resta **90 DONE/72 pendenti, release NO-GO/49**. Nessun nuovo
+AC legale/editoriale, di accessibilità manuale o MiniPC accettato tramite
+test sintetici. Verificare sempre esatto HEAD, GitHub push e CI del commit
+terminale prima di aggiornare la baseline; non usare la vecchia CI
+`aca8809` per certificare i nuovi commit.
+
 **Nuova tranche operativa 11 ottobre 2026, dopo `753c112`:**
 [nuovi consumer e percorsi original-quote Persona/Topic/Search, Studio,
 derivazioni originali, contabilità e batch](docs/reviews/2026-10-11-first-class-public-private-workflows-wave.md).
