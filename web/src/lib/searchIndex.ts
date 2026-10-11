@@ -382,6 +382,123 @@ export async function validateSearchIndex(
   return index;
 }
 
+/**
+ * DP-409 opt-in release reference for an independently authenticated,
+ * monotonically versioned CURRENT public-v2 search manifest.
+ *
+ * A self-hashed index is *not* release authority: a cached asset may be
+ * rewritten with the new projection SHA and rehashed after a rights hold.
+ * The publisher/host must rotate these pins atomically when a record is
+ * withdrawn. This interface does not authorize a publication or create pins.
+ */
+export interface PinnedPublicSearchRelease {
+  allowPinnedSearch: true;
+  releaseId: string;
+  epoch: number;
+  projectionSha256: string;
+  indexSha256: string;
+  generatedAt: string;
+  validUntil: string;
+}
+
+const PIN_SHA256 = /^[a-f0-9]{64}$/;
+const PIN_RELEASE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const PIN_TIMESTAMP_ZONE = /(?:Z|[+-]\d{2}:\d{2})$/;
+
+function checkPinnedSearchRelease(value: unknown, now: Date): PinnedPublicSearchRelease {
+  if (!value || typeof value !== "object" || !Number.isFinite(now.getTime())) {
+    throw new Error("SEARCH_PINNED_RELEASE_INVALID");
+  }
+  const pin = value as Partial<PinnedPublicSearchRelease>;
+  if (pin.allowPinnedSearch !== true ||
+      typeof pin.releaseId !== "string" || !PIN_RELEASE_ID.test(pin.releaseId) ||
+      typeof pin.epoch !== "number" || !Number.isSafeInteger(pin.epoch) || pin.epoch < 0 ||
+      typeof pin.projectionSha256 !== "string" || !PIN_SHA256.test(pin.projectionSha256) ||
+      typeof pin.indexSha256 !== "string" || !PIN_SHA256.test(pin.indexSha256) ||
+      typeof pin.generatedAt !== "string" || !PIN_TIMESTAMP_ZONE.test(pin.generatedAt) ||
+      typeof pin.validUntil !== "string" || !PIN_TIMESTAMP_ZONE.test(pin.validUntil)) {
+    throw new Error("SEARCH_PINNED_RELEASE_INVALID");
+  }
+  const generated = Date.parse(pin.generatedAt);
+  const expires = Date.parse(pin.validUntil);
+  if (!Number.isFinite(generated) || !Number.isFinite(expires) || generated >= expires) {
+    throw new Error("SEARCH_PINNED_RELEASE_INVALID");
+  }
+  if (now.getTime() < generated || now.getTime() >= expires) {
+    throw new Error("SEARCH_PINNED_RELEASE_EXPIRED");
+  }
+  // Return a value snapshot, not an upstream object that can mutate while
+  // digest validation or another asynchronous read is in flight.
+  return {
+    allowPinnedSearch: true,
+    releaseId: pin.releaseId,
+    epoch: pin.epoch,
+    projectionSha256: pin.projectionSha256,
+    indexSha256: pin.indexSha256,
+    generatedAt: pin.generatedAt,
+    validUntil: pin.validUntil,
+  };
+}
+
+/**
+ * Opt-in read-through for an exact *static* public-v2 index artifact.
+ *
+ * readCurrentRelease MUST independently read authenticated CURRENT host
+ * release pins (not values from the fetched JSON or the same cache). It is
+ * called twice; a withdrawal/version cutover during the async read invalidates
+ * the entire response, including an empty/default search. Neither a digest
+ * nor this double read proves a future CDN/HTTP byte delivery after return.
+ */
+export async function readPinnedPublicSearch(
+  assetBytes: string,
+  readCurrentRelease: () => Promise<PinnedPublicSearchRelease>,
+  rawQuery: string,
+  filters: SearchFilters = {},
+  options: { now?: () => Date } = {},
+): Promise<SearchResponse> {
+  if (typeof readCurrentRelease !== "function") {
+    throw new Error("SEARCH_PINNED_RELEASE_INVALID");
+  }
+  const clock = options.now ?? (() => new Date());
+  async function currentPins(): Promise<PinnedPublicSearchRelease> {
+    let received: unknown;
+    try {
+      received = await readCurrentRelease();
+    } catch {
+      throw new Error("SEARCH_PINNED_RELEASE_UNAVAILABLE");
+    }
+    return checkPinnedSearchRelease(received, clock());
+  }
+  const before = await currentPins();
+  if (typeof assetBytes !== "string" || assetBytes.length > 16 * 1024 * 1024) {
+    throw new Error("SEARCH_PINNED_INDEX_INVALID");
+  }
+  let asset: unknown;
+  try {
+    asset = JSON.parse(assetBytes);
+  } catch {
+    throw new Error("SEARCH_PINNED_INDEX_INVALID");
+  }
+  const index = await validateSearchIndex(asset, before.projectionSha256);
+  if (index.index_sha256 !== before.indexSha256 ||
+      index.generated_at !== before.generatedAt) {
+    throw new Error("SEARCH_PINNED_INDEX_MISMATCH");
+  }
+  const response = searchPublicIndex(index, rawQuery, filters);
+  // Validate and compare a fresh independent release after computing results.
+  // An epoch change denies a result even if the digest is accidentally reused.
+  const after = await currentPins();
+  if (before.releaseId !== after.releaseId ||
+      before.epoch !== after.epoch ||
+      before.projectionSha256 !== after.projectionSha256 ||
+      before.indexSha256 !== after.indexSha256 ||
+      before.generatedAt !== after.generatedAt ||
+      before.validUntil !== after.validUntil) {
+    throw new Error("SEARCH_PINNED_RELEASE_CHANGED");
+  }
+  return response;
+}
+
 function timestamp(record: PublicSearchRecord): number {
   const parsed = record.published_at ? Date.parse(record.published_at) : 0;
   return Number.isFinite(parsed) ? parsed : 0;

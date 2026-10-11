@@ -356,3 +356,57 @@ Explore/Person/Topic route and browser-back/focus/a11y support,
 real mobile VoiceOver/200% zoom, representative corpus size/latency
 and MiniPC positive/negative readback remain external. No frontend
 consumer activation, production, MiniPC, commit or push occurred.
+
+### 2026-10-12 — Independent pinned static withdrawal reader (opt-in only)
+
+`web/src/lib/searchIndex.ts` now exports `readPinnedPublicSearch` and its
+`PinnedPublicSearchRelease` input, without altering `validateSearchIndex`,
+`searchPublicIndex`, the public-v2 Explore consumer, v3 DP-439 reader, build
+route, or existing release behavior. This is an optional read-through contract
+for a host that **independently supplies authenticated, current** release
+pins: release ID, monotone epoch, exact projection and index SHA-256,
+generation time, expiry and explicit opt-in. It checks the static JSON's
+existing schema/derived digest and *additionally* requires the separately
+pinned index digest; it verifies the host's current pins **before and after**
+query computation and fails closed if any component changes, is missing, or
+expires. It never derives its current pin from the untrusted cached asset.
+
+This addresses a distinct verified gap: the historical public-v2
+`validateSearchIndex(index, expectedProjectionSha256)` intentionally lacks
+an **independent index digest**. A syntactically valid old public finding,
+person, content and topic list can be copied under a newer projection SHA,
+self-rehashed using `finalizeSearchIndex`, and still pass that legacy
+validator because the routes/facets are internally coherent. The opt-in
+reader refuses those mixed-release search hits via the independent digest.
+The legacy API remains compatible for its existing historical consumers;
+the new path requires an actual external pin reader.
+
+**Executable RED→GREEN:** first execution of
+`cd web && node --experimental-strip-types
+scripts/check-search-withdrawal-next.mjs`
+failed with missing `readPinnedPublicSearch` export. After implementation it
+passes, building **two real isolated Astro output directories** from
+synthetic, non-demo public-v2 projection files with SHA-256 calculated over
+the canonical source material. The first build publishes one fictional
+finding and its Person search result; the second withdraws the finding
+(zero results). Both real `search-index.v1.json` files have distinct
+projection/index digests. The test proves that the original validator
+accepts a rehashed old-record payload under the new projection SHA, while
+the pinned reader refuses that payload, the actual stale old artifact and a
+mixed, self-consistent old-record/new-metadata asset. It also checks
+current empty read, deterministic historical snapshot, interrupted
+two-read pin rotation, changed epoch despite identical digests, missing
+host authority, expired pins and unavailable host authority. Isolated
+build output and fixture projections are deleted afterwards; no production
+source, host or cache was accessed.
+
+The adjacent `check-search-index.mjs`,
+`check-public-statement-search-v3.mjs` and
+`check-private-person-topic-v3.mjs` all pass; `npm run check` reports
+0 errors/0 warnings/0 hints. This remains a **local source-only reference**:
+neither the current public-v2 browser nor an operational DP-439 consumer
+calls it. It cannot prove atomic CDN deployment, a future rights revocation
+after its final pin read, HTTP byte-delivery/edge-cache withdrawal, signed
+independent release authority or MiniPC latency. Those require DP-320/518
+and host/edge integration. **DP-409 stays IN PROGRESS; AC-409.8 stays open,
+and v3 search/public release remains NO-GO.**
