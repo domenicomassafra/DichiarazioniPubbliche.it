@@ -1,6 +1,6 @@
 # DP-519 — Operator visual-quality capacity and exception time budget
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-417, DP-304
 
@@ -37,4 +37,22 @@ Depends on: DP-417, DP-304
  Extend Studio queue/prior image rights records if necessary; runbook for “none” and measured workload. Preserve no human ordinary reviewer premise.
 
 ## Completion receipt
- Not implemented; planning only. Future fixture/genuine visual acceptance, weekly measured minutes, queue age and public image omission/readback.
+**2026-10-11 local private source-only capacity reconciliation — IN PROGRESS.**
+`visual_operator_capacity_v1.py` accepts a bounded operator-only metadata
+worklist of asset hashes/preview IDs, provenance/rights/identity state and
+per-image options. It reconciles immutable, idempotent, chained reported time
+events (including events across ISO week boundaries), rejects overlapping
+actor time and duplicate exception questions, separates actual minutes from
+future estimates and measured per-reason median, and prioritizes work by
+expiry/age and a five-hour **planning** allowance, not a promised SLA.
+Overcapacity defers optional image inspection; no-image and unknown rights/
+ambiguous-person paths stay text-independent. Stale/expired selected images
+trigger held withdrawal-review rather than reusing an old photo. Choosing an
+image is only a PRIVATE CANDIDATE, not verified licensing or source-person
+identity; `image_eligible`, `publication_authority` and
+`text_review_authority` remain false. Source/test commit `084a77a`, **16**
+synthetic DP-519 tests plus **10** existing Studio operator queue tests PASS;
+Ruff lint/format PASS. All AC-519 remain unchecked: no authenticated owner
+receipts or genuinely measured staff time, no persisted Studio queue, licensed
+real image, approved identity/alt text, MiniPC/public display or DP-518 live
+withdrawal readback. No human text reviewer is asserted or impersonated.

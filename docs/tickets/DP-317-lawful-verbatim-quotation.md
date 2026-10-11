@@ -1,6 +1,6 @@
 # DP-317 — Percorso lecito per citazione pubblica esatta per source family
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M3 — editorial, correction, privacy, and legal policy
 Depends on: DP-118, DP-216, DP-221, DP-305, DP-304, DP-306
 
@@ -36,4 +36,19 @@ Depends on: DP-118, DP-216, DP-221, DP-305, DP-304, DP-306
 ## Documentation, data, and migration impact
  Add narrow rights-use/version mapping atop `rights_registry`, no broad replacement; public schema migration owned C, source ACL owned A, cache D.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+**2026-10-11 local source-only exact-quote preflight — IN PROGRESS.**
+`lawful_exact_quote_preflight_v1.py` binds proposed source family + locator,
+Content/Capture/version SHA, exact verified DP-224 written selector, quoted
+wording/context hash, original-vs-translation identity, representation, purpose,
+jurisdiction, use/conditions/limited duration, case-specific rights reference,
+and caller-supplied revocation epoch. Existing DP-236 `STORE_BODY` is checked
+but explicitly not promoted into `EXCERPT_PUBLIC`. Film, audio, screenshot and
+embed reuse remain HELD even when text clearance is claimed. An otherwise
+coherent private metadata claim still returns `public_quote_permitted=False`
+until external DP-307 qualified rights/signature, DP-320 authentic read-time
+fence and DP-443 real pilot/public consumer proof. No blanket quote exception,
+universal char ceiling or fabricated counsel receipt. Source/test commit
+`1aac45c`: **10** focused tests and **39** selected DP-317/quote-binding/
+DP-236/DP-320 regressions PASS; Ruff lint/format PASS. This does not authorize
+actual archive licenses, translation reproduction, front-end v3 conversion,
+CDN release or any quoted public record. All AC-317.1–.6 remain unchecked.

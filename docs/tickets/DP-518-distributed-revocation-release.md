@@ -1,6 +1,6 @@
 # DP-518 — Revocation/correction distribution and immutable MiniPC release readback
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-303, DP-308, DP-431, DP-510, DP-511, DP-502
 
@@ -39,4 +39,22 @@ Depends on: DP-303, DP-308, DP-431, DP-510, DP-511, DP-502
  Bind existing revocation/DP-510/DP-511, projection cleanup/DP-431, source lineage, exact quote source-span and release manifest. Add only necessary fencing/generation fields with migration and rollback; immutable operator receipt and private contact route.
 
 ## Completion receipt
- Not implemented; planning only. Future race run ID, code/mirror/projection/cache fingerprints, live GET/search/sitemap results, measured delay and signed rollback.
+**2026-10-11 — bounded offline consistency checker implemented; no MiniPC acceptance.**
+`poc/dichiarazioni_pubbliche/distributed_withdrawal_audit_v1.py`
+models exact release/code/mirror/schema/policy/bundle hashes, structural DP-320
+material epochs and per-record dependencies for all twelve Statement/list/
+Person×Topic/Content/Trace/search/sitemap/JSON/API/RDF/HTML/edge consumers.
+It rejects unknown/duplicate consumers, incomplete public surface inventories,
+host/generation drift, old HTTP 200 quote responses, redirects and outages.
+Even fully consistent caller-supplied 404/readback remains explicitly
+`CONSISTENT_UNATTESTED`, with `release_authorized=False` and
+`withdrawal_verified_on_live_host=False` because neither hashes nor local
+responses certify trusted MiniPC/CDN origin. An isolated SQLite DP-320 test
+shows that revoking source rights disables the former publication ticket while
+the untrusted readback may remain unchanged.
+
+Source/test commit `8bd5cc5`: **11 targeted DP-518 tests** and the existing
+**7 DP-320 tests** PASS, Ruff PASS. This does not implement the actual
+multi-writer PostgreSQL fence, HTTP/CDN invalidation, atomic deployment pointer,
+provider-outage hold, measured propagation time, signed owner acceptance or
+verified rollback. **AC-518.1–.7 remain open** and release remains NO-GO.

@@ -3,6 +3,24 @@
 **Checkpoint operativo aggiornato:** 11 ottobre 2026. Questo documento è la porta di ingresso operativa,
 non una seconda fonte di verità per i ticket o una certificazione di release.
 
+**Settima tranche locale, 2026-10-11 (no push/deploy):** DP-518
+`8bd5cc5` (audit su dodici superfici pubbliche/cache con DP-320 epoch;
+anche un readback 404 sintetico non è autorità MiniPC/CDN), DP-516
+`46628d1` (batch storico proposto SOLO DOPO gate DP-443/diritti/watch/budget,
+mai dispatch), DP-317 `1aac45c` (diritti d'uso esatti per
+fonte/Capture/rappresentazione/giurisdizione, sempre HELD fino a prove
+qualificate), DP-519 `084a77a` (coda visiva privata, ore effettive vs
+stimate, niente reviewer testuale/approvazione foto). Tutti i ticket restano
+**IN PROGRESS** e le AC reali sono aperte. Benchmark locale 5/5, compileall,
+Ruff, repo contract e launch-preflight **NO-GO 49** verificati. Il test Python
+integrato della tranche ha un verbale separato nella review di implementazione.
+Registro **162: 90 DONE, 51 IN PROGRESS, 6 BLOCKED, 15 FUTURE**; 72 non DONE,
+file/PLAN coerenti. Fonte vera, firma DP307/443, gate su MiniPC/PostgreSQL,
+riscontri host/edge, cost reservation e lavoro operatore reale restano assenti.
+Verifica integrata finale della tranche: **2772/2772 test Python PASS
+(159.267 s), restore drill PASS**, benchmark 5/5, compileall, Ruff,
+repository contract e `git diff --check` PASS; **NO-GO / 49** confermato.
+
 **Sesta tranche locale 2026-10-11, no push/deploy:** DP-242
 `d2d1729` (Discovery/Candidate preflight con reread persistito, scope,
 Capture hash e hold esplicito) e `74b5d56` (due route read-only

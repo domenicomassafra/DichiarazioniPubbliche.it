@@ -495,7 +495,7 @@ handled before opening the product to users.
 | DP-310 | DONE | Independent HIGH/LEGAL dual-control engineering complete with off-DB identity-attested durable replay, canonical production enforcement, clean full-suite/DP-223/MiniPC/PostgreSQL acceptance green; no claim of legal correctness | DP-308, DP-309 |
 | DP-311 | DONE | Local/off-DB reviewer identity authority + exact-event attested receipts for DP-310; restart/tamper/revocation, private backup/restore, disposable-PostgreSQL replay and isolated MiniPC acceptance complete | DP-310; coordinate DP-303, DP-507 |
 | DP-316 | IN PROGRESS | Machine verification authority, review migration e eligibility per risultato | DP-308, DP-309, DP-310, DP-311, DP-229, DP-301, DP-304, DP-314, DP-321 |
-| DP-317 | FUTURE | Percorso lecito per citazione pubblica esatta per source family | DP-118, DP-216, DP-221, DP-305, DP-304, DP-306 |
+| DP-317 | IN PROGRESS | Percorso lecito per citazione pubblica esatta per source family | DP-118, DP-216, DP-221, DP-305, DP-304, DP-306 |
 | DP-320 | IN PROGRESS | Revoca e correzione transazionali fino all'ultimo lettore | DP-303, DP-308, DP-431, DP-510, DP-511, DP-117 |
 
 Exit criteria: public submission and publication behavior have explicit policy, abuse,
@@ -589,8 +589,8 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-514 | IN PROGRESS | EUR10-month planning envelope with atomic multi-interval dispatch caps | DP-512, DP-513, DP-506 |
 | DP-515 | IN PROGRESS | Economical incremental source monitoring with coverage and safe backoff | DP-209, DP-210, DP-211, DP-511, DP-512, DP-514 |
 | DP-517 | FUTURE | Reader Google sign-up/login/logout/delete MiniPC activation | DP-304, DP-307, DP-501, DP-502 |
-| DP-518 | FUTURE | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |
-| DP-519 | FUTURE | Operator visual-quality capacity and exception time budget | DP-417, DP-304 |
+| DP-518 | IN PROGRESS | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |
+| DP-519 | IN PROGRESS | Operator visual-quality capacity and exception time budget | DP-417, DP-304 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
 observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad
@@ -630,7 +630,7 @@ Goal: first release that can be operated publicly without calling the code a pro
 | DP-703 | IN PROGRESS | Production dataset/source launch set and disclosure; launch set/rights/provider/snapshot gates remain blocked | M2, M3 |
 | DP-704 | FUTURE | End-to-end launch rehearsal from source to correction | M2..M6 |
 | DP-705 | FUTURE | v1.0.0 release and public deployment | DP-701..704 |
-| DP-516 | FUTURE | Historical permanent corpus backfill with bounded batches and refresh | DP-210, DP-215, DP-703, DP-511, DP-514, DP-443 |
+| DP-516 | IN PROGRESS | Historical permanent corpus backfill with bounded batches and refresh | DP-210, DP-215, DP-703, DP-511, DP-514, DP-443 |
 
 Stable v1 requires all launch blockers closed; it does not require every FUTURE business
 feature (BYOK, paid API, subscriptions, MCP, etc.).

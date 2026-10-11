@@ -152,3 +152,45 @@ release gate `check_launch_preflight.py --expect-no-go` passed with
 **162 tickets, 90 DONE, 47 IN PROGRESS, 6 BLOCKED, 19 FUTURE, 72 not DONE**.
 No independent evidence/authentic gold/owner legal decisions or production
 MiniPC DB/reader cutover were performed.
+
+## Seventh local source-only tranche — 2026-10-11
+
+No push/deploy, production/mirror database mutation, signed archive permission,
+real primary content acquisition, commercial model, public publication or
+qualified policy decision. Four independently tested modules:
+
+| Ticket | Local source commit | Safety and functionality actually implemented |
+|---|---|---|
+| DP-518 | `8bd5cc5` | Exact release/material-epoch/proposed generation hashes, exhaustive twelve public consumers including edge cache, explicit 404/410 vs unsafe old 200/readback, no missing Consumer as green. Even structurally consistent caller-supplied readback returns `CONSISTENT_UNATTESTED`, never real MiniPC/CDN clearance. Isolated DP-320 SQLite revoked-rights read-fence integration test |
+| DP-516 | `46628d1` | Bounded private historical batch plan from DP-243 rights/role/version, DP-514 EUR budget and legacy USD guard, DP-515 watch, an explicit independently verifiable *claim* of signed DP-443 acceptance, replayable no-duplicate checkpoint and changed-source holds; no jobs, durable reservation or real approval |
+| DP-317 | `1aac45c` | Per-source-version/representation/public-use/quote/context/selector/expiry/region scope over DP-236 private rights and DP-224 exact binding; translation distinct from original, unknown/revoked/copy/film rights held. No legal signoff or public words activated |
+| DP-519 | `084a77a` | Metadata-only private visual queue with append-only input receipts/replay/currentness, image identity/rights/age/expiry, ISO-week split of actual minutes, separate forecast, capacity deferral and no-image fallback. No human fact-review/image-publish authority, no real owner-time claim |
+
+Local source-focused RED→GREEN evidence: DP-518 **11** focused tests plus
+existing DP-320 **7** PASS; DP-516 **15** focused and **49** selected
+DP-516/243/515 PASS; DP-317 **10** focused and **39** selected DP-317,
+quote binding, DP-236, DP-320 PASS; DP-519 **16** focused and **26** including
+existing Studio operator queues PASS. Additional mixed new-contract run **59
+PASS**. Ruff lint/format on all eight new source/test files PASS, compileall
+PASS, benchmark **5/5 PASS**, repository contract PASS, release preflight
+**NO-GO / 49 blockers** as expected. No new UI, public/Studio API routes or
+production schema were changed in this tranche.
+
+Ticket register and PLAN: **162 total, 90 DONE, 51 IN PROGRESS, 6 BLOCKED,
+15 FUTURE, 72 not DONE**, with exact agreement. AC-317, -516, -518, -519
+remain unchecked and require real independent qualified rights, authenticated
+review/DP-443 first full pilot, MiniPC source→public→correction and distributed
+revocation/rollback, durable budget/checkpoint, plus owner visual sample.
+The original untracked post-grilling handoff response remains untouched.
+
+**Seventh tranche final integrated proof (after all four source/test commits):**
+`PYTHONPATH=poc python3 -m unittest discover -s tests -q` **2772/2772 PASS**
+in **159.267 s**, process exit code 0, including the isolated SQL restore drill
+**PASS**. `PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark`
+**5/5 PASS**, `python3 -m compileall -q poc tests` PASS, Ruff lint and format
+on the eight new Python source/test files PASS, `check_repository_contract.py`
+PASS, `git diff --check` PASS. `check_launch_preflight.py --expect-no-go`
+returned the expected **NO-GO with 49 blockers**; it is not an approval.
+The full test suite demonstrates local source/test consistency only; no live
+qualified rights, MiniPC/Cdn invalidation, actual historical batch or source
+authorization, autonomous public assertion or owner-approved visual image.

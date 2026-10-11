@@ -1,6 +1,6 @@
 # DP-516 — Historical permanent corpus backfill with bounded batches and refresh
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M7 — stable v1 launch
 Depends on: DP-210, DP-215, DP-703, DP-511, DP-514, DP-443
 
@@ -38,4 +38,19 @@ Depends on: DP-210, DP-215, DP-703, DP-511, DP-514, DP-443
  Reuse existing corpus/capture/source-health/matching/retention stores, private batch manifest/checkpoint and source/coverage policies. Public output remains selective, rights-bound, translated visibly and fail closed.
 
 ## Completion receipt
- Not implemented; planning only. Future immutable batch/candidate, item counts, provenance/rights audit, energy/cost, interruptions/replay, accepted public-record hashes, held reasons and next refresh date.
+**2026-10-11 source-only implementation checkpoint — IN PROGRESS, no backfill.**
+`historical_batch_gate_v1.py` builds a deterministic, bounded private review
+plan from DP-243 scoped IT/DE historical entries, DP-515 source-watch state,
+DP-514 EUR/month and legacy USD policy, and an external DP-443 signed pilot
+*claim*. Absent/invalid pilot, rights, watch readiness, budget, changed source
+or failed/untrusted checkpoint refuse all proposals and budget reservations.
+Unique per-Person/source/Content/Capture work keys, replay fingerprint,
+reanalysis and private dedup checks prevent a synthetic retry plan from
+silently promoting a different Person or archive. A supplied verifier callback
+does **not** authenticate real release authority: `pilot_accepted_by_system`,
+`dispatch_authorized`, `public_eligible` all stay false. Source/test commit
+`46628d1`, 15 focused synthetic tests and **49** selected DP-516/243/515
+tests PASS; Ruff lint+format PASS. This is not real acquisition or an
+independently signed DP-443 GO: all AC-516.1–.6 remain unchecked. No MiniPC
+readback, source licenses, durable checkpoint/budget CAS, real media or public
+projection acceptance yet.
