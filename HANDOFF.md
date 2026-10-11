@@ -1,5 +1,19 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Follow-up cleanup + debug dell'11 ottobre:**
+[type-hint runtime e clone QA recuperato](docs/reviews/2026-10-11-queue-annotation-wip-followup.md).
+Clone temporaneo con HEAD antenato di `main` e zero WIP
+rimosso recuperando **38944768 byte (~37,1 MiB)**;
+`approved-empty.json` e rollback intatti. I tre recuperi
+precedenti e questo sommano **809046016 byte (771,57 MiB,
+0,753 GiB)**, senza inventare ulteriori GB. Corretti
+42 riferimenti di tipo indefiniti F821 nelle annotazioni
+di queue/worker: regressione RED→GREEN con
+`typing.get_type_hints`. Suite Python **2821/2821 PASS**
+con restore drill, benchmark **5/5 PASS**, repository
+contract PASS, zero F821; rimangono 120 altri rilievi
+lint storici. Nessun nuovo deploy; release **NO-GO/49**.
+
 **Consolidamento Git + CI + cleanup del 11 ottobre 2026:**
 [review, push e misure di pulizia sui quattro host](docs/reviews/2026-10-11-main-push-code-review.md).
 Il main Studio è stato sincronizzato a GitHub con fast-forward
