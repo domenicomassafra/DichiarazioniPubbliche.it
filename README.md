@@ -16,13 +16,17 @@ publication, reply, and correction are separate auditable stages.
 
 Canonical source repository: `domenicomassafra/DichiarazioniPubbliche.it`.
 
-**Current status / next-agent entry point (2026-10-10):** [`HANDOFF.md`](HANDOFF.md),
+**Operational entry point (2026-10-11):** [`HANDOFF.md`](HANDOFF.md), the canonical
+[`PLAN.md`](PLAN.md) and individual [`docs/tickets/`](docs/tickets/) specs.
+Read the live backlog with `python3 tools/report_ticket_status.py --json`; the
+repository contract independently fails if ticket headers and PLAN statuses
+diverge. The post-grilling backlog contains 162 tickets. The
 [`PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md`](PROMPT-NUOVA-CHAT-VALUTAZIONE-POI-GRILLING-E-REDESIGN.md),
-[`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md),
-[`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md), and
-[`LAUNCH.md`](LAUNCH.md). The repository being merged and CI passing does **not**
-mean the editorial product or latest website build has been released; the
-current 125-ticket ledger is in [`PLAN.md`](PLAN.md).
+[`FINAL-PENDING-GRILLING-2026-10-10.md`](FINAL-PENDING-GRILLING-2026-10-10.md) and
+[`MEGA-HANDOFF-2026-10-10.md`](MEGA-HANDOFF-2026-10-10.md) are historical evidence;
+[`LAUNCH.md`](LAUNCH.md) separately describes the informational preview.
+Local commits, CI, and live website deployment are different checks and do not
+authorize an editorial release.
 
 ## Why this exists
 
@@ -108,9 +112,10 @@ Known external live blockers are tracked as tickets rather than hidden by fallba
 - `DP-201` — official OmniRoute tiered claim-extraction path;
 - `DP-204` — live remote-ASR receipt requires configured provider credential.
 
-At the verified 2026-10-10 checkpoint, `main` and `origin/main` matched,
+At the **historical** verified 2026-10-10 checkpoint, `main` and `origin/main` matched,
 GitHub CI passed, and no other local branch, worktree or stash existed.
-**90/125 tickets were DONE**; a full editorial release remained **NO-GO** and a
+**90/125 tickets were DONE at that checkpoint**; the later post-grilling backlog
+expanded to 162 tickets without manufacturing new DONE acceptances. A full editorial release remained **NO-GO** and a
 production website deployment was not implied by the GitHub push. Read
 [`HANDOFF.md`](HANDOFF.md) for the exact current verification steps; the
 [`2026-10-03 consolidation`](docs/reviews/consolidation-baseline-2026-10-03.md)

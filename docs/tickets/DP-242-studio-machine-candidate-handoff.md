@@ -28,6 +28,8 @@ Auto-approve persons based on a model's confidence, reintroduce routine textual 
 
 Hard DP-416/417/418/419 actual persisted paths; soft DP-235, DP-241 source state, B machine approval contract and transactional revocation, D background scheduler. Real transition remains blocked if authority API is unavailable, not silently simulated.
 
+**Milestone reconciliation (2026-10-11): M4.** This is the private Studio/API operator handoff, with all four hard UI/workflow prerequisites in M4. M2 source/Capture/Candidate inputs remain prerequisites to a real demonstration; placing the ticket in M4 does not complete the authority or MiniPC acceptance criteria.
+
 ## Acceptance criteria
 
 

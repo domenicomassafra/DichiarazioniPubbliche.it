@@ -1,7 +1,7 @@
 # DP-244 — Source coverage inventory, version refresh and incremental catalog
 
 Status: IN PROGRESS
-Milestone: M7 — stable v1 launch
+Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-209, DP-213, DP-215, DP-511
 
 ## Problem
@@ -27,6 +27,8 @@ Unlimited crawling or subscription, automatic publication, all-world corpus assu
 ## Dependencies and sequencing
 
 Hard existing discovery, Coverage Needs, evidence roles, revalidation; soft D scheduler/cap/health, DP-237 version locator, DP-243 historical collections, B holds/updates and C freshness display. Permissions and feed robots/rates are external source-family inputs.
+
+**Milestone reconciliation (2026-10-11): M2.** The scoped source/version coverage inventory supports private discovery and pipeline readiness, based on M2 discovery and suitability contracts DP-209/213/215. Later periodic execution and cost governance remain in M5 (DP-515), while accepted historical scale is separately gated in M7 (DP-243/516). An offline coverage proposal is not a source canary or launch receipt.
 
 ## Acceptance criteria
 

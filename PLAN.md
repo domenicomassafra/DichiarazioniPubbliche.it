@@ -451,8 +451,6 @@ without manual DB surgery.
 | DP-239 | IN PROGRESS | Multilingual original and translation derivation in the private corpus | DP-210, DP-211, DP-221 |
 | DP-240 | IN PROGRESS | Bounded multi-person candidate batch with cross-source identity isolation | DP-211, DP-212, DP-218, DP-222 |
 | DP-241 | IN PROGRESS | Active original-source recovery and finite investigation log | DP-209, DP-213, DP-225, DP-228 |
-| DP-242 | IN PROGRESS | Studio source-to-candidate machine handoff and exception lifecycle | DP-416, DP-417, DP-418, DP-419 |
-| DP-243 | IN PROGRESS | Initial permanent historical corpus from mixed Italian/German primary sources | DP-210, DP-215, DP-703, DP-443 |
 | DP-244 | IN PROGRESS | Source coverage inventory, version refresh and incremental catalog | DP-209, DP-213, DP-215, DP-511 |
 | DP-312 | IN PROGRESS | Speech act, contesto adattivo e fedeltà semantica multilingue | DP-216, DP-217, DP-218, DP-219, DP-220, DP-222 |
 | DP-313 | IN PROGRESS | Documento processuale: persone, ruoli, affermazioni e stati | DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312 |
@@ -513,6 +511,7 @@ LLM in the request path.
 
 | Ticket | Status | Description | Depends on |
 |---|---|---|---|
+| DP-242 | IN PROGRESS | Studio source-to-candidate machine handoff and exception lifecycle; private Studio dependencies/acceptance in M4 | DP-416, DP-417, DP-418, DP-419 |
 | DP-400 | DONE | Competitive UX research + dual-surface design brief | M0 |
 | DP-401 | DONE | Static-first hosting/deploy contract for public projection | DP-105 |
 | DP-402 | DONE | Read-only HTTP API implementation over public schema v1 | DP-105, DP-401 |
@@ -630,6 +629,7 @@ Goal: first release that can be operated publicly without calling the code a pro
 | DP-703 | IN PROGRESS | Production dataset/source launch set and disclosure; launch set/rights/provider/snapshot gates remain blocked | M2, M3 |
 | DP-704 | FUTURE | End-to-end launch rehearsal from source to correction | M2..M6 |
 | DP-705 | FUTURE | v1.0.0 release and public deployment | DP-701..704 |
+| DP-243 | IN PROGRESS | Initial permanent historical corpus from mixed Italian/German primary sources; gated historical expansion in M7 | DP-210, DP-215, DP-703, DP-443 |
 | DP-516 | IN PROGRESS | Historical permanent corpus backfill with bounded batches and refresh | DP-210, DP-215, DP-703, DP-511, DP-514, DP-443 |
 
 Stable v1 requires all launch blockers closed; it does not require every FUTURE business

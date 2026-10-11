@@ -28,6 +28,8 @@ Claims that the two persons' entire historical record is collected; mass uncontr
 
 Hard full first reader/correction path accepted at milestone gate, existing DP-210/215/703; DP-236, DP-238, DP-239 as applicable; external Archive/Luce and Bundesarchiv source-family permits, archive-licensing/third-party transcript choices and German meaning validation; soft D bulk/cost, B/C publication.
 
+**Milestone reconciliation (2026-10-11): M7.** The permanent historical expansion follows the signed first integrated DP-443 pilot and the separate DP-703 launch-set decision, alongside M7's bounded historical backfill DP-516. The M2 source/parser components are prerequisites, but the synthetic manifest guard does not start an approved archive or satisfy this ticket's real acceptance criteria.
+
 ## Acceptance criteria
 
 

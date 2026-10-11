@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +71,31 @@ class TicketIdentityContractTests(unittest.TestCase):
             "DP-1234-invalid.md: no 'DP-###' ticket id in filename",
             self.problems(),
         )
+
+
+class TicketPlanStatusContractTests(unittest.TestCase):
+    def test_repository_contract_rejects_ticket_status_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tickets = root / "docs/tickets"
+            tickets.mkdir(parents=True)
+            (root / "PLAN.md").write_text(
+                "| DP-235 | FUTURE | Private source pilot | DP-209 |\n", encoding="utf-8"
+            )
+            (tickets / "DP-235-private-source-pilot.md").write_text(
+                "# DP-235 — Private source pilot\nStatus: IN PROGRESS\n## Acceptance criteria\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            with (
+                patch.object(contract, "ROOT", root),
+                patch.object(contract, "TICKETS_DIR", tickets),
+                patch.object(sys, "argv", ["check_repository_contract.py", "--only", "tickets"]),
+                contextlib.redirect_stdout(output),
+            ):
+                result = contract.main()
+            self.assertEqual(result, 1, output.getvalue())
+            self.assertIn("TICKET_STATUS_DRIFT:DP-235", output.getvalue())
 
 
 if __name__ == "__main__":
