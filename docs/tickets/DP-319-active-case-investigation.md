@@ -52,3 +52,23 @@ reviewed source hash and unknown-rights negative cases. No MiniPC job queue,
 atomic Postgres ledger, real researcher/owner review, source fetch or provider
 cost has been accepted. **No original DP-319 acceptance criterion is fully
 closed**; this is source-only, with all public and real investigation gates held.
+
+## 2026-10-11 — Readiness and immutable plan-scope hardening
+
+The source-only preflight previously treated a nonempty string such as
+`budget_ready="false"` or `capability_ready="false"` as truthy, which could
+issue `READY_PRIVATE_PROPOSAL` without actual Boolean gate approval.
+Further, an attempt-ID fingerprint omitted the exact investigation question,
+attempt maximum and monetary ceiling. Identically identified attempts could
+therefore be replayed under a different question or budget policy.
+
+The RED regression reported **5 failures** across these cases. The preflight
+now rejects non-Boolean readiness values with
+`INVESTIGATION_READINESS_INVALID` and binds those plan dimensions in the
+deterministic fingerprint; a changed plan yields a different attempt ID
+rather than silently replaying an old cost-bearing decision. **13/13** focused
+tests GREEN, scoped Ruff and diff-check PASS. This only constructs a private
+proposal: the actual worker must check durable budget, grants and current
+rights against a real transaction; no source fetch or cost was performed.
+Real queue and MiniPC run remain absent; **all AC-319.1–.5 stay unchecked,
+ticket IN PROGRESS**.

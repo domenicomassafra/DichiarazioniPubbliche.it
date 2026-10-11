@@ -74,6 +74,30 @@ class PrivateInvestigationAttemptTests(unittest.TestCase):
                 self.assertIsNone(result.proposed_attempt_id)
         self.assertEqual(decision(ready=False).status, "WAIT_EXTERNAL")
 
+    def test_string_false_readiness_cannot_authorize_an_investigation_attempt(self):
+        for field in ("budget_ready", "capability_ready"):
+            with self.subTest(field=field):
+                arguments = {
+                    "spec": spec(), "assignments": (assignment(),),
+                    "observations": (), "budget_ready": True,
+                    "capability_ready": True,
+                }
+                arguments[field] = "false"
+                with self.assertRaisesRegex(ValueError, "INVESTIGATION_READINESS_INVALID"):
+                    propose_investigation(**arguments)
+
+    def test_changed_question_and_attempt_ceiling_invalidate_prior_plan(self):
+        first = decision()
+        for changed in (
+            spec(question="Locate a different exact original scene"),
+            spec(max_attempts=3),
+            spec(cost_cap_usd=Decimal("0.09")),
+        ):
+            with self.subTest(changed=changed):
+                new = decision(s=changed)
+                self.assertNotEqual(new.plan_fingerprint, first.plan_fingerprint)
+                self.assertNotEqual(new.proposed_attempt_id, first.proposed_attempt_id)
+
     def test_empty_plan_and_unreviewed_adapter_never_execute(self):
         self.assertEqual(decision(assignments=()).status, "WAIT_EXTERNAL")
         self.assertEqual(decision(assignments=(assignment(status="BLOCKED", blockers=("NO_SOURCE_PERMIT",)),)).status, "WAIT_EXTERNAL")

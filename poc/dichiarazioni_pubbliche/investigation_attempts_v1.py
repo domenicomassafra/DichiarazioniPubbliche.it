@@ -120,13 +120,17 @@ def propose_investigation(
     records = tuple(observations)
     if len(assignments) > 16 or len(records) > 64:
         raise ValueError("INVESTIGATION_INPUT_UNBOUNDED")
+    if type(budget_ready) is not bool or type(capability_ready) is not bool:
+        raise ValueError("INVESTIGATION_READINESS_INVALID")
     active = [row for row in assignments if row.coverage_need_id == spec.need_id]
     ids = [row.assignment_id for row in active]
     if len(ids) != len(set(ids)):
         raise ValueError("INVESTIGATION_DUPLICATE_ASSIGNMENTS")
     plan_fp = _hash({
         "need": spec.need_id, "fingerprint": spec.material_fingerprint,
-        "question": spec.question_kind, "family": spec.source_family,
+        "question": spec.question_kind, "question_text": spec.question,
+        "family": spec.source_family, "max_attempts": spec.max_attempts,
+        "cost_cap_usd": str(spec.cost_cap_usd),
         "assignments": [dict(
             id=row.assignment_id, lane=row.lane, plan_version=row.plan_version,
             adapters=list(row.adapter_ids), stop=list(row.stop_conditions),
