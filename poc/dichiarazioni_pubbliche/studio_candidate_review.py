@@ -275,6 +275,18 @@ def inspect_candidate_review_readiness(
                 "promotion_blockers": ["MATCH_SOURCE_INPUT_UNAVAILABLE"],
                 "review_queue_eligible": False,
             }
+        # A valid persisted run ID/fingerprint does not prove that the
+        # reloaded MatchingInput still represents the requested candidate.
+        # Check this before calling the classifier or returning CURRENT.
+        proposition = getattr(candidate, "proposition", None)
+        source_content_id = getattr(proposition, "content_id", None)
+        if (
+            getattr(proposition, "member_type", None) != "CLAIM_CANDIDATE"
+            or getattr(proposition, "member_id", None) != claim_candidate_id
+            or not isinstance(source_content_id, str)
+            or not _ID.fullmatch(source_content_id)
+        ):
+            raise ValueError("STUDIO_CANDIDATE_SOURCE_IDENTITY_MISMATCH")
         current_fingerprint = matching_input_fingerprint(candidate, targets)
         computed = rank_candidate_matches(candidate, targets)
         visible = receipt["results"]
@@ -320,6 +332,14 @@ def inspect_candidate_review_readiness(
         context = promotion_store.context(claim_candidate_id)
         if context is not None and not isinstance(context, Mapping):
             raise ValueError("STUDIO_CANDIDATE_PROMOTION_CONTEXT_INVALID")
+        # DP-117 promotion context is a separate persisted read. Refuse
+        # cross-candidate/cross-content snapshots before they can contribute
+        # reviewer readiness, foreign passage selectors or a handoff digest.
+        if context is not None and (
+            context.get("candidate_id") != claim_candidate_id
+            or context.get("content_id") != source_content_id
+        ):
+            raise ValueError("STUDIO_CANDIDATE_PROMOTION_CONTEXT_BINDING_MISMATCH")
         context_snapshot: dict[str, object] = {}
         if context is not None:
             for key in (

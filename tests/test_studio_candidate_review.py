@@ -1,16 +1,20 @@
 import json
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
-from dichiarazioni_pubbliche.studio_candidate_review import inspect_candidate_match_run  # noqa: E402
+from dichiarazioni_pubbliche.studio_candidate_review import (  # noqa: E402
+    inspect_candidate_match_run, inspect_candidate_review_readiness,
+)
 from dichiarazioni_pubbliche.candidate_matching import (  # noqa: E402
     MATCHING_VERSION,
     deterministic_match_result_id,
     deterministic_match_run_id,
+    matching_input_fingerprint,
 )
 
 F = "a" * 64
@@ -52,6 +56,74 @@ class Store:
 
 
 class StudioCandidateReviewTests(unittest.TestCase):
+    def test_readiness_refuses_other_candidate_or_content_promotion_context(self):
+        """Current matches cannot borrow another candidate's approval or passage."""
+        from tests.test_studio_candidate_review_handoff import MatchStore, PromotionContext
+
+        for field, foreign in (
+            ("candidate_id", "candidate:foreign"),
+            ("content_id", "content:foreign"),
+            ("candidate_id", None),
+            ("content_id", None),
+        ):
+            match = MatchStore()
+            promotion = PromotionContext()
+            promotion.data[field] = foreign
+            with self.subTest(field=field, foreign=foreign), self.assertRaisesRegex(
+                ValueError, "PROMOTION_CONTEXT_BINDING_MISMATCH",
+            ):
+                inspect_candidate_review_readiness(
+                    match, promotion, run_id=match.run_id,
+                    claim_candidate_id="candidate:1",
+                )
+
+        match = MatchStore()
+        promotion = PromotionContext()
+        valid = inspect_candidate_review_readiness(
+            match, promotion, run_id=match.run_id, claim_candidate_id="candidate:1",
+        )
+        self.assertEqual(valid["currentness"], "CURRENT")
+        self.assertTrue(valid["review_queue_eligible"])
+        self.assertFalse(valid["promotion_authority"])
+
+    def test_replay_fingerprint_cannot_bind_foreign_candidate_input(self):
+        """A syntactically valid forged run must still use the requested candidate."""
+        from tests.test_studio_candidate_review_handoff import MatchStore, PromotionContext
+
+        match = MatchStore()
+        match.candidate = replace(
+            match.candidate,
+            proposition=replace(match.candidate.proposition, member_id="candidate:foreign"),
+        )
+        match.fingerprint = matching_input_fingerprint(match.candidate, match.targets)
+        match.run_id = deterministic_match_run_id("candidate:1", match.fingerprint)
+        match.run.update({"id": match.run_id, "input_fingerprint": match.fingerprint})
+        match.rows = tuple({
+            **row,
+            "id": deterministic_match_result_id(
+                match.run_id, row["target_type"], row["target_id"],
+            ),
+        } for row in match.rows)
+        with self.assertRaisesRegex(ValueError, "SOURCE_IDENTITY_MISMATCH"):
+            inspect_candidate_review_readiness(
+                match, PromotionContext(), run_id=match.run_id,
+                claim_candidate_id="candidate:1",
+            )
+
+    def test_cross_content_context_never_enqueues_private_review_request(self):
+        """A valid human credential cannot turn a foreign context into a handoff."""
+        from tests.test_studio_candidate_review_handoff import CandidateReviewHandoffTests
+
+        fixture = CandidateReviewHandoffTests()
+        fixture.setUp()
+        try:
+            fixture.promotion.data["content_id"] = "content:unrelated"
+            with self.assertRaisesRegex(ValueError, "PROMOTION_CONTEXT_BINDING_MISMATCH"):
+                fixture.submit()
+            self.assertEqual(list(fixture.queue_root.iterdir()), [])
+        finally:
+            fixture.doCleanups()
+
     def test_classifier_generated_primary_feature_signatures_are_admitted(self):
         valid_cases = (
             ("DUPLICATE_EXTRACTION", "SOURCE_SELECTOR_OVERLAP",

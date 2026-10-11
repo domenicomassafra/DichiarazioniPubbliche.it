@@ -212,3 +212,54 @@ live runtime acceptance or public enablement is asserted.
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Keep IN PROGRESS: existing private reviewer read model, latest events and dry-run have not completed AC-418.1–.4. DP-242 owns Studio source-to-candidate machine handoff; DP-316 owns attested machine authority, DP-320 owns revocation and DP-312 preserves quotation/reporting meaning. A candidate decision is durable and provenance-versioned; machine path must never be written as a human reviewer signoff. Race with changed source/rights or revoked permission HOLDS before promotion; real authorized MiniPC positive/negative and accessibility proof still required. Planning-only delta; no new AC marked complete, no production or provider mutation.
+
+### 2026-10-11 second-wave — scoped currentness/preview identity fence
+
+The existing read-only `/v1/candidate/review-readiness` path correctly replayed
+the DP-212 input fingerprint and all matching results but did not verify that
+the **reloaded MatchingInput** still identified the requested Claim Candidate,
+nor that the separately persisted DP-117 promotion context belonged to that
+exact Candidate **and Content**. A foreign promotion context containing a
+plausible candidate state, reviewer flags and private passage could therefore
+yield `currentness=CURRENT` and `review_queue_eligible=true` for the wrong
+Content. This would also taint the private passage references and review
+handoff context digest, without granting actual DP-117 approval.
+
+The inspector now requires a `CLAIM_CANDIDATE` MatchingInput whose member ID
+equals the requested candidate and whose Content ID is a valid identifier.
+It also requires the promotion context's `candidate_id` and `content_id` to
+match that exact input **before** inspecting its blockers, passage references
+or review eligibility. Cross-identity input/context refuses the read with a
+stable private validation error; the authenticated local HTTP handler maps
+this to a generic 422. Missing context still follows the existing explicit
+`PROMOTION_CONTEXT_UNAVAILABLE` blocker, and legitimate exact-bound reads
+remain unchanged. All flags granting review, promotion or publication
+authority remain false.
+
+Adversarial **RED**: five failures across two tests proved that foreign or
+missing Candidate/Content bindings and a forged deterministic match run
+carrying another Candidate's MatchingInput were accepted without error.
+**GREEN**: the same cases are refused; an exact-bound case remains CURRENT
+and private-review eligible. A further regression proves a credentialed
+`submit_candidate_review_handoff` cannot write an owner-private queue entry
+with a foreign Content context. The existing handoff/machine-preview callers
+continue to revalidate the exact input before any handoff. This is a local
+source/test improvement, not a claim of live persisted MiniPC currentness.
+
+Validation receipt: `PYTHONPATH=poc python3 -m unittest
+tests.test_studio_candidate_review tests.test_studio_candidate_review_handoff
+tests.test_studio_local_api tests.test_dp242_studio_machine_handoff
+tests.test_dp242_studio_machine_http tests.test_candidate_matching
+tests.test_claim_promotion -q` — **111 tests PASS**. `python3 -m
+compileall -q poc tests`, Ruff lint on the two source/test files, and
+`git diff --check` pass. The optional full-file Ruff formatter check was
+already failing for both files at the unedited HEAD; no unrelated
+mass-formatting was introduced. No full-suite/production acceptance is
+asserted from the focused check.
+
+**AC-418.1–.4 remain OPEN.** Full reviewer source/wording/cluster comparison,
+persisted human decision with latest-event authority and replay, channel and
+rights revalidation at the mutation boundary, real candidate source/capture,
+keyboard/200%-zoom acceptance and MiniPC proof are not established by the
+new guard. No promotion, review decision, publication, schema migration,
+production mutation or remote deployment was performed.
