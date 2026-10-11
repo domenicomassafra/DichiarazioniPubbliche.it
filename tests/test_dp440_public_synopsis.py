@@ -106,6 +106,18 @@ class PublicSynopsisContractTests(unittest.TestCase):
         ))
         self.assertEqual(prepare(value, proof=proof).reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
 
+    def test_two_statements_on_same_content_or_locator_are_not_two_sources(self):
+        for shared_field in ("content_id", "source_url"):
+            with self.subTest(shared_field=shared_field):
+                value = bundle()
+                # Distinct approved lineage labels cannot turn two excerpts of
+                # the same Content/locator into independent public sources.
+                value["statements"][1][shared_field] = value["statements"][0][shared_field]
+                value["dataset_sha256"] = projection_dataset_sha256(value)
+                result = prepare(value)
+                self.assertEqual(result.status, "WITHHELD")
+                self.assertEqual(result.reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
+
     def test_changed_dataset_and_unapproved_topic_permission_hold(self):
         value = bundle()
         self.assertEqual(prepare(value, proof=intersection(value, status="REVOKED")).status, "WITHHELD")

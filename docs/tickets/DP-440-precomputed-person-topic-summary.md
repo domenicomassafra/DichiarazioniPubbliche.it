@@ -66,3 +66,23 @@ Synthetic tests PASS; no runtime LLM or live public route was activated.
 **All AC-440.1–.7 remain unchecked** pending independent editorial semantic
 entailment, real approved topic membership, atomic revoke/cache/served-build
 proof, and MiniPC positive/negative canary before any public release.
+
+## 2026-10-11 — Independent Content/locator citation regression
+
+Local source-only review found that a purported two-source synopsis could
+pass `min_independent_contents=2` with two separately labeled lineage IDs even
+when the cited public Statements came from the exact same `content_id` or
+source URL. That double-counted excerpts or versions of one source as separate
+corroborating material, despite the externally reviewed lineage requirement.
+
+`prepare_public_synopsis` now also counts distinct public Content identities
+and source URLs alongside approved lineage IDs when enforcing the minimum.
+Synthetic test `test_two_statements_on_same_content_or_locator_are_not_two_sources`
+was **RED** before the change (both same-Content and same-URL subcases returned
+`READY_READ_MODEL`) and **GREEN** after (both return
+`SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES`). Original wording and its citation
+hash remain separate from synopsis text. No external approval is inferred.
+
+DP-440 stays **IN PROGRESS**, AC-440.1–.7 unchecked. The check is an offline
+contract guard only; real editorial entailment, current rights and membership,
+atomic invalidation/served-cache proof, and MiniPC acceptance are still absent.

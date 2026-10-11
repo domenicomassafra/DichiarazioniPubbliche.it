@@ -127,6 +127,8 @@ def prepare_public_synopsis(
         key = (statement["statement_id"], statement["version_id"])
         rows[key] = statement
     source_lineages: set[str] = set()
+    source_contents: set[str] = set()
+    source_urls: set[str] = set()
     rendered = []
     reviewed_ids: set[str] = set()
     for sentence in reviewed_sentences:
@@ -156,6 +158,8 @@ def prepare_public_synopsis(
             if statement["original_text"] in sentence.text:
                 return withheld("SYNOPSIS_VERBATIM_IN_SYNTHESIS")
             source_lineages.add(lineage_ids[key])
+            source_contents.add(statement["content_id"])
+            source_urls.add(statement["source_url"])
             cited.append({
                 "statement_id": key[0], "version_id": key[1], "quote_sha256": claimed_hash,
                 "source_sha256": statement["source_sha256"], "source_url": statement["source_url"],
@@ -163,7 +167,9 @@ def prepare_public_synopsis(
                 "language": statement["language"],
             })
         rendered.append({"text": sentence.text, "kind": sentence.kind, "citations": cited})
-    if len(source_lineages) < min_independent_contents:
+    # Reviewed lineage labels alone cannot make two excerpts of one Content or
+    # one source locator count as two independently published sources.
+    if min(len(source_lineages), len(source_contents), len(source_urls)) < min_independent_contents:
         return withheld("SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
     # No confidence, opinion score, polarity or reviewer internals in public.
     material = {
