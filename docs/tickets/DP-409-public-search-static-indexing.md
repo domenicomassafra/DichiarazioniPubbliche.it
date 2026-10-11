@@ -262,3 +262,97 @@ reduced motion and true 200% browser zoom; no external/provider requests.
 constitute a real screen-reader/manual assistive-technology acceptance.
 DP-408/dependency gates remain. This receipt documents source and local test
 evidence only; no new MiniPC/public release or owner sign-off is inferred.
+
+### 2026-10-11 — Standalone opt-in original-Statement search over DP-439 (source-only)
+
+**New isolated artifacts only:** `web/src/lib/publicStatementSearchV3.ts`
+and `web/scripts/check-public-statement-search-v3.mjs`. Neither module
+is imported by the running public-v2 Explore implementation, writer,
+routes, API, index generator, or production asset manifest. No provider
+or network request is performed. The v2 Finding/paraphrase index and
+its existing AC receipts remain unchanged.
+
+The new pure static builder consumes the actual *precomputed* DP-439
+first-class opinion Statement × independently reviewed Person ×
+separately approved Topic intersection. It **rejects v2** and requires
+three exact independently provided current release fingerprints:
+DP-439 intersection, source Statement-v3, and approved Person-v3.
+Before building, it recomputes the Python DP-439 canonical material
+SHA-256 (including status, count and approved rows) using sorted-key
+canonical UTF-8 JSON. It does **not** issue or authorize any of these
+fingerprints. The returned versioned public-safe artifact has a
+separately pinned `index_sha256`, which its validator requires from
+the authenticated release manifest (not copied from the artifact).
+Rehashing a forged browser asset does not make it an authorized release.
+
+Each public Statement appears **once**, even when separately reviewed
+membership attaches two Topics, with its distinct approved Topic ID
+facets and canonical Topic routes. The allowlist preserves public
+Statement/Person stable IDs and canonical routes, original verbatim
+text, language, quote SHA-256, exact written/timed locator, published
+source Content ID/title/URL/version/source SHA-256, dated original
+record and nullable Finding reference. Secondary search terms are
+restricted to the **already published Person name and source title**.
+It does not index inferred Topic labels, statement summaries,
+translations as source quotations, private membership/review rows,
+provider receipts, factual assessments, political/person scores, or
+private corpus bodies. The materializer checks original quote bytes
+against the pinned quote hash, rejects unsafe cross-origin Statement
+URLs and invalid locators, and keeps a disjoint snapshot of source
+objects. It never computes a factual verdict from an opinion.
+
+Pure `serializePublicStatementSearchV3Url` and
+`parsePublicStatementSearchV3Url` retain shareable `q`, `persona`,
+`tema`, and `ordine` without duplicate/unsafe URL parameter
+acceptance. `searchPublicStatementsV3` revalidates the pinned static
+asset on every query, then applies exact Person/Topic intersection
+and bounded 200-codepoint normalized-search vocabulary. Empty query
+uses stable recent order; matching is case/diacritic-insensitive over
+original words first and approved source/person labels second, with
+deterministic date/Statement-ID tie breaking. It distinguishes
+`NO_MATCH`, `QUERY_TOO_LONG`, `EMPTY_PUBLIC_CORPUS`, and
+`EMPTY_PUBLIC_INTERSECTION` from a stale/unavailable index that
+throws instead of using demo data or an old artifact.
+
+**RED→GREEN proof:** the Node checker first failed with
+`ERR_MODULE_NOT_FOUND` for this new, previously nonexistent search
+module. It now invokes Python's *actual* independent DP-439 synthetic
+fixture, receives **4 reviewed Person×Topic rows** and builds **3
+unique published original Statement hits**, verifies one two-Topic
+Statement, date ordering, URL roundtrip, original-text/source search,
+multi-Person and two similar Topic IDs, homonym-proof stable IDs,
+missing/private matches, overlong query, disallowed Topic label
+inference, no private data keys and byte-identical replay. It uses
+an additional real Python five-gate synthetic original with
+accented characters, literal tabs/newlines, and leading/trailing
+quotation spaces to verify **byte-for-byte verbatim preservation**
+and separate diacritic-insensitive lookup (search never normalizes
+the displayed original). It uses
+real upstream Python synthetic re-projection after rights revocation
+to confirm the fresh source contains **2 results**, that the old
+asset/source fingerprints fail with new external pins, and that the
+empty approved public corpus remains distinct from a populated corpus
+with zero authorized intersections. Tampered quote, forged Topic
+membership and cross-origin route mutations fail; the checker also
+**rehashes** those malicious assets and confirms the independent
+release digest still rejects them. This is a **local technical test
+fixture**, never an actual rights/publication authority.
+
+Observed local test metrics: approximately **3,023 UTF-8 bytes raw,
+909 bytes gzip**, and **0.2 ms/query** for the synthetic three-hit
+fixture, well under the static-artifact budget. The new checker runs:
+`cd web && node --experimental-strip-types
+scripts/check-public-statement-search-v3.mjs`.
+`cd web && npm run check` reports **0 errors, 0 warnings,
+0 hints**; `git diff --check` passes. These measurements are not a
+representative large-corpus performance benchmark.
+
+**DP-409 remains IN PROGRESS; AC-409.8 remains unchecked.** Historical
+AC-409.1–.7 and .9 checked evidence describes the existing public-v2
+functionality and is not silently promoted into v3 acceptance. A real
+independently authenticated current DP-439 release/asset manifest,
+atomic static upload and withdrawal propagation, integrated v3
+Explore/Person/Topic route and browser-back/focus/a11y support,
+real mobile VoiceOver/200% zoom, representative corpus size/latency
+and MiniPC positive/negative readback remain external. No frontend
+consumer activation, production, MiniPC, commit or push occurred.
