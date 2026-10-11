@@ -2,6 +2,39 @@
 
 Status: IN PROGRESS
 
+## 2026-10-11 — Real opt-in v3 opinion chronology consumer
+
+Added a standalone, deliberately **unrouted** public Person v3 reader
+`web/src/lib/publicPersonV3.ts` and actual Astro rendering component
+`web/src/components/PublicPersonArchiveV3.astro`. It consumes the bounded
+`build_public_people_v3` result from DP-438: published original-language
+opinions and assertions can now be rendered as chronological, linked source
+quotes without a Finding. Entries preserve their exact Statement deep link,
+Content/version/hash, written character span or timed segment selector,
+source link and applicable independently approved dated role. The operator
+can filter by source in a shareable `?fonte=` URL; the visible count announces
+filtered published rows only. An independently approved public Person with no
+published statements renders an explanatory empty state and Explore/Method
+links, with no hidden candidate count or invented biography/verdict.
+
+The consumer **requires explicit v3 opt-in** and a separately supplied SHA-256
+pin of the complete approved public Person collection; it checks both that
+pin and the digest of the exact canonical backend public collection, bounds
+the per-record contract, and refuses private fields, mixed/legacy schemas,
+malformed routes, reworded source spans, unauthorized status and old revoked
+snapshots. A test runs actual Python backend `project()` and builds the real
+Astro component in a temporary site: populated opinion-only and approved-zero
+archives render, while stale/unopted archives fail to build. `npm run check`
+reported zero TypeScript/Astro errors, warnings or hints. No example is
+copied into production routes or made crawlable; no source rights/identity
+approval is created by this opt-in consumer.
+
+This completes a concrete frontend slice towards AC-405.1/.3 but **does not
+close AC-405.3 or the ticket**: there is still no actual authorized zero-record
+Person resource/route delivered by the public release, and no real keyboard,
+assistive technology, responsive, approved Person corpus or MiniPC readback.
+AC-405.6 and all remaining unchecked original criteria stay open.
+
 Milestone: M4 — public product/API
 Depends on: DP-105, DP-425
 

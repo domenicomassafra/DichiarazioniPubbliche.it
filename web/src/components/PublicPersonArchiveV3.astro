@@ -1,0 +1,104 @@
+---
+/** Isolated DP-405 opt-in Person archive. Not attached to any production route. */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { readApprovedPersonV3 } from "../lib/publicPersonV3.ts";
+import { formatDate } from "../lib/format.ts";
+
+interface Props {
+  collection: unknown;
+  identifier: string;
+  expectedCollectionSha256: string;
+  allowPersonV3?: boolean;
+}
+const { collection, identifier, expectedCollectionSha256, allowPersonV3 = false } = Astro.props;
+const person = await readApprovedPersonV3(collection, {identifier, expectedCollectionSha256, allowPersonV3});
+if (!person) throw new Error("PUBLIC_PERSON_V3_UNAVAILABLE");
+const ordered = [...person.statements].sort((a, b) =>
+  b.statement_date.localeCompare(a.statement_date) || a.statement_id.localeCompare(b.statement_id));
+---
+
+<BaseLayout title={person.display_name} description={`Archivio pubblico delle dichiarazioni di ${person.display_name}.`} canonicalPath={person.route}>
+  <header class="record-header person-header" data-public-person-v3={expectedCollectionSha256}>
+    <div class="shell record-header-grid">
+      <div>
+        <div class="eyebrow">Persona · archivio di parole originali</div>
+        <h1 class="page-title">{person.display_name}</h1>
+        {person.disambiguator && <p>{person.disambiguator}</p>}
+        <p class="person-boundary">Sono mostrate solo dichiarazioni attribuite e approvate nel record pubblico. Nessun punteggio o giudizio sulla persona.</p>
+      </div>
+    </div>
+  </header>
+  <section class="shell page-section-tight person-chronology" aria-labelledby="person-v3-timeline">
+    <h2 id="person-v3-timeline" class="section-title section-title-sm">Dichiarazioni nel tempo</h2>
+    {ordered.length === 0 ? (
+      <div class="dp-utility-empty" data-public-person-empty>
+        <h3>Nessuna dichiarazione pubblicata per questa persona</h3>
+        <p>L'assenza di dichiarazioni pubblicate non è una valutazione della persona e non rivela informazioni in attesa di revisione.</p>
+        <p><a href="/esplora/">Esplora il record pubblico</a> · <a href="/metodo/">Leggi il metodo</a></p>
+      </div>
+    ) : (
+      <>
+        <div class="record-filter-toolbar">
+          <label>Fonte
+            <select data-person-v3-source aria-label="Filtra per fonte pubblica">
+              <option value="">Tutte le fonti</option>
+              {[...new Set(ordered.map((row) => row.source_title))].sort().map((source) => <option value={source}>{source}</option>)}
+            </select>
+          </label>
+          <button type="button" data-person-v3-reset>Azzera filtro</button>
+          <span aria-live="polite" data-person-v3-count>{ordered.length} dichiarazioni pubbliche</span>
+        </div>
+        <ol class="claim-list" data-person-v3-list>
+          {ordered.map((item) => (
+            <li class="person-record-item" data-person-v3-row data-source={item.source_title}>
+              <article>
+                <time datetime={item.statement_date}>{formatDate(item.statement_date)}</time>
+                <blockquote lang={item.language} cite={item.source_url} class="prose"><p>{item.original_text}</p></blockquote>
+                <p><a href={item.statement_route}>Dichiarazione originale e fonte →</a> · <a href={item.source_url} rel="noreferrer">Documento sorgente</a></p>
+                <p>{item.source_title} · Versione {item.source_version} · {item.source_kind === "TIMED"
+                  ? `segmento ${item.locator.segment_id}, ${item.locator.start_ms}–${item.locator.end_ms} ms`
+                  : `caratteri ${item.locator.start_char}–${item.locator.end_char}`}</p>
+                {item.role_at_statement && (
+                  <p>Incarico alla data: {item.role_at_statement.label}{item.role_at_statement.organization ? ` · ${item.role_at_statement.organization}` : ""} · <a href={item.role_at_statement.source_url}>Fonte dell'incarico</a></p>
+                )}
+                {item.finding_id === null && (
+                  <p>Questa opinione o dichiarazione non ha un Finding fattuale pubblicato. Non le è attribuito alcun verdetto.</p>
+                )}
+              </article>
+            </li>
+          ))}
+        </ol>
+        <p data-person-v3-filter-empty hidden>Nessuna dichiarazione pubblica corrisponde al filtro selezionato.</p>
+      </>
+    )}
+  </section>
+  {ordered.length > 0 && <script is:inline>
+    (() => {
+      const source = document.querySelector('[data-person-v3-source]');
+      if (!source) return;
+      const reset = document.querySelector('[data-person-v3-reset]');
+      const count = document.querySelector('[data-person-v3-count]');
+      const empty = document.querySelector('[data-person-v3-filter-empty]');
+      const rows = [...document.querySelectorAll('[data-person-v3-row]')];
+      const options = new Set([...source.options].map((option) => option.value));
+      const initial = new URLSearchParams(location.search).get('fonte') || '';
+      if (options.has(initial)) source.value = initial;
+      const update = () => {
+        let visible = 0;
+        for (const row of rows) {
+          row.hidden = Boolean(source.value && row.dataset.source !== source.value);
+          if (!row.hidden) visible++;
+        }
+        count.textContent = `${visible} dichiarazioni pubbliche`;
+        empty.hidden = visible !== 0;
+        const url = new URL(location.href);
+        if (source.value) url.searchParams.set('fonte', source.value);
+        else url.searchParams.delete('fonte');
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+      };
+      source.addEventListener('change', update);
+      reset?.addEventListener('click', () => { source.value = ''; update(); source.focus(); });
+      update();
+    })();
+  </script>}
+</BaseLayout>
