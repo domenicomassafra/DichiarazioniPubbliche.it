@@ -190,6 +190,19 @@ _PAGE = """<!doctype html>
         <h3 id="collection-candidate-heading" tabindex="-1">Collegamenti del candidato</h3>
         <p id="collection-candidate-detail"></p>
       </section>
+      <h2>Decisione privata persistita (storico)</h2>
+      <p>Rilettura di una ricevuta PostgreSQL firmata separatamente dal revisore. Il token Studio serve solo a consultarne gli ID e lo stato corrente della fonte, non ad approvarla, creare Claim o pubblicare.</p>
+      <form data-endpoint="/v1/candidate/decision-receipt">
+        <div class="controls">
+          <label>Claim Candidate ID<input name="candidate_id" maxlength="180" required></label>
+          <label>MatchRun ID<input name="run_id" maxlength="180" required></label>
+          <label>Capture ID<input name="capture_id" maxlength="180" required></label>
+          <label>Passage ID<input name="passage_id" maxlength="180" required></label>
+          <label>Request key ricevuta<input name="request_key" maxlength="180" required></label>
+          <button type="submit">Leggi ricevuta senza modifiche</button>
+        </div>
+      </form>
+      <p id="collection-decision-summary" role="status" aria-live="polite">Nessuna ricevuta letta.</p>
       <h2>Provenienza di un claim storico</h2>
       <p>Stati e hash di attribuzione persistiti. APPROVED indica lo stato del record di attribuzione, non autorizza la riproduzione della fonte o la pubblicazione.</p>
       <form data-endpoint="/v1/collections/claim-provenance">
@@ -354,6 +367,8 @@ _PAGE = """<!doctype html>
     const lineageInspector = document.getElementById('collection-lineage-inspector');
     const candidateHeading = document.getElementById('collection-candidate-heading');
     const candidateDetail = document.getElementById('collection-candidate-detail');
+    const decisionForm = document.querySelector('form[data-endpoint="/v1/candidate/decision-receipt"]');
+    const decisionSummary = document.getElementById('collection-decision-summary');
     const captureQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/capture-queue"]');
     const captureQueueLinks = document.getElementById('capture-queue-links');
     const captureQueueSummary = document.getElementById('capture-queue-summary');
@@ -530,6 +545,10 @@ _PAGE = """<!doctype html>
       if (lineageSummary) lineageSummary.textContent = 'Nessun Passage scritto selezionato.';
       if (lineageInspector) lineageInspector.hidden = true;
       if (candidateDetail) candidateDetail.textContent = '';
+      if (decisionSummary) decisionSummary.textContent = 'Nessuna ricevuta letta.';
+      if (decisionForm) {
+        for (const field of decisionForm.querySelectorAll('input,select')) field.value = '';
+      }
       captureQueueLinks?.replaceChildren();
       if (captureQueueSummary) captureQueueSummary.textContent = 'Nessuna coda letta.';
       for (const form of [lineageForm, captureQueueForm]) {
@@ -621,6 +640,9 @@ _PAGE = """<!doctype html>
           lineageInspector.hidden = true;
           candidateDetail.textContent = '';
           lineageSummary.textContent = 'Controllo dei collegamenti persistiti in corso…';
+        }
+        if (form === decisionForm) {
+          decisionSummary.textContent = 'Verifica ricevuta e fonte corrente in corso…';
         }
         if (form === captureQueueForm) {
           captureQueueLinks.replaceChildren();
@@ -810,6 +832,32 @@ _PAGE = """<!doctype html>
               collectionNavigationLinks.append(more);
             }
             collectionNavigationHeading.focus();
+            return;
+          }
+          if (form === decisionForm) {
+            results.textContent = 'Solo stato e hash della ricevuta privata verificata.';
+            const decision = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && decision?.contract_version === 'studio-candidate-decision-receipt-v1'
+              && decision.private_only === true && decision.historical_only === true
+              && decision.review_authority === false && decision.promotion_authority === false
+              && decision.publication_authority === false && decision.rights_clearance === false
+              && ['HOLD','REJECT','REVIEW_CREATE','REVIEW_LINK'].includes(decision.decision)
+              && ['HISTORICAL_SOURCE_CURRENT','HISTORICAL_SOURCE_WITHDRAWN'].includes(decision.status)
+              && Number.isSafeInteger(decision.revision) && decision.revision > 0
+              && SAFE_SHA256.test(decision.receipt_sha256)
+              && ['candidate_id','run_id','capture_id','passage_id','request_key'].every(
+                name => decision[name] === data[name] && SAFE_REF.test(decision[name]));
+            if (!valid) {
+              decisionSummary.textContent = 'Ricevuta assente, non configurata o non verificabile.';
+              status.textContent = 'Dati non verificabili.';
+              return;
+            }
+            decisionSummary.textContent = 'Decisione ' + decision.decision
+              + ' · revisione ' + decision.revision
+              + ' · ricevuta SHA-256 ' + decision.receipt_sha256
+              + ' · ' + decision.status
+              + '. Storico soltanto: nessuna promozione o pubblicazione autorizzata.';
             return;
           }
           if (form === lineageForm) {

@@ -41,6 +41,7 @@ for (const id of ['token', 'results', 'status', 'clear', 'member-links',
                   'claim-links', 'capture-links', 'capture-selector-diff-summary', 'collection-capture-links',
                   'collection-capture-summary', 'capture-passage-links',
                   'passage-candidate-links', 'passage-candidate-summary',
+                  'collection-decision-summary',
                   'media-locator', 'corpus-list',
                   'corpus-links', 'corpus-summary', 'corpus-inspector',
                   'corpus-references', 'corpus-inspector-title', 'corpus-back',
@@ -51,6 +52,7 @@ const forms = {};
 for (const path of [
   '/v1/collections/members', '/v1/collections/member', '/v1/collections/captures',
   '/v1/collections/passage-candidates',
+  '/v1/candidate/decision-receipt',
   '/v1/collections/claim-provenance', '/v1/capture/compare',
   '/v1/capture/passages', '/v1/corpus/search', '/v1/media/segment',
 ]) {
@@ -59,6 +61,7 @@ for (const path of [
     earlier_hash: '', later_hash: '', capture_hash: '',
     collection_id: '', source_id: '', person_id: '', topic_id: '',
     event_id: '', from_date: '', to_date: '', status: '', claim_type: '', check_worthy: '',
+    candidate_id:'',run_id:'',passage_id:'',capture_id:'',request_key:'',
   };
   if (path !== '/v1/corpus/search') fields.content_id = 'content:one';
   const nodes = {};
@@ -278,6 +281,40 @@ async function main() {
   await staleDiff;
   assert.doesNotMatch(diff.textContent, /999/);
   assert.match(diff.textContent, /Nessun confronto/);
+  token.value = 'a'.repeat(64);
+  const decisionForm = forms['/v1/candidate/decision-receipt'];
+  for (const [field,value] of Object.entries({
+    candidate_id:'candidate:one',run_id:'run:one',capture_id:'capture:one',
+    passage_id:'passage:one',request_key:'request:one',
+  })) decisionForm.fields[field]=value;
+  const reviewRequest=decisionForm.fire('submit');
+  const reviewIndex=requests.length-1;
+  assert.equal(requests[reviewIndex].path,'/v1/candidate/decision-receipt');
+  const privateReceipt={
+    contract_version:'studio-candidate-decision-receipt-v1',
+    private_only:true,historical_only:true,review_authority:false,
+    promotion_authority:false,publication_authority:false,rights_clearance:false,
+    decision:'HOLD',revision:1,receipt_sha256:'f'.repeat(64),
+    status:'HISTORICAL_SOURCE_WITHDRAWN',
+    candidate_id:'candidate:one',run_id:'run:one',capture_id:'capture:one',
+    passage_id:'passage:one',request_key:'request:one',
+    secret:'DO_NOT_RENDER',
+  };
+  requests[reviewIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',data:privateReceipt,
+  })});
+  await reviewRequest;
+  assert.match(ids.get('collection-decision-summary').textContent,/HISTORICAL_SOURCE_WITHDRAWN/);
+  assert.doesNotMatch(ids.get('collection-decision-summary').textContent,/DO_NOT_RENDER/);
+  const lateReview=decisionForm.fire('submit');
+  const lateIndex=requests.length-1;
+  clear.fire('click');
+  requests[lateIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',data:privateReceipt,
+  })});
+  await lateReview;
+  assert.equal(ids.get('collection-decision-summary').textContent,'Nessuna ricevuta letta.');
+  assert.equal(decisionForm.fields.candidate_id,'');
   process.stdout.write('Studio Corpus filters, keyboard inspector, return, private scrub and stale-response regression PASS\n');
 }
 

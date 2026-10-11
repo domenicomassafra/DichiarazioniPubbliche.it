@@ -23,6 +23,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
+    "/v1/candidate/decision-receipt",
     "/v1/collections/list",
     "/v1/collections/members", "/v1/collections/member",
     "/v1/collections/claim-provenance", "/v1/collections/captures",
@@ -36,6 +37,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
 _STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
     "/v1/candidate/review-readiness",
     "/v1/candidate/handoff-receipt",
+    "/v1/candidate/decision-receipt",
     "/v1/discovery/bulk-preview",
     "/v1/collections/passage-lineage", "/v1/discovery/capture-queue",
     "/v1/collections/navigate",

@@ -56,6 +56,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
+    "/v1/candidate/decision-receipt",
     "/v1/collections/list", "/v1/collections/members",
     "/v1/collections/member", "/v1/collections/claim-provenance",
     "/v1/collections/captures",
@@ -400,6 +401,100 @@ class _StudioCandidateReader(_StudioReadOnlyDb, CandidateMatchingStore):
     pass
 
 
+class _StudioDecisionReader(_StudioReadOnlyDb):
+    """DP418: optional historical PG receipt, never reviewer authorization.
+
+    No schema bootstrap here. Missing additive isolated decision table fails
+    503; actual writes require separate signed DP310 reviewer credentials.
+    """
+
+    def read_decision(self, *, candidate_id: str, run_id: str, passage_id: str,
+                      capture_id: str, request_key: str) -> dict[str, object]:
+        for value in (candidate_id, run_id, passage_id, capture_id, request_key):
+            if not isinstance(value, str) or not _STUDIO_REF.fullmatch(value) or ".." in value:
+                raise ValueError("STUDIO_DECISION_REF_INVALID")
+        raw = self.run("""
+            BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+            SELECT json_build_object(
+                'candidate_id',receipt.candidate_id,
+                'run_id',receipt.run_id,'passage_id',receipt.passage_id,
+                'capture_id',receipt.capture_id,'request_key',receipt.request_key,
+                'decision',receipt.decision,'revision',receipt.revision,
+                'receipt_sha256',receipt.receipt_sha256,
+                'source_current',(
+                   content.rights_status='CLEARED'
+                   AND capture.rights_status='CLEARED'
+                   AND capture.status='CAPTURED' AND capture.hold_status='NONE'
+                   AND NOT EXISTS (
+                     SELECT 1 FROM content_capture newer
+                     WHERE newer.content_id=content.id AND
+                       (newer.observed_at,newer.id)>(capture.observed_at,capture.id)
+                   )
+                )
+            )::text
+            FROM dp418_candidate_decision receipt
+            JOIN claim_candidate candidate ON candidate.id=receipt.candidate_id
+            JOIN statement_candidate statement ON statement.id=candidate.statement_candidate_id
+              AND statement.content_id=candidate.content_id
+            JOIN statement_candidate_passage binding
+              ON binding.statement_candidate_id=statement.id
+              AND binding.content_id=statement.content_id
+              AND binding.passage_id=receipt.passage_id
+            JOIN passage passage ON passage.id=binding.passage_id
+              AND passage.content_id=statement.content_id
+              AND passage.capture_id=receipt.capture_id
+            JOIN content_capture capture ON capture.id=receipt.capture_id
+              AND capture.content_id=passage.content_id
+            JOIN content_item content ON content.id=capture.content_id
+            JOIN candidate_match_run run ON run.id=receipt.run_id
+              AND run.claim_candidate_id=candidate.id
+            WHERE receipt.candidate_id=:'candidate_id'
+              AND receipt.run_id=:'run_id'
+              AND receipt.passage_id=:'passage_id'
+              AND receipt.capture_id=:'capture_id'
+              AND receipt.request_key=:'request_key'
+              AND capture.content_sha256=receipt.capture_sha256
+            LIMIT 1;
+            COMMIT;
+        """, candidate_id=candidate_id, run_id=run_id, passage_id=passage_id,
+            capture_id=capture_id, request_key=request_key)
+        if not raw:
+            raise ValueError("STUDIO_DECISION_NOT_FOUND")
+        try:
+            row = json.loads(raw)
+            expected = {"candidate_id", "run_id", "passage_id", "capture_id",
+                        "request_key", "decision", "revision", "receipt_sha256",
+                        "source_current"}
+            if not isinstance(row, dict) or set(row) != expected:
+                raise ValueError
+            if any(row[key] != value for key, value in {
+                    "candidate_id": candidate_id, "run_id": run_id,
+                    "passage_id": passage_id, "capture_id": capture_id,
+                    "request_key": request_key}.items()):
+                raise ValueError
+            if (row["decision"] not in {"HOLD", "REJECT", "REVIEW_CREATE", "REVIEW_LINK"}
+                    or type(row["revision"]) is not int or row["revision"] < 1
+                    or not isinstance(row["receipt_sha256"], str)
+                    or not _CAPTURE_SHA.fullmatch(row["receipt_sha256"])
+                    or type(row["source_current"]) is not bool):
+                raise ValueError
+        except (TypeError, KeyError, ValueError):
+            raise ValueError("STUDIO_DECISION_ROW_INVALID") from None
+        return {
+            "contract_version": "studio-candidate-decision-receipt-v1",
+            "private_only": True, "historical_only": True,
+            "candidate_id": candidate_id, "run_id": run_id,
+            "passage_id": passage_id, "capture_id": capture_id,
+            "request_key": request_key,
+            "decision": row["decision"], "revision": row["revision"],
+            "receipt_sha256": row["receipt_sha256"],
+            "status": ("HISTORICAL_SOURCE_CURRENT" if row["source_current"]
+                       else "HISTORICAL_SOURCE_WITHDRAWN"),
+            "review_authority": False, "promotion_authority": False,
+            "publication_authority": False, "rights_clearance": False,
+        }
+
+
 class _StudioPromotionContextReader(_StudioReadOnlyDb, ClaimPromotionStore):
     """DP-117 context is read under PG read-only settings, never writable HTTP."""
 
@@ -483,6 +578,7 @@ class StudioLocalReaders:
     queues: _QueueReader | None = None
     promotion_context: Any | None = None
     handoffs: LocalCandidateReviewHandoffQueue | None = None
+    decision_reader: Any | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -492,6 +588,12 @@ def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | No
 
 
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
+    if path == "/v1/candidate/decision-receipt":
+        _fields(body, required={"candidate_id", "run_id", "passage_id",
+                                "capture_id", "request_key"})
+        if readers.decision_reader is None:
+            raise RuntimeError("STUDIO_DECISION_STORE_NOT_CONFIGURED")
+        return readers.decision_reader.read_decision(**body)
     if path == "/v1/collections/navigate":
         _fields(body, required={"collection_id"}, optional={"limit", "after_content_id"})
         if readers.queues is None:
@@ -799,6 +901,7 @@ def main(argv: list[str] | None = None) -> int:
             corpus=_StudioCorpusReader(), captures=_StudioCaptureReader(),
             candidates=_StudioCandidateReader(), queues=_StudioQueueReader(),
             promotion_context=_StudioPromotionContextReader(), handoffs=handoffs,
+            decision_reader=_StudioDecisionReader(),
         )
         with StudioLoopbackServer(args.port, readers, token) as server:
             print(f"Studio local API ready on 127.0.0.1:{server.server_port} (read-only)", flush=True)

@@ -1,6 +1,40 @@
 # DP-418 — studio candidate promotion cluster review
 
 Status: IN PROGRESS
+
+### 2026-10-12 — Authenticated local readback of persisted PostgreSQL review decisions
+
+The new DP-418 append-only PG reviewer-intent ledger can now be inspected
+through an **opt-in, private read-only** Studio endpoint
+`/v1/candidate/decision-receipt` and an actual keyboard-accessible
+Collections panel. A request requires the full recorded Candidate,
+MatchRun, Capture, Passage, and request-key tuple. The local
+token-authorized loopback process reads precisely scoped persisted decision
+metadata via one repeatable-read PostgreSQL snapshot, joins the canonical
+Candidate→Statement→Passage→Capture→Content and MatchRun relations, and
+rechecks whether rights/capture are CURRENT or WITHDRAWN after the historic
+decision. A later revocation changes the reported status but does not
+erase immutable history or revive an approval.
+
+The response never contains raw source/claim text, reviewer credentials,
+actor identity, receipt secret, arbitrary private metadata or provider
+parameters. The Studio page validates the exact response contract and
+renders only the decision code, revision, receipt SHA and explicit
+historical/source status; it scrubs these on token/session switch. The
+API remains POST-for-read only with no reviewer decision submission,
+publish, promotion or canonical Claim mutation route. Until the additive
+test-table migration actually exists in a host database, the optional
+reader fails closed (503) rather than claiming nonexistent receipts.
+
+Synthetic true PostgreSQL tests go through real bearer-token HTTP,
+show an independently DP-310-attested decision and a second read after
+source rights are REVOKED, while wrong Candidate/Run/Capture/Passage/key,
+extra request fields and cross-origin/no-token requests fail. The
+focused DP-418 PG and security/preflight suites passed **38/38**; the
+operational readback is still a test-only integration, not deployed to
+MiniPC. **All original DP-418 AC stay OPEN** pending real qualified
+editor/rights, canonical production migration and complete operator
+workflow/correctness evidence. Launch remains **NO-GO**.
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-117, DP-212, DP-414
 
