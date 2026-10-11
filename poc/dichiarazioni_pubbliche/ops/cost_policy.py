@@ -16,12 +16,14 @@ unpriced, and :func:`preflight` denies every paid lane whose estimate is
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import hashlib
 import json
 import re
+import sqlite3
+from pathlib import Path
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
@@ -552,3 +554,219 @@ def monthly_budget_preflight(
     return MonthlyReservationDecision(
         True, "MONTHLY_RESERVATION_PROPOSED", state.revision, fingerprint, proposal
     )
+
+
+# SQLite below is an *isolated persistence/concurrency proof* for DP-514.
+# It is not connected to the PostgreSQL queue, its daily USD ledger, or the
+# independent owner policy authority. Committed reservations cannot dispatch.
+
+
+def _monthly_policy_sha256(policy: MonthlyEurPolicy) -> str:
+    payload = {
+        "version": policy.version,
+        "cap_eur": str(policy.cap_eur),
+        "enabled": policy.enabled,
+        "timezone_name": policy.timezone_name,
+        "max_fx_age_seconds": policy.max_fx_age_seconds,
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True,
+                                    separators=(",", ":")).encode()).hexdigest()
+
+
+def _encode_monthly_state(state: MonthlyBudgetState) -> str:
+    return json.dumps(asdict(state), default=str, sort_keys=True,
+                      separators=(",", ":"), ensure_ascii=False)
+
+
+def _decode_monthly_state(raw: str, fingerprint: str) -> MonthlyBudgetState:
+    try:
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or set(payload) != {
+            "period", "policy_version", "revision", "settled_eur",
+            "reservations", "unknown_liability",
+        } or not isinstance(payload["reservations"], list):
+            raise ValueError("invalid monthly state shape")
+        reservations = []
+        for item in payload["reservations"]:
+            if not isinstance(item, dict) or set(item) != {
+                "attempt_id", "operation", "upper_bound_usd", "held_eur",
+                "fx_reference", "fx_source", "fx_rate_eur_per_usd", "fx_observed_at",
+            }:
+                raise ValueError("invalid monthly reservation shape")
+            reservations.append(MonthlyReservation(
+                attempt_id=item["attempt_id"], operation=item["operation"],
+                upper_bound_usd=item["upper_bound_usd"], held_eur=item["held_eur"],
+                fx_reference=item["fx_reference"], fx_source=item["fx_source"],
+                fx_rate_eur_per_usd=item["fx_rate_eur_per_usd"],
+                fx_observed_at=datetime.fromisoformat(item["fx_observed_at"]),
+            ))
+        state = MonthlyBudgetState(
+            period=payload["period"], policy_version=payload["policy_version"],
+            revision=payload["revision"], settled_eur=payload["settled_eur"],
+            reservations=tuple(reservations),
+            unknown_liability=payload["unknown_liability"],
+        )
+        if state.fingerprint() != fingerprint:
+            raise ValueError("monthly state fingerprint mismatch")
+        return state
+    except (ValueError, KeyError, TypeError, OverflowError) as exc:
+        raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE") from exc
+
+
+@dataclass(frozen=True)
+class SQLiteMonthlyReservationResult:
+    committed: bool
+    reason: str
+    state: MonthlyBudgetState | None = None
+    dispatch_authorized: bool = False
+
+
+class SQLiteMonthlyReservationStore:
+    """Disposable database proof: serialized cross-connection EUR reservations.
+
+    Every reservation reads/preflights/commits under SQLite's BEGIN IMMEDIATE
+    writer transaction. A caller must explicitly bootstrap its synthetic month.
+    Neither successful persistence nor a supplied policy attests real invoices,
+    USD daily totals, provider quotas, or permission to spend.
+    """
+
+    def __init__(self, db_path: str | Path):
+        self.db_path = str(db_path)
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=5.0, isolation_level=None)
+        try:
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.execute("PRAGMA synchronous=FULL")
+        except sqlite3.Error:
+            conn.close()
+            raise
+        return conn
+
+    def initialize(self) -> None:
+        conn = self._connect()
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS monthly_budget_state (
+                    period TEXT PRIMARY KEY,
+                    policy_sha256 TEXT NOT NULL,
+                    revision INTEGER NOT NULL CHECK (revision >= 0),
+                    state_sha256 TEXT NOT NULL,
+                    state_json TEXT NOT NULL
+                )
+            """)
+        finally:
+            conn.close()
+
+    def bootstrap(self, policy: MonthlyEurPolicy, state: MonthlyBudgetState) -> bool:
+        """Seed a synthetic empty month once; never reset an occupied month."""
+        if (not policy.enabled or state.policy_version != policy.version
+                or not state.period.endswith("@" + policy.timezone_name)
+                or state.revision != 0 or state.settled_eur != 0
+                or state.reservations or state.unknown_liability):
+            raise ValueError("MONTHLY_BOOTSTRAP_REQUIRES_EMPTY_SYNTHETIC_PERIOD")
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            result = conn.execute("""
+                INSERT INTO monthly_budget_state (
+                    period, policy_sha256, revision, state_sha256, state_json
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(period) DO NOTHING
+            """, (state.period, _monthly_policy_sha256(policy), 0,
+                  state.fingerprint(), _encode_monthly_state(state)))
+            conn.commit()
+            return result.rowcount == 1
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _loaded_state(row: tuple[object, ...]) -> MonthlyBudgetState:
+        revision, fingerprint, raw = row
+        if not isinstance(revision, int) or not isinstance(fingerprint, str) or not isinstance(raw, str):
+            raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+        state = _decode_monthly_state(raw, fingerprint)
+        if state.revision != revision:
+            raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+        return state
+
+    def read(self, period: str) -> MonthlyBudgetState:
+        conn = self._connect()
+        try:
+            row = conn.execute("""
+                SELECT revision, state_sha256, state_json
+                FROM monthly_budget_state WHERE period = ?
+            """, (period,)).fetchone()
+            if row is None:
+                raise ValueError("MONTHLY_PERIOD_NOT_BOOTSTRAPPED")
+            state = self._loaded_state(row)
+            if state.period != period:
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            return state
+        finally:
+            conn.close()
+
+    def reserve(
+        self, *, policy: MonthlyEurPolicy, attempt_id: str, operation: str,
+        upper_bound_usd: Decimal | None, billing_basis: str,
+        at: datetime, fx_quote: MonthlyFxQuote | None,
+        legacy_policy: BudgetPolicy, legacy_snapshot: CostSnapshot,
+    ) -> SQLiteMonthlyReservationResult:
+        """Atomic synthetic month reservation; never a provider-dispatch permit."""
+        if not policy.enabled:
+            return SQLiteMonthlyReservationResult(False, "MONTHLY_POLICY_DISABLED")
+        try:
+            period = monthly_period(at, policy.timezone_name)
+        except ValueError:
+            return SQLiteMonthlyReservationResult(False, "MONTHLY_TIME_INVALID")
+        try:
+            conn = self._connect()
+        except sqlite3.Error:
+            return SQLiteMonthlyReservationResult(False, "MONTHLY_STORAGE_UNAVAILABLE")
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("""
+                SELECT policy_sha256, revision, state_sha256, state_json
+                FROM monthly_budget_state WHERE period = ?
+            """, (period,)).fetchone()
+            if row is None:
+                return SQLiteMonthlyReservationResult(False, "MONTHLY_PERIOD_NOT_BOOTSTRAPPED")
+            policy_sha, revision, old_sha, state_json = row
+            if policy_sha != _monthly_policy_sha256(policy):
+                return SQLiteMonthlyReservationResult(False, "MONTHLY_STORED_POLICY_MISMATCH")
+            state = self._loaded_state((revision, old_sha, state_json))
+            if state.period != period or state.policy_version != policy.version:
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            proposal = monthly_budget_preflight(
+                policy=policy, state=state, attempt_id=attempt_id,
+                operation=operation, upper_bound_usd=upper_bound_usd,
+                billing_basis=billing_basis, at=at, fx_quote=fx_quote,
+                legacy_policy=legacy_policy, legacy_snapshot=legacy_snapshot,
+                expected_revision=state.revision,
+            )
+            if not proposal.eligible or proposal.proposed_state is None:
+                return SQLiteMonthlyReservationResult(False, proposal.reason, state)
+            next_state = proposal.proposed_state
+            updated = conn.execute("""
+                UPDATE monthly_budget_state
+                SET revision = ?, state_sha256 = ?, state_json = ?
+                WHERE period = ? AND policy_sha256 = ?
+                  AND revision = ? AND state_sha256 = ?
+            """, (next_state.revision, next_state.fingerprint(),
+                  _encode_monthly_state(next_state), period, policy_sha,
+                  proposal.expected_revision, proposal.expected_state_sha256))
+            if updated.rowcount != 1:
+                return SQLiteMonthlyReservationResult(False, "MONTHLY_STORAGE_CAS_CONFLICT")
+            conn.commit()
+            return SQLiteMonthlyReservationResult(True, "MONTHLY_RESERVATION_COMMITTED", next_state)
+        except sqlite3.Error:
+            return SQLiteMonthlyReservationResult(False, "MONTHLY_STORAGE_UNAVAILABLE")
+        except ValueError:
+            return SQLiteMonthlyReservationResult(False, "MONTHLY_STORAGE_INTEGRITY_FAILURE")
+        finally:
+            if conn.in_transaction:
+                conn.rollback()
+            conn.close()

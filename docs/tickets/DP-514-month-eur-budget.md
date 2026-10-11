@@ -44,3 +44,37 @@ Depends on: DP-512, DP-513, DP-506
 ## 2026-10-11 — First implementation slice
 
 An owner-versioned, **disabled by default** monthly EUR budget/reservation proposal was added in `ops/cost_policy.py` (commit `e2df061`), with conservative FX and Rome-month/DST boundaries, explicit UNKNOWN holds and no weakening of USD daily guards. 19 focused tests pass including simulated revision/CAS. `dispatch_authorized` stays false; actual transactional persistent multi-worker CAS, billing settlement, owner-approved cap and MiniPC acceptance are still missing.
+
+## 2026-10-11 — Disposable SQLite transactional reservation proof
+
+Added `SQLiteMonthlyReservationStore` to the existing cost policy module as an
+**isolated reference implementation** for the previously pure reservation plan.
+An explicitly bootstrapped synthetic month pins the complete enabled policy
+fingerprint and stores the exact revision, state fingerprint and bounded
+reservation payload. Each independent SQLite connection starts `BEGIN IMMEDIATE`,
+replays the persisted state, executes the existing EUR and USD policy checks,
+then commits one compare-and-swap update. A competing request re-reads the
+committed reservation before attempting its own. Cross-thread independent
+connections with a EUR 0.18 final cap committed **one of two** EUR 0.18
+requests; concurrent retries of the **same** attempt produced one reservation.
+Restart/replay left the single hold unchanged. Stored policy cap alteration,
+disabled policy, existing USD-day exhaustion and fingerprint corruption fail
+closed. Only aggregate/attempt IDs and FX reference metadata are stored, with
+no provider credentials or prompt/source bodies.
+
+RED before implementation: `tests/test_dp514_sqlite_reservations.py` failed
+to import the missing persistent reservation API; the earlier in-memory
+simulation could not enforce concurrency across SQLite connections. GREEN:
+`test_dp514*.py` **16/16 PASS** (including six real disposable SQLite tests),
+`test_ops_cost_policy.py` **9/9 PASS**, compileall and diff check pass.
+
+This independent SQLite state **is not the production PostgreSQL operation
+ledger**, owner threshold authority, or an integrated queue/worker lock.
+Legacy USD snapshots and provider quota remain caller-supplied, and settlements,
+invoice corrections, immutable adjustments and reconciliation are not implemented.
+Every committed result deliberately keeps `dispatch_authorized=False`; paid
+dispatch is unchanged/disabled. This is concurrency evidence for a structural
+subpart of AC-514.2, **not** completion of AC-514.2 or any other unchecked AC.
+An approved owner policy/empirical DP-513 values, PostgreSQL atomic multi-gate
+transaction, real accounting and isolated MiniPC restart drill are still needed.
+DP-514 remains **IN PROGRESS**.
