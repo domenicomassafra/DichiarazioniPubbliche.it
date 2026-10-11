@@ -17,6 +17,12 @@ stdlib-only invariato. **DP-519 integrazione Studio** non ha prodotto
 un'implementazione verificabile in questa tranche. Nessun record reale,
 diritto qualificato, MiniPC/canary, pubblicazione o deploy.
 
+Suite Python integrata finale dopo tutti i commit sorgente/test: **2789/2789
+PASS (152.006 s)**, restore drill PASS. Benchmark 5/5 PASS, compileall,
+Ruff, repository contract e controlli HTML/Chrome Explore PASS;
+preflight **NO-GO / 49 blocker** previsto. Registro ticket invariato:
+**162 total, 90 DONE, 51 IN PROGRESS, 6 BLOCKED, 15 FUTURE, 72 non DONE**.
+
 **Settima tranche locale, 2026-10-11 (no push/deploy):** DP-518
 `8bd5cc5` (audit su dodici superfici pubbliche/cache con DP-320 epoch;
 anche un readback 404 sintetico non è autorità MiniPC/CDN), DP-516

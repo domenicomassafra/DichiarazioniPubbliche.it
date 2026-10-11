@@ -213,3 +213,15 @@ untracked post-grilling handoff file was not modified. Product/user acceptance
 still requires authentic source-specific legal grants, independent gold,
 signed DP-443 real MiniPC first-full pilot, reader/revocation/rollback and
 remaining DP-429 screen-reader/manual acceptance. No AC was silently marked.
+
+**Eighth tranche final verification:** The fully integrated post-worker run
+`PYTHONPATH=poc python3 -m unittest discover -s tests -q` finished
+**2789/2789 PASS in 152.006 s**, exit 0; isolated restore drill PASS.
+The earlier concurrent run of 2780 PASS did not include the just-added nine
+DP-436 focused tests; do not substitute it for this final proof.
+Deterministic benchmark **5/5 PASS**, compileall PASS, Ruff lint/formatter
+PASS, repo contract PASS, `git diff --check` PASS. DP-429 isolated real Astro
+empty-index build and Chrome keyboard/reduced motion/200%-zoom PASS; UI public
+demo remains off. Launch preflight again returned **NO-GO / 49 blockers**
+(expected) and the ticket register/PLAN still agrees: **162 total,
+90 DONE / 51 IN PROGRESS / 6 BLOCKED / 15 FUTURE; 72 not DONE**.
