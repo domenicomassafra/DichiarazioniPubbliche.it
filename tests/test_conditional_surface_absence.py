@@ -48,6 +48,7 @@ class ConditionalSurfaceAbsenceTests(unittest.TestCase):
     def test_machine_previews_are_exact_read_only_studio_only_paths(self):
         self.assertTrue({
             "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
+            "/v1/collections/passage-lineage", "/v1/discovery/capture-queue",
         }.issubset(gate._PRIVATE_STUDIO_READ_PATHS))
         self.assertTrue({
             "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
