@@ -61,10 +61,26 @@ NOT_FOUND, CHECKED_INSUFFICIENT, OUTAGE, RIGHTS_BLOCKED and COST_BLOCKED,
 collapses provenance duplicates, rejects wrong person/date/unsupported fuller
 quote, holds changed source versions for DP-511 reanalysis, and validates plan
 integrity and receipt replay. **16/16 synthetic focused tests PASS** at the
-current source checkpoint; commit/full suite are checked separately.
+initial source checkpoint; later integrity regressions are recorded below.
 The stored references, `APPROVED` lineage/rights annotations and receipt hashes
 are caller-supplied in this standalone fixture, not real authorities or proof
 that lookup/search occurred. No source was fetched, no query was executed, no
 provider used, no audit ledger persisted, and no Studio/MiniPC readback performed.
 **All AC-241.1–.6 remain open** until end-to-end verified source, permission,
 persistence, independent review and MiniPC acceptance.
+
+**2026-10-11 — bounded receipt replay and attempt-cap integrity follow-up:**
+Two public-contract regressions failed against the previous reconciler:
+(1) three different attempt receipts for a plan capped at two could still
+produce `VERIFIED_PRIVATE_SOURCE_CANDIDATE` if the third carried a valid
+synthetic candidate, and (2) the same immutable discovery receipt SHA-256
+could be attributed to two distinct planned attempt IDs, falsely counting
+independent checks. `assess_recovery` now rejects those inputs before candidate
+assessment with `DP241_RECEIPT_ATTEMPT_CAP_EXCEEDED` and
+`DP241_DISCOVERY_RECEIPT_REUSED`, while identical receipt replay under the
+same attempt ID remains idempotent. **18/18 focused DP-241 tests PASS; 51/51
+adjacent resolver/research/rights/source tests PASS**; Python compilation PASS.
+Scoped Ruff check and `git diff --check` PASS.
+These are synthetic local receipts only; neither external attempts nor source
+permissions were executed or verified. Status stays IN PROGRESS and all six
+acceptance criteria stay open pending independent operational proof.

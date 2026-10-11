@@ -624,6 +624,7 @@ def assess_recovery(
         raise ValueError("DP241_PLAN_TARGET_SOURCE_CHANGED")
     attempts = {method.attempt_id: method for method in plan.methods}
     seen: dict[str, RecoveryReceipt] = {}
+    discovery_owners: dict[str, str] = {}
     for row in receipts:
         if (
             not isinstance(row, RecoveryReceipt)
@@ -644,7 +645,13 @@ def assess_recovery(
         old = seen.get(row.attempt_id)
         if old is not None and old != row:
             raise ValueError("DP241_RECEIPT_REPLAY_CONFLICT")
+        prior_attempt = discovery_owners.get(row.discovery_receipt_sha256)
+        if prior_attempt is not None and prior_attempt != row.attempt_id:
+            raise ValueError("DP241_DISCOVERY_RECEIPT_REUSED")
+        discovery_owners[row.discovery_receipt_sha256] = row.attempt_id
         seen[row.attempt_id] = row
+    if len(seen) > plan.max_attempts:
+        raise ValueError("DP241_RECEIPT_ATTEMPT_CAP_EXCEEDED")
     rows = tuple(seen[key] for key in sorted(seen))
     spent = sum((row.spent_usd for row in rows), Decimal(0))
     checked_families = tuple(

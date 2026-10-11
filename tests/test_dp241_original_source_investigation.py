@@ -408,6 +408,35 @@ class DP241OriginalSourceInvestigationTests(unittest.TestCase):
                 current, target(), (replace(first, result="FOUND_CANDIDATE"),)
             )
 
+    def test_cross_method_reuse_of_one_discovery_receipt_is_refused(self):
+        current = plan()
+        first = receipt(current, 0, "NOT_FOUND")
+        second = receipt(current, 1, "NOT_FOUND")
+        # Different planned attempt IDs do not establish independent discovery
+        # if the same immutable discovery receipt is attributed to both.
+        reused = replace(
+            second, discovery_receipt_sha256=first.discovery_receipt_sha256
+        )
+        with self.assertRaisesRegex(ValueError, "DP241_DISCOVERY_RECEIPT_REUSED"):
+            assess_recovery(current, target(), (first, reused))
+
+    def test_unique_receipts_above_plan_cap_cannot_resolve_source(self):
+        current = plan(
+            methods=two_methods() + (method("OFFICIAL_STRUCTURED", "official"),),
+            max_attempts=2,
+        )
+        first = receipt(current, 0, "NOT_FOUND")
+        second = receipt(current, 1, "NOT_FOUND")
+        extra = receipt(current, 2, "FOUND_CANDIDATE", candidate=source_candidate())
+        with self.assertRaisesRegex(ValueError, "DP241_RECEIPT_ATTEMPT_CAP_EXCEEDED"):
+            assess_recovery(current, target(), (first, second, extra))
+        with self.assertRaisesRegex(ValueError, "DP241_RECEIPT_ATTEMPT_CAP_EXCEEDED"):
+            assess_recovery(
+                current,
+                target(),
+                (first, second, replace(extra, result="NOT_FOUND", candidate=None)),
+            )
+
     def test_true_original_is_private_candidate_with_exact_root_binding_and_reanalysis(
         self,
     ):
