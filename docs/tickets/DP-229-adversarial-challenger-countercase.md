@@ -267,3 +267,27 @@ eligibility remains fail-closed.
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Status remains **IN PROGRESS**, with historic AC/proofs preserved. The new autonomous verifier target (DP-314/316/321) requires attested, current challenger material, explicitly completed counter-investigation, incorporated counter-evidence, independent review authority and a qualified high-risk waiver where applicable. A model-produced challenger answer or caller-provided READY flag is not approval. Future AC-229.8 acceptance needs authorized real-source and MiniPC evidence; source/rights revocation during evaluation must HOLD rather than publish. This is specification only, not a waiver, signed decision or implementation.
+
+### 2026-10-11 temporal challenger material fingerprint (private inventory v3)
+
+An isolated PostgreSQL RED regression proved a reviewed claim-evidence candidate
+could retain the exact same `material_sha256` after `evidence.publication_date`
+changed. The existing private inventory fingerprint had no evidence effective-time
+or claim-specific statement-cutoff fields; a prior incorporation/review could
+appear current despite changed chronological scope.
+
+`challenger-material-inventory-v3` now binds each candidate's retrieval method
+and statement cutoff, plus the evidence publication date, valid-from/valid-until
+dates and reference period. The digest remains read-only, derived from one
+transactionally consistent SQL statement, with no private source text in its
+return value. A real disposable PostgreSQL regression changes these five
+temporal fields one at a time and observes a new digest after every change;
+the original RED case is GREEN. Focused fake-runtime plus disposable-PostgreSQL
+inventory tests: **12/12 PASS**. Older `v2` hashes are deliberately incompatible.
+
+This is a source-material freshness prerequisite only. Generic evidence-review
+events are not challenger-specific independent attestations; no canonical
+research-completion authority, approved rationale and incorporation receipt,
+qualified challenger waiver, accepted DP-307 decision, or MiniPC deployment was
+created. `evaluate_publication_eligibility()` still rejects caller-created
+`READY`/waiver inputs; **AC-229.8 stays unchecked and DP-229 stays IN PROGRESS**.

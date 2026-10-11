@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 
-INVENTORY_VERSION = "challenger-material-inventory-v2"
+INVENTORY_VERSION = "challenger-material-inventory-v3"
 
 
 class QueryRuntime(Protocol):
@@ -42,15 +42,19 @@ def _validate_row(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
         raise ValueError("CHALLENGER_MATERIAL_ROW_INVALID")
     required = {
-        "evidence_id", "retrieval_version", "relation_candidate", "status",
+        "evidence_id", "retrieval_version", "retrieval_method", "relation_candidate", "status",
         "content_sha256", "rights_status", "record_status",
-        "independence_group", "review_events",
+        "independence_group", "review_events", "statement_cutoff",
+        "publication_date", "valid_from", "valid_until", "reference_period",
     }
     if set(value) != required:
         raise ValueError("CHALLENGER_MATERIAL_ROW_SCHEMA_INVALID")
-    for key in ("evidence_id", "retrieval_version", "relation_candidate", "status"):
+    for key in ("evidence_id", "retrieval_version", "retrieval_method", "relation_candidate", "status"):
         if not isinstance(value[key], str) or not value[key].strip():
             raise ValueError("CHALLENGER_MATERIAL_IDENTITY_INVALID")
+    for key in ("statement_cutoff", "publication_date", "valid_from", "valid_until", "reference_period"):
+        if value[key] is not None and not isinstance(value[key], str):
+            raise ValueError("CHALLENGER_MATERIAL_TEMPORAL_SCOPE_INVALID")
     if not isinstance(value["review_events"], list):
         raise ValueError("CHALLENGER_MATERIAL_EVENTS_INVALID")
     for event in value["review_events"]:
@@ -96,9 +100,15 @@ def load_challenger_material_inventory(
         SELECT COALESCE(jsonb_agg(jsonb_build_object(
             'evidence_id', link.evidence_id,
             'retrieval_version', link.retrieval_version,
+            'retrieval_method', link.retrieval_method,
             'relation_candidate', link.relation_candidate,
             'status', link.status,
+            'statement_cutoff', link.statement_cutoff,
             'content_sha256', evidence.content_sha256,
+            'publication_date', evidence.publication_date,
+            'valid_from', evidence.valid_from,
+            'valid_until', evidence.valid_until,
+            'reference_period', evidence.reference_period,
             'rights_status', evidence.rights_status,
             'record_status', evidence.record_status,
             'independence_group', evidence.independence_group,

@@ -55,18 +55,21 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
              CREATE TABLE evidence (
                  id text PRIMARY KEY, canonical_url text,
                  content_sha256 text, rights_status text, record_status text,
-                 independence_group text
+                 independence_group text, publication_date date,
+                 valid_from date, valid_until date, reference_period text
              );
              CREATE TABLE review_event (
                  id text PRIMARY KEY, entity_type text, entity_id text,
                  action text, actor_ref text, reason text,
                  metadata jsonb, created_at timestamptz DEFAULT now()
              );
-             INSERT INTO atomic_claim (id) VALUES ('claim:collision'), ('claim:hash');
+             INSERT INTO atomic_claim (id) VALUES
+                 ('claim:collision'), ('claim:hash'), ('claim:temporal');
              INSERT INTO evidence (id, content_sha256, rights_status, record_status)
              VALUES ('ev|part', repeat('a', 64), 'CLEARED', 'ACTIVE'),
                     ('ev', repeat('b', 64), 'CLEARED', 'ACTIVE'),
-                    ('ev:hash-missing', NULL, 'CLEARED', 'ACTIVE');
+                    ('ev:hash-missing', NULL, 'CLEARED', 'ACTIVE'),
+                    ('ev:temporal', repeat('c', 64), 'CLEARED', 'ACTIVE');
              """)
         _run([_bin("psql"), "-X", "-v", "ON_ERROR_STOP=1", "--dbname", cls.database,
               "-f", str(ROOT / "db/migrations/20260922-add-claim-evidence-ledger.sql")])
@@ -114,6 +117,36 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
         self.assertEqual(inventory.pending_or_unverified, 1)
         self.assertIn("CHALLENGER_MATERIAL_PROVENANCE_INCOMPLETE", inventory.blockers)
         self.assertFalse(inventory.publication_authority)
+
+    def test_reviewed_material_temporal_scope_change_invalidates_fingerprint(self):
+        self.assertTrue(self.store.link_claim_evidence(
+            claim_id="claim:temporal", evidence_id="ev:temporal",
+            retrieval_method="OFFICIAL_INDEX", retrieval_version="v1",
+            relation_candidate="CONTRADICT", statement_cutoff="2025-01-01",
+        ))
+        self.assertTrue(self.store.approve_claim_evidence_with_review(
+            claim_id="claim:temporal", evidence_id="ev:temporal", retrieval_version="v1",
+            event_id="review:temporal", actor_ref="reviewer:fixture", reason="checked",
+        ))
+        baseline = load_challenger_material_inventory(self.store, claim_id="claim:temporal")
+        self.assertEqual(baseline.pending_or_unverified, 0)
+        edits = [
+            "UPDATE evidence SET publication_date='2025-02-01' WHERE id='ev:temporal'",
+            "UPDATE evidence SET valid_from='2025-03-01' WHERE id='ev:temporal'",
+            "UPDATE evidence SET valid_until='2025-09-01' WHERE id='ev:temporal'",
+            "UPDATE evidence SET reference_period='2025-Q1' WHERE id='ev:temporal'",
+            "UPDATE claim_evidence_candidate SET statement_cutoff='2024-01-01' "
+            "WHERE claim_id='claim:temporal' AND evidence_id='ev:temporal'",
+        ]
+        for statement in edits:
+            self.store.run(statement)
+            changed = load_challenger_material_inventory(self.store, claim_id="claim:temporal")
+            self.assertNotEqual(
+                baseline.material_sha256, changed.material_sha256,
+                "reviewed challenger material must stale when temporal scope changes",
+            )
+            baseline = changed
+            self.assertFalse(changed.publication_authority)
 
 
 if __name__ == "__main__":

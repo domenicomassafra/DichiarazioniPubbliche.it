@@ -23,9 +23,12 @@ def candidate(**changes):
     claim_id = changes.pop("claim_id", "c")
     row = {
         "evidence_id": "ev:1", "retrieval_version": "retrieval:v1",
+        "retrieval_method": "OFFICIAL_INDEX", "statement_cutoff": "2025-01-01",
         "relation_candidate": "CONTRADICT", "status": "APPROVED",
         "content_sha256": "a" * 64, "rights_status": "CLEARED",
         "record_status": "ACTIVE", "independence_group": "origin:1",
+        "publication_date": "2024-12-31", "valid_from": None,
+        "valid_until": None, "reference_period": None,
     }
     row.update(changes)
     if "review_events" not in changes:
@@ -73,6 +76,12 @@ class ChallengerMaterialInventoryTests(unittest.TestCase):
             [candidate(rights_status="UNKNOWN")],
             [candidate(independence_group="origin:other")],
             [candidate(record_status="SUPERSEDED")],
+            [candidate(statement_cutoff="2024-12-01")],
+            [candidate(publication_date="2025-01-02")],
+            [candidate(valid_from="2025-01-01")],
+            [candidate(valid_until="2025-12-31")],
+            [candidate(reference_period="2024-Q4")],
+            [candidate(retrieval_method="INDEPENDENT_REPORT")],
         ]
         for rows in changes:
             with self.subTest(rows=rows):
