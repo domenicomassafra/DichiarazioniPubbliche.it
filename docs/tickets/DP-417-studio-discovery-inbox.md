@@ -376,3 +376,92 @@ proof of authenticated reviewer action authority, rights/licensing clearance,
 all real queue families, safe bulk transitions, client authorization, current
 MiniPC readback or direct-SQL constraint parity. Remaining acceptance still
 requires those independent end-to-end/runtime gates.
+
+### 2026-10-11 — NEW private changed/blocked Capture queue family (source-only)
+
+Independent implementation in **only**
+`poc/dichiarazioni_pubbliche/studio_discovery_triage_reader.py` plus
+NEW `tests/test_dp417_queue_family_next.py`. This is **not** the
+earlier Run→Manifest annotation-writer digest admission guard:
+that writer/store/ledger, existing HTTP routes and migrations were
+left unchanged. A new pure read-only entry point
+`read_capture_triage_queue(store, collection_id, limit, after_capture_id)`
+uses PostgreSQL `BEGIN TRANSACTION READ ONLY` and one scoped
+snapshot. The store must be supplied by the **existing authenticated,
+private, read-only Studio context**; this function does not authenticate
+an operator, expose a new route or grant actions.
+
+Unlike a cached/fabricated Inbox counter, the SQL joins the **exact
+Collection → INCLUDED Collection-Content → Content Capture** path and
+orders Capture snapshots per Content by `(observed_at, id)` to derive
+the current Capture and persisted **previous_capture_id**. It returns
+only exceptions: (a) a changed current Capture with a predecessor, or
+(b) the current Capture in `QUARANTINED`/purge/active hold/failed
+archive state. A Content with a single ordinary `CAPTURED` row is
+**not** invented as a changed Capture; a removed Collection membership
+does not expose its past Capture. One persisted latest lifecycle event
+ID is attached when present, without reading private event receipts.
+No URL, source body, text, query, provider receipt, raw SHA, reviewer
+or model output enters the response.
+
+The private output is bounded to **1–30** rows, ordered by exact
+Capture ID, with `LIMIT limit+1` pagination and a cursor that must
+itself still belong to the *current eligible Collection-scoped queue*.
+Foreign, revoked/stale and previous-version cursors fail closed.
+Cases are `CHANGED_CAPTURE` with
+`CAPTURE_CHANGE_REVIEW_REQUIRED` or `BLOCKED_CAPTURE` with exact
+`CAPTURE_QUARANTINED`, `CAPTURE_PURGE_PENDING`,
+`CAPTURE_BODY_PURGED`, `CAPTURE_HOLD_ACTIVE`,
+`CAPTURE_ARCHIVE_FAILED` or `COLLECTION_NOT_ACTIVE` codes and
+explicit *proposed* retry prerequisites. **Every row** retains
+`PRIVATE_SOURCE_RIGHTS_REVIEW_NOT_EVALUATED` and
+`CAPTURE_REVIEW_AUTHORITY_NOT_EVALUATED`. Read-only,
+`triage_action_authorized=false`,
+`publication_authority=false`, and `rights_clearance=false`
+are immutable response boundaries. No safe bulk approval, automatic
+capture retry, merge, promotion or public publication is inferred.
+
+TDD reproduced **RED** on the missing new queue reader/export;
+**GREEN 6/6** dedicated cases including actual fresh
+**disposable PostgreSQL with canonical `db/schema.v1.sql`** and
+synthetic persisted Content/Capture/Collection/Lifecycle rows,
+multiple Content versions, quarantined other-Collection Capture,
+removed member, unchanged single Capture, rights hold reclassification,
+non-active Collection, exact scoped pagination, and stale/foreign
+cursor refusal. A real PostgreSQL **SELECT-only role** separately
+executed the reader successfully while UPDATE was permission-denied.
+Contract tests cover strict argument/results, injected private/source
+fields, invalid status, malformed lineage, and generic store failure
+without credential leakage. No test was run against production, no
+provider was called and all PostgreSQL writes were to a temporary
+disposable cluster stopped after the run.
+Adjacent scoped Discovery-history/Studio operator-queue/Inbox workflows
+plus this new suite: **37/37 PASS** on Mac, including PostgreSQL cases;
+targeted Python `compileall` and `git diff --check` also PASS.
+These are source-only local tests, not full-suite or live-runtime proof.
+
+**DP-417 stays IN PROGRESS, original AC-417.1–.4 all unchecked.**
+This provides real source-level partial evidence for Capture-family
+AC-417.1/.3 only, not for every Discovery/entity/candidate/coverage
+queue; no current authenticated API/Studio route is wired, no reviewer
+or source-rights authority is established, and no durable safe
+action/idempotent replay or cross-state bulk action was implemented.
+MiniPC data/runtime acceptance and the other queue families remain
+separate gates. No commit, push or production change in this tranche.
+
+Prime independent code review (same source-only tranche): the canonical
+PostgreSQL schema enforces `UNIQUE(content_id, content_sha256)`, so two
+different Capture IDs with identical source bytes cannot be inserted as a
+valid re-observation; an initial attempted negative fixture correctly hit
+the existing uniqueness constraint and was **not** treated as a reader bug.
+An actual missing queue case was then reproduced: a single persisted
+Capture with `rights_status=REVOKED`, normal status and no explicit hold
+vanished from the new operator queue (**RED**). The reader now includes
+`REVOKED`/`EXPIRED`/`DENIED` source-rights statuses even for the first
+Capture, emits `BLOCKED_CAPTURE` with precise safe blocker
+`CAPTURE_RIGHTS_<status>` and an explicit independent new rights-decision
+prerequisite; it grants no clearance or action permission (**GREEN**).
+The new disposable-PostgreSQL regression and adjacent focused suites
+passed **25/25**; targeted Ruff F821/F823 and diff check passed. This
+does not create source-rights authority, authenticated HTTP wiring,
+live MiniPC acceptance or any DONE AC.
