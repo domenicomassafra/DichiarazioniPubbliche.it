@@ -12,6 +12,7 @@ import os
 import sqlite3
 import stat
 from dataclasses import asdict
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -61,7 +62,7 @@ class SQLiteVisualWorklist:
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
                 or info.st_mode & 0o077):
             raise ValueError("DP519_JOURNAL_FILE_UNSAFE")
-        with self._connect() as conn:
+        with closing(self._connect()) as conn:
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS visual_work(
                     work_key TEXT PRIMARY KEY NOT NULL,
@@ -99,7 +100,7 @@ class SQLiteVisualWorklist:
             raise ValueError("DP519_WORK_REVISION_INVALID")
         _check_work(item, max(datetime.now(timezone.utc), item.created_at))
         document = _serialize(item)
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             try:
                 row = db.execute("SELECT revision, document FROM visual_work WHERE work_key=?",
@@ -135,7 +136,7 @@ class SQLiteVisualWorklist:
         if type(expected_work_revision) is not int or expected_work_revision < 1:
             raise ValueError("DP519_WORK_REVISION_INVALID")
         document = _serialize(event)
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             try:
                 row = db.execute("SELECT revision,document FROM visual_work WHERE work_key=?",
@@ -183,7 +184,7 @@ class SQLiteVisualWorklist:
                 "publication_authority": False}
 
     def private_report(self, *, now: datetime, weekly_planning_minutes: int = 300) -> VisualCapacityReport:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN")
             try:
                 items = tuple(_unpack_work(x[0]) for x in db.execute(
@@ -200,7 +201,7 @@ class SQLiteVisualWorklist:
                 raise
 
     def event_count(self) -> int:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             return int(db.execute("SELECT COUNT(*) FROM visual_time_event").fetchone()[0])
 
 
