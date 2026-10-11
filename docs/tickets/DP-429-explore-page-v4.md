@@ -146,3 +146,21 @@ diagnostics and isolated build PASS. This deliberately does not change the
 populated search UI/index or serve a public release. Actual screen-reader
 acceptance/selected design and MiniPC/public proof remain OPEN; the final
 mixed accessibility AC is not checked and ticket stays IN PROGRESS.
+
+### 2026-10-11 — Populated result status and filter disclosure
+
+The populated Explore island now presents an atomic `role="status"` result
+count matching the approved-empty page. A rejected overlong query is labelled
+`Ricerca non eseguita` instead of falsely showing zero matches. The native
+filter dialog's trigger has explicit `aria-controls` and `aria-expanded`
+values following open, Escape and close. Existing radio selected-state/focus
+and deterministic routes are preserved. The isolated
+`tests/dp429_explore_accessibility_regression.mjs` builds both approved-empty
+and expressly local populated demo states; optional Chrome QA now covers
+live status/disclosure and keyboard transitions. Both builds plus Chrome QA
+PASS, `npm run check:search` PASS, Astro check zero diagnostics; see DP-409.
+
+The mixed keyboard/screen-reader/200%-zoom/reduced-motion criterion stays
+**unchecked**, because real VoiceOver/NVDA (or equivalent) judgment and manual
+visual/owner acceptance remain outstanding. Status remains IN PROGRESS.
+No MiniPC deployment or public release is represented by this receipt.

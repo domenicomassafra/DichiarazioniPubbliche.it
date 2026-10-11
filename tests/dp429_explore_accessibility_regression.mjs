@@ -12,6 +12,7 @@ const web = fileURLToPath(new URL("../web/", import.meta.url));
 const temp = await mkdtemp(path.join(tmpdir(), "dp429-explore-a11y-"));
 const projectionPath = path.join(temp, "approved-empty.json");
 const dist = path.join(temp, "dist");
+const populatedDist = path.join(temp, "populated-demo");
 const fingerprint = createHash("sha256")
   .update('{"contents":[],"dossiers":[],"topics":[]}', "utf8")
   .digest("hex");
@@ -66,6 +67,24 @@ try {
   assert.equal(index.projection_sha256, fingerprint);
   assert.deepEqual(index.records, [], "Test must not turn on demo/publication results");
 
+  // The populated React island has a separate status/focus contract from the
+  // static empty launch page. An explicitly local demo build exercises its
+  // real Astro server-rendered markup without publishing fixture records.
+  const demoEnv = {
+    ...safeEnv,
+    DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: "1",
+  };
+  run("npm", ["run", "build", "--", "--outDir", populatedDist], demoEnv);
+  const populatedHtml = await readFile(path.join(populatedDist, "esplora", "index.html"), "utf8");
+  assert.match(populatedHtml, /<span\b[^>]*class="results-count"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"[^>]*>Caricamento indice…<\/span>/,
+    "Populated Explore must expose an atomic, named result-update status");
+  assert.match(populatedHtml, /<button\b[^>]*aria-haspopup="dialog"[^>]*aria-controls="explore-filter-dialog"[^>]*aria-expanded="false"/,
+    "Filter toggle must expose the target dialog and initial collapsed state");
+  assert.match(populatedHtml, /<dialog\b[^>]*id="explore-filter-dialog"/,
+    "Filter dialog must be the referenced accessible control");
+  const demoIndex = JSON.parse(await readFile(path.join(populatedDist, "search-index.v1.json"), "utf8"));
+  assert.ok(demoIndex.records.length > 0, "The populated accessibility check needs real fixture rows");
+
   if (process.env.DP429_BROWSER === "1") {
     const browserOutput = run("node", ["scripts/check-browser-qa.mjs"], {
       ...env, DP_BROWSER_DIST: dist,
@@ -73,8 +92,13 @@ try {
     assert.match(browserOutput, /"keyboard_navigation": "PASS"/);
     assert.match(browserOutput, /"reduced_motion": "PASS"/);
     assert.match(browserOutput, /"actual_zoom_200_pages": [1-9]/);
+    const populatedBrowser = run("node", ["scripts/check-browser-qa.mjs"], {
+      ...demoEnv, DP_BROWSER_DIST: populatedDist,
+    });
+    assert.match(populatedBrowser, /"status": "PASS"/);
+    assert.match(populatedBrowser, /"external_requests": 0/);
   }
-  console.log("DP-429 Explore approved-empty DOM, accessible count and projection boundary PASS");
+  console.log("DP-429 Explore approved-empty and populated status/focus DOM boundaries PASS");
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

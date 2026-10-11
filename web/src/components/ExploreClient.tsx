@@ -36,6 +36,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   const [urlReady, setUrlReady] = useState(false);
   const [index, setIndex] = useState<PublicSearchIndex | null>(null);
   const [indexState, setIndexState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const filterDialog = useRef<HTMLDialogElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
 
@@ -122,6 +123,11 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   function closeFilters() {
     filterDialog.current?.close();
     filterButton.current?.focus();
+  }
+
+  function openFilters() {
+    filterDialog.current?.showModal();
+    setFiltersOpen(true);
   }
 
   function pushFilterState(overrides: {
@@ -225,16 +231,31 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           className="filter-button"
           type="button"
           aria-haspopup="dialog"
-          onClick={() => filterDialog.current?.showModal()}
+          aria-controls="explore-filter-dialog"
+          aria-expanded={filtersOpen}
+          onClick={openFilters}
         >
           Filtri{activeFilterCount ? ` (${activeFilterCount})` : ""}
         </button>
-        <span className="results-count" aria-live="polite">
-          {indexState === "loading" ? "Caricamento indice…" : `${records.length} ${records.length === 1 ? "risultato" : "risultati"}`}
+        <span className="results-count" role="status" aria-live="polite" aria-atomic="true">
+          {indexState === "loading"
+            ? "Caricamento indice…"
+            : response?.status === "QUERY_TOO_LONG"
+              ? "Ricerca non eseguita"
+              : `${records.length} ${records.length === 1 ? "risultato" : "risultati"}`}
         </span>
       </div>
 
-      <dialog ref={filterDialog} className="dp-overlay dp-sheet" aria-labelledby="filter-title" onClose={() => filterButton.current?.focus()}>
+      <dialog
+        id="explore-filter-dialog"
+        ref={filterDialog}
+        className="dp-overlay dp-sheet"
+        aria-labelledby="filter-title"
+        onClose={() => {
+          setFiltersOpen(false);
+          filterButton.current?.focus();
+        }}
+      >
         <div className="dp-overlay__header">
           <h2 id="filter-title" className="dp-overlay__title">Filtri di ricerca</h2>
           <button className="quiet-button" type="button" aria-label="Chiudi filtri" onClick={closeFilters}>×</button>

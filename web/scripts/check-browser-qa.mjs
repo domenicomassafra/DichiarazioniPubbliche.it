@@ -418,6 +418,17 @@ try {
   assert(ax.some((node) => ["searchbox", "textbox"].includes(axValue(node, "role")) && axValue(node, "name") === "Cerca nel record pubblico"), "search control missing from accessibility tree");
   assert(ax.some((node) => axValue(node, "role") === "radiogroup" && axValue(node, "name") === "Tipo di record"), "record-type radiogroup missing from accessibility tree");
   assert(ax.some((node) => axValue(node, "role") === "button" && axValue(node, "name").startsWith("Filtri")), "filter button missing from accessibility tree");
+  assert.deepEqual(await cdp.evaluate(`({
+    status: document.querySelector('.results-count')?.getAttribute('role'),
+    atomic: document.querySelector('.results-count')?.getAttribute('aria-atomic'),
+    target: document.querySelector('.filter-row .filter-button')?.getAttribute('aria-controls'),
+    expanded: document.querySelector('.filter-row .filter-button')?.getAttribute('aria-expanded'),
+  })`), {
+    status: "status",
+    atomic: "true",
+    target: "explore-filter-dialog",
+    expanded: "false",
+  }, "Explore count and initial filter state must be exposed to assistive technologies");
 
   const allRecords = searchIndex.records.length;
   assert.equal(await cdp.evaluate("document.querySelectorAll('.explore-row').length"), allRecords,
@@ -495,8 +506,10 @@ try {
   await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
   await waitFor(cdp, "document.querySelector('dialog')?.open === true", "filter dialog did not open from keyboard");
   assert.equal(await cdp.evaluate("document.querySelector('dialog').contains(document.activeElement)"), true, "dialog did not receive focus");
+  await waitFor(cdp, "document.querySelector('.filter-row .filter-button')?.getAttribute('aria-expanded') === 'true'", "filter button did not expose expanded state");
   await key(cdp, "Escape", { code: "Escape", keyCode: 27 });
   await waitFor(cdp, "document.querySelector('dialog')?.open === false", "Escape did not close filter dialog");
+  await waitFor(cdp, "document.querySelector('.filter-row .filter-button')?.getAttribute('aria-expanded') === 'false'", "Escape did not reset filter expanded state");
   assert.equal(await cdp.evaluate("document.activeElement?.classList.contains('filter-button')"), true, "dialog close did not restore focus");
 
   await navigate(cdp, `${origin}/esplora/?q=nessunrisultatoimpossibile`);
@@ -509,6 +522,8 @@ try {
   await navigate(cdp, `${origin}/esplora/?q=${overlong}`);
   await waitFor(cdp, "Boolean(document.querySelector('[role=alert]'))", "overlong query alert missing");
   assert.match(await cdp.evaluate("document.querySelector('[role=alert]')?.textContent"), /Ricerca troppo lunga/);
+  assert.equal(await cdp.evaluate("document.querySelector('.results-count[role=status][aria-atomic=true]')?.textContent.trim()"), "Ricerca non eseguita",
+    "an unexecuted query must not be announced as zero results");
   const alertAx = (await cdp.send("Accessibility.getFullAXTree")).nodes;
   assert(alertAx.some((node) => axValue(node, "role") === "alert"), "overlong validation is absent from accessibility tree");
 

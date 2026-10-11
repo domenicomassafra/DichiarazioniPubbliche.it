@@ -245,3 +245,20 @@ the live-static promotion blocker is closed. Dependency gate DP-408 remains auth
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS. The public search index must use first-class Statement IDs, exact approved quote and locator as primary display while explicitly distinguishing summary/translation metadata (DP-436), plus approved zero-record Persons (DP-438) and safe Person×Topic intersection (DP-439). Revoked or private membership must be absent from results, facets, cursor and snippets; empty corpus, populated no-match and stale index are distinct. Existing keyboard/screen-reader AC-409.8 remains OPEN. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+### 2026-10-11 — Populated search count/status accessibility hardening
+
+`ExploreClient` now exposes live result counts with atomic `role="status"`
+semantics. An overlong URL-provided search announces `Ricerca non eseguita`,
+never a misleading `0 risultati`; the existing `role="alert"` still explains
+the 200-character bound. Filter open/close state is visible through
+`aria-controls`/`aria-expanded`. Isolated Astro regression verifies both
+approved-empty and explicitly local populated demo builds. Browser QA verifies
+the accessible state, keyboard dialog disclosure, Escape, invalid query,
+reduced motion and true 200% browser zoom; no external/provider requests.
+`npm run check:search` PASS, Astro check 0 diagnostics and `git diff --check` PASS.
+
+**AC-409.8 remains unchecked:** browser accessibility-tree inspection does not
+constitute a real screen-reader/manual assistive-technology acceptance.
+DP-408/dependency gates remain. This receipt documents source and local test
+evidence only; no new MiniPC/public release or owner sign-off is inferred.
