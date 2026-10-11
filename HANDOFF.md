@@ -1,5 +1,15 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nuova wave pending-closeout, 11 ottobre 2026:**
+[audit di nove ticket con regressioni e blocker originali](docs/reviews/2026-10-11-pending-closeout-nine-ticket-wave.md).
+DP-314/320/435/438/440/512/515/516/518 hanno ricevuto fix per
+indipendenza fonti, fencing lettura/revoca, locator citazione, identità
+Persona, sintesi e costi, monitoraggio e deduplicazione restart.
+Nessuna acceptance esterna viene convertita in DONE usando prove
+sintetiche. Inventario **90 DONE, 72 non DONE**, editorial release
+**NO-GO/49**; nessun deploy su MiniPC. Le prove di full suite e CI
+sono sempre da verificare sul commit finale.
+
 **Closeout audit + sette ticket irrobustiti, 11 ottobre 2026:**
 [verbale con criteri rimasti aperti e prove](docs/reviews/2026-10-11-closure-readiness-seven-ticket-hardening.md).
 Audit DP-229/405/407/409/412/422/429, correzioni concretamente
