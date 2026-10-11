@@ -1,5 +1,14 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Pending hardening wave, 11 ottobre 2026:**
+[sei regressioni e relativi criteri ancora esterni](docs/reviews/2026-10-11-six-pending-safety-hardening-wave.md).
+DP-236/237/242/244/315/319: permissions fonte, speaker esatto, handoff
+Studio, catalogo osservazioni, fingerprint negazioni e budget/plan
+dell'indagine. **75/75 test integrati mirati verdi**; nessuna source-only
+fixture prova un'authority qualificata o MiniPC acceptance. Inventario
+immutato **90 DONE / 72 pendenti**; release **NO-GO/49**. Verificare la
+CI e il commit integrato prima di qualsiasi uso runtime.
+
 **Nuova wave pending-closeout, 11 ottobre 2026:**
 [audit di nove ticket con regressioni e blocker originali](docs/reviews/2026-10-11-pending-closeout-nine-ticket-wave.md).
 DP-314/320/435/438/440/512/515/516/518 hanno ricevuto fix per
