@@ -395,7 +395,7 @@ def evaluate_procedural_document(
                 codes.append("SPEAKER_PRIVACY_REVIEW_REQUIRED")
             if person is not None and len(set(person.alias_candidate_refs)) > 1:
                 codes.append("PERSON_ALIAS_COLLISION")
-        if span.speaker_role == DocumentaryRole.QUOTED and (
+        if span.assertion_kind == AssertionKind.QUOTED_TEXT and (
             span.quoted_author_ref not in person_by_id
         ):
             codes.append("QUOTED_AUTHOR_IDENTITY_UNVERIFIED")
@@ -419,6 +419,8 @@ def evaluate_procedural_document(
                 codes.append("MULTIPLE_PROCEDURAL_STATUS_TERMS_UNRESOLVED")
             if hits and source.source_kind in {"NEWS_REPORT", "OTHER"}:
                 codes.append("SECONDARY_SOURCE_NOT_STATUS_AUTHORITY")
+            if hits and source.source_kind == "WITNESS_STATEMENT":
+                codes.append("WITNESS_SOURCE_NOT_STATUS_AUTHORITY")
             if hits.intersection({"CONVICTED", "ACQUITTED", "DISMISSED"}) and (
                 source.source_kind == "PROSECUTION_FILING"
             ):

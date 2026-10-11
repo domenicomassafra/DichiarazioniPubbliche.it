@@ -140,6 +140,22 @@ class ProceduralDocumentRoleTests(unittest.TestCase):
         result = evaluate_procedural_document(source(), people(), (reported,))
         self.assertIn("QUOTED_AUTHOR_ATTRIBUTION_UNVERIFIED", result.spans[0].reason_codes)
 
+    def test_reporter_named_quote_cannot_trust_an_unresolved_person_reference(self):
+        quoted = span(
+            "Non ho visto Bruno", kind=AssertionKind.QUOTED_TEXT,
+            role=DocumentaryRole.REPORTER, speaker="body:reporter",
+            quoted_author_ref="person:unregistered",
+        )
+        held = evaluate_procedural_document(source(), people(), (quoted,))
+        self.assertEqual(held.state, "HOLD")
+        self.assertIn("QUOTED_AUTHOR_IDENTITY_UNVERIFIED", held.spans[0].reason_codes)
+        self.assertFalse(held.spans[0].publication_authority)
+
+        known = evaluate_procedural_document(source(), people(), (
+            dataclasses.replace(quoted, quoted_author_ref="person:ada"),
+        ))
+        self.assertEqual(known.spans[0].state, "CANDIDATE_PRIVATE")
+
     def test_mismatched_role_or_source_family_cannot_become_court_decision(self):
         row = span(
             "La procura allega che Bruno era presente.",
@@ -306,6 +322,32 @@ class ProceduralDocumentRoleTests(unittest.TestCase):
                   status=ProceduralStatus.CONVICTED, negation_polarity="AFFIRMED"),),
         )
         self.assertIn("SECONDARY_SOURCE_NOT_STATUS_AUTHORITY", result.spans[0].reason_codes)
+
+    def test_witness_source_is_not_authority_for_conviction_status(self):
+        phrase = "Mario è condannato."
+        person_records = (
+            DocumentPerson("person:ada", PrivacyClass.PUBLIC_FIGURE),
+            DocumentPerson("person:mario", PrivacyClass.PUBLIC_FIGURE),
+        )
+        status_row = span(
+            phrase, text=phrase, kind=AssertionKind.INSTITUTIONAL_FACT,
+            role=DocumentaryRole.AUTHOR, speaker="person:ada",
+            subjects=("person:mario",), procedural_party_refs=("person:mario",),
+            status=ProceduralStatus.CONVICTED, negation_polarity="AFFIRMED",
+        )
+        witness = evaluate_procedural_document(
+            source(phrase, source_kind="WITNESS_STATEMENT",
+                   document_author_ref="person:ada", reporting_body_ref="body:police"),
+            person_records, (status_row,),
+        )
+        self.assertEqual(witness.state, "HOLD")
+        self.assertIn("WITNESS_SOURCE_NOT_STATUS_AUTHORITY", witness.spans[0].reason_codes)
+
+        court = evaluate_procedural_document(
+            source(phrase), person_records,
+            (dataclasses.replace(status_row, asserted_by_ref="body:judge"),),
+        )
+        self.assertEqual(court.spans[0].state, "CANDIDATE_PRIVATE")
 
     def test_conflicting_status_words_do_not_become_single_definite_status(self):
         phrase = "Mario è indagato e imputato."

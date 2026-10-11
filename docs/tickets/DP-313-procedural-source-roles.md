@@ -41,3 +41,12 @@ Depends on: DP-111, DP-215, DP-219, DP-222, DP-227, DP-304, DP-309, DP-312
 ## 2026-10-11 — First implementation slice
 
 Commit `6afb00f`. Added private `procedural_document_roles.py` with typed SOURCE/AUTHOR/REPORTER/WITNESS/ALLEGATION/COURT_DECISION status/role distinctions, date/jurisdiction/negation/privacy holds and no factual verdict from mere quotation. 24 new cases plus targeted semantic/high-risk regressions PASS. No real procedurally authorized document, independent OCR source proof, qualified legal permission or release/MinIPC canary has been accepted. **All original AC remain unchecked**; this is a local source-only test receipt, not permission for live publication.
+
+## 2026-10-11 — Fail-closed author and procedural-status follow-up
+
+Two adversarial synthetic regressions reproduced genuine `CANDIDATE_PRIVATE` fail-open decisions before the patch (focused `unittest`, 2/2 failures):
+
+- A `REPORTER`/`QUOTED_TEXT` annotation with nonempty `quoted_author_ref=person:unregistered` could pass without an identified `DocumentPerson`; quoted-person identity is now required for **every** quoted-text role. Unknown quoted authors return `HOLD` / `QUOTED_AUTHOR_IDENTITY_UNVERIFIED`; an identified public figure remains a private candidate, never publication authority.
+- A first-person `WITNESS_STATEMENT` could return a definitive `CONVICTED` procedural status candidate just because the witness text said `Mario è condannato.` and an annotation labeled it `INSTITUTIONAL_FACT`. Such a document is now held with `WITNESS_SOURCE_NOT_STATUS_AUTHORITY`. A properly annotated `COURT_ORDER` stays a private candidate; fact assessment remains `NOT_EVALUATED` in both cases.
+
+Local proof: focused DP-313 tests **26/26 PASS**, `compileall` PASS, deterministic benchmark **5/5 PASS**, `git diff --check` PASS. Repository-wide caller search found no consumer of the private DP-313 receipt other than these tests; its v1 schema/version remains unchanged and fail-open cases now produce changed decision hashes. All original AC-313.1–6 remain **open**: no independently authorized official document/OCR original, source rights or qualified legal/privacy review, cross-module revocation/invalidation replay, MiniPC pilot or public conditional revalidation has been accepted. No public dataset/permission or deploy was produced by these local checks.
