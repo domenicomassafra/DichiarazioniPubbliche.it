@@ -272,3 +272,56 @@ performance, production MiniPC snapshot and separately reviewed membership /
 source-rights decisions are still required. No approval, promotion, database
 schema mutation, provider query, production change, push or deployment occurs
 through this seam.
+
+### 2026-10-11 — bounded browser Collection→written Passage→Candidate navigation (local UI proof)
+
+The private nonce-bound Studio page now renders clickable, keyset-paginated
+Collection IDs and included Content IDs. The existing authenticated
+Collection→Content→Capture metadata path now retains the **exact selected
+Capture ID and SHA-256**, accepts only written Passage selectors whose
+`capture_locator` matches that Capture/Content, and opens the private
+`POST /v1/collections/passage-lineage` route with
+`collection_id`, `content_id`, `capture_id`, `passage_id`,
+`limit` and `after_statement_id`. The candidate inspector exposes only
+validated persisted IDs, statement hashes, selector coordinates, statuses,
+recorded Claim Candidate→Atomic Claim IDs and promotion receipt IDs.
+These recorded links are explicitly **not** permissions to review,
+reproduce sources or publish. Native buttons, a focused detail heading,
+live status text and textContent-only rendering preserve keyboard
+operability and avoid HTML injection.
+
+The same private page now reads the separate
+`POST /v1/discovery/capture-queue` endpoint using collection-bound
+`after_capture_id` keyset pagination (the actual HTTP API field).
+Exceptions appear with persisted IDs, states and blocker codes only.
+Malformed response contracts, wrong Capture/Collection binding or
+unvalidated pagination fail closed without writing response bodies into
+the shared results panel. Changing or clearing the in-memory token
+invalidates outstanding requests and scrubs the added private links.
+No browser storage, external provider, remote account, rights grant,
+capture action, review action or publication path is introduced.
+
+**RED→GREEN receipt:** the new test executing the *real rendered inline
+JavaScript* was RED at missing dedicated Collection Passage UI; it is now
+GREEN for Collection selection, Content, Capture, exact written Passage,
+Statement/Claim Candidate and recorded promoted Claim inspection; both
+keyset cursors; keyboard focus; cross-parent/forged response exclusion;
+clear-token and token-replacement late-response scrubbing. Existing async
+regression also passes. Local focused suite:
+`PYTHONPATH=poc python3 -m unittest tests.test_studio_local_page_async
+tests.test_studio_local_api tests.test_studio_operator_queues
+tests.test_studio_discovery_triage_reader -q` **48/48 PASS** before the
+final isolated token-change regression, which separately passed **2/2**;
+`ruff check`, targeted `compileall` and `git diff --check` PASS.
+A disposable headless Chrome experiment did not complete within its
+35-second timeout; it was excluded from the stable tests. Thus native
+Chrome/VoiceOver manual accessibility evidence and live HTTP browser
+acceptance remain open, as do comprehensive corpus performance and
+MiniPC/read-back gates.
+
+**AC-416.1–.4 remain OPEN.** Garlasco has no authorized real persisted
+Capture→Passage→Candidate chain; synthetic `research:pilot` fixtures
+are development evidence only. No source rights approval, reviewer
+authority, production mutation, schema migration, commit, push or deploy
+is claimed by this UI slice. The adjacent API file belongs to its
+independent worker.

@@ -37,6 +37,8 @@ _PAGE = """<!doctype html>
     .notice{font-weight:600}
     #member-links{display:grid;gap:.4rem;margin:1rem 0}
     #member-links button{text-align:left;overflow-wrap:anywhere}
+    #collection-links{display:grid;gap:.4rem;margin:1rem 0}
+    #collection-links button{text-align:left;overflow-wrap:anywhere}
     #claim-links{display:grid;gap:.4rem;margin:1rem 0}
     #claim-links button{text-align:left;overflow-wrap:anywhere}
     #corpus-links{display:grid;gap:.4rem;margin:1rem 0}
@@ -44,6 +46,8 @@ _PAGE = """<!doctype html>
     #corpus-inspector{border:1px solid #68747c;padding:1rem;margin-top:1rem}
     #corpus-inspector dl{display:grid;grid-template-columns:minmax(8rem,12rem) minmax(0,1fr);gap:.45rem}
     #corpus-inspector dd{margin:0;overflow-wrap:anywhere}
+    #collection-lineage-links,#capture-queue-links{display:grid;gap:.4rem;margin:1rem 0}
+    #collection-lineage-links button,#capture-queue-links button{text-align:left;overflow-wrap:anywhere}
     pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#e9ebe6;padding:1rem;font-size:.86rem}
     @media(max-width:40rem){body{padding:.8rem}.controls,label{display:grid;width:100%}}
   </style>
@@ -128,6 +132,8 @@ _PAGE = """<!doctype html>
         <label>Dopo ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Mostra raccolte</button></div>
       </form>
+      <p id="collection-list-summary" role="status" aria-live="polite">Nessuna raccolta selezionata.</p>
+      <div id="collection-links" role="group" aria-label="Seleziona una raccolta persistita"></div>
       <h2>Contenuti inclusi</h2><p>Seleziona una raccolta per leggere solo i riferimenti persistiti. Il dettaglio indica i collegamenti verificati e gli elementi ancora assenti.</p>
       <form data-endpoint="/v1/collections/members">
         <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
@@ -135,6 +141,7 @@ _PAGE = """<!doctype html>
         <label>Dopo Content ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Elenca contenuti</button></div>
       </form>
+      <p id="collection-member-summary" role="status" aria-live="polite">Nessun Content caricato.</p>
       <div id="member-links" role="group" aria-label="Contenuti persistiti selezionabili"></div>
       <h2>Dettaglio Content</h2>
       <form data-endpoint="/v1/collections/member">
@@ -156,6 +163,23 @@ _PAGE = """<!doctype html>
       </form>
       <p id="collection-capture-summary" role="status" aria-live="polite">Nessun Content selezionato per le catture.</p>
       <div id="collection-capture-links" role="group" aria-label="Catture e selettori privati per Content"></div>
+      <h2 id="collection-lineage-heading" tabindex="-1">Passage scritto e candidati persistiti</h2>
+      <p>Seleziona una cattura e poi un Passage: il dettaglio è vincolato a raccolta, Content e versione di cattura. Stati e hash non conferiscono diritti o approvazione.</p>
+      <form data-endpoint="/v1/collections/passage-lineage">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" required></label>
+        <label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Capture ID<input name="capture_id" maxlength="180" required></label>
+        <label>Passage ID<input name="passage_id" maxlength="180" required></label>
+        <label>Limite Statement (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo Statement ID<input name="after_statement_id" maxlength="180"></label>
+        <button type="submit">Ispeziona collegamenti persistiti</button></div>
+      </form>
+      <p id="collection-lineage-summary" role="status" aria-live="polite">Nessun Passage scritto selezionato.</p>
+      <div id="collection-lineage-links" role="group" aria-label="Statement e Claim Candidate privati della versione selezionata"></div>
+      <section id="collection-lineage-inspector" aria-label="Dettaglio del candidato selezionato" hidden>
+        <h3 id="collection-candidate-heading" tabindex="-1">Collegamenti del candidato</h3>
+        <p id="collection-candidate-detail"></p>
+      </section>
       <h2>Provenienza di un claim storico</h2>
       <p>Stati e hash di attribuzione persistiti. APPROVED indica lo stato del record di attribuzione, non autorizza la riproduzione della fonte o la pubblicazione.</p>
       <form data-endpoint="/v1/collections/claim-provenance">
@@ -169,6 +193,16 @@ _PAGE = """<!doctype html>
     </section>
     <section class="pane" id="inbox" hidden>
       <h2>Discovery Inbox</h2><p>Record di discovery e codici di blocco senza URL, corpi o titoli non revisionati.</p>
+      <h2>Coda privata delle catture cambiate o bloccate</h2>
+      <p>Eccezioni persistite per raccolta; nessuna decisione di revisione o azione di cattura viene autorizzata.</p>
+      <form data-endpoint="/v1/discovery/capture-queue">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" required></label>
+        <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo Capture ID<input name="after_capture_id" maxlength="180"></label>
+        <button type="submit">Mostra eccezioni delle catture</button></div>
+      </form>
+      <p id="capture-queue-summary" role="status" aria-live="polite">Nessuna coda letta.</p>
+      <div id="capture-queue-links" role="group" aria-label="Catture bloccate o cambiate"></div>
       <h2>Catalogo Discovery per raccolta</h2>
       <p>Provenienza, stato della raccolta, diritti e motivi di blocco dal database. Nessuna azione di revisione, cattura o pubblicazione è abilitata da questa pagina.</p>
       <form data-endpoint="/v1/discovery/inbox">
@@ -284,6 +318,11 @@ _PAGE = """<!doctype html>
     const token = document.getElementById('token');
     const results = document.getElementById('results');
     const status = document.getElementById('status');
+    const collectionForm = document.querySelector('form[data-endpoint="/v1/collections/list"]');
+    const collectionLinks = document.getElementById('collection-links');
+    const collectionListSummary = document.getElementById('collection-list-summary');
+    const collectionMembersForm = document.querySelector('form[data-endpoint="/v1/collections/members"]');
+    const collectionMemberSummary = document.getElementById('collection-member-summary');
     const memberLinks = document.getElementById('member-links');
     const claimLinks = document.getElementById('claim-links');
     const captureLinks = document.getElementById('capture-links');
@@ -294,6 +333,16 @@ _PAGE = """<!doctype html>
     const collectionCaptureLinks = document.getElementById('collection-capture-links');
     const collectionCaptureSummary = document.getElementById('collection-capture-summary');
     const collectionCaptureForm = document.querySelector('form[data-endpoint="/v1/collections/captures"]');
+    const lineageForm = document.querySelector('form[data-endpoint="/v1/collections/passage-lineage"]');
+    const lineageLinks = document.getElementById('collection-lineage-links');
+    const lineageSummary = document.getElementById('collection-lineage-summary');
+    const lineageHeading = document.getElementById('collection-lineage-heading');
+    const lineageInspector = document.getElementById('collection-lineage-inspector');
+    const candidateHeading = document.getElementById('collection-candidate-heading');
+    const candidateDetail = document.getElementById('collection-candidate-detail');
+    const captureQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/capture-queue"]');
+    const captureQueueLinks = document.getElementById('capture-queue-links');
+    const captureQueueSummary = document.getElementById('capture-queue-summary');
     const compareForm = document.querySelector('form[data-endpoint="/v1/capture/compare"]');
     const corpusForm = document.querySelector('form[data-endpoint="/v1/corpus/search"]');
     const corpusList = document.getElementById('corpus-list');
@@ -449,6 +498,9 @@ _PAGE = """<!doctype html>
     function hidePrivateLocators() {
       clearCorpusResults(true);
       memberLinks.replaceChildren();
+      collectionLinks?.replaceChildren();
+      if (collectionListSummary) collectionListSummary.textContent = 'Nessuna raccolta selezionata.';
+      if (collectionMemberSummary) collectionMemberSummary.textContent = 'Nessun Content caricato.';
       claimLinks.replaceChildren();
       captureLinks.replaceChildren();
       captureSelectorDiffSummary.textContent = 'Nessun confronto di selettori eseguito.';
@@ -458,6 +510,18 @@ _PAGE = """<!doctype html>
       scopedCaptureReference = null;
       collectionCaptureLinks.replaceChildren();
       collectionCaptureSummary.textContent = 'Nessun Content selezionato per le catture.';
+      lineageLinks?.replaceChildren();
+      if (lineageSummary) lineageSummary.textContent = 'Nessun Passage scritto selezionato.';
+      if (lineageInspector) lineageInspector.hidden = true;
+      if (candidateDetail) candidateDetail.textContent = '';
+      captureQueueLinks?.replaceChildren();
+      if (captureQueueSummary) captureQueueSummary.textContent = 'Nessuna coda letta.';
+      for (const form of [lineageForm, captureQueueForm]) {
+        if (!form) continue;
+        for (const field of form.querySelectorAll('input,select')) {
+          field.value = field.name === 'limit' ? '20' : '';
+        }
+      }
       mediaLocator.textContent = 'Nessun segmento selezionato.';
     }
     document.getElementById('clear').addEventListener('click', () => {
@@ -466,6 +530,14 @@ _PAGE = """<!doctype html>
       hidePrivateLocators();
       results.textContent = 'Token cancellato dalla pagina.';
       status.textContent = 'Accesso disconnesso.';
+    });
+    token.addEventListener('input', () => {
+      // Replacing a token changes the operator session even before a request
+      // completes; never retain private rows from the previous credential.
+      invalidateRequest();
+      hidePrivateLocators();
+      results.textContent = 'Nessun risultato per il token corrente.';
+      status.textContent = 'Token aggiornato: seleziona di nuovo il workspace.';
     });
     for (const button of document.querySelectorAll('[data-panel]')) {
       button.addEventListener('click', () => {
@@ -505,9 +577,14 @@ _PAGE = """<!doctype html>
         status.textContent = 'Richiesta locale in corso…';
         results.textContent = 'Nessun risultato ancora disponibile.';
         if (form === corpusForm) clearCorpusResults(false);
+        if (form === collectionForm) {
+          collectionLinks.replaceChildren();
+          collectionListSummary.textContent = 'Caricamento delle raccolte…';
+        }
         if (form.dataset.endpoint === '/v1/collections/members') {
           memberLinks.replaceChildren();
           claimLinks.replaceChildren();
+          if (collectionMemberSummary) collectionMemberSummary.textContent = 'Caricamento dei Content inclusi…';
         }
         if (form.dataset.endpoint === '/v1/collections/member') {
           claimLinks.replaceChildren();
@@ -517,6 +594,16 @@ _PAGE = """<!doctype html>
         if (form === collectionCaptureForm) {
           collectionCaptureLinks.replaceChildren();
           collectionCaptureSummary.textContent = 'Ricerca versioni in corso…';
+        }
+        if (form === lineageForm) {
+          lineageLinks.replaceChildren();
+          lineageInspector.hidden = true;
+          candidateDetail.textContent = '';
+          lineageSummary.textContent = 'Controllo dei collegamenti persistiti in corso…';
+        }
+        if (form === captureQueueForm) {
+          captureQueueLinks.replaceChildren();
+          captureQueueSummary.textContent = 'Lettura della coda in corso…';
         }
         if (form.dataset.endpoint === '/v1/capture/compare') {
           captureLinks.replaceChildren();
@@ -554,6 +641,215 @@ _PAGE = """<!doctype html>
               showCorpusResults(safe);
               status.textContent = 'Ricerca lessicale privata completata.';
               results.textContent = 'Solo riferimenti disponibili nel riquadro Corpus.';
+            }
+            return;
+          }
+          if (form === collectionForm) {
+            results.textContent = 'Solo ID persistiti della pagina Collections.';
+            const listing = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && listing?.contract_version === 'studio-operator-queues-v1'
+              && listing.private_only === true && listing.publication_authority === false
+              && Array.isArray(listing.results) && listing.results.length <= data.limit
+              && listing.results.every(item => SAFE_REF.test(item.id)
+                && SAFE_REF.test(item.state) && Number.isSafeInteger(item.included_content_count)
+                && item.included_content_count >= 0)
+              && (listing.next_after_id == null || (SAFE_REF.test(listing.next_after_id)
+                && listing.results.length === data.limit
+                && listing.next_after_id === listing.results.at(-1)?.id));
+            if (!valid) {
+              status.textContent = 'Raccolte non verificabili.';
+              collectionListSummary.textContent = 'Risposta non conforme: nessuna raccolta visualizzabile.';
+              return;
+            }
+            status.textContent = 'Raccolte persistite caricate.';
+            collectionListSummary.textContent = listing.results.length + ' raccolte in questa pagina. Seleziona una raccolta per vedere i Content inclusi.';
+            for (const item of listing.results) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = 'Collection ' + item.id + ' · ' + item.state
+                + ' · ' + item.included_content_count + ' Content inclusi';
+              button.addEventListener('click', () => {
+                if (!collectionLinks.contains(button)) return;
+                collectionMembersForm.elements.namedItem('collection_id').value = item.id;
+                collectionMembersForm.elements.namedItem('after_id').value = '';
+                collectionMembersForm.requestSubmit();
+              });
+              collectionLinks.append(button);
+            }
+            if (listing.next_after_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva delle raccolte';
+              more.addEventListener('click', () => {
+                collectionForm.elements.namedItem('after_id').value = listing.next_after_id;
+                collectionForm.requestSubmit();
+              });
+              collectionLinks.append(more);
+            }
+            return;
+          }
+          if (form === lineageForm) {
+            // Never dump unvalidated data into the shared results panel.
+            results.textContent = 'Solo riferimenti validati nel dettaglio della raccolta.';
+            const match = receipt?.data;
+            const scope = scopedCaptureReference;
+            const validScope = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && match?.contract_version === 'studio-operator-queues-v1'
+              && match.private_only === true && match.rights_clearance === false
+              && match.review_authority_evaluated === false && match.publication_authority === false
+              && match.collection_id === data.collection_id && match.content_id === data.content_id
+              && match.capture_id === data.capture_id && match.passage?.id === data.passage_id
+              && scope?.collection_id === data.collection_id && scope?.content_id === data.content_id
+              && scope?.capture_id === data.capture_id
+              && match.capture_sha256 === scope?.capture_sha256
+              && SAFE_SHA256.test(match.capture_sha256) && SAFE_SHA256.test(match.passage?.text_sha256)
+              && SAFE_REF.test(match.source_id) && match.source_id === scope.source_id
+              && match.source_exists === true && SAFE_REF.test(match.rights_status)
+              && SAFE_REF.test(match.processing_status) && SAFE_REF.test(match.collection_state)
+              && ['TEXT_POSITION', 'PAGE_RANGE'].includes(match.passage?.selector_type)
+              && Array.isArray(match.blockers) && match.blockers.every(code => SAFE_REF.test(code))
+              && Array.isArray(match.candidates) && match.candidates.length <= data.limit;
+            const validCandidates = validScope && match.candidates.every(candidate =>
+              SAFE_REF.test(candidate.id) && SAFE_REF.test(candidate.status)
+              && SAFE_SHA256.test(candidate.statement_text_hash)
+              && candidate.review_authority_evaluated === false
+              && Number.isInteger(candidate.claim_candidate_count)
+              && candidate.claim_candidate_count >= 0
+              && typeof candidate.claim_candidates_truncated === 'boolean'
+              && Array.isArray(candidate.claim_candidates) && candidate.claim_candidates.length <= 5
+              && candidate.claim_candidate_count >= candidate.claim_candidates.length
+              && candidate.claim_candidates_truncated ===
+                (candidate.claim_candidate_count > candidate.claim_candidates.length)
+              && candidate.claim_candidates.every(claim =>
+                SAFE_REF.test(claim.id) && SAFE_REF.test(claim.status)
+                && claim.promotion_authority_evaluated === false
+                && (claim.status === 'PROMOTED'
+                  ? SAFE_REF.test(claim.recorded_promoted_claim_id)
+                    && SAFE_REF.test(claim.promotion_receipt_id)
+                  : !claim.recorded_promoted_claim_id && !claim.promotion_receipt_id)));
+            const validCursor = validScope && (match.next_after_statement_id == null
+              || (match.candidates.length === data.limit
+                  && SAFE_REF.test(match.next_after_statement_id)
+                  && match.next_after_statement_id === match.candidates.at(-1)?.id
+                  && (!data.after_statement_id || match.next_after_statement_id > data.after_statement_id)));
+            if (!validCandidates || !validCursor) {
+              status.textContent = 'Dati non verificabili.';
+              lineageSummary.textContent = 'Collegamento non verificabile o risposta non conforme.';
+              return;
+            }
+            status.textContent = 'Collegamenti persistiti recuperati, senza approvazione.';
+            const passage = match.passage;
+            const position = passage.selector_type === 'TEXT_POSITION'
+              ? 'caratteri ' + passage.start_char + '–' + passage.end_char
+              : 'pagine ' + passage.page_start + '–' + passage.page_end;
+            const validPosition = passage.selector_type === 'TEXT_POSITION'
+              ? Number.isInteger(passage.start_char) && passage.start_char >= 0
+                && Number.isInteger(passage.end_char) && passage.end_char > passage.start_char
+              : Number.isInteger(passage.page_start) && passage.page_start >= 1
+                && Number.isInteger(passage.page_end) && passage.page_end >= passage.page_start;
+            if (!validPosition) {
+              lineageSummary.textContent = 'Selettore scritto non conforme.';
+              status.textContent = 'Dati non verificabili.';
+              return;
+            }
+            lineageSummary.textContent = 'Collection ' + match.collection_id + ' · Content ' + match.content_id
+              + ' · fonte ' + match.source_id + ' · Capture ' + match.capture_id
+              + ' · Passage ' + passage.id + ' (' + position + ') · diritti '
+              + match.rights_status + ' · blocchi: ' + match.blockers.join(', ')
+              + ' · pagina di ' + match.candidates.length
+              + ' Statement. Revisione e pubblicazione non autorizzate.';
+            for (const candidate of match.candidates) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = 'Statement ' + candidate.id + ' · ' + candidate.status
+                + ' · Claim Candidate ' + (candidate.claim_candidates.map(claim =>
+                  claim.id + ' (' + claim.status + ')'
+                  + (claim.status === 'PROMOTED' ? ' → Claim ' + claim.recorded_promoted_claim_id : '')
+                ).join(', ') || 'nessuno')
+                + (candidate.claim_candidates_truncated ? ' · altri Claim Candidate non caricati' : '');
+              button.addEventListener('click', () => {
+                if (!lineageLinks.contains(button)) return;
+                candidateDetail.textContent = 'Statement ' + candidate.id
+                  + ' · hash ' + candidate.statement_text_hash
+                  + ' · ' + candidate.claim_candidate_count + ' Claim Candidate persistiti'
+                  + ' · ricevute promozione: ' + (candidate.claim_candidates
+                    .filter(claim => claim.status === 'PROMOTED')
+                    .map(claim => claim.promotion_receipt_id).join(', ') || 'nessuna')
+                  + '. Stato registrato; nessuna autorità di revisione o pubblicazione.';
+                lineageInspector.hidden = false;
+                candidateHeading.focus();
+              });
+              lineageLinks.append(button);
+            }
+            if (match.next_after_statement_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva degli Statement Candidate';
+              more.addEventListener('click', () => {
+                lineageForm.elements.namedItem('after_statement_id').value = match.next_after_statement_id;
+                lineageForm.requestSubmit();
+              });
+              lineageLinks.append(more);
+            }
+            lineageHeading.focus();
+            return;
+          }
+          if (form === captureQueueForm) {
+            results.textContent = 'Solo metadati validati nella coda delle catture.';
+            const queue = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && queue?.contract_version === 'studio-capture-triage-queue-v1'
+              && queue.private_only === true && queue.read_only === true
+              && queue.publication_authority === false && queue.rights_clearance === false
+              && queue.triage_action_authorized === false
+              && queue.collection_id === data.collection_id && SAFE_REF.test(queue.collection_status)
+              && Array.isArray(queue.results) && queue.results.length <= data.limit
+              && queue.results.every(item => item.collection_id === data.collection_id
+                && SAFE_REF.test(item.content_id) && SAFE_REF.test(item.capture_id)
+                && ['BLOCKED_CAPTURE', 'CHANGED_CAPTURE'].includes(item.queue_family)
+                && ['BLOCKED', 'NEEDS_REVIEW'].includes(item.state)
+                && Array.isArray(item.blockers) && item.blockers.length > 0
+                && item.blockers.every(code => SAFE_REF.test(code)))
+              && (queue.next_after_capture_id == null || (SAFE_REF.test(queue.next_after_capture_id)
+                && queue.results.length === data.limit
+                && queue.next_after_capture_id === queue.results.at(-1)?.capture_id));
+            if (!valid) {
+              captureQueueSummary.textContent = 'Coda non verificabile o risposta non conforme.';
+              status.textContent = 'Dati non verificabili.';
+              return;
+            }
+            captureQueueSummary.textContent = queue.results.length + ' eccezioni persistite in questa pagina'
+              + ' · raccolta ' + queue.collection_id + ' (' + queue.collection_status
+              + '). Nessuna azione di triage autorizzata.';
+            for (const item of queue.results) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = item.queue_family + ' · Content ' + item.content_id
+                + ' · Capture ' + item.capture_id + ' · ' + item.state
+                + ' · blocchi: ' + item.blockers.join(', ');
+              button.addEventListener('click', () => {
+                if (!captureQueueLinks.contains(button)) return;
+                collectionCaptureForm.elements.namedItem('collection_id').value = queue.collection_id;
+                collectionCaptureForm.elements.namedItem('content_id').value = item.content_id;
+                collectionCaptureForm.elements.namedItem('after_id').value = '';
+                for (const panel of panels) panel.hidden = panel.id !== 'collections';
+                for (const panelButton of document.querySelectorAll('[data-panel]')) {
+                  panelButton.setAttribute('aria-pressed', panelButton.dataset.panel === 'collections' ? 'true' : 'false');
+                }
+                collectionCaptureForm.requestSubmit();
+              });
+              captureQueueLinks.append(button);
+            }
+            if (queue.next_after_capture_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva della coda delle catture';
+              more.addEventListener('click', () => {
+                captureQueueForm.elements.namedItem('after_capture_id').value = queue.next_after_capture_id;
+                captureQueueForm.requestSubmit();
+              });
+              captureQueueLinks.append(more);
             }
             return;
           }
@@ -605,21 +901,39 @@ _PAGE = """<!doctype html>
           if (form === capturePassageForm && response.ok && Array.isArray(receipt.data?.selectors)) {
             const dataForPassages = receipt.data;
             if (scopedCaptureReference && scopedCaptureReference.content_id === data.content_id
+                && dataForPassages.contract_version === 'studio-capture-inspection-v1'
+                && receipt.contract_version === 'studio-local-readonly-api-v1'
+                && dataForPassages.private_only === true
+                && dataForPassages.content_id === scopedCaptureReference.content_id
+                && dataForPassages.capture?.id === scopedCaptureReference.capture_id
+                && dataForPassages.capture?.content_sha256 === scopedCaptureReference.capture_sha256
+                && data.capture_hash === scopedCaptureReference.capture_sha256
                 && SAFE_REF.test(scopedCaptureReference.collection_id)
                 && dataForPassages.rights_clearance === false
                 && dataForPassages.publication_authority === false) {
               for (const passage of dataForPassages.selectors) {
-                if (!SAFE_REF.test(passage.id)) continue;
+                if (!SAFE_REF.test(passage.id) || !SAFE_SHA256.test(passage.text_sha256)
+                    || !['TEXT_POSITION', 'PAGE_RANGE'].includes(passage.selector_type)
+                    || passage.capture_locator?.content_id !== scopedCaptureReference.content_id
+                    || passage.capture_locator?.capture_id !== scopedCaptureReference.capture_id
+                    || passage.capture_locator?.capture_sha256 !== scopedCaptureReference.capture_sha256
+                    || passage.capture_locator?.passage_id !== passage.id) continue;
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.textContent = 'Passage ' + passage.id + ' · ' + passage.selector_type;
                 button.addEventListener('click', () => {
-                  if (!capturePassageLinks.contains(button)) return;
-                  passageCandidateForm.elements.namedItem('collection_id').value = scopedCaptureReference.collection_id;
-                  passageCandidateForm.elements.namedItem('content_id').value = scopedCaptureReference.content_id;
-                  passageCandidateForm.elements.namedItem('passage_id').value = passage.id;
-                  passageCandidateForm.elements.namedItem('after_id').value = '';
-                  passageCandidateForm.requestSubmit();
+                  if (!capturePassageLinks.contains(button) || !lineageForm) return;
+                  lineageForm.elements.namedItem('collection_id').value = scopedCaptureReference.collection_id;
+                  lineageForm.elements.namedItem('content_id').value = scopedCaptureReference.content_id;
+                  lineageForm.elements.namedItem('capture_id').value = scopedCaptureReference.capture_id;
+                  lineageForm.elements.namedItem('passage_id').value = passage.id;
+                  lineageForm.elements.namedItem('limit').value = '20';
+                  lineageForm.elements.namedItem('after_statement_id').value = '';
+                  for (const panelButton of document.querySelectorAll('[data-panel]')) {
+                    panelButton.setAttribute('aria-pressed', panelButton.dataset.panel === 'collections' ? 'true' : 'false');
+                  }
+                  for (const panel of panels) panel.hidden = panel.id !== 'collections';
+                  lineageForm.requestSubmit();
                 });
                 capturePassageLinks.append(button);
               }
@@ -627,6 +941,10 @@ _PAGE = """<!doctype html>
           }
           if (response.ok && form.dataset.endpoint === '/v1/collections/members'
               && Array.isArray(receipt.data?.results)) {
+            if (collectionMemberSummary) {
+              collectionMemberSummary.textContent = receipt.data.results.length
+                + ' Content inclusi in questa pagina della raccolta ' + receipt.data.collection_id;
+            }
             for (const member of receipt.data.results) {
               if (typeof member.content_id !== 'string') continue;
               const link = document.createElement('button');
@@ -639,6 +957,18 @@ _PAGE = """<!doctype html>
                 memberDetailForm.requestSubmit();
               });
               memberLinks.append(link);
+            }
+            if (receipt.data.next_after_id && SAFE_REF.test(receipt.data.next_after_id)
+                && receipt.data.results.length === data.limit
+                && receipt.data.next_after_id === receipt.data.results.at(-1)?.content_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva dei Content inclusi';
+              more.addEventListener('click', () => {
+                collectionMembersForm.elements.namedItem('after_id').value = receipt.data.next_after_id;
+                collectionMembersForm.requestSubmit();
+              });
+              memberLinks.append(more);
             }
           }
           if (response.ok && form.dataset.endpoint === '/v1/collections/member'
@@ -705,7 +1035,9 @@ _PAGE = """<!doctype html>
                 if (!collectionCaptureLinks.contains(button)) return;
                 scopedCaptureReference = {collection_id: captureData.collection_id,
                                           content_id: captureData.content_id,
-                                          source_id: captureData.source_id};
+                                          source_id: captureData.source_id,
+                                          capture_id: capture.id,
+                                          capture_sha256: capture.content_sha256};
                 for (const panelButton of document.querySelectorAll('[data-panel]')) {
                   panelButton.setAttribute('aria-pressed', panelButton.dataset.panel === 'captures' ? 'true' : 'false');
                 }
