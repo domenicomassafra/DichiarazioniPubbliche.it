@@ -72,3 +72,51 @@ identities or confer a factual verdict, reviewer authority or publication
 eligibility. Real approved source lineage, benchmark, durable ledger and
 MiniPC acceptance remain outstanding. All original acceptance criteria
 remain unchecked; **Status: IN PROGRESS**.
+
+## 2026-10-11 — Bounded private deterministic event-sequence comparison
+
+The earlier DP-314 module stopped at eligible evidence-role preflight. It
+could not compare an actual proposition such as event A occurring before
+event B, even when immutable source observation identifiers and their dates
+were supplied. A new opt-in `compare_private_event_sequence` now accepts
+`SequenceEventObservation` records with an exact `evidence_id`, matching
+`evidence_sha256`, event reference and day-precision occurrence date. The
+comparison explicitly binds to the existing claim, policy, original source
+root, source-family, role, statement-time and rights/reviewer *declared*
+preflight. Both events need a PRIMARY_RECORD and an INDEPENDENT_RECORD from
+at least two distinct roots and source families each. Evidence observed only
+after the statement, outside jurisdiction, after its own publication date,
+or with nonapproved rights cannot make the comparison computable.
+
+If both event dates have independently labeled agreement, the pure rule
+reports `OBSERVATIONS_AGREE` or `OBSERVATIONS_DISAGREE` relative to the exact
+BEFORE/AFTER proposition. Disagreeing source dates yield
+`UNRESOLVED_CONFLICT`, insufficient source roles/families produce
+`CHECKED_INSUFFICIENT_EVIDENCE`, and no completed run remains `NOT_CHECKED`.
+Events on the **same calendar day** do not prove either order: a separate
+RED→GREEN regression forced `CHECKED_INSUFFICIENT_EVIDENCE` with
+`SAME_DAY_EVENT_ORDER_UNRESOLVED` instead of a spurious contradiction.
+Unsupported claim kinds remain `NOT_CHECKABLE_PROFILE_UNAVAILABLE`.
+
+Input-order-independent snapshot SHA-256 binds preflight, question, policy,
+evidence hashes and event dates; exact replay has the same typed private
+result. This is a **deterministic comparison of caller-supplied observation
+declarations**, NOT a verified factual outcome. There is no independent
+authentication of approved source rights, observation provenance, reviewer
+identity, immutable database storage, challenger evidence, or gold truth.
+Result properties remain `verdict=None`, `source_proof_attested=False`,
+`finding_authority=False`, `publication_authority=False` and `private_only=True`.
+It never creates a Finding, changes a public projection, fetches a provider,
+or grants a machine publication signoff.
+
+RED: the test suite initially could not import the missing event-sequence API;
+a second regression reproduced false ordering confidence when two separately
+observed events shared one date. GREEN: focused DP-314 + adjacent DP-316
+**31/31 PASS**, existing verification test files **34/34 PASS**;
+`python3 -m compileall -q poc tests` and `git diff --check` PASS.
+All fixtures are synthetic, no MiniPC/production write, provider charge,
+commit, push or deploy. **AC-314.1–.6 remain unchecked, ticket IN PROGRESS:**
+real independently approved immutable observations, original source-use,
+documentary legal status/factual denial production paths, durable append-only
+result ledger, calibrated blind DP-321, qualified DP-229 challenger and
+DP-316 machine authority plus MiniPC public candidate readback are absent.

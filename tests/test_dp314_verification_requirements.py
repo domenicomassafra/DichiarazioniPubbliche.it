@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 from dichiarazioni_pubbliche.verification_requirements_v1 import (  # noqa: E402
     RequirementClaim,
     RequirementEvidence,
+    SequenceEventObservation,
+    compare_private_event_sequence,
     preflight_verification_requirements,
     select_requirement_profile,
 )
@@ -57,7 +59,142 @@ def sources():
     )
 
 
+def sequence_sources():
+    raw_rows = (
+        record("alpha", "PRIMARY_RECORD", "root:a"),
+        record("beta", "INDEPENDENT_RECORD", "root:b"),
+        record("gamma", "PRIMARY_RECORD", "root:c"),
+        record("delta", "INDEPENDENT_RECORD", "root:d"),
+    )
+    rows = tuple(replace(row, evidence_sha256=f"{index + 1:064x}")
+                 for index, row in enumerate(raw_rows))
+    observations = tuple(
+        SequenceEventObservation(
+            evidence_id=row.evidence_id,
+            evidence_sha256=row.evidence_sha256,
+            event_ref="event:left" if index < 2 else "event:right",
+            occurred_on="2025-05-10" if index < 2 else "2025-05-20",
+        )
+        for index, row in enumerate(rows)
+    )
+    return rows, observations
+
+
 class RequirementPreflightTests(unittest.TestCase):
+    def test_deterministic_event_sequence_comparison_is_private_and_replayable(self):
+        evidence, facts = sequence_sources()
+        result = compare_private_event_sequence(
+            claim(), evidence, facts, left_event_ref="event:left",
+            right_event_ref="event:right", claimed_order="BEFORE",
+        )
+        self.assertEqual(result.state, "CHECKABLE_PENDING")
+        self.assertEqual(result.comparison_status, "OBSERVATIONS_AGREE")
+        self.assertEqual(result.observed_order, "BEFORE")
+        self.assertEqual(result.evidence_ids, tuple(sorted(row.evidence_id for row in evidence)))
+        self.assertIsNone(result.verdict)
+        self.assertTrue(result.private_only)
+        self.assertFalse(result.source_proof_attested)
+        self.assertFalse(result.finding_authority)
+        self.assertFalse(result.publication_authority)
+        self.assertEqual(
+            result,
+            compare_private_event_sequence(
+                claim(), tuple(reversed(evidence)), tuple(reversed(facts)),
+                left_event_ref="event:left", right_event_ref="event:right",
+                claimed_order="BEFORE",
+            ),
+        )
+        disagree = compare_private_event_sequence(
+            claim(), evidence, facts, left_event_ref="event:left",
+            right_event_ref="event:right", claimed_order="AFTER",
+        )
+        self.assertEqual(disagree.comparison_status, "OBSERVATIONS_DISAGREE")
+        self.assertEqual(disagree.observed_order, "BEFORE")
+        self.assertIsNone(disagree.verdict)
+        self.assertNotEqual(result.snapshot_sha256, disagree.snapshot_sha256)
+
+    def test_event_sequence_conflicting_or_duplicate_family_is_not_computable(self):
+        evidence, facts = sequence_sources()
+        conflicting = tuple(replace(x, occurred_on="2025-05-11") if
+                            x.evidence_id == "evidence:beta" else x for x in facts)
+        dispute = compare_private_event_sequence(
+            claim(), evidence, conflicting, left_event_ref="event:left",
+            right_event_ref="event:right", claimed_order="BEFORE",
+        )
+        self.assertEqual(dispute.state, "UNRESOLVED_CONFLICT")
+        self.assertEqual(dispute.comparison_status, "NOT_COMPUTABLE")
+        self.assertIn("CONFLICTING_EVENT_DATES", dispute.reason_codes)
+        same_family = tuple(replace(row, source_family_ref="source:root:a") if
+                            row.evidence_id == "evidence:beta" else row for row in evidence)
+        held = compare_private_event_sequence(
+            claim(), same_family, facts, left_event_ref="event:left",
+            right_event_ref="event:right", claimed_order="BEFORE",
+        )
+        self.assertEqual(held.state, "CHECKED_INSUFFICIENT_EVIDENCE")
+        self.assertIn("EVENT_INDEPENDENCE_MISSING", held.reason_codes)
+        self.assertEqual(held.comparison_status, "NOT_COMPUTABLE")
+
+    def test_same_calendar_day_cannot_refute_within_day_event_order(self):
+        evidence, facts = sequence_sources()
+        same_day = tuple(replace(row, occurred_on="2025-05-10")
+                         if row.event_ref == "event:right" else row for row in facts)
+        value = compare_private_event_sequence(
+            claim(), evidence, same_day, left_event_ref="event:left",
+            right_event_ref="event:right", claimed_order="BEFORE",
+        )
+        self.assertEqual(value.state, "CHECKED_INSUFFICIENT_EVIDENCE")
+        self.assertEqual(value.comparison_status, "NOT_COMPUTABLE")
+        self.assertIsNone(value.observed_order)
+        self.assertIn("SAME_DAY_EVENT_ORDER_UNRESOLVED", value.reason_codes)
+        self.assertIsNone(value.verdict)
+
+    def test_event_sequence_rights_wrong_dates_or_unbound_claim_never_compare(self):
+        evidence, facts = sequence_sources()
+        for change, code in (
+            ({"source_use_status": "REVOKED"}, "EVENT_INDEPENDENCE_MISSING"),
+            ({"published_date": "2026-01-01"}, "EVENT_INDEPENDENCE_MISSING"),
+            ({"jurisdiction_ref": "jurisdiction:de"}, "EVENT_INDEPENDENCE_MISSING"),
+        ):
+            with self.subTest(change=change):
+                withheld = tuple(replace(row, **change) if
+                                 row.evidence_id == "evidence:beta" else row for row in evidence)
+                result = compare_private_event_sequence(
+                    claim(), withheld, facts, left_event_ref="event:left",
+                    right_event_ref="event:right", claimed_order="BEFORE",
+                )
+                self.assertEqual(result.state, "CHECKED_INSUFFICIENT_EVIDENCE")
+                self.assertIn(code, result.reason_codes)
+                self.assertEqual(result.comparison_status, "NOT_COMPUTABLE")
+        future_event = tuple(replace(x, occurred_on="2025-06-05") if
+                             x.event_ref == "event:right" else x for x in facts)
+        postponed = compare_private_event_sequence(
+            claim(), evidence, future_event, left_event_ref="event:left",
+            right_event_ref="event:right", claimed_order="BEFORE",
+        )
+        self.assertEqual(postponed.comparison_status, "NOT_COMPUTABLE")
+        self.assertIn("EVENT_AFTER_STATEMENT_CUTOFF", postponed.reason_codes)
+        with self.assertRaisesRegex(ValueError, "SEQUENCE_OBSERVATION_EVIDENCE_SHA_MISMATCH"):
+            compare_private_event_sequence(
+                claim(), evidence, (replace(facts[0], evidence_sha256="f" * 64), *facts[1:]),
+                left_event_ref="event:left", right_event_ref="event:right",
+                claimed_order="BEFORE",
+            )
+
+    def test_no_run_and_unsupported_claim_never_compute_sequence(self):
+        evidence, facts = sequence_sources()
+        for kind, run_state, expected in (
+            ("EVENT_SEQUENCE", "NOT_STARTED", "NOT_CHECKED"),
+            ("FACTUAL_TEXT_COMPARISON", "COMPLETED", "NOT_CHECKABLE_PROFILE_UNAVAILABLE"),
+        ):
+            result = compare_private_event_sequence(
+                claim(kind, run_state=run_state), evidence, facts,
+                left_event_ref="event:left", right_event_ref="event:right",
+                claimed_order="BEFORE",
+            )
+            self.assertEqual(result.state, expected)
+            self.assertEqual(result.comparison_status, "NOT_COMPUTABLE")
+            self.assertIsNone(result.verdict)
+
     def test_registry_is_explicit_not_universal(self):
         for kind in (
             "EVENT_SEQUENCE",

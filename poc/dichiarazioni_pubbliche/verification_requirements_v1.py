@@ -112,6 +112,40 @@ class RequirementPreflight:
     publication_authority: bool = False
 
 
+@dataclass(frozen=True)
+class SequenceEventObservation:
+    """Source-hash-bound *assertion* about an event date, not proven truth.
+
+    A separately approved evidence observation would need persisted lineage,
+    rights and reviewing authority; a caller constructing this class supplies
+    none of those attestations.
+    """
+
+    evidence_id: str
+    evidence_sha256: str
+    event_ref: str
+    occurred_on: str
+
+
+@dataclass(frozen=True)
+class PrivateEventSequenceComparison:
+    """A deterministic private observation comparison, never a fact Finding."""
+
+    version: str
+    claim_id: str
+    state: str
+    comparison_status: str
+    observed_order: str | None
+    reason_codes: tuple[str, ...]
+    evidence_ids: tuple[str, ...]
+    snapshot_sha256: str
+    verdict: None = None
+    private_only: bool = True
+    source_proof_attested: bool = False
+    finding_authority: bool = False
+    publication_authority: bool = False
+
+
 def select_requirement_profile(
     claim_kind: str,
 ) -> VerificationRequirementProfile | None:
@@ -260,4 +294,140 @@ def preflight_verification_requirements(
         tuple(sorted(excluded)),
         len(roots),
         snapshot,
+    )
+
+
+def compare_private_event_sequence(
+    claim: RequirementClaim,
+    evidence: tuple[RequirementEvidence, ...],
+    observations: tuple[SequenceEventObservation, ...],
+    *,
+    left_event_ref: str,
+    right_event_ref: str,
+    claimed_order: str,
+) -> PrivateEventSequenceComparison:
+    """Compare two event dates derived from independently labeled source rows.
+
+    Only input dates, approved *declarations* and evidence SHA references are
+    compared. A declaration of APPROVED is not itself an independent review
+    attestation. A matching observation pair is not a factual verdict and has
+    no publication/machine-signoff authority. No remote fetch or model call.
+    """
+    _ref(left_event_ref, "LEFT_EVENT")
+    _ref(right_event_ref, "RIGHT_EVENT")
+    if left_event_ref == right_event_ref or claimed_order not in {"BEFORE", "AFTER"}:
+        raise ValueError("SEQUENCE_QUESTION_INVALID")
+    if not isinstance(observations, tuple) or len(observations) > 128:
+        raise ValueError("SEQUENCE_OBSERVATIONS_INVALID")
+
+    preliminary = preflight_verification_requirements(claim, evidence)
+    by_id = {row.evidence_id: row for row in evidence}
+    observed: dict[str, list[tuple[RequirementEvidence, str]]] = {
+        left_event_ref: [], right_event_ref: [],
+    }
+    observed_pairs: set[tuple[str, str]] = set()
+    reasons = set(preliminary.reason_codes)
+    cutoff = _date(claim.statement_date, "STATEMENT_DATE")
+    allowed = set(preliminary.eligible_evidence_ids)
+
+    for row in observations:
+        if not isinstance(row, SequenceEventObservation):
+            raise ValueError("SEQUENCE_OBSERVATION_INPUT_INVALID")
+        _ref(row.evidence_id, "SEQUENCE_EVIDENCE_ID")
+        _ref(row.event_ref, "SEQUENCE_EVENT_REF")
+        if row.event_ref not in observed:
+            raise ValueError("SEQUENCE_OBSERVATION_EVENT_UNBOUND")
+        unique = (row.evidence_id, row.event_ref)
+        if unique in observed_pairs:
+            raise ValueError("SEQUENCE_OBSERVATION_DUPLICATE")
+        observed_pairs.add(unique)
+        bound = by_id.get(row.evidence_id)
+        if bound is None:
+            raise ValueError("SEQUENCE_OBSERVATION_EVIDENCE_UNBOUND")
+        if row.evidence_sha256 != bound.evidence_sha256:
+            raise ValueError("SEQUENCE_OBSERVATION_EVIDENCE_SHA_MISMATCH")
+        occurred = _date(row.occurred_on, "SEQUENCE_EVENT_DATE")
+        published = _date(bound.published_date, "EVIDENCE_DATE")
+        if occurred > cutoff:
+            reasons.add("EVENT_AFTER_STATEMENT_CUTOFF")
+            continue
+        if occurred > published:
+            reasons.add("EVENT_NOT_YET_OCCURRED_AT_SOURCE_PUBLICATION")
+            continue
+        if row.evidence_id in allowed:
+            observed[row.event_ref].append((bound, row.occurred_on))
+
+    comparison_status = "NOT_COMPUTABLE"
+    observed_order: str | None = None
+    state = preliminary.state
+    used: set[str] = set()
+    if claim.claim_kind != "EVENT_SEQUENCE":
+        state = "NOT_CHECKABLE_PROFILE_UNAVAILABLE"
+        reasons.add("EVENT_SEQUENCE_PROFILE_REQUIRED")
+    elif state == "NOT_CHECKED":
+        pass
+    elif state == "UNRESOLVED_CONFLICT":
+        reasons.add("CONFLICTING_REVIEWED_STANCES")
+    else:
+        event_dates: dict[str, str] = {}
+        insufficient = False
+        conflicting = False
+        for event_ref in (left_event_ref, right_event_ref):
+            group = observed[event_ref]
+            roles = {row.evidence_role for row, _ in group}
+            roots = {row.primary_root_ref for row, _ in group}
+            families = {row.source_family_ref for row, _ in group}
+            if (not {"PRIMARY_RECORD", "INDEPENDENT_RECORD"}.issubset(roles)
+                    or len(roots) < 2 or len(families) < 2):
+                insufficient = True
+                reasons.add("EVENT_INDEPENDENCE_MISSING")
+                continue
+            dates = {date_value for _, date_value in group}
+            if len(dates) != 1:
+                conflicting = True
+                reasons.add("CONFLICTING_EVENT_DATES")
+                continue
+            used.update(row.evidence_id for row, _ in group)
+            event_dates[event_ref] = next(iter(dates))
+        if state == "CHECKABLE_PENDING" and not insufficient and conflicting:
+            state = "UNRESOLVED_CONFLICT"
+        elif insufficient or state == "CHECKED_INSUFFICIENT_EVIDENCE":
+            state = "CHECKED_INSUFFICIENT_EVIDENCE"
+        elif conflicting:
+            state = "UNRESOLVED_CONFLICT"
+        elif len(event_dates) == 2:
+            left, right = event_dates[left_event_ref], event_dates[right_event_ref]
+            if left == right:
+                # Dates only have day precision; both events may have occurred
+                # in either order within that day. Do not infer a refutation.
+                state = "CHECKED_INSUFFICIENT_EVIDENCE"
+                reasons.add("SAME_DAY_EVENT_ORDER_UNRESOLVED")
+            else:
+                observed_order = "BEFORE" if left < right else "AFTER"
+                comparison_status = (
+                    "OBSERVATIONS_AGREE" if observed_order == claimed_order
+                    else "OBSERVATIONS_DISAGREE"
+                )
+                reasons.add("INDEPENDENT_SOURCE_TRUTH_UNATTESTED")
+
+    fingerprint = _digest({
+        "version": VERSION,
+        "comparison": "event-sequence-v1",
+        "requirement_snapshot_sha256": preliminary.snapshot_sha256,
+        "left_event_ref": left_event_ref,
+        "right_event_ref": right_event_ref,
+        "claimed_order": claimed_order,
+        "observations": [asdict(row) for row in sorted(
+            observations, key=lambda value: (value.evidence_id, value.event_ref)
+        )],
+    })
+    return PrivateEventSequenceComparison(
+        version="private-event-sequence-comparison-v1",
+        claim_id=claim.claim_id,
+        state=state,
+        comparison_status=comparison_status,
+        observed_order=observed_order,
+        reason_codes=tuple(sorted(reasons)),
+        evidence_ids=tuple(sorted(used)),
+        snapshot_sha256=fingerprint,
     )
