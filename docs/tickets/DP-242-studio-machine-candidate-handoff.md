@@ -169,3 +169,56 @@ candidate extraction, MiniPC replay, measured latency, live counter
 invariance or keyboard/viewport proof. A future real adapter must obtain
 the independent snapshots and pinned receipt from trusted storage and
 recheck under a transactional fence. No public machine acceptance implied.
+
+## 2026-10-12 — Disposable SQLite persisted DP-240 → DP-242 held handoff
+
+Added a **separate opt-in local persistence seam** in the existing
+`studio_machine_candidate_handoff_v1.py`:
+`LocalPersistedBatchMachineHandoff`. It creates only `dp242_*` **isolated
+SQLite fixture tables**, with distinct Source, Capture, Passage, Capture
+rights and immutable held handoff rows; this is **not** a migration or adapter
+for the canonical PostgreSQL production schema. The caller must supply an
+already persisted, independently pinned DP-240 batch plan and exportable
+receipt plus an independently read Source/Capture/Passage/rights snapshot pin,
+Capture SHA-256 and expected per-Passage handoff revision. The adapter
+re-reads the normalized SQLite rows in a `BEGIN IMMEDIATE` transaction,
+checks source collection, exact Content→Capture→Passage relationships,
+source/passage/selector hashes, capture byte hash and hold/status, rights
+status/evidence/revision, Person candidate/context/identity metadata,
+immutable DP-240 receipt and current SQLite snapshot hash. Only a
+`PRIVATE_CANDIDATE_UNVERIFIED` item with a coherent source may persist a
+`HELD_MACHINE_AUTHORITY_UNAVAILABLE` receipt; no B authority is created.
+
+The actual SQLite write CAS increments the Passage handoff revision and
+inserts the private immutable, checksum-bound, request-key-unique receipt
+in **one transaction**. Same-key retries on a reopened database return
+identical committed metadata while source/rights are current; a changed
+request key body conflicts, independently reused stale revision fails, a
+failed INSERT rolls back the revision update, and two concurrent SQLite
+connections contending for one expected revision yield exactly one
+durable winner. Changed/revoked rights block even a prior key replay;
+wrong collection, Source/Capture/Passage content, selector, source hash,
+Capture hash, identity revision or source snapshot pin fail closed. No
+text/provider failure reason, reviewer identity or publication grant is
+persisted. Tests use a real **disposable on-disk SQLite database**, not a
+mocked store and not MiniPC/production storage.
+
+**TDD:** the new seven-method regression suite initially failed to import
+the absent persistence adapter (RED). After implementation, the complete
+focused set `test_dp242_persisted_handoff_next`,
+`test_dp242_studio_machine_handoff`, `test_dp242_studio_machine_http`,
+`test_dp240_multi_person_batch` and
+`test_studio_candidate_review_handoff` ran **58/58 PASS** (GREEN).
+`ruff check`, `ruff format --check` and `git diff --check` passed.
+An unrelated existing candidate-review SQLite resource warning did not
+fail tests. No live candidate extraction, provider, authentic B
+signature/receipt, real PG17 authority fence, public projection, MiniPC,
+Studio UI/API edit or production deployment was attempted. This private
+durable `HELD` record is **not an executable downstream B job**.
+
+**Status remains IN PROGRESS; AC-242.1–.6 all OPEN.** Real PostgreSQL
+Source/Capture/Passage integration, separately qualified source rights,
+machine B authority and resumption, end-to-end authorized source proof,
+UI/keyboard/MiniPC acceptance and production writer serialization must
+still be demonstrated independently. No false human review or operator
+publication capability was created.

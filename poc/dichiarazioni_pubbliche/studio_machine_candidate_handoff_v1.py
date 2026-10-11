@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -618,10 +619,308 @@ def preview_private_batch_machine_handoff(
     )
 
 
+class LocalPersistedBatchMachineHandoff:
+    """Disposable SQLite DP-242 persistence seam, not the production PG schema.
+
+    The operator seeds *separate persisted* Source/Capture/Passage/rights rows
+    obtained from authorized storage. The same SQLite BEGIN IMMEDIATE fence
+    protects their readback, a Passage revision CAS and an immutable held
+    request receipt. This adapter does not seed evidence, issue authority, call
+    B, or create a downstream work item. External PostgreSQL writers are NOT
+    serialized by this isolated fixture.
+    """
+
+    def __init__(self, connection: sqlite3.Connection):
+        if not isinstance(connection, sqlite3.Connection):
+            raise ValueError("STUDIO_MACHINE_LOCAL_SQLITE_INVALID")
+        self.connection = connection
+
+    def init_isolated_fixture_schema(self) -> None:
+        """Create only opt-in disposable tables; never a canonical migration."""
+        if self.connection.in_transaction:
+            raise ValueError("STUDIO_MACHINE_LOCAL_TRANSACTION_ACTIVE")
+        self.connection.execute("PRAGMA foreign_keys=ON")
+        self.connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS dp242_source (
+                id TEXT PRIMARY KEY, collection_id TEXT NOT NULL,
+                source_sha256 TEXT NOT NULL,
+                revision INTEGER NOT NULL CHECK (revision >= 0)
+            );
+            CREATE TABLE IF NOT EXISTS dp242_capture (
+                id TEXT PRIMARY KEY,
+                source_id TEXT NOT NULL REFERENCES dp242_source(id),
+                content_id TEXT NOT NULL, capture_sha256 TEXT NOT NULL,
+                capture_status TEXT NOT NULL, hold_status TEXT NOT NULL,
+                revision INTEGER NOT NULL CHECK (revision >= 0)
+            );
+            CREATE TABLE IF NOT EXISTS dp242_passage (
+                id TEXT PRIMARY KEY,
+                capture_id TEXT NOT NULL REFERENCES dp242_capture(id),
+                content_id TEXT NOT NULL, passage_sha256 TEXT NOT NULL,
+                selector_fingerprint TEXT NOT NULL, speaker_candidate_id TEXT,
+                identity_review_status TEXT NOT NULL, speech_role TEXT NOT NULL,
+                speech_act TEXT NOT NULL, context_version TEXT NOT NULL,
+                context_review_id TEXT,
+                identity_revision INTEGER NOT NULL CHECK (identity_revision >= 0),
+                revision INTEGER NOT NULL CHECK (revision >= 0),
+                handoff_revision INTEGER NOT NULL DEFAULT 0
+                    CHECK (handoff_revision >= 0)
+            );
+            CREATE TABLE IF NOT EXISTS dp242_rights (
+                capture_id TEXT PRIMARY KEY REFERENCES dp242_capture(id),
+                status TEXT NOT NULL, evidence_sha256 TEXT,
+                revision INTEGER NOT NULL CHECK (revision >= 0)
+            );
+            CREATE TABLE IF NOT EXISTS dp242_machine_handoff (
+                request_key TEXT PRIMARY KEY,
+                passage_id TEXT NOT NULL REFERENCES dp242_passage(id),
+                request_fingerprint TEXT NOT NULL,
+                source_snapshot_sha256 TEXT NOT NULL,
+                receipt_json TEXT NOT NULL, receipt_sha256 TEXT NOT NULL
+            );
+            """
+        )
+
+    def _load_snapshot(
+        self, passage_id: str
+    ) -> tuple[CurrentBatchStudioItem, dict[str, object]]:
+        cursor = self.connection.execute(
+            """
+            SELECT p.id AS passage_id, p.capture_id, p.content_id, p.passage_sha256,
+                p.selector_fingerprint, p.speaker_candidate_id,
+                p.identity_review_status, p.speech_role, p.speech_act,
+                p.context_version, p.context_review_id, p.identity_revision,
+                p.revision AS passage_revision, p.handoff_revision,
+                c.content_id AS capture_content_id, c.source_id AS capture_source_id,
+                c.capture_sha256,
+                c.capture_status, c.hold_status, c.revision AS capture_revision,
+                s.id AS source_id, s.collection_id AS source_collection_id,
+                s.source_sha256, s.revision AS source_revision,
+                r.status AS rights_status, r.evidence_sha256 AS rights_evidence_sha256,
+                r.revision AS rights_revision
+            FROM dp242_passage p
+            JOIN dp242_capture c ON c.id = p.capture_id
+            JOIN dp242_source s ON s.id = c.source_id
+            JOIN dp242_rights r ON r.capture_id = c.id
+            WHERE p.id = ?
+            """,
+            (passage_id,),
+        )
+        values = cursor.fetchone()
+        if values is None:
+            raise ValueError("STUDIO_MACHINE_SOURCE_OR_SNAPSHOT_STALE")
+        row = dict(zip((part[0] for part in cursor.description), values))
+        snapshot = CurrentBatchStudioItem(
+            passage_id=row["passage_id"],
+            content_id=row["content_id"],
+            capture_id=row["capture_id"],
+            source_sha256=row["source_sha256"],
+            passage_sha256=row["passage_sha256"],
+            selector_fingerprint=row["selector_fingerprint"],
+            speaker_candidate_id=row["speaker_candidate_id"],
+            identity_review_status=row["identity_review_status"],
+            speech_role=row["speech_role"],
+            speech_act=row["speech_act"],
+            context_version=row["context_version"],
+            context_review_id=row["context_review_id"],
+            rights_status=row["rights_status"],
+            rights_evidence_sha256=row["rights_evidence_sha256"],
+            source_revision=row["source_revision"],
+            identity_revision=row["identity_revision"],
+            rights_revision=row["rights_revision"],
+        )
+        return snapshot, row
+
+    @staticmethod
+    def _snapshot_hash(row: dict[str, object]) -> str:
+        # Includes every joined source/Capture/Passage/rights field, not just
+        # the lossy public preview. handoff_revision is a separate CAS token.
+        material = {
+            key: value for key, value in row.items() if key != "handoff_revision"
+        }
+        return hashlib.sha256(_canonical(material)).hexdigest()
+
+    def read_snapshot_binding_sha256(self, passage_id: str) -> str:
+        """Private untrusted pin only; the transactional write rechecks it."""
+        if not isinstance(passage_id, str) or not passage_id or len(passage_id) > 256:
+            raise ValueError("STUDIO_MACHINE_PASSAGE_ID_INVALID")
+        _, row = self._load_snapshot(passage_id)
+        return self._snapshot_hash(row)
+
+    def persist_held_batch_handoff(
+        self,
+        *,
+        plan: IsolatedBatchPlan,
+        index: PrivateBatchReceiptIndex,
+        passage_id: str,
+        expected_receipt_sha256: str,
+        expected_capture_sha256: str,
+        expected_snapshot_sha256: str,
+        expected_handoff_revision: int,
+        request_key: str,
+    ) -> dict[str, object]:
+        """CAS a single private HELD receipt, without any downstream dispatch.
+
+        Same-key retries replay the exact committed bytes only if the joined
+        persisted snapshot is still current and rights remain CLEARED.
+        A rollback/error leaves both Passage revision and receipt unchanged.
+        """
+        key = _key(request_key)
+        receipt_pin = _sha(expected_receipt_sha256, "BATCH_RECEIPT_SHA256")
+        capture_pin = _sha(expected_capture_sha256, "CAPTURE_SHA256")
+        snapshot_pin = _sha(expected_snapshot_sha256, "SNAPSHOT_SHA256")
+        if not isinstance(passage_id, str) or not passage_id or len(passage_id) > 256:
+            raise ValueError("STUDIO_MACHINE_PASSAGE_ID_INVALID")
+        if type(expected_handoff_revision) is not int or expected_handoff_revision < 0:
+            raise ValueError("STUDIO_MACHINE_HANDOFF_REVISION_INVALID")
+        if self.connection.in_transaction:
+            raise ValueError("STUDIO_MACHINE_LOCAL_TRANSACTION_ACTIVE")
+        request_material = {
+            "passage_id": passage_id,
+            "plan_sha256": plan.plan_sha256,
+            "manifest_sha256": plan.manifest_sha256,
+            "receipt_pin": receipt_pin,
+            "capture_pin": capture_pin,
+            "snapshot_pin": snapshot_pin,
+            "expected_revision": expected_handoff_revision,
+        }
+        request_fingerprint = hashlib.sha256(_canonical(request_material)).hexdigest()
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            snapshot, row = self._load_snapshot(passage_id)
+            # Check revocation before even reading an old replay receipt.
+            if row["rights_status"] != "CLEARED" or not _HASH.fullmatch(
+                row["rights_evidence_sha256"] or ""
+            ):
+                raise ValueError("STUDIO_MACHINE_RIGHTS_NOT_CURRENT")
+            if (
+                row["capture_status"] != "CAPTURED"
+                or row["hold_status"] != "NONE"
+                or row["source_collection_id"] != plan.collection_id
+                or row["capture_source_id"] != row["source_id"]
+                or row["capture_content_id"] != row["content_id"]
+                or row["capture_sha256"] != capture_pin
+                or not _batch_snapshot_valid(snapshot)
+                or self._snapshot_hash(row) != snapshot_pin
+            ):
+                raise ValueError("STUDIO_MACHINE_SOURCE_OR_SNAPSHOT_STALE")
+            preview = preview_private_batch_machine_handoff(
+                plan,
+                index,
+                current_items={passage_id: snapshot},
+                expected_receipt_sha256=receipt_pin,
+                request_key=key,
+            )
+            selected = tuple(
+                item
+                for item in preview["items"]
+                if item["source"]["passage_id"] == passage_id
+            )
+            if (
+                len(selected) != 1
+                or selected[0]["status"] != "HELD_MACHINE_AUTHORITY_UNAVAILABLE"
+            ):
+                raise ValueError("STUDIO_MACHINE_SOURCE_OR_SNAPSHOT_STALE")
+
+            existing = self.connection.execute(
+                "SELECT request_fingerprint, source_snapshot_sha256, receipt_json, "
+                "receipt_sha256 FROM dp242_machine_handoff WHERE request_key=?",
+                (key,),
+            ).fetchone()
+            if existing is not None:
+                stored_request, stored_snapshot, body, digest = existing
+                if stored_request != request_fingerprint:
+                    raise ValueError("STUDIO_MACHINE_REQUEST_KEY_CONFLICT")
+                if (
+                    stored_snapshot != snapshot_pin
+                    or hashlib.sha256(body.encode("utf-8")).hexdigest() != digest
+                ):
+                    raise ValueError("STUDIO_MACHINE_PERSISTED_RECEIPT_CORRUPT")
+                result = json.loads(body)
+                if any(
+                    result.get(flag) is not False
+                    for flag in (
+                        "enqueued",
+                        "dispatch_authorized",
+                        "review_authority",
+                        "publication_authority",
+                        "human_review_approved",
+                        "machine_review_approved",
+                    )
+                ):
+                    raise ValueError("STUDIO_MACHINE_PERSISTED_RECEIPT_CORRUPT")
+                self.connection.commit()
+                return result
+            if row["handoff_revision"] != expected_handoff_revision:
+                raise ValueError("STUDIO_MACHINE_HANDOFF_REVISION_CONFLICT")
+            changed = self.connection.execute(
+                "UPDATE dp242_passage SET handoff_revision=handoff_revision+1 "
+                "WHERE id=? AND handoff_revision=? AND revision=? AND identity_revision=?",
+                (
+                    passage_id,
+                    expected_handoff_revision,
+                    row["passage_revision"],
+                    row["identity_revision"],
+                ),
+            )
+            if changed.rowcount != 1:
+                raise ValueError("STUDIO_MACHINE_HANDOFF_REVISION_CONFLICT")
+            result = _receipt(
+                {
+                    "family": "DP240_PERSISTED_CANDIDATE_MACHINE_HANDOFF",
+                    "status": "HELD_MACHINE_AUTHORITY_UNAVAILABLE",
+                    "action": "AWAIT_INDEPENDENT_B_MACHINE_AUTHORITY",
+                    "reason_code": "B_MACHINE_AUTHORITY_NOT_ATTESTED",
+                    "source": selected[0]["source"]
+                    | {
+                        "source_id": row["source_id"],
+                        "collection_id": row["source_collection_id"],
+                        "capture_sha256": capture_pin,
+                    },
+                    "source_snapshot_sha256": snapshot_pin,
+                    "batch_receipt_sha256": receipt_pin,
+                    "plan_sha256": plan.plan_sha256,
+                    "snapshot_revisions": {
+                        "source": row["source_revision"],
+                        "capture": row["capture_revision"],
+                        "passage": row["passage_revision"],
+                        "identity": row["identity_revision"],
+                        "rights": row["rights_revision"],
+                    },
+                    "resulting_handoff_revision": expected_handoff_revision + 1,
+                    "requires_fresh_transactional_cas": True,
+                    "machine_authority_status": "NOT_CONFIGURED_OR_NOT_ATTESTED",
+                },
+                request_key=key,
+            )
+            body = _canonical(result).decode("ascii")
+            self.connection.execute(
+                "INSERT INTO dp242_machine_handoff "
+                "(request_key, passage_id, request_fingerprint, "
+                "source_snapshot_sha256, receipt_json, receipt_sha256) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    key,
+                    passage_id,
+                    request_fingerprint,
+                    snapshot_pin,
+                    body,
+                    hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                ),
+            )
+            self.connection.commit()
+            return json.loads(body)
+        except BaseException:
+            self.connection.rollback()
+            raise
+
+
 __all__ = [
     "STUDIO_MACHINE_PREVIEW_VERSION",
     "preview_discovery_machine_exception",
     "preview_candidate_machine_handoff",
     "CurrentBatchStudioItem",
     "preview_private_batch_machine_handoff",
+    "LocalPersistedBatchMachineHandoff",
 ]
