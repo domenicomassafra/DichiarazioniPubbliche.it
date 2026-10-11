@@ -1,6 +1,6 @@
 # DP-235 — Bounded rights-authorized private source-to-candidate pilot
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-209, DP-210, DP-211, DP-212, DP-213, DP-236
 
@@ -46,4 +46,11 @@ Reuse DP-209..213 and Source Intelligence, not a second ingestion system. Persis
 
 ## Completion receipt
 
-2026-10-10: planning only; **not implemented**, all AC open and no live rights approval.
+**2026-10-11 local source-only manifest gate — IN PROGRESS.**
+`bounded_private_pilot_manifest_v1.py` freezes a deterministic private sample
+manifest only after explicit external permission placeholders are present. It
+sorts and hashes sample lineage, rejects duplicate samples and tampered plans,
+and never sets dispatch authorization or claims source rights. Commit pending;
+focused DP-235 tests PASS. All AC remain open: no real authorized sample,
+MiniPC persisted Capture/Passage/Candidate path, provider execution or public
+exposure.
