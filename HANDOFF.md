@@ -1,5 +1,30 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Tranche successiva a b239d20, 12 ottobre 2026:**
+[integrazione operativa Studio PostgreSQL, decisioni Candidate firmate,
+preview privata Statement v3](docs/reviews/2026-10-12-studio-pg-navigation-and-opinion.md).
+La nuova verticale DP-416 consulta una sola snapshot PostgreSQL
+Collection→Content→Capture→Passage→Statement Candidate, espone
+navigazione tastiera e fa jump verso il dettaglio Claim esistente.
+DP-418 ora conserva decisioni reviewer-attested con CAS PG, con
+lettura storica autenticata HTTP/UI che revalida la revoca della
+fonte e non abilita scritture/approvazioni attraverso il token.
+DP-437 produce opinioni originali senza Finding con reader Persona/
+Statement v3 e pin CURRENT controllati due volte, attraverso SSR
+Astro isolato e noindex. Non duplicare gli stessi percorsi.
+Il test Chrome esteso del readback decisione è rimasto bloccato ed
+è stato interrotto solo nel processo generato da questa tranche:
+**nessun PASS Chrome del nuovo readback**; l'originale Chrome
+DP-416 e le prove JS DOM/HTTP nuove sono distintamente verdi.
+Tre subagenti non sono riusciti ad avviarsi; il quarto DP-418
+è stato verificato e integrato. MateBook Linux è risultato
+offline su Tailscale/SSH (WIP non attestato), MiniPC mirror
+non-Git intatto, nessun byte eliminato. Nessuna autorizzazione
+editoriale/fonte/legale/MiniPC prod inventata:
+**90 DONE / 72 pendenti, release NO-GO/49**. Lo SHA remoto,
+la suite totale e la GitHub CI della nuova tranche devono essere
+verificati sul commit finale, non ereditati da b239d20.
+
 **Nuova tranche multi-ondata del 12 ottobre 2026, dopo main 61b7941:**
 [undici commit di sviluppo in quattro wave su persistenza Studio,
 isolamento multi-persona, budget e watch, lettori v3 e revoche](docs/reviews/2026-10-12-multiwave-durable-private-operations-and-v3.md).
