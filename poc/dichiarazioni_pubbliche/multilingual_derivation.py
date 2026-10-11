@@ -224,9 +224,23 @@ def _dates_and_numbers(text: str) -> tuple[tuple[str, ...], tuple[str, ...], boo
         except ValueError:
             parsed_dates.append("INVALID_DATE:" + value)
     without_dates = _DATE.sub(" ", text)
-    numbers = tuple("".join(x for x in token if x.isdecimal()) + ("%" if token.endswith("%") else "") for token in _NUMBER.findall(without_dates))
+    numbers = tuple(_numeric_value(token) for token in _NUMBER.findall(without_dates))
     ambiguity = bool(_MONTH_WORDS.search(text))
     return tuple(parsed_dates), numbers, ambiguity
+
+
+def _numeric_value(token: str) -> str:
+    """Conservatively compare de/it decimal commas and grouped thousands."""
+    amount = token.removesuffix("%")
+    if (amount.count(",") > 1 or ("." in amount and not re.fullmatch(
+            r"[+-]?\d{1,3}(?:\.\d{3})+(?:,\d+)?", amount))):
+        return "UNPARSED:" + token
+    integral, dot, fraction = amount.replace(".", "").replace(",", ".").partition(".")
+    negative = integral.startswith("-")
+    integral = integral.lstrip("+-").lstrip("0") or "0"
+    fraction = fraction.rstrip("0")
+    sign = "-" if negative and (integral != "0" or bool(fraction)) else ""
+    return sign + integral + (("." + fraction) if dot and fraction else "") + ("%" if token.endswith("%") else "")
 
 
 def _lexemes(text: str, language: str, patterns: dict[str, dict[str, re.Pattern[str]]]) -> tuple[str, ...]:
@@ -252,6 +266,8 @@ def _risk_de_it(original: str, translated: str, anchors: tuple[ActorAnchor, ...]
         codes.append("DATE_UNPARSED_OR_AMBIGUOUS")
     if source_numbers != target_numbers:
         codes.append("NUMBER_MISMATCH")
+    if any(n.startswith("UNPARSED:") for n in source_numbers + target_numbers):
+        codes.append("NUMBER_UNPARSED_OR_AMBIGUOUS")
     # Lexical cardinality checks cannot independently confirm polarity scope.
     source_neg = _NEGATIONS["de"].findall(original)
     target_neg = _NEGATIONS["it"].findall(translated)
@@ -468,14 +484,16 @@ def recheck_private_translation(
         page_text=page_text, media_segment=media_segment,
         current_source_sha256=current_source_sha256,
     )
-    if resolution.status == "STALE":
-        return DerivationRecheck("STALE", resolution.blockers)
-    if (resolution.status != "LOCATED" or resolution.locator_fingerprint != original.locator_fingerprint
+    if resolution.status not in {"LOCATED", "STALE"}:
+        return DerivationRecheck("BLOCKED", resolution.blockers or ("TRANSLATION_ORIGINAL_BINDING_CHANGED",))
+    if (resolution.locator_fingerprint != original.locator_fingerprint
             or resolution.source_version_sha256 != original.source_version_sha256
             or passage.extraction_method != original.extraction_method
             or passage.extraction_version != original.extraction_version
             or (capture.metadata.get("response_charset") if capture is not None else None) != original.original_charset):
-        return DerivationRecheck("BLOCKED", resolution.blockers or ("TRANSLATION_ORIGINAL_BINDING_CHANGED",))
+        return DerivationRecheck("BLOCKED", ("TRANSLATION_ORIGINAL_BINDING_CHANGED",))
+    if resolution.status == "STALE":
+        return DerivationRecheck("STALE", resolution.blockers)
     return DerivationRecheck("CURRENT", ())
 
 

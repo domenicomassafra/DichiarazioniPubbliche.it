@@ -64,3 +64,27 @@ authority. 13 focused DP-239 cases plus 37 adjacent DP-221/237/238 cases PASS;
 no real provider, source rights, local DB, publishing or MiniPC used. Original
 AC remain unchecked pending an independently accepted multilingual reference
 gold, actual source/translation rights, durable pipeline and host readback.
+
+## 2026-10-11 — Targeted regression hardening (source-only, uncommitted)
+
+The private recheck now compares the observed immutable locator fingerprint,
+original source version, parser and charset binding **before** reporting a
+newer current version as `STALE`. An independently valid alternate passage
+with a changed locator and an unrelated newer-source hint must be `BLOCKED`
+as `TRANSLATION_ORIGINAL_BINDING_CHANGED`; an unchanged original with a real
+newer-source hint remains `STALE`.
+
+The German→Italian lexical number guard now preserves negative signs and
+decimal magnitude, including comma decimals, dot-grouped thousands and
+percentage units. `-12` versus `12` and German `1.200` versus Italian
+`12,00` trigger `NUMBER_MISMATCH`; `1.200` versus `1200` and `1,20`
+versus `1,2` do not. Malformed or ambiguous grouping emits
+`NUMBER_UNPARSED_OR_AMBIGUOUS` instead of silently stripping separators.
+These lexical checks do not establish independently verified semantics.
+
+Two additional regression methods bring DP-239 to 15 focused passing cases,
+with red-before-green failure observed for both defects. Ruff and compilation
+pass. The independent adversarial reference gold, source/language provenance,
+actual original and derivative-use rights, durable original/translation
+readback, provider receipt and MiniPC proof remain absent. No acceptance
+criterion is marked complete on synthetic source-only evidence.

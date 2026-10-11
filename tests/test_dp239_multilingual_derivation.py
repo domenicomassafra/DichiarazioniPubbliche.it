@@ -144,6 +144,20 @@ class DP239TranslationTests(unittest.TestCase):
         )
         self.assertEqual(altered_extraction.status, "BLOCKED")
 
+    def test_recheck_cannot_mask_rebound_original_as_stale_source(self):
+        data = written_fixture()
+        derivative = build_private_translation(**data)
+        new_passage = replace(data["passage"], id="passage:other")
+        new_locator = replace(data["locator"], passage_id=new_passage.id)
+        result = recheck_private_translation(
+            derivative, locator=new_locator, passage=new_passage,
+            capture=data["capture"], source_body=data["source_body"],
+            canonical_text=data["canonical_text"],
+            current_source_sha256=sha("new current source"),
+        )
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("TRANSLATION_ORIGINAL_BINDING_CHANGED",))
+
     def test_german_italian_adversarial_regressions_are_explicit_warnings(self):
         cases = (
             ("Anna hat nicht gestanden.", "Anna ha confessato.", "NEGATION_MISMATCH"),
@@ -178,6 +192,29 @@ class DP239TranslationTests(unittest.TestCase):
         self.assertIn("NEGATION_SCOPE_UNVERIFIED", derived.signal_codes)
         self.assertIn("ACTOR_GRAMMATICAL_ROLE_UNVERIFIED", derived.signal_codes)
         self.assertEqual(derived.review_state, TranslationReviewState.NEEDS_REVIEW)
+
+    def test_german_italian_number_check_preserves_sign_and_decimal_magnitude(self):
+        cases = (
+            ("Anna zahlte -12 Euro.", "Anna ha pagato 12 euro.", True),
+            ("Anna zahlte 1.200 Euro.", "Anna ha pagato 12,00 euro.", True),
+            ("Anna zahlte 1.200 Euro.", "Anna ha pagato 1200 euro.", False),
+            ("Anna zahlte 1,20 Euro.", "Anna ha pagato 1,2 euro.", False),
+            ("Anna zahlte -12% Zinsen.", "Anna ha pagato 12% interessi.", True),
+        )
+        for original, translated, mismatch in cases:
+            with self.subTest(original=original, translated=translated):
+                row = written_fixture(original)
+                row["translated_text"] = translated
+                row["actor_anchors"] = (ActorAnchor("person:anna", "Anna"),)
+                derivative = build_private_translation(**row)
+                self.assertEqual("NUMBER_MISMATCH" in derivative.signal_codes, mismatch)
+                self.assertEqual(derivative.status, "HELD")
+        ambiguous = build(
+            source_text="Anna zahlte 1.20 Euro.",
+            translated_text="Anna ha pagato 1,20 euro.",
+            actor_anchors=(ActorAnchor("person:anna", "Anna"),),
+        )
+        self.assertIn("NUMBER_UNPARSED_OR_AMBIGUOUS", ambiguous.signal_codes)
 
     def test_named_month_date_and_unmapped_semantics_are_held(self):
         row = written_fixture("Anna sprach am 4. Mai 2026.")
