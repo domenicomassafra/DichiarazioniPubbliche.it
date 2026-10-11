@@ -80,3 +80,30 @@ independent of any MiniPC/rights source, transactional provider, HTTP
 fetch or production mutation. Acceptance `AC-518.1` through `AC-518.7`
 remain unchecked; real owner/source approval, MiniPC release/readback,
 cache purge and rollback rehearsal are external blockers, release NO-GO.
+
+**2026-10-11 — third-wave multi-revocation graph coverage regression, source-only.**
+The offline audit previously derived affected entities from the union of
+whatever revoked dependencies happened to be present in the supplied
+public-artifact inventory. With two independently revoked dependencies
+(`rights:1`, `source:1`), an inventory linking only `rights:1` across all
+twelve consumers, and valid caller-supplied release identity/readback plus
+404s everywhere, it falsely returned `CONSISTENT_UNATTESTED`. In
+`test_multi_revocation_cannot_claim_consistency_when_one_dependency_is_unmapped`
+this was verified **RED** on the original source. The private checker now
+requires *each* requested revocation to map to a public entity in the
+per-release dependency graph before attempting consumer consistency. An
+unmapped dependency instead produces `INCOMPLETE_PUBLIC_COVERAGE` and
+`REVOCATION_NOT_LINKED_TO_PUBLIC_ENTITY`. The existing disjoint two-entity
+test still passes; no unrelated entity inherits another entity's revocation.
+
+**GREEN proof:** DP-518 + DP-320 focused suites **25/25 PASS**, Ruff lint
+PASS, targeted Python compilation and `git diff --check` PASS. The existing
+source/test files had unrelated baseline Ruff-format suggestions before this
+change; no blanket reformat was applied. This strengthens the *offline*
+absence-of-coverage failure path only. As before,
+`withdrawal_verified_on_live_host`, `cache_purge_verified`, and
+`release_authorized` are always false. Original **AC-518.1–.7 remain
+unchecked**, status **IN PROGRESS**; signed/current MiniPC source and
+release attestations, immutable fence/CAS, real public/CDN cache responses,
+measured propagation, qualified authority, rollback and owner acceptance
+remain to be provided without pretending local metadata is host proof.

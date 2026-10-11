@@ -319,7 +319,16 @@ def audit_withdrawal_readback(
         if overlap:
             revoked_by_entity.setdefault(entity, set()).update(overlap)
     affected = set(revoked_by_entity)
-    if not affected:
+    linked_revocations = {
+        dependency
+        for entity_dependencies in revoked_by_entity.values()
+        for dependency in entity_dependencies
+    }
+    # A partial withdrawal graph must never look consistent merely because
+    # another revoked dependency *is* linked to valid 404/410 readbacks.
+    # Every explicitly requested revocation must map to at least one public
+    # entity in this inventory before asserting even offline consistency.
+    if linked_revocations != revocations:
         return WithdrawalReadbackAudit(
             "INCOMPLETE_PUBLIC_COVERAGE",
             ("REVOCATION_NOT_LINKED_TO_PUBLIC_ENTITY",),

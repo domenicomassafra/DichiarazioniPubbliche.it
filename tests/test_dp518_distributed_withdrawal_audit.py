@@ -181,6 +181,33 @@ class DistributedWithdrawalAuditTests(unittest.TestCase):
         self.assertEqual(drift.status, "READBACK_UNTRUSTED_OR_DRIFT")
         self.assertIn("PUBLIC_CONSUMER_DEPENDENCY_INCOMPLETE", drift.sanitized_reason_codes)
 
+    def test_multi_revocation_cannot_claim_consistency_when_one_dependency_is_unmapped(self):
+        """Every requested revoked dependency needs a public dependency-graph readback."""
+        manifest, probes = fixture()
+        # The release has both rights:1 and source:1 in its valid epoch
+        # ticket, but all twelve artifact rows accidentally omit source:1.
+        # 404 responses and self-consistent release hashes cannot conceal
+        # that missing coverage in a multi-dependency withdrawal.
+        incomplete = replace(
+            manifest,
+            artifacts=tuple(
+                replace(row, dependency_refs=("rights:1",))
+                for row in manifest.artifacts
+            ),
+        )
+        result = audit_withdrawal_readback(
+            incomplete,
+            probes,
+            revoked_dependencies=("rights:1", "source:1"),
+            observed_release=release_readback(incomplete),
+        )
+        self.assertEqual(result.status, "INCOMPLETE_PUBLIC_COVERAGE")
+        self.assertIn(
+            "REVOCATION_NOT_LINKED_TO_PUBLIC_ENTITY", result.sanitized_reason_codes
+        )
+        self.assertFalse(result.release_authorized)
+        self.assertFalse(result.withdrawal_verified_on_live_host)
+
     def test_cached_old_200_on_edge_is_unsafe_even_with_clean_origin_generation(self):
         manifest, probes = fixture()
         edge = next(row for row in probes if row.surface == "CACHE_EDGE")
