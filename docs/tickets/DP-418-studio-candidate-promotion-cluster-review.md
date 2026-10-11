@@ -420,3 +420,81 @@ handoff tests: **53/53 PASS** with canonical disposable PostgreSQL. Both new
 files pass `ruff check` and `ruff format --check`; `python3 -m compileall -q
 poc tests` and scoped `git diff --check` PASS. This does not claim that
 external authorization, a production match run or MiniPC approval occurred.
+
+### 2026-10-12 — opt-in persisted, attested Candidate decision CAS on disposable PostgreSQL
+
+Added `studio_candidate_decision_store_pg.py` and
+`tests/test_dp418_persisted_decision_pg_next.py`, with **no** Studio HTTP/UI
+mutation, provider call, production schema migration, public route, or DP-117
+promotion. An explicit `initialize()` provisions an isolated private
+`dp418_candidate_decision` append-only table and UPDATE/DELETE rejection trigger;
+this is an opt-in development contract until a reviewed additive migration and
+operator privileges exist. Direct SQL `TRUNCATE` remains a privileged test cleanup,
+not an asserted protection against a database owner.
+
+`candidate_decision_request` binds exact Claim Candidate, **deterministic**
+DP-212 MatchRun ID/version/input fingerprint, source Passage, Capture ID and
+SHA-256, request key, reviewer actor, decision, expected revision and optional
+link target. `StudioCandidateDecisionStorePg.record()` requires the **existing**
+DP-310 `LocalFileReviewerIdentityAuthority`, an active local credential and a
+real off-database attestation resolving the caller-provided integrity-checked
+`PublicationReviewEvent`. Event record ID and version bind the exact
+candidate and hashed request, including decision, revision and source selectors;
+actor, credential fingerprint, stage/role and action must match. Unverifiable,
+revoked or mismatched reviewer credentials **HOLD** without writing.
+
+The PostgreSQL transaction serializes writes by Candidate with an advisory
+lock, takes row locks on current Candidate, Statement, Passage, Content,
+Capture and MatchRun and then performs a **fresh statement-level rights and
+lineage check** before conditional insert. It requires eligible statuses,
+parent Passage/Statement edge, exact Capture hash, `CLEARED` Content **and**
+Capture rights, `NONE` hold, latest Capture observation, a completed correct
+matching run and consistent result count/version/status. `REVIEW_LINK` needs a
+specific persisted `DUPLICATE_EXTRACTION` Claim Candidate target;
+`REVIEW_CREATE` is held when duplicates or same-proposition matches already
+exist. CAS on the latest decision revision yields one winner across competing
+reviewers; the unique request key supports identical replay or explicit
+idempotency conflict. The historical readback returns persisted decision,
+version and receipt hash even if rights have since changed, explicitly marked
+`historical_only` and with all promotion/equivalence/publication flags false.
+
+Initial TDD RED was missing module import. An isolated PostgreSQL initialized
+from `db/schema.v1.sql` then proved real concurrent reviewers (one created,
+one revision conflict), signed receipt replay after process/store restart,
+privileged UPDATE rejection, revoked Capture rights and credential HOLD,
+foreign Passage and reviewer-event HOLD, source-version drift, matching-target
+binding and a **live transaction lock-wait with concurrent rights revocation**.
+These fixtures use isolated synthetic Candidate/MatchRun/rights/reviewer
+material, not actual real-source legal rights or MiniPC authority.
+
+**AC-418.1–AC-418.4 remain OPEN.** This is durable private *review intent*,
+not a canonical Claim review event, evidence approval, cluster equivalence
+approval, or execution of `promote_claim_candidate`. The existing DP-310
+publication-review attestation binds reviewer identity to a supplied event;
+it is not a newly approved DP-418 editorial role assignment. Current DP-212
+input fingerprint is matched to the persisted run but not independently
+regenerated transactionally from every mutable matching input. There is no
+cross-database atomicity with local credential revocation, no real qualified
+authoritative reviewer signoff, full comparison/UI workflow or keyboard/200%
+zoom evidence, nor a MiniPC real-corpus acceptance. In particular, positive
+fixture receipt creation must **not** be interpreted as current-source-use
+authorization or publication readiness. Ticket remains **IN PROGRESS**.
+
+**Recorded local validation for this wave:** initial import RED, then
+`PYTHONPATH=poc python3 -m unittest tests.test_dp418_persisted_decision_pg_next -q`
+**7/7 PASS** (canonical disposable PostgreSQL and local authority receipts).
+Focused cross-module PostgreSQL/comparison/review-handoff/matching/reviewer
+identity and publication-review regression **61/61 PASS**. `ruff check`,
+`ruff format --check` on the two new files, `python3 -m compileall -q poc tests`,
+`git diff --check` and benchmark **5/5 PASS**.
+
+The concurrent checkout full Python suite ran **3,090 tests with 3 errors**,
+none originating in this DP-418 adapter: `test_conditional_surface_absence`
+(two tests) and `test_launch_preflight` (one test) failed with
+`CONDITIONAL_PRIVATE_STUDIO_PATH_SCOPE_CHANGED`. Read-only inspection found
+the concurrently integrated DP-416 `/v1/collections/navigate` route in
+`studio_local_api._ALLOWED_PATHS` but absent from the independent explicit
+`conditional_surface_absence._PRIVATE_STUDIO_READ_PATHS` inventory. Prime was
+informed; this worker cannot change DP-416 or its unrelated guard paths.
+The full run is explicitly **not green** until owner reconciles this new route
+and reruns the affected checks. No deployment or production mutation.
