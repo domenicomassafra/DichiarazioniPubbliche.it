@@ -173,6 +173,28 @@ class PublicStatementContractTests(unittest.TestCase):
                 self.assertEqual(bundle["statements"], [])
                 self.assertNotIn("PRIVATE TRANSCRIPT BODY", str(bundle))
 
+    def test_locator_changed_during_attestation_cannot_publish_unreviewed_source_span(self):
+        class MovingLocatorSource(IsolatedStatementSource):
+            def statement_publication_attestations(self, statement_id, version_id):
+                proofs = super().statement_publication_attestations(statement_id, version_id)
+                # The independent reviews cover START, but the private mutable
+                # row is updated before _sanitize_public_statement returns.
+                self.row["locator"].update(start_char=0, end_char=len(QUOTE))
+                return proofs
+
+        source = MovingLocatorSource()
+        self.assertNotEqual(source.source_text[:len(QUOTE)], QUOTE)
+        self.assertEqual(self.build_v3(source)["statements"], [])
+
+    def test_published_locator_is_independent_of_private_candidate_mutations(self):
+        source = IsolatedStatementSource()
+        built = self.build_v3(source)
+        public_locator = copy.deepcopy(built["statements"][0]["locator"])
+        public_fingerprint = built["dataset_sha256"]
+        source.row["locator"].update(start_char=0, end_char=len(QUOTE))
+        self.assertEqual(built["statements"][0]["locator"], public_locator)
+        self.assertEqual(projection_dataset_sha256(built), public_fingerprint)
+
     def test_each_independent_gate_and_hash_binding_fail_closed(self):
         for name in ("rights", "attribution", "context", "wording", "publication"):
             for damage in ("status", "hash", "person"):

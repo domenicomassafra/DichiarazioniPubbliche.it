@@ -1829,6 +1829,10 @@ def _sanitize_public_statement(
     locator = row["locator"]
     if not isinstance(locator, dict):
         raise ValueError("statement locator missing")
+    # Freeze the approved selector before calling the independent attestation
+    # reader. A provider may mutate its private candidate while the proof is
+    # read; never return a reference to that mutable private dictionary.
+    locator = dict(locator)
     start, end = locator.get("start_char"), locator.get("end_char")
     if (
         type(start) is not int or type(end) is not int
@@ -1840,6 +1844,8 @@ def _sanitize_public_statement(
         raise ValueError("statement claim does not reproduce original source span")
     quote_hash = hashlib.sha256(original.encode("utf-8")).hexdigest()
     attestations = attestation_reader(row["statement_id"], row["version_id"])
+    if row["locator"] != locator:
+        raise ValueError("Statement locator changed during independent attestation")
     if not isinstance(attestations, dict):
         raise ValueError("independent Statement attestations missing")
     reviewed = {}
