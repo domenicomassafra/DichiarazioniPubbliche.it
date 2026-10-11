@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from typing import Mapping
 
 from dichiarazioni_pubbliche.public_schema import validate_public_bundle
@@ -33,6 +33,10 @@ class ApprovedTopicIntersection:
     review_event_id: str
     status: str
     currentness_attestation_id: str
+    # The independently reviewed public membership/currentness proof has a
+    # finite interval. An ID alone cannot attest its continuing validity.
+    currentness_attested_at: str
+    currentness_valid_until: str
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,18 @@ def _text(value: object, max_len: int) -> bool:
 
 def _hash(value: object) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _aware_instant(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if moment.tzinfo is None or moment.utcoffset() is None:
+            return None
+        return moment.astimezone(timezone.utc)
+    except (OverflowError, TypeError, ValueError):
+        return None
 
 
 def prepare_public_synopsis(
@@ -107,6 +123,22 @@ def prepare_public_synopsis(
     if (intersection.status != "APPROVED" or intersection.dataset_sha256 != published_sha
         or current_public_dataset_sha256 != published_sha):
         return withheld("SYNOPSIS_STALE_OR_UNAPPROVED_SNAPSHOT")
+    snapshot_instant = _aware_instant(bundle.get("generated_at"))
+    if snapshot_instant is None:
+        return withheld("SYNOPSIS_SNAPSHOT_TIMESTAMP_INVALID")
+    now_utc = now.astimezone(timezone.utc)
+    if snapshot_instant > now_utc:
+        return withheld("SYNOPSIS_SNAPSHOT_IN_FUTURE")
+    attested_at = _aware_instant(intersection.currentness_attested_at)
+    valid_until = _aware_instant(intersection.currentness_valid_until)
+    if attested_at is None or valid_until is None or valid_until <= attested_at:
+        return withheld("SYNOPSIS_CURRENTNESS_ATTESTATION_INVALID")
+    if attested_at < snapshot_instant:
+        return withheld("SYNOPSIS_CURRENTNESS_ATTESTATION_STALE")
+    if attested_at > now_utc:
+        return withheld("SYNOPSIS_CURRENTNESS_ATTESTATION_IN_FUTURE")
+    if now_utc >= valid_until:
+        return withheld("SYNOPSIS_CURRENTNESS_ATTESTATION_EXPIRED")
     if not _text(coverage_note, 450) or not any(
         word in coverage_note.lower() for word in ("corpus", "raccolt", "copertur")
     ):
@@ -129,6 +161,7 @@ def prepare_public_synopsis(
     source_lineages: set[str] = set()
     source_contents: set[str] = set()
     source_urls: set[str] = set()
+    source_hashes: set[str] = set()
     rendered = []
     reviewed_ids: set[str] = set()
     for sentence in reviewed_sentences:
@@ -151,6 +184,12 @@ def prepare_public_synopsis(
                 return withheld("SYNOPSIS_CITATION_NOT_PUBLIC_MEMBERSHIP")
             if statement["quote_sha256"] != claimed_hash:
                 return withheld("SYNOPSIS_ORIGINAL_QUOTE_CHANGED")
+            # The public snapshot may contain valid records observed after the
+            # period that this summary claims to cover. Neither a future source
+            # nor a later publication may support this as-of-date synopsis.
+            cited_date = date.fromisoformat(statement["statement_date"])
+            if cited_date > min(snapshot_instant.date(), now_utc.date()):
+                return withheld("SYNOPSIS_CITATION_IN_FUTURE")
             if sentence.kind == "REVIEWED_DESCRIPTIVE_SUMMARY" and (
                 not statement["endorsed"] or statement["speech_act"] not in {"DIRECT_ASSERTION", "OPINION"}
             ):
@@ -160,16 +199,21 @@ def prepare_public_synopsis(
             source_lineages.add(lineage_ids[key])
             source_contents.add(statement["content_id"])
             source_urls.add(statement["source_url"])
+            source_hashes.add(statement["source_sha256"])
             cited.append({
                 "statement_id": key[0], "version_id": key[1], "quote_sha256": claimed_hash,
                 "source_sha256": statement["source_sha256"], "source_url": statement["source_url"],
-                "locator": statement["locator"], "statement_date": statement["statement_date"],
+                # The validated public bundle can be mutated by a later private
+                # source callback. Never retain its locator dictionary by alias:
+                # that would change an emitted citation without the read-model
+                # fingerprint changing.
+                "locator": dict(statement["locator"]), "statement_date": statement["statement_date"],
                 "language": statement["language"],
             })
         rendered.append({"text": sentence.text, "kind": sentence.kind, "citations": cited})
-    # Reviewed lineage labels alone cannot make two excerpts of one Content or
-    # one source locator count as two independently published sources.
-    if min(len(source_lineages), len(source_contents), len(source_urls)) < min_independent_contents:
+    # Distinct hosts, Content IDs and lineage labels do not turn byte-identical
+    # mirrored source documents into independent corroborating sources.
+    if min(len(source_lineages), len(source_contents), len(source_urls), len(source_hashes)) < min_independent_contents:
         return withheld("SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
     # No confidence, opinion score, polarity or reviewer internals in public.
     material = {
@@ -177,6 +221,8 @@ def prepare_public_synopsis(
         "topic_id": intersection.topic_id, "dataset_sha256": published_sha,
         "topic_membership_review": intersection.review_event_id,
         "currentness_attestation": intersection.currentness_attestation_id,
+        "currentness_attested_at": attested_at.isoformat(),
+        "currentness_valid_until": valid_until.isoformat(),
         "coverage_note": coverage_note, "sentences": rendered,
     }
     return PublicSynopsisRead(

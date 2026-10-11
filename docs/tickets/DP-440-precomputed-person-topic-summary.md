@@ -86,3 +86,50 @@ hash remain separate from synopsis text. No external approval is inferred.
 DP-440 stays **IN PROGRESS**, AC-440.1–.7 unchecked. The check is an offline
 contract guard only; real editorial entailment, current rights and membership,
 atomic invalidation/served-cache proof, and MiniPC acceptance are still absent.
+
+## 2026-10-11 — Rehosted-source, temporal-currentness and citation-alias guards
+
+An independent adversarial review of the existing opt-in read model found
+four further ways to return `READY_READ_MODEL` without adequate source
+independence or as-of-date provenance:
+
+- **Mirrored source bytes:** two public Statement rows with distinct Content
+  IDs, HTTPS URLs and independently labelled lineages but an identical
+  `source_sha256` were counted as two corroborating sources. A fourth
+  independence dimension now requires distinct source-body hashes alongside
+  the existing reviewed lineage, Content ID and URL checks.
+- **Future evidence:** `now` previously only stamped the result and could
+  predate the snapshot `generated_at` or a cited Statement's public
+  `statement_date`. Snapshot generation now requires a timezone-aware,
+  non-future timestamp; each cited date must precede or equal the UTC
+  snapshot/assembly date. An invalid generation timestamp is withheld.
+- **Unbounded currentness ID:** the independently approved Person×Topic
+  intersection previously carried a string attestation ID without a time
+  range. Its opt-in read contract now requires an externally reviewed
+  `currentness_attested_at` and `currentness_valid_until`, both aware
+  timestamps. Attestation must occur no earlier than the snapshot, no later
+  than assembly time, and the read model is withheld at/after expiry.
+  These values join the deterministic synopsis fingerprint; no local code
+  grants or renews rights, topic membership or source approval.
+- **Mutable locator alias:** the serialized synopsis kept a reference to
+  the mutable public bundle's original locator dictionary. A later change
+  to private/source-driven data could alter the already emitted citation
+  without changing the synopsis fingerprint. Locators are now snapshotted
+  into independent dictionaries when preparing each citation.
+
+Regression `tests/test_dp440_public_synopsis.py` reproduced the
+mirrored-source and future-snapshot bugs (**RED: two failing assertions**)
+and locator alias mutation (**RED: one failing assertion**); the new
+attestation-contract test initially failed because the time fields were
+absent. After the narrow source changes, **14/14 DP-440 tests PASS**;
+combined DP-440/435/436 frontend-adjacent Python verification **39/39
+PASS**, targeted Python compilation and `git diff --check` pass.
+All proofs use synthetic fixture data and no public runtime/provider.
+
+This is only an offline consumer/read-model fail-closed advance. An
+attestation's issuer, authority and rights still require an independent
+governed upstream integration; a caller-provided date cannot certify
+renewal. Editorial per-sentence semantic entailment, real public
+Person×Topic approval, atomic revoke/rebuild/cache invalidation, a
+rights-authorized source corpus and MiniPC readback remain missing.
+**DP-440 remains IN PROGRESS; AC-440.1–.7 remain unchecked.**

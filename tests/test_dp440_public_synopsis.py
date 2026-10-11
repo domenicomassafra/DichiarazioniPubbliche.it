@@ -52,6 +52,8 @@ def intersection(value, **overrides):
         statement_lineages=lineages,
         review_event_id="review:topic:1", status="APPROVED",
         currentness_attestation_id="attested:snapshot:1",
+        currentness_attested_at="2026-10-11T13:00:00+00:00",
+        currentness_valid_until="2026-10-12T13:00:00+00:00",
     ), **overrides)
 
 
@@ -118,6 +120,54 @@ class PublicSynopsisContractTests(unittest.TestCase):
                 self.assertEqual(result.status, "WITHHELD")
                 self.assertEqual(result.reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
 
+    def test_rehosted_identical_source_bytes_do_not_count_as_independent(self):
+        value = bundle()
+        # Both Statement records claim distinct Content IDs, HTTPS URLs and
+        # externally reviewed lineage labels; one source file was mirrored.
+        # Two URL hosts must not count as two independent corroborating texts.
+        value["statements"][1]["source_sha256"] = value["statements"][0]["source_sha256"]
+        value["dataset_sha256"] = projection_dataset_sha256(value)
+        result = prepare(value)
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
+
+    def test_currentness_must_not_precede_snapshot_or_cited_source_dates(self):
+        future_bundle = bundle()
+        future_bundle["generated_at"] = "2026-10-12T16:00:00+00:00"
+        future_bundle["dataset_sha256"] = projection_dataset_sha256(future_bundle)
+        result = prepare(future_bundle)
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_SNAPSHOT_IN_FUTURE")
+
+        future_statement = bundle()
+        future_statement["statements"][1]["statement_date"] = "2026-10-12"
+        future_statement["dataset_sha256"] = projection_dataset_sha256(future_statement)
+        result = prepare(future_statement)
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_CITATION_IN_FUTURE")
+
+    def test_currentness_attestation_has_a_bounded_period_after_snapshot(self):
+        value = bundle()
+        result = prepare(value, proof=intersection(
+            value, currentness_valid_until="2026-10-11T15:59:59+00:00"))
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_CURRENTNESS_ATTESTATION_EXPIRED")
+
+        result = prepare(value, proof=intersection(
+            value, currentness_attested_at="2026-10-11T11:59:59+00:00"))
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_CURRENTNESS_ATTESTATION_STALE")
+
+        result = prepare(value, proof=intersection(
+            value, currentness_attested_at="2026-10-11T17:00:00+00:00"))
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_CURRENTNESS_ATTESTATION_IN_FUTURE")
+
+        result = prepare(value, proof=intersection(
+            value, currentness_valid_until="2026-10-12T00:00:00"))
+        self.assertEqual(result.status, "WITHHELD")
+        self.assertEqual(result.reason_code, "SYNOPSIS_CURRENTNESS_ATTESTATION_INVALID")
+
     def test_changed_dataset_and_unapproved_topic_permission_hold(self):
         value = bundle()
         self.assertEqual(prepare(value, proof=intersection(value, status="REVOKED")).status, "WITHHELD")
@@ -145,6 +195,16 @@ class PublicSynopsisContractTests(unittest.TestCase):
                          "SYNOPSIS_ORIGINAL_QUOTE_CHANGED")
         self.assertEqual(prepare(value, sentences=(sentence(value), sentence(value))).reason_code,
                          "SYNOPSIS_SENTENCE_PROVENANCE_INVALID")
+
+    def test_later_private_source_locator_mutation_cannot_rewrite_citation(self):
+        value = bundle()
+        public_read = prepare(value)
+        self.assertEqual(public_read.status, "READY_READ_MODEL")
+        frozen_fingerprint = public_read.fingerprint
+        citation_locator = copy.deepcopy(public_read.sentences[0]["citations"][0]["locator"])
+        value["statements"][0]["locator"]["start_char"] += 10
+        self.assertEqual(public_read.sentences[0]["citations"][0]["locator"], citation_locator)
+        self.assertEqual(public_read.fingerprint, frozen_fingerprint)
 
     def test_quoted_criticism_not_turned_into_stance(self):
         value = bundle()
