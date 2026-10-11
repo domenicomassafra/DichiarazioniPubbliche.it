@@ -213,6 +213,42 @@ await assert.rejects(
   /SEARCH_INDEX_RECORD_INVALID/,
 );
 
+// An index digest is not an authorization signature. The browser renders
+// record.route into hrefs; rehashing a forged route must never redirect
+// approved search results to an external site or unrelated public identity.
+const unsafeFindingRoutes = [
+  "//outside.example/collect",
+  "/\\outside.example/collect",
+  "/dichiarazioni/%2f%2foutside.example/",
+  "/dichiarazioni/../persona-privata/",
+  "/dichiarazioni/finding-other-approved/",
+  "/temi/economia/",
+  "/dichiarazioni/finding-esatto/?next=https://outside.example",
+];
+for (const unsafeRoute of unsafeFindingRoutes) {
+  const forged = structuredClone(material);
+  forged.records.find((record) => record.id === "finding:esatto").route = unsafeRoute;
+  const forgedIndex = await finalizeSearchIndex(forged);
+  await assert.rejects(
+    () => validateSearchIndex(forgedIndex, projection.dataset_sha256),
+    /SEARCH_INDEX_RECORD_INVALID/,
+    "a self-hashed index must not substitute a finding route: " + unsafeRoute,
+  );
+}
+for (const [kind, unsafeRoute] of [
+  ["person", "/persone/person-mario-verdi/"],
+  ["topic", "//outside.example/tema"],
+]) {
+  const forged = structuredClone(material);
+  forged.records.find((record) => record.kind === kind).route = unsafeRoute;
+  const forgedIndex = await finalizeSearchIndex(forged);
+  await assert.rejects(
+    () => validateSearchIndex(forgedIndex, projection.dataset_sha256),
+    /SEARCH_INDEX_RECORD_INVALID/,
+    "a self-hashed index must not substitute a " + kind + " route: " + unsafeRoute,
+  );
+}
+
 const encoded = canonicalJson(index);
 for (const forbidden of [
   "raw_text",

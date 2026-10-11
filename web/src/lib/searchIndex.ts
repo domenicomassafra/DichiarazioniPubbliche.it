@@ -69,6 +69,23 @@ const SORT_FILTERS = new Set(["relevance", "recent", "old"]);
 // Opaque public IDs may contain spaces (historical IDs and Unicode display
 // disambiguators); disallow delimiters/control bytes and bound URL length.
 const PUBLIC_FACET_ID = /^[\p{L}\p{N}:._ -]{1,120}$/u;
+const ROUTE_BY_KIND: Record<SearchRecordKind, RegExp> = {
+  finding: /^\/dichiarazioni\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  person: /^\/persone\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  topic: /^\/temi\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  content: /^\/contenuti\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+};
+
+function hasCanonicalSearchRoute(record: PublicSearchRecord): boolean {
+  if (!KIND_FILTERS.has(record.kind) || typeof record.route !== "string") return false;
+  if (!ROUTE_BY_KIND[record.kind].test(record.route)) return false;
+  // Person and Finding routes are derived from approved, stable public IDs.
+  // Do not let a self-hashed search asset silently rebind their identities.
+  return (record.kind !== "person" && record.kind !== "finding") ||
+    record.route === (record.kind === "person"
+      ? "/persone/" + publicIdSlug(record.id) + "/"
+      : "/dichiarazioni/" + publicIdSlug(record.id) + "/");
+}
 
 function publicFacetId(value: string): string | "ALL" {
   return PUBLIC_FACET_ID.test(value) ? value : "ALL";
@@ -339,7 +356,7 @@ export async function validateSearchIndex(
       routes.has(record.route) ||
       !record.id ||
       !record.title ||
-      !record.route.startsWith("/") ||
+      !hasCanonicalSearchRoute(record) ||
       record.direct_quote_eligible !== false ||
       (record.kind === "finding" && record.wording_type !== "PARAPHRASE") ||
       (record.kind !== "finding" && record.wording_type !== null) ||

@@ -59,3 +59,39 @@ Code landed in `df6fa42` and `5c72563`. `web/src/lib/searchIndex.ts` now carries
 ## 2026-10-11 — First implementation slice
 
 The public-v2 static search-index now supports exact public Person×Topic Finding intersections without private candidates or inferred endorsement; React Explore exposes shareable URL filters, old normalized text is expressly not a quote (commits `df6fa42`, `5c72563`, `f8b2b6e`). Web search, design, Astro and isolated projection-boundary checks pass. First-class opinion-only v3 Statement membership, synopsis, source citation, real mobile AT and MiniPC approval remain outstanding, so none of AC-439.1–.7 is closed.
+
+### 2026-10-11 — search-result route/identity gate hardening (local, partial)
+
+The browser fetches a SHA-256 self-hashed public search-index and renders
+`record.route` directly as an HTML link. Its validator previously accepted every
+route beginning with `/`: an adversarial asset with an unchanged claimed approved
+projection fingerprint and recomputed index hash could substitute
+`//outside.example/collect` (a cross-origin link), a backslash variant, or
+another public Person/Finding route, and pass validation. The digest proves
+internal integrity against accidental mutation; it is **not** a signed proof that
+the asset was derived from the authorized projection.
+
+`web/src/lib/searchIndex.ts` now requires a kind-specific, strictly relative
+canonical path and binds Finding and Person paths to their exact stable public
+record IDs. Independently reviewed Topic and Content slugs retain their v2
+canonical route grammar. `web/scripts/check-search-index.mjs` now rehashes
+malicious index fixtures and checks cross-origin/backslash/encoded-path,
+path traversal, query-string and wrong-resource-type redirects, plus a Person
+ID substitution. The first adversarial route test was observed **RED** on
+the original validator (accepted `//outside.example/collect`); after the fix
+`npm run check:search` **PASS (7 indexed records)**, including the earlier
+approved Person×Topic intersection and withheld Finding checks.
+The independent high-risk search serializer check **PASS (2 records)**; the
+existing demo and DP-407 fixture bundles also generate indexes accepted by
+the tightened validator (**12 and 23 records** respectively). `node --check`
+and `git diff --check` **PASS**. The Astro check could not run in this tranche:
+the working copy has no `web/node_modules` (`astro: command not found`), so
+there is no claim of a complete frontend build or live release regression.
+
+This is a local defense of client-side route consumers, not a complete signed
+index authorization mechanism or a new approved Person×Topic Statement join.
+The current frontend remains public-v2 and does not expose the DP-437/438
+opinion-only/approved-zero v3 membership. Source rights and publication
+approval, real revocation readback, responsive VoiceOver/manual acceptance,
+MiniPC release convergence and full original quotation/locator acceptance
+remain external to this slice. **All AC-439.1–.7 stay unchecked; IN PROGRESS.**
