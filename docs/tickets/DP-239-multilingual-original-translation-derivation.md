@@ -88,3 +88,54 @@ pass. The independent adversarial reference gold, source/language provenance,
 actual original and derivative-use rights, durable original/translation
 readback, provider receipt and MiniPC proof remain absent. No acceptance
 criterion is marked complete on synthetic source-only evidence.
+
+## 2026-10-11 — Independent original consumer retrieval and derivative replay
+
+Added a substantial **read-only private consumer contract** in
+`multilingual_derivation.py` rather than a new language-specific guess:
+`ImmutableOriginalReadback`, `read_immutable_original_consumer`, and
+`read_private_translation_consumer`. A caller supplies independently
+retrieved Capture/Passage/locator/bytes/parser text (or a versioned media
+segment), indexed by exact Passage ID, plus a **separate mandatory current
+source-version hash indexed by Content ID**. The original can be read **without
+having or accessing a translation**. The locator resolver checks persisted
+selector coordinates, original quote bytes/hash, parser/capture or transcript
+variant/speaker and version binding; altered or unavailable metadata fails
+closed. A newer current source version is explicitly `STALE`, not silently
+treated as current.
+
+For a separately versioned MACHINE draft, the consumer rebuilds the whole
+derivation from that *independently read* original. It requires exact equality
+with the stored private artifact: deterministic derivation ID, translated
+text/hash, model/config/prompt, original locator/source/charset, speaker,
+source-language and code-switch spans, signals, wording/translation lineage,
+method and review state. Fabricated `HUMAN_REVIEWED`, altered translation
+bytes, swapped Person, changed quote selector or mismatched WordingReference
+are rejected without returning original/translation text. A genuinely newer
+source version preserves only the independently validated **private original
+snapshot** in a `STALE` readback and suppresses the translation. An unchanged
+original can be served privately with distinct immutable translation IDs for
+different Italian text/config versions, without changing the original hash.
+
+Four new focused regression methods cover retrieval without any derivative,
+absent/new current versions, corrupt independent Passage/locator, nine forged
+derivative fields, German/Italian code-switch with two independently replayed
+Italian versions, and immutable media-transcript speaker/version readback.
+**RED** before implementation: test collection could not import the missing
+`ImmutableOriginalReadback` and consumer entry points. **GREEN**:
+`tests.test_dp239_multilingual_derivation` **19/19 PASS**, with adjacent
+DP-221, DP-237 and DP-238 suites **54/54 PASS** overall. Ruff lint, targeted
+Python compilation and `git diff --check` PASS. Existing baseline source/test
+have unrelated Ruff formatter suggestions; those lines were not mass-edited.
+
+This is an **offline, caller-supplied** private readback/replay seam, not a
+connected trusted Corpus repository, a language detector, a certified
+translation, a rights grant, a qualified review or a public source quote. All
+returned views keep `public_quote_eligible=False`; translation method stays
+`MACHINE` and `translation_reviewed=False`. The caller must independently
+authenticate source/parser provenance, rights/retention and live current hash.
+Original **AC-239.1–6 remain unchecked**, ticket stays **IN PROGRESS**:
+persisted/MiniPC real-source dual readback, accepted DE→IT independent
+meaning-risk gold, exact derivative-use permissions, consumer integration,
+rights revocation, owner/qualified B review and authorized provider/budget
+receipts remain external before public activation.

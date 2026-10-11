@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 
@@ -209,6 +210,48 @@ class PrivateTranslationDerivation:
 class DerivationRecheck:
     status: str  # CURRENT, STALE, BLOCKED; never a promotion decision
     reason_codes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ImmutableOriginalReadback:
+    """Independent private corpus lookup, not fields copied from a translation.
+
+    A caller must retrieve these records and bytes via the original Passage
+    and Capture IDs, with its own authenticated rights/retention checks. For
+    written text the canonical/page text must come from a pinned parser run.
+    """
+
+    locator: ExactSourceLocator
+    passage: PassageRecord
+    capture: ContentCaptureRecord | None = None
+    source_body: bytes | None = None
+    canonical_text: str | None = None
+    page_text: str | None = None
+    media_segment: ObservedMediaSegment | None = None
+
+
+@dataclass(frozen=True)
+class PrivateTranslationConsumerReadback:
+    status: str  # CURRENT_HELD / STALE / BLOCKED; never release authority
+    reason_codes: tuple[str, ...]
+    original_text: str | None = None
+    original_sha256: str | None = None
+    translation_text: str | None = None
+    translation_id: str | None = None
+    method: str | None = None
+    translation_reviewed: bool = False
+    public_quote_eligible: bool = False
+
+
+@dataclass(frozen=True)
+class PrivateOriginalConsumerReadback:
+    status: str  # CURRENT / STALE / BLOCKED; private only
+    reason_codes: tuple[str, ...]
+    original_text: str | None = None
+    quote_sha256: str | None = None
+    source_version_sha256: str | None = None
+    locator_fingerprint: str | None = None
+    public_quote_eligible: bool = False
 
 
 def _dates_and_numbers(text: str) -> tuple[tuple[str, ...], tuple[str, ...], bool]:
@@ -497,8 +540,183 @@ def recheck_private_translation(
     return DerivationRecheck("CURRENT", ())
 
 
+def read_immutable_original_consumer(
+    passage_id: str,
+    *,
+    originals_by_passage: Mapping[str, ImmutableOriginalReadback],
+    current_versions_by_content: Mapping[str, str],
+) -> PrivateOriginalConsumerReadback:
+    """Resolve original bytes/selector by Passage, without any translation ID.
+
+    The caller supplies an independently read immutable store and authoritative
+    current-version catalog; this offline function authenticates neither.
+    Private CURRENT means source-byte consistency, never publication rights.
+    """
+    def blocked(code: str) -> PrivateOriginalConsumerReadback:
+        return PrivateOriginalConsumerReadback("BLOCKED", (code,))
+
+    if (
+        not isinstance(passage_id, str)
+        or not passage_id
+        or not isinstance(originals_by_passage, Mapping)
+        or not isinstance(current_versions_by_content, Mapping)
+    ):
+        return blocked("ORIGINAL_READBACK_INPUT_INVALID")
+    record = originals_by_passage.get(passage_id)
+    if not isinstance(record, ImmutableOriginalReadback):
+        return blocked("ORIGINAL_READBACK_MISSING")
+    locator, passage = record.locator, record.passage
+    if (
+        not isinstance(locator, ExactSourceLocator)
+        or not isinstance(passage, PassageRecord)
+        or locator.passage_id != passage_id
+        or passage.id != passage_id
+        or type(locator.quote_start) is not int
+        or type(locator.quote_end) is not int
+        or locator.quote_start < 0
+        or locator.quote_end <= locator.quote_start
+    ):
+        return blocked("ORIGINAL_READBACK_BINDING_INVALID")
+    current = current_versions_by_content.get(locator.content_id)
+    if not isinstance(current, str) or not _SHA.fullmatch(current):
+        return blocked("ORIGINAL_CURRENT_VERSION_UNAVAILABLE")
+    if locator.selector_type == "TEXT_POSITION" and isinstance(record.canonical_text, str):
+        text = record.canonical_text[locator.quote_start:locator.quote_end]
+    elif locator.selector_type == "PAGE_RANGE" and isinstance(record.page_text, str):
+        text = record.page_text[locator.quote_start:locator.quote_end]
+    elif locator.selector_type == "MEDIA_SEGMENT_REF" and isinstance(
+        record.media_segment, ObservedMediaSegment
+    ):
+        text = record.media_segment.segment_text[locator.quote_start:locator.quote_end]
+    else:
+        return blocked("ORIGINAL_READBACK_TEXT_UNAVAILABLE")
+    try:
+        result = resolve_exact_source_locator(
+            locator,
+            passage=passage,
+            quote_text=text,
+            capture=record.capture,
+            source_body=record.source_body,
+            canonical_text=record.canonical_text,
+            page_text=record.page_text,
+            media_segment=record.media_segment,
+            current_source_sha256=current,
+        )
+    except (ValueError, TypeError, AttributeError):
+        return blocked("ORIGINAL_READBACK_INVALID")
+    if result.status not in {"LOCATED", "STALE"}:
+        return blocked("ORIGINAL_READBACK_" + (result.blockers[0] if result.blockers else result.status))
+    return PrivateOriginalConsumerReadback(
+        "CURRENT" if result.status == "LOCATED" else "STALE",
+        result.blockers,
+        original_text=text,
+        quote_sha256=locator.quote_sha256,
+        source_version_sha256=result.source_version_sha256,
+        locator_fingerprint=result.locator_fingerprint,
+    )
+
+
+def read_private_translation_consumer(
+    derived: PrivateTranslationDerivation,
+    *,
+    originals_by_passage: Mapping[str, ImmutableOriginalReadback],
+    current_versions_by_content: Mapping[str, str],
+) -> PrivateTranslationConsumerReadback:
+    """Replay a private draft against independently retrieved immutable records.
+
+    The original is selected by Passage ID, not by trusting a derivative's
+    embedded original text. The caller must independently read a *current*
+    source-version hash and the immutable Capture/Passage/locator data. No
+    missing currentness, mismatched version or mutated derivation may silently
+    produce a translation for a consumer. Never proves rights or human review.
+    """
+    def blocked(code: str) -> PrivateTranslationConsumerReadback:
+        return PrivateTranslationConsumerReadback("BLOCKED", (code,))
+
+    if (
+        not isinstance(derived, PrivateTranslationDerivation)
+        or not isinstance(derived.original, ImmutableOriginalSpan)
+        or not isinstance(originals_by_passage, Mapping)
+        or not isinstance(current_versions_by_content, Mapping)
+    ):
+        return blocked("TRANSLATION_READBACK_INPUT_INVALID")
+    original = derived.original
+    readback = originals_by_passage.get(original.passage_id)
+    if not isinstance(readback, ImmutableOriginalReadback):
+        return blocked("TRANSLATION_ORIGINAL_READBACK_MISSING")
+    locator, passage = readback.locator, readback.passage
+    if (
+        not isinstance(locator, ExactSourceLocator)
+        or not isinstance(passage, PassageRecord)
+        or passage.id != original.passage_id
+        or locator.passage_id != original.passage_id
+        or locator.content_id != original.content_id
+    ):
+        return blocked("TRANSLATION_ORIGINAL_READBACK_BINDING_INVALID")
+    independent = read_immutable_original_consumer(
+        original.passage_id,
+        originals_by_passage=originals_by_passage,
+        current_versions_by_content=current_versions_by_content,
+    )
+    if independent.status == "BLOCKED":
+        return blocked("TRANSLATION_ORIGINAL_READBACK_INVALID")
+    text = independent.original_text
+    if not isinstance(text, str):
+        return blocked("TRANSLATION_ORIGINAL_READBACK_UNAVAILABLE")
+
+    try:
+        replayed = build_private_translation(
+            locator=locator,
+            passage=passage,
+            capture=readback.capture,
+            source_body=readback.source_body,
+            canonical_text=readback.canonical_text,
+            page_text=readback.page_text,
+            media_segment=readback.media_segment,
+            source_text=text,
+            translated_text=derived.translated_text,
+            source_language=original.language,
+            target_language=derived.target_language,
+            language_origin=original.language_origin,
+            provider_id=derived.provider_id,
+            model_id=derived.model_id,
+            model_version=derived.model_version,
+            prompt_sha256=derived.prompt_sha256,
+            config_sha256=derived.config_sha256,
+            derivation_version=derived.derivation_version,
+            source_wording_type=original.source_wording_type,
+            code_switch_spans=original.code_switch_spans,
+            actor_anchors=derived.actor_anchors,
+        )
+    except (ValueError, TypeError, AttributeError):
+        return blocked("TRANSLATION_ORIGINAL_READBACK_INVALID")
+    # This catches substituted text/hash/method, claims of HUMAN_REVIEWED,
+    # invented speaker/BCP-47/code-switch/wording, and stale derived IDs.
+    if derived != replayed:
+        return blocked("TRANSLATION_DERIVATION_REPLAY_MISMATCH")
+    if independent.status == "STALE":
+        return PrivateTranslationConsumerReadback(
+            "STALE",
+            ("LOCATOR_NEWER_SOURCE_VERSION",),
+            original_text=text,
+            original_sha256=replayed.original.quote_sha256,
+        )
+    return PrivateTranslationConsumerReadback(
+        "CURRENT_HELD",
+        (),
+        original_text=text,
+        original_sha256=replayed.original.quote_sha256,
+        translation_text=replayed.translated_text,
+        translation_id=replayed.id,
+        method="MACHINE",
+    )
+
+
 __all__ = [
     "ActorAnchor", "CodeSwitchSpan", "DerivationRecheck", "GERMAN_ITALIAN_RISK_VERSION",
-    "ImmutableOriginalSpan", "MULTILINGUAL_DERIVATION_VERSION",
-    "PrivateTranslationDerivation", "build_private_translation", "recheck_private_translation",
+    "ImmutableOriginalReadback", "ImmutableOriginalSpan", "MULTILINGUAL_DERIVATION_VERSION",
+    "PrivateOriginalConsumerReadback", "PrivateTranslationConsumerReadback",
+    "PrivateTranslationDerivation", "build_private_translation",
+    "read_immutable_original_consumer", "read_private_translation_consumer",
+    "recheck_private_translation",
 ]

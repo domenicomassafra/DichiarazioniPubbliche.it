@@ -12,7 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.corpus_repository import ContentCaptureRecord, PassageRecord  # noqa: E402
 from dichiarazioni_pubbliche.multilingual_derivation import (  # noqa: E402
-    ActorAnchor, CodeSwitchSpan, build_private_translation, recheck_private_translation,
+    ActorAnchor, CodeSwitchSpan, ImmutableOriginalReadback,
+    build_private_translation, read_immutable_original_consumer,
+    read_private_translation_consumer,
+    recheck_private_translation,
 )
 from dichiarazioni_pubbliche.original_source_resolver import (  # noqa: E402
     ExactSourceLocator, ObservedMediaSegment,
@@ -74,6 +77,166 @@ def build(**updates):
 
 
 class DP239TranslationTests(unittest.TestCase):
+    def test_original_corpus_consumer_retrieves_without_any_translation(self):
+        row = written_fixture()
+        readback = ImmutableOriginalReadback(
+            locator=row["locator"], passage=row["passage"], capture=row["capture"],
+            source_body=row["source_body"], canonical_text=row["canonical_text"],
+        )
+        records = {row["passage"].id: readback}
+        current = {row["capture"].content_id: row["capture"].content_sha256}
+        original = read_immutable_original_consumer(
+            row["passage"].id, originals_by_passage=records,
+            current_versions_by_content=current,
+        )
+        self.assertEqual(original.status, "CURRENT")
+        self.assertEqual(original.original_text, row["source_text"])
+        self.assertEqual(original.quote_sha256, sha(row["source_text"]))
+        self.assertEqual(original.source_version_sha256, row["capture"].content_sha256)
+        self.assertFalse(original.public_quote_eligible)
+
+        newer = read_immutable_original_consumer(
+            row["passage"].id, originals_by_passage=records,
+            current_versions_by_content={row["capture"].content_id: sha("v2")},
+        )
+        self.assertEqual(newer.status, "STALE")
+        self.assertEqual(newer.original_text, row["source_text"])
+        self.assertIn("LOCATOR_NEWER_SOURCE_VERSION", newer.reason_codes)
+        missing = read_immutable_original_consumer(
+            row["passage"].id, originals_by_passage=records,
+            current_versions_by_content={},
+        )
+        self.assertEqual(missing.status, "BLOCKED")
+        self.assertIsNone(missing.original_text)
+        forged = read_immutable_original_consumer(
+            row["passage"].id,
+            originals_by_passage={
+                row["passage"].id: replace(
+                    readback,
+                    locator=replace(row["locator"], quote_sha256=sha("fake")),
+                ),
+            },
+            current_versions_by_content=current,
+        )
+        self.assertEqual(forged.status, "BLOCKED")
+        self.assertIsNone(forged.original_text)
+
+    def test_private_consumer_replays_original_independently_and_binds_version(self):
+        row = written_fixture()
+        derived = build_private_translation(**row)
+        record = ImmutableOriginalReadback(
+            locator=row["locator"], passage=row["passage"], capture=row["capture"],
+            source_body=row["source_body"], canonical_text=row["canonical_text"],
+        )
+        originals = {row["passage"].id: record}
+        current = {row["capture"].content_id: row["capture"].content_sha256}
+        view = read_private_translation_consumer(
+            derived, originals_by_passage=originals, current_versions_by_content=current,
+        )
+        self.assertEqual(view.status, "CURRENT_HELD")
+        self.assertEqual(view.original_text, row["source_text"])
+        self.assertEqual(view.translation_text, row["translated_text"])
+        self.assertEqual(view.translation_id, derived.id)
+        self.assertEqual(view.original_sha256, sha(row["source_text"]))
+        self.assertEqual(view.method, "MACHINE")
+        self.assertFalse(view.public_quote_eligible)
+        self.assertFalse(view.translation_reviewed)
+        self.assertEqual(view.reason_codes, ())
+
+        # The source's current hash is an independent mandatory readback, not
+        # the derivative's cached source-version hint.
+        missing = read_private_translation_consumer(
+            derived, originals_by_passage=originals, current_versions_by_content={},
+        )
+        self.assertEqual(missing.status, "BLOCKED")
+        self.assertIsNone(missing.translation_text)
+        stale = read_private_translation_consumer(
+            derived, originals_by_passage=originals,
+            current_versions_by_content={row["capture"].content_id: sha("new source")},
+        )
+        self.assertEqual(stale.status, "STALE")
+        self.assertEqual(stale.original_text, row["source_text"])
+        self.assertIsNone(stale.translation_text)
+        self.assertIn("LOCATOR_NEWER_SOURCE_VERSION", stale.reason_codes)
+
+    def test_private_consumer_rejects_tampered_translation_and_original_copy(self):
+        row = written_fixture()
+        derived = build_private_translation(**row)
+        record = ImmutableOriginalReadback(
+            locator=row["locator"], passage=row["passage"], capture=row["capture"],
+            source_body=row["source_body"], canonical_text=row["canonical_text"],
+        )
+        originals = {row["passage"].id: record}
+        current = {row["capture"].content_id: row["capture"].content_sha256}
+        corruptions = (
+            replace(derived, id="translation:forged"),
+            replace(derived, translated_text="Anna ha autorizzato Bruno."),
+            replace(derived, translated_text_sha256=sha("new text")),
+            replace(derived, method="HUMAN_REVIEWED"),
+            replace(derived, review_state=TranslationReviewState.HUMAN_REVIEWED),
+            replace(derived, original=replace(derived.original, speaker_person_id="person:bruno")),
+            replace(derived, original=replace(derived.original, quote_start=1)),
+            replace(derived, signal_codes=()),
+            replace(derived, wording=replace(derived.wording, source_language="it-IT")),
+        )
+        for corrupt in corruptions:
+            with self.subTest(corruption=corrupt):
+                view = read_private_translation_consumer(
+                    corrupt, originals_by_passage=originals,
+                    current_versions_by_content=current,
+                )
+                self.assertEqual(view.status, "BLOCKED")
+                self.assertEqual(view.reason_codes, ("TRANSLATION_DERIVATION_REPLAY_MISMATCH",))
+                self.assertIsNone(view.original_text)
+                self.assertIsNone(view.translation_text)
+
+        changed_passage = replace(row["passage"], private_text="Anna ist anders.")
+        invalid = read_private_translation_consumer(
+            derived,
+            originals_by_passage={
+                row["passage"].id: replace(record, passage=changed_passage),
+            },
+            current_versions_by_content=current,
+        )
+        self.assertEqual(invalid.status, "BLOCKED")
+        self.assertIsNone(invalid.original_text)
+
+    def test_private_consumer_same_original_two_translation_versions_and_code_switch(self):
+        original = "Anna sagte nein. Poi Marco rispose."
+        row = written_fixture(original)
+        row["translated_text"] = "Anna ha detto no. Poi Marco rispose."
+        row["actor_anchors"] = ()
+        row["language_origin"] = "MIXED_DECLARED"
+        boundary = original.index(" Poi")
+        row["code_switch_spans"] = (
+            CodeSwitchSpan(0, boundary, "de-DE"),
+            CodeSwitchSpan(boundary, len(original), "it-IT"),
+        )
+        record = ImmutableOriginalReadback(
+            locator=row["locator"], passage=row["passage"], capture=row["capture"],
+            source_body=row["source_body"], canonical_text=row["canonical_text"],
+        )
+        original_map = {row["passage"].id: record}
+        current_map = {row["capture"].content_id: row["capture"].content_sha256}
+        first = build_private_translation(**row)
+        second = build_private_translation(
+            **{**row, "translated_text": "Anna ha risposto no. Poi Marco rispose."}
+        )
+        self.assertNotEqual(first.id, second.id)
+        for draft in (first, second):
+            replay = read_private_translation_consumer(
+                draft, originals_by_passage=original_map,
+                current_versions_by_content=current_map,
+            )
+            self.assertEqual(replay.status, "CURRENT_HELD")
+            self.assertEqual(replay.original_sha256, first.original.quote_sha256)
+            self.assertEqual(replay.original_text, original)
+            self.assertEqual(replay.translation_id, draft.id)
+            self.assertEqual(replay.translation_text, draft.translated_text)
+            self.assertFalse(replay.translation_reviewed)
+            self.assertIn("CODE_SWITCH_UNRESOLVED", draft.signal_codes)
+            self.assertIn("LANGUAGE_PAIR_RISK_RULE_UNAVAILABLE", draft.signal_codes)
+
     def test_original_and_translation_are_distinct_immutable_versions(self):
         row = written_fixture()
         old_original = row["source_text"]
@@ -350,6 +513,34 @@ class DP239TranslationTests(unittest.TestCase):
         derivative = build_private_translation(**row)
         self.assertEqual(derivative.original.speaker_person_id, "person:anna")
         self.assertIn("SPEAKER_REVIEW_AUTHORITY_UNVERIFIED", derivative.signal_codes)
+        original_read = ImmutableOriginalReadback(
+            locator=locator, passage=passage, media_segment=segment,
+        )
+        lookup = {passage.id: original_read}
+        versions = {passage.content_id: segment.transcript_variant_sha256}
+        retrieved = read_immutable_original_consumer(
+            passage.id, originals_by_passage=lookup, current_versions_by_content=versions,
+        )
+        self.assertEqual(retrieved.status, "CURRENT")
+        self.assertEqual(retrieved.original_text, segment_text)
+        replay = read_private_translation_consumer(
+            derivative, originals_by_passage=lookup, current_versions_by_content=versions,
+        )
+        self.assertEqual(replay.status, "CURRENT_HELD")
+        self.assertEqual(replay.method, "MACHINE")
+        self.assertFalse(replay.translation_reviewed)
+        self.assertEqual(replay.original_text, segment_text)
+        wrong_speaker = read_private_translation_consumer(
+            derivative,
+            originals_by_passage={
+                passage.id: replace(
+                    original_read,
+                    media_segment=replace(segment, speaker_person_id="person:other"),
+                ),
+            },
+            current_versions_by_content=versions,
+        )
+        self.assertEqual(wrong_speaker.status, "BLOCKED")
         with self.assertRaisesRegex(ValueError, "DP239_ORIGINAL_LOCATOR_LOCATOR_MEDIA_SPEAKER_MISMATCH"):
             build_private_translation(**{**row, "locator": replace(locator, speaker_person_id="person:other")})
         with self.assertRaisesRegex(ValueError, "DP239_ORIGINAL_LOCATOR_LOCATOR_MEDIA_VERSION_MISMATCH"):
