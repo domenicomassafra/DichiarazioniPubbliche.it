@@ -31,6 +31,7 @@ _FREE_TEXT_PRIVATE = frozenset({"raw_text", "canonical_text", "private_text", "e
 ROOT = Path(__file__).resolve().parents[2]
 _PUBLIC_SCHEMA_MIGRATION = ROOT / "db/migrations/20260926-add-public-schema-v1-contract.sql"
 _RELATION_POLICY_MIGRATION = ROOT / "db/migrations/20260926-add-relation-approval-policy.sql"
+_MIGRATIONS_ROOT = ROOT / "db/migrations"
 _ACCOUNT_SOURCE = ROOT / "poc/dichiarazioni_pubbliche/public_account.py"
 
 # These are the fields emitted by the optional stdlib public HTTP access logger.
@@ -137,6 +138,39 @@ def parse_schema_fields(schema: str) -> dict[str, tuple[str, ...]]:
     if not tables:
         raise FieldInventoryError("PRIVACY_INVENTORY_NO_TABLES")
     return dict(sorted(tables.items()))
+
+
+def _check_literal_migration_coverage(tables: Mapping[str, tuple[str, ...]]) -> None:
+    """Refuse direct migration DDL introducing fields missing from the census.
+
+    The canonical schema normally folds migrations in. This independent scan
+    catches the otherwise invisible new migration-only column/table before an
+    operator could mistake an unchanged inventory checksum for complete coverage.
+    Dynamic SQL and JSON payload keys remain outside this bounded static check.
+    """
+    migrations = sorted(_MIGRATIONS_ROOT.glob("*.sql"))
+    if not migrations:
+        raise FieldInventoryError("PRIVACY_MIGRATION_SOURCE_MISSING")
+    for path in migrations:
+        source = re.sub(r"--[^\n]*", "", path.read_text(encoding="utf-8"))
+        for match in re.finditer(
+            r"\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z][a-z0-9_]*)\s*\(",
+            source, re.I,
+        ):
+            if match.group(1).lower() not in tables:
+                raise FieldInventoryError("PRIVACY_UNINVENTORIED_MIGRATION_TABLE")
+        # Check each ALTER independently: a single ALTER may add many columns.
+        for match in re.finditer(
+            r"\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?([a-z][a-z0-9_]*)\b([^;]*);",
+            source, re.I | re.S,
+        ):
+            table = match.group(1).lower()
+            for added in re.finditer(
+                r"\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z][a-z0-9_]*)\b",
+                match.group(2), re.I,
+            ):
+                if added.group(1).lower() not in tables.get(table, ()):
+                    raise FieldInventoryError("PRIVACY_UNINVENTORIED_MIGRATION_COLUMN")
 
 
 def classify_field(table: str, column: str) -> str:
@@ -363,6 +397,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
         raise FieldInventoryError("PRIVACY_LEGACY_RELATION_POLICY_SCOPE_DRIFT")
     tables["public_schema_contract"] = registry["public_schema_contract"]
     tables["claim_relation_candidate"] = (*tables["claim_relation_candidate"], "policy_version")
+    _check_literal_migration_coverage(tables)
     records: dict[str, dict[str, dict[str, str]]] = {}
     for table, columns in tables.items():
         fields = {}

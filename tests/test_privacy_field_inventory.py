@@ -88,6 +88,28 @@ class PrivacyFieldInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(FieldInventoryError, "SCHEMA_OR_POLICY_DRIFT"):
                 check_inventory(schema, ROOT / "config/privacy-field-inventory.v1.json")
 
+    def test_new_migration_column_fails_closed_before_public_privacy_inventory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            migration = Path(folder) / "20261012-extra-private.sql"
+            migration.write_text("ALTER TABLE person ADD COLUMN IF NOT EXISTS home_address text;\n")
+            with patch("dichiarazioni_pubbliche.privacy_field_inventory._MIGRATIONS_ROOT", Path(folder), create=True):
+                with self.assertRaisesRegex(FieldInventoryError, "UNINVENTORIED_MIGRATION_COLUMN"):
+                    check_inventory(ROOT / "db/schema.v1.sql", ROOT / "config/privacy-field-inventory.v1.json")
+
+    def test_new_migration_table_fails_closed_before_public_privacy_inventory(self):
+        with tempfile.TemporaryDirectory() as folder:
+            migration = Path(folder) / "20261012-extra-private.sql"
+            migration.write_text("CREATE TABLE IF NOT EXISTS new_private_person (\n    id text PRIMARY KEY,\n    home_address text\n);\n")
+            with patch("dichiarazioni_pubbliche.privacy_field_inventory._MIGRATIONS_ROOT", Path(folder), create=True):
+                with self.assertRaisesRegex(FieldInventoryError, "UNINVENTORIED_MIGRATION_TABLE"):
+                    check_inventory(ROOT / "db/schema.v1.sql", ROOT / "config/privacy-field-inventory.v1.json")
+
+    def test_missing_migration_directory_must_not_report_complete_census(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch("dichiarazioni_pubbliche.privacy_field_inventory._MIGRATIONS_ROOT", Path(folder), create=True):
+                with self.assertRaisesRegex(FieldInventoryError, "MIGRATION_SOURCE_MISSING"):
+                    check_inventory(ROOT / "db/schema.v1.sql", ROOT / "config/privacy-field-inventory.v1.json")
+
     def test_unrecognized_ddl_never_silently_skipped(self):
         invalid = """CREATE TABLE IF NOT EXISTS test (
     id text PRIMARY KEY,

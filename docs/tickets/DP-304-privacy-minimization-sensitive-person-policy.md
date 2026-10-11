@@ -633,3 +633,25 @@ their own accepted release, rights, source and MiniPC rehearsal receipts.
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Keep IN PROGRESS and AC-304.1 open: current data census evidence does not exhaust nested document/OCR/ASR, generated JSON, logs, third-party providers or cached verbatim excerpts. DP-313 must distinguish testimony/allegation from established procedural outcome and redact incidentally named minors/victims/third parties; DP-317 handles legally supported exact excerpts; DP-320 controls revocation. Require versioned purpose, lawful basis, retention and external processor review before public data; original AC/receipts preserved. Planning-only delta; no new AC marked complete, no production or provider mutation.
+
+### 2026-10-11 — Migration-only field census drift guard
+
+The canonical static field census checked `db/schema.v1.sql` and two historical
+migration-only exceptions, but it did not inspect other migration files for
+new direct `CREATE TABLE` / `ALTER TABLE ... ADD COLUMN` statements. A fresh
+SQL migration could therefore add a private column while the existing census
+checksum still passed unchanged. Two adversarial temporary-migration cases
+(new `person.home_address`; new private-person table) reproduced this false
+green **before** the guard. `privacy_field_inventory._check_literal_migration_coverage`
+now refuses directly declared tables/columns missing from the effective
+canonical census before its CLI reports technical consistency; existing 45
+source migrations match the 100-table/1,248-column inventory. A missing
+migration directory also blocks completeness rather than quietly passing.
+The three RED regressions are GREEN with the inventory unit suite
+**20/20 PASS**.
+
+This is a static guard for literal SQL, **not** comprehensive detection of
+dynamic migrations, nested JSON, arbitrary values, runtime logs, backups,
+third-party retention or undocumented database state. It does not grant a
+lawful basis, approve retention periods, modify MiniPC, or close AC-304.1.
+The ticket remains `IN PROGRESS` and production/publication remains blocked.
