@@ -149,3 +149,48 @@ real candidate mapping, authenticated transactional persistence/idempotency,
 measured isolated-vs-batch cost/latency/error rates, and MiniPC+Studio
 consumer readback with no public contamination remain external gates.
 **Status IN PROGRESS; release NO-GO.**
+
+## 2026-10-12 — Local SQLite per-Passage observation ledger and restart
+
+Added `poc/dichiarazioni_pubbliche/multi_person_batch_store_v1.py` and
+`tests/test_dp240_durable_batch_next.py` as an **opt-in local-only operator
+store**, without modifying the existing planner, pure reconciler, Candidate
+pipeline or production schema. Each registered immutable plan binds the exact
+ordered manifest fingerprint and Content/Capture/source SHA/Passage text SHA,
+selector, isolated partition, candidate Person, language, role, contextual
+review and rights status. SQLite stores source-bound metadata and one immutable
+attempt observation per Passage, with a unique idempotency key. `BEGIN IMMEDIATE`
+and a compare-and-swap revision ensure that concurrent writers cannot overwrite
+or lose each other's updates. Duplicate same-key/same-result replay returns the
+current receipt without mutating it. A different result/key cannot rewrite an
+already observed `FAILED`, `HELD`, or private unverified candidate; other
+`UNOBSERVED` items may be resumed independently, including after restart in
+a **separate Python process** using only the durable plan fingerprint: `load_plan`
+reconstructs the canonical immutable plan and `resume` rebuilds its receipts.
+Malformed or rehashed Person context in the stored plan fails closed. A rollback
+fault injected after an attempted
+INSERT but before revision update proved both changes remain absent on failure.
+
+SQLite readback reconstructs both the existing pure per-item receipt index and
+the status-only reconciler; individual operator lookup requires the exact
+Content, Capture, source hash, Passage hash, selector and candidate Person.
+A RED regression caught an otherwise accepted mismatched item/observation pair
+within the same plan; write-time checks and independently verified stored
+readback now reject it. Further adversarial tests cover wrong source/segment/
+candidate identity, a held quoted speaker or rights revocation, attempts to
+change a committed failure to success, idempotency-key reuse, distinct plan
+fingerprints, actual competing SQLite connections, tampered rows and accidental
+free-form text in result metadata. Database files are mode 0600; readback opens
+SQLite read-only and does not create an uninitialized database.
+
+**Validation:** eleven new SQLite tests PASS, including process restart, injected
+transaction rollback and two concurrent writers. Together with existing
+DP-240 and CandidateBatch plus adjacent DP-242 Studio handoff coverage
+**70/70 tests PASS**; Ruff, targeted
+`compileall`, and `git diff --check` PASS. Test data and result observations
+are synthetic and caller-supplied. The persisted hashes detect accidental
+inconsistency, **not** authenticated provider execution or current upstream
+source/rights approval. No actual model output, independently annotated gold,
+live source revalidation, cost/accuracy benchmark, runtime MiniPC/Studio proof,
+public attribution, reviewer or publication authority was established.
+Consequently **AC-240.1–.6 remain unchecked, ticket IN PROGRESS, NO-GO**.
