@@ -55,6 +55,20 @@ I primi due richiedono un confronto hunk-per-hunk prima di dichiarare recuperato
 ogni frammento. Conservare gli oggetti e l'eventuale backup **senza**
 creare branch/merge o eliminare artefatti automaticamente.
 
+**Confronto supplementare, stesso giorno:** la differenza dell'oggetto
+`30c3c895` rispetto al successivo reachable `1e15db5` nel
+`local_claim_ollama.py` è la rimozione del segnaposto
+`LOCAL_NO_REMOTE_KEY` a favore di una stringa vuota, con commento che
+chiarisce che il trasporto locale non manda credenziali: il comportamento
+successivo risulta più sicuro e non va ripristinato quello dell'orfano.
+Il diff tra l'oggetto `53076941` e il successivo `f0357ba`
+consiste in 27 righe di inventario fixture e 15 righe di generatore
+aggiunte/modificate nel commit successivo, non in un file di esecuzione
+perso. La terza patch brand è già identical per patch-id. **Non sono
+state trovate patch orfane da applicare alla cieca**, e tutti gli
+oggetti sono conservati sotto ref dedicati per eventuali verifiche
+successive.
+
 **Preservazione attiva eseguita dopo l'audit:** creati tre ref di sola
 conservazione `refs/archive/dpub-20261011/orphan-{ollama-30c3c895,
 ops-53076941,brand-2f594812}` mediante `git update-ref`
@@ -160,6 +174,14 @@ provider, contenuto pubblico, checkpoint runtime o AC viene inventato.
 Questi test locali NON sostituiscono le prove del MiniPC o le firme
 editoriali e legali. La sincronizzazione completa del mirror non è
 stata tentata.
+
+**Verifica aggiuntiva del 11 ottobre, precedente alla successiva tranche
+di implementazione:** nel checkout `web`, `npm run check`
+ha esaminato 89 file Astro con 0 errori, 0 warning e 0 hint;
+`check:statement`, `check:statement-parity`,
+`check:search` e `check:projection-boundary`
+sono PASS. Sono controlli sintetici su consumer/indice/isolamento
+della proiezione: non dimostrano una release pubblica su dati approvati.
 
 ### Gate di prodotto non superati
 

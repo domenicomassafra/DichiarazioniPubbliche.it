@@ -1,5 +1,19 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nona tranche locale, 11 ottobre 2026 — sviluppo + riconciliazione:**
+[verbale implementazione DP-235/321/443 e checker CI](docs/reviews/2026-10-11-post-reconciliation-ticket-wave.md).
+Commit sorgente/test locali `7fb263d` (DP-235), `30ce724` (DP-321),
+`970191c` (DP-443, proposta di verifica sempre NO-GO);
+`d72b47f` riallinea milestone e checker PLAN/ticket. **2819/2819**
+test Python PASS (182.932 s) e restore drill PASS, benchmark sintetico
+5/5 PASS, Astro check 89 file con 0 diagnostici e quattro controlli
+web di statement/parità/ricerca/confine pubblico PASS, Ruff/formatter
+dei nuovi moduli PASS, repository contract PASS. Registro:
+**162 totali, 90 DONE, 52 IN PROGRESS, 6 BLOCKED, 14 FUTURE, 72 non DONE**.
+Preflight **NO-GO/49** invariato e corretto. DP-443 è ancora FUTURE:
+nessuna fonte autentica autorizzata né firma, MiniPC DB/reader, review
+qualificata o rollout. **Nessun push, deploy o spesa provider.**
+
 **Ricognizione multi-host e ultimo checkpoint QA del 11 ottobre:**
 [WIP/Git/ticket/MiniPC/four-host reconciliation](docs/reviews/2026-10-11-four-host-wip-reconciliation.md).
 Il registro canonico è allineato dopo DP-235 (162 ticket: 90 DONE,
