@@ -40,7 +40,51 @@ Hard dependencies above establish private source, semantic/verification and vers
 
 ## Validation / proof
 
-Future authorized immutable source receipts, MiniPC DB→web/API readback, negative privacy/rights tests, cost ledger, correction/revocation race and rollback. This documentation phase performs none of those operations.
+Future authorized immutable source receipts, MiniPC DB→web/API readback, negative privacy/rights tests, cost ledger, correction/revocation race and rollback. This source-only tranche performs none of those operations.
+
+### Source-only readiness contract — 11 October 2026
+
+`poc/dichiarazioni_pubbliche/first_integrated_pilot_readiness_v1.py` now provides
+`evaluate_first_integrated_pilot_readiness(manifest, lineage, proofs)`. It accepts a
+**single-sample** frozen `PrivatePilotManifest` from DP-235 and source-only
+`PilotLineage` plus bounded, *externally attested but locally unauthenticated*
+`PilotProof` references. The lineage binds source/version, Capture, Passage,
+original quote, Statement, Git commit, MiniPC host and **distinct** before,
+correction and withdrawal projection fingerprints. The sample's DP-235
+source/version/rights scope and proposed-state validation must pass.
+
+Twenty positive proof categories require an external reference, signer and digest
+for manifest, rights, Capture/Passage, original Statement, factual
+result/abstention, separate opinion, Person×Topic, API/HTML/search/linked-data,
+correction/reply, revocation, MiniPC reader/DB readback, independent gold,
+legal/privacy/editorial review, costs/rollback and explicit scaling decision.
+Five negative `HOLD` categories cover unauthorized rights, misattribution,
+unsupported inference, revoked replay and private-body leakage. Each stage
+must bind to the same immutable manifest/lineage fingerprint; duplicate/stale
+receipts, wrong MiniPC host and reused qualified signer are held. Receipts
+are never fetched, signed or verified by this source-only module.
+
+**The returned disposition is always `NO-GO`; `scaling_authorized` is always
+`False`.** `packet_complete=True` means only that every prescribed receipt
+*slot and binding* was supplied with structurally valid metadata, **not** that
+the receipts, public readers, source rights, signers, gold independence or
+rollback have been authenticated. Operator review must independently check
+actual signer identity/signatures, rights scope, source bytes, provenance,
+the complete MiniPC PostgreSQL → reader/cache fingerprint readback and any
+qualified owner decision. No integration/deploy hook consumes this result.
+This deliberately implements one narrow preparatory vertical slice; it does
+not prove the full multi-person/language pilot matrix, nor grant dispatch.
+
+Focused verification:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest discover -s tests -p 'test_dp443_first_integrated_pilot_readiness.py' -v
+```
+
+**14/14 PASS** (plus **13/13** related DP-235 tests), synthetic metadata only.
+The test for a complete-looking
+set of references explicitly requires `NO-GO`, and absent/forged receipts
+fail closed. No source/provider/DB/network input or public publication was used.
 
 ## Documentation, data, and migration impact
 
@@ -48,4 +92,6 @@ Use existing source/corpus/policy/public projection/ledger systems; capture a ve
 
 ## Completion receipt
 
-2026-10-10: planning only, NOT IMPLEMENTED; all seven AC unchecked.
+2026-10-10: planning only. 2026-10-11: source-only readiness validator and
+synthetic regression tests added; **no real pilot executed, all seven AC
+remain unchecked**, and there is no authority to scale or release.
