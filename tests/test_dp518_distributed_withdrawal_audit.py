@@ -16,9 +16,11 @@ from dichiarazioni_pubbliche.revocation_epoch_fence import (
 from dichiarazioni_pubbliche.distributed_withdrawal_audit_v1 import (
     REQUIRED_PUBLIC_CONSUMERS,
     ReleaseArtifact,
+    ReleaseReadback,
     ReleaseSnapshot,
     PublicReadback,
     audit_withdrawal_readback,
+    release_inventory_sha256,
 )
 
 H = "a" * 64
@@ -66,15 +68,128 @@ def fixture(*, withdrawn=True):
     return snapshot, probes
 
 
+def release_readback(snapshot):
+    return ReleaseReadback(
+        snapshot.release_id,
+        snapshot.host_ref,
+        snapshot.code_sha256,
+        snapshot.mirror_sha256,
+        snapshot.migration_sha256,
+        snapshot.policy_sha256,
+        snapshot.generation_sha256,
+        snapshot.fence.fingerprint,
+        release_inventory_sha256(snapshot.artifacts),
+    )
+
+
 class DistributedWithdrawalAuditTests(unittest.TestCase):
     def audit(self, manifest=None, probes=None, **changes):
         source, readback = fixture()
+        snapshot = manifest or source
         return audit_withdrawal_readback(
-            manifest or source,
+            snapshot,
             readback if probes is None else probes,
             revoked_dependencies=("rights:1",),
+            observed_release=changes.pop("observed_release", release_readback(snapshot)),
             **changes,
         )
+
+    def test_exact_release_readback_rejects_rollback_and_inventory_tamper(self):
+        manifest, probes = fixture()
+        observed = release_readback(manifest)
+        for changed in (
+            replace(manifest, code_sha256=HB),
+            replace(manifest, mirror_sha256=H),
+            replace(manifest, migration_sha256=H),
+            replace(manifest, policy_sha256=HB),
+            replace(manifest, generation_sha256=H),
+            replace(
+                manifest,
+                artifacts=(
+                    replace(manifest.artifacts[0], dependency_refs=("rights:1",)),
+                    *manifest.artifacts[1:],
+                ),
+            ),
+        ):
+            with self.subTest(changed=changed):
+                audit = self.audit(changed, probes, observed_release=observed)
+                self.assertEqual(audit.status, "READBACK_UNTRUSTED_OR_DRIFT")
+                self.assertIn("RELEASE_IDENTITY_READBACK_DRIFT", audit.sanitized_reason_codes)
+                self.assertFalse(audit.release_authorized)
+        for observed_wrong in (
+            replace(observed, release_id="release:rollback"),
+            replace(observed, host_ref="host:rollback"),
+            replace(observed, fence_fingerprint=H),
+            replace(observed, inventory_sha256=H),
+        ):
+            with self.subTest(observed_wrong=observed_wrong):
+                outcome = self.audit(manifest, probes, observed_release=observed_wrong)
+                self.assertEqual(outcome.status, "READBACK_UNTRUSTED_OR_DRIFT")
+
+    def test_missing_or_malformed_release_readback_refuses(self):
+        manifest, probes = fixture()
+        with self.assertRaisesRegex(ValueError, "DP518_RELEASE_READBACK_INVALID"):
+            self.audit(manifest, probes, observed_release=None)
+        with self.assertRaisesRegex(ValueError, "DP518_RELEASE_READBACK_INVALID"):
+            self.audit(
+                manifest,
+                probes,
+                observed_release=replace(release_readback(manifest), code_sha256="invalid"),
+            )
+
+    def test_disjoint_revoked_dependencies_do_not_cross_contaminate_entities(self):
+        manifest, probes = fixture()
+
+        def entity_rows(entity, dependency):
+            return tuple(
+                replace(row, entity_id=entity, dependency_refs=(dependency,))
+                for row in manifest.artifacts
+            )
+
+        def entity_probes(entity):
+            return tuple(replace(row, entity_id=entity) for row in probes)
+
+        split = replace(
+            manifest,
+            artifacts=entity_rows("person:1", "rights:1") + entity_rows("person:2", "source:1"),
+        )
+        outcome = audit_withdrawal_readback(
+            split,
+            entity_probes("person:1") + entity_probes("person:2"),
+            revoked_dependencies=("rights:1", "source:1"),
+            observed_release=release_readback(split),
+        )
+        self.assertEqual(outcome.status, "CONSISTENT_UNATTESTED")
+        self.assertEqual(outcome.surface_count, len(REQUIRED_PUBLIC_CONSUMERS) * 2)
+
+        # The relaxed disjoint check must not hide a source:1 dependency omitted
+        # by one public surface of person:2 while others still link source:1.
+        wrong = replace(
+            split,
+            artifacts=(
+                *split.artifacts[:len(REQUIRED_PUBLIC_CONSUMERS)],
+                replace(split.artifacts[len(REQUIRED_PUBLIC_CONSUMERS)], dependency_refs=("rights:1",)),
+                *split.artifacts[len(REQUIRED_PUBLIC_CONSUMERS) + 1:],
+            ),
+        )
+        drift = audit_withdrawal_readback(
+            wrong,
+            entity_probes("person:1") + entity_probes("person:2"),
+            revoked_dependencies=("rights:1", "source:1"),
+            observed_release=release_readback(wrong),
+        )
+        self.assertEqual(drift.status, "READBACK_UNTRUSTED_OR_DRIFT")
+        self.assertIn("PUBLIC_CONSUMER_DEPENDENCY_INCOMPLETE", drift.sanitized_reason_codes)
+
+    def test_cached_old_200_on_edge_is_unsafe_even_with_clean_origin_generation(self):
+        manifest, probes = fixture()
+        edge = next(row for row in probes if row.surface == "CACHE_EDGE")
+        stale_edge = replace(edge, status_code=200, body_sha256=J)
+        other_probes = tuple(stale_edge if row.surface == "CACHE_EDGE" else row for row in probes)
+        outcome = self.audit(manifest, other_probes)
+        self.assertEqual(outcome.status, "UNSAFE_PUBLIC_VISIBILITY")
+        self.assertIn("CACHE_EDGE", outcome.unsafe_surfaces)
+        self.assertFalse(outcome.cache_purge_verified)
 
     def test_complete_withdrawal_remains_contract_only_without_real_authority(self):
         outcome = self.audit()

@@ -58,3 +58,25 @@ Source/test commit `8bd5cc5`: **11 targeted DP-518 tests** and the existing
 multi-writer PostgreSQL fence, HTTP/CDN invalidation, atomic deployment pointer,
 provider-outage hold, measured propagation time, signed owner acceptance or
 verified rollback. **AC-518.1–.7 remain open** and release remains NO-GO.
+
+**2026-10-11 — follow-up: offline release identity and disjoint dependency regression.**
+The offline checker now requires a separately supplied `ReleaseReadback` with
+the exact release/host, code, MiniPC mirror, migration, policy, generation,
+DP-320 fence and canonical public-artifact inventory SHA-256. Missing or
+malformed release readback refuses the audit; discrepancies fail closed as
+`READBACK_UNTRUSTED_OR_DRIFT` / `RELEASE_IDENTITY_READBACK_DRIFT`. This
+detects self-consistent 404 probe sets paired with an altered release or
+rollback inventory, a gap in the initial checker, but **does not attest**
+where the supplied readback came from. The release ID is not yet a durable,
+signed, operator-approved immutable deployment reference. A live 404 remains
+insufficient to prove all browser/CDN caches have been invalidated.
+
+For simultaneous revocation of unrelated dependencies across different
+public entities, the consumer graph now requires exact per-entity dependency
+coverage rather than every entity depending on all globally revoked sources.
+The disjoint case passes, while missing dependency on one surface and
+cached `200` from `CACHE_EDGE` are rejected. Code-only tests remain
+independent of any MiniPC/rights source, transactional provider, HTTP
+fetch or production mutation. Acceptance `AC-518.1` through `AC-518.7`
+remain unchecked; real owner/source approval, MiniPC release/readback,
+cache purge and rollback rehearsal are external blockers, release NO-GO.

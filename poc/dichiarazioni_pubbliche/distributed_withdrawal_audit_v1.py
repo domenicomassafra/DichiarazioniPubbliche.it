@@ -9,6 +9,8 @@ and sign actual host, CDN and source records with transactional verification.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 
@@ -66,6 +68,21 @@ class ReleaseSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ReleaseReadback:
+    """Independently gathered release metadata; caller supplied, never attested here."""
+
+    release_id: str
+    host_ref: str
+    code_sha256: str
+    mirror_sha256: str
+    migration_sha256: str
+    policy_sha256: str
+    generation_sha256: str
+    fence_fingerprint: str
+    inventory_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class PublicReadback:
     entity_id: str
     surface: str
@@ -106,6 +123,17 @@ def _ref(value: object) -> bool:
 
 def _sha(value: object) -> bool:
     return isinstance(value, str) and _SHA.fullmatch(value) is not None
+
+
+def release_inventory_sha256(artifacts: tuple[ReleaseArtifact, ...]) -> str:
+    """Canonical inventory checksum; it does not prove who measured the bytes."""
+    rows = [
+        (row.entity_id, row.surface, row.state, row.artifact_sha256, row.dependency_refs)
+        for row in sorted(artifacts, key=lambda row: (row.entity_id, row.surface))
+    ]
+    return hashlib.sha256(
+        json.dumps(rows, ensure_ascii=True, separators=(",", ":")).encode("ascii")
+    ).hexdigest()
 
 
 def _fence_ok(ticket: PublicationEpochTicket) -> bool:
@@ -193,6 +221,7 @@ def audit_withdrawal_readback(
     readbacks: tuple[PublicReadback, ...],
     *,
     revoked_dependencies: tuple[str, ...],
+    observed_release: ReleaseReadback,
     current_fence: PublicationEpochTicket | None = None,
 ) -> WithdrawalReadbackAudit:
     """Compare *supplied* sanitized metadata, with all real authority absent.
@@ -213,6 +242,41 @@ def audit_withdrawal_readback(
     dependencies = {item.dependency_id for item in manifest.fence.dependencies}
     if not revocations.issubset(dependencies):
         raise ValueError("DP518_REVOCATION_FENCE_SCOPE_MISSING")
+    if (
+        not isinstance(observed_release, ReleaseReadback)
+        or not _ref(observed_release.release_id)
+        or not _ref(observed_release.host_ref)
+        or not all(
+            _sha(value)
+            for value in (
+                observed_release.code_sha256,
+                observed_release.mirror_sha256,
+                observed_release.migration_sha256,
+                observed_release.policy_sha256,
+                observed_release.generation_sha256,
+                observed_release.fence_fingerprint,
+                observed_release.inventory_sha256,
+            )
+        )
+    ):
+        raise ValueError("DP518_RELEASE_READBACK_INVALID")
+    if observed_release != ReleaseReadback(
+        manifest.release_id,
+        manifest.host_ref,
+        manifest.code_sha256,
+        manifest.mirror_sha256,
+        manifest.migration_sha256,
+        manifest.policy_sha256,
+        manifest.generation_sha256,
+        manifest.fence.fingerprint,
+        release_inventory_sha256(manifest.artifacts),
+    ):
+        return WithdrawalReadbackAudit(
+            "READBACK_UNTRUSTED_OR_DRIFT",
+            ("RELEASE_IDENTITY_READBACK_DRIFT",),
+            len(inventory),
+            (),
+        )
     if current_fence is not None:
         if (
             not _fence_ok(current_fence)
@@ -249,11 +313,12 @@ def audit_withdrawal_readback(
     if set(observed) - set(inventory):
         raise ValueError("DP518_READBACK_UNSCOPED")
 
-    affected = {
-        entity
-        for (entity, _), artifact in inventory.items()
-        if revocations.intersection(artifact.dependency_refs)
-    }
+    revoked_by_entity: dict[str, set[str]] = {}
+    for (entity, _), artifact in inventory.items():
+        overlap = revocations.intersection(artifact.dependency_refs)
+        if overlap:
+            revoked_by_entity.setdefault(entity, set()).update(overlap)
+    affected = set(revoked_by_entity)
     if not affected:
         return WithdrawalReadbackAudit(
             "INCOMPLETE_PUBLIC_COVERAGE",
@@ -279,7 +344,7 @@ def audit_withdrawal_readback(
     errors: set[str] = set()
     for key in sorted(needs):
         artifact, observed_row = inventory[key], observed[key]
-        if not revocations.issubset(artifact.dependency_refs):
+        if not revoked_by_entity[artifact.entity_id].issubset(artifact.dependency_refs):
             errors.add("PUBLIC_CONSUMER_DEPENDENCY_INCOMPLETE")
         if artifact.state != "ABSENT":
             unsafe.add(artifact.surface)
@@ -311,8 +376,10 @@ def audit_withdrawal_readback(
 __all__ = [
     "REQUIRED_PUBLIC_CONSUMERS",
     "ReleaseArtifact",
+    "ReleaseReadback",
     "ReleaseSnapshot",
     "PublicReadback",
     "WithdrawalReadbackAudit",
     "audit_withdrawal_readback",
+    "release_inventory_sha256",
 ]
