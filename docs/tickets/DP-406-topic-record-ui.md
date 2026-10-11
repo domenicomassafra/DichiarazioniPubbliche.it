@@ -218,6 +218,60 @@ the similar labels remain separate stable routes rather than being merged by dis
 The same populated Topic links the approved Trace and the corrected Statement history. Current
 `check:corrections` verifies version-aware history links from derived surfaces, while DP-430 tests
 prove private/rejected memberships are omitted and malformed/stale Topic material fails closed.
+
+### 2026-10-11 — Standalone DP-439 opt-in original-opinion Topic dossier
+
+The existing canonical `TopicRecord.astro` and production `/temi/{slug}/` routes
+remain unchanged. An independent, strictly opt-in `PublicTopicV3.astro`
+consumes **only** the offline, separately reviewed DP-439
+`public-person-topic-v3-opt-in` Person×Topic original-OPINION intersection.
+It does not look up private Content/Passages, classify Topic from words,
+reconstruct membership, fabricate publication rights, run providers or create
+routes. Its caller must supply an explicitly approved stable Topic object and
+**independent** SHA-256 pins for the complete Topic record, intersection
+collection, source Statement release and Person release, together with a
+separate current validity deadline and `allowTopicV3=true`. A hash derived
+solely from untrusted inputs is *not* review authority. The component refuses
+expired, mismatched, missing or tampered inputs instead of falling back to a
+demo projection or silently displaying an older authorized release.
+
+The bounded dossier shows the approved Topic name/scope, chronology of the
+already-published original OPINION quote with original wording, source URL,
+version, date, Statement and Person links, as well as an alphabetical Person
+index and independent source list. It has keyboard-native date/source filters,
+a live result-count announcement and a single-column narrow-viewport layout.
+It does **not** show a Finding verdict, a person ranking or an opinion inferred
+from a text search. The same display-name Topic labels resolve by stable
+`topic_id` and independently pinned entity record, never by name. An approved
+Topic with zero approved intersections displays an explicit public boundary
+and Explore/Method links; no count or metadata from privately held rows is
+revealed. Every included statement is checked against its separately pinned
+collection for exact public Statement/Person/Topic identities, quote SHA,
+date, safe link routes, source version/hash and original locator semantics.
+
+`web/scripts/check-public-topic-v3.mjs` runs a **real Astro static SSR build**
+in a disposable temporary site, using the genuine synthetic DP-439 Python
+producer fixture. Tests exercise populated, zero intersection, two homonymous
+Topics, original source/Statement/Person links, accessible filter markup,
+latest-first date order, withdrawal against the old independently supplied
+collection pin, expired validity, unopted route, unknown Topic, other Topic
+digest, forged quote and cross-origin Person link. The first RED run failed
+because the new component did not exist; GREEN is recorded by the script.
+The fixture is fictional and is never installed as a production route or
+treated as real legal permission. `npm run check` reports 0 errors, warnings
+or hints. No changes to DP-439, `TopicRecord.astro`, global design tokens,
+public API, release routing, MiniPC or production data.
+
+**Original runtime/acceptance boundaries remain:** this is an isolated
+consumer prerequisite, not proof that the real MiniPC Topic release contains
+an independently reviewed, rights-permitted OPINION membership. The canonical
+production route still serves its existing DP-430/TopicRecord contract; the
+new opt-in component has no production route, live reviewed Trace/correction
+integration or provider confirmation. AC-406.6's manual keyboard, 200% zoom,
+screen-reader and device QA remain unverified, and actual MiniPC snapshot,
+external release signer and lawful publication gates must precede production
+enablement. Historical acceptance checkboxes above refer to the earlier
+canonical TopicRecord implementation and are not newly asserted here.
 Focused `test_public_topics`, relation/public-projection coverage, route checks and rendered HTML
 inspection are green. This closes AC-406.1/.2/.3/.4/.5 and the ownership-only AC-406.8 at the
 machine/contract level.

@@ -1,0 +1,287 @@
+---
+/**
+ * DP-406/439 opt-in Topic dossier. Standalone server-rendered consumer of an
+ * independently pinned, already-public Person×Topic release; NOT a new route,
+ * private query, Topic classifier, promotion or rights/publication decision.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { canonicalJson } from "../lib/searchIndex.ts";
+import { publicIdSlug, formatDate } from "../lib/format.ts";
+import { createHash } from "node:crypto";
+
+interface Props {
+  collection: unknown;
+  topic: unknown;
+  topicId: string;
+  expectedCollectionSha256: string;
+  expectedSourceDatasetSha256: string;
+  expectedPeopleDatasetSha256: string;
+  expectedTopicSha256: string;
+  validUntil: string;
+  allowTopicV3?: boolean;
+}
+type Rec = Record<string, unknown>;
+const { collection, topic, topicId, expectedCollectionSha256,
+  expectedSourceDatasetSha256, expectedPeopleDatasetSha256, expectedTopicSha256,
+  validUntil, allowTopicV3 = false } = Astro.props;
+const HASH = /^[a-f0-9]{64}$/;
+const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const LANGUAGE = /^[a-z]{2,3}(?:-[A-Za-z]{2,8})?$/;
+const hasText = (x: unknown): x is string => typeof x === "string" && x.trim().length > 0;
+const isObj = (x: unknown): x is Rec => x !== null && typeof x === "object" && !Array.isArray(x);
+const digest = (x: unknown) => createHash("sha256").update(canonicalJson(x)).digest("hex");
+const reject = (why: string): never => { throw new Error(`PUBLIC_TOPIC_V3_${why}`); };
+function exact(value: unknown, keys: string[], reason: string): asserts value is Rec {
+  if (!isObj(value) || Object.keys(value).length !== keys.length ||
+      keys.some((key) => !Object.hasOwn(value, key))) reject(reason);
+}
+const date = (x: unknown): x is string => {
+  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+  const stamp = new Date(x);
+  return Number.isFinite(stamp.getTime()) && stamp.toISOString().slice(0, 10) === x;
+};
+const https = (x: unknown): x is string => {
+  if (!hasText(x)) return false;
+  try {
+    const url = new URL(x);
+    return url.protocol === "https:" && !!url.hostname && !url.username && !url.password;
+  } catch { return false; }
+};
+const instant = (x: unknown) => {
+  if (typeof x !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(x)) return NaN;
+  return Date.parse(x);
+};
+
+// A caller-calculated digest is *not* authorization. All pins, Topic identity,
+// and the release's time window must come from the independent public owner.
+if (allowTopicV3 !== true) reject("OPT_IN_REQUIRED");
+if (!ID.test(topicId) || ![expectedCollectionSha256,
+  expectedSourceDatasetSha256, expectedPeopleDatasetSha256,
+  expectedTopicSha256].every((v) => HASH.test(v))) reject("EXTERNAL_PINS_REQUIRED");
+const now = Date.now();
+const expires = instant(validUntil);
+if (!Number.isFinite(expires) || now >= expires) reject("RELEASE_EXPIRED");
+
+exact(collection, ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+  "generated_at", "coverage_note", "status", "result_count", "data",
+  "dataset_sha256", "provider_calls"], "COLLECTION_INVALID");
+if (collection.schema_version !== "public-person-topic-v3-opt-in" ||
+    collection.dataset_sha256 !== expectedCollectionSha256 ||
+    collection.source_dataset_sha256 !== expectedSourceDatasetSha256 ||
+    collection.person_dataset_sha256 !== expectedPeopleDatasetSha256 ||
+    typeof collection.coverage_note !== "string" || !collection.coverage_note.trim() ||
+    collection.coverage_note.length > 400 || /[\x00-\x1f]/.test(collection.coverage_note) ||
+    collection.provider_calls !== 0 || !Array.isArray(collection.data) ||
+    collection.data.length > 10000 ||
+    !Number.isSafeInteger(collection.result_count) ||
+    collection.result_count !== collection.data.length ||
+    !["READY", "EMPTY_PUBLIC_CORPUS", "EMPTY_PUBLIC_INTERSECTION"].includes(String(collection.status)) ||
+    (collection.status === "READY") !== (collection.data.length > 0)) reject("COLLECTION_INCOMPATIBLE");
+const generated = instant(collection.generated_at);
+if (!Number.isFinite(generated) || generated > now || expires <= generated) reject("SNAPSHOT_NOT_CURRENT");
+const material: Rec = {};
+for (const key of ["schema_version", "source_dataset_sha256", "person_dataset_sha256",
+  "generated_at", "coverage_note", "status", "result_count", "data"]) {
+  material[key] = collection[key];
+}
+if (digest(material) !== expectedCollectionSha256) reject("STALE_OR_TAMPERED_COLLECTION");
+
+exact(topic, ["topic_id", "slug", "canonical_name", "scope_text", "entity_version",
+  "review_event_ids", "memberships"], "TOPIC_FIELDS_INVALID");
+if (topic.topic_id !== topicId || !ID.test(String(topic.topic_id)) ||
+    !SLUG.test(String(topic.slug)) || !hasText(topic.canonical_name) ||
+    topic.canonical_name.length > 160 || !ID.test(String(topic.entity_version)) ||
+    (topic.scope_text !== null && (typeof topic.scope_text !== "string" || topic.scope_text.length > 400)) ||
+    !Array.isArray(topic.review_event_ids) || topic.review_event_ids.length === 0 ||
+    topic.review_event_ids.some((id) => !ID.test(String(id))) ||
+    !Array.isArray(topic.memberships) || digest(topic) !== expectedTopicSha256) reject("TOPIC_NOT_APPROVED_OR_CURRENT");
+const route = `/temi/${topic.slug}/`;
+
+type Item = {
+  statement_id: string; version_id: string; statement_date: string;
+  statement_route: string; person_id: string; person_route: string;
+  topic_id: string; topic_route: string;
+  statement: {person:{id:string;name:string};source:{title:string;url:string;content_id:string;version_id:string;sha256:string;kind:string};
+    original:{text:string; language:string;quote_sha256:string;wording_type:string;locator:Rec};finding_id:string|null};
+};
+const rows: Item[] = [];
+const seen = new Set<string>();
+for (const value of collection.data as unknown[]) {
+  exact(value, ["statement_id", "version_id", "statement_route", "statement_date",
+    "person_id", "person_route", "topic_id", "topic_route", "statement"], "ROW_FIELDS_INVALID");
+  exact(value.statement, ["statement_id", "version_id", "statement_date", "person",
+    "source", "original", "speech_act", "endorsed", "finding_id", "summary", "translation"], "STATEMENT_FIELDS_INVALID");
+  const s = value.statement;
+  exact(s.person, ["id", "name"], "PERSON_FIELDS_INVALID");
+  exact(s.source, ["content_id", "title", "url", "version_id", "sha256", "kind"], "SOURCE_FIELDS_INVALID");
+  exact(s.original, ["wording_type", "text", "language", "quote_sha256", "locator"], "QUOTE_FIELDS_INVALID");
+  const o = s.original;
+  if (!ID.test(String(value.statement_id)) || !ID.test(String(value.version_id)) ||
+      !ID.test(String(value.person_id)) || !ID.test(String(value.topic_id)) ||
+      !/^\/temi\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/.test(String(value.topic_route)) ||
+      value.statement_route !== `/dichiarazioni/${publicIdSlug(String(value.statement_id))}/` ||
+      !/^\/persone\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/.test(String(value.person_route)) ||
+      !date(value.statement_date) || value.statement_id !== s.statement_id ||
+      value.version_id !== s.version_id || value.statement_date !== s.statement_date ||
+      value.person_id !== s.person.id || !hasText(s.person.name) ||
+      !ID.test(String(s.source.content_id)) || !ID.test(String(s.source.version_id)) ||
+      !hasText(s.source.title) || !https(s.source.url) || !HASH.test(String(s.source.sha256)) ||
+      !["WRITTEN", "TIMED"].includes(String(s.source.kind)) ||
+      s.speech_act !== "OPINION" || s.endorsed !== true ||
+      o.wording_type !== "VERBATIM_ORIGINAL" || !hasText(o.text) || o.text.length > 2000 ||
+      !LANGUAGE.test(String(o.language)) || !HASH.test(String(o.quote_sha256)) ||
+      createHash("sha256").update(o.text as string).digest("hex") !== o.quote_sha256 ||
+      (s.finding_id !== null && !ID.test(String(s.finding_id)))) reject("ROW_AUTHORITY_INVALID");
+  const locator = o.locator;
+  if (!isObj(locator) || !Number.isSafeInteger(locator.start_char) || !Number.isSafeInteger(locator.end_char) ||
+      (locator.start_char as number) < 0 ||
+      (locator.end_char as number) - (locator.start_char as number) !== [...(o.text as string)].length ||
+      (s.source.kind === "WRITTEN" && Object.keys(locator).sort().join() !== "end_char,start_char") ||
+      (s.source.kind === "TIMED" && (Object.keys(locator).sort().join() !== "end_char,end_ms,segment_id,start_char,start_ms" ||
+        !ID.test(String(locator.segment_id)) || !Number.isSafeInteger(locator.start_ms) ||
+        !Number.isSafeInteger(locator.end_ms) || (locator.start_ms as number) < 0 ||
+        (locator.end_ms as number) <= (locator.start_ms as number)))) reject("LOCATOR_INVALID");
+  const unique = `${value.statement_id}\u001f${value.version_id}\u001f${value.topic_id}`;
+  if (seen.has(unique)) reject("DUPLICATE_ROW");
+  seen.add(unique);
+  if (value.topic_id === topicId) {
+    if (value.topic_route !== route) reject("TOPIC_ROUTE_MISMATCH");
+    rows.push(value as unknown as Item);
+  }
+}
+rows.sort((a, b) => b.statement_date.localeCompare(a.statement_date) ||
+  a.statement_id.localeCompare(b.statement_id) || a.version_id.localeCompare(b.version_id));
+const people = [...new Map(rows.map((row) => [row.person_id,
+  { name: row.statement.person.name, route: row.person_route, id: row.person_id }])).values()]
+  .sort((a, b) => a.name.localeCompare(b.name, "it") || a.id.localeCompare(b.id));
+const sources = [...new Map(rows.map((row) => [row.statement.source.content_id,
+  { title: row.statement.source.title, url: row.statement.source.url,
+    id: row.statement.source.content_id }])).values()]
+  .sort((a, b) => a.title.localeCompare(b.title, "it") || a.id.localeCompare(b.id));
+---
+
+<BaseLayout title={String(topic.canonical_name)} description={String(topic.scope_text || "Dossier pubblico di dichiarazioni originali sul tema approvato.")} canonicalPath={route}>
+  <header class="record-header topic-header" data-public-topic-v3={expectedCollectionSha256}>
+    <div class="shell">
+      <div class="eyebrow">Tema · dossier di parole originali</div>
+      <h1 class="page-title">{topic.canonical_name}</h1>
+      {topic.scope_text && <p class="lede">{topic.scope_text}</p>}
+      <p>Questo archivio raccoglie soltanto opinioni pubbliche attribuite e collegate al Tema tramite appartenenze revisionate. Non classifica persone né attribuisce un verdetto al Tema.</p>
+    </div>
+  </header>
+  <div class="shell topic-v3-dossier page-section-tight" data-topic-v3-root>
+    <section aria-labelledby="topic-v3-statements" class="topic-v3-primary">
+      <h2 id="topic-v3-statements" class="section-title section-title-sm">Opinioni pubblicate sul Tema</h2>
+      <p>{collection.coverage_note}</p>
+      {rows.length === 0 ? (
+        <div class="dp-utility-empty" data-public-topic-empty>
+          <h3>Nessuna opinione pubblicata disponibile per questo Tema</h3>
+          <p>L'assenza di record in questo snapshot non significa che la posizione di una persona sia conosciuta, né rivela materiali privati o ancora in revisione.</p>
+          <p><a href="/esplora/">Esplora il registro</a> · <a href="/metodo/">Come funziona il metodo</a></p>
+        </div>
+      ) : (
+        <>
+          <form class="record-filter-toolbar topic-v3-controls" data-topic-v3-form aria-label="Filtri delle opinioni pubbliche">
+            <label>Fonte
+              <select name="source" data-topic-v3-source>
+                <option value="">Tutte le fonti</option>
+                {sources.map((source) => <option value={source.id}>{source.title}</option>)}
+              </select>
+            </label>
+            <label>Dal <input name="from" type="date" /></label>
+            <label>Al <input name="to" type="date" /></label>
+            <button type="reset">Azzera filtri</button>
+            <span role="status" aria-live="polite" aria-atomic="true" data-topic-v3-count>{rows.length} opinioni pubbliche</span>
+          </form>
+          <ol class="claim-list topic-v3-items" data-topic-v3-list>
+            {rows.map((row) => (
+              <li data-topic-v3-row data-source={row.statement.source.content_id} data-date={row.statement_date}>
+                <article class="topic-v3-row">
+                  <p class="eyebrow"><time datetime={row.statement_date}>{formatDate(row.statement_date)}</time> · {row.statement.source.kind === "TIMED" ? "Fonte audiovisiva" : "Fonte scritta"}</p>
+                  <blockquote class="prose" lang={row.statement.original.language} cite={row.statement.source.url}><p>{row.statement.original.text}</p></blockquote>
+                  <p>Da <a href={row.person_route}>{row.statement.person.name}</a> · <a href={row.statement_route}>Dichiarazione e contesto →</a></p>
+                  <p><a href={row.statement.source.url} rel="noreferrer">Fonte originale: {row.statement.source.title} ↗</a></p>
+                  <p class="topic-v3-provenance">Versione fonte: {row.statement.source.version_id} · ID Content: <code>{row.statement.source.content_id}</code></p>
+                  {row.statement.finding_id === null && <p class="topic-v3-boundary">Questa opinione non ha un verdetto fattuale pubblicato.</p>}
+                </article>
+              </li>
+            ))}
+          </ol>
+          <p data-topic-v3-filter-empty hidden>Nessuna opinione pubblica corrisponde ai filtri scelti.</p>
+        </>
+      )}
+    </section>
+    <aside aria-label="Indice delle fonti e delle persone" class="topic-v3-aside">
+      <h2 class="section-title section-title-sm">Percorsi del dossier</h2>
+      <h3>Persone presenti nel record pubblico</h3>
+      {people.length ? <ul>{people.map((person) => <li><a href={person.route}>{person.name}</a></li>)}</ul> :
+        <p>Nessuna persona presente nella selezione pubblica.</p>}
+      <h3>Fonti originali</h3>
+      {sources.length ? <ul>{sources.map((source) => <li><a href={source.url} rel="noreferrer">{source.title}</a></li>)}</ul> :
+        <p>Nessuna fonte pubblicata associata a questo Tema.</p>}
+      <details><summary>Identità e limiti del Tema</summary>
+        <p>Identificativo stabile: <code>{topic.topic_id}</code>. Versione Topic: <code>{topic.entity_version}</code>.</p>
+        <p>L'appartenenza a un Tema è un collegamento revisionato fra dichiarazione e argomento, non una posizione politica né un consenso.</p>
+        <p><a href="/metodo/">Verifica i criteri di pubblicazione</a></p>
+      </details>
+    </aside>
+  </div>
+  <style is:inline>
+    .topic-v3-dossier {display:grid;grid-template-columns:minmax(0,2fr) minmax(14rem,1fr);gap:clamp(1.5rem,4vw,3rem);align-items:start}
+    .topic-v3-primary,.topic-v3-aside {min-width:0}
+    .topic-v3-controls {display:flex;flex-wrap:wrap;gap:.75rem;align-items:end}
+    .topic-v3-controls label {display:grid;gap:.25rem;min-width:8rem;flex:1 1 10rem}
+    .topic-v3-controls input,.topic-v3-controls select {max-width:100%;min-height:2.75rem}
+    .topic-v3-controls [role="status"] {width:100%;font-weight:600}
+    .topic-v3-items {padding:0;list-style:none}
+    .topic-v3-row {border-top:1px solid var(--color-border,#ccc);padding:1.5rem 0}
+    .topic-v3-row blockquote {margin:.75rem 0 1rem;padding-left:1rem;border-left:3px solid currentColor;overflow-wrap:anywhere}
+    .topic-v3-provenance {font-size:.875rem;overflow-wrap:anywhere}
+    .topic-v3-aside {border-top:1px solid var(--color-border,#ccc);padding-top:1rem}
+    .topic-v3-aside li {margin-bottom:.65rem;overflow-wrap:anywhere}
+    @media(max-width:58rem) {.topic-v3-dossier {grid-template-columns:minmax(0,1fr)}}
+  </style>
+  <script is:inline>
+    (() => {
+      const root = document.querySelector('[data-topic-v3-root]');
+      const form = root?.querySelector('[data-topic-v3-form]');
+      if (!form) return;
+      const count = root.querySelector('[data-topic-v3-count]');
+      const noMatch = root.querySelector('[data-topic-v3-filter-empty]');
+      const rows = [...root.querySelectorAll('[data-topic-v3-row]')];
+      const allowed = new Set([...form.elements.namedItem('source').options].map((item) => item.value));
+      const params = new URLSearchParams(window.location.search);
+      for (const key of ['source','from','to']) {
+        const field = form.elements.namedItem(key);
+        const value = params.get(key);
+        if (value && (key !== 'source' || allowed.has(value))) field.value = value;
+      }
+      const apply = () => {
+        const fields = new FormData(form);
+        const source = fields.get('source');
+        const from = fields.get('from');
+        const to = fields.get('to');
+        let visible = 0;
+        for (const row of rows) {
+          row.hidden = Boolean((source && row.dataset.source !== source) ||
+            (from && row.dataset.date < from) || (to && row.dataset.date > to));
+          if (!row.hidden) visible++;
+        }
+        count.textContent = `${visible} opinioni pubbliche`;
+        noMatch.hidden = visible !== 0;
+        const url = new URL(window.location.href);
+        for (const key of ['source','from','to']) {
+          const value = fields.get(key);
+          if (value) url.searchParams.set(key, value);
+          else url.searchParams.delete(key);
+        }
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      };
+      form.addEventListener('change', apply);
+      form.addEventListener('submit', (event) => event.preventDefault());
+      form.addEventListener('reset', () => {window.setTimeout(apply, 0);});
+      apply();
+    })();
+  </script>
+</BaseLayout>
