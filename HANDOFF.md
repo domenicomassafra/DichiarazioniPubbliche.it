@@ -1,5 +1,15 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nuova tranche operativa 11 ottobre 2026, dopo `753c112`:**
+[nuovi consumer e percorsi original-quote Persona/Topic/Search, Studio,
+derivazioni originali, contabilità e batch](docs/reviews/2026-10-11-first-class-public-private-workflows-wave.md).
+I nuovi ingressi v3 sono opt-in, NON esposti in produzione, e dipendono da
+fonte e diritti realmente attestati. Conservare `NO-GO/49`, non dichiarare
+nuovi DONE per soli test sintetici o permessi in capo all'LLM. Audit host
+limitato: MateBook Linux offline, MiniPC mirror non Git e invariato; nuovo
+recupero misurato Mac Studio `web/dist` 1,093,632 byte. Verificare esatto HEAD,
+push fast-forward e CI finale prima di sviluppi successivi.
+
 **Tranche multi-wave del 11 ottobre 2026:**
 [interventi funzionali, TDD e audit conservativo su quattro host](docs/reviews/2026-10-11-multi-wave-backlog-source-runtime-audit.md).
 DP-416/417/418/435/436/438/440/512/514/515/516/518/519/320 hanno
