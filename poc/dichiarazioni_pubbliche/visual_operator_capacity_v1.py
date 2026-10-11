@@ -232,11 +232,13 @@ def _check_event(row: VisualDecisionEvent, item: VisualWorkItem, now: datetime) 
         raise ValueError("DP519_EVENT_TIME_INVALID")
 
 
-def _check_exception(row: VisualException, work_keys: set[str]) -> None:
+def _check_exception(
+    row: VisualException, work_items: dict[str, VisualWorkItem]
+) -> None:
     if not isinstance(row, VisualException):
         raise ValueError("DP519_EXCEPTION_INVALID")
     _id(row.exception_id, "EXCEPTION_ID")
-    if row.work_key not in work_keys:
+    if row.work_key not in work_items:
         raise ValueError("DP519_EXCEPTION_FOREIGN_WORK")
     if (
         not isinstance(row.question_code, str)
@@ -252,6 +254,13 @@ def _check_exception(row: VisualException, work_keys: set[str]) -> None:
         raise ValueError("DP519_EXCEPTION_PRIOR_ATTEMPTS_REQUIRED")
     for attempt in row.prior_attempt_hashes:
         _hash(attempt, "EXCEPTION_ATTEMPT")
+    # An arbitrary well-formed digest is not proof that automated investigation
+    # happened for this work item. The exception must refer to actual recorded
+    # attempt receipts for this work, never another case's attempts.
+    if not set(row.prior_attempt_hashes).issubset(
+        work_items[row.work_key].automated_attempt_hashes
+    ):
+        raise ValueError("DP519_EXCEPTION_ATTEMPT_NOT_IN_WORK")
     _small_int(row.estimated_minutes, "EXCEPTION_ESTIMATE", 20)
     if row.authority_state != "UNRESOLVED":
         raise ValueError("DP519_EXCEPTION_UNQUALIFIED_AUTHORITY")
@@ -317,7 +326,7 @@ def reconcile_visual_capacity(
     last_by_work: dict[str, VisualDecisionEvent] = {}
     actor_intervals: dict[str, list[tuple[datetime, datetime]]] = {}
     totals: dict[str, Decimal] = {}
-    reason_times: dict[str, list[Decimal]] = {}
+    minutes_by_case: dict[str, Decimal] = {}
     for event in journal:
         prior = last_by_work.get(event.work_key)
         if prior is None and event.prior_event_id is not None:
@@ -348,14 +357,16 @@ def reconcile_visual_capacity(
             week = _iso_week(cursor)
             totals[week] = totals.get(week, Decimal(0)) + fraction
             cursor = end_part
-        reason_times.setdefault(by_key[event.work_key].reason_code, []).append(minutes)
+        minutes_by_case[event.work_key] = (
+            minutes_by_case.get(event.work_key, Decimal(0)) + minutes
+        )
     current_actual = totals.get(_iso_week(stamp), Decimal(0))
     remaining = max(Decimal(0), Decimal(weekly_planning_minutes) - current_actual)
 
     seen_exception: dict[str, VisualException] = {}
     seen_question: set[tuple[str, str]] = set()
     for row in exceptions:
-        _check_exception(row, set(by_key))
+        _check_exception(row, by_key)
         old = seen_exception.get(row.exception_id)
         if old is not None and old != row:
             raise ValueError("DP519_EXCEPTION_REPLAY_CONFLICT")
@@ -478,6 +489,12 @@ def reconcile_visual_capacity(
             "EXPIRED_IMAGE_HOLD",
         }
     )
+    # A case may have several chained sessions (defer, resume, choose/none).
+    # Each work item contributes one total to the per-reason handling median.
+    # The week ledger above still attributes each minute to the actual week.
+    reason_times: dict[str, list[Decimal]] = {}
+    for work_key, minutes in minutes_by_case.items():
+        reason_times.setdefault(by_key[work_key].reason_code, []).append(minutes)
     medians = {
         reason: Decimal(str(statistics.median(values)))
         for reason, values in sorted(reason_times.items())

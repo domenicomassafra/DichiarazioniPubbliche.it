@@ -56,3 +56,48 @@ Ruff lint/format PASS. All AC-519 remain unchecked: no authenticated owner
 receipts or genuinely measured staff time, no persisted Studio queue, licensed
 real image, approved identity/alt text, MiniPC/public display or DP-518 live
 withdrawal readback. No human text reviewer is asserted or impersonated.
+
+## 2026-10-11 follow-up — source-owned exception and time-accounting fixes
+
+Two adversarial unit tests first failed on `main` `8b50e355`:
+
+1. An exception could cite any syntactically valid 64-character digest as a
+   `prior_attempt_hash`, including a receipt belonging to another work item
+   or a wholly unrecorded attempt. Thus its purported prerequisite automated
+   investigation was not traceable to its own worklist record. The private
+   reconciler now requires **every** cited prior attempt to be present in that
+   work item's bounded `automated_attempt_hashes`. An item with no recorded
+   attempts cannot escalate using fabricated hashes. Caller-side identity and
+   tamper-proof attestation of these input hashes remain external requirements.
+2. `median_minutes_by_reason` counted each chained event as a separate case.
+   A case handled in 3+7 minutes and two independent cases taking 20 and 40
+   minutes yielded an incorrect median of 13.5 from four event durations.
+   The new calculation aggregates events for each `work_key`, then computes
+   the per-reason median of case totals (**20 minutes** in this fixture).
+   Actual event totals, ISO-week splits, replay counts and budget arithmetic
+   remain based on the original immutable event intervals. The data remains
+   **self-reported** operator time, not authenticated staffing evidence.
+
+`tests/test_dp519_visual_operator_capacity.py` adds both regressions,
+including cross-work forgeries, a missing investigation, mixed real/fake
+attempts, accepted subset receipts, input-order invariance, and preservation
+of weekly/event totals. RED: **2 failed / 19 run**, with the bogus attempt
+accepted and median `13.5`. GREEN: **19/19 pass**, no additional dependency.
+Ruff check and format, `python3 -m compileall -q poc tests` and
+`git diff --check` pass locally. This is a source-only improvement of
+the exception gate and capacity report, not a real operator acceptance.
+
+**All AC-519.1–.5 remain unchecked and ticket IN PROGRESS.** Real licensed
+image/identity judgement, real owner-minutes and identity attestations,
+persisted Studio consumption, public no-image/withdrawal and DP-518 readback,
+qualified authority and MiniPC proof remain external. Nothing here approves
+source rights, a factual Finding, or an image for publication.
+
+Broad regression attempt: `PYTHONPATH=poc python3 -m unittest discover -s
+tests -q` completed **2,878 tests in 152.668 s with four errors** outside
+DP-519. One was an import of `SQLiteMonthlyReservationStore` in an
+in-progress DP-514 SQLite reservation test; three were
+`test_existing_factcheck_persistence` cases failing on operational discovery
+receipt database writes. These errors are not represented as green and were
+left for their owning workstreams. The independently run
+`tests.test_studio_operator_queues` (10/10) and DP-519 (19/19) suites pass.

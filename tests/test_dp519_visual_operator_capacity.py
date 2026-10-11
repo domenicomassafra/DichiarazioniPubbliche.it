@@ -79,7 +79,7 @@ def exception(name="x", *, attempts=True, minutes=10):
         exception_id="exception:" + name,
         work_key="visual:" + name,
         question_code="SOURCE_RIGHTS_REVIEW_NEEDED",
-        prior_attempt_hashes=(digest("source:" + name),) if attempts else (),
+        prior_attempt_hashes=(digest("attempt:" + name),) if attempts else (),
         estimated_minutes=minutes,
         authority_state="UNRESOLVED",
     )
@@ -327,6 +327,66 @@ class VisualOperatorCapacityTests(unittest.TestCase):
         self.assertFalse(report.exceptions[0].text_review_authority)
         with self.assertRaisesRegex(ValueError, "DP519_EXCEPTION_UNBOUNDED"):
             reconcile_visual_capacity((item,), (), (exception(),) * 9, now=NOW)
+
+    def test_exception_attempts_must_belong_to_the_same_work_item(self):
+        item = work("x")
+        other = work("other")
+        forged = replace(
+            exception("x"),
+            prior_attempt_hashes=other.automated_attempt_hashes,
+        )
+        with self.assertRaisesRegex(ValueError, "DP519_EXCEPTION_ATTEMPT_NOT_IN_WORK"):
+            reconcile_visual_capacity((item, other), (), (forged,), now=NOW)
+        uninvestigated = replace(item, automated_attempt_hashes=())
+        with self.assertRaisesRegex(ValueError, "DP519_EXCEPTION_ATTEMPT_NOT_IN_WORK"):
+            reconcile_visual_capacity((uninvestigated,), (), (exception("x"),), now=NOW)
+        mixed = replace(
+            item,
+            automated_attempt_hashes=(digest("attempt:x"), digest("other-verified")),
+        )
+        partially_forged = replace(
+            exception("x"),
+            prior_attempt_hashes=(digest("attempt:x"), digest("unknown")),
+        )
+        with self.assertRaisesRegex(ValueError, "DP519_EXCEPTION_ATTEMPT_NOT_IN_WORK"):
+            reconcile_visual_capacity((mixed,), (), (partially_forged,), now=NOW)
+        # An accepted subset means a concrete investigation is linked to this
+        # work, while unrelated recorded attempts are left in its history.
+        report = reconcile_visual_capacity((mixed,), (), (exception("x"),), now=NOW)
+        self.assertEqual(len(report.exceptions), 1)
+        self.assertFalse(report.exceptions[0].text_review_authority)
+
+    def test_median_tracks_case_handling_total_not_each_split_receipt(self):
+        a, b, c = work("a"), work("b"), work("c")
+        a_start = event(
+            a,
+            "a-first",
+            action="DEFER",
+            minutes=3,
+            completed=NOW - timedelta(hours=3),
+        )
+        a_finish = event(
+            a,
+            "a-second",
+            minutes=7,
+            previous=a_start.event_id,
+            completed=NOW - timedelta(hours=2),
+        )
+        b_once = event(b, "b", minutes=20, completed=NOW - timedelta(hours=1))
+        c_once = event(c, "c", minutes=40, completed=NOW)
+        report = reconcile_visual_capacity(
+            (c, b, a), (a_finish, c_once, b_once, a_start), (), now=NOW
+        )
+        self.assertEqual(report.ledger_event_count, 4)
+        self.assertEqual(report.actual_minutes_this_week, 70)
+        # One 10-minute case, one 20-minute case, one 40-minute case.
+        self.assertEqual(report.median_minutes_by_reason["IMAGE_IDENTITY"], 20)
+        self.assertEqual(
+            report,
+            reconcile_visual_capacity(
+                (a, b, c), (a_start, b_once, c_once, a_finish), (), now=NOW
+            ),
+        )
 
     def test_invalid_time_negative_duration_forged_fields_and_bounded_inputs_rejected(
         self,
