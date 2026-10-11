@@ -1,6 +1,6 @@
 # DP-242 — Studio source-to-candidate machine handoff and exception lifecycle
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M4 — public product/API
 Depends on: DP-416, DP-417, DP-418, DP-419
 
@@ -48,4 +48,30 @@ Reuse real ledger/private API, B owns machine signature trust and cutover. Appen
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+**2026-10-11 — Source-only preflight implemented, acceptance still OPEN.**
+`studio_machine_candidate_handoff_v1.py` reuses the actual DP-417
+collection-scoped PostgreSQL Hit selector/normalizer and DP-418 persisted
+match-currentness readback. The operator-only preview re-reads exact Hit
+provenance, manifest/revision/currentness and source/Capture/Passage fingerprints;
+it refuses changed or cross-collection inputs, bounds the selection to one
+object and reports actionable `HELD_EXCEPTION` or
+`HELD_MACHINE_AUTHORITY_UNAVAILABLE`/`HELD_SOURCE_OR_ATTRIBUTION`. It hashes an
+idempotency *intent fingerprint* but does not persist it or claim CAS.
+
+Additionally, the existing authenticated, explicit opt-in loopback Studio API
+exposes `POST /v1/discovery/machine-preview` and
+`POST /v1/candidate/machine-preview` with exact field allowlists, token,
+origin/host checks, localhost-only bind and `Cache-Control: no-store, private`.
+The SQL session remains read-only; direct HTTP negatives cover missing bearer,
+hostile Origin, injected approval field and revoked Capture. HTTP route commit
+`74b5d56`; **34** tests PASS in the focused + existing API/Studio suite.
+
+Focused plus existing Studio regressions: **26 PASS** in
+`tests.test_dp242_studio_machine_handoff`,
+`tests.test_studio_discovery_inbox_workflow`, and
+`tests.test_studio_candidate_review_handoff`; `ruff check` PASS. Source commit
+`d2d1729`. These receipts are local synthetic tests, not a real executed
+machine transition. All AC-242 boxes remain unchecked: no governed B API,
+credentialed HTTP receipt, persisted exception lifecycle, actual source
+end-to-end path or MiniPC/UI acceptance. The old human review spool is left
+unchanged and never impersonated.

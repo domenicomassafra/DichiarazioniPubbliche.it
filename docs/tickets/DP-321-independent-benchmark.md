@@ -1,6 +1,6 @@
 # DP-321 — Gold credibile e metriche indipendenti di errore, coverage e abstention
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M2 — live pipeline readiness and source coverage
 Depends on: DP-223, DP-226, DP-228, DP-229, DP-312, DP-314
 
@@ -36,4 +36,17 @@ Depends on: DP-223, DP-226, DP-228, DP-229, DP-312, DP-314
 ## Documentation, data, and migration impact
  Extend existing `false_attribution_benchmark` and deterministic benchmark only when they can represent the new independent labels; separate gold dataset and case provenance from training/research inputs, no public sensitive corpus.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+**2026-10-11 local source-only benchmark contract — IN PROGRESS, NOT accepted gold.**
+`independent_reference_benchmark_v1.py` requires versioned private reference
+metadata, source/quote locator and rights identifiers, independent annotator
+and adjudication proof handles, locked calibration versus holdout split and
+same-root duplicate rejection; only abstention-scope labels are valid for
+intrinsically contested cases. Output includes explicit numerators and
+denominators, Wilson descriptive intervals, stratification, abstention,
+coverage, conditional eligibility, cost/latency and bounded drift comparison.
+The external verification seam is **not** trusted evidence by itself; outputs
+stay `CONTRACT_ONLY` and `release_eligible=False`, without fabricated thresholds
+or real independent source labels. Source/test commit `12bfb5a`: **15** focused
+adversarial synthetic tests PASS and Ruff PASS. None of AC-321.1–.6 is closed:
+genuine independently attested/licensed holdout, qualified gold, owner acceptance
+and MiniPC end-to-end evidence remain absent.

@@ -100,3 +100,55 @@ Local synthetic focused evidence: **DP-240 15/15** (plus existing private candid
 The first full Python suite covering this tranche finished **2662/2662 PASS in 168.700 s**, including isolated restore drill PASS; benchmark **5/5 PASS**, source contract PASS. The **second full Python suite** (after the final DP-241 authorization/tamper guard) finished **2662/2662 PASS in 166.154 s**, isolated restore drill PASS. `ruff check` PASS; final source/test formatting normalized in `219592e`, `ruff format --check` PASS; focused DP-240 **15/15** and DP-314 **10/10** reconfirmed after formatting. No frontend sources changed in wave5, so earlier web QA remains a previous checkpoint, not a new run.
 
 Ticket register/PLAN agree: **162 total, 90 DONE, 43 IN PROGRESS, 6 BLOCKED, 23 FUTURE, 72 not DONE**. Preflight correctly returned **NO-GO / 49 blockers**, dominated by legal/privacy Q-306, source rights/actual source pilot, reviewer and release artifacts. DP-443 remains an unperformed mandatory real, legally-cleared source→Capture→Passage→candidate→public read→correction/revocation MiniPC pilot. No actual source fetch, paid model, provider, DB mutation, owner redesign choice, public activation, push or deploy was performed. All new DP-240/241/314 acceptance boxes remain open awaiting real independently verified evidence.
+
+## Sixth local implementation tranche — 2026-10-11
+
+The Mac checkout acquired six **local** source/test commits (no push, deploy,
+provider run, live source fetch, publication, production DB or remote changes):
+
+| Ticket | Source/test commit | Real implemented boundary, not full acceptance |
+|---|---|---|
+| DP-242 | `d2d1729`, `74b5d56`, strict route inventory `b46e3d9` | Existing DP-417 persisted scoped Discovery Hit and DP-418 exact candidate-match reread drive bounded private held machine-intent/exception previews. Two **actual authenticated localhost HTTP routes** exist, strict body fields/token/Origin/no-store; source/Capture/revision changes and forged approval fields are refused. No authenticated B authority, persisted machine dispatch, public mutation or new human review |
+| DP-243 | `4a586dd` | Small, versioned IT/DE and historical Person-scoped private synthetic manifest guard over original/derivative/translation/rights/repost/source-version data; **no actual historical corpus created** or archive rights assumed |
+| DP-321 | `12bfb5a` | Reference-manifest and independently sourced-label **contract only**, guarded against same-model labeling, shared-root split leakage and ambiguous false gold; explicit metric denominators, stratification, Wilson descriptive intervals, abstention/coverage, cost/drift, no accepted gold/threshold/release |
+| DP-316 | `fa647a9` | Offline profile/material/risk/DP-320 structural-fence/challenger preflight integrating DP-314 and DP-308/309 data; all machine signoff/publication/dispatch properties **false**. Human review legacy untouched, off-DB authority and qualified decisions absent |
+
+Focused local verification reported **26 Studio/DP-242 tests PASS**, then
+**34 API/Studio tests PASS** after HTTP integration; **99** combined selected
+DP-236/237/241/243/244/515/321 tests PASS; **15** focused DP-316 synthetic
+tests PASS and **56** combined wave6 tests PASS after the final DP-316
+fixture. Ruff lint/formatter were checked for new files and direct regression
+tests returned GREEN.
+
+**Important genuine RED then fix:** the first concurrent full Python discovery
+was started before the stricter private-Studio route allowlist changed. It
+finished with **2718 tests, 3 errors**, *all three* isolated to the expected
+`CONDITIONAL_PRIVATE_STUDIO_PATH_SCOPE_CHANGED` inventory divergence on
+`test_conditional_surface_absence` and launch-preflight. The intentionally
+fail-closed launch safety control correctly detected a route scope not yet
+registered. We registered exactly the two new private, read-only preview paths
+in `conditional_surface_absence.py`; negative tests reject arbitrary machine
+approval, enqueue and publish paths. Post-fix focused tests **7/7 PASS**;
+`check_launch_preflight.py --expect-no-go` again succeeds with the expected
+release **NO-GO**, and repository contract PASS. This is not permission to
+open Studio remotely or alter the DP-507/508 admin/intake exemptions.
+
+**All four ticket states are IN PROGRESS; every ticket acceptance box remains
+unchecked** pending real signed independent decisions, allowed source bodies,
+persisted exception/replay/B machine authority, independent gold/reference
+provenance and MiniPC transactional source→public reader→correction/rollback
+DP-443 canary. No release/publication readiness follows from these contracts.
+The initial untracked prompt-response handoff remains untouched.
+
+**Final frozen post-fix verification:** `PYTHONPATH=poc python3 -m unittest
+discover -s tests -q` finished **2719/2719 PASS** in **239.105 s**, exit 0,
+including isolated restore drill PASS. The first 2718/3-error run above is
+historical RED evidence, not the final state. `PYTHONPATH=poc python3 -m
+dichiarazioni_pubbliche.benchmark` **5/5 PASS**, `python3 -m compileall -q
+poc tests` PASS, `ruff check` on all changed Python source/tests PASS,
+`check_repository_contract.py` PASS, `git diff --check` PASS. The versioned
+release gate `check_launch_preflight.py --expect-no-go` passed with
+**NO-GO / 49 blockers**, not GO. Ticket/PLAN status source agreement PASS:
+**162 tickets, 90 DONE, 47 IN PROGRESS, 6 BLOCKED, 19 FUTURE, 72 not DONE**.
+No independent evidence/authentic gold/owner legal decisions or production
+MiniPC DB/reader cutover were performed.

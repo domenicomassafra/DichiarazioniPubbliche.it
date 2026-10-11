@@ -1,6 +1,6 @@
 # DP-316 — Machine verification authority, review migration e eligibility per risultato
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M3 — editorial, correction, privacy, and legal policy
 Depends on: DP-308, DP-309, DP-310, DP-311, DP-229, DP-301, DP-304, DP-314, DP-321
 
@@ -37,4 +37,17 @@ Depends on: DP-308, DP-309, DP-310, DP-311, DP-229, DP-301, DP-304, DP-314, DP-3
 ## Documentation, data, and migration impact
  ADR explicitly superseding applicable human-only default in PRODUCT/AGENTS/ADR 0001 (prime owns), additive attestation/ledger or alternate existing authority reuse with verified signature sequence; external DP-307 register unchanged until duly decided.
 ## Completion receipt
- non implementato; pianificazione soltanto.
+**2026-10-11 local source-only *preflight*, not a machine authority — IN PROGRESS.**
+`machine_authority_preflight_v1.py` models immutable policy/profile, role-bound
+exact material/epoch hashes, independent generator/challenger root identifiers,
+per-record risk-class consistency and a checked DP-320 *structural* fence.
+It integrates current DP-314 requirement, DP-308 publication safety and DP-309
+high-risk result types for conditional HOLD/RECHECK/NEEDS_EXTERNAL_DECISION.
+It rejects claimed approvals, same-generator/challenger, stale materials,
+revoked rights and missing material roles. **Even its coherent synthetic case
+never signs off**: `machine_signoff`, `publication_authority` and
+`dispatch_authorized` are always false. The existing DP-310/311 human-only
+policy and production gate remain untouched. Focused negative/source-only tests
+run locally; no signed off-DB machine principal, qualified accepted policy,
+authenticated independent gold, MiniPC transaction fence, legacy migration or
+real high-risk pilot exists. Therefore all AC-316.1–.7 remain unchecked.

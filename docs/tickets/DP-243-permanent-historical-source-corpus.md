@@ -1,6 +1,6 @@
 # DP-243 — Initial permanent historical corpus from mixed Italian/German primary sources
 
-Status: FUTURE
+Status: IN PROGRESS
 Milestone: M7 — stable v1 launch
 Depends on: DP-210, DP-215, DP-703, DP-443
 
@@ -48,4 +48,16 @@ Collections and source profile reuse; add language/editorial-edition/coverage me
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+**2026-10-11 local source-only preflight — IN PROGRESS, not a created historical corpus.**
+The new `historical_corpus_preflight_v1.py` guards exact two-person/IT-DE
+manifest scopes, bounded private candidate intake, per-operation DP-236 use
+permissions, immutable DP-237 Capture selectors and source-version links,
+translation/editorial derivative separation, narrator/reported-speech holds,
+replay dedupe, and source supersession requiring reanalysis. No actual archive
+material was fetched, indexed, licensed, translated, or publicly displayed.
+The real DP-443 source-to-reader+correction pilot and source-specific qualified
+permissions remain hard blockers for any permanent corpus. **17** focused
+synthetic tests and **99** DP-236/237/241/243/244/515/321 combined tests
+PASS locally, Ruff PASS; source commit `4a586dd`. All six AC remain unchecked:
+no genuine archive artifacts/rights/person provenance, MiniPC readback or
+public B/C approval is yet demonstrated.

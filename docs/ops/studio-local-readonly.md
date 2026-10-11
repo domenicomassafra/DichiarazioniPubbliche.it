@@ -54,7 +54,10 @@ with Ctrl-C; rotate by stopping it and provisioning a new secret.
 
 ## 3. Exact read-only interface
 
-Twelve POST routes:
+Twenty explicitly allowlisted, read-only POST routes (the list below
+highlights the original operator surface plus the new machine previews;
+the authoritative complete allowlist is `_ALLOWED_PATHS` in
+`studio_local_api.py`):
 
 - /v1/corpus/search — private DP-116 query, safe IDs only.
 - /v1/collections/list — persisted collection IDs/status/INCLUDED counts.
@@ -75,6 +78,12 @@ Twelve POST routes:
   no operator identity, source details, reviewer attestation or write capability.
 - /v1/candidate/matches — persisted match classes and feature codes;
   currentness/reviewer authority is **not verified**.
+- /v1/candidate/machine-preview — DP-242 exact candidate/match/Capture
+  version preflight. Returns held source/identity or absent machine-authority
+  status; it never authorizes review, dispatch or publishing.
+- /v1/discovery/machine-preview — DP-242 collection-scoped, doubly re-read
+  persisted Discovery Hit/current annotation with exact snapshot/revision;
+  returns a bounded investigation/rights exception, never a DB write token.
 - /v1/capture/compare — two exact, time-ordered Capture hashes,
   validated observation instants and operational states.
 - /v1/capture/passages — bounded written Passage selectors for one exact

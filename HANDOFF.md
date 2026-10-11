@@ -3,6 +3,24 @@
 **Checkpoint operativo aggiornato:** 11 ottobre 2026. Questo documento è la porta di ingresso operativa,
 non una seconda fonte di verità per i ticket o una certificazione di release.
 
+**Sesta tranche locale 2026-10-11, no push/deploy:** DP-242
+`d2d1729` (Discovery/Candidate preflight con reread persistito, scope,
+Capture hash e hold esplicito) e `74b5d56` (due route read-only
+autenticate loopback; 34 test API/Studio PASS); DP-243 `4a586dd`
+(piccolo manifest IT/DE storico *synthetic* e rights/version/repost/role
+holds, non un archivio creato); DP-321 `12bfb5a` (denominatori di
+errore/astensione/gold independence, output mai release-eligible);
+DP-316 `fa647a9` (profilo/fence/materiali e challenger, nessuna
+firma né migrazione human gate). Sono contratti implementati, non
+accettazione completa dei quattro ticket. Le rispettive acceptance
+rimangono aperte; registri `PLAN.md` e `docs/tickets/` sono canonici.
+Mancano sorgenti/diritti autentici, verificatori esterni, off-DB authority,
+DB write/reader fence MiniPC e DP-443; il rilascio rimane **NO-GO**.
+Verifica finale post-fix: **2719/2719 test Python PASS (239.105 s)**,
+restore drill PASS, benchmark **5/5 PASS**, compileall e repo contract PASS,
+preflight **NO-GO / 49 blocker** come atteso. Registro **162 ticket:
+90 DONE, 47 IN PROGRESS, 6 BLOCKED, 19 FUTURE**; 72 non DONE e PLAN coerente.
+
 **Quinta tranche source-only 2026-10-11 (codice già committato, no push):**
 DP-240 `cafe1e1` e test correttivo `100a1dd` (batch candidati privati
 multi-Person, integrità plan e separazione dei Passage), DP-314 `adedac9`
