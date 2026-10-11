@@ -62,6 +62,47 @@ older than it is.
 
 ## Completion receipt
 
+### 2026-10-12 — One consistent authenticated PostgreSQL tree and operator navigation
+
+A distinct local Studio operator path now reads the *whole* bounded
+Collection→INCLUDED Content→Source→latest Capture→written Passage→Statement
+Candidate locator graph in **one PostgreSQL REPEATABLE READ READ ONLY**
+transaction, rather than inviting the operator to combine several
+independently timed snapshots. The new
+`/v1/collections/navigate` route runs only inside the existing explicitly
+started 127.0.0.1 token-authenticated service, requiring collection ID,
+limit ≤10 and a cursor whose Content is *currently INCLUDED in that exact
+collection*. SQL never selects source URL/title, private texts, raw
+Statement/Claim, credentials or receipts, and the presenter strictly
+allowlists every nested Source/Capture/Passage/Candidate locator and
+position. Latest Capture is selected by persisted observed time then ID,
+not by client-supplied hash. Up to three written Passage selectors/candidate
+counts per latest Capture are returned with explicit truncation; the
+existing exact source-bound `/v1/collections/passage-lineage` remains
+the paged Claim Candidate/promoted receipt drilldown.
+
+The local Studio Collections page now has an actual keyboard-reachable
+reader: it displays IDs, Capture and Passage/status/counts and click-through
+to the existing exact Candidate lineage, preserving token boundaries and
+clearing private locators on disconnect, token change or workspace switch.
+No raw source body is in HTML/JS or the returned JSON; every item expressly
+sets preview/review/publication authorities false, even when the DB marks
+rights APPROVED. Bad/removed/foreign pagination cursors and malformed
+rights/scope/selector responses are refused instead of rendering a
+misleading empty success.
+
+RED→GREEN: new Python tests originally failed with missing navigation
+module. A disposable canonical-schema PostgreSQL fixture exercises real
+source, two Capture versions, written Passage, Statement Candidate and
+Claim Candidate through authenticated HTTP and read-only DB role, including
+pagination, post-read revocation, membership removal and privacy negatives.
+Existing browser tests additionally cover keyboard jump/cancellation.
+This is local synthetic-source acceptance, not a claim that the Garlasco
+production corpus has rights-cleared Capture/Passage rows, reviewer or
+MiniPC installed UI; AC-416.1–.4 stay OPEN pending authentic runtime and
+operator acceptance. No provider, deployment, legal clearance or production
+mutation occurred.
+
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.

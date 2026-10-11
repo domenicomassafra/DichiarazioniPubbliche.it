@@ -37,6 +37,7 @@ from dichiarazioni_pubbliche.studio_capture_inspector import (
 from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_media_selector
 from dichiarazioni_pubbliche.studio_operator_search import search_private_corpus
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
+from dichiarazioni_pubbliche.studio_collection_navigation import read_collection_navigation
 from dichiarazioni_pubbliche.studio_discovery_triage_reader import read_capture_triage_queue
 from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInboxWorkflow
 from dichiarazioni_pubbliche.studio_machine_candidate_handoff_v1 import (
@@ -60,6 +61,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/collections/captures",
     "/v1/collections/passage-candidates",
     "/v1/collections/passage-lineage",
+    "/v1/collections/navigate",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
     "/v1/discovery/capture-queue",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
@@ -403,6 +405,15 @@ class _StudioPromotionContextReader(_StudioReadOnlyDb, ClaimPromotionStore):
 
 
 class _StudioQueueReader(_StudioReadOnlyDb, StudioOperatorQueues):
+    def navigate_collection(
+        self, *, collection_id: str, limit: int = 10,
+        after_content_id: str | None = None,
+    ) -> dict[str, object]:
+        return read_collection_navigation(
+            self, collection_id=collection_id,
+            limit=limit, after_content_id=after_content_id,
+        )
+
     def list_capture_triage_queue(
         self, *, collection_id: str, limit: int = 20,
         after_capture_id: str | None = None,
@@ -450,6 +461,7 @@ class _CandidateReader(Protocol):
     def load_results(self, run_id: str) -> tuple[dict[str, Any], ...]: ...
 
 class _QueueReader(Protocol):
+    def navigate_collection(self, *, collection_id: str, limit: int = 10, after_content_id: str | None = None) -> dict[str, object]: ...
     def list_collections(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery_inbox(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
@@ -480,6 +492,11 @@ def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | No
 
 
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
+    if path == "/v1/collections/navigate":
+        _fields(body, required={"collection_id"}, optional={"limit", "after_content_id"})
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.navigate_collection(**body)
     if path == "/v1/corpus/search":
         _fields(body, required={"query"}, optional={
             "kinds", "source_id", "collection_id", "person_id", "topic_id", "event_id",

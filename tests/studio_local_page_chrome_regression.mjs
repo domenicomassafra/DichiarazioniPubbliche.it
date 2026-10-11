@@ -50,6 +50,54 @@ const server = createServer(async (req, res) => {
     }}));
     return;
   }
+  if (req.method === 'POST' && req.url === '/v1/collections/navigate') {
+    let raw = '';
+    for await (const part of req) raw += part;
+    const payload = JSON.parse(raw);
+    requests.push({payload, authorization: req.headers.authorization, path: req.url});
+    res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'});
+    res.end(JSON.stringify({contract_version: 'studio-local-readonly-api-v1', data: {
+      contract_version: 'studio-collection-navigation-v1', private_only: true,
+      read_only: true, publication_authority: false, rights_clearance: false,
+      review_authority: false, collection_id: payload.collection_id, collection_state: 'ACTIVE',
+      members: [{
+        content_id: 'content:keyboard', source_id: 'source:keyboard',
+        source_exists: true, rights_status: 'UNKNOWN', processing_status: 'DISCOVERED',
+        capture_count: 1, source_preview_authorized: false, review_authority: false,
+        blockers: ['REVIEW_AUTHORITY_NOT_EVALUATED', 'CONTENT_RIGHTS_NOT_APPROVED'],
+        latest_capture: {id: 'capture:keyboard', content_sha256: 'a'.repeat(64),
+          status: 'CAPTURED', hold_status: 'NONE', rights_status: 'UNKNOWN',
+          archive_status: 'NOT_REQUESTED', passage_count: 1, passages_truncated: false,
+          passages: [{id: 'passage:keyboard', text_sha256: 'f'.repeat(64),
+            selector_type: 'TEXT_POSITION', start_char: 0, end_char: 12,
+            page_start: null, page_end: null, candidate_count: 1,
+            first_candidate_id: 'statement:keyboard'}]},
+      }], has_more: false, next_after_content_id: null,
+    }}));
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/v1/collections/passage-lineage') {
+    let raw = '';
+    for await (const part of req) raw += part;
+    const payload = JSON.parse(raw);
+    requests.push({payload, authorization: req.headers.authorization, path: req.url});
+    res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'});
+    res.end(JSON.stringify({contract_version: 'studio-local-readonly-api-v1', data: {
+      contract_version: 'studio-operator-queues-v1', private_only: true,
+      rights_clearance: false, review_authority_evaluated: false,
+      publication_authority: false, collection_id: payload.collection_id,
+      content_id: payload.content_id, capture_id: payload.capture_id,
+      passage: {id: payload.passage_id, text_sha256: 'f'.repeat(64),
+        selector_type: 'TEXT_POSITION', start_char: 0, end_char: 12,
+        page_start: null, page_end: null},
+      capture_sha256: 'a'.repeat(64), source_id: 'source:keyboard',
+      source_exists: true, rights_status: 'UNKNOWN',
+      processing_status: 'DISCOVERED', collection_state: 'ACTIVE',
+      blockers: ['CONTENT_RIGHTS_NOT_APPROVED'],
+      candidates: [], next_after_statement_id: null,
+    }}));
+    return;
+  }
   if (req.method === 'POST' && [
       '/v1/collections/captures', '/v1/capture/passages',
       '/v1/collections/passage-candidates',
@@ -70,7 +118,15 @@ const server = createServer(async (req, res) => {
                   status: 'CAPTURED', archive_status: 'NOT_REQUESTED'}],
       has_more: false, next_after_id: null,
     } : req.url === '/v1/capture/passages' ? {
-      ...common, selectors: [{id: 'passage:keyboard', selector_type: 'TEXT_POSITION'}],
+      ...common, contract_version: 'studio-capture-inspection-v1',
+      content_id: 'content:keyboard',
+      capture: {id: 'capture:keyboard', content_sha256: 'a'.repeat(64)},
+      selectors: [{id: 'passage:keyboard', selector_type: 'TEXT_POSITION',
+        text_sha256: 'f'.repeat(64), start_char: 0, end_char: 12,
+        page_start: null, page_end: null,
+        capture_locator: {content_id: 'content:keyboard',
+          capture_id: 'capture:keyboard', capture_sha256: 'a'.repeat(64),
+          passage_id: 'passage:keyboard'}}],
     } : {
       ...common, review_authority: false,
       contract_version: 'studio-passage-candidates-v1',
@@ -224,14 +280,32 @@ try {
   assert.equal(requests.at(-1).payload.capture_hash, 'a'.repeat(64));
   await evaluate('document.querySelector("#capture-passage-links button").focus()');
   await space();
-  await wait('document.querySelectorAll("#passage-candidate-links button").length === 1');
-  assert.equal(requests.at(-1).path, '/v1/collections/passage-candidates');
+  await wait('document.getElementById("collection-lineage-summary").textContent.includes("Collection")');
+  assert.equal(requests.at(-1).path, '/v1/collections/passage-lineage');
   assert.equal(requests.at(-1).payload.passage_id, 'passage:keyboard');
-  assert.equal(await evaluate('document.getElementById("passage-candidate-links").textContent.includes("claimcandidate:keyboard")'), true);
-  assert.equal(await evaluate('document.getElementById("passage-candidate-links").textContent.includes("SECRET")'), false);
+  assert.equal(await evaluate('document.getElementById("collection-lineage-summary").textContent.includes("SECRET")'), false);
   await evaluate('document.getElementById("clear").click()');
-  assert.equal(await evaluate('document.querySelectorAll("#passage-candidate-links button").length'), 0,
-               'disconnect must clear private candidate navigation');
+  assert.equal(await evaluate('document.querySelectorAll("#collection-lineage-links button").length'), 0,
+               'disconnect must clear private candidate lineage');
+  await evaluate("(() => { document.getElementById('token').value = '" + 'a'.repeat(64)
+    + "'; document.querySelector('[data-panel=\"collections\"]').click();"
+    + " const form = document.querySelector('form[data-endpoint=\"/v1/collections/navigate\"]');"
+    + " form.elements.namedItem('collection_id').value = 'research:garlasco';"
+    + " form.elements.namedItem('limit').value = '1'; form.requestSubmit(); })()");
+  await wait('document.querySelectorAll("#collection-navigation-links button").length === 2');
+  assert.equal(requests.at(-1).path, '/v1/collections/navigate');
+  assert.deepEqual(requests.at(-1).payload, {collection_id: 'research:garlasco', limit: 1});
+  assert.equal(await evaluate('document.getElementById("collection-navigation-links").textContent.includes("SECRET")'), false);
+  assert.equal(await evaluate('document.activeElement.id'), 'collection-navigation-heading');
+  await evaluate('document.querySelectorAll("#collection-navigation-links button")[1].focus()');
+  await space();
+  await wait('document.getElementById("collection-lineage-summary").textContent.includes("Collection")');
+  assert.equal(requests.at(-1).path, '/v1/collections/passage-lineage');
+  assert.equal(requests.at(-1).payload.passage_id, 'passage:keyboard');
+  assert.equal(requests.at(-1).payload.capture_id, 'capture:keyboard');
+  await evaluate('document.getElementById("clear").click()');
+  assert.equal(await evaluate('document.querySelectorAll("#collection-navigation-links button").length'), 0,
+               'disconnect must clear the new private snapshot and passage jump');
   console.log('PASS real Chrome: DP416/419 collection -> source -> capture -> passage -> candidate/claim keyboard navigation + scrub');
 } finally {
   try { ws?.close(); } catch {}

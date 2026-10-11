@@ -46,8 +46,8 @@ _PAGE = """<!doctype html>
     #corpus-inspector{border:1px solid #68747c;padding:1rem;margin-top:1rem}
     #corpus-inspector dl{display:grid;grid-template-columns:minmax(8rem,12rem) minmax(0,1fr);gap:.45rem}
     #corpus-inspector dd{margin:0;overflow-wrap:anywhere}
-    #collection-lineage-links,#capture-queue-links{display:grid;gap:.4rem;margin:1rem 0}
-    #collection-lineage-links button,#capture-queue-links button{text-align:left;overflow-wrap:anywhere}
+    #collection-lineage-links,#capture-queue-links,#collection-navigation-links{display:grid;gap:.4rem;margin:1rem 0}
+    #collection-lineage-links button,#capture-queue-links button,#collection-navigation-links button{text-align:left;overflow-wrap:anywhere}
     pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#e9ebe6;padding:1rem;font-size:.86rem}
     @media(max-width:40rem){body{padding:.8rem}.controls,label{display:grid;width:100%}}
   </style>
@@ -134,6 +134,16 @@ _PAGE = """<!doctype html>
       </form>
       <p id="collection-list-summary" role="status" aria-live="polite">Nessuna raccolta selezionata.</p>
       <div id="collection-links" role="group" aria-label="Seleziona una raccolta persistita"></div>
+      <h2 id="collection-navigation-heading" tabindex="-1">Percorso persistito Collection → Capture → Passage → Candidate</h2>
+      <p>Un'unica lettura PostgreSQL coerente di Content inclusi, cattura più recente, selettori scritti e candidati. Solo hash, ID e stati; nessun estratto o permesso. Seleziona un Passage per aprire il dettaglio completo con i Claim Candidate.</p>
+      <form data-endpoint="/v1/collections/navigate">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
+        <label>Content per pagina (1–10)<input name="limit" type="number" min="1" max="10" value="10" required></label>
+        <label>Dopo Content ID<input name="after_content_id" maxlength="180"></label>
+        <button type="submit">Naviga percorso persistito</button></div>
+      </form>
+      <p id="collection-navigation-summary" role="status" aria-live="polite">Nessuna navigazione caricata.</p>
+      <div id="collection-navigation-links" role="group" aria-label="Content e Passage persistiti selezionabili"></div>
       <h2>Contenuti inclusi</h2><p>Seleziona una raccolta per leggere solo i riferimenti persistiti. Il dettaglio indica i collegamenti verificati e gli elementi ancora assenti.</p>
       <form data-endpoint="/v1/collections/members">
         <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
@@ -321,6 +331,10 @@ _PAGE = """<!doctype html>
     const collectionForm = document.querySelector('form[data-endpoint="/v1/collections/list"]');
     const collectionLinks = document.getElementById('collection-links');
     const collectionListSummary = document.getElementById('collection-list-summary');
+    const collectionNavigationForm = document.querySelector('form[data-endpoint="/v1/collections/navigate"]');
+    const collectionNavigationLinks = document.getElementById('collection-navigation-links');
+    const collectionNavigationSummary = document.getElementById('collection-navigation-summary');
+    const collectionNavigationHeading = document.getElementById('collection-navigation-heading');
     const collectionMembersForm = document.querySelector('form[data-endpoint="/v1/collections/members"]');
     const collectionMemberSummary = document.getElementById('collection-member-summary');
     const memberLinks = document.getElementById('member-links');
@@ -499,6 +513,8 @@ _PAGE = """<!doctype html>
       clearCorpusResults(true);
       memberLinks.replaceChildren();
       collectionLinks?.replaceChildren();
+      collectionNavigationLinks?.replaceChildren();
+      if (collectionNavigationSummary) collectionNavigationSummary.textContent = 'Nessuna navigazione caricata.';
       if (collectionListSummary) collectionListSummary.textContent = 'Nessuna raccolta selezionata.';
       if (collectionMemberSummary) collectionMemberSummary.textContent = 'Nessun Content caricato.';
       claimLinks.replaceChildren();
@@ -522,6 +538,7 @@ _PAGE = """<!doctype html>
           field.value = field.name === 'limit' ? '20' : '';
         }
       }
+      if (collectionNavigationForm) collectionNavigationForm.elements.namedItem('after_content_id').value = '';
       mediaLocator.textContent = 'Nessun segmento selezionato.';
     }
     document.getElementById('clear').addEventListener('click', () => {
@@ -580,6 +597,10 @@ _PAGE = """<!doctype html>
         if (form === collectionForm) {
           collectionLinks.replaceChildren();
           collectionListSummary.textContent = 'Caricamento delle raccolte…';
+        }
+        if (form === collectionNavigationForm) {
+          collectionNavigationLinks.replaceChildren();
+          collectionNavigationSummary.textContent = 'Verifica di un solo snapshot PostgreSQL in corso…';
         }
         if (form.dataset.endpoint === '/v1/collections/members') {
           memberLinks.replaceChildren();
@@ -687,6 +708,108 @@ _PAGE = """<!doctype html>
               });
               collectionLinks.append(more);
             }
+            return;
+          }
+          if (form === collectionNavigationForm) {
+            results.textContent = 'Navigazione privata con soli riferimenti validati.';
+            const tree = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && tree?.contract_version === 'studio-collection-navigation-v1'
+              && tree.private_only === true && tree.read_only === true
+              && tree.publication_authority === false && tree.rights_clearance === false
+              && tree.review_authority === false && tree.collection_id === data.collection_id
+              && SAFE_REF.test(tree.collection_state)
+              && Array.isArray(tree.members) && tree.members.length <= data.limit
+              && tree.members.every(item =>
+                SAFE_REF.test(item.content_id) && (item.source_id === null || SAFE_REF.test(item.source_id))
+                && item.source_exists === Boolean(item.source_id)
+                && SAFE_REF.test(item.rights_status) && SAFE_REF.test(item.processing_status)
+                && Number.isSafeInteger(item.capture_count) && item.capture_count >= 0
+                && item.source_preview_authorized === false && item.review_authority === false
+                && Array.isArray(item.blockers) && item.blockers.every(code => SAFE_REF.test(code))
+                && (item.latest_capture == null ? item.capture_count === 0
+                  : SAFE_REF.test(item.latest_capture.id)
+                    && SAFE_SHA256.test(item.latest_capture.content_sha256)
+                    && SAFE_REF.test(item.latest_capture.status)
+                    && SAFE_REF.test(item.latest_capture.hold_status)
+                    && SAFE_REF.test(item.latest_capture.rights_status)
+                    && Number.isSafeInteger(item.latest_capture.passage_count)
+                    && typeof item.latest_capture.passages_truncated === 'boolean'
+                    && Array.isArray(item.latest_capture.passages)
+                    && item.latest_capture.passages.length <= 3
+                    && item.latest_capture.passage_count >= item.latest_capture.passages.length
+                    && item.latest_capture.passages.every(passage =>
+                      SAFE_REF.test(passage.id) && SAFE_SHA256.test(passage.text_sha256)
+                      && ['TEXT_POSITION','PAGE_RANGE'].includes(passage.selector_type)
+                      && Number.isSafeInteger(passage.candidate_count)
+                      && passage.candidate_count >= 0
+                      && (passage.candidate_count === 0 ? passage.first_candidate_id === null
+                        : SAFE_REF.test(passage.first_candidate_id)))))
+              && (tree.next_after_content_id == null
+                ? tree.has_more === false
+                : tree.has_more === true && tree.members.length === data.limit
+                  && tree.next_after_content_id === tree.members.at(-1)?.content_id);
+            if (!valid) {
+              collectionNavigationLinks.replaceChildren();
+              collectionNavigationSummary.textContent = 'Snapshot non conforme: nessun riferimento visualizzabile.';
+              status.textContent = 'Dati non verificabili.';
+              return;
+            }
+            collectionNavigationSummary.textContent = tree.members.length
+              + ' Content inclusi, ' + tree.collection_state
+              + '. Nessuna fonte riproducibile né revisione approvata.';
+            for (const item of tree.members) {
+              const parent = document.createElement('button');
+              parent.type = 'button';
+              parent.textContent = 'Content ' + item.content_id
+                + ' · fonte ' + (item.source_id || 'non collegata')
+                + ' · ' + item.capture_count + ' Capture'
+                + ' · ' + item.blockers.join(', ');
+              parent.addEventListener('click', () => {
+                if (!collectionNavigationLinks.contains(parent)) return;
+                collectionCaptureForm.elements.namedItem('collection_id').value = tree.collection_id;
+                collectionCaptureForm.elements.namedItem('content_id').value = item.content_id;
+                collectionCaptureForm.elements.namedItem('after_id').value = '';
+                collectionCaptureForm.requestSubmit();
+              });
+              collectionNavigationLinks.append(parent);
+              const capture = item.latest_capture;
+              if (!capture || !item.source_exists) continue;
+              for (const passage of capture.passages) {
+                const next = document.createElement('button');
+                next.type = 'button';
+                next.textContent = 'Capture ' + capture.id + ' → Passage ' + passage.id
+                  + ' · ' + passage.candidate_count + ' Statement Candidate'
+                  + ' · primo ' + (passage.first_candidate_id || 'assente');
+                next.addEventListener('click', () => {
+                  if (!collectionNavigationLinks.contains(next)) return;
+                  scopedCaptureReference = {
+                    collection_id: tree.collection_id, content_id: item.content_id,
+                    capture_id: capture.id, capture_sha256: capture.content_sha256,
+                    source_id: item.source_id,
+                  };
+                  lineageForm.elements.namedItem('collection_id').value = tree.collection_id;
+                  lineageForm.elements.namedItem('content_id').value = item.content_id;
+                  lineageForm.elements.namedItem('capture_id').value = capture.id;
+                  lineageForm.elements.namedItem('passage_id').value = passage.id;
+                  lineageForm.elements.namedItem('limit').value = '20';
+                  lineageForm.elements.namedItem('after_statement_id').value = '';
+                  lineageForm.requestSubmit();
+                });
+                collectionNavigationLinks.append(next);
+              }
+            }
+            if (tree.next_after_content_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva dei Content inclusi';
+              more.addEventListener('click', () => {
+                collectionNavigationForm.elements.namedItem('after_content_id').value = tree.next_after_content_id;
+                collectionNavigationForm.requestSubmit();
+              });
+              collectionNavigationLinks.append(more);
+            }
+            collectionNavigationHeading.focus();
             return;
           }
           if (form === lineageForm) {
