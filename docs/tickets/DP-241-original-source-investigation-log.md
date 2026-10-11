@@ -138,3 +138,46 @@ fixture. AC-241.6 needs an authorized Studio frontend/runtime integration and
 MiniPC pilot log with real unresolved question/source-family gaps and privacy
 acceptance. No provider search/fetch, MiniPC change, public projection,
 publication or reviewer authority was introduced.
+
+### 2026-10-12 — disposable canonical PostgreSQL source and attempt CAS slice
+
+Added `poc/dichiarazioni_pubbliche/original_source_investigation_pg_v1.py`
+and `tests/test_dp241_recovery_pg_next.py`. The explicit opt-in adapter
+exercises real canonical PostgreSQL `source`, `content_item`,
+`content_capture`, `passage` and `private_source_rights_record` tables in a
+disposable loopback cluster. The target is checked against the exact
+Source→Content→Capture→Passage join, capture SHA, passage SHA, selector and
+character span. A current **single unrevoked rights leaf** must be CLEARED,
+reviewed, unexpired, and allow `DISCOVER_METADATA` plus `FETCH`. Cleared
+capture metadata alone grants nothing. Newer/ambiguous Capture versions,
+holds, denied/expired/revoked rights and foreign references block mutations.
+
+The adapter's disposable-only tables persist plan identity and append-only
+`RESERVED`/`COMPLETED` events. Transitions use SERIALIZABLE PostgreSQL
+transactions, per-plan advisory locking, expected revision CAS and
+request-key replay. Reservation persists before hypothetical billable
+work; crash/restart without a completion receipt fences duplicate work.
+Identical receipt replay is idempotent; conflicting completions and reused
+discovery SHA across attempts are rejected. Readback reconstructs receipts
+using existing `assess_recovery` and `inspect_recovery_timeline`, retaining
+the original DP-241 family/cost constraints. Stored data contains bounded
+IDs, result codes, digest and spend metadata, never questions, original
+quotes, URL, private source bodies or credentials.
+
+**Authorization boundary:** this is a disposable PostgreSQL analogue of the
+existing DP-319 durable reservation/replay contract, not a replacement for
+the independent DP-319 SQLite store or a production common scheduler.
+`install_fixture_schema()` is restricted to explicitly opted-in loopback
+`dp241_disposable`. Synthetic fixture rights/reviewer references do **not**
+prove qualified approval or independent search/fetch; `FOUND_CANDIDATE`
+requires external original-source proof and is not emitted by this adapter.
+No provider, network search, real spend, publication or MiniPC data mutation.
+
+**Validation:** real PostgreSQL source join, competing reservers, restart,
+idempotent and conflicting replay, immutable event trigger, two separate
+planned methods, reused discovery receipt, missing/forged original proof,
+version replacement, rights revocation even after reservation, cross-source
+identity, expired/incomplete rights, and absence of secret text from attempt
+tables. This is technical preflight only; no authentic DP-511 reanalysis,
+Studio readback, original newly captured source or MiniPC source-family
+investigation is claimed. **All AC-241.1–.6 stay unchecked, IN PROGRESS.**
