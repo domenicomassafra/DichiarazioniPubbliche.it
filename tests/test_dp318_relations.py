@@ -127,6 +127,28 @@ class DP318ScopedStatementTests(unittest.TestCase):
                 self.assertEqual(result.kind, StatementRelationKind.HOLD)
                 self.assertEqual(result.state, "HOLD")
 
+    def test_placeholder_person_ids_cannot_assert_same_person_contradiction(self):
+        # The speech-act preflight binds to the supplied utterer string; that
+        # cryptographic binding does not establish a resolved human identity.
+        for unresolved in ("UNKNOWN", "person:unknown", "person:unresolved", "person:"):
+            with self.subTest(unresolved=unresolved):
+                result = evaluate_scoped_statement_relation(
+                    statement(person=unresolved),
+                    statement("statement:b", person=unresolved, position="OPPOSE"),
+                )
+                self.assertEqual(result.kind, StatementRelationKind.HOLD)
+                self.assertEqual(result.person_cardinality, 0)
+                self.assertIn("PERSON_ID_UNVERIFIED", result.rationale_codes)
+
+    def test_placeholder_person_ids_cannot_assert_cross_person_divergence(self):
+        result = evaluate_scoped_statement_relation(
+            statement(person="person:unknown"),
+            statement("statement:b", person="person:b", position="OPPOSE"),
+        )
+        self.assertEqual(result.kind, StatementRelationKind.HOLD)
+        self.assertEqual(result.person_cardinality, 0)
+        self.assertIn("PERSON_ID_UNVERIFIED", result.rationale_codes)
+
     def test_incompatible_jurisdiction_period_condition_or_modality_holds(self):
         for changes in (
             {"jurisdiction_ref": "jurisdiction:de"},
@@ -315,6 +337,22 @@ class DP318ScopedStatementTests(unittest.TestCase):
         result = classify_relation(left, right)
         self.assertEqual(result.relation_type, RelationCandidateType.SAME_PROPOSITION)
         self.assertIn("PERSON_ID_INCOMPLETE_NO_POSITION_CHANGE", result.rationale_codes)
+
+    def test_legacy_explicit_unresolved_person_cannot_be_position_change(self):
+        for unresolved in ("UNKNOWN", "person:unknown", "person:unresolved", ""):
+            with self.subTest(unresolved=unresolved):
+                result = classify_relation(
+                    StructuredClaimRelationInput(
+                        claim_id="a", statement_date="2025-01-01",
+                        proposition_key="p", stance="support", person_id=unresolved,
+                    ),
+                    StructuredClaimRelationInput(
+                        claim_id="b", statement_date="2025-06-01",
+                        proposition_key="p", stance="oppose", person_id=unresolved,
+                    ),
+                )
+                self.assertEqual(result.relation_type, RelationCandidateType.SAME_PROPOSITION)
+                self.assertIn("PERSON_ID_UNVERIFIED_NO_POSITION_CHANGE", result.rationale_codes)
 
 
 class DP318PolicyPreflightTests(unittest.TestCase):

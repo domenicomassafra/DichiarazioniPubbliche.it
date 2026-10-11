@@ -103,6 +103,19 @@ def classify_relation(
             ("DIFFERENT_PROPOSITION",),
             1.0,
         )
+    # A caller explicitly supplying an unresolved person reference must not
+    # inherit the legacy no-person v1 position-change/contradiction heuristic.
+    if any(
+        row.person_id is not None and not _person_id_resolved(row.person_id)
+        for row in (prior, later)
+    ):
+        return RelationCandidateResult(
+            prior.claim_id,
+            later.claim_id,
+            RelationCandidateType.SAME_PROPOSITION,
+            ("PERSON_ID_UNVERIFIED_NO_POSITION_CHANGE",),
+            None,
+        )
     # Additive identity guard for v1 callers supplying authenticated person IDs.
     # Callers without those fields keep the historical v1 behavior (and therefore
     # must NOT claim the identity-safe DP-318 proof).
@@ -182,6 +195,20 @@ _VALID_KINDS = frozenset({"FACTUAL", "OPINION"})
 _VALID_POSITIONS = frozenset({"SUPPORT", "OPPOSE"})
 _VALID_MODALITIES = frozenset({"ASSERTED"})
 _UNVERIFIED_REFS = frozenset({"UNKNOWN", "UNSPECIFIED", "UNRESOLVED"})
+
+
+def _person_id_resolved(value: object) -> bool:
+    """Reject explicit identity placeholders, including namespaced variants.
+
+    This is a syntactic guard, not external identity approval. The authoritative
+    resolver/reviewer must still attest the person binding before public use.
+    """
+    if not isinstance(value, str):
+        return False
+    return all(
+        segment.strip() and segment.strip().upper() not in _UNVERIFIED_REFS
+        for segment in value.split(":")
+    )
 
 
 class StatementRelationKind(StrEnum):
@@ -305,7 +332,7 @@ def evaluate_scoped_statement_relation(
     )
     rationale: list[str] = []
     for row in (left, right):
-        if not isinstance(row.person_id, str) or not row.person_id.strip():
+        if not _person_id_resolved(row.person_id):
             rationale.append("PERSON_ID_UNVERIFIED")
         if (
             not isinstance(row.speech_act, SpeechActContextDecision)
@@ -399,9 +426,11 @@ def evaluate_scoped_statement_relation(
     ):
         rationale.append("IDENTICAL_QUOTATION_OPPOSITE_POSITION_UNSUPPORTED")
 
-    same_person = bool(left.person_id) and left.person_id == right.person_id
+    left_person_known = _person_id_resolved(left.person_id)
+    right_person_known = _person_id_resolved(right.person_id)
+    same_person = left_person_known and left.person_id == right.person_id
     person_cardinality = (
-        1 if same_person else 2 if left.person_id and right.person_id else 0
+        1 if same_person else 2 if left_person_known and right_person_known else 0
     )
     if rationale:
         kind = StatementRelationKind.HOLD

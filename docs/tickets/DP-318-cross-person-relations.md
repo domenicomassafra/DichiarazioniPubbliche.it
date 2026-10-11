@@ -40,3 +40,24 @@ Depends on: DP-104, DP-114, DP-219, DP-222, DP-227, DP-312
 ## 2026-10-11 — First implementation slice
 
 Versioned private pair-comparison preflight in `relation_runtime.py`/`relation_policy.py` (commit `d01fb22`) distinguishes same Person over time from cross-person differences, holds uncertain quote/identity/context and never grants public relation authority. 23 focused and 30 legacy relation tests pass. Legacy callers without `person_id`, independently approved semantic/reference gold, currentness/revocation and real MiniPC Trace remain to be integrated.
+
+## 2026-10-11 — Identity placeholder regression guard (source-only)
+
+An explicit but unresolved `person_id` such as `UNKNOWN`, `person:unknown`,
+`person:unresolved` or the empty namespaced `person:` previously passed as an
+identity in scoped comparisons. In two equal unresolved references the engine
+incorrectly returned `SAME_PERSON_CONTRADICTION_CANDIDATE`, and in mixed pairs
+it could return `CROSS_PERSON_DIVERGENCE`; the legacy compatibility function
+could infer `POSITION_CHANGE_CANDIDATE` from an explicitly unresolved person.
+The new syntactic guard holds scoped pairs with zero asserted person cardinality
+and downgrades legacy pairs with an explicit unresolved identity to
+`SAME_PROPOSITION` (unreviewed). Legacy callers omitting *both* person IDs keep
+their v1 behavior pending migration. The identity string guard is **not** an
+identity approval or a substitute for independently attested person resolution.
+
+Adversarial RED: three new tests, nine failing subcases before the fix. GREEN:
+the three new tests and the 56 focused DP-318/legacy relation-policy/runtime/
+repository tests pass locally; public relation authority remains always false
+in the scoped preflight. Status stays **IN PROGRESS**: the original AC require
+reference gold, append-only relation attestation/revocation, original-quote
+reader labels and MiniPC readback. No production publication proof is claimed.
