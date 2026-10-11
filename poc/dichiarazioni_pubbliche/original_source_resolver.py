@@ -259,6 +259,7 @@ class ExactSourceLocator:
     For TEXT_POSITION offsets are absolute in the parsed canonical text; for
     PAGE_RANGE they are within one PDF page; for MEDIA_SEGMENT_REF they are
     relative to the original transcript segment text, with full-segment time.
+    Media locators must pin a nonempty speaker ID matching the observed segment.
     Mixed selectors and stitched spans are not supported.
     """
 
@@ -505,8 +506,9 @@ def resolve_exact_source_locator(
         ):
             return blocked("LOCATOR_MEDIA_TIME_OR_RANGE_MISMATCH")
         if (
-            locator.speaker_person_id is not None
-            and locator.speaker_person_id != segment.speaker_person_id
+            not isinstance(locator.speaker_person_id, str)
+            or not locator.speaker_person_id.strip()
+            or locator.speaker_person_id != segment.speaker_person_id
         ):
             return blocked("LOCATOR_MEDIA_SPEAKER_MISMATCH")
         observed_quote = segment.segment_text[locator.quote_start:locator.quote_end]

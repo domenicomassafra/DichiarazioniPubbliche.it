@@ -48,8 +48,16 @@ Prefer additive selector metadata preserving old IDs and DP-216 hashes, old API 
 
 ## Completion receipt
 
-**NOT IMPLEMENTED — planning only**.
+**IN PROGRESS — source-only implementation; original cross-format and MiniPC acceptance remain open.**
 
 ## 2026-10-11 — First implementation slice
 
 Pure opt-in immutable Capture/Passage locator resolver implemented in `original_source_resolver.py` (commit `6bd8532`), covering text position, PDF page and media segment with strict source/version/hash/speaker/timing guards. 11 focused + 10 legacy tests and deterministic benchmark pass. No real parser authentication, source Studio/media seek, rights or MiniPC acceptance; all AC remain unchecked.
+
+## 2026-10-11 — Media speaker binding regression (worker-23)
+
+The opt-in `MEDIA_SEGMENT_REF` resolver previously returned `LOCATED` when the locator's `speaker_person_id` was missing, even if the observed segment identified a speaker, or when both values were whitespace. That allowed an otherwise matching timed excerpt to evade the claim-to-segment speaker comparison. A new negative regression in `tests/test_dp237_exact_locator.py` first failed with two unexpected `LOCATED` results (RED). The media branch now requires a nonblank, explicitly pinned speaker ID equal to the observed segment's ID; otherwise it returns `BLOCKED / LOCATOR_MEDIA_SPEAKER_MISMATCH`. Written selectors and the original media success case retain their behavior.
+
+Local GREEN: `PYTHONPATH=poc python3 -m unittest tests.test_dp237_exact_locator tests.test_dp239_multilingual_derivation tests.test_original_source_resolver tests.test_dp241_original_source_investigation -v` → 55 tests passed. This enforces media locator binding only; it neither authenticates the underlying non-biometric speaker attribution nor supplies a real-media player jump, current source permission, parser authority, publication approval, or MiniPC readback. All six original AC boxes remain open pending the real-source and runtime proofs.
+
+Additional local checks: `python3 -m compileall -q poc tests` PASS; deterministic benchmark 5/5 PASS; `git diff --check` PASS. Repository-wide `unittest discover -s tests -q` was attempted but interrupted after roughly two minutes while waiting in a subprocess from `test_m3_runtime_canaries.py::test_dp303_enabled_correction_runs_real_reanalysis_and_public_projection`; it has **no** PASS/fail result to claim. No commit, deployment or external-source acceptance was performed.

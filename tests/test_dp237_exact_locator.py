@@ -310,6 +310,25 @@ class ExactLocatorMediaTests(unittest.TestCase):
                 result = resolve_exact_source_locator(loc, **{**base, **overrides})
                 self.assertEqual(result.blockers, (code,))
 
+    def test_media_locator_requires_an_explicit_matching_speaker_pin(self):
+        segment, passage, locator, quote = media_fixture()
+        # An absent/blank locator speaker silently accepted any observed voice;
+        # an absent observed speaker likewise cannot establish the claimed one.
+        for pinned, observed in (
+            (None, segment.speaker_person_id),
+            (locator.speaker_person_id, None),
+            (" ", " "),
+        ):
+            with self.subTest(pinned=pinned, observed=observed):
+                result = resolve_exact_source_locator(
+                    replace(locator, speaker_person_id=pinned),
+                    passage=passage,
+                    media_segment=replace(segment, speaker_person_id=observed),
+                    quote_text=quote,
+                )
+                self.assertEqual(result.status, "BLOCKED")
+                self.assertEqual(result.blockers, ("LOCATOR_MEDIA_SPEAKER_MISMATCH",))
+
     def test_rejected_media_source_and_stitched_quote_do_not_resolve(self):
         segment, passage, locator, quote = media_fixture()
         self.assertEqual(
