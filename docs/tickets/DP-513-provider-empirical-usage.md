@@ -40,3 +40,72 @@ Depends on: DP-512, DP-506
 
 ## Completion receipt
  Not implemented; planning only; future receipts identify account-interface capability, source and day, observed quota reset, invoiced vs estimated classes, energy provenance, quality and NO-GO/GO-for-proposal disposition.
+
+## 2026-10-12 — Real disposable PostgreSQL canonical usage/readback parity (offline)
+
+An isolated **read-only** candidate consumer was implemented in
+`poc/dichiarazioni_pubbliche/ops/usage_attribution_pg_v1.py`, with real
+PostgreSQL 17 integration tests in
+`tests/test_dp513_usage_attribution_pg_next.py`. The source and tests
+for DP-512 remain untouched and are reused as read-only dependencies /
+disposable test fixtures. The new tests initialize a real temporary PG17
+server with the complete **canonical `db/schema.v1.sql`**, seed
+`provider_receipt` rows and use the existing DP-512 append-only
+classification CAS fixture to produce revisioned receipt events.
+No independent usage/provider reader was invented or asserted to be an
+authenticated invoice.
+
+The new reader obtains one PostgreSQL **REPEATABLE READ, READ ONLY**
+snapshot of canonical provider receipts, their exact original-row
+fingerprints and current DP-512 classification history. It uses the
+existing `operation_usage_receipt_from_row` and
+`reconcile_operation_billing` for source-aligned typed parsing and
+aggregation, then independently calls the real
+`QueueExecutionCostStore.operation_ledger_receipts()` consumer.
+Disagreeing readbacks (including a canonical mutation between the
+snapshot and consumer query) refuse attribution rather than silently
+mixing revisions. Canonical duplicate `(operation_key, attempt)`
+receipts, contradictory providers under one logical operation,
+tampered post-CAS originals and malformed correction histories also
+fail closed. Failed first attempts and successful retries remain
+separate in the attempt denominator, while an append-only correction
+revises metadata without counting an attempt twice. Parallel competing
+DP-512 CAS corrections produce one winner, and fresh reader instances
+reconstruct the same revisioned result.
+
+The result is a **private, bounded, sanitized attribution only**:
+opaque hashes for receipt/operation keys, provider/model allowlist,
+UTC observation day, attempt outcome, source/content-link presence,
+classification revision, recorded measured-labeled versus provisional
+estimated USD, UNKNOWN cash liability, external-plan counts and
+missing billing-reference counts. A measured-labeled row with a
+locally supplied DP-512 reference is
+`RECORDED_MEASURED_REFERENCE_UNVERIFIED`; without one it is
+`RECORDED_MEASURED_REFERENCE_MISSING`. **Neither is an authenticated
+bill.** A provider/receipt JSON refund claim cannot reduce the
+recorded amount or create a verified refund. Estimates of exactly
+zero remain estimates, unknown cost is never made free, external-plan
+quota is not converted into USD, and unknown local Wh remains UNKNOWN.
+No raw provider JSON, prompt/source bodies, URLs, account token,
+invoice reference or receipt reference is exposed by the report.
+
+**TDD RED→GREEN:** the new tests initially failed on the nonexistent
+module. A subsequent fixture error was fixed solely in the new test
+file (the original DP-512 fixture remained unchanged). Final new
+adversarial coverage: **15/15 real PostgreSQL tests PASS**. Combined
+`tests.test_dp513_usage_attribution_pg_next`,
+`tests.test_dp512_billing_pg_fence_next`,
+`tests.test_operation_ledger` and `tests.test_dp512_billing`:
+**45/45 PASS**. Ruff lint/format, targeted compileall and
+`git diff --check` PASS. No provider request, billed spend, web/cloud,
+MiniPC, production migration, cost reservation, model routing,
+official quota snapshot, currency conversion or dispatch occurred.
+
+**Status remains FUTURE for the empirical provider pilot; all
+AC-513.1–513.7 remain unchecked.** The actual preregistered workload,
+owner-approved provider access, account/native capability and quota
+readback, audio/energy meter, empirical before/after billing,
+subscription treatment, independent quality ground truth, multiple
+reset cycles and MiniPC owner acceptance are still missing. The
+offline report has no invoice, refund, entitlement, or dispatch
+authority; provider-dependent production rollout is **NO-GO**.
