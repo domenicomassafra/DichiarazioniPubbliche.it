@@ -105,9 +105,14 @@ import demo from "../data/demo-projection.json";
     ...sample,
     statements: [{ statement_id: "statement:not-allowed-in-empty" }],
   }, { expectedFailure: true });
+  // Compose the *negative* credential-in-URL fixture at runtime; never put
+  // a credential-bearing URL literal in tracked sources or secret scans.
+  const credentialSource = new URL("https://example.test/source");
+  credentialSource.username = "fixture";
+  credentialSource.password = "fixture";
   for (const source_url of [
     "javascript:alert(1)", "data:text/html,unsafe", "http://example.test/source",
-    "https://user:pass@example.test/source", "not-a-url",
+    credentialSource.href, "not-a-url",
   ]) {
     await build({
       ...sample,
