@@ -60,3 +60,54 @@ The v3 getter accepts both stable `person_id` and human-readable `slug` in one l
 The isolated projection now checks *both* identifier kinds for collisions across distinct approved identities. It withholds every affected Person regardless of private roster order and leaves unrelated, independently approved identities visible. Synthetic RED regression `test_stable_id_matching_another_person_slug_holds_both_public_identifiers` failed before the guard (three records emitted instead of just the unaffected Person), then passed with the correction for both roster orders. The regression also checks deterministic `dataset_sha256`, stable ID/slug lookup for the unaffected Person, and identical public output after an unapproved private Person adopts the same slug. Focused `PYTHONPATH=poc python3 -m unittest tests.test_dp438_public_person -v`: **11/11 PASS**; `python3 -m compileall -q poc tests`, `git diff --check` and deterministic `PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark`: **5/5 PASS**.
 
 This strengthens the AC-438.2/5 local identity/lookup boundary only; the cross-surface API/search/sitemap, real approval, merge/split propagation and MiniPC revocation readback remain unproved. Source-time role, overlap and revocation synthetic checks continue to pass for AC-438.4. **Ticket remains IN PROGRESS; all AC checkboxes remain unchecked.**
+
+## 2026-10-11 — Opinion card source-span provenance and current-replay guard
+
+An independent follow-up found that the opt-in v3 Person membership already
+included an approved original quote and quote/source hashes, but **omitted**
+the canonical Statement URL, original Content identity, immutable source
+version, and approved written/timed locator. Replacing just the approved
+source version or moving a valid same-length quote locator produced the
+**same Person read-model `dataset_sha256`**. Such a card could not direct
+the reader to the exact source span, and a changed source record was invisible
+to Person fingerprint-based consumers. Tests for both changes were **RED**.
+
+The Person Statement row now includes a canonical
+`/dichiarazioni/{statement-slug}/` deep link using the same validated
+v3 Statement slug grammar, original `content_id`, `source_version`,
+`source_kind`, and an independently copied public locator. Consequently
+source-version or locator-only corrections change the Person read-model
+fingerprint. Synthetic tests additionally exercise timed segment/millisecond
+locators, an approved opinion without Finding, and a withdrawn Statement
+returning its independently approved Person to a genuine public zero-record
+empty state, with no private membership count or inferred verdict.
+
+A second replay/currentness defect was reproduced. The Person join accepted
+an internally valid **historical** Statement v3 bundle, even if the
+currently approved published bundle had since withdrawn the original
+Statement. `build_public_people_v3` now *requires* an externally supplied
+`current_public_dataset_sha256`; a missing, malformed, or mismatching
+current fingerprint rejects the entire build, without revealing held/private
+membership. The local fixture passes an explicit synthetic fingerprint;
+the real owner must obtain it from an independent current publication
+authority, never derive it from the stale input bundle.
+
+Finally, the existing validated input bundle was read again **after**
+iterating private roster/role inputs. A lazy roster generator could mutate
+the bundle's original words between validation and membership assembly,
+emitting forged text paired with the previously valid quote hash. The
+adversarial test was **RED** and became **GREEN** after making an isolated
+bundle snapshot *before* validating and joining. No raw transcripts,
+source permission decisions or unapproved bodies are projected by this
+change.
+
+Local focused tests: **18/18 PASS** (previously 11), including the
+new source correction, written/timed locator, withdrawal, stale-fingerprint
+and mutable-source callbacks. Deterministic benchmark **5/5 PASS**;
+`git diff --check` passes. No new v3 public route/API/search/sitemap
+or publication path has been activated. **DP-438 remains IN PROGRESS and
+all AC-438.1–.6 stay unchecked:** independent real Person publication and
+current-rights attestations, atomic cross-format withdrawal/rebuild,
+stable owner-controlled aliases, the integrated v3 frontend/API/index,
+and MiniPC positive/negative acceptance remain external gates. No
+commit, push or deploy was performed in this worker tranche.

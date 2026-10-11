@@ -112,14 +112,22 @@ def project(
     people: list[dict] | None = None, identities: list[dict] | None = None,
     roles: list[dict] | None = None, reviews: list[dict] | None = None,
     *, statements: list[dict] | None = None, public_bundle: dict | None = None,
+    current_public_dataset_sha256: str | None = None,
 ) -> dict:
     p = person()
+    selected_bundle = bundle(statements) if public_bundle is None else public_bundle
     return build_public_people_v3(
         [p] if people is None else people,
         [identity(p)] if identities is None else identities,
         [] if roles is None else roles,
         [] if reviews is None else reviews,
-        public_bundle=bundle(statements) if public_bundle is None else public_bundle,
+        public_bundle=selected_bundle,
+        # Synthetic unit test authority only: a real caller must obtain this
+        # separately from the current approved runtime publication manifest.
+        current_public_dataset_sha256=(
+            selected_bundle["dataset_sha256"] if current_public_dataset_sha256 is None
+            else current_public_dataset_sha256
+        ),
         allow_public_person_v3=True,
     )
 
@@ -154,6 +162,122 @@ class PublicPersonV3Tests(unittest.TestCase):
         self.assertNotIn("verified_at", row)
         self.assertNotIn("publication_date", row)
         self.assertNotIn("verdict", json.dumps(built))
+
+    def test_public_person_opinion_card_links_exact_statement_and_source_span(self):
+        public_statement = statement()
+        built = project(statements=[public_statement])
+        card = get_public_person_v3(built, "persona-uno")["statements"][0]
+        self.assertEqual(card["statement_route"], "/dichiarazioni/statement-one/")
+        self.assertEqual(card["statement_id"], "statement:one")
+        self.assertEqual(card["version_id"], public_statement["version_id"])
+        self.assertEqual(card["content_id"], public_statement["content_id"])
+        self.assertEqual(card["source_version"], public_statement["source_version"])
+        self.assertEqual(card["source_kind"], "WRITTEN")
+        self.assertEqual(card["locator"], public_statement["locator"])
+        self.assertEqual(card["source_sha256"], public_statement["source_sha256"])
+        self.assertEqual(card["quote_sha256"], public_statement["quote_sha256"])
+        self.assertEqual(card["speech_act"], "OPINION")
+        self.assertIsNone(card["finding_id"])
+        self.assertNotIn("rights", json.dumps(card))
+        self.assertNotIn("review_provenance", json.dumps(card))
+
+    def test_corrected_source_version_or_locator_invalidates_person_card_fingerprint(self):
+        approved_statement = statement()
+        previous_bundle = bundle([approved_statement])
+        previous = project(public_bundle=previous_bundle)
+        original_card = copy.deepcopy(previous["people"][0]["statements"][0])
+        for field in ("source_version", "locator"):
+            with self.subTest(field=field):
+                changed_statement = copy.deepcopy(approved_statement)
+                if field == "source_version":
+                    changed_statement[field] = "source-version:corrected"
+                else:
+                    changed_statement[field]["start_char"] += 5
+                    changed_statement[field]["end_char"] += 5
+                newer = project(public_bundle=bundle([changed_statement]))
+                card = newer["people"][0]["statements"][0]
+                self.assertNotEqual(newer["dataset_sha256"], previous["dataset_sha256"])
+                self.assertNotEqual(card[field], original_card[field])
+                self.assertEqual(card["statement_route"], original_card["statement_route"])
+
+    def test_joined_source_locator_is_snapshot_not_mutable_projection_alias(self):
+        original = statement()
+        published = bundle([original])
+        built = project(public_bundle=published)
+        before = copy.deepcopy(built["people"][0]["statements"][0]["locator"])
+        fixed_sha = built["dataset_sha256"]
+        published["statements"][0]["locator"]["start_char"] += 10
+        self.assertEqual(built["people"][0]["statements"][0]["locator"], before)
+        self.assertEqual(built["dataset_sha256"], fixed_sha)
+
+    def test_timed_source_card_preserves_approved_segment_and_millisecond_interval(self):
+        timed = statement()
+        timed["source_kind"] = "TIMED"
+        timed["locator"].update({
+            "segment_id": "segment:approved:1",
+            "start_ms": 1230,
+            "end_ms": 4620,
+        })
+        built = project(statements=[timed])
+        card = built["people"][0]["statements"][0]
+        self.assertEqual(card["source_kind"], "TIMED")
+        self.assertEqual(card["locator"], timed["locator"])
+        self.assertEqual(card["statement_route"], "/dichiarazioni/statement-one/")
+        self.assertNotIn("raw_transcript", json.dumps(card))
+
+    def test_withdrawn_public_statement_rebuild_retains_only_approved_zero_person(self):
+        with_opinion = project(statements=[statement()])
+        withdrawn = project(public_bundle=bundle([]))
+        record = get_public_person_v3(withdrawn, "persona-uno")
+        self.assertIsNotNone(record)
+        self.assertEqual(record["route"], "/persone/persona-uno/")
+        self.assertEqual(record["statements"], [])
+        self.assertNotEqual(with_opinion["dataset_sha256"], withdrawn["dataset_sha256"])
+        self.assertNotIn("Una frase dimostrativa.", json.dumps(withdrawn))
+        self.assertIsNone(get_public_person_v3(withdrawn, "person:private"))
+
+    def test_stale_rights_replay_requires_external_current_published_fingerprint(self):
+        old_approved_source = bundle([statement()])
+        after_withdrawal = bundle([])
+        self.assertNotEqual(old_approved_source["dataset_sha256"],
+                            after_withdrawal["dataset_sha256"])
+        # Old bundle is internally valid and retains its original hash. A
+        # hash recomputed from that bundle cannot attest continuing rights.
+        validate_public_bundle(old_approved_source, allow_statement_v3=True)
+        with self.assertRaisesRegex(ValueError, "stale|fingerprint|current"):
+            project(
+                public_bundle=old_approved_source,
+                current_public_dataset_sha256=after_withdrawal["dataset_sha256"],
+            )
+        p = person()
+        with self.assertRaisesRegex((TypeError, ValueError), "current|fingerprint"):
+            build_public_people_v3(
+                [p], [identity(p)], [], [], public_bundle=old_approved_source,
+                allow_public_person_v3=True,
+            )
+
+    def test_private_roster_generator_cannot_mutate_validated_public_quote_mid_join(self):
+        p = person()
+        published = bundle([statement()])
+        independent_current_sha = published["dataset_sha256"]
+        expected_quote = published["statements"][0]["original_text"]
+
+        def delayed_roster():
+            yield p
+            # Simulates a mutable source/rights reader changing the public
+            # record between the initial validation and membership join.
+            published["statements"][0]["original_text"] = "Citazione privata sostituita"
+
+        result = build_public_people_v3(
+            delayed_roster(), [identity(p)], [], [],
+            public_bundle=published,
+            current_public_dataset_sha256=independent_current_sha,
+            allow_public_person_v3=True,
+        )
+        row = get_public_person_v3(result, "persona-uno")["statements"][0]
+        self.assertEqual(row["original_text"], expected_quote)
+        self.assertEqual(row["quote_sha256"], sha(expected_quote))
+        self.assertNotIn("Citazione privata sostituita", json.dumps(result))
 
     def test_name_in_source_title_or_reported_quote_never_creates_endorsed_membership(self):
         other_person = statement(person_id="person:other")
@@ -306,8 +430,10 @@ class PublicPersonV3Tests(unittest.TestCase):
         self.assertEqual(project(people=[p, p], identities=[accepted])["people"], [])
 
     def test_v3_is_explicit_and_requires_current_validated_bundle(self):
+        valid = bundle()
         with self.assertRaisesRegex(ValueError, "explicit opt-in"):
-            build_public_people_v3([], [], [], [], public_bundle=bundle())
+            build_public_people_v3([], [], [], [], public_bundle=valid,
+                                   current_public_dataset_sha256=valid["dataset_sha256"])
         with self.assertRaisesRegex(ValueError, "Statement v3"):
             project(public_bundle=bundle(v2=True))
         invalid = bundle([statement()])

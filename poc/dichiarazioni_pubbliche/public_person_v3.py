@@ -8,6 +8,7 @@ There is deliberately no database reader, HTTP route or v2 integration here.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import re
@@ -18,6 +19,7 @@ from urllib.parse import urlsplit
 
 from dichiarazioni_pubbliche.public_schema import (
     PUBLIC_STATEMENT_SCHEMA_VERSION,
+    _public_route_slug,
     validate_public_bundle,
 )
 
@@ -239,14 +241,28 @@ def build_public_people_v3(
     role_decisions: Iterable[Mapping[str, Any]],
     *,
     public_bundle: dict[str, Any],
+    current_public_dataset_sha256: str,
     allow_public_person_v3: bool = False,
 ) -> dict[str, Any]:
-    """Create only approved public identities; no private roster metadata survives."""
+    """Create only approved public identities from the independently current v3 snapshot.
+
+    The current fingerprint MUST be supplied by a separate public release
+    authority, never calculated by this function from its own input bundle.
+    Valid historical v3 snapshots are not proof that source rights persist.
+    """
     if allow_public_person_v3 is not True:
         raise ValueError("PublicPerson v3 requires explicit opt-in")
+    # Keep an independent candidate before validation; private roster/role
+    # inputs can be lazy iterables whose callbacks mutate their shared source.
+    # Validation and the subsequent Person join must use the same snapshot.
+    public_bundle = copy.deepcopy(public_bundle)
     if public_bundle.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
         raise ValueError("PublicPerson v3 requires a published Statement v3 bundle")
     validate_public_bundle(public_bundle, allow_statement_v3=True)
+    if (not isinstance(current_public_dataset_sha256, str)
+            or not _SHA.fullmatch(current_public_dataset_sha256)
+            or public_bundle["dataset_sha256"] != current_public_dataset_sha256):
+        raise ValueError("PublicPerson v3 requires current published Statement fingerprint")
 
     identities = _without_reused_review_events(
         _current_decisions(identity_decisions, key="person_id", fields=_IDENTITY_DECISION_FIELDS),
@@ -292,10 +308,22 @@ def build_public_people_v3(
                     continue
                 memberships.append({
                     "statement_id": statement["statement_id"],
+                    # Use the same slug grammar as the validated v3 bundle's
+                    # canonical Statement route, never a Person-local guess.
+                    "statement_route": (
+                        f"/dichiarazioni/{_public_route_slug(statement['statement_id'], field='statement_id')}/"
+                    ),
                     "version_id": statement["version_id"],
                     "statement_date": statement["statement_date"],
+                    "content_id": statement["content_id"],
                     "source_title": statement["source_title"],
                     "source_url": statement["source_url"],
+                    "source_version": statement["source_version"],
+                    "source_kind": statement["source_kind"],
+                    # Copy the public-only locator: this Person read model's
+                    # fingerprint must bind the exact approved source span,
+                    # even if a caller later mutates the input bundle.
+                    "locator": dict(statement["locator"]),
                     "original_text": statement["original_text"],
                     "language": statement["language"],
                     "quote_sha256": statement["quote_sha256"],
