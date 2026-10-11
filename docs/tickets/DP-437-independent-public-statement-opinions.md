@@ -50,3 +50,65 @@ Extend CONTEXT vocabulary and the public read model additively; decouple Stateme
 ## 2026-10-11 — First implementation slice
 
 New `PublicStatement` v3 opt-in projection (`2405049`) supports an attributable opinion with nullable Finding, separate checking semantics and source literal approval. Focused schema/projection tests pass. No genuine opinion public page, rights/publication eligibility, person/topic consumer, historical correction or real runtime acceptance; AC remain open.
+
+## 2026-10-11 — Opt-in grouped Person × Content opinion read API (source only)
+
+A distinct pure read-only backend consumer
+`list_public_opinions_by_person_content_v3` now operates **only on a
+prevalidated, independently governed public Statement v3 bundle**. This is
+not an HTTP route, permission grant, production reader or publication
+pipeline. It requires explicit `allow_statement_v3=True` and the
+`current_public_dataset_sha256` obtained independently from the current
+authorized public release; a missing/mismatched fingerprint refuses the
+entire request (503). An old internally valid bundle cannot be silently
+replayed after rights withdrawal. The input bundle is independently copied
+before revalidation and assembly to avoid exposing mutable source rows
+after the validation step. No historical v2 dossier or normalized
+paraphrase can become an original Statement.
+
+The new function groups currently published, **endorsed OPINION**
+Statements first by their explicit `person_id`, then by `content_id`,
+with deterministic dated Statement ordering and optional *intersected*
+Person/Content ID filters. A group carries only IDs and never infers a
+person's identity, current belief or a single common source version;
+each entry reuses the **same allowlisted Statement API record** as
+`get_public_statement_v3`. Exact original words, date, source URL,
+immutable content/version/source/quotation hashes, language and written
+or timed locator remain attached per Statement. Summaries/translations
+remain distinct; optional `finding_id` is a reference, not a fabricated
+opinion verdict. Reported speech, criticism, irony, unendorsed opinions,
+factual assertions and private/held/revoked candidates are absent from
+this *endorsed-opinion* collection. An empty/unknown/private Person filter
+returns the same zero public records and no private membership count.
+This restriction does **not** suppress non-endorsed speech in the
+separate preexisting v3 Statement archive.
+
+Adversarial `tests/test_dp437_public_opinion_api.py` builds **three
+independently five-gated synthetic v3 original Statements** through the
+existing source text and review readers. RED before implementation:
+new opt-in grouped reader was absent (import failure). GREEN: 7 focused
+tests cover Person×Content grouping, multi-Statement date ordering,
+verbatim API-detail equality, no Finding or invented score/verdict,
+invalid/unknown filters, rights revoked/HELD omission, reported/critical
+and non-endorsed exclusion, stale source fingerprint 503, source-version
+reapproval, byte-stable replay and separation of mutable input from
+serialized output. Adjacent DP-435/436 v3 parity and public API:
+**116/116 PASS**; public projection: **48/48 PASS**; deterministic
+benchmark: **5/5 PASS**; targeted compileall and `git diff --check`
+PASS. No genuine licensed source, private body, provider call or real
+MiniPC was used.
+
+**Original AC-437.1–.4 remain unchecked and ticket IN PROGRESS.**
+AC-437.1 has source-only Person/Content API read proof, **not** an
+approved public HTML/API route, subject Topic integration or real source
+rights. AC-437.2 still requires public checking-state distinctions
+(unchecked/insufficient-evidence/factual Finding) and their review
+authority, which this explicitly opinion-only read model does not
+invent. AC-437.3 has negative membership tests only, not complete
+cross-consumer/private search evidence. AC-437.4 still needs durable
+append-only correction/reply/retraction history, current release/cached
+API/index parity and end-to-end source rights revocation. A caller-
+supplied fingerprint is not itself proof of authority: an independently
+attested release manifest is still external. Public-v2 writer and
+`/api/v1` live routing remain unchanged/disabled for v3; no production,
+MiniPC, commit or push in this tranche.
