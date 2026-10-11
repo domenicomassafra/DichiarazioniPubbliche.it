@@ -621,6 +621,149 @@ class SQLiteMonthlyReservationResult:
     dispatch_authorized: bool = False
 
 
+_MONTH_OBSERVATION_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_:.-]{0,127}\Z", re.ASCII)
+_MONTH_SHA256 = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
+
+
+@dataclass(frozen=True)
+class MonthlySettlementObservation:
+    """Untrusted, caller-reported private cost/unknown observation.
+
+    Supplying source reference/hash never attests an invoice or refunds spend.
+    No raw provider receipt, credential, account identity or text is stored.
+    """
+
+    observation_id: str
+    attempt_id: str
+    operation: str
+    status: str  # REPORTED_UNVERIFIED | UNKNOWN
+    reported_cost_usd: Decimal | None
+    source_reference: str | None
+    source_sha256: str | None
+    observed_at: datetime
+
+    def __post_init__(self) -> None:
+        for field in ("observation_id", "attempt_id", "operation"):
+            ref = getattr(self, field)
+            if not isinstance(ref, str) or not _MONTH_OBSERVATION_REF.fullmatch(ref):
+                raise ValueError("MONTHLY_OBSERVATION_REFERENCE_INVALID")
+        _aware_time(self.observed_at)
+        if self.status == "UNKNOWN":
+            if any(value is not None for value in (
+                self.reported_cost_usd, self.source_reference, self.source_sha256
+            )):
+                raise ValueError("MONTHLY_UNKNOWN_OBSERVATION_MUST_NOT_PRICE")
+        elif self.status == "REPORTED_UNVERIFIED":
+            object.__setattr__(self, "reported_cost_usd", _monthly_decimal(
+                self.reported_cost_usd, field="MONTHLY_OBSERVATION_COST",
+            ))
+            if (not isinstance(self.source_reference, str)
+                    or not _MONTH_OBSERVATION_REF.fullmatch(self.source_reference)
+                    or not isinstance(self.source_sha256, str)
+                    or not _MONTH_SHA256.fullmatch(self.source_sha256)):
+                raise ValueError("MONTHLY_OBSERVATION_SOURCE_INVALID")
+        else:
+            raise ValueError("MONTHLY_OBSERVATION_STATUS_INVALID")
+
+
+@dataclass(frozen=True)
+class MonthlySettlementReceipt:
+    """Write-once SQLite receipt; amount is provisional, not billed authority."""
+
+    period: str
+    observation: MonthlySettlementObservation
+    status: str  # PROVISIONAL_HELD | UNKNOWN_HELD | OVER_BOUND_HELD
+    held_eur: Decimal
+    provisional_eur: Decimal | None
+    fx_reference: str
+    state_revision: int
+    previous_state_sha256: str
+    resulting_state_sha256: str
+    invoice_attested: bool = False
+    dispatch_authorized: bool = False
+
+
+def _settlement_receipt_json(receipt: MonthlySettlementReceipt) -> str:
+    return json.dumps(asdict(receipt), sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=True, default=str)
+
+
+def _settlement_receipt_sha256(receipt: MonthlySettlementReceipt) -> str:
+    return hashlib.sha256(_settlement_receipt_json(receipt).encode("ascii")).hexdigest()
+
+
+def _loaded_settlement_receipt(raw: str, fingerprint: str) -> MonthlySettlementReceipt:
+    try:
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or set(payload) != {
+            "period", "observation", "status", "held_eur", "provisional_eur",
+            "fx_reference", "state_revision", "previous_state_sha256",
+            "resulting_state_sha256", "invoice_attested", "dispatch_authorized",
+        }:
+            raise ValueError("invalid receipt shape")
+        data = payload["observation"]
+        if not isinstance(data, dict) or set(data) != {
+            "observation_id", "attempt_id", "operation", "status",
+            "reported_cost_usd", "source_reference", "source_sha256", "observed_at",
+        }:
+            raise ValueError("invalid observation shape")
+        observation = MonthlySettlementObservation(
+            **{**data, "observed_at": datetime.fromisoformat(data["observed_at"])}
+        )
+        receipt = MonthlySettlementReceipt(
+            period=payload["period"], observation=observation,
+            status=payload["status"],
+            held_eur=_monthly_decimal(payload["held_eur"], field="MONTHLY_HELD"),
+            provisional_eur=(None if payload["provisional_eur"] is None else
+                             _monthly_decimal(payload["provisional_eur"], field="MONTHLY_PROVISIONAL")),
+            fx_reference=payload["fx_reference"], state_revision=payload["state_revision"],
+            previous_state_sha256=payload["previous_state_sha256"],
+            resulting_state_sha256=payload["resulting_state_sha256"],
+            invoice_attested=payload["invoice_attested"],
+            dispatch_authorized=payload["dispatch_authorized"],
+        )
+        if (receipt.status not in {"PROVISIONAL_HELD", "UNKNOWN_HELD", "OVER_BOUND_HELD"}
+                or receipt.invoice_attested is not False
+                or receipt.dispatch_authorized is not False
+                or type(receipt.state_revision) is not int or receipt.state_revision < 1
+                or not isinstance(receipt.fx_reference, str) or not receipt.fx_reference
+                or not all(isinstance(sha, str) and _MONTH_SHA256.fullmatch(sha)
+                           for sha in (receipt.previous_state_sha256,
+                                       receipt.resulting_state_sha256))
+                or (receipt.status == "UNKNOWN_HELD") != (observation.status == "UNKNOWN")
+                or (receipt.provisional_eur is None) != (observation.status == "UNKNOWN")
+                or not _MONTH_PATTERN.fullmatch(receipt.period)
+                or _settlement_receipt_sha256(receipt) != fingerprint):
+            raise ValueError("receipt integrity mismatch")
+        return receipt
+    except (TypeError, ValueError, KeyError, OverflowError, InvalidOperation) as exc:
+        raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE") from exc
+
+
+@dataclass(frozen=True)
+class SQLiteMonthlySettlementResult:
+    committed: bool
+    reason: str
+    receipt: MonthlySettlementReceipt | None = None
+    dispatch_authorized: bool = False
+    invoice_attested: bool = False
+
+
+@dataclass(frozen=True)
+class SQLiteMonthlyReconciliationReport:
+    period: str
+    observed_attempts: int
+    provisional_observed_eur: Decimal
+    held_total_eur: Decimal
+    settled_eur: Decimal
+    unknown_attempts: int
+    over_bound_attempts: int
+    unknown_liability: bool
+    authoritative_billed_eur: None = None
+    invoice_attested: bool = False
+    dispatch_authorized: bool = False
+
+
 class SQLiteMonthlyReservationStore:
     """Disposable database proof: serialized cross-connection EUR reservations.
 
@@ -654,6 +797,26 @@ class SQLiteMonthlyReservationStore:
                     state_sha256 TEXT NOT NULL,
                     state_json TEXT NOT NULL
                 )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS monthly_reconciliation_receipt (
+                    period TEXT NOT NULL,
+                    attempt_id TEXT NOT NULL UNIQUE,
+                    observation_id TEXT NOT NULL UNIQUE,
+                    receipt_sha256 TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    PRIMARY KEY (period, attempt_id)
+                )
+            """)
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS monthly_reconciliation_receipt_no_update
+                BEFORE UPDATE ON monthly_reconciliation_receipt
+                BEGIN SELECT RAISE(ABORT, 'monthly reconciliation is immutable'); END
+            """)
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS monthly_reconciliation_receipt_no_delete
+                BEFORE DELETE ON monthly_reconciliation_receipt
+                BEGIN SELECT RAISE(ABORT, 'monthly reconciliation is immutable'); END
             """)
         finally:
             conn.close()
@@ -766,6 +929,200 @@ class SQLiteMonthlyReservationStore:
             return SQLiteMonthlyReservationResult(False, "MONTHLY_STORAGE_UNAVAILABLE")
         except ValueError:
             return SQLiteMonthlyReservationResult(False, "MONTHLY_STORAGE_INTEGRITY_FAILURE")
+        finally:
+            if conn.in_transaction:
+                conn.rollback()
+            conn.close()
+
+    def reconcile(
+        self, *, policy: MonthlyEurPolicy, period: str,
+        observation: MonthlySettlementObservation,
+    ) -> SQLiteMonthlySettlementResult:
+        """Atomically record one untrusted, immutable attempt observation.
+
+        The pinned reservation FX rate gives a *provisional* comparison only.
+        The full held EUR reservation remains charged against the cap, even
+        when a caller says usage was lower or zero. UNKNOWN/over-bound freezes
+        future reservations; nothing creates a paid-dispatch/refund authority.
+        ``period`` is explicit so a late observation targets its original month.
+        """
+        def deny(reason: str) -> SQLiteMonthlySettlementResult:
+            return SQLiteMonthlySettlementResult(False, reason)
+
+        if not policy.enabled:
+            return deny("MONTHLY_POLICY_DISABLED")
+        if (not isinstance(period, str) or not _MONTH_PATTERN.fullmatch(period)
+                or not period.endswith("@" + policy.timezone_name)):
+            return deny("MONTHLY_PERIOD_INVALID")
+        if not isinstance(observation, MonthlySettlementObservation):
+            return deny("MONTHLY_OBSERVATION_INVALID")
+        try:
+            conn = self._connect()
+        except sqlite3.Error:
+            return deny("MONTHLY_STORAGE_UNAVAILABLE")
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("""
+                SELECT policy_sha256, revision, state_sha256, state_json
+                FROM monthly_budget_state WHERE period = ?
+            """, (period,)).fetchone()
+            if row is None:
+                return deny("MONTHLY_PERIOD_NOT_BOOTSTRAPPED")
+            policy_sha, revision, old_sha, raw_state = row
+            if policy_sha != _monthly_policy_sha256(policy):
+                return deny("MONTHLY_STORED_POLICY_MISMATCH")
+            state = self._loaded_state((revision, old_sha, raw_state))
+            if state.period != period or state.policy_version != policy.version:
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            previous = conn.execute("""
+                SELECT period, observation_id, receipt_sha256, receipt_json
+                FROM monthly_reconciliation_receipt WHERE attempt_id = ?
+            """, (observation.attempt_id,)).fetchone()
+            if previous is not None:
+                prior_period, prior_id, prior_sha, prior_raw = previous
+                receipt = _loaded_settlement_receipt(prior_raw, prior_sha)
+                if (prior_period != receipt.period
+                        or prior_id != receipt.observation.observation_id
+                        or receipt.observation.attempt_id != observation.attempt_id):
+                    raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+                if prior_period != period:
+                    return deny("MONTHLY_OBSERVATION_SCOPE_CONFLICT")
+                if receipt.observation != observation:
+                    return deny("MONTHLY_OBSERVATION_CONFLICT")
+                return SQLiteMonthlySettlementResult(
+                    False, "MONTHLY_OBSERVATION_ALREADY_RECORDED", receipt,
+                )
+            other_id = conn.execute("""
+                SELECT attempt_id FROM monthly_reconciliation_receipt
+                WHERE observation_id = ?
+            """, (observation.observation_id,)).fetchone()
+            if other_id is not None:
+                return deny("MONTHLY_OBSERVATION_ID_CONFLICT")
+            reserved = next((item for item in state.reservations
+                             if item.attempt_id == observation.attempt_id), None)
+            if reserved is None:
+                return deny("MONTHLY_RESERVATION_NOT_FOUND")
+            if reserved.operation != observation.operation:
+                return deny("MONTHLY_ATTEMPT_ID_CONFLICT")
+            if observation.status == "UNKNOWN":
+                status = "UNKNOWN_HELD"
+                provisional_eur = None
+            else:
+                provisional_eur = (
+                    observation.reported_cost_usd * reserved.fx_rate_eur_per_usd
+                ).quantize(_EUR_MICRO, rounding=ROUND_CEILING)
+                if provisional_eur > _MAX_DECIMAL:
+                    return deny("MONTHLY_OBSERVATION_FX_AMOUNT_INVALID")
+                status = ("OVER_BOUND_HELD" if (
+                    observation.reported_cost_usd > reserved.upper_bound_usd
+                    or provisional_eur > reserved.held_eur
+                ) else "PROVISIONAL_HELD")
+            next_state = replace(
+                state, revision=state.revision + 1,
+                unknown_liability=(state.unknown_liability
+                                   or status in {"UNKNOWN_HELD", "OVER_BOUND_HELD"}),
+            )
+            receipt = MonthlySettlementReceipt(
+                period=period, observation=observation, status=status,
+                held_eur=reserved.held_eur, provisional_eur=provisional_eur,
+                fx_reference=reserved.fx_reference,
+                state_revision=next_state.revision,
+                previous_state_sha256=old_sha,
+                resulting_state_sha256=next_state.fingerprint(),
+            )
+            # One SQLite write transaction covers both the versioned state CAS
+            # and the immutable observation. Failure rolls both back.
+            updated = conn.execute("""
+                UPDATE monthly_budget_state
+                SET revision = ?, state_sha256 = ?, state_json = ?
+                WHERE period = ? AND policy_sha256 = ?
+                  AND revision = ? AND state_sha256 = ?
+            """, (next_state.revision, next_state.fingerprint(),
+                  _encode_monthly_state(next_state), period, policy_sha,
+                  state.revision, old_sha))
+            if updated.rowcount != 1:
+                return deny("MONTHLY_STORAGE_CAS_CONFLICT")
+            conn.execute("""
+                INSERT INTO monthly_reconciliation_receipt (
+                    period, attempt_id, observation_id, receipt_sha256, receipt_json
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (period, observation.attempt_id, observation.observation_id,
+                  _settlement_receipt_sha256(receipt),
+                  _settlement_receipt_json(receipt)))
+            conn.commit()
+            return SQLiteMonthlySettlementResult(
+                True, "MONTHLY_OBSERVATION_RECORDED", receipt,
+            )
+        except (ValueError, InvalidOperation, ArithmeticError):
+            return deny("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+        except sqlite3.Error:
+            return deny("MONTHLY_STORAGE_UNAVAILABLE")
+        finally:
+            if conn.in_transaction:
+                conn.rollback()
+            conn.close()
+
+    def reconciliation_report(self, period: str) -> SQLiteMonthlyReconciliationReport:
+        """Read one consistent private snapshot; never infer a provider bill."""
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN")
+            row = conn.execute("""
+                SELECT revision, state_sha256, state_json FROM monthly_budget_state
+                WHERE period = ?
+            """, (period,)).fetchone()
+            if row is None:
+                raise ValueError("MONTHLY_PERIOD_NOT_BOOTSTRAPPED")
+            state = self._loaded_state(row)
+            if state.period != period:
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            raw_receipts = conn.execute("""
+                SELECT attempt_id, observation_id, receipt_sha256, receipt_json
+                FROM monthly_reconciliation_receipt
+                WHERE period = ? ORDER BY attempt_id
+            """, (period,)).fetchall()
+            reservations = {item.attempt_id: item for item in state.reservations}
+            known_total = Decimal("0")
+            unknown = over_bound = 0
+            if state.revision != len(reservations) + len(raw_receipts):
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            for attempt_id, observation_id, fingerprint, raw in raw_receipts:
+                receipt = _loaded_settlement_receipt(raw, fingerprint)
+                reserved = reservations.get(attempt_id)
+                if (receipt.period != period or reserved is None
+                        or receipt.observation.attempt_id != attempt_id
+                        or receipt.observation.observation_id != observation_id
+                        or receipt.observation.operation != reserved.operation
+                        or receipt.held_eur != reserved.held_eur
+                        or receipt.fx_reference != reserved.fx_reference
+                        or receipt.state_revision > state.revision):
+                    raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+                if receipt.status == "UNKNOWN_HELD":
+                    unknown += 1
+                else:
+                    expected_eur = (
+                        receipt.observation.reported_cost_usd * reserved.fx_rate_eur_per_usd
+                    ).quantize(_EUR_MICRO, rounding=ROUND_CEILING)
+                    expected_status = ("OVER_BOUND_HELD" if (
+                        receipt.observation.reported_cost_usd > reserved.upper_bound_usd
+                        or expected_eur > reserved.held_eur
+                    ) else "PROVISIONAL_HELD")
+                    if (receipt.provisional_eur != expected_eur
+                            or receipt.status != expected_status):
+                        raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+                    known_total += expected_eur
+                    over_bound += receipt.status == "OVER_BOUND_HELD"
+            if (unknown or over_bound) and not state.unknown_liability:
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            conn.commit()
+            return SQLiteMonthlyReconciliationReport(
+                period=period, observed_attempts=len(raw_receipts),
+                provisional_observed_eur=known_total,
+                held_total_eur=state.held_total_eur,
+                settled_eur=state.settled_eur,
+                unknown_attempts=unknown, over_bound_attempts=over_bound,
+                unknown_liability=state.unknown_liability,
+            )
         finally:
             if conn.in_transaction:
                 conn.rollback()

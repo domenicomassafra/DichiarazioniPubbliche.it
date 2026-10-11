@@ -78,3 +78,67 @@ subpart of AC-514.2, **not** completion of AC-514.2 or any other unchecked AC.
 An approved owner policy/empirical DP-513 values, PostgreSQL atomic multi-gate
 transaction, real accounting and isolated MiniPC restart drill are still needed.
 DP-514 remains **IN PROGRESS**.
+
+## 2026-10-11 — Write-once SQLite observation resolution, no cap release
+
+The existing disposable `SQLiteMonthlyReservationStore` persisted a bounded
+reservation but had **no durable per-attempt observation resolution**. An
+unknown later cost, observed amount above the original USD upper bound or
+replayed usage report could not be correlated with the held attempt while
+preserving crash-safe month accounting.
+
+This strictly local reference store now supports `reconcile(policy, period,
+observation)` for an **explicit** period and a typed
+`MonthlySettlementObservation`. An observation identifies the exact existing
+attempt/operation and either `UNKNOWN` or a nonnegative USD amount plus a
+bounded **caller-reported, unverified** source reference and SHA-256. These
+fields are not proof of authentic provider billing, a settled invoice or
+reviewed source rights. A known USD value is converted using the rate **pinned
+in the original reservation**, rounded conservatively to micro-EUR, and
+reported only as `PROVISIONAL_HELD`. `UNKNOWN` or an observed cost exceeding
+the original USD/EUR ceiling records `UNKNOWN_HELD` or `OVER_BOUND_HELD` and
+persists `unknown_liability=True`, preventing new monthly reservations.
+Late observations from the following calendar month still bind the **original
+reserved month**; no implicit quota/month reset or new FX authority occurs.
+
+The additive **isolated SQLite-only** `monthly_reconciliation_receipt` table
+stores one fingerprinted immutable receipt per attempt and unique observation
+ID. Independent connections serialize through `BEGIN IMMEDIATE`, perform
+state revision/fingerprint CAS and insert the receipt in **one transaction**;
+UPDATE/DELETE triggers reject later mutation. Repeating the exact observation
+after restart returns `MONTHLY_OBSERVATION_ALREADY_RECORDED`, not a second
+charge; different data or an observation ID reused for another attempt fails
+closed. A synthetic receipt-insert failure after the state CAS rolls back
+**both** changes and permits a clean retry. The private, consistent
+`reconciliation_report` verifies receipt hashes, state revisions, reservation
+IDs, pinned FX and implied disposition before distinguishing held EUR, observed
+provisional EUR, unknown attempts and over-bound attempts.
+
+**No money is released, refunded or newly marked billed.** In particular,
+a caller-reported zero or lower amount still leaves the **full original EUR
+reservation in the cap**; `settled_eur` is not rewritten, `invoice_attested`
+and `dispatch_authorized` remain `False`, and verified billed EUR stays
+`None`. All prior USD/day/source/job guard values remain caller-supplied and
+unverified against a real operation ledger. This slice implements only a
+single write-once provisional/unknown observation per attempt; subsequent
+authentic invoice corrections, refunds, supersession and owner-authorized
+release need separately designed append-only authority and PostgreSQL schema
+admission, **not** ad hoc edits to a stored observation.
+
+TDD RED→GREEN: the new settlement import initially failed, then synthetic
+SQLite tests exercised two independent concurrent writers with identical and
+conflicting payloads, restarts, late observations, UNKNOWN/over-bound holds,
+zero-cost non-refunds, ID collisions, append-only triggers, tampering and
+atomic crash-style rollback. **36/36 focused tests PASS** across
+`test_dp514_sqlite_reservations.py`, `test_dp514_monthly_budget.py` and
+`test_ops_cost_policy.py`; scoped compileall, Ruff F821/F823 and
+`git diff --check` pass. No paid provider, invoice source, actual settlement,
+MiniPC, operational queue/worker, production database or deployment was
+accessed. The local receipt SHA is an integrity check, **not** an external
+signature or accounting authority.
+
+**All original AC-514.1–.7 remain unchecked / IN PROGRESS**. Still missing:
+genuine signed/provider usage and settlement/refund authority, capped USD and
+EUR multi-worker **PostgreSQL** coordination with live dispatch, owner-signed
+policy and plan quotas, real FX/billing period and energy evidence, durable
+operator alerts/retry, and MiniPC acceptance/currentness/revocation drills.
