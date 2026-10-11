@@ -213,11 +213,14 @@ def preflight_verification_requirements(
     if any(len(roots) > 1 for roots in roots_by_sha.values()):
         reason_codes.add("CROSS_ROOT_IDENTICAL_BYTES")
     roots = {row.primary_root_ref for row in eligible}
+    families = {row.source_family_ref for row in eligible}
     roles = {row.evidence_role for row in eligible}
     if profile and not set(profile.required_roles).issubset(roles):
         reason_codes.add("REQUIRED_EVIDENCE_ROLE_MISSING")
     if profile and len(roots) < profile.independent_roots_required:
         reason_codes.add("INDEPENDENT_ORIGINAL_ROOT_MISSING")
+    if profile and len(families) < profile.independent_roots_required:
+        reason_codes.add("INDEPENDENT_SOURCE_FAMILY_MISSING")
     if claim.run_state == "NOT_STARTED":
         state = "NOT_CHECKED"
     elif claim.claim_kind == "NON_FACTUAL":
@@ -229,6 +232,7 @@ def preflight_verification_requirements(
     elif (
         not set(profile.required_roles).issubset(roles)
         or len(roots) < profile.independent_roots_required
+        or len(families) < profile.independent_roots_required
     ):
         state = "CHECKED_INSUFFICIENT_EVIDENCE"
     elif {row.stance for row in eligible} >= {"SUPPORT", "REFUTE"}:

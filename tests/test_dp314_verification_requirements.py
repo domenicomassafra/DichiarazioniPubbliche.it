@@ -109,6 +109,20 @@ class RequirementPreflightTests(unittest.TestCase):
         self.assertEqual(result.state, "CHECKED_INSUFFICIENT_EVIDENCE")
         self.assertIn("CROSS_ROOT_IDENTICAL_BYTES", result.reason_codes)
 
+    def test_two_distinct_roots_from_same_source_family_do_not_meet_independence(self):
+        first, second = sources()
+        # Two different bytes/root identifiers cannot establish two independent
+        # source families when both records come from the same publisher family.
+        reused_family = replace(second, source_family_ref=first.source_family_ref)
+        result = preflight_verification_requirements(
+            claim(), (first, reused_family)
+        )
+        self.assertEqual(result.state, "CHECKED_INSUFFICIENT_EVIDENCE")
+        self.assertIn("INDEPENDENT_SOURCE_FAMILY_MISSING", result.reason_codes)
+        self.assertEqual(result.observed_independent_roots, 2)
+        self.assertIsNone(result.verdict)
+        self.assertFalse(result.publication_authority)
+
     def test_unapproved_rights_and_reviewer_status_stay_excluded(self):
         first, second = sources()
         for change in (

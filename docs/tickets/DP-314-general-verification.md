@@ -53,3 +53,22 @@ regressions PASS**, Python compile and diff check PASS. External genuine
 source lineage/rights, durable append-only decisions and MiniPC pipeline,
 independent blind gold/DP-321, DP-316 authority and DP-229 challenger proof
 remain missing. **All AC-314.1–.6 remain unmarked** pending complete evidence.
+
+## 2026-10-11 — Independent source-family fence (local follow-up)
+
+The existing private preflight counted two differently named `primary_root_ref`
+values and distinct bytes as a complete two-source research proposal even if
+both came from the same `source_family_ref` (such as two articles from one
+publisher family). A new test reproduced **RED**: those records incorrectly
+produced `CHECKABLE_PENDING`. The preflight now separately enforces both
+the original-root count and the source-family count, returning
+`INDEPENDENT_SOURCE_FAMILY_MISSING` and
+`CHECKED_INSUFFICIENT_EVIDENCE` for the duplicate family.
+
+The new regression is **GREEN**: the DP-314 suite plus existing verification
+runtime tests pass **30/30**, scoped Ruff F821 and `git diff --check` PASS.
+This local fixture does not authenticate caller-supplied source-family
+identities or confer a factual verdict, reviewer authority or publication
+eligibility. Real approved source lineage, benchmark, durable ledger and
+MiniPC acceptance remain outstanding. All original acceptance criteria
+remain unchecked; **Status: IN PROGRESS**.
