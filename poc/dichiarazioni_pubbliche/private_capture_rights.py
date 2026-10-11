@@ -108,6 +108,8 @@ def evaluate_source_use(
     if (
         record.record_version != PRIVATE_RIGHTS_RECORD_VERSION
         or record.record_visibility != "PRIVATE"
+        or not isinstance(record.permitted_uses, tuple)
+        or any(not isinstance(item, str) for item in record.permitted_uses)
     ):
         return SourceUseDecision(use, "DENIED", "SOURCE_USE_RECORD_CONTRACT_INVALID", "REVIEW_RECORD_CONTRACT")
     try:
@@ -142,6 +144,8 @@ def evaluate_source_use(
         or (record.expires_at is not None and expiry is None)
     ):
         return SourceUseDecision(use, "DENIED", "SOURCE_USE_REVIEW_INVALID", "REVIEW_SOURCE_RECEIPT")
+    if expiry is None:
+        return SourceUseDecision(use, "UNRESOLVED", "SOURCE_USE_EXPIRY_REQUIRED", "SET_REVIEW_EXPIRY")
     if expiry is not None and expiry <= now:
         return SourceUseDecision(use, "EXPIRED", "SOURCE_USE_EXPIRED", "RENEW_SOURCE_REVIEW")
     if use not in record.permitted_uses:

@@ -53,3 +53,11 @@ Extend existing registry schema only where current `RightsSubject` cannot expres
 ## 2026-10-11 — First implementation slice
 
 Source-use guard implemented as an optional exact RightsSubject/PrivateRightsRecord operation check in `private_capture_rights.py` and opt-in `capture_pipeline.py` integration (commit `acf6541`). Exact source, status, expiry, per-use and redirect/revocation checks are fail closed; public EXCERPT use is denied pending separate qualified clearance. Focused offline tests pass. No production source-family approval, DB-backed current-rights receipt or MiniPC acceptance; all original AC remain unchecked.
+
+## 2026-10-11 — Bounded source-guard hardening (local, uncommitted)
+
+- A `CLEARED` private use without an explicit `expires_at` previously remained permitted with no freshness deadline. The operation-time guard now returns private `UNRESOLVED / SOURCE_USE_EXPIRY_REQUIRED` with action `SET_REVIEW_EXPIRY`; this blocks before a capture fetch. A perpetual source license, if one is applicable, still needs an explicit bounded **review** validity window, independently of the license's legal duration. No rights status or expiry is minted by code.
+- A malformed rights-reader result with `permitted_uses="NOT_FETCH"` previously authorized `FETCH` through Python substring membership. The guard now demands the registry's tuple-of-string contract and returns `DENIED / SOURCE_USE_RECORD_CONTRACT_INVALID` for other shapes. This protects operation-time checks even if a non-DB reader returns malformed data.
+- Both cases were proven RED then GREEN by offline regression tests; existing authorized, replay, revocation, public-quote and historical preflight test paths remain covered. No issuer authentication, immutable source-version clearance, signed permission, live DB readback, or production operation was demonstrated.
+
+Original AC-236.1–AC-236.6 remain open pending authenticated qualified decisions, complete use/artifact authority wiring, and MiniPC permit/capture acceptance. In particular, accepting a `reviewer_ref` or `rights_receipt_ref` string is **not** proof of authenticated reviewer authority, and an optional capture byte pin is not an enforced artifact-version policy.

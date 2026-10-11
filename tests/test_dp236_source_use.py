@@ -81,6 +81,15 @@ def evaluate(record, *, use="FETCH"):
 
 
 class SourceUseContractTests(unittest.TestCase):
+    def test_malformed_use_list_cannot_authorize_a_substring(self):
+        # Python's 'FETCH' in 'NOT_FETCH' must never act as a use grant.
+        malformed = reviewed(permitted_uses="NOT_FETCH")
+        decision = evaluate(malformed, use="FETCH")
+        self.assertFalse(decision.permitted)
+        self.assertEqual(decision.reason_code, "SOURCE_USE_RECORD_CONTRACT_INVALID")
+        with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_RECORD_CONTRACT_INVALID$"):
+            guard(lambda _: malformed).require("FETCH")
+
     def test_metadata_only_cannot_be_promoted_to_capture_ocr_asr_or_public(self):
         record = reviewed(permitted_uses=("DISCOVER_METADATA",))
         self.assertTrue(evaluate(record, use="DISCOVER_METADATA").permitted)
@@ -156,6 +165,23 @@ class SourceUseContractTests(unittest.TestCase):
 
 
 class SourceUseCapturePipelineTests(unittest.TestCase):
+    def test_open_ended_clearance_cannot_authorize_a_fetch(self):
+        # A reviewed use without an expiry would otherwise remain active forever,
+        # even after its original source terms or artifact change.
+        with tempfile.TemporaryDirectory() as temp:
+            store = FakeCaptureStore()
+            current = guard(lambda _: reviewed(expires_at=None))
+            with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_EXPIRY_REQUIRED$"):
+                capture_content(
+                    content_id=SUBJECT.content_id, url=URL, store=store,
+                    body_store=CaptureBodyStore(Path(temp)),
+                    source_use_guard=current,
+                    fetcher=lambda *a, **k: self.fail("unbounded clearance must block before fetch"),
+                )
+            self.assertFalse(store.captures)
+            self.assertFalse(store.passages)
+            self.assertFalse(list(Path(temp).rglob("*.body")))
+
     def test_denied_use_blocks_before_fetch_and_body_persistence(self):
         with tempfile.TemporaryDirectory() as temp:
             store = FakeCaptureStore()
