@@ -175,3 +175,52 @@ provider-offline production request measurement or MiniPC acceptance exists
 from this slice. An offline consumer can only detect corrections/withdrawals
 when the separately authenticated release pins are refreshed or expire;
 atomic invalidation must be proven at the future serving boundary.
+
+## 2026-10-12 — Independent private cross-reader / isolated SSR preview
+
+New **opt-in private-only** `web/src/lib/privateSynopsisCrossPreviewV3.ts`
+composes the existing Python DP-440 synopsis, approved DP-438 Person archive,
+DP-439 reviewed Person×Topic join/search index, and DP-437 public original
+Statement. The caller supplies **independently authenticated CURRENT release
+pins** binding the entire published Statement dataset, its separately pinned
+generation timestamp, Person collection, Topic intersection, search index,
+Person sitemap, synopsis DTO/fingerprint, exact Person/Topic IDs and finite
+expiry. A versioned release ID/epoch is read independently **before and after**
+assembly; observed drift or unavailable authority refuses the result.
+Neither the Python `READY_READ_MODEL` flag nor the frontend computes a grant.
+
+Every synopsis citation is compared against the exact current Person archive,
+public source record and DP-439 Topic-index entry: Statement/version, Person,
+original quote, SHA, date, language, Content and source URL/title/version,
+source kind, locator and eligible endorsed OPINION speech act must all agree.
+The displayed original wording is a **separate** bounded, dated quotation
+with its prospective Statement route; each precomputed synopsis sentence stays
+in its own field, with corpus coverage/snapshot visible and no truth score,
+private reviewer receipt or automatic publication. This narrower integration
+currently handles the DP-439 **opinion subset**; other statement acts remain
+outside this reader rather than being relabeled.
+
+`web/scripts/check-private-synopsis-cross-preview-v3.mjs` first reproduced
+RED (consumer import absent), then passed GREEN. It builds a real synthetic
+Python v3 Person/Topic/Statement fixture and calls
+`prepare_public_synopsis()` with distinct synthetic source identities and
+caller-supplied review attestations, validating its `READY_READ_MODEL` and
+REVOKED/WITHHELD variants. Node consumes these exact JSON outputs through
+the new consumer, followed by a temporary **Astro SSR build that executes
+the consumer inside the server build** and renders original quotes separately
+from synopsis text under `noindex,nofollow`. Negative tests reject a
+re-pinned DP-439 membership withdrawal with otherwise unchanged synopsis,
+source/quote/locator/rights/date changes, unapproved synopsis, missing opt-in,
+wrong Person, stale release epoch, a second-read epoch race, expired issuer,
+and attempts to introduce private review fields. Independently verified:
+script PASS; `npm run check` **113 files, 0 errors/warnings**;
+DP-439+DP-440 Python **22/22 PASS**; existing public synopsis SSR script
+PASS. No public route or production artifact was created.
+
+**Status remains IN PROGRESS, original AC-440.1–.7 unchecked.** These are
+only synthesized authorized fixture states, not real legal source clearance,
+genuine editorial entailment or rights approval. A future current-pin issuer,
+atomic correction/reply/withdrawal cache and serving boundary, real original
+locator navigation, provider-offline production proof and MiniPC runtime
+canary remain required. The preview can reject an invalidated release once
+the authority rotates its pins; it cannot discover unseen revocations by itself.
