@@ -137,6 +137,11 @@ and SQLite UPDATE denial in read-only mode. DP514 + adjacent cost suite:
 synthetic operational usability, **not** production billing or a provider
 invoice, MiniPC activation, USD/EUR combined dispatch or AC completion.
 
+An extra adversarial real-file test committed a second EUR reservation
+between the CLI's before-state read and its independently validated receipt
+report. The CLI refuses the mixed revision rather than printing stale totals
+with a new state SHA. Combined DP514/cost tests now **47/47 PASS**.
+
 ## 2026-10-11 — Write-once SQLite observation resolution, no cap release
 
 The existing disposable `SQLiteMonthlyReservationStore` persisted a bounded

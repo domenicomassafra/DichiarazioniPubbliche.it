@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -90,6 +91,34 @@ class PrivateMonthReportTests(unittest.TestCase):
         finally:
             conn.close()
         self.assertEqual(self.store.read(self.period).revision, 0)
+
+    def test_real_committed_reservation_during_report_refuses_mixed_snapshot(self):
+        from importlib.util import module_from_spec, spec_from_file_location
+        spec = spec_from_file_location("dp514_private_month_report", SCRIPT)
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        original = module.ReadOnlyBudgetStore.reconciliation_report
+
+        def racing_reader(reader, period):
+            before = original(reader, period)
+            committed = self.store.reserve(
+                policy=self.policy, attempt_id="job:racing:1",
+                operation="CLAIM_EXTRACT",
+                upper_bound_usd=Decimal("0.2"), billing_basis="ESTIMATED_ONLY",
+                at=self.now,
+                fx_quote=MonthlyFxQuote(
+                    Decimal("0.9"), "synthetic:fx", "offline",
+                    self.now - timedelta(minutes=1),
+                ),
+                legacy_policy=BudgetPolicy(), legacy_snapshot=CostSnapshot(0, 0),
+            )
+            self.assertTrue(committed.committed)
+            return before
+
+        with patch.object(module.ReadOnlyBudgetStore, "reconciliation_report", racing_reader):
+            with self.assertRaisesRegex(ValueError, "MONTHLY_REPORT_CHANGED_DURING_READ"):
+                module.redacted_month_report(self.db, self.period)
+        self.assertEqual(self.store.read(self.period).revision, 1)
 
 
 if __name__ == "__main__":
