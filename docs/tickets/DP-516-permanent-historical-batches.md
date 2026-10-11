@@ -119,3 +119,33 @@ authoritative source-specific rights/license evidence, durable checkpoint
 and budget CAS, actual German/Italian multi-person attribution/translation,
 source-correction/withdrawal readback, comprehensive coverage UI and MiniPC
 proof are still required before a separately authorized historical batch.
+
+## 2026-10-11 — Durable isolated checkpoint CAS with immutable revisions
+
+`historical_batch_checkpoint_store.py` adds an opt-in **SQLite** private
+transactional checkpoint journal for the existing DP-516 `BatchCheckpoint`
+model. A preauthorized caller can append a separately verified, immutable
+Capture receipt under `BEGIN IMMEDIATE` compare-and-swap; the journal stores
+every revision append-only with SQL UPDATE/DELETE refusal triggers. Two
+independent connections, restart after the first committed Capture, identical
+retry, a stale expected revision, a reused item key with changed receipt and
+a foreign manifest fingerprint are covered. Failure leaves prior versions
+intact; no completed Capture is silently replaced.
+
+`tests/test_dp516_durable_checkpoint_next.py` first failed to import the
+new persistence boundary (**RED**). It and existing historical batch tests
+then passed **23/23** (**GREEN**), along with adjacent private visual
+operator persistence tests for a combined **48/48**; lint/compilation pass.
+This is materially different from the old source-only proposed checkpoint:
+a committed local revision can now survive a crash and be independently
+read back from a fresh connection, though it is still **not** the authoritative
+MiniPC production store.
+
+The `verify_persisted_capture` callback must come from a separately
+authenticated source/Capture ledger; a test callback returning `True`
+does **not** prove real source rights, signature or completed capture. The
+journal does not reserve EUR or USD budget, dispatch jobs, certify a DP-443
+pilot, download archival sources or publish any result. Multi-person real
+German/Italian source/attribution acceptance, production transactional
+budget coordination, source-revocation readbacks, MiniPC and release remain
+OPEN. **DP-516 stays IN PROGRESS, AC-516.1–.6 unchecked, release NO-GO.**
