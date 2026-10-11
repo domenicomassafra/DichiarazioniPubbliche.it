@@ -1,5 +1,16 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Closeout audit + sette ticket irrobustiti, 11 ottobre 2026:**
+[verbale con criteri rimasti aperti e prove](docs/reviews/2026-10-11-closure-readiness-seven-ticket-hardening.md).
+Audit DP-229/405/407/409/412/422/429, correzioni concretamente
+testate per provenienza challenger, Persona senza Statement, stati
+editoriali Content, Explore e accessibilità componenti. Suite Python
+**2833/2833 PASS**, restore PASS, browser/Node e Astro check verde.
+**Nessuno di questi ticket può essere promosso onestamente a DONE**
+senza AT manuale, risorse/licenze pubblicabili reali, MiniPC readback
+o revisore qualificato: base inventory ancora **90 DONE / 72 non DONE**,
+editoriale **NO-GO/49**. Non usare test demo/fixture come atti di review.
+
 **Nuova tranche a quattro subagenti, 11 ottobre 2026:**
 [DP-238/239/240/241, fix e proof RED→GREEN](docs/reviews/2026-10-11-four-ticket-m2-hardening-wave.md).
 Migliorati i confini privati di parsing PDF (inline image/formfeed),
