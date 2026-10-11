@@ -166,6 +166,14 @@ def _validator(value: str | None, name: str) -> str | None:
     return value
 
 
+def _last_modified_after(value: str | None, observed_at: datetime) -> bool:
+    """A future source validator cannot attest a previously observed version."""
+    return bool(
+        value is not None
+        and parsedate_to_datetime(value).astimezone(timezone.utc) > observed_at
+    )
+
+
 def _hash(value: object) -> str:
     raw = json.dumps(
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
@@ -207,6 +215,12 @@ def _validate_state(policy: WatchPolicy, state: WatchState, fingerprint: str) ->
     _validator(state.last_modified, "LAST_MODIFIED")
     for field in ("last_attempted_at", "last_successful_observed_at", "retry_not_before"):
         _utc(getattr(state, field), field.upper())
+    if (state.last_successful_observed_at is not None
+            and _last_modified_after(
+                state.last_modified,
+                _utc(state.last_successful_observed_at, "LAST_SUCCESS"),
+            )):
+        raise ValueError("WATCH_LAST_MODIFIED_AFTER_OBSERVATION")
     for field in ("source_version", "last_attempt_id"):
         if getattr(state, field) is not None:
             _require_label(getattr(state, field), field.upper())
@@ -263,6 +277,8 @@ def plan_watch_poll(
     _require_label(attempt_id, "ATTEMPT_ID")
     at = _utc(attempted_at, "ATTEMPTED_AT")
     assert at is not None
+    if policy.enabled and _last_modified_after(state.last_modified, at):
+        raise ValueError("WATCH_LAST_MODIFIED_AFTER_OBSERVATION")
     reason = "CHECK_READY"
     if not policy.enabled:
         reason = "WATCH_DISABLED"
@@ -344,6 +360,7 @@ def reconcile_watch_observation(
     except ValueError as exc:
         raise ValueError("WATCH_PLAN_STALE_OR_UNAUTHORIZED") from exc
     if (attempt_at is None or plan.attempt_id == state.last_attempt_id
+            or _last_modified_after(state.last_modified, attempt_at)
             or (state.last_attempted_at is not None
                 and attempt_at <= _utc(state.last_attempted_at, "LAST_ATTEMPT"))
             or (state.last_successful_observed_at is not None
@@ -394,6 +411,9 @@ def reconcile_watch_observation(
                    if observation.source_version is not None else None)
     except ValueError:
         return failed("MALFORMED_OBSERVATION")
+
+    if _last_modified_after(modified, at):
+        return failed("LAST_MODIFIED_IN_FUTURE")
 
     if observation.status_code == 304:
         if (not plan.conditional_headers or state.content_sha256 is None

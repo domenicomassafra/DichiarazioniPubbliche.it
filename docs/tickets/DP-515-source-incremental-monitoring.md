@@ -77,3 +77,32 @@ This local hardening does not authorize polling, supply a durable transaction,
 prove a real source/cost/rights receipt or satisfy the MiniPC/public readback.
 DP-515 remains **IN PROGRESS** with all AC unchecked and unattended monitoring
 **NO-GO**.
+
+## 2026-10-11 — Future Last-Modified poisoning guard
+
+An adversarial offline HTTP fixture exposed a real conditional-watch freshness
+defect. A `200` response observed in October 2026 with a `Last-Modified`
+validator dated January 2035 was incorrectly accepted as `UNCHANGED` or
+`CHANGED`, recording a false successful check and saving that future validator
+for subsequent `If-Modified-Since` polls. Such a conditional request could
+mask a genuine intervening amendment. Persisted legacy state could also emit
+the future validator despite its earlier successful observation, and an
+in-memory `WatchPlan` admitted in 2036 could be altered back to 2026 before
+reconciliation if its state did not yet contain a successful timestamp.
+
+The pure source watcher now fails the response as
+`UNAVAILABLE/LAST_MODIFIED_IN_FUTURE`, preserving old version/hash/validators,
+the previous success timestamp and zero child proposals. Persisted state whose
+validator is later than its last successful observation is rejected, and both
+planning and reconciliation reject an attempted time earlier than the cached
+validator. Error path retains the existing bounded source backoff, without
+assuming HTTP success, triggering a fetch or authorizing publication.
+
+The real regression was RED before implementation (two false success
+dispositions and one accepted poisoned state); an additional forged-plan
+reconciliation variant was RED after the first fix and GREEN after sealing the
+reconciliation seam. Final targeted DP-515/DP-516 regression: **37/37 PASS**;
+source/test compileall and `git diff --check` pass. All observations and
+timestamps are synthetic; no provider, live source, MiniPC or runtime state
+was accessed. AC-515.1–515.7 remain unchecked pending durable admission,
+rights/cost/lease authority, public revocation/cache proof and MiniPC canary.

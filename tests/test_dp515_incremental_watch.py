@@ -409,6 +409,48 @@ class IncrementalWatchTests(unittest.TestCase):
         self.assertEqual(d.disposition, "UNCHANGED")
         self.assertEqual(d.next_state.source_version, "record-v1")
 
+    def test_future_last_modified_cannot_create_false_freshness_or_poison_next_conditional_poll(self):
+        p = policy()
+        baseline = state(p)
+        # If this future validator is accepted, the next If-Modified-Since
+        # can suppress genuine upstream edits until 2035.
+        future = "Mon, 01 Jan 2035 00:00:00 GMT"
+        for outcome in (
+            response(last_modified=future),
+            response(content_sha256=SHA_B, source_version="record-v2",
+                     etag='"etag-b"', last_modified=future),
+        ):
+            with self.subTest(outcome=outcome):
+                _, result = check(p, baseline, outcome=outcome)
+                self.assertEqual(result.disposition, "UNAVAILABLE")
+                self.assertEqual(result.reason, "LAST_MODIFIED_IN_FUTURE")
+                self.assertEqual(result.children, ())
+                self.assertEqual(result.next_state.content_sha256, baseline.content_sha256)
+                self.assertEqual(result.next_state.last_modified, baseline.last_modified)
+                self.assertEqual(result.next_state.last_successful_observed_at,
+                                 baseline.last_successful_observed_at)
+
+        # A legacy persisted state must not emit a conditional request using
+        # a Last-Modified timestamp later than its admitted observation.
+        poisoned_state = state(p, last_modified=future)
+        with self.assertRaisesRegex(ValueError, "WATCH_LAST_MODIFIED_AFTER_OBSERVATION"):
+            plan_watch_poll(p, poisoned_state, gate(p),
+                            attempted_at=T0, attempt_id="future-validator")
+
+        # An old cache may lack a successful timestamp. A plan admitted after
+        # its validator date cannot be moved backwards at reconciliation.
+        missing_success = state(p, last_modified=future,
+                                last_successful_observed_at=None)
+        later = plan_watch_poll(p, missing_success, gate(p),
+                                attempted_at=datetime(2036, 1, 1, tzinfo=timezone.utc),
+                                attempt_id="later-conditional")
+        self.assertTrue(later.allowed)
+        with self.assertRaisesRegex(ValueError, "WATCH_PLAN_STALE_OR_UNAUTHORIZED"):
+            reconcile_watch_observation(
+                p, missing_success, gate(p), replace(later, attempted_at=T0),
+                WatchObservation(observed_at=T0 + timedelta(seconds=2), status_code=304),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
