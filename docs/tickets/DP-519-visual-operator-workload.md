@@ -101,3 +101,35 @@ in-progress DP-514 SQLite reservation test; three were
 receipt database writes. These errors are not represented as green and were
 left for their owning workstreams. The independently run
 `tests.test_studio_operator_queues` (10/10) and DP-519 (19/19) suites pass.
+
+## 2026-10-11 — Durable private visual worklist and time journal (next wave)
+
+Introduced `poc/dichiarazioni_pubbliche/studio_visual_worklist.py`, an opt-in
+`SQLiteVisualWorklist` backed by a private owner-readable **0600** SQLite file.
+It gives real transactionally persisted operator work-item snapshots and
+reported time decisions across process restart. Each work item carries a
+monotone revision updated by SQLite `BEGIN IMMEDIATE` compare-and-swap;
+independent connections cannot overwrite a concurrent source/version/rights
+change. Time events are append-only with database UPDATE/DELETE refusal
+triggers. Identical event replay is idempotent; conflicting ID, stale source,
+wrong revision, invalid cross-case chain and overlapping recorded actor time
+fail closed. The existing deterministic workload report reconstructs weekly
+reported minutes, median by reason and safe no-image fallback from these
+persisted records.
+
+Independent review uncovered a new provenance problem: updating an existing
+`work_key` to a different Person, Content or reason after time had been
+recorded relabeled past work minutes. The three identity-swap cases were
+**RED**; stable work-key identity checks now reject each (**GREEN**).
+Tests also cover two DB connections, restart, source-rights revocation,
+conflicting replay, immutable SQL rows and private file permissions:
+**25/25** new + existing DP-519 tests PASS. Scoped Ruff F821/F823 and
+`git diff --check` PASS.
+
+This is **reported, unverified** work time, not authenticated actor/qualified
+editorial acceptance. No licence or identity decision is manufactured; all
+receipts retain `publication_authority=false`,
+`image_approval_authority=false`, `text_review_authority=false`.
+There is no production Studio route, signed source/version truth, licensed
+real-image sample, public withdrawal, or MiniPC visual operator canary.
+**DP-519 stays IN PROGRESS, AC-519.1–.5 all unchecked and release NO-GO.**
