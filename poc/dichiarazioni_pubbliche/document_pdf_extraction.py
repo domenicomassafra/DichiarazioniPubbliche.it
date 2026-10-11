@@ -110,6 +110,9 @@ class BornDigitalPDFTextParser:
                 or not isinstance(pages, list)
                 or not 1 <= len(pages) <= MAX_DOCUMENT_PAGES
                 or any(not isinstance(page, str) for page in pages)
+                # A worker page must never smuggle new page boundaries into
+                # the parent's canonical text and provenance selectors.
+                or any("\f" in page for page in pages)
                 or sum(len(page) for page in pages) > MAX_PARSED_TEXT_CHARS
             ):
                 return failed("DOCUMENT_PDF_WORKER_INVALID")
@@ -167,6 +170,7 @@ def _pdf_text_worker() -> None:
             pass
         try:
             from pypdf import PdfReader
+            from pypdf.generic import ContentStream
         except ImportError:
             emit("DOCUMENT_PDF_BACKEND_UNAVAILABLE")
             return
@@ -212,6 +216,16 @@ def _pdf_text_worker() -> None:
                 if xobject.get("/Subtype") == "/Form":
                     emit("DOCUMENT_PDF_READING_ORDER_UNSAFE")
                     return
+            # BI/ID/EI images live directly in a page content stream and do
+            # not appear in /Resources /XObject. Parse PDF operators rather
+            # than searching bytes inside strings or compressed streams.
+            contents = page.get_contents()
+            if contents is not None and any(
+                operator == b"INLINE IMAGE"
+                for _, operator in ContentStream(contents, reader).operations
+            ):
+                emit("DOCUMENT_PDF_OCR_REQUIRED")
+                return
             text = page.extract_text(extraction_mode="plain")
             if not isinstance(text, str) or not text.strip():
                 emit("DOCUMENT_INCOMPLETE_PAGE")

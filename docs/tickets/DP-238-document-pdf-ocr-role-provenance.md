@@ -76,3 +76,24 @@ profiles without installing dependencies in the default stdlib-only profile.
 repository contract PASS. These are in-memory synthetic PDFs, **not** actual
 approved source rights, independent OCR/text fidelity gold, real MiniPC
 acquisition/readback or public quote permission. AC-238.1–.6 remain open.
+
+## 2026-10-11 — PDF fail-closed integrity regression (local, uncommitted)
+
+Adversarial test first confirmed that an actual generated PDF with raster pixels
+inside a `BI`/`ID`/`EI` page-content operator, alongside machine-readable text,
+was incorrectly accepted as `SUCCEEDED`: the previous scan checked only `/Image`
+XObjects. The bounded pypdf worker now inspects parsed page-content operators and
+returns `DOCUMENT_PDF_OCR_REQUIRED` for inline raster images too. A second
+regression confirmed a malformed worker-success JSON could embed `\f` within one
+page string, manufacturing extra page selectors in the parent. The parent now
+rejects that success payload as `DOCUMENT_PDF_WORKER_INVALID`; invalid-Unicode
+worker payloads are also tested to remain held. Original-byte SHA attribution,
+method/version checks, deterministic capture replay and passage limits continue
+through the existing shared adapter without modification.
+
+**RED evidence:** the inline-image regression failed because the parser returned
+`SUCCEEDED`; the injected-page-break regression likewise failed before the fix.
+**GREEN evidence:** 21 focused native/PDF tests PASS, standalone `ruff check`
+PASS, targeted `compileall` PASS, `git diff --check` PASS on the local checkout.
+No OCR provider, real source, rights evidence, MiniPC proof, independent fidelity
+gold, or public quote acceptance was exercised. All AC-238.1–.6 remain open.

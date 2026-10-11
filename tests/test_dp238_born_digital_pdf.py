@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import importlib.util
+import json
+import subprocess
 import unittest
 from dataclasses import replace
 from unittest.mock import patch
@@ -97,6 +99,49 @@ class BornDigitalPdfTests(unittest.TestCase):
         result = self.parser.parse(fetched(body, media="application/pdf"))
         self.assertEqual(result.status, "FAILED")
         self.assertEqual(result.error_category, "DOCUMENT_PDF_OCR_REQUIRED")
+
+    def test_inline_raster_image_without_xobject_requires_ocr(self):
+        from pypdf import PdfReader, PdfWriter
+        from pypdf.generic import DecodedStreamObject, NameObject
+
+        writer = PdfWriter()
+        writer.append_pages_from_reader(
+            PdfReader(io.BytesIO(_pdf(("Visible text beside an inline scan.",))))
+        )
+        page = writer.pages[0]
+        # PDF BI/ID/EI embeds raster pixels in /Contents, not /Resources /XObject.
+        # pypdf extracts the text successfully even with the image present.
+        stream = DecodedStreamObject()
+        stream.set_data(
+            page.get_contents().get_data()
+            + b"\nq 20 0 0 20 50 60 cm BI /W 1 /H 1 /BPC 8 /CS /RGB "
+            + b"ID \xff\x00\x00 EI Q\n"
+        )
+        page[NameObject("/Contents")] = writer._add_object(stream)
+        output = io.BytesIO()
+        writer.write(output)
+        body = output.getvalue()
+
+        self.assertNotIn(b"/Subtype /Image", body)
+        result = self.parser.parse(fetched(body, media="application/pdf"))
+        self.assertEqual(result.status, "FAILED")
+        self.assertEqual(result.error_category, "DOCUMENT_PDF_OCR_REQUIRED")
+        self.assertFalse(result.spans)
+        self.assertFalse(result.canonical_text)
+
+    def test_worker_response_cannot_invent_page_breaks_or_invalid_unicode(self):
+        body = _pdf(("One real page.",))
+        for page in ("Fabricated page one\fFabricated page two", "Bad \ud800 unicode"):
+            with self.subTest(page=ascii(page)):
+                response = json.dumps({"status": "SUCCEEDED", "pages": [page]}).encode()
+                with patch(
+                    "dichiarazioni_pubbliche.document_pdf_extraction.subprocess.run",
+                    return_value=subprocess.CompletedProcess([], 0, stdout=response),
+                ):
+                    result = self.parser.parse(fetched(body, media="application/pdf"))
+                self.assertEqual(result.status, "FAILED")
+                self.assertEqual(result.error_category, "DOCUMENT_PDF_WORKER_INVALID")
+                self.assertFalse(result.spans)
 
     def test_blank_page_no_hidden_success(self):
         body = _pdf(("First page", ""))
