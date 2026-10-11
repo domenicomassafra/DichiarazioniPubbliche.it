@@ -92,6 +92,11 @@ WHERE hit.id=:'hit_id' AND manifest.collection_id=:'collection_id';
 _MEMBERS_SQL = """
 SELECT json_build_object(
     'collection_id', collection.id, 'state', collection.status,
+    'cursor_valid', (:'after_id'='' OR EXISTS (
+        SELECT 1 FROM research_collection_content anchor
+        WHERE anchor.collection_id=collection.id
+          AND anchor.status='INCLUDED' AND anchor.content_id=:'after_id'
+    )),
     'members', (
         SELECT coalesce(json_agg(row_to_json(selected) ORDER BY selected.content_id), '[]'::json)
         FROM (
@@ -116,6 +121,10 @@ SELECT json_build_object(
     'collection_id', member.collection_id,
     'content_id', content.id, 'source_id', content.source_id,
     'source_exists', (source.id IS NOT NULL),
+    'claim_cursor_valid', (:'after_claim_id'='' OR EXISTS (
+        SELECT 1 FROM atomic_claim anchor
+        WHERE anchor.content_id=content.id AND anchor.id=:'after_claim_id'
+    )),
     'collection_state', collection.status,
     'rights_status', content.rights_status,
     'processing_status', content.processing_status,
@@ -154,6 +163,11 @@ SELECT json_build_object(
     'collection_state', collection.status,
     'content_id', content.id, 'claim_id', claim.id,
     'speaker_person_id', claim.speaker_person_id,
+    'provenance_cursor_valid', (:'after_id'='' OR EXISTS (
+        SELECT 1 FROM claim_text_provenance anchor
+        WHERE anchor.claim_id=claim.id AND anchor.content_id=content.id
+          AND anchor.person_id=claim.speaker_person_id AND anchor.id=:'after_id'
+    )),
     'rights_status', content.rights_status,
     'processing_status', content.processing_status,
     'capture_count', (SELECT count(*) FROM content_capture capture WHERE capture.content_id=content.id),
@@ -370,6 +384,8 @@ class StudioOperatorQueues(PsqlRuntime):
             raise ValueError("STUDIO_COLLECTION_NOT_FOUND")
         if row.get("collection_id") != collection_id or row.get("state") not in _COLLECTION_STATES:
             raise ValueError("STUDIO_COLLECTION_MEMBERS_AUTHORITY_MISMATCH")
+        if cursor and row.get("cursor_valid") is not True:
+            raise ValueError("STUDIO_COLLECTION_MEMBERS_CURSOR_SCOPE_INVALID")
         members = row.get("members")
         if not isinstance(members, list) or len(members) > limit:
             raise ValueError("STUDIO_COLLECTION_MEMBERS_LIMIT_INVALID")
@@ -422,6 +438,8 @@ class StudioOperatorQueues(PsqlRuntime):
             or not isinstance(row.get("source_exists"), bool)
         ):
             raise ValueError("STUDIO_COLLECTION_MEMBER_SCOPE_INVALID")
+        if cursor and row.get("claim_cursor_valid") is not True:
+            raise ValueError("STUDIO_COLLECTION_MEMBER_CURSOR_SCOPE_INVALID")
         source = _optional_id(row.get("source_id"), "SOURCE_ID")
         if bool(source) != row["source_exists"]:
             raise ValueError("STUDIO_COLLECTION_MEMBER_SOURCE_MISMATCH")
@@ -502,6 +520,8 @@ class StudioOperatorQueues(PsqlRuntime):
             or row.get("collection_state") not in _COLLECTION_STATES
         ):
             raise ValueError("STUDIO_PROVENANCE_CLAIM_BINDING_MISMATCH")
+        if cursor and row.get("provenance_cursor_valid") is not True:
+            raise ValueError("STUDIO_PROVENANCE_CURSOR_SCOPE_INVALID")
         speaker = _optional_id(row.get("speaker_person_id"), "SPEAKER_ID")
         rights = _safe_state(row.get("rights_status"), "RIGHTS_STATUS")
         processing = _safe_state(row.get("processing_status"), "PROCESSING_STATUS")

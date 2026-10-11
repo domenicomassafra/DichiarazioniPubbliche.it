@@ -171,3 +171,39 @@ Receipt: `docs/reviews/2026-10-08-studio-garlasco-text-provenance.md`.
 **Phase / dependencies:** Phase 2/3; hard DP-214/414 and persisted source/candidate records, soft A-NEW-08/B promotion; Studio owner.
 
 **Related future specifications (separate ownership):** DP-242. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+### Persisted parent-bound collection cursors — local source proof, 2026-10-11
+
+The existing private, loopback token-authenticated, transaction-read-only Studio
+collection readers now reject a page cursor unless its persisted anchor still
+belongs to the exact parent being browsed: an `INCLUDED` Collection member for
+`/v1/collections/members`, an Atomic Claim of the selected Content for
+`/v1/collections/member`, or a text-provenance record bound to the selected
+Claim, Content and speaker for `/v1/collections/claim-provenance`. All three
+checks execute in the same SQL snapshot as their bounded keyset page. A cursor
+from another parent or a removed member fails closed instead of silently
+skipping entries. No raw text, URL, private metadata, new authority or extra
+query parameter appears in the API response.
+
+Adversarial test was **RED** before the fence (wrong-collection cursor silently
+returned an empty page) and **GREEN** after it. Local disposable PostgreSQL
+proof exercises three cross-parent cursors, three valid consumed cursors,
+membership revocation between pages, private field exclusion and false
+publication authority. The existing loopback authentication and read-only DB
+session are unchanged; this is a source/fixture proof only, with no MiniPC
+read-back, production changes, or real Garlasco Passages/Candidates.
+
+Local checks: `python3 -m compileall -q poc tests` PASS;
+`PYTHONPATH=poc python3 -m unittest tests.test_studio_operator_queues
+tests.test_studio_local_api tests.test_studio_capture_selectors_pg -q`
+**41/41 PASS**; Ruff and `git diff --check` PASS. Broad suite:
+`PYTHONPATH=poc python3 -m unittest discover -s tests -q` ran **2,884**
+tests in **159.041 s**, with **3 errors** in the separate
+`test_existing_factcheck_persistence` operation-receipt write path. These
+errors remain failures, with no assertion of overall suite success or DP-416
+dependency closure. No code outside the three DP-416-owned files was edited.
+
+**AC-416.1–.4 remain OPEN.** Historical `research:garlasco` still has no real
+Capture/Passage/Candidate chain, and keyboard/color-independent hierarchy,
+large-corpus performance, reviewed membership actions, rights decisions and
+full MiniPC acceptance still require their own proof.

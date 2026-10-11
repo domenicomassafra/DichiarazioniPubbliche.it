@@ -172,6 +172,68 @@ class StudioQueueTests(unittest.TestCase):
                 collection_id="research:garlasco", after_id="content:1\nSELECT * FROM private"
             )
 
+    def test_collection_navigation_cursors_must_match_persisted_parent(self):
+        """A cursor from another collection/content/claim must not silently skip rows."""
+        members = {
+            "collection_id": "research:garlasco", "state": "PAUSED",
+            "members": [], "cursor_valid": False,
+        }
+        queue = FakeOperatorQueues([members])
+        with self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
+            queue.list_collection_members(
+                collection_id="research:garlasco", after_id="content:other"
+            )
+        self.assertIn("anchor.collection_id=collection.id", queue.calls[0][0])
+        self.assertIn("anchor.status='INCLUDED'", queue.calls[0][0])
+        self.assertIn("anchor.content_id=:'after_id'", queue.calls[0][0])
+        good = FakeOperatorQueues([members | {"cursor_valid": True}])
+        self.assertEqual(good.list_collection_members(
+            collection_id="research:garlasco", after_id="content:included"
+        )["results"], [])
+
+        member = {
+            "collection_id": "research:garlasco", "collection_state": "PAUSED",
+            "content_id": "content:garlasco:001", "source_id": "source:one",
+            "source_exists": True, "rights_status": "UNKNOWN",
+            "processing_status": "REVIEW_REQUIRED", "capture_count": 0,
+            "passage_count": 0, "statement_candidate_count": 0,
+            "claim_candidate_count": 0, "atomic_claim_count": 1, "claims": [],
+            "claim_cursor_valid": False,
+        }
+        queue = FakeOperatorQueues([member])
+        with self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
+            queue.inspect_collection_member(
+                collection_id="research:garlasco", content_id="content:garlasco:001",
+                after_claim_id="claim:other-content",
+            )
+        self.assertIn("anchor.content_id=content.id", queue.calls[0][0])
+        self.assertIn("anchor.id=:'after_claim_id'", queue.calls[0][0])
+        good = FakeOperatorQueues([member | {"claim_cursor_valid": True}])
+        self.assertEqual(good.inspect_collection_member(
+            collection_id="research:garlasco", content_id="content:garlasco:001",
+            after_claim_id="claim:included",
+        )["claims"], [])
+
+        provenance = self._provenance_row() | {
+            "provenance": [], "provenance_cursor_valid": False,
+        }
+        queue = FakeOperatorQueues([provenance])
+        with self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
+            queue.inspect_claim_provenance(
+                collection_id="research:garlasco", content_id="content:garlasco:one",
+                claim_id="claim:garlasco:one", after_id="provenance:another-claim",
+            )
+        sql = queue.calls[0][0]
+        self.assertIn("anchor.claim_id=claim.id", sql)
+        self.assertIn("anchor.content_id=content.id", sql)
+        self.assertIn("anchor.person_id=claim.speaker_person_id", sql)
+        self.assertIn("anchor.id=:'after_id'", sql)
+        good = FakeOperatorQueues([provenance | {"provenance_cursor_valid": True}])
+        self.assertEqual(good.inspect_claim_provenance(
+            collection_id="research:garlasco", content_id="content:garlasco:one",
+            claim_id="claim:garlasco:one", after_id="provenance:included",
+        )["records"], [])
+
     def test_exact_included_member_source_claim_graph_and_fail_closed(self):
         valid = {
             "collection_id": "research:garlasco", "collection_state": "PAUSED",
@@ -296,6 +358,87 @@ class StudioQueueTests(unittest.TestCase):
             FakeOperatorQueues([{"id": "one", "status": "ACTIVE"}] * 300).list_collections(limit=30)
         with self.assertRaisesRegex(ValueError, "ROWS_INVALID"):
             FakeOperatorQueues([{"id": "one", "status": "ACTIVE"}] * 300).list_discovery(limit=30)
+
+
+class StudioQueuePersistedCursorTests(unittest.TestCase):
+    """Run cursor authority gates against a disposable PostgreSQL corpus."""
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.test_studio_capture_selectors_pg import StudioCaptureSelectorPostgresTests
+
+        cls.fixture = StudioCaptureSelectorPostgresTests
+        cls.fixture.setUpClass()
+        try:
+            cls.fixture._sql("""
+                INSERT INTO research_collection (id, slug, name, scope_text, policy_version, status)
+                VALUES ('research:other', 'other-cursor', 'PRIVATE OTHER', 'SECRET', 'v1', 'PAUSED');
+                INSERT INTO research_collection_content (
+                    collection_id, content_id, inclusion_method, inclusion_version
+                ) VALUES ('research:other', 'content:other', 'MANUAL_REVIEW', 'v1');
+                INSERT INTO person (id, canonical_name) VALUES ('person:cursor', 'PRIVATE PERSON');
+                INSERT INTO atomic_claim (
+                    id, content_id, speaker_person_id, normalized_claim, claim_type
+                ) VALUES
+                    ('claim:cursor-one', 'content:one', 'person:cursor', 'SECRET ONE', 'HISTORICAL_CLAIM'),
+                    ('claim:cursor-other', 'content:other', 'person:cursor', 'SECRET OTHER', 'HISTORICAL_CLAIM');
+                INSERT INTO claim_text_provenance (
+                    id, claim_id, content_id, person_id, selector_type,
+                    quote_sha256, attribution_method, status
+                ) VALUES
+                    ('provenance:cursor-one', 'claim:cursor-one', 'content:one',
+                     'person:cursor', 'TEXT_QUOTE_HASH', repeat('a', 64), 'SOURCE_QUOTE', 'CANDIDATE'),
+                    ('provenance:cursor-other', 'claim:cursor-other', 'content:other',
+                     'person:cursor', 'TEXT_QUOTE_HASH', repeat('b', 64), 'SOURCE_QUOTE', 'CANDIDATE');
+            """)
+        except Exception:
+            cls.fixture.tearDownClass()
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "fixture"):
+            cls.fixture.tearDownClass()
+
+    def test_cross_parent_cursors_and_revoked_membership_fail_closed(self):
+        from dichiarazioni_pubbliche.studio_local_api import _StudioQueueReader
+
+        reader = _StudioQueueReader(self.fixture.dsn)
+        for request in (
+            lambda: reader.list_collection_members(
+                collection_id="research:pilot", after_id="content:other", limit=1),
+            lambda: reader.inspect_collection_member(
+                collection_id="research:pilot", content_id="content:one",
+                after_claim_id="claim:cursor-other", limit=1),
+            lambda: reader.inspect_claim_provenance(
+                collection_id="research:pilot", content_id="content:one",
+                claim_id="claim:cursor-one", after_id="provenance:cursor-other", limit=1),
+        ):
+            with self.subTest(request=request), self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
+                request()
+
+        valid = reader.list_collection_members(
+            collection_id="research:pilot", after_id="content:one", limit=1)
+        claim_page = reader.inspect_collection_member(
+            collection_id="research:pilot", content_id="content:one",
+            after_claim_id="claim:cursor-one", limit=1)
+        provenance_page = reader.inspect_claim_provenance(
+            collection_id="research:pilot", content_id="content:one",
+            claim_id="claim:cursor-one", after_id="provenance:cursor-one", limit=1)
+        self.assertEqual(valid["results"], [])
+        self.assertEqual(claim_page["claims"], [])
+        self.assertEqual(provenance_page["records"], [])
+        for result in (valid, claim_page, provenance_page):
+            self.assertNotIn("SECRET", json.dumps(result))
+            self.assertFalse(result["publication_authority"])
+
+        self.fixture._sql("""
+            UPDATE research_collection_content SET status='REMOVED'
+            WHERE collection_id='research:pilot' AND content_id='content:one';
+        """)
+        with self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
+            reader.list_collection_members(
+                collection_id="research:pilot", after_id="content:one", limit=1)
 
 
 if __name__ == "__main__":
