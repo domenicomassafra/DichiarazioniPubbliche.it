@@ -1,5 +1,23 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Tranche operativa 12 ottobre 2026, successiva al GitHub SUCCESS
+`13e6fff9`:**
+[nuova verticale Studio autenticata, due journal persistenti, revoche,
+consumer v3 e contestualizzazione processuale](docs/reviews/2026-10-12-operational-studio-persistence-withdrawal-synopsis-wave.md).
+Non ripetere DP-416/417/418/440/518/519/516 o i fix DP-312/313 qui
+documentati: le implementazioni nuove includono navigazione UI reale
+Collection→Capture→Passage→candidati, loopback PostgreSQL read-only con
+bearer/Host/Origin, target-source PG e script Python→TS→Astro SSR. I
+journal SQLite privati implementano CAS/replay/durabilità senza autorità
+di pubblicazione. Il test browser Chrome/CDP supplementare è andato in
+timeout, **non** certifica a11y manuale; i test DOM/HTTP separati passano.
+Non assumere nuovo DONE, diritti, revisori, CDN o prova MiniPC:
+**90 DONE / 72 pendenti, NO-GO/49**. MacBook Air e MateBook Linux sono
+raggiungibili per audit bounded, MiniPC resta mirror non-Git intatto.
+Verificare `HEAD`/remoto e GitHub Actions sull'esatto SHA finale prima
+di utilizzare la tranche; CI storica `13e6fff` riguarda soltanto la
+baseline precedente.
+
 **Nuova tranche successiva a `aca8809`, 11 ottobre 2026:**
 [cinque funzionalità Studio/Watch/v3 e relativa prova locale](docs/reviews/2026-10-11-private-ops-v3-release-consistency-wave.md).
 Commits locali `da56998` (DP-422 consumer v3 coerenti), `7fb3bdb`
