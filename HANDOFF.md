@@ -1,5 +1,23 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nuova tranche multi-ondata del 12 ottobre 2026, dopo main 61b7941:**
+[undici commit di sviluppo in quattro wave su persistenza Studio,
+isolamento multi-persona, budget e watch, lettori v3 e revoche](docs/reviews/2026-10-12-multiwave-durable-private-operations-and-v3.md).
+Implementazioni distinte: DP-242 handoff SQLite con CAS/diritti; DP-240
+batch per Persona/Passage riavviabile; DP-319 ricerca privata append-only;
+DP-515 SourceWatch persistente; DP-514 ledger globale attempt cross-mese
+e report privato read-only; DP-320 race PostgreSQL reale isolata; DP-438
+Persona zero Statement e DP-439 Person×Topic con Astro SSR isolato; DP-409
+ricerca statica a epoch/pin di release. Non ripeterle senza una diversa
+regressione riproducibile. I ledger di prova **non** attestano diritto
+fonte, fattura, reviewer, dispatch B o pubblicazione: AC originali ancora
+aperti senza prove approvate. MateBook Linux non è raggiungibile in questa
+tranche (Tailscale offline e SSH timeout), quindi NON dichiararne WIP
+riconciliato. MiniPC mirror di deploy rimasto intatto, 0 byte rimossi.
+Conservare **90 DONE / 72 pendenti, release NO-GO/49**. Per la consegna
+esatta verificare nuovo SHA Git origin e GitHub Actions **dopo** il push;
+la vecchia CI 11/11 su 61b7941 non certifica questi commit.
+
 **Tranche operativa 12 ottobre 2026, successiva al GitHub SUCCESS
 `13e6fff9`:**
 [nuova verticale Studio autenticata, due journal persistenti, revoche,
