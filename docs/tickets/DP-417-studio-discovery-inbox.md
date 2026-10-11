@@ -61,6 +61,38 @@ older than it is.
 
 ## Completion receipt
 
+### 2026-10-12 — Signed, opt-in Studio annotations over authenticated HTTP and PostgreSQL
+
+An explicit second loopback server (studio_local_mutation_api.py) now connects
+the existing durable DP-417 record_attested CAS writer to the actual Studio Inbox.
+It requires a separately started local service, private token, existing 0700
+off-database reviewer authority, explicit mutation-mode confirmation, and
+independent exact HMAC reviewer receipt; ordinary Studio remains read-only and
+returns HTTP 404 for this route. The complementary local pre-issue CLI
+(studio_triage_receipt_issue.py) uses an already provisioned active reviewer
+credential and emits the exact receipt before any DB write. No in-browser signer
+or review credential is created.
+
+The operator now selects a real persisted Inbox Hit, which binds Collection,
+Hit and current revision from the PostgreSQL read model and opens the durable
+history; request key, decision, actor, opaque receipt and explicit confirmation
+are still required independently for submission. The server rechecks Host,
+Origin, bearer, duplicate JSON fields, exact request schema and HMAC active
+credential before the existing per-Hit transaction advisory-lock and revision
+CAS. Restart replays the one immutable annotation without duplication; changed
+intent/key/revision, foreign collection, or revoked credential refuses.
+CREATED/REPLAY only mean a PRIVATE ANNOTATION. No source approval, job, Capture,
+merge, Claim promotion, publication or full editorial review authority.
+
+Regression: new real temp PostgreSQL/HTTP tests prove write/replay across
+restart, separate CLI issue followed by API write and actual historical
+reader, 401/403/404/409/422 negatives and no secret disclosure. Actual Studio
+inline script exercised through Node DOM async tests: type conversion, Inbox
+row binding, focus/actions, signed receipt scrub on logout, stale result
+cancellation. No production service, provider or MiniPC was modified.
+Original AC417.1–4 remain OPEN pending complete genuine triage families,
+bulk compatibility, operator canary and external rights/review gates.
+
 Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
 required, migration/rollback state, residual blockers and the resulting commit before
 marking DONE.
