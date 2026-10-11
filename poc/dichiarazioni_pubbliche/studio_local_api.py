@@ -38,6 +38,9 @@ from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_medi
 from dichiarazioni_pubbliche.studio_operator_search import search_private_corpus
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
 from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInboxWorkflow
+from dichiarazioni_pubbliche.studio_machine_candidate_handoff_v1 import (
+    preview_candidate_machine_handoff, preview_discovery_machine_exception,
+)
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
 
 STUDIO_LOCAL_API_VERSION = "studio-local-readonly-api-v1"
@@ -57,6 +60,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/collections/passage-candidates",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
+    "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
 })
 
 class _StudioReadOnlyDb(PsqlRuntime):
@@ -511,6 +515,16 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         return inspect_candidate_review_readiness(
             readers.candidates, readers.promotion_context, **body,
         )
+    if path == "/v1/candidate/machine-preview":
+        _fields(body, required={
+            "run_id", "claim_candidate_id", "result_id", "request_key",
+            "expected_content_id", "expected_capture_sha256", "expected_input_fingerprint",
+        })
+        if readers.promotion_context is None:
+            raise RuntimeError("STUDIO_REVIEW_CONTEXT_UNAVAILABLE")
+        return preview_candidate_machine_handoff(
+            readers.candidates, readers.promotion_context, **body,
+        )
     if path == "/v1/candidate/handoff-receipt":
         _fields(body, required={"handoff_id", "run_id", "claim_candidate_id"})
         if readers.handoffs is None:
@@ -538,6 +552,14 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
         return readers.queues.list_discovery_inbox(**body)
+    if path == "/v1/discovery/machine-preview":
+        _fields(body, required={
+            "collection_id", "hit_id", "request_key", "expected_revision",
+            "expected_snapshot_sha256",
+        })
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return preview_discovery_machine_exception(DiscoveryInboxWorkflow(readers.queues), **body)
     if path == "/v1/discovery/bulk-preview":
         _fields(body, required={"collection_id", "hit_ids", "decision"})
         if readers.queues is None:
