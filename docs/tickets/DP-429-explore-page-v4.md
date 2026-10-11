@@ -131,3 +131,18 @@ Remain IN PROGRESS. Explore needs independent Person and Topic URL filters whose
 ### 2026-10-11 — limited Explorer hardening, source-only
 
 Commits `df6fa42`, `5c72563`, `f8b2b6e` add Person×Topic filtered public-index search, reject unpublished topic facet references and visually/semantically label old `PARAPHRASE` Finding titles as **not literal quotes**. The empty/filtered-no-match/unavailable paths remain distinct; historical paraphrase bodies are not transformed into quotations. Focused search, design, Astro (0 diagnostics) and isolated projection boundary checks pass locally. No real device AT check, owner-selected redesign, live approved corpus or MiniPC release/readback; no old manual accessibility AC closed.
+
+### 2026-10-11 — Approved-empty Explore accessibility regression
+
+Source/UI commit `cf70a4f` adds a **visible and ARIA live atomic result count**
+(`0 risultati pubblicati`) to `/esplora/` when the approved public index has
+zero records. The lede no longer promises an unavailable search interaction.
+`tests/dp429_explore_accessibility_regression.mjs` builds a fresh, isolated
+real Astro projection/index with zero approved records, verifies its dataset
+fingerprint, heading/accessible count/links, and absence of dummy or private
+search results. The optional real Chrome QA subrun passed keyboard,
+reduced-motion and 200%-browser-zoom checks; web Astro check reported zero
+diagnostics and isolated build PASS. This deliberately does not change the
+populated search UI/index or serve a public release. Actual screen-reader
+acceptance/selected design and MiniPC/public proof remain OPEN; the final
+mixed accessibility AC is not checked and ticket stays IN PROGRESS.

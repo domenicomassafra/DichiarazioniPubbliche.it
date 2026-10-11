@@ -3,6 +3,20 @@
 **Checkpoint operativo aggiornato:** 11 ottobre 2026. Questo documento è la porta di ingresso operativa,
 non una seconda fonte di verità per i ticket o una certificazione di release.
 
+**Ottava tranche locale 2026-10-11 (no push/deploy):**
+DP-238 `4e6a465`: born-digital PDF reale in worker isolato opzionale,
+versioned private page/Passage selectors, **nessun OCR/VERBATIM automatico**,
+19 test PDF/documentali PASS. DP-429 `cf70a4f`: stato Explore con zero
+record pubblicati riconoscibile da tecnologie assistive, Chrome locale
+tastiera/movimento ridotto/zoom 200% PASS, screen reader reale ancora aperto.
+DP-436 `352cb78`: confronto source-only v3 API/JSON-LD/RDF con documento,
+quote hash, linguaggio e revoca, **32** regressioni selezionate PASS; non è
+una route pubblica né una licenza. AC-238, -429 accessibilità manuale e
+-436 restano aperte. Nuovo opt-in `document-pdf` mantiene il profilo
+stdlib-only invariato. **DP-519 integrazione Studio** non ha prodotto
+un'implementazione verificabile in questa tranche. Nessun record reale,
+diritto qualificato, MiniPC/canary, pubblicazione o deploy.
+
 **Settima tranche locale, 2026-10-11 (no push/deploy):** DP-518
 `8bd5cc5` (audit su dodici superfici pubbliche/cache con DP-320 epoch;
 anche un readback 404 sintetico non è autorità MiniPC/CDN), DP-516

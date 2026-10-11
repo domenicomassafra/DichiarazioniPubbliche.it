@@ -50,3 +50,19 @@ Update schema/API consumer contracts and source map after implementation; increm
 ## 2026-10-11 — First implementation slice
 
 Opt-in v3 Statement serializations in `public_api.py` and `linked_data.py` (commit `4a7afbf`) plus isolated web `statementV3.ts`/`VerbatimStatementRecord.astro` (commits `caa5c5c`, `ce60baf`). Original quote, locator/source, summary/translation and optional Finding have distinct types. 13 backend consumer tests and synthetic web statement test pass; existing v2 endpoints/routes unchanged. No real v3 HTTP route, public-host cache/revocation, source rights or MiniPC proof.
+
+## 2026-10-11 — Cross-format source-only parity gate
+
+Source/test commit `352cb78` adds opt-in
+`public_v3_consumer_parity.py` which **independently compares** one already-
+governed v3 projection to the existing API, JSON-LD and N-Triples serializers.
+It requires exact dataset fingerprint, schema opt-in, Statement/Person/Content
+and version IDs, source hash/version, quotation hash/original-language span,
+speech-act and derived summary/translation separation. Reordered/extra RDF,
+forged paraphrase-as-quote, changed API source/locator and stale pre-revocation
+consumer outputs are rejected. The receipt exposes bounded metadata only and
+grants **no** permission to publish. Nine focused adversarial tests and **32**
+selected DP-435/436 regressions PASS, Ruff check+format PASS. Only serializer
+parity is locally proven: it does not activate a v3 public route, homepage,
+search, cards, sitemap or caches, certify real rights, or validate MiniPC
+reader+withdrawal. AC-436.1–.4 remain OPEN and ticket IN PROGRESS.

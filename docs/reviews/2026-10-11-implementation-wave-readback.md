@@ -194,3 +194,22 @@ returned the expected **NO-GO with 49 blockers**; it is not an approval.
 The full test suite demonstrates local source/test consistency only; no live
 qualified rights, MiniPC/Cdn invalidation, actual historical batch or source
 authorization, autonomous public assertion or owner-approved visual image.
+
+## Eighth local implementation tranche — 2026-10-11
+
+All actions stayed in the Mac checkout; no live MiniPC DB, paid provider,
+actual source body acquisition, rights authorization, public route activation,
+push or deploy. Tickets remain IN PROGRESS:
+
+| Ticket | Commit | Actual implementation and local evidence |
+|---|---|---|
+| DP-238 | `4e6a465` | Optional pypdf born-digital page text extraction in bounded subprocess; exact source SHA and deterministic private Passage/page hash/selector replay; 19 combined native/PDF tests PASS; old parser unchanged by default, extraction never certifies source wording/OCR/rights; PDF fixtures synthetic |
+| DP-429 | `cf70a4f` | `/esplora/` approved-empty projection displays `0 risultati pubblicati` via atomic ARIA status, truthful empty-index lede. Isolated real Astro build and fingerprint/index negatives PASS; local Chrome keyboard/reduced motion/actual 200%-zoom QA PASS. No user-verified real screen reader |
+| DP-436 | `352cb78` | Opt-in v3 parity gate across existing authorized projection serializer to API, JSON-LD and canonical RDF, including source/quote IDs, original/derived representation and revocation; 9 focused and 32 selected related tests PASS. Not activated on the public v2 read path |
+
+The separate DP-519 persisted Studio/operator endpoint did not produce a
+verifiable implementation in this tranche and was left untouched. The earlier
+untracked post-grilling handoff file was not modified. Product/user acceptance
+still requires authentic source-specific legal grants, independent gold,
+signed DP-443 real MiniPC first-full pilot, reader/revocation/rollback and
+remaining DP-429 screen-reader/manual acceptance. No AC was silently marked.

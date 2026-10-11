@@ -53,3 +53,26 @@ Reuse `capture_pipeline` parser interface, `PassageRecord` and existing rights/p
 ## 2026-10-11 — First implementation slice
 
 Commit `c366514`. Added opt-in `document_text_extraction.py` and tests: bounded native UTF-8 text/XML/AKN/HTML parser and source/passage/page hash + selector checks. 11 new and 28 related capture regression tests PASS. PDF native text/OCR, independent fidelity gold, actual source permits and MiniPC acquisition remain absent. No automatic speaker/court role, copyright or verbatim publication is inferred. **All original AC remain unchecked**; this is a local source-only test receipt, not permission for live publication.
+
+## 2026-10-11 — Bounded born-digital PDF extraction, opt-in only
+
+Local commit `4e6a465` adds `document_pdf_extraction.py` and
+`tests/test_dp238_born_digital_pdf.py`; `document_passages_from_capture`
+requires an explicit PDF parser and separately replays the same Capture bytes,
+SHA, method/version, rights state and page selectors. Real generated two-page
+born-digital PDF fixtures are parsed using a **separate bounded subprocess**
+with optional pypdf backend, a fixed PDF/page/decoded-text envelope and worker
+timeout. Blank pages, encrypted PDF, mixed raster images, annotations, overly
+long documents, corrupt files, parser errors and unavailable backend fail
+closed. Scanned and complex layout PDF still require OCR/qualified review.
+
+Passages are always `UNREVIEWED_PDF_EXTRACTION`, never `VERBATIM_ORIGINAL`;
+PDF source page text order is unreviewed, and character selectors reference
+the *versioned extracted text*, not authenticated byte positions in a PDF.
+The baseline `DocumentTextParser` retains its old fail-closed PDF behavior.
+`pyproject.toml` declares optional `document-pdf` and `document-pdf-test`
+profiles without installing dependencies in the default stdlib-only profile.
+**19 combined focused native-document/PDF tests PASS**, Ruff/compileall and
+repository contract PASS. These are in-memory synthetic PDFs, **not** actual
+approved source rights, independent OCR/text fidelity gold, real MiniPC
+acquisition/readback or public quote permission. AC-238.1–.6 remain open.
