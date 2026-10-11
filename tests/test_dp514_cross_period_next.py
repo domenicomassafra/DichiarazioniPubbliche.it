@@ -4,6 +4,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from datetime import datetime, timedelta, timezone
@@ -85,7 +86,7 @@ class CrossMonthLiabilityTests(unittest.TestCase):
 
     def test_upgrade_backfills_previous_reservations_before_replaying_cross_month(self):
         self.assertTrue(self.reserve("job:existing:attempt:1", self.oct).committed)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("DROP TRIGGER IF EXISTS monthly_global_attempt_no_delete")
             db.execute("DROP TRIGGER IF EXISTS monthly_global_attempt_no_update")
             db.execute("DROP TABLE IF EXISTS monthly_global_attempt")
@@ -96,7 +97,7 @@ class CrossMonthLiabilityTests(unittest.TestCase):
         self.assertEqual(restarted.read(self.nov_period).revision, 0)
 
     def test_failed_state_cas_rolls_back_global_attempt_and_can_recover(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("""
                 CREATE TRIGGER deny_month_state_change
                 BEFORE UPDATE ON monthly_budget_state
@@ -105,7 +106,7 @@ class CrossMonthLiabilityTests(unittest.TestCase):
         denied = self.reserve("job:crash:attempt:1", self.oct)
         self.assertFalse(denied.committed)
         self.assertEqual(denied.reason, "MONTHLY_STORAGE_UNAVAILABLE")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM monthly_global_attempt").fetchone()[0], 0)
             db.execute("DROP TRIGGER deny_month_state_change")
         self.assertTrue(self.reserve("job:crash:attempt:1", self.oct).committed)
@@ -139,7 +140,7 @@ class CrossMonthLiabilityTests(unittest.TestCase):
         self.assertEqual(sum(value.committed for value in results), 1)
         self.assertIn("MONTHLY_ATTEMPT_GLOBAL_PERIOD_CONFLICT",
                       {value.reason for value in results})
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute(
                 "SELECT COUNT(*) FROM monthly_global_attempt").fetchone()[0], 1)
         self.assertEqual(sum(self.store.read(p).revision

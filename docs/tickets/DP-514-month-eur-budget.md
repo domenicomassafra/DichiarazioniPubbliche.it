@@ -116,6 +116,27 @@ MiniPC canary or external reconciliation exists. The global hold remains
 fail-closed until a separate qualified correction mechanism is implemented.
 **AC-514.1–.7 remain OPEN, ticket IN PROGRESS and release NO-GO.**
 
+### 2026-10-12 — Operable redacted private month readback
+
+Added an explicit local, **read-only** operator CLI:
+python3 tools/dp514_private_month_report.py --db /path/to/isolated.sqlite
+--period 2026-10@Europe/Rome. It refuses a missing database, symlink and
+invalid accounting period; sqlite mode=ro + PRAGMA query_only forbids writes
+and avoids implicitly bootstrapping a new month. It consumes the existing
+durable state and independently validated immutable reconciliation receipts,
+double-reads the monotone state to reject concurrent CAS drift, and emits
+only aggregate reserved/observed attempt counts, provisional EUR, held EUR,
+unknown/over-bound counts and public-authority=false flags. No account, task
+ID, source, quote, private receipt or credential leaves stdout. Zero billed
+authority is explicitly represented as NULL, never a zero invoice.
+
+The new actual subprocess/temp-SQLite tests assert real UNKNOWN carry and
+readback, symlink/nonexistent/invalid period refusal, unchanged disk bytes
+and SQLite UPDATE denial in read-only mode. DP514 + adjacent cost suite:
+**46/46 PASS**, scoped Ruff and diff checks pass. This is private
+synthetic operational usability, **not** production billing or a provider
+invoice, MiniPC activation, USD/EUR combined dispatch or AC completion.
+
 ## 2026-10-11 — Write-once SQLite observation resolution, no cap release
 
 The existing disposable `SQLiteMonthlyReservationStore` persisted a bounded
