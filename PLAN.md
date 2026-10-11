@@ -444,7 +444,7 @@ without manual DB surgery.
 | DP-232 | DONE | Existing fact-check provider-neutral adapter complete: bounded DP-228→DP-209 runtime, append-only mirror lineage/replay, fail-closed UNKNOWN rights and metadata/link-only public surface proven; any future owner-selected live provider requires a separate authorized network/source canary | DP-228, DP-215 |
 | DP-233 | IN PROGRESS | Parliamentary official speech/transcript/video adapter; fixture execution distinguishes NEW/REPLAY/AMENDED and delegates amended records to DP-511/DP-227 with DP-305 fail-closed rights; approved official source-family MiniPC canary pending | DP-206, DP-217, DP-218, DP-231 |
 | DP-234 | IN PROGRESS | DVNS/read-only structured evidence adapter; strict offline normalization + explicit DP-215 role/authority/suitability bridge implemented, real approved provider/licensing + MiniPC source-family canary pending | DP-215, DP-228, external contract/API |
-| DP-235 | FUTURE | Bounded rights-authorized private source-to-candidate pilot | DP-209, DP-210, DP-211, DP-212, DP-213, DP-236 |
+| DP-235 | IN PROGRESS | Bounded rights-authorized private source-to-candidate pilot | DP-209, DP-210, DP-211, DP-212, DP-213, DP-236 |
 | DP-236 | IN PROGRESS | Source-family acquisition/use profile with real permission decisions | DP-210, DP-305 |
 | DP-237 | IN PROGRESS | Versioned exact locator and cross-format provenance chain | DP-210, DP-216, DP-224, DP-225 |
 | DP-238 | IN PROGRESS | Document, PDF/OCR and text extraction with role-preserving provenance | DP-210, DP-211 |

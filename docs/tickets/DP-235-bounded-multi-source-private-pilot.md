@@ -46,11 +46,13 @@ Reuse DP-209..213 and Source Intelligence, not a second ingestion system. Persis
 
 ## Completion receipt
 
-**2026-10-11 local source-only manifest gate — IN PROGRESS.**
-`bounded_private_pilot_manifest_v1.py` freezes a deterministic private sample
-manifest only after explicit external permission placeholders are present. It
-sorts and hashes sample lineage, rejects duplicate samples and tampered plans,
-and never sets dispatch authorization or claims source rights. Commit pending;
-focused DP-235 tests PASS. All AC remain open: no real authorized sample,
-MiniPC persisted Capture/Passage/Candidate path, provider execution or public
-exposure.
+**2026-10-11 local source-only manifest prototype — IN PROGRESS.**
+Commit `725ac0f` added `bounded_private_pilot_manifest_v1.py` and three focused
+tests. The current proposal guard sorts and hashes sample descriptors, rejects
+duplicate `sample_id` values and altered hashes, and never grants dispatch
+authorization or source rights. It does **not** require an actual rights
+reference, validate source versions/locators or People/roles, enforce eligible
+media/source families, or connect to persistent Capture/Passage/Candidate flow.
+Therefore this is not an accepted or authorized manifest; all five AC remain
+open pending source permissions, adequate private negative-case tests and
+MiniPC readback. No provider execution or public exposure has been approved.
