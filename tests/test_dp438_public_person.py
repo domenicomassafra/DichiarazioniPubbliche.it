@@ -244,6 +244,30 @@ class PublicPersonV3Tests(unittest.TestCase):
         no_disambiguator = project(people=[one, two], identities=[identity(one), identity(two)])
         self.assertEqual(no_disambiguator["people"], [])
 
+    def test_stable_id_matching_another_person_slug_holds_both_public_identifiers(self):
+        # Both approvals are individually valid, but one Person's stable ID
+        # aliases another Person's public route in the shared lookup namespace.
+        first = person("person:one", slug="persona-uno", name="Anna Demo")
+        second = person("persona-uno", slug="persona-due", name="Zoe Demo")
+        unaffected = person("person:third", slug="persona-terza", name="Una Demo")
+        people = [first, second, unaffected]
+        decisions = [identity(p) for p in people]
+        expected_fingerprint = None
+        for roster in (people, list(reversed(people))):
+            with self.subTest(roster=[p["person_id"] for p in roster]):
+                result = project(people=roster, identities=decisions)
+                self.assertEqual([p["person_id"] for p in result["people"]], ["person:third"])
+                self.assertIsNone(get_public_person_v3(result, "person:one"))
+                self.assertIsNone(get_public_person_v3(result, "persona-uno"))
+                self.assertIsNone(get_public_person_v3(result, "persona-due"))
+                self.assertIs(get_public_person_v3(result, "person:third"),
+                              get_public_person_v3(result, "persona-terza"))
+                self.assertEqual(expected_fingerprint or result["dataset_sha256"],
+                                 result["dataset_sha256"])
+                expected_fingerprint = result["dataset_sha256"]
+                private = person("person:private", slug="persona-terza", name="Privata Demo")
+                self.assertEqual(result, project(people=[*roster, private], identities=decisions))
+
     def test_duplicate_review_event_is_not_independent_approval(self):
         first = person()
         second = person("person:two", slug="persona-due", name="Persona Due")
