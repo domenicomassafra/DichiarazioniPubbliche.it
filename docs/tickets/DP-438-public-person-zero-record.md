@@ -111,3 +111,59 @@ current-rights attestations, atomic cross-format withdrawal/rebuild,
 stable owner-controlled aliases, the integrated v3 frontend/API/index,
 and MiniPC positive/negative acceptance remain external gates. No
 commit, push or deploy was performed in this worker tranche.
+
+## 2026-10-12 — Private pinned zero-Person SSR reader (local, partial)
+
+Added **only** `web/src/lib/privatePublicPersonEmptyV3.ts` and
+`web/scripts/check-private-person-empty-v3.mjs` as opt-in **private/isolated
+preview** artifacts; no public route, API, sitemap publisher or production
+activation. The Node test executes the **actual Python DP-438 and DP-439
+fixtures/builders**, producing an independently synthetically reviewed
+zero-Statement Person, two same-name approved People with distinct public
+disambiguators, source-linked opinion Statements without Findings, dated
+approved role intervals, a held/private Person, identity withdrawal and
+source-rights revocation. These local fixture approvals are **not** real
+human/editorial/source-rights attestations.
+
+The SSR-safe reader requires separately supplied current public Person,
+Statement, Person×Topic join and indexed search release SHA pins, a finite
+expiry and the exact source publication timestamp (not covered by the
+collection digest). It invokes `readApprovedPersonV3`, the existing v3
+search index validator and `preflightPublicV3CrossReaderRelease`, validates
+every public original Statement/rights provenance against the pinned v3
+source bundle, and cross-checks Person history against source ID, version,
+Content identity, source URL/SHA/version, exact original quote/SHA, date,
+locator, speech act and Finding-nullability. Source-time roles are checked
+against approved intervals, including missing/ambiguous roles. A
+Statement still published for an approved Person may not silently disappear
+from their archive and create a **false approved-zero state**, even when a
+malicious disconnected no-Topic archive and join have internally consistent
+recomputed hashes.
+
+An independently pinned candidate Person sitemap-route set is compared with
+**all and only** the approved Person routes, including approved empty People;
+phantom private/held/withdrawn identities, duplicate paths and missing
+routes are refused. This is a *prepublication route-set consistency test*,
+not a claim that production sitemap/search or Person URLs serve v3.
+Unknown, private/held, revoked and invalid identifiers return the exact
+same generic `UNAVAILABLE` projection without ID, route or private count.
+Approved zero Person instead returns a distinguishable public empty state;
+approved opinion Person retains original source/date and does not acquire
+a factual verdict. Output snapshots prevent later source mutation from
+rewriting an already returned quote/role/locator.
+
+TDD began **RED** because the new consumer did not exist, then reached
+**GREEN** with genuine Python→TypeScript fixtures and temporary Astro static
+SSR builds: approved zero profile, source-linked opinion page, identical
+private/unknown HTML, expired release and stale post-revocation build
+failures. Tests also reject cross-reader source mutations, Person/source
+split-brain, timestamp drift, missing/forged sitemap routes, stale identity,
+withdrawn source rights, and an independently self-rehashed missing-archive
+Statement. Python DP-438 focused test suite **18/18 PASS**; `npm run check`
+**109 files, 0 errors/warnings/hints**; Node/SSR regression PASS.
+
+**DP-438 remains IN PROGRESS: original AC-438.1–.6 all unchecked.** There
+is no independently issued live release pin, genuine qualified identity or
+rights authorization, deployed first-class API/route/search/sitemap,
+atomic revoke/cache invalidation or MiniPC positive/negative canary.
+Local synthetic SSR is not proof of a production/public v3 cutover.
