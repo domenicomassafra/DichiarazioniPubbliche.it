@@ -68,7 +68,7 @@ export interface EmptyStateProps {
 
 export function EmptyState({ title, body, actions, className }: EmptyStateProps) {
   return (
-    <div className="dp-state" data-state="empty" className={className}>
+    <div className={cx("dp-state", className)} data-state="empty">
       <p className="dp-state__title">{title}</p>
       <p className="dp-state__body">{body}</p>
       {actions ? <div className="dp-state__actions">{actions}</div> : null}

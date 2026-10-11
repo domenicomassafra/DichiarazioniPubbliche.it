@@ -438,3 +438,48 @@ acceptance failures unless their owning tickets require them.
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS with old v4 proof preserved, not a new design selection. DP-441 owns side-by-side redesign alternatives and owner decision; DP-442 can only implement the selected one. Source words (DP-435/436), Italian translation, synopsis, optional factual Finding, date and source locator need visually and screen-reader-distinct primitives; 320/390 viewport and exact 200% zoom are future manual requirements. AC-412.5 stays open. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+## Targeted semantic regression receipt — 2026-10-11
+
+The design components had three reproducible contract defects:
+
+- A `Button busy` exposed `aria-disabled=true`, but a native button still dispatched its
+  click handler and could submit its form. It now prevents default activation and
+  stops propagation while busy, including React capture and bubble paths, while
+  staying focusable. A truly disabled button retains native `disabled` semantics.
+  Internal busy/disabled accessibility attributes now override caller-supplied
+  attributes rather than the reverse.
+- `TextField` included both hint and error IDs in `aria-describedby` while rendering
+  the hint only if no error existed. Both descriptive nodes now remain in the DOM
+  when validation fails.
+- `EmptyState` accidentally specified `className` twice, so callers could replace
+  the mandatory `dp-state` class. The class names now compose. The previous
+  duplicate JSX property was independently confirmed by an esbuild warning.
+
+`web/scripts/check-design-a11y.mjs` is a permanent Node SSR and contract test,
+run with `npm run check:design:a11y`. It covers these defects, semantic names and
+text-first states, status marks excluded from accessibility speech, native
+disclosure/radio structure, disabled/busy distinctions, specified text/control
+contrast ratios on the base paper token, and static reduced-motion alternatives.
+The busy activation test exercises the event guard with a synthetic event; it
+does not claim a user-driven browser activation trial.
+
+Validation in this session: `check:design:a11y` **8/8 groups PASS**,
+`npm run check` **91 files, 0 errors/warnings/hints**,
+`npm run check:design` **PASS**, `python3 -m compileall -q poc tests`
+**PASS**, and a separately directed demo-only Astro static build
+**34 pages PASS**. The default production `npm run build` initially refused
+to run without `DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH`, as required by
+the fail-closed projection contract. No public publication or MiniPC promotion
+was attempted. All changes are confined to source primitives, a developer-only
+check, and this receipt.
+
+**AC-412.5 remains unchecked.** The existing `check-browser-qa.mjs` and
+DP-410 receipts contain automated public-route evidence for exact 200% Chrome
+zoom, grayscale and reduced motion, but this new Node test supplies no
+human-observed keyboard or VoiceOver/mobile screen-reader exercise of the
+component family at 320/390 widths and 200% zoom. The remaining gate requires
+that real assistive-technology/manual matrix, including focus order, spoken
+names, target sizes and visual judgment, plus runtime proof where applicable.
+DP-410.1/.2 inherit this limitation; their cross-surface acceptance remains
+open, and their ticket was not edited by this component-only repair.

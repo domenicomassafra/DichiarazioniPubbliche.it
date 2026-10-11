@@ -99,7 +99,7 @@ export function TextField({
           </button>
         )}
       </div>
-      {hint && !error ? (
+      {hint ? (
         <p id={hintId} className="dp-field__hint">
           {hint}
         </p>

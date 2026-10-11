@@ -15,7 +15,7 @@
  *   correct for a permanently unavailable action and wrong for a transient one.
  */
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, MouseEvent, MouseEventHandler, ReactNode } from "react";
 import { cx } from "./shared";
 
 export type ButtonIntent = "primary" | "secondary" | "quiet";
@@ -31,6 +31,20 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   children?: ReactNode;
 }
 
+/** aria-disabled preserves focus, but does not suppress native click/submit activation. */
+export function dispatchButtonClick(
+  busy: boolean,
+  event: MouseEvent<HTMLButtonElement>,
+  callback?: MouseEventHandler<HTMLButtonElement>
+) {
+  if (busy) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  callback?.(event);
+}
+
 export function Button({
   intent = "secondary",
   busy = false,
@@ -38,6 +52,8 @@ export function Button({
   full = false,
   type = "button",
   disabled,
+  onClick,
+  onClickCapture,
   className,
   children,
   ...rest
@@ -48,6 +64,7 @@ export function Button({
 
   return (
     <button
+      {...rest}
       type={type}
       disabled={isDisabled}
       aria-busy={busy || undefined}
@@ -56,7 +73,8 @@ export function Button({
       data-busy={busy ? "true" : undefined}
       data-full={full ? "true" : undefined}
       className={cx("dp-button", className)}
-      {...rest}
+      onClickCapture={(event) => dispatchButtonClick(busy, event, onClickCapture)}
+      onClick={(event) => dispatchButtonClick(busy, event, onClick)}
     >
       {busy ? <span className="dp-button__spinner" aria-hidden="true" /> : null}
       <span>{busy && busyLabel ? busyLabel : children}</span>
