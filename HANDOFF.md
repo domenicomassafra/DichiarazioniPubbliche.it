@@ -1,5 +1,13 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Ricognizione multi-host e ultimo checkpoint QA del 11 ottobre:**
+[WIP/Git/ticket/MiniPC/four-host reconciliation](docs/reviews/2026-10-11-four-host-wip-reconciliation.md).
+Il registro canonico è allineato dopo DP-235 (162 ticket: 90 DONE,
+52 IN PROGRESS, 6 BLOCKED, 14 FUTURE); la suite Python corrente ha
+2792/2792 PASS, benchmark 5/5 e restore drill PASS. Nessuna nuova
+autorizzazione di fonte, pubblicazione, push o deploy; release NO-GO/49.
+Le evidenze della tranche precedente riportate sotto rimangono storiche.
+
 **Checkpoint operativo aggiornato:** 11 ottobre 2026. Questo documento è la porta di ingresso operativa,
 non una seconda fonte di verità per i ticket o una certificazione di release.
 
