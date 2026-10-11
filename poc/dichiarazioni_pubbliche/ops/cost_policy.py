@@ -818,6 +818,55 @@ class SQLiteMonthlyReservationStore:
                 BEFORE DELETE ON monthly_reconciliation_receipt
                 BEGIN SELECT RAISE(ABORT, 'monthly reconciliation is immutable'); END
             """)
+            # A queue job attempt identifies one paid operation, not one
+            # accounting period. A repeated attempt after the Rome month flips
+            # must not mint a second hold with a fresh empty month. Backfill
+            # existing isolated ledgers atomically at the additive upgrade.
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS monthly_global_attempt (
+                    attempt_id TEXT PRIMARY KEY, period TEXT NOT NULL,
+                    operation TEXT NOT NULL, upper_bound_usd TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS monthly_global_attempt_no_update
+                BEFORE UPDATE ON monthly_global_attempt
+                BEGIN SELECT RAISE(ABORT, 'monthly attempt scope is immutable'); END
+            """)
+            conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS monthly_global_attempt_no_delete
+                BEFORE DELETE ON monthly_global_attempt
+                BEGIN SELECT RAISE(ABORT, 'monthly attempt scope is immutable'); END
+            """)
+            expected: dict[str, tuple[str, str, str]] = {}
+            for period, revision, sha, raw in conn.execute(
+                "SELECT period,revision,state_sha256,state_json FROM monthly_budget_state"
+            ):
+                state = self._loaded_state((revision, sha, raw))
+                if state.period != period:
+                    raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+                for item in state.reservations:
+                    value = (period, item.operation, str(item.upper_bound_usd))
+                    if item.attempt_id in expected and expected[item.attempt_id] != value:
+                        raise ValueError("MONTHLY_ATTEMPT_GLOBAL_PERIOD_CONFLICT")
+                    expected[item.attempt_id] = value
+            for attempt_id, value in expected.items():
+                conn.execute("""
+                    INSERT OR IGNORE INTO monthly_global_attempt
+                        (attempt_id,period,operation,upper_bound_usd)
+                    VALUES (?,?,?,?)
+                """, (attempt_id, *value))
+            stored = dict((row[0], tuple(row[1:])) for row in conn.execute(
+                "SELECT attempt_id,period,operation,upper_bound_usd FROM monthly_global_attempt"
+            ))
+            if stored != expected:
+                raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            conn.commit()
+        except BaseException:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
         finally:
             conn.close()
 
@@ -903,6 +952,38 @@ class SQLiteMonthlyReservationStore:
             state = self._loaded_state((revision, old_sha, state_json))
             if state.period != period or state.policy_version != policy.version:
                 raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            prior_attempt = conn.execute("""
+                SELECT period,operation,upper_bound_usd
+                FROM monthly_global_attempt WHERE attempt_id = ?
+            """, (attempt_id,)).fetchone()
+            if prior_attempt is not None:
+                if prior_attempt[0] != period:
+                    return SQLiteMonthlyReservationResult(
+                        False, "MONTHLY_ATTEMPT_GLOBAL_PERIOD_CONFLICT", state,
+                    )
+                if not any(
+                    item.attempt_id == attempt_id and item.operation == prior_attempt[1]
+                    and str(item.upper_bound_usd) == prior_attempt[2]
+                    for item in state.reservations
+                ):
+                    raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+            # Unresolved invoices and over-limit observations cannot disappear
+            # just because a *new* month has an empty reservations array.
+            # Do not infer refund/clearance from a calendar rollover.
+            for old_period, old_revision, old_sha, old_json in conn.execute("""
+                SELECT period,revision,state_sha256,state_json
+                FROM monthly_budget_state WHERE period < ?
+                ORDER BY period
+            """, (period,)):
+                if not old_period.endswith("@" + policy.timezone_name):
+                    continue
+                previous = self._loaded_state((old_revision, old_sha, old_json))
+                if previous.period != old_period:
+                    raise ValueError("MONTHLY_STORAGE_INTEGRITY_FAILURE")
+                if previous.unknown_liability:
+                    return SQLiteMonthlyReservationResult(
+                        False, "MONTHLY_PREVIOUS_PERIOD_UNRESOLVED", state,
+                    )
             proposal = monthly_budget_preflight(
                 policy=policy, state=state, attempt_id=attempt_id,
                 operation=operation, upper_bound_usd=upper_bound_usd,
@@ -913,6 +994,13 @@ class SQLiteMonthlyReservationStore:
             if not proposal.eligible or proposal.proposed_state is None:
                 return SQLiteMonthlyReservationResult(False, proposal.reason, state)
             next_state = proposal.proposed_state
+            new_attempt = next_state.reservations[-1]
+            conn.execute("""
+                INSERT INTO monthly_global_attempt
+                    (attempt_id,period,operation,upper_bound_usd)
+                VALUES (?,?,?,?)
+            """, (new_attempt.attempt_id, period, new_attempt.operation,
+                  str(new_attempt.upper_bound_usd)))
             updated = conn.execute("""
                 UPDATE monthly_budget_state
                 SET revision = ?, state_sha256 = ?, state_json = ?

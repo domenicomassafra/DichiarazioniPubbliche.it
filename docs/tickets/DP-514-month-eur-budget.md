@@ -79,6 +79,43 @@ An approved owner policy/empirical DP-513 values, PostgreSQL atomic multi-gate
 transaction, real accounting and isolated MiniPC restart drill are still needed.
 DP-514 remains **IN PROGRESS**.
 
+## 2026-10-12 — Cross-period persisted attempt and unresolved liability fence
+
+New distinct functional bug found after the prior SQLite reservation and
+reconciliation implementation: a globally unique paid `attempt_id` could
+be reserved once on the last October day and again on the first November
+day, because each monthly state checked only its own reservations. Worse,
+an October UNKNOWN or OVER_BOUND settlement held October only: a fresh
+November month bypassed the uncertainty without any authoritative invoice
+or clearance. Both were **RED** with real temporary SQLite connections.
+
+The existing `SQLiteMonthlyReservationStore.initialize()` now atomically
+backfills previous valid reservation states into an immutable
+`monthly_global_attempt` ledger (global attempt-id primary key), rejects
+inconsistent cross-month historic duplicates and validates full registry
+contents. `reserve()` checks this durable index under its existing
+`BEGIN IMMEDIATE` transaction, writes the global attempt and the revised
+monthly state in the *same* transaction and rejects a repeated attempt in
+another month. It also revalidates previous months' versioned state receipts
+and blocks any future month while earlier `unknown_liability` remains
+unresolved. A calendar boundary does not attest a refund or clear liability.
+
+Additional adversarial tests cover **simultaneous cross-period reservations**
+from separate connections (exactly one winner), simulated crash/SQL trigger
+failure after global index insertion (whole transaction rollback, restart
+and successful retry), immutable legacy backfill/replay, UNKNOWN and
+OVER_BOUND carries, and a clean prior reported observation still allowing a
+new distinct attempt in November. Final DP-514 and adjacent cost policy
+tests: **43/43 PASS**; scoped Ruff F821/F823 and diff check PASS.
+
+This improves the disposable *private* SQLite reservation/reference ledger;
+it neither verifies a real invoice nor authorizes a paid job. No production
+PostgreSQL queue/scheduler atomic USD/day EUR/month/provider-quota
+transaction, approved monthly cap, authoritative settlement adjustments,
+MiniPC canary or external reconciliation exists. The global hold remains
+fail-closed until a separate qualified correction mechanism is implemented.
+**AC-514.1–.7 remain OPEN, ticket IN PROGRESS and release NO-GO.**
+
 ## 2026-10-11 — Write-once SQLite observation resolution, no cap release
 
 The existing disposable `SQLiteMonthlyReservationStore` persisted a bounded
