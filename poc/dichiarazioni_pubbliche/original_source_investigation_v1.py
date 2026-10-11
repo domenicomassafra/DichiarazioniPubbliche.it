@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 
 from dichiarazioni_pubbliche.corpus_repository import (
     ContentCaptureRecord,
@@ -776,6 +779,316 @@ def assess_recovery(
     )
 
 
+def inspect_recovery_timeline(
+    plan: RecoveryPlan,
+    target: SourceRecoveryTarget,
+    receipts: tuple[RecoveryReceipt, ...],
+    *,
+    current_target_version_sha256: str | None = None,
+    rights_current: bool = True,
+    budget_ready: bool = True,
+) -> dict[str, object]:
+    """Read-only private case timeline of exact plan/source/attempt bindings.
+
+    Reuse the authoritative DP-241 reconciliation so a forged plan, changed
+    source or duplicated/reused discovery receipt cannot be turned into a
+    plausible operator history. Entries follow deterministic *plan order*, not
+    inferred execution time. Receipt hashes are caller-attested references,
+    NOT confirmation that external search/fetch or independent rights review
+    occurred. No raw source bodies, URLs, query text or credentials are emitted.
+    """
+    decision = assess_recovery(
+        plan,
+        target,
+        receipts,
+        current_target_version_sha256=current_target_version_sha256,
+        rights_current=rights_current,
+        budget_ready=budget_ready,
+    )
+    for ref in (
+        plan.need_id,
+        target.locator.passage_id,
+        target.locator.capture_id,
+        target.locator.canonical_segment_id,
+    ):
+        if ref is not None and (
+            not isinstance(ref, str)
+            or not re.fullmatch(r"[A-Za-z0-9_:/.-]{1,256}", ref)
+        ):
+            raise ValueError("DP241_TIMELINE_SOURCE_REFERENCE_INVALID")
+    # assess_recovery has enforced exact plan/receipt bindings, retry budget,
+    # immutable receipt digest ownership and identical replay semantics.
+    by_attempt = {row.attempt_id: row for row in receipts}
+    attempts: list[dict[str, object]] = []
+    pending_families: set[str] = set()
+    for method in plan.methods:
+        # Operator projections may eventually render these IDs in HTML. Never
+        # export a synthetic "source-family"/query reference as trusted markup.
+        for ref in (
+            method.attempt_id,
+            method.assignment_id,
+            method.source_family,
+            method.adapter_id,
+            method.validated_query_ref,
+        ):
+            if not isinstance(ref, str) or not re.fullmatch(
+                r"[A-Za-z0-9_:/.-]{1,256}", ref
+            ):
+                raise ValueError("DP241_TIMELINE_REFERENCE_INVALID")
+        observed = by_attempt.get(method.attempt_id)
+        if observed is None:
+            pending_families.add(method.source_family)
+        item: dict[str, object] = {
+            "attempt_id": method.attempt_id,
+            "assignment_id": method.assignment_id,
+            "method_family": method.method_family,
+            "source_family": method.source_family,
+            "adapter_id": method.adapter_id,
+            "validated_query_ref": method.validated_query_ref,
+            "query_validation_sha256": method.query_validation_sha256,
+            "discover_permission_sha256": method.discover_permission_sha256,
+            "fetch_permission_sha256": method.fetch_permission_sha256,
+            "status": observed.result if observed else "NOT_ATTEMPTED",
+            "discovery_receipt_sha256": (
+                observed.discovery_receipt_sha256 if observed else None
+            ),
+            "attempt_cost_usd": str(observed.spent_usd) if observed else None,
+            "candidate_state": None,
+            "candidate_reason_code": None,
+            "verified_root_content_id": None,
+            "candidate_capture_id": None,
+            "candidate_capture_sha256": None,
+            "candidate_passage_id": None,
+        }
+        if observed is not None and observed.result == "FOUND_CANDIDATE":
+            # Match the existing resolver's lineage/person/date/full-context
+            # gate; copies of one root never become independent corroboration.
+            root, hold = _verify_found(plan, target, observed.candidate)
+            if hold is not None:
+                item["candidate_state"] = "HOLD"
+                item["candidate_reason_code"] = hold
+            else:
+                source = observed.candidate.locator
+                for ref in (root, source.capture_id, source.passage_id):
+                    if ref is not None and (
+                        not isinstance(ref, str)
+                        or not re.fullmatch(r"[A-Za-z0-9_:/.-]{1,256}", ref)
+                    ):
+                        raise ValueError("DP241_TIMELINE_SOURCE_REFERENCE_INVALID")
+                # _verify_found already checked the exact immutable locator,
+                # root chain and source version; the caller still must obtain
+                # independent human authority before accepting that source.
+                item.update(
+                    {
+                        "candidate_state": "SOURCE_CANDIDATE_FOR_REVIEW",
+                        "verified_root_content_id": root,
+                        "candidate_capture_id": source.capture_id,
+                        "candidate_capture_sha256": source.capture_sha256,
+                        "candidate_passage_id": source.passage_id,
+                    }
+                )
+        attempts.append(item)
+    return {
+        "contract_version": "dp241-original-source-private-timeline-v1",
+        "private_only": True,
+        "read_only": True,
+        "dispatch_authorized": False,
+        "review_authority": False,
+        "publication_authority": False,
+        "rights_clearance": False,
+        "external_receipts_independently_verified": False,
+        "plan_id": plan.plan_id,
+        "need_id": plan.need_id,
+        # Exact natural-language question stays only with the authorized
+        # Coverage Need/ResearchAssignment; it may include private quotes.
+        "question_sha256": hashlib.sha256(plan.question.encode("utf-8")).hexdigest(),
+        "target_content_id": plan.target_content_id,
+        "target_capture_id": target.locator.capture_id,
+        "target_passage_id": target.locator.passage_id,
+        "target_canonical_segment_id": target.locator.canonical_segment_id,
+        "target_selector_type": target.locator.selector_type,
+        "target_version_sha256": plan.target_version_sha256,
+        "target_locator_fingerprint": plan.target_locator_fingerprint,
+        "target_quote_sha256": plan.target_quote_sha256,
+        "status": decision.status,
+        "reason_code": decision.reason_code,
+        "next_trigger": decision.next_trigger,
+        "proposed_attempt_id": decision.proposed_attempt_id,
+        "prior_attempts": decision.prior_attempts,
+        "remaining_attempts": decision.remaining_attempts,
+        "spent_usd": str(decision.spent_usd),
+        "cost_cap_usd": str(plan.cost_cap_usd),
+        "remaining_source_family_gaps": sorted(pending_families),
+        "verified_root_content_ids": list(decision.verified_root_content_ids),
+        "distinct_verified_root_count": decision.private_source_candidates,
+        "reanalysis_required": decision.reanalysis_required,
+        "attempts": attempts,
+    }
+
+
+class LocalSourceRecoveryTimelineJournal:
+    """Opt-in private immutable snapshots of an existing DP-241 investigation.
+
+    Does not perform a source search, authenticate an external receipt, or
+    persist private source bodies/proofs. Files are content-addressed,
+    owner-only, and never overwritten: a later result is a new snapshot.
+    The local filesystem mtime is a recording time, not an attempt timestamp.
+    """
+
+    _SNAPSHOT = re.compile(r"original-source-timeline:[0-9a-f]{64}")
+    _PLAN = re.compile(r"original-source-plan:[0-9a-f]{64}")
+    _MAX_SNAPSHOTS = 32
+    _MAX_BYTES = 32768
+
+    def __init__(self, root: str | Path):
+        self.root = Path(root)
+        if self.root.is_symlink():
+            raise ValueError("DP241_JOURNAL_ROOT_UNSAFE")
+        try:
+            details = self.root.stat()
+        except OSError:
+            raise ValueError("DP241_JOURNAL_ROOT_UNSAFE") from None
+        if (
+            not stat.S_ISDIR(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or stat.S_IMODE(details.st_mode) & 0o077
+        ):
+            raise ValueError("DP241_JOURNAL_ROOT_UNSAFE")
+
+    def _case_dir(self, plan_id: str, *, create: bool) -> Path | None:
+        if not isinstance(plan_id, str) or not self._PLAN.fullmatch(plan_id):
+            raise ValueError("DP241_JOURNAL_PLAN_INVALID")
+        directory = self.root / plan_id
+        if create:
+            directory.mkdir(mode=0o700, exist_ok=True)
+        try:
+            if directory.is_symlink():
+                raise ValueError("DP241_JOURNAL_CASE_UNSAFE")
+            info = directory.stat()
+        except FileNotFoundError:
+            return None
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) & 0o077
+        ):
+            raise ValueError("DP241_JOURNAL_CASE_UNSAFE")
+        return directory
+
+    def _read_snapshot(self, path: Path, *, plan_id: str) -> dict[str, object]:
+        name = path.name
+        if not name.endswith(".json") or not self._SNAPSHOT.fullmatch(name[:-5]):
+            raise ValueError("DP241_JOURNAL_SNAPSHOT_UNSAFE")
+        try:
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        except OSError:
+            raise ValueError("DP241_JOURNAL_SNAPSHOT_UNSAFE") from None
+        try:
+            details = os.fstat(fd)
+            if (
+                not stat.S_ISREG(details.st_mode)
+                or details.st_uid != os.geteuid()
+                or stat.S_IMODE(details.st_mode) & 0o077
+                or not 10 <= details.st_size <= self._MAX_BYTES
+            ):
+                raise ValueError("DP241_JOURNAL_SNAPSHOT_UNSAFE")
+            contents = os.read(fd, self._MAX_BYTES + 1)
+        finally:
+            os.close(fd)
+        try:
+            timeline = json.loads(contents)
+        except (UnicodeError, ValueError):
+            raise ValueError("DP241_JOURNAL_SNAPSHOT_TAMPERED") from None
+        if (
+            not isinstance(timeline, dict)
+            or timeline.get("contract_version")
+            != "dp241-original-source-private-timeline-v1"
+            or timeline.get("plan_id") != plan_id
+            or timeline.get("private_only") is not True
+            or timeline.get("read_only") is not True
+            or timeline.get("publication_authority") is not False
+            or timeline.get("dispatch_authorized") is not False
+            or name != "original-source-timeline:" + _fingerprint(timeline) + ".json"
+        ):
+            raise ValueError("DP241_JOURNAL_SNAPSHOT_TAMPERED")
+        return {
+            "snapshot_id": name[:-5],
+            "plan_id": plan_id,
+            "persisted": True,
+            "external_receipt_verification": False,
+            "recorded_local_at": datetime.fromtimestamp(
+                details.st_mtime, tz=timezone.utc
+            ).isoformat(),
+            "timeline": timeline,
+        }
+
+    def append(
+        self,
+        plan: RecoveryPlan,
+        target: SourceRecoveryTarget,
+        receipts: tuple[RecoveryReceipt, ...],
+        *,
+        current_target_version_sha256: str | None = None,
+        rights_current: bool = True,
+        budget_ready: bool = True,
+    ) -> dict[str, object]:
+        timeline = inspect_recovery_timeline(
+            plan,
+            target,
+            receipts,
+            current_target_version_sha256=current_target_version_sha256,
+            rights_current=rights_current,
+            budget_ready=budget_ready,
+        )
+        directory = self._case_dir(plan.plan_id, create=True)
+        contents = json.dumps(
+            timeline, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("utf-8")
+        if len(contents) > self._MAX_BYTES:
+            raise ValueError("DP241_JOURNAL_SNAPSHOT_UNBOUNDED")
+        snapshot_id = "original-source-timeline:" + _fingerprint(timeline)
+        path = directory / (snapshot_id + ".json")
+        if path.exists() or path.is_symlink():
+            return self._read_snapshot(path, plan_id=plan.plan_id)
+        if len(list(directory.iterdir())) >= self._MAX_SNAPSHOTS:
+            raise ValueError("DP241_JOURNAL_CASE_FULL")
+        try:
+            fd = os.open(
+                path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+            )
+        except FileExistsError:
+            return self._read_snapshot(path, plan_id=plan.plan_id)
+        try:
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "wb") as output:
+                output.write(contents)
+                output.flush()
+                os.fsync(output.fileno())
+            directory_fd = os.open(directory, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
+        return self._read_snapshot(path, plan_id=plan.plan_id)
+
+    def history(self, plan_id: str) -> tuple[dict[str, object], ...]:
+        """Replay actual saved snapshots, not reconstructed attempts or proof."""
+        directory = self._case_dir(plan_id, create=False)
+        if directory is None:
+            return ()
+        entries = list(directory.iterdir())
+        if len(entries) > self._MAX_SNAPSHOTS:
+            raise ValueError("DP241_JOURNAL_CASE_UNBOUNDED")
+        saved = [self._read_snapshot(path, plan_id=plan_id) for path in entries]
+        saved.sort(key=lambda row: (row["recorded_local_at"], row["snapshot_id"]))
+        return tuple(saved)
+
+
 __all__ = [
     "VERSION",
     "LANE_METHODS",
@@ -788,4 +1101,6 @@ __all__ = [
     "RecoveryDecision",
     "make_recovery_plan",
     "assess_recovery",
+    "inspect_recovery_timeline",
+    "LocalSourceRecoveryTimelineJournal",
 ]

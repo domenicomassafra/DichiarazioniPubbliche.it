@@ -84,3 +84,57 @@ Scoped Ruff check and `git diff --check` PASS.
 These are synthetic local receipts only; neither external attempts nor source
 permissions were executed or verified. Status stays IN PROGRESS and all six
 acceptance criteria stay open pending independent operational proof.
+
+**2026-10-11 — private provenance-linked attempt timeline and append-only local
+journal (second wave, no network or production write):** The existing read-only
+`assess_recovery` validated the overall plan and source-recovery receipts but
+exposed no attempt-by-attempt operator view, source-family gaps or durable
+history. `inspect_recovery_timeline` now reuses that validated reconciliation
+and projects each planned method in deterministic **plan order** (not inferred
+attempt chronology), including its exact assignment/attempt ID, source-family
+ID, validated-query reference and digest, two per-operation permission digests,
+distinct discovery receipt SHA-256, result, spent USD and remaining/untried
+source-family gaps. The case is bound to the existing Coverage Need, logical
+Content, immutable Capture ID/version SHA, Passage ID/selector and locator
+fingerprint. It carries the reason code and next manual trigger, distinguishing
+not-found, rights/cost/outage waits, DP-511 source-version staleness, held
+wrong-speaker/date/context candidates and private original-root **candidates**.
+Two receipts resolving to one derived-source root count as **one** root, not
+independent confirmation; conflicting/reused receipts still fail closed via
+`assess_recovery`. All dispatch, independent-receipt, human-review and public
+authority flags are false.
+
+An **opt-in, owner-created** local `LocalSourceRecoveryTimelineJournal(root)`
+persists those metadata-only snapshots under a private 0700 root and per-plan
+0700 directory, using deterministic content-addressed 0600 JSON files,
+`O_EXCL` plus fsync, exact per-plan readback, SHA-256 filename/content
+agreement and a 32-snapshot cap. Recording identical receipts is idempotent;
+changed decisions append a separate immutable snapshot without overwriting
+older states. Root/case/file ownership, permissions, symlinks and tamper
+checks fail closed. `recorded_local_at` is the *local file recording time*,
+**not** the external attempt time or evidence of successful fetch. Since
+human-authored questions can include private source quotations, **only their
+SHA-256** is persisted in the journal; the original question must be looked
+up in an independently authorized Coverage Need. No raw query, source body,
+passage text, URL, headers, credential or candidate proof object is stored.
+
+**TDD receipt:** missing timeline and journal APIs were RED; synthetic tests
+became GREEN for exact per-attempt lineage/replay, stalled source version,
+hold on mismatched person, duplicate-root collapse, a private question/token,
+immutable snapshots/reopen, tampered-file replay, unsafe permissions and
+symlinks. **25/25 focused** and **85/85** focused+adjacent (DP-225 source
+resolver + disposable PostgreSQL, source preflight, DP-228 research plans,
+DP-236 rights, DP-319 attempt logs and source span) pass on the local Mac.
+These remain **caller-supplied** synthetic rights/receipts and source IDs;
+the journal is a private operator-workflow prerequisite, not an attested
+fetch/rights audit ledger or proof of external query execution.
+
+**AC-241.1–.6 remain OPEN.** AC-241.1/.3/.4/.5 have partial deterministic
+planning and honest readback, but not real legal/authorized multi-method
+attempts, independent lineage/identity review, a persisted DP-511 external
+mutation/reanalysis receipt or budget-provider transaction. AC-241.2 needs
+a genuine new immutable Capture/Passage/context after source review, not a
+fixture. AC-241.6 needs an authorized Studio frontend/runtime integration and
+MiniPC pilot log with real unresolved question/source-family gaps and privacy
+acceptance. No provider search/fetch, MiniPC change, public projection,
+publication or reviewer authority was introduced.

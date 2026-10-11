@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
+import tempfile
 import unittest
 from dataclasses import replace
 from decimal import Decimal
@@ -21,10 +23,12 @@ from dichiarazioni_pubbliche.original_source_resolver import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.original_source_investigation_v1 import (  # noqa: E402
     OriginalCandidateProof,
+    LocalSourceRecoveryTimelineJournal,
     RecoveryMethod,
     RecoveryReceipt,
     SourceRecoveryTarget,
     assess_recovery,
+    inspect_recovery_timeline,
     make_recovery_plan,
 )
 from dichiarazioni_pubbliche.private_capture_rights import SourceUseDecision  # noqa: E402
@@ -224,6 +228,241 @@ def source_candidate(
 
 
 class DP241OriginalSourceInvestigationTests(unittest.TestCase):
+    def test_owner_private_journal_persists_immutable_source_bound_case_history(self):
+        current = plan()
+        with tempfile.TemporaryDirectory(prefix="dp241-private-log-") as directory:
+            root = Path(directory)
+            root.chmod(0o700)
+            journal = LocalSourceRecoveryTimelineJournal(root)
+            initial = journal.append(current, target(), ())
+            first_attempt = receipt(current, 0, "NOT_FOUND")
+            attempted = journal.append(current, target(), (first_attempt,))
+            replay = journal.append(current, target(), (first_attempt, first_attempt))
+            self.assertEqual(replay, attempted)
+            self.assertNotEqual(initial["snapshot_id"], attempted["snapshot_id"])
+            self.assertEqual(initial["timeline"]["status"], "READY_PRIVATE_PROPOSAL")
+            self.assertEqual(attempted["timeline"]["prior_attempts"], 1)
+            self.assertTrue(attempted["persisted"])
+            self.assertFalse(attempted["external_receipt_verification"])
+
+            reopened = LocalSourceRecoveryTimelineJournal(root)
+            history = reopened.history(current.plan_id)
+            self.assertEqual(len(history), 2)
+            self.assertEqual(
+                [entry["snapshot_id"] for entry in history],
+                [initial["snapshot_id"], attempted["snapshot_id"]],
+            )
+            self.assertEqual(
+                [entry["timeline"]["prior_attempts"] for entry in history], [0, 1]
+            )
+            private_dir = root / current.plan_id
+            self.assertEqual(private_dir.stat().st_mode & 0o777, 0o700)
+            for file in private_dir.iterdir():
+                self.assertEqual(file.stat().st_mode & 0o777, 0o600)
+                for forbidden in (
+                    "private:body",
+                    "official.example",
+                    SHORT,
+                    "source_body",
+                    "private_text",
+                    "SECRET",
+                    "api_key",
+                ):
+                    self.assertNotIn(forbidden, file.read_text())
+
+    def test_private_question_and_source_text_never_persist_in_journal(self):
+        private_question = "Dove trovare il filmato completo con PRIVATE_SOURCE_TOKEN?"
+        private_target = replace(target(), question=private_question)
+        methods = tuple(
+            replace(row, assignment=replace(row.assignment, question=private_question))
+            for row in two_methods()
+        )
+        current = plan(source=private_target, methods=methods)
+        with tempfile.TemporaryDirectory(prefix="dp241-private-no-query-") as directory:
+            root = Path(directory)
+            root.chmod(0o700)
+            journal = LocalSourceRecoveryTimelineJournal(root)
+            record = journal.append(current, private_target, ())
+            self.assertEqual(
+                record["timeline"]["question_sha256"], sha(private_question)
+            )
+            self.assertNotIn("question", record["timeline"])
+            for file in (root / current.plan_id).iterdir():
+                persisted = file.read_text()
+                self.assertNotIn("PRIVATE_SOURCE_TOKEN", persisted)
+                self.assertNotIn(private_question, persisted)
+                self.assertNotIn("private:body", persisted)
+
+    def test_journal_rejects_changed_snapshot_symlink_and_foreign_plan(self):
+        current = plan()
+        with tempfile.TemporaryDirectory(prefix="dp241-journal-guard-") as directory:
+            root = Path(directory)
+            root.chmod(0o700)
+            journal = LocalSourceRecoveryTimelineJournal(root)
+            entry = journal.append(current, target(), ())
+            with self.assertRaisesRegex(ValueError, "DP241_JOURNAL_PLAN_INVALID"):
+                journal.history("../../etc/passwd")
+            file = root / current.plan_id / (entry["snapshot_id"] + ".json")
+            payload = json.loads(file.read_text())
+            payload["status"] = "VERIFIED_PRIVATE_SOURCE_CANDIDATE"
+            file.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "DP241_JOURNAL_SNAPSHOT_TAMPERED"):
+                journal.history(current.plan_id)
+            with self.assertRaisesRegex(ValueError, "DP241_JOURNAL_SNAPSHOT_TAMPERED"):
+                journal.append(current, target(), ())
+
+            other = root / "redirect"
+            other.symlink_to(root)
+            with self.assertRaisesRegex(ValueError, "DP241_JOURNAL_ROOT_UNSAFE"):
+                LocalSourceRecoveryTimelineJournal(other)
+            root.chmod(0o755)
+            with self.assertRaisesRegex(ValueError, "DP241_JOURNAL_ROOT_UNSAFE"):
+                LocalSourceRecoveryTimelineJournal(root)
+
+    def test_private_operator_timeline_binds_receipts_to_source_and_remaining_methods(
+        self,
+    ):
+        current = plan()
+        first = receipt(current, 0, "NOT_FOUND")
+        view = inspect_recovery_timeline(current, target(), (first, first))
+        self.assertEqual(view["need_id"], "need:original")
+        self.assertEqual(view["target_content_id"], "content:clip")
+        self.assertEqual(view["target_version_sha256"], current.target_version_sha256)
+        self.assertEqual(
+            view["target_locator_fingerprint"], current.target_locator_fingerprint
+        )
+        self.assertEqual(view["question_sha256"], sha(current.question))
+        self.assertNotIn("question", view)
+        self.assertEqual(view["target_capture_id"], target().locator.capture_id)
+        self.assertEqual(view["target_passage_id"], target().locator.passage_id)
+        self.assertEqual(view["target_selector_type"], "TEXT_POSITION")
+        self.assertFalse(view["publication_authority"])
+        self.assertFalse(view["dispatch_authorized"])
+        self.assertEqual(view["prior_attempts"], 1)
+        self.assertEqual(len(view["attempts"]), 2)
+        checked = next(
+            x for x in view["attempts"] if x["attempt_id"] == first.attempt_id
+        )
+        self.assertEqual(checked["status"], "NOT_FOUND")
+        self.assertEqual(
+            checked["discovery_receipt_sha256"], first.discovery_receipt_sha256
+        )
+        self.assertEqual(
+            checked["source_family"],
+            next(
+                m.source_family
+                for m in current.methods
+                if m.attempt_id == first.attempt_id
+            ),
+        )
+        self.assertEqual(checked["attempt_cost_usd"], "0.1")
+        self.assertEqual(checked["verified_root_content_id"], None)
+        pending = next(x for x in view["attempts"] if x["status"] == "NOT_ATTEMPTED")
+        self.assertIsNone(pending["discovery_receipt_sha256"])
+        self.assertEqual(view["proposed_attempt_id"], pending["attempt_id"])
+        self.assertEqual(
+            view["remaining_source_family_gaps"], [pending["source_family"]]
+        )
+        self.assertEqual(view["next_trigger"], "RUN_AUTHORIZED_EXTERNAL_ADAPTER")
+        for secret in (
+            "private:body",
+            "official.example",
+            SHORT,
+            "source_body",
+            "private_text",
+            "api_key",
+        ):
+            self.assertNotIn(secret, json.dumps(view))
+
+    def test_timeline_distinguishes_held_candidate_from_verified_same_root_copies(self):
+        current = plan()
+        held = inspect_recovery_timeline(
+            current,
+            target(),
+            (
+                receipt(
+                    current,
+                    0,
+                    "FOUND_CANDIDATE",
+                    candidate=source_candidate(person="person:wrong"),
+                ),
+            ),
+        )
+        self.assertEqual(held["status"], "CONFLICT")
+        self.assertEqual(held["attempts"][0]["candidate_state"], "HOLD")
+        self.assertEqual(
+            held["attempts"][0]["candidate_reason_code"],
+            "RECOVERY_PERSON_MISMATCH_OR_UNVERIFIED",
+        )
+        self.assertIsNone(held["attempts"][0]["verified_root_content_id"])
+        self.assertEqual(held["distinct_verified_root_count"], 0)
+
+        proof = source_candidate()
+        success = inspect_recovery_timeline(
+            current,
+            target(),
+            (
+                receipt(current, 0, "FOUND_CANDIDATE", candidate=proof),
+                receipt(current, 1, "FOUND_CANDIDATE", candidate=proof),
+            ),
+        )
+        self.assertEqual(success["status"], "VERIFIED_PRIVATE_SOURCE_CANDIDATE")
+        self.assertEqual(success["distinct_verified_root_count"], 1)
+        self.assertEqual(success["verified_root_content_ids"], ["content:original"])
+        self.assertEqual(
+            [x["candidate_state"] for x in success["attempts"]],
+            ["SOURCE_CANDIDATE_FOR_REVIEW", "SOURCE_CANDIDATE_FOR_REVIEW"],
+        )
+        for attempt in success["attempts"]:
+            self.assertEqual(attempt["verified_root_content_id"], "content:original")
+            self.assertEqual(attempt["candidate_capture_id"], proof.locator.capture_id)
+            self.assertEqual(
+                attempt["candidate_capture_sha256"], proof.locator.capture_sha256
+            )
+            self.assertEqual(attempt["candidate_passage_id"], proof.locator.passage_id)
+        self.assertFalse(success["review_authority"])
+        self.assertFalse(success["publication_authority"])
+
+    def test_timeline_stale_target_retains_history_but_blocks_any_new_action(self):
+        current = plan()
+        first = receipt(current, 0, "NOT_FOUND")
+        stale = inspect_recovery_timeline(
+            current, target(), (first,), current_target_version_sha256=sha("new bytes")
+        )
+        self.assertEqual(stale["status"], "STALE")
+        self.assertEqual(stale["next_trigger"], "DP511_SOURCE_REVALIDATION")
+        self.assertEqual(
+            {entry["attempt_id"]: entry["status"] for entry in stale["attempts"]}[
+                first.attempt_id
+            ],
+            "NOT_FOUND",
+        )
+        self.assertIsNone(stale["proposed_attempt_id"])
+        self.assertTrue(stale["reanalysis_required"])
+        self.assertNotIn("private:body", json.dumps(stale))
+
+    def test_timeline_does_not_hide_invalid_cross_lineage_or_reused_receipts(self):
+        current = plan()
+        first = receipt(current, 0, "NOT_FOUND")
+        with self.assertRaisesRegex(ValueError, "DP241_DISCOVERY_RECEIPT_REUSED"):
+            inspect_recovery_timeline(
+                current,
+                target(),
+                (
+                    first,
+                    replace(
+                        receipt(current, 1, "NOT_FOUND"),
+                        discovery_receipt_sha256=first.discovery_receipt_sha256,
+                    ),
+                ),
+            )
+        with self.assertRaisesRegex(ValueError, "DP241_FOREIGN_RECEIPT"):
+            inspect_recovery_timeline(
+                current,
+                target(),
+                (replace(first, plan_id="original-source-plan:other"),),
+            )
+
     def test_two_distinct_permitted_methods_and_deterministic_proposals(self):
         current = plan()
         replay = plan(methods=tuple(reversed(two_methods())))
