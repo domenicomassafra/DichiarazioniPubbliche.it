@@ -52,3 +52,22 @@ revoked subject. All original acceptance criteria remain **unchecked**:
 runtime PostgreSQL migrations/CAS, complete material lineage graph, actual
 public HTML/API/search/edge/TTL purge/swap and measured MiniPC withdrawal
 latency have not been implemented or verified. NO-GO public activation.
+
+## 2026-10-11 — Isolated read/revoke race fix (source only)
+
+The original SQLite `check_served` verified each material epoch and then
+queried `epoch_publication` without holding a transaction. A second connection
+could commit a revocation between those reads; the first could still return
+`True` for the old artifact **after** the revocation commit. A deterministic
+threaded test paused the read exactly before the publication lookup and
+confirmed the unsafe ordering (RED). `check_served` now holds a SQLite
+`BEGIN IMMEDIATE` transaction for the full epoch + immutable artifact-reference
+comparison, releasing it on success or failure. An in-flight revoker waits
+until the read transaction completes (GREEN); a subsequent stale read refuses.
+The rejected-read case also verifies rollback unlocks the connection for revoke.
+
+This is a local transactional reference only. Its lock ends before HTTP bytes
+are delivered; it does not supply a production PostgreSQL read fence, a
+distributed cache denial/purge, a signed release identity, a real-source
+approval or an attested MiniPC rollback/latency receipt. **AC-320.1–.5
+remain unchecked, release remains NO-GO.**

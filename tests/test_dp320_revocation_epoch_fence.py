@@ -139,6 +139,75 @@ class RevocationEpochFenceTests(unittest.TestCase):
             self.store.check_served(ticket, ARTIFACT)
         self.assertEqual(self.store.pending_invalidations(), (("event:race", "source:1", 1),))
 
+    def test_read_fence_keeps_revocation_from_committing_mid_read(self):
+        """A public read cannot accept an artifact after revoke commits."""
+        ticket = self.ticket("source:1")
+        self.store.publish_reference(ticket=ticket, artifact_sha256=ARTIFACT)
+        reading_publication = threading.Event()
+        release_read = threading.Event()
+        outcomes: list[object] = []
+
+        def read():
+            connection = sqlite3.connect(self.database, timeout=5)
+
+            def pause_before_publication(sql: str):
+                if sql.startswith("SELECT artifact_sha256,fence_sha256 FROM epoch_publication"):
+                    reading_publication.set()
+                    release_read.wait(timeout=5)
+
+            connection.set_trace_callback(pause_before_publication)
+            try:
+                store = IsolatedPublicationEpochStore(connection)
+                outcomes.append(store.check_served(ticket, ARTIFACT))
+            except BaseException as error:
+                outcomes.append(error)
+            finally:
+                connection.close()
+
+        reader = threading.Thread(target=read)
+        reader.start()
+        try:
+            self.assertTrue(reading_publication.wait(timeout=3))
+            # The second writer either acquires BEGIN IMMEDIATE at once (bug)
+            # or is refused by the in-flight read transaction (safe).
+            writer_conn = sqlite3.connect(self.database, timeout=0)
+            try:
+                writer = IsolatedPublicationEpochStore(writer_conn)
+                with self.assertRaisesRegex(sqlite3.OperationalError, "locked"):
+                    writer.revoke(
+                        source_id="source:1", event_id="event:read-race",
+                        reason="RIGHTS_WITHDRAWN", now=NOW,
+                    )
+            finally:
+                writer_conn.close()
+        finally:
+            release_read.set()
+            reader.join(timeout=8)
+        self.assertFalse(reader.is_alive())
+        self.assertEqual(outcomes, [True])
+        self.assertEqual(
+            self.store.revoke(
+                source_id="source:1", event_id="event:read-race",
+                reason="RIGHTS_WITHDRAWN", now=NOW,
+            ),
+            1,
+        )
+        with self.assertRaisesRegex(RevocationFenceHeld, "STALE_OR_HELD"):
+            self.store.check_served(ticket, ARTIFACT)
+
+    def test_rejected_read_releases_transaction_for_subsequent_revocation(self):
+        ticket = self.ticket("source:1")
+        self.store.publish_reference(ticket=ticket, artifact_sha256=ARTIFACT)
+        with self.assertRaisesRegex(RevocationFenceHeld, "ARTIFACT_UNMATCHED"):
+            self.store.check_served(ticket, "e" * 64)
+        self.assertEqual(
+            self.store.revoke(
+                source_id="source:1", event_id="event:after-bad-read",
+                reason="RIGHTS_WITHDRAWN", now=NOW,
+            ),
+            1,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

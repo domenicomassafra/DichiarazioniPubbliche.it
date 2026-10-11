@@ -180,15 +180,25 @@ class IsolatedPublicationEpochStore:
             raise
 
     def check_served(self, ticket: PublicationEpochTicket, artifact_sha256: str) -> bool:
-        """Refuse a stale edge response even if the old artifact still exists."""
-        self._check(ticket)
-        row = self.conn.execute(
-            "SELECT artifact_sha256,fence_sha256 FROM epoch_publication WHERE release_id=?",
-            (ticket.release_id,),
-        ).fetchone()
-        if row != (_sha(artifact_sha256), ticket.fingerprint):
-            raise RevocationFenceHeld("FENCE_PUBLIC_ARTIFACT_UNMATCHED")
-        return True
+        """Serialize the isolated DB read fence against a revocation commit.
+
+        The caller still owns delivery/edge fencing: this transaction covers
+        only the reference lookups, never bytes served after it returns.
+        """
+        try:
+            self.conn.execute("BEGIN IMMEDIATE")
+            self._check(ticket)
+            row = self.conn.execute(
+                "SELECT artifact_sha256,fence_sha256 FROM epoch_publication WHERE release_id=?",
+                (ticket.release_id,),
+            ).fetchone()
+            if row != (_sha(artifact_sha256), ticket.fingerprint):
+                raise RevocationFenceHeld("FENCE_PUBLIC_ARTIFACT_UNMATCHED")
+            self.conn.commit()
+            return True
+        except BaseException:
+            self.conn.rollback()
+            raise
 
     def revoke(self, *, source_id: str, event_id: str, reason: str, now: datetime) -> int:
         _id(source_id)
