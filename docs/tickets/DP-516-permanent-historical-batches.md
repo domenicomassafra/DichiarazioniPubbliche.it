@@ -54,3 +54,21 @@ tests PASS; Ruff lint+format PASS. This is not real acquisition or an
 independently signed DP-443 GO: all AC-516.1–.6 remain unchecked. No MiniPC
 readback, source licenses, durable checkpoint/budget CAS, real media or public
 projection acceptance yet.
+
+## 2026-10-11 — Checkpoint/archive overlap regression (source-only)
+
+Found a reproducible resume defect: with one trusted synthetic checkpoint for
+an original Capture, the batch loop skipped the committed original **before**
+recording its cost-dedup identity. An otherwise identical `ARCHIVE_COPY` could
+then be proposed as a second paid unit after a halfway crash. The new
+`test_resume_committed_primary_cannot_charge_identical_archive_copy` initially
+**FAILED**, exposing a redundant archive proposal. The planner now marks a
+committed source/capture lineage as deduplicated before continuing, so the
+resume proposes only still-uncommitted work. The regression now **PASSES**.
+
+Local source-only proof: 51 DP-243/DP-515/DP-516 tests pass, compilation and
+`git diff --check` pass, with synthetic rights/cost/checkpoint receipts only.
+No real checkpoint verification, atomic reservation, source acquisition,
+provider call, MiniPC replay or public correction/readback was performed.
+Status remains **IN PROGRESS**, AC-516.1–.6 remain unchecked, and scaling
+remains **NO-GO** pending the existing external acceptance gates.

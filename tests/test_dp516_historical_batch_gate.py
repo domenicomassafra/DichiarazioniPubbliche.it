@@ -365,6 +365,44 @@ class HistoricalBatchGateTests(unittest.TestCase):
             {root.content_id, two()[1].entries[0].content_id},
         )
 
+    def test_resume_committed_primary_cannot_charge_identical_archive_copy(self):
+        root = entry()
+        copy = entry(
+            content_id="synthetic:archive",
+            kind="ARCHIVE_COPY",
+            origin_content_id=root.content_id,
+            origin_sha256=root.source_version_sha256,
+        )
+        manifests = (manifest("MUSSOLINI", (root, copy)), two()[1])
+        first = plan(manifests=manifests)
+        self.assertEqual(first.status, "PRIVATE_REVIEW_PLAN")
+        primary = next(p for p in first.proposals if p.content_id == root.content_id)
+        receipt = CompletedCapture(
+            primary.item_key,
+            primary.person_id,
+            primary.content_id,
+            primary.source_family,
+            primary.capture_sha256,
+            "e" * 64,
+        )
+        checkpoint = create_checkpoint(
+            first.batch_id,
+            first.manifest_fingerprint,
+            (receipt,),
+            revision=1,
+        )
+        resumed = plan(
+            manifests=manifests,
+            checkpoint=checkpoint,
+            verify_checkpoint=lambda *_: True,
+        )
+        self.assertEqual(resumed.status, "PRIVATE_REVIEW_PLAN")
+        self.assertEqual(
+            {p.content_id for p in resumed.proposals},
+            {two()[1].entries[0].content_id},
+        )
+        self.assertEqual(resumed.proposed_budget_state.revision, 1)
+
     def test_watch_says_unchanged_without_committed_capture_requires_checkpoint(self):
         _, watches = resources()
         unchanged = replace(

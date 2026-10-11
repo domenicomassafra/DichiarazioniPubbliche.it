@@ -414,8 +414,6 @@ def plan_historical_batch(
         key = _work_key(
             person_id, item.source_family, item.content_id, item.source_version_sha256
         )
-        if key in completed:
-            continue
         # Same immutable Capture within one person/source family is one cost unit,
         # even when archived under another Content ID or collection. Preserve
         # original Content membership in DP-243, not as repeated expensive work.
@@ -425,6 +423,10 @@ def plan_historical_batch(
             item.source_version_sha256,
             item.origin_content_id or item.content_id,
         )
+        if key in completed:
+            # A trusted completed root also covers identical archive copies.
+            dedupe.add(dedupe_key)
+            continue
         if dedupe_key in dedupe:
             continue
         dedupe.add(dedupe_key)
