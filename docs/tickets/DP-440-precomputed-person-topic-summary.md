@@ -133,3 +133,45 @@ renewal. Editorial per-sentence semantic entailment, real public
 Person×Topic approval, atomic revoke/rebuild/cache invalidation, a
 rights-authorized source corpus and MiniPC readback remain missing.
 **DP-440 remains IN PROGRESS; AC-440.1–.7 remain unchecked.**
+
+## 2026-10-12 — Pinned browser/SSR synopsis reader (source-only opt-in)
+
+Added `web/src/lib/publicSynopsisV3.ts` and an independent Node/Astro
+regression script `web/scripts/check-public-synopsis-v3.mjs`; no public route,
+component, provider invocation or release activation was added. The reader
+accepts the **actual `prepare_public_synopsis()` JSON fixture** from
+`tests/test_dp440_public_synopsis.py` and enforces an independently issued
+pin for the entire synopsis DTO, its opaque reviewed fingerprint, the
+complete current public-v3 Statement dataset, Person/Topic identity, the
+public projection `generated_at`, and finite membership/current-rights
+expiry. The projection timestamp has a separate pin because Python's dataset
+digest deliberately covers collections but not `generated_at`.
+
+Each synopsis sentence is kept distinct from the original Statement text;
+the reader rechecks every cited public Statement ID/version, quote hash,
+source-body hash and URL, exact locator, language, date (within the as-of
+snapshot), Person binding and compatible endorsement/speech-act. It returns
+only safe citation metadata, a **prospective** canonical Statement route,
+snapshot and bounded coverage note. It refuses unpinned or self-rehashed
+material, private fields, a changed or withdrawn Statement, altered source
+date/locator/wording, missing rights review, future/stale timestamps,
+expired pins, unsupported endorsement and WITHHELD Python receipts. A test
+for mutable input objects confirms that previously returned locators are
+copied, not aliased. No review credential or approval is derived from an
+input flag, and the result explicitly has `publicationAuthorized=false`.
+
+The regression first failed RED because the consumer module was absent;
+after implementation, Python's real fixture through Node/TypeScript and an
+isolated, temporary **Astro static SSR build** both pass. That temporary
+route renders safe text, coverage and Statement citation links; rebuilding
+with an expired pin fails. `tests.test_dp440_public_synopsis` has **14/14
+PASS** and `npm run check` validates the TypeScript code. These are local
+synthetic fixture receipts, not fresh authenticated real-source approvals.
+
+**All original AC-440.1–.7 remain OPEN.** No independent production pin
+issuer, actual editorial entailment approval, rights-authorized published
+Statement corpus, live source-locator route, atomic cache/revoke proof,
+provider-offline production request measurement or MiniPC acceptance exists
+from this slice. An offline consumer can only detect corrections/withdrawals
+when the separately authenticated release pins are refreshed or expire;
+atomic invalidation must be proven at the future serving boundary.
