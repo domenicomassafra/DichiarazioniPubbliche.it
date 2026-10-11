@@ -72,3 +72,63 @@ proposal: the actual worker must check durable budget, grants and current
 rights against a real transaction; no source fetch or cost was performed.
 Real queue and MiniPC run remain absent; **all AC-319.1–.5 stay unchecked,
 ticket IN PROGRESS**.
+
+## 2026-10-12 — Append-only private SQLite source/version and attempt receipts
+
+The new opt-in `investigation_attempts_store_v1.py` stores one separately
+supplied **local** source/Content candidate registration per Coverage Need:
+exact `source_id`, `candidate_id`, `source_version`, source SHA-256, material
+fingerprint, rights, use policy and monotonic registry revision. Source epoch
+rows are append-only with a revision CAS; `reserve`, `complete`, `read` and
+process restart revalidate the latest independently registered local record.
+Revoked/expired rights, blocked policy, changed source hash, foreign candidate,
+stale material/version and a stale registry revision cannot silently create
+new work or complete old attempts. Restoring a previous version or changing
+the associated source/candidate ID is not treated as same-source continuity.
+
+The existing `investigation_attempts_v1.py` pure planner is reused verbatim.
+Its canonical fingerprint and proposed attempt ID are checked at registration
+and reconstructed for every stored reservation against earlier completed
+observations. SQLite persists immutable private `RESERVED` and `COMPLETED`
+events, with an exact plan, assignment/lane, material version, source and
+candidate binding, idempotency key and attempt checksum. `BEGIN IMMEDIATE`,
+event uniqueness and an atomic revision CAS ensure two independent writers
+cannot reserve the same proposed attempt twice. An unfinished reservation
+remains `WAIT_EXTERNAL / INVESTIGATION_UNCONFIRMED_RESERVATION` across restart:
+even when its actual external effects are unknown, it **cannot be reissued**
+automatically. Only a matching first terminal observation, recorded append-only
+within original caps and provenance, changes the state. Identical replay is
+read-only; a different result, foreign assignment or forged attempt is refused.
+Newer relevant material receives its own attempt scope; earlier receipts remain
+available through explicit historical readback. `resume` reconstructs the
+original persisted plan from a fingerprint in a separate Python interpreter.
+
+The private ledger deliberately refuses caller-claimed
+`REVIEWED_SOURCE_CANDIDATE` and invented source-review event authority, because
+no independently verified real reviewer/source authorization is connected.
+`NO_MATCH`, `SOURCE_INCONCLUSIVE`, `OUTAGE` and similar negative/blocked
+observations remain private status observations, not factual disproof. The
+reported `spent_usd` is checked against the specific ResearchAssignment and
+plan cap but is **not an independently reconciled D billing record**. Source
+registration itself requires a trusted upstream local source/rights/policy
+record supplied by the caller; the SHA/checksum protects local consistency,
+not authenticity of that record. Nothing here fetches, dispatches, publishes,
+spends money or adds a PostgreSQL production migration.
+
+New `tests/test_dp319_durable_investigation_next.py` covers **11/11** real
+temporary SQLite cases including restart in a fresh Python interpreter,
+simultaneous writers, append-only trigger enforcement, tampered/rehashed
+attempt refusal, simulated transaction failure after INSERT but before CAS
+with full rollback, cross-Content-candidate/source version mismatch, a source
+rights revocation *between* reservation and completion, rights/policy epoch
+freshness, OUTAGE replan, bounded cost, exhaustion with no false evidence
+conclusion, and independent new-version recovery with old history preserved.
+Tests first failed with missing durable implementation (RED), then GREEN;
+full focused-plus-adjacent DP-319/DP-241/DP-228/research/coverage suite
+**88/88 PASS**, scoped Ruff lint/format, targeted `compileall` and
+`git diff --check` PASS on Mac.
+
+**No original `AC-319.1–.5` is marked complete.** A real authorized source
+registry, D provider/cost execution receipts, checked baseline coverage,
+MiniPC persisted replay, trusted human/qualified authority and downstream
+case lifecycle remain unproved. `IN PROGRESS`; release **NO-GO**.
