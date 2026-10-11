@@ -42,6 +42,9 @@ for (const id of ['token', 'results', 'status', 'clear', 'member-links',
                   'collection-capture-summary', 'capture-passage-links',
                   'passage-candidate-links', 'passage-candidate-summary',
                   'collection-decision-summary',
+                  'triage-write-summary',
+                  'inbox-annotation-summary','inbox-annotation-links',
+                  'media-capture-context-summary',
                   'media-locator', 'corpus-list',
                   'corpus-links', 'corpus-summary', 'corpus-inspector',
                   'corpus-references', 'corpus-inspector-title', 'corpus-back',
@@ -53,17 +56,36 @@ for (const path of [
   '/v1/collections/members', '/v1/collections/member', '/v1/collections/captures',
   '/v1/collections/passage-candidates',
   '/v1/candidate/decision-receipt',
+  '/v1/discovery/triage-annotate',
+  '/v1/discovery/inbox','/v1/discovery/triage-history',
+  '/v1/media/capture-context',
   '/v1/collections/claim-provenance', '/v1/capture/compare',
   '/v1/capture/passages', '/v1/corpus/search', '/v1/media/segment',
 ]) {
-  const fields = {
+  const fields = path === '/v1/media/capture-context' ? {
+    content_id:'',statement_candidate_id:'',passage_id:'',
+    capture_id:'',capture_sha256:'',
+  } : path === '/v1/discovery/inbox' ? {
+    collection_id:'',limit:'2',after_id:'',
+  } : path === '/v1/discovery/triage-history' ? {
+    collection_id:'',hit_id:'',limit:'2',after_revision:'0',
+  } : path === '/v1/discovery/triage-annotate' ? {
+    collection_id:'',hit_id:'',request_key:'',decision:'NEEDS_REVIEW',
+    expected_revision:'0',actor_ref:'',receipt_id:'',
+    confirm_private_annotation:'',
+  } : {
     query: 'demo', limit: '2', kind: '', after_id: '', after_claim_id: '',
     earlier_hash: '', later_hash: '', capture_hash: '',
     collection_id: '', source_id: '', person_id: '', topic_id: '',
     event_id: '', from_date: '', to_date: '', status: '', claim_type: '', check_worthy: '',
     candidate_id:'',run_id:'',passage_id:'',capture_id:'',request_key:'',
+    hit_id:'',decision:'',expected_revision:'',actor_ref:'',receipt_id:'',
+    confirm_private_annotation:'',
   };
-  if (path !== '/v1/corpus/search') fields.content_id = 'content:one';
+  if (!['/v1/corpus/search','/v1/discovery/inbox',
+        '/v1/discovery/triage-history','/v1/discovery/triage-annotate',
+        '/v1/media/capture-context'].includes(path))
+    fields.content_id = 'content:one';
   const nodes = {};
   for (const name of Object.keys(fields)) {
     nodes[name] = {name, focus() { this.focused = true; },
@@ -315,6 +337,114 @@ async function main() {
   await lateReview;
   assert.equal(ids.get('collection-decision-summary').textContent,'Nessuna ricevuta letta.');
   assert.equal(decisionForm.fields.candidate_id,'');
+  token.value = 'c'.repeat(64);
+  const triageForm = forms['/v1/discovery/triage-annotate'];
+  for (const [name, value] of Object.entries({
+    collection_id:'collection:one',hit_id:'hit:one',request_key:'request:triage:one',
+    decision:'NEEDS_REVIEW',expected_revision:'0',actor_ref:'operator:one',
+    receipt_id:'triage-receipt-'+'d'.repeat(64),confirm_private_annotation:'true',
+  })) triageForm.fields[name]=value;
+  const write = triageForm.fire('submit');
+  const writeIndex = requests.length-1;
+  assert.equal(requests[writeIndex].path,'/v1/discovery/triage-annotate');
+  assert.deepEqual(JSON.parse(requests[writeIndex].options.body), {
+    collection_id:'collection:one',hit_id:'hit:one',request_key:'request:triage:one',
+    decision:'NEEDS_REVIEW',expected_revision:0,actor_ref:'operator:one',
+    receipt_id:'triage-receipt-'+'d'.repeat(64),confirm_private_annotation:true,
+  });
+  const signed = {
+    contract_version:'studio-private-triage-annotation-v1',private_only:true,
+    mutation_kind:'ANNOTATION_ONLY',result_code:'CREATED',
+    collection_id:'collection:one',hit_id:'hit:one',decision:'NEEDS_REVIEW',
+    revision:1,payload_sha256:'a'.repeat(64),actor_attested:true,
+    capture_authorized:false,triage_action_authorized:false,
+    promotion_authority:false,publication_authority:false,
+    secret:'NEVER_ECHO_RECEIPT',
+  };
+  requests[writeIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-private-annotation-api-v1',data:signed,
+  })});
+  await write;
+  assert.match(ids.get('triage-write-summary').textContent,/CREATED/);
+  assert.doesNotMatch(ids.get('triage-write-summary').textContent,/NEVER_ECHO_RECEIPT/);
+  const lateTriage = triageForm.fire('submit');
+  const lateTriageIndex = requests.length-1;
+  clear.fire('click');
+  requests[lateTriageIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-private-annotation-api-v1',data:signed,
+  })});
+  await lateTriage;
+  assert.doesNotMatch(ids.get('triage-write-summary').textContent,/CREATED/);
+  assert.equal(triageForm.fields.receipt_id,'');
+  token.value = 'a'.repeat(64);
+  const inboxForm = forms['/v1/discovery/inbox'];
+  inboxForm.fields.collection_id = 'collection:one';
+  const inboxRequest=inboxForm.fire('submit');
+  const inboxIndex=requests.length-1;
+  assert.equal(requests[inboxIndex].path,'/v1/discovery/inbox');
+  requests[inboxIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',data:{
+      contract_version:'studio-discovery-inbox-v2',
+      collection_id:'collection:one',private_only:true,read_only:true,
+      action_authorized:false,publication_authority:false,next_after_id:null,
+      rows:[{collection_id:'collection:one',hit_id:'hit:one',
+        annotation_revision:1,private_only:true,read_only:true,
+        action_authorized:false,publication_authority:false,
+        blockers:['DISCOVERY_TRIAGE_REVIEW_AUTHORITY_UNAVAILABLE'],
+        private_text:'SECRET_NEVER_TO_RENDER'}],
+    },
+  })});
+  await inboxRequest;
+  const inboxLinks=ids.get('inbox-annotation-links');
+  assert.equal(inboxLinks.children.length,1);
+  assert.doesNotMatch(inboxLinks.children[0].textContent,/SECRET_NEVER_TO_RENDER/);
+  inboxLinks.children[0].fire('click');
+  const historyForm=forms['/v1/discovery/triage-history'];
+  assert.equal(historyForm.fields.hit_id,'hit:one');
+  assert.equal(triageForm.fields.hit_id,'hit:one');
+  assert.equal(triageForm.fields.expected_revision,'1');
+  assert.equal(triageForm.fields.receipt_id,'');
+  assert.equal(requests.at(-1).path,'/v1/discovery/triage-history');
+  const historyIndex=requests.length-1;
+  requests[historyIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',
+    data:{results:[{revision:1,decision:'NEEDS_REVIEW'}]},
+  })});
+  await Promise.resolve();
+  clear.fire('click');
+  assert.equal(inboxLinks.children.length,0);
+  assert.equal(triageForm.fields.hit_id,'');
+  token.value='a'.repeat(64);
+  const mediaContextForm = forms['/v1/media/capture-context'];
+  Object.assign(mediaContextForm.fields,{
+    content_id:'content:one',statement_candidate_id:'statement:one',
+    passage_id:'passage:media',capture_id:'capture:one',
+    capture_sha256:'a'.repeat(64),
+  });
+  const mediaContextRequest = mediaContextForm.fire('submit');
+  const mediaIndex = requests.length-1;
+  assert.equal(requests[mediaIndex].path,'/v1/media/capture-context');
+  requests[mediaIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',data:{
+      contract_version:'studio-media-capture-context-v1',
+      private_only:true,publication_authority:false,rights_clearance:false,
+      seek_authorized:false,capture_segment_binding:'UNPROVEN',
+      content_id:'content:one',statement_candidate_id:'statement:one',
+      passage_id:'passage:media',
+      canonical_segment:{id:'canonical:one',start_ms:1200,end_ms:3400},
+      capture:{id:'capture:one',content_sha256:'a'.repeat(64),
+        body_state:'STORED_UNVERIFIED',retention_class:'POLICY_PENDING',
+        status:'CAPTURED'},
+      hold_reasons:['STUDIO_MEDIA_CAPTURE_SEGMENT_BINDING_UNPROVEN'],
+      private_media_url:'NEVER_RENDER_SOURCE',
+    },
+  })});
+  await mediaContextRequest;
+  assert.match(ids.get('media-capture-context-summary').textContent,/UNPROVEN|non attestata/);
+  assert.doesNotMatch(ids.get('media-capture-context-summary').textContent,/NEVER_RENDER_SOURCE/);
+  clear.fire('click');
+  assert.equal(ids.get('media-capture-context-summary').textContent,
+    'Nessun contesto cattura verificato.');
   process.stdout.write('Studio Corpus filters, keyboard inspector, return, private scrub and stale-response regression PASS\n');
 }
 

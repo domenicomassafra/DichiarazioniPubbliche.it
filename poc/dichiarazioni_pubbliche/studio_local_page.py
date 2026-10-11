@@ -234,6 +234,8 @@ _PAGE = """<!doctype html>
         <label>Dopo Discovery Hit ID<input name="after_id" maxlength="180"></label>
         <button type="submit">Consulta Inbox persistita</button></div>
       </form>
+      <p id="inbox-annotation-summary" role="status" aria-live="polite">Nessun Hit caricato.</p>
+      <div id="inbox-annotation-links" role="group" aria-label="Discovery Hit selezionabili per lo storico e l'annotazione privata"></div>
       <h2>Verifica compatibilità selezione multipla</h2>
       <p>Controllo sullo stesso snapshot SQL per massimo 10 Hit. Anteprima soltanto, senza approvazioni, rifiuti o scritture.</p>
       <form data-endpoint="/v1/discovery/bulk-preview">
@@ -267,6 +269,22 @@ _PAGE = """<!doctype html>
           <button type="submit">Leggi annotazioni</button>
         </div>
       </form>
+      <h2 id="triage-write-heading" tabindex="-1">Annotazione privata firmata (modalità operatore separata)</h2>
+      <p>Richiede l'avvio manuale del servizio di annotazione e una ricevuta HMAC già emessa fuori dal browser per questo esatto Hit, revisione, decisione e attore. Il token da solo non abilita scritture. Questa annotazione NON rifiuta realmente la fonte, NON avvia Capture e NON approva o pubblica candidati.</p>
+      <form data-endpoint="/v1/discovery/triage-annotate">
+        <div class="controls">
+          <label>Collection ID<input name="collection_id" maxlength="180" required></label>
+          <label>Discovery Hit ID<input name="hit_id" maxlength="180" required></label>
+          <label>Request key nuova o da riprodurre<input name="request_key" maxlength="128" autocomplete="off" required></label>
+          <label>Annotazione privata<select name="decision"><option value="NEEDS_REVIEW">NEEDS_REVIEW</option><option value="DEFERRED">DEFERRED</option><option value="REJECTED">REJECTED (solo annotazione)</option></select></label>
+          <label>Revisione corrente prevista<input name="expected_revision" type="number" min="0" step="1" value="0" required></label>
+          <label>Actor reference<input name="actor_ref" maxlength="128" autocomplete="off" required></label>
+          <label>Ricevuta firmata privata<input name="receipt_id" maxlength="110" autocomplete="off" required></label>
+          <label>Conferma esplicita<select name="confirm_private_annotation" required><option value="">Seleziona</option><option value="true">Confermo solo annotazione privata</option></select></label>
+          <button type="submit">Registra annotazione firmata con CAS</button>
+        </div>
+      </form>
+      <p id="triage-write-summary" role="status" aria-live="polite">Nessuna annotazione inviata. Il server predefinito è di sola lettura.</p>
     </section>
     <section class="pane" id="matches" hidden>
       <h2>Candidati e corrispondenze</h2><p>Le classificazioni non conferiscono autorizzazione. La verifica approfondita confronta il run con input persistiti e contesto attuale DP-117, mostrando i blocchi prima di qualunque azione.</p>
@@ -329,6 +347,17 @@ _PAGE = """<!doctype html>
         <label>Passage ID<input name="passage_id" maxlength="180" required></label>
         <button type="submit">Localizza segmento</button></div>
       </form>
+      <h2>Contesto cattura e durata di un segmento multimediale</h2>
+      <p>Seleziona la cattura e il Passage canonico persistiti dello stesso Content: vengono mostrati intervallo, conservazione e blocchi, NON una falsa appartenenza del segmento alla cattura. Nessun seek o riproduzione consentiti senza un legame e diritti attestati.</p>
+      <form data-endpoint="/v1/media/capture-context">
+        <div class="controls"><label>Content ID<input name="content_id" maxlength="180" required></label>
+        <label>Statement Candidate ID<input name="statement_candidate_id" maxlength="180" required></label>
+        <label>Passage ID<input name="passage_id" maxlength="180" required></label>
+        <label>Capture ID<input name="capture_id" maxlength="180" required></label>
+        <label>Capture SHA-256<input name="capture_sha256" minlength="64" maxlength="64" required></label>
+        <button type="submit">Confronta timeline e conservazione</button></div>
+      </form>
+      <p id="media-capture-context-summary" role="status" aria-live="polite">Nessun contesto cattura verificato.</p>
       <p id="media-locator" role="status" aria-live="polite">Nessun segmento selezionato.</p>
     </section>
     <section class="pane" aria-labelledby="esito">
@@ -372,6 +401,12 @@ _PAGE = """<!doctype html>
     const captureQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/capture-queue"]');
     const captureQueueLinks = document.getElementById('capture-queue-links');
     const captureQueueSummary = document.getElementById('capture-queue-summary');
+    const inboxForm = document.querySelector('form[data-endpoint="/v1/discovery/inbox"]');
+    const inboxAnnotationSummary = document.getElementById('inbox-annotation-summary');
+    const inboxAnnotationLinks = document.getElementById('inbox-annotation-links');
+    const triageHistoryForm = document.querySelector('form[data-endpoint="/v1/discovery/triage-history"]');
+    const triageWriteForm = document.querySelector('form[data-endpoint="/v1/discovery/triage-annotate"]');
+    const triageWriteSummary = document.getElementById('triage-write-summary');
     const compareForm = document.querySelector('form[data-endpoint="/v1/capture/compare"]');
     const corpusForm = document.querySelector('form[data-endpoint="/v1/corpus/search"]');
     const corpusList = document.getElementById('corpus-list');
@@ -393,6 +428,8 @@ _PAGE = """<!doctype html>
     const capturePassageForm = document.querySelector('form[data-endpoint="/v1/capture/passages"]');
     const passageCandidateForm = document.querySelector('form[data-endpoint="/v1/collections/passage-candidates"]');
     const mediaForm = document.querySelector('form[data-endpoint="/v1/media/segment"]');
+    const mediaContextForm = document.querySelector('form[data-endpoint="/v1/media/capture-context"]');
+    const mediaContextSummary = document.getElementById('media-capture-context-summary');
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
@@ -550,7 +587,17 @@ _PAGE = """<!doctype html>
         for (const field of decisionForm.querySelectorAll('input,select')) field.value = '';
       }
       captureQueueLinks?.replaceChildren();
+      inboxAnnotationLinks?.replaceChildren();
+      if (inboxAnnotationSummary) inboxAnnotationSummary.textContent = 'Nessun Hit caricato.';
       if (captureQueueSummary) captureQueueSummary.textContent = 'Nessuna coda letta.';
+      if (triageWriteSummary) triageWriteSummary.textContent = 'Nessuna annotazione inviata. Il server predefinito è di sola lettura.';
+      if (triageWriteForm) {
+        for (const field of triageWriteForm.querySelectorAll('input,select')) {
+          if (field.name === 'expected_revision') field.value = '0';
+          else if (field.name === 'decision') field.value = 'NEEDS_REVIEW';
+          else field.value = '';
+        }
+      }
       for (const form of [lineageForm, captureQueueForm]) {
         if (!form) continue;
         for (const field of form.querySelectorAll('input,select')) {
@@ -559,6 +606,7 @@ _PAGE = """<!doctype html>
       }
       if (collectionNavigationForm) collectionNavigationForm.elements.namedItem('after_content_id').value = '';
       mediaLocator.textContent = 'Nessun segmento selezionato.';
+      if (mediaContextSummary) mediaContextSummary.textContent = 'Nessun contesto cattura verificato.';
     }
     document.getElementById('clear').addEventListener('click', () => {
       token.value = '';
@@ -608,7 +656,8 @@ _PAGE = """<!doctype html>
           else if (key === 'from_date') data.from_at = value + 'T00:00:00Z';
           else if (key === 'to_date') data.to_at = value + 'T23:59:59Z';
           else if (key === 'check_worthy') data.check_worthy = value === 'true';
-          else data[key] = key === 'limit' || key === 'after_revision' ? Number(value) : value;
+          else data[key] = key === 'limit' || key === 'after_revision' || key === 'expected_revision'
+            ? Number(value) : key === 'confirm_private_annotation' ? value === 'true' : value;
         }
         status.textContent = 'Richiesta locale in corso…';
         results.textContent = 'Nessun risultato ancora disponibile.';
@@ -648,6 +697,13 @@ _PAGE = """<!doctype html>
           captureQueueLinks.replaceChildren();
           captureQueueSummary.textContent = 'Lettura della coda in corso…';
         }
+        if (form === inboxForm) {
+          inboxAnnotationLinks.replaceChildren();
+          inboxAnnotationSummary.textContent = 'Lettura di stato e revisioni Discovery in corso…';
+        }
+        if (form === triageWriteForm) {
+          triageWriteSummary.textContent = 'Invio al servizio privato con controllo CAS e ricevuta pre-emessa…';
+        }
         if (form.dataset.endpoint === '/v1/capture/compare') {
           captureLinks.replaceChildren();
           captureSelectorDiffSummary.textContent = 'Confronto selettori in corso…';
@@ -664,6 +720,7 @@ _PAGE = """<!doctype html>
         if (form.dataset.endpoint === '/v1/media/segment') {
           mediaLocator.textContent = 'Intervallo canonico non verificato.';
         }
+        if (form === mediaContextForm) mediaContextSummary.textContent = 'Verifica legami persistiti e durata in corso…';
         try {
           const response = await fetch(form.dataset.endpoint, {
             method: 'POST', credentials: 'omit', redirect: 'error',
@@ -1022,6 +1079,116 @@ _PAGE = """<!doctype html>
               });
               captureQueueLinks.append(more);
             }
+            return;
+          }
+          if (form === inboxForm) {
+            results.textContent = 'Solo riferimenti Discovery validati nell’Inbox.';
+            const inbox = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && inbox?.contract_version === 'studio-discovery-inbox-v2'
+              && inbox.collection_id === data.collection_id
+              && inbox.private_only === true && inbox.read_only === true
+              && inbox.action_authorized === false && inbox.publication_authority === false
+              && Array.isArray(inbox.rows) && inbox.rows.length <= data.limit
+              && inbox.rows.every(row =>
+                row.collection_id === data.collection_id && SAFE_REF.test(row.hit_id)
+                && row.private_only === true && row.read_only === true
+                && row.action_authorized === false && row.publication_authority === false
+                && (row.annotation_revision === null ||
+                  Number.isSafeInteger(row.annotation_revision) && row.annotation_revision >= 0)
+                && Array.isArray(row.blockers) && row.blockers.every(code => SAFE_REF.test(code)))
+              && (inbox.next_after_id === null || SAFE_REF.test(inbox.next_after_id));
+            if (!valid) {
+              inboxAnnotationSummary.textContent = 'Inbox non verificabile, nessun Hit navigabile.';
+              status.textContent = 'Dati non verificabili.';
+              return;
+            }
+            inboxAnnotationSummary.textContent = inbox.rows.length
+              + ' Hit persistiti; seleziona per aprire lo storico e preparare una decisione firmata esternamente.';
+            for (const row of inbox.rows) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = 'Hit ' + row.hit_id + ' · revisione '
+                + (row.annotation_revision === null ? 'lineage non verificata' : row.annotation_revision)
+                + ' · blocchi: ' + row.blockers.join(', ');
+              button.addEventListener('click', () => {
+                if (!inboxAnnotationLinks.contains(button)) return;
+                triageHistoryForm.elements.namedItem('collection_id').value = inbox.collection_id;
+                triageHistoryForm.elements.namedItem('hit_id').value = row.hit_id;
+                triageHistoryForm.elements.namedItem('after_revision').value = '0';
+                triageWriteForm.elements.namedItem('collection_id').value = inbox.collection_id;
+                triageWriteForm.elements.namedItem('hit_id').value = row.hit_id;
+                triageWriteForm.elements.namedItem('expected_revision').value =
+                  row.annotation_revision === null ? '' : String(row.annotation_revision);
+                triageWriteForm.elements.namedItem('request_key').value = '';
+                triageWriteForm.elements.namedItem('receipt_id').value = '';
+                triageWriteForm.elements.namedItem('confirm_private_annotation').value = '';
+                triageHistoryForm.requestSubmit();
+              });
+              inboxAnnotationLinks.append(button);
+            }
+            return;
+          }
+          if (form === triageWriteForm) {
+            results.textContent = 'Solo stato dell’annotazione privata, senza ricevuta HMAC o identità.';
+            const signed = receipt?.data;
+            const valid = receipt?.contract_version === 'studio-private-annotation-api-v1'
+              && signed?.contract_version === 'studio-private-triage-annotation-v1'
+              && signed.private_only === true && signed.mutation_kind === 'ANNOTATION_ONLY'
+              && signed.collection_id === data.collection_id && signed.hit_id === data.hit_id
+              && signed.decision === data.decision && signed.capture_authorized === false
+              && signed.triage_action_authorized === false && signed.promotion_authority === false
+              && signed.publication_authority === false
+              && Number.isSafeInteger(signed.revision) && signed.revision >= 0
+              && SAFE_SHA256.test(signed.payload_sha256)
+              && ['CREATED','REPLAY','REVISION_CONFLICT','IDEMPOTENCY_CONFLICT','SCOPE_NOT_FOUND']
+                 .includes(signed.result_code)
+              && response.ok === ['CREATED','REPLAY'].includes(signed.result_code)
+              && signed.actor_attested === response.ok;
+            if (!valid) {
+              triageWriteSummary.textContent = 'Nessuna annotazione confermata. Servizio non attivo, attestazione mancante o risposta non valida.';
+              status.textContent = 'Scrittura privata non confermata.';
+              return;
+            }
+            triageWriteSummary.textContent = signed.result_code + ' · revisione '
+              + signed.revision + ' · fingerprint ' + signed.payload_sha256
+              + '. Solo storico privato: nessuna approvazione, Capture o pubblicazione.';
+            if (response.ok && captureQueueSummary) {
+              status.textContent = 'Annotazione salvata; rileggi lo storico per la conferma indipendente.';
+            }
+            return;
+          }
+          if (form === mediaContextForm) {
+            results.textContent = 'Solo selettori, hash, intervalli e blocchi: nessun media riprodotto.';
+            const timeline = receipt?.data;
+            const segment = timeline?.canonical_segment;
+            const capture = timeline?.capture;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && timeline?.contract_version === 'studio-media-capture-context-v1'
+              && timeline.private_only === true && timeline.publication_authority === false
+              && timeline.rights_clearance === false && timeline.seek_authorized === false
+              && timeline.capture_segment_binding === 'UNPROVEN'
+              && segment && SAFE_REF.test(segment.id)
+              && Number.isSafeInteger(segment.start_ms) && segment.start_ms >= 0
+              && Number.isSafeInteger(segment.end_ms) && segment.end_ms > segment.start_ms
+              && capture?.id === data.capture_id && capture.content_sha256 === data.capture_sha256
+              && SAFE_SHA256.test(capture.content_sha256)
+              && timeline.statement_candidate_id === data.statement_candidate_id
+              && timeline.content_id === data.content_id && timeline.passage_id === data.passage_id
+              && Array.isArray(timeline.hold_reasons)
+              && timeline.hold_reasons.includes('STUDIO_MEDIA_CAPTURE_SEGMENT_BINDING_UNPROVEN')
+              && timeline.hold_reasons.every(code => SAFE_REF.test(code));
+            if (!valid) {
+              mediaContextSummary.textContent = 'Contesto multimediale non verificabile o fuori scope.';
+              status.textContent = 'Nessun seek autorizzato.';
+              return;
+            }
+            mediaContextSummary.textContent = 'Segmento ' + segment.id + ' · intervallo '
+              + (segment.start_ms / 1000) + '–' + (segment.end_ms / 1000) + ' s'
+              + ' · cattura ' + capture.id + ' · stato ' + capture.status
+              + ' · corpo ' + capture.body_state + ' · conservazione '
+              + capture.retention_class + ' · blocchi: ' + timeline.hold_reasons.join(', ')
+              + '. Provenienza segmento↔cattura non attestata. Riproduzione negata.';
             return;
           }
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
