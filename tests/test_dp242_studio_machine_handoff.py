@@ -164,6 +164,46 @@ class CandidatePreviewTests(unittest.TestCase):
         self.promotion.data["passages"].append(dict(self.promotion.data["passages"][0]))
         self.assertEqual(self.preview()["status"], "HELD_SOURCE_OR_ATTRIBUTION")
 
+    def test_invalid_actor_or_source_lineage_cannot_appear_machine_eligible(self):
+        """Machine-unavailable is reserved for a coherent, source-bound candidate."""
+        for field, value in (
+            ("speaker_is_public", False),
+            ("speaker_person_id", ""),
+            ("speaker_person_id", "   "),
+            ("statement_candidate_id", None),
+            ("passage_count", 2),
+            ("passage_count", True),
+            ("written_count", 0),
+            ("media_count", 1),
+        ):
+            with self.subTest(field=field, value=value):
+                self.promotion = PromotionContext()
+                self.promotion.data[field] = value
+                result = self.preview()
+                self.assertEqual(result["status"], "HELD_SOURCE_OR_ATTRIBUTION")
+                self.assertEqual(result["action"], "INVESTIGATE_SOURCE_OR_ATTRIBUTION")
+                self.assertFalse(result["dispatch_authorized"])
+        for field, value in (
+            ("passage_id", None),
+            ("capture_id", None),
+            ("canonical_segment_id", "segment:unexpected"),
+        ):
+            with self.subTest(field=field, value=value):
+                self.promotion = PromotionContext()
+                self.promotion.data["passages"][0][field] = value
+                result = self.preview()
+                self.assertEqual(result["status"], "HELD_SOURCE_OR_ATTRIBUTION")
+                self.assertFalse(result["dispatch_authorized"])
+
+    def test_legacy_editorial_flags_do_not_become_machine_authority(self):
+        self.promotion.data["claim_candidate_reviewed"] = False
+        self.promotion.data["statement_reviewed"] = False
+        result = self.preview()
+        self.assertEqual(result["status"], "HELD_MACHINE_AUTHORITY_UNAVAILABLE")
+        self.assertFalse(result["human_review_approved"])
+        self.assertFalse(result["machine_review_approved"])
+        self.assertFalse(result["dispatch_authorized"])
+
 
 if __name__ == "__main__":
     unittest.main()

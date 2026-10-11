@@ -242,12 +242,26 @@ def preview_candidate_machine_handoff(
         }
         provenance_usable = (
             context.get("candidate_status") in {"CANDIDATE", "DUPLICATE"}
+            # A source preflight still needs a coherent, single written
+            # occurrence bound to an eligible public Person. Neither the
+            # legacy review flags nor match confidence grant B authority.
+            and isinstance(context.get("statement_candidate_id"), str)
+            and bool(context["statement_candidate_id"])
+            and type(context.get("passage_count")) is int
+            and context["passage_count"] == 1
+            and type(context.get("written_count")) is int
+            and context["written_count"] == 1
+            and type(context.get("media_count")) is int
+            and context["media_count"] == 0
             and passage.get("capture_status") == "CAPTURED"
             and passage.get("capture_hold_status") == "NONE"
+            and passage.get("canonical_segment_id") is None
             and passage.get("segment_publication_blocked") is not True
             and isinstance(context.get("speaker_person_id"), str)
-            and bool(context["speaker_person_id"])
+            and bool(context["speaker_person_id"].strip())
+            and context.get("speaker_is_public") is True
             and bool(first_ref.get("passage_id"))
+            and bool(first_ref.get("capture_id"))
         )
     else:
         source = {"passage_id": None, "capture_id": None, "capture_sha256": None}

@@ -77,3 +77,31 @@ machine transition. All AC-242 boxes remain unchecked: no governed B API,
 credentialed HTTP receipt, persisted exception lifecycle, actual source
 end-to-end path or MiniPC/UI acceptance. The old human review spool is left
 unchanged and never impersonated.
+
+**2026-10-11 — Additional candidate preflight lineage guard (source-only;
+DP-242 still IN PROGRESS).** Adversarial test against the original
+`preview_candidate_machine_handoff` showed **7 RED subcases**: a non-public
+Person, missing Statement Candidate link, a mismatch between declared and
+actual Passage counts (including a boolean count), contradictory written/media
+counts, and a missing Capture reference could all yield
+`HELD_MACHINE_AUTHORITY_UNAVAILABLE`. That state implied a coherent source
+preflight even though the persisted promotion inputs lacked the required
+actor/source lineage. The source preflight now reserves this status for a
+single written Passage tied to a real Capture, declared as exactly one written
+and zero media occurrence, with a linked Statement Candidate and a public
+speaker. Malformed inputs return `HELD_SOURCE_OR_ATTRIBUTION` and the existing
+investigation action; additional negatives cover whitespace speaker IDs,
+unexpected media segment IDs and missing Passage IDs. The prior source/Capture
+revision and fingerprint rechecks remain in place. The fix does not inherit
+human editorial flags as machine permission; its explicit no-authority fields
+and deterministic, preview-only intent receipts remain unchanged.
+
+The newly added regression was proven RED before the fix and GREEN afterward;
+**30 local focused/adjacent tests PASS** (DP-242 pure and loopback HTTP,
+DP-417 Inbox, DP-418 Candidate), with `ruff check`, `compileall` and
+`git diff --check` PASS. These are synthetic local readback assertions.
+There is still no persisted
+idempotency ledger or transactional CAS, independent B API/signature/rights
+attestation, real candidate execution/downstream receipt, MiniPC real-source
+acceptance or keyboard/UI proof. Therefore **all AC-242 boxes remain open**;
+no publish/dispatch/review authority is asserted.
