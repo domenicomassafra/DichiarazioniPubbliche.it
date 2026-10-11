@@ -23,6 +23,92 @@ class FakeOperatorQueues(StudioOperatorQueues):
 
 
 class StudioQueueTests(unittest.TestCase):
+    def test_passage_candidate_path_metadata_sanitization_and_cursor_guard(self):
+        store = FakeOperatorQueues([{
+            "collection_id": "research:pilot", "collection_state": "PAUSED",
+            "content_id": "content:one", "source_id": "source:one", "source_exists": True,
+            "rights_status": "UNKNOWN", "processing_status": "REVIEW_REQUIRED",
+            "capture_id": "capture:aaaaaa", "capture_sha256": "a" * 64,
+            "capture_state": "CAPTURED", "capture_hold_state": "NONE",
+            "passage_id": "passage:01", "passage_hash": "f" * 64,
+            "selector_type": "TEXT_POSITION", "start_char": 2, "end_char": 16,
+            "page_start": None, "page_end": None, "cursor_valid": True,
+            "candidates": [{
+                "id": "statement:one", "content_id": "content:one",
+                "status": "CANDIDATE", "speaker_person_id": None,
+                "statement_text_hash": "a" * 64,
+                "claim_count": 1, "claim_candidates": [{
+                    "id": "claimcandidate:one", "content_id": "content:one",
+                    "statement_candidate_id": "statement:one", "status": "CANDIDATE",
+                    "promoted_claim_id": None, "promotion_id": None,
+                    "normalized_claim": "TOP SECRET PRIVATE CLAIM",
+                }],
+                "normalized_statement": "TOP SECRET PRIVATE STATEMENT",
+            }],
+            "metadata": {"cookies": "TOP SECRET"},
+        }])
+        view = store.inspect_collection_passage_candidates(
+            collection_id="research:pilot", content_id="content:one",
+            capture_id="capture:aaaaaa", passage_id="passage:01", limit=1,
+        )
+        self.assertEqual(view["source_id"], "source:one")
+        self.assertEqual(view["capture_sha256"], "a" * 64)
+        self.assertEqual(view["passage"]["id"], "passage:01")
+        self.assertEqual(view["passage"]["start_char"], 2)
+        self.assertEqual(view["candidates"][0]["id"], "statement:one")
+        self.assertEqual(view["candidates"][0]["claim_candidates"][0]["id"], "claimcandidate:one")
+        self.assertEqual(view["next_after_statement_id"], "statement:one")
+        self.assertIn("CONTENT_RIGHTS_NOT_APPROVED", view["blockers"])
+        self.assertFalse(view["rights_clearance"])
+        self.assertFalse(view["publication_authority"])
+        self.assertNotIn("TOP SECRET", json.dumps(view))
+        sql, variables = store.calls[0]
+        self.assertIn("member.status='INCLUDED'", sql)
+        self.assertIn("passage.capture_id=capture.id", sql)
+        self.assertIn("link.content_id=content.id", sql)
+        self.assertIn("claim_candidate.statement_candidate_id=selected.id", sql)
+        self.assertNotIn("private_text", sql)
+        self.assertEqual(variables["limit"], 1)
+
+        bad = dict(store.rows[0], cursor_valid=False, candidates=[])
+        with self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
+            FakeOperatorQueues([bad]).inspect_collection_passage_candidates(
+                collection_id="research:pilot", content_id="content:one",
+                capture_id="capture:aaaaaa", passage_id="passage:01",
+                after_statement_id="statement:outside",
+            )
+        for alteration in (
+            {"content_id": "content:other"},
+            {"capture_id": "capture:other"},
+            {"passage_id": "passage:other"},
+            {"capture_sha256": "not-a-hash"},
+            {"capture_hold_state": "INVALID_PRIVATE"},
+            {"selector_type": "MEDIA_SEGMENT_REF"},
+            {"candidates": [dict(store.rows[0]["candidates"][0], content_id="content:other")]},
+            {"candidates": [dict(store.rows[0]["candidates"][0], claim_candidates=[
+                dict(store.rows[0]["candidates"][0]["claim_candidates"][0], content_id="content:other")])]},
+            {"candidates": [dict(store.rows[0]["candidates"][0], claim_candidates=[
+                dict(store.rows[0]["candidates"][0]["claim_candidates"][0],
+                     status="PROMOTED", promoted_claim_id="claim:unproven")])]},
+        ):
+            with self.subTest(alteration=alteration), self.assertRaises(ValueError):
+                FakeOperatorQueues([store.rows[0] | alteration]).inspect_collection_passage_candidates(
+                    collection_id="research:pilot", content_id="content:one",
+                    capture_id="capture:aaaaaa", passage_id="passage:01",
+                )
+        for limit in (0, True, 31):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                FakeOperatorQueues().inspect_collection_passage_candidates(
+                    collection_id="research:pilot", content_id="content:one",
+                    capture_id="capture:aaaaaa", passage_id="passage:01", limit=limit,
+                )
+        with self.assertRaisesRegex(RuntimeError, "^STUDIO_COLLECTION_PASSAGE_STORE_UNAVAILABLE$") as err:
+            FakeOperatorQueues(error=OSError("SECRET POSTGRES PASSWORD")).inspect_collection_passage_candidates(
+                collection_id="research:pilot", content_id="content:one",
+                capture_id="capture:aaaaaa", passage_id="passage:01",
+            )
+        self.assertNotIn("SECRET", str(err.exception))
+
     @staticmethod
     def _provenance_row():
         return {
@@ -439,6 +525,141 @@ class StudioQueuePersistedCursorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "CURSOR_SCOPE_INVALID"):
             reader.list_collection_members(
                 collection_id="research:pilot", after_id="content:one", limit=1)
+
+
+class StudioQueuePersistedPassageCandidatesTests(unittest.TestCase):
+    """Actual schema.v1 PostgreSQL graph: included Collection→Capture→Passage→Candidates."""
+
+    @classmethod
+    def setUpClass(cls):
+        from tests.test_studio_capture_selectors_pg import StudioCaptureSelectorPostgresTests
+
+        cls.fixture = StudioCaptureSelectorPostgresTests
+        cls.fixture.setUpClass()
+        try:
+            cls.fixture._sql("""
+                INSERT INTO statement_candidate (
+                    id, content_id, statement_text_hash, normalized_statement, extraction_version
+                ) VALUES ('statement:two', 'content:one', repeat('b', 64), 'PRIVATE second', 'v1');
+                INSERT INTO statement_candidate_passage (
+                    statement_candidate_id, passage_id, content_id
+                ) VALUES ('statement:two', 'passage:01', 'content:one');
+                INSERT INTO claim_candidate (
+                    id, statement_candidate_id, content_id, normalized_claim,
+                    proposed_claim_type, extraction_version
+                ) VALUES ('claimcandidate:two', 'statement:two', 'content:one',
+                          'PRIVATE claim 2', 'HISTORICAL_CLAIM', 'v1');
+                INSERT INTO research_collection (id, slug, name, scope_text, policy_version, status)
+                VALUES ('research:outside', 'outside-416', 'PRIVATE', 'PRIVATE', 'v1', 'PAUSED');
+                INSERT INTO research_collection_content (
+                    collection_id, content_id, inclusion_method, inclusion_version
+                ) VALUES ('research:outside', 'content:other', 'MANUAL_REVIEW', 'v1');
+                INSERT INTO person (id, canonical_name)
+                VALUES ('person:dp416', 'PRIVATE PERSON');
+                INSERT INTO atomic_claim (
+                    id, content_id, speaker_person_id, normalized_claim, claim_type
+                ) VALUES ('claim:dp416', 'content:one', 'person:dp416',
+                          'PRIVATE PROMOTED CLAIM', 'HISTORICAL_CLAIM');
+                UPDATE claim_candidate SET status='PROMOTED', promoted_claim_id='claim:dp416'
+                WHERE id='claimcandidate:one';
+                INSERT INTO claim_candidate_promotion (
+                    id, claim_candidate_id, target_claim_id, action,
+                    provenance_channel, idempotency_key, actor_ref
+                ) VALUES ('promotion:dp416', 'claimcandidate:one', 'claim:dp416',
+                          'CREATED', 'WRITTEN', 'idempotency:dp416-fixture', 'fixture:dp416');
+            """)
+        except Exception:
+            cls.fixture.tearDownClass()
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "fixture"):
+            cls.fixture.tearDownClass()
+
+    def test_private_real_passage_candidate_drilldown_pagination_and_isolation(self):
+        from dichiarazioni_pubbliche.studio_local_api import _StudioQueueReader
+
+        reader = _StudioQueueReader(self.fixture.dsn)
+        first = reader.inspect_collection_passage_candidates(
+            collection_id="research:pilot", content_id="content:one",
+            capture_id="capture:aaaaaa", passage_id="passage:01", limit=1,
+        )
+        self.assertEqual([x["id"] for x in first["candidates"]], ["statement:one"])
+        self.assertEqual(first["candidates"][0]["claim_candidates"][0]["id"], "claimcandidate:one")
+        self.assertEqual(first["candidates"][0]["claim_candidates"][0]["recorded_promoted_claim_id"],
+                         "claim:dp416")
+        self.assertEqual(first["candidates"][0]["claim_candidates"][0]["promotion_receipt_id"],
+                         "promotion:dp416")
+        self.assertFalse(first["candidates"][0]["claim_candidates"][0]["promotion_authority_evaluated"])
+        self.assertFalse(first["publication_authority"])
+        self.assertTrue(first["next_after_statement_id"])
+        second = reader.inspect_collection_passage_candidates(
+            collection_id="research:pilot", content_id="content:one",
+            capture_id="capture:aaaaaa", passage_id="passage:01", limit=1,
+            after_statement_id=first["next_after_statement_id"],
+        )
+        self.assertEqual([x["id"] for x in second["candidates"]], ["statement:two"])
+        self.assertEqual(second["candidates"][0]["claim_candidates"][0]["id"], "claimcandidate:two")
+        self.assertIsNotNone(second["next_after_statement_id"])
+        last = reader.inspect_collection_passage_candidates(
+            collection_id="research:pilot", content_id="content:one",
+            capture_id="capture:aaaaaa", passage_id="passage:01", limit=1,
+            after_statement_id=second["next_after_statement_id"],
+        )
+        self.assertEqual(last["candidates"], [])
+        self.assertIsNone(last["next_after_statement_id"])
+        for output in (first, second, last):
+            for forbidden in ("PRIVATE", "SECRET", "normalized_statement", "normalized_claim",
+                              "final_url", "body_ref", "metadata", "private_text"):
+                self.assertNotIn(forbidden, json.dumps(output))
+        try:
+            self.fixture._sql("""
+                UPDATE content_item SET rights_status='REVOKED'
+                WHERE id='content:one';
+            """)
+            withheld = reader.inspect_collection_passage_candidates(
+                collection_id="research:pilot", content_id="content:one",
+                capture_id="capture:aaaaaa", passage_id="passage:01",
+            )
+            self.assertEqual(withheld["rights_status"], "REVOKED")
+            self.assertIn("CONTENT_RIGHTS_NOT_APPROVED", withheld["blockers"])
+            self.assertFalse(withheld["rights_clearance"])
+            self.assertFalse(withheld["publication_authority"])
+        finally:
+            self.fixture._sql("""
+                UPDATE content_item SET rights_status='UNKNOWN'
+                WHERE id='content:one';
+            """)
+        for wrong in (
+            {"collection_id": "research:outside"},
+            {"content_id": "content:other"},
+            {"capture_id": "capture:bbbbbb"},
+            {"capture_id": "capture:cccccc"},
+            {"passage_id": "passage:03"},
+            {"after_statement_id": "statement:foreign"},
+        ):
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                reader.inspect_collection_passage_candidates(**{
+                    "collection_id": "research:pilot", "content_id": "content:one",
+                    "capture_id": "capture:aaaaaa", "passage_id": "passage:01",
+                    **wrong,
+                })
+        try:
+            self.fixture._sql("""
+                UPDATE research_collection_content SET status='REMOVED'
+                WHERE collection_id='research:pilot' AND content_id='content:one';
+            """)
+            with self.assertRaises(ValueError):
+                reader.inspect_collection_passage_candidates(
+                    collection_id="research:pilot", content_id="content:one",
+                    capture_id="capture:aaaaaa", passage_id="passage:01",
+                )
+        finally:
+            self.fixture._sql("""
+                UPDATE research_collection_content SET status='INCLUDED'
+                WHERE collection_id='research:pilot' AND content_id='content:one';
+            """)
 
 
 if __name__ == "__main__":

@@ -157,6 +157,95 @@ WHERE member.collection_id=:'collection_id'
   AND member.status='INCLUDED';
 """.strip()
 
+# Drill from an INCLUDED Collection member to one exact written Capture Passage
+# and the persisted Statement→Claim Candidate chain. A passage's Capture and
+# Content are checked by SQL joins, never by trusting caller-provided IDs.
+# Selecting projected IDs/hashes only is deliberate: no private wording, URL,
+# model output, source metadata or reviewer receipts reach this read path.
+_COLLECTION_PASSAGE_CANDIDATES_SQL = """
+SELECT json_build_object(
+    'collection_id', member.collection_id,
+    'collection_state', collection.status,
+    'content_id', content.id, 'source_id', content.source_id,
+    'source_exists', (source.id IS NOT NULL),
+    'rights_status', content.rights_status,
+    'processing_status', content.processing_status,
+    'capture_id', capture.id, 'capture_sha256', capture.content_sha256,
+    'capture_state', capture.status, 'capture_hold_state', capture.hold_status,
+    'passage_id', passage.id, 'passage_hash', passage.text_sha256,
+    'selector_type', passage.selector_type,
+    'start_char', passage.start_char, 'end_char', passage.end_char,
+    'page_start', passage.page_start, 'page_end', passage.page_end,
+    'cursor_valid', (:'after_statement_id'='' OR EXISTS (
+        SELECT 1 FROM statement_candidate anchor
+        JOIN statement_candidate_passage cursor_link
+          ON cursor_link.statement_candidate_id=anchor.id
+         AND cursor_link.content_id=content.id
+         AND cursor_link.passage_id=passage.id
+        WHERE anchor.content_id=content.id
+          AND anchor.id=:'after_statement_id'
+    )),
+    'candidates', (
+        SELECT coalesce(json_agg(json_build_object(
+            'id', selected.id, 'content_id', selected.content_id,
+            'status', selected.status, 'speaker_person_id', selected.speaker_person_id,
+            'statement_text_hash', selected.statement_text_hash,
+            'claim_count', (
+                SELECT count(*) FROM claim_candidate claim_count
+                WHERE claim_count.statement_candidate_id=selected.id
+                  AND claim_count.content_id=content.id
+            ),
+            'claim_candidates', (
+                SELECT coalesce(json_agg(row_to_json(item) ORDER BY item.id), '[]'::json)
+                FROM (
+                    SELECT claim_candidate.id, claim_candidate.content_id,
+                           claim_candidate.statement_candidate_id,
+                           claim_candidate.status, promoted.id AS promoted_claim_id,
+                           promotion.id AS promotion_id
+                    FROM claim_candidate claim_candidate
+                    LEFT JOIN atomic_claim promoted
+                      ON promoted.id=claim_candidate.promoted_claim_id
+                     AND promoted.content_id=content.id
+                    LEFT JOIN claim_candidate_promotion promotion
+                      ON promotion.claim_candidate_id=claim_candidate.id
+                     AND promotion.target_claim_id=promoted.id
+                    WHERE claim_candidate.statement_candidate_id=selected.id
+                      AND claim_candidate.content_id=content.id
+                    ORDER BY claim_candidate.id
+                    LIMIT 5
+                ) item
+            )
+        ) ORDER BY selected.id), '[]'::json)
+        FROM (
+            SELECT candidate.id, candidate.content_id, candidate.status,
+                   candidate.speaker_person_id, candidate.statement_text_hash
+            FROM statement_candidate_passage link
+            JOIN statement_candidate candidate
+              ON candidate.id=link.statement_candidate_id
+             AND candidate.content_id=link.content_id
+            WHERE link.content_id=content.id
+              AND link.passage_id=passage.id
+              AND candidate.id > :'after_statement_id'
+            ORDER BY candidate.id
+            LIMIT :'limit'::integer
+        ) selected
+    )
+)::text
+FROM research_collection_content member
+JOIN research_collection collection ON collection.id=member.collection_id
+JOIN content_item content ON content.id=member.content_id
+LEFT JOIN source source ON source.id=content.source_id
+JOIN content_capture capture ON capture.content_id=content.id
+JOIN passage passage ON passage.content_id=content.id
+                    AND passage.capture_id=capture.id
+WHERE member.collection_id=:'collection_id'
+  AND member.content_id=:'content_id'
+  AND member.status='INCLUDED'
+  AND capture.id=:'capture_id'
+  AND passage.id=:'passage_id'
+  AND passage.selector_type IN ('TEXT_POSITION', 'PAGE_RANGE');
+""".strip()
+
 _CLAIM_PROVENANCE_SQL = """
 SELECT json_build_object(
     'collection_id', member.collection_id,
@@ -491,6 +580,141 @@ class StudioOperatorQueues(PsqlRuntime):
             "claims": output_claims, "next_after_claim_id": last_id if len(output_claims) == limit else None,
             "blockers": blockers, "private_only": True,
             "capture_authorized": False, "publication_authority": False,
+        }
+
+    def inspect_collection_passage_candidates(
+        self, *, collection_id: str, content_id: str, capture_id: str,
+        passage_id: str, limit: int = 20, after_statement_id: str | None = None,
+    ) -> dict[str, object]:
+        """Bounded, exact persisted collection→source→capture→passage→candidates.
+
+        This is an opt-in private reader seam; it does not create an HTTP route,
+        grant source preview rights or resolve candidate review/promotion authority.
+        Written passages have a Capture ID; Content-scoped media segments use
+        the separately bound Studio canonical media selector reader.
+        """
+        collection_id = _id(collection_id, "COLLECTION_ID")
+        content_id = _id(content_id, "CONTENT_ID")
+        capture_id = _id(capture_id, "CAPTURE_ID")
+        passage_id = _id(passage_id, "PASSAGE_ID")
+        limit, cursor = _pagination(limit, after_statement_id)
+        try:
+            row = _record(self.run(
+                _COLLECTION_PASSAGE_CANDIDATES_SQL,
+                collection_id=collection_id, content_id=content_id,
+                capture_id=capture_id, passage_id=passage_id,
+                after_statement_id=cursor, limit=limit,
+            ))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_RESULT_INVALID") from None
+        except Exception:
+            raise RuntimeError("STUDIO_COLLECTION_PASSAGE_STORE_UNAVAILABLE") from None
+        if row is None:
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_NOT_INCLUDED")
+        if (row.get("collection_id") != collection_id
+                or row.get("content_id") != content_id
+                or row.get("capture_id") != capture_id
+                or row.get("passage_id") != passage_id
+                or row.get("collection_state") not in _COLLECTION_STATES
+                or not isinstance(row.get("source_exists"), bool)):
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_BINDING_INVALID")
+        if cursor and row.get("cursor_valid") is not True:
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_CURSOR_SCOPE_INVALID")
+        source = _optional_id(row.get("source_id"), "SOURCE_ID")
+        if bool(source) != row["source_exists"]:
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_SOURCE_INVALID")
+        rights = _safe_state(row.get("rights_status"), "RIGHTS_STATUS")
+        processing = _safe_state(row.get("processing_status"), "PROCESSING_STATUS")
+        capture_state = _safe_state(row.get("capture_state"), "CAPTURE_STATE")
+        capture_hold = _safe_state(row.get("capture_hold_state"), "CAPTURE_HOLD")
+        if capture_state not in {"CAPTURED", "QUARANTINED", "PURGE_PENDING", "PURGED_BODY"} or capture_hold not in {
+            "NONE", "LEGAL_HOLD", "RIGHTS_HOLD", "PRIVACY_HOLD", "COPYRIGHT_HOLD", "DISPUTE_HOLD",
+        }:
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_CAPTURE_STATE_INVALID")
+        capture_hash = _hash(row.get("capture_sha256"), "CAPTURE_HASH")
+        passage_hash = _hash(row.get("passage_hash"), "PASSAGE_HASH")
+        selector = row.get("selector_type")
+        if selector not in {"TEXT_POSITION", "PAGE_RANGE"}:
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_SELECTOR_INVALID")
+        start, end = (_position(row.get(k), k.upper()) for k in ("start_char", "end_char"))
+        page_start, page_end = (_position(row.get(k), k.upper()) for k in ("page_start", "page_end"))
+        if ((selector == "TEXT_POSITION" and (start is None or end is None or end <= start
+                                              or page_start is not None or page_end is not None))
+                or (selector == "PAGE_RANGE" and (page_start is None or page_start < 1
+                                                   or page_end is None or page_end < page_start
+                                                   or start is not None or end is not None))):
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_RANGE_INVALID")
+        candidates = row.get("candidates")
+        if not isinstance(candidates, list) or len(candidates) > limit:
+            raise ValueError("STUDIO_COLLECTION_PASSAGE_CANDIDATE_PAGE_INVALID")
+        emitted = []
+        previous = cursor
+        for item in candidates:
+            if not isinstance(item, dict):
+                raise ValueError("STUDIO_COLLECTION_PASSAGE_CANDIDATE_ROW_INVALID")
+            stmt_id = _id(item.get("id"), "STATEMENT_ID")
+            if item.get("content_id") != content_id or stmt_id <= previous:
+                raise ValueError("STUDIO_COLLECTION_PASSAGE_CANDIDATE_BINDING_INVALID")
+            state = _safe_state(item.get("status"), "STATEMENT_STATE")
+            if state not in {"CANDIDATE", "APPROVED", "REJECTED", "HELD", "SUPERSEDED"}:
+                raise ValueError("STUDIO_COLLECTION_PASSAGE_CANDIDATE_STATE_INVALID")
+            child_count = _count(item.get("claim_count"), "CLAIM_COUNT")
+            children = item.get("claim_candidates")
+            if not isinstance(children, list) or len(children) > 5 or len(children) > child_count:
+                raise ValueError("STUDIO_COLLECTION_PASSAGE_CLAIMS_INVALID")
+            emitted_children = []
+            child_previous = ""
+            for child in children:
+                if not isinstance(child, dict):
+                    raise ValueError("STUDIO_COLLECTION_PASSAGE_CLAIM_INVALID")
+                claim_id = _id(child.get("id"), "CLAIM_CANDIDATE_ID")
+                if (claim_id <= child_previous or child.get("content_id") != content_id
+                        or child.get("statement_candidate_id") != stmt_id):
+                    raise ValueError("STUDIO_COLLECTION_PASSAGE_CLAIM_BINDING_INVALID")
+                child_state = _safe_state(child.get("status"), "CLAIM_CANDIDATE_STATE")
+                if child_state not in {"CANDIDATE", "DUPLICATE", "PROMOTED", "REJECTED", "HELD"}:
+                    raise ValueError("STUDIO_COLLECTION_PASSAGE_CLAIM_STATE_INVALID")
+                promoted = _optional_id(child.get("promoted_claim_id"), "PROMOTED_CLAIM_ID")
+                promotion = _optional_id(child.get("promotion_id"), "PROMOTION_ID")
+                if (child_state == "PROMOTED") != bool(promoted and promotion) or bool(promoted) != bool(promotion):
+                    raise ValueError("STUDIO_COLLECTION_PASSAGE_PROMOTION_PROOF_INVALID")
+                emitted_children.append({
+                    "id": claim_id, "status": child_state,
+                    "recorded_promoted_claim_id": promoted, "promotion_receipt_id": promotion,
+                    "promotion_authority_evaluated": False,
+                })
+                child_previous = claim_id
+            emitted.append({
+                "id": stmt_id, "status": state,
+                "speaker_person_id": _optional_id(item.get("speaker_person_id"), "SPEAKER_ID"),
+                "statement_text_hash": _hash(item.get("statement_text_hash"), "STATEMENT_HASH"),
+                "claim_candidate_count": child_count, "claim_candidates": emitted_children,
+                "claim_candidates_truncated": child_count > len(emitted_children),
+                "review_authority_evaluated": False,
+            })
+            previous = stmt_id
+        blockers = ["REVIEW_AUTHORITY_NOT_EVALUATED"]
+        if rights != "APPROVED":
+            blockers.append("CONTENT_RIGHTS_NOT_APPROVED")
+        if processing != "READY":
+            blockers.append("CONTENT_NOT_READY")
+        if capture_state != "CAPTURED" or capture_hold != "NONE":
+            blockers.append("CAPTURE_NOT_READY_FOR_REVIEW")
+        return {
+            "contract_version": STUDIO_QUEUES_VERSION,
+            "private_only": True, "rights_clearance": False,
+            "review_authority_evaluated": False, "publication_authority": False,
+            "collection_id": collection_id, "collection_state": row["collection_state"],
+            "content_id": content_id, "source_id": source, "source_exists": row["source_exists"],
+            "rights_status": rights, "processing_status": processing,
+            "capture_id": capture_id, "capture_sha256": capture_hash,
+            "capture_state": capture_state, "capture_hold_state": capture_hold,
+            "passage": {"id": passage_id, "text_sha256": passage_hash, "selector_type": selector,
+                        "start_char": start, "end_char": end,
+                        "page_start": page_start, "page_end": page_end},
+            "candidates": emitted,
+            "next_after_statement_id": previous if len(emitted) == limit else None,
+            "blockers": blockers,
         }
 
     def inspect_claim_provenance(

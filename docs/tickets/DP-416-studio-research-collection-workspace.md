@@ -207,3 +207,68 @@ dependency closure. No code outside the three DP-416-owned files was edited.
 Capture/Passage/Candidate chain, and keyboard/color-independent hierarchy,
 large-corpus performance, reviewed membership actions, rights decisions and
 full MiniPC acceptance still require their own proof.
+
+### 2026-10-11 — persisted Collection→Capture→Passage→Candidate private readback (new local seam)
+
+`StudioOperatorQueues.inspect_collection_passage_candidates` now provides a
+**functional, optional, read-only** drill-down for a real **INCLUDED** Collection
+member, exact Content/Source ID, immutable *written* Capture SHA-256/ID,
+persisted Passage selector/hash, linked Statement Candidate IDs, and their
+Claim Candidate IDs/statuses. Where a Claim Candidate is `PROMOTED`, it reports
+the associated Atomic Claim ID **only if** both the persisted same-Content
+claim and corresponding `claim_candidate_promotion` ledger receipt are joined;
+neither that status nor the receipt is asserted to grant editor/reviewer or
+publication authority. The PostgreSQL join checks membership, Capture→Content,
+Passage→Capture/Content, Statement Candidate→Passage/Content and Claim
+Candidate→Statement/Content in one DB statement. This is distinct from the
+earlier cross-parent cursor proof; the **new** scope is a full candidate
+navigation path, not only pagination validation.
+
+The response projects only bounded audit **IDs, hashes, selector coordinates,
+persisted states and reason codes**. Statement Candidate pages are keyset-
+paginated by exact Passage at 1–30 rows; at most five Claim Candidate IDs are
+shown per Statement with the exact persisted count and `truncated` flag when
+more exist. The supplied Statement cursor is checked as an existing Passage
+link in the same SQL read snapshot. No title, private passage/source text,
+canonical or final URL, body ref, provider receipt, actor identity, arbitrary
+JSON metadata, score, or model-generated description is read or returned.
+Rights/process/capture holds stay visible by state/blocker only, and
+`rights_clearance`, `review_authority_evaluated`, `publication_authority`
+and per-claim promotion authority remain **false**, even with `APPROVED`
+record states. `MEDIA_SEGMENT_REF` remains the separately governed canonical
+segment lookup (logical Content, not immutable Capture) and is deliberately
+not reinterpreted as a versioned written Passage.
+
+**RED→GREEN evidence:** two new tests were RED with missing
+`inspect_collection_passage_candidates`; implementation turned them GREEN.
+The concrete PostgreSQL acceptance initializes a **disposable** `schema.v1.sql`
+cluster and real synthetic `research:pilot` Collection membership, Source,
+Capture, two written Passages, Statement→Passage edges, paginated Statements,
+Claim Candidates and one promotion with an actual persisted promotion receipt.
+It verifies source/Capture/Passage/claim navigation and keyset follow-up,
+cross-Collection/Content/Capture/Passage refusal, foreign cursor rejection,
+membership revocation between reads, rights revocation without implicit
+clearance, and absence of secret text/URLs. Forged in-memory rows additionally
+exercise cross-claim identity, invalid selector/hash/state, missing promotion
+receipt, bounded pagination and sanitization of PostgreSQL error text. The
+existing local `_StudioQueueReader` automatically inherits this method and
+the transaction-read-only database adapter; there is **no** new HTTP endpoint
+or browser route and no edit to `studio_local_api.py`.
+
+Mac source-only adjacent proof: `PYTHONPATH=poc python3 -m unittest
+tests.test_studio_operator_queues tests.test_studio_local_api
+tests.test_studio_capture_selectors_pg -q` **43/43 PASS** at the first
+post-implementation checkpoint, with an additional focused negative round
+subsequently added. No full-suite or MiniPC runtime acceptance claimed. Ruff
+lint, Python compilation and scoped `git diff --check` pass. Ruff format's
+baseline check already fails for both historical source/test files at HEAD;
+mass reformatting these unrelated areas is intentionally avoided.
+
+**Original AC-416.1–.4 remain OPEN.** Real Garlasco still lacks persisted
+Capture/Passage/Candidate rows: the PostgreSQL fixture is an isolated test,
+**not** live case evidence. A private Studio operator UI/API wiring, human
+keyboard/color-independent/zoom acceptance, large-production-corpus
+performance, production MiniPC snapshot and separately reviewed membership /
+source-rights decisions are still required. No approval, promotion, database
+schema mutation, provider query, production change, push or deployment occurs
+through this seam.
