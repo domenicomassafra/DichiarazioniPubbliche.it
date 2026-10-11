@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validatePublicStatementV3Detail } from "../src/lib/statementV3Api.ts";
+import { canonicalJson } from "../src/lib/searchIndex.ts";
 
 // Backend-owned synthetic fixture, never a real-source publication or a web route.
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -21,7 +22,15 @@ const run = spawnSync("python3", ["-c", source], {
 });
 assert.equal(run.status, 0, `synthetic API detail fixture failed: ${run.stderr}`);
 const { detail, v2 } = JSON.parse(run.stdout);
-const allowed = { allowStatementV3: true, expectedDatasetSha256: detail.meta.dataset_sha256 };
+// The record pin represents a separately verified approved-bundle entry.
+// It must NEVER be recalculated from a candidate API payload in production.
+const recordDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(detail.data)));
+const approvedRecordSha256 = Buffer.from(recordDigest).toString("hex");
+const allowed = {
+  allowStatementV3: true,
+  expectedDatasetSha256: detail.meta.dataset_sha256,
+  expectedRecordSha256: approvedRecordSha256,
+};
 const read = (payload, options = allowed) => validatePublicStatementV3Detail(payload, options);
 const corrupt = (change) => {
   const value = structuredClone(detail);
@@ -31,6 +40,7 @@ const corrupt = (change) => {
 
 await assert.rejects(read(detail, { ...allowed, allowStatementV3: false }), /OPT_IN/);
 await assert.rejects(read(detail, { allowStatementV3: true }), /FINGERPRINT/);
+await assert.rejects(read(detail, { allowStatementV3: true, expectedDatasetSha256: detail.meta.dataset_sha256 }), /FINGERPRINT/);
 await assert.rejects(read(detail, { ...allowed, expectedDatasetSha256: "f".repeat(64) }), /FINGERPRINT/);
 await assert.rejects(read({ meta: { public_schema_version: v2.schema_version }, data: detail.data }), /FIELDS|FINGERPRINT|SCHEMA/);
 assert.deepEqual((await read(detail)).data, detail.data, "a governed v3 API detail must survive unmodified");
@@ -52,6 +62,8 @@ for (const [reason, modify] of [
   ["translation in source text position", (v) => { v.data.original.text = v.data.translation.text; }],
   ["swapped original span", (v) => { v.data.original.locator.end_char += 1; }],
   ["source kind spoofed", (v) => { v.data.source.kind = "TIMED"; }],
+  ["source URL silently re-bound under an unchanged dataset fingerprint", (v) => { v.data.source.url = "https://another-source.example/document"; }],
+  ["source hash silently re-bound under an unchanged dataset fingerprint", (v) => { v.data.source.sha256 = "d".repeat(64); }],
   ["falsified endorsed reported quote", (v) => { v.data.speech_act = "REPORTED_QUOTE"; v.data.endorsed = true; }],
   ["unexpected API version", (v) => { v.meta.public_schema_version = "dichiarazioni-pubbliche-public-v2"; }],
   ["index-style record as detail", (v) => { v.data = { title: "claim", statement_id: "statement:1" }; }],
@@ -76,7 +88,7 @@ async function fixtureBuild(apiDetail, enabled, output) {
     'import detail from "../../detail.json";',
     "---",
     "<html lang=\"it\"><body>",
-    `<VerbatimStatementRecord apiDetail={detail} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(detail.meta.dataset_sha256)} />`,
+    `<VerbatimStatementRecord apiDetail={detail} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(detail.meta.dataset_sha256)} expectedRecordSha256=${JSON.stringify(approvedRecordSha256)} />`,
     "</body></html>",
   ].join("\n");
   await writeFile(join(temp, "src/pages/index.astro"), page);

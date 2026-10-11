@@ -69,6 +69,15 @@ reader+withdrawal. AC-436.1–.4 remain OPEN and ticket IN PROGRESS.
 
 ## 2026-10-11 — Opt-in frontend detail API → exact-wording Astro consumer
 
+The follow-up cross-review caught a previously accepted API record whose
+source URL and SHA-256 changed without changing the claimed dataset digest.
+The frontend now requires an independently pinned canonical API-record digest
+as well as the separately pinned dataset digest. This new negative test was
+RED before the change and GREEN after; real isolated Astro rendering and
+type checking pass. A caller must derive both pins from trusted material,
+not from the response under inspection. Neither digest alone is a signature
+or permission to publish. All four original AC remain open.
+
 Source-only frontend slice adds `web/src/lib/statementV3Api.ts` to consume the
 existing backend's **separately opted-in** `get_public_statement_v3`
 `{meta,data}` detail. The validator requires `allowStatementV3: true`, an
@@ -83,7 +92,8 @@ source text.
 
 `VerbatimStatementRecord.astro` now accepts this payload as a separate
 `apiDetail` prop, requiring an explicit opt-in and independently pinned
-`expectedDatasetSha256`. Its existing governed source-record input remains
+`expectedDatasetSha256` and a separate `expectedRecordSha256` pinned from an
+independently verified approved bundle. Its existing governed source-record input remains
 supported but simultaneous or missing inputs are rejected. A new isolated
 `web/scripts/check-statement-v3-api.mjs` pulls synthetic-only data directly
 through the existing Python v3 API serializer, then proves the exact quote,

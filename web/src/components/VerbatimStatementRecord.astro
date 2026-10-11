@@ -8,8 +8,10 @@ interface Props {
   apiDetail?: unknown;
   allowStatementV3?: boolean;
   expectedDatasetSha256?: string;
+  /** Must be pinned from an independently verified approved public bundle. */
+  expectedRecordSha256?: string;
 }
-const { statement: input, apiDetail, allowStatementV3, expectedDatasetSha256 } = Astro.props;
+const { statement: input, apiDetail, allowStatementV3, expectedDatasetSha256, expectedRecordSha256 } = Astro.props;
 const apiMode = apiDetail !== undefined;
 if (apiMode === (input !== undefined)) {
   throw new Error("PUBLIC_STATEMENT_CONSUMER_INPUT_AMBIGUOUS");
@@ -17,7 +19,7 @@ if (apiMode === (input !== undefined)) {
 // A v3 API serializer excludes private review IDs: do not invent them to pass
 // the source-record validator. Verify the API's separate, explicit contract.
 const api = apiMode
-  ? await validatePublicStatementV3Detail(apiDetail, { allowStatementV3, expectedDatasetSha256 })
+  ? await validatePublicStatementV3Detail(apiDetail, { allowStatementV3, expectedDatasetSha256, expectedRecordSha256 })
   : null;
 const record = api?.data;
 // Neither old v2 dossiers nor API paraphrase cards can become original words.

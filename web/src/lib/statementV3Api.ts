@@ -5,6 +5,7 @@
  * independently from the payload they are reading.
  */
 import { PUBLIC_STATEMENT_V3_SCHEMA, type StatementSpeechAct } from "./statementV3.ts";
+import { canonicalJson } from "./searchIndex.ts";
 
 export interface PublicStatementV3ApiRecord {
   statement_id: string;
@@ -80,11 +81,14 @@ async function digest(value: string): Promise<string> {
 
 export async function validatePublicStatementV3Detail(
   value: unknown,
-  options: { allowStatementV3?: boolean; expectedDatasetSha256?: string },
+  options: { allowStatementV3?: boolean; expectedDatasetSha256?: string; expectedRecordSha256?: string },
 ): Promise<PublicStatementV3ApiDetail> {
   if (options.allowStatementV3 !== true) throw new Error("PUBLIC_STATEMENT_API_OPT_IN_REQUIRED");
   if (!HASH.test(options.expectedDatasetSha256 ?? "")) {
     throw new Error("PUBLIC_STATEMENT_API_FINGERPRINT_REQUIRED");
+  }
+  if (!HASH.test(options.expectedRecordSha256 ?? "")) {
+    throw new Error("PUBLIC_STATEMENT_API_RECORD_FINGERPRINT_REQUIRED");
   }
   exactFields(value, ["meta", "data"]);
   const meta = value.meta;
@@ -163,6 +167,13 @@ export async function validatePublicStatementV3Detail(
         ))) {
       throw new Error("PUBLIC_STATEMENT_API_DERIVATION_INVALID");
     }
+  }
+  // A dataset digest carried by the API detail is only a *claim*: it cannot
+  // prove that this particular record belongs to the approved snapshot.
+  // Require a separately pinned digest from a trusted, verified bundle read.
+  // Never accept a digest derived from this untrusted API response itself.
+  if (await digest(canonicalJson(record)) !== options.expectedRecordSha256) {
+    throw new Error("PUBLIC_STATEMENT_API_RECORD_FINGERPRINT_MISMATCH");
   }
   return value as unknown as PublicStatementV3ApiDetail;
 }
