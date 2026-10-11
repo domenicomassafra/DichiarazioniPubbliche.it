@@ -95,3 +95,95 @@ opinion-only/approved-zero v3 membership. Source rights and publication
 approval, real revocation readback, responsive VoiceOver/manual acceptance,
 MiniPC release convergence and full original quotation/locator acceptance
 remain external to this slice. **All AC-439.1–.7 stay unchecked; IN PROGRESS.**
+
+## 2026-10-11 — First-class v3 Person × Topic original-opinion join (source-only)
+
+New opt-in pure offline module `public_person_topic_v3.py` with adversarial
+`tests/test_dp439_person_topic_v3.py` establishes a **functional**
+first-class Statement join without inventing a Topic classification from
+quotation text, source title, a matching Person name, or old v2
+Finding memberships. It consumes three deliberately independent inputs:
+
+1. A schema-validated published v3 original-Statement bundle, with an
+   **independently supplied current public release SHA-256**;
+2. The separately reviewed v3 `PublicPerson` read collection, with its
+   own independently supplied current release SHA-256, exact stable
+   Person ID and a matching *published* Statement/version/source/locator
+   membership;
+3. A private upstream manifest of per-(Statement ID, version, Topic ID)
+   `ReviewedTopicMembership` decisions, with its own independently
+   supplied **current manifest SHA-256**, immutable membership ID and
+   revision, status, independent review event, exact public
+   source/quote/Content/Person/dataset hashes, reviewed Topic identity
+   version, plus time-bounded approval and currentness.
+
+The Topic identity must be present in the public first-class `topics`
+collection already validated in the **same pinned Statement bundle**.
+Its existing v2 Finding-based memberships do not grant v3 Statement
+membership. The upstream review issuer, release manifest publication,
+signature/authenticity, and independent topic semantic determination
+**do not exist within this module**: locally computed hashes never
+assert or renew rights. They are compared against expected digests
+which a real authenticated operator must obtain out-of-band. A
+misleading or self-minted approval is not a real publication receipt.
+
+The materializer emits a deterministic precomputed DTO of **endorsed
+OPINION** Statement intersections with stable Person/Topic/Statement
+routes, chronological date, exact original wording, language, quote
+SHA, source SHA/version, literal source locator, nullable `finding_id`,
+plus a disclosed limited-corpus coverage note. It never includes
+private review events, nonpublic membership counts, or person-level
+scores/verdicts. An independently approved membership can attach
+multiple Topics to one Statement, but reported/critical/ironic speech,
+unendorsed opinions, unknown Person identities, withheld original
+Statements and held/revoked/expired topic decisions produce **no**
+endorsed intersection. A later revision with `HELD`/`REVOKED` wins;
+duplicated/conflicting revisions and reused approval events fail
+closed, including reuse of a Statement source gate or Topic identity
+review for the distinct Topic-membership decision.
+
+`filter_public_person_topic_v3` implements exact, composable
+Person+Topic ID intersection over the immutable pinned read model,
+without a per-request provider/semantic query. The materialization
+fingerprint binds its source/Person release hashes, public rows,
+coverage and observable status/count; query requires an independent
+expected read-model hash. It distinguishes `READY`,
+`EMPTY_PUBLIC_CORPUS`, `EMPTY_PUBLIC_INTERSECTION`, and `NO_MATCH`
+without revealing whether a private record or membership exists.
+Revocation or Topic/identity withdrawal on an approved rebuilt public
+snapshot omits affected entries; an old source/current-fingerprint
+mismatch refuses reuse instead of serving stale text.
+
+Synthetic TDD: initial module absence was **RED**; 8 new integrated
+tests **GREEN** cover two homonymous approved people with distinct
+stable IDs, similar Topic labels/IDs, one-to-many reviewed membership,
+two dated opinion-only Statements for the same intersection,
+no Finding or false verdict, exact original source and route,
+reordered replay stability, reviewed revision and source rights
+withdrawal, missing Topic or Person, changed quote/source/version,
+forged self-rehashed public bundle, expired/old/duplicate review,
+private/unendorsed speech, and observable empty-state/hash tampering.
+Adjacent DP-435/436/437/438/440 backend suites: **73/73 PASS**;
+deterministic benchmark: **5/5 PASS**; Ruff, targeted compileall
+and `git diff --check`: **PASS**. No provider, HTTP route, writer,
+frontend, MiniPC, production, commit or push was invoked.
+
+**DP-439 stays IN PROGRESS; original AC-439.1–.7 all remain
+unchecked.** The above is partial local source-level evidence
+for AC-439.1/.2/.3/.4/.6/.7, not production acceptance.
+Real independently authorized Topic classifications and release
+currentness issuer, public Person/Topic versioned storage, cross-format
+HTML/API/search/index/URL parity, atomic revoke-cache invalidation,
+mobile VoiceOver/keyboard/zoom, realistic coverage measurements and
+MiniPC positive/negative readback are still required. AC-439.5 has
+no completion evidence in this source-only tranche.
+
+Broader full-repository `python3 -m unittest discover -s tests -q`
+was also attempted but **not completed**: after over two minutes it
+remained in an unrelated PostgreSQL rights-complaint persistence test
+(`tests/test_reply_governance_postgres.py`) awaiting a subprocess;
+the specific test process was interrupted to avoid contention with
+parallel workers. Its incidental resource warnings and interruption
+are not reported as DP-439 test failures or as a full-suite PASS.
+The focused and adjacent suite results above are the actual verified
+success criteria for this isolated tranche.
