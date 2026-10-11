@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dichiarazioni_pubbliche.historical_batch_gate_v1 import CompletedCapture
 from dichiarazioni_pubbliche.historical_batch_checkpoint_store import SQLiteHistoricalCheckpointStore
+from tests.test_dp516_historical_batch_gate import plan
 
 
 class DurableCheckpointTests(unittest.TestCase):
@@ -74,6 +75,30 @@ class DurableCheckpointTests(unittest.TestCase):
             with self.assertRaises(sqlite3.DatabaseError):
                 conn.execute("DELETE FROM historical_checkpoint_version")
         self.assertEqual(self.first.revision_count(self.batch), 1)
+
+    def test_persisted_checkpoint_replays_into_real_batch_planner_and_stale_fails(self):
+        planned = plan()
+        proposal = planned.proposals[0]
+        capture = CompletedCapture(
+            proposal.item_key, proposal.person_id, proposal.content_id,
+            proposal.source_family, proposal.capture_sha256, "f" * 64,
+        )
+        saved = self.first.commit_capture(
+            batch_id=planned.batch_id, manifest_fingerprint=planned.manifest_fingerprint,
+            expected_revision=0, capture=capture, verify_persisted_capture=lambda row: row == capture,
+        )
+        held = plan(checkpoint=saved)
+        self.assertIn("CHECKPOINT_EXTERNAL_TRUST_REQUIRED", held.holds)
+        resumed = plan(checkpoint=self.other.read(planned.batch_id),
+                       verify_checkpoint=self.other.verify_current)
+        self.assertEqual(resumed.status, "PRIVATE_REVIEW_PLAN")
+        self.assertIn(capture.item_key, resumed.completed_keys)
+        self.assertEqual(len(resumed.proposals), len(planned.proposals) - 1)
+        self.assertFalse(resumed.dispatch_authorized)
+        self.assertFalse(resumed.pilot_accepted_by_system)
+        # A source-only journal callback never serves as publication authority.
+        wrong = self.other.verify_current(saved, "batch:foreign")
+        self.assertFalse(wrong)
 
 
 if __name__ == "__main__":

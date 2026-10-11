@@ -149,3 +149,14 @@ pilot, download archival sources or publish any result. Multi-person real
 German/Italian source/attribution acceptance, production transactional
 budget coordination, source-revocation readbacks, MiniPC and release remain
 OPEN. **DP-516 stays IN PROGRESS, AC-516.1–.6 unchecked, release NO-GO.**
+
+Follow-up functional adapter: `verify_current(checkpoint, batch_id)` reads
+the journal's exact current immutable revision for the **existing**
+`plan_historical_batch(verify_checkpoint=...)` callback. An independent
+end-to-end synthetic test now persists a first Capture, restarts/readbacks
+via the other SQLite connection and confirms the real DP-516 planner
+excludes exactly that completed work item, retains the remaining proposal
+and still reports `dispatch_authorized=false`; the same checkpoint without
+the verifier is held. **24/24 DP-516 focused tests PASS**. This proves real
+local resume integration, **not** an external signer: the underlying
+capture-receipt verifier and DP-443 pilot authority remain absent.

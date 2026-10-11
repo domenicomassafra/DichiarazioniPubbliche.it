@@ -151,5 +151,16 @@ class SQLiteHistoricalCheckpointStore:
                 (batch_id,),
             ).fetchone()[0])
 
+    def verify_current(self, checkpoint: BatchCheckpoint, batch_id: str) -> bool:
+        """Local durable consistency adapter for DP-516 planner callback.
+
+        This does NOT attest real captured bytes, operator trust, rights or
+        production authority. A trusted external ledger must separately verify
+        the receipts before this local journal can be used in a real workflow.
+        """
+        if not isinstance(checkpoint, BatchCheckpoint) or checkpoint.batch_id != batch_id:
+            return False
+        return self.read(batch_id) == checkpoint
+
 
 __all__ = ["SQLiteHistoricalCheckpointStore"]
