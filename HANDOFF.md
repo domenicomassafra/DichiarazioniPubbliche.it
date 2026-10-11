@@ -3,6 +3,21 @@
 **Checkpoint operativo aggiornato:** 11 ottobre 2026. Questo documento è la porta di ingresso operativa,
 non una seconda fonte di verità per i ticket o una certificazione di release.
 
+**Quinta tranche source-only 2026-10-11 (codice già committato, no push):**
+DP-240 `cafe1e1` e test correttivo `100a1dd` (batch candidati privati
+multi-Person, integrità plan e separazione dei Passage), DP-314 `adedac9`
+(profili e preflight di requisiti di prova, nessun verdetto), DP-241 `2451869`
+(piano di recupero della fonte originale con metodi distinti, tentativi
+idempotenti e controllo lineage/diritti/costi, senza ricerche reali).
+Test nuovi 15+10+16 PASS; suite Python integrata **2662/2662 PASS**
+in due run (168.700 s e 166.154 s) con restore drill PASS, benchmark
+5/5 PASS. `219592e` contiene solo normalizzazione di formattazione,
+con lint/formatter verdi e test DP-240/314 riconfermati. La review
+della wave registra prove e limiti dopo l'hardening finale DP-241.
+Registro ticket **162: 90 DONE, 43 IN PROGRESS, 6 BLOCKED, 23 FUTURE**;
+allineamento PLAN PASS, **NO-GO 49 blockers**. Restano non assolte tutte
+le AC che chiedono prove autentiche, diritti, MiniPC, Studio e DP-443.
+
 ## Implementazione autorizzata il 2026-10-11 — source-only, NO-GO produzione
 
 Il mandato precedente di pianificazione (Q19, 10 ottobre) è stato completato.
@@ -95,19 +110,22 @@ provider pagato è stato usato da questa implementazione.
 - **HTTPS:** online, ma risposta verificata il 10 ottobre segnalava file datati 7 ottobre: GitHub push e deploy web **non sono la stessa cosa**.
 - **Runtime autorevole:** MiniPC, mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; PostgreSQL `dichiarazioni_pubbliche`. Non inferire deploy MiniPC da un nuovo SHA Git.
 
-## Prossimo ciclo: backlog post-grilling, senza implementazione
+## Storico: mandato iniziale post-grilling, solo documentazione (superato)
 
 **Risposte definitive registrate:** dichiarazioni pubbliche con parole esatte,
 mai parafrasi sostitutive; riassunti separati; vista Persona × Tema con filtri
 incrociati e sintesi citate; forte automazione anche sui documenti processuali;
 più persone e lingue; storico permanente; continuità di fonti/temi ed eventi.
 L'owner sceglierà il redesign. Autonomia finale di fact-check e futura pubblicazione
-è il target dopo validation, non un gate runtime già attivato. L'ultima Q19
-autorizza **solo creazione/modifica/aggiornamento dei ticket e documenti di piano**.
-Nessuna implementazione, quota trial, bulk capture, automazione o deploy ora.
+è il target dopo validation, non un gate runtime già attivato. La decisione Q19
+del 10 ottobre autorizzava **solo la documentazione**; tale limite è stato
+esplicitamente sostituito il giorno successivo dall'ordine di implementare
+i ticket non manuali. Rimangono separatamente non autorizzati quota trial,
+bulk capture, automazione live, pubblicazione e deploy.
 
-Il prompt corrente è un solo handoff esterno; il coordinatore avvierà quattro
-worker tramite il tool nativo `agents`. Non sono quattro lanci manuali dell'owner.
+Quel prompt era un handoff documentale ormai eseguito; i worker che si
+riutilizzano nelle tranche di codice hanno ownership limitata e i loro
+risultati vanno sempre verificati sul repository prima di un commit.
 Le note e i vecchi prompt pre-grilling sotto restano fotografie storiche e non
 riaprono decisioni già risolte. Il checkpoint canonico è in PLAN.md.
 

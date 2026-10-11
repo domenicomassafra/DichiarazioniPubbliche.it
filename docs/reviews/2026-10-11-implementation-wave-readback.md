@@ -84,3 +84,19 @@ Important dependencies still open:
 No owner redesign has been chosen. No public feed, Google member account or
 remote privileged administration has been enabled. The 2026-10-10 planning
 packet response remains a separate untracked terminal file by design.
+
+## Fifth local source-only tranche — 2026-10-11
+
+Three bounded independent contracts, **none a complete ticket acceptance**:
+
+| Ticket | Local commit | Bounded source behavior |
+|---|---|---|
+| DP-240 | `cafe1e1`, test correction `100a1dd` | Multi-Person, multi-Content private candidate plan with per-Passage source hash/context/person candidate partition, quotes/homonyms HELD, bounded token proposals and fail-closed result/plan replay; no provider dispatch or attribution approval |
+| DP-314 | `adedac9` | Opt-in VerificationRequirementProfile preflight: source roots/roles/jurisdiction/cutoff and state separation for not-checked, nonfactual, unsupported, insufficient, conflicting and only pending verification; **never** a fact verdict |
+| DP-241 | `2451869` | Source-only original recovery planner with two independent authorized-method families, DP-237 selector/hash and reviewed-root candidate binding, rights/cost/outage/not-found/insufficient reconciliation, attempts and stale-version holds; no actual research |
+
+Local synthetic focused evidence: **DP-240 15/15** (plus existing private candidate batch **27/27**), **DP-314 10/10** (plus legacy verification **19/19**), **DP-241 16/16** (worker independently reported **58** related tests), `compileall` PASS. DP-241 result/plan checksum validation is a consistency check, not authentic review or upstream permission; the final reserved `dispatch_authorized=False` guard and adversarial test passed after the first integrated suite had already started.
+
+The first full Python suite covering this tranche finished **2662/2662 PASS in 168.700 s**, including isolated restore drill PASS; benchmark **5/5 PASS**, source contract PASS. The **second full Python suite** (after the final DP-241 authorization/tamper guard) finished **2662/2662 PASS in 166.154 s**, isolated restore drill PASS. `ruff check` PASS; final source/test formatting normalized in `219592e`, `ruff format --check` PASS; focused DP-240 **15/15** and DP-314 **10/10** reconfirmed after formatting. No frontend sources changed in wave5, so earlier web QA remains a previous checkpoint, not a new run.
+
+Ticket register/PLAN agree: **162 total, 90 DONE, 43 IN PROGRESS, 6 BLOCKED, 23 FUTURE, 72 not DONE**. Preflight correctly returned **NO-GO / 49 blockers**, dominated by legal/privacy Q-306, source rights/actual source pilot, reviewer and release artifacts. DP-443 remains an unperformed mandatory real, legally-cleared source→Capture→Passage→candidate→public read→correction/revocation MiniPC pilot. No actual source fetch, paid model, provider, DB mutation, owner redesign choice, public activation, push or deploy was performed. All new DP-240/241/314 acceptance boxes remain open awaiting real independently verified evidence.
