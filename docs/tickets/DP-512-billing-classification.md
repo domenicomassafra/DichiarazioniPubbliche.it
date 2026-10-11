@@ -138,3 +138,57 @@ authoritative invoice/usage API account-scope evidence and FX/provenance,
 durable append-only corrections and refunds, transactionally reserved budgets,
 actual provider-plan quota/local-energy observation, digest/worker parity,
 safe historic backfill preview and MiniPC isolated PostgreSQL replay.
+
+## 2026-10-12 — Canonical PostgreSQL provider-receipt CAS, disposable only
+
+Added an opt-in, deliberately **disposable-local-PostgreSQL-only** billing
+classification seam in `poc/dichiarazioni_pubbliche/ops/billing_pg_fence_v1.py`
+and 13 actual PG17 tests in `tests/test_dp512_billing_pg_fence_next.py`.
+The tests launch a temporary PostgreSQL server and apply the **full actual
+`db/schema.v1.sql`**, then insert canonical `provider_receipt` fixtures.
+An independent client reads the unchanged production-named canonical
+`provider_receipt` rows with `SELECT ... FOR UPDATE` and validates exact
+`(operation_key, attempt)` uniqueness. A private `dp512_pg_state` CAS row
+stores a fingerprint of all original receipt columns, and
+`dp512_pg_event` appends immutable classification/correction events under
+the same database transaction. Revision conflicts, same-event altered
+payload, changed canonical receipts and duplicate canonical logical attempts
+fail closed. A PostgreSQL trigger prevents rewriting or deleting original
+classification events. This adapter does **not** alter canonical receipt
+rows, install a real migration or create a worker/provider bill.
+
+For a canonical `UNKNOWN` attempt with zero estimated ceiling, the
+result remains `UNPRICED` with no measured charge or dispatch authority;
+zero-valued `ESTIMATED_ONLY` is **still an estimate**. A canonical
+`MEASURED_PROVIDER_COST` requires the exact recorded amount and a
+source-reference token, but the reference is only locally supplied: the
+result is `RECORDED_MEASURED_UNVERIFIED`, with `invoice_attested=false`.
+The source-reference token is not emitted; a checksum is retained privately.
+`EXTERNAL_PLAN` retains unknown bill and independent unknown energy:
+no subscription entitlement or dollar charge is inferred. Monetary NaN,
+negative amounts, unrepresentable fractional precision, estimated-to-measured
+upgrades and event-key reuse across attempts are denied.
+
+The tests verify failed attempt 1 and successful retry attempt 2 share a
+canonical operation key and remain separate charges. Crucially the real
+`QueueExecutionCostStore.operation_ledger_receipts()` **PostgreSQL consumer**
+reads these canonical rows, then existing `reconcile_operation_billing`
+keeps UNKNOWN separate from provisional estimated USD and does not count a
+retry as a duplicate. Two independent PG clients racing the same revision
+produce exactly one committed event; restart/new client idempotently replays
+the identical event and a correction appends a second immutable event.
+Synthetic provider receipt bodies containing private prompt/credential/URL
+values remain unchanged in canonical private PG yet absent from the output.
+No real invoice, provider plan, usage API, currency conversion, budget debit
+or MiniPC runtime was used.
+
+**RED→GREEN:** before implementation the new suite failed to import its
+missing adapter. With the isolated PG17 schema the 13 new real-database
+positive/adversarial tests are **GREEN**; Ruff lint/format also pass.
+These rows demonstrate a meaningful canonical PG consumer integration and
+transaction boundary, but not a qualified provider invoice or automated
+reservation. **All AC-512.1–6 remain unchecked; DP-512 IN PROGRESS /
+unattended billing-dependent dispatch NO-GO.** The remaining requirements
+include production-owned additive migration, authenticated billing/account
+and refund line matching, actual plan quota/energy, FX, budget reservation
+under shared writer locks, MiniPC test and worker/health parity.
