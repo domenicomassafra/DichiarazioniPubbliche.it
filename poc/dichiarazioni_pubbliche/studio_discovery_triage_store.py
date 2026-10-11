@@ -32,7 +32,9 @@ WITH scope AS (
     SELECT hit.id
     FROM research_discovery_hit hit
     JOIN research_discovery_run run ON run.id = hit.run_id
-    JOIN research_discovery_manifest manifest ON manifest.id = run.manifest_id
+    JOIN research_discovery_manifest manifest
+      ON manifest.id = run.manifest_id
+     AND manifest.manifest_sha256 = run.manifest_sha256
     JOIN research_collection collection ON collection.id = manifest.collection_id
     JOIN research_discovery_attempt attempt
       ON attempt.id = hit.attempt_id
@@ -41,6 +43,10 @@ WITH scope AS (
       ON discovery_query.id = hit.query_id
      AND discovery_query.manifest_id = manifest.id
     WHERE hit.id = :'hit_id' AND collection.id = :'collection_id'
+    -- The manifest digest is a provenance fence, not just a presentation flag.
+    -- Hold the same lineage parents until COMMIT so another writer cannot
+    -- change a checked scope between this SELECT and the append-only INSERT.
+    FOR SHARE OF hit, run, manifest, attempt, discovery_query
 ),
 existing AS (
     SELECT collection_id, hit_id, request_key, revision,
@@ -98,16 +104,19 @@ SELECT json_build_object(
     'decision', :'decision',
     'expected_revision', :'expected_revision'::bigint,
     'payload_sha256', :'payload_sha256',
-    'signed_receipt_linked', COALESCE(
-        (SELECT attestation_receipt_id IS NOT NULL FROM matched_replay),
-        (SELECT attestation_receipt_id IS NOT NULL FROM inserted),
-        false
-    ),
-    'revision', coalesce(
-        (SELECT revision FROM matched_replay),
-        (SELECT revision FROM inserted),
-        (SELECT revision FROM current_rev)
-    )
+    'signed_receipt_linked', CASE WHEN EXISTS (SELECT 1 FROM scope)
+        THEN COALESCE(
+            (SELECT attestation_receipt_id IS NOT NULL FROM matched_replay),
+            (SELECT attestation_receipt_id IS NOT NULL FROM inserted), false
+        ) ELSE false END,
+    -- A known request key must never disclose an old revision/receipt when
+    -- its Hit-to-Manifest lineage has become invalid since the first write.
+    'revision', CASE WHEN EXISTS (SELECT 1 FROM scope)
+        THEN coalesce(
+            (SELECT revision FROM matched_replay),
+            (SELECT revision FROM inserted),
+            (SELECT revision FROM current_rev)
+        ) ELSE NULL END
 )::text;
 COMMIT;
 """.strip()

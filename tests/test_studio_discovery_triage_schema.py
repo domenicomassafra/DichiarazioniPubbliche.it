@@ -87,7 +87,8 @@ class DiscoveryTriageSchemaTests(unittest.TestCase):
                 CREATE TABLE research_collection (id text PRIMARY KEY);
                 CREATE TABLE research_discovery_manifest (
                     id text PRIMARY KEY,
-                    collection_id text NOT NULL REFERENCES research_collection(id)
+                    collection_id text NOT NULL REFERENCES research_collection(id),
+                    manifest_sha256 text NOT NULL
                 );
                 CREATE TABLE research_discovery_query (
                     id text PRIMARY KEY,
@@ -95,7 +96,8 @@ class DiscoveryTriageSchemaTests(unittest.TestCase):
                 );
                 CREATE TABLE research_discovery_run (
                     id text PRIMARY KEY,
-                    manifest_id text NOT NULL REFERENCES research_discovery_manifest(id)
+                    manifest_id text NOT NULL REFERENCES research_discovery_manifest(id),
+                    manifest_sha256 text NOT NULL
                 );
                 CREATE TABLE research_discovery_attempt (
                     id text PRIMARY KEY,
@@ -111,11 +113,13 @@ class DiscoveryTriageSchemaTests(unittest.TestCase):
                 );
                 INSERT INTO research_collection VALUES ('collection:one'), ('collection:two');
                 INSERT INTO research_discovery_manifest VALUES
-                  ('manifest:one', 'collection:one'), ('manifest:two', 'collection:two');
+                  ('manifest:one', 'collection:one', repeat('a', 64)),
+                  ('manifest:two', 'collection:two', repeat('b', 64));
                 INSERT INTO research_discovery_query VALUES
                   ('query:one', 'manifest:one'), ('query:two', 'manifest:two');
                 INSERT INTO research_discovery_run VALUES
-                  ('run:one', 'manifest:one'), ('run:two', 'manifest:two');
+                  ('run:one', 'manifest:one', repeat('a', 64)),
+                  ('run:two', 'manifest:two', repeat('b', 64));
                 INSERT INTO research_discovery_attempt VALUES
                   ('attempt:one', 'run:one', 'query:one'),
                   ('attempt:two', 'run:two', 'query:two');
@@ -492,6 +496,34 @@ class DiscoveryTriageSchemaTests(unittest.TestCase):
             self.require_sql("SELECT count(*) FROM research_discovery_triage_decision "
                              "WHERE hit_id = 'hit:full'", database=self.fresh_url), "1",
         )
+
+        # A run whose recorded manifest digest no longer matches its parent
+        # remains FK/attempt/query coherent. The store must nevertheless
+        # withhold a new private triage annotation and any revision disclosure.
+        self.require_sql(
+            "UPDATE research_discovery_run SET manifest_sha256 = repeat('c', 64) "
+            "WHERE id = 'run:full';", database=self.fresh_url,
+        )
+        stale = store.record(**(payload | {
+            "request_key": "request:full:stale-manifest",
+            "decision": "DEFERRED", "expected_revision": 1,
+        }))
+        self.assertEqual(stale["result_code"], "SCOPE_NOT_FOUND")
+        self.assertIsNone(stale["revision"])
+        self.assert_private_receipt(stale)
+        stale_replay = store.record(**payload)
+        self.assertEqual(stale_replay["result_code"], "SCOPE_NOT_FOUND")
+        self.assertIsNone(stale_replay["revision"])
+        self.assert_private_receipt(stale_replay)
+        self.assertEqual(
+            self.require_sql("SELECT count(*) FROM research_discovery_triage_decision "
+                             "WHERE hit_id = 'hit:full'", database=self.fresh_url), "1",
+        )
+        self.require_sql(
+            "UPDATE research_discovery_run SET manifest_sha256 = repeat('b', 64) "
+            "WHERE id = 'run:full';", database=self.fresh_url,
+        )
+        self.assertEqual(store.record(**payload)["result_code"], "REPLAY")
 
     def test_real_store_parallel_exact_replays_append_once(self):
         with ThreadPoolExecutor(max_workers=4) as pool:

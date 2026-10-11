@@ -338,3 +338,41 @@ Other queue families and actual reviewed transitions are absent, so ACs remain o
 **Phase / dependencies:** Phase 1/2; hard actual discovery/capture/candidate state plus reviewed authority, A-NEW-08; soft B/D; Studio ingest owner.
 
 **Related future specifications (separate ownership):** DP-242, DP-319. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+### 2026-10-11 — Private triage Run-to-Manifest digest admission fence
+
+The existing database-backed private annotation writer had a demonstrable
+provenance gap: its `scope` CTE joined Hit→Run→Manifest→Collection and
+Attempt→Query, but did **not** verify the Run's recorded `manifest_sha256`
+against the Manifest's digest. Consequently a mismatched Run could still
+receive a new `DEFERRED` (or `REJECTED`) private annotation, exposing its
+current revision and claiming an in-scope triage action. The already-existing
+read-only Inbox recognized this mismatch as `manifest_digest_ok=false`, so
+the write admission path was weaker than the inspection path.
+
+The writer now requires matching Run/Manifest digests in the scoped join and
+holds `FOR SHARE` locks on Hit, Run, Manifest, Attempt and Query through the
+transaction before inserting. A stale/mismatched chain yields generic
+`SCOPE_NOT_FOUND` with **null revision**, zero appended rows and no write
+authority. The result SQL also masks previously matching idempotency-key
+replays' revision and attestation linkage when the *current* provenance scope
+has become invalid. Restoring the same digest permits an exact replay of the
+original immutable row, not a second annotation. The migrated database's
+existing direct-SQL trigger has **not** been modified; this additional guard
+applies to the `StudioDiscoveryTriageStore` path, not arbitrary privileged SQL.
+
+Adversarial RED: a real **disposable PostgreSQL** fresh-schema fixture first
+accepted the mismatched-manifest new annotation (`CREATED`, expected
+`SCOPE_NOT_FOUND`). A follow-up stale exact-replay assertion exposed a second
+leak in the SQL's result revision computation; the source correction closed
+both facets without weakening normal CAS/replay. GREEN: 30/30 focused
+triage store/schema/signed-attestation/history tests PASS, including actual
+disposable PostgreSQL writer/reader and competing attempts; `git diff --check`
+PASS. No MiniPC, production DB writes, licensed-source review, credential use,
+provider calls, approval, promotion, publication, commit, push or deploy.
+
+**AC-417.1–.4 remain unchecked / IN PROGRESS.** This local source fix is not
+proof of authenticated reviewer action authority, rights/licensing clearance,
+all real queue families, safe bulk transitions, client authorization, current
+MiniPC readback or direct-SQL constraint parity. Remaining acceptance still
+requires those independent end-to-end/runtime gates.
