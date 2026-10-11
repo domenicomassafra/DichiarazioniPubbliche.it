@@ -49,6 +49,7 @@ class ConditionalSurfaceAbsenceTests(unittest.TestCase):
         self.assertTrue({
             "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
             "/v1/collections/passage-lineage", "/v1/discovery/capture-queue",
+            "/v1/collections/navigate",
         }.issubset(gate._PRIVATE_STUDIO_READ_PATHS))
         self.assertTrue({
             "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
