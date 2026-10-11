@@ -345,3 +345,38 @@ approved populated projection containing publishable instances for the five
 dynamic template families, followed by an exact-fingerprint live route,
 alias, index/API/sitemap and privacy readback and completion of declared
 dependencies. Do not create fake records to turn this gate green.
+
+### 2026-10-11 — One-release v3 cross-reader preflight (local, no activation)
+
+The previously separate opt-in DP-405 Person archive, DP-439 Person×Topic
+intersection and DP-409 static Statement search consumer can now be checked
+**together** before an operator even considers a v3 reader release.
+`web/src/lib/publicV3CrossReaderRelease.ts` validates each complete artifact
+under *separately supplied, current release-owner* SHA pins and refuses any
+index/Person contradiction in exact original words, source Content/version/hash,
+locator, Statement version/date/route, Finding presence or stable Person identity.
+It also reconstructs the search asset from the pinned join, checks zero
+intersection versus zero corpus, and returns only deterministic Person,
+Statement and Topic route inventories/counts. Statement-level speaker captions
+may legitimately differ from the current Person display label; stable Person
+IDs/routes, not similarity of names, bind the records.
+
+The new `web/scripts/check-v3-cross-reader-release.mjs` runs an actual Python
+DP-439 approved-*synthetic* intersection/person fixture through the real TS
+validators. TDD first failed with a missing consumer import (RED), then exposed
+an invalid initial assumption that source-specific speaker labels must match
+Person display names; the correct ID-bound behavior now passes (GREEN).
+Coverage includes three distinct original Statement records across four Topic
+memberships and two Persons, zero-intersection, rights withdrawal reducing the
+index to two Statements, old pinned release rejection, and two independently
+rehashed split-brain cases: changed exact Person quote and removed Person
+Statement while the join/index still list it. Expired/missing opt-in is refused.
+The receipt deliberately omits source bodies and **always returns
+`publicationAuthorized: false`**.
+
+This is a functional **local preflight seam**, not a public route, signed
+authority manifest, distributed transaction, cache invalidation, rights
+decision or actual MiniPC accepted-release proof. A caller recomputing hashes
+from untrusted input does not authenticate them. AC-422.1 and the dependency/
+real-host completion boundary stay OPEN; DP-422 remains **IN PROGRESS** and
+release **NO-GO**.
