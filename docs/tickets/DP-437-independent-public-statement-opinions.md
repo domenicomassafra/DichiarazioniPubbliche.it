@@ -45,6 +45,37 @@ Extend CONTEXT vocabulary and the public read model additively; decouple Stateme
 
 ## Completion receipt
 
+### 2026-10-12 — Opt-in pinned Statement-centric private SSR preview
+
+New `web/src/lib/privateStatementOpinionPreviewV3.ts` consumes the real
+independently pinned Person v3 public archive/cross-reader, indexed Statement
+and original public source bundle as **one private Statement-ID lookup**.
+The host must provide the *current external release pins* before and after
+building the returned model; changed release ID/epoch/hash/expiry fails
+closed even when the old bytes remain internally self-consistent. A found
+record is emitted only when its original Statement still has the exact
+Person, quote hash/wording, source SHA/version, Content locator, date,
+endorsement and OPINION speech-act, with `finding_id = null`. No Claim
+rating, factual conclusion, source paraphrase or automatic public authority
+is invented. Unknown/private/HELD/wrong-Person/withdrawn Statement lookup
+has one generic UNAVAILABLE response without membership counts.
+
+The new Node check runs a genuine Python approved Statement/Person/Topic
+source fixture through the TypeScript consumer into a *temporary Astro SSR*
+render, with explicit noindex. Positive original citation, no-Finding,
+source-date and locator match; adversarial stale Current pin, independent
+revocation in the second read, thrown authority, mutated source bytes and
+request without opt-in all fail. Rendering is detached from later source
+object mutation. **GREEN** after the consumer was absent; `node
+--experimental-strip-types web/scripts/check-private-statement-opinion-preview-v3.mjs`
+passes, and `npm run check` reports **111 files, zero diagnostics**.
+
+This is a *private isolated preview*, NOT the public canonical Statement
+page/API/Person×Topic+Content production reader, nor proof of approved
+rights, real correction/reply propagation, independent editor signoff or
+MiniPC readback. Original AC-437.1–.4 remain OPEN; no public route,
+provider, production change or authority was installed.
+
 2026-10-10: specification only, **not implemented**, all new AC unchecked.
 
 ## 2026-10-11 — First implementation slice
