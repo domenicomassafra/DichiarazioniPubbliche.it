@@ -17,7 +17,11 @@ const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.l
     <div>
       <p class="eyebrow">Archivio pubblico</p>
       <h1 class="page-title">Esplora l'archivio</h1>
-      <p class="lede">Qui puoi cercare dichiarazioni, persone, argomenti e fonti già approvati per la pubblicazione.</p>
+      <p class="lede">
+        {hasPublicRecords
+          ? "Qui puoi cercare dichiarazioni, persone, argomenti e fonti già approvati per la pubblicazione."
+          : "L'archivio pubblico è in preparazione: le ricerche saranno disponibili quando ci saranno record pubblicati."}
+      </p>
     </div>
   </section>
   <div class="shell">
@@ -26,6 +30,7 @@ const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.l
     ) : (
       <section class="dp-state launch-empty-state" data-state="empty" aria-labelledby="archivio-vuoto">
         <p class="eyebrow">Archivio in preparazione</p>
+        <p class="results-count" role="status" aria-live="polite" aria-atomic="true">0 risultati pubblicati</p>
         <h2 id="archivio-vuoto" class="dp-state__title">Non ci sono ancora record pubblicati.</h2>
         <p class="dp-state__body">Non mostriamo schede di esempio o verifiche non approvate. Nel frattempo puoi leggere il metodo, conoscere il progetto e consultare le regole sulle correzioni.</p>
         <nav class="launch-empty-links" aria-label="Informazioni sul progetto">
