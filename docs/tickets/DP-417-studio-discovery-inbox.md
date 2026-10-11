@@ -465,3 +465,71 @@ The new disposable-PostgreSQL regression and adjacent focused suites
 passed **25/25**; targeted Ruff F821/F823 and diff check passed. This
 does not create source-rights authority, authenticated HTTP wiring,
 live MiniPC acceptance or any DONE AC.
+
+### 2026-10-11 — Authenticated loopback Capture queue + exact Collection/Passage lineage HTTP
+
+The pre-existing source-only `read_capture_triage_queue()` and
+`StudioOperatorQueues.inspect_collection_passage_candidates()` are now
+reachable through **two distinct, POST-only, token/Origin/Host-authenticated,
+loopback-only, read-only** Studio routes added solely to
+`studio_local_api.py`:
+
+- `/v1/discovery/capture-queue` accepts exact `collection_id`, bounded
+  `limit=1..30`, optional `after_capture_id`; it reuses the persisted DP-417
+  changed/blocked current Capture queue, parent-valid cursor, actual lifecycle
+  event ID, predecessor ID and reason/retry prerequisites. It never implies
+  rights, triage write, reviewer or publication authority.
+- `/v1/collections/passage-lineage` accepts exact `collection_id`,
+  `content_id`, `capture_id`, `passage_id`, bounded `limit=1..30`, and optional
+  `after_statement_id`. It invokes the already tested DP-416 Collection
+  membership→Content/Source→exact immutable written Capture→Passage selector→
+  Statement Candidate→Claim Candidate join in a single read-only PostgreSQL
+  snapshot. It exposes only persisted references, states, locator hashes and
+  bounded pages, not private wording or source URLs. The existing
+  `/v1/collections/passage-candidates` route is unchanged and NOT reused as
+  a fake capture-specific lineage proof.
+
+Both use the existing `StudioLoopbackServer` bearer-token, exact loopback
+Host/Origin, JSON body-size/type, method and no-cache/CORS-denial gates. The
+new Capture queue uses `_StudioQueueReader`, which inherits the existing
+`_StudioReadOnlyDb` PostgreSQL adapter (`default_transaction_read_only=on`,
+statement/lock timeout and generic error sanitization). There is no new
+privilege, database writer, authentication cookie, public endpoint, UI change,
+machine analysis/approval or production deployment.
+
+**Real local RED→GREEN:** NEW `tests/test_studio_auth_vertical_next.py`
+starts an actual `StudioLoopbackServer` on `127.0.0.1`, reuses the canonical
+schema-v1 disposable PostgreSQL Capture queue fixture and adds synthetic
+persisted Source, written Capture Passage, two Statement Candidates,
+Statement–Passage bindings and a Claim Candidate. Initially both routes
+returned HTTP **404 (RED)** with a correct token; after wiring they return
+HTTP **200 (GREEN)** with authentic PG data. Tests additionally refuse a
+missing token (401), foreign/wrong Host and Origin (403), invalid method,
+unexpected write-like fields, wrong Collection/Content/Capture/Passage,
+foreign/stale page cursor and removed Collection membership (422). Capture
+rights revocation becomes `BLOCKED_CAPTURE` with its persisted reason and
+never grants triage permission; Content rights revoked/active Capture hold
+likewise retain explicit blockers while rights/publication flags remain false.
+No fixture privacy token, raw passage/body, URL, source metadata or normalized
+candidate statement/claim is returned. An attempted `UPDATE` through the
+new endpoints' `_StudioQueueReader` PostgreSQL connection is refused.
+
+The original **AC-417.1–.4 stay OPEN**: this is a genuine private runtime-
+shaped read-only HTTP vertical slice, not all Entity/Candidate/Coverage/
+quarantine queues, authorized append-only triage transitions/bulk replay, a
+reviewer identity or lawful source-usage permit. The real MiniPC has no new
+accepted queue/event canary from this tranche; Studio visual/manual
+accessibility and approved end-to-end publication are not demonstrated.
+The DP-416 Collection→Candidate operator navigation/rights/UI/MiniPC ACs
+likewise remain OPEN. DP-418 source-bound persisted review comparisons and
+promotion decisions were **not** fabricated or added to these read-only routes.
+
+Final local proof: `PYTHONPATH=poc python3 -m unittest
+tests.test_studio_auth_vertical_next tests.test_dp417_queue_family_next
+tests.test_studio_operator_queues tests.test_studio_local_api -q` **48/48
+PASS**, including the actual temporary PostgreSQL/live localhost HTTP test.
+`python3 -m compileall -q poc tests`, targeted Ruff lint and scoped
+`git diff --check` PASS. The new test file was Ruff-formatted; the pre-existing
+`studio_local_api.py` file itself already failed Ruff format --check at HEAD,
+so no unrelated whole-file formatter churn was introduced. No full-suite,
+MiniPC, deployment or production-data success is asserted.

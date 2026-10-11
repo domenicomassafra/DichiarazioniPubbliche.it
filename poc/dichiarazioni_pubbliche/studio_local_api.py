@@ -37,6 +37,7 @@ from dichiarazioni_pubbliche.studio_capture_inspector import (
 from dichiarazioni_pubbliche.studio_media_selector import inspect_candidate_media_selector
 from dichiarazioni_pubbliche.studio_operator_search import search_private_corpus
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
+from dichiarazioni_pubbliche.studio_discovery_triage_reader import read_capture_triage_queue
 from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInboxWorkflow
 from dichiarazioni_pubbliche.studio_machine_candidate_handoff_v1 import (
     preview_candidate_machine_handoff, preview_discovery_machine_exception,
@@ -58,7 +59,9 @@ _ALLOWED_PATHS = frozenset({
     "/v1/collections/member", "/v1/collections/claim-provenance",
     "/v1/collections/captures",
     "/v1/collections/passage-candidates",
+    "/v1/collections/passage-lineage",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
+    "/v1/discovery/capture-queue",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
     "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
 })
@@ -400,6 +403,16 @@ class _StudioPromotionContextReader(_StudioReadOnlyDb, ClaimPromotionStore):
 
 
 class _StudioQueueReader(_StudioReadOnlyDb, StudioOperatorQueues):
+    def list_capture_triage_queue(
+        self, *, collection_id: str, limit: int = 20,
+        after_capture_id: str | None = None,
+    ) -> dict[str, object]:
+        """DP417 metadata only, under the existing read-only DB and HTTP gate."""
+        return read_capture_triage_queue(
+            self, collection_id=collection_id, limit=limit,
+            after_capture_id=after_capture_id,
+        )
+
     def list_discovery_inbox(
         self, *, collection_id: str, limit: int = 20, after_id: str | None = None,
     ) -> dict[str, object]:
@@ -440,11 +453,13 @@ class _QueueReader(Protocol):
     def list_collections(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery(self, *, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_discovery_inbox(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
+    def list_capture_triage_queue(self, *, collection_id: str, limit: int, after_capture_id: str | None) -> dict[str, object]: ...
     def preview_bulk_discovery(self, *, collection_id: str, hit_ids: list[str], decision: str) -> dict[str, object]: ...
     def inspect_discovery(self, *, collection_id: str, hit_id: str) -> dict[str, object]: ...
     def inspect_discovery_triage(self, *, collection_id: str, hit_id: str, limit: int, after_revision: int) -> dict[str, object]: ...
     def list_collection_members(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
     def inspect_collection_member(self, *, collection_id: str, content_id: str, limit: int, after_claim_id: str | None) -> dict[str, object]: ...
+    def inspect_collection_passage_candidates(self, *, collection_id: str, content_id: str, capture_id: str, passage_id: str, limit: int, after_statement_id: str | None) -> dict[str, object]: ...
     def inspect_claim_provenance(self, *, collection_id: str, content_id: str, claim_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
 
 
@@ -502,6 +517,12 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
     if path == "/v1/collections/passage-candidates":
         _fields(body, required={"collection_id", "content_id", "passage_id"}, optional={"limit", "after_id"})
         return readers.captures.list_collection_passage_candidates(**body)
+    if path == "/v1/collections/passage-lineage":
+        _fields(body, required={"collection_id", "content_id", "capture_id", "passage_id"},
+                optional={"limit", "after_statement_id"})
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.inspect_collection_passage_candidates(**body)
     if path == "/v1/media/segment":
         _fields(body, required={"content_id", "statement_candidate_id", "passage_id"})
         return inspect_candidate_media_selector(readers.captures, **body)
@@ -547,6 +568,11 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
         return readers.queues.inspect_discovery_triage(**body)
+    if path == "/v1/discovery/capture-queue":
+        _fields(body, required={"collection_id"}, optional={"limit", "after_capture_id"})
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.list_capture_triage_queue(**body)
     if path == "/v1/discovery/inbox":
         _fields(body, required={"collection_id"}, optional={"limit", "after_id"})
         if readers.queues is None:
