@@ -187,3 +187,59 @@ parallel workers. Its incidental resource warnings and interruption
 are not reported as DP-439 test failures or as a full-suite PASS.
 The focused and adjacent suite results above are the actual verified
 success criteria for this isolated tranche.
+
+## 2026-10-12 — Private pinned Person × Topic reader and isolated Astro SSR (partial)
+
+Added opt-in **consumer-only** `web/src/lib/privatePersonTopicV3.ts` and
+`web/scripts/check-private-person-topic-v3.mjs`. The Node test executes the
+**actual Python** `tests/test_dp439_person_topic_v3.py` source fixture and
+`make()` production join code to obtain distinct public Person identities,
+homonymous Topic labels, a Statement with two reviewed memberships, an
+opinion-only Statement without a Finding, and corrected/rights-withdrawn
+releases. The fixture's synthetic review IDs and locally issued test pins
+are not evidence of a real editorial authorization.
+
+The TypeScript reader uses the existing authoritative
+`validatePublicStatementSearchV3` / `searchPublicStatementsV3` index gates,
+`readApprovedPersonV3` collection validator, plus the current independently
+pinned public-v3 source collection and each versioned public Topic identity
+(whose hash is checked separately). The caller must supply independently
+authenticated current Statement/Person/Topic/index/intersection pins,
+source `generated_at` and a finite expiry. Self-rehash of a downloaded
+index/source is insufficient. Before filtering or pagination, all indexed
+Statement IDs/versions must still exist in the current public Statement and
+Person collections and agree on original exact wording/quote SHA, Content,
+source URL/version/SHA, date, Person, public route and locator. The original
+Statement validator checks its rights, attribution, wording, context and
+publication review fields, with no permission granted by this reader.
+
+The private preview returns only currently pinned publicly eligible records
+and limited corpus coverage, along with exact source citations, dates and
+locators; `publicationAuthorized=false`, `providerCalls=0`. Its strict
+shareable `?persona=&tema=&ordine=&q=&pagina=&dal=&al=&fonte=` query
+parser/serializer preserves exact IDs (including homonyms), deterministic
+date/order/source filtering, bounded pagination and safe previous/next URLs.
+Reload, back and forward can recompute from those URLs against the CURRENT
+release, without a stored private query session. Missing/previously removed
+private identities, phantom memberships, stale index/source/Topic, current
+rights withdrawal and malformed URLs never reappear as public hits. Negative
+cases also cover mutable source original/date/hash/version/locator/rights,
+Person alias conflict, a revoked Topic membership and asset expiry.
+
+**Validation:** TDD RED with a missing consumer module, then genuine Python
+fixture → TypeScript GREEN; `tests.test_dp439_person_topic_v3` **8/8 PASS**;
+`npm run check` **106 files, zero diagnostics**, Node script and `node --check`
+PASS, `git diff --check` PASS. An actual **temporary isolated Astro static
+SSR build** renders the approved fixture's original quotation, dated
+versioned source link and coverage; SSR rejects an expired authority and
+an old pinned release after withdrawal. No production route, provider call,
+production dataset, deployment, commit or push was introduced.
+
+**Status stays IN PROGRESS; all original AC-439.1–.7 remain unchecked.**
+The precomputed Python join, published Person/Topic and source gates are
+independent external inputs; their real signatures/currentness/rights and
+semantic Topic approvals were not established by synthetic tests. This
+reader cannot observe a privately revoked membership before its authenticated
+index/current release pins rotate or expire. Required real MiniPC canary,
+atomic HTML/API/search invalidation, mobile keyboard/VoiceOver/focus/zoom
+acceptance and actual public deployment remain external to this slice.
