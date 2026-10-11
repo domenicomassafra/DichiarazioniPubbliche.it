@@ -33,6 +33,11 @@ postgres = []
 # Only explicit Google OIDC account deployments install this runtime crypto.
 # The default public reader/contributor install remains stdlib-only.
 account = ["cryptography>=45.0,<50.0"]
+# Explicit opt-in private PDF text extraction. Default/contributor installs
+# remain stdlib-only, and absence of this backend always yields a HOLD.
+document-pdf = ["pypdf>=6.0,<7.0"]
+# Synthetic in-memory PDF fixtures only; never necessary for runtime capture.
+document-pdf-test = ["pypdf>=6.0,<7.0", "reportlab>=4.0,<6.0", "Pillow>=10.0,<13.0"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [

@@ -277,7 +277,7 @@ class DocumentTextParser:
 
 def document_passages_from_capture(
     *, capture: ContentCaptureRecord, fetched: FetchedBytes, parsed: ParseResult,
-    language: str | None = None,
+    language: str | None = None, parser: DocumentTextParser | None = None,
 ) -> tuple[PassageRecord, ...]:
     """Prepare private passage candidates after capture/use authorization upstream.
 
@@ -286,7 +286,19 @@ def document_passages_from_capture(
     This function persists nothing and authorizes no publication or quotation.
     """
     media = str(fetched.media_type or "").split(";", 1)[0].strip().lower()
-    replay = DocumentTextParser().parse(fetched)
+    # Explicit opt-in only: no PDF or OCR fallback is activated by default.
+    # Guard the concrete parser contract rather than trusting a caller-shaped
+    # object that simply returns SUCCEEDED with forged private words.
+    if parser is None:
+        parser = DocumentTextParser()
+    if not isinstance(parser, DocumentTextParser):
+        from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+
+        if type(parser) is not BornDigitalPDFTextParser or media != "application/pdf":
+            raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
+    elif media == "application/pdf":
+        raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
+    replay = parser.parse(fetched)
     if (
         capture.status != "CAPTURED"
         or capture.rights_status != "CLEARED"
@@ -330,6 +342,8 @@ def document_passages_from_capture(
                 "reading_order": page["reading_order"],
                 "original_byte_offset_available": False,
                 "verbatim_reviewed": False,
+                **({"pdf_text_fidelity": "UNREVIEWED_PDF_EXTRACTION"}
+                   if media == "application/pdf" else {}),
             },
         ))
     return tuple(passages)
