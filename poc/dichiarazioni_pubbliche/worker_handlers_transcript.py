@@ -10,6 +10,7 @@ from dichiarazioni_pubbliche.platform_transcript import (
     PlatformAccessRestricted,
     VideoCandidate,
 )
+from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob
 from dichiarazioni_pubbliche.remote_asr import (
     AsrAccessDenied,
     AsrRateLimited,

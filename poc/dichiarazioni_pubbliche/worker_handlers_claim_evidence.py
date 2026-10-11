@@ -20,7 +20,11 @@ from dichiarazioni_pubbliche.evidence_runtime import (
     get_evidence_source,
 )
 from dichiarazioni_pubbliche.evidence_query import compile_official_query
-from dichiarazioni_pubbliche.queue_runtime import deterministic_followup_job_id
+from dichiarazioni_pubbliche.queue_runtime import (
+    ContentRecord,
+    ProcessingJob,
+    deterministic_followup_job_id,
+)
 from dichiarazioni_pubbliche.verification_runtime import deterministic_evidence_observation_id
 from dichiarazioni_pubbliche.worker_errors import BlockedJob, DeferredJob, RetryableJob
 

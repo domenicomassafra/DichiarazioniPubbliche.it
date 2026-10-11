@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import date
-from typing import Any
+from typing import Any, Mapping
 
 from dichiarazioni_pubbliche.citation_assurance import (
     assertion_text_sha256,

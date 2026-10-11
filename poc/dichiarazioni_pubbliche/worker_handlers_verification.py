@@ -7,6 +7,7 @@ from dichiarazioni_pubbliche.coverage_needs import (
     coverage_need_params,
     materialize_coverage_need_specs,
 )
+from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob
 from dichiarazioni_pubbliche.finding_runtime import finding_draft_from_verification
 from dichiarazioni_pubbliche.reanalysis_runtime import deterministic_reanalysis_trigger
 from dichiarazioni_pubbliche.relation_runtime import (

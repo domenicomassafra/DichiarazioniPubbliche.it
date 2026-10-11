@@ -5,7 +5,7 @@ import json
 import subprocess
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 from dichiarazioni_pubbliche.citation_assurance import (
