@@ -1,5 +1,14 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Tranche multi-wave del 11 ottobre 2026:**
+[interventi funzionali, TDD e audit conservativo su quattro host](docs/reviews/2026-10-11-multi-wave-backlog-source-runtime-audit.md).
+DP-416/417/418/435/436/438/440/512/514/515/516/518/519/320 hanno
+ricevuto implementazioni o correggono difetti provati; il report distingue
+CI, originali AC, blocchi esterni e un recupero mirato di soli **3.43 MiB**.
+Non inferire nuovi DONE, deployment MiniPC o licenza da questa fonte.
+Verificare l'esatto commit remoto, CI e status prima di eseguire qualunque
+altra modifica; release resta **NO-GO/49** salvo nuova attestazione reale.
+
 **Cinque nuove regressioni source-only, 11 ottobre 2026:**
 [DP-304/439/312/313/318: fallimenti reali e limiti di acceptance](docs/reviews/2026-10-11-five-pending-integrity-wave.md).
 Inventario privacy migrazioni, URL/identità indice ricerca, critica negata,
