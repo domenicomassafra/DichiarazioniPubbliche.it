@@ -147,16 +147,29 @@ class IsolatedPublicationEpochStore:
         ids = tuple(sorted(_id(item) for item in dependency_ids))
         if len(set(ids)) != len(ids):
             raise RevocationFenceHeld("FENCE_DUPLICATE_DEPENDENCY")
-        dependencies = []
-        for source_id in ids:
-            row = self.conn.execute(
-                "SELECT epoch,material_sha256,status FROM epoch_source WHERE source_id=?", (source_id,),
-            ).fetchone()
-            if row is None or row[2] != "ACTIVE":
-                raise RevocationFenceHeld("FENCE_STALE_OR_HELD")
-            dependencies.append(MaterialEpoch(source_id, row[0], row[1]))
-        items = tuple(dependencies)
-        return PublicationEpochTicket(release_id, items, _ticket_fingerprint(release_id, items))
+        # Every dependency belongs to one revocation-serializable snapshot.
+        # Without this lock, a revoker can commit between two SELECTs and
+        # mint() can return an apparently fresh but already-stale ticket.
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            dependencies = []
+            for source_id in ids:
+                row = self.conn.execute(
+                    "SELECT epoch,material_sha256,status FROM epoch_source WHERE source_id=?",
+                    (source_id,),
+                ).fetchone()
+                if row is None or row[2] != "ACTIVE":
+                    raise RevocationFenceHeld("FENCE_STALE_OR_HELD")
+                dependencies.append(MaterialEpoch(source_id, row[0], row[1]))
+            items = tuple(dependencies)
+            ticket = PublicationEpochTicket(
+                release_id, items, _ticket_fingerprint(release_id, items)
+            )
+            self.conn.commit()
+            return ticket
+        except BaseException:
+            self.conn.rollback()
+            raise
 
     def publish_reference(self, *, ticket: PublicationEpochTicket, artifact_sha256: str) -> None:
         """Commit an artifact reference, not public bytes, under an atomic fence."""

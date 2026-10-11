@@ -71,3 +71,39 @@ are delivered; it does not supply a production PostgreSQL read fence, a
 distributed cache denial/purge, a signed release identity, a real-source
 approval or an attested MiniPC rollback/latency receipt. **AC-320.1–.5
 remain unchecked, release remains NO-GO.**
+
+## 2026-10-11 — Atomic multi-dependency ticket mint (source-only)
+
+Another distinct revocation race was reproduced in the isolated SQLite
+reference. `mint()` read each source's status/epoch independently without a
+transaction, whereas only `publish_reference` and `check_served` held
+revocation-serializing locks. A second connection could therefore commit a
+rights revocation **after** `mint()` had read `rights:1` but **before** its
+next `source:1` read, causing `mint()` to return an apparently newly issued
+ticket already stale at return. This is not authority to publish—the
+downstream transactional write/read fences still reject that ticket—but
+the mint receipt itself incorrectly claimed a consistent current snapshot.
+
+A deterministic barrier test pauses mint at its second SELECT and attempts a
+concurrent revocation with a zero-timeout SQLite connection. Before the fix,
+the revocation incorrectly committed during mint (**RED**); after wrapping the
+complete dependency read and fingerprint issuance in `BEGIN IMMEDIATE` with
+commit/rollback, the revoker receives a lock error until the mint completes
+(**GREEN**). The test then revokes successfully and confirms the minted
+ticket cannot be published. A second regression confirms a failed mint of an
+unknown dependency releases its lock and does not prevent subsequent
+revocation or suppress the durable invalidation outbox.
+
+**Local proof:** `PYTHONPATH=poc python3 -m unittest
+tests.test_dp320_revocation_epoch_fence
+tests.test_dp518_distributed_withdrawal_audit -q`: **27/27 PASS**;
+`ruff check`, Python compilation and `git diff --check` PASS. The two
+DP-320 files already had pre-existing Ruff formatter differences on HEAD,
+so unrelated lines were not mass-reformatted.
+
+The result is a SQLite **reference contract**, not a real source-rights
+verifier, PostgreSQL writer fence, approved material graph, MiniPC host
+admission, edge/cache withdrawal, immutable deployment readback or measured
+withdrawal SLO. No real source, CDN, database or release was changed.
+**Status remains IN PROGRESS, all AC-320.1–.5 remain unchecked and public
+release remains NO-GO** pending the original external gates.

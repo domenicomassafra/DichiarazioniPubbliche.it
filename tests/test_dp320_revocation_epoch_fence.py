@@ -195,6 +195,102 @@ class RevocationEpochFenceTests(unittest.TestCase):
         with self.assertRaisesRegex(RevocationFenceHeld, "STALE_OR_HELD"):
             self.store.check_served(ticket, ARTIFACT)
 
+    def test_ticket_mint_is_atomic_against_revocation_of_earlier_dependency(self):
+        """A mint cannot return an already-stale ticket after a racing revocation."""
+        about_to_read_second = threading.Event()
+        continue_mint = threading.Event()
+        minted: list[object] = []
+
+        def mint_in_worker():
+            connection = sqlite3.connect(self.database, timeout=5)
+
+            def pause_before_second_select(sql: str):
+                if sql.startswith("SELECT epoch,material_sha256,status FROM epoch_source"):
+                    # Pause before the *second* dependency's SELECT executes.
+                    reads.append(sql)
+                    if len(reads) == 2:
+                        about_to_read_second.set()
+                        continue_mint.wait(timeout=5)
+
+            reads: list[str] = []
+            connection.set_trace_callback(pause_before_second_select)
+            try:
+                worker = IsolatedPublicationEpochStore(connection)
+                minted.append(
+                    worker.mint(
+                        release_id="public:mint-race",
+                        dependency_ids=("rights:1", "source:1"),
+                    )
+                )
+            except BaseException as error:
+                minted.append(error)
+            finally:
+                connection.close()
+
+        reader = threading.Thread(target=mint_in_worker)
+        reader.start()
+        try:
+            self.assertTrue(about_to_read_second.wait(timeout=3))
+            # A revocation of the previously read rights:1 must not commit
+            # until mint's complete material-dependency snapshot is finished.
+            competing = sqlite3.connect(self.database, timeout=0)
+            try:
+                with self.assertRaisesRegex(sqlite3.OperationalError, "locked"):
+                    IsolatedPublicationEpochStore(competing).revoke(
+                        source_id="rights:1",
+                        event_id="event:mint-race",
+                        reason="RIGHTS_WITHDRAWN",
+                        now=NOW,
+                    )
+            finally:
+                competing.close()
+        finally:
+            continue_mint.set()
+            reader.join(timeout=8)
+        self.assertFalse(reader.is_alive())
+        self.assertEqual(len(minted), 1)
+        self.assertNotIsInstance(minted[0], BaseException)
+        self.assertEqual(
+            tuple(dependency.dependency_id for dependency in minted[0].dependencies),
+            ("rights:1", "source:1"),
+        )
+        self.assertEqual(
+            self.store.revoke(
+                source_id="rights:1",
+                event_id="event:mint-race",
+                reason="RIGHTS_WITHDRAWN",
+                now=NOW,
+            ),
+            1,
+        )
+        with self.assertRaisesRegex(RevocationFenceHeld, "STALE_OR_HELD"):
+            self.store.publish_reference(ticket=minted[0], artifact_sha256=ARTIFACT)
+
+    def test_failed_multi_dependency_mint_releases_lock_for_revoke(self):
+        """Rejected mint must not strand BEGIN IMMEDIATE or suppress revocation."""
+        with self.assertRaisesRegex(RevocationFenceHeld, "STALE_OR_HELD"):
+            self.store.mint(
+                release_id="public:rejected-mint",
+                dependency_ids=("rights:1", "source:absent"),
+            )
+        competing = sqlite3.connect(self.database, timeout=0)
+        try:
+            self.assertEqual(
+                IsolatedPublicationEpochStore(competing).revoke(
+                    source_id="rights:1",
+                    event_id="event:after-rejected-mint",
+                    reason="RIGHTS_WITHDRAWN",
+                    now=NOW,
+                ),
+                1,
+            )
+        finally:
+            competing.close()
+        self.assertEqual(
+            self.store.pending_invalidations(),
+            (("event:after-rejected-mint", "rights:1", 1),),
+        )
+
     def test_rejected_read_releases_transaction_for_subsequent_revocation(self):
         ticket = self.ticket("source:1")
         self.store.publish_reference(ticket=ticket, artifact_sha256=ARTIFACT)
