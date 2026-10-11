@@ -263,3 +263,71 @@ rights revalidation at the mutation boundary, real candidate source/capture,
 keyboard/200%-zoom acceptance and MiniPC proof are not established by the
 new guard. No promotion, review decision, publication, schema migration,
 production mutation or remote deployment was performed.
+
+### 2026-10-11 — Independent persisted-target source comparison read model (post-`aca8809`)
+
+New **read-only functional operator comparison** in
+`studio_candidate_review_ui.py`, without changing the canonical
+`studio_candidate_review.py` inspector or any DP-117 mutation:
+`build_candidate_comparison_read_model(match_store, promotion_store,
+target_source_store, run_id, claim_candidate_id)` and a static local
+`render_candidate_comparison_workspace`. It reuses the persisted DP-212
+run/results and canonical DP-418 `inspect_candidate_review_readiness`
+to recompute exact current matching input/result identity, matching
+algorithm version, rank, feature-code semantics and promotion blockers.
+For **each** target, the separate read-only `source_context(type,id)`
+interface retrieves its persisted Content, Passage, Capture/version SHA,
+rights and capture-hold status; the model verifies that the target read
+matches the current exact DP-212 target Content and provenance key and
+that the candidate's own Passage/Capture matches the separately persisted
+DP-117 candidate context. It reads match/context and target sources again
+before returning, refusing observed drift between the two read rounds.
+Only safe IDs, source hashes, feature **codes**, algorithm and operator
+actions appear in the model and HTML; no raw original/proposition text,
+scores, secret feature values, arbitrary provider result or promotion call.
+
+The operator sees distinct `DUPLICATE_EXTRACTION`,
+`SAME_PROPOSITION`, `RELATED`, `UNCERTAIN` (and `DIFFERENT`)
+with matching methods and supporting/contradicting codes. Existing
+DP-117 pre-promotion blockers remain visible before any mutation.
+Missing target source is an explicit unavailable/blocked comparison;
+revoked target rights, held candidate Capture, source/version drift and
+cross-Content/Passage substitution cannot become usable comparisons.
+An additional concrete **RED→GREEN** security case showed that a
+DP-212 `DUPLICATE_EXTRACTION` on the same Content/Passage was displayed
+as usable despite an independently read target **different Capture
+version**. The new `BLOCKED_DUPLICATE_CAPTURE_MISMATCH` prohibits
+equating those extraction versions until Capture ID and hash match.
+The classifier's same-proposition label is never used to bypass that
+independent source-version test.
+
+The NEW `tests/test_dp418_comparison_next.py` contains **7** adversarial
+focused methods: canonical persisted DP-212 run/result fixtures
+(synthetic store, not a live PostgreSQL readback) for same/related/
+uncertain, rendered Capture→Passage comparison, foreign Content/
+Passage/target identity, revoked rights and candidate hold, missing/stale
+source, same-selector-but-different-Capture duplicate, in-flight rights
+changes, and forged stored method/feature/algorithm version. The new
+interface initially failed import **RED**; the Capture-version case
+subsequently reproduced a concrete incorrect usable classification
+**RED**, then both were **GREEN**. Final local command:
+`PYTHONPATH=poc python3 -m unittest
+tests.test_dp418_comparison_next tests.test_studio_candidate_review
+tests.test_studio_candidate_review_handoff tests.test_studio_local_api
+tests.test_candidate_matching -q`: **67/67 PASS**.
+`ruff check`, `ruff format --check`, targeted Python `compileall`
+and `git diff --check` PASS. Only this UI module, its new test and
+the original DP-418 ticket were modified.
+
+The source-reader interface is **not wired to a trusted real PostgreSQL
+target-Capture/rights reader yet**; source state and rights are
+caller-supplied test readbacks, **not** independently certified licenses,
+review authority or transactionally fenced results. All
+`review_authority`, `equivalence_approved`,
+`promotion_authority` and `publication_authority` flags remain false;
+no reviewer/promotion action, database writes, network provider, MiniPC,
+deployment, commit or push was made. **Status IN PROGRESS, original
+AC-418.1–.4 remain unchecked**: live persisted source-compare integration,
+full channel/rights/currentness gate at the mutation boundary, durable
+qualified review decision/replay and keyboard/200% zoom acceptance on
+actual Studio/MiniPC are still required.
