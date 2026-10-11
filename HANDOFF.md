@@ -1,5 +1,14 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Cinque nuove regressioni source-only, 11 ottobre 2026:**
+[DP-304/439/312/313/318: fallimenti reali e limiti di acceptance](docs/reviews/2026-10-11-five-pending-integrity-wave.md).
+Inventario privacy migrazioni, URL/identità indice ricerca, critica negata,
+ruoli processuali e placeholder Persona: bug riprodotti RED→GREEN, test
+semantici integrati 120/120 PASS; suite privacy/semantica aggregata
+**199/199 PASS**. Nessun ticket DONE senza fonte/diritti,
+attestazione e MiniPC: **90 DONE / 72 pendenti**, rilascio **NO-GO/49**.
+La CI sul commit finale va controllata separatamente.
+
 **Pending hardening wave, 11 ottobre 2026:**
 [sei regressioni e relativi criteri ancora esterni](docs/reviews/2026-10-11-six-pending-safety-hardening-wave.md).
 DP-236/237/242/244/315/319: permissions fonte, speaker esatto, handoff
