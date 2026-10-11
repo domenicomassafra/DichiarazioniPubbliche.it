@@ -70,3 +70,31 @@ identities and corpus membership. No runtime watcher/timer/provider/DB has
 been activated. **All original AC-244.1–.6 remain unchecked** pending
 authenticated rights and source receipts, persistent idempotent scheduling,
 freshness invalidation of actual readers and MiniPC permitted-source proof.
+
+### 2026-10-11 — Replay/scope and rights fail-closed follow-up (partial)
+
+Five additional focused regressions reproduced concrete false status/delta or
+identity behavior before repair (RED) and now pass (15/15 total GREEN):
+
+- A later revoked or blocked rights attempt retains `UNKNOWN` / no review work,
+  even when an earlier permitted source hash differs from the derived baseline.
+- A latest outage preserves its unverified-attempt reason and no child work; a
+  previous changed observation cannot hide the latest failed fetch.
+- Two successful, differing body hashes require `STALE` and conditional
+  `REVIEW_CHANGED_SOURCE` when no reviewed derived baseline is supplied. A
+  verified baseline matching the latest hash restores scoped freshness; a
+  version-label change with identical bytes stays a cheap no-op.
+- Observations now require a `scope_fingerprint` computed from the exact
+  `CoverageUnit` source, collection, interval, language, format, class, policy
+  and mode. Cross-interval, collection, language or mode receipt reuse fails
+  `COVERAGE_MIXED_SCOPE`. This is an input-lineage guard, not authentication of
+  an external enumerator or source permission.
+- An observation-ledger fingerprint is stable across evaluation clock changes
+  and incorporates actual observation receipt identity and staleness policy.
+  Time passing can still change the separately computed freshness decision.
+
+Proof: `PYTHONPATH=poc python3 -m unittest tests.test_dp244_coverage_catalog -v`
+**15/15 PASS**; targeted `compileall` and `git diff --check` PASS. This is a
+local source-only contract improvement. No scheduler, crawler, persistent
+idempotent work ledger, rights approval, source canary, MiniPC runtime, or public
+release was exercised. Original **AC-244.1–.6 remain unchecked**.

@@ -32,7 +32,8 @@ def unit(**changes):
 def observation(**changes):
     return replace(CoverageObservation(
         attempt_id="attempt:1", source_id="source:synthetic",
-        policy_version="policy:approved-test", attempted_at=NOW - timedelta(minutes=5),
+        policy_version="policy:approved-test", scope_fingerprint=unit().scope_fingerprint(),
+        attempted_at=NOW - timedelta(minutes=5),
         status="UNCHANGED", source_version="version:1", content_sha256=SHA,
         observation_receipt_id="receipt:official:test:1",
         enumerated_scope_review_id="review:scope:1",
@@ -83,6 +84,54 @@ class CoverageCatalogTests(unittest.TestCase):
         self.assertEqual(limited.delta_proposal, "NONE")
         self.assertEqual(limited.reason_code, "COVERAGE_CHANGE_CHILD_GATES_NOT_READY")
 
+    def test_newer_revoked_rights_never_reopen_changed_source_work(self):
+        changed = observation(
+            attempt_id="attempt:1", attempted_at=NOW - timedelta(minutes=20),
+            status="CHANGED", content_sha256="b" * 64, source_version="version:2",
+        )
+        revoked = observation(
+            attempt_id="attempt:2", attempted_at=NOW,
+            status="RIGHTS_BLOCKED", rights_status="REVOKED",
+            source_version=None, content_sha256=None, observation_receipt_id=None,
+            enumerated_scope_review_id=None, enumeration_complete_within_scope=False,
+        )
+        result = reconcile((changed, revoked), baseline_sha256=SHA)
+        self.assertEqual(result.state, "UNKNOWN")
+        self.assertEqual(result.reason_code, "COVERAGE_RIGHTS_UNKNOWN_OR_BLOCKED")
+        self.assertEqual(result.delta_proposal, "NONE")
+        self.assertIsNone(public_freshness_descriptor(result, public_scope_review_id="review:public"))
+
+    def test_successive_changed_hashes_do_not_become_current_without_baseline(self):
+        old = observation(attempt_id="attempt:1", attempted_at=NOW - timedelta(minutes=20))
+        newer = observation(
+            attempt_id="attempt:2", status="UNCHANGED",
+            content_sha256="b" * 64, source_version="version:2",
+        )
+        result = reconcile((old, newer))
+        self.assertEqual(result.state, "STALE")
+        self.assertEqual(result.delta_proposal, "REVIEW_CHANGED_SOURCE")
+        self.assertEqual(result.observed_source_version, "version:2")
+        self.assertIsNone(public_freshness_descriptor(result, public_scope_review_id="review:public"))
+        # A reviewed derived baseline for the newest body resolves uncertainty.
+        reviewed = reconcile((old, newer), baseline_sha256="b" * 64)
+        self.assertEqual(reviewed.state, "CURRENT_WITHIN_OBSERVED_SCOPE")
+        self.assertEqual(reviewed.delta_proposal, "NONE")
+        # A new source version with identical body is cheap and does not reanalyse.
+        same_body = replace(newer, content_sha256=SHA)
+        self.assertEqual(reconcile((old, same_body)).delta_proposal, "NONE")
+
+    def test_observation_fingerprint_is_stable_across_time_and_receipt_sensitive(self):
+        row = observation()
+        first = reconcile((row,), baseline_sha256=SHA)
+        one_hour_later = build_source_coverage(
+            unit(), (row,), now=NOW + timedelta(hours=1), baseline_sha256=SHA,
+            rights_ready=True, budget_ready=True, capability_ready=True,
+        )
+        self.assertEqual(first.observation_fingerprint, one_hour_later.observation_fingerprint)
+        other_receipt = replace(row, observation_receipt_id="receipt:official:test:2")
+        self.assertNotEqual(first.observation_fingerprint,
+                            reconcile((other_receipt,), baseline_sha256=SHA).observation_fingerprint)
+
     def test_outage_attempt_does_not_replace_last_good_observation(self):
         previous = observation(attempt_id="attempt:1", attempted_at=NOW - timedelta(minutes=20))
         failed = observation(attempt_id="attempt:2", status="OUTAGE", attempted_at=NOW,
@@ -93,6 +142,18 @@ class CoverageCatalogTests(unittest.TestCase):
         self.assertEqual(result.state, "STALE")
         self.assertEqual(result.last_successful_observed_at, previous.attempted_at.isoformat())
         self.assertEqual(result.last_attempted_at, NOW.isoformat())
+
+    def test_latest_outage_keeps_outage_reason_even_if_previous_body_changed(self):
+        changed = observation(status="CHANGED", content_sha256="b" * 64)
+        outage = observation(
+            attempt_id="attempt:outage", attempted_at=NOW, status="OUTAGE",
+            source_version=None, content_sha256=None, observation_receipt_id=None,
+            enumerated_scope_review_id=None, enumeration_complete_within_scope=False,
+        )
+        result = reconcile((changed, outage), baseline_sha256=SHA)
+        self.assertEqual(result.state, "STALE")
+        self.assertEqual(result.reason_code, "COVERAGE_RECENT_ATTEMPT_UNVERIFIED")
+        self.assertEqual(result.delta_proposal, "NONE")
 
     def test_rights_unknown_and_expired_source_not_current(self):
         for rights in ("UNKNOWN", "EXPIRED", "REVOKED", "DENIED"):
@@ -118,10 +179,26 @@ class CoverageCatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "FUTURE_OBSERVATION"):
             reconcile((replace(a, attempted_at=NOW + timedelta(days=1)),))
 
+    def test_independent_scopes_cannot_reuse_another_units_review_receipt(self):
+        row = observation()
+        changes = (
+            {"interval_start": datetime(1935, 1, 1, tzinfo=timezone.utc)},
+            {"collection_id": "private:other-collection"},
+            {"language": "it"},
+            {"mode": "INCREMENTAL_SUBSCRIPTION"},
+        )
+        for changed_scope in changes:
+            with self.subTest(changed_scope=changed_scope):
+                with self.assertRaisesRegex(ValueError, "MIXED_SCOPE"):
+                    build_source_coverage(unit(**changed_scope), (row,), now=NOW,
+                                          rights_ready=True)
+
     def test_backfill_and_subscription_modes_do_not_fabricate_shared_coverage(self):
         one = reconcile((observation(),))
+        subscription_unit = unit(mode="INCREMENTAL_SUBSCRIPTION")
+        subscription_observation = observation(scope_fingerprint=subscription_unit.scope_fingerprint())
         subscription = build_source_coverage(
-            unit(mode="INCREMENTAL_SUBSCRIPTION"), (observation(),), now=NOW, rights_ready=True)
+            subscription_unit, (subscription_observation,), now=NOW, rights_ready=True)
         self.assertEqual(one.mode, "HISTORICAL_BACKFILL")
         self.assertEqual(subscription.mode, "INCREMENTAL_SUBSCRIPTION")
         self.assertNotEqual(subscription.observation_fingerprint, one.observation_fingerprint)

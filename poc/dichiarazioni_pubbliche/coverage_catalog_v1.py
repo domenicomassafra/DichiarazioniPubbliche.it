@@ -66,12 +66,22 @@ class CoverageUnit:
         if type(self.max_staleness_seconds) is not int or not 1 <= self.max_staleness_seconds <= 365 * 86400:
             raise ValueError("COVERAGE_MAX_STALENESS_INVALID")
 
+    def scope_fingerprint(self) -> str:
+        """Bind a review/attempt to its exact declared coverage boundary."""
+        return _fingerprint((
+            self.unit_id, self.source_family, self.source_id, self.collection_id,
+            self.language, self.source_format, self.expected_content_class,
+            self.mode, self.policy_version, _aware(self.interval_start).isoformat(),
+            _aware(self.interval_end).isoformat(), self.version,
+        ))
+
 
 @dataclass(frozen=True)
 class CoverageObservation:
     attempt_id: str
     source_id: str
     policy_version: str
+    scope_fingerprint: str
     attempted_at: datetime
     status: str
     source_version: str | None = None
@@ -84,6 +94,7 @@ class CoverageObservation:
     def __post_init__(self) -> None:
         for key in ("attempt_id", "source_id", "policy_version"):
             _present(getattr(self, key), key.upper())
+        _sha(self.scope_fingerprint)
         _aware(self.attempted_at)
         if self.status not in RESULTS or self.rights_status not in {"CLEARED", "UNKNOWN", "EXPIRED", "REVOKED", "DENIED"}:
             raise ValueError("COVERAGE_OBSERVATION_STATUS_INVALID")
@@ -141,7 +152,8 @@ def build_source_coverage(
     for record in observations:
         if not isinstance(record, CoverageObservation):
             raise ValueError("COVERAGE_OBSERVATION_INVALID")
-        if record.source_id != unit.source_id or record.policy_version != unit.policy_version:
+        if (record.source_id != unit.source_id or record.policy_version != unit.policy_version
+                or record.scope_fingerprint != unit.scope_fingerprint()):
             raise ValueError("COVERAGE_MIXED_SCOPE")
         if _aware(record.attempted_at) > stamp:
             raise ValueError("COVERAGE_FUTURE_OBSERVATION")
@@ -153,9 +165,16 @@ def build_source_coverage(
     latest = rows[-1] if rows else None
     successes = [row for row in rows if row.status in {"UNCHANGED", "CHANGED"} and row.rights_status == "CLEARED"]
     last_success = successes[-1] if successes else None
+    # A missing derived baseline is not proof that the latest observed body
+    # has already been reanalysed. A known transition in the successful
+    # observation history still requires an explicit baseline/readback.
+    changed_since_baseline = bool(last_success) and (
+        last_success.content_sha256 != baseline_sha256 if baseline_sha256 is not None
+        else len({row.content_sha256 for row in successes}) > 1
+    )
     state, reason, delta = "NOT_COVERED", "COVERAGE_NO_OBSERVATION", "REVIEW_COVERAGE_GAP"
     if latest is not None:
-        if latest.rights_status != "CLEARED" or not rights_ready:
+        if latest.rights_status != "CLEARED" or latest.status == "RIGHTS_BLOCKED" or not rights_ready:
             state, reason, delta = "UNKNOWN", "COVERAGE_RIGHTS_UNKNOWN_OR_BLOCKED", "NONE"
         elif latest.status in {"UNAVAILABLE", "OUTAGE", "NOT_FOUND", "RIGHTS_BLOCKED"}:
             state, reason, delta = "STALE" if last_success else "UNKNOWN", "COVERAGE_RECENT_ATTEMPT_UNVERIFIED", "NONE"
@@ -167,7 +186,8 @@ def build_source_coverage(
             state, reason, delta = "PARTIAL", "COVERAGE_SCOPE_NOT_EXHAUSTIVELY_REVIEWED", "REVIEW_COVERAGE_GAP"
         else:
             state, reason, delta = "CURRENT_WITHIN_OBSERVED_SCOPE", "COVERAGE_ENUMERATION_ATTESTED_WITHIN_SCOPE", "NONE"
-        if last_success and baseline_sha256 and last_success.content_sha256 != baseline_sha256:
+        if (changed_since_baseline and latest.rights_status == "CLEARED"
+                and latest.status in {"UNCHANGED", "CHANGED"} and rights_ready):
             # A newly observed source is not proof that all derived claims,
             # quotations or cached public readers were re-reviewed.
             state = "STALE"
@@ -178,11 +198,13 @@ def build_source_coverage(
         "unit": (unit.unit_id, unit.source_id, unit.source_family,
                  unit.collection_id, unit.language, unit.source_format,
                  unit.expected_content_class, unit.mode, unit.policy_version,
-                 _aware(unit.interval_start).isoformat(), _aware(unit.interval_end).isoformat()),
+                 _aware(unit.interval_start).isoformat(), _aware(unit.interval_end).isoformat(),
+                 unit.max_staleness_seconds, unit.version),
         "rows": [(row.attempt_id, row.status, row.content_sha256, row.source_version,
                   _aware(row.attempted_at).isoformat(), row.enumeration_complete_within_scope,
-                  row.enumerated_scope_review_id, row.rights_status) for row in rows],
-        "baseline": baseline_sha256, "now": stamp.isoformat(), "version": VERSION,
+                  row.enumerated_scope_review_id, row.observation_receipt_id,
+                  row.rights_status, row.scope_fingerprint) for row in rows],
+        "baseline": baseline_sha256, "version": VERSION,
     }
     return SourceCoverageDecision(
         unit.unit_id, unit.source_family, unit.source_id, unit.mode,
