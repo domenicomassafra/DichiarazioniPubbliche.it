@@ -72,3 +72,50 @@ No real checkpoint verification, atomic reservation, source acquisition,
 provider call, MiniPC replay or public correction/readback was performed.
 Status remains **IN PROGRESS**, AC-516.1–.6 remain unchecked, and scaling
 remains **NO-GO** pending the existing external acceptance gates.
+
+## 2026-10-11 — Post-checkpoint source-watch revocation and version fence
+
+Source-only review found a distinct fail-open after the checkpoint/archive
+dedup fix above. The private planner skipped completed source/Capture units
+and duplicate archive copies before consulting their *current* DP-515
+source-watch metadata. A previously trusted checkpoint could therefore
+return `PRIVATE_REVIEW_PLAN` when that item's watch rights had since changed
+to `REVOKED`, or when its watch recorded a newer source-content hash.
+The same gap allowed a **not-yet-completed** item with an observed different
+source hash to propose paid work against the old manifest-pinned version.
+
+Four adversarial regression tests were added with literal **RED** outcomes
+(the old planner returned `PRIVATE_REVIEW_PLAN` instead of `HELD`):
+
+- Resuming a committed Capture after its scoped watch reports revoked rights.
+- Resuming a committed Capture when the watch has observed new source bytes,
+  with a positive control for unchanged re-observation without second charge.
+- Deduplicating an otherwise-identical archive copy whose **own** watch rights
+  have been revoked.
+- Proposing an uncommitted item after its watch has observed different bytes.
+
+Now every checkpoint/dedup-skipped item rechecks the scoped, versioned watch
+contract, current rights readiness and source-content hash without scheduling
+a poll or reserving additional funds. Any invalid scope, missing rights
+readback, revoked rights or different source hash fails the **whole** batch
+closed, with zero proposals and no hypothetical budget update. Pending items
+with newer observed hashes are also held for a new DP-243 manifest/source
+version instead of processing stale pinned bytes. The existing checkpoint
+checksum and cost dedup still work; a matching successfully observed Capture
+does not create another paid work unit.
+
+**GREEN:** `PYTHONPATH=poc python3 -m unittest
+tests.test_dp243_historical_corpus_preflight tests.test_dp515_incremental_watch
+tests.test_dp516_historical_batch_gate -q` completed **56/56 PASS**.
+`ruff check`, `ruff format --check`, Python compilation and
+`git diff --check` also pass on the DP-516 files.
+
+This is a deterministic, **private source-only planning refusal**. The
+readiness strings and receipts remain caller supplied, not independently
+attested; the function still has no acquisition, mutation, budget reservation,
+publication or withdrawal authority. All **AC-516.1–.6 remain OPEN** and
+the ticket stays **IN PROGRESS**. DP-443 signed real pilot acceptance,
+authoritative source-specific rights/license evidence, durable checkpoint
+and budget CAS, actual German/Italian multi-person attribution/translation,
+source-correction/withdrawal readback, comprehensive coverage UI and MiniPC
+proof are still required before a separately authorized historical batch.

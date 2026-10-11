@@ -423,11 +423,58 @@ def plan_historical_batch(
             item.source_version_sha256,
             item.origin_content_id or item.content_id,
         )
-        if key in completed:
+        if key in completed or dedupe_key in dedupe:
+            # Completion and cost deduplication avoid repeat paid work, not
+            # future rights/version review. A completed source or a duplicate
+            # archive copy may be revoked after the original preflight. Check
+            # each skipped source's current DP-515 state before continuing,
+            # without requiring a new budget or source-poll reservation.
+            hold_prefix = "WATCH_COMPLETED" if key in completed else "WATCH_SKIPPED"
+            watch = watch_map.get(item.content_id)
+            if watch is None:
+                holds.add("BATCH_WATCH_MISSING")
+            else:
+                try:
+                    watch_check = plan_watch_poll(
+                        watch.policy,
+                        watch.state,
+                        watch.readiness,
+                        attempt_id="batch-attempt:"
+                        + _hash([batch_id, key, "CHECK_SKIPPED"]),
+                        attempted_at=now,
+                    )
+                    if (
+                        watch.content_id != item.content_id
+                        or watch.policy.source_id != item.content_id
+                        or watch.policy.source_family != item.source_family
+                        or watch.policy.corpus_id
+                        not in {
+                            m.collection_id
+                            for m in manifests
+                            if m.person_id == person_id
+                        }
+                        or not watch.policy.enabled
+                        or watch.readiness.source_id != watch.policy.source_id
+                        or watch.readiness.corpus_id != watch.policy.corpus_id
+                        or watch.readiness.policy_fingerprint
+                        != watch_check.policy_fingerprint
+                    ):
+                        holds.add(hold_prefix + "_SCOPE_MISMATCH")
+                    if (
+                        watch.readiness.rights_status != "READY"
+                        or not isinstance(watch.readiness.rights_receipt, str)
+                        or not watch.readiness.rights_receipt.strip()
+                    ):
+                        holds.add(hold_prefix + "_RIGHTS_NOT_READY")
+                    if (
+                        watch.state.content_sha256 is not None
+                        and watch.state.content_sha256 != item.source_version_sha256
+                    ):
+                        holds.add(hold_prefix + "_SOURCE_CHANGED")
+                except (ValueError, TypeError, AttributeError):
+                    holds.add(hold_prefix + "_CONTRACT_INVALID")
             # A trusted completed root also covers identical archive copies.
             dedupe.add(dedupe_key)
-            continue
-        if dedupe_key in dedupe:
             continue
         dedupe.add(dedupe_key)
         cost = cost_map.get(item.content_id)
@@ -440,6 +487,17 @@ def plan_historical_batch(
             continue
         if watch is None:
             holds.add("BATCH_WATCH_MISSING")
+            continue
+        if not isinstance(watch.state, WatchState):
+            holds.add("WATCH_CONTRACT_INVALID")
+            continue
+        if (
+            watch.state.content_sha256 is not None
+            and watch.state.content_sha256 != item.source_version_sha256
+        ):
+            # A changed observed source requires a new DP-243 immutable version
+            # and manifest acceptance, never work against stale pinned bytes.
+            holds.add("WATCH_SOURCE_CHANGED")
             continue
         if (
             watch.state.content_sha256 == item.source_version_sha256

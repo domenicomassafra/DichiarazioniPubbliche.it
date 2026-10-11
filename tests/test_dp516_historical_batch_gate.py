@@ -403,6 +403,141 @@ class HistoricalBatchGateTests(unittest.TestCase):
         )
         self.assertEqual(resumed.proposed_budget_state.revision, 1)
 
+    def test_resume_committed_item_must_recheck_revoked_watch_rights(self):
+        initial = plan()
+        first = initial.proposals[0]
+        checkpoint = create_checkpoint(
+            initial.batch_id,
+            initial.manifest_fingerprint,
+            (
+                CompletedCapture(
+                    first.item_key,
+                    first.person_id,
+                    first.content_id,
+                    first.source_family,
+                    first.capture_sha256,
+                    "e" * 64,
+                ),
+            ),
+            revision=2,
+        )
+        _, watches = resources()
+        revoked = tuple(
+            replace(w, readiness=replace(w.readiness, rights_status="REVOKED"))
+            if w.content_id == first.content_id
+            else w
+            for w in watches
+        )
+        resumed = plan(
+            checkpoint=checkpoint,
+            verify_checkpoint=lambda *_: True,
+            watches=revoked,
+        )
+        self.assertEqual(resumed.status, "HELD")
+        self.assertIn("WATCH_COMPLETED_RIGHTS_NOT_READY", resumed.holds)
+        self.assertEqual(resumed.proposals, ())
+        self.assertIsNone(resumed.proposed_budget_state)
+
+    def test_resume_committed_item_must_recheck_newly_observed_source_version(self):
+        initial = plan()
+        first = initial.proposals[0]
+        checkpoint = create_checkpoint(
+            initial.batch_id,
+            initial.manifest_fingerprint,
+            (
+                CompletedCapture(
+                    first.item_key,
+                    first.person_id,
+                    first.content_id,
+                    first.source_family,
+                    first.capture_sha256,
+                    "e" * 64,
+                ),
+            ),
+            revision=2,
+        )
+        _, watches = resources()
+        changed = tuple(
+            replace(
+                w,
+                state=replace(
+                    w.state,
+                    policy_fingerprint=policy_fingerprint(w.policy),
+                    content_sha256="f" * 64,
+                    last_successful_observed_at=NOW - timedelta(minutes=1),
+                ),
+            )
+            if w.content_id == first.content_id
+            else w
+            for w in watches
+        )
+        resumed = plan(
+            checkpoint=checkpoint,
+            verify_checkpoint=lambda *_: True,
+            watches=changed,
+        )
+        self.assertEqual(resumed.status, "HELD")
+        self.assertIn("WATCH_COMPLETED_SOURCE_CHANGED", resumed.holds)
+        self.assertEqual(resumed.proposals, ())
+        self.assertIsNone(resumed.proposed_budget_state)
+
+        # Re-observing the *same* committed bytes is not a second paid unit.
+        unchanged = tuple(
+            replace(
+                w,
+                state=replace(w.state, content_sha256=first.capture_sha256),
+            )
+            if w.content_id == first.content_id
+            else w
+            for w in changed
+        )
+        safe = plan(
+            checkpoint=checkpoint,
+            verify_checkpoint=lambda *_: True,
+            watches=unchanged,
+        )
+        self.assertEqual(safe.status, "PRIVATE_REVIEW_PLAN")
+        self.assertEqual(len(safe.proposals), 1)
+
+    def test_deduplicated_archive_copy_revocation_must_hold_entire_batch(self):
+        root = entry()
+        copy = entry(
+            content_id="synthetic:archive-revoked",
+            kind="ARCHIVE_COPY",
+            origin_content_id=root.content_id,
+            origin_sha256=root.source_version_sha256,
+        )
+        manifests = (manifest("MUSSOLINI", (root, copy)), two()[1])
+        costs, watches = resources(manifests)
+        revoked = tuple(
+            replace(w, readiness=replace(w.readiness, rights_status="REVOKED"))
+            if w.content_id == copy.content_id
+            else w
+            for w in watches
+        )
+        decision = plan(manifests=manifests, costs=costs, watches=revoked)
+        self.assertEqual(decision.status, "HELD")
+        self.assertIn("WATCH_SKIPPED_RIGHTS_NOT_READY", decision.holds)
+        self.assertEqual(decision.proposals, ())
+        self.assertIsNone(decision.proposed_budget_state)
+
+    def test_uncommitted_item_with_newer_watch_hash_cannot_propose_stale_capture(self):
+        _, watches = resources()
+        changed = replace(
+            watches[0],
+            state=replace(
+                watches[0].state,
+                policy_fingerprint=policy_fingerprint(watches[0].policy),
+                content_sha256="f" * 64,
+                last_successful_observed_at=NOW - timedelta(minutes=1),
+            ),
+        )
+        decision = plan(watches=(changed, watches[1]))
+        self.assertEqual(decision.status, "HELD")
+        self.assertIn("WATCH_SOURCE_CHANGED", decision.holds)
+        self.assertEqual(decision.proposals, ())
+        self.assertIsNone(decision.proposed_budget_state)
+
     def test_watch_says_unchanged_without_committed_capture_requires_checkpoint(self):
         _, watches = resources()
         unchanged = replace(
