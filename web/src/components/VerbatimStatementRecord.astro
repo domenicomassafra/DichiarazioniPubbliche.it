@@ -1,17 +1,46 @@
 ---
 import { validateOriginalStatement, type PublicOriginalStatement } from "../lib/statementV3";
+import { validatePublicStatementV3Detail } from "../lib/statementV3Api";
 
-interface Props { statement: PublicOriginalStatement }
-const { statement: input } = Astro.props;
-// No v2 paraphrase can enter this component and become a quote.
-const statement = await validateOriginalStatement(input);
+interface Props {
+  statement?: PublicOriginalStatement;
+  /** Pure v3 API detail only; this opt-in does not activate any public route. */
+  apiDetail?: unknown;
+  allowStatementV3?: boolean;
+  expectedDatasetSha256?: string;
+}
+const { statement: input, apiDetail, allowStatementV3, expectedDatasetSha256 } = Astro.props;
+const apiMode = apiDetail !== undefined;
+if (apiMode === (input !== undefined)) {
+  throw new Error("PUBLIC_STATEMENT_CONSUMER_INPUT_AMBIGUOUS");
+}
+// A v3 API serializer excludes private review IDs: do not invent them to pass
+// the source-record validator. Verify the API's separate, explicit contract.
+const api = apiMode
+  ? await validatePublicStatementV3Detail(apiDetail, { allowStatementV3, expectedDatasetSha256 })
+  : null;
+const record = api?.data;
+// Neither old v2 dossiers nor API paraphrase cards can become original words.
+const statement = record ? {
+  original_text: record.original.text,
+  language: record.original.language,
+  speaker_name: record.person.name,
+  statement_date: record.statement_date,
+  source_url: record.source.url,
+  source_kind: record.source.kind,
+  locator: record.original.locator,
+  speech_act: record.speech_act,
+  summary: record.summary,
+  translation: record.translation,
+  finding_id: record.finding_id,
+} : await validateOriginalStatement(input);
 const date = statement.statement_date;
 const sourceSpan = statement.source_kind === "TIMED"
   ? `Segmento ${statement.locator.segment_id} · ${statement.locator.start_ms}–${statement.locator.end_ms} ms`
   : `Testo originale · caratteri ${statement.locator.start_char}–${statement.locator.end_char}`;
 ---
 
-<article class="dp-statement-body" data-contract="public-statement-v3-opt-in">
+<article class="dp-statement-body" data-contract="public-statement-v3-opt-in" data-dataset-sha256={api?.meta.dataset_sha256}>
   <header class="record-header">
     <div class="eyebrow">Parole originali dalla fonte</div>
     <blockquote class="prose" lang={statement.language} cite={statement.source_url}>

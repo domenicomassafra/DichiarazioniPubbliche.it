@@ -66,3 +66,40 @@ selected DP-435/436 regressions PASS, Ruff check+format PASS. Only serializer
 parity is locally proven: it does not activate a v3 public route, homepage,
 search, cards, sitemap or caches, certify real rights, or validate MiniPC
 reader+withdrawal. AC-436.1–.4 remain OPEN and ticket IN PROGRESS.
+
+## 2026-10-11 — Opt-in frontend detail API → exact-wording Astro consumer
+
+Source-only frontend slice adds `web/src/lib/statementV3Api.ts` to consume the
+existing backend's **separately opted-in** `get_public_statement_v3`
+`{meta,data}` detail. The validator requires `allowStatementV3: true`, an
+**externally supplied** 64-hex dataset fingerprint matching the payload and
+the exact v3 schema; it checks a strict field allowlist, exact original
+`VERBATIM_ORIGINAL` text SHA-256, public HTTPS source URL/version/hash,
+written or timed locator length/shape, speech-act/endorsement constraints,
+and summary/translation type, language and source-quote linkage. Any v2,
+unknown, mixed or operational field fails closed. It does not manufacture
+the backend's intentionally private review IDs or interpret paraphrase as
+source text.
+
+`VerbatimStatementRecord.astro` now accepts this payload as a separate
+`apiDetail` prop, requiring an explicit opt-in and independently pinned
+`expectedDatasetSha256`. Its existing governed source-record input remains
+supported but simultaneous or missing inputs are rejected. A new isolated
+`web/scripts/check-statement-v3-api.mjs` pulls synthetic-only data directly
+through the existing Python v3 API serializer, then proves the exact quote,
+source locator, distinct translated/summary panels, and absent Finding in
+the **real Astro-rendered HTML** built in a disposable directory. It also
+rejects no opt-in, stale fingerprint, v2/mixed shape, spoofed paraphrase,
+source URL/locator/hash tampering, illicit endorsements, private fields,
+and summary/translation source swaps. It tests rejected render builds
+without adding any public site route or copying a synthetic fixture into
+the deployment tree.
+
+Focused backend-to-Astro, original Statement, v3 API adversarial validation
+and Astro type check pass locally. The production public-v2 projection,
+`/dichiarazioni/` route, API, search-index, static data/RDF publisher and
+the independently disabled v3 writer remain unchanged. This proves only
+a functional, opt-in frontend consumer seam; **AC-436.1–.4 stay unchecked**
+until genuine source-specific rights/provenance, complete approved v3
+consumer/index/search/linked-data cutover, revocation/cache race and MiniPC
+same-fingerprint readback pass.
