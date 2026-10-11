@@ -1,5 +1,18 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Nuova tranche a quattro subagenti, 11 ottobre 2026:**
+[DP-238/239/240/241, fix e proof RED→GREEN](docs/reviews/2026-10-11-four-ticket-m2-hardening-wave.md).
+Migliorati i confini privati di parsing PDF (inline image/formfeed),
+traduzione con locator immutabile/numeri, batch manifest/replay/hold
+multi-Persona e investigazione originale con ricevute uniche/cap tentativi.
+**74/74 test mirati PASS**, benchmark deterministico 5/5 PASS,
+Ruff dei file toccati e repository contract PASS.
+I quattro ticket rimangono **IN PROGRESS** in attesa di gold
+indipendente, source/rights permissions reali e readback MiniPC.
+Nessuna autorizzazione al dispatch o alla pubblicazione è cambiata;
+release **NO-GO/49**. Suite completa e CI si verificano
+indipendentemente dal proof mirato.
+
 **Follow-up cleanup + debug dell'11 ottobre:**
 [type-hint runtime e clone QA recuperato](docs/reviews/2026-10-11-queue-annotation-wip-followup.md).
 Clone temporaneo con HEAD antenato di `main` e zero WIP
