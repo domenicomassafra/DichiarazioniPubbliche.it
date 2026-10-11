@@ -19,7 +19,13 @@ from datetime import date
 VERSION = "verification-requirement-preflight-v1"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-_ROLES = {"PRIMARY_RECORD", "INDEPENDENT_RECORD", "PRIMARY_STATISTICS", "PRIMARY_LEGAL_RECORD", "PRIMARY_TEXT"}
+_ROLES = {
+    "PRIMARY_RECORD",
+    "INDEPENDENT_RECORD",
+    "PRIMARY_STATISTICS",
+    "PRIMARY_LEGAL_RECORD",
+    "PRIMARY_TEXT",
+}
 _CLASSES = {
     "EVENT_SEQUENCE": (("PRIMARY_RECORD", "INDEPENDENT_RECORD"), 2),
     "DOCUMENTARY_LEGAL_STATUS": (("PRIMARY_LEGAL_RECORD",), 1),
@@ -37,7 +43,12 @@ def _ref(value: str, key: str) -> str:
 
 def _date(value: str, key: str) -> date:
     try:
-        if not isinstance(value, str) or len(value) != 10 or value[4] != "-" or value[7] != "-":
+        if (
+            not isinstance(value, str)
+            or len(value) != 10
+            or value[4] != "-"
+            or value[7] != "-"
+        ):
             raise ValueError
         return date.fromisoformat(value)
     except ValueError as exc:
@@ -45,7 +56,9 @@ def _date(value: str, key: str) -> date:
 
 
 def _digest(material: object) -> str:
-    return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -99,7 +112,9 @@ class RequirementPreflight:
     publication_authority: bool = False
 
 
-def select_requirement_profile(claim_kind: str) -> VerificationRequirementProfile | None:
+def select_requirement_profile(
+    claim_kind: str,
+) -> VerificationRequirementProfile | None:
     if not isinstance(claim_kind, str):
         raise ValueError("REQUIREMENT_CLAIM_KIND_INVALID")
     profile = _CLASSES.get(claim_kind)
@@ -115,13 +130,19 @@ def preflight_verification_requirements(
     Eligible means *operator-declared* review/rights status is consistent with
     a source-bound candidate. Only persisted authority can substantiate it.
     """
-    if not isinstance(claim, RequirementClaim) or not isinstance(observations, tuple) or len(observations) > 128:
+    if (
+        not isinstance(claim, RequirementClaim)
+        or not isinstance(observations, tuple)
+        or len(observations) > 128
+    ):
         raise ValueError("REQUIREMENT_INPUT_INVALID")
     _ref(claim.claim_id, "CLAIM")
     _ref(claim.policy_version, "POLICY_VERSION")
     if claim.jurisdiction_ref is not None:
         _ref(claim.jurisdiction_ref, "JURISDICTION")
-    if not isinstance(claim.proposition_sha256, str) or not _SHA.fullmatch(claim.proposition_sha256):
+    if not isinstance(claim.proposition_sha256, str) or not _SHA.fullmatch(
+        claim.proposition_sha256
+    ):
         raise ValueError("REQUIREMENT_PROPOSITION_SHA_INVALID")
     statement_day = _date(claim.statement_date, "STATEMENT_DATE")
     cutoff = _date(claim.review_cutoff_date, "REVIEW_DATE")
@@ -135,22 +156,40 @@ def preflight_verification_requirements(
     for row in observations:
         if not isinstance(row, RequirementEvidence):
             raise ValueError("REQUIREMENT_EVIDENCE_INPUT_INVALID")
-        for key in ("evidence_id", "primary_root_ref", "source_family_ref", "locator_ref"):
+        for key in (
+            "evidence_id",
+            "primary_root_ref",
+            "source_family_ref",
+            "locator_ref",
+        ):
             _ref(getattr(row, key), key.upper())
         if row.evidence_id in seen:
             raise ValueError("REQUIREMENT_EVIDENCE_ID_DUPLICATE")
         seen.add(row.evidence_id)
-        if not isinstance(row.evidence_sha256, str) or not _SHA.fullmatch(row.evidence_sha256):
+        if not isinstance(row.evidence_sha256, str) or not _SHA.fullmatch(
+            row.evidence_sha256
+        ):
             raise ValueError("REQUIREMENT_EVIDENCE_SHA_INVALID")
         if row.jurisdiction_ref is not None:
             _ref(row.jurisdiction_ref, "EVIDENCE_JURISDICTION")
         published = _date(row.published_date, "EVIDENCE_DATE")
-        if row.evidence_role not in _ROLES or row.stance not in {"SUPPORT", "REFUTE", "UNKNOWN"}:
+        if row.evidence_role not in _ROLES or row.stance not in {
+            "SUPPORT",
+            "REFUTE",
+            "UNKNOWN",
+        }:
             raise ValueError("REQUIREMENT_EVIDENCE_CLASS_INVALID")
-        if row.source_use_status not in {"APPROVED", "HELD", "REVOKED"} or row.evidence_review_status not in {"APPROVED", "PENDING", "REVOKED"}:
+        if row.source_use_status not in {
+            "APPROVED",
+            "HELD",
+            "REVOKED",
+        } or row.evidence_review_status not in {"APPROVED", "PENDING", "REVOKED"}:
             raise ValueError("REQUIREMENT_EVIDENCE_APPROVAL_INVALID")
         codes: list[str] = []
-        if row.source_use_status != "APPROVED" or row.evidence_review_status != "APPROVED":
+        if (
+            row.source_use_status != "APPROVED"
+            or row.evidence_review_status != "APPROVED"
+        ):
             codes.append("EVIDENCE_OR_RIGHTS_NOT_APPROVED")
         if published > statement_day:
             codes.append("POST_STATEMENT_EVIDENCE_ONLY")
@@ -187,8 +226,10 @@ def preflight_verification_requirements(
         state = "NOT_CHECKABLE_PROFILE_UNAVAILABLE"
     elif any(code in reason_codes for code in ("CROSS_ROOT_IDENTICAL_BYTES",)):
         state = "CHECKED_INSUFFICIENT_EVIDENCE"
-    elif (not set(profile.required_roles).issubset(roles)
-          or len(roots) < profile.independent_roots_required):
+    elif (
+        not set(profile.required_roles).issubset(roles)
+        or len(roots) < profile.independent_roots_required
+    ):
         state = "CHECKED_INSUFFICIENT_EVIDENCE"
     elif {row.stance for row in eligible} >= {"SUPPORT", "REFUTE"}:
         state = "UNRESOLVED_CONFLICT"
@@ -196,11 +237,23 @@ def preflight_verification_requirements(
     else:
         state = "CHECKABLE_PENDING"
         reason_codes.add("DETERMINISTIC_VERIFICATION_OR_INDEPENDENT_GOLD_REQUIRED")
-    snapshot = _digest({"version": VERSION, "claim": asdict(claim),
-                        "observations": [asdict(row) for row in sorted(observations, key=lambda x: x.evidence_id)]})
+    snapshot = _digest(
+        {
+            "version": VERSION,
+            "claim": asdict(claim),
+            "observations": [
+                asdict(row) for row in sorted(observations, key=lambda x: x.evidence_id)
+            ],
+        }
+    )
     return RequirementPreflight(
-        VERSION, claim.claim_id, state, tuple(sorted(reason_codes)),
+        VERSION,
+        claim.claim_id,
+        state,
+        tuple(sorted(reason_codes)),
         profile.required_roles if profile else (),
-        tuple(sorted(row.evidence_id for row in eligible)), tuple(sorted(excluded)),
-        len(roots), snapshot,
+        tuple(sorted(row.evidence_id for row in eligible)),
+        tuple(sorted(excluded)),
+        len(roots),
+        snapshot,
     )
