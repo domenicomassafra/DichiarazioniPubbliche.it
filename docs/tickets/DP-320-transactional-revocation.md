@@ -107,3 +107,36 @@ admission, edge/cache withdrawal, immutable deployment readback or measured
 withdrawal SLO. No real source, CDN, database or release was changed.
 **Status remains IN PROGRESS, all AC-320.1–.5 remain unchecked and public
 release remains NO-GO** pending the original external gates.
+
+## 2026-10-12 — Disposable PostgreSQL transactional fence (partial)
+
+An independent opt-in PostgreSQL reference now lives only in
+`poc/dichiarazioni_pubbliche/revocation_pg_fence_v1.py`, with adversarial
+`tests/test_dp320_revocation_pg_next.py`. The test starts its own PostgreSQL 17
+cluster, loads the actual `db/schema.v1.sql`, creates a separate
+`dp320_test_fence` database and explicitly installs private `dp320_pg_*` tables
+and functions there. Database names outside `dp320_test_*` or non-loopback
+connections are refused. No canonical migration or production data changes.
+
+PG transactions lock all ticket dependencies in stable order, compare the
+current material hash/epoch/ACTIVE state for mint, artifact-reference commit
+and checked read, and serialize revocation against these operations using
+`SELECT ... FOR UPDATE`. Revocation increments the epoch and creates an immutable
+event and an outbox row in the same transaction. Outbox acknowledgments are
+independent append-only rows; retries with the same event and exact source,
+reason and instant return the persisted epoch, conflicting replays are denied.
+There is no automatic restoration path. Local DB timeouts cap blocked calls.
+
+Seven genuine PostgreSQL tests cover stale reference/reader rejection after
+revocation, persisted outbox across reconnect, same-event idempotent retry and
+conflict, a killed uncommitted PostgreSQL session followed by restart/replay,
+immutable event/outbox, material-hash change, and both lock orders: a waiting
+publication/reader after revocation and an already inserted uncommitted
+publication before revocation. The original SQLite reference tests also pass.
+
+**Remaining:** this is an isolated database contract. Real source/Capture/
+Passage/claim/review approval writers and public projections/search/HTML/API
+do not call this fence; the dependency graph, allowed restore authority,
+cache/CDN purge and byte-delivery window remain unverified. No MiniPC timing,
+rollback or D cutover evidence exists. **All AC-320.1–.5 stay unchecked,
+ticket IN PROGRESS and launch NO-GO.**
