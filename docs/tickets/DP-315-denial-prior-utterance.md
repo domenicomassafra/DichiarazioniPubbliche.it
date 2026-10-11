@@ -51,3 +51,22 @@ truth of proposition X is always `NOT_EVALUATED`; there is no intent, lie,
 human review or public publication authority inference. Focused offline tests
 PASS. **No original AC-315.1–.5 is fully closed** without independent source
 evidence/currentness, downstream DP-318 and public consumer, MiniPC pilot.
+
+## 2026-10-11 — Exact review/window/occurrence snapshot binding
+
+The private denial evaluator's receipt fingerprint previously included only
+selected denial fields and matched occurrence **IDs**. A renewed source-review
+event, amended time window, different utterance date or changed speech act
+could reproduce the same receipt SHA and outcome while the underlying
+review/provenance scope had materially changed. A six-case regression was
+**RED** before correction (**6/6 failures**). The receipt now hashes the
+complete bounded typed target and observation metadata, with UTC-normalized
+dates and canonical occurrence ordering; no private utterance body is
+included. Unreviewed/malformed observation types fail closed.
+
+After correction, **24/24** DP-315 plus DP-319 focused tests PASS; scoped
+Ruff F821 and `git diff --check` PASS. This is an integrity checksum over
+supplied metadata, **not** a signature or independent source/rights review.
+Real provenance, changed-source invalidation across consumers and the
+MiniPC authorized readback are still missing. All AC-315.1–.5 remain
+unchecked; **IN PROGRESS**, no new public Finding or opinion authority.

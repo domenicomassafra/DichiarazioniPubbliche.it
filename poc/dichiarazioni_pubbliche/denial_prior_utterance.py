@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 
 
@@ -35,6 +35,17 @@ def _time(value: datetime) -> datetime:
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("DENIAL_AWARE_TIME_REQUIRED")
     return value.astimezone(timezone.utc)
+
+
+def _receipt_fields(record: object) -> dict[str, object]:
+    """Bind every typed metadata field, normalizing dates for stable replay."""
+    return {
+        field.name: (
+            _time(value).isoformat() if isinstance(value, datetime) else value
+        )
+        for field in fields(record)
+        for value in (getattr(record, field.name),)
+    }
 
 
 @dataclass(frozen=True)
@@ -124,6 +135,8 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
     """Pure conservative check; missing/unknown source version is never approved."""
     if not isinstance(target, DenialTarget) or not isinstance(occurrences, tuple) or len(occurrences) > 128:
         raise ValueError("DENIAL_INPUT_UNBOUNDED_OR_INVALID")
+    if any(not isinstance(row, PriorOccurrence) for row in occurrences):
+        raise ValueError("DENIAL_OCCURRENCE_INVALID")
     if not isinstance(current_source_versions, dict):
         current_source_versions = {}
     candidate_ids: list[str] = []
@@ -180,11 +193,12 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
     if not target_current:
         verdict, relation, reason = "CHECKED_INSUFFICIENT_EVIDENCE", "PRIVATE_HOLD", "DENIAL_TARGET_SOURCE_STALE_OR_UNKNOWN"
     material = {
-        "target": dict(id=target.denial_id, source=target.source_sha256, version=target.source_version_id,
-                       predicate=target.predicate, speaker=target.person_id, scope=target.scope,
-                       quote=target.target_quote_sha256, proposition=target.target_proposition_sha256,
-                       at=_time(target.uttered_at).isoformat()),
-        "occurrences": sorted(candidate_ids), "verdict": verdict, "reason": reason,
+        "target": _receipt_fields(target),
+        "occurrences": sorted(
+            (_receipt_fields(row) for row in occurrences),
+            key=lambda row: (str(row["occurrence_id"]), str(row["source_version_id"])),
+        ),
+        "matched": sorted(candidate_ids), "verdict": verdict, "reason": reason,
         "known_source_versions": sorted(current_source_versions.items()),
         "version": VERSION,
     }

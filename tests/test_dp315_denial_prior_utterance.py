@@ -124,6 +124,24 @@ class ThreeTrackDenialTests(unittest.TestCase):
                 self.assertEqual(assess(changed).denial_factual_status, "CHECKED_INSUFFICIENT_EVIDENCE")
                 self.assertNotEqual(initial.receipt_sha256, assess(changed).receipt_sha256)
 
+    def test_review_time_scope_and_prior_provenance_mutations_stale_denial_receipt(self):
+        original = assess()
+        # A still-matching occurrence may be reviewed anew or may occupy a
+        # different period. Identical outcome text must not reuse its old
+        # integrity fingerprint under materially different approved inputs.
+        for t, rows in (
+            (target(review_event_id="review:later:2"), (prior(),)),
+            (target(from_at=YEAR(2023)), (prior(),)),
+            (target(through_at=YEAR(2025)), (prior(),)),
+            (target(), (prior(review_event_id="review:prior:2"),)),
+            (target(), (prior(spoken_at=YEAR(2023)),)),
+            (target(), (prior(speech_act="OPINION"),)),
+        ):
+            with self.subTest(target=t, rows=rows):
+                after = assess(t, rows=rows)
+                self.assertEqual(after.denial_factual_status, original.denial_factual_status)
+                self.assertNotEqual(after.receipt_sha256, original.receipt_sha256)
+
     def test_invalid_predicate_or_malformed_quoted_endorsement_denied(self):
         with self.assertRaisesRegex(ValueError, "SCOPE_OR_PREDICATE"):
             target(predicate="NEVER_LIED")
