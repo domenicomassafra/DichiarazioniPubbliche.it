@@ -2828,11 +2828,8 @@ CREATE TABLE IF NOT EXISTS provider_receipt (
         billing_basis <> 'MEASURED_PROVIDER_COST'
         OR measured_cost_usd IS NOT NULL
     ),
-    CHECK (
-        billing_basis <> 'UNKNOWN'
-        OR COALESCE(estimated_cost_usd, 0) > 0
-        OR measured_cost_usd IS NOT NULL
-    ),
+    -- UNKNOWN is not ZERO_COST. Even an adapter's zero upper-bound estimate
+    -- cannot establish a free operation or a measured provider invoice.
     CHECK (
         billing_basis <> 'ZERO_COST'
         OR (

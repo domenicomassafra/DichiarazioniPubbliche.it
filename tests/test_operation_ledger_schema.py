@@ -39,11 +39,15 @@ class OperationLedgerSchemaTests(unittest.TestCase):
                 "UNKNOWN",
             ):
                 self.assertIn(f"'{basis}'", sql)
-            self.assertIn("COALESCE(estimated_cost_usd, 0) > 0", sql)
             self.assertIn(
                 "billing_basis <> 'MEASURED_PROVIDER_COST'",
                 sql,
             )
+        self.assertNotIn("COALESCE(estimated_cost_usd, 0) > 0", self.schema)
+        migration = (ROOT / "db/migrations/20261011-allow-unknown-discovery-ceiling.sql").read_text()
+        self.assertIn("DROP CONSTRAINT IF EXISTS provider_receipt_unknown_cost_check", migration)
+        self.assertNotIn("UPDATE provider_receipt", migration)
+        self.assertNotIn("DELETE FROM provider_receipt", migration)
 
     def test_operation_and_billing_indexes_exist(self):
         for sql in (self.schema, self.migration):

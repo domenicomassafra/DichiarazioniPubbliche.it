@@ -55,3 +55,20 @@ Regression receipt: `tests/test_dp512_billing.py` classification/receipt/unknown
 Extended Mac regression: 99 tests passed across `test_dp512_billing`, `test_research_discovery`, `test_research_discovery_schema`, `test_operation_ledger`, `test_operation_ledger_schema`, `test_ops_cost_policy`, `test_queue_store`, and `test_dp514_monthly_budget`; `git diff --check` passed. The deterministic benchmark passed 5/5. The unrestricted unittest discovery run was interrupted after stalling in the unrelated PostgreSQL setup of `test_provenance_revalidation_persistence`; it is **not** a full-suite PASS. No isolated MiniPC/PostgreSQL billing replay was performed.
 
 DP-512 remains **IN PROGRESS** with every AC unchecked. Outstanding: invoice/usage/plan/quota provenance and refunds; true measured/unknown/plan/local-energy separation across all writers; immutable append-only reclassification events for historical rows; crash-safe and cross-worker atomic budget reservations; independently verified PostgreSQL replay and MiniPC worker/health consumer parity, FX and timezone boundaries, and authorized provider bill matching. A zero-rate estimate still never proves free provider capacity or subscription entitlement.
+
+## 2026-10-11 — PostgreSQL receipt rejection at unknown zero ceiling
+
+An isolated local PostgreSQL replay of `test_existing_factcheck_persistence`
+reproduced three actual writer failures: the adapter correctly tagged an
+unpriced attempt as `UNKNOWN`, with reported upper bound zero, but the SQL
+constraint rejected any UNKNOWN receipt without a positive monetary estimate.
+The failed receipt also broke exception handling for blocked/failing lookups.
+The canonical DDL now permits an UNKNOWN receipt with zero *estimated ceiling*
+without changing it to `ZERO_COST` or fabricating a nominal bill. The additive
+replay-safe migration `20261011-allow-unknown-discovery-ceiling.sql` drops the
+obsolete strict named check on existing databases, retaining all nonnegative,
+measured and ZERO_COST constraints. Local isolated PostgreSQL tests and schema
+tests are **GREEN: 21/21**, after RED: 3 errors. No MiniPC production migration
+was applied; older databases and owner-authorized migration readback remain
+pending. `UNKNOWN` does not authorize billing, provider dispatch or publication.
+The remaining original DP-512 AC remain unchecked.
