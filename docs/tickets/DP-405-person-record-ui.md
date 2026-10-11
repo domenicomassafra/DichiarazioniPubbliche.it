@@ -283,3 +283,27 @@ review. No active VoiceOver session was available in the current Mac run;
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS. DP-438 supplies first-class approved Person even with zero Statements; DP-437 supplies independent non-factual Statement; DP-439/440 public Person×Topic and cited synthesis. Future Person chronology must be dated, show exact original source words (DP-435/436) and no invented current role, verdict or endorsed stance from somebody else's quotation. Approved-zero Person has a public empty state, private-only/unknown are indistinguishable. AC-405.3 and real manual accessibility AC-405.6 remain independently OPEN. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+### 2026-10-11 — isolated approved-empty Person component, route gate still pending
+
+`PersonRecord.astro` now accepts a **separately reviewed and validated** `approvedEmptyPerson`
+resource with the DP-438 v3 public shape. The component renders a dedicated public-data-boundary
+empty state with Explore/Method links and a labeled heading; it omits the populated chronology's
+filter controls, filtered-no-match message and declared result count. Reviewed source-dated roles
+can appear with HTTPS provenance, without asserting a timeless current office. Missing approval,
+non-PUBLISHED status, nonempty statement memberships, mixed dossiers, malformed canonical routes
+and unsafe role-source URLs fail closed during rendering rather than emitting a misleading page.
+
+`node web/scripts/check-dp405-approved-empty.mjs` **PASS** in a transient, non-deployable Astro
+static build using an explicitly synthetic Person, including HTML semantics, canonical metadata,
+navigation, absence of person-level scores/omission counts, legacy populated chronology
+regression, and eight negative authorization/link cases. `cd web && npm run check` **PASS
+(0 errors, 0 warnings)**, `npm run check:design` **PASS**, and `git diff --check` **PASS**;
+no browser/AT acceptance asserted.
+
+The production `getStaticPaths()` still derives people only from validated public-v2 dossiers,
+while DP-438's first-class approved Person collection is not integrated into the validated site
+projection/API or deployed release. Therefore the synthetic component fixture **is not** the
+positive public route or MiniPC fingerprint/readback required by `AC-405.3`. Real assisted
+screen-reader, keyboard and contrast acceptance for `AC-405.6` is also outstanding. **Both
+checkboxes remain unchecked; status remains IN PROGRESS.**

@@ -5,16 +5,70 @@ import ClaimRow from "./ClaimRow.astro";
 import { claimTypeLabel, dossierSlug, formatDate, relationSlug, speakerSlug } from "../lib/format";
 import type { PublicDossier } from "../lib/types";
 
-interface Props { dossiers: PublicDossier[] }
-const { dossiers } = Astro.props;
-const speaker = dossiers[0].speaker;
-const canonical = `/persone/${speakerSlug(dossiers[0])}/`;
+// This input must come from a separately validated, approved public Person
+// collection (DP-438). The public-v2 dossier loader cannot authorize it.
+interface ApprovedEmptyPerson {
+  person_id: string;
+  slug: string;
+  route: string;
+  display_name: string;
+  disambiguator: string | null;
+  status: "PUBLISHED";
+  statements: [];
+  roles: Array<{
+    role_id: string;
+    label: string;
+    organization: string | null;
+    valid_from: string;
+    valid_to: string | null;
+    source_url: string;
+  }>;
+}
+
+interface Props { dossiers?: PublicDossier[]; approvedEmptyPerson?: ApprovedEmptyPerson }
+const { dossiers = [], approvedEmptyPerson } = Astro.props;
+const safeRoleSource = (value: string): boolean => {
+  try {
+    const source = new URL(value);
+    return source.protocol === "https:" && Boolean(source.hostname) && !source.username && !source.password;
+  } catch {
+    return false;
+  }
+};
+if (approvedEmptyPerson) {
+  if (
+    approvedEmptyPerson.status !== "PUBLISHED" ||
+    !approvedEmptyPerson.person_id ||
+    !approvedEmptyPerson.display_name?.trim() ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(approvedEmptyPerson.slug) ||
+    approvedEmptyPerson.route !== `/persone/${approvedEmptyPerson.slug}/` ||
+    !Array.isArray(approvedEmptyPerson.statements) ||
+    approvedEmptyPerson.statements.length !== 0 ||
+    !Array.isArray(approvedEmptyPerson.roles) ||
+    !approvedEmptyPerson.roles.every((role) =>
+      role && typeof role.role_id === "string" && role.role_id.trim() &&
+      typeof role.label === "string" && role.label.trim() &&
+      /^\d{4}-\d{2}-\d{2}$/.test(role.valid_from) &&
+      (role.valid_to === null || /^\d{4}-\d{2}-\d{2}$/.test(role.valid_to)) &&
+      safeRoleSource(role.source_url)
+    ) ||
+    dossiers.length !== 0
+  ) {
+    throw new Error("Invalid or nonempty approved Person input: public archive withheld.");
+  }
+} else if (dossiers.length === 0) {
+  throw new Error("No approved public Person input: public archive withheld.");
+}
+const isPubliclyEmpty = Boolean(approvedEmptyPerson);
+const speaker = dossiers[0]?.speaker;
+const personName = approvedEmptyPerson?.display_name ?? speaker!.name;
+const canonical = approvedEmptyPerson?.route ?? `/persone/${speakerSlug(dossiers[0])}/`;
 const ordered = [...dossiers].sort((a, b) => {
   const ad = Date.parse(a.source.published_at ?? a.finding.published_at ?? "1970-01-01");
   const bd = Date.parse(b.source.published_at ?? b.finding.published_at ?? "1970-01-01");
   return bd - ad || a.finding_id.localeCompare(b.finding_id);
 });
-const roles = [...(speaker.public_roles ?? [])].sort((a, b) =>
+const roles = [...(speaker?.public_roles ?? [])].sort((a, b) =>
   String(b.start_date ?? "").localeCompare(String(a.start_date ?? ""))
 );
 const sourceOptions = [...new Set(ordered.map((item) => item.source.title))].sort();
@@ -33,13 +87,25 @@ const roleAt = (dossier: PublicDossier) => {
 };
 ---
 
-<BaseLayout title={speaker.name} description={`Cronologia pubblica verificabile delle dichiarazioni di ${speaker.name}.`} canonicalPath={canonical}>
+<BaseLayout title={personName} description={`Archivio pubblico delle dichiarazioni di ${personName}.`} canonicalPath={canonical}>
   <header class="record-header person-header">
     <div class="shell record-header-grid">
       <div>
         <div class="eyebrow">Persona</div>
-        <h1 class="page-title">{speaker.name}</h1>
-        {roles.length > 0 && (
+        <h1 class="page-title">{personName}</h1>
+        {approvedEmptyPerson?.disambiguator && <p>{approvedEmptyPerson.disambiguator}</p>}
+        {approvedEmptyPerson && approvedEmptyPerson.roles.length > 0 && (
+          <div class="record-role" aria-label="Incarichi pubblici approvati con periodo e fonte">
+            {approvedEmptyPerson.roles.map((role) => (
+              <div>
+                <strong>{role.label}</strong>{role.organization ? ` · ${role.organization}` : ""}
+                <small> · {formatDate(role.valid_from)}–{role.valid_to ? formatDate(role.valid_to) : "fine non indicata"}</small>
+                {" · "}<a href={role.source_url}>Fonte dell'incarico</a>
+              </div>
+            ))}
+          </div>
+        )}
+        {!approvedEmptyPerson && roles.length > 0 && (
           <div class="record-role" aria-label="Ruoli pubblici approvati">
             {roles.map((role) => (
               <div>
@@ -49,13 +115,23 @@ const roleAt = (dossier: PublicDossier) => {
             ))}
           </div>
         )}
-        <p class="person-boundary">Cronologia di dichiarazioni già pubblicate nel record. Gli esiti appartengono alle singole dichiarazioni: non esiste un punteggio della persona.</p>
+        <p class="person-boundary">{isPubliclyEmpty
+          ? "Questa pagina contiene soltanto informazioni approvate per la pubblicazione. L'assenza di dichiarazioni pubblicate non è una valutazione della persona."
+          : "Cronologia di dichiarazioni già pubblicate nel record. Gli esiti appartengono alle singole dichiarazioni: non esiste un punteggio della persona."}</p>
       </div>
       <SearchField action="/esplora/" name="q" placeholder="Cerca nel record pubblico" compact />
     </div>
   </header>
 
   <section class="shell page-section-tight person-chronology">
+    {isPubliclyEmpty ? (
+      <section class="dp-utility-empty" aria-labelledby="person-empty-title">
+        <h2 id="person-empty-title">Nessuna dichiarazione pubblicata per questa persona</h2>
+        <p>Non ci sono ancora dichiarazioni disponibili nel record pubblico di questa persona. Non vengono mostrate informazioni in attesa di revisione o pubblicazione.</p>
+        <p>Puoi <a href="/esplora/">esplorare il record pubblico</a> oppure <a href="/metodo/">leggere il metodo</a>.</p>
+      </section>
+    ) : (
+      <>
     <div class="record-filter-toolbar">
       <button type="button" class="record-filter-toggle" data-record-filter-toggle aria-expanded="false" aria-controls="person-filters">Filtri</button>
       <span aria-live="polite" data-record-count>{ordered.length} dichiarazioni pubbliche</span>
@@ -112,9 +188,11 @@ const roleAt = (dossier: PublicDossier) => {
       <h2>Nessuna dichiarazione pubblica corrisponde ai filtri.</h2>
       <p>Modifica i filtri, <a href="/esplora/">esplora il record</a> oppure <a href="/metodo/">leggi il metodo</a>.</p>
     </section>
+      </>
+    )}
   </section>
 
-  <script is:inline>
+  {!isPubliclyEmpty && <script is:inline>
     (() => {
       const form = document.querySelector('[data-record-filters]');
       if (!form) return;
@@ -155,5 +233,5 @@ const roleAt = (dossier: PublicDossier) => {
       form.addEventListener('reset', () => setTimeout(apply));
       apply();
     })();
-  </script>
+  </script>}
 </BaseLayout>
