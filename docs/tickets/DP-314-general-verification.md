@@ -120,3 +120,34 @@ real independently approved immutable observations, original source-use,
 documentary legal status/factual denial production paths, durable append-only
 result ledger, calibrated blind DP-321, qualified DP-229 challenger and
 DP-316 machine authority plus MiniPC public candidate readback are absent.
+
+## 2026-10-12 — Jurisdiction and unsupported-profile fail-closed preflight
+
+An independently reproduced legal-status defect admitted a primary legal
+record tagged `jurisdiction:fr` for a claim whose jurisdiction was `None`:
+the previous preflight returned `CHECKABLE_PENDING` because it compared
+jurisdictions only when the *claim* jurisdiction was truthy. A record with
+`jurisdiction_ref=None` reproduced the same false eligibility. A completed
+documentary legal-status preflight now requires an explicitly specified
+claim jurisdiction. Missing scope yields `LEGAL_JURISDICTION_UNSPECIFIED`,
+excludes the evidence declaration, and reports
+`CHECKED_INSUFFICIENT_EVIDENCE`; an explicitly matching legal jurisdiction
+retains the existing private pending path.
+
+A second regression found that an unsupported claim class with `NOT_STARTED`
+masked the absent profile as `NOT_CHECKED`. The preflight now selects
+`NOT_CHECKABLE_PROFILE_UNAVAILABLE` before handling the run state while a
+supported class with `NOT_STARTED` remains `NOT_CHECKED`. Even a
+caller-declared APPROVED evidence row for an unsupported class had previously
+appeared in `eligible_evidence_ids`; it now appears among excluded evidence
+with `PROFILE_UNAVAILABLE`, and non-factual sources are likewise marked
+inapplicable to factual verification.
+
+The new independent six-case regression produced three initial RED failures
+and one further RED for the unsupported-class eligible-evidence leak, then
+six GREEN results. Existing DP-314 regressions and adjacent DP-316
+machine-authority tests also passed (22 + 15 tests).
+No attested source jurisdiction/rights, claim semantics, date-effective legal
+version, independent gold, authorized reviewer, durable ledger, provider,
+or publication authority is created by these local source-only checks.
+**All original AC-314.1–.6 remain open; status IN PROGRESS.**

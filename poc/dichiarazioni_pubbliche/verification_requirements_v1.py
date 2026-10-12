@@ -186,6 +186,10 @@ def preflight_verification_requirements(
     eligible: list[RequirementEvidence] = []
     excluded: list[str] = []
     reason_codes: set[str] = set()
+    # Legal status has no meaningful authority scope without a jurisdiction.
+    # An arbitrary legal record must not make an unscoped law claim checkable.
+    if claim.claim_kind == "DOCUMENTARY_LEGAL_STATUS" and claim.jurisdiction_ref is None:
+        reason_codes.add("LEGAL_JURISDICTION_UNSPECIFIED")
     seen: set[str] = set()
     for row in observations:
         if not isinstance(row, RequirementEvidence):
@@ -231,7 +235,15 @@ def preflight_verification_requirements(
             codes.append("AFTER_REVIEW_CUTOFF")
         if claim.jurisdiction_ref and row.jurisdiction_ref != claim.jurisdiction_ref:
             codes.append("JURISDICTION_MISMATCH")
-        if profile and row.evidence_role not in profile.required_roles:
+        if "LEGAL_JURISDICTION_UNSPECIFIED" in reason_codes:
+            codes.append("LEGAL_JURISDICTION_UNSPECIFIED")
+        if profile is None:
+            codes.append(
+                "NON_FACTUAL_EVIDENCE_NOT_APPLICABLE"
+                if claim.claim_kind == "NON_FACTUAL"
+                else "PROFILE_UNAVAILABLE"
+            )
+        elif row.evidence_role not in profile.required_roles:
             codes.append("ROLE_NOT_REQUIRED")
         if codes:
             excluded.append(row.evidence_id)
@@ -255,16 +267,17 @@ def preflight_verification_requirements(
         reason_codes.add("INDEPENDENT_ORIGINAL_ROOT_MISSING")
     if profile and len(families) < profile.independent_roots_required:
         reason_codes.add("INDEPENDENT_SOURCE_FAMILY_MISSING")
-    if claim.run_state == "NOT_STARTED":
+    if profile is None and claim.claim_kind != "NON_FACTUAL":
+        state = "NOT_CHECKABLE_PROFILE_UNAVAILABLE"
+    elif claim.run_state == "NOT_STARTED":
         state = "NOT_CHECKED"
     elif claim.claim_kind == "NON_FACTUAL":
         state = "NON_FACTUAL"
-    elif profile is None:
-        state = "NOT_CHECKABLE_PROFILE_UNAVAILABLE"
     elif any(code in reason_codes for code in ("CROSS_ROOT_IDENTICAL_BYTES",)):
         state = "CHECKED_INSUFFICIENT_EVIDENCE"
     elif (
-        not set(profile.required_roles).issubset(roles)
+        "LEGAL_JURISDICTION_UNSPECIFIED" in reason_codes
+        or not set(profile.required_roles).issubset(roles)
         or len(roots) < profile.independent_roots_required
         or len(families) < profile.independent_roots_required
     ):
