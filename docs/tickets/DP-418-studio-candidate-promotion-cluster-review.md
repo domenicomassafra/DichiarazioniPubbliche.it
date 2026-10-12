@@ -2,6 +2,49 @@
 
 Status: IN PROGRESS
 
+### 2026-10-12 — Signed private Studio Candidate write, CAS and browser readback
+
+The existing authenticated read-only receipt inspector is now paired with an
+**independently opt-in, locally started** Candidate-intent writer:
+the existing private annotation listener accepts
+--enable-candidate-review-intent only when explicitly selected. The default
+read-only Studio listener and private Discovery annotation service without
+that flag cannot write Candidate decisions. Its HTTP route is
+/v1/candidate/decision-annotate; it requires an exact Candidate/MatchRun,
+input fingerprint, Passage/Capture immutable version, unique request key,
+expected CAS revision, actor, active credential, already externally signed
+PublicationReviewEvent and DP-310 identity receipt. It never signs an event
+in the browser. The existing StudioCandidateDecisionStorePg revalidates
+MatchRun/Passage/current Content/Capture rights and reviewer attestation,
+then writes a durable, append-only PostgreSQL intent event under locks/CAS;
+no Claim promotion, equivalence approval or publication follows it.
+
+The Collections panel now has a bounded session-only form for the exact
+signed intent plus a link from actual Collection→Capture→Passage→
+Claim Candidate lineage. That link prepopulates *only* scope IDs and
+Capture SHA; it explicitly clears prior signatures, request key and
+MatchRun fingerprints and cannot mint independent review authority.
+After a CREATED/REPLAY response, it prepares a separate read-only
+PostgreSQL receipt inspection. Logout/token switch scrubs event JSON,
+identity receipt, candidate scope and delayed results.
+
+Regression tests prove real disposable PostgreSQL+bearer HTTP:
+signed CREATE, restart/replay, unauthorized token, forged decision,
+cross-intent/extra JSON, revoked reviewer, and source rights REVOKED
+after a valid signature. One adversarial RED failure found that the
+operator HTTP endpoint rejected the genuine HELD_SOURCE response
+because PostgreSQL quite correctly returned no receipt SHA; GREEN
+returns conflict/HELD_SOURCE with null receipt instead of inventing a
+successful event. The real Chrome test now exercises the private
+signed-form request/response presentation and credential wipe against
+a mock loopback endpoint; independently, PostgreSQL HTTP verifies
+the true identity authority. No human legal/editorial assent is
+inferred from these synthetic fixtures.
+
+Original AC418.1–4 **remain OPEN**: genuine qualified editorial review,
+downstream reviewed promotion, source-use/legal permits, production
+schema rollout and live MiniPC acceptance are absent. NO-GO preserved.
+
 ### 2026-10-12 — Authenticated local readback of persisted PostgreSQL review decisions
 
 The new DP-418 append-only PG reviewer-intent ledger can now be inspected
