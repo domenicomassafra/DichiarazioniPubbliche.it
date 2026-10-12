@@ -1,5 +1,7 @@
 # AGENTS.md
 
+**Inherited global delivery authority:** load the owner-global DStack `contracts/shared-root/AGENTS.md` before these local instructions. For accepted owned source changes, `commit` is only intermediate: the single integrator must push to `origin/main` and verify that remote SHA equals local `HEAD`. Do not leave finished patches on local branches/worktrees or declare tickets `DONE` based solely on fixture tests, source commits or push; the separate legal/editorial approval, MiniPC install and public reader gates below still apply. If another worker owns dirty files, stage exact paths only and report `BLOCKED_UNPUSHED` with an actionable owner/paths rather than force-push or erase work.
+
 Instructions for coding agents and human contributors working in this repository.
 
 ## Read first
