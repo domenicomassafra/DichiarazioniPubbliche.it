@@ -1,5 +1,25 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Tranche successiva a 52e4391 (12 ottobre 2026):**
+[Studio Candidate firmato PG, metadata media revocabili,
+historical checkpoint DP-516, month liabilities DP-514
+e synopsis browser DP-440](docs/reviews/2026-10-12-private-candidate-binding-and-batch-next.md).
+Il writer privato Candidate è attivato **separatamente**;
+non è disponibile sul default Studio read-only né conferisce
+Claim promotion o revisione qualificata. DP-419 aggiunge
+una traccia metadata Capture→Segment con revoca CAS,
+ancora senza derivazione indipendente, diritti o player.
+Chrome reale ha verificato il nuovo modulo Studio contro
+HTTP locale simulato; PostgreSQL+HTTP autentico verifica
+separatamente firme, CAS e HELD_SOURCE senza ricevuta
+fittizia. DP-516 blocca il backfill finché non esiste pilot
+DP-443 autenticamente approvato; DP-514 non inventa
+fatture EUR o costi misurati. MateBook Linux ancora offline
+e WIP remoto non controllato, MiniPC non-Git intatto,
+nessun byte eliminato. Originali AC non forzati a DONE:
+**90 DONE / 72 pendenti; release NO-GO/49**.
+Verificare su nuovo SHA finale git+CI, non ereditare 52e4391.
+
 **Nuova tranche operativa dopo d5ab8e1, 12 ottobre 2026:**
 [Studio annotazioni firmate reali con CAS PostgreSQL, media-context,
 cost/usage PG e preview sintesi v3](docs/reviews/2026-10-12-private-studio-triage-media-billing-recovery-wave.md).
