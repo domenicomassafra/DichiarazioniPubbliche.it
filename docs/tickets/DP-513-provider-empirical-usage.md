@@ -109,3 +109,64 @@ subscription treatment, independent quality ground truth, multiple
 reset cycles and MiniPC owner acceptance are still missing. The
 offline report has no invoice, refund, entitlement, or dispatch
 authority; provider-dependent production rollout is **NO-GO**.
+
+## 2026-10-12 — PostgreSQL second-readback race regression (wave close)
+
+At shared main HEAD `14d6b37`, the initial DP-513 PostgreSQL attribution
+reader took an actual `REPEATABLE READ READ ONLY` snapshot including the
+complete canonical provider-receipt row fingerprint and append-only DP-512
+event revision, then compared that snapshot to the independently opened
+`QueueExecutionCostStore.operation_ledger_receipts()` typed consumer.
+**Substantive bug:** that consumer intentionally omits private
+`provider_receipt.receipt` JSON, non-projected `ledger_scope` keys, and
+DP-512 classification events. A second PostgreSQL writer could therefore
+append a new DP-512 event or alter raw receipt fields *between* the two
+reads, while the consumer's typed projection still compared equal. The
+reader incorrectly returned an apparently current cost classification
+from an already superseded event revision or raw receipt.
+
+New `tests/test_dp513_usage_attribution_pg_wave_close.py` exercises
+**10 actual disposable PostgreSQL 17 tests** against full canonical
+`db/schema.v1.sql`, using only the separately existing DP-512 fenced
+writer as a synthetic fixture dependency. The tests commit independent
+DP-512 revisions (including one through a competing thread/backend),
+add the first classification midread, amend the billing-reference event,
+change previously unprojected provider JSON and `ledger_scope` keys,
+modify canonical estimate cost, and inspect idempotent correction replay,
+append-only immutable event protection and repeatable results on a
+reopened reader. **TDD RED: 6 of 10 tests failed** against the previous
+production-independent reader, because those concurrent changes were
+missed despite consumer parity. All failures were real readback mistakes,
+not cosmetic assertion/formatter changes.
+
+The fix is confined to existing
+`poc/dichiarazioni_pubbliche/ops/usage_attribution_pg_v1.py`.
+After independent queue-consumer parity succeeds, the reader performs
+a **second bounded, independent, PostgreSQL read-only snapshot** and
+compares it with the original full-row fingerprints, original receipt
+identities and DP-512 event revisions/history. Any changed canonical
+row or billing event now fails `DP513_CANONICAL_READ_DRIFT` instead of
+returning obsolete monetary/accounting readback. Both snapshots are
+actual PostgreSQL transactions; the correction neither writes canonical
+rows nor changes the legacy consumer. This proves **observed two-read
+consistency only**: a new writer may commit after the second read. It
+does not claim a durable lease, continuous source freshness, provider
+authority, a money transfer or an authenticated invoice.
+
+**GREEN proof:** all **10/10** new PostgreSQL tests pass. Combined
+`tests.test_dp513_usage_attribution_pg_wave_close`,
+`tests.test_dp513_usage_attribution_pg_next`,
+`tests.test_dp512_billing_pg_fence_next`,
+`tests.test_operation_ledger` and `tests.test_dp512_billing`
+pass **55/55**, with Ruff lint/format, targeted compilation and
+`git diff --check` passing. No live provider/network, paid calls,
+native quota readback, meter, MiniPC or production database was used.
+The existing DP-512 source/test/ticket and Studio files were not edited.
+
+**All original AC-513.1–513.7 remain unchecked; status stays FUTURE,
+provider experiment NO-GO.** Neither observation across real provider
+reset cycles nor signed/pseudonymous account billing provenance, local
+energy, bounded approved workload and quality validation, invoice/refund
+and source/Content/job experimental joins, nor MiniPC runtime acceptance
+has been demonstrated by this PG fixture. No empirical pilot
+completion or production authorization is implied.

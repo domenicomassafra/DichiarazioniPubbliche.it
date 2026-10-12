@@ -207,6 +207,22 @@ class DisposablePgUsageAttribution:
         self._billing_client = DisposableBillingPgFence(dsn)
         self._dsn = dsn
 
+    def _snapshot_document(self) -> list[dict]:
+        """A bounded, independent PG read-only canonical+DP-512 snapshot.
+
+        Including the full original-row fingerprint means even private receipt
+        JSON/ledger_scope edits (which the queue projection intentionally omits)
+        change this readback. The DP-512 event revision/metadata similarly
+        detects appended billing corrections invisible to the queue consumer.
+        """
+        try:
+            document = json.loads(self._billing_client._run(_SNAPSHOT_SQL))
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("DP513_PG_SNAPSHOT_INVALID") from exc
+        if not isinstance(document, list) or len(document) > 10000:
+            raise ValueError("DP513_PG_SNAPSHOT_INVALID")
+        return document
+
     def read(
         self,
         *,
@@ -217,12 +233,7 @@ class DisposablePgUsageAttribution:
         The optional _consumer is a test-only seam for a concurrent mutation
         between the snapshot and the queue's independent connection.
         """
-        try:
-            document = json.loads(self._billing_client._run(_SNAPSHOT_SQL))
-        except (ValueError, TypeError, json.JSONDecodeError) as exc:
-            raise ValueError("DP513_PG_SNAPSHOT_INVALID") from exc
-        if not isinstance(document, list) or len(document) > 10000:
-            raise ValueError("DP513_PG_SNAPSHOT_INVALID")
+        document = self._snapshot_document()
         canonical: list[OperationUsageReceipt] = []
         for entry in document:
             if not isinstance(entry, dict) or not isinstance(entry.get("ledger"), dict):
@@ -244,6 +255,14 @@ class DisposablePgUsageAttribution:
             _same_consumer_record(a, b)
             for a, b in zip(canonical, consumer, strict=True)
         ):
+            raise ValueError("DP513_CANONICAL_READ_DRIFT")
+        # The independent queue consumer does not project private receipt JSON,
+        # ledger_scope extras or append-only DP-512 event revisions. A second
+        # real PostgreSQL snapshot must match the initial *complete* row hashes
+        # and billing history; otherwise a concurrent committed edit could be
+        # mistaken for a current report despite typed ledger parity. This is
+        # bounded readback consistency, NOT a durable lease over future writes.
+        if self._snapshot_document() != document:
             raise ValueError("DP513_CANONICAL_READ_DRIFT")
         try:
             summary = reconcile_operation_billing(tuple(canonical))
