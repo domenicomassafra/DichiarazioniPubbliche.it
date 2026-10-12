@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 import hashlib
 import json
+import math
 import re
 import sqlite3
 from pathlib import Path
@@ -158,8 +159,30 @@ def preflight(
     except (TypeError, ValueError):
         return BudgetDecision(False, "COST_MODEL_MISSING", None, policy, snapshot)
 
-    if estimate < 0:
+    if not math.isfinite(estimate) or estimate < 0:
         return BudgetDecision(False, "COST_ESTIMATE_INVALID", None, policy, snapshot)
+
+    # The USD guard is a separate mandatory gate for every monthly EUR hold.
+    # NaN comparisons are always false; without explicit validation a damaged
+    # daily counter or policy cap silently grants a fresh paid reservation.
+    def valid_nonnegative(amount: object) -> bool:
+        if isinstance(amount, bool) or not isinstance(amount, (int, float, Decimal)):
+            return False
+        try:
+            return math.isfinite(amount) and amount >= 0
+        except (ValueError, TypeError, OverflowError, InvalidOperation):
+            return False
+
+    if not all(valid_nonnegative(value) for value in (
+        policy.max_cost_usd_per_job,
+        policy.max_cost_usd_per_source_day,
+        policy.max_cost_usd_per_day,
+    )):
+        return BudgetDecision(False, "COST_POLICY_INVALID", estimate, policy, snapshot)
+    if not all(valid_nonnegative(value) for value in (
+        snapshot.global_day_usd, snapshot.source_day_usd,
+    )):
+        return BudgetDecision(False, "COST_SNAPSHOT_INVALID", estimate, policy, snapshot)
 
     if estimate > policy.max_cost_usd_per_job:
         return BudgetDecision(

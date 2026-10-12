@@ -274,3 +274,35 @@ Rome/UTC month rollover only; actual provider quota resets are unverified.
 AC-514.6 lacks live scheduler hold and child-job suppression. AC-514.7
 requires MiniPC transaction/queue/restore evidence, a versioned approved
 owner cap and measured actual bills. Release remains **NO-GO**.
+
+## 2026-10-12 — Strict USD legacy guard validation before synthetic EUR CAS
+
+New adversarial reproduction demonstrated a real fail-open path in the shared
+USD `preflight`: `CostSnapshot(global_day_usd=float('nan'))` admitted a
+**positive** paid `CLAIM_EXTRACT` estimate, because every `NaN` cap comparison
+was false. Negative day/source counters also invented budget headroom; a
+non-finite/negative job cap could admit the same paid estimate. With the
+DP-514 disposable SQLite reservation store, this wrote a real EUR hold and
+`monthly_global_attempt` record despite the untrusted USD guard. The bug
+crossed the very USD/EUR guard boundary covered by AC-514.5.
+
+`preflight` now rejects non-finite/negative cost estimates, non-finite/negative
+USD policy caps and untrustworthy negative/non-finite USD day/source counters
+with explicit `COST_ESTIMATE_INVALID`, `COST_POLICY_INVALID` and
+`COST_SNAPSHOT_INVALID` outcomes, respectively. Valid normal USD limits,
+zero-cost paths and existing restrictive cap reasons are preserved.
+`tests/test_dp514_monthly_budget_wave_close.py` uses a disposable **real
+SQLite** reservation/global-attempt ledger; negative/NaN USD counters, bad
+limits, restart, Europe/Rome month rollover and cross-month replay establish
+that rejected attempts leave no reservation and legitimate requests remain
+functional. RED: 14 failed assertions across the four new scenarios, including
+actual unwanted SQLite commits. GREEN: **4/4** new tests and **39/39** adjacent
+existing tests passed; `git diff --check` passed.
+
+This hardens a concrete local subcondition of **AC-514.5**, but is not the
+atomic cross-provider dispatch admission sought in that AC. USD snapshots
+remain caller-supplied rather than transactionally reconciled with the
+production PostgreSQL operation ledger; invoices, append-only authenticated
+corrections, owner-signed EUR policy, provider quota, actual FX and MiniPC
+acceptance are still missing. **All AC-514.1–.7 remain OPEN; no live paid
+dispatch authority and no production release.**
