@@ -205,3 +205,72 @@ genuine signed/provider usage and settlement/refund authority, capped USD and
 EUR multi-worker **PostgreSQL** coordination with live dispatch, owner-signed
 policy and plan quotas, real FX/billing period and energy evidence, durable
 operator alerts/retry, and MiniPC acceptance/currentness/revocation drills.
+
+## 2026-10-12 — Canonical PostgreSQL cross-month liability reference (partial)
+
+An independent **local-only**, read-only-by-default monthly cost aggregation
+was added as `poc/dichiarazioni_pubbliche/ops/monthly_liability_pg_v1.py`,
+with `tests/test_dp514_monthly_liability_pg_next.py`. It intentionally
+reuses the existing DP-512 disposable PostgreSQL guard/database,
+`provider_receipt` canonical rows, DP-512 append-only classification events,
+and DP-513's independent read-only operation attribution. No production
+migration or scheduler/worker integration was made. The additive
+`dp514_pg_state` and `dp514_pg_event` tables/functions install only
+with an explicit opt-in on a `dp512_test_*` local database containing the
+canonical schema and DP-512's installed reference ledger.
+
+The private report reads a PostgreSQL `REPEATABLE READ READ ONLY` canonical
+snapshot **before and after** the independent DP-513 reader and requires
+consistent identity, per-attempt classification revision and ledger parity.
+It groups attempts by the original `started_at` accounting month in the
+explicit Europe/Rome or UTC zone, preserving an October liability when an
+attempt finishes in November. Unclassified, unpriced, external-plan,
+unverified zero and source-reference-missing attempts remain UNKNOWN and
+carry across calendar months; a provider reset never authorizes new spend.
+Recorded measured USD, provisional estimated USD and asserted refund claims
+are separate amounts. Verified billed/refunded EUR, FX, energy, subscription
+allocation, current daily USD guard and provider quota evidence remain
+`None`/unverified. The new-spend hold remains enabled even when all known
+canonical costs are nonzero provisional estimates, because no authentic
+budget admission, independently sourced FX or daily cap is present. The
+report and every event explicitly set `dispatch_authorized=False`.
+
+A separate opt-in `append()` executes a **real PostgreSQL transaction**,
+locking the actual canonical `provider_receipt` and DP-512 classification,
+rejecting duplicate canonical operation+attempt identity, changed receipt
+bytes, absent/stale classification, invalid amount, stale revision or
+conflicting event replay. It stores one append-only local
+`OBSERVED`/`REFUND_CLAIM` event with CAS. Concurrent writers race on the
+same receipt and exactly one revision wins; replay of the identical event
+returns its durable receipt even after process restart. A global advisory
+transaction lock on the event ID also prevents the same event from being
+replayed for a different receipt/attempt. A failed INSERT
+rolls back both state and event, allowing a clean retry. A self-reported
+refund is never a negative expense, confirmed credit, verified invoice,
+quota entitlement or reason to reduce a held month.
+
+**Proof:** the new test failed to import before implementation (RED).
+Disposable real PostgreSQL 17 tests cover cross-month/delayed receipt,
+UNKNOWN or plan vs estimated/measured, provider reference redaction,
+concurrent CAS, exact replay/conflict/restart, actual DB rollback,
+append-only triggers, source fingerprint drift, duplicate logical attempt
+across months, DP-512 revision invalidation, cross-transaction read drift,
+an absent estimate normalized to UNKNOWN, an estimated-only no-grant,
+and direct comparison with the existing pure DP-514 SQLite monthly policy.
+Final focused `test_dp514_monthly_liability_pg_next`: **16/16 PASS**
+on disposable PostgreSQL 17, including cross-attempt event collision.
+Adjacent DP-512, DP-513, existing DP-514 and cost-policy regressions:
+**64/64 PASS**. Scoped Ruff, compilation and `git diff --check` PASS.
+The practical scope is an incremental **billing-liability evidence fence**,
+not a pre-dispatch EUR reservation or provider money authority.
+
+**Original AC status remains unchanged, all AC-514.1–.7 open.**
+AC-514.1 has only private recorded USD and UNKNOWN classification, without
+verified paid EUR, FX, plan or electricity. AC-514.2/5 still lack live
+atomic monthly EUR reservation combined with USD/day/source/job and provider
+quota locks. AC-514.3 still lacks independently verified invoice/refund
+authority, alerts and signed adjustment clearance. AC-514.4 has synthetic
+Rome/UTC month rollover only; actual provider quota resets are unverified.
+AC-514.6 lacks live scheduler hold and child-job suppression. AC-514.7
+requires MiniPC transaction/queue/restore evidence, a versioned approved
+owner cap and measured actual bills. Release remains **NO-GO**.
