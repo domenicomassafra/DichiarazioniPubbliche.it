@@ -319,3 +319,41 @@ AC-410.1/.2 or any real screen-reader/manual visual acceptance.
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain IN PROGRESS as shared independent manual acceptance campaign, without merging page-specific AC. Add future test coverage for exact quotation versus separately identified summary/translation, opinion without Finding, original source locators, Person×Topic, two-person versus one-person relations, revocation, 320-px overflow, honest approved-empty corpus, zoom 200%, real VoiceOver and a mobile screen reader. DP-441/442 redesign requires owner selection and subsequent measured AT, perf and API/HTML readback. Current automated green does not close AC-410.1/.2. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+## 2026-10-12 — Private Studio signed-form and media-binding 320px Chrome reflow
+
+This independent, source-only tranche modifies only `studio_local_page.py`, adds
+`tests/studio_local_page_accessibility_next.mjs`, and records this receipt. Real
+Google Chrome mobile emulation at **320 CSS px** reproduced an independently
+actionable layout fault in the **private Collections → Capture → Passage →
+Candidate** operator path: the externally signed `ReviewEvent` JSON form label
+forced `min-width:25rem` (400px) even inside a 320px viewport, while the
+unbreakable `HOLD/REJECT/REVIEW_CREATE/REVIEW_LINK` explanatory paragraph
+expanded the document's layout viewport. The original Google Chrome fixture
+was **RED** (320px screen and visual viewport, 430px layout viewport); merely
+removing the 25rem minimum remained **RED** at 367px, exposing the separate
+paragraph text-overflow cause. The smallest fixes use a genuinely flexible,
+full-width form label and `overflow-wrap:anywhere` for long explanatory text.
+
+The signed private form and separate persisted media-binding read-only form now
+expose `aria-describedby` relationships to their respective existing
+`role=status` live-feedback elements. The new Chrome/CDP fixture uses one
+local disposable profile and loopback HTTP fixture: validates 320px dynamic
+reflow, keyboard **Tab** from signed JSON editor to independent confirmation,
+**Enter** submission of the media-binding read-only form, exact request ID and
+bearer-only transport, focus retention, text feedback, scrub on token clearing,
+private-only `noindex,nofollow,noarchive,nosnippet`, and removal of deliberately
+injected untrusted private URLs/transcript fields from visible results. The
+fixture never uses actual operator credentials, PostgreSQL, media, provider,
+production transport or externally signed authorization and never asserts a
+successful reviewer action.
+
+**Proof:** `node tests/studio_local_page_accessibility_next.mjs` with real
+rendered nonce-bound Python Studio HTML **RED→GREEN in Chrome**. Adjacent
+`studio_local_page_async_regression.cjs` **PASS**, focused Python Studio/
+DP-416/DP-418 **23/23 PASS**; Python `ruff check`, compilation and
+`git diff --check` **PASS**. This browser keyboard/DOM proxy is **not** a
+VoiceOver, Android TalkBack, physical iOS, 400% native zoom, or manual WCAG
+audit. It does not change any signed-approval, rights, UI publication, token
+storage, or SEO route. **DP-410 remains IN PROGRESS; AC-410.1/.2 manual AT and
+visual acceptance remain OPEN.**

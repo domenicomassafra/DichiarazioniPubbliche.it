@@ -23,7 +23,7 @@ _PAGE = """<!doctype html>
     *{box-sizing:border-box}
     body{max-width:70rem;margin:auto;padding:1.5rem}
     h1{font-size:1.7rem;margin:0}h2{font-size:1.25rem}
-    p{max-width:55rem}
+    p{max-width:55rem;overflow-wrap:anywhere}
     .quiet{color:#354256;font-size:.93rem}
     .rules{border-block:1px solid #7d8580;padding:1rem 0;margin:1rem 0}
     .controls{display:flex;flex-wrap:wrap;gap:1rem;align-items:end}
@@ -205,7 +205,7 @@ _PAGE = """<!doctype html>
       <p id="collection-decision-summary" role="status" aria-live="polite">Nessuna ricevuta letta.</p>
       <h2>Registra una decisione privata già attestata (modalità operatore separata)</h2>
       <p>È richiesta una firma DP-310 già emessa esternamente, vincolata a questo preciso Candidate, MatchRun, Capture/Passage, versione, scelta, revisione e identità. Il token Studio da solo non firma decisioni. HOLD/REJECT/REVIEW_CREATE/REVIEW_LINK sono **intenzioni storiche**, non promozione, creazione Claim, equivalenza verificata o pubblicazione.</p>
-      <form data-endpoint="/v1/candidate/decision-annotate">
+      <form data-endpoint="/v1/candidate/decision-annotate" aria-describedby="candidate-write-summary">
         <div class="controls">
           <label>Claim Candidate ID<input name="candidate_id" maxlength="180" required></label>
           <label>MatchRun ID<input name="run_id" maxlength="180" required></label>
@@ -221,7 +221,7 @@ _PAGE = """<!doctype html>
           <label>Target ID (solo REVIEW_LINK)<input name="target_id" maxlength="180"></label>
           <label>Credential ID locale<input name="credential_id" maxlength="128" required></label>
           <label>Ricevuta di identità firmata<input name="authority_receipt_id" maxlength="180" required></label>
-          <label style="min-width:25rem;flex:1">ReviewEvent integrale già firmato, JSON (rimane nella sessione)
+          <label style="min-width:0;width:100%;flex:1 1 20rem">ReviewEvent integrale già firmato, JSON (rimane nella sessione)
             <textarea name="review_event_json" rows="5" maxlength="3000" required spellcheck="false" autocomplete="off"></textarea>
           </label>
           <label>Conferma solo intenzione privata<select name="confirm_private_decision" required><option value="">Seleziona</option><option value="true">Confermo: nessuna promozione o pubblicazione</option></select></label>
@@ -386,7 +386,7 @@ _PAGE = """<!doctype html>
       <p id="media-capture-context-summary" role="status" aria-live="polite">Nessun contesto cattura verificato.</p>
       <h2>Ricevuta persistita Capture → Segment (metadati soltanto)</h2>
       <p>L'attestazione locale conserva Capture SHA, segmento e revisioni di revoca. È una dichiarazione di provenienza da verificare indipendentemente: non concede diritti o riproduzione e non espone il media.</p>
-      <form data-endpoint="/v1/media/binding">
+      <form data-endpoint="/v1/media/binding" aria-describedby="media-binding-summary">
         <div class="controls"><label>Binding ID<input name="binding_id" maxlength="180" required></label>
         <button type="submit">Rileggi stato corrente e revoche</button></div>
       </form>
