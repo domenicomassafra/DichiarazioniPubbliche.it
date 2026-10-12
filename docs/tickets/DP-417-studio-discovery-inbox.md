@@ -88,6 +88,20 @@ current technical review. This **does not** complete DP417 queue families,
 safe reversible/bulk actions or MiniPC production acceptance; AC417.1–4
 remain open.
 
+**Follow-up RED→GREEN — Content-level revocation:** the first snapshot fix
+exposed a separate operational safety defect: if a Content had only one
+unchanged, healthy Capture, changing `content_item.rights_status` to
+`REVOKED` left it entirely absent from the changed/blocked Capture queue.
+Even a paginated queue kept its old snapshot because the fingerprint only
+included Capture rights, not the parent Content's rights. Two real PostgreSQL
+regressions failed before the fix (missing blocked row and accepted stale
+page). The queue now joins exact Content identity, checks its rights code for
+eligibility and blocked reason, and binds that code into every page fingerprint.
+`CONTENT_RIGHTS_REVOKED` is exposed as a safe blocker, with no source URL,
+text, rights receipt or invented clearance. The isolated read-only PostgreSQL
+role receives SELECT on the canonical Content table solely for this test.
+This remains private source-only DP417 progress, not action authorization.
+
 ## Completion receipt
 
 ### 2026-10-12 — Signed, opt-in Studio annotations over authenticated HTTP and PostgreSQL

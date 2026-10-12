@@ -69,6 +69,31 @@ class CaptureQueueSnapshotWaveTests(unittest.TestCase):
         finally:
             self.store.run("DELETE FROM content_capture WHERE id='capture:next-replaced';")
 
+    def test_real_pg_content_rights_revocation_is_a_blocked_capture_exception(self):
+        # This Content has just ONE perfectly healthy Capture. A Content-level
+        # revocation must appear in the operator queue even if its Capture row
+        # itself never changed status or rights.
+        self.store.run("UPDATE content_item SET rights_status='REVOKED' WHERE id='content:unchanged';")
+        try:
+            page = read_capture_triage_queue(self.store, collection_id='collection:one', limit=10)
+            current = next((r for r in page['results'] if r['capture_id']=='capture:unchanged'), None)
+            self.assertIsNotNone(current, 'revoked Content hidden by healthy Capture status')
+            self.assertEqual(current['state'], 'BLOCKED')
+            self.assertIn('CONTENT_RIGHTS_REVOKED', current['blockers'])
+        finally:
+            self.store.run("UPDATE content_item SET rights_status='UNKNOWN' WHERE id='content:unchanged';")
+
+    def test_content_rights_revocation_during_pagination_rejects_stale_page(self):
+        first = read_capture_triage_queue(self.store, collection_id='collection:one', limit=1)
+        self.store.run("UPDATE content_item SET rights_status='REVOKED' WHERE id='content:one';")
+        try:
+            with self.assertRaisesRegex(ValueError, 'STUDIO_CAPTURE_QUEUE_SNAPSHOT_STALE'):
+                read_capture_triage_queue(self.store, collection_id='collection:one', limit=1,
+                    after_capture_id=first['next_after_capture_id'],
+                    expected_snapshot_sha256=first['snapshot_sha256'])
+        finally:
+            self.store.run("UPDATE content_item SET rights_status='UNKNOWN' WHERE id='content:one';")
+
     def test_api_requires_snapshot_for_paginated_query(self):
         class Queues:
             def list_capture_triage_queue(self, **values):

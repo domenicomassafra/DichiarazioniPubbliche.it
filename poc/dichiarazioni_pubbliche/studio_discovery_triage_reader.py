@@ -176,7 +176,8 @@ WITH scope AS (
 ),
 capture_history AS (
     SELECT c.id, c.content_id, c.status AS capture_status,
-           c.hold_status, c.rights_status, c.archive_status,
+           c.hold_status, c.rights_status,
+           ci.rights_status AS content_rights_status, c.archive_status,
            lag(c.id) OVER (
                PARTITION BY c.content_id ORDER BY c.observed_at ASC, c.id ASC
            ) AS previous_capture_id,
@@ -187,6 +188,7 @@ capture_history AS (
     JOIN research_collection_content member
       ON member.collection_id=scope.id AND member.status='INCLUDED'
     JOIN content_capture c ON c.content_id=member.content_id
+    JOIN content_item ci ON ci.id=c.content_id
 ),
 eligible AS (
     SELECT * FROM capture_history
@@ -195,6 +197,7 @@ eligible AS (
         OR capture_status <> 'CAPTURED'
         OR hold_status <> 'NONE'
         OR rights_status IN ('REVOKED', 'EXPIRED', 'DENIED')
+        OR content_rights_status IN ('REVOKED', 'EXPIRED', 'DENIED')
         OR archive_status='FAILED'
     )
 ),
@@ -205,7 +208,8 @@ snapshot AS (
             SELECT coalesce(json_agg(row_to_json(fence) ORDER BY fence.id), '[]'::json)
             FROM (
                 SELECT c.id, c.content_id, c.previous_capture_id,
-                       c.capture_status, c.hold_status, c.rights_status, c.archive_status,
+                       c.capture_status, c.hold_status, c.rights_status,
+                       c.content_rights_status, c.archive_status,
                        (SELECT event.id FROM capture_lifecycle_event event
                         WHERE event.capture_id=c.id
                         ORDER BY event.created_at DESC, event.id DESC LIMIT 1) AS lifecycle_event_id
@@ -218,7 +222,8 @@ snapshot AS (
 selected AS (
     SELECT c.id, c.content_id, c.previous_capture_id,
            c.capture_status, c.hold_status, c.rights_status,
-           c.archive_status, (c.previous_capture_id IS NOT NULL) AS source_changed,
+           c.content_rights_status, c.archive_status,
+           (c.previous_capture_id IS NOT NULL) AS source_changed,
            (
                SELECT event.id FROM capture_lifecycle_event event
                WHERE event.capture_id=c.id
@@ -261,7 +266,8 @@ _SAFE_CAPTURE_ID = re.compile(r"[A-Za-z0-9_:/.-]{1,180}\Z", re.ASCII)
 _SAFE_RIGHTS_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}\Z", re.ASCII)
 _CAPTURE_FIELDS = frozenset({
     "id", "content_id", "previous_capture_id", "capture_status",
-    "hold_status", "rights_status", "archive_status", "source_changed",
+    "hold_status", "rights_status", "content_rights_status",
+    "archive_status", "source_changed",
     "lifecycle_event_id",
 })
 
@@ -305,6 +311,8 @@ def _present_capture_queue(
             or item["archive_status"] not in _ARCHIVE_STATUS
             or not isinstance(item["rights_status"], str)
             or not _SAFE_RIGHTS_CODE.fullmatch(item["rights_status"])
+            or not isinstance(item["content_rights_status"], str)
+            or not _SAFE_RIGHTS_CODE.fullmatch(item["content_rights_status"])
             or type(item["source_changed"]) is not bool
             or item["source_changed"] != (prior is not None)):
             raise ValueError("STUDIO_CAPTURE_QUEUE_RECORD_INVALID")
@@ -313,6 +321,7 @@ def _present_capture_queue(
             item["capture_status"] != "CAPTURED" or
             item["hold_status"] != "NONE" or
             item["rights_status"] in {"REVOKED", "EXPIRED", "DENIED"} or
+            item["content_rights_status"] in {"REVOKED", "EXPIRED", "DENIED"} or
             item["archive_status"] == "FAILED"
         )
         if not blocked and prior is None:
@@ -325,6 +334,11 @@ def _present_capture_queue(
             reason, retry = "CAPTURE_PURGE_PENDING", "AFTER_PURGE_LIFECYCLE_RESOLUTION"
         elif item["capture_status"] == "PURGED_BODY":
             reason, retry = "CAPTURE_BODY_PURGED", "RECAPTURE_ONLY_AFTER_RIGHTS_REVIEW"
+        elif item["content_rights_status"] in {"REVOKED", "EXPIRED", "DENIED"}:
+            reason, retry = (
+                "CONTENT_RIGHTS_" + item["content_rights_status"],
+                "AFTER_NEW_SOURCE_RIGHTS_DECISION",
+            )
         elif item["hold_status"] != "NONE":
             reason, retry = "CAPTURE_HOLD_ACTIVE", "AFTER_HOLD_RELEASE_AND_RIGHTS_REVIEW"
         elif item["rights_status"] in {"REVOKED", "EXPIRED", "DENIED"}:

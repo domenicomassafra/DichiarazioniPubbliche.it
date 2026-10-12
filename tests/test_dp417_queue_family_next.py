@@ -28,7 +28,8 @@ def capture_row(**updates):
         "id": "capture:new", "content_id": "content:one",
         "previous_capture_id": "capture:old", "capture_status": "CAPTURED",
         "hold_status": "NONE", "archive_status": "NOT_REQUESTED",
-        "rights_status": "UNKNOWN", "source_changed": True,
+        "rights_status": "UNKNOWN", "content_rights_status": "UNKNOWN",
+        "source_changed": True,
         "lifecycle_event_id": "event:one",
     } | updates
 
@@ -212,7 +213,7 @@ class PersistedCaptureQueueTests(unittest.TestCase):
                 CREATE ROLE dp417_reader LOGIN;
                 GRANT USAGE ON SCHEMA public TO dp417_reader;
                 GRANT SELECT ON research_collection, research_collection_content,
-                  content_capture, capture_lifecycle_event TO dp417_reader;
+                  content_item, content_capture, capture_lifecycle_event TO dp417_reader;
             """)
         except BaseException:
             cls.tearDownClass()
