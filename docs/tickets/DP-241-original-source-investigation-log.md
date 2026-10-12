@@ -181,3 +181,78 @@ identity, expired/incomplete rights, and absence of secret text from attempt
 tables. This is technical preflight only; no authentic DP-511 reanalysis,
 Studio readback, original newly captured source or MiniPC source-family
 investigation is claimed. **All AC-241.1–.6 stay unchecked, IN PROGRESS.**
+
+### 2026-10-12 — wave-close: immutable Source/Capture/rights epoch (local PG, partial)
+
+**TDD RED reproduced on the canonical disposable PostgreSQL schema** from
+HEAD `14d6b37`:
+
+1. After registering the approved-looking *fixture* plan, editing only
+   `content_capture.final_url` while preserving its content SHA allowed another
+   reservation. The old logic checked the capture SHA, IDs and "latest"
+   observed time, but not the actual retrieval provenance.
+2. Superseding a previous `CLEARED` rights record with a new `CLEARED` record,
+   new policy version and review receipt allowed completion of an attempt
+   reserved under the old review. "Still permitted" is not the same approved
+   source/rights *epoch*.
+3. Inserting an additional **backdated** Capture (earlier `observed_at`,
+   different hash) also left the old plan runnable because the original
+   "latest by observed_at" gate ignored source versions discovered later.
+
+**GREEN change**, confined to
+`poc/dichiarazioni_pubbliche/original_source_investigation_pg_v1.py`: the
+private `dp241_pg_plan` now stores only a SHA-256 fingerprint of the
+**database-read** lineage, including Source/Content canonical provenance,
+Capture URL, observation/retrieval/parser identity, Passage selector/span/hash,
+the entire known immutable Capture-version set (including backdated versions),
+and the single current append-only rights leaf, its policy, permitted uses and
+review identity. Register/re-register, reserve, completion and readback
+compare that fingerprint inside SERIALIZABLE PostgreSQL transactions before
+processing receipts. An installed trigger forbids mutations to pinned plan
+identity/provenance columns while preserving narrowly scoped revision-CAS
+updates. Historical event readback remains available when the source is stale;
+neither legacy receipts nor old rights are silently re-authorized.
+
+New isolated test `tests/test_dp241_recovery_pg_wave_close.py` covers the
+three proven regressions, a mutated canonical Content URL, changed Capture
+observation timestamp, immutable plan fingerprint, rights successor after a
+pending reservation/restart, plus regression coverage from the existing
+PG test class. All fixtures are disposable; no provider search, operational
+rights approval, billed activity or live data were accessed.
+
+**Precise AC status:** AC-241.1 remains **OPEN** (local provenance-bound
+plan, not actual permitted independent lookup execution); AC-241.2 **OPEN**
+(no genuinely discovered/approved larger Capture and locator); AC-241.3
+**OPEN** (synthetic original-family dedup but no independent identity/date
+review); AC-241.4 **OPEN** (reason-code distinctions tested but no real
+provider outages/legal budget enforcement); AC-241.5 **OPEN**, with stronger
+**locally proven** replay/CAS/source-version/rights-epoch invalidation, but
+no actual DP-511 durable runtime reanalysis after real acquisition; AC-241.6
+**OPEN** (no production MiniPC pilot, operator Studio readback or accessibility
+acceptance). **Ticket stays IN PROGRESS, not DONE.** No publication,
+external approval, independent signature or production DB migration claimed.
+
+**2026-10-12 review follow-up — restart from older disposable ledgers:**
+Existing disposable PostgreSQL clusters may already contain the former
+`dp241_pg_plan` table without `source_provenance_sha`. A naive
+`CREATE TABLE IF NOT EXISTS` silently leaves that table unchanged and
+eventually yields an opaque SQL failure. Two additional real-PG tests reproduced
+the failure (**RED**). The explicit fixture installer now checks for the old
+column under a PostgreSQL transaction and exclusive table lock. It
+**additively upgrades an empty old table only**; a table with **any** historical
+plan or reserved/completed attempt fails with
+`DP241_PG_LEGACY_PLAN_UNPINNED`, preserving its previous events for independent
+historical readback, and refuses to fabricate a retroactive provenance/rights
+approval. Calls against an unupgraded legacy table also return the explicit
+fail-closed error rather than an opaque SQL exception. The two paths are
+**GREEN** with a true in-place disposable schema restart test. This mechanism
+is **not** a production migration or authorization for reusing old attempts.
+
+**Final local verification:** `PYTHONPATH=poc python3 -m unittest
+tests.test_dp241_recovery_pg_wave_close tests.test_dp241_recovery_pg_next
+tests.test_dp241_original_source_investigation
+tests.test_dp319_durable_investigation_next -q` → **74/74 PASS** against
+real disposable PostgreSQL and existing DP-241/DP-319 planners. Scoped
+`ruff check`, `compileall` and `git diff --check` PASS. This does **not**
+replace real approved-source, independent-rights, MiniPC, DP-511 or Studio
+acceptance; all six original AC remain OPEN.

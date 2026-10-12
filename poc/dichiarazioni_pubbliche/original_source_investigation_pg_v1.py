@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS dp241_pg_plan(
  passage_id text NOT NULL REFERENCES passage(id),
  source_version_sha text NOT NULL,
  passage_sha text NOT NULL,
+ source_provenance_sha text NOT NULL CHECK(source_provenance_sha ~ '^[0-9a-f]{64}$'),
  revision bigint NOT NULL DEFAULT 0 CHECK(revision >= 0)
 );
 CREATE TABLE IF NOT EXISTS dp241_pg_event(
@@ -98,6 +99,41 @@ CREATE OR REPLACE FUNCTION dp241_pg_no_mutation()
 DROP TRIGGER IF EXISTS dp241_pg_event_immutable ON dp241_pg_event;
 CREATE TRIGGER dp241_pg_event_immutable BEFORE UPDATE OR DELETE ON dp241_pg_event
  FOR EACH ROW EXECUTE FUNCTION dp241_pg_no_mutation();
+CREATE OR REPLACE FUNCTION dp241_pg_plan_immutable()
+ RETURNS trigger LANGUAGE plpgsql AS $dp241$
+ BEGIN
+   IF TG_OP='DELETE' OR
+      (to_jsonb(NEW) - 'revision') IS DISTINCT FROM
+      (to_jsonb(OLD) - 'revision') THEN
+     RAISE EXCEPTION 'DP241_PG_PLAN_PROVENANCE_IMMUTABLE';
+   END IF;
+   RETURN NEW;
+ END $dp241$;
+DROP TRIGGER IF EXISTS dp241_pg_plan_immutable_trigger ON dp241_pg_plan;
+CREATE TRIGGER dp241_pg_plan_immutable_trigger
+ BEFORE UPDATE OR DELETE ON dp241_pg_plan
+ FOR EACH ROW EXECUTE FUNCTION dp241_pg_plan_immutable();
+"""
+
+_LEGACY_DISPOSABLE_UPGRADE = """
+BEGIN;
+DO $dp241$ BEGIN
+ IF to_regclass('public.dp241_pg_plan') IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_attribute
+      WHERE attrelid=to_regclass('public.dp241_pg_plan')
+        AND attname='source_provenance_sha' AND NOT attisdropped) THEN
+   LOCK TABLE dp241_pg_plan IN ACCESS EXCLUSIVE MODE;
+   -- No historic rights/source fingerprint existed; retroactive approval is
+   -- impossible. Keep all old rows/receipts intact and refuse this upgrade.
+   IF EXISTS (SELECT 1 FROM dp241_pg_plan) THEN
+     RAISE EXCEPTION 'DP241_PG_LEGACY_PLAN_UNPINNED';
+   END IF;
+   ALTER TABLE dp241_pg_plan ADD COLUMN source_provenance_sha text
+      NOT NULL CHECK(source_provenance_sha ~ '^[0-9a-f]{64}$');
+ END IF;
+END $dp241$;
+COMMIT;
 """
 
 
@@ -130,11 +166,21 @@ class IsolatedOriginalRecoveryPg:
             match = _ERROR.search(result.stderr)
             if not match and "could not serialize access" in result.stderr:
                 raise ValueError("DP241_PG_REVISION_CONFLICT")
+            if not match and (
+                'column "source_provenance_sha" does not exist' in result.stderr
+                or 'record "scope_row" has no field "source_provenance_sha"' in result.stderr
+            ):
+                raise ValueError("DP241_PG_LEGACY_PLAN_UNPINNED")
             raise ValueError(match.group(0) if match else "DP241_PG_QUERY_FAILED")
         return result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
 
     def install_fixture_schema(self) -> None:
-        """Test-only additive adapter tables; never migrations/production DB."""
+        """Test-only additive tables, safe empty legacy upgrade, never production.
+
+        A populated v1 ledger has no pinned provenance SHA to authenticate,
+        so it cannot be backfilled and remains untouched until discarded.
+        """
+        self._sql(_LEGACY_DISPOSABLE_UPGRADE)
         self._sql(_FIXTURE_SCHEMA)
 
     @staticmethod
@@ -230,6 +276,56 @@ class IsolatedOriginalRecoveryPg:
         )
 
     @staticmethod
+    def _source_provenance_sql(
+        plan: RecoveryPlan, target: SourceRecoveryTarget, source_id: str,
+    ) -> str:
+        """SHA-256 of *database-observed* immutable lineage and rights epoch.
+
+        Stored only as a digest in dp241_pg_plan. The capture/content metadata
+        and rights review version cannot silently move while retaining the
+        original body SHA and approved-looking rights state.
+        """
+        return """
+        (SELECT encode(sha256(convert_to(jsonb_build_array(
+             s.id, s.canonical_name, s.source_type, s.canonical_url,
+             s.language, s.country_code, s.metadata,
+             ci.id, ci.source_id, ci.source_external_id, ci.canonical_url,
+             ci.published_at, ci.content_sha256, ci.metadata,
+             ca.id, ca.observed_at, ca.final_url, ca.media_type,
+             ca.content_sha256, ca.retrieval_method, ca.retrieval_version,
+             ca.parser_method, ca.parser_version, ca.metadata,
+             pa.id, pa.capture_id, pa.selector_type, pa.start_char,
+             pa.end_char, pa.page_start, pa.page_end, pa.text_sha256,
+             pa.extraction_method, pa.extraction_version, pa.metadata,
+             rr.id, rr.subject_fingerprint, rr.source_family,
+             rr.locator_kind, rr.locator_value, rr.policy_version,
+             rr.rights_status, rr.rights_receipt_ref, rr.permitted_uses,
+             rr.reviewed_at, rr.expires_at, rr.reviewer_ref,
+             (SELECT COALESCE(jsonb_agg(jsonb_build_array(
+                        version.id, version.observed_at, version.content_sha256,
+                        version.final_url, version.retrieval_method,
+                        version.retrieval_version, version.rights_status,
+                        version.hold_status, version.status, version.metadata
+                       ) ORDER BY version.id), '[]'::jsonb)
+                FROM content_capture version WHERE version.content_id=ci.id)
+        )::text, 'UTF8')), 'hex')
+        FROM source s
+        JOIN content_item ci ON ci.source_id=s.id
+        JOIN content_capture ca ON ca.content_id=ci.id
+        JOIN passage pa ON pa.capture_id=ca.id AND pa.content_id=ci.id
+        JOIN private_source_rights_record rr ON rr.passage_id=pa.id
+        WHERE s.id={source} AND ci.id={content} AND ca.id={capture}
+          AND pa.id={passage}
+          AND NOT EXISTS(SELECT 1 FROM private_source_rights_record successor
+                         WHERE successor.supersedes_id=rr.id)
+        )""".format(
+            source=_literal(source_id),
+            content=_literal(plan.target_content_id),
+            capture=_literal(target.capture.id),
+            passage=_literal(target.passage.id),
+        )
+
+    @staticmethod
     def _snapshot_query(plan_id: str) -> str:
         pid = _literal(plan_id)
         return """
@@ -280,18 +376,22 @@ class IsolatedOriginalRecoveryPg:
         attempt_literal = _literal(attempt)
         plan_literal = _literal(plan.plan_id)
         key_literal = _literal(key)
+        source_provenance = self._source_provenance_sql(plan, target, source_id)
         if action == "REGISTER":
             mutation = """
                 INSERT INTO dp241_pg_plan(
                   plan_id,scope_digest,source_id,content_id,capture_id,passage_id,
-                  source_version_sha,passage_sha)
+                  source_version_sha,passage_sha,source_provenance_sha)
                 VALUES ({plan},{digest},{source},{content},{capture},{passage},
-                        {version},{passage_sha})
+                        {version},{passage_sha},{provenance})
                 ON CONFLICT(plan_id) DO NOTHING;
                 SELECT * INTO scope_row FROM dp241_pg_plan
                   WHERE plan_id={plan} FOR UPDATE;
                 IF scope_row.scope_digest <> {digest} THEN
                     RAISE EXCEPTION 'DP241_PG_PLAN_CONFLICT';
+                END IF;
+                IF scope_row.source_provenance_sha IS DISTINCT FROM {provenance} THEN
+                    RAISE EXCEPTION 'DP241_PG_SOURCE_PROVENANCE_STALE';
                 END IF;
             """.format(
                 plan=plan_literal, digest=_literal(fingerprint),
@@ -301,6 +401,7 @@ class IsolatedOriginalRecoveryPg:
                 passage=_literal(target.passage.id),
                 version=_literal(plan.target_version_sha256),
                 passage_sha=_literal(target.passage.text_sha256),
+                provenance=source_provenance,
             )
         else:
             mutation = """
@@ -309,6 +410,8 @@ class IsolatedOriginalRecoveryPg:
                 IF NOT FOUND THEN RAISE EXCEPTION 'DP241_PG_PLAN_NOT_REGISTERED'; END IF;
                 IF scope_row.scope_digest <> {digest} THEN
                     RAISE EXCEPTION 'DP241_PG_PLAN_CONFLICT'; END IF;
+                IF scope_row.source_provenance_sha IS DISTINCT FROM {provenance} THEN
+                    RAISE EXCEPTION 'DP241_PG_SOURCE_PROVENANCE_STALE'; END IF;
                 SELECT * INTO prior_row FROM dp241_pg_event
                  WHERE plan_id={plan} AND request_key={key} AND kind={kind};
                 IF FOUND THEN
@@ -364,6 +467,7 @@ class IsolatedOriginalRecoveryPg:
                 raise ValueError("DP241_PG_OPERATION_INVALID")
             mutation = mutation.format(
                 plan=plan_literal, digest=_literal(fingerprint),
+                provenance=source_provenance,
                 key=key_literal, kind=_literal("RESERVED" if action == "RESERVE" else "COMPLETED"),
                 attempt=attempt_literal, receipt_conflict=receipt_conflict, fresh=fresh,
             )
@@ -448,6 +552,10 @@ class IsolatedOriginalRecoveryPg:
         # Same read-time DB revalidation as mutation, but never changes a row.
         script = (
             "BEGIN ISOLATION LEVEL SERIALIZABLE;\nDO $dp241$ BEGIN\n" + self._guard(plan, target, source_id)
+            + "IF NOT EXISTS (SELECT 1 FROM dp241_pg_plan WHERE plan_id="
+            + _literal(plan.plan_id) + " AND source_provenance_sha="
+            + self._source_provenance_sql(plan, target, source_id)
+            + ") THEN RAISE EXCEPTION 'DP241_PG_SOURCE_PROVENANCE_STALE'; END IF;\n"
             + "END $dp241$;\n" + self._snapshot_query(plan.plan_id) + "\nCOMMIT;"
         )
         raw = self._sql(script)
