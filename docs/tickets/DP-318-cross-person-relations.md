@@ -61,3 +61,39 @@ repository tests pass locally; public relation authority remains always false
 in the scoped preflight. Status stays **IN PROGRESS**: the original AC require
 reference gold, append-only relation attestation/revocation, original-quote
 reader labels and MiniPC readback. No production publication proof is claimed.
+
+## 2026-10-12 — Scoped same-take, polarity and Capture lineage guards (source-only)
+
+The existing `evaluate_scoped_statement_relation` had three distinct
+fail-open paths. Two Statement candidates could claim the same unresolved
+namespaced proposition, equivalence-review or jurisdiction/subject/location/
+qualifier reference (e.g. `review:unknown`, `jurisdiction:unresolved`), and
+receive `CROSS_PERSON_AGREEMENT` because only whole-string placeholders were
+checked. A positive assertion and an explicitly **negated** endorsed assertion
+produced by the real Italian speech-act assessor could receive that same
+agreement label when the caller supplied matching `position`/proposition,
+because the classifier ignored source-receipt polarity. Finally, two different
+Statement IDs assigned to **different statement dates** for precisely the
+same captured source part, bytes, quote span and person produced a fictitious
+longitudinal `SAME_PERSON_REAFFIRMATION`.
+
+The scoped evaluator now holds unresolved segmented metadata references,
+incompatible speech-act polarity, and the same captured quote reused as a
+separate dated utterance for the same Person. All outcomes remain private
+hypotheses and preserve the existing binding hash/version and non-publication
+authority. Distinct source parts with a repeated wording remain independently
+eligible for *candidate* comparison. The historical same-day candidate fixture
+is preserved; same-day aliases still require independent store/reviewer
+deduplication and must never be interpreted as automatically published facts.
+
+Adversarial pre-fix **RED**: five real-function tests yielded **12 failing
+subcases** (one polarity, one Capture-span reuse, six proposition/equivalence
+placeholders, four scope placeholders). Source-only **GREEN**: new 5/5,
+DP-318 legacy 26/26, `test_relation_runtime` 5/5 and `test_relation_policy`
+13/13; `compileall` and `git diff --check` passed. This addresses bounded
+negative fixture portions of **AC-318.1/.2/.5** only. The original AC-318.3
+requires actually approved non-factual Statements and a consumer; AC-318.4
+requires independent identity and equivalence review, append-only attestation,
+revocation/currentness and projection gating; AC-318.5 still requires real
+MiniPC Person/Topic/Trace readback and source rights. No original AC or ticket
+is newly marked DONE, no source rights or public authority is inferred.

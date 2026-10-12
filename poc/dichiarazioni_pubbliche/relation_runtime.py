@@ -194,6 +194,7 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _VALID_KINDS = frozenset({"FACTUAL", "OPINION"})
 _VALID_POSITIONS = frozenset({"SUPPORT", "OPPOSE"})
 _VALID_MODALITIES = frozenset({"ASSERTED"})
+_VALID_POLARITIES = frozenset({"POSITIVE", "NEGATED"})
 _UNVERIFIED_REFS = frozenset({"UNKNOWN", "UNSPECIFIED", "UNRESOLVED"})
 
 
@@ -208,6 +209,21 @@ def _person_id_resolved(value: object) -> bool:
     return all(
         segment.strip() and segment.strip().upper() not in _UNVERIFIED_REFS
         for segment in value.split(":")
+    )
+
+
+def _semantic_ref_resolved(value: object) -> bool:
+    """Reject unresolved equivalence/scope placeholders even inside namespace IDs.
+
+    These references are still only *claimed* private metadata. Syntactic
+    validity cannot confer independent review or source authority.
+    """
+    return (
+        isinstance(value, str)
+        and value == value.strip()
+        and _person_id_resolved(value)
+        and all(part == part.strip() and part.upper() != "NONE"
+                for part in value.split(":"))
     )
 
 
@@ -362,6 +378,8 @@ def evaluate_scoped_statement_relation(
             or semantic.quoted_author_id is not None
         ):
             rationale.append("NON_ENDORSED_OR_REPORTED_SPEECH")
+        if semantic.polarity not in _VALID_POLARITIES:
+            rationale.append("SPEECH_ACT_POLARITY_UNVERIFIED")
         if row.statement_kind not in _VALID_KINDS or (
             row.statement_kind == "OPINION" and semantic.speech_act != "OPINION"
         ) or (
@@ -379,22 +397,14 @@ def evaluate_scoped_statement_relation(
         ):
             rationale.append("SOURCE_CONTEXT_BINDING_INVALID")
     if (
-        not isinstance(left.proposition_key, str)
-        or not isinstance(right.proposition_key, str)
-        or not left.proposition_key.strip()
-        or not right.proposition_key.strip()
-        or left.proposition_key.upper() in _UNVERIFIED_REFS
-        or right.proposition_key.upper() in _UNVERIFIED_REFS
-        or (
-        left.proposition_key != right.proposition_key
-        )
+        not _semantic_ref_resolved(left.proposition_key)
+        or not _semantic_ref_resolved(right.proposition_key)
+        or left.proposition_key != right.proposition_key
     ):
         rationale.append("PROPOSITION_EQUIVALENCE_UNVERIFIED")
     if (
-        not isinstance(left.equivalence_review_ref, str)
-        or not isinstance(right.equivalence_review_ref, str)
-        or not left.equivalence_review_ref.strip()
-        or left.equivalence_review_ref.upper() in _UNVERIFIED_REFS
+        not _semantic_ref_resolved(left.equivalence_review_ref)
+        or not _semantic_ref_resolved(right.equivalence_review_ref)
         or left.equivalence_review_ref != right.equivalence_review_ref
     ):
         rationale.append("EQUIVALENCE_REVIEW_REF_UNVERIFIED")
@@ -404,16 +414,13 @@ def evaluate_scoped_statement_relation(
         if (
             row.scope.modality not in _VALID_MODALITIES
             or row.scope.condition_ref != "NONE"
-            or not row.scope.jurisdiction_ref.strip()
-            or not row.scope.subject_ref.strip()
-            or not row.scope.location_ref.strip()
-            or not row.scope.qualifier_ref.strip()
-            or any(value.upper() in _UNVERIFIED_REFS for value in (
+            or any(not _semantic_ref_resolved(value) for value in (
                 row.scope.jurisdiction_ref,
                 row.scope.subject_ref,
                 row.scope.location_ref,
-                row.scope.qualifier_ref,
             ))
+            or (row.scope.qualifier_ref != "NONE"
+                and not _semantic_ref_resolved(row.scope.qualifier_ref))
         ):
             rationale.append("CONDITIONAL_OR_UNKNOWN_SCOPE")
     if left.statement_kind != right.statement_kind:
@@ -425,6 +432,28 @@ def evaluate_scoped_statement_relation(
         and left.speech_act.quote_sha256 == right.speech_act.quote_sha256
     ):
         rationale.append("IDENTICAL_QUOTATION_OPPOSITE_POSITION_UNSUPPORTED")
+    if (
+        isinstance(left.speech_act, SpeechActContextDecision)
+        and isinstance(right.speech_act, SpeechActContextDecision)
+    ):
+        earlier_speech, later_speech = left.speech_act, right.speech_act
+        if earlier_speech.polarity != later_speech.polarity:
+            # A shared proposition/position supplied by the caller is not
+            # independent gold for opposite semantic negation scope.
+            rationale.append("SPEECH_ACT_POLARITY_MISMATCH")
+        if (
+            left.person_id == right.person_id
+            and left.statement_date != right.statement_date
+            and earlier_speech.source_part_ref == later_speech.source_part_ref
+            and earlier_speech.source_sha256 == later_speech.source_sha256
+            and earlier_speech.quote_start == later_speech.quote_start
+            and earlier_speech.quote_end == later_speech.quote_end
+            and earlier_speech.quote_sha256 == later_speech.quote_sha256
+        ):
+            # Reassigning the same captured utterance to a later calendar day
+            # cannot manufacture longitudinal evidence of reaffirmation.
+            # Other same-day/multi-person aliases require store-side review.
+            rationale.append("IDENTICAL_SOURCE_SPAN_REUSED")
 
     left_person_known = _person_id_resolved(left.person_id)
     right_person_known = _person_id_resolved(right.person_id)
