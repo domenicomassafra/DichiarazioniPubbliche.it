@@ -186,6 +186,7 @@ async function main() {
     collection_status: 'PAUSED', results: [{collection_id: 'research:pilot',
       content_id: 'content:one', capture_id: 'capture:one', state: 'BLOCKED',
       queue_family: 'BLOCKED_CAPTURE', blockers: ['COLLECTION_NOT_ACTIVE']}],
+    snapshot_sha256: 'a'.repeat(64),
     next_after_capture_id: null});
   await pending;
   const queueLinks = ids.get('capture-queue-links');
@@ -198,12 +199,25 @@ async function main() {
     collection_status: 'PAUSED', results: [{collection_id: 'research:pilot',
       content_id: 'content:one', capture_id: 'capture:one', state: 'BLOCKED',
       queue_family: 'BLOCKED_CAPTURE', blockers: ['COLLECTION_NOT_ACTIVE']}],
+    snapshot_sha256: 'a'.repeat(64),
     next_after_capture_id: 'capture:one'});
   await pending;
   const nextCapture = queueLinks.children.find(x => /Pagina successiva/.test(x.textContent));
   assert.ok(nextCapture, 'capture exceptions must paginate by verified Capture ID');
   nextCapture.fire('click');
   assert.equal(JSON.parse(requests.at(-1).options.body).after_capture_id, 'capture:one');
+  assert.equal(JSON.parse(requests.at(-1).options.body).expected_snapshot_sha256, 'a'.repeat(64));
+  reply({...base, contract_version: 'studio-capture-triage-queue-v1', read_only: true,
+    triage_action_authorized: false, collection_id: 'research:pilot',
+    snapshot_sha256: 'b'.repeat(64), collection_status: 'PAUSED',
+    results: [{collection_id: 'research:pilot', content_id: 'content:one',
+      capture_id: 'capture:foreign-snapshot', queue_family: 'BLOCKED_CAPTURE',
+      state: 'BLOCKED', blockers: ['STALE_PRIVATE_MARKER']}],
+    next_after_capture_id: null});
+  await drain();
+  assert.equal(queueLinks.children.length, 0, 'changed fingerprint must reject stale queue page');
+  assert.doesNotMatch(ids.get('results').textContent, /STALE_PRIVATE_MARKER/);
+  pending = queue.fire('submit');
   reply({...base, contract_version: 'studio-capture-triage-queue-v1', read_only: true,
     triage_action_authorized: false, collection_id: 'research:foreign',
     collection_status: 'PAUSED', results: [{collection_id: 'research:foreign',

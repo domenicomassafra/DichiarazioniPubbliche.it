@@ -260,6 +260,7 @@ _PAGE = """<!doctype html>
         <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" required></label>
         <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
         <label>Dopo Capture ID<input name="after_capture_id" maxlength="180"></label>
+        <input type="hidden" name="expected_snapshot_sha256" value="">
         <button type="submit">Mostra eccezioni delle catture</button></div>
       </form>
       <p id="capture-queue-summary" role="status" aria-live="polite">Nessuna coda letta.</p>
@@ -781,6 +782,10 @@ _PAGE = """<!doctype html>
           candidateWriteSummary.textContent = 'Verifica della firma esterna e del CAS PostgreSQL in corso…';
         }
         if (form === captureQueueForm) {
+          if (!data.after_capture_id) {
+            delete data.expected_snapshot_sha256;
+            captureQueueForm.elements.namedItem('expected_snapshot_sha256').value = '';
+          }
           captureQueueLinks.replaceChildren();
           captureQueueSummary.textContent = 'Lettura della coda in corso…';
         }
@@ -1252,6 +1257,9 @@ _PAGE = """<!doctype html>
               && queue.publication_authority === false && queue.rights_clearance === false
               && queue.triage_action_authorized === false
               && queue.collection_id === data.collection_id && SAFE_REF.test(queue.collection_status)
+              && typeof queue.snapshot_sha256 === 'string'
+              && /^[0-9a-f]{64}$/.test(queue.snapshot_sha256)
+              && (!data.expected_snapshot_sha256 || data.expected_snapshot_sha256 === queue.snapshot_sha256)
               && Array.isArray(queue.results) && queue.results.length <= data.limit
               && queue.results.every(item => item.collection_id === data.collection_id
                 && SAFE_REF.test(item.content_id) && SAFE_REF.test(item.capture_id)
@@ -1295,6 +1303,7 @@ _PAGE = """<!doctype html>
               more.textContent = 'Pagina successiva della coda delle catture';
               more.addEventListener('click', () => {
                 captureQueueForm.elements.namedItem('after_capture_id').value = queue.next_after_capture_id;
+                captureQueueForm.elements.namedItem('expected_snapshot_sha256').value = queue.snapshot_sha256;
                 captureQueueForm.requestSubmit();
               });
               captureQueueLinks.append(more);

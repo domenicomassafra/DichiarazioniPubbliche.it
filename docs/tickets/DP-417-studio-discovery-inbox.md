@@ -59,6 +59,35 @@ Update canonical docs only where actual implementation changes the contract. His
 research/receipts stay historical; do not rewrite them to make the new architecture look
 older than it is.
 
+## 2026-10-12 — DP417 capture-queue snapshot race fix (source-only)
+
+The existing real PostgreSQL changed/blocked Capture queue exposed a substantive
+pagination race: its `after_capture_id` cursor only checked that the previous
+Capture still belonged to the queue. A different Capture could be revoked,
+replaced or removed between page requests, allowing the operator to silently
+continue through mixed queue states and miss a currently blocked exception.
+New dedicated wave regression tests proved this on canonical disposable PG
+using two Content lineages, revocation of the second row and replacement of a
+current Capture after the first page, while the original cursor remained valid.
+
+The queue now computes a SHA-256 fingerprint of the **entire eligible private
+queue** (membership, latest Capture, status/rights/hold/archive, lifecycle ID
+and Collection status) inside one repeatable-read, read-only PostgreSQL
+snapshot. `snapshot_sha256` is returned only to the already authenticated
+private reader. Page two must carry both its prior Capture cursor and exact
+`expected_snapshot_sha256`. The backend refuses missing/mismatched/stale
+pins; Studio carries the fingerprint only through the live next-page control
+and refuses mixed-SHA replies. Editing the first-page form starts a fresh
+snapshot. No token, body, title, URL or source text enters the fingerprint
+response. No mutation, review, capture or publication authority is added.
+
+TDD: new tests RED with missing `snapshot_sha256` and HTTP dispatch accepting
+an unpinned page. GREEN real PostgreSQL race/role/read-only and local Studio
+HTTP-contract/UI async suites. Exact final suite/CI figures belong to the
+current technical review. This **does not** complete DP417 queue families,
+safe reversible/bulk actions or MiniPC production acceptance; AC417.1–4
+remain open.
+
 ## Completion receipt
 
 ### 2026-10-12 — Signed, opt-in Studio annotations over authenticated HTTP and PostgreSQL

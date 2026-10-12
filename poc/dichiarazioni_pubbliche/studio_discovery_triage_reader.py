@@ -169,7 +169,7 @@ def read_triage_history(store: Any, *, collection_id: str, hit_id: str,
 # authenticated read-only Studio runtime must own the supplied store.
 CAPTURE_QUEUE_VERSION = "studio-capture-triage-queue-v1"
 _CAPTURE_QUEUE_SQL = """
-BEGIN TRANSACTION READ ONLY;
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 WITH scope AS (
     SELECT id, status FROM research_collection
     WHERE id=:'collection_id'
@@ -198,6 +198,23 @@ eligible AS (
         OR archive_status='FAILED'
     )
 ),
+snapshot AS (
+    SELECT encode(sha256(convert_to(json_build_object(
+        'collection_status', scope.status,
+        'eligible', (
+            SELECT coalesce(json_agg(row_to_json(fence) ORDER BY fence.id), '[]'::json)
+            FROM (
+                SELECT c.id, c.content_id, c.previous_capture_id,
+                       c.capture_status, c.hold_status, c.rights_status, c.archive_status,
+                       (SELECT event.id FROM capture_lifecycle_event event
+                        WHERE event.capture_id=c.id
+                        ORDER BY event.created_at DESC, event.id DESC LIMIT 1) AS lifecycle_event_id
+                FROM eligible c
+            ) fence
+        )
+    )::text, 'UTF8')), 'hex') AS snapshot_sha256
+    FROM scope
+),
 selected AS (
     SELECT c.id, c.content_id, c.previous_capture_id,
            c.capture_status, c.hold_status, c.rights_status,
@@ -215,6 +232,9 @@ selected AS (
 )
 SELECT json_build_object(
     'collection_id', scope.id, 'collection_status', scope.status,
+    'snapshot_sha256', snapshot.snapshot_sha256,
+    'snapshot_valid', (:'expected_snapshot_sha256'='' OR
+                       snapshot.snapshot_sha256=:'expected_snapshot_sha256'),
     'cursor_valid', (
         :'after_id'='' OR EXISTS (
             SELECT 1 FROM eligible anchor WHERE anchor.id=:'after_id'
@@ -225,7 +245,7 @@ SELECT json_build_object(
         FROM selected
     )
 )::text
-FROM scope;
+FROM scope CROSS JOIN snapshot;
 COMMIT;
 """.strip()
 
@@ -249,7 +269,13 @@ _CAPTURE_FIELDS = frozenset({
 def _present_capture_queue(
     result: dict[str, Any], *, collection_id: str, after_id: str, limit: int,
 ) -> dict[str, object]:
-    if (set(result) != {"collection_id", "collection_status", "cursor_valid", "rows"}
+    if result.get("snapshot_valid") is False:
+        raise ValueError("STUDIO_CAPTURE_QUEUE_SNAPSHOT_STALE")
+    if (set(result) != {"collection_id", "collection_status", "cursor_valid", "rows",
+                        "snapshot_sha256", "snapshot_valid"}
+        or type(result["snapshot_valid"]) is not bool
+        or not isinstance(result["snapshot_sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", result["snapshot_sha256"])
         or result["collection_id"] != collection_id
         or result["collection_status"] not in {"ACTIVE", "PAUSED", "ARCHIVED"}
         or type(result["cursor_valid"]) is not bool
@@ -326,6 +352,7 @@ def _present_capture_queue(
     return {
         "contract_version": CAPTURE_QUEUE_VERSION,
         "collection_id": collection_id, "collection_status": result["collection_status"],
+        "snapshot_sha256": result["snapshot_sha256"],
         "private_only": True, "read_only": True,
         "publication_authority": False, "rights_clearance": False,
         "triage_action_authorized": False,
@@ -339,6 +366,7 @@ def _present_capture_queue(
 def read_capture_triage_queue(
     store: Any, *, collection_id: str,
     limit: int = 20, after_capture_id: str | None = None,
+    expected_snapshot_sha256: str | None = None,
 ) -> dict[str, object]:
     """Read a persisted changed/restricted-Capture queue, without state changes.
 
@@ -352,11 +380,19 @@ def read_capture_triage_queue(
         raise ValueError("STUDIO_CAPTURE_QUEUE_LIMIT_INVALID")
     if after_capture_id is not None:
         after_capture_id = _validated_ref(after_capture_id)
+    if expected_snapshot_sha256 is not None and (
+        not isinstance(expected_snapshot_sha256, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", expected_snapshot_sha256)
+    ):
+        raise ValueError("STUDIO_CAPTURE_QUEUE_SNAPSHOT_INVALID")
+    if (after_capture_id is None) != (expected_snapshot_sha256 is None):
+        raise ValueError("STUDIO_CAPTURE_QUEUE_SNAPSHOT_REQUIRED")
     cursor = after_capture_id or ""
     try:
         raw = store.run(
             _CAPTURE_QUEUE_SQL, collection_id=collection_id,
             after_id=cursor, limit=limit,
+            expected_snapshot_sha256=expected_snapshot_sha256 or "",
         )
     except Exception:
         raise RuntimeError("STUDIO_CAPTURE_QUEUE_STORE_UNAVAILABLE") from None

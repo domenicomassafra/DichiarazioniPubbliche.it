@@ -37,6 +37,7 @@ def packet(**updates):
     return {
         "collection_id": "collection:one", "collection_status": "ACTIVE",
         "cursor_valid": True, "rows": [capture_row()],
+        "snapshot_sha256": "a" * 64, "snapshot_valid": True,
     } | updates
 
 
@@ -79,11 +80,12 @@ class CaptureQueueContractTests(unittest.TestCase):
         self.assertTrue(value["read_only"])
         sql, args = store.calls[0]
         self.assertEqual(sql, _CAPTURE_QUEUE_SQL)
-        self.assertEqual(args, {"collection_id": "collection:one", "after_id": "", "limit": 1})
+        self.assertEqual(args, {"collection_id": "collection:one", "after_id": "", "limit": 1,
+                          "expected_snapshot_sha256": ""})
         for relation in ("research_collection_content", "content_capture",
                          "capture_lifecycle_event", "member.status='INCLUDED'"):
             self.assertIn(relation, sql)
-        self.assertIn("BEGIN TRANSACTION READ ONLY", sql)
+        self.assertIn("REPEATABLE READ READ ONLY", sql)
         self.assertNotIn("canonical_url", sql)
         self.assertNotIn("body_ref", sql)
         self.assertNotIn("normalized_statement", sql)
@@ -327,6 +329,7 @@ class PersistedCaptureQueueTests(unittest.TestCase):
             second = read_capture_triage_queue(
                 reader, collection_id="collection:one", limit=1,
                 after_capture_id=first["next_after_capture_id"],
+                expected_snapshot_sha256=first["snapshot_sha256"],
             )
             self.assertEqual([r["capture_id"] for r in second["results"]], ["capture:two-new"])
             self.assertIsNone(second["next_after_capture_id"])
