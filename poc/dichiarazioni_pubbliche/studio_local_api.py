@@ -59,6 +59,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/media/capture-context",
     "/v1/media/binding",
+    "/v1/operator/workload",
     "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
     "/v1/candidate/decision-receipt",
     "/v1/collections/list", "/v1/collections/members",
@@ -583,6 +584,7 @@ class StudioLocalReaders:
     promotion_context: Any | None = None
     handoffs: LocalCandidateReviewHandoffQueue | None = None
     decision_reader: Any | None = None
+    workload_reader: Any | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -602,6 +604,24 @@ def _strict_json_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
+    if path == "/v1/operator/workload":
+        _fields(body, required={"collection_id"}, optional={"limit", "after"})
+        # Exact opt-in disposable backend only; the ordinary Studio listener
+        # never creates this backend. Auth + Origin/Host were checked *before*
+        # _dispatch; this is a private bounded operator view, not a grant.
+        from dichiarazioni_pubbliche.studio_operator_workload_pg_v1 import (
+            IsolatedStudioOperatorWorkloadPg,
+        )
+
+        if type(readers.workload_reader) is not IsolatedStudioOperatorWorkloadPg:
+            raise RuntimeError("STUDIO_OPERATOR_WORKLOAD_NOT_CONFIGURED")
+        scope = body["collection_id"]
+        return readers.workload_reader.read(
+            collection_id=scope,
+            limit=body.get("limit", 10),
+            after=body.get("after"),
+            verify_authenticated_operator=lambda requested: requested == scope,
+        )
     if path == "/v1/candidate/decision-receipt":
         _fields(body, required={"candidate_id", "run_id", "passage_id",
                                 "capture_id", "request_key"})
