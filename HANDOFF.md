@@ -1,5 +1,25 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+**Tranche seconda ondata dopo c16d823, 12 ottobre 2026:**
+[Post-commit HELD_SOURCE receipt isolation, Studio operatore Collection
+PG, revocation-currentness, private v3 Person/Topic/Statement,
+same-epoch search tamper, Chrome 320px](docs/reviews/2026-10-12-studio-release-currentness-second-wave.md).
+Prime ha verificato e corretto un **nuovo** caso in cui, pur restituendo
+HELD_SOURCE dopo revoca, il writer PostgreSQL riecheggiava la vecchia
+ricevuta, e uno stesso request key conflittuale esponeva l'hash altrui.
+Il percorso scritto HTTP→PG→reader storico distingue ora ricevuta
+CREATED/REPLAY dalla revoca; Studio read-only rifiuta JSON duplicato
+prima del query. La coda Collection PG reale (solo disposable e
+token privato) è navigabile in Studio, non attiva sul server ordinario.
+Il consumer v3 unisce fonti/opinioni/sintesi con epoch indipendenti;
+DP-409 vieta wire JSON duplicato sotto lo stesso pin. Chrome 320px
+verifica una parte dell'accessibilità, **non** VoiceOver/iOS fisico.
+Nessun nuovo originale DONE senza AC reali: **90 DONE /72 pendenti,
+NO-GO/49**. MacBook Air online, MiniPC non-Git intatto/servizi attivi,
+MateBook Linux offline e WIP remoto non attestato. 0 byte rimossi.
+Il nuovo SHA GitHub e la CI vanno accertati sul commit finale, mai
+ereditati dalla precedente baseline.
+
 **Tranche successiva a 52e4391 (12 ottobre 2026):**
 [Studio Candidate firmato PG, metadata media revocabili,
 historical checkpoint DP-516, month liabilities DP-514
