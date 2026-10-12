@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**Inherited global delivery authority:** load the owner-global DStack `contracts/shared-root/AGENTS.md` before these local instructions. For accepted owned source changes, `commit` is only intermediate: the single integrator must push to `origin/main` and verify that remote SHA equals local `HEAD`. Do not leave finished patches on local branches/worktrees or declare tickets `DONE` based solely on fixture tests, source commits or push; the separate legal/editorial approval, MiniPC install and public reader gates below still apply. If another worker owns dirty files, stage exact paths only and report `BLOCKED_UNPUSHED` with an actionable owner/paths rather than force-push or erase work.
+**Inherited global delivery authority:** load the owner-global DStack `contracts/shared-root/AGENTS.md` before these local instructions. This is a **public-facing editorial product**: a local commit is never delivered work, but neither is a direct push to `main` approval to expose statements to the public. The single integrator promptly pushes an exact reviewed change to a short-lived **remote PR branch**, then merges to `origin/main` only after CI and the acceptance required for that change. Legal/editorial approval, MiniPC install, public projection and public reader checks are independent downstream gates. Stage exact owned paths only; never erase unrelated dirty work or call an open PR `DONE`.
 
 Instructions for coding agents and human contributors working in this repository.
 
@@ -21,8 +21,7 @@ the primary authority when they conflict with the canonical files above.
 ## Repository and runtime authority
 
 - Authoritative Git checkout: `/Users/domenico/Code/DichiarazioniPubbliche.it`.
-- Work on `main` unless the owner explicitly requests another workflow.
-- Keep one worktree and zero unnecessary branches/WIP.
+- `origin/main` is the canonical integration branch. Work on **one short-lived change branch per coherent fix/feature**, push it promptly and open/update a traceable PR. A Draft PR preserves remote work while source CI, reviewer feedback, human editorial approval or MiniPC preview is pending. Do not create long-lived branches or an unbounded worktree per subagent; one integrator remains responsible for the PR and its cleanup after merge.
 - Runtime/backend authority: MiniPC.
 - MiniPC deploy mirror: `/home/udodo/src/DichiarazioniPubbliche.it` and is not a Git checkout.
 - Do not claim runtime completion from Mac-only evidence.
@@ -59,7 +58,14 @@ For non-trivial work:
 8. run `git diff --check`;
 9. update docs/ADR/ticket state when the behavior or architecture changed;
 10. prove runtime-affecting changes on MiniPC;
-11. commit a coherent change to the current branch.
+11. commit only owned paths, push and verify the change branch remote SHA, and open/update its PR; `PUSHED_FOR_REVIEW` is not a done ticket;
+12. merge only once the relevant CI and pre-merge acceptance pass, then verify the resulting `origin/main` SHA and separately track MiniPC/reader deployment.
+
+**Manual bug before merge:** keep the same PR open or Draft, attach the reproducible fault and failing case, fix in that branch, rerun targeted and full relevant CI, and repeat only the affected preview/manual check. Do not discard that branch or create unrelated replacement work.
+
+**Bug after deployment:** if the public reader or rights/integrity path is affected, first fail closed, withdraw the affected public projection or restore the last approved version through the existing rollback policy; then ship a small hotfix PR with regression and real reader readback. Never overwrite published history or turn a merely syntactic pass into source, editorial or legal acceptance.
+
+`python3 ~/.dstack/scripts/verify_main_delivery.py --repo . --review-check` proves an existing branch is saved remotely, **not** that PR/CI/manual checks passed. After merge, `--check` proves the clean `origin/main` source state. The current GitHub CI is source-only and has **no deployment authority**. Informational-site preview (`LAUNCH.md`) is distinct from the full curated archive release; neither should be blocked by unrelated release scope, and neither gains publication permission from a Git merge alone.
 
 Preferred commands:
 
