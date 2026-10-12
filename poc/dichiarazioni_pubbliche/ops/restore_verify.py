@@ -77,6 +77,8 @@ LOAD_BEARING_TABLES = (
     "transcript_segment",
     "canonical_transcript_segment",
     "canonical_segment_candidate",
+    "media_capture_segment_binding",
+    "media_capture_segment_binding_event",
     "transcript_verbatim_review_event",
     "context_integrity_review_event",
     "speaker_identity_candidate",

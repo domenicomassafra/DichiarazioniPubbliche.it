@@ -3967,4 +3967,50 @@ DROP TRIGGER IF EXISTS private_reply_retention_event_no_truncate ON private_repl
 CREATE TRIGGER private_reply_retention_event_no_truncate BEFORE TRUNCATE ON private_reply_retention_event
 FOR EACH STATEMENT EXECUTE FUNCTION reject_private_reply_retention_event_mutation();
 
+-- DP-419 opt-in private canonical Capture→Segment metadata binding.
+-- The full, append-only CAS/function/rights semantics are in ordered migration
+-- 031_media_capture_segment_binding.sql. Schema and migration must agree.
+-- A row is an *operator metadata assertion*, never seek/publication permission.
+CREATE TABLE IF NOT EXISTS media_capture_segment_binding (
+    id text PRIMARY KEY,
+    content_id text NOT NULL REFERENCES content_item(id) ON DELETE RESTRICT,
+    capture_id text NOT NULL,
+    capture_sha256 text NOT NULL,
+    canonical_segment_id text NOT NULL,
+    segment_index integer NOT NULL,
+    start_ms bigint NOT NULL,
+    end_ms bigint NOT NULL,
+    canonical_text_sha256 text NOT NULL,
+    evidence_sha256 text NOT NULL,
+    attestor_ref text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
+    UNIQUE (capture_id, canonical_segment_id),
+    FOREIGN KEY (capture_id, content_id)
+        REFERENCES content_capture(id, content_id) ON DELETE RESTRICT,
+    FOREIGN KEY (canonical_segment_id, content_id)
+        REFERENCES canonical_transcript_segment(id, content_id) ON DELETE RESTRICT,
+    CONSTRAINT media_capture_segment_binding_id_valid
+        CHECK (id ~ '^[A-Za-z0-9][A-Za-z0-9_:/.-]{0,179}$'),
+    CONSTRAINT media_capture_segment_binding_capture_hash_valid
+        CHECK (capture_sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT media_capture_segment_binding_evidence_hash_valid
+        CHECK (evidence_sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT media_capture_segment_binding_text_hash_valid
+        CHECK (canonical_text_sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT media_capture_segment_binding_range_valid
+        CHECK (segment_index >= 0 AND start_ms >= 0 AND end_ms > start_ms),
+    CONSTRAINT media_capture_segment_binding_attestor_valid
+        CHECK (attestor_ref ~ '^[A-Za-z0-9][A-Za-z0-9_:/.-]{0,179}$')
+);
+CREATE TABLE IF NOT EXISTS media_capture_segment_binding_event (
+    event_id text PRIMARY KEY,
+    binding_id text NOT NULL REFERENCES media_capture_segment_binding(id) ON DELETE RESTRICT,
+    revision integer NOT NULL CHECK (revision > 0),
+    event_kind text NOT NULL CHECK (event_kind IN ('ATTEST', 'HOLD', 'REVOKE')),
+    request_sha256 text NOT NULL CHECK (request_sha256 ~ '^[0-9a-f]{64}$'),
+    recorded_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
+    UNIQUE (binding_id, revision),
+    CHECK (event_id ~ '^[A-Za-z0-9][A-Za-z0-9_:/.-]{0,179}$')
+);
+
 COMMIT;

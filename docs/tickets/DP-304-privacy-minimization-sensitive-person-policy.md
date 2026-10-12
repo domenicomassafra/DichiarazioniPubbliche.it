@@ -2,6 +2,33 @@
 
 Status: IN PROGRESS
 
+### 2026-10-12 — DP-419 durable metadata migration privacy inventory reconciliation
+
+The new additive DP-419 canonical PostgreSQL private Capture/Segment binding
+and event tables initially triggered the repository's mandatory
+`PRIVACY_UNINVENTORIED_MIGRATION_TABLE` denial. The canonical DDL now
+declares precisely the same two new schema tables, with composite Content
+foreign keys and no body/media/URL fields; the ordered 031 migration installs
+their immutable and current-rights SQL triggers. A deliberately regenerated
+`config/privacy-field-inventory.v1.json` explicitly classifies all 18 new
+columns; **102 tables / 1,266 fields** (previous 100/1,248), SHA-256
+`01e103b1886060d2ccbd0eee8e0e0d98b2019fadd5a06b0d17a61a820a67ab03`.
+All 43 independent privacy/real PostgreSQL media migration/HTTP tests and
+the repository contract pass after repair.
+
+The independent full-suite backup rotation and restore inventory also
+found two missing table declarations; `deploy/ops/backup.sh`
+and `ops/restore_verify.py` now include the metadata binding
+and event tables as load-bearing. The focused 40/40 backup/
+restore/privacy tests pass, with live-catalog drift rejection
+left enabled; MiniPC production was not changed.
+
+The media link is an operator's private metadata assertion and has **no**
+independent media derivation, rights, playback or publication authority.
+The inventory result remains `TECHNICAL_ONLY_NOT_LEGAL_CLOSURE`;
+no Italy/EU lawful basis, retention period, qualified review or production
+schema rollout is invented. Original DP-304 AC/legal acceptance remains open.
+
 Milestone: M3
 
 Depends on: M0 baseline
