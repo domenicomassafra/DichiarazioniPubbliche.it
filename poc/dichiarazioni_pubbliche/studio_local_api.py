@@ -42,6 +42,7 @@ from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues
 from dichiarazioni_pubbliche.studio_collection_navigation import read_collection_navigation
 from dichiarazioni_pubbliche.studio_discovery_triage_reader import read_capture_triage_queue
 from dichiarazioni_pubbliche.studio_candidate_triage_queue_pg import read_candidate_triage_queue
+from dichiarazioni_pubbliche.studio_coverage_need_queue_pg import read_coverage_need_queue
 from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInboxWorkflow
 from dichiarazioni_pubbliche.studio_machine_candidate_handoff_v1 import (
     preview_candidate_machine_handoff, preview_discovery_machine_exception,
@@ -71,6 +72,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/collections/navigate",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
     "/v1/discovery/capture-queue", "/v1/discovery/candidate-queue",
+    "/v1/discovery/coverage-queue",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
     "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
 })
@@ -538,6 +540,17 @@ class _StudioQueueReader(_StudioReadOnlyDb, StudioOperatorQueues):
             expected_snapshot_sha256=expected_snapshot_sha256,
         )
 
+    def list_coverage_need_queue(
+        self, *, collection_id: str, limit: int = 20,
+        after_need_id: str | None = None,
+        expected_snapshot_sha256: str | None = None,
+    ) -> dict[str, object]:
+        return read_coverage_need_queue(
+            self, collection_id=collection_id, limit=limit,
+            after_need_id=after_need_id,
+            expected_snapshot_sha256=expected_snapshot_sha256,
+        )
+
     def list_discovery_inbox(
         self, *, collection_id: str, limit: int = 20, after_id: str | None = None,
     ) -> dict[str, object]:
@@ -581,6 +594,7 @@ class _QueueReader(Protocol):
     def list_discovery_inbox(self, *, collection_id: str, limit: int, after_id: str | None) -> dict[str, object]: ...
     def list_capture_triage_queue(self, *, collection_id: str, limit: int, after_capture_id: str | None, expected_snapshot_sha256: str | None) -> dict[str, object]: ...
     def list_candidate_triage_queue(self, *, collection_id: str, limit: int, after_candidate_id: str | None, expected_snapshot_sha256: str | None) -> dict[str, object]: ...
+    def list_coverage_need_queue(self, *, collection_id: str, limit: int, after_need_id: str | None, expected_snapshot_sha256: str | None) -> dict[str, object]: ...
     def preview_bulk_discovery(self, *, collection_id: str, hit_ids: list[str], decision: str) -> dict[str, object]: ...
     def inspect_discovery(self, *, collection_id: str, hit_id: str) -> dict[str, object]: ...
     def inspect_discovery_triage(self, *, collection_id: str, hit_id: str, limit: int, after_revision: int) -> dict[str, object]: ...
@@ -804,6 +818,14 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if readers.queues is None:
             raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
         return readers.queues.list_candidate_triage_queue(**body)
+    if path == "/v1/discovery/coverage-queue":
+        _fields(body, required={"collection_id"},
+                optional={"limit", "after_need_id", "expected_snapshot_sha256"})
+        if ("after_need_id" in body) != ("expected_snapshot_sha256" in body):
+            raise ValueError("STUDIO_COVERAGE_NEED_SNAPSHOT_REQUIRED")
+        if readers.queues is None:
+            raise RuntimeError("STUDIO_LOCAL_QUEUES_UNAVAILABLE")
+        return readers.queues.list_coverage_need_queue(**body)
     if path == "/v1/discovery/inbox":
         _fields(body, required={"collection_id"}, optional={"limit", "after_id"})
         if readers.queues is None:

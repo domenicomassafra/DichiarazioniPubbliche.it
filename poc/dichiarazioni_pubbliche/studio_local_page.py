@@ -277,6 +277,18 @@ _PAGE = """<!doctype html>
       </form>
       <p id="candidate-queue-summary" role="status" aria-live="polite">Nessuna coda Candidate letta.</p>
       <div id="candidate-queue-links" role="group" aria-label="Statement Candidate da ispezionare"></div>
+      <h2>Coda Coverage Needs persistite</h2>
+      <p>Esigenze di prova aperte, in ricerca o bloccate: codici di motivo, tentativi e riferimenti,
+      mai domande riservate, testi delle fonti o autorizzazioni implicite.</p>
+      <form data-endpoint="/v1/discovery/coverage-queue">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" required></label>
+        <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo Coverage Need ID<input name="after_need_id" maxlength="180"></label>
+        <input type="hidden" name="expected_snapshot_sha256" value="">
+        <button type="submit">Mostra Coverage Needs persistite</button></div>
+      </form>
+      <p id="coverage-queue-summary" role="status" aria-live="polite">Nessuna Coverage Need letta.</p>
+      <div id="coverage-queue-links" role="group" aria-label="Coverage Needs da verificare"></div>
       <h2>Catalogo Discovery per raccolta</h2>
       <p>Provenienza, stato della raccolta, diritti e motivi di blocco dal database. Nessuna azione di revisione, cattura o pubblicazione è abilitata da questa pagina.</p>
       <form data-endpoint="/v1/discovery/inbox">
@@ -467,6 +479,9 @@ _PAGE = """<!doctype html>
     const candidateQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/candidate-queue"]');
     const candidateQueueLinks = document.getElementById('candidate-queue-links');
     const candidateQueueSummary = document.getElementById('candidate-queue-summary');
+    const coverageQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/coverage-queue"]');
+    const coverageQueueLinks = document.getElementById('coverage-queue-links');
+    const coverageQueueSummary = document.getElementById('coverage-queue-summary');
     const inboxForm = document.querySelector('form[data-endpoint="/v1/discovery/inbox"]');
     const inboxAnnotationSummary = document.getElementById('inbox-annotation-summary');
     const inboxAnnotationLinks = document.getElementById('inbox-annotation-links');
@@ -672,6 +687,8 @@ _PAGE = """<!doctype html>
       captureQueueLinks?.replaceChildren();
       candidateQueueLinks?.replaceChildren();
       if (candidateQueueSummary) candidateQueueSummary.textContent = 'Nessuna coda Candidate letta.';
+      coverageQueueLinks?.replaceChildren();
+      if (coverageQueueSummary) coverageQueueSummary.textContent = 'Nessuna Coverage Need letta.';
       inboxAnnotationLinks?.replaceChildren();
       if (inboxAnnotationSummary) inboxAnnotationSummary.textContent = 'Nessun Hit caricato.';
       if (captureQueueSummary) captureQueueSummary.textContent = 'Nessuna coda letta.';
@@ -683,7 +700,7 @@ _PAGE = """<!doctype html>
           else field.value = '';
         }
       }
-      for (const form of [lineageForm, captureQueueForm, candidateQueueForm]) {
+      for (const form of [lineageForm, captureQueueForm, candidateQueueForm, coverageQueueForm]) {
         if (!form) continue;
         for (const field of form.querySelectorAll('input,select')) {
           field.value = field.name === 'limit' ? '20' : '';
@@ -813,6 +830,14 @@ _PAGE = """<!doctype html>
           }
           candidateQueueLinks.replaceChildren();
           candidateQueueSummary.textContent = 'Lettura Candidate e provenienza in corso…';
+        }
+        if (form === coverageQueueForm) {
+          if (!data.after_need_id) {
+            delete data.expected_snapshot_sha256;
+            coverageQueueForm.elements.namedItem('expected_snapshot_sha256').value = '';
+          }
+          coverageQueueLinks.replaceChildren();
+          coverageQueueSummary.textContent = 'Lettura Coverage Needs in corso…';
         }
         if (form === inboxForm) {
           inboxAnnotationLinks.replaceChildren();
@@ -1405,6 +1430,68 @@ _PAGE = """<!doctype html>
                 candidateQueueForm.requestSubmit();
               });
               candidateQueueLinks.append(more);
+            }
+            return;
+          }
+          if (form === coverageQueueForm) {
+            results.textContent = 'Solo metadati convalidati di Coverage Need persistite.';
+            const queue = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && queue?.contract_version === 'studio-coverage-need-queue-pg-v1'
+              && queue.private_only === true && queue.read_only === true
+              && queue.publication_authority === false && queue.triage_action_authorized === false
+              && queue.rights_clearance === false && queue.collection_id === data.collection_id
+              && ['ACTIVE','PAUSED','ARCHIVED'].includes(queue.collection_status)
+              && typeof queue.snapshot_sha256 === 'string'
+              && /^[0-9a-f]{64}$/.test(queue.snapshot_sha256)
+              && (!data.expected_snapshot_sha256 || data.expected_snapshot_sha256 === queue.snapshot_sha256)
+              && Array.isArray(queue.rows) && queue.rows.length <= data.limit
+              && queue.rows.every(item => item.collection_id === data.collection_id
+                && SAFE_REF.test(item.need_id) && SAFE_REF.test(item.need_type)
+                && SAFE_REF.test(item.requirement_kind)
+                && ['OPEN','SEARCHING','BLOCKED'].includes(item.status)
+                && ['BLOCKED','NEEDS_REVIEW'].includes(item.state)
+                && Number.isInteger(item.attempt_count) && Number.isInteger(item.max_attempts)
+                && item.attempt_count >= 0 && item.attempt_count <= item.max_attempts
+                && item.max_attempts >= 1 && item.max_attempts <= 10
+                && (item.event_id == null || SAFE_REF.test(item.event_id))
+                && (item.atomic_claim_id == null || SAFE_REF.test(item.atomic_claim_id))
+                && (item.claim_candidate_id == null || SAFE_REF.test(item.claim_candidate_id))
+                && (item.source_intelligence_assessment_id == null || SAFE_REF.test(item.source_intelligence_assessment_id))
+                && Array.isArray(item.blockers) && item.blockers.length > 0
+                && item.blockers.every(code => SAFE_REF.test(code))
+                && SAFE_REF.test(item.retry_condition))
+              && (queue.next_after_need_id == null || (
+                SAFE_REF.test(queue.next_after_need_id)
+                && queue.rows.length === data.limit
+                && queue.next_after_need_id === queue.rows.at(-1)?.need_id));
+            if (!valid) {
+              coverageQueueSummary.textContent = 'Coverage Needs non verificabili o snapshot non corrente.';
+              status.textContent = 'Coverage Needs non verificabili.';
+              return;
+            }
+            coverageQueueSummary.textContent = queue.rows.length + ' Coverage Needs persistite'
+              + ' · raccolta ' + queue.collection_id + '. Nessun intervento autorizzato.';
+            for (const item of queue.rows) {
+              const line = document.createElement('p');
+              line.textContent = item.need_id + ' · ' + item.need_type + ' · ' + item.status
+                + ' · tentativi ' + item.attempt_count + '/' + item.max_attempts
+                + ' · evento ' + (item.event_id || 'non attestato')
+                + ' · blocchi: ' + item.blockers.join(', ')
+                + ' · retry: ' + item.retry_condition;
+              coverageQueueLinks.append(line);
+            }
+            if (queue.next_after_need_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva delle Coverage Needs';
+              more.addEventListener('click', () => {
+                if (!coverageQueueLinks.contains(more)) return;
+                coverageQueueForm.elements.namedItem('after_need_id').value = queue.next_after_need_id;
+                coverageQueueForm.elements.namedItem('expected_snapshot_sha256').value = queue.snapshot_sha256;
+                coverageQueueForm.requestSubmit();
+              });
+              coverageQueueLinks.append(more);
             }
             return;
           }

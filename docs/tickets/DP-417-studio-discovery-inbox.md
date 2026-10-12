@@ -104,6 +104,49 @@ This remains private source-only DP417 progress, not action authorization.
 
 ## Completion receipt
 
+### 2026-10-12 — Authenticated Coverage Need triage: real PostgreSQL→HTTP→Studio
+
+The existing private Studio Inbox lacked a persisted **Coverage Need** family:
+an operator could not list missing primary sources, searches in progress or
+blocked evidence requirements together with their actual attempt cap, current
+blocker and append-only event reference. Added read-only
+`studio_coverage_need_queue_pg.py`, private
+`/v1/discovery/coverage-queue` and a corresponding Studio Inbox section.
+Rows are read in a `REPEATABLE READ READ ONLY` transaction from canonical
+`research_collection`, scoped `coverage_need` and `coverage_need_event`.
+Only OPEN/SEARCHING/BLOCKED needs belonging **directly** to the requested
+Collection are included, never SATISFIED/WAIVED or foreign Collection rows.
+The exposed fields are bounded IDs, need/requirement kind, status, attempt
+count and cap, latest event reference, stable blocker and retry codes.
+Question text, sensitive evidence requirements, source URLs, raw bodies,
+private review notes and external service credentials are never queried or
+returned. Rights clearance and triage/publication authority always stay false.
+
+Keyset pagination pins the SHA-256 of all eligible need states and event
+versions in the same PostgreSQL snapshot. A concurrently committed status
+change or new Coverage Need event fails `STUDIO_COVERAGE_NEED_SNAPSHOT_STALE`
+instead of silently mixing pages. Invalid/foreign cursors, missing pins and
+privileged/unexpected HTTP fields fail closed; the listener retains bearer,
+Origin/Host and no-store gates. Studio displays a safe, nonactionable
+inspectable ID/status list and a verified next-page control; it never
+represents this reader as source approval, search dispatch or a reviewer
+signature.
+
+TDD: the new real PostgreSQL test initially failed importing the absent
+reader, then passed against canonical schema and committed event/revision
+changes. A second suite exercised real authenticated localhost HTTP,
+unprivileged rejection, cross-Collection/invalid fields, status flip and
+private-data scrubbing. Frontend asynchronous DOM tests cover next-page pin
+and stale page rejection, and previous Capture/Candidate queue tests remain
+intact. Exact final integrated test and CI run are recorded in the current
+technical review.
+
+This closes a **concrete missing queue family**, not all original AC417.1–4.
+Unresolved Entity and already-covered Claim Candidate families, other linked
+need types, reviewer-authorized safe actions and reversible compatible bulk
+workflow still require actual implementation and MiniPC acceptance. Ticket
+remains IN PROGRESS and public launch remains NO-GO.
+
 ### 2026-10-12 — PostgreSQL Statement Candidate queue, authenticated API and Studio navigation
 
 The previous Inbox had persisted Discovery Hits and changed/blocked Captures,

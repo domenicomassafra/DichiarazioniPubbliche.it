@@ -262,6 +262,43 @@ async function main() {
   await drain();
   assert.equal(candidateLinks.children.length, 0, 'stale Candidate page must fail closed');
   assert.doesNotMatch(ids.get('results').textContent, /PRIVATE_STALE_CANDIDATE/);
+  const coverage = forms['/v1/discovery/coverage-queue'];
+  assert.ok(coverage, 'persisted Coverage Need needs a Studio form');
+  coverage.fields.collection_id = 'research:pilot';
+  coverage.fields.limit = '1';
+  pending = coverage.fire('submit');
+  assert.equal(requests.at(-1).path, '/v1/discovery/coverage-queue');
+  const needRow = {collection_id: 'research:pilot', need_id: 'need:one',
+    need_type: 'PRIMARY_SOURCE', requirement_kind: 'ROLE_ANY', status: 'OPEN',
+    state: 'NEEDS_REVIEW', attempt_count: 0, max_attempts: 2,
+    event_id: 'event:need-one', atomic_claim_id: null, claim_candidate_id: null,
+    source_intelligence_assessment_id: null,
+    blockers: ['NEED_OPEN', 'SOURCE_RIGHTS_NOT_ATTESTED'],
+    retry_condition: 'AFTER_SOURCE_RIGHTS_AND_COVERAGE_REVIEW'};
+  reply({contract_version: 'studio-coverage-need-queue-pg-v1',
+    private_only: true, read_only: true, rights_clearance: false,
+    publication_authority: false, triage_action_authorized: false,
+    collection_id: 'research:pilot', collection_status: 'ACTIVE',
+    snapshot_sha256: 'a'.repeat(64), rows: [needRow],
+    next_after_need_id: 'need:one'});
+  await pending;
+  const coverageLinks = ids.get('coverage-queue-links');
+  assert.equal(coverageLinks.children.length, 2, 'Coverage Needs row and next page');
+  assert.match(coverageLinks.children[0].textContent, /need:one/);
+  const moreCoverage = coverageLinks.children.find(x => /Pagina successiva/.test(x.textContent));
+  moreCoverage.fire('click');
+  assert.equal(requests.at(-1).path, '/v1/discovery/coverage-queue');
+  assert.equal(JSON.parse(requests.at(-1).options.body).expected_snapshot_sha256, 'a'.repeat(64));
+  reply({contract_version: 'studio-coverage-need-queue-pg-v1',
+    private_only: true, read_only: true, rights_clearance: false,
+    publication_authority: false, triage_action_authorized: false,
+    collection_id: 'research:pilot', collection_status: 'ACTIVE',
+    snapshot_sha256: 'b'.repeat(64),
+    rows: [{...needRow, need_id: 'PRIVATE_STALE_NEED'}],
+    next_after_need_id: null});
+  await drain();
+  assert.equal(coverageLinks.children.length, 0, 'stale Coverage Need page must fail closed');
+  assert.doesNotMatch(ids.get('results').textContent, /PRIVATE_STALE_NEED/);
   pending = queue.fire('submit');
   token.value = 'b'.repeat(64);
   token.fire('input');
@@ -269,6 +306,7 @@ async function main() {
   await pending;
   assert.equal(queueLinks.children.length, 0, 'token replacement clears prior operator references');
   assert.equal(candidateLinks.children.length, 0, 'token replacement clears Candidate references');
+  assert.equal(coverageLinks.children.length, 0, 'token replacement clears Coverage Needs');
   assert.equal(lineage.children.length, 0);
   assert.doesNotMatch(ids.get('results').textContent, /OLD_OPERATOR_RESPONSE/);
   ids.get('clear').fire('click');
