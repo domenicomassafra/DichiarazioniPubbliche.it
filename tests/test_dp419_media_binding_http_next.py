@@ -32,7 +32,9 @@ class MediaBindingLoopbackTests(unittest.TestCase):
         self.thread.start()
 
     def tearDown(self):
-        self.server.shutdown();self.server.server_close();self.thread.join(timeout=3)
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=3)
 
     def call(self,body,*,token=None):
         conn=http.client.HTTPConnection("127.0.0.1",self.server.server_port,timeout=5)
@@ -40,7 +42,9 @@ class MediaBindingLoopbackTests(unittest.TestCase):
         if token is not False:
             headers["Authorization"]="Bearer "+(token or self.token)
         conn.request("POST","/v1/media/binding",json.dumps(body).encode(),headers)
-        r=conn.getresponse();status=r.status;data=json.loads(r.read())
+        r=conn.getresponse()
+        status=r.status
+        data=json.loads(r.read())
         conn.close()
         return status,data
 
