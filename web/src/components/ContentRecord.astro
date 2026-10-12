@@ -15,7 +15,7 @@ const { content = null, dossiers } = Astro.props;
 // unfinished assessments. Keep the UI fail-closed even for a malformed input.
 const publicStatuses = new Set(["PUBLISH", "DISPUTED", "CORRECTED", "RETRACTED"]);
 const publicAssessments = new Set(["SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA"]);
-const publicDossiers = dossiers.filter((dossier) =>
+const publishedCandidates = dossiers.filter((dossier) =>
   publicStatuses.has(dossier.finding.publication_status) &&
   publicAssessments.has(dossier.finding.assessment)
 );
@@ -31,8 +31,19 @@ const publicationState = (status: string) => {
       return null;
   }
 };
-const source = content ?? publicDossiers[0]?.source;
+const source = content ?? publishedCandidates[0]?.source;
 if (!source) throw new Error("Content page requires a reviewed Content or one legacy public dossier.");
+// A stable content_id alone does not pin the original source revision. The
+// public schema checks finding_ids -> content_id, but allows different source
+// URLs within that identity. Do not attach a timed/text locator (or its claim)
+// to a Content whose reviewed original URL differs from the Finding's source.
+// This also protects legacy pages made from dossiers alone.
+const selectedFindingIds = content ? new Set(content.finding_ids) : null;
+const publicDossiers = publishedCandidates.filter((dossier) =>
+  dossier.source.content_id === source.content_id &&
+  dossier.source.url === source.url &&
+  (!selectedFindingIds || selectedFindingIds.has(dossier.finding_id))
+);
 const canonicalSlug = content?.slug ?? contentSlug(publicDossiers[0]);
 const canonical = `/contenuti/${canonicalSlug}/`;
 

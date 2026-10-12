@@ -336,3 +336,46 @@ settle any separate, safe public checking-state contract before its literal
 wording can be accepted. **AC-407.7 remains open** until the specified real
 screen-reader/manual accessibility pass. Ticket stays **IN PROGRESS** with
 the previously accepted seven criteria unchanged.
+
+### 2026-10-12 Source/Content locator-currentness regression (source-only)
+
+The first-class `ContentRecord.astro` paired a public Content with its Finding
+moments solely by stable `content_id`/`finding_id`. The current Python public
+schema permits a Finding to carry a different `source.url` from its associated
+Content, as long as their `content_id` matches. A source-revision or stale
+publication snapshot could therefore render a Finding's timed locator (`#t=`)
+against a **different original-source URL**, or show a written selector on the
+wrong document. This is a real cross-record currentness gap; a projection hash
+only proves the bundle has not changed, not that its independently versioned
+parts agree on the source release.
+
+The mounted component now restricts its public Finding moments to the exact
+`source.content_id` **and** original `source.url` of that Content, and to the
+Content's published `finding_ids` where present. A mismatched Finding and its
+locator, quote-like claim, rationale, evidence and links are omitted from the
+Content page. Other approved moments remain navigable; a written Content with
+no current published moments retains the intentional empty-state fallback.
+The legacy Content route applies the same source-URL consistency boundary.
+
+New isolated regression:
+`node web/scripts/check-content-v3-currentness-wave-close.mjs`. It constructs
+a fictional first-class Content fixture from the existing twelve-moment timed
+and written DP-407 dossier fixtures. Both baseline and drifted projections
+pass the **real Python** `validate_public_bundle` and build the **actual Astro
+routes** from a disposable copy of `web` with linked local dependencies. Before
+the fix, the test failed **RED** (`stale timed Statement was projected onto a
+different Content source version`); after the fix it passes **GREEN** for timed
+and written source mismatch, valid locator preservation, Content membership
+removal, published `RETRACTED` handling, absence of stale source URL from HTML,
+and a real headless Chrome DOM parse proving an injected markup probe in a
+fictional title is escaped rather than executed. No shared `web/dist` was
+rewritten by the regression. `cd web && npm run check`: **119 files, 0 errors,
+0 warnings, 0 hints**; `git diff --check`: **PASS**.
+
+Exact URL consistency is the strongest cross-record identity signal supplied
+to this v2 Content component; it is **not** cryptographic proof that content at
+that URL is immutable, nor a substitute for DP-435/436 exact-wording/version
+provenance and rights clearance. This local check does not prove a v3
+Source/Content/Statement release handshake, a MiniPC deployment or a manual
+screen-reader pass. No new AC is marked complete. **AC-407.4 and AC-407.7
+remain open; status remains IN PROGRESS / publication NO-GO.**
