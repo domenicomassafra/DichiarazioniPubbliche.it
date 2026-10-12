@@ -87,6 +87,30 @@ class OperatorWorkloadPrivateHttpTests(unittest.TestCase):
         self.assertEqual(other["data"]["total_members"], 1)
         self.assertNotIn("content:secret", str(self.call({"collection_id": "col:alpha"})[1]))
 
+    def test_ordinary_studio_without_explicit_pg_canary_reader_refuses_route(self):
+        default = StudioLoopbackServer(
+            0, StudioLocalReaders(None, None, None), self.token,
+        )
+        thread = threading.Thread(target=default.serve_forever, daemon=True)
+        thread.start()
+        try:
+            conn = http.client.HTTPConnection(
+                "127.0.0.1", default.server_port, timeout=8,
+            )
+            conn.request("POST", "/v1/operator/workload",
+                         b'{"collection_id":"col:alpha"}',
+                         {"Authorization":"Bearer " + self.token,
+                          "Content-Type":"application/json"})
+            response = conn.getresponse()
+            status, packet = response.status, json.loads(response.read())
+            conn.close()
+            self.assertEqual(status, 503, packet)
+            self.assertNotIn("rows", json.dumps(packet))
+        finally:
+            default.shutdown()
+            default.server_close()
+            thread.join(timeout=5)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/media/capture-context",
     "/v1/media/binding",
+    "/v1/operator/workload",
     "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
     "/v1/candidate/decision-receipt",
     "/v1/media/capture-context",

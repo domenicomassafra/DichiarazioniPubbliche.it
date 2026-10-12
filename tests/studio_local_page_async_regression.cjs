@@ -42,6 +42,7 @@ for (const id of ['token', 'results', 'status', 'clear', 'member-links',
                   'collection-capture-summary', 'capture-passage-links',
                   'passage-candidate-links', 'passage-candidate-summary',
                   'collection-decision-summary',
+                  'workload-summary', 'workload-links',
                   'candidate-write-summary',
                   'triage-write-summary',
                   'inbox-annotation-summary','inbox-annotation-links',
@@ -59,6 +60,7 @@ for (const path of [
   '/v1/collections/passage-candidates',
   '/v1/candidate/decision-receipt',
   '/v1/candidate/decision-annotate',
+  '/v1/operator/workload',
   '/v1/discovery/triage-annotate',
   '/v1/discovery/inbox','/v1/discovery/triage-history',
   '/v1/media/capture-context',
@@ -66,7 +68,9 @@ for (const path of [
   '/v1/collections/claim-provenance', '/v1/capture/compare',
   '/v1/capture/passages', '/v1/corpus/search', '/v1/media/segment',
 ]) {
-  const fields = path === '/v1/media/binding' ? {
+  const fields = path === '/v1/operator/workload' ? {
+    collection_id:'',limit:'2',after:'',
+  } : path === '/v1/media/binding' ? {
     binding_id:'',
   } : path === '/v1/candidate/decision-annotate' ? {
     candidate_id:'',run_id:'',input_fingerprint:'',passage_id:'',
@@ -97,7 +101,7 @@ for (const path of [
   if (!['/v1/corpus/search','/v1/discovery/inbox',
         '/v1/discovery/triage-history','/v1/discovery/triage-annotate',
         '/v1/media/capture-context','/v1/media/binding',
-        '/v1/candidate/decision-annotate'].includes(path))
+        '/v1/candidate/decision-annotate','/v1/operator/workload'].includes(path))
     fields.content_id = 'content:one';
   const nodes = {};
   for (const name of Object.keys(fields)) {
@@ -529,6 +533,41 @@ async function main() {
   clear.fire('click');
   assert.equal(bindingForm.fields.binding_id,'');
   assert.equal(ids.get('media-binding-summary').textContent,'Nessun binding verificato.');
+  token.value='a'.repeat(64);
+  const workloadForm=forms['/v1/operator/workload'];
+  Object.assign(workloadForm.fields,{collection_id:'collection:one',limit:'2',after:''});
+  const workloadPending=workloadForm.fire('submit');
+  const workloadIndex=requests.length-1;
+  assert.equal(requests[workloadIndex].path,'/v1/operator/workload');
+  assert.deepEqual(JSON.parse(requests[workloadIndex].options.body),{
+    collection_id:'collection:one',limit:2,
+  });
+  requests[workloadIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',data:{
+      version:'studio-operator-workload-pg-v1',collection_id:'collection:one',
+      collection_state:'ACTIVE',total_members:1,blocked_members:0,
+      review_only_members:1,capture_count:1,passage_count:1,
+      statement_candidate_count:1,claim_candidate_count:1,
+      dispatch_authorized:false,publication_authority:false,
+      image_approval_authority:false,text_review_authority:false,
+      source_rights_attested:false,next_cursor:null,blocked_queue:[],
+      rows:[{content_id:'content:one',capture_id:'capture:one',
+        state:'REVIEW_ONLY',reason:'PRIVATE_TRIAGE_REQUIRED',
+        capture_count:1,passage_count:1,statement_candidates:1,
+        claim_candidates:1,private_text:'DO_NOT_RENDER'}],
+      private_source:'NEVER_RENDER_WIP',
+    },
+  })});
+  await workloadPending;
+  assert.match(ids.get('workload-summary').textContent,/1 Content inclusi/);
+  assert.doesNotMatch(ids.get('workload-summary').textContent,/DO_NOT_RENDER|NEVER_RENDER_WIP/);
+  assert.equal(ids.get('workload-links').children.length,1);
+  ids.get('workload-links').children[0].fire('click');
+  assert.equal(forms['/v1/collections/captures'].fields.content_id,'content:one');
+  assert.equal(forms['/v1/collections/captures'].fields.collection_id,'collection:one');
+  clear.fire('click');
+  assert.equal(workloadForm.fields.collection_id,'');
+  assert.equal(ids.get('workload-links').children.length,0);
   process.stdout.write('Studio Corpus filters, keyboard inspector, return, private scrub and stale-response regression PASS\n');
 }
 

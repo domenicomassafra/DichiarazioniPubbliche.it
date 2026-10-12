@@ -23,6 +23,22 @@ independent multi-tenant identity or permission system; the exact local DB
 adapter refuses production/non-disposable DSNs. Real owner work time,
 licensed image decisions, human review, MiniPC wiring and original
 AC-519.1–5 remain OPEN. Release NO-GO.
+
+The Collections panel now offers a session-scoped private
+workload form with exact Collection ID, bounded limit,
+snapshot-checked continuation cursor and a live-status summary.
+Validated Content rows show only current rights/hold reason
+and source-free Capture/Passage/Claim Candidate counts;
+selecting a row opens the existing persisted Capture inspector.
+The client does not render unknown response fields and clears
+rows, cursor and Collection ID when the token changes or
+the operator signs out. The real Node Studio DOM async
+regression validates response contract, button navigation
+and privacy scrubbing; an additional authenticated HTTP
+test asserts that the default server with NO adapter returns
+503 rather than falling back to a production database.
+The combined real PG/HTTP suites **23/23 PASS**; only the
+explicit disposable canary seam is supplied by this tranche.
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-417, DP-304
 

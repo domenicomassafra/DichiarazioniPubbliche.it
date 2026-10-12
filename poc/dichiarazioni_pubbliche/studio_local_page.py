@@ -134,6 +134,18 @@ _PAGE = """<!doctype html>
       </form>
       <p id="collection-list-summary" role="status" aria-live="polite">Nessuna raccolta selezionata.</p>
       <div id="collection-links" role="group" aria-label="Seleziona una raccolta persistita"></div>
+      <h2>Carico operativo privato della raccolta (canary PostgreSQL)</h2>
+      <p>Contenuti inclusi, Capture corrente, Passage e candidati: conta blocchi e controlli da fare, non persone da approvare. Modalità sorgente PostgreSQL locale esplicitamente configurata; nessuna decisione di verità, foto o pubblicazione.</p>
+      <form data-endpoint="/v1/operator/workload" aria-describedby="workload-summary">
+        <div class="controls">
+          <label>ID raccolta<input name="collection_id" maxlength="180" required></label>
+          <label>Content per pagina (1–20)<input name="limit" type="number" min="1" max="20" value="10" required></label>
+          <label>Cursore della pagina precedente<input name="after" maxlength="2048"></label>
+          <button type="submit">Leggi blocchi e contenuti da ispezionare</button>
+        </div>
+      </form>
+      <p id="workload-summary" role="status" aria-live="polite">Nessuna coda operativa letta.</p>
+      <div id="workload-links" role="group" aria-label="Content operativi selezionabili"></div>
       <h2 id="collection-navigation-heading" tabindex="-1">Percorso persistito Collection → Capture → Passage → Candidate</h2>
       <p>Un'unica lettura PostgreSQL coerente di Content inclusi, cattura più recente, selettori scritti e candidati. Solo hash, ID e stati; nessun estratto o permesso. Seleziona un Passage per aprire il dettaglio completo con i Claim Candidate.</p>
       <form data-endpoint="/v1/collections/navigate">
@@ -404,6 +416,9 @@ _PAGE = """<!doctype html>
     const results = document.getElementById('results');
     const status = document.getElementById('status');
     const collectionForm = document.querySelector('form[data-endpoint="/v1/collections/list"]');
+    const workloadForm = document.querySelector('form[data-endpoint="/v1/operator/workload"]');
+    const workloadSummary = document.getElementById('workload-summary');
+    const workloadLinks = document.getElementById('workload-links');
     const collectionLinks = document.getElementById('collection-links');
     const collectionListSummary = document.getElementById('collection-list-summary');
     const collectionNavigationForm = document.querySelector('form[data-endpoint="/v1/collections/navigate"]');
@@ -602,6 +617,13 @@ _PAGE = """<!doctype html>
       clearCorpusResults(true);
       memberLinks.replaceChildren();
       collectionLinks?.replaceChildren();
+      workloadLinks?.replaceChildren();
+      if (workloadSummary) workloadSummary.textContent = 'Nessuna coda operativa letta.';
+      if (workloadForm) {
+        workloadForm.elements.namedItem('collection_id').value = '';
+        workloadForm.elements.namedItem('limit').value = '10';
+        workloadForm.elements.namedItem('after').value = '';
+      }
       collectionNavigationLinks?.replaceChildren();
       if (collectionNavigationSummary) collectionNavigationSummary.textContent = 'Nessuna navigazione caricata.';
       if (collectionListSummary) collectionListSummary.textContent = 'Nessuna raccolta selezionata.';
@@ -724,6 +746,10 @@ _PAGE = """<!doctype html>
           collectionLinks.replaceChildren();
           collectionListSummary.textContent = 'Caricamento delle raccolte…';
         }
+        if (form === workloadForm) {
+          workloadLinks.replaceChildren();
+          workloadSummary.textContent = 'Carico e diritti correnti in lettura…';
+        }
         if (form === collectionNavigationForm) {
           collectionNavigationLinks.replaceChildren();
           collectionNavigationSummary.textContent = 'Verifica di un solo snapshot PostgreSQL in corso…';
@@ -804,6 +830,78 @@ _PAGE = """<!doctype html>
               status.textContent = 'Ricerca lessicale privata completata.';
               results.textContent = 'Solo riferimenti disponibili nel riquadro Corpus.';
             }
+            return;
+          }
+          if (form === workloadForm) {
+            results.textContent = 'Solo ID e contatori verificati; nessuna fonte o decisione privata.';
+            const load = receipt?.data;
+            const allowRef = value => typeof value === 'string' && SAFE_REF.test(value);
+            const count = value => Number.isSafeInteger(value) && value >= 0 && value <= 500000;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && load?.version === 'studio-operator-workload-pg-v1'
+              && load.collection_id === data.collection_id
+              && ['ACTIVE','PAUSED','ARCHIVED'].includes(load.collection_state)
+              && load.dispatch_authorized === false && load.publication_authority === false
+              && load.image_approval_authority === false
+              && load.text_review_authority === false && load.source_rights_attested === false
+              && ['total_members','blocked_members','review_only_members','capture_count',
+                  'passage_count','statement_candidate_count','claim_candidate_count']
+                  .every(key => count(load[key]))
+              && load.total_members <= 500
+              && load.blocked_members + load.review_only_members === load.total_members
+              && Array.isArray(load.rows) && load.rows.length <= data.limit
+              && load.rows.every((item,i) => allowRef(item.content_id)
+                && (item.capture_id == null || allowRef(item.capture_id))
+                && ['BLOCKED','REVIEW_ONLY'].includes(item.state)
+                && allowRef(item.reason)
+                && count(item.capture_count) && count(item.passage_count)
+                && count(item.statement_candidates) && count(item.claim_candidates)
+                && (i === 0 || item.content_id > load.rows[i-1].content_id))
+              && Array.isArray(load.blocked_queue)
+              && load.blocked_queue.length <= load.rows.length
+              && load.blocked_queue.every(item => allowRef(item.content_id)
+                && allowRef(item.reason) && allowRef(item.next_action)
+                && load.rows.some(row => row.content_id === item.content_id
+                  && row.state === 'BLOCKED' && row.reason === item.reason))
+              && (load.next_cursor == null ||
+                typeof load.next_cursor === 'string' &&
+                /^[A-Za-z0-9_-]{20,2048}$/.test(load.next_cursor) &&
+                load.rows.length === data.limit);
+            if (!valid) {
+              workloadSummary.textContent = 'Carico non disponibile o snapshot non verificabile.';
+              status.textContent = 'Coda privata non verificabile.';
+              return;
+            }
+            workloadSummary.textContent = load.total_members + ' Content inclusi; '
+              + load.blocked_members + ' bloccati e ' + load.review_only_members
+              + ' da ispezionare; ' + load.capture_count + ' Capture e '
+              + load.passage_count + ' Passage. Nessun permesso di pubblicazione.';
+            for (const item of load.rows) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = item.content_id + ' · ' + item.state + ' · ' + item.reason
+                + ' · ' + item.passage_count + ' Passage · ' + item.claim_candidates + ' Claim Candidate';
+              button.addEventListener('click', () => {
+                if (!workloadLinks.contains(button)) return;
+                collectionCaptureForm.elements.namedItem('collection_id').value = load.collection_id;
+                collectionCaptureForm.elements.namedItem('content_id').value = item.content_id;
+                collectionCaptureForm.elements.namedItem('after_id').value = '';
+                collectionCaptureForm.requestSubmit();
+              });
+              workloadLinks.append(button);
+            }
+            if (load.next_cursor) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva (stesso snapshot corrente)';
+              more.addEventListener('click', () => {
+                if (!workloadLinks.contains(more)) return;
+                workloadForm.elements.namedItem('after').value = load.next_cursor;
+                workloadForm.requestSubmit();
+              });
+              workloadLinks.append(more);
+            }
+            status.textContent = 'Carico privato letto; seleziona un Content per l’ispezione.';
             return;
           }
           if (form === collectionForm) {
