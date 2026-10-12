@@ -104,6 +104,43 @@ This remains private source-only DP417 progress, not action authorization.
 
 ## Completion receipt
 
+### 2026-10-12 — PostgreSQL Statement Candidate queue, authenticated API and Studio navigation
+
+The previous Inbox had persisted Discovery Hits and changed/blocked Captures,
+but no inspectable **Statement Candidate** queue; a Candidate without a Passage,
+a Passage bound to a retired Capture and a rights-revoked parent Content were
+invisible as first-class operator exceptions. Added opt-in private
+`studio_candidate_triage_queue_pg.py` and authenticated loopback
+`/v1/discovery/candidate-queue` with an actual read-only repeatable-read
+PostgreSQL transaction. It traverses INCLUDED Collection membership to
+Content→Statement Candidate→linked Passage→Capture, detects absent/multiple
+Passages, stale Capture version, media version without independent binding,
+Content/Capture revoked rights, held Candidate and collection pause. Results
+contain allowlisted IDs and blocker/retry codes only; never source URL,
+quote/normalized text, raw Capture, private notes or review credentials.
+
+The operator can page through candidates only with a SHA-256 fingerprint of
+the **whole current scoped candidate set**, and stale rights/status changes
+invalidate the page. Studio offers a keyboard-operable list whose row opens
+the exact source-bound Passage and Capture (including an *old* Capture for a
+stale Passage), or falls back to the Content Capture inspector if the Passage
+does not exist. Reader requires existing bearer/Origin/Host gates and
+suppresses review, promotion, bulk mutation and publication. A replay/stale
+reader never issues a receipt or creates a mutation.
+
+RED→GREEN: new real PostgreSQL suite originally failed to import the absent
+reader; the real HTTP 200 test was RED at 404 until dispatch integration.
+Tests re-run against canonical disposable PostgreSQL, real token-authenticated
+loopback, rights revoke between pages, foreign Collection, stale Capture,
+no-Passage and frontend asynchronous DOM navigation with refused stale
+responses. Exact suite/CI proof recorded in the current run review.
+
+This is a substantial **additional** DP-417 queue family, not the complete
+original Inbox outcome: unresolved Entity, already-covered Claim Candidate,
+Coverage Need, reviewed row actions and compatible reversible bulk flows
+still require implementation and actual MiniPC acceptance. AC417.1–4 remain
+unchecked and ticket status IN PROGRESS.
+
 ### 2026-10-12 — Signed, opt-in Studio annotations over authenticated HTTP and PostgreSQL
 
 An explicit second loopback server (studio_local_mutation_api.py) now connects

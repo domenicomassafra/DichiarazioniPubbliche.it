@@ -265,6 +265,18 @@ _PAGE = """<!doctype html>
       </form>
       <p id="capture-queue-summary" role="status" aria-live="polite">Nessuna coda letta.</p>
       <div id="capture-queue-links" role="group" aria-label="Catture bloccate o cambiate"></div>
+      <h2>Coda Statement Candidate da ispezionare</h2>
+      <p>Collegamenti persistiti alla Capture e al Passage, con blocchi di diritti e provenienza.
+      Ogni voce rimane privata e non autorizza review, promozione o pubblicazione.</p>
+      <form data-endpoint="/v1/discovery/candidate-queue" aria-describedby="candidate-queue-summary">
+        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" required></label>
+        <label>Limite (1–30)<input name="limit" type="number" min="1" max="30" value="20" required></label>
+        <label>Dopo Candidate ID<input name="after_candidate_id" maxlength="180"></label>
+        <input type="hidden" name="expected_snapshot_sha256" value="">
+        <button type="submit">Mostra Statement Candidate persistiti</button></div>
+      </form>
+      <p id="candidate-queue-summary" role="status" aria-live="polite">Nessuna coda Candidate letta.</p>
+      <div id="candidate-queue-links" role="group" aria-label="Statement Candidate da ispezionare"></div>
       <h2>Catalogo Discovery per raccolta</h2>
       <p>Provenienza, stato della raccolta, diritti e motivi di blocco dal database. Nessuna azione di revisione, cattura o pubblicazione è abilitata da questa pagina.</p>
       <form data-endpoint="/v1/discovery/inbox">
@@ -452,6 +464,9 @@ _PAGE = """<!doctype html>
     const captureQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/capture-queue"]');
     const captureQueueLinks = document.getElementById('capture-queue-links');
     const captureQueueSummary = document.getElementById('capture-queue-summary');
+    const candidateQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/candidate-queue"]');
+    const candidateQueueLinks = document.getElementById('candidate-queue-links');
+    const candidateQueueSummary = document.getElementById('candidate-queue-summary');
     const inboxForm = document.querySelector('form[data-endpoint="/v1/discovery/inbox"]');
     const inboxAnnotationSummary = document.getElementById('inbox-annotation-summary');
     const inboxAnnotationLinks = document.getElementById('inbox-annotation-links');
@@ -655,6 +670,8 @@ _PAGE = """<!doctype html>
         }
       }
       captureQueueLinks?.replaceChildren();
+      candidateQueueLinks?.replaceChildren();
+      if (candidateQueueSummary) candidateQueueSummary.textContent = 'Nessuna coda Candidate letta.';
       inboxAnnotationLinks?.replaceChildren();
       if (inboxAnnotationSummary) inboxAnnotationSummary.textContent = 'Nessun Hit caricato.';
       if (captureQueueSummary) captureQueueSummary.textContent = 'Nessuna coda letta.';
@@ -666,7 +683,7 @@ _PAGE = """<!doctype html>
           else field.value = '';
         }
       }
-      for (const form of [lineageForm, captureQueueForm]) {
+      for (const form of [lineageForm, captureQueueForm, candidateQueueForm]) {
         if (!form) continue;
         for (const field of form.querySelectorAll('input,select')) {
           field.value = field.name === 'limit' ? '20' : '';
@@ -788,6 +805,14 @@ _PAGE = """<!doctype html>
           }
           captureQueueLinks.replaceChildren();
           captureQueueSummary.textContent = 'Lettura della coda in corso…';
+        }
+        if (form === candidateQueueForm) {
+          if (!data.after_candidate_id) {
+            delete data.expected_snapshot_sha256;
+            candidateQueueForm.elements.namedItem('expected_snapshot_sha256').value = '';
+          }
+          candidateQueueLinks.replaceChildren();
+          candidateQueueSummary.textContent = 'Lettura Candidate e provenienza in corso…';
         }
         if (form === inboxForm) {
           inboxAnnotationLinks.replaceChildren();
@@ -1307,6 +1332,79 @@ _PAGE = """<!doctype html>
                 captureQueueForm.requestSubmit();
               });
               captureQueueLinks.append(more);
+            }
+            return;
+          }
+          if (form === candidateQueueForm) {
+            results.textContent = 'Solo ID e codici verificati dalla coda privata Candidate.';
+            const queue = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && queue?.contract_version === 'studio-statement-candidate-queue-pg-v1'
+              && queue.private_only === true && queue.read_only === true
+              && queue.publication_authority === false && queue.triage_action_authorized === false
+              && queue.collection_id === data.collection_id
+              && ['ACTIVE','PAUSED','ARCHIVED'].includes(queue.collection_status)
+              && /^[0-9a-f]{64}$/.test(queue.snapshot_sha256)
+              && (!data.expected_snapshot_sha256 || data.expected_snapshot_sha256 === queue.snapshot_sha256)
+              && Array.isArray(queue.rows) && queue.rows.length <= data.limit
+              && queue.rows.every(item => item.collection_id === data.collection_id
+                && SAFE_REF.test(item.candidate_id) && SAFE_REF.test(item.content_id)
+                && (item.capture_id === null || SAFE_REF.test(item.capture_id))
+                && (item.passage_id === null || SAFE_REF.test(item.passage_id))
+                && ['CANDIDATE','HELD','APPROVED'].includes(item.candidate_status)
+                && ['BLOCKED','NEEDS_REVIEW'].includes(item.state)
+                && Array.isArray(item.blockers) && item.blockers.length >= 2
+                && item.blockers.every(code => SAFE_REF.test(code))
+                && SAFE_REF.test(item.retry_condition))
+              && (queue.next_after_candidate_id == null || (
+                SAFE_REF.test(queue.next_after_candidate_id)
+                && queue.rows.length === data.limit
+                && queue.next_after_candidate_id === queue.rows.at(-1)?.candidate_id));
+            if (!valid) {
+              candidateQueueSummary.textContent = 'Coda Candidate non verificabile o snapshot non corrente.';
+              status.textContent = 'Dati Candidate non verificabili.';
+              return;
+            }
+            candidateQueueSummary.textContent = queue.rows.length + ' Statement Candidate persistiti'
+              + ' · raccolta ' + queue.collection_id + '. Diritti e review non attestati.';
+            for (const item of queue.rows) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = item.candidate_id + ' · ' + item.state
+                + ' · blocchi: ' + item.blockers.join(', ');
+              button.addEventListener('click', () => {
+                if (!candidateQueueLinks.contains(button)) return;
+                if (item.capture_id && item.passage_id) {
+                  lineageForm.elements.namedItem('collection_id').value = queue.collection_id;
+                  lineageForm.elements.namedItem('content_id').value = item.content_id;
+                  lineageForm.elements.namedItem('capture_id').value = item.capture_id;
+                  lineageForm.elements.namedItem('passage_id').value = item.passage_id;
+                  lineageForm.elements.namedItem('after_statement_id').value = '';
+                } else {
+                  collectionCaptureForm.elements.namedItem('collection_id').value = queue.collection_id;
+                  collectionCaptureForm.elements.namedItem('content_id').value = item.content_id;
+                  collectionCaptureForm.elements.namedItem('after_id').value = '';
+                }
+                for (const panel of panels) panel.hidden = panel.id !== 'collections';
+                for (const panelButton of document.querySelectorAll('[data-panel]')) {
+                  panelButton.setAttribute('aria-pressed', panelButton.dataset.panel === 'collections' ? 'true' : 'false');
+                }
+                if (item.capture_id && item.passage_id) lineageForm.requestSubmit();
+                else collectionCaptureForm.requestSubmit();
+              });
+              candidateQueueLinks.append(button);
+            }
+            if (queue.next_after_candidate_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva della coda Candidate';
+              more.addEventListener('click', () => {
+                if (!candidateQueueLinks.contains(more)) return;
+                candidateQueueForm.elements.namedItem('after_candidate_id').value = queue.next_after_candidate_id;
+                candidateQueueForm.elements.namedItem('expected_snapshot_sha256').value = queue.snapshot_sha256;
+                candidateQueueForm.requestSubmit();
+              });
+              candidateQueueLinks.append(more);
             }
             return;
           }

@@ -37,6 +37,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
     "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
     "/v1/collections/passage-lineage", "/v1/discovery/capture-queue",
+    "/v1/discovery/candidate-queue",
     "/v1/collections/navigate",
 })
 _STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
@@ -45,6 +46,7 @@ _STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
     "/v1/candidate/decision-receipt",
     "/v1/discovery/bulk-preview",
     "/v1/collections/passage-lineage", "/v1/discovery/capture-queue",
+    "/v1/discovery/candidate-queue",
     "/v1/collections/navigate",
 })
 

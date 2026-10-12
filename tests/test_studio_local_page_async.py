@@ -37,7 +37,7 @@ class Element {
 }
 const ids = new Map([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], new Element()]));
 const forms = {};
-for (const m of html.matchAll(/<form data-endpoint="([^"]+)">([\s\S]*?)<\/form>/g)) {
+for (const m of html.matchAll(/<form data-endpoint="([^"]+)"[^>]*>([\s\S]*?)<\/form>/g)) {
   const fields = {};
   for (const field of m[2].matchAll(/name="([^"]+)"[^>]*(?:value="([^"]*)")?/g)) {
     fields[field[1]] = field[2] ?? '';
@@ -226,12 +226,49 @@ async function main() {
   await drain();
   assert.equal(queueLinks.children.length, 0, 'cross-Collection capture queue must fail closed');
   assert.doesNotMatch(ids.get('results').textContent, /FOREIGN_PRIVATE_MARKER/);
+  const candidates = forms['/v1/discovery/candidate-queue'];
+  assert.ok(candidates, 'candidate PG triage queue requires a usable private form');
+  candidates.fields.collection_id = 'research:pilot';
+  candidates.fields.limit = '1';
+  pending = candidates.fire('submit');
+  assert.equal(requests.at(-1).path, '/v1/discovery/candidate-queue');
+  const candidateRow = {collection_id: 'research:pilot',
+    candidate_id: 'statement:one', content_id: 'content:one',
+    capture_id: 'capture:one', passage_id: 'passage:one',
+    candidate_status: 'HELD', state: 'BLOCKED',
+    blockers: ['PASSAGE_CAPTURE_NOT_LATEST', 'PRIVATE_SOURCE_RIGHTS_NOT_ATTESTED'],
+    retry_condition: 'AFTER_PRIVATE_PROVENANCE_AND_RIGHTS_REVIEW'};
+  reply({contract_version: 'studio-statement-candidate-queue-pg-v1',
+    private_only: true, read_only: true, publication_authority: false,
+    triage_action_authorized: false, collection_id: 'research:pilot',
+    collection_status: 'ACTIVE', snapshot_sha256: 'a'.repeat(64),
+    rows: [candidateRow], next_after_candidate_id: 'statement:one'});
+  await pending;
+  const candidateLinks = ids.get('candidate-queue-links');
+  assert.equal(candidateLinks.children.length, 2, 'row plus verified next page control');
+  candidateLinks.children[0].fire('click');
+  assert.equal(requests.at(-1).path, '/v1/collections/passage-lineage');
+  assert.equal(JSON.parse(requests.at(-1).options.body).passage_id, 'passage:one');
+  const nextCandidate = candidateLinks.children.find(x => /Pagina successiva/.test(x.textContent));
+  nextCandidate.fire('click');
+  assert.equal(requests.at(-1).path, '/v1/discovery/candidate-queue');
+  assert.equal(JSON.parse(requests.at(-1).options.body).expected_snapshot_sha256, 'a'.repeat(64));
+  reply({contract_version: 'studio-statement-candidate-queue-pg-v1',
+    private_only: true, read_only: true, publication_authority: false,
+    triage_action_authorized: false, collection_id: 'research:pilot',
+    collection_status: 'ACTIVE', snapshot_sha256: 'b'.repeat(64),
+    rows: [{...candidateRow, candidate_id: 'PRIVATE_STALE_CANDIDATE'}],
+    next_after_candidate_id: null});
+  await drain();
+  assert.equal(candidateLinks.children.length, 0, 'stale Candidate page must fail closed');
+  assert.doesNotMatch(ids.get('results').textContent, /PRIVATE_STALE_CANDIDATE/);
   pending = queue.fire('submit');
   token.value = 'b'.repeat(64);
   token.fire('input');
   reply({private_marker: 'OLD_OPERATOR_RESPONSE'});
   await pending;
   assert.equal(queueLinks.children.length, 0, 'token replacement clears prior operator references');
+  assert.equal(candidateLinks.children.length, 0, 'token replacement clears Candidate references');
   assert.equal(lineage.children.length, 0);
   assert.doesNotMatch(ids.get('results').textContent, /OLD_OPERATOR_RESPONSE/);
   ids.get('clear').fire('click');
