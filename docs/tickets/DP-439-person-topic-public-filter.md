@@ -243,3 +243,48 @@ reader cannot observe a privately revoked membership before its authenticated
 index/current release pins rotate or expire. Required real MiniPC canary,
 atomic HTML/API/search invalidation, mobile keyboard/VoiceOver/focus/zoom
 acceptance and actual public deployment remain external to this slice.
+
+## 2026-10-12 — Sessione operatore privata v3, composizione con epoch coerente
+
+Nuovi `web/src/lib/privateV3OperatorSession.ts` e
+`web/scripts/check-private-v3-operator-session.mjs`, senza route né modifica
+dei consumer esistenti. La mancanza di una composizione atomica fra filtro
+DP-439 e synopsis DP-440 costituiva un confine concreto: separati, entrambi
+verificavano fonti e pin, ma una pagina che li accostasse non garantiva
+identità Person/Topic, `generated_at`, versione sorgente e release epoch
+**comuni**, né una lettura `CURRENT` dopo la costruzione dell'HTML. Il test
+iniziale era RED (`ERR_MODULE_NOT_FOUND`); è quindi una nuova integrazione
+fail-closed, non la pretesa di un exploit riprodotto su una route esistente.
+
+La sessione opt-in richiede un solo set di pin emessi indipendentemente
+(`statement`, Person, Topic, join, index, synopsis, fonte, epoch e scadenza);
+controlla la coerenza delle copie della stessa release e il vincolo esatto
+dell'URL condivisibile `?persona=…&tema=…&ordine=…&pagina=…` con Person/Topic
+autorizzati. Fa una copia della fixture prima degli `await`, riusa il reader
+DP-439 per originali e ordinamento, riusa il browser DP-440 per testo
+precomputato, citazioni originali separate e noindex. Le letture indipendenti
+`CURRENT` avvengono prima, fra i due lettori, dentro il browser synopsis
+(prima/dopo la verifica delle fonti e dopo il suo rendering) e **ancora dopo**
+l'assemblaggio finale della sessione. Un cambiamento della membership,
+della versione fonte, del Topic, dei pin, dell'epoch o della scadenza
+rifiuta l'intera risposta. Navigazione precedente/successiva per pagina,
+anchor per singola dichiarazione, target focalizzabili e conteggio risultati
+sono deterministici; HTML di fonte e synopsis è escapato, senza stance
+inferito, chiamate provider o autorizzazione di pubblicazione.
+
+**GREEN locale:** fixture reale `prepare_public_synopsis()` Python con
+Person/Topic DP-438/439 → TypeScript → Astro SSR isolato, con pagine condivisibili,
+replay/reload, focus anchor, revoca Topic ricalcolata, diritti mancanti,
+Person/Topic fuori scope, sorgenti/pin misti, pin scaduti e deriva di epoch
+prima, durante e dopo gli `await`. Il build SSR per una revoca o per la deriva
+di epoch dopo il rendering fallisce chiuso. Script Node **PASS**;
+`npm run check --prefix web` **117 file, zero errori/warning/hints**;
+suite Python DP-439/440 **22/22 PASS**, `git diff --check` PASS.
+
+**DP-439 resta IN PROGRESS, AC-439.1–.7 ancora tutti aperti.** Il test
+simula revisioni/diritti approvati; non autentica un vero release issuer, non
+aggiunge route operatore con autenticazione e `Cache-Control: private,
+no-store`, non prova fonte licenziata né cancellazione cache/API/sitemap,
+accessibilità VoiceOver/schermi reali o MiniPC. Nessun commit/push/deploy o
+pubblicazione. Un'ipotetica revoca non ancora ricevuta dal release issuer
+rimane fuori dalla capacità di rilevazione di questo consumer offline.
