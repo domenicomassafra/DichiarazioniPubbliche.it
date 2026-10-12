@@ -107,6 +107,40 @@ class StudioDecisionReadHttpTests(unittest.TestCase):
                 self.assertEqual(code,422,data)
                 self.assertNotIn("PRIVATE",json.dumps(data))
 
+    def test_duplicate_json_source_scope_keys_are_rejected_not_last_wins(self):
+        """RED: authentic receipt lookup must not accept ambiguous Candidate keys."""
+        record = self.fixture.request(decision="REVIEW_CREATE")
+        event, receipt = self.fixture.sign(record, "alice")
+        self.assertEqual(self.fixture.store.record(
+            record, authority=self.fixture.authority, review_event=event,
+            authority_receipt_id=receipt, credential_id="alice",
+        )["result_code"], "CREATED")
+        body = self.payload()
+        normal_code, _, _ = self.request(body)
+        self.assertEqual(normal_code, 200)
+        valid_tail = json.dumps({k: v for k, v in body.items() if k != "candidate_id"})[1:]
+        for raw in (
+            '{"candidate_id":"candidate:foreign",'
+            '"candidate_id":"candidate:review",' + valid_tail,
+            '{"candidate_id":"candidate:review",'
+            '"candidate_id":"candidate:review",' + valid_tail,
+        ):
+            with self.subTest(raw=raw[:84]):
+                connection = http.client.HTTPConnection(
+                    "127.0.0.1", self.server.server_port, timeout=8,
+                )
+                connection.request(
+                    "POST", "/v1/candidate/decision-receipt", raw.encode(),
+                    {"Authorization": "Bearer " + self.token,
+                     "Content-Type": "application/json"},
+                )
+                response = connection.getresponse()
+                status = response.status
+                payload = json.loads(response.read())
+                connection.close()
+                self.assertEqual(status, 422, payload)
+                self.assertNotIn("receipt_sha256", json.dumps(payload))
+
 
 if __name__ == "__main__":
     unittest.main()

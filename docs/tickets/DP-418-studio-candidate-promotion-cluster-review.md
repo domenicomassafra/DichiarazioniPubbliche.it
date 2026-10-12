@@ -35,6 +35,21 @@ All original AC-418.1–4 remain OPEN without independently qualified
 editorial authority, real source rights, production canonical Claim
 promotion and MiniPC operational acceptance. NO-GO is unchanged.
 
+### 2026-10-12 — Refuse ambiguous private Studio readback JSON
+
+The previously completed Studio receipt reader accepted a JSON body with
+**duplicate Candidate IDs**: a forged first value followed by a valid exact
+Candidate ID would be silently overwritten by Python JSON parsing and return
+a 200 historical receipt. An adversarial real PG/HTTP test reproduced the
+ambiguous cross-scope request as RED (200 instead of explicit refusal).
+The common Studio local read-only handler now rejects duplicate keys in
+all nested JSON objects *before* any private reader, preserving the same
+strict semantics already used by the separate signed write listener.
+Legitimate existing readbacks remain 200. Independent focused PG/HTTP and
+privacy tests: **31/31 PASS**, with both ambiguous Candidate permutations
+refused as 422 and no receipt exposed. This is not a new authorization grant
+or complete original AC-418 closure.
+
 ### 2026-10-12 — Signed private Studio Candidate write, CAS and browser readback
 
 The existing authenticated read-only receipt inspector is now paired with an

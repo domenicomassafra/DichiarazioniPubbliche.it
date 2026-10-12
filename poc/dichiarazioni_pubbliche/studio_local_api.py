@@ -591,6 +591,16 @@ def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | No
         raise ValueError("STUDIO_LOCAL_REQUEST_FIELDS_INVALID")
 
 
+def _strict_json_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject ambiguous nested/outer keys before any private reader sees them."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("STUDIO_LOCAL_DUPLICATE_JSON_KEY")
+        result[key] = value
+    return result
+
+
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
     if path == "/v1/candidate/decision-receipt":
         _fields(body, required={"candidate_id", "run_id", "passage_id",
@@ -923,7 +933,10 @@ class StudioLocalHandler(BaseHTTPRequestHandler):
             self._reply(413, {"error": "STUDIO_LOCAL_BODY_LIMIT"})
             return
         try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = json.loads(
+                self.rfile.read(length).decode("utf-8"),
+                object_pairs_hook=_strict_json_pairs,
+            )
             if not isinstance(payload, dict):
                 raise ValueError("STUDIO_LOCAL_OBJECT_REQUIRED")
             response = _dispatch(self.server.readers, self.path, payload)
