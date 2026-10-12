@@ -8,7 +8,7 @@ import threading
 import unittest
 
 from dichiarazioni_pubbliche.studio_candidate_decision_store_pg import StudioCandidateDecisionStorePg
-from dichiarazioni_pubbliche.studio_local_api import StudioLocalReaders
+from dichiarazioni_pubbliche.studio_local_api import StudioLocalReaders, _StudioDecisionReader
 from dichiarazioni_pubbliche.studio_local_mutation_api import StudioTriageMutationServer
 from dichiarazioni_pubbliche.studio_discovery_triage_store import StudioDiscoveryTriageStore
 from tests.test_dp418_persisted_decision_pg_next import PersistedDecisionPgTests
@@ -32,7 +32,10 @@ class CandidateSignedStudioWriteTests(unittest.TestCase):
 
     def start_server(self):
         self.server = StudioTriageMutationServer(
-            0, StudioLocalReaders(None, None, None), self.token,
+            0, StudioLocalReaders(
+                None, None, None,
+                decision_reader=_StudioDecisionReader(self.pg.pg.dsn),
+            ), self.token,
             store=StudioDiscoveryTriageStore(database_url=self.pg.pg.dsn),
             authority=self.fixture.authority,
             candidate_store=StudioCandidateDecisionStorePg(self.pg.pg.dsn),
@@ -123,6 +126,91 @@ class CandidateSignedStudioWriteTests(unittest.TestCase):
         self.assertEqual(response[1]["data"]["result_code"], "HELD_SOURCE")
         self.assertIsNone(response[1]["data"]["receipt_sha256"])
         self.assertEqual(self.fixture.pg_row_count(), 0)
+
+    def test_revoked_after_committed_receipt_replay_never_echoes_old_receipt(self):
+        """RED: immutable history exists, but current revoked write is HELD, not replay."""
+        signed = self.signed()
+        created_status, created = self.send(signed)
+        self.assertEqual(created_status, 200, created)
+        self.assertEqual(created["data"]["result_code"], "CREATED")
+        original_sha = created["data"]["receipt_sha256"]
+        self.assertEqual(self.send(signed)[1]["data"]["result_code"], "REPLAY")
+        self.stop_server()
+        self.pg.pg._sql(
+            "UPDATE content_capture SET rights_status='REVOKED' "
+            "WHERE id='capture:review';"
+        )
+        self.start_server()
+        for _ in range(2):
+            status, packet = self.send(signed)
+            self.assertEqual(status, 409, packet)
+            self.assertEqual(packet["data"]["result_code"], "HELD_SOURCE")
+            self.assertIsNone(packet["data"]["receipt_sha256"])
+            self.assertFalse(packet["data"]["promotion_authority"])
+            self.assertNotIn(original_sha, json.dumps(packet))
+        self.assertEqual(self.fixture.pg_row_count(), 1, "historic receipt stays immutable")
+        self.assertEqual(
+            self.server.candidate_store.read(signed["candidate_id"], signed["request_key"])[
+                "receipt_sha256"
+            ], original_sha, "private separate historic reader can inspect past intent"
+        )
+
+    def test_conflicting_idempotency_key_does_not_return_another_reviewers_receipt(self):
+        signed = self.signed()
+        status, created = self.send(signed)
+        self.assertEqual(status, 200, created)
+        original_sha = created["data"]["receipt_sha256"]
+        conflict = self.fixture.request(
+            request_key=signed["request_key"], decision="REJECT",
+            expected_revision=1,
+        )
+        event, receipt = self.fixture.sign(conflict, "bob")
+        forged = dataclasses.asdict(conflict) | {
+            "review_event": dataclasses.asdict(event),
+            "authority_receipt_id": receipt,
+            "credential_id": "bob",
+            "confirm_private_decision": True,
+        }
+        code, packet = self.send(forged)
+        self.assertEqual(code, 409, packet)
+        self.assertEqual(packet["data"]["result_code"], "IDEMPOTENCY_CONFLICT")
+        self.assertIsNone(packet["data"]["receipt_sha256"])
+        self.assertNotIn(original_sha, json.dumps(packet))
+        self.assertEqual(self.fixture.pg_row_count(), 1)
+
+    def test_single_opt_in_studio_pg_write_read_revoke_retry_exact_snapshot(self):
+        """One real loopback server integrates authorized POST, readback and revocation."""
+        signed = self.signed()
+        read_scope = {k: signed[k] for k in (
+            "candidate_id", "run_id", "capture_id", "passage_id", "request_key",
+        )}
+        code, absent = self.send(read_scope, path="/v1/candidate/decision-receipt")
+        self.assertEqual(code, 422, absent)
+        code, written = self.send(signed)
+        self.assertEqual(code, 200, written)
+        self.assertEqual(written["data"]["result_code"], "CREATED")
+        first_sha = written["data"]["receipt_sha256"]
+        code, current = self.send(read_scope, path="/v1/candidate/decision-receipt")
+        self.assertEqual(code, 200, current)
+        self.assertEqual(current["data"]["status"], "HISTORICAL_SOURCE_CURRENT")
+        self.assertEqual(current["data"]["receipt_sha256"], first_sha)
+        self.stop_server()
+        self.pg.pg._sql(
+            "UPDATE content_capture SET rights_status='REVOKED' "
+            "WHERE id='capture:review';"
+        )
+        self.start_server()
+        code, held = self.send(signed)
+        self.assertEqual(code, 409, held)
+        self.assertEqual(held["data"]["result_code"], "HELD_SOURCE")
+        self.assertIsNone(held["data"]["receipt_sha256"])
+        code, historical = self.send(read_scope, path="/v1/candidate/decision-receipt")
+        self.assertEqual(code, 200, historical)
+        self.assertEqual(historical["data"]["status"], "HISTORICAL_SOURCE_WITHDRAWN")
+        self.assertEqual(historical["data"]["receipt_sha256"], first_sha)
+        self.assertFalse(historical["data"]["review_authority"])
+        self.assertFalse(historical["data"]["publication_authority"])
+        self.assertEqual(self.fixture.pg_row_count(), 1)
 
 
 if __name__ == "__main__":

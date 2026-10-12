@@ -275,8 +275,22 @@ SELECT json_build_object(
   END,
   'revision', COALESCE((SELECT revision FROM inserted),
        (SELECT revision FROM previous), (SELECT revision FROM latest)),
-  'receipt_sha256', COALESCE((SELECT receipt_sha256 FROM inserted),
-       (SELECT receipt_sha256 FROM previous))
+  -- Only an exact successful CREATE/REPLAY may return an attested receipt.
+  -- A revoked source can have historical decisions, but a new request or
+  -- replay while held must not echo the *historical* receipt as if current.
+  -- Likewise an idempotency conflict must not disclose someone else's SHA.
+  'receipt_sha256', CASE
+    WHEN NOT EXISTS(SELECT 1 FROM lineage) THEN NULL
+    WHEN EXISTS(SELECT 1 FROM inserted) THEN
+       (SELECT receipt_sha256 FROM inserted)
+    WHEN EXISTS(SELECT 1 FROM previous
+         WHERE payload_sha256=:'payload_sha256'
+           AND authority_receipt_id=:'authority_receipt_id'
+           AND authority_event_sha256=:'authority_event_sha256'
+           AND receipt_sha256=:'receipt_sha256') THEN
+       (SELECT receipt_sha256 FROM previous)
+    ELSE NULL
+  END
 )::text;
 COMMIT;
 """
@@ -399,6 +413,11 @@ class StudioCandidateDecisionStorePg(PsqlRuntime):
             if (
                 result["result_code"] in {"CREATED", "REPLAY"}
                 and result["receipt_sha256"] != receipt_sha256
+            ):
+                raise ValueError
+            if (
+                result["result_code"] not in {"CREATED", "REPLAY"}
+                and result["receipt_sha256"] is not None
             ):
                 raise ValueError
             if type(result["revision"]) is not int:

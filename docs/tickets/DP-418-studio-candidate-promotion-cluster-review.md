@@ -2,6 +2,39 @@
 
 Status: IN PROGRESS
 
+### 2026-10-12 — Post-commit Capture revocation and conflicting receipt isolation
+
+The existing HELD_SOURCE fix from the previous tranche already worked when
+the Capture was revoked **before the first recorded decision**. A new
+adversarial test found a separate fail-open after a decision had actually
+been persisted: the SQL writer correctly selected HELD_SOURCE following
+Capture revocation but still returned the **old historical receipt SHA**.
+Likewise an independently signed conflicting decision reusing the original
+idempotency key could receive the other decision's receipt hash, even while
+the code returned IDEMPOTENCY_CONFLICT. These were genuine RED failures.
+
+The source-of-truth PostgreSQL decision transaction now emits a receipt
+SHA **only** when its exact current result is CREATED or a fully matching
+REPLAY. HELD_SOURCE, IDEMPOTENCY_CONFLICT and REVISION_CONFLICT
+return null regardless of an older record; Python revalidates that
+invariant before building the response. Historic receipts remain immutable
+and separately inspectable through the authenticated read-only route.
+
+New real PostgreSQL + HTTP tests cover first create -> successful replay ->
+server restart -> rights revocation -> two repeat HELD_SOURCE responses
+with null receipt; another reviewer with a conflicting signed idempotency
+request cannot inspect the first reviewer's receipt through the write API.
+An additional same-server end-to-end test verifies POST creates once,
+authenticated readback reports HISTORICAL_SOURCE_CURRENT, a subsequent
+revocation blocks the write, and the separate historical inspector reports
+HISTORICAL_SOURCE_WITHDRAWN without approving promotion/publication.
+The focused DP-418 writer/reader/SQL suites passed **29/29**, with
+separate joined real HTTP tests **23/23** PASS after repair.
+
+All original AC-418.1–4 remain OPEN without independently qualified
+editorial authority, real source rights, production canonical Claim
+promotion and MiniPC operational acceptance. NO-GO is unchanged.
+
 ### 2026-10-12 — Signed private Studio Candidate write, CAS and browser readback
 
 The existing authenticated read-only receipt inspector is now paired with an
