@@ -160,3 +160,51 @@ and still reports `dispatch_authorized=false`; the same checkpoint without
 the verifier is held. **24/24 DP-516 focused tests PASS**. This proves real
 local resume integration, **not** an external signer: the underlying
 capture-receipt verifier and DP-443 pilot authority remain absent.
+
+## 2026-10-12 — Disposable PostgreSQL canonical historical checkpoint
+
+Added opt-in `historical_batch_checkpoint_pg_v1.py` and
+`tests/test_dp516_historical_checkpoint_pg_next.py`. The test boots a
+**fresh disposable PostgreSQL 17** database, installs the existing canonical
+`db/schema.v1.sql` unchanged, then creates two extra isolated journal
+tables with immutable checkpoint revisions and an exact batch-head CAS. The
+adapter refuses non-loopback/non-`dp516_disposable` DSNs. It checks a real
+persisted `person → source → content_item → content_capture → passage`
+relationship against the supplied DP-243 manifests and original DP-516
+private plan, and locks the matching canonical rows while checking the
+current sole source-rights leaf, permissions, expiry, source version and
+absence of a later Capture. A superseding rights row, stale source hash,
+invalid manifest/person scope or rollback of the journal head blocks reads,
+append and replay. Historical revisions cannot be updated or deleted.
+
+Completed Capture keys stay bound to their original person, source family,
+immutable content hash and canonical original-Passage quote hash. A
+separately labeled Italian translation fingerprint/method may accompany a
+German original, but cannot replace the original hash, reuse the same hash,
+or produce translation/publication approval; no raw quotation or complaint
+body is stored. PostgreSQL's row-lock/CAS transaction arbitrates competing
+append/replay operations. A database-reported action distinguishes an
+identical concurrent replay from a newly appended immutable revision.
+Restart readback can be passed to the existing
+`plan_historical_batch(verify_checkpoint=...)` callback while that planner
+continues to return a private, **non-dispatchable** review proposal.
+
+This verifies only **synthetic records inserted into a disposable canonical
+schema**. Neither a copied `CLEARED` fixture nor the planner's
+caller-supplied DP-443 pilot verifier establishes real source-family
+permission, owner signature, trustworthy historical attribution/translation
+or an immutable authenticated external Capture receipt. Actual batch
+dispatch, provider calls, public routes, paid budget reservations, MiniPC
+operation and any runtime migration remain absent. No corpus item count or
+historical completeness can be inferred. **AC-516.1–.6 remain unchecked,
+DP-516 stays IN PROGRESS, and historical scaling remains NO-GO.**
+
+**Local verification receipt:** 10 disposable-PG tests plus the existing
+DP-516 private planner/SQLite journal and DP-243 preflight ran together as
+**51/51 PASS**. `ruff check`, `ruff format --check`, `compileall` and
+`git diff --check` passed for the new files. One additional adversarial
+RED→GREEN check temporarily removed the sole-current-rights-leaf constraint:
+the real PG test then **FAILED** because an ambiguous second live rights row
+was incorrectly accepted. Restoring the guard returned it to **PASS**.
+All data was synthetic in a disposable database; no production data or
+real archive source was accessed and no deploy/push was performed.
