@@ -22,6 +22,23 @@ const server = createServer(async (req, res) => {
     res.end(page);
     return;
   }
+  if (req.method === 'POST' && req.url === '/v1/candidate/decision-annotate') {
+    let body = '';
+    for await (const part of req) body += part;
+    const payload = JSON.parse(body);
+    requests.push({ payload, authorization: req.headers.authorization, path: req.url });
+    res.writeHead(200, {'Content-Type':'application/json; charset=utf-8',
+      'Cache-Control':'no-store'});
+    res.end(JSON.stringify({contract_version:'studio-private-candidate-decision-api-v1',
+      data:{contract_version:'studio-private-candidate-decision-write-v1',
+        private_only:true,mutation_kind:'REVIEW_INTENT_ONLY',result_code:'CREATED',
+        candidate_id:payload.candidate_id,run_id:payload.run_id,
+        passage_id:payload.passage_id,capture_id:payload.capture_id,
+        decision:payload.decision,revision:1,receipt_sha256:'a'.repeat(64),
+        promoted:false,promotion_authority:false,publication_authority:false,
+        source_rights_approved:false,private_review:'SECRET_NEVER_RENDER'}}));
+    return;
+  }
   if (req.method === 'POST' && req.url === '/v1/corpus/search') {
     let body = '';
     for await (const part of req) body += part;
@@ -306,6 +323,27 @@ try {
   await evaluate('document.getElementById("clear").click()');
   assert.equal(await evaluate('document.querySelectorAll("#collection-navigation-links button").length'), 0,
                'disconnect must clear the new private snapshot and passage jump');
+  await evaluate("(() => { document.getElementById('token').value = '" + 'a'.repeat(64)
+    + "'; const f = document.querySelector('form[data-endpoint=\"/v1/candidate/decision-annotate\"]');"
+    + " for (const [k,v] of Object.entries({candidate_id:'candidate:keyboard',"
+    + " run_id:'run:keyboard', input_fingerprint:'" + 'f'.repeat(64) + "',"
+    + " passage_id:'passage:keyboard', capture_id:'capture:keyboard',"
+    + " capture_sha256:'" + 'a'.repeat(64) + "',request_key:'req:chrome',"
+    + " decision:'HOLD',expected_revision:'0',actor_ref:'reviewer:keyboard',"
+    + " credential_id:'operator-key',authority_receipt_id:'receipt:keyboard',"
+    + " review_event_json:JSON.stringify({signed:'SECRET_EVENT_PAYLOAD'}),"
+    + " confirm_private_decision:'true'})) f.elements.namedItem(k).value=v;"
+    + " f.requestSubmit(); })()");
+  await wait('document.getElementById("candidate-write-summary").textContent.includes("CREATED")');
+  assert.equal(requests.at(-1).path,'/v1/candidate/decision-annotate');
+  assert.equal(requests.at(-1).payload.expected_revision,0);
+  assert.equal(requests.at(-1).payload.confirm_private_decision,true);
+  assert.equal(requests.at(-1).payload.review_event.signed,'SECRET_EVENT_PAYLOAD');
+  assert.equal(await evaluate('document.getElementById("candidate-write-summary").textContent.includes("SECRET")'),false);
+  assert.equal(await evaluate('document.querySelector("form[data-endpoint=\\"/v1/candidate/decision-receipt\\"]").elements.namedItem("candidate_id").value'),'candidate:keyboard');
+  await evaluate('document.getElementById("clear").click()');
+  assert.equal(await evaluate('document.querySelector("form[data-endpoint=\\"/v1/candidate/decision-annotate\\"]").elements.namedItem("review_event_json").value'),'');
+  assert.equal(await evaluate('document.getElementById("candidate-write-summary").textContent.includes("CREATED")'),false);
   console.log('PASS real Chrome: DP416/419 collection -> source -> capture -> passage -> candidate/claim keyboard navigation + scrub');
 } finally {
   try { ws?.close(); } catch {}

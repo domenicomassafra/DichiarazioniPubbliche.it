@@ -42,9 +42,11 @@ for (const id of ['token', 'results', 'status', 'clear', 'member-links',
                   'collection-capture-summary', 'capture-passage-links',
                   'passage-candidate-links', 'passage-candidate-summary',
                   'collection-decision-summary',
+                  'candidate-write-summary',
                   'triage-write-summary',
                   'inbox-annotation-summary','inbox-annotation-links',
                   'media-capture-context-summary',
+                  'media-binding-summary',
                   'media-locator', 'corpus-list',
                   'corpus-links', 'corpus-summary', 'corpus-inspector',
                   'corpus-references', 'corpus-inspector-title', 'corpus-back',
@@ -56,13 +58,23 @@ for (const path of [
   '/v1/collections/members', '/v1/collections/member', '/v1/collections/captures',
   '/v1/collections/passage-candidates',
   '/v1/candidate/decision-receipt',
+  '/v1/candidate/decision-annotate',
   '/v1/discovery/triage-annotate',
   '/v1/discovery/inbox','/v1/discovery/triage-history',
   '/v1/media/capture-context',
+  '/v1/media/binding',
   '/v1/collections/claim-provenance', '/v1/capture/compare',
   '/v1/capture/passages', '/v1/corpus/search', '/v1/media/segment',
 ]) {
-  const fields = path === '/v1/media/capture-context' ? {
+  const fields = path === '/v1/media/binding' ? {
+    binding_id:'',
+  } : path === '/v1/candidate/decision-annotate' ? {
+    candidate_id:'',run_id:'',input_fingerprint:'',passage_id:'',
+    capture_id:'',capture_sha256:'',request_key:'',decision:'HOLD',
+    expected_revision:'0',actor_ref:'',target_type:'',target_id:'',
+    credential_id:'',authority_receipt_id:'',review_event_json:'',
+    confirm_private_decision:'',
+  } : path === '/v1/media/capture-context' ? {
     content_id:'',statement_candidate_id:'',passage_id:'',
     capture_id:'',capture_sha256:'',
   } : path === '/v1/discovery/inbox' ? {
@@ -84,7 +96,8 @@ for (const path of [
   };
   if (!['/v1/corpus/search','/v1/discovery/inbox',
         '/v1/discovery/triage-history','/v1/discovery/triage-annotate',
-        '/v1/media/capture-context'].includes(path))
+        '/v1/media/capture-context','/v1/media/binding',
+        '/v1/candidate/decision-annotate'].includes(path))
     fields.content_id = 'content:one';
   const nodes = {};
   for (const name of Object.keys(fields)) {
@@ -93,7 +106,7 @@ for (const path of [
   }
   forms[path] = new Element({dataset: {endpoint: path}, fields,
     querySelectorAll: selector => {
-      assert.equal(selector, 'input,select');
+      assert.ok(['input,select','input,select,textarea'].includes(selector));
       return Object.values(nodes);
     },
     elements: {namedItem: name => nodes[name] ?? new Element()}});
@@ -445,6 +458,77 @@ async function main() {
   clear.fire('click');
   assert.equal(ids.get('media-capture-context-summary').textContent,
     'Nessun contesto cattura verificato.');
+  token.value='a'.repeat(64);
+  const candidateWriteForm=forms['/v1/candidate/decision-annotate'];
+  Object.assign(candidateWriteForm.fields,{
+    candidate_id:'candidate:one',run_id:'run:one',input_fingerprint:'f'.repeat(64),
+    passage_id:'passage:one',capture_id:'capture:one',capture_sha256:'a'.repeat(64),
+    request_key:'req:signed',decision:'HOLD',expected_revision:'0',
+    actor_ref:'reviewer:alice',credential_id:'alice',authority_receipt_id:'receipt:one',
+    review_event_json:JSON.stringify({signed:'secret-to-omit'}),
+    confirm_private_decision:'true',
+  });
+  const signedWrite=candidateWriteForm.fire('submit');
+  const candidateIndex=requests.length-1;
+  assert.equal(requests[candidateIndex].path,'/v1/candidate/decision-annotate');
+  const sent=JSON.parse(requests[candidateIndex].options.body);
+  assert.equal(sent.expected_revision,0);
+  assert.equal(sent.confirm_private_decision,true);
+  assert.deepEqual(sent.review_event,{signed:'secret-to-omit'});
+  assert.equal(sent.review_event_json,undefined);
+  requests[candidateIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-private-candidate-decision-api-v1',data:{
+      contract_version:'studio-private-candidate-decision-write-v1',
+      private_only:true,mutation_kind:'REVIEW_INTENT_ONLY',result_code:'CREATED',
+      candidate_id:'candidate:one',run_id:'run:one',passage_id:'passage:one',
+      capture_id:'capture:one',decision:'HOLD',revision:1,receipt_sha256:'b'.repeat(64),
+      promoted:false,promotion_authority:false,publication_authority:false,
+      source_rights_approved:false,
+      private_review_event:'NEVER_EXPOSE_SIGNED_EVENT',
+    },
+  })});
+  await signedWrite;
+  assert.match(ids.get('candidate-write-summary').textContent,/CREATED/);
+  assert.doesNotMatch(ids.get('candidate-write-summary').textContent,/NEVER_EXPOSE_SIGNED_EVENT/);
+  assert.equal(decisionForm.fields.candidate_id,'candidate:one');
+  assert.equal(decisionForm.fields.request_key,'req:signed');
+  const lateWrite=candidateWriteForm.fire('submit');
+  const lateCandidateIndex=requests.length-1;
+  clear.fire('click');
+  requests[lateCandidateIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-private-candidate-decision-api-v1',
+    data:{private_review_event:'NEVER_EXPOSE_SIGNED_EVENT'},
+  })});
+  await lateWrite;
+  assert.equal(candidateWriteForm.fields.review_event_json,'');
+  assert.equal(candidateWriteForm.fields.authority_receipt_id,'');
+  assert.equal(decisionForm.fields.candidate_id,'');
+  assert.equal(ids.get('candidate-write-summary').textContent,'Nessuna intenzione candidata inviata.');
+  token.value='a'.repeat(64);
+  const bindingForm=forms['/v1/media/binding'];
+  bindingForm.fields.binding_id='media-binding:one';
+  const bindingRead=bindingForm.fire('submit');
+  const bindingIndex=requests.length-1;
+  assert.equal(requests[bindingIndex].path,'/v1/media/binding');
+  requests[bindingIndex].resolve({ok:true,json:async()=>({
+    contract_version:'studio-local-readonly-api-v1',data:{
+      contract_version:'studio-capture-segment-binding-pg-v1',
+      private_only:true,publication_authority:false,rights_clearance:false,
+      seek_authorized:false,capture_segment_binding:'OPERATOR_ATTESTED_METADATA_ONLY',
+      binding_id:'media-binding:one',content_id:'content:one',
+      capture_id:'capture:one',capture_sha256:'a'.repeat(64),
+      canonical_segment_id:'canonical:one',start_ms:1200,end_ms:3400,
+      revision:2,binding_state:'REVOKED',
+      hold_reasons:['RIGHTS_NOT_INDEPENDENTLY_APPROVED','BINDING_REVOKED'],
+      private_url:'NEVER_DISCLOSE_MEDIA',
+    },
+  })});
+  await bindingRead;
+  assert.match(ids.get('media-binding-summary').textContent,/BINDING_REVOKED/);
+  assert.doesNotMatch(ids.get('media-binding-summary').textContent,/NEVER_DISCLOSE_MEDIA/);
+  clear.fire('click');
+  assert.equal(bindingForm.fields.binding_id,'');
+  assert.equal(ids.get('media-binding-summary').textContent,'Nessun binding verificato.');
   process.stdout.write('Studio Corpus filters, keyboard inspector, return, private scrub and stale-response regression PASS\n');
 }
 

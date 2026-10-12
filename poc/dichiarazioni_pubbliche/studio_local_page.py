@@ -28,8 +28,8 @@ _PAGE = """<!doctype html>
     .rules{border-block:1px solid #7d8580;padding:1rem 0;margin:1rem 0}
     .controls{display:flex;flex-wrap:wrap;gap:1rem;align-items:end}
     label{display:grid;gap:.2rem;min-width:14rem;max-width:100%;font-weight:600;font-size:.9rem}
-    input,select,button{font:inherit;padding:.65rem;border:1px solid #4d5861;border-radius:0;min-height:2.5rem;background:white;color:inherit}
-    input,select{width:100%}button{cursor:pointer}
+    input,select,textarea,button{font:inherit;padding:.65rem;border:1px solid #4d5861;border-radius:0;min-height:2.5rem;background:white;color:inherit}
+    input,select,textarea{width:100%}button{cursor:pointer}
     button[aria-pressed=true],button[type=submit]{background:#182130;color:white}
     :focus-visible{outline:3px solid #0f46b0;outline-offset:2px}
     [hidden]{display:none!important}
@@ -203,6 +203,32 @@ _PAGE = """<!doctype html>
         </div>
       </form>
       <p id="collection-decision-summary" role="status" aria-live="polite">Nessuna ricevuta letta.</p>
+      <h2>Registra una decisione privata già attestata (modalità operatore separata)</h2>
+      <p>È richiesta una firma DP-310 già emessa esternamente, vincolata a questo preciso Candidate, MatchRun, Capture/Passage, versione, scelta, revisione e identità. Il token Studio da solo non firma decisioni. HOLD/REJECT/REVIEW_CREATE/REVIEW_LINK sono **intenzioni storiche**, non promozione, creazione Claim, equivalenza verificata o pubblicazione.</p>
+      <form data-endpoint="/v1/candidate/decision-annotate">
+        <div class="controls">
+          <label>Claim Candidate ID<input name="candidate_id" maxlength="180" required></label>
+          <label>MatchRun ID<input name="run_id" maxlength="180" required></label>
+          <label>MatchRun input SHA-256<input name="input_fingerprint" minlength="64" maxlength="64" required></label>
+          <label>Passage ID<input name="passage_id" maxlength="180" required></label>
+          <label>Capture ID<input name="capture_id" maxlength="180" required></label>
+          <label>Capture SHA-256<input name="capture_sha256" minlength="64" maxlength="64" required></label>
+          <label>Request key immutabile<input name="request_key" maxlength="180" required></label>
+          <label>Intenzione<select name="decision"><option>HOLD</option><option>REJECT</option><option>REVIEW_CREATE</option><option>REVIEW_LINK</option></select></label>
+          <label>Revisione prevista<input name="expected_revision" type="number" min="0" step="1" value="0" required></label>
+          <label>Actor reference<input name="actor_ref" maxlength="180" required></label>
+          <label>Target type (solo REVIEW_LINK)<input name="target_type" maxlength="180"></label>
+          <label>Target ID (solo REVIEW_LINK)<input name="target_id" maxlength="180"></label>
+          <label>Credential ID locale<input name="credential_id" maxlength="128" required></label>
+          <label>Ricevuta di identità firmata<input name="authority_receipt_id" maxlength="180" required></label>
+          <label style="min-width:25rem;flex:1">ReviewEvent integrale già firmato, JSON (rimane nella sessione)
+            <textarea name="review_event_json" rows="5" maxlength="3000" required spellcheck="false" autocomplete="off"></textarea>
+          </label>
+          <label>Conferma solo intenzione privata<select name="confirm_private_decision" required><option value="">Seleziona</option><option value="true">Confermo: nessuna promozione o pubblicazione</option></select></label>
+          <button type="submit">Registra intenzione firmata con CAS</button>
+        </div>
+      </form>
+      <p id="candidate-write-summary" role="status" aria-live="polite">Nessuna intenzione candidata inviata. Richiede l'avvio esplicito del writer.</p>
       <h2>Provenienza di un claim storico</h2>
       <p>Stati e hash di attribuzione persistiti. APPROVED indica lo stato del record di attribuzione, non autorizza la riproduzione della fonte o la pubblicazione.</p>
       <form data-endpoint="/v1/collections/claim-provenance">
@@ -358,6 +384,13 @@ _PAGE = """<!doctype html>
         <button type="submit">Confronta timeline e conservazione</button></div>
       </form>
       <p id="media-capture-context-summary" role="status" aria-live="polite">Nessun contesto cattura verificato.</p>
+      <h2>Ricevuta persistita Capture → Segment (metadati soltanto)</h2>
+      <p>L'attestazione locale conserva Capture SHA, segmento e revisioni di revoca. È una dichiarazione di provenienza da verificare indipendentemente: non concede diritti o riproduzione e non espone il media.</p>
+      <form data-endpoint="/v1/media/binding">
+        <div class="controls"><label>Binding ID<input name="binding_id" maxlength="180" required></label>
+        <button type="submit">Rileggi stato corrente e revoche</button></div>
+      </form>
+      <p id="media-binding-summary" role="status" aria-live="polite">Nessun binding verificato.</p>
       <p id="media-locator" role="status" aria-live="polite">Nessun segmento selezionato.</p>
     </section>
     <section class="pane" aria-labelledby="esito">
@@ -398,6 +431,8 @@ _PAGE = """<!doctype html>
     const candidateDetail = document.getElementById('collection-candidate-detail');
     const decisionForm = document.querySelector('form[data-endpoint="/v1/candidate/decision-receipt"]');
     const decisionSummary = document.getElementById('collection-decision-summary');
+    const candidateWriteForm = document.querySelector('form[data-endpoint="/v1/candidate/decision-annotate"]');
+    const candidateWriteSummary = document.getElementById('candidate-write-summary');
     const captureQueueForm = document.querySelector('form[data-endpoint="/v1/discovery/capture-queue"]');
     const captureQueueLinks = document.getElementById('capture-queue-links');
     const captureQueueSummary = document.getElementById('capture-queue-summary');
@@ -430,6 +465,8 @@ _PAGE = """<!doctype html>
     const mediaForm = document.querySelector('form[data-endpoint="/v1/media/segment"]');
     const mediaContextForm = document.querySelector('form[data-endpoint="/v1/media/capture-context"]');
     const mediaContextSummary = document.getElementById('media-capture-context-summary');
+    const mediaBindingForm = document.querySelector('form[data-endpoint="/v1/media/binding"]');
+    const mediaBindingSummary = document.getElementById('media-binding-summary');
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
@@ -583,8 +620,16 @@ _PAGE = """<!doctype html>
       if (lineageInspector) lineageInspector.hidden = true;
       if (candidateDetail) candidateDetail.textContent = '';
       if (decisionSummary) decisionSummary.textContent = 'Nessuna ricevuta letta.';
+      if (candidateWriteSummary) candidateWriteSummary.textContent = 'Nessuna intenzione candidata inviata.';
       if (decisionForm) {
         for (const field of decisionForm.querySelectorAll('input,select')) field.value = '';
+      }
+      if (candidateWriteForm) {
+        for (const field of candidateWriteForm.querySelectorAll('input,select,textarea')) {
+          if (field.name === 'expected_revision') field.value = '0';
+          else if (field.name === 'decision') field.value = 'HOLD';
+          else field.value = '';
+        }
       }
       captureQueueLinks?.replaceChildren();
       inboxAnnotationLinks?.replaceChildren();
@@ -607,6 +652,8 @@ _PAGE = """<!doctype html>
       if (collectionNavigationForm) collectionNavigationForm.elements.namedItem('after_content_id').value = '';
       mediaLocator.textContent = 'Nessun segmento selezionato.';
       if (mediaContextSummary) mediaContextSummary.textContent = 'Nessun contesto cattura verificato.';
+      if (mediaBindingSummary) mediaBindingSummary.textContent = 'Nessun binding verificato.';
+      if (mediaBindingForm) mediaBindingForm.elements.namedItem('binding_id').value = '';
     }
     document.getElementById('clear').addEventListener('click', () => {
       token.value = '';
@@ -656,8 +703,19 @@ _PAGE = """<!doctype html>
           else if (key === 'from_date') data.from_at = value + 'T00:00:00Z';
           else if (key === 'to_date') data.to_at = value + 'T23:59:59Z';
           else if (key === 'check_worthy') data.check_worthy = value === 'true';
+          else if (key === 'review_event_json') {
+            try {
+              const eventData = JSON.parse(value);
+              if (!eventData || typeof eventData !== 'object' || Array.isArray(eventData)) throw Error();
+              data.review_event = eventData;
+            } catch {
+              status.textContent = 'ReviewEvent JSON non valido: nessuna richiesta inviata.';
+              return;
+            }
+          }
           else data[key] = key === 'limit' || key === 'after_revision' || key === 'expected_revision'
-            ? Number(value) : key === 'confirm_private_annotation' ? value === 'true' : value;
+            ? Number(value) : ['confirm_private_annotation','confirm_private_decision'].includes(key)
+            ? value === 'true' : value;
         }
         status.textContent = 'Richiesta locale in corso…';
         results.textContent = 'Nessun risultato ancora disponibile.';
@@ -693,6 +751,9 @@ _PAGE = """<!doctype html>
         if (form === decisionForm) {
           decisionSummary.textContent = 'Verifica ricevuta e fonte corrente in corso…';
         }
+        if (form === candidateWriteForm) {
+          candidateWriteSummary.textContent = 'Verifica della firma esterna e del CAS PostgreSQL in corso…';
+        }
         if (form === captureQueueForm) {
           captureQueueLinks.replaceChildren();
           captureQueueSummary.textContent = 'Lettura della coda in corso…';
@@ -721,6 +782,7 @@ _PAGE = """<!doctype html>
           mediaLocator.textContent = 'Intervallo canonico non verificato.';
         }
         if (form === mediaContextForm) mediaContextSummary.textContent = 'Verifica legami persistiti e durata in corso…';
+        if (form === mediaBindingForm) mediaBindingSummary.textContent = 'Rilettura della revoca corrente in corso…';
         try {
           const response = await fetch(form.dataset.endpoint, {
             method: 'POST', credentials: 'omit', redirect: 'error',
@@ -912,9 +974,45 @@ _PAGE = """<!doctype html>
             }
             decisionSummary.textContent = 'Decisione ' + decision.decision
               + ' · revisione ' + decision.revision
-              + ' · ricevuta SHA-256 ' + decision.receipt_sha256
+              + ' · ricevuta SHA-256 ' + (decision.receipt_sha256 || 'non prodotta')
               + ' · ' + decision.status
               + '. Storico soltanto: nessuna promozione o pubblicazione autorizzata.';
+            return;
+          }
+          if (form === candidateWriteForm) {
+            results.textContent = 'Solo stato sanitizzato dell’intenzione privata firmata.';
+            const decision = receipt?.data;
+            const code = decision?.result_code;
+            const confirmed = ['CREATED','REPLAY'].includes(code);
+            const valid = receipt?.contract_version === 'studio-private-candidate-decision-api-v1'
+              && decision?.contract_version === 'studio-private-candidate-decision-write-v1'
+              && decision.private_only === true && decision.mutation_kind === 'REVIEW_INTENT_ONLY'
+              && decision.candidate_id === data.candidate_id && decision.run_id === data.run_id
+              && decision.capture_id === data.capture_id && decision.passage_id === data.passage_id
+              && decision.decision === data.decision
+              && decision.promoted === false && decision.promotion_authority === false
+              && decision.publication_authority === false && decision.source_rights_approved === false
+              && Number.isSafeInteger(decision.revision) && decision.revision >= 0
+              && (confirmed ? SAFE_SHA256.test(decision.receipt_sha256)
+                : decision.receipt_sha256 == null || SAFE_SHA256.test(decision.receipt_sha256))
+              && ['CREATED','REPLAY','HELD_SOURCE','REVISION_CONFLICT','IDEMPOTENCY_CONFLICT'].includes(code)
+              && response.ok === confirmed;
+            if (!valid) {
+              candidateWriteSummary.textContent = 'Intenzione non attestata. Nessun salvataggio confermato.';
+              status.textContent = 'Writer non disponibile o firma/sorgente non verificabile.';
+              return;
+            }
+            candidateWriteSummary.textContent = code + ' · revisione ' + decision.revision
+              + ' · ricevuta SHA-256 ' + decision.receipt_sha256
+              + '. Storico privato soltanto: nessun Claim creato o pubblicazione autorizzata.';
+            if (confirmed) {
+              decisionForm.elements.namedItem('candidate_id').value = data.candidate_id;
+              decisionForm.elements.namedItem('run_id').value = data.run_id;
+              decisionForm.elements.namedItem('capture_id').value = data.capture_id;
+              decisionForm.elements.namedItem('passage_id').value = data.passage_id;
+              decisionForm.elements.namedItem('request_key').value = data.request_key;
+              status.textContent = 'Intenzione persistita: rileggi lo storico e i diritti correnti.';
+            }
             return;
           }
           if (form === lineageForm) {
@@ -1009,6 +1107,30 @@ _PAGE = """<!doctype html>
                 candidateHeading.focus();
               });
               lineageLinks.append(button);
+              for (const claim of candidate.claim_candidates) {
+                if (claim.status !== 'CANDIDATE') continue;
+                const prepare = document.createElement('button');
+                prepare.type = 'button';
+                prepare.textContent = 'Prepara intenzione privata per Claim Candidate ' + claim.id;
+                prepare.addEventListener('click', () => {
+                  if (!lineageLinks.contains(prepare)) return;
+                  // A persisted provenance path can *populate scope IDs* only:
+                  // no MatchRun fingerprint, CAS revision or reviewer signature
+                  // is derived from this historical read-only inspection.
+                  for (const field of candidateWriteForm.querySelectorAll('input,select,textarea')) {
+                    if (field.name === 'decision') field.value = 'HOLD';
+                    else if (field.name === 'expected_revision') field.value = '0';
+                    else field.value = '';
+                  }
+                  candidateWriteForm.elements.namedItem('candidate_id').value = claim.id;
+                  candidateWriteForm.elements.namedItem('capture_id').value = match.capture_id;
+                  candidateWriteForm.elements.namedItem('capture_sha256').value = match.capture_sha256;
+                  candidateWriteForm.elements.namedItem('passage_id').value = match.passage.id;
+                  candidateWriteSummary.textContent = 'Scope copiato da Collection e Passage persistiti. Inserisci MatchRun, fingerprint, revisione e firma indipendente; nessuna intenzione autorizzata.';
+                  candidateWriteForm.elements.namedItem('run_id').focus();
+                });
+                lineageLinks.append(prepare);
+              }
             }
             if (match.next_after_statement_id) {
               const more = document.createElement('button');
@@ -1189,6 +1311,37 @@ _PAGE = """<!doctype html>
               + ' · corpo ' + capture.body_state + ' · conservazione '
               + capture.retention_class + ' · blocchi: ' + timeline.hold_reasons.join(', ')
               + '. Provenienza segmento↔cattura non attestata. Riproduzione negata.';
+            return;
+          }
+          if (form === mediaBindingForm) {
+            results.textContent = 'Solo Capture, Segment, versione, revoche e blocchi.';
+            const binding = receipt?.data;
+            const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
+              && binding?.contract_version === 'studio-capture-segment-binding-pg-v1'
+              && binding.private_only === true && binding.publication_authority === false
+              && binding.rights_clearance === false && binding.seek_authorized === false
+              && binding.capture_segment_binding === 'OPERATOR_ATTESTED_METADATA_ONLY'
+              && binding.binding_id === data.binding_id
+              && SAFE_REF.test(binding.content_id) && SAFE_REF.test(binding.capture_id)
+              && SAFE_REF.test(binding.canonical_segment_id)
+              && SAFE_SHA256.test(binding.capture_sha256)
+              && Number.isSafeInteger(binding.start_ms) && binding.start_ms >= 0
+              && Number.isSafeInteger(binding.end_ms) && binding.end_ms > binding.start_ms
+              && Number.isSafeInteger(binding.revision) && binding.revision > 0
+              && ['ATTESTED','HELD','REVOKED'].includes(binding.binding_state)
+              && Array.isArray(binding.hold_reasons) && binding.hold_reasons.length > 0
+              && binding.hold_reasons.every(code => SAFE_REF.test(code));
+            if (!valid) {
+              mediaBindingSummary.textContent = 'Nessuna attestazione valida. Nessun media autorizzato.';
+              return;
+            }
+            mediaBindingSummary.textContent = 'Binding ' + binding.binding_id
+              + ' · Capture ' + binding.capture_id + ' (' + binding.capture_sha256 + ')'
+              + ' · segmento ' + binding.canonical_segment_id
+              + ' · ' + (binding.start_ms / 1000) + '–' + (binding.end_ms / 1000) + ' s'
+              + ' · revisione ' + binding.revision + ' · ' + binding.binding_state
+              + ' · blocchi: ' + binding.hold_reasons.join(', ')
+              + '. Solo metadati di operatore, nessuna riproduzione o autorità editoriale.';
             return;
           }
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';

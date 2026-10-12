@@ -1,6 +1,26 @@
 # DP-419 — studio source capture passage inspector
 
 Status: IN PROGRESS
+
+### 2026-10-12 — Capture–Segment binding re-read through private Studio
+
+The optional private PostgreSQL metadata-binding migration is now consumable
+through authenticated read-only /v1/media/binding and the Catture panel.
+Exact binding ID is validated and sent to the immutable SQL history reader
+under the Studio connection's read-only timeout/transaction policy; the
+response validates all allowed IDs/hashes/revision, state and hold codes.
+One disposable PostgreSQL/real loopback HTTP test reads ATTESTED and then
+REVOKED rights without removing immutable history. Unknown bindings, bad
+IDs, extra JSON keys or absent bearer refuse; the actual Studio JavaScript
+displays only binding ID, Capture SHA, canonical time, revision and current
+hold reasons and wipes results on token logout.
+
+The new row describes an operator-supplied metadata assertion, **not**
+independent Capture→Segment derivation proof or source/media license.
+Even ATTESTED rows cannot start playback; seek_authorized and
+publication_authority stay false. All original DP-419 ACs remain OPEN
+without real source proof, licensed preview, exact player seek, qualified
+review and MiniPC acceptance.
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-210, DP-414
 

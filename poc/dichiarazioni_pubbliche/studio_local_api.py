@@ -58,6 +58,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/media/capture-context",
+    "/v1/media/binding",
     "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
     "/v1/candidate/decision-receipt",
     "/v1/collections/list", "/v1/collections/members",
@@ -652,6 +653,55 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         _fields(body, required={"content_id", "statement_candidate_id",
                                 "passage_id", "capture_id", "capture_sha256"})
         return inspect_candidate_media_capture_context(readers.captures, **body)
+    if path == "/v1/media/binding":
+        _fields(body, required={"binding_id"})
+        binding_id = body["binding_id"]
+        if not isinstance(binding_id, str) or not _STUDIO_REF.fullmatch(binding_id):
+            raise ValueError("STUDIO_MEDIA_BINDING_ID_INVALID")
+        # The function is STABLE and the Studio DB adapter sets the session
+        # transaction READ ONLY. This is *not* a route to the attestation writer.
+        raw = readers.captures.run(
+            "SELECT inspect_media_capture_segment_binding(:'binding_id')::text;",
+            binding_id=binding_id,
+        )
+        if not isinstance(raw, str) or not 1 <= len(raw) <= 8192:
+            raise ValueError("STUDIO_MEDIA_BINDING_RESULT_INVALID")
+        try:
+            payload = json.loads(raw)
+        except (ValueError, TypeError):
+            raise ValueError("STUDIO_MEDIA_BINDING_RESULT_INVALID") from None
+        fields = {
+            "contract_version", "private_only", "publication_authority",
+            "rights_clearance", "seek_authorized", "capture_segment_binding",
+            "binding_id", "content_id", "capture_id", "capture_sha256",
+            "canonical_segment_id", "segment_index", "start_ms", "end_ms",
+            "revision", "binding_state", "hold_reasons",
+        }
+        if (not isinstance(payload, dict) or set(payload) != fields
+                or payload["contract_version"] != "studio-capture-segment-binding-pg-v1"
+                or payload["private_only"] is not True
+                or payload["publication_authority"] is not False
+                or payload["rights_clearance"] is not False
+                or payload["seek_authorized"] is not False
+                or payload["capture_segment_binding"] != "OPERATOR_ATTESTED_METADATA_ONLY"
+                or payload["binding_id"] != binding_id
+                or any(not isinstance(payload[name], str)
+                       or not _STUDIO_REF.fullmatch(payload[name])
+                       for name in ("content_id", "capture_id", "canonical_segment_id"))
+                or not isinstance(payload["capture_sha256"], str)
+                or not _CAPTURE_SHA.fullmatch(payload["capture_sha256"])
+                or not all(type(payload[name]) is int for name in
+                           ("segment_index", "start_ms", "end_ms", "revision"))
+                or not 0 <= payload["start_ms"] < payload["end_ms"]
+                or payload["revision"] < 1
+                or payload["binding_state"] not in {"ATTESTED", "HELD", "REVOKED"}
+                or not isinstance(payload["hold_reasons"], list)
+                or not 1 <= len(payload["hold_reasons"]) <= 20
+                or any(not isinstance(code, str) or
+                       not _STUDIO_REF.fullmatch(code)
+                       for code in payload["hold_reasons"])):
+            raise ValueError("STUDIO_MEDIA_BINDING_RESULT_INVALID")
+        return payload
     if path == "/v1/candidate/matches":
         _fields(body, required={"run_id", "claim_candidate_id"})
         return inspect_candidate_match_run(readers.candidates, **body)
