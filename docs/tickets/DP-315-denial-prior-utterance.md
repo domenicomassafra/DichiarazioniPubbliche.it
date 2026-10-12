@@ -70,3 +70,37 @@ supplied metadata, **not** a signature or independent source/rights review.
 Real provenance, changed-source invalidation across consumers and the
 MiniPC authorized readback are still missing. All AC-315.1–.5 remain
 unchecked; **IN PROGRESS**, no new public Finding or opinion authority.
+
+## 2026-10-12 — Deterministic independent occurrences and conflicting revision hold
+
+The exported private `evaluate_denial` previously stopped scanning at the first
+attested counterexample. With two reviewed prior occurrences from distinct
+sources, swapping their input order changed the matched occurrence IDs and
+integrity receipt. A contextual quotation interleaved with a direct assertion
+also changed the reported review lineage. A second row carrying the **same**
+immutable `occurrence_id` but `REVOKED` status or a conflicting review event
+could be bypassed by placing a `CURRENT` representation first, producing an
+unsupported `REFUTED_WITH_COUNTEREXAMPLE` and private relation candidate.
+
+The evaluator now canonicalizes all supplied typed provenance for replay,
+collects all qualifying reviewed matching occurrences, and does not allow
+contextual occurrences to overwrite a direct counterexample's evidentiary
+classification. When one `occurrence_id` has discordant provenance, **all**
+representations of that ID are excluded and insufficient evidence is reported
+with `DENIAL_CONFLICTING_OCCURRENCE_PROVENANCE` unless an *independent* valid
+counterexample exists. Exact duplicate snapshots remain idempotent for matched
+IDs; the full supplied multiset remains bound to the receipt. Review and
+source-currentness still depend on caller-supplied metadata, not independently
+verified source or rights receipts.
+
+TDD at the public Python seam: the first five adversarial tests were RED
+(5 failures, including ambiguous revocation and order-dependent receipts);
+after the fix all passed alongside the 11 existing DP-315 tests. A sixth
+regression proves a distinct valid occurrence still refutes a denial when a
+separate duplicate ID conflicts. No provider or production record was used;
+`publication_authority` remains false and any relation remains private.
+
+**All original AC-315.1–.5 remain IN PROGRESS**: actual independent source
+locator/reviewer approval, coverage manifest and attempts, multi-consumer
+correction invalidation, DP-318 linked trace/public projection, and authorized
+MiniPC pilot readback have not been established by this offline executor change.

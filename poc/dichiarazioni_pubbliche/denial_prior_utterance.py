@@ -139,16 +139,38 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         raise ValueError("DENIAL_OCCURRENCE_INVALID")
     if not isinstance(current_source_versions, dict):
         current_source_versions = {}
+    # A replay has no meaningful input sequence. Sort by complete typed provenance,
+    # including ties on occurrence/source IDs (e.g. a conflicting revocation).
+    occurrence_snapshots = tuple(sorted(
+        ((_receipt_fields(row), row) for row in occurrences),
+        key=lambda entry: (
+            str(entry[0]["occurrence_id"]),
+            str(entry[0]["source_version_id"]),
+            json.dumps(entry[0], sort_keys=True, separators=(",", ":")),
+        ),
+    ))
+    first_by_id: dict[str, dict[str, object]] = {}
+    conflicting_ids: set[str] = set()
+    for snapshot, row in occurrence_snapshots:
+        previous = first_by_id.setdefault(row.occurrence_id, snapshot)
+        if previous != snapshot:
+            conflicting_ids.add(row.occurrence_id)
     candidate_ids: list[str] = []
     authenticity = "UNVERIFIED"
     endorsement = "UNKNOWN"
     verdict = "CHECKED_INSUFFICIENT_EVIDENCE"
     relation = "PRIVATE_HOLD"
     reason = "DENIAL_UNIVERSAL_ABSENCE_NOT_PROVABLE"
+    saw_prior_review_gap = False
+    saw_prior_source_gap = False
+    saw_contextual = False
+    saw_foreign_quotation = False
     target_current = current_source_versions.get(target.source_version_id) == target.source_sha256
-    for row in occurrences if target_current else ():
-        if not isinstance(row, PriorOccurrence):
-            raise ValueError("DENIAL_OCCURRENCE_INVALID")
+    for _snapshot, row in occurrence_snapshots if target_current else ():
+        # An occurrence ID is immutable: a CURRENT row cannot approve a second,
+        # conflicting REVOKED, amended or differently reviewed representation.
+        if row.occurrence_id in conflicting_ids:
+            continue
         if row.utterer_person_id != target.person_id:
             continue
         if _time(row.spoken_at) >= _time(target.uttered_at):
@@ -162,42 +184,52 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         if row.quote_sha256 != target.target_quote_sha256 or row.proposition_sha256 != target.target_proposition_sha256:
             continue
         if row.status != "CURRENT" or row.review_event_id is None:
-            reason = "DENIAL_PRIOR_REVIEW_OR_CURRENTNESS_MISSING"
+            saw_prior_review_gap = True
             continue
         if current_source_versions.get(row.source_version_id) != row.source_sha256:
-            reason = "DENIAL_PRIOR_SOURCE_HASH_STALE_OR_UNKNOWN"
+            saw_prior_source_gap = True
             continue
         candidate_ids.append(row.occurrence_id)
         if row.speech_act in {"REPORTED_QUOTE", "CRITICISM", "IRONY", "QUESTION", "PERFORMANCE"}:
-            authenticity = "REVIEWED_ORIGINAL_CONTEXTUAL_ONLY"
-            endorsement = "NOT_ESTABLISHED"
-            reason = "DENIAL_QUOTED_OR_PERFORMATIVE_CONTEXT"
+            saw_contextual = True
+            if authenticity == "UNVERIFIED":
+                authenticity, endorsement = "REVIEWED_ORIGINAL_CONTEXTUAL_ONLY", "NOT_ESTABLISHED"
             continue
         if row.quoted_person_id is not None and row.quoted_person_id != row.utterer_person_id:
-            authenticity = "REVIEWED_ORIGINAL_CONTEXTUAL_ONLY"
-            endorsement = "NOT_ESTABLISHED"
-            reason = "DENIAL_OTHER_PERSON_QUOTED"
+            saw_foreign_quotation = True
+            if authenticity == "UNVERIFIED":
+                authenticity, endorsement = "REVIEWED_ORIGINAL_CONTEXTUAL_ONLY", "NOT_ESTABLISHED"
             continue
         authenticity = "REVIEWED_ORIGINAL_UTTERANCE"
-        endorsement = "REVIEWED_ENDORSED" if row.endorsed else "NOT_ESTABLISHED"
+        if row.endorsed:
+            endorsement = "REVIEWED_ENDORSED"
+        elif endorsement != "REVIEWED_ENDORSED":
+            endorsement = "NOT_ESTABLISHED"
         if target.predicate == "NEVER_UTTERED":
-            verdict, relation, reason = "REFUTED_WITH_COUNTEREXAMPLE", "PRIVATE_RELATION_CANDIDATE", "DENIAL_ATTESTED_PRIOR_WORDS"
-            break
+            verdict, relation = "REFUTED_WITH_COUNTEREXAMPLE", "PRIVATE_RELATION_CANDIDATE"
         if target.predicate == "NEVER_ENDORSED" and row.endorsed:
-            verdict, relation, reason = "REFUTED_WITH_COUNTEREXAMPLE", "PRIVATE_RELATION_CANDIDATE", "DENIAL_ATTESTED_PRIOR_ENDORSEMENT"
-            break
-        if target.predicate == "NEVER_MEANT":
-            reason = "DENIAL_INNER_INTENT_UNVERIFIABLE"
+            verdict, relation = "REFUTED_WITH_COUNTEREXAMPLE", "PRIVATE_RELATION_CANDIDATE"
+    # The strongest reviewed counterexample wins; later contextual rows and
+    # incomplete provenance must not overwrite its semantic classification.
+    if verdict == "REFUTED_WITH_COUNTEREXAMPLE":
+        reason = "DENIAL_ATTESTED_PRIOR_WORDS" if target.predicate == "NEVER_UTTERED" else "DENIAL_ATTESTED_PRIOR_ENDORSEMENT"
+    elif conflicting_ids:
+        reason = "DENIAL_CONFLICTING_OCCURRENCE_PROVENANCE"
+    elif saw_prior_source_gap:
+        reason = "DENIAL_PRIOR_SOURCE_HASH_STALE_OR_UNKNOWN"
+    elif saw_prior_review_gap:
+        reason = "DENIAL_PRIOR_REVIEW_OR_CURRENTNESS_MISSING"
+    elif saw_foreign_quotation:
+        reason = "DENIAL_OTHER_PERSON_QUOTED"
+    elif saw_contextual:
+        reason = "DENIAL_QUOTED_OR_PERFORMATIVE_CONTEXT"
     if target.predicate == "NEVER_MEANT":
         verdict, relation, reason = "CHECKED_INSUFFICIENT_EVIDENCE", "PRIVATE_HOLD", "DENIAL_INNER_INTENT_UNVERIFIABLE"
     if not target_current:
         verdict, relation, reason = "CHECKED_INSUFFICIENT_EVIDENCE", "PRIVATE_HOLD", "DENIAL_TARGET_SOURCE_STALE_OR_UNKNOWN"
     material = {
         "target": _receipt_fields(target),
-        "occurrences": sorted(
-            (_receipt_fields(row) for row in occurrences),
-            key=lambda row: (str(row["occurrence_id"]), str(row["source_version_id"])),
-        ),
+        "occurrences": [snapshot for snapshot, _row in occurrence_snapshots],
         "matched": sorted(candidate_ids), "verdict": verdict, "reason": reason,
         "known_source_versions": sorted(current_source_versions.items()),
         "version": VERSION,
