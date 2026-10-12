@@ -257,8 +257,12 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
         className="dp-overlay dp-sheet"
         aria-labelledby="filter-title"
         onClose={() => {
-          setFiltersOpen(false);
-          filterButton.current?.focus();
+          // A queued close event can arrive after the sheet was reopened.
+          // Reflect the dialog's actual state rather than hiding a live sheet
+          // from assistive technology by reverting aria-expanded to false.
+          const isOpen = filterDialog.current?.open ?? false;
+          setFiltersOpen(isOpen);
+          if (!isOpen) filterButton.current?.focus();
         }}
       >
         <div className="dp-overlay__header">

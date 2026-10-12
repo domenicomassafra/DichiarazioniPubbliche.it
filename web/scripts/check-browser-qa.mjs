@@ -528,6 +528,13 @@ try {
   await waitFor(cdp, "document.querySelector('dialog')?.open === false", "Escape did not close filter dialog");
   await waitFor(cdp, "document.querySelector('.filter-row .filter-button')?.getAttribute('aria-expanded') === 'false'", "Escape did not reset filter expanded state");
   assert.equal(await cdp.evaluate("document.activeElement?.classList.contains('filter-button')"), true, "dialog close did not restore focus");
+  // Reopening immediately after a keyboard dismissal must not let a late
+  // close event mark the visibly open dialog as collapsed.
+  await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
+  await waitFor(cdp, "document.querySelector('dialog')?.open === true", "filter dialog did not reopen");
+  await waitFor(cdp, "document.querySelector('.filter-row .filter-button')?.getAttribute('aria-expanded') === 'true'", "reopened dialog was announced collapsed");
+  await key(cdp, "Escape", { code: "Escape", keyCode: 27 });
+  await waitFor(cdp, "document.querySelector('dialog')?.open === false", "reopened dialog did not close");
 
   await navigate(cdp, `${origin}/esplora/?q=nessunrisultatoimpossibile`);
   await waitFor(cdp, "Boolean(document.querySelector('[data-state=empty]'))", "no-match state missing");

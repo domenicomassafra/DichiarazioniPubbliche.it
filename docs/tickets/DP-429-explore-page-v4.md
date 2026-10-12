@@ -191,3 +191,21 @@ built independently; fixture data were not published. Fresh `npm run check`
 screen-reader, manual owner or editorial acceptance. Delivery state remains
 `PUSHED_FOR_REVIEW` when the remote branch SHA is verified; PR is held under the
 existing auto-review billing guard until effective provider settings readback.
+
+MiniPC real-Chrome 155 isolated-source follow-up, 2026-10-12: the approved-empty
+canary passed 18 route checks, exact 200% zoom, keyboard and zero external
+requests; a populated local-only canary exposed a late `<dialog>` close event
+that could reset the filter trigger's `aria-expanded` after immediate reopen.
+The owned fix synchronizes disclosure to the dialog's observed open state on
+`close`, preserving focus restoration only for a truly closed dialog; the
+existing browser suite now explicitly covers rapid keyboard reopen. After the
+fix, `DP429_BROWSER=1 node tests/dp429_explore_accessibility_regression.mjs`
+passed on Mac, with Astro 0 diagnostics, search checks and 8 design-a11y checks
+PASS. **MiniPC isolated Chrome 155 replay: PASS** for the populated 12-record
+fictional fixture (including rapid filter reopen, clear-button keyboard focus,
+URL/results restoration, zero external requests); the approved-empty isolated
+build independently passed 18 routes, exact 200% browser zoom on six pages,
+keyboard, reduced motion and zero external requests. Temporary canary files
+were cleaned; MiniPC live service stayed active and deployed Explore HTML SHA
+`e9e4358ca5ddffab4c5c3d851a809a75d0bd2ddd26db5a356507c3d6a3aca3ef`
+remained unchanged. Neither fixture is a public dataset, deployment or sign-off.
