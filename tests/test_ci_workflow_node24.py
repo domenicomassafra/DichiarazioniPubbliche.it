@@ -10,6 +10,11 @@ WORKFLOW = ROOT / '.github' / 'workflows' / 'ci.yml'
 
 
 class CiWorkflowNode24Tests(unittest.TestCase):
+    def test_pr_branch_push_does_not_duplicate_expensive_matrix(self):
+        source = WORKFLOW.read_text()
+        self.assertIn('on:\n  push:\n    branches: [main]\n  pull_request:', source)
+        self.assertIn('os: [ubuntu-latest, macos-latest]', source)
+
     def test_every_first_party_action_uses_supported_node24_runtime_major(self):
         source = WORKFLOW.read_text()
         actions = re.findall(r'^\s+- uses: (actions/(checkout|setup-python|setup-node)@v\d+)\s*$',

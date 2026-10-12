@@ -7,12 +7,14 @@ name: ci
 # and runs only checks that are a pure function of the committed tree: no network
 # data source, no credentials, no PostgreSQL.
 #
-# The canonical GitHub remote now runs this workflow on push and pull request.
+# Run once per PR update and once per main integration. A PR branch push and
+# its pull_request event must not duplicate the full 8-backend build matrix.
 # Local `python3 tools/check_contributor_acceptance.py` remains the deterministic
 # contributor-side equivalent for repository-contract checks.
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 # Least privilege. No write, no packages, no issues, no deployments.
