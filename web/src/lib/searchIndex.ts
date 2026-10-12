@@ -479,6 +479,15 @@ export async function readPinnedPublicSearch(
   } catch {
     throw new Error("SEARCH_PINNED_INDEX_INVALID");
   }
+  // The static endpoint emits exactly canonicalJson(index) + LF. Checking
+  // only the hash of JSON.parse(assetBytes) silently discards duplicate keys:
+  // an extra first `records` or `title` can carry withdrawn source text in
+  // publicly served bytes while the last copy preserves the pinned digest.
+  // Refuse ambiguous/noncanonical wire bytes even with an unchanged epoch.
+  const canonicalBytes = canonicalJson(asset);
+  if (assetBytes !== canonicalBytes && assetBytes !== canonicalBytes + "\n") {
+    throw new Error("SEARCH_PINNED_INDEX_NONCANONICAL");
+  }
   const index = await validateSearchIndex(asset, before.projectionSha256);
   if (index.index_sha256 !== before.indexSha256 ||
       index.generated_at !== before.generatedAt) {

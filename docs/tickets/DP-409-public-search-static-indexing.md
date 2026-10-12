@@ -410,3 +410,42 @@ after its final pin read, HTTP byte-delivery/edge-cache withdrawal, signed
 independent release authority or MiniPC latency. Those require DP-320/518
 and host/edge integration. **DP-409 stays IN PROGRESS; AC-409.8 stays open,
 and v3 search/public release remains NO-GO.**
+
+### 2026-10-12 — Same-epoch duplicate-key wire tamper guard (opt-in only)
+
+A separate source-only regression found a new byte-level blind spot in the
+opt-in pinned v2 reader, distinct from the earlier digest and double-CURRENT
+fixes. JSON.parse accepts duplicate JSON object keys, retaining only the
+last value. The reader previously authenticated the canonical JSON of the
+parsed object, not the exact downloaded body. A first duplicate records field
+containing a withdrawn synthetic Finding (or a first nested title field with
+withdrawn text) followed by the original good field gives the **same parsed
+index, current source/index SHA, release ID and epoch**. The old reader
+accepted that ambiguous response although its raw public asset contained
+source text absent from the current released index.
+
+The narrowed readPinnedPublicSearch now requires the exact canonical JSON
+wire representation emitted by the search-index endpoint, with or without
+its one trailing LF, **before** checking the original content hash,
+release/epoch and independently re-read post-query pins. This refuses
+duplicate keys and noncanonical extra bytes. The existing legacy unpinned
+validator, schema, writer and Explore consumer are unchanged.
+
+New web/scripts/check-search-currentness-wave-next.mjs constructs distinct
+synthetic withdrawn/current v2 index releases with the real
+buildSearchIndexMaterial/finalizeSearchIndex functions. It proves canonical
+current search still finds the approved Finding and that both malformed
+bodies parse to the exact same released current object. **RED:** the
+duplicate top-level records body was accepted. **GREEN:** duplicate
+records and nested title now return SEARCH_PINNED_INDEX_NONCANONICAL;
+canonical JSON plus LF remains valid. The adjacent check-search-index.mjs
+passes, the withdrawal script builds **two isolated Astro output directories
+and passes**, npm run check --prefix web reports **118 files, zero
+errors/warnings/hints**, and git diff --check passes.
+
+**DP-409 remains IN PROGRESS, AC-409.8 unchecked and other AC states
+unchanged.** This guard protects only the opt-in interpretation path; it
+cannot stop a compromised host/CDN from directly serving malformed raw
+bytes, certify a signed independent CURRENT issuer, or prove physical
+screen-reader, atomic revoke/cache, MiniPC or production behavior.
+No publication, provider call, route or deploy was introduced.
