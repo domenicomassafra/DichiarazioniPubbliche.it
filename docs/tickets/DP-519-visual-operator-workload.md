@@ -1,6 +1,28 @@
 # DP-519 — Operator visual-quality capacity and exception time budget
 
 Status: IN PROGRESS
+
+### 2026-10-12 — Private token-authorized PostgreSQL workload HTTP readback
+
+The new isolated canonical PostgreSQL worklist adapter can now be mounted
+explicitly into a StudioLocalReaders instance and consumed on
+/v1/operator/workload. The **ordinary Studio server does not instantiate**
+this adapter and returns unavailable without the opt-in disposable reader.
+The shared loopback HTTP handler authenticates its own bearer, Host and Origin
+before invoking the collection-scoped reader. The exact collection/limit/cursor
+schema, read-only PostgreSQL snapshot and stale cursor denial remain owned by
+the source adapter, not copied into a secondary query path.
+
+A true disposable PostgreSQL→Studio HTTP test checks denied anonymous and
+cross-origin reads, a first bounded Collection page, a different Collection
+scope, revoked Capture immediately moving its row to a blocked reason, no
+transcript/URL leakage, malformed limits/cursors/unknown scopes and absence
+of any publication/text/dispatch authority. All 22 focused PG and HTTP tests
+PASS. This is an **operator-token, single-workspace canary**, not an
+independent multi-tenant identity or permission system; the exact local DB
+adapter refuses production/non-disposable DSNs. Real owner work time,
+licensed image decisions, human review, MiniPC wiring and original
+AC-519.1–5 remain OPEN. Release NO-GO.
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-417, DP-304
 
@@ -133,3 +155,70 @@ receipts retain `publication_authority=false`,
 There is no production Studio route, signed source/version truth, licensed
 real-image sample, public withdrawal, or MiniPC visual operator canary.
 **DP-519 stays IN PROGRESS, AC-519.1–.5 all unchecked and release NO-GO.**
+
+## 2026-10-12 — Disposable PostgreSQL private Studio workload read
+
+Added a separate **read-only** adapter
+`poc/dichiarazioni_pubbliche/studio_operator_workload_pg_v1.py` and a
+canonical PostgreSQL canary
+`tests/test_dp519_studio_operator_workload_pg_next.py`. The adapter
+requires a collection-scoped operator-authentication callback at each
+request; it refuses missing/failed verification and constrains the local
+testing DSN to loopback `dp519_disposable`. The callback is a **caller-side
+contract, not an authenticated actor or production permission by itself**;
+the real Studio HTTP entrypoint must provide independently checked session
+identity, authorization and access logging before using this seam.
+
+One `REPEATABLE READ READ ONLY` transaction reads only an INCLUDED
+Collection membership and the attached Content, most recent Capture,
+Passages and their linked Statement/Claim Candidates. It counts retained
+Captures and current-Capture Passages/Candidates without joining records
+from other Collections or reporting obsolete-Capture candidates as current.
+It also reads the latest unsuperseded Content-scoped rights leaf and
+Capture/content rights and hold metadata; missing, ambiguous, expired,
+revoked or insufficient rights produce a **blocked operator reason**, never
+permission. The private response gives a page-scoped blocked queue with
+specific inspection actions, aggregate scoped counts, allowlisted
+current-rights/Capture-hold status values and review-only rows.
+It exposes no private Passage text, normalized candidate text, original
+source URLs, rights receipt identifiers, operator notes or secrets.
+
+Pages are ordered by stable Content ID with a bounded keyset cursor.
+Each cursor binds Collection ID and a digest of the entire observed
+Collection status/row snapshot; if revocation, new Capture, candidate,
+Collection membership or rights change occurs between page requests,
+the next page **refuses** instead of mixing versions. Every read enforces
+at most 500 INCLUDED Content rows and at most 20 rows per page; oversized
+scope returns a hold instead of suggesting incomplete coverage. The
+adapter contains no writes, database migrations, audit-time recording,
+operator decision submission, image selection, provider work or release.
+`dispatch_authorized`, `publication_authority`,
+`image_approval_authority`, `text_review_authority` and
+`source_rights_attested` remain false.
+
+Real disposable PostgreSQL tests cover restart, auth refusal, different
+Collections and excluded membership, missing Capture, current/obsolete
+Capture candidates, current rights revocation/expiry/missing uses and
+ambiguous parallel rights, held candidates, PAUSED Collection, stable
+keyset/replay, source mutation between pages, concurrent read/revoke,
+boundedness and zero source-text exposure. An adversarial RED→GREEN
+demonstration removed the `rights_leaf_count != 1` guard: a conflicting
+live REVOKED rights leaf alongside CLEARED incorrectly returned
+`REVIEW_ONLY`; restoring the guard produces `BLOCKED`.
+
+This is a local private readiness view, **not** a real visual-image review
+queue, authentically measured owner workload, licensed/identity-correct
+image, qualified textual approval, public withdrawal or MiniPC rehearsal.
+The earlier SQLite event journal remains separate and unchanged. All
+`AC-519.1–.5` remain **unchecked**, ticket **IN PROGRESS** and release
+**NO-GO** until those external proofs and the authorized Studio HTTP
+integration exist.
+
+**Verification:** 10 new real disposable-PostgreSQL tests and the 19
+existing DP-519 capacity plus 13 Studio operator-queue tests passed together
+(**42/42 PASS**). The separate rights-ambiguity sabotage was **RED** on real
+PostgreSQL and returned **GREEN** after the required current-rights-leaf
+check was restored. Scoped Ruff lint and formatting, Python compilation and
+`git diff --check` passed. No runtime deployment, real operator-minute
+recording, external source authorization, source text export or provider
+action was performed.
