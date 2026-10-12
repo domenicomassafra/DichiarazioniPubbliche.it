@@ -368,3 +368,64 @@ No MiniPC, provider, real source, publisher, installed Studio player or
 production DB was touched. **Status: IN PROGRESS; AC-419.1–.4 remain unchecked.**
 The missing durable media Capture-version linkage, independently checked
 playback rights and real operator seek are still external integration blockers.
+
+### 2026-10-12 — Additive PostgreSQL Capture×Segment operator-attestation ledger (local only)
+
+This tranche adds **only** 'db/migrations/031_media_capture_segment_binding.sql',
+'poc/dichiarazioni_pubbliche/studio_media_capture_binding_pg.py', and
+'tests/test_dp419_media_capture_binding_pg_next.py'. The migration is additive
+to the **real canonical PostgreSQL schema** and replays idempotently; it
+introduces no changes to existing Passage selector semantics, Studio API/page
+or public routes. The new private table binds one immutable Content ID,
+Capture ID **and exact Capture SHA-256**, canonical Segment ID/index and
+millisecond range, with composite (id, content_id) FKs and direct-INSERT
+triggers checking source identity, SHA, segment coordinates, Content duration,
+current Capture/source revocation and hold state. The binding separately
+persists a DB-computed SHA-256 of the **canonical transcript words** without
+ever returning those private words or their hash to the consumer; an in-place
+text correction with unchanged Segment ID and time invalidates the attestation.
+An operator-supplied
+evidence_sha256 and attestor_ref are stored as immutable *attestation
+metadata*: **neither a cryptographically verified Capture→Segment derivation
+nor an approved rights/use or playback decision** is manufactured from this
+assertion. Without actual independent source evidence, its evidentiary
+authority remains unverified.
+
+The append-only companion event ledger records ATTEST, HOLD, REVOKE with
+unique event ID, request fingerprint and monotonically increasing CAS
+revision. Transaction-scoped advisory locks serialize both binding ID and
+Capture×Segment subject across competing clients; exactly matching event-ID
+replay succeeds, changed-payload replay and stale revision refuse, and
+terminal revocation cannot reinstate. PostgreSQL immutability triggers reject
+UPDATE/DELETE on both tables; an INSERT trigger independently rejects forged
+event revisions and post-revocation reinstatement. The Python adapter uses bounded parameterized
+psql transactions and fail-closed error codes without returning original
+media, body refs, source URLs, cookies, canonical transcript text or private
+operator evidence references.
+
+Every read recomputes effective hold reasons against **current** canonical
+Capture and Content rights/hold/retention, Capture SHA, Segment revision/time,
+transcript state and duration. It never returns a seekable media artifact;
+seek_authorized=false, rights_clearance=false and
+publication_authority=false, even for an operator-attested tuple and an
+apparently CLEARED Capture. A changed or withdrawn source produces a hold
+instead of reusing stale authority.
+
+TDD initially **RED** (missing source module), then **GREEN** on disposable
+local PostgreSQL initialized from 'db/schema.v1.sql' plus the twice-applied
+new migration. The dedicated suite plus inherited canonical fixture verifies
+**21/21 PASS**, including exact SHA/range and cross-Content rejects, direct SQL
+forgery, idempotent CAS/restart, two independent concurrency races, explicit
+rollback, immutable DML, current source rights/hold revocation and changed
+Capture/Segment/text re-read, plus SQL event-revision bypass rejects.
+Adjacent existing source/UI media inspector regression **21/21 PASS**.
+Ruff, Python compile and git diff --check
+PASS. No production DB, device, credential, provider, media playback, commit,
+push or deploy was used.
+
+**DP-419 remains IN PROGRESS; AC-419.1–.4 remain OPEN.** This is a metadata
+attestation persistence contract, **not** operator acceptance of a local
+rights-cleared media artifact or a browser HTMLMediaElement seek. The actual
+independently authenticated Capture-to-Segment derivation receipt, verified
+rights/use clearance at serving time, Studio wiring, keyboard/screen-reader
+behavior, and real MiniPC capture/playback readback remain external gates.
