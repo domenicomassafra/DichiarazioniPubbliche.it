@@ -224,3 +224,41 @@ atomic correction/reply/withdrawal cache and serving boundary, real original
 locator navigation, provider-offline production proof and MiniPC runtime
 canary remain required. The preview can reject an invalidated release once
 the authority rotates its pins; it cannot discover unseen revocations by itself.
+
+## 2026-10-12 — Private operator synopsis browser, source-only
+
+The isolated `web/src/lib/privateSynopsisBrowserV3.ts` composes the existing
+`privateSynopsisCrossPreviewV3.ts` without changing its independent release
+pin, public-original quotation, Person or Topic contracts. It produces a
+bounded, escaped HTML fragment for an **opt-in private operator** Astro SSR
+surface, with an explicit `noindex,nofollow,noarchive` directive. Its numbered
+synopses and separate source-original blockquotes expose native previous,
+next, source-focus and return links using accessible fragment targets and
+`tabindex=-1`; prospective original Statement links preserve source dates,
+Person attribution and pinned quote/source hashes. No client provider or
+online synopsis generation is introduced.
+
+The browser consumer delegates to the cross-reader's **two independent CURRENT
+release reads** and performs a **third issuer read after HTML assembly**. A
+changed release epoch, source projection, Topic membership, expiry or
+rights/quote/locator causes refusal; source/synopsis markup is escaped and
+bounded before any HTML is returned. The caller must add private no-store and
+robots response headers when a real authenticated operator route exists.
+
+`web/scripts/check-private-synopsis-browser-v3.mjs` uses actual synthetic
+Python `prepare_public_synopsis` data joined with DP-438/DP-439 Person/Topic
+records; RED was the missing browser consumer import. The GREEN test covers
+working hash-link target/keyboard-focus semantics, separate exact originals,
+escaped adversarial HTML, current epoch at read 1 and read 3, revoked Topic,
+modified original content and expired/withheld receipts. A temporary Astro
+SSR build renders the private, noindexed HTML and rejects revoked/late-epoch
+builds. Local proof: script PASS; `npm run check --prefix web` **115 files, 0
+errors/warnings/hints**; targeted DP-439/DP-440 Python tests **22/22 PASS**;
+`git diff --check` PASS. No route was added to the public app.
+
+**Original AC-440.1–.7 remain unchecked; status IN PROGRESS.** Python and
+frontend attestations here are synthetic; no independent production rights
+issuer, qualified editorial entailment, real original source clearance,
+authenticated operator endpoint, transactional cache invalidation, MiniPC
+readback or public launch was proved. The browser view cannot detect a
+withdrawal that its independent release authority has not yet recorded.
