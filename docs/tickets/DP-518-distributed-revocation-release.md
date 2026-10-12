@@ -140,3 +140,68 @@ independent source rights or latency was exercised. Its local cache path is
 only a test double for edge bytes. `release_authorized`,
 `withdrawal_verified_on_live_host` and `cache_purge_verified` remain false;
 **AC-518.1–.7 open, release NO-GO**.
+
+## 2026-10-12 — Canonical PG private release currentness reference (partial)
+
+Source-only, independently opt-in adapter
+`poc/dichiarazioni_pubbliche/ops/release_currentness_pg_v1.py`
+and `tests/test_dp518_release_currentness_pg_next.py` now consume the
+**actual canonical PostgreSQL schema** with the previously installed
+DP-320 disposable `dp320_pg_source`, `dp320_pg_revocation`,
+`dp320_pg_outbox`, `dp320_pg_ack`, and `dp320_pg_publication`
+tables/functions. The new `dp518_pg_release`, `dp518_pg_current`,
+and append-only `dp518_pg_selection` are **fixture-only** DDL,
+guarded by the local `dp320_test_*` database name. There is **no
+production migration** or real MiniPC/CDN/edge write.
+
+The private `select_private_reference` transaction locks the full
+sorted DP-320 dependency epoch/hash set and validates the exact
+already-recorded DP-320 release/artifact/fence, verifies revocation
+event→outbox identity/epoch/source completeness and absence of local
+pending ACKs, binds exact generation/projection/index digests in an
+immutable local release reference, then CAS-updates a monotone single
+private pointer. The separate append-only selection receipt makes
+replay idempotent only for the same original event while it remains
+the selected reference; old revision, different event payload,
+release-ID collision, missing DP-320 publication, deleted receipt,
+pointer rollback, or incomplete partial write is rejected. A PostgreSQL
+trigger-induced failure after event insert rolls back the entire
+selection event and pointer update.
+
+`read_private_reference` requires the exact expected release ID,
+index digest, projection digest and pointer revision. It calls the
+DP-320 database read fence under the same transaction: a concurrent
+revocation commits on one side of the source row lock, and the old
+release is never returned as coherent after it. In particular the
+test caught a genuine first-implementation readback defect where
+outbox counters were sampled **before** waiting on that source row
+lock; those counters and the private epoch/version token are now
+sampled **after** the lock/wait. A rights withdrawal, correction,
+source-hash drift, stale index pin, unacknowledged unrelated outbox,
+outbox corruption or manually rolled-back release pointer returns
+`HELD` with a source-ID-free reason and opaque version token.
+An ACK stored in the DP-320 **local fixture ledger** may clear a
+pending flag, but never reactivates a revoked dependency or proves
+an actual host purge. A coherent private reference returns
+`COHERENT_PRIVATE_REFERENCE` (not a public `CURRENT` claim) with
+`publication_authorized=False`, `host_ack_verified=False` and
+`cdn_ack_verified=False` **in every case**.
+
+**TDD RED→GREEN:** new test first failed to import the absent module.
+Subsequent real disposable PG17 fixture tests covered restart,
+same-event replay/conflicting payload, switch/rollback, correction and
+rights revocation before/after acknowledgement, broken outbox,
+material-hash drift, second-release revision collision, actual
+uncommitted-selection-vs-revocation and revocation-vs-reader locking,
+atomic rollback and append-only receipt tampering. Final **14 new
+PG tests** plus **8 existing DP-320 PG tests**, **22/22 PASS**,
+scoped Ruff, compileall and `git diff --check` PASS.
+
+This is a **private consistency reference only**: it neither owns the
+complete DP-518 public dependency inventory, signs source/owner
+authority nor propagates an atomic deployment generation, actual
+HTTP/asset/edge response denial, trusted cache purge ACK, release
+readback on the MiniPC or measured withdrawal SLO. No public
+consumer is wired to it, and it cannot attest any future byte sent
+after the transaction commits. **AC-518.1–7 remain all unchecked;
+DP-518 remains IN PROGRESS and public release NO-GO.**
