@@ -37,6 +37,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   const [index, setIndex] = useState<PublicSearchIndex | null>(null);
   const [indexState, setIndexState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
   const filterDialog = useRef<HTMLDialogElement>(null);
   const filterButton = useRef<HTMLButtonElement>(null);
 
@@ -192,6 +193,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
       <div className="search-field" style={{ margin: "0 0 22px" }}>
         <span className="search-icon" aria-hidden="true">⌕</span>
         <input
+          ref={searchInput}
           id="client-search"
           type="search"
           value={query}
@@ -200,7 +202,10 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Cerca dichiarazioni, persone, temi, contenuti…"
         />
-        {query && <button type="button" aria-label="Pulisci ricerca" onClick={() => setQuery("")}>×</button>}
+        {query && <button type="button" aria-label="Pulisci ricerca" onClick={() => {
+          setQuery("");
+          searchInput.current?.focus();
+        }}>×</button>}
       </div>
       <p id="search-limit" className="dp-visually-hidden">Massimo {SEARCH_QUERY_MAX_CHARS} caratteri. La ricerca resta nel browser.</p>
 

@@ -435,6 +435,23 @@ try {
     "default Explore list differs from the approved search index");
   assert.equal(await cdp.evaluate("document.querySelector('.results-count[aria-live=polite]')?.textContent.trim()"),
     `${allRecords} risultati`, "initial announced result count does not match the visible list");
+  // Removing the focused, conditional clear button must not strand keyboard
+  // users on <body> after React unmounts it.
+  await cdp.evaluate("document.querySelector('#client-search').focus()");
+  await cdp.send("Input.insertText", { text: "ricerca temporanea" });
+  await waitFor(cdp, "document.querySelector('[aria-label=\"Pulisci ricerca\"]') !== null", "search clear affordance did not render");
+  await key(cdp, "Tab", { code: "Tab", keyCode: 9 });
+  assert.equal(await cdp.evaluate("document.activeElement?.getAttribute('aria-label')"),
+    "Pulisci ricerca", "keyboard focus did not reach search clear button");
+  await key(cdp, " ", { code: "Space", keyCode: 32, text: " " });
+  await waitFor(cdp, "document.querySelector('#client-search')?.value === ''", "clear button failed to reset search");
+  assert.equal(await cdp.evaluate("document.activeElement?.id"), "client-search",
+    "clear button unmount lost keyboard focus instead of returning to search");
+  assert.equal(await cdp.evaluate("document.querySelector('[aria-label=\"Pulisci ricerca\"]')"), null,
+    "search clear button must disappear after clearing");
+  await waitFor(cdp, "!new URLSearchParams(location.search).has('q')", "search-clear URL state was not restored");
+  await waitFor(cdp, `document.querySelector('.results-count')?.textContent?.trim() === '${allRecords} risultati'`,
+    "search count did not recover after clear");
   const assertRadioAx = async (name, checked) => {
     const nodes = (await cdp.send("Accessibility.getFullAXTree")).nodes;
     const radio = nodes.find((node) => axValue(node, "role") === "radio" && axValue(node, "name") === name);

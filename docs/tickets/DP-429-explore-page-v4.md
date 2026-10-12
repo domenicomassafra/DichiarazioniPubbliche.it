@@ -164,3 +164,30 @@ The mixed keyboard/screen-reader/200%-zoom/reduced-motion criterion stays
 **unchecked**, because real VoiceOver/NVDA (or equivalent) judgment and manual
 visual/owner acceptance remain outstanding. Status remains IN PROGRESS.
 No MiniPC deployment or public release is represented by this receipt.
+
+### 2026-10-12 — Search-clear focus regression (bounded source tranche)
+
+Owner: serial DP integrator, `fix/dp429-clear-search-focus-20261012`.
+Scope: `web/src/components/ExploreClient.tsx`, existing browser QA in
+`web/scripts/check-browser-qa.mjs`, and this ticket only. AC: on populated
+approved-index search, keyboard-activating `Pulisci ricerca` clears the query,
+restores focus to the stable search input when the conditional button unmounts,
+and preserves the accessible result count and same-origin search boundary.
+Use the native React input ref and the current real-Chrome QA harness (no new
+dependency, service, abstraction, editorial/public dataset or deployment).
+Reuse search: existing `useRef`/`.focus()` in ExploreClient's filter dialog and
+its CDP keyboard/accessibility suite; DStack/owner-code search found no more
+specific component helper, and native focus is sufficient. AC-429 manual AT,
+MiniPC live proof and publication acceptance remain open independently.
+
+Source and browser proof: the initial real-Chrome test failed on the clear
+control; after the native `useRef<HTMLInputElement>` focus restoration the
+existing isolated `DP429_BROWSER=1` test passes with keyboard Space activation,
+unmounted clear button, returned input focus, URL `q` reset and restored result
+count. Both approved-empty and explicitly local populated-fixture artifacts were
+built independently; fixture data were not published. Fresh `npm run check`
+(0 diagnostics), `check:search` (PASS), `check:quality` (PASS), and
+`check:design:a11y` (8 PASS) are source/static evidence, not live MiniPC,
+screen-reader, manual owner or editorial acceptance. Delivery state remains
+`PUSHED_FOR_REVIEW` when the remote branch SHA is verified; PR is held under the
+existing auto-review billing guard until effective provider settings readback.
