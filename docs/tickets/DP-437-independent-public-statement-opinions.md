@@ -76,6 +76,39 @@ rights, real correction/reply propagation, independent editor signoff or
 MiniPC readback. Original AC-437.1–.4 remain OPEN; no public route,
 provider, production change or authority was installed.
 
+### 2026-10-12 — Private opinion currentness and rights-withdrawal race
+
+An additional adversarial read on the real Python-approved, original-wording
+opinion fixture found a concrete race in the independent CURRENT release
+check. When the caller shared a mutable `expected` pin object with the
+release reader, the second read could increment its `epoch` in place. The
+private consumer compared the updated release to the updated request object
+and returned `READY` for the old request instead of refusing the release
+transition. The new isolated regression was **RED** (`AssertionError:
+Missing expected rejection`, `check-private-opinion-currentness-wave-close.mjs:62`).
+
+`readPrivateStatementOpinionV3` now snapshots the request's flat release
+pins before the first asynchronous authority read and compares both
+independent CURRENT reads to that fixed snapshot. Each read also validates
+the real expiry deadline at the moment it completes: a release that expires
+while the second authority callback is outstanding can no longer return an
+opinion snippet with otherwise unchanged release ID, epoch and hashes.
+The deterministic expiry test advances a controlled local clock at the
+second read. **GREEN**: the new Node test exercises both revocation cases
+and an isolated Astro SSR page with the approved original quote, source,
+date, explicit no-Finding and noindex; the earlier DP-437 Python→TS→Astro
+preview still passes. Adjacent DP-438 Person, cross-reader release, DP-439
+Person×Topic and v3 search checks all pass; `npm run check --prefix web`
+reports **120 files, zero errors/warnings/hints**, and `git diff --check`
+passes. All checks use synthetic approved fixture artifacts on the Mac.
+
+**Original AC-437.1–.4 remain OPEN / ticket IN PROGRESS.** The change
+hardens only an opt-in private preview. It does not supply public canonical
+Statement/Topic/Content routes, independent real rights attestation,
+append-only reply/correction/retraction readback, source licensing, real
+MiniPC acceptance or publication authority. The release issuer still must
+rotate independently authenticated CURRENT pins when rights are withdrawn.
+
 2026-10-10: specification only, **not implemented**, all new AC unchecked.
 
 ## 2026-10-11 — First implementation slice

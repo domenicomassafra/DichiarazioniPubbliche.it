@@ -50,8 +50,8 @@ export type PrivateStatementOpinionResult =
      statement:PrivateStatementOpinionCard};
 
 function fault(reason: string): never { throw new Error("DP437_PRIVATE_" + reason); }
-function pinsMatch(a: PrivateStatementOpinionPins, b: PrivateStatementOpinionPins): boolean {
-  return canonicalJson(a) === canonicalJson(b);
+function pinsMatch(a: PrivateStatementOpinionPins, pinnedJson: string): boolean {
+  return canonicalJson(a) === pinnedJson;
 }
 function matchesArchive(row: PrivatePersonSourceCard, source: PublicOriginalStatement): boolean {
   return row.statementId === source.statement_id &&
@@ -84,16 +84,25 @@ export async function readPrivateStatementOpinionV3(
       typeof readCurrentPins !== "function" ||
       typeof expected.releaseId !== "string" || !ID.test(expected.releaseId) ||
       !Number.isSafeInteger(expected.epoch) || expected.epoch < 0) fault("PIN_REQUIRED");
+  // Capture the caller's flat pin values before the first async authority
+  // read. A shared mutable pin object must not rebase this request onto an
+  // epoch that changed while the old Statement assets were being inspected.
+  const pinned = {...expected};
+  const pinnedJson = canonicalJson(pinned);
+  const expires = Date.parse(pinned.validUntil);
   async function current(): Promise<PrivateStatementOpinionPins> {
     let value: PrivateStatementOpinionPins;
     try { value = await readCurrentPins(); }
     catch { return fault("CURRENT_RELEASE_UNAVAILABLE"); }
-    if (!value || !pinsMatch(value, expected)) fault("CURRENT_RELEASE_CHANGED");
+    if (!value || !pinsMatch(value, pinnedJson)) fault("CURRENT_RELEASE_CHANGED");
+    // The downstream archive preflight checked expiry earlier. It cannot
+    // authorize a response after an expiry during the second async pin read.
+    if (!Number.isFinite(expires) || expires <= Date.now()) fault("CURRENT_RELEASE_EXPIRED");
     return value;
   }
   await current();
   const person = await readPinnedPrivatePublicPersonV3(
-    artifacts, {...expected,allowPrivatePersonPreview:true}, personId);
+    artifacts, {...pinned,allowPrivatePersonPreview:true}, personId);
   let result: PrivateStatementOpinionResult = UNAVAILABLE;
   if (typeof statementId === "string" && ID.test(statementId) &&
       person.status === "APPROVED_WITH_STATEMENTS") {
