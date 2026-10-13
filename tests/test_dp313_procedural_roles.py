@@ -220,6 +220,35 @@ class ProceduralDocumentRoleTests(unittest.TestCase):
         self.assertEqual(correct.state, "CANDIDATE_PRIVATE")
         self.assertEqual(correct.spans[0].underlying_fact_assessment, "NOT_EVALUATED")
 
+    def test_multiple_parties_cannot_infer_who_has_one_conviction_status(self):
+        text = "Bruno è condannato per avere colpito Mario."
+        involved = (
+            DocumentPerson("person:mario", PrivacyClass.PUBLIC_FIGURE),
+            DocumentPerson("person:bruno", PrivacyClass.PUBLIC_FIGURE),
+        )
+        attributed_to_victim = span(
+            text, text=text, kind=AssertionKind.FINDING_ORDER,
+            role=DocumentaryRole.COURT_DECISION, speaker="body:judge",
+            subjects=("person:mario",),
+            procedural_party_refs=("person:mario", "person:bruno"),
+            status=ProceduralStatus.CONVICTED, negation_polarity="AFFIRMED",
+        )
+        ambiguous = evaluate_procedural_document(source(text), involved, (attributed_to_victim,))
+        self.assertEqual(ambiguous.state, "HOLD")
+        self.assertIn("STATUS_PARTY_IDENTITY_AMBIGUOUS", ambiguous.spans[0].reason_codes)
+        # Changing the asserted subject to the actual described criminal does
+        # not make a broad multi-party role list proof of status identity.
+        still_ambiguous = evaluate_procedural_document(source(text), involved, (
+            dataclasses.replace(attributed_to_victim, subject_person_refs=("person:bruno",)),
+        ))
+        self.assertIn("STATUS_PARTY_IDENTITY_AMBIGUOUS", still_ambiguous.spans[0].reason_codes)
+        exact = evaluate_procedural_document(source(text), involved, (
+            dataclasses.replace(attributed_to_victim,
+                                subject_person_refs=("person:bruno",),
+                                procedural_party_refs=("person:bruno",)),
+        ))
+        self.assertEqual(exact.spans[0].state, "CANDIDATE_PRIVATE")
+
     def test_mislabeled_status_or_jurisdiction_effective_date_holds(self):
         phrase = "Mario è indagato."
         base = span(

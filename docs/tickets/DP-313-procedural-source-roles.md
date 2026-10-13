@@ -106,3 +106,24 @@ Regression and neighbouring code tests are local synthetic source-only; no
 qualified legal status authority, original document/OCR, privacy approval,
 reviewer identity, MiniPC conditional revalidation or public release proved.
 **All AC-313.1–6 remain OPEN and ticket IN PROGRESS.**
+
+### 2026-10-13 — Independent adversarial multi-party status review P2
+
+Independent native GPT-6 read-only review identified a remaining P2 after
+`STATUS_SUBJECT_PARTY_MISMATCH`: a list of procedural parties is not an
+identity-specific status grant. A synthetic court sentence `Bruno è condannato
+per avere colpito Mario.` with asserted status target `person:mario` could
+retain `person:mario` **and** `person:bruno` in its party list and incorrectly
+produce a private `CONVICTED / CANDIDATE_PRIVATE` for the victim. Focused
+red regression reproduced this exact P2 on PR22's source.
+
+The opt-in preflight now conservatively HOLDS a specifically asserted
+procedural status if either the declared status subjects or procedural
+participants contain multiple distinct people (`STATUS_PARTY_IDENTITY_AMBIGUOUS`),
+regardless of whether one name appears in both lists. A single exact
+subject/affected-party match remains a private candidate; an unrelated
+single-party mismatch remains held. More complex multi-person legal orders
+will require a separately reviewed per-status person binding, not an
+automatic name or quotation inference. Qualified legal reviewers, real case
+material, privacy policy and MiniPC conditional readback remain required;
+**all DP-313 AC are OPEN**, no truth verdict/public status is asserted.

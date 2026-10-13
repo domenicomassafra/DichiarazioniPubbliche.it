@@ -419,6 +419,15 @@ def evaluate_procedural_document(
                 or not set(span.subject_person_refs).issubset(span.procedural_party_refs)
             ):
                 codes.append("STATUS_SUBJECT_PARTY_MISMATCH")
+            if span.status != ProceduralStatus.UNKNOWN and (
+                len(set(span.subject_person_refs)) != 1
+                or len(set(span.procedural_party_refs)) != 1
+            ):
+                # A participant list can include victims, claimants and
+                # accused persons. It is not a reviewed per-status target
+                # binding; when more than one person is involved, never
+                # infer which person's legal status the words establish.
+                codes.append("STATUS_PARTY_IDENTITY_AMBIGUOUS")
             # A status mentioned in testimony, a reporter's quotation or a
             # party allegation does not attest that procedural state, even
             # when embedded verbatim in an authentic court order. Keep such
