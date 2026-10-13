@@ -47,6 +47,19 @@ class FakeWitness:
 
 
 class MonthlyLiabilityPgWaitWitnessTests(unittest.TestCase):
+    def test_disposable_ci_witness_covers_backend_and_detached_clone_only(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml").read_text()
+        flag = 'DP514_CI_PG_WAIT_WITNESS: "1"'
+        self.assertEqual(workflow.count(flag), 2)
+        for step in (
+            '      - name: Unit and regression tests\n',
+            '      - name: Clone to a scratch directory and run the backend/package profile\n',
+        ):
+            self.assertIn(step, workflow)
+            section = workflow.split(step, 1)[1].split('        run:', 1)[0]
+            self.assertIn('DP514_CI_PG_DIAGNOSTIC: "1"', section)
+            self.assertIn(flag, section)
+
     def setUp(self):
         FakeWitness.instances.clear()
         executable = patch(

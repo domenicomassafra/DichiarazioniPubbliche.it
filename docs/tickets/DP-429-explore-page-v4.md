@@ -164,3 +164,108 @@ The mixed keyboard/screen-reader/200%-zoom/reduced-motion criterion stays
 **unchecked**, because real VoiceOver/NVDA (or equivalent) judgment and manual
 visual/owner acceptance remain outstanding. Status remains IN PROGRESS.
 No MiniPC deployment or public release is represented by this receipt.
+
+### 2026-10-12 — Search-clear focus regression (bounded source tranche)
+
+Owner: serial DP integrator, `fix/dp429-clear-search-focus-20261012`.
+Scope: `web/src/components/ExploreClient.tsx`, existing browser QA in
+`web/scripts/check-browser-qa.mjs`, and this ticket only. AC: on populated
+approved-index search, keyboard-activating `Pulisci ricerca` clears the query,
+restores focus to the stable search input when the conditional button unmounts,
+and preserves the accessible result count and same-origin search boundary.
+Use the native React input ref and the current real-Chrome QA harness (no new
+dependency, service, abstraction, editorial/public dataset or deployment).
+Reuse search: existing `useRef`/`.focus()` in ExploreClient's filter dialog and
+its CDP keyboard/accessibility suite; DStack/owner-code search found no more
+specific component helper, and native focus is sufficient. AC-429 manual AT,
+MiniPC live proof and publication acceptance remain open independently.
+
+Source and browser proof: the initial real-Chrome test failed on the clear
+control; after the native `useRef<HTMLInputElement>` focus restoration the
+existing isolated `DP429_BROWSER=1` test passes with keyboard Space activation,
+unmounted clear button, returned input focus, URL `q` reset and restored result
+count. Both approved-empty and explicitly local populated-fixture artifacts were
+built independently; fixture data were not published. Fresh `npm run check`
+(0 diagnostics), `check:search` (PASS), `check:quality` (PASS), and
+`check:design:a11y` (8 PASS) are source/static evidence, not live MiniPC,
+screen-reader, manual owner or editorial acceptance. At the 2026-10-12
+checkpoint, delivery was `PUSHED_FOR_REVIEW` with PR creation held because the
+external automatic-review billing setting was not yet confirmed OFF.
+
+**2026-10-13 owner update:** the owner explicitly confirmed automatic code
+reviews are disabled everywhere and instructed removal of that blocker. The
+historical `PR_HELD_AUTOREVIEW_BILLING_GUARD` is therefore **RESOLVED by owner
+attestation**, not an open ticket or an outstanding PR-creation prerequisite.
+The accessible ChatGPT settings independently showed the visible personal
+switches OFF but did not expose the historically linked GitHub identity;
+do not misrepresent owner confirmation as a provider-account readback. Normal
+local review, actual PR CI, native review threads, manual accessibility and
+editorial/publication gates remain separate and applicable. No automatic
+Codex review or extra-credit review is requested by this change.
+
+MiniPC real-Chrome 155 isolated-source follow-up, 2026-10-12: the approved-empty
+canary passed 18 route checks, exact 200% zoom, keyboard and zero external
+requests; a populated local-only canary exposed a late `<dialog>` close event
+that could reset the filter trigger's `aria-expanded` after immediate reopen.
+The owned fix synchronizes disclosure to the dialog's observed open state on
+`close`, preserving focus restoration only for a truly closed dialog; the
+existing browser suite now explicitly covers rapid keyboard reopen. After the
+fix, `DP429_BROWSER=1 node tests/dp429_explore_accessibility_regression.mjs`
+passed on Mac, with Astro 0 diagnostics, search checks and 8 design-a11y checks
+PASS. **MiniPC isolated Chrome 155 replay: PASS** for the populated 12-record
+fictional fixture (including rapid filter reopen, clear-button keyboard focus,
+URL/results restoration, zero external requests); the approved-empty isolated
+build independently passed 18 routes, exact 200% browser zoom on six pages,
+keyboard, reduced motion and zero external requests. Temporary canary files
+were cleaned; MiniPC live service stayed active and deployed Explore HTML SHA
+`e9e4358ca5ddffab4c5c3d851a809a75d0bd2ddd26db5a356507c3d6a3aca3ef`
+remained unchanged. Neither fixture is a public dataset, deployment or sign-off.
+
+### 2026-10-13 — Independent PR review: delayed-close race regression
+
+An independent native Chat On Steroids worker reviewed PR #3 at
+`58ec0f0e932e66af64205a37a46e2d013c5587f5` and identified a coverage gap:
+the existing keyboard test reopened the filter dialog only **after** the native
+`close` event had been consumed. The browser test now intentionally calls
+`dialog.close()` and reopens it synchronously in the same JavaScript task,
+proves the delayed native `close` event arrives while the dialog is open,
+and checks `aria-expanded="true"` plus focus remaining inside it after React
+handles that event. The worker demonstrated **RED** against the previous
+`17ad6db` handler (`aria-expanded="false"` while the dialog was open), then
+**GREEN** on the corrected component with real Chrome; the existing
+`DP429_BROWSER=1` approved-empty and local-populated QA still passes.
+This is strengthened source/regression proof, not a manual screen-reader
+acceptance or permission to merge/deploy/publicly publish content.
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q1 suggerimenti espliciti di ricerca, query originale preservata. Q2 Esplora iniziale per data recente della dichiarazione, distinto da data di aggiunta. Q3 filtri/sezioni per cronologia, pertinenza ed esiti documentati di verifica della singola proposizione. “Più giuste/sbagliate” è richiesta UX da affinare su stati approvati, non autorizza punteggi/ranking delle persone, booleani da opinioni o comparazione non calibrata. Distinguere SUPPORTED/FACTUALLY_FALSE da NOT_CHECKED/insufficient/conflict/non-factual; sorting quantitativo richiede criterio adeguato, altrimenti usare filtro per categoria.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+### 2026-10-13 — Opt-in suggestions from the approved public index (source-only)
+
+New deterministic `ExploreClient` suggestions are offered **only after zero matches**
+and only from the current verified public search index, with at most four bounded
+near-word proposals. They use the already approved public vocabulary, respect
+record-kind and Person/Topic/result-state filters, never query private tables
+or a provider, and preserve the exact original query including whitespace in
+the input and shareable URL. A visible button explicitly selects a suggested
+query and returns keyboard focus to search. No automatic spelling correction,
+person ranking or inference of an outcome from an opinion is performed.
+
+Test `web/scripts/check-dp429-public-query-suggestions-20261013.mjs` was
+**RED** before the component export existed, then **GREEN**. Astro check has
+zero errors/warnings, `check:search` and `check:design:a11y` pass; an isolated
+local demo build and real Chrome QA pass with 12 fictional records, 21
+scanned routes, zero external requests, genuine 200% browser zoom and phone
+reflow. This is technical pre-merge test evidence only, not real source,
+editorial, MiniPC deployment or manual assistive-technology acceptance.
+
+**Q2 remains blocked** pending DP-409/public-projection support for a separately
+verified date of the original Statement and an archive-addition timestamp:
+the current v2 `published_at` field is finding/source publication, **not**
+necessarily the date of the declaration. The interface now labels the known
+date boundary rather than falsely claiming chronological Statement sorting.
+The original DP-429 acceptance and manual/accessibility gate remain open;
+ticket stays **IN PROGRESS**.

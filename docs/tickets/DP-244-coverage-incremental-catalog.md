@@ -129,3 +129,10 @@ was **RED** (`CURRENT_WITHIN_OBSERVED_SCOPE` vs expected `PARTIAL`), then
 granted, watch enabled, DB modified or public site updated. All AC-244.1–.6
 remain OPEN until the separately required real rights, persistence, runtime
 and MiniPC evidence is available.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q9 breve indicazione della copertura/lacune/freshness nelle pagine Persona/Tema interessate, dettagli raggiungibili. Non convertire campione osservato in copertura globale né dati non acquisiti in assenza di dichiarazioni.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

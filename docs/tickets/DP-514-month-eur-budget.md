@@ -528,3 +528,19 @@ No hosted-runner witness has yet proved whether the intermittent error comes
 from CPU/scheduling, locks or other cancellation. DP-514 original AC,
 financial authority and MiniPC acceptance remain OPEN; no production DB or
 provider account was changed.
+
+### 2026-10-13 — Detached clean-clone CI witness coverage
+
+GitHub PR #3 run `38448667971`, detached clean-clone job
+`115473617994`, failed on the same DP-514 monthly-refund snapshot test
+under Python 3.12, while the backend matrix passed. The detached-clone
+workflow executed the Python test suite without the optional diagnostic
+flags, preventing a safe wait-state observation for that runner failure.
+The existing disposable-fixture-only flags now also apply **only** to its
+backend/package test step, alongside the previously covered backend matrix
+unit step; a deterministic workflow regression verifies both scopes.
+
+No production, public build or provider operation is included. This change
+provides an eventual safe witness, not a fix or proof of the intermittent
+timeout mechanism. The existing timeouts, no-retry policy, unresolved
+financial authority, MiniPC readback and all original DP-514 AC remain OPEN.
