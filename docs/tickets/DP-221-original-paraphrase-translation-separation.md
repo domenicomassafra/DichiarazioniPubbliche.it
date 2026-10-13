@@ -131,3 +131,10 @@ source-body equality, SUMMARY equality and TRANSLATION equality each produce
 (`dossier_count=1, omitted_count=0`). The bundle and local helper were removed after the
 canary. No production DB/provider/config/deploy mutation occurred. This completes DP-221
 without granting any source/excerpt right beyond the separate DP-305 policy.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q4 originale e traduzione visibili insieme, etichettati e legati allo stesso passaggio/versione, senza presentare derivati come parole originali. Approvazione e diritti per ogni rappresentazione rimangono indipendenti.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

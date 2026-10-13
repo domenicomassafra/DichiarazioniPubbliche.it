@@ -164,3 +164,10 @@ The mixed keyboard/screen-reader/200%-zoom/reduced-motion criterion stays
 **unchecked**, because real VoiceOver/NVDA (or equivalent) judgment and manual
 visual/owner acceptance remain outstanding. Status remains IN PROGRESS.
 No MiniPC deployment or public release is represented by this receipt.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q1 suggerimenti espliciti di ricerca, query originale preservata. Q2 Esplora iniziale per data recente della dichiarazione, distinto da data di aggiunta. Q3 filtri/sezioni per cronologia, pertinenza ed esiti documentati di verifica della singola proposizione. “Più giuste/sbagliate” è richiesta UX da affinare su stati approvati, non autorizza punteggi/ranking delle persone, booleani da opinioni o comparazione non calibrata. Distinguere SUPPORTED/FACTUALLY_FALSE da NOT_CHECKED/insufficient/conflict/non-factual; sorting quantitativo richiede criterio adeguato, altrimenti usare filtro per categoria.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

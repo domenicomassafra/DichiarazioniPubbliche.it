@@ -151,3 +151,10 @@ No attested source jurisdiction/rights, claim semantics, date-effective legal
 version, independent gold, authorized reviewer, durable ledger, provider,
 or publication authority is created by these local source-only checks.
 **All original AC-314.1–.6 remain open; status IN PROGRESS.**
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q3 richiede filtri per esito verificato della specifica proposizione, non giudizi sulle persone. Esiti non verificati/insufficienti/conflittuali/non-fattuali rimangono distinti e non diventano falsità. Q6 sintesi breve e limiti immediatamente visibili, prove e spiegazione completa raggiungibili; nessuna nuova verifica o pubblicazione attestata.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
