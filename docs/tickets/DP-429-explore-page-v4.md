@@ -307,3 +307,24 @@ paid service, new public rights decision or MiniPC deploy.
 **DP-429 remains IN PROGRESS and all original AC checkboxes stay unchanged.**
 Manual screen-reader/physical/owner acceptance and main PR+CI release gate
 remain external requirements.
+
+### 2026-10-14 — Independent mobile-filter source review and browser rerun
+
+An independent **read-only worker-7** source review of exact remote source
+`15d89f3fa216a615f7c412afb23fbf707cc6b0dc` inspected the committed
+Explore component, CSS, public index validator/searcher and regressions. It
+found **no reproducible new P1/P2** within that source scope. Approved facet
+counts only use current `finding.person_id` and `finding.topic_ids`, checked
+against approved public Person/Topic rows; unknown URL facet labels stay
+generic without echoing potentially private identifiers. Chip removal keeps
+other filters and the exact typed query; source CSS wraps long labels at phone
+and 200%-equivalent widths with >=44px controls. Reviewer test, diff check and
+worktree consistency PASS; reviewer made **no edits, Git or provider calls**.
+
+Prime reran the actual local empty/demo isolated browser QA: keyboard, AX
+automation, reflow and exact 200% browser zoom **PASS**; production-boundary
+checks **PASS**, including renamed-demo refusal and non-indexable test mode.
+`check:search` and eight design/contrast/a11y Node checks PASS. These are
+automated synthetic-browser controls only: real manual screen-reader and
+MiniPC/public release acceptance remain **OPEN**, with ticket Status and AC
+unchanged; no public v3 records or editorial review were activated.
