@@ -76,7 +76,10 @@ export async function validateOriginalStatement(value: unknown): Promise<PublicO
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("PUBLIC_STATEMENT_INVALID");
   }
-  const statement = value as PublicOriginalStatement;
+  // Detach before any asynchronous hash work. The caller owns `value`; its
+  // later changes must not alter an already validated original quote,
+  // attribution, source locator, or independently reviewed translation.
+  const statement = structuredClone(value) as PublicOriginalStatement;
   const requiredText = [
     statement.statement_id, statement.version_id, statement.person_id,
     statement.speaker_name, statement.content_id, statement.source_title,
