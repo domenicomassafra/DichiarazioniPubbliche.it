@@ -405,3 +405,21 @@ matrix. Ruff, compile and diff-check pass. The historical four failures have
 not a root-cause finding, remediation, budget approval or production release.
 All AC-514.1–7 remain OPEN. Source/provider work, real billing and MiniPC
 release remain blocked by their independent gates.
+
+### 2026-10-13 — Simulated no-psql macOS CI regression (same diagnostic PR)
+
+The first cross-platform PR #19 CI found a real test-only harness defect:
+all four macOS Python jobs failed the synthetic diagnostic tests because
+`DisposableBillingPgFence` correctly checks `shutil.which('psql')` during
+construction, but macOS CI intentionally has no `psql` installed. The tests
+were already mocking `subprocess.run`, not the preceding executable check.
+This was not evidence that PostgreSQL production code or receipt policy
+should change. A local simulation making `shutil.which` return `None`
+reproduced **five failures and two errors** with `BILLING_PSQL_MISSING`
+before the test fix. The mock-only synthetic test class now explicitly
+stubs the preflight executable result for its lifetime, and does not change
+or weaken the actual executable/DSN check. The same absent-psql simulation
+is **6/6 GREEN**, as are 22 local DP-514 diagnostics/real disposable
+PostgreSQL tests, Ruff and diff check. The new CI must be rerun on the
+updated exact commit before technical integration. No original PostgreSQL
+SQLSTATE has been recovered and all DP-514 AC remain OPEN.

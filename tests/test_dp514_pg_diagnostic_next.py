@@ -21,6 +21,18 @@ PRIVATE = "receipt:private-person password=DO_NOT_LOG provider=PRIVATE_API_KEY"
 
 
 class MonthlyLiabilityPgDiagnosticTests(unittest.TestCase):
+    def setUp(self):
+        # The entire unit surface mocks psql subprocess.run, including the
+        # success path. Also mock the existing executable-presence preflight:
+        # macOS CI deliberately does not install PostgreSQL binaries, and a
+        # synthetic test must not depend on an external CLI installation.
+        executable = patch(
+            "dichiarazioni_pubbliche.ops.billing_pg_fence_v1.shutil.which",
+            return_value="/disposable-test-only/psql",
+        )
+        executable.start()
+        self.addCleanup(executable.stop)
+
     def fail_psql(self, *, code=3, stderr=""):
         return subprocess.CompletedProcess([], code, "", stderr)
 
