@@ -179,7 +179,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                 data-content-select={dossier.finding_id}
                 aria-current={index === 0 ? "true" : undefined}
                 aria-controls={`content-detail-${dossierSlug(dossier)}`}
-                aria-label={`Seleziona il momento ${msLabel(locator.startMs)}: ${dossier.claim}${publicationState(dossier.finding.publication_status) ? ` · ${publicationState(dossier.finding.publication_status)?.label}` : ""}`}
+                aria-label={`Seleziona il momento ${msLabel(locator.startMs)}, sintesi editoriale: ${dossier.claim}${publicationState(dossier.finding.publication_status) ? ` · ${publicationState(dossier.finding.publication_status)?.label}` : ""}`}
               >
                 <span class="dp-tape__dot" aria-hidden="true"></span>
                 <span class="dp-tape__label">{msLabel(locator.startMs)}</span>
@@ -197,6 +197,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
             <div class="eyebrow">Nel contenuto</div>
             <h2 class="section-title section-title-sm" id="content-moments-heading">Momenti pubblicati</h2>
             <p>La posizione viene dal locator pubblico, non dall’ordine di visualizzazione.</p>
+            <p>Le formulazioni sono sintesi editoriali delle dichiarazioni, non citazioni letterali della fonte.</p>
           </div>
         </div>
 
@@ -226,7 +227,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                   aria-controls={`content-detail-${slug}`}
                 >
                   <span class="content-moment__locator">{locator.label}</span>
-                  <span class="content-moment__claim">“{dossier.claim}”</span>
+                  <span class="content-moment__claim">{dossier.claim}</span>
                   <span class="content-moment__person">{dossier.speaker.name}</span>
                   {state && <span class="content-moment__status">{state.label}</span>}
                   {!retracted && <Assessment code={dossier.finding.assessment} compact />}
@@ -242,7 +243,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                   <div class="eyebrow">
                     {locator.kind === "timed" ? "Momento selezionato" : locator.kind === "written" ? "Passaggio selezionato" : "Elemento selezionato"} · {locator.label}
                   </div>
-                  <h3>“{dossier.claim}”</h3>
+                  <h3>{dossier.claim}</h3>
                   {state && (
                     <section class="dp-state content-publication-state" aria-label="Stato della valutazione pubblicata">
                       <h4 class="dp-state__title">{state.label}</h4>
