@@ -246,3 +246,43 @@ demo builds stay nonindexable, and empty genuine-shape projection builds work.
 `npm run check:search` also passes. Before this test-only follow-up the source
 patch had passed **3,445/3,445** full Python unit tests and benchmark **5/5**;
 the original DP-431 MiniPC proof/status/AC remain untouched. No live rollout.
+
+## 2026-10-14 — Final remote-branch source-only review and TS/Python parity
+
+Reviewed the **actual committed branch** `b3944cb2ec3694fe0d446dff0cc891443aa8a8ae`
+against the unmodified `main` base `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`.
+The original worker's three changed test/source files match the integrator
+**byte for byte** (`cmp` succeeded independently for each file). No earlier
+dirty worker file, stash or other worktree was deleted or overwritten.
+
+The previously unavailable worker review was **not** relabeled as complete.
+A bounded in-session **source-only two-axis diff review** checked standards
+(no external provider/corpus I/O, fail-closed behavior, bounded prepublication
+scope, no new production authorization) and original DP-431 spec semantics
+(revocation/correction fingerprint consistency, missing/extra metadata and
+all four published object kinds). No reproducible additional P1/P2 appeared
+in that reviewed scope; this is **not** a separate qualified editorial,
+browser-user or security certification. The independently written
+`web/scripts/check_dp431_typescript_python_parity.py` executes the actual
+`buildSearchIndexMaterial` JavaScript/TypeScript module, rather than a second
+hand-copied TypeScript expectation, on eight bounded Python-generated
+projections. Finding, Person, Topic and first-class/legacy Content records
+match the canonical Python checker exactly; an unapproved Topic facet,
+private search term, missing field and extra key all cause a propagation
+HOLD. Result: `DP431_TS_PY_PARITY_PASS`.
+
+Exactly **one complete Python suite** was run for this final committed tree:
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`
+returned **3,445 tests, OK (368.843 s), exit 0**. The deterministic benchmark
+returned **5/5 PASS**. Real `npm run check:rebuild` returned PASS for the
+correction/hold/static/API/history matrix and four fail-closed injections;
+`node scripts/check-production-projection-boundary.mjs` returned PASS for
+demo refusal, non-indexable fixture mode and empty approved-shape build;
+`npm run check:search` returned PASS. The demo-only build seam remains inside
+the temporary test harness, and `web/src/lib/projection.ts` and the production
+rebuild module are unchanged. The new parity script is an additive local
+test harness, not an externally qualified independent signer.
+
+**Original DP-431 DONE and all AC unchanged.** No fresh physical MiniPC,
+rights, source or public deployment acceptance. PR/CI exact-head and GitHub
+auto-review billing OFF remain unverified; branch push is distinct from merge.
