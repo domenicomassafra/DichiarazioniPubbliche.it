@@ -408,34 +408,41 @@ class InvestigationSQLiteStore:
         return row[0], recorded, row[2]
 
     @classmethod
-    def _reject_legacy_source_scope(
+    def _reject_cross_scope_cost_replay(
         cls, conn: sqlite3.Connection, current: InvestigationSourceRecord,
         fingerprint: str,
     ) -> None:
-        """Fence old fingerprints for this immutable source before new work.
+        """Fence prior cost reservations across scopes for one source version.
 
-        Earlier planner versions omitted authority-bearing fields from the
-        hash. Old SQLite events remain append-only; re-registering the same
-        source under the stronger hash could authorize duplicate billed work.
-        This is intentionally not a migration or old-receipt readback.
+        Earlier planner versions omitted authority fields from their hash.
+        Even two modern fingerprints with different time/jurisdiction scopes
+        must never both reserve the same source material. No old scope is
+        migrated or deleted, and this grants no permission to dispatch.
         """
-        rows = conn.execute(
-            "SELECT plan_fingerprint FROM dp319_scopes "
-            "WHERE plan_fingerprint<>? "
-            "AND json_extract(source_json,'$.need_id')=? "
-            "AND json_extract(source_json,'$.source_id')=? "
-            "AND json_extract(source_json,'$.candidate_id')=? "
-            "AND json_extract(source_json,'$.material_fingerprint')=? "
-            "AND json_extract(source_json,'$.source_version')=? "
-            "AND json_extract(source_json,'$.source_sha256')=?",
-            (
-                fingerprint, current.need_id, current.source_id,
-                current.candidate_id, current.material_fingerprint,
-                current.source_version, current.source_sha256,
-            ),
+        # JSON_EXTRACT filters are not sufficient: a valid SQLite JSON array
+        # or a canonical object missing source_sha256 would silently fall
+        # outside that predicate. Validate each persisted source record before
+        # comparing the immutable source identity. Cursor iteration avoids
+        # materializing the ledger and malformed older rows fail closed.
+        prior_scopes = conn.execute(
+            "SELECT plan_fingerprint FROM dp319_scopes ORDER BY plan_fingerprint"
         )
-        for (earlier_fingerprint,) in rows:
+        source_key = (
+            current.need_id, current.source_id, current.candidate_id,
+            current.material_fingerprint, current.source_version,
+            current.source_sha256,
+        )
+        for (earlier_fingerprint,) in prior_scopes:
             raw_scope, earlier_source, _ = cls._scope_row(conn, earlier_fingerprint)
+            if earlier_fingerprint == fingerprint:
+                continue
+            prior_key = (
+                earlier_source.need_id, earlier_source.source_id,
+                earlier_source.candidate_id, earlier_source.material_fingerprint,
+                earlier_source.source_version, earlier_source.source_sha256,
+            )
+            if prior_key != source_key:
+                continue
             earlier_spec, earlier_assignments = _resume_scope(raw_scope)
             if _assert_inputs(
                 earlier_spec, earlier_assignments, earlier_source,
@@ -443,6 +450,16 @@ class InvestigationSQLiteStore:
                 # Covers both incomplete and completed legacy attempts, even
                 # if the submitted new scope narrows a time/jurisdiction cap.
                 raise ValueError("INVESTIGATION_STORE_LEGACY_FINGERPRINT_CONFLICT")
+            # Reserved attempts remain cost-bearing even after COMPLETED;
+            # scanning the append-only event ledger (rather than current
+            # planner status) prevents an independent modern plan from
+            # reissuing work under a different authority/time fingerprint.
+            if conn.execute(
+                "SELECT 1 FROM dp319_events "
+                "WHERE plan_fingerprint=? AND kind='RESERVED' LIMIT 1",
+                (earlier_fingerprint,),
+            ).fetchone() is not None:
+                raise ValueError("INVESTIGATION_STORE_SOURCE_SCOPE_ALREADY_RESERVED")
 
     def register(
         self,
@@ -457,7 +474,7 @@ class InvestigationSQLiteStore:
         with closing(self._connect()) as conn, conn:
             conn.execute("BEGIN IMMEDIATE")
             self._require_current(conn, current)
-            self._reject_legacy_source_scope(conn, current, fingerprint)
+            self._reject_cross_scope_cost_replay(conn, current, fingerprint)
             conn.execute(
                 "INSERT OR IGNORE INTO dp319_scopes VALUES (?,?,?,0)",
                 (
@@ -723,6 +740,10 @@ class InvestigationSQLiteStore:
             earlier = next((r for r in state.reservations if r.key == key), None)
             if earlier is not None:
                 return state
+            # Another scope may have been registered before this one spent
+            # money. Recheck under the same write lock immediately before
+            # the first new reservation, not just at scope registration.
+            self._reject_cross_scope_cost_replay(conn, current, fingerprint)
             if state.revision != expected_revision:
                 raise ValueError("INVESTIGATION_REVISION_CONFLICT")
             if current.rights_status != "CLEARED":

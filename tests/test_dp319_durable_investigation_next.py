@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import asdict, replace
 from unittest.mock import patch
 from decimal import Decimal
 from pathlib import Path
@@ -276,6 +276,170 @@ class LegacyFingerprintUpgradeTests(unittest.TestCase):
         self.assertEqual(fresh.decision.status, "READY_PRIVATE_PROPOSAL")
         self.assertEqual(len(self.rows()[0]), 2)
         self.assertEqual(len(self.rows()[1]), 1)
+
+
+
+class ModernCrossScopeCostFenceTests(unittest.TestCase):
+    """Modern-v2 scope changes cannot reissue work already cost-reserved."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / "private-investigations.sqlite"
+        self.db = InvestigationSQLiteStore(self.path)
+        self.source = source()
+        self.s = spec()
+        self.a = (assignment(), assignment("PRIMARY_SOURCE"))
+        self.db.record_source(self.source, expected_revision=0)
+        self.db.register(self.s, self.a, self.source)
+
+    def changed(self, *, key="temporal"):
+        overrides = {
+            "temporal": {"temporal_constraints": {"start": "2026-09-01"}},
+            "authority": {"authority_scope": {"jurisdiction": "IT"}},
+            "question": {"question": "Different reviewed source scope"},
+        }
+        return (replace(self.a[0], **overrides[key]), self.a[1])
+
+    def snapshot(self):
+        with sqlite3.connect(self.path) as conn:
+            return (
+                conn.execute(
+                    "SELECT plan_fingerprint,scope_json,source_json,revision "
+                    "FROM dp319_scopes ORDER BY plan_fingerprint"
+                ).fetchall(),
+                conn.execute(
+                    "SELECT plan_fingerprint,event_no,attempt_id,key,kind,event_json,checksum "
+                    "FROM dp319_events ORDER BY plan_fingerprint,event_no"
+                ).fetchall(),
+            )
+
+    def test_cost_reserved_modern_scope_fences_changed_time_authority_and_question(self):
+        first = self.db.reserve(
+            self.s, self.a, self.source, key="modern:first", expected_revision=0,
+        )
+        self.assertEqual(first.decision.status, "WAIT_EXTERNAL")
+        before = self.snapshot()
+        for choice in ("temporal", "authority", "question"):
+            with self.subTest(choice=choice):
+                with self.assertRaisesRegex(ValueError, "SOURCE_SCOPE_ALREADY_RESERVED"):
+                    self.db.register(self.s, self.changed(key=choice), self.source)
+                self.assertEqual(self.snapshot(), before)
+        self.assertEqual(
+            self.db.reserve(
+                self.s, self.a, self.source, key="modern:first", expected_revision=0,
+            ), first,
+        )
+
+    def test_completed_modern_scope_still_fences_changed_authority(self):
+        first = self.db.reserve(
+            self.s, self.a, self.source, key="modern:completed", expected_revision=0,
+        )
+        final = self.db.complete(
+            self.s, self.a, self.source,
+            key="modern:completed", expected_revision=first.revision,
+            observation=observed(first.reservations[0]),
+        )
+        self.assertEqual(len(final.observations), 1)
+        before = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "SOURCE_SCOPE_ALREADY_RESERVED"):
+            self.db.register(self.s, self.changed(key="authority"), self.source)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_pre_registered_two_modern_scopes_cannot_both_reserve(self):
+        # Registering a future scope was safe before any cost-bearing event;
+        # at reservation time the immutable source-level fence is rechecked.
+        b = self.changed()
+        accepted = self.db.register(self.s, b, self.source)
+        self.assertEqual(accepted.decision.status, "READY_PRIVATE_PROPOSAL")
+        first = self.db.reserve(
+            self.s, self.a, self.source, key="modern:A", expected_revision=0,
+        )
+        self.assertEqual(len(first.reservations), 1)
+        before = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "SOURCE_SCOPE_ALREADY_RESERVED"):
+            self.db.reserve(
+                self.s, b, self.source, key="modern:B", expected_revision=0,
+            )
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(len(self.snapshot()[1]), 1)
+
+    def test_concurrent_modern_scopes_admit_at_most_one_reservation(self):
+        b = self.changed(key="authority")
+        self.db.register(self.s, b, self.source)
+        barrier = Barrier(2)
+
+        def run(assignments, key):
+            reader = InvestigationSQLiteStore(self.path)
+            barrier.wait(timeout=10)
+            try:
+                state = reader.reserve(
+                    self.s, assignments, self.source,
+                    key=key, expected_revision=0,
+                )
+                return ("RESERVED", len(state.reservations))
+            except ValueError as error:
+                return ("BLOCKED", str(error))
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(run, self.a, "modern:racer:A")
+            second = pool.submit(run, b, "modern:racer:B")
+            outcomes = (first.result(timeout=15), second.result(timeout=15))
+        self.assertEqual(sum(item[0] == "RESERVED" for item in outcomes), 1)
+        self.assertEqual(sum(item[0] == "BLOCKED" for item in outcomes), 1)
+        self.assertTrue(any(
+            "SOURCE_SCOPE_ALREADY_RESERVED" in item[1]
+            for item in outcomes if item[0] == "BLOCKED"
+        ))
+        self.assertEqual(len(self.snapshot()[1]), 1)
+
+    def _expect_corrupted_source_json_to_fail_closed(self, corrupt):
+        original = self.db.reserve(
+            self.s, self.a, self.source, key="modern:corrupt", expected_revision=0,
+        )
+        fingerprint = original.decision.plan_fingerprint
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
+                (corrupt, fingerprint),
+            )
+        before = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "INTEGRITY_INVALID"):
+            self.db.register(self.s, self.changed(key="authority"), self.source)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_valid_json_array_in_persisted_source_cannot_bypass_scope_fence(self):
+        self._expect_corrupted_source_json_to_fail_closed("[]")
+
+    def test_valid_json_missing_source_sha_cannot_bypass_scope_fence(self):
+        raw = {**asdict(self.source)}
+        raw.pop("source_sha256")
+        self._expect_corrupted_source_json_to_fail_closed(_json(raw))
+
+    def test_cost_free_changed_modern_plan_can_register_and_new_version_can_reserve(self):
+        b = self.changed()
+        self.assertEqual(
+            self.db.register(self.s, b, self.source).decision.status,
+            "READY_PRIVATE_PROPOSAL",
+        )
+        # Only a genuinely changed material/source version can reopen after
+        # an actual reservation on the old immutable version.
+        old = self.db.reserve(
+            self.s, self.a, self.source, key="modern:old", expected_revision=0,
+        )
+        self.assertEqual(len(old.reservations), 1)
+        next_version = source(
+            revision=2, version="capture:v2", fingerprint="source-version-sha:b",
+            sha="b" * 64,
+        )
+        self.db.record_source(next_version, expected_revision=1)
+        newer_spec = spec(material_fingerprint=next_version.material_fingerprint)
+        self.db.register(newer_spec, b, next_version)
+        fresh = self.db.reserve(
+            newer_spec, b, next_version, key="modern:new", expected_revision=0,
+        )
+        self.assertEqual(len(fresh.reservations), 1)
+
 
 
 class DurableInvestigationTests(unittest.TestCase):

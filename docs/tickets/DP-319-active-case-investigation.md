@@ -182,3 +182,33 @@ The independent six-case real SQLite upgrade test is RED before the store
 fence and GREEN after. The source-level scopes remain private proposals, not
 real provider calls or legal authority. DP-319.1–.5 and MiniPC acceptance
 remain OPEN.
+
+### 2026-10-13 — Modern cross-scope cost replay and stored-scope integrity fixes
+
+A second independent adversarial review of the fail-closed legacy migration guard
+found a further **P1**: two distinct *modern* fingerprints for the same pinned
+source/body could both reserve cost-bearing attempts if only research time,
+question or jurisdiction changed, including a pre-registered second scope and
+a concurrent two-writer race. An earlier `COMPLETED` event did not stop the
+second spend either. Additionally, corrupted persisted `source_json` that was
+valid JSON `[]` or lacked the source SHA was silently omitted from the
+`json_extract` scope filter (**P2** local integrity bypass), permitting replay.
+
+The bounded local SQLite reference now scans and validates all existing scope
+metadata using the native strict `_scope_row` parser rather than relying on a
+JSON SQL predicate that skips malformed-but-valid JSON. It calls the common
+`_reject_cross_scope_cost_replay` inside `BEGIN IMMEDIATE` at **both**
+`register` and just before a new `RESERVED` write: old format SHA mismatches
+remain fenced; a different modern plan over the same immutable source/Content
+with any prior append-only `RESERVED` event is fenced, whether pending or
+completed. Same-scope idempotent replay, new source version/hash and unrelated
+material remain possible. No history is rewritten or budget reauthorized.
+
+Tests RED reproduced modern A/B registration/spend with pending, completed,
+pre-registered and concurrent variants, plus `[]`/missing-field persisted
+source JSON. They are GREEN after the native guards, with the worker's
+13 focused upgrade/cross-scope cases and **99** neighboring cases; prime
+reruns integration tests, Ruff and remote CI on exact PR SHA separately.
+These fixes are source-only conservative safety fences, **not** audited
+legacy migration or real financial authorization. Historical v1 resume
+remains blocked without an explicit migration plan; all DP-319 AC are OPEN.
