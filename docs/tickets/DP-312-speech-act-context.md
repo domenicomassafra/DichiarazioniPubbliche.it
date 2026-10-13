@@ -131,3 +131,21 @@ with 93 related source-only unit tests and Ruff PASS. Genuine ambiguous
 possessives may be held conservatively, not guessed as direct speech.
 No real source rights, speaker, independent multilingual corpus, publisher,
 MiniPC, or public release gate has been satisfied: all DP312.1–.6 remain OPEN.
+
+## 2026-10-13 — German low-single typographic quote integrity
+
+Independent read-only review of the preceding PR SHA identified a final
+separate quotation family omitted by the lexical preflight: the German
+U+201A low-single opening `‚` paired with high U+2018 `‘` and unsupported
+U+201B `‛`/ornamental quotation symbols. Dangling sources
+`‚Ich unterstütze die Maßnahme.` and `‛Ich unterstütze die Maßnahme.`
+were incorrectly treated as `ASSERTION / ENDORSE / CANDIDATE_PRIVATE`.
+Five focused negative/positive assertions were **RED** before the fix.
+The bounded single-pass quotation scanner now recognizes a valid `‚...‘`
+as `QUOTE / NON_COMMITTAL` while holding unbalanced low-single, nested
+low-single or unsupported ornamental quotation markers with
+`UNBALANCED_QUOTATION`. Existing high-single `‘...’` and contractions remain
+separately handled. The focused regression and 94 related unit tests are
+**GREEN**, Ruff/diff and deterministic benchmark 5/5 PASS; no human source
+approval, source Capture, MiniPC readback or language-wide semantic gold is
+implied. **All DP312 AC-312.1–.6 remain OPEN.**

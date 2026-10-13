@@ -520,6 +520,31 @@ class SpeechActContextTests(unittest.TestCase):
         plain = classify("I'm certain I support the policy.")
         self.assertEqual((plain.speech_act, plain.stance), ("ASSERTION", "ENDORSE"))
 
+    def test_german_low_single_and_unsupported_quote_marks_cannot_endorse(self):
+        def classify(source):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                quote_start=0, quote_end=len(source),
+                turn_start=0, turn_end=len(source),
+                utterer_id="person:a", turn_speaker_ids=("person:a",),
+                source_part_ref="part:a", turn_complete=True, language="de",
+            )
+        for source in (
+            "‚Ich unterstütze die Maßnahme.",
+            "‚Ich unterstütze die Maßnahme‚",
+            "‛Ich unterstütze die Maßnahme.",
+            "❛Ich unterstütze die Maßnahme.",
+        ):
+            with self.subTest(source=source):
+                result = classify(source)
+                self.assertEqual((result.state, result.stance),
+                                 ("HOLD_FOR_CONTEXT", "UNKNOWN"))
+                self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
+        complete = classify("‚Ich unterstütze die Maßnahme‘")
+        self.assertEqual((complete.state, complete.speech_act, complete.stance),
+                         ("CANDIDATE_PRIVATE", "QUOTE", "NON_COMMITTAL"))
+
     def test_multiple_sentences_cannot_be_collapsed_into_one_stance(self):
         source = "Io sostengo che il piano sia utile. Ma non sostengo che sia definitivo."
         result = assess(source)

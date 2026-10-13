@@ -427,11 +427,27 @@ def _curly_quote_spans(turn: str) -> tuple[list[tuple[int, int]], bool]:
     opened: int | None = None
     unbalanced = False
     for pos, char in enumerate(turn):
-        if char == "‘":
+        if char == "‚":
+            # German low-single opens a quotation completed by U+2018.
+            # A second low opener is nesting, not a safe original quote.
             if opened is not None:
                 unbalanced = True
             else:
                 opened = pos
+            continue
+        if char == "‘":
+            if opened is not None and turn[opened] == "‚":
+                spans.append((opened, pos + 1))
+                opened = None
+            elif opened is not None:
+                unbalanced = True
+            else:
+                opened = pos
+            continue
+        if char in "‛❛❜❝❞〝〞〟":
+            # Unsupported quotation punctuation is not ordinary speech:
+            # never interpret its clipped contents as direct endorsement.
+            unbalanced = True
             continue
         if char != "’":
             continue
