@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 from dataclasses import dataclass
 from typing import Any
@@ -120,7 +121,10 @@ def _statement_v3_bundle(
         raise PublicSchemaValidationError("Statement v3 linked data requires explicit opt-in")
     if not isinstance(payload, dict) or payload.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
         raise PublicSchemaValidationError("Statement v3 linked data schema incompatible")
-    bundle = validate_public_bundle(payload, allow_statement_v3=True)
+    # Validate and render the same detached snapshot. Another caller may
+    # mutate its input after validation; never serialize unapproved wording
+    # or provenance under the earlier public dataset fingerprint.
+    bundle = validate_public_bundle(copy.deepcopy(payload), allow_statement_v3=True)
     for record in bundle["statements"]:
         _validate_statement_v3_source_url(record["source_url"])
     return bundle

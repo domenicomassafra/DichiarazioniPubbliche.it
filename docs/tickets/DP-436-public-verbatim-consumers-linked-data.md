@@ -113,3 +113,74 @@ a functional, opt-in frontend consumer seam; **AC-436.1–.4 stay unchecked**
 until genuine source-specific rights/provenance, complete approved v3
 consumer/index/search/linked-data cutover, revocation/cache race and MiniPC
 same-fingerprint readback pass.
+
+## 2026-10-13 — Direct Astro v3 source input requires explicit opt-in and exact external pin
+
+An independent RED regression caught a source-admission bypass in the
+unrouted `VerbatimStatementRecord.astro`: unlike its `apiDetail` path, a
+direct `statement` prop previously rendered otherwise structurally valid
+words even with `allowStatementV3=false` and no independently selected
+record fingerprint. Synthetic isolated Astro rendering exited successfully
+before the fix. A copied review-provenance identifier and self-reported quote
+SHA-256 do not prove publication authority.
+
+The direct mode now requires explicit `allowStatementV3=true`, well-formed
+externally selected dataset/record pins, and an actual SHA-256 of a stable,
+validated source-record snapshot matching the supplied record pin. It displays
+the pinned dataset identifier and refuses mismatched pins without falling back
+to v2 text. The existing API-detail admission remains unchanged.
+Independent source-to-dataset membership/rights approval is **not** inferred
+merely from a syntactically valid caller-provided dataset pin.
+
+The original regression was RED (`direct source record bypassed explicit v3
+opt-in`), then GREEN: no-opt-in and wrong-pin render builds fail, the pinned
+synthetic direct original/translation/summary builds, and original API-detail
+negative cases still fail. `node web/scripts/check-statement-v3-api.mjs`,
+`npm run check`, `npm run check:search`, `node
+web/scripts/check-statement-v3.mjs` and `git diff --check` PASS. No public v3
+route, approved rights/attribution, live MiniPC reader, record release, new
+Capture, provider or publication was activated. **AC-436.1–.4 remain OPEN.**
+
+## 2026-10-13 — Immutable source snapshots for API and linked-data serializers
+
+An independently reproduced post-validation mutation exposed a privacy and
+integrity defect in the preparatory public-v3 consumers. The caller-owned
+source dictionary was validated, but serializers subsequently read its same
+mutable nested Statement objects. The reproducible RED modified the input
+after the real schema validator returned: `list_public_statements_v3` and
+`get_public_statement_v3` emitted synthetic private, unapproved transcript
+text and changed source/identity metadata under stale quotation and dataset
+hashes. The separately opted-in `projection_statement_v3_jsonld` and
+`projection_statement_v3_ntriples` showed the same exposure.
+
+Both consumers now detach a deep-copy of the complete input **before**
+validation and use only that validated snapshot to serialize. New adversarial
+regressions preserve original quote, source, identity, locator and fingerprint
+even if caller-owned objects change after validation. Source-only local
+green tests and broader proof are recorded in the implementation receipt;
+none authorizes new public-v3 routes, real rights, provider calls, database
+changes or deployment. The defect correction **does not close AC-436.1–.4**:
+independent rights/source attestation, full public-v3 consumer cutover,
+cache/revocation races and MiniPC same-fingerprint readback remain OPEN.
+
+## 2026-10-13 — API-detail consumer asynchronous alias race
+
+Independent review of the previous fixes found the same input-alias error
+in `web/src/lib/statementV3Api.ts`: the TypeScript reader hashed and
+validated a public-v3 API detail, but returned the caller's original mutable
+object. A deterministic RED mutated nested `original.text`, source URL and
+reviewed summary *after* the second SHA-256 digest had completed and before
+its awaiting Promise resumed; the validated result nevertheless contained
+unapproved synthetic wording under the earlier quote/record hashes. The
+Astro `apiDetail` mode subsequently consumed that mutable result.
+
+The reader now takes a detached `structuredClone` **before** asynchronous
+validation and returns only that checked snapshot. New regression checks
+both post-validation caller mutation and the interleaving during the final
+digest; both must preserve the originally approved fields and dataset
+metadata. The direct `statement` mode separately requires an explicit
+opt-in and external record pin, as documented above. This source-only
+release-gating privacy/integrity fix does **not** activate the currently
+unrouted v3 public page or establish real publication rights, approved
+source membership, host cache invalidation or MiniPC readback; all original
+DP-436 acceptance criteria remain OPEN.
