@@ -29,6 +29,71 @@ const kindLabels: Record<SearchRecordKind, string> = {
   topic: "Tema",
 };
 
+type ActiveFilterKey = "kind" | "assessment" | "sort" | "personId" | "topicId";
+interface ActiveExploreFilter {
+  key: ActiveFilterKey;
+  label: string;
+}
+
+/** Only labels from the validated public index may name Person/Topic chips.
+ * An opaque URL ID not present in the current public projection is never
+ * echoed into visible text, accessibility labels or analytics.
+ */
+export function getExploreActiveFilters(
+  index: PublicSearchIndex | null,
+  state: ExploreUrlState,
+): ActiveExploreFilter[] {
+  const active: ActiveExploreFilter[] = [];
+  if (state.kind !== "ALL") active.push({key:"kind",label:`Tipo: ${kindLabels[state.kind]}`});
+  if (state.assessment !== "ALL") active.push({
+    key:"assessment",label:`Esito: ${assessmentLabel(state.assessment)}`,
+  });
+  if (state.sort !== "relevance") active.push({
+    key:"sort",label:state.sort === "recent" ? "Ordine: più recenti" : "Ordine: meno recenti",
+  });
+  if (state.personId && state.personId !== "ALL") {
+    const person = index?.records.find(row=>row.kind==="person" && row.id===state.personId);
+    active.push({key:"personId",label:`Persona: ${person?.title ?? "non presente nel registro pubblico"}`});
+  }
+  if (state.topicId && state.topicId !== "ALL") {
+    const topic = index?.records.find(row=>row.kind==="topic" && row.id===state.topicId);
+    active.push({key:"topicId",label:`Tema: ${topic?.title ?? "non presente nel registro pubblico"}`});
+  }
+  return active;
+}
+
+/** Candidate counts are from Finding rows of the already-validated current
+ * public index. When switching one facet, hold every other filter fixed;
+ * never infer membership from names, mentions or private candidate tables.
+ */
+export function getExploreFacetCounts(
+  index: PublicSearchIndex,
+  query: string,
+  filters: SearchFilters,
+): { people: Record<string, number>; topics: Record<string, number> } {
+  const people: Record<string, number> = Object.create(null);
+  const topics: Record<string, number> = Object.create(null);
+  const publicPeople = new Set(index.records.filter(item=>item.kind==="person").map(item=>item.id));
+  const publicTopics = new Set(index.records.filter(item=>item.kind==="topic").map(item=>item.id));
+  const rowsForPeople = searchPublicIndex(index, query, {
+    ...filters, kind:"finding", personId:"ALL",
+  }).records;
+  const rowsForTopics = searchPublicIndex(index, query, {
+    ...filters, kind:"finding", topicId:"ALL",
+  }).records;
+  for (const row of rowsForPeople) {
+    if (row.person_id && publicPeople.has(row.person_id)) {
+      people[row.person_id] = (people[row.person_id] ?? 0) + 1;
+    }
+  }
+  for (const row of rowsForTopics) {
+    for (const topicId of new Set(row.topic_ids ?? [])) {
+      if (publicTopics.has(topicId)) topics[topicId] = (topics[topicId] ?? 0) + 1;
+    }
+  }
+  return {people,topics};
+}
+
 /** URL state keeps user-entered bytes; only the actual search normalizes input. */
 export function buildExploreUrlKeepingQuery(state: ExploreUrlState): string {
   const params = new URLSearchParams(buildExploreSearch(state));
@@ -216,6 +281,9 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     () => index?.records.filter((record) => record.kind === "topic") ?? [],
     [index],
   );
+  const facetCounts = useMemo(() => index ? getExploreFacetCounts(index, query, {
+    assessment, sort, personId, topicId,
+  }) : {people:{},topics:{}}, [index,query,assessment,sort,personId,topicId]);
 
   const kindCounts = useMemo(() => {
     const counts: Record<SearchRecordKind | "ALL", number> = {
@@ -234,6 +302,9 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
 
   const activeFilterCount = Number(assessment !== "ALL") + Number(kind !== "ALL") +
     Number(sort !== "relevance") + Number(personId !== "ALL") + Number(topicId !== "ALL");
+  const activeFilters = useMemo(() => getExploreActiveFilters(index, {
+    query, assessment, kind, sort, personId, topicId,
+  }), [index, query, assessment, kind, sort, personId, topicId]);
   const records = response?.records ?? [];
 
   function closeFilters() {
@@ -291,6 +362,25 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     setSort("relevance");
     setPersonId("ALL");
     setTopicId("ALL");
+  }
+
+  function removeActiveFilter(key: ActiveFilterKey) {
+    switch (key) {
+      case "kind": changeKind("ALL"); break;
+      case "assessment": changeAssessment("ALL"); break;
+      case "sort": changeSort("relevance"); break;
+      case "personId":
+        pushFilterState({personId:"ALL"});
+        setPersonId("ALL");
+        break;
+      case "topicId":
+        pushFilterState({topicId:"ALL"});
+        setTopicId("ALL");
+        break;
+    }
+    // A chip disappears on selection; keep keyboard users in the filtering
+    // context rather than letting focus fall back to the document body.
+    filterButton.current?.focus();
   }
 
   if (indexState === "unavailable") {
@@ -393,6 +483,31 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
         </span>
       </div>
 
+      {indexState === "ready" && activeFilters.length > 0 && (
+        <div className="explore-active-filters" role="group" aria-label="Filtri attivi">
+          <span className="explore-active-filters__heading">Filtri attivi</span>
+          <ul className="explore-active-filters__list">
+            {activeFilters.map((filter) => (
+              <li key={filter.key}>
+                <button
+                  type="button"
+                  className="explore-filter-chip"
+                  data-active-filter={filter.key}
+                  aria-label={`Rimuovi filtro: ${filter.label}`}
+                  onClick={() => removeActiveFilter(filter.key)}
+                >
+                  <span>{filter.label}</span>
+                  <span aria-hidden="true">×</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button className="quiet-button" type="button" onClick={resetFilters}>
+            Azzera tutti i filtri
+          </button>
+        </div>
+      )}
+
       <dialog
         id="explore-filter-dialog"
         ref={filterDialog}
@@ -446,7 +561,9 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
               }}
             >
               <option value="ALL">Tutte le persone pubbliche</option>
-              {people.map((person) => <option key={person.id} value={person.id}>{person.title}</option>)}
+              {people.map((person) => <option key={person.id} value={person.id}>
+                {person.title} · {facetCounts.people[person.id] ?? 0} dichiarazioni
+              </option>)}
             </select>
           </label>
           <label>
@@ -462,7 +579,9 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
               }}
             >
               <option value="ALL">Tutti i temi pubblici</option>
-              {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}
+              {topics.map((topic) => <option key={topic.id} value={topic.id}>
+                {topic.title} · {facetCounts.topics[topic.id] ?? 0} dichiarazioni
+              </option>)}
             </select>
           </label>
           <label>

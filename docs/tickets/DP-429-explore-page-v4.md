@@ -269,3 +269,41 @@ necessarily the date of the declaration. The interface now labels the known
 date boundary rather than falsely claiming chronological Statement sorting.
 The original DP-429 acceptance and manual/accessibility gate remain open;
 ticket stays **IN PROGRESS**.
+
+## 2026-10-14 — Mobile Explore active facets and public intersection counts
+
+Implemented a substantial v4 Explore refinement on an isolated source branch:
+the current verified static search index now drives an accessible group of
+individually removable **active type, outcome, order, Person and Topic chips**.
+Each action updates only its selected URL facet, retaining the user's exact
+query and unrelated Person/Topic filters; the filter trigger receives focus
+when the removed chip disappears. Every chip has an explicit accessible
+`Rimuovi filtro` action, at least 44px touch height, wrapping text and phone/
+200%-zoom reflow. The filter sheet additionally shows bounded approved
+Finding counts per Person and Topic, recomputed with other selected filters
+held fixed. Topic membership comes **only** from approved public index
+`finding.topic_ids`; a source title, arbitrary matching name or private
+candidate does not create membership. Unknown URL Person/Topic IDs never
+appear as raw text in visible or accessible chip labels, and only actually
+indexed public Person/Topic options receive counts.
+
+`check-dp429-public-query-suggestions-20261013.mjs` was first **RED** on the
+missing active chip projection. After implementation it is **GREEN**, now also
+checking exact single-facet removal with URL/query preservation, invisible
+unknown facet IDs, four independently labeled public record kinds and
+candidate-count intersections across multiple Topic IDs. `npm run check`
+reports 0 errors, 0 warnings, and one **preexisting DP-429 unused `require`
+hint**; `npm run check:search` passes. The isolated empty-public/demo browser
+QA passes keyboard/AX/phone reflow, genuine 200% zoom and zero external
+requests; the production projection boundary still rejects renamed demo
+fixtures and keeps explicit demo runs `noindex`.
+
+The v2 artifact lacks a verified original Statement date and archive-addition
+date. This implementation does **not** invent those fields, change DP-409's
+search schema, expose first-class v3 claims without public release authority,
+or grant search relevance/person scoring. It introduces no database, provider,
+paid service, new public rights decision or MiniPC deploy.
+
+**DP-429 remains IN PROGRESS and all original AC checkboxes stay unchanged.**
+Manual screen-reader/physical/owner acceptance and main PR+CI release gate
+remain external requirements.
