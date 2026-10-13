@@ -242,3 +242,30 @@ acceptance or permission to merge/deploy/publicly publish content.
 Q1 suggerimenti espliciti di ricerca, query originale preservata. Q2 Esplora iniziale per data recente della dichiarazione, distinto da data di aggiunta. Q3 filtri/sezioni per cronologia, pertinenza ed esiti documentati di verifica della singola proposizione. “Più giuste/sbagliate” è richiesta UX da affinare su stati approvati, non autorizza punteggi/ranking delle persone, booleani da opinioni o comparazione non calibrata. Distinguere SUPPORTED/FACTUALLY_FALSE da NOT_CHECKED/insufficient/conflict/non-factual; sorting quantitativo richiede criterio adeguato, altrimenti usare filtro per categoria.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+### 2026-10-13 — Opt-in suggestions from the approved public index (source-only)
+
+New deterministic `ExploreClient` suggestions are offered **only after zero matches**
+and only from the current verified public search index, with at most four bounded
+near-word proposals. They use the already approved public vocabulary, respect
+record-kind and Person/Topic/result-state filters, never query private tables
+or a provider, and preserve the exact original query including whitespace in
+the input and shareable URL. A visible button explicitly selects a suggested
+query and returns keyboard focus to search. No automatic spelling correction,
+person ranking or inference of an outcome from an opinion is performed.
+
+Test `web/scripts/check-dp429-public-query-suggestions-20261013.mjs` was
+**RED** before the component export existed, then **GREEN**. Astro check has
+zero errors/warnings, `check:search` and `check:design:a11y` pass; an isolated
+local demo build and real Chrome QA pass with 12 fictional records, 21
+scanned routes, zero external requests, genuine 200% browser zoom and phone
+reflow. This is technical pre-merge test evidence only, not real source,
+editorial, MiniPC deployment or manual assistive-technology acceptance.
+
+**Q2 remains blocked** pending DP-409/public-projection support for a separately
+verified date of the original Statement and an archive-addition timestamp:
+the current v2 `published_at` field is finding/source publication, **not**
+necessarily the date of the declaration. The interface now labels the known
+date boundary rather than falsely claiming chronological Statement sorting.
+The original DP-429 acceptance and manual/accessibility gate remain open;
+ticket stays **IN PROGRESS**.
