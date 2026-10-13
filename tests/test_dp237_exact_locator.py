@@ -17,6 +17,7 @@ from dichiarazioni_pubbliche.corpus_repository import (  # noqa: E402
 from dichiarazioni_pubbliche.original_source_resolver import (  # noqa: E402
     ExactSourceLocator, ObservedMediaSegment, resolve_exact_source_locator,
 )
+from dichiarazioni_pubbliche.corpus_retention import capture_downstream_use_decision  # noqa: E402
 
 
 def sha(value: str | bytes) -> str:
@@ -206,6 +207,51 @@ class ExactLocatorWrittenTests(unittest.TestCase):
         self.assertEqual(result.source_version_sha256, sha(SOURCE_HTML))
         result = written(source_body=None)
         self.assertEqual(result.status, "UNAVAILABLE")
+
+    def test_written_and_pdf_locator_refuse_native_blocked_body_lifecycle(self):
+        # Existing owner-native private-body-use gate denies these states. An
+        # exact hash cannot reopen a quarantined, purging or held Capture.
+        pdf_body, pdf_capture, pdf_passage, pdf_locator, page_text, pdf_quote = page_fixture()
+        cases = (
+            (
+                written_locator(), written_passage(), capture(), SOURCE_HTML,
+                {"canonical_text": CANONICAL, "quote_text": QUOTE},
+            ),
+            (
+                pdf_locator, pdf_passage, pdf_capture, pdf_body,
+                {"page_text": page_text, "quote_text": pdf_quote},
+            ),
+        )
+        for locator, passage, base_capture, body, inputs in cases:
+            for changes, expected_native in (
+                ({"status": "QUARANTINED"}, "CAPTURE_QUARANTINED"),
+                ({"status": "PURGE_PENDING"}, "BODY_PURGE_IN_PROGRESS"),
+                ({"hold_status": "RIGHTS_HOLD"}, "HOLD_ACTIVE:RIGHTS_HOLD"),
+            ):
+                with self.subTest(selector=locator.selector_type, changes=changes):
+                    observed_capture = replace(base_capture, **changes)
+                    native = capture_downstream_use_decision(
+                        observed_capture, requires_body=True,
+                    )
+                    self.assertFalse(native.allowed)
+                    self.assertEqual(native.code, expected_native)
+                    resolved = resolve_exact_source_locator(
+                        locator, passage=passage, capture=observed_capture,
+                        source_body=body, **inputs,
+                    )
+                    self.assertEqual(resolved.status, "BLOCKED")
+                    self.assertEqual(
+                        resolved.blockers, ("LOCATOR_CAPTURE_USE_BLOCKED",),
+                    )
+                    self.assertEqual(
+                        resolved.source_version_sha256, base_capture.content_sha256,
+                    )
+            with self.subTest(selector=locator.selector_type, changes="ordinary"):
+                accepted = resolve_exact_source_locator(
+                    locator, passage=passage, capture=base_capture,
+                    source_body=body, **inputs,
+                )
+                self.assertTrue(accepted.located)
 
     def test_stitched_discontinuous_quote_and_wrong_position_rejected(self):
         fake_quote = "Primo. Ultimo."

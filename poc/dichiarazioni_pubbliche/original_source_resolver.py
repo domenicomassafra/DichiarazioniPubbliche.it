@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from typing import Iterable, Mapping, Any
 
 from dichiarazioni_pubbliche.corpus_repository import ContentCaptureRecord, PassageRecord
+from dichiarazioni_pubbliche.corpus_retention import capture_downstream_use_decision
 
 
 RESOLVING_RELATIONS = frozenset(
@@ -410,6 +411,11 @@ def resolve_exact_source_locator(
             return blocked("LOCATOR_PARSER_VERSION_MISMATCH")
         if capture.status == "PURGED_BODY" or capture.body_ref is None:
             return blocked("LOCATOR_BODY_UNAVAILABLE", "UNAVAILABLE", capture.content_sha256)
+        # Byte/hash equality does not override a private Capture hold, active
+        # quarantine or pending purge. Reuse the corpus lifecycle use gate,
+        # without treating it as evidence of source rights or publication.
+        if not capture_downstream_use_decision(capture, requires_body=True).allowed:
+            return blocked("LOCATOR_CAPTURE_USE_BLOCKED", version_sha256=capture.content_sha256)
         if not isinstance(source_body, bytes):
             return blocked("LOCATOR_BODY_UNAVAILABLE", "UNAVAILABLE", capture.content_sha256)
         if hashlib.sha256(source_body).hexdigest() != capture.content_sha256:

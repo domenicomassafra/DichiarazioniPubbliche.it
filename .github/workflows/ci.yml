@@ -77,6 +77,10 @@ jobs:
         run: python -m compileall -q poc tests
 
       - name: Unit and regression tests
+        # Strict disposable PostgreSQL diagnostics; witness samples no SQL or identities.
+        env:
+          DP514_CI_PG_DIAGNOSTIC: "1"
+          DP514_CI_PG_WAIT_WITNESS: "1"
         run: PYTHONPATH=poc python -m unittest discover -s tests -v
 
       - name: Deterministic benchmark

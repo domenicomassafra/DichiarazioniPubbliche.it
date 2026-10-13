@@ -407,6 +407,104 @@ class InvestigationSQLiteStore:
             raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
         return row[0], recorded, row[2]
 
+    @classmethod
+    def _reject_cross_scope_cost_replay(
+        cls, conn: sqlite3.Connection, current: InvestigationSourceRecord,
+        fingerprint: str,
+    ) -> None:
+        """Fence prior cost reservations across scopes for one source version.
+
+        Earlier planner versions omitted authority fields from their hash.
+        Even two modern fingerprints with different time/jurisdiction scopes
+        must never both reserve the same source material. No old scope is
+        migrated or deleted, and this grants no permission to dispatch.
+        """
+        # JSON_EXTRACT filters are not sufficient: a valid SQLite JSON array
+        # or a canonical object missing source_sha256 would silently fall
+        # outside that predicate. Validate each persisted source record before
+        # comparing the immutable source identity. Cursor iteration avoids
+        # materializing the ledger and malformed older rows fail closed.
+        prior_scopes = conn.execute(
+            "SELECT plan_fingerprint FROM dp319_scopes ORDER BY plan_fingerprint"
+        )
+        source_key = (
+            current.need_id, current.source_id, current.candidate_id,
+            current.material_fingerprint, current.source_version,
+            current.source_sha256,
+        )
+        for (earlier_fingerprint,) in prior_scopes:
+            raw_scope, earlier_source, _ = cls._scope_row(conn, earlier_fingerprint)
+            # A canonical JSON shape is insufficient: a mutable scope row
+            # must also match the independently append-only registered source
+            # epoch. Otherwise a forged but well-formed SHA/source_id could
+            # hide an earlier cost-bearing reservation from the source fence.
+            epoch = conn.execute(
+                "SELECT record_json,checksum FROM dp319_source_epochs "
+                "WHERE need_id=? AND revision=?",
+                (earlier_source.need_id, earlier_source.revision),
+            ).fetchone()
+            if (epoch is None
+                or epoch[0] != _source_json(earlier_source)
+                or epoch[1] != _hash({"schema": STORE_VERSION, "source": epoch[0]})):
+                raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+            earlier_spec, earlier_assignments = _resume_scope(raw_scope)
+            if (earlier_spec.need_id != earlier_source.need_id
+                or earlier_spec.material_fingerprint != earlier_source.material_fingerprint):
+                raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+            # The persisted scope's source pointer can be changed to another
+            # *valid* immutable epoch. A cost-bearing RESERVED event is the
+            # append-only identity anchor: validate its original source and
+            # checksum before treating any scoped reservation as unrelated.
+            for event_no, kind, raw, checksum in conn.execute(
+                "SELECT event_no,kind,event_json,checksum FROM dp319_events "
+                "WHERE plan_fingerprint=? ORDER BY event_no",
+                (earlier_fingerprint,),
+            ):
+                if checksum != _hash({
+                    "schema": STORE_VERSION, "plan": earlier_fingerprint,
+                    "seq": event_no, "kind": kind, "payload": raw,
+                }):
+                    raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+                if kind != "RESERVED":
+                    continue
+                event = _parse(raw, {f.name for f in fields(InvestigationReservation)})
+                if (
+                    event["plan_fingerprint"] != earlier_fingerprint
+                    or event["material_fingerprint"] != earlier_source.material_fingerprint
+                    or event["source_id"] != earlier_source.source_id
+                    or event["candidate_id"] != earlier_source.candidate_id
+                    or event["source_version"] != earlier_source.source_version
+                    or event["source_sha256"] != earlier_source.source_sha256
+                    or type(event["source_revision"]) is not int
+                    or event["source_revision"] != earlier_source.revision
+                ):
+                    raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+            if earlier_fingerprint == fingerprint:
+                continue
+            prior_key = (
+                earlier_source.need_id, earlier_source.source_id,
+                earlier_source.candidate_id, earlier_source.material_fingerprint,
+                earlier_source.source_version, earlier_source.source_sha256,
+            )
+            if prior_key != source_key:
+                continue
+            if _assert_inputs(
+                earlier_spec, earlier_assignments, earlier_source,
+            ) != earlier_fingerprint:
+                # Covers both incomplete and completed legacy attempts, even
+                # if the submitted new scope narrows a time/jurisdiction cap.
+                raise ValueError("INVESTIGATION_STORE_LEGACY_FINGERPRINT_CONFLICT")
+            # Reserved attempts remain cost-bearing even after COMPLETED;
+            # scanning the append-only event ledger (rather than current
+            # planner status) prevents an independent modern plan from
+            # reissuing work under a different authority/time fingerprint.
+            if conn.execute(
+                "SELECT 1 FROM dp319_events "
+                "WHERE plan_fingerprint=? AND kind='RESERVED' LIMIT 1",
+                (earlier_fingerprint,),
+            ).fetchone() is not None:
+                raise ValueError("INVESTIGATION_STORE_SOURCE_SCOPE_ALREADY_RESERVED")
+
     def register(
         self,
         spec: InvestigationSpec,
@@ -420,6 +518,7 @@ class InvestigationSQLiteStore:
         with closing(self._connect()) as conn, conn:
             conn.execute("BEGIN IMMEDIATE")
             self._require_current(conn, current)
+            self._reject_cross_scope_cost_replay(conn, current, fingerprint)
             conn.execute(
                 "INSERT OR IGNORE INTO dp319_scopes VALUES (?,?,?,0)",
                 (
@@ -685,6 +784,10 @@ class InvestigationSQLiteStore:
             earlier = next((r for r in state.reservations if r.key == key), None)
             if earlier is not None:
                 return state
+            # Another scope may have been registered before this one spent
+            # money. Recheck under the same write lock immediately before
+            # the first new reservation, not just at scope registration.
+            self._reject_cross_scope_cost_replay(conn, current, fingerprint)
             if state.revision != expected_revision:
                 raise ValueError("INVESTIGATION_REVISION_CONFLICT")
             if current.rights_status != "CLEARED":
