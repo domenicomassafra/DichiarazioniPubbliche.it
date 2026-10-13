@@ -134,6 +134,49 @@ class RequirementPreflightTests(unittest.TestCase):
         self.assertIn("EVENT_INDEPENDENCE_MISSING", held.reason_codes)
         self.assertEqual(held.comparison_status, "NOT_COMPUTABLE")
 
+    def test_event_sequence_requires_independent_role_sources_per_event(self):
+        evidence, facts = sequence_sources()
+        # Each event needs a primary and an independent record from different
+        # roots AND families. A third primary cannot lend its family to an
+        # independent record that shares its root.
+        left_extra = replace(
+            record("epsilon", "PRIMARY_RECORD", "root:b"),
+            source_family_ref="source:separate", evidence_sha256=f"{5:064x}",
+        )
+        with_shared_origin = tuple(
+            replace(row, source_family_ref="source:root:a")
+            if row.evidence_id == "evidence:beta" else row for row in evidence
+        ) + (left_extra,)
+        left_extra_fact = SequenceEventObservation(
+            left_extra.evidence_id, left_extra.evidence_sha256,
+            "event:left", "2025-05-10",
+        )
+        blocked = compare_private_event_sequence(
+            claim(), with_shared_origin, facts + (left_extra_fact,),
+            left_event_ref="event:left", right_event_ref="event:right",
+            claimed_order="BEFORE",
+        )
+        self.assertEqual(blocked.state, "CHECKED_INSUFFICIENT_EVIDENCE")
+        self.assertEqual(blocked.comparison_status, "NOT_COMPUTABLE")
+        self.assertIn("EVENT_INDEPENDENCE_MISSING", blocked.reason_codes)
+        # An actual fourth independent origin restores the proposal.
+        independent = replace(
+            record("zeta", "INDEPENDENT_RECORD", "root:z"),
+            evidence_sha256=f"{6:064x}",
+        )
+        additional = SequenceEventObservation(
+            independent.evidence_id, independent.evidence_sha256,
+            "event:left", "2025-05-10",
+        )
+        valid = compare_private_event_sequence(
+            claim(), with_shared_origin + (independent,),
+            facts + (left_extra_fact, additional),
+            left_event_ref="event:left", right_event_ref="event:right",
+            claimed_order="BEFORE",
+        )
+        self.assertEqual(valid.state, "CHECKABLE_PENDING")
+        self.assertEqual(valid.comparison_status, "OBSERVATIONS_AGREE")
+
     def test_same_calendar_day_cannot_refute_within_day_event_order(self):
         evidence, facts = sequence_sources()
         same_day = tuple(replace(row, occurred_on="2025-05-10")
@@ -259,6 +302,33 @@ class RequirementPreflightTests(unittest.TestCase):
         self.assertEqual(result.observed_independent_roots, 2)
         self.assertIsNone(result.verdict)
         self.assertFalse(result.publication_authority)
+
+    def test_independent_required_roles_cannot_borrow_unrelated_root_or_family(self):
+        first, second = sources()
+        # Globally two roots and two families exist, but neither possible
+        # PRIMARY/INDEPENDENT role pair has both a distinct root and family.
+        reused_family = replace(second, source_family_ref=first.source_family_ref)
+        new_family_same_root = record(
+            "gamma", "PRIMARY_RECORD", second.primary_root_ref,
+            source_family_ref="source:third", evidence_sha256=f"{3:064x}",
+        )
+        blocked = preflight_verification_requirements(
+            claim(), (first, reused_family, new_family_same_root)
+        )
+        self.assertEqual(blocked.observed_independent_roots, 2)
+        self.assertEqual(blocked.state, "CHECKED_INSUFFICIENT_EVIDENCE")
+        self.assertIn("INDEPENDENT_ROLE_SOURCE_PAIR_MISSING", blocked.reason_codes)
+        # The same three sources plus a genuinely independent record meet
+        # both original/family constraints with the required roles intact.
+        independent = record(
+            "delta", "INDEPENDENT_RECORD", "root:d",
+            evidence_sha256=f"{4:064x}",
+        )
+        accepted = preflight_verification_requirements(
+            claim(), (first, reused_family, new_family_same_root, independent)
+        )
+        self.assertEqual(accepted.state, "CHECKABLE_PENDING")
+        self.assertNotIn("INDEPENDENT_ROLE_SOURCE_PAIR_MISSING", accepted.reason_codes)
 
     def test_unapproved_rights_and_reviewer_status_stay_excluded(self):
         first, second = sources()
