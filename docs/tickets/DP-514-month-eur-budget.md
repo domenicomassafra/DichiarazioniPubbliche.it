@@ -306,3 +306,43 @@ production PostgreSQL operation ledger; invoices, append-only authenticated
 corrections, owner-signed EUR policy, provider quota, actual FX and MiniPC
 acceptance are still missing. **All AC-514.1–.7 remain OPEN; no live paid
 dispatch authority and no production release.**
+
+## 2026-10-13 — Two real GitHub CI PostgreSQL failures, root cause unresolved (NO_CHANGE)
+
+There were **two genuine failed CI attempts** on different already-committed
+source revisions in the same PostgreSQL-only regression
+`test_dp514_monthly_liability_pg_next.MonthlyLiabilityPgTests.test_claimed_refund_is_append_only_but_never_offsets_spend`:
+
+- PR #11 SHA `d7ff0f7aca4f86332fe3cb4cdf1febe2793afc78`, GitHub Actions
+  run `38372931586` attempt 1, Ubuntu Python 3.13 (job `115214120750`);
+- PR #3 SHA `fa54df104a4d1319f1630dc342aaf6d2d5dd660a`, GitHub Actions
+  run `38380803651` attempt 1, detached clean-clone smoke Python 3.12
+  (job `115240437103`).
+
+Both errors reach `DisposableMonthlyLiabilityPg._snapshot()` through
+`read()` and end at `_run()` with `DP514_PG_TRANSACTION_FAILED` before
+validating the refund output. `_run()` captures but discards the actual
+`psql` stderr on an unrecognized non-zero exit. No diagnostic SQLSTATE,
+return code, server log or artifact was retained in the examined Actions
+receipts, so **the original underlying SQL/PostgreSQL cause is unknown**.
+Both failed job sets were rerun on their *unchanged* respective SHAs and
+passed; this does **not** retroactively classify either first failure as
+benign, nor does it establish a fixed source bug.
+
+The independent 2026-10-13 forensic worker ran local PostgreSQL 17.11
+(disposable, isolated from any real service): 96 sequential repetitions of
+the exact test (192 snapshot calls), another 80 repetitions over four
+concurrent independent disposable clusters (160 snapshots), and the full
+16-test class. **All passed**, with no observed PostgreSQL leftover. The
+first CI error's elapsed time is compatible with a possible SQL/lock timeout,
+but no original stderr or deterministic failing reproduction establishes it.
+
+**NO_CHANGE:** no generic retry, assertion relaxation, SQL migration,
+production DB operation, scheduler change or billing-authority shortcut is
+justified. If reproduced again, first collect only bounded diagnostic
+metadata on the disposable CI test path (psql exit/SQLSTATE or sanitized
+error category and elapsed time, plus bounded redacted disposable server
+log if safe); never log receipt bodies, secrets or raw SQL containing
+private values. Then isolate the exact failure with a RED test before any
+behavioral fix. All AC-514.1–.7 and MiniPC/financial authority gates remain
+open.
