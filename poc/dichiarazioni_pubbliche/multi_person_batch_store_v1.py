@@ -137,6 +137,17 @@ class PrivateBatchSQLiteStore:
             raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
         self.path = path
 
+    def _assert_read_recovery_not_pending(self) -> None:
+        # An FD URI cannot discover the canonical rollback journal. Hold any
+        # such sidecar for native SQLite recovery, without parsing/deleting it.
+        try:
+            self.path.with_name(self.path.name + "-journal").lstat()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise ValueError("MULTIPERSON_STORE_RECOVERY_REQUIRED") from exc
+        raise ValueError("MULTIPERSON_STORE_RECOVERY_REQUIRED")
+
     def _connect(self, *, readonly: bool = False) -> sqlite3.Connection:
         # Create the SQLite file with private permissions; never follow a
         # pre-existing symlink or silently accept a world-readable ledger.
@@ -154,6 +165,7 @@ class PrivateBatchSQLiteStore:
         if not stat.S_ISREG(verified.st_mode) or verified.st_mode & 0o077:
             raise ValueError("MULTIPERSON_STORE_PERMISSIONS_INVALID")
         if readonly:
+            self._assert_read_recovery_not_pending()
             # A pathname returned by PRAGMA database_list is NOT the inode
             # SQLite actually opened. Pin a private regular-file descriptor
             # first and open the readonly SQLite handle through that FD.
@@ -386,6 +398,7 @@ class PrivateBatchSQLiteStore:
                     raise ValueError("MULTIPERSON_STORE_PLAN_INTEGRITY_INVALID")
             except (TypeError, ValueError) as exc:
                 raise ValueError("MULTIPERSON_STORE_PLAN_INTEGRITY_INVALID") from exc
+            self._assert_read_recovery_not_pending()
             return planned
 
     def resume(self, plan_sha256: str) -> PrivateBatchStoredSnapshot:
@@ -397,7 +410,11 @@ class PrivateBatchSQLiteStore:
         serialized = self._assert_plan(plan)
         with closing(self._connect(readonly=True)) as connection, connection:
             connection.execute("BEGIN")
-            return self._read_locked(connection, plan, serialized)
+            snapshot = self._read_locked(connection, plan, serialized)
+            # Recheck after acquiring the read transaction's SHARED lock:
+            # a writer may have crashed since the connection preflight.
+            self._assert_read_recovery_not_pending()
+            return snapshot
 
     def observe(
         self,
