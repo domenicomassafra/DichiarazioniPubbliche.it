@@ -194,3 +194,81 @@ source/rights approval. No actual model output, independently annotated gold,
 live source revalidation, cost/accuracy benchmark, runtime MiniPC/Studio proof,
 public attribution, reviewer or publication authority was established.
 Consequently **AC-240.1–.6 remain unchecked, ticket IN PROGRESS, NO-GO**.
+
+## 2026-10-13 — Local SQLite opened-file identity race, bounded P2 repair
+
+Independent follow-on in detached, isolated `/tmp/dp240-20261013-worker-new`
+from canonical `origin/main` `83588bdb5bbcb0e21f34d3935d504b8fad27bb3e`.
+The private SQLite ledger validated the pathname and `0600` file mode before
+calling `sqlite3.connect()`. A concurrent local pathname replacement could
+redirect SQLite to an unrelated, world-readable database, then restore the
+original secure path before the first transaction. The write path would
+persist a source/Content/Person-scoped plan into the unintended file; a
+second pathname check alone could miss the restored-file scenario.
+
+A real-SQLite regression in `tests/test_dp240_durable_batch_next.py` temporarily
+replaces the checked file with a symlink to an existing `0644` SQLite file
+*only during* `sqlite3.connect()` and then restores the original inode.
+**RED** on baseline: registration unexpectedly succeeded (`ValueError not
+raised`). **GREEN** after the bounded fix: `_connect()` checks the actual
+opened `main` database returned by SQLite against the verified device/inode,
+current pathname identity and private file permissions, before any schema
+write or receipt read; refusal closes the incorrect connection. The test
+also verifies the exposed database gained no DP-240 table.
+
+**Validation:** focused race regression PASS; 56/56 DP-240 durable, multi-
+Person and `private_candidate_batch` neighbor tests PASS; Ruff for the two
+owned Python paths PASS; targeted `compileall` and `git diff --check` PASS.
+This is local private-ledger isolation only. There was no real source or
+provider execution, no MiniPC/Studio readback, no independently annotated
+multi-speaker acceptance or cost/false-attribution baseline. Original
+**AC-240.1–.6 remain OPEN**, status **IN PROGRESS**, release **NO-GO**.
+
+### 2026-10-13 — Independent P2: PRAGMA pathname does not identify SQLite's held inode
+
+Independent GPT-6 high review of the first SQLite path-swap fix reproduced a
+second **read-poisoning P2**, even after `PRAGMA database_list` and file `stat`
+were checked. With one private `0600` trusted database at revision 0 and an
+unrelated `0644` SQLite database containing an extra synthetic attempt at
+revision 1, a concurrent local `rename()` moved the unrelated **regular**
+file under the trusted pathname just for `sqlite3.connect`, then restored the
+files immediately. SQLite retained the foreign open handle while
+`PRAGMA database_list` reported the restored trusted *path*. Both subsequent
+`Path.stat()` checks appeared valid, yet `read(plan)` returned the foreign
+revision 1. A real SQLite regression reproduced this **RED**. The analogous
+writer test raised SQLite `SQLITE_READONLY_DBMOVED`; that observation must not
+be misreported as a confirmed cross-database private-row write.
+
+Read-only opens now use a validated `os.open(O_RDONLY|O_NOFOLLOW)` descriptor,
+compare its **actual `fstat()` device/inode and 0600 mode** with the initial
+private source, and open SQLite through the pinned `file:/dev/fd/N?mode=ro`
+path while the descriptor remains open. SQLite holds the original open file
+rather than following any intervening pathname swap; the descriptor is closed
+once the independent SQLite read handle exists. A previously accepted
+rename-swap no longer redirects SQLite into the unrelated external plan, while
+normal source snapshots and replay remain readable. The existing writable
+path remains guarded by the original 0600 check, post-connect pathname check
+and SQLite's moved-database write protection; this is **not** a general VFS
+identity or cross-process hostile-writer security proof.
+
+A second RED→GREEN negative covers external `WAL` journal mode. A pinned
+read-only `/dev/fd` SQLite path does not identify the original WAL sidecar,
+which can produce `disk I/O error` or a stale read; it now fails closed with
+`MULTIPERSON_STORE_PATH_INVALID`, without serving partial receipts. The
+reference private batch store still uses SQLite's default DELETE journal
+mode and does not claim WAL compatibility. **58/58 local DP240 and neighboring
+candidate-batch tests PASS**, scoped Ruff and diff check PASS. No real source,
+provider, MiniPC, live database or publication action occurred. All original
+AC-240.1–.6 stay OPEN, ticket IN PROGRESS, current release NO-GO.
+
+### 2026-10-13 — authorized bounded DELETE-journal crash follow-up
+
+Independent review of PR23 SHA `c98ba7e4a15e9f4567e97e5fb345a4d029950bff` reproduced a native SQLite crash leaving an uncommitted, spilled revision1 and a valid hot DELETE-journal. The FD-only reader served revision1; canonical SQLite recovery rolled it back to revision0. Owner authorizes a bounded data-integrity repair retaining FD/inode isolation: fail closed while the canonical journal exists, and recheck before returning readback while the SQLite read transaction is still held. Recovery remains SQLite-native, not a custom journal parser or blind automatic reopen on a replaceable pathname. Official source reuse: https://www.sqlite.org/lockingv3.html sections4/4.1; nearby store already uses SQLite transactions and pathlib identity checks. Native recovery is adequate for the journal but an automatic swappable-path open does not meet existing inode authority; smallest residual is an explicit bounded HOLD. Source/test/ticket only, no release, production or original AC closure.
+
+**Result — bounded source repair, not release:** the read-only FD path now refuses any canonical `-journal` sidecar with `MULTIPERSON_STORE_RECOVERY_REQUIRED`; dangling/inaccessible objects also fail closed. It checks before opening and after the actual SQLite read transaction, before returning `read` or `load_plan` output; `resume` uses those same paths. Existing FD/fstat/path permissions and WAL refusal are unchanged. Presence-based HOLD intentionally also covers a live or stale journal: no journal contents are parsed, deleted or replayed by owner code. Authorized recovery must use SQLite itself on the verified canonical store; automatic recovery on a merely swappable pathname is not introduced.
+
+Two actual crash regressions were **RED** on source `c98ba7e`: `ValueError not raised`. A temporary child uses real SQLite, cache spill and an uncommitted source-valid attempt, then `os._exit(0)`, leaving a valid hot journal; fixed `read`/`load_plan`/`resume` HOLD instead of serving phantom revision1. After native SQLite rollback, positive read/restart returns committed revision0 and zero attempts. A second test crashes after the connection preflight and proves read and plan-load refuse before returning results. The rename regression now actually swaps the pathname during the FD URI connect, preserving the trusted revision0 and foreign revision1; its former hook only targeted the old pathname URI. Fresh `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest tests.test_dp240_durable_batch_next tests.test_dp240_multi_person_batch tests.test_private_candidate_batch -q`: **60/60 PASS**; scoped Ruff and diff-check PASS. This fresh run is macOS local synthetic evidence. Linux proof requires the updated PR CI; the prior 12-success/3-skip CI is for the predecessor SHA and is not reused as proof for this dirty delta. No host, service, real private DB, provider or public source touched; temporary children exited and fixtures cleaned. Root integrates/reviews/pushes this same PR. Original AC-240.1–.6 remain OPEN and release NO-GO.
+
+### 2026-10-13 — same-PR Linux pre-SELECT HOLD correction
+
+CI on `44f15eb2e5ebfa900fb4a26aa7cfda8a59f6a8fd` exposed a consequence of the preceding repair: after a crash between connection preflight and first SELECT, SQLite on Linux/macOS Python3.11 attempted its own read-only journal recovery before the post-read check, raising `OperationalError: attempt to write a readonly database` instead of the explicit HOLD. Reproduced **RED** on native MiniPC Linux in a disposable copy of this exact committed source/tests: both read and load_plan failed that existing regression (exit1, errors2). Minimal correction reuses `_assert_read_recovery_not_pending()` immediately after `BEGIN` and before the first SELECT in both public readers; the existing post-read check remains to cover later changes while the read transaction holds its lock. No test expectation was loosened, parser or abstraction added. Fresh same 60-test focused suite **PASS on Mac Studio and native MiniPC Linux**, including process-crash, native recovery, exact FD rename attack, positive replay and WAL HOLD; Ruff/diff-check PASS. Isolated Linux source/test fixtures were created under unique `/tmp/dp240-linux-crash.*` and removed by the same command exit trap; no production DB/services/install touched. Root owns same-PR commit/push/CI/merge. All original AC remain OPEN.
