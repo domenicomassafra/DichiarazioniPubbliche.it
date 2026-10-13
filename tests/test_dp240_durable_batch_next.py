@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 from threading import Barrier
@@ -473,6 +474,57 @@ print(json.dumps({'before':before.revision,'after':after.revision,
         self.assertEqual(unrelated.index.observed_count, 0)
         self.assertEqual(unrelated.revision, 0)
         self.assertEqual(self.store.read(self.plan), committed)
+
+    def test_sqlite_open_rejects_swapped_world_readable_file_before_private_write(self):
+        # An intermediate rename+symlink can target a different SQLite file
+        # after the 0600/path checks, then restore the trusted path immediately.
+        # Never persist this plan into that unrelated, world-readable database.
+        from unittest.mock import patch
+
+        self.path.touch(mode=0o600)
+        outside = tempfile.TemporaryDirectory(dir="/tmp")
+        self.addCleanup(outside.cleanup)
+        outside_path = Path(outside.name)
+        outside_path.chmod(0o755)
+        exposed = outside_path / "exposed.sqlite3"
+        with closing(sqlite3.connect(exposed)):
+            pass
+        exposed.chmod(0o644)
+        original_connect = sqlite3.connect
+        safe_backup = self.path.with_name("private-original.sqlite3")
+        intercept_count = 0
+
+        def swapped_connect(database, *args, **kwargs):
+            nonlocal intercept_count
+            if Path(database) != self.path:
+                return original_connect(database, *args, **kwargs)
+            intercept_count += 1
+            self.path.rename(safe_backup)
+            self.path.symlink_to(exposed)
+            try:
+                return original_connect(database, *args, **kwargs)
+            finally:
+                self.path.unlink()
+                safe_backup.rename(self.path)
+
+        with patch(
+            "dichiarazioni_pubbliche.multi_person_batch_store_v1.sqlite3.connect",
+            side_effect=swapped_connect,
+        ):
+            with self.assertRaisesRegex(ValueError, "MULTIPERSON_STORE_PATH_INVALID"):
+                self.store.register(self.plan)
+        self.assertEqual(intercept_count, 1)
+        with closing(sqlite3.connect(exposed)) as connection:
+            self.assertNotIn(
+                "dp240_plans",
+                {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                },
+            )
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
     def test_unknown_store_read_never_creates_file_or_persists_private_text(self):
         new_path = self.path.with_name("never-created.sqlite3")

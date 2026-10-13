@@ -194,3 +194,32 @@ source/rights approval. No actual model output, independently annotated gold,
 live source revalidation, cost/accuracy benchmark, runtime MiniPC/Studio proof,
 public attribution, reviewer or publication authority was established.
 Consequently **AC-240.1–.6 remain unchecked, ticket IN PROGRESS, NO-GO**.
+
+## 2026-10-13 — Local SQLite opened-file identity race, bounded P2 repair
+
+Independent follow-on in detached, isolated `/tmp/dp240-20261013-worker-new`
+from canonical `origin/main` `83588bdb5bbcb0e21f34d3935d504b8fad27bb3e`.
+The private SQLite ledger validated the pathname and `0600` file mode before
+calling `sqlite3.connect()`. A concurrent local pathname replacement could
+redirect SQLite to an unrelated, world-readable database, then restore the
+original secure path before the first transaction. The write path would
+persist a source/Content/Person-scoped plan into the unintended file; a
+second pathname check alone could miss the restored-file scenario.
+
+A real-SQLite regression in `tests/test_dp240_durable_batch_next.py` temporarily
+replaces the checked file with a symlink to an existing `0644` SQLite file
+*only during* `sqlite3.connect()` and then restores the original inode.
+**RED** on baseline: registration unexpectedly succeeded (`ValueError not
+raised`). **GREEN** after the bounded fix: `_connect()` checks the actual
+opened `main` database returned by SQLite against the verified device/inode,
+current pathname identity and private file permissions, before any schema
+write or receipt read; refusal closes the incorrect connection. The test
+also verifies the exposed database gained no DP-240 table.
+
+**Validation:** focused race regression PASS; 56/56 DP-240 durable, multi-
+Person and `private_candidate_batch` neighbor tests PASS; Ruff for the two
+owned Python paths PASS; targeted `compileall` and `git diff --check` PASS.
+This is local private-ledger isolation only. There was no real source or
+provider execution, no MiniPC/Studio readback, no independently annotated
+multi-speaker acceptance or cost/false-attribution baseline. Original
+**AC-240.1–.6 remain OPEN**, status **IN PROGRESS**, release **NO-GO**.
