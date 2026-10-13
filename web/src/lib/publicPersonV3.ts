@@ -116,19 +116,25 @@ export async function readApprovedPersonV3(
 ): Promise<ApprovedPersonV3 | null> {
   if (options.allowPersonV3 !== true) throw new Error("PUBLIC_PERSON_V3_OPT_IN_REQUIRED");
   if (!HASH.test(options.expectedCollectionSha256 ?? "")) throw new Error("PUBLIC_PERSON_V3_PIN_REQUIRED");
-  exact(value, ["schema_version", "dataset_sha256", "people"]);
-  if (value.schema_version !== PUBLIC_PERSON_V3_SCHEMA || !Array.isArray(value.people) ||
-      !HASH.test(String(value.dataset_sha256)) || value.people.length > 10000) {
+  // A caller may alter approved names, aliases, roles or original quotations
+  // while an async collection/quote digest runs, or after this reader returns.
+  // Validate and return only one detached snapshot, never caller-owned rows.
+  let snapshot: unknown;
+  try { snapshot = structuredClone(value); }
+  catch { throw new Error("PUBLIC_PERSON_V3_FIELDS_INVALID"); }
+  exact(snapshot, ["schema_version", "dataset_sha256", "people"]);
+  if (snapshot.schema_version !== PUBLIC_PERSON_V3_SCHEMA || !Array.isArray(snapshot.people) ||
+      !HASH.test(String(snapshot.dataset_sha256)) || snapshot.people.length > 10000) {
     throw new Error("PUBLIC_PERSON_V3_SCHEMA_INVALID");
   }
   // Backend computes this digest on canonical sorted-key JSON of the complete
   // public collection. Hashing the *whole* list binds zero-record withdrawals.
-  if (value.dataset_sha256 !== options.expectedCollectionSha256 ||
-      await sha(canonicalJson(value.people)) !== value.dataset_sha256) {
+  if (snapshot.dataset_sha256 !== options.expectedCollectionSha256 ||
+      await sha(canonicalJson(snapshot.people)) !== snapshot.dataset_sha256) {
     throw new Error("PUBLIC_PERSON_V3_COLLECTION_STALE_OR_TAMPERED");
   }
   const seen = new Set<string>();
-  for (const person of value.people) {
+  for (const person of snapshot.people) {
     exact(person, ["person_id", "slug", "route", "display_name", "disambiguator",
       "entity_version", "profile_scope", "status", "roles", "statements"]);
     const id = String(person.person_id);
@@ -152,6 +158,6 @@ export async function readApprovedPersonV3(
     }
   }
   if (!hasText(options.identifier)) throw new Error("PUBLIC_PERSON_V3_IDENTITY_REQUIRED");
-  return value.people.find((person: ApprovedPersonV3) =>
+  return snapshot.people.find((person: ApprovedPersonV3) =>
     person.person_id === options.identifier || person.slug === options.identifier) ?? null;
 }

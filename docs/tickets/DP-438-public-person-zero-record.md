@@ -191,3 +191,29 @@ This is an isolated source-only public identity correctness fix; it does not
 add a public v3 Person route, search/sitemap activation, owner-approved source
 rights, independent current release pins or MiniPC publication authority.
 **DP-438 remains IN PROGRESS and AC-438.1–.6 stay unchecked.**
+
+## 2026-10-13 — Immutable approved Person frontend readout
+
+The opt-in `readApprovedPersonV3` consumer independently validated a
+cryptographically pinned collection but returned the caller-owned nested
+Person record. A deterministic synthetic RED showed that changing the caller
+after validation replaced the returned approved display name, disambiguator,
+role interval, original opinion quote and source URL/locator with private
+unapproved values while the collection fingerprint stayed unchanged. The
+same caller-controlled substitution can race an asynchronous digest.
+
+The consumer now detaches the collection **before** its first asynchronous
+digest, validates that snapshot and returns only its contained approved
+Person. A new regression covers later and interleaved mutation, two approved
+same-name but distinct-ID identities, an independently approved zero-Statement
+Person, null Finding for a published opinion, and identical unknown/held
+lookups. RED became GREEN with the original code/contract retained.
+
+The combined first-class Person backend and frontend source branch passed
+`node web/scripts/check-dp438-person-v3-immutable-20261013.mjs`,
+`check-person-v3-archive.mjs`, `check-private-person-empty-v3.mjs`,
+`check-private-person-topic-v3.mjs`, TypeScript/Astro `npm run check`
+(0 errors, 0 warnings, one unrelated existing DP-429 unused-import hint),
+and adjacent backend DP-437/438/439 tests **34/34 PASS**. No newly
+qualified source, public route, private data read or production publication
+was authorized; original **AC-438.1–.6 remain OPEN**.
