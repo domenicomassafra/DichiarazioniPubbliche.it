@@ -182,6 +182,11 @@ def build_source_coverage(
             state, reason, delta = "UNKNOWN", "COVERAGE_NO_AUTHORIZED_SUCCESS", "NONE"
         elif stamp - _aware(last_success.attempted_at) > timedelta(seconds=unit.max_staleness_seconds):
             state, reason, delta = "STALE", "COVERAGE_SUCCESS_TOO_OLD", "REVIEW_COVERAGE_GAP"
+        elif _aware(last_success.attempted_at) < _aware(unit.interval_end):
+            # A reviewed enumeration at T cannot attest completeness for the
+            # portion of its declared interval occurring after T. In particular,
+            # a future-ended subscription is not yet fully observed or public-current.
+            state, reason, delta = "PARTIAL", "COVERAGE_INTERVAL_NOT_YET_OBSERVED", "REVIEW_COVERAGE_GAP"
         elif not last_success.enumeration_complete_within_scope:
             state, reason, delta = "PARTIAL", "COVERAGE_SCOPE_NOT_EXHAUSTIVELY_REVIEWED", "REVIEW_COVERAGE_GAP"
         else:

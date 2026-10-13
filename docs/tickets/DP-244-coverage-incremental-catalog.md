@@ -98,3 +98,34 @@ Proof: `PYTHONPATH=poc python3 -m unittest tests.test_dp244_coverage_catalog -v`
 local source-only contract improvement. No scheduler, crawler, persistent
 idempotent work ledger, rights approval, source canary, MiniPC runtime, or public
 release was exercised. Original **AC-244.1–.6 remain unchecked**.
+
+### 2026-10-13 — No currentness claim before the observed interval has ended
+
+An independent source-only regression showed that a `CoverageUnit` with an
+`interval_end` **after** its last independently provided successful observation
+could return `CURRENT_WITHIN_OBSERVED_SCOPE` merely because its enumeration
+flag was true. The committed test fixture evaluates a bounded incremental
+subscription on **2026-10-11 at 17:00 UTC** with an interval ending
+**2026-10-13 at 17:00 UTC**: an already-complete result could not possibly
+attest the future portion of the interval. A separate local pre-fix
+reproduction also used a November-ended interval, with the same defect.
+
+For an otherwise eligible, fresh, unchanged observation, the
+`build_source_coverage` read model now returns `PARTIAL` with the explicit
+`COVERAGE_INTERVAL_NOT_YET_OBSERVED` reason and a conditional gap-review
+proposal until an externally supplied authorized successful observation is at
+or after that unit's exact interval end. Existing higher-priority revocation,
+outage, stale-reanalysis and missing-permission states continue to take
+precedence. None exposes a false public-currentness descriptor for the
+incomplete interval, and this read model never authorizes dispatch.
+The test proves the same scope can become current once a later eligible
+observation actually exists. The future timestamp is an isolated test fixture,
+not a source observation manufactured in production.
+
+Proof: `test_future_scope_end_cannot_be_attested_complete_by_earlier_observation`
+was **RED** (`CURRENT_WITHIN_OBSERVED_SCOPE` vs expected `PARTIAL`), then
+**GREEN**; full `tests.test_dp244_coverage_catalog` suite **16/16 PASS**, source
+`compileall` and `git diff --check` PASS. No source was fetched, permission
+granted, watch enabled, DB modified or public site updated. All AC-244.1–.6
+remain OPEN until the separately required real rights, persistence, runtime
+and MiniPC evidence is available.
