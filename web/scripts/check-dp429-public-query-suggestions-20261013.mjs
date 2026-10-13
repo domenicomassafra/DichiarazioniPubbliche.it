@@ -138,6 +138,56 @@ assert.ok(
   "suggestions must be bounded even with many public terms",
 );
 
+// P2: 24 valid-looking near words of the WRONG public type / person consumed
+// the candidate budget before a legitimate later-ordered topic/person hit.
+const decoys = ["aaaabbax", ...[..."abcdefghijklmnopqrstuvw"].map((letter) => "aaaabbb" + letter)];
+assert.equal(decoys.length, 24);
+const falseFindings = decoys.map((title, i) => sample(
+  "other:" + i, title, "finding", { person_id: "person:other", assessment: "SUPPORTED" },
+));
+const validTopic = sample("topic:valid", "aaaabbby", "topic", {
+  route: "/temi/valid/", person_id: undefined, topic_ids: undefined,
+});
+assert.deepEqual(
+  component.getExploreSuggestions({ records: [...falseFindings, validTopic] }, "aaaabbbx", { kind: "topic" }),
+  ["aaaabbby"],
+  "active Topic type must not be starved by 24 other-type candidates",
+);
+assert.deepEqual(
+  component.getExploreSuggestions({ records: falseFindings }, "aaaabbbx", { kind: "topic" }),
+  [],
+  "other-type terms must never be suggested when there is no Topic",
+);
+const validPersonFinding = sample("target:valid", "aaaabbby", "finding", {
+  person_id: "person:target", assessment: "FACTUALLY_FALSE", topic_ids: ["topic:target"],
+});
+const mixedPeople = { records: [...falseFindings, validPersonFinding] };
+assert.deepEqual(
+  component.getExploreSuggestions(mixedPeople, "aaaabbbx", { personId: "person:target" }),
+  ["aaaabbby"],
+  "active Person facet must not be starved by 24 other-person candidates",
+);
+assert.deepEqual(
+  component.getExploreSuggestions(mixedPeople, "aaaabbbx", { topicId: "topic:target" }),
+  ["aaaabbby"],
+  "approved Topic membership must not be starved by other public memberships",
+);
+assert.deepEqual(
+  component.getExploreSuggestions(mixedPeople, "aaaabbbx", { assessment: "FACTUALLY_FALSE" }),
+  ["aaaabbby"],
+  "active assessment must not be starved by 24 differently classified findings",
+);
+for (const filters of [
+  { personId: "person:unapproved" },
+  { topicId: "topic:unapproved" },
+  { kind: "topic", personId: "person:target" },
+]) {
+  assert.deepEqual(
+    component.getExploreSuggestions(mixedPeople, "aaaabbbx", filters), [],
+    "no matching public filter intersection must yield no suggestion",
+  );
+}
+
 let state = ["", "ALL", "ALL", "relevance", "ALL", "ALL", true, index, "ready", false];
 let nextStates = [];
 let position = 0;

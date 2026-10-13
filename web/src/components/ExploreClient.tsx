@@ -76,7 +76,22 @@ export function getExploreSuggestions(
   const collected: Record<SearchRecordKind, number> = {
     finding: 0, content: 0, person: 0, topic: 0,
   };
+  const kind = filters.kind ?? "ALL";
+  const assessment = filters.assessment ?? "ALL";
+  const personId = filters.personId ?? "ALL";
+  const topicId = filters.topicId ?? "ALL";
   for (const record of index.records) {
+    // Apply the exact public membership filters used by searchPublicIndex
+    // BEFORE collecting fuzzy vocabulary or spending its candidate budget.
+    // Unrelated public records cannot crowd out an eligible suggestion.
+    if ((kind !== "ALL" && record.kind !== kind) ||
+        (assessment !== "ALL" && record.assessment !== assessment) ||
+        (personId !== "ALL" &&
+          (record.kind !== "finding" || record.person_id !== personId)) ||
+        (topicId !== "ALL" &&
+          (record.kind !== "finding" || !record.topic_ids?.includes(topicId)))) {
+      continue;
+    }
     if (collected[record.kind] >= 125) continue;
     collected[record.kind] += 1;
     for (const term of [...record.primary_terms.slice(0, 5), ...record.secondary_terms.slice(0, 5)]) {
