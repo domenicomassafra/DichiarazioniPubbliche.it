@@ -256,3 +256,49 @@ verification-runtime targeted subset **45/45 PASS**, deterministic benchmark
 database, external provider, live source capture or real rights approval used
 by this branch; the established PostgreSQL tests run in their disposable
 fixtures only. All original DP-314 acceptance gates remain open.
+
+## 2026-10-14 — Private requirement-batch change detection (additional feature)
+
+New opt-in `requirement_research_delta_v1.py` compares two strictly typed,
+bounded metadata worklists produced by the DP-314 private requirement planner.
+It verifies **both canonical batch fingerprints and separately supplied
+expected pins** and rechecks the batch's own digest and row counts. It reports
+`UNCHANGED` versus `RECHECK_REQUIRED`, with exact added, removed and changed
+claim IDs, evidence ID **eligibility losses/gains**, and typed manual follow-up.
+A disappearing claim is never assumed closed; changed source SHA invalidates
+the old worklist even if the preflight category is unchanged, and other claims
+stay byte-equivalent. No action/research run is triggered.
+
+This is **reconciliation**, not a revocation listener or approval ledger:
+eligibility loss does not assert an actual provider revoke, and a correct SHA
+is not an authenticated source, rights or reviewer credential. The outputs
+remain private with `verdict=None`, `publication_authority=False`,
+`source_approval_authority=False`, zero provider calls/source bodies. Bounds
+are 32 claims and 512 metadata evidence IDs per batch, with no HTTP, DB,
+LLM, source-body, provider, public route or editorial publication calls.
+
+Initial **RED**: seven new tests failed because the source module did not
+exist; subsequent **GREEN** exercised exact replay, rights withdrawal,
+provenance-only drift, added/removed claims, cross-claim isolation and
+malformed metadata. An independent **read-only** reviewer found a genuine P2:
+caller-rehashed arbitrary `state`/`next_steps` strings could be reflected in
+a delta despite zero source-body-count metadata. The source now accepts
+only the canonical preflight state enum and planner's typed action vocabulary;
+adversarial tests rehash the malicious strings and assert fail-closed.
+The independent reviewer repeated the original repro after the correction:
+**PASS**, no remaining reproduced P1/P2 in the bounded source scope.
+
+After correction, **53/53** targeted DP-314/verification runtime tests,
+deterministic benchmark **5/5**, Python compilation and `git diff --check`
+PASS. The complete Python suite and branch delivery are recorded separately.
+Original **DP-314 remains IN PROGRESS**, all AC-314.1–6 unchanged and OPEN;
+no MiniPC, real-source, legal/rights, challenger or public-corpus acceptance.
+
+**Final source-branch full suite:** one `PYTHONDONTWRITEBYTECODE=1
+PYTHONPATH=poc python3 -B -m unittest discover -s tests -q` run on the new
+delta source with adversarial test returned **3,455 tests, OK, exit 0
+(359.355 s)**. This synthetic suite includes disposable test fixtures; it
+is not a production DB or live provider readback. The independent worker-2
+ran 42 focused source/preflight/wave tests and benchmark 5/5 and rechecked
+both self-rehashed malicious metadata probes: `DELTA_BATCH_INVALID` on each,
+with **no remaining P1/P2 reproduced** in the private delta contract.
