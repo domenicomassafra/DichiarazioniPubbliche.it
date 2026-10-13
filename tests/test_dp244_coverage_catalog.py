@@ -67,6 +67,45 @@ class CoverageCatalogTests(unittest.TestCase):
         self.assertNotIn("private:collection", str(descriptor))
         self.assertNotIn("source:synthetic", str(descriptor))
 
+    def test_future_scope_end_cannot_be_attested_complete_by_earlier_observation(self):
+        # Even a source enumeration flagged complete cannot cover dates which
+        # had not yet occurred when the receipt was obtained.  An unchecked
+        # source subscription must not produce a public currentness descriptor.
+        future_window = unit(
+            interval_start=NOW - timedelta(days=1),
+            interval_end=NOW + timedelta(days=2),
+            mode="INCREMENTAL_SUBSCRIPTION",
+            max_staleness_seconds=7 * 86400,
+        )
+        early = observation(
+            scope_fingerprint=future_window.scope_fingerprint(),
+            attempted_at=NOW,
+        )
+        premature = build_source_coverage(
+            future_window, (early,), now=NOW,
+            baseline_sha256=SHA, rights_ready=True,
+            budget_ready=True, capability_ready=True,
+        )
+        self.assertEqual(premature.state, "PARTIAL")
+        self.assertEqual(premature.reason_code, "COVERAGE_INTERVAL_NOT_YET_OBSERVED")
+        self.assertFalse(premature.dispatch_authorized)
+        self.assertIsNone(public_freshness_descriptor(premature, public_scope_review_id="review:public"))
+
+        # The same exact reviewed scope becomes eligible only with a later
+        # independently supplied success at or beyond its declared end.
+        later = replace(
+            early, attempt_id="attempt:after-window",
+            observation_receipt_id="receipt:official:test:after-window",
+            enumerated_scope_review_id="review:scope:after-window",
+            attempted_at=NOW + timedelta(days=3),
+        )
+        settled = build_source_coverage(
+            future_window, (early, later), now=NOW + timedelta(days=3),
+            baseline_sha256=SHA, rights_ready=True,
+            budget_ready=True, capability_ready=True,
+        )
+        self.assertEqual(settled.state, "CURRENT_WITHIN_OBSERVED_SCOPE")
+
     def test_success_without_independent_scope_enumeration_is_partial(self):
         row = observation(enumeration_complete_within_scope=False, enumerated_scope_review_id=None)
         result = reconcile((row,))
