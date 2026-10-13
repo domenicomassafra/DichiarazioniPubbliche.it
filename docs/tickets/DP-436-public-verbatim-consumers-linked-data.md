@@ -184,3 +184,26 @@ release-gating privacy/integrity fix does **not** activate the currently
 unrouted v3 public page or establish real publication rights, approved
 source membership, host cache invalidation or MiniPC readback; all original
 DP-436 acceptance criteria remain OPEN.
+
+### Full verification and delivery guard — 2026-10-13
+
+The combined source-only tranche was independently reviewed (PASS with no
+remaining reproducible P1/P2 in the scoped diff) after the API, JSON-LD,
+N-Triples, direct Astro source and asynchronous API-detail alias corrections.
+API/linked-data adversarial checks **25/25 PASS**; independent worker's
+backend/API/linked-data adjacent checks **129/129 PASS**; synthetic backend
+to actual Astro rendering with no-opt-in, incorrect record pin, after-return
+mutation and digest-interleaving negatives PASS. `npm run check` reports
+zero errors and zero warnings (one pre-existing unused-require hint in the
+unrelated DP-429 suggestion test). `compileall`, scoped Ruff, deterministic
+domain benchmark **5/5 PASS**, and `git diff --check` PASS.
+
+Final integrated Python suite **3,442/3,442 PASS** in **431.620 seconds**
+(`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover
+-s tests -q`, exit 0). These are source-only synthetic/private safety tests,
+not qualified fact-checking, approved source rights or MiniPC deployment.
+The coherent eight-file correction is preserved on remote branch
+`fix/dp436-direct-component-pin-20261013`; do not create a new GitHub PR
+until linked Codex automatic-review personal/repository settings are actually
+verified OFF or owner expressly approves possible review cost
+(`PR_HELD_AUTOREVIEW_BILLING_GUARD`). Original AC-436.1–.4 remain OPEN.
