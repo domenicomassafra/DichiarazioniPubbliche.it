@@ -483,3 +483,29 @@ that real assistive-technology/manual matrix, including focus order, spoken
 names, target sizes and visual judgment, plus runtime proof where applicable.
 DP-410.1/.2 inherit this limitation; their cross-surface acceptance remains
 open, and their ticket was not edited by this component-only repair.
+
+### 2026-10-13 — Public Topic v3 canonical rule-token regression
+
+On `main` at `8a16ca5b7942caeece1306594661013b17c87709`, a fresh
+`cd web && npm run check:design` failed with
+`color literal outside tokens.css: src/components/PublicTopicV3.astro => #ccc, #ccc`.
+The isolated opt-in Topic consumer had two content separator rules, for
+`.topic-v3-row` and `.topic-v3-aside`, using an undefined
+`--color-border` variable with a raw `#ccc` fallback. Both now consume the
+already defined `--rule-hairline`, the designated informational/content divider
+from `tokens.css`. No token value, design threshold, or shared guard was altered.
+
+Added `web/scripts/check-dp412-public-topic-token-ax.mjs`. Before the fix it
+failed on the row border; after the fix it passes both real source declarations
+and source-level semantic guards for the labeled Topic section/aside, native
+filter labels and reset, named live result count, and disclosure summary.
+These are source/markup contract assertions, not a browser accessibility-tree
+capture or a human screen-reader pass. Fresh verification: dedicated test
+**PASS**; `npm run check:design` **PASS** (same unreduced guard);
+`npm run check` **PASS** (121 files, zero errors/warnings/hints);
+explicit demo-only isolated Astro build **PASS** (34 pages, no publish);
+`git diff --check` **PASS**. Build output was discarded after verification.
+The Topic v3 opt-in consumer remains deliberately unrouted and was not approved
+for public exposure. **AC-412.5 stays open** for its independent human
+keyboard/AT/zoom/grayscale/reduced-motion acceptance; no MiniPC readback is
+claimed for this local component correction.

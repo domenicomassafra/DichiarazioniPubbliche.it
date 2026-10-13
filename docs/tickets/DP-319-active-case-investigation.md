@@ -132,3 +132,124 @@ full focused-plus-adjacent DP-319/DP-241/DP-228/research/coverage suite
 registry, D provider/cost execution receipts, checked baseline coverage,
 MiniPC persisted replay, trusted human/qualified authority and downstream
 case lifecycle remain unproved. `IN PROGRESS`; release **NO-GO**.
+
+### 2026-10-13 — Complete assignment-authority fingerprint (source-only)
+
+The private attempt planner previously fingerprinted an assignment's adapter,
+query count, result count, stop rules and cost cap but silently omitted its
+**research question, per-host limit, temporal constraints, authority scope,
+READY/BLOCKED state and blockers**. Replacing an assigned source/time/jurisdiction
+scope or withdrawing that assignment could leave the same attempt ID and accept
+an older receipt as if it belonged to the current bounded plan.
+
+An isolated local regression was **RED** in five subcases: all changed those
+authority-relevant fields yet retained the original plan fingerprint. The
+planner now fingerprints the complete action-limiting research assignment and
+its current declared rights status, preserving deterministic sorted replay,
+while rejecting old observation IDs after a plan change. This is not a signed
+authority record: arbitrary caller-supplied CLEARED status alone cannot
+authorize a real search and does not prove source rights. The actual durable
+worker must still validate its signed/current permissions and spending gates
+in a transaction. None of AC-319.1–.5 or MiniPC real canary is closed.
+
+### 2026-10-13 — Existing SQLite fingerprint migration duplication P1 (fail-closed)
+
+Independent review found a previously missed **durable replay P1** in the
+new full-scope plan fingerprint: even *unchanged* research assignments obtain
+a different SHA than records already saved by the v1 planner. An old
+SQLite scope with a pending, potentially cost-bearing reservation could
+no longer resume (`INVESTIGATION_STORE_INTEGRITY_INVALID`), while a new
+`register` and `reserve` accepted the same source and plan under its new SHA,
+creating a second unknown-cost attempt. A temporary real SQLite regression
+reproduced the old writer's immutable scope/event rows and the duplicate
+reservation before the correction; a green pure planner test and prior CI
+were insufficient to detect this cross-version path.
+
+The append-only opt-in `investigation_attempts_store_v1.py` now checks old
+scopes **inside the existing `BEGIN IMMEDIATE` before registering new work**.
+For the same immutable source/content/candidate/material/version/hash, a
+stored scope with the older fingerprint algorithm (including completed or
+pending reservations) produces
+`INVESTIGATION_STORE_LEGACY_FINGERPRINT_CONFLICT` without changing old rows,
+even if the newly supplied authority question/time/jurisdiction has changed
+or rights were later revoked and re-cleared. Distinct newly versioned source
+material and unrelated needs are not falsely fenced. The old scope remains
+**not resumable** under the new planner and requires a separately authorized
+append-only migration/readback design; this patch intentionally refuses
+new attempts rather than rewriting historical cost/receipt identity.
+
+The independent six-case real SQLite upgrade test is RED before the store
+fence and GREEN after. The source-level scopes remain private proposals, not
+real provider calls or legal authority. DP-319.1–.5 and MiniPC acceptance
+remain OPEN.
+
+### 2026-10-13 — Modern cross-scope cost replay and stored-scope integrity fixes
+
+A second independent adversarial review of the fail-closed legacy migration guard
+found a further **P1**: two distinct *modern* fingerprints for the same pinned
+source/body could both reserve cost-bearing attempts if only research time,
+question or jurisdiction changed, including a pre-registered second scope and
+a concurrent two-writer race. An earlier `COMPLETED` event did not stop the
+second spend either. Additionally, corrupted persisted `source_json` that was
+valid JSON `[]` or lacked the source SHA was silently omitted from the
+`json_extract` scope filter (**P2** local integrity bypass), permitting replay.
+
+The bounded local SQLite reference now scans and validates all existing scope
+metadata using the native strict `_scope_row` parser rather than relying on a
+JSON SQL predicate that skips malformed-but-valid JSON. It calls the common
+`_reject_cross_scope_cost_replay` inside `BEGIN IMMEDIATE` at **both**
+`register` and just before a new `RESERVED` write: old format SHA mismatches
+remain fenced; a different modern plan over the same immutable source/Content
+with any prior append-only `RESERVED` event is fenced, whether pending or
+completed. Same-scope idempotent replay, new source version/hash and unrelated
+material remain possible. No history is rewritten or budget reauthorized.
+
+Tests RED reproduced modern A/B registration/spend with pending, completed,
+pre-registered and concurrent variants, plus `[]`/missing-field persisted
+source JSON. They are GREEN after the native guards, with the worker's
+13 focused upgrade/cross-scope cases and **99** neighboring cases; prime
+reruns integration tests, Ruff and remote CI on exact PR SHA separately.
+These fixes are source-only conservative safety fences, **not** audited
+legacy migration or real financial authorization. Historical v1 resume
+remains blocked without an explicit migration plan; all DP-319 AC are OPEN.
+
+### 2026-10-13 — Stored scope versus immutable source epoch P2 regression
+
+A further independent read-only adversarial review found that a corrupted
+`dp319_scopes.source_json` could remain syntactically valid, complete JSON,
+yet replace its original source SHA or source ID with a different value. The
+prior scope scan would then skip it by source identity and allow a second
+cost-bearing reservation on the original source. The test reproduced both
+cases against actual temporary SQLite with an earlier `RESERVED` event:
+**2/2 RED** before the patch (the second registration wrongly succeeded).
+
+The scan now requires every persisted scope source record to match the
+independently immutable, checksummed `dp319_source_epochs` record for that
+exact need and revision before considering its fingerprint or scope key.
+Unbound/tampered source metadata fails `INVESTIGATION_STORE_INTEGRITY_INVALID`
+under the existing write lock, without another reservation. **2/2 GREEN**
+and 77 scoped/neighbor unit tests GREEN after the correction; no real DB,
+provider, Capture or owner authorization touched. Older v1 scope resume and
+all original DP-319 AC remain open pending audited migration and real runtime.
+
+### 2026-10-13 — Validate original append-only RESERVED source identity
+
+The stricter source-epoch check above still admitted an *indirect* P2 bypass:
+replace one prior scope's mutable `source_json` with a different, entirely
+legitimate registered epoch. Its JSON and checksum then matched a real source
+registry entry, but its persisted `RESERVED` event still referred to the
+original source. This could hide a cost-bearing attempt from a later same-source
+scope registration. Independent red reproductions covered (a) an intervening
+version/epoch on the same need and (b) a separate need and source, leaving the
+original event intact. Before the patch the relevant `register` call succeeded.
+
+`_reject_cross_scope_cost_replay` now checks each prior parsed scope's need and
+material against its source registry binding and checks the append-only event
+checksum and every `RESERVED` event's original source/Content/version/SHA and
+revision against that same registered source **before** comparing current
+source-key equality. Any replacement with another valid source epoch therefore
+fails `INVESTIGATION_STORE_INTEGRITY_INVALID` rather than creating a new paid
+reservation. Both new negative regressions and 79 scoped/neighboring tests
+pass on disposable SQLite; this does not recover old v1 resume, permit a real
+investigation, or close any DP-319 AC. CI and independent current-SHA review
+remain separate required gates.

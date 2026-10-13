@@ -334,3 +334,218 @@ evidence/rights were added.
 **Phase / dependencies:** Phase 1 ongoing through Garlasco; hard DP-214 real corpus/rights decisions; soft B evidence requirements, A-NEW-02, D launch set.
 
 **Related future specifications (separate ownership):** DP-236, DP-314. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+## 2026-10-13 — independent MiniPC selected-source explanation check (AC-215.9)
+
+**Decision: AC-215.9 OPEN; status IN PROGRESS.** A fresh, actual read-only query
+of the authoritative MiniPC PostgreSQL `dichiarazioni_pubbliche` evaluated the
+persisted `INCLUDED` members of `research:garlasco` as they exist, rather than
+substituting fixtures or unpersisted URL hints. It returned the following
+aggregate without source identifiers, URLs, titles, bodies or private receipts:
+
+| Selected-source prerequisite | MiniPC 2026-10-13 readback |
+|---|---:|
+| Collection status / included Content | `PAUSED` / **18** |
+| Distinct represented Source IDs | 10 |
+| Content `published_at` non-null | 18/18 |
+| Content rights `UNKNOWN` | 18/18 |
+| Membership `capture_authorized=true` | 0/18 |
+| Bound active Source Intelligence profile | 0/18 |
+| Active evidence role with a nonblank basis on that profile | 0/18 |
+| Active contextual authority scope with a matching active role, basis and scope dimension | 0/18 |
+| Approved source-profile relation with evidence basis | 0/18 |
+| Approved Content derivation edge | 0/18 |
+| Current exact-URL reviewed and unexpired private Capture-rights metadata | 0/18 |
+| Active profile **and** role **and** scope **and** non-null publication date | **0/18** |
+
+Independent live PostgreSQL sanity control: the overall tables are populated
+with **13 ACTIVE profiles, 19 ACTIVE evidence roles and 10 ACTIVE scopes**;
+their zero Garlasco bindings are not caused by absent Source Intelligence
+tables. Globally there are zero `APPROVED` profile relations and zero approved
+Content-derivation candidates. These are counts of database metadata, not
+reviewed judgments about any unrecorded real-world relationships.
+
+`published_at` being populated shows a stored timestamp, **not** verified
+temporal applicability: the specific event/record version, valid interval,
+claim cutoff and supersession still require per-source review. Missing an
+approved derivative edge does **not** prove independence (or itself disqualify
+an original source); lineage remains unassessed unless a documented origin,
+derivation or affirmative independent relation is independently reviewed.
+Likewise the scope counter is a necessary positive signal for applicable
+contextual authority, not a blanket requirement that all ordinary reporting
+sources claim official authority. The absence of every active source profile
+and role independently prevents explanation of *every selected real source*.
+`UNKNOWN` records a rights state; it does not grant retrieval, retention,
+model processing or publication authority.
+
+To reproduce the scoped, metadata-only source-descriptor aggregate, on the
+authorized Mac with working `minipc` SSH alias execute the following. It uses
+one SQL transaction, `BEGIN READ ONLY` and `ROLLBACK`, and does not read source
+bodies or emit Content or person identifiers:
+
+```bash
+ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=yes minipc \
+  'env LC_ALL=C psql -X -qAt -d dichiarazioni_pubbliche -v ON_ERROR_STOP=1' <<'SQL'
+BEGIN READ ONLY;
+WITH members AS (
+ SELECT m.content_id, c.source_id, c.canonical_url, c.rights_status,
+        c.published_at, m.metadata
+ FROM research_collection_content m
+ JOIN content_item c ON c.id=m.content_id
+ WHERE m.collection_id='research:garlasco' AND m.status='INCLUDED'
+), audited AS (
+ SELECT m.*,
+ EXISTS (SELECT 1 FROM source_profile p
+         WHERE p.source_id=m.source_id AND p.status='ACTIVE') AS active_profile,
+ EXISTS (SELECT 1 FROM source_profile p JOIN source_evidence_role r
+         ON r.source_profile_id=p.id AND r.status='ACTIVE'
+         WHERE p.source_id=m.source_id AND p.status='ACTIVE'
+           AND btrim(r.basis)<>'') AS active_role,
+ EXISTS (SELECT 1 FROM source_profile p JOIN source_authority_scope a
+         ON a.source_profile_id=p.id AND a.status='ACTIVE'
+         JOIN source_evidence_role r ON r.source_profile_id=p.id
+         AND r.evidence_role=a.evidence_role AND r.status='ACTIVE'
+         WHERE p.source_id=m.source_id AND p.status='ACTIVE'
+           AND a.authenticity_basis IS NOT NULL
+           AND (a.jurisdiction IS NOT NULL OR a.organization_ref IS NOT NULL
+                OR a.record_type IS NOT NULL OR a.dataset_class IS NOT NULL))
+         AS scoped_role,
+ EXISTS (SELECT 1 FROM source_profile p JOIN source_relation rel
+         ON (rel.from_source_profile_id=p.id OR rel.to_source_profile_id=p.id)
+         AND rel.status='APPROVED' AND rel.evidence_basis<>'{}'::jsonb
+         WHERE p.source_id=m.source_id AND p.status='ACTIVE')
+         AS approved_profile_lineage,
+ EXISTS (SELECT 1 FROM content_derivation_candidate d
+         WHERE (d.origin_content_id=m.content_id OR d.derived_content_id=m.content_id)
+           AND d.status='APPROVED') AS approved_content_lineage,
+ EXISTS (SELECT 1 FROM private_source_rights_record rr
+         WHERE rr.content_id=m.content_id AND rr.locator_kind='URL'
+           AND rr.locator_value=m.canonical_url AND rr.rights_status='CLEARED'
+           AND rr.record_visibility='PRIVATE' AND rr.reviewed_at IS NOT NULL
+           AND rr.reviewed_at<=now() AND rr.reviewer_ref IS NOT NULL
+           AND rr.rights_receipt_ref IS NOT NULL
+           AND rr.permitted_uses @> ARRAY['RESEARCH_CAPTURE_PRIVATE']::text[]
+           AND (rr.expires_at IS NULL OR rr.expires_at>now())
+           AND NOT EXISTS (SELECT 1 FROM private_source_rights_record child
+                           WHERE child.supersedes_id=rr.id))
+         AS eligible_rights_metadata
+ FROM members m
+)
+SELECT json_build_object(
+ 'collection_state',(SELECT status FROM research_collection WHERE id='research:garlasco'),
+ 'selected',count(*), 'distinct_sources',count(DISTINCT source_id),
+ 'published_at_present',count(*) FILTER (WHERE published_at IS NOT NULL),
+ 'rights_unknown',count(*) FILTER (WHERE rights_status='UNKNOWN'),
+ 'capture_authorized',count(*) FILTER (WHERE metadata->>'capture_authorized'='true'),
+ 'active_profile',count(*) FILTER (WHERE active_profile),
+ 'active_evidence_role',count(*) FILTER (WHERE active_role),
+ 'contextual_scope_with_role',count(*) FILTER (WHERE scoped_role),
+ 'approved_profile_lineage_with_basis',count(*) FILTER (WHERE approved_profile_lineage),
+ 'approved_content_derivation',count(*) FILTER (WHERE approved_content_lineage),
+ 'cleared_capture_rights_metadata',count(*) FILTER (WHERE eligible_rights_metadata),
+ 'role_scope_temporal_descriptors',count(*) FILTER (
+    WHERE active_profile AND active_role AND scoped_role AND published_at IS NOT NULL)
+)::text FROM audited;
+ROLLBACK;
+SQL
+```
+
+**Independent operator cross-check, actual MiniPC:** `PGDATABASE=dichiarazioni_pubbliche
+PYTHONPATH=poc python3 tools/report_research_pilot.py --collection-id
+research:garlasco --leads-file config/garlasco-public-discovery-leads.v1.json`
+from `/home/udodo/src/DichiarazioniPubbliche.it` returned `NO_GO_READ_ONLY`,
+`PAUSED`, 18/100 included, 30 historical claims, **18/18 missing accepted
+discovery, active profile, role, scope, source rights, privacy relevance,
+Capture, Passage, Statement/Claim Candidates and capture authorization**;
+0 Discovery Runs, 0 accepted source families and 0 unlinked Hits. Snapshot
+fingerprint `2950aceec11606b462cb0cee82620cd2f5e64ce818b64e9d44c779f09b6ecb8c`.
+The fingerprint denotes operator metadata, not a rights/capture attestation.
+Both live SQL and the operator cross-check exited **0** as queries: successful
+execution only proves that their negative readbacks were obtained. Missing
+collection, selected items, role/basis, scope, temporal evidence, lineage or
+rights must still be treated as **NO-GO**, never as empty-success admission.
+
+The *separate* original six URL hints remain `UNREVIEWED_CANDIDATES_ONLY`;
+the local zero-acquisition Wave 22 preview on 2026-10-13 reported six old
+plus two additional public-metadata candidate locators, five **proposed**
+family labels, one origin follow-up and **zero accepted DP-209 Hits**.
+The verified-public-page inventory includes a prosecutor's actual procedural
+PDF candidate and a proposed news reprint relationship; neither has a
+persisted Garlasco Source Intelligence explanation, approved derivation edge
+or rights grant. Counting an official homepage, an Apple distribution mirror,
+or multiple reprints as independent accepted case Content would be incorrect.
+
+**Closure condition:** provide a real, specifically selected and deduplicated
+DP-214 source set with persisted identity, evidence role and basis,
+case-relevant scope, reviewed original/derivation/independence lineage,
+effective dates/version applicability and explicit separate rights/access
+states per Content; repeat the authoritative MiniPC per-item readback before
+any DP-214 promotion/publication acceptance. Do not close AC-215.9 merely
+because metadata hints cover five proposed families or a synthetic unit test
+passes. AC-215.1–.8 retain their existing checked state and prior migration,
+schema, privacy and runtime receipts; this read-only audit did not change
+the accepted methodology or public projection. Fresh Mac validation:
+`test_source_intelligence`, `test_source_intelligence_schema`,
+`test_garlasco_discovery_leads`, `test_garlasco_lead_identity_guard`,
+`test_garlasco_pilot_inventory` **48/48 PASS**; `test_public_projection`,
+`test_coverage_needs`, `test_evidence_runtime`, `test_ops_threat_matrix`
+**82/82 PASS**; Wave 22 local metadata preview exit **0**, still marks
+`dp215_ac_9_complete=false`; `git diff --check` PASS. These tests protect
+the existing scoped-source and rights logic, but the real MiniPC negative
+readback is what determines the pending AC-215.9 acceptance state.
+
+## 2026-10-13 — Wave 3 metadata-only candidate explanations, no AC-215.9 closure
+
+The local preflight register config/garlasco-public-discovery-leads.v1.json now
+carries a separate 'source_intelligence_proposals_wave3' section for **all 15
+existing public locators**: six earlier unreviewed candidate pages, eight
+institutional metadata probes documented on 2026-10-13 and the original
+Procura homepage locator. This is an **unreviewed planning overlay**; the
+original intake arrays and the existing DP-214 readiness reader are unchanged.
+No additional URL, real Content/Source Profile, approved Source relation,
+DP-209 Discovery Hit, immutable Capture, licensed text, quotation or runtime
+authority was created. The six page candidates and homepage remain link/navigation
+references; the Cassation HTML index is also conservatively a secondary
+reference until the actual decision/version can be reviewed. Procedural and
+first-party roles on other institutional document locators remain *proposals*,
+bound to their specific 'document_kind', not automatic fact findings.
+
+For every locator the overlay binds a proposed Source Intelligence role to an
+existing metadata record class, its explicit unresolved scope review, the
+record/page observation date (or null for the homepage), an unreviewed version,
+an upstream grouping and known cross-catalog identity reference, independence
+'NOT_ESTABLISHED', rights 'UNKNOWN', and explicit false capture/publication/pilot
+flags. The known Camera seduta 607 exact transcript URL is linked to its
+existing Wave-26 probe rather than counted as another independent document;
+the Il Ticino proposed reprint groups under the separately catalogued first-party
+Procura document; the two Garante proceedings keep distinct document keys
+and the existing related-topic link without being merged or treated as
+independent proof of homicide facts. The Senato 2007 act-number conflict
+retains 'OFFICIAL_ACT_NUMBER_CONFLICT_NEEDS_REVIEW'. Dates here identify the
+observed document/page, **not** case-effectivity, version validity or
+a temporal proof for any historical claim.
+
+The new tests/test_dp215_source_role_lineage_wave3_20261013.py compares all
+15 explanations against the actual Wave-22, Wave-26 and native
+source_intelligence.EVIDENCE_ROLES catalogs and refuses stale/duplicated
+or invented roles, scopes, dates, lineage, independent confirmations,
+cleared rights, capture/publication or pilot inclusion. The initial RED was
+the absent Wave-3 key; a metadata-only additive change makes the focused tests
+GREEN. This satisfies a bounded **preparatory file-level traceability check**;
+it does **not** satisfy AC-215.9's persisted, specifically selected real
+DP-214 Content explainability requirement. AC-215.9 stays **OPEN**, ticket
+'IN PROGRESS'; authoritative MiniPC/qualified source, rights and publication
+reviews remain separate and pending.
+
+Local Wave-3 verification: the new three-case test failed RED with the exact
+missing preview key before the catalog overlay; it passes GREEN 3/3 with the
+bounded metadata. The eight-module focused Source Intelligence / DP-214 /
+readiness batch passes **65/65**. Python syntax compilation and
+'git diff --check' pass. A broader 'unittest discover -s tests -q' run
+did not finish in the available local session: after approximately five
+minutes it remained in the existing DB-backed
+'tests/test_m3_runtime_canaries.py' setup, inside
+'SourceIntelligenceStore.sync_contract' waiting on the local PostgreSQL
+subprocess. The worker stopped only its own test process. No broad suite
+PASS or MiniPC runtime acceptance is claimed; integrator CI and actual
+authorized runtime readback remain pending.

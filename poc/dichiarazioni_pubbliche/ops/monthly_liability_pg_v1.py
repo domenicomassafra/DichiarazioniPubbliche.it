@@ -11,8 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import secrets
 import subprocess
+import sys
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -24,6 +29,151 @@ from dichiarazioni_pubbliche.ops.usage_attribution_pg_v1 import DisposablePgUsag
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 _ERR = re.compile(r"DP514_[A-Z_]+")
 _MICRO = Decimal("0.000001")
+_CI_DISPOSABLE_DSN = re.compile(
+    r"postgresql://postgres@127\.0\.0\.1:[1-9][0-9]{0,4}/dp512_test_[a-z0-9_]+\Z"
+)
+_CI_SQLSTATE = re.compile(r"\b(?:ERROR|FATAL|PANIC):\s+([A-Z0-9]{5}):")
+# Only fixed diagnostic identifiers leave this process; raw psql stderr stays private.
+_CI_SQLSTATE_CATEGORIES = {
+    "57014": "QUERY_CANCELED",
+    "55P03": "LOCK_UNAVAILABLE",
+    "40P01": "DEADLOCK",
+    "40001": "SERIALIZATION",
+    "08001": "CONNECTION",
+    "08006": "CONNECTION",
+    "57P01": "SERVER_SHUTDOWN",
+    "23505": "CONSTRAINT",
+    "23503": "CONSTRAINT",
+    "42P01": "SCHEMA",
+    "42501": "ACCESS",
+    "22012": "ARITHMETIC",
+}
+_CI_OPERATIONS = frozenset({"SNAPSHOT", "APPEND", "SCHEMA_INSTALL"})
+
+# Opt-in only on the disposable CI connection, never on an owner/production DB.
+# Each snapshot gets an independent private marker. Concurrent snapshots must
+# never read each other's lock/wait state or emit the marker in diagnostics.
+_CI_WAIT_APP_PREFIX = "dp514_ci_snapshot_"
+_CI_WAIT_APP_RE = re.compile(r"dp514_ci_snapshot_[0-9a-f]{32}\Z")
+_CI_WAIT_STATES = frozenset({"active", "idle", "idle_in_transaction", "other"})
+_CI_WAIT_TYPES = frozenset({
+    "NONE", "Lock", "LWLock", "IO", "Client", "IPC", "Timeout",
+    "Activity", "BufferPin", "Extension", "OTHER",
+})
+_CI_WAIT_EVENTS = frozenset({
+    "NONE", "OTHER", "relation", "transactionid", "tuple", "advisory",
+    "extend", "object", "virtualxid", "page", "spectoken",
+    "DataFileRead", "DataFileWrite", "WALWrite", "WALSync", "PgSleep",
+    "ClientRead", "ClientWrite", "BufferPin",
+})
+_CI_WAIT_SQL = """
+SELECT concat_ws('|',
+  CASE a.state WHEN 'active' THEN 'active' WHEN 'idle' THEN 'idle'
+    WHEN 'idle in transaction' THEN 'idle_in_transaction' ELSE 'other' END,
+  COALESCE(a.wait_event_type, 'NONE'), COALESCE(a.wait_event, 'NONE'),
+  CASE WHEN EXISTS (SELECT 1 FROM pg_locks l
+    WHERE l.pid = a.pid AND NOT l.granted) THEN '1' ELSE '0' END,
+  CASE WHEN cardinality(pg_blocking_pids(a.pid)) > 0 THEN '1' ELSE '0' END)
+FROM pg_stat_activity a
+WHERE a.datname = current_database()
+  AND a.application_name = '{app_name}'
+  AND a.pid <> pg_backend_pid()
+  AND a.backend_type = 'client backend'
+LIMIT 2
+"""
+
+
+def _ci_wait_valid(row: object) -> bool:
+    return (
+        isinstance(row, tuple) and len(row) == 5
+        and all(isinstance(value, str) for value in row)
+        and row[0] in _CI_WAIT_STATES
+        and row[1] in _CI_WAIT_TYPES
+        and row[2] in _CI_WAIT_EVENTS
+        and row[3] in {"0", "1"} and row[4] in {"0", "1"}
+    )
+
+
+def _ci_wait_probe(dsn: str, app_name: str) -> tuple[str, str, str, str, str] | None:
+    """Accept a sample only when exactly one backend has this private marker."""
+    if (_CI_DISPOSABLE_DSN.fullmatch(dsn) is None
+        or not isinstance(app_name, str)
+        or _CI_WAIT_APP_RE.fullmatch(app_name) is None):
+        return None
+    try:
+        result = subprocess.run(
+            ["psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1",
+             "-d", dsn, "-c", _CI_WAIT_SQL.format(app_name=app_name)],
+            capture_output=True, text=True, timeout=1, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, UnicodeError, ValueError):
+        return None
+    if result.returncode != 0 or not isinstance(result.stdout, str) or len(result.stdout) > 128:
+        return None
+    # A second matching activity row is ambiguous even when its wait fields
+    # differ. Never select an arbitrary backend by LIMIT 1 or row ordering.
+    lines = result.stdout.splitlines()
+    if len(lines) != 1:
+        return None
+    row = tuple(lines[0].strip().split("|"))
+    if len(row) == 5 and row[0] in _CI_WAIT_STATES and row[3] in {"0", "1"} and row[4] in {"0", "1"}:
+        # PostgreSQL may add wait-event names in future releases. Collapse
+        # unknown names to a constant, never propagate server strings.
+        row = (row[0], row[1] if row[1] in _CI_WAIT_TYPES else "OTHER",
+               row[2] if row[2] in _CI_WAIT_EVENTS else "OTHER", row[3], row[4])
+    return row if _ci_wait_valid(row) else None
+
+
+def _ci_wait_summary(samples: list[tuple[str, str, str, str, str]]) -> str:
+    """Reduce samples to a fixed allowlisted line with no SQL, IDs or raw data."""
+    safe = [row for row in samples[-16:] if _ci_wait_valid(row)]
+    if not safe:
+        return "status=NO_SAMPLE samples=0"
+    # The latest sample represents the last observed state. Earlier lock waits
+    # are historical evidence, never a substitute for a subsequently cleared wait.
+    selected = safe[-1]
+    state, wait_type, wait_event, ungranted, blocker = selected
+    historical_blocker_seen = int(any(
+        row[3] == "1" or row[4] == "1" for row in safe[:-1]
+    ))
+    return (
+        f"status=OBSERVED samples={len(safe)} state={state} "
+        f"wait_type={wait_type} wait_event={wait_event} "
+        f"ungranted_lock={ungranted} blocker={blocker} "
+        f"historical_blocker_seen={historical_blocker_seen}"
+    )
+
+
+class _CiWaitWitness:
+    """Read-only, bounded background sampler while the snapshot is in flight."""
+
+    def __init__(self, dsn: str, app_name: str):
+        self._dsn = dsn
+        self._app_name = app_name
+        self._stop = threading.Event()
+        self._samples: list[tuple[str, str, str, str, str]] = []
+        self._thread = threading.Thread(target=self._collect, daemon=True)
+
+    def _collect(self) -> None:
+        while not self._stop.wait(0.5):
+            try:
+                row = _ci_wait_probe(self._dsn, self._app_name)
+            except Exception:
+                # A diagnostic thread must never leak a subprocess error or
+                # turn a valid financial snapshot into an application error.
+                return
+            if row is not None:
+                if len(self._samples) == 16:
+                    self._samples.pop(0)
+                self._samples.append(row)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> list[tuple[str, str, str, str, str]]:
+        self._stop.set()
+        self._thread.join(timeout=1.1)
+        return list(self._samples)
 
 _DDL = r"""
 BEGIN;
@@ -266,29 +416,75 @@ class DisposableMonthlyLiabilityPg:
         self._reader = DisposablePgUsageAttribution(dsn)
         self._dsn = dsn
 
-    def _run(self, sql: str, **params: str) -> str:
+    def _run(self, sql: str, *, _family: str = "OTHER", **params: str) -> str:
+        # This opt-in exists only for ephemeral CI PostgreSQL fixtures. Never
+        # include SQL, DSNs, stderr, receipt IDs, or provider payloads in logs.
+        diagnose = (
+            os.environ.get("CI") == "true"
+            and os.environ.get("DP514_CI_PG_DIAGNOSTIC") == "1"
+            and _CI_DISPOSABLE_DSN.fullmatch(self._dsn) is not None
+        )
+        watch = (
+            diagnose and _family == "SNAPSHOT"
+            and os.environ.get("DP514_CI_PG_WAIT_WITNESS") == "1"
+        )
         args = ["psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", self._dsn]
+        if diagnose:
+            args.extend(["-v", "VERBOSITY=verbose"])
         for key, value in params.items():
             if not re.fullmatch("[a-z_]+", key):
                 raise ValueError("DP514_PARAMETER_INVALID")
             args.extend(["-v", f"{key}={value}"])
+        started = time.monotonic()
+        app_name = _CI_WAIT_APP_PREFIX + secrets.token_hex(16) if watch else None
+        witness = _CiWaitWitness(self._dsn, app_name) if app_name is not None else None
+        if witness is not None:
+            try:
+                witness.start()
+            except RuntimeError:
+                # Monitoring is diagnostic only; it never controls the query.
+                witness = None
+        samples: list[tuple[str, str, str, str, str]] = []
         try:
             completed = subprocess.run(
                 args, input="SET statement_timeout='10000ms'; "
                 "SET lock_timeout='8000ms';\n" + sql,
                 capture_output=True, text=True, timeout=25, check=False,
+                **({"env": {**os.environ, "PGAPPNAME": app_name}}
+                   if witness is not None else {}),
             )
         except (OSError, subprocess.TimeoutExpired):
             raise RuntimeError("DP514_PG_UNAVAILABLE") from None
+        finally:
+            if witness is not None:
+                samples = witness.stop()
         if completed.returncode:
             err = _ERR.search(completed.stderr)
             if err:
                 raise ValueError(err.group(0)) from None
+            if diagnose:
+                match = _CI_SQLSTATE.search(completed.stderr[:4096])
+                state = (match.group(1) if match and
+                         match.group(1) in _CI_SQLSTATE_CATEGORIES else "UNKNOWN")
+                category = _CI_SQLSTATE_CATEGORIES.get(state, "UNKNOWN")
+                family = _family if _family in _CI_OPERATIONS else "OTHER"
+                code = completed.returncode
+                exit_code = code if type(code) is int and -255 <= code <= 255 else "UNKNOWN"
+                elapsed_ms = min(25000, max(0, int((time.monotonic() - started) * 1000)))
+                print(
+                    "DP514_CI_PG_DIAGNOSTIC"
+                    f" operation={family} exit_code={exit_code}"
+                    f" sqlstate={state} category={category} elapsed_ms={elapsed_ms}",
+                    file=sys.stderr,
+                )
+                if state == "57014" and witness is not None and _family == "SNAPSHOT":
+                    print("DP514_CI_PG_WAIT_WITNESS " + _ci_wait_summary(samples),
+                          file=sys.stderr)
             raise RuntimeError("DP514_PG_TRANSACTION_FAILED") from None
         return completed.stdout.strip()
 
     def install_disposable_schema(self) -> None:
-        self._run(_DDL)
+        self._run(_DDL, _family="SCHEMA_INSTALL")
 
     def append(
         self, *, receipt_id: str, event_id: str, expected_revision: int,
@@ -305,7 +501,8 @@ class DisposableMonthlyLiabilityPg:
         data = self._run(
             "BEGIN; SELECT dp514_pg_append(:'receipt',:'event',:'revision'::integer,"
             " :'kind',NULLIF(:'amount','')::numeric)::text; COMMIT;",
-            receipt=receipt_id, event=event_id, revision=str(expected_revision),
+            _family="APPEND", receipt=receipt_id, event=event_id,
+            revision=str(expected_revision),
             kind=kind, amount=_money(amount_usd),
         ).splitlines()
         if len(data) != 1:
@@ -320,7 +517,7 @@ class DisposableMonthlyLiabilityPg:
 
     def _snapshot(self) -> list[dict[str, object]]:
         try:
-            rows = json.loads(self._run(_SNAPSHOT))
+            rows = json.loads(self._run(_SNAPSHOT, _family="SNAPSHOT"))
         except (ValueError, TypeError) as exc:
             raise ValueError("DP514_SNAPSHOT_INVALID") from exc
         if not isinstance(rows, list) or len(rows) > 10000:

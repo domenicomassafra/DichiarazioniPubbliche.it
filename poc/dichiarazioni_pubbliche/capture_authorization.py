@@ -60,9 +60,26 @@ def require_private_capture_rights(
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_RIGHTS_URL_MISMATCH")
     if record.rights_status != "CLEARED":
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_RIGHTS_NOT_CLEARED")
-    if PRIVATE_CAPTURE_USE not in record.permitted_uses:
+    # The registry persists a tuple of machine-code strings. A malformed
+    # current-rights reader must not turn a string substring into a grant.
+    if (
+        not isinstance(record.permitted_uses, tuple)
+        or any(not isinstance(use, str) for use in record.permitted_uses)
+        or PRIVATE_CAPTURE_USE not in record.permitted_uses
+    ):
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_USE_NOT_PERMITTED")
-    if not record.rights_receipt_ref or not record.reviewer_ref or not record.reviewed_at:
+    # Operator CLI/batch uses this gate rather than SourceFamilyUseGuard.
+    # A malformed current-rights reader must not authorize a remote fetch merely
+    # because its purported receipt or reviewer identifier is truthy.
+    receipt = record.rights_receipt_ref
+    reviewer = record.reviewer_ref
+    if (
+        not isinstance(receipt, str) or not 0 < len(receipt) <= 512
+        or any(char.isspace() or char == "\x00" for char in receipt)
+        or not isinstance(reviewer, str) or not 0 < len(reviewer.strip()) <= 256
+        or "\x00" in reviewer
+        or not record.reviewed_at
+    ):
         raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_REVIEW_INCOMPLETE")
     reference_time = now or datetime.now(timezone.utc)
     if reference_time.tzinfo is None or reference_time.utcoffset() is None:
