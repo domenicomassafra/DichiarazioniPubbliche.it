@@ -81,3 +81,32 @@ that perpetual licenses cannot exist. Such an exception would require a
 qualified, versioned policy and its own proof. No source-use rights, review,
 MiniPC readback, consumer cutover or publication authority was granted;
 the original AC-435.1–.5 remain unchecked.
+
+## 2026-10-13 — Immutable frontend original validator, source-only
+
+The shared TypeScript `validateOriginalStatement` previously checked a
+caller-owned v3 Statement, awaited its exact original-quote SHA-256, then
+returned the same mutable input object. A consumer could therefore display
+an unapproved source URL, original quotation, locator, speaker or translation
+under already checked hashes. This affects an **opt-in**, currently unrouted
+source-reader primitive shared by Person/Topic and synopsis previews, not an
+approved live public endpoint.
+
+Two adversarial synthetic tests reproduced the behavior before the fix:
+(1) mutation of the returned, previously validated nested input (RED:
+`approved quote aliases private caller text`); and (2) modification of the
+caller input immediately after the asynchronous digest calculated the
+approved hash but before the validator resumed. The validator now detaches
+the complete source object **before** any asynchronous integrity step and
+returns that independently validated snapshot (GREEN). The quote, speaker,
+source URL, locator and translated text remain bound to the approved
+snapshot even when the input is subsequently mutated.
+
+Verified `npm run check:statement`, `npm run check:statement-parity`,
+`node scripts/check-public-synopsis-v3.mjs`,
+`node scripts/check-private-statement-opinion-preview-v3.mjs` and
+`npm run check` (Astro 0 errors, 0 warnings; one existing unused-import
+hint in DP-429 test). No source-use approval, new public v3 route, MiniPC
+release, Capture or publication was performed. All original
+**AC-435.1–.5 remain OPEN** until independently qualified source rights,
+the full authorized consumer/correction rollout and real host readback.
