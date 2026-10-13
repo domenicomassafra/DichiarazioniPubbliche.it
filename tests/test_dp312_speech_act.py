@@ -282,6 +282,55 @@ class SpeechActContextTests(unittest.TestCase):
                 self.assertEqual((direct.speech_act, direct.stance, direct.state),
                                  ("ASSERTION", "ENDORSE", "CANDIDATE_PRIVATE"))
 
+    def test_curly_possessives_and_decade_elisions_are_not_broken_quotes(self):
+        def classify(source):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                quote_start=0, quote_end=len(source),
+                turn_start=0, turn_end=len(source),
+                utterer_id="person:a", turn_speaker_ids=("person:a",),
+                source_part_ref="part:a", turn_complete=True, language="en",
+            )
+
+        direct = (
+            "I support workers’ rights.",
+            "I support James’ plan.",
+            "I support the ’90s policy.",
+        )
+        for source in direct:
+            with self.subTest(source=source):
+                result = classify(source)
+                self.assertEqual((result.state, result.speech_act, result.stance),
+                                 ("CANDIDATE_PRIVATE", "ASSERTION", "ENDORSE"))
+                self.assertNotIn("UNBALANCED_QUOTATION", result.signal_codes)
+
+        quoted = (
+            "“I support workers’ rights.”",
+            "‘I support workers’ rights.’",
+            "‘I support James’ plan.’",
+            "‘I support the ’90s policy.’",
+        )
+        for source in quoted:
+            with self.subTest(source=source):
+                result = classify(source)
+                self.assertEqual((result.state, result.speech_act, result.stance),
+                                 ("CANDIDATE_PRIVATE", "QUOTE", "NON_COMMITTAL"))
+                self.assertNotIn("UNBALANCED_QUOTATION", result.signal_codes)
+                self.assertFalse(result.publication_authority)
+
+        for fragment in (
+            "‘I support workers’ rights.",
+            "‘I support the ’90s policy.",
+            "‘I support the ‘workers’ rights.’",
+            "’I support James’ plan.",
+        ):
+            with self.subTest(fragment=fragment):
+                result = classify(fragment)
+                self.assertEqual(result.state, "HOLD_FOR_CONTEXT")
+                self.assertEqual(result.stance, "UNKNOWN")
+                self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
+
     def test_multiple_sentences_cannot_be_collapsed_into_one_stance(self):
         source = "Io sostengo che il piano sia utile. Ma non sostengo che sia definitivo."
         result = assess(source)

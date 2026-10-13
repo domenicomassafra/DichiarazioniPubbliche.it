@@ -402,8 +402,16 @@ def curated_context_approval(
 SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
 _SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
 _SPEECH_ACT_MAX_TURN_CHARS = 12000
+# U+2019 can also be an intra-word apostrophe, an s-possessive before
+# another word, or an elided decade (’90s). Treat only those bounded
+# orthographic forms as apostrophes; any other unmatched mark holds.
+_CURLY_APOSTROPHE_RE = re.compile(
+    r"(?<=\w)’(?=\w)|(?<=[sS])’(?=\s+\w)|(?<!\w)’(?=\d)"
+)
 _QUOTED_TEXT_RE = re.compile(
-    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|‘(?:[^‘’]|(?<=\w)’(?=\w))+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|"""
+    + r"‘(?:[^‘’]|" + _CURLY_APOSTROPHE_RE.pattern + r")+’"
+    + r"""|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
 )
 _SPEECH_ACT_CUES = {
     "it": {
@@ -578,9 +586,11 @@ def assess_speech_act_context(
     for opener, closer in (("«", "»"), ("‹", "›"), ("“", "”")):
         if turn.count(opener) != turn.count(closer):
             signals.append("UNBALANCED_QUOTATION")
-    # Accept alternating curly quote pairs, excluding apostrophes within
-    # words (I’m, l’amore). Equal counts alone miss reversed/nested quotes.
-    curly_delimiters = "".join(re.findall(r"‘|(?<!\w)’|’(?!\w)", turn))
+    # Check ordered quote delimiters after removing only known apostrophes;
+    # equal counts alone miss reversed or nested quotation marks.
+    curly_delimiters = "".join(
+        re.findall(r"[‘’]", _CURLY_APOSTROPHE_RE.sub("", turn))
+    )
     if curly_delimiters != "‘’" * (len(curly_delimiters) // 2):
         signals.append("UNBALANCED_QUOTATION")
     if turn.count('"') % 2:
