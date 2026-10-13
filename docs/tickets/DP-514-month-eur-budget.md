@@ -378,3 +378,30 @@ under an explicitly disposable/test-only path; never raw SQL, receipt
 material, database strings, logs with secrets or full stderr. Review and
 validate redaction before using it to gather subsequent evidence. All
 DP-514 AC and real MiniPC/expense authority remain OPEN.
+
+## 2026-10-13 — Strict disposable CI-only PostgreSQL failure metadata (NO behavioral fix)
+
+Following four separately confirmed CI failures without retained PostgreSQL
+stderr, the opt-in diagnostic path now runs **only** under `CI=true`, an
+explicit `DP514_CI_PG_DIAGNOSTIC=1`, and the existing canonical loopback,
+no-password `dp512_test_` disposable database URL. The backend regression
+workflow sets the second flag only around its unit test step. The test seam
+requests PostgreSQL's verbose error format internally and, **only on a generic
+psql non-zero outcome**, prints a fixed operation family (`SNAPSHOT`, `APPEND`,
+`SCHEMA_INSTALL` or `OTHER`), bounded process exit code/elapsed milliseconds,
+strict allowlisted five-character SQLSTATE (otherwise `UNKNOWN`), and a
+constant category code. It never prints SQL, raw stderr, DSNs, server logs,
+receipt IDs, provider payloads or other source content. Domain errors retain
+their original exception class and message; the statement/lock/process timeout
+policy and append-only semantics are unchanged, and **no retry was added**.
+
+The new mocked test suite was RED before the diagnostic seam and is GREEN with
+fake passwords, personal/receipt identifiers and SQL deliberately injected
+into PostgreSQL stderr: none appears in diagnostics. Six negative/positive
+diagnostic tests and 16 real disposable PostgreSQL DP-514 tests pass in the
+prime integrator, plus the worker's wider 50-test DP-512/513/514/diagnostic
+matrix. Ruff, compile and diff-check pass. The historical four failures have
+**no** recoverable SQLSTATE; the new signal is for future CI failures only,
+not a root-cause finding, remediation, budget approval or production release.
+All AC-514.1–7 remain OPEN. Source/provider work, real billing and MiniPC
+release remain blocked by their independent gates.
