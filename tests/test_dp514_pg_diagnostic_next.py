@@ -94,7 +94,12 @@ class MonthlyLiabilityPgDiagnosticTests(unittest.TestCase):
                     ),
                 ):
                     DisposableMonthlyLiabilityPg(dsn)._snapshot()
-                self.assertEqual(captured.getvalue(), "")
+                # Other repository tests can finalize SQLite objects while
+                # stderr is briefly captured, especially on CPython/macOS.
+                # Assert our diagnostic channel and injected private data are
+                # absent, not that unrelated ResourceWarnings never occur.
+                self.assertNotIn("DP514_CI_PG_DIAGNOSTIC", captured.getvalue())
+                self.assertNotIn(PRIVATE, captured.getvalue())
                 self.assertNotIn("VERBOSITY=verbose", run.call_args.args[0])
 
     def test_rejects_non_disposable_dsn_before_any_psql(self):
@@ -141,7 +146,8 @@ class MonthlyLiabilityPgDiagnosticTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "^DP514_REVISION_CONFLICT$"),
         ):
             DisposableMonthlyLiabilityPg(DISPOSABLE)._run("SELECT 1")
-        self.assertEqual(captured.getvalue(), "")
+        self.assertNotIn("DP514_CI_PG_DIAGNOSTIC", captured.getvalue())
+        self.assertNotIn(PRIVATE, captured.getvalue())
 
     def test_success_path_keeps_result_unmodified(self):
         with (

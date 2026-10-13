@@ -423,3 +423,21 @@ is **6/6 GREEN**, as are 22 local DP-514 diagnostics/real disposable
 PostgreSQL tests, Ruff and diff check. The new CI must be rerun on the
 updated exact commit before technical integration. No original PostgreSQL
 SQLSTATE has been recovered and all DP-514 AC remain OPEN.
+
+### 2026-10-13 — Ignore unrelated interpreter warnings in synthetic stderr assertions
+
+The second exact-SHA PR #19 CI completed 11/12 substantive backend jobs but
+failed macOS Python 3.13 in a single synthetic test: the strict assertion
+that temporarily captured `sys.stderr` must be *completely* empty was
+interrupted by an unrelated CPython `ResourceWarning` about previously
+unclosed SQLite objects emitted during garbage collection from another
+repository test. This is not a diagnostic SQLSTATE, SQL statement or provider
+payload, and the PR does not own that other test fixture. The same scoped
+mock test still asserts that neither its private synthetic source data nor
+`DP514_CI_PG_DIAGNOSTIC` appears in the forbidden paths, without treating
+unrelated interpreter warnings as diagnostic leakage. Existing allowed
+metadata checks and private text redaction remain strict. Six dedicated
+synthetic tests and 22 isolated disposable PG and diagnostic tests PASS,
+Ruff and diff-check PASS. The exact new CI SHA must be verified before any
+technical merge. The original DP-514 SQL failure is still unexplained; no
+retry, provider billing action or changed PG timeout has been introduced.
