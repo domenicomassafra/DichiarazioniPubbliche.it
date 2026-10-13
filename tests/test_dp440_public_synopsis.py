@@ -77,7 +77,7 @@ def prepare(value=None, proof=None, sentences=None, **extra):
         ),
         current_public_dataset_sha256=value["dataset_sha256"],
         coverage_note=note,
-        now=NOW, **extra,
+        now=extra.pop("now", NOW), **extra,
     )
 
 
@@ -91,6 +91,18 @@ class PublicSynopsisContractTests(unittest.TestCase):
         self.assertEqual(result.provider_calls, 0)
         self.assertEqual(result, prepare())
         self.assertIsNone(result.sentences[0].get("person_truth_score"))
+
+    def test_snapshot_date_is_pinned_to_source_projection_not_reader_clock(self):
+        value = bundle()
+        self.assertEqual(value["generated_at"], STAMP)
+        first = prepare(value)
+        later = prepare(value, now=datetime(2026, 10, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual((first.status, later.status),
+                         ("READY_READ_MODEL", "READY_READ_MODEL"))
+        self.assertEqual(first.snapshot_at, STAMP)
+        self.assertEqual(later.snapshot_at, STAMP)
+        self.assertEqual(first, later)
+        self.assertEqual(first.fingerprint, later.fingerprint)
 
     def test_sparse_source_withholds_not_hallucinates_coverage(self):
         value = bundle(two_sources=False)

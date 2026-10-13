@@ -98,6 +98,37 @@ class PrivateInvestigationAttemptTests(unittest.TestCase):
                 self.assertNotEqual(new.plan_fingerprint, first.plan_fingerprint)
                 self.assertNotEqual(new.proposed_attempt_id, first.proposed_attempt_id)
 
+    def test_changed_assignment_question_scope_or_gate_invalidates_prior_attempt(self):
+        first = decision(assignments=(assignment(),))
+        a = assignment()
+        changes = (
+            {"question": "Another approved research question"},
+            {"max_results_per_host": 1},
+            {"temporal_constraints": {"start": "2026-10-01"}},
+            {"authority_scope": {"jurisdiction": "IT"}},
+            {"status": "BLOCKED", "blockers": ("RIGHTS_WITHDRAWN",)},
+        )
+        for change in changes:
+            with self.subTest(change=change):
+                current = decision(assignments=(replace(a, **change),))
+                self.assertNotEqual(current.plan_fingerprint, first.plan_fingerprint)
+                self.assertNotEqual(current.proposed_attempt_id, first.proposed_attempt_id)
+                old = receipt(first, lane=a.lane)
+                with self.assertRaisesRegex(ValueError, "UNBOUND_ATTEMPT"):
+                    decision((old,), assignments=(replace(a, **change),))
+
+    def test_rights_status_change_never_reuses_old_authorized_attempt_id(self):
+        active = spec(rights_status="CLEARED")
+        prior = decision(s=active, assignments=(assignment(),))
+        blocked = spec(rights_status="REVOKED")
+        current = decision(s=blocked, assignments=(assignment(),))
+        self.assertEqual(current.status, "WAIT_EXTERNAL")
+        self.assertIsNone(current.proposed_attempt_id)
+        self.assertNotEqual(current.plan_fingerprint, prior.plan_fingerprint)
+        with self.assertRaisesRegex(ValueError, "UNBOUND_ATTEMPT"):
+            decision((receipt(prior, lane="ORIGINAL_MEDIA"),),
+                     s=blocked, assignments=(assignment(),))
+
     def test_empty_plan_and_unreviewed_adapter_never_execute(self):
         self.assertEqual(decision(assignments=()).status, "WAIT_EXTERNAL")
         self.assertEqual(decision(assignments=(assignment(status="BLOCKED", blockers=("NO_SOURCE_PERMIT",)),)).status, "WAIT_EXTERNAL")

@@ -306,3 +306,201 @@ production PostgreSQL operation ledger; invoices, append-only authenticated
 corrections, owner-signed EUR policy, provider quota, actual FX and MiniPC
 acceptance are still missing. **All AC-514.1–.7 remain OPEN; no live paid
 dispatch authority and no production release.**
+
+## 2026-10-13 — Two real GitHub CI PostgreSQL failures, root cause unresolved (NO_CHANGE)
+
+There were **two genuine failed CI attempts** on different already-committed
+source revisions in the same PostgreSQL-only regression
+`test_dp514_monthly_liability_pg_next.MonthlyLiabilityPgTests.test_claimed_refund_is_append_only_but_never_offsets_spend`:
+
+- PR #11 SHA `d7ff0f7aca4f86332fe3cb4cdf1febe2793afc78`, GitHub Actions
+  run `38372931586` attempt 1, Ubuntu Python 3.13 (job `115214120750`);
+- PR #3 SHA `fa54df104a4d1319f1630dc342aaf6d2d5dd660a`, GitHub Actions
+  run `38380803651` attempt 1, detached clean-clone smoke Python 3.12
+  (job `115240437103`).
+
+Both errors reach `DisposableMonthlyLiabilityPg._snapshot()` through
+`read()` and end at `_run()` with `DP514_PG_TRANSACTION_FAILED` before
+validating the refund output. `_run()` captures but discards the actual
+`psql` stderr on an unrecognized non-zero exit. No diagnostic SQLSTATE,
+return code, server log or artifact was retained in the examined Actions
+receipts, so **the original underlying SQL/PostgreSQL cause is unknown**.
+Both failed job sets were rerun on their *unchanged* respective SHAs and
+passed; this does **not** retroactively classify either first failure as
+benign, nor does it establish a fixed source bug.
+
+The independent 2026-10-13 forensic worker ran local PostgreSQL 17.11
+(disposable, isolated from any real service): 96 sequential repetitions of
+the exact test (192 snapshot calls), another 80 repetitions over four
+concurrent independent disposable clusters (160 snapshots), and the full
+16-test class. **All passed**, with no observed PostgreSQL leftover. The
+first CI error's elapsed time is compatible with a possible SQL/lock timeout,
+but no original stderr or deterministic failing reproduction establishes it.
+
+**NO_CHANGE:** no generic retry, assertion relaxation, SQL migration,
+production DB operation, scheduler change or billing-authority shortcut is
+justified. If reproduced again, first collect only bounded diagnostic
+metadata on the disposable CI test path (psql exit/SQLSTATE or sanitized
+error category and elapsed time, plus bounded redacted disposable server
+log if safe); never log receipt bodies, secrets or raw SQL containing
+private values. Then isolate the exact failure with a RED test before any
+behavioral fix. All AC-514.1–.7 and MiniPC/financial authority gates remain
+open.
+
+## 2026-10-13 — Two additional independent failing CI attempts (four total)
+
+After the two original DP-514 intermittent PostgreSQL failures recorded above,
+**two further first-attempt failures on new unrelated PR source revisions**
+reproduced the *same* test, at `DisposableMonthlyLiabilityPg._snapshot()` to
+`_run()` and the generic `DP514_PG_TRANSACTION_FAILED`:
+
+- PR #14 `061279868b5205c80b45514329dce5cc5815a46b`, GitHub Actions
+  run `38393006211`, Ubuntu Python 3.12, job `115281164284` (failed).
+- PR #16 `379e38bb24299f3f93b7b6615a72b85df957133f`, GitHub Actions
+  run `38393010633`, Ubuntu Python 3.14, job `115281179638` (failed).
+
+All four failures are confined to
+`test_claimed_refund_is_append_only_but_never_offsets_spend` despite different
+workflow matrices and source changes. Both new CI jobs completed with exactly
+one unittest ERROR in the full backend suite; the other reported backend
+checks passing does **not** prove root-cause resolution. The original stderr
+was captured inside `subprocess.run` but not recorded by `_run`, and the
+original SQLSTATE/return code and server log have not been recovered. The
+reproduction is real, but a specific PostgreSQL lock, timeout, deadlock,
+SQL error or environmental cause remains **unproven**. No rerun, generic
+retry, timeout increase, changed assertion, production DB mutation, or
+financial release is justified from these observations.
+
+**Release gate OPEN:** affected PR #14/#16 remain Draft. A future scoped,
+privacy-safe CI diagnostic should emit only allowlisted numeric SQLSTATE,
+psql exit status, a bounded elapsed time and a fixed statement family code
+under an explicitly disposable/test-only path; never raw SQL, receipt
+material, database strings, logs with secrets or full stderr. Review and
+validate redaction before using it to gather subsequent evidence. All
+DP-514 AC and real MiniPC/expense authority remain OPEN.
+
+## 2026-10-13 — Strict disposable CI-only PostgreSQL failure metadata (NO behavioral fix)
+
+Following four separately confirmed CI failures without retained PostgreSQL
+stderr, the opt-in diagnostic path now runs **only** under `CI=true`, an
+explicit `DP514_CI_PG_DIAGNOSTIC=1`, and the existing canonical loopback,
+no-password `dp512_test_` disposable database URL. The backend regression
+workflow sets the second flag only around its unit test step. The test seam
+requests PostgreSQL's verbose error format internally and, **only on a generic
+psql non-zero outcome**, prints a fixed operation family (`SNAPSHOT`, `APPEND`,
+`SCHEMA_INSTALL` or `OTHER`), bounded process exit code/elapsed milliseconds,
+strict allowlisted five-character SQLSTATE (otherwise `UNKNOWN`), and a
+constant category code. It never prints SQL, raw stderr, DSNs, server logs,
+receipt IDs, provider payloads or other source content. Domain errors retain
+their original exception class and message; the statement/lock/process timeout
+policy and append-only semantics are unchanged, and **no retry was added**.
+
+The new mocked test suite was RED before the diagnostic seam and is GREEN with
+fake passwords, personal/receipt identifiers and SQL deliberately injected
+into PostgreSQL stderr: none appears in diagnostics. Six negative/positive
+diagnostic tests and 16 real disposable PostgreSQL DP-514 tests pass in the
+prime integrator, plus the worker's wider 50-test DP-512/513/514/diagnostic
+matrix. Ruff, compile and diff-check pass. The historical four failures have
+**no** recoverable SQLSTATE; the new signal is for future CI failures only,
+not a root-cause finding, remediation, budget approval or production release.
+All AC-514.1–7 remain OPEN. Source/provider work, real billing and MiniPC
+release remain blocked by their independent gates.
+
+### 2026-10-13 — Simulated no-psql macOS CI regression (same diagnostic PR)
+
+The first cross-platform PR #19 CI found a real test-only harness defect:
+all four macOS Python jobs failed the synthetic diagnostic tests because
+`DisposableBillingPgFence` correctly checks `shutil.which('psql')` during
+construction, but macOS CI intentionally has no `psql` installed. The tests
+were already mocking `subprocess.run`, not the preceding executable check.
+This was not evidence that PostgreSQL production code or receipt policy
+should change. A local simulation making `shutil.which` return `None`
+reproduced **five failures and two errors** with `BILLING_PSQL_MISSING`
+before the test fix. The mock-only synthetic test class now explicitly
+stubs the preflight executable result for its lifetime, and does not change
+or weaken the actual executable/DSN check. The same absent-psql simulation
+is **6/6 GREEN**, as are 22 local DP-514 diagnostics/real disposable
+PostgreSQL tests, Ruff and diff check. The new CI must be rerun on the
+updated exact commit before technical integration. No original PostgreSQL
+SQLSTATE has been recovered and all DP-514 AC remain OPEN.
+
+### 2026-10-13 — Ignore unrelated interpreter warnings in synthetic stderr assertions
+
+The second exact-SHA PR #19 CI completed 11/12 substantive backend jobs but
+failed macOS Python 3.13 in a single synthetic test: the strict assertion
+that temporarily captured `sys.stderr` must be *completely* empty was
+interrupted by an unrelated CPython `ResourceWarning` about previously
+unclosed SQLite objects emitted during garbage collection from another
+repository test. This is not a diagnostic SQLSTATE, SQL statement or provider
+payload, and the PR does not own that other test fixture. The same scoped
+mock test still asserts that neither its private synthetic source data nor
+`DP514_CI_PG_DIAGNOSTIC` appears in the forbidden paths, without treating
+unrelated interpreter warnings as diagnostic leakage. Existing allowed
+metadata checks and private text redaction remain strict. Six dedicated
+synthetic tests and 22 isolated disposable PG and diagnostic tests PASS,
+Ruff and diff-check PASS. The exact new CI SHA must be verified before any
+technical merge. The original DP-514 SQL failure is still unexplained; no
+retry, provider billing action or changed PG timeout has been introduced.
+
+### 2026-10-13 — Fifth real failure yields SQLSTATE 57014 in disposable CI
+
+The diagnostics above have now captured the *first original PostgreSQL error
+class* on a new, real (not rerun) backend job: Draft PR #19 source SHA
+`db92016275f640a32a64165225399734a79cec02`, GitHub Actions run
+`38397519673`, Ubuntu Python 3.12 job `115296427545` failed the same
+`test_claimed_refund_is_append_only_but_never_offsets_spend` during
+`SNAPSHOT` on a local `dp512_test_` PostgreSQL fixture. Its bounded output:
+
+`DP514_CI_PG_DIAGNOSTIC operation=SNAPSHOT exit_code=3 sqlstate=57014 category=QUERY_CANCELED elapsed_ms=10953`
+
+This is **strong evidence of PostgreSQL query cancellation** after about
+10.95 seconds. The same `_run()` sets `statement_timeout='10000ms'`, making
+statement timeout a plausible immediate cause, but the redacted diagnostic
+does **not** establish whether the root trigger was CPU contention, an
+unexpected row/plan cost, blocked lock, other CI capacity pressure, or an
+explicit cancellation. The test fixture inserts only synthetic receipt
+material; the original unredacted PostgreSQL message was intentionally not
+retained. The same test continues to fail a CI gate: **NO root-cause fix,
+NO generic retry and NO unconditional timeout increase**. Investigate the
+bounded `_SNAPSHOT` query and disposable PostgreSQL EXPLAIN/lock evidence
+before any transaction behavior change. Existing refund claims never offset
+spending, `dispatch_authorized` stays false, and all AC-514.1–7 remain OPEN.
+
+### 2026-10-13 — Bounded real-PG17 snapshot plan versus synthetic lock control
+
+A post-merge, **read-only forensic reproduction** ran in a fresh disposable
+PostgreSQL 17.11 cluster created by the existing
+`tests/test_dp512_billing_pg_fence_next.py` fixture, with exactly one synthetic
+provider receipt, one synthetic billing classification, and one append-only
+`REFUND_CLAIM`. The original DP-514 refund test completed successfully without
+any real provider or production database access. An `EXPLAIN (ANALYZE,
+BUFFERS, FORMAT JSON)` of the existing `_SNAPSHOT` SELECT yielded planning
+**0.972 ms** and execution **0.385 ms** (top node Aggregate, one returned
+row). Twelve subsequent app-level `_snapshot()` calls, including new `psql`
+processes, took **27.284 ms minimum / 29.981 ms median / 80.012 ms maximum**;
+all returned one synthetic receipt. These measurements demonstrate that the
+small deterministic local fixture is not inherently a 10-second query. They
+**do not** profile GitHub-hosted runner contention or explain historical
+transient failures.
+
+To discriminate error families without changing `_run` or timeouts, a second
+fresh disposable PG17 fixture deliberately held an `ACCESS EXCLUSIVE` lock on
+`provider_receipt` in a separate synthetic transaction while `_snapshot()`
+ran with the existing `statement_timeout=10000ms` and `lock_timeout=8000ms`.
+The expected fail-closed result was **SQLSTATE 55P03 (`LOCK_UNAVAILABLE`)**,
+`exit_code=3`, elapsed **8030 ms**, with the original generic
+`DP514_PG_TRANSACTION_FAILED` preserved. By contrast, the real GitHub CI
+failure emitted **SQLSTATE 57014 (`QUERY_CANCELED`)**, elapsed **10953 ms**.
+This is evidence *against a simple single lock wait as reproduced here*,
+because that case is interrupted by the smaller lock timeout; it cannot rule
+out other lock sequences, query/CPU/resource contention, or independent
+cancellation under GitHub CI. No raw stderr, SQL logs, receipt bodies, DSN,
+provider payloads or secrets were stored as evidence.
+
+**Decision: NO BEHAVIORAL CHANGE.** Retain the exact 10-second statement and
+8-second lock limits, 25-second subprocess cap, no automatic retry, and the
+existing append-only financial invariants. Only a future specific disposable
+CI lock/activity/timing witness or deterministic RED reproducer may justify a
+scoped fix, subject to separate review and CI. The observed `57014` is now
+documented; the **latency mechanism, financial authority, manual MiniPC and
+all DP-514 AC remain OPEN**.

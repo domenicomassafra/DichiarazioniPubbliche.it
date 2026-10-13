@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
+import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -24,6 +27,26 @@ from dichiarazioni_pubbliche.ops.usage_attribution_pg_v1 import DisposablePgUsag
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 _ERR = re.compile(r"DP514_[A-Z_]+")
 _MICRO = Decimal("0.000001")
+_CI_DISPOSABLE_DSN = re.compile(
+    r"postgresql://postgres@127\.0\.0\.1:[1-9][0-9]{0,4}/dp512_test_[a-z0-9_]+\Z"
+)
+_CI_SQLSTATE = re.compile(r"\b(?:ERROR|FATAL|PANIC):\s+([A-Z0-9]{5}):")
+# Only fixed diagnostic identifiers leave this process; raw psql stderr stays private.
+_CI_SQLSTATE_CATEGORIES = {
+    "57014": "QUERY_CANCELED",
+    "55P03": "LOCK_UNAVAILABLE",
+    "40P01": "DEADLOCK",
+    "40001": "SERIALIZATION",
+    "08001": "CONNECTION",
+    "08006": "CONNECTION",
+    "57P01": "SERVER_SHUTDOWN",
+    "23505": "CONSTRAINT",
+    "23503": "CONSTRAINT",
+    "42P01": "SCHEMA",
+    "42501": "ACCESS",
+    "22012": "ARITHMETIC",
+}
+_CI_OPERATIONS = frozenset({"SNAPSHOT", "APPEND", "SCHEMA_INSTALL"})
 
 _DDL = r"""
 BEGIN;
@@ -266,12 +289,22 @@ class DisposableMonthlyLiabilityPg:
         self._reader = DisposablePgUsageAttribution(dsn)
         self._dsn = dsn
 
-    def _run(self, sql: str, **params: str) -> str:
+    def _run(self, sql: str, *, _family: str = "OTHER", **params: str) -> str:
+        # This opt-in exists only for ephemeral CI PostgreSQL fixtures. Never
+        # include SQL, DSNs, stderr, receipt IDs, or provider payloads in logs.
+        diagnose = (
+            os.environ.get("CI") == "true"
+            and os.environ.get("DP514_CI_PG_DIAGNOSTIC") == "1"
+            and _CI_DISPOSABLE_DSN.fullmatch(self._dsn) is not None
+        )
         args = ["psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", self._dsn]
+        if diagnose:
+            args.extend(["-v", "VERBOSITY=verbose"])
         for key, value in params.items():
             if not re.fullmatch("[a-z_]+", key):
                 raise ValueError("DP514_PARAMETER_INVALID")
             args.extend(["-v", f"{key}={value}"])
+        started = time.monotonic()
         try:
             completed = subprocess.run(
                 args, input="SET statement_timeout='10000ms'; "
@@ -284,11 +317,26 @@ class DisposableMonthlyLiabilityPg:
             err = _ERR.search(completed.stderr)
             if err:
                 raise ValueError(err.group(0)) from None
+            if diagnose:
+                match = _CI_SQLSTATE.search(completed.stderr[:4096])
+                state = (match.group(1) if match and
+                         match.group(1) in _CI_SQLSTATE_CATEGORIES else "UNKNOWN")
+                category = _CI_SQLSTATE_CATEGORIES.get(state, "UNKNOWN")
+                family = _family if _family in _CI_OPERATIONS else "OTHER"
+                code = completed.returncode
+                exit_code = code if type(code) is int and -255 <= code <= 255 else "UNKNOWN"
+                elapsed_ms = min(25000, max(0, int((time.monotonic() - started) * 1000)))
+                print(
+                    "DP514_CI_PG_DIAGNOSTIC"
+                    f" operation={family} exit_code={exit_code}"
+                    f" sqlstate={state} category={category} elapsed_ms={elapsed_ms}",
+                    file=sys.stderr,
+                )
             raise RuntimeError("DP514_PG_TRANSACTION_FAILED") from None
         return completed.stdout.strip()
 
     def install_disposable_schema(self) -> None:
-        self._run(_DDL)
+        self._run(_DDL, _family="SCHEMA_INSTALL")
 
     def append(
         self, *, receipt_id: str, event_id: str, expected_revision: int,
@@ -305,7 +353,8 @@ class DisposableMonthlyLiabilityPg:
         data = self._run(
             "BEGIN; SELECT dp514_pg_append(:'receipt',:'event',:'revision'::integer,"
             " :'kind',NULLIF(:'amount','')::numeric)::text; COMMIT;",
-            receipt=receipt_id, event=event_id, revision=str(expected_revision),
+            _family="APPEND", receipt=receipt_id, event=event_id,
+            revision=str(expected_revision),
             kind=kind, amount=_money(amount_usd),
         ).splitlines()
         if len(data) != 1:
@@ -320,7 +369,7 @@ class DisposableMonthlyLiabilityPg:
 
     def _snapshot(self) -> list[dict[str, object]]:
         try:
-            rows = json.loads(self._run(_SNAPSHOT))
+            rows = json.loads(self._run(_SNAPSHOT, _family="SNAPSHOT"))
         except (ValueError, TypeError) as exc:
             raise ValueError("DP514_SNAPSHOT_INVALID") from exc
         if not isinstance(rows, list) or len(rows) > 10000:

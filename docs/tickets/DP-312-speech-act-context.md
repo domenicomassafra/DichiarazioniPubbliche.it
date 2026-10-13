@@ -50,3 +50,102 @@ Three synthetic contrast pairs in Italian, English and German reproduced an unsa
 ## 2026-10-11 — German reversed-quotation fail-closed regression
 
 A synthetic, complete German turn quoted as `»Ich unterstütze diese Maßnahme.«` or `›Ich unterstütze diese Maßnahme.‹` was incorrectly labeled `ASSERTION / ENDORSE / CANDIDATE_PRIVATE` by the private lexical classifier: reversed German quotation delimiters were excluded from quote detection. This could conflate a quotation with the reader's own endorsement. Both cases failed a new regression before the patch and now produce `QUOTE / NON_COMMITTAL` with no publication authority. The same delimiter check holds an incomplete `›` quotation as `HOLD_FOR_CONTEXT / UNKNOWN` with `UNBALANCED_QUOTATION`. A minimal extension to the quote parser and its balancing check fixes the source-level defect. Focused DP-312 plus legacy context tests: 38/38 passing; Ruff passing. These are synthetic local tests only. No independent language gold, authorized source/use rights, actual capture, persisted dependent invalidation, MiniPC replay or publication gate was exercised, and none of AC-312.1–312.6 is marked DONE.
+
+
+## 2026-10-13 — Curly single-quote integrity regression (bounded private preflight)
+
+Local synthetic contrast cases found a new false endorsement: the complete-turn strings `‘I support the policy.` and `’I support the policy.` yielded `ASSERTION / ENDORSE / CANDIDATE_PRIVATE` despite a dangling typographic quotation delimiter. A new focused test reproduced both failures RED. The repair validates alternating `‘…’` delimiters while excluding apostrophes embedded within words. It also holds reversed or nested delimiters and allows balanced quotes containing contractions, e.g. `‘I’m certain I support the policy.’`, without attributing the quoted words to the utterer. Positive direct support remains `ASSERTION / ENDORSE / CANDIDATE_PRIVATE`. The existing `UNBALANCED_QUOTATION` signal forces `HOLD_FOR_CONTEXT / UNKNOWN` and deterministic metadata replay for affected fragments. This is lexical private preflight only: it grants no publication authority, proves no real source/speaker/usage rights, and does not establish independent multilingual gold, downstream invalidation or MiniPC acceptance. All manual AC-312.1–312.6 remain open.
+
+
+## 2026-10-13 — Curly apostrophe false-HOLD P2 regression
+
+Independent review of the initial incomplete-curly-quote protection identified legitimate English U+2019 apostrophes incorrectly treated as unmatched quotation marks. The private parser returned `HOLD_FOR_CONTEXT / UNKNOWN` for `I support workers’ rights.`, `I support James’ plan.`, `I support the ’90s policy.`, and even `“I support workers’ rights.”`; the initial single-curly quote matcher also truncated valid quotes containing an s-possessive or decade elision. A new test first failed nine contrast subcases on the same source. The bounded repair uses one orthographic apostrophe recognizer for both quote matching and delimiter balancing: internal contractions, s-possessives before another word, and leading numeric decade elisions do not count as quote closers. Complete straight/direct support remains a private candidate, balanced complete quotations remain non-committal, and dangling, nested or reversed quotation delimiters still fail closed. Where an s-final word plus adjacent reported-speech text is inherently ambiguous as a quote boundary, conservative HOLD may remain; this lexical preflight is not a general syntactic parser. Focused 25/25 DP-312 tests PASS with the P2 regression included. No independent language calibration, source-use grant, editorial decision, production publication authority, downstream revocation, or MiniPC capture proof is implied. All AC-312.1–312.6 stay OPEN.
+
+
+## 2026-10-13 — Reported-speech closing U+2019 P2 follow-up
+
+An independent exact-PR review identified both directions of a second U+2019 scope bug: `He said ‘I support this’ yesterday.`, `‘I support this’ she said.` and the German `Er sagte ‘Ich unterstütze das’ gestern.` were incorrectly held, because the earlier generic s-ending possessive recognizer swallowed the quote closer. Conversely the orphan `I support this’ policy.` was falsely labeled `ASSERTION / ENDORSE / CANDIDATE_PRIVATE`. The new adversarial test reproduced six failing subcases (including uppercase `THIS` and `his`), before the repair. A bounded list of closed-class non-possessive words now prevents those quote closers from being consumed as s-possessive apostrophes. The same recognizer is used when matching explicit `‘…’` pairs and checking ordered delimiters: a paired quote with a reporter cue stays `REPORT / NON_COMMITTAL`, while an orphan closer holds with `UNBALANCED_QUOTATION / UNKNOWN`. Earlier `workers’ rights`, `James’ plan`, `’90s`, contraction, and fully balanced-quote controls remain valid.
+
+Some s-ending nouns are intrinsically ambiguous in this bounded lexical preflight. For example, `He said ‘I support James’ yesterday.` and `He said ‘I support workers’ yesterday.` remain `HOLD_FOR_CONTEXT / UNKNOWN` because the same punctuation may denote a possessive with an omitted closing quote; they cannot be lexically endorsed or treated as proven reported speech. Manual/contextual review and multilingual evidence remain necessary. No source Capture, rights authorization, factual validation, downstream reanalysis, editorial approval, or MiniPC replay was performed; all AC-312.1–312.6 remain OPEN.
+
+## 2026-10-13 — Replace finite s-ending word list with bounded curly quote pairing
+
+Independent replay on the preceding opt-in classifier revealed that a finite
+English/German non-possessive word blacklist cannot distinguish an s-final
+closing U+2019 quotation mark from a plural/name possessive. Normal paired
+reported quotations ending `us`, `yes`, `always` and German `uns` incorrectly
+became `HOLD_FOR_CONTEXT`; in the opposite direction, orphan `us’`/`yes’`
+could be treated as direct `ASSERTION / ENDORSE`. Eight synthetic adversarial
+cases reproduced the errors **RED** on the preceding PR head.
+
+The private preflight now uses one bounded left-to-right U+2018/U+2019
+orthographic pairing function shared by both quotation extraction and
+unbalanced-delimiter signals, replacing the finite blacklist. Internal
+contractions and numeric elisions are not closers; plausible name/plural
+possessives within a proposed quotation can require conservative HOLD when
+there is no independently distinguishable closing delimiter. Natural paired
+reported quotations remain `REPORT / NON_COMMITTAL`; dangling, reversed,
+nested or orphaned delimiters still HOLD with no endorsement. Tests were
+**GREEN** for all eight new contrasts and 90 neighboring source-only checks;
+benchmark 5/5, Ruff and diff check pass. The classifier is not a full
+language parser, qualified source reviewer, or publication permit: ambiguous
+noun/quotation boundaries are intentionally held, and all AC-312.1–.6 stay
+OPEN pending real multilingual annotated sources, protected runtime and
+human acceptance. No source Capture, rights grant or MiniPC deploy occurred.
+
+## 2026-10-13 — Ordered double-typographic quotation integrity (independent P2)
+
+A separate native read-only review of the source-only PR reproduced a
+false private endorsement for a reversed U+201D/U+201C pair: `”I support the
+policy“` and analogous Italian/German support turns were treated as direct
+`ASSERTION / ENDORSE` because the existing source parser checked only equal
+open/close counts. A new focused negative regression was **RED in three
+languages** before the change. The parser now also requires each complete
+U+201C/U+201D sequence to alternate in source order; reversed or nested
+non-pairs force `UNBALANCED_QUOTATION / HOLD_FOR_CONTEXT / UNKNOWN` before
+lexical endorsement. Valid complete quotation, direct assertion and the new
+U+2018/U+2019 orthographic scanner remain independently guarded. The
+regression is GREEN and 91 related tests, Ruff, deterministic benchmark and
+diff check pass. This is a private fail-closed preflight only, not a
+multilingual grammar guarantee, attribution/rights approval or public route.
+All original AC-312.1–6 remain OPEN.
+
+## 2026-10-13 — German low-double, nested guillemet and ASCII single-quote holds
+
+Independent source review of the preceding PR revision detected three
+additional inherited **false endorsement** classes that were not captured by
+old delimiter count checks: an unmatched German low-double opening
+`„...` / unsupported U+201F mark; nested `«...«... »»` and `‹...‹...››`
+with equal opener/closer totals; and a dangling U+0027 ASCII single quotation
+mark (`'I support ...` or `... support.'`) mistaken for a direct endorsement.
+Adversarial tests were RED in seven low-double/angle source cases (including
+an authentic fully paired German `„...“` quotation not yet recognized) and
+four dangling ASCII cases. New lexical safeguards independently require
+adjacent ordered pairs for either supported guillemet orientation, ordered
+`“...”` or German `„...“` double-typographic pairs, and balanced ASCII
+quotation markers except in-word contractions and numeric elisions. Correct
+German low-double pairs stay `QUOTE / NON_COMMITTAL`; unresolved/nested,
+reversed or orphan marks become `UNBALANCED_QUOTATION / HOLD_FOR_CONTEXT`
+instead of `ASSERTION / ENDORSE`. Both targeted regressions are GREEN,
+with 93 related source-only unit tests and Ruff PASS. Genuine ambiguous
+possessives may be held conservatively, not guessed as direct speech.
+No real source rights, speaker, independent multilingual corpus, publisher,
+MiniPC, or public release gate has been satisfied: all DP312.1–.6 remain OPEN.
+
+## 2026-10-13 — German low-single typographic quote integrity
+
+Independent read-only review of the preceding PR SHA identified a final
+separate quotation family omitted by the lexical preflight: the German
+U+201A low-single opening `‚` paired with high U+2018 `‘` and unsupported
+U+201B `‛`/ornamental quotation symbols. Dangling sources
+`‚Ich unterstütze die Maßnahme.` and `‛Ich unterstütze die Maßnahme.`
+were incorrectly treated as `ASSERTION / ENDORSE / CANDIDATE_PRIVATE`.
+Five focused negative/positive assertions were **RED** before the fix.
+The bounded single-pass quotation scanner now recognizes a valid `‚...‘`
+as `QUOTE / NON_COMMITTAL` while holding unbalanced low-single, nested
+low-single or unsupported ornamental quotation markers with
+`UNBALANCED_QUOTATION`. Existing high-single `‘...’` and contractions remain
+separately handled. The focused regression and 94 related unit tests are
+**GREEN**, Ruff/diff and deterministic benchmark 5/5 PASS; no human source
+approval, source Capture, MiniPC readback or language-wide semantic gold is
+implied. **All DP312 AC-312.1–.6 remain OPEN.**

@@ -402,9 +402,84 @@ def curated_context_approval(
 SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
 _SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
 _SPEECH_ACT_MAX_TURN_CHARS = 12000
-_QUOTED_TEXT_RE = re.compile(
-    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|‘[^‘’]+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+# The lexer treats the visible U+2018/U+2019 pair as quote delimiters;
+# contractions, decade elisions and plausible plural/name possessives are
+# orthographic exceptions. An s-final possessive at the apparent boundary is
+# inherently ambiguous: prefer HOLD to inferring a speaker's endorsement.
+_OTHER_QUOTED_TEXT_RE = re.compile(
+    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”„‟]+”|„[^„“”‟]+“|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
 )
+_ORTHOGRAPHIC_WORD_RE = re.compile(r"\w+", re.UNICODE)
+_NEXT_WORD_RE = re.compile(r"\s+\w", re.UNICODE)
+
+
+def _curly_quote_spans(turn: str) -> tuple[list[tuple[int, int]], bool]:
+    """Bounded single-pass orthographic pairing, with no semantic word blacklist.
+
+    A plural/common-noun s-ending or s-final proper name followed by another
+    word can introduce a possessive. Without a later closer, the resulting
+    open quotation remains unresolved. This is deliberately conservative for
+    ambiguous words such as workers/James, not a grammar or publication proof.
+    """
+    spans: list[tuple[int, int]] = []
+    # Pre-tokenize once: checking a possible apostrophe never re-scans a prefix.
+    words_by_end = {match.end(): match.group() for match in _ORTHOGRAPHIC_WORD_RE.finditer(turn)}
+    opened: int | None = None
+    unbalanced = False
+    for pos, char in enumerate(turn):
+        if char == "‚":
+            # German low-single opens a quotation completed by U+2018.
+            # A second low opener is nesting, not a safe original quote.
+            if opened is not None:
+                unbalanced = True
+            else:
+                opened = pos
+            continue
+        if char == "‘":
+            if opened is not None and turn[opened] == "‚":
+                spans.append((opened, pos + 1))
+                opened = None
+            elif opened is not None:
+                unbalanced = True
+            else:
+                opened = pos
+            continue
+        if char in "‛❛❜❝❞〝〞〟":
+            # Unsupported quotation punctuation is not ordinary speech:
+            # never interpret its clipped contents as direct endorsement.
+            unbalanced = True
+            continue
+        if char != "’":
+            continue
+        before = turn[pos - 1] if pos else ""
+        after = turn[pos + 1] if pos + 1 < len(turn) else ""
+        if before.isalnum() and after.isalnum():
+            # Internal contraction, such as I'm / I’m or workers’rights.
+            continue
+        if not before.isalnum() and after.isdigit():
+            # Leading numeric elision: the ’90s.
+            continue
+        if before.casefold() == "s" and after.isspace():
+            word = words_by_end.get(pos)
+            if word and _NEXT_WORD_RE.match(turn, pos + 1):
+                # S-final names and likely plural/common nouns are plausible
+                # possessives. The criterion uses case and ending shape, not a
+                # finite whitelist of English/German function words.
+                noun_like = (
+                    (len(word) > 1 and word.istitle())
+                    or (len(word) >= 4 and word[-2].casefold() in "bcdfghjklmnpqrstvwxz")
+                    or (len(word) >= 5 and word.casefold().endswith("es"))
+                )
+                if noun_like:
+                    continue
+        if opened is None:
+            unbalanced = True
+        else:
+            spans.append((opened, pos + 1))
+            opened = None
+    return spans, unbalanced or opened is not None
+
+
 _SPEECH_ACT_CUES = {
     "it": {
         "opinion": re.compile(r"\b(?:secondo\s+me|a\s+mio\s+parere)\b", re.I),
@@ -572,26 +647,66 @@ def assess_speech_act_context(
     if not parts and not part:
         signals.append("SOURCE_PART_REQUIRED")
 
-    # Treat every pair as a single nested quote. Mark unbalanced delimiters as
-    # ambiguous rather than interpreting a possibly chopped endorsement.
-    quote_spans = list(_QUOTED_TEXT_RE.finditer(turn))
-    for opener, closer in (("«", "»"), ("‹", "›"), ("“", "”")):
-        if turn.count(opener) != turn.count(closer):
+    # Pair typographic quotes with one bounded scanner so matching and
+    # endorsement detection consume the same interpretation of apostrophes.
+    curly_spans, curly_unbalanced = _curly_quote_spans(turn)
+    other_spans = [(m.start(), m.end()) for m in _OTHER_QUOTED_TEXT_RE.finditer(turn)]
+    quote_spans = sorted((*curly_spans, *other_spans))
+    if curly_unbalanced:
+        signals.append("UNBALANCED_QUOTATION")
+    # Nested or reversed angle delimiters can share the same total counts:
+    # validate complete adjacent pairs in either supported orientation.
+    for opener, closer in (("«", "»"), ("‹", "›")):
+        angle_marks = "".join(char for char in turn if char in (opener, closer))
+        if len(angle_marks) % 2 or any(
+            angle_marks[i:i + 2] not in (opener + closer, closer + opener)
+            for i in range(0, len(angle_marks), 2)
+        ):
             signals.append("UNBALANCED_QUOTATION")
+    # U+201E + U+201C are the conventional German low/high double pair;
+    # U+201C + U+201D are the usual high-double pair. No inverted, nested,
+    # dangling or unsupported U+201F token can imply direct endorsement.
+    smart_double = "".join(char for char in turn if char in "“”„‟")
+    if len(smart_double) % 2 or any(
+        smart_double[i:i + 2] not in ("“”", "„“")
+        for i in range(0, len(smart_double), 2)
+    ):
+        signals.append("UNBALANCED_QUOTATION")
     if turn.count('"') % 2:
+        signals.append("UNBALANCED_QUOTATION")
+    # ASCII apostrophe U+0027 can be an in-word contraction or leading
+    # numeric elision; other unpaired marks must not silently endorse
+    # a possibly clipped quoted turn. Ambiguous trailing possessives HOLD.
+    straight_single = 0
+    for pos, char in enumerate(turn):
+        if char != "'":
+            continue
+        previous = turn[pos - 1] if pos else ""
+        following = turn[pos + 1] if pos + 1 < len(turn) else ""
+        if previous.isalnum() and following.isalnum():
+            continue
+        if not previous.isalnum() and following.isdigit():
+            continue
+        straight_single += 1
+    if straight_single % 2:
         signals.append("UNBALANCED_QUOTATION")
     if len(re.findall(r"[.!?](?=\s|$)", turn)) > 1:
         signals.append("MULTI_SENTENCE_CONTEXT_REQUIRES_SPLIT")
     local_start = quote_start - turn_start
     local_end = quote_end - turn_start
     nested_target = any(
-        local_start >= match.start() + 1 and local_end <= match.end() - 1
-        for match in quote_spans
+        local_start >= start + 1 and local_end <= end - 1
+        for start, end in quote_spans
     )
     quoted_whole_turn = bool(
-        len(quote_spans) == 1 and turn.strip() == quote_spans[0].group(0)
+        len(quote_spans) == 1 and turn.strip() == turn[quote_spans[0][0]:quote_spans[0][1]]
     )
-    unquoted = _QUOTED_TEXT_RE.sub(" ", turn)
+    # Blank matched quotation spans; leave unmatched text visible, but the
+    # UNBALANCED_QUOTATION signal prevents such text from becoming ENDORSE.
+    unquoted_chars = list(turn)
+    for start, end in quote_spans:
+        unquoted_chars[start:end] = " " * (end - start)
+    unquoted = "".join(unquoted_chars)
     cues = _SPEECH_ACT_CUES.get(lang)
     act, stance = "UNKNOWN", "UNKNOWN"
     polarity = "UNKNOWN"

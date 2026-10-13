@@ -228,6 +228,6 @@ def prepare_public_synopsis(
     return PublicSynopsisRead(
         "READY_READ_MODEL", "SYNOPSIS_OFFLINE_REVIEWED_CITATIONS_READY", VERSION,
         intersection.person_id, intersection.topic_id, published_sha,
-        _hash(material), coverage_note, now.astimezone(timezone.utc).isoformat(),
+        _hash(material), coverage_note, snapshot_instant.isoformat(),
         tuple(rendered), 0,
     )
