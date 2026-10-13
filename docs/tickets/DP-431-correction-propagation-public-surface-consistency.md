@@ -182,3 +182,40 @@ drift and completes the runtime portion of AC-431.8.
 Q8 link ordinario alla versione corrente, avviso visibile di correzione materiale e collegamento distinto a storico quando disponibile e consentito. Non ripubblicare contenuto ritirato o privo di diritti nello storico; mantenere coerenza tra pagina/search/API.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+## 2026-10-13 — Post-closure search-index metadata integrity hardening
+
+An independent source review found a fail-open inconsistency in the already
+implemented public correction-propagation checker: while the record title and
+projection SHA were current, an index row could carry stale, missing or extra
+searchable metadata under the same version. The initial five-field Finding-only
+check also skipped absent keys and never compared Person, Topic or Content
+metadata. That allowed a stale Person label, role term, Topic scope, Content
+subtitle or route to survive a correction without a propagation HOLD.
+
+The checker now reconstructs the complete canonical v1 `PublicSearchRecord`
+for **Finding, Person, Topic and Content** from the current approved public
+projection, matching `web/src/lib/searchIndex.ts` including current Topic
+membership, first occurrence of a Person, first-class/legacy Content,
+wording type, date precedence, flags, route and primary/secondary search terms.
+Every row must match the complete allowlisted record; missing fields, extra
+private terms, stale identity/facets and old route data cause
+`SEARCH_INDEX_STALE_METADATA` and a fail-closed HOLD. Previous stale-title,
+duplicate, orphan and partial-entry protections remain in force.
+
+Synthetic RED→GREEN regressions cover the original optional-key bypass, all
+four record kinds and missing/extra search metadata. The existing correction
+fixtures were upgraded to the complete real schema rather than weakened in
+production. Real TypeScript `buildSearchIndexMaterial` and an independent
+Python fixture constructor agreed on six projection scenarios. On the
+integrator's copied final three-file source patch, 66 focused projection and
+correction tests, Python compileall, the deterministic 5/5 benchmark, and
+`git diff --check` pass. Full suite and independent final review are separate
+release evidence. The preexisting `check:rebuild` demo-seed guard currently
+rejects a normal public build of demonstration records; its public safety
+check has **not** been disabled or bypassed to manufacture acceptance.
+
+This is a **source-only post-closure security improvement**. The historical
+6 October MiniPC/static-host acceptance and original `Status: DONE`/AC remain
+unchanged; this commit is not a fresh MiniPC promotion, live rights approval,
+provider run or production deployment.
