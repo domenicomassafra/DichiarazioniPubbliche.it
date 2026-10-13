@@ -305,3 +305,14 @@ AC-406.6, the real MiniPC reviewed Topic/membership canary and DP-406 overall
 ## Post-grilling planning reconciliation — 2026-10-10
 
 Remain BLOCKED until a genuinely approved public Topic/membership readback and manual AT, not fixtures. DP-439 owns public Person×Topic intersection; DP-437 permits opinion-only Statements without a Finding and DP-440 a dated cited synopsis. Topic membership requires a reviewed relation to the source Statement, not mere mention or inferred political ideology. A private Topic, revoked Statement or doubtful speaker produces no public count/suggestion, and the same public version fingerprint must reach all consumers. All historical AC checkboxes and dated receipts preserved; no runtime change or acceptance inferred from this planning update.
+
+### 2026-10-13 — Test-only synthetic validity window refresh
+
+The isolated `check-public-topic-v3.mjs` test's *positive* synthetic release pin
+expired on 2026-10-12; running the unchanged test on 2026-10-13 fails with
+`PUBLIC_TOPIC_V3_RELEASE_EXPIRED` before exercising any intended Topic scenarios.
+The test now constructs a short-lived synthetic valid-until bound relative to its
+invocation and also constructs an explicitly past bound for its negative expiry
+test. This changes **only test inputs**, not the production `Date.now()` gate,
+release authority, approved Topic data, or public route. A passing fixture does
+not satisfy AC-406.6 (manual AT) or the real approved Topic/MiniPC gates.
