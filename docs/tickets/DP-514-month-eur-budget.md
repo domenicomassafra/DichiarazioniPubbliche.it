@@ -346,3 +346,35 @@ log if safe); never log receipt bodies, secrets or raw SQL containing
 private values. Then isolate the exact failure with a RED test before any
 behavioral fix. All AC-514.1–.7 and MiniPC/financial authority gates remain
 open.
+
+## 2026-10-13 — Two additional independent failing CI attempts (four total)
+
+After the two original DP-514 intermittent PostgreSQL failures recorded above,
+**two further first-attempt failures on new unrelated PR source revisions**
+reproduced the *same* test, at `DisposableMonthlyLiabilityPg._snapshot()` to
+`_run()` and the generic `DP514_PG_TRANSACTION_FAILED`:
+
+- PR #14 `061279868b5205c80b45514329dce5cc5815a46b`, GitHub Actions
+  run `38393006211`, Ubuntu Python 3.12, job `115281164284` (failed).
+- PR #16 `379e38bb24299f3f93b7b6615a72b85df957133f`, GitHub Actions
+  run `38393010633`, Ubuntu Python 3.14, job `115281179638` (failed).
+
+All four failures are confined to
+`test_claimed_refund_is_append_only_but_never_offsets_spend` despite different
+workflow matrices and source changes. Both new CI jobs completed with exactly
+one unittest ERROR in the full backend suite; the other reported backend
+checks passing does **not** prove root-cause resolution. The original stderr
+was captured inside `subprocess.run` but not recorded by `_run`, and the
+original SQLSTATE/return code and server log have not been recovered. The
+reproduction is real, but a specific PostgreSQL lock, timeout, deadlock,
+SQL error or environmental cause remains **unproven**. No rerun, generic
+retry, timeout increase, changed assertion, production DB mutation, or
+financial release is justified from these observations.
+
+**Release gate OPEN:** affected PR #14/#16 remain Draft. A future scoped,
+privacy-safe CI diagnostic should emit only allowlisted numeric SQLSTATE,
+psql exit status, a bounded elapsed time and a fixed statement family code
+under an explicitly disposable/test-only path; never raw SQL, receipt
+material, database strings, logs with secrets or full stderr. Review and
+validate redaction before using it to gather subsequent evidence. All
+DP-514 AC and real MiniPC/expense authority remain OPEN.
