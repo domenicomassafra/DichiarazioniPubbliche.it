@@ -220,3 +220,19 @@ keyboard, reduced motion and zero external requests. Temporary canary files
 were cleaned; MiniPC live service stayed active and deployed Explore HTML SHA
 `e9e4358ca5ddffab4c5c3d851a809a75d0bd2ddd26db5a356507c3d6a3aca3ef`
 remained unchanged. Neither fixture is a public dataset, deployment or sign-off.
+
+### 2026-10-13 — Independent PR review: delayed-close race regression
+
+An independent native Chat On Steroids worker reviewed PR #3 at
+`58ec0f0e932e66af64205a37a46e2d013c5587f5` and identified a coverage gap:
+the existing keyboard test reopened the filter dialog only **after** the native
+`close` event had been consumed. The browser test now intentionally calls
+`dialog.close()` and reopens it synchronously in the same JavaScript task,
+proves the delayed native `close` event arrives while the dialog is open,
+and checks `aria-expanded="true"` plus focus remaining inside it after React
+handles that event. The worker demonstrated **RED** against the previous
+`17ad6db` handler (`aria-expanded="false"` while the dialog was open), then
+**GREEN** on the corrected component with real Chrome; the existing
+`DP429_BROWSER=1` approved-empty and local-populated QA still passes.
+This is strengthened source/regression proof, not a manual screen-reader
+acceptance or permission to merge/deploy/publicly publish content.

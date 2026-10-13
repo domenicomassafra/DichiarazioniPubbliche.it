@@ -533,6 +533,34 @@ try {
   await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
   await waitFor(cdp, "document.querySelector('dialog')?.open === true", "filter dialog did not reopen");
   await waitFor(cdp, "document.querySelector('.filter-row .filter-button')?.getAttribute('aria-expanded') === 'true'", "reopened dialog was announced collapsed");
+  // HTMLDialogElement.close() queues a native `close` event. Reopen in the
+  // same JavaScript task, before that event can reach React's onClose handler:
+  // the old handler incorrectly collapsed the reopened dialog and stole focus.
+  const lateCloseRace = await cdp.evaluate(`(() => {
+    const dialog = document.querySelector('#explore-filter-dialog');
+    const trigger = document.querySelector('.filter-row .filter-button');
+    const observed = { events: 0, wasOpenOnDelivery: false };
+    window.__dp429LateCloseRace = observed;
+    dialog.addEventListener('close', () => {
+      observed.events += 1;
+      observed.wasOpenOnDelivery = dialog.open;
+    }, { once: true });
+    dialog.close();
+    trigger.click(); // React openFilters(), while the native close is queued.
+    return { reopened: dialog.open, closeDeliveredBeforeReopen: observed.events !== 0 };
+  })()`);
+  assert.deepEqual(lateCloseRace, { reopened: true, closeDeliveredBeforeReopen: false },
+    "filter dialog race did not reopen before the native close event");
+  await waitFor(cdp, "window.__dp429LateCloseRace?.events === 1", "queued dialog close event did not arrive after reopen");
+  assert.equal(await cdp.evaluate("window.__dp429LateCloseRace.wasOpenOnDelivery"), true,
+    "dialog was not open when the delayed close event was delivered");
+  await cdp.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  assert.deepEqual(await cdp.evaluate(`({
+    open: document.querySelector('#explore-filter-dialog').open,
+    expanded: document.querySelector('.filter-row .filter-button').getAttribute('aria-expanded'),
+    focusInside: document.querySelector('#explore-filter-dialog').contains(document.activeElement),
+  })`), { open: true, expanded: "true", focusInside: true },
+  "late close event collapsed reopened filter disclosure or moved focus outside modal");
   await key(cdp, "Escape", { code: "Escape", keyCode: 27 });
   await waitFor(cdp, "document.querySelector('dialog')?.open === false", "reopened dialog did not close");
 
