@@ -102,3 +102,10 @@ PostgreSQL 17.11. The exact candidate copied to MiniPC `/tmp` passes **213/213**
 evidence-core tests with PostgreSQL 18.6 temporary clusters plus both benchmarks. Production
 database variables were removed and no live provider was invoked; DP-204 live-provider proof
 remains a separate dependency rather than a substitute for this deterministic gate.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q5: testo come base della fruizione; audio/video pubblici soltanto quando diritti e fonte consentono quell’uso. Eventuali spezzoni importanti sono opportunità da approfondire, non autorizzazione alla ripubblicazione o all’hosting. Verificare embed/link fonte rispetto a copia, provenienza/span e sottotitoli/accessibilità; non assumere MiniPC come media host. Conservare gate verbatim già definiti.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

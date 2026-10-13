@@ -118,3 +118,10 @@ handlers, richer keyboard/loading/error workflows, and private provenance inspec
 silently absorbed here: they remain explicitly owned by DP-415..DP-419, whose acceptance criteria
 are still open. DP-414 can therefore be `DONE` without claiming those downstream workspaces are
 implemented or production-enabled.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q10 richieste owner organizzate in piccoli gruppi per decisione concreta, problema/prove già cercate/scelta necessaria, urgenze separate. Non attribuire all’owner revisione legale/editoriale qualificata non approvata né creare nuova coda/scheduler.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

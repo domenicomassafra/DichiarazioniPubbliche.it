@@ -35,6 +35,11 @@ const safeRoleSource = (value: string): boolean => {
     return false;
   }
 };
+const validRoleDate = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
 if (approvedEmptyPerson) {
   if (
     approvedEmptyPerson.status !== "PUBLISHED" ||
@@ -48,8 +53,8 @@ if (approvedEmptyPerson) {
     !approvedEmptyPerson.roles.every((role) =>
       role && typeof role.role_id === "string" && role.role_id.trim() &&
       typeof role.label === "string" && role.label.trim() &&
-      /^\d{4}-\d{2}-\d{2}$/.test(role.valid_from) &&
-      (role.valid_to === null || /^\d{4}-\d{2}-\d{2}$/.test(role.valid_to)) &&
+      validRoleDate(role.valid_from) &&
+      (role.valid_to === null || (validRoleDate(role.valid_to) && role.valid_to >= role.valid_from)) &&
       safeRoleSource(role.source_url)
     ) ||
     dossiers.length !== 0
@@ -95,7 +100,7 @@ const roleAt = (dossier: PublicDossier) => {
         <h1 class="page-title">{personName}</h1>
         {approvedEmptyPerson?.disambiguator && <p>{approvedEmptyPerson.disambiguator}</p>}
         {approvedEmptyPerson && approvedEmptyPerson.roles.length > 0 && (
-          <div class="record-role" aria-label="Incarichi pubblici approvati con periodo e fonte">
+          <div class="record-role" role="group" aria-label="Incarichi pubblici approvati con periodo e fonte">
             {approvedEmptyPerson.roles.map((role) => (
               <div>
                 <strong>{role.label}</strong>{role.organization ? ` · ${role.organization}` : ""}
@@ -106,7 +111,7 @@ const roleAt = (dossier: PublicDossier) => {
           </div>
         )}
         {!approvedEmptyPerson && roles.length > 0 && (
-          <div class="record-role" aria-label="Ruoli pubblici approvati">
+          <div class="record-role" role="group" aria-label="Ruoli pubblici approvati">
             {roles.map((role) => (
               <div>
                 <strong>{role.role}</strong>{role.organization_name ? ` · ${role.organization_name}` : ""}

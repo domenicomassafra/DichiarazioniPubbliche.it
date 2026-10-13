@@ -357,3 +357,31 @@ VoiceOver, Android TalkBack, physical iOS, 400% native zoom, or manual WCAG
 audit. It does not change any signed-approval, rights, UI publication, token
 storage, or SEO route. **DP-410 remains IN PROGRESS; AC-410.1/.2 manual AT and
 visual acceptance remain OPEN.**
+
+## 2026-10-12 — MiniPC reboot, real-host preview source/consumer readback
+
+MiniPC SSH recovered and its **user** systemd service
+`dichiarazioni-pubbliche-web.service` was active on `127.0.0.1:18090`.
+The six informational routes, search-index, health API, robots and sitemap
+returned HTTP 200; tailnet HTTPS `/esplora/` returned 200. The installed
+approved-empty projection and index shared exact fingerprint
+`501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a`,
+with 0 dossiers, topics, contents and search records. **This is liveness and
+source/index consistency, not new editorial approval or latest-source deploy.**
+
+The installed historical `web/dist` **failed** the current independent
+`tools/check_informational_preview.py --bundle-only` audit with
+`PRIVATE_STUDIO_OR_DEMO_ASSET:_astro/StudioWorkspaceClient.C8bXOybZ.js`.
+Asset presence alone does not prove a private-data leak, but the current
+install cannot be certified as the compliant six-page preview. A completely
+isolated Mac source build from the MiniPC's same approved-empty projection
+**passed** that audit (`receipt_sha256` `c0892453d9446f90d343910e00504796675a210eeccbc9941310cb2fcac250da`):
+0 StudioWorkspace assets, real Chrome 18-route keyboard/zoom/reduced-motion
+PASS, zero external calls. On MiniPC, separately transferred temporary
+approved-empty and local-only 12-record fixture bundles passed their Chrome
+QA after the DP-429 filter disclosure fix; the temporary files were removed.
+Only the MiniPC `AGENTS.md` documentation contract was synchronized with
+Mac `origin/main` (`sha256 bb98ca8919f6dbee9e88a20e9ef3ae8a15076e6e1145d7265efaf6172424d73f`).
+No public artifact, projection, source mirror, service, DB or gateway was
+changed, restarted or promoted. Real public-domain deployment and signoffs
+remain separate. DP-304/307/410/701/702 governance/AT gates remain open.

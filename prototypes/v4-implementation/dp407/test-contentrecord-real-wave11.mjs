@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +44,7 @@ if (testBundle.contents !== undefined) material.contents = testBundle.contents;
 testBundle.dataset_sha256 = createHash("sha256").update(canonicalJson(material), "utf8").digest("hex");
 const fixtureDir = await mkdtemp(path.join(tmpdir(), "dp407-public-state-"));
 const syntheticFixture = path.join(fixtureDir, "public-projection.json");
+const stagedWeb = path.join(fixtureDir, "web");
 await writeFile(syntheticFixture, JSON.stringify(testBundle), "utf8");
 const schemaCheck = spawnSync("python3", ["-c",
   "import json,sys; from dichiarazioni_pubbliche.public_schema import validate_public_bundle; validate_public_bundle(json.load(open(sys.argv[1])))",
@@ -52,8 +53,15 @@ const schemaCheck = spawnSync("python3", ["-c",
 });
 assert.equal(schemaCheck.status, 0, `synthetic public projection rejected: ${schemaCheck.stderr}`);
 
+// Build in a disposable checkout so other agents' shared web/dist is untouched.
+await cp(path.join(webRoot, "src"), path.join(stagedWeb, "src"), { recursive: true });
+for (const name of ["public", "astro.config.mjs", "tsconfig.json", "package.json"]) {
+  try { await cp(path.join(webRoot, name), path.join(stagedWeb, name), { recursive: true }); }
+  catch (error) { if (error.code !== "ENOENT") throw error; }
+}
+await symlink(path.join(webRoot, "node_modules"), path.join(stagedWeb, "node_modules"), "dir");
 const built = spawnSync("npm", ["run", "build"], {
-  cwd: webRoot, encoding: "utf8", maxBuffer: 8 * 1024 * 1024,
+  cwd: stagedWeb, encoding: "utf8", maxBuffer: 8 * 1024 * 1024,
   env: {
     ...process.env,
     DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION: "1",
@@ -64,7 +72,7 @@ if (built.status !== 0) {
   await rm(fixtureDir, { recursive: true, force: true });
   throw new Error(`DP-407 isolated static build failed:\n${(built.stderr || built.stdout).slice(-5000)}`);
 }
-const dist = path.join(webRoot, "dist");
+const dist = path.join(stagedWeb, "dist");
 const canonicalPath = "/contenuti/content-demo-maintenance/";
 await stat(path.join(dist, canonicalPath, "index.html"));
 const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2" };
@@ -208,15 +216,49 @@ try {
   assert.equal(state.keep, "fixture");
   assert.equal(state.hash, "#position");
   assert(await evaluate(`!!document.getElementById(${JSON.stringify(state.detailControls)})`));
+  // Optional diagnostic, outside the stable editorial/keyboard regression.
+  // The global site shell has a 320px body minimum; 160px must fail the
+  // optional audit until the shared layout is corrected.
+  // Device emulation is asynchronous: await fonts and rendering after override
+  // before measuring. Never widen the expected 320px boundary to get a pass.
+  if (process.env.DP407_LAYOUT_AUDIT === "1") {
+    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+    for (const width of [320, 160]) {
+      await send("Emulation.setDeviceMetricsOverride", { width, height: 720, deviceScaleFactor: 1, mobile: true });
+      await evaluate("document.fonts.ready.then(() => true)");
+      await evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+      const layout = JSON.parse(await evaluate(`JSON.stringify({
+        viewport: document.documentElement.clientWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        fontStatus: document.fonts.status,
+        selected: document.querySelector('.content-moment__detail:not([hidden])')?.dataset.contentDetail,
+        reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches
+      })`));
+      assert.equal(layout.viewport, width, `Chrome viewport ${width}px mismatch: ${JSON.stringify(layout)}`);
+      assert.equal(layout.documentWidth, width,
+        `Chrome viewport ${width}px has real horizontal overflow (global body min-width=320px): ${JSON.stringify(layout)}`);
+      assert.equal(layout.fontStatus, "loaded", `Chrome fonts still loading at ${width}px`);
+      assert.equal(layout.selected, target.finding_id);
+      assert(layout.reducedMotion, "Chrome reduced-motion preference did not apply");
+      // The selected timeline marker must remain keyboard-focusable and visible.
+      await evaluate(`document.querySelector(${JSON.stringify(markerSelector)}).focus()`);
+      assert(await evaluate(`getComputedStyle(document.activeElement).outlineStyle !== 'none'`));
+    }
+    console.log("DP407 LAYOUT DIAGNOSTIC: Chrome 320px and 160px widths have no horizontal overflow");
+  }
   assert(visited.every((uri) => uri === "/favicon.ico" || uri.startsWith("/_astro/") || uri === canonicalPath),
     `unexpected local resource fetch: ${visited.join(", ")}`);
   const loadedResources = JSON.parse(await evaluate("JSON.stringify(performance.getEntriesByType('resource').map(entry => entry.name))"));
   assert(loadedResources.every((url) => url.startsWith(`${origin}/`)), "browser loaded an external resource");
   const publicHtml = await readFile(path.join(dist, canonicalPath, "index.html"), "utf8");
+  assert(publicHtml.includes("Le formulazioni sono sintesi editoriali"),
+    "Content must identify normalized claims visibly as editorial summaries, not direct quotations");
+  assert(!publicHtml.includes(`“${target.claim}”`),
+    "Normalized claim must never be displayed as the speaker's literal quoted words");
   for (const privateField of ["transcript_candidates", "provider_receipt", "raw_text", "canonical_text", "evidence_body", "person_score"]) {
     assert(!publicHtml.includes(privateField), `private/non-projection field in public output: ${privateField}`);
   }
-  console.log("PASS real ContentRecord.astro: 12 public-fixture moments, Chrome AX name, deep link, Space key, focus, detail, URL; public-only HTML and local browser resources");
+  console.log("PASS real ContentRecord.astro: 12 public-fixture moments, editorial summary provenance, Chrome AX name, deep link, Space key, focus, detail, URL; public-only HTML and local browser resources");
 } finally {
   try { ws?.close(); } catch { /* connection already closed */ }
   child.kill("SIGTERM");

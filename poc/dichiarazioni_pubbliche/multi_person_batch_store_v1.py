@@ -137,6 +137,17 @@ class PrivateBatchSQLiteStore:
             raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
         self.path = path
 
+    def _assert_read_recovery_not_pending(self) -> None:
+        # An FD URI cannot discover the canonical rollback journal. Hold any
+        # such sidecar for native SQLite recovery, without parsing/deleting it.
+        try:
+            self.path.with_name(self.path.name + "-journal").lstat()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise ValueError("MULTIPERSON_STORE_RECOVERY_REQUIRED") from exc
+        raise ValueError("MULTIPERSON_STORE_RECOVERY_REQUIRED")
+
     def _connect(self, *, readonly: bool = False) -> sqlite3.Connection:
         # Create the SQLite file with private permissions; never follow a
         # pre-existing symlink or silently accept a world-readable ledger.
@@ -150,20 +161,84 @@ class PrivateBatchSQLiteStore:
                 pass  # Another local caller created it: validate below.
         if self.path.is_symlink() or not self.path.is_file():
             raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
-        mode = self.path.stat().st_mode
-        if not stat.S_ISREG(mode) or mode & 0o077:
+        verified = self.path.stat()
+        if not stat.S_ISREG(verified.st_mode) or verified.st_mode & 0o077:
             raise ValueError("MULTIPERSON_STORE_PERMISSIONS_INVALID")
         if readonly:
-            # Reads must never create a new database or silently mutate a
-            # schema, even when a caller passes a never-initialized path.
-            connection = sqlite3.connect(
-                self.path.as_uri() + "?mode=ro",
-                uri=True,
-                isolation_level=None,
-                timeout=5.0,
-            )
+            self._assert_read_recovery_not_pending()
+            # A pathname returned by PRAGMA database_list is NOT the inode
+            # SQLite actually opened. Pin a private regular-file descriptor
+            # first and open the readonly SQLite handle through that FD.
+            # A concurrent rename-only replacement of the original pathname
+            # cannot redirect this handle into an unrelated private ledger.
+            fd = None
+            try:
+                fd = os.open(
+                    self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_CLOEXEC", 0),
+                )
+                pinned = os.fstat(fd)
+                original_identity = (verified.st_dev, verified.st_ino)
+                if (not stat.S_ISREG(pinned.st_mode)
+                    or pinned.st_mode & 0o077
+                    or (pinned.st_dev, pinned.st_ino) != original_identity
+                    or (self.path.stat().st_dev, self.path.stat().st_ino)
+                    != original_identity):
+                    raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+                connection = sqlite3.connect(
+                    f"file:/dev/fd/{fd}?mode=ro", uri=True,
+                    isolation_level=None, timeout=5.0,
+                )
+            except (OSError, sqlite3.DatabaseError) as exc:
+                raise ValueError("MULTIPERSON_STORE_PATH_INVALID") from exc
+            finally:
+                if fd is not None:
+                    os.close(fd)
         else:
             connection = sqlite3.connect(self.path, isolation_level=None, timeout=5.0)
+        # SQLite opens the database after our pathname/mode check. A local
+        # rename/symlink swap in that gap can redirect even an initially 0600
+        # private ledger into a different, possibly world-readable database;
+        # restoring the original pathname does not restore SQLite's handle.
+        # Check the *opened main database*, not just the visible pathname,
+        # before executing schema writes or reading foreign private receipts.
+        try:
+            main_files = [
+                filename
+                for _, name, filename in connection.execute("PRAGMA database_list")
+                if name == "main" and filename
+            ]
+            if len(main_files) != 1 or self.path.is_symlink():
+                raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+            current = self.path.stat()
+            original_identity = (verified.st_dev, verified.st_ino)
+            if (original_identity != (current.st_dev, current.st_ino)):
+                raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+            if not readonly:
+                # For writers, SQLite's own moved-database detection still
+                # prevents a transaction after replacement of the main inode.
+                # The PRAGMA path alone is not proof of an opened FD identity.
+                opened = Path(main_files[0]).stat()
+                if (not stat.S_ISREG(opened.st_mode)
+                    or original_identity != (opened.st_dev, opened.st_ino)):
+                    raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+            else:
+                opened = verified
+            if opened.st_mode & 0o077 or current.st_mode & 0o077:
+                raise ValueError("MULTIPERSON_STORE_PERMISSIONS_INVALID")
+            if readonly:
+                # FD URI is deliberately independent of a pathname swap.
+                # Its journal sidecar path is not the canonical DB sidecar;
+                # never serve a potentially stale WAL-mode ledger snapshot.
+                mode = connection.execute("PRAGMA journal_mode").fetchone()
+                if not mode or mode[0] != "delete":
+                    raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+        except (OSError, sqlite3.DatabaseError) as exc:
+            connection.close()
+            raise ValueError("MULTIPERSON_STORE_PATH_INVALID") from exc
+        except ValueError:
+            connection.close()
+            raise
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 5000")
         if not readonly:
@@ -283,6 +358,7 @@ class PrivateBatchSQLiteStore:
             raise ValueError("MULTIPERSON_STORE_PLAN_REFERENCE_INVALID")
         with closing(self._connect(readonly=True)) as connection, connection:
             connection.execute("BEGIN")
+            self._assert_read_recovery_not_pending()
             row = connection.execute(
                 "SELECT schema_version, plan_json FROM dp240_plans WHERE plan_sha256=?",
                 (plan_sha256,),
@@ -323,6 +399,7 @@ class PrivateBatchSQLiteStore:
                     raise ValueError("MULTIPERSON_STORE_PLAN_INTEGRITY_INVALID")
             except (TypeError, ValueError) as exc:
                 raise ValueError("MULTIPERSON_STORE_PLAN_INTEGRITY_INVALID") from exc
+            self._assert_read_recovery_not_pending()
             return planned
 
     def resume(self, plan_sha256: str) -> PrivateBatchStoredSnapshot:
@@ -334,7 +411,12 @@ class PrivateBatchSQLiteStore:
         serialized = self._assert_plan(plan)
         with closing(self._connect(readonly=True)) as connection, connection:
             connection.execute("BEGIN")
-            return self._read_locked(connection, plan, serialized)
+            self._assert_read_recovery_not_pending()
+            snapshot = self._read_locked(connection, plan, serialized)
+            # Recheck after acquiring the read transaction's SHARED lock:
+            # a writer may have crashed since the connection preflight.
+            self._assert_read_recovery_not_pending()
+            return snapshot
 
     def observe(
         self,
