@@ -61,3 +61,43 @@ The opt-in `MEDIA_SEGMENT_REF` resolver previously returned `LOCATED` when the l
 Local GREEN: `PYTHONPATH=poc python3 -m unittest tests.test_dp237_exact_locator tests.test_dp239_multilingual_derivation tests.test_original_source_resolver tests.test_dp241_original_source_investigation -v` → 55 tests passed. This enforces media locator binding only; it neither authenticates the underlying non-biometric speaker attribution nor supplies a real-media player jump, current source permission, parser authority, publication approval, or MiniPC readback. All six original AC boxes remain open pending the real-source and runtime proofs.
 
 Additional local checks: `python3 -m compileall -q poc tests` PASS; deterministic benchmark 5/5 PASS; `git diff --check` PASS. Repository-wide `unittest discover -s tests -q` was attempted but interrupted after roughly two minutes while waiting in a subprocess from `test_m3_runtime_canaries.py::test_dp303_enabled_correction_runs_real_reanalysis_and_public_projection`; it has **no** PASS/fail result to claim. No commit, deployment or external-source acceptance was performed.
+
+
+## 2026-10-13 — Exact written/PDF locator respects native Capture body-use lifecycle (worker-4)
+
+Independent offline review of the opt-in `resolve_exact_source_locator` on clean
+`main` `58777fcbe67fa20475162f3a20a4ba7dd6327794` reproduced a source-use
+inconsistency for existing `TEXT_POSITION` and one-page `PAGE_RANGE` selectors.
+Even with correct pinned Capture SHA, exact source bytes, matching parser and
+quote hash, the resolver returned `LOCATED` for Capture `QUARANTINED`,
+`PURGE_PENDING`, or `RIGHTS_HOLD`. The owner-native
+`corpus_retention.capture_downstream_use_decision(capture, requires_body=True)`
+**rejects all three** respectively as `CAPTURE_QUARANTINED`,
+`BODY_PURGE_IN_PROGRESS` and `HOLD_ACTIVE:RIGHTS_HOLD`. A byte-perfect
+citation must not silently bypass that independently enforced private body-use
+boundary, including a quarantine or retention transition after an earlier
+successful Capture.
+
+RED proof: new `test_written_and_pdf_locator_refuse_native_blocked_body_lifecycle`
+produced **six unexpected `LOCATED` results** against the original module:
+three native-disallowed lifecycle cases on each of the two selectors. GREEN:
+the written/PDF branch now **reuses that existing owner-native decision** after
+the established `PURGED_BODY`/missing-body-ref check but before reading the
+provided body bytes. On a denied current Capture it returns
+`BLOCKED / LOCATOR_CAPTURE_USE_BLOCKED`, retaining its immutable
+`source_version_sha256` for private audit. Normal `CAPTURED` positive selectors
+remain `LOCATED`, completed purge remains
+`UNAVAILABLE / LOCATOR_BODY_UNAVAILABLE`, and the separate media transcript
+selector is unchanged. This is deliberately a **private body-availability**
+gate, **not** a source-rights, identity, original-speaker or publication permit;
+legal/editorial approval and external trust still require their existing
+independent guards.
+
+Proof is owner-local and synthetic, using only the two existing deterministic
+HTML/PDF fixtures. Focused regression GREEN **1/1** (six subcases), four-module
+neighboring unit suite **67/67 PASS**. No source/provider/network request,
+database operation, fabricated accepted evidence or public release was used.
+**DP-237 remains IN PROGRESS; AC-237.1–.6 remain unchecked** pending real
+permitted source parsing, protected MiniPC/Studio readback, viewer seek and
+cross-format human acceptance. Source changes were made solely inside an
+isolated worker worktree; no commit, push or deployment occurred.
