@@ -358,6 +358,7 @@ class PrivateBatchSQLiteStore:
             raise ValueError("MULTIPERSON_STORE_PLAN_REFERENCE_INVALID")
         with closing(self._connect(readonly=True)) as connection, connection:
             connection.execute("BEGIN")
+            self._assert_read_recovery_not_pending()
             row = connection.execute(
                 "SELECT schema_version, plan_json FROM dp240_plans WHERE plan_sha256=?",
                 (plan_sha256,),
@@ -410,6 +411,7 @@ class PrivateBatchSQLiteStore:
         serialized = self._assert_plan(plan)
         with closing(self._connect(readonly=True)) as connection, connection:
             connection.execute("BEGIN")
+            self._assert_read_recovery_not_pending()
             snapshot = self._read_locked(connection, plan, serialized)
             # Recheck after acquiring the read transaction's SHARED lock:
             # a writer may have crashed since the connection preflight.
