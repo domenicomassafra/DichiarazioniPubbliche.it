@@ -132,3 +132,22 @@ full focused-plus-adjacent DP-319/DP-241/DP-228/research/coverage suite
 registry, D provider/cost execution receipts, checked baseline coverage,
 MiniPC persisted replay, trusted human/qualified authority and downstream
 case lifecycle remain unproved. `IN PROGRESS`; release **NO-GO**.
+
+### 2026-10-13 — Complete assignment-authority fingerprint (source-only)
+
+The private attempt planner previously fingerprinted an assignment's adapter,
+query count, result count, stop rules and cost cap but silently omitted its
+**research question, per-host limit, temporal constraints, authority scope,
+READY/BLOCKED state and blockers**. Replacing an assigned source/time/jurisdiction
+scope or withdrawing that assignment could leave the same attempt ID and accept
+an older receipt as if it belonged to the current bounded plan.
+
+An isolated local regression was **RED** in five subcases: all changed those
+authority-relevant fields yet retained the original plan fingerprint. The
+planner now fingerprints the complete action-limiting research assignment and
+its current declared rights status, preserving deterministic sorted replay,
+while rejecting old observation IDs after a plan change. This is not a signed
+authority record: arbitrary caller-supplied CLEARED status alone cannot
+authorize a real search and does not prove source rights. The actual durable
+worker must still validate its signed/current permissions and spending gates
+in a transaction. None of AC-319.1–.5 or MiniPC real canary is closed.
