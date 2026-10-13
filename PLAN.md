@@ -2,10 +2,15 @@
 
 Status: canonical  
 Plan version: 1.3 (post-grilling planning)
-Last updated: 2026-10-10
+Last updated: 2026-10-12 (documentation authority clarification; ticket statuses unchanged)
 
 This is the single ordered execution map for the project. Detailed implementation specs
 live in `docs/tickets/`. Historical roadmap files are evidence, not competing backlogs.
+Run `python3 tools/report_ticket_status.py --json` for the **current** counts and
+PLAN/ticket consistency; dated counts below are checkpoints, not a live dispatch
+queue. The post-grilling expansion introduced 37 ticket specifications, and the
+canonical register at the 2026-10-12 `f92c1c5` checkpoint contained 162 tickets:
+90 DONE, 52 IN PROGRESS, 6 BLOCKED, 14 FUTURE (72 not DONE).
 
 ## 2026-10-10 post-grilling integration — planning contract, not completion
 
@@ -198,12 +203,13 @@ native task/result channels, not separate Prompt2Prompt response files. Produce
 one canonical ordered plan and requirement-to-ticket coverage without lost AC,
 duplicate work, fake DONE or unsupported claims of agents launched.
 
-**Current handoff:** [one post-grilling master prompt](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md)
-is prepared for owner launch in Chat On Steroids. It requests four native workers
-and complete ticket reconciliation; no external launch/result is implied by the
-file's presence. Ticket status/counts remain the baseline until that work runs.
+**Historical pre-execution handoff (2026-10-10):** [one post-grilling master prompt](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md)
+was prepared for owner launch in Chat On Steroids. Subsequent reconciliation
+did run and expanded the actual register to 162; use the live command above and
+the original ticket files for present execution authority. The prompt remains
+dated provenance, not an unexecuted instruction to repeat the expansion.
 
-## Current frozen checkpoint and explicit FUTURE queue — 2026-10-10
+## Historical frozen checkpoint and explicit FUTURE queue — 2026-10-10 (125-ticket baseline)
 
 **Repository state:** `main` at `a104f0f` at the 2026-10-10
 reprioritization audit, with a single clean local worktree, no stash or other
@@ -230,11 +236,12 @@ or editorial launch acceptance.** The canonical check
 [`docs/reviews/2026-10-10-open-ticket-reprioritization.md`](docs/reviews/2026-10-10-open-ticket-reprioritization.md)
 maps **all 35 not-DONE tickets** to a proposed DO NOW / DEFER / MERGE CANDIDATE /
 DELETE ONLY AFTER OWNER DECISION queue with evidence gates and a dependency tree.
-Several `IN PROGRESS` tickets have integrated implementation and pending external
-or manual acceptance; they are **not** evidence of 20 dirty Git WIP changes.
+Several `IN PROGRESS` tickets had integrated implementation and pending external
+or manual acceptance; they were **not** evidence of 20 dirty Git WIP changes.
 One AT/manual acceptance campaign can collect distinct DP-405/407/409/412/422/429
-receipts under DP-410 without merging their AC. Preserve the canonical 125 statuses
-until the ticket-specific acceptance criteria and owner decisions are proven.
+receipts under DP-410 without merging their AC. At this dated checkpoint there
+were 125 canonical ticket statuses. The subsequent 37-ticket expansion supersedes
+that count without closing any unmet acceptance or owner decision.
 An independent product/UX audit and owner grilling must precede any newly approved
 full redesign scope; historical v4 `DONE` tickets remain historical facts.
 

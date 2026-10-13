@@ -98,5 +98,14 @@ class TicketPlanStatusContractTests(unittest.TestCase):
             self.assertIn("TICKET_STATUS_DRIFT:DP-235", output.getvalue())
 
 
+class LiveDocumentationAuthorityTests(unittest.TestCase):
+    def test_plan_labels_pre_expansion_125_ticket_checkpoint_as_historical(self) -> None:
+        plan = (contract.ROOT / "PLAN.md").read_text(encoding="utf-8")
+        self.assertIn("python3 tools/report_ticket_status.py --json", plan[:1500])
+        self.assertIn("## Historical frozen checkpoint", plan)
+        self.assertNotIn("## Current frozen checkpoint", plan)
+        self.assertNotIn("Preserve the canonical 125 statuses", plan)
+
+
 if __name__ == "__main__":
     unittest.main()
