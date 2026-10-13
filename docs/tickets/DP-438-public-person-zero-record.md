@@ -168,6 +168,34 @@ rights authorization, deployed first-class API/route/search/sitemap,
 atomic revoke/cache invalidation or MiniPC positive/negative canary.
 Local synthetic SSR is not proof of a production/public v3 cutover.
 
+## 2026-10-14 — Independent request-identity race review and fix
+
+An independent, strictly **read-only** reviewer of remote branch `706667c`
+identified and reproduced a remaining P2: `readApprovedPersonV3()` correctly
+detached the public Person collection but read the **caller-owned mutable
+`options.identifier`** after multiple awaited cryptographic digests. With an
+approved two-Person (one approved zero-statement, homonymous) collection,
+mutating the selector from `person:approved` to `person:zero` during the first
+real digest returned the other Person under an unchanged approved collection
+hash. The new deterministic test was **RED** (`person:zero` returned while
+`person:approved` had been requested).
+
+The consumer now clones and validates opt-in, independently issued collection
+pin and request identifier **before any await** and uses only that frozen
+selection. The exact same digest-race test is **GREEN**. The independent
+reviewer then rechecked the new two-file diff and independently mutated
+the selector, hash and opt-in simultaneously during SHA; the original
+requested Person remained selected. Invalid/noncloneable option fields and
+blank identity fail closed; direct-Person, cross-reader and private wrapper
+caller audits found no further reproducible P1/P2 in this bounded scope.
+Actual Python→Node positive/negative, homonyms/zero-Statement, original-
+quotation and delayed expiry regressions remain separate from this fix.
+
+This is a source-only, **independently reviewed** security correction, not
+qualified identity authentication, rights approval, public-v3 rollout,
+MiniPC acceptance or automatic publication. DP-438 **IN PROGRESS**,
+AC-438.1–.6 all unchanged and unchecked.
+
 ## 2026-10-13 — Withheld alias collision cannot hide an unrelated approved Person
 
 The opt-in first-class Person projection had a false negative at the public

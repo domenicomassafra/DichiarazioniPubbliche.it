@@ -121,6 +121,27 @@ try {
   subtle.digest = originalDigest;
 }
 
+// Independent reviewer P2: request selection itself was caller-owned mutable
+// `options.identifier`, read only AFTER the awaited cryptographic digest.
+// Even when the collection remains valid, the requested Person must not
+// switch from one approved identity to another mid-flight.
+const identifierRace = collection(structuredClone(people));
+const requested = options(identifierRace, "person:approved");
+let identifierDigestCalls = 0;
+try {
+  subtle.digest = async function (algorithm, data) {
+    const hash = await originalDigest.call(this, algorithm, data);
+    if (++identifierDigestCalls === 1) requested.identifier = "person:zero";
+    return hash;
+  };
+  const selected = await readApprovedPersonV3(identifierRace, requested);
+  assert(identifierDigestCalls >= 1, "request identity digest interleave not exercised");
+  assert.equal(selected?.person_id, "person:approved",
+    "caller changed exact Person request after collection digest, causing identity rebind");
+} finally {
+  subtle.digest = originalDigest;
+}
+
 // Same-name People remain separate public IDs and absent private members
 // remain indistinguishable from unknown IDs; no derived status/score.
 const pristine = collection(structuredClone(people));

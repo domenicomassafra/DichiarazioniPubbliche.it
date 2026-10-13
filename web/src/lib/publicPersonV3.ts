@@ -114,8 +114,16 @@ export async function readApprovedPersonV3(
   value: unknown,
   options: {allowPersonV3?: boolean; expectedCollectionSha256?: string; identifier: string},
 ): Promise<ApprovedPersonV3 | null> {
-  if (options.allowPersonV3 !== true) throw new Error("PUBLIC_PERSON_V3_OPT_IN_REQUIRED");
-  if (!HASH.test(options.expectedCollectionSha256 ?? "")) throw new Error("PUBLIC_PERSON_V3_PIN_REQUIRED");
+  // Request selector and externally issued hash are part of the same
+  // point-in-time read as the Person collection. Never re-read options after
+  // awaiting collection or exact-quote SHA; a concurrent caller may change
+  // which approved Person would be returned under the old authorization.
+  let safeOptions: typeof options;
+  try { safeOptions = structuredClone(options); }
+  catch { throw new Error("PUBLIC_PERSON_V3_FIELDS_INVALID"); }
+  if (safeOptions?.allowPersonV3 !== true) throw new Error("PUBLIC_PERSON_V3_OPT_IN_REQUIRED");
+  if (!HASH.test(safeOptions.expectedCollectionSha256 ?? "")) throw new Error("PUBLIC_PERSON_V3_PIN_REQUIRED");
+  if (!hasText(safeOptions.identifier)) throw new Error("PUBLIC_PERSON_V3_IDENTITY_REQUIRED");
   // A caller may alter approved names, aliases, roles or original quotations
   // while an async collection/quote digest runs, or after this reader returns.
   // Validate and return only one detached snapshot, never caller-owned rows.
@@ -129,7 +137,7 @@ export async function readApprovedPersonV3(
   }
   // Backend computes this digest on canonical sorted-key JSON of the complete
   // public collection. Hashing the *whole* list binds zero-record withdrawals.
-  if (snapshot.dataset_sha256 !== options.expectedCollectionSha256 ||
+  if (snapshot.dataset_sha256 !== safeOptions.expectedCollectionSha256 ||
       await sha(canonicalJson(snapshot.people)) !== snapshot.dataset_sha256) {
     throw new Error("PUBLIC_PERSON_V3_COLLECTION_STALE_OR_TAMPERED");
   }
@@ -157,7 +165,6 @@ export async function readApprovedPersonV3(
       statementIds.add(item.statement_id);
     }
   }
-  if (!hasText(options.identifier)) throw new Error("PUBLIC_PERSON_V3_IDENTITY_REQUIRED");
   return snapshot.people.find((person: ApprovedPersonV3) =>
-    person.person_id === options.identifier || person.slug === options.identifier) ?? null;
+    person.person_id === safeOptions.identifier || person.slug === safeOptions.identifier) ?? null;
 }
