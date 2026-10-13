@@ -77,9 +77,10 @@ jobs:
         run: python -m compileall -q poc tests
 
       - name: Unit and regression tests
-        # Explicitly enables sanitized diagnostics only in disposable DP512 PG fixtures.
+        # Strict disposable PostgreSQL diagnostics; witness samples no SQL or identities.
         env:
           DP514_CI_PG_DIAGNOSTIC: "1"
+          DP514_CI_PG_WAIT_WITNESS: "1"
         run: PYTHONPATH=poc python -m unittest discover -s tests -v
 
       - name: Deterministic benchmark
@@ -206,6 +207,12 @@ jobs:
         run: python -m pip install --upgrade "pip>=24,<26" "build>=1.2,<2.0" "packaging>=24,<26" "setuptools>=68,<81" "wheel>=0.44,<0.46"
 
       - name: Clone to a scratch directory and run the backend/package profile
+        # This job also runs DP-514's disposable PostgreSQL tests in a fresh
+        # committed clone; use the same sanitized, opt-in wait witness as the
+        # backend matrix so hosted 57014 cannot remain unattributed here.
+        env:
+          DP514_CI_PG_DIAGNOSTIC: "1"
+          DP514_CI_PG_WAIT_WITNESS: "1"
         run: |
           set -euo pipefail
           SCRATCH="$(mktemp -d)"

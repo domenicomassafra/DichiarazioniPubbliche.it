@@ -504,3 +504,43 @@ CI lock/activity/timing witness or deterministic RED reproducer may justify a
 scoped fix, subject to separate review and CI. The observed `57014` is now
 documented; the **latency mechanism, financial authority, manual MiniPC and
 all DP-514 AC remain OPEN**.
+
+### 2026-10-13 — Strict disposable-CI PostgreSQL wait witness, diagnostic only
+
+The PR #23 Ubuntu Python 3.14 job failed in DP-514 SNAPSHOT with PostgreSQL
+SQLSTATE `57014`; DP-240 regressions passed. A separate macOS 3.14 job was
+cancelled, not proven to fail. The cause of the hosted timeout is unknown.
+
+An optional observer now samples read-only `pg_stat_activity`, `pg_locks`
+and `pg_blocking_pids` only for a loopback `dp512_test_*` PostgreSQL fixture
+with explicit CI, redacted-diagnostic and wait-witness flags. It reduces the
+samples to a bounded allowlist of activity/wait state and lock/blocker
+indicators, never printing SQL, DSNs, private identifiers, payloads or raw
+PostgreSQL errors. It emits one sanitized witness line only on SNAPSHOT
+`57014`, or `NO_SAMPLE` when unavailable. The original 10s/8s/25s
+statement/lock/process timeouts and all financial logic remain unchanged.
+
+Deterministic test **RED→GREEN**, including private-data rejection, and
+disposable real PG17 test forced `57014` using `pg_sleep(11)` with correct
+`Timeout/PgSleep`, no blocker. DP-514 focused tests **28/28 PASS**;
+complete Python suite **3427/3427 PASS** (387.299 s), Ruff/compileall PASS.
+No hosted-runner witness has yet proved whether the intermittent error comes
+from CPU/scheduling, locks or other cancellation. DP-514 original AC,
+financial authority and MiniPC acceptance remain OPEN; no production DB or
+provider account was changed.
+
+### 2026-10-13 — Detached clean-clone CI witness coverage
+
+GitHub PR #3 run `38448667971`, detached clean-clone job
+`115473617994`, failed on the same DP-514 monthly-refund snapshot test
+under Python 3.12, while the backend matrix passed. The detached-clone
+workflow executed the Python test suite without the optional diagnostic
+flags, preventing a safe wait-state observation for that runner failure.
+The existing disposable-fixture-only flags now also apply **only** to its
+backend/package test step, alongside the previously covered backend matrix
+unit step; a deterministic workflow regression verifies both scopes.
+
+No production, public build or provider operation is included. This change
+provides an eventual safe witness, not a fix or proof of the intermittent
+timeout mechanism. The existing timeouts, no-retry policy, unresolved
+financial authority, MiniPC readback and all original DP-514 AC remain OPEN.
