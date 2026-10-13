@@ -109,3 +109,25 @@ regression is GREEN and 91 related tests, Ruff, deterministic benchmark and
 diff check pass. This is a private fail-closed preflight only, not a
 multilingual grammar guarantee, attribution/rights approval or public route.
 All original AC-312.1–6 remain OPEN.
+
+## 2026-10-13 — German low-double, nested guillemet and ASCII single-quote holds
+
+Independent source review of the preceding PR revision detected three
+additional inherited **false endorsement** classes that were not captured by
+old delimiter count checks: an unmatched German low-double opening
+`„...` / unsupported U+201F mark; nested `«...«... »»` and `‹...‹...››`
+with equal opener/closer totals; and a dangling U+0027 ASCII single quotation
+mark (`'I support ...` or `... support.'`) mistaken for a direct endorsement.
+Adversarial tests were RED in seven low-double/angle source cases (including
+an authentic fully paired German `„...“` quotation not yet recognized) and
+four dangling ASCII cases. New lexical safeguards independently require
+adjacent ordered pairs for either supported guillemet orientation, ordered
+`“...”` or German `„...“` double-typographic pairs, and balanced ASCII
+quotation markers except in-word contractions and numeric elisions. Correct
+German low-double pairs stay `QUOTE / NON_COMMITTAL`; unresolved/nested,
+reversed or orphan marks become `UNBALANCED_QUOTATION / HOLD_FOR_CONTEXT`
+instead of `ASSERTION / ENDORSE`. Both targeted regressions are GREEN,
+with 93 related source-only unit tests and Ruff PASS. Genuine ambiguous
+possessives may be held conservatively, not guessed as direct speech.
+No real source rights, speaker, independent multilingual corpus, publisher,
+MiniPC, or public release gate has been satisfied: all DP312.1–.6 remain OPEN.

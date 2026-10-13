@@ -450,6 +450,76 @@ class SpeechActContextTests(unittest.TestCase):
                 self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
                 self.assertFalse(result.publication_authority)
 
+    def test_incomplete_low_double_and_nested_angle_quotes_never_endorse(self):
+        cases = (
+            ("„Ich unterstütze die Maßnahme.", "de"),
+            ("„Ich unterstütze die Maßnahme„", "de"),
+            ("‟I support the policy.", "en"),
+            ("„I support the policy.", "en"),
+            ("«I support «the policy»»", "en"),
+            ("‹I support ‹the policy››", "en"),
+        )
+        for source, language in cases:
+            with self.subTest(source=source):
+                result = assess_speech_act_context(
+                    source_text=source,
+                    source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                    quote_start=0, quote_end=len(source),
+                    turn_start=0, turn_end=len(source),
+                    utterer_id="person:a", turn_speaker_ids=("person:a",),
+                    source_part_ref="part:a", turn_complete=True,
+                    language=language,
+                )
+                self.assertEqual(result.state, "HOLD_FOR_CONTEXT")
+                self.assertEqual(result.stance, "UNKNOWN")
+                self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
+                self.assertFalse(result.publication_authority)
+        for source, language in (
+            ("„Ich unterstütze die Maßnahme“", "de"),
+            ("“I support the policy”", "en"),
+        ):
+            with self.subTest(source=source):
+                result = assess_speech_act_context(
+                    source_text=source,
+                    source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                    quote_start=0, quote_end=len(source),
+                    turn_start=0, turn_end=len(source),
+                    utterer_id="person:a", turn_speaker_ids=("person:a",),
+                    source_part_ref="part:a", turn_complete=True,
+                    language=language,
+                )
+                self.assertEqual((result.state, result.speech_act, result.stance),
+                                 ("CANDIDATE_PRIVATE", "QUOTE", "NON_COMMITTAL"))
+
+    def test_dangling_ascii_single_quotes_hold_without_harming_contractions(self):
+        def classify(source):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                quote_start=0, quote_end=len(source),
+                turn_start=0, turn_end=len(source),
+                utterer_id="person:a", turn_speaker_ids=("person:a",),
+                source_part_ref="part:a", turn_complete=True, language="en",
+            )
+        for source in (
+            "'I support the policy.",
+            "I support the policy.'",
+            "He said 'I support the policy.",
+            "He said I support the policy.'",
+        ):
+            with self.subTest(source=source):
+                result = classify(source)
+                self.assertEqual(result.state, "HOLD_FOR_CONTEXT")
+                self.assertEqual(result.stance, "UNKNOWN")
+                self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
+        for source in ("'I support the policy.'", "He said 'I support the policy' yesterday."):
+            with self.subTest(source=source):
+                result = classify(source)
+                self.assertNotIn("UNBALANCED_QUOTATION", result.signal_codes)
+                self.assertNotEqual(result.stance, "ENDORSE")
+        plain = classify("I'm certain I support the policy.")
+        self.assertEqual((plain.speech_act, plain.stance), ("ASSERTION", "ENDORSE"))
+
     def test_multiple_sentences_cannot_be_collapsed_into_one_stance(self):
         source = "Io sostengo che il piano sia utile. Ma non sostengo che sia definitivo."
         result = assess(source)

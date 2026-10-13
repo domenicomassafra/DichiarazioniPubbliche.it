@@ -407,7 +407,7 @@ _SPEECH_ACT_MAX_TURN_CHARS = 12000
 # orthographic exceptions. An s-final possessive at the apparent boundary is
 # inherently ambiguous: prefer HOLD to inferring a speaker's endorsement.
 _OTHER_QUOTED_TEXT_RE = re.compile(
-    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”„‟]+”|„[^„“”‟]+“|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
 )
 _ORTHOGRAPHIC_WORD_RE = re.compile(r"\w+", re.UNICODE)
 _NEXT_WORD_RE = re.compile(r"\s+\w", re.UNICODE)
@@ -638,16 +638,41 @@ def assess_speech_act_context(
     quote_spans = sorted((*curly_spans, *other_spans))
     if curly_unbalanced:
         signals.append("UNBALANCED_QUOTATION")
+    # Nested or reversed angle delimiters can share the same total counts:
+    # validate complete adjacent pairs in either supported orientation.
     for opener, closer in (("«", "»"), ("‹", "›")):
-        if turn.count(opener) != turn.count(closer):
+        angle_marks = "".join(char for char in turn if char in (opener, closer))
+        if len(angle_marks) % 2 or any(
+            angle_marks[i:i + 2] not in (opener + closer, closer + opener)
+            for i in range(0, len(angle_marks), 2)
+        ):
             signals.append("UNBALANCED_QUOTATION")
-    # Matching counts do not establish ordered typographic double quotes:
-    # reversed ”...“ or nested “...“...” was previously misclassified
-    # as a directly endorsed assertion. Require alternating complete pairs.
-    smart_double = "".join(char for char in turn if char in "“”")
-    if smart_double != "“”" * (len(smart_double) // 2):
+    # U+201E + U+201C are the conventional German low/high double pair;
+    # U+201C + U+201D are the usual high-double pair. No inverted, nested,
+    # dangling or unsupported U+201F token can imply direct endorsement.
+    smart_double = "".join(char for char in turn if char in "“”„‟")
+    if len(smart_double) % 2 or any(
+        smart_double[i:i + 2] not in ("“”", "„“")
+        for i in range(0, len(smart_double), 2)
+    ):
         signals.append("UNBALANCED_QUOTATION")
     if turn.count('"') % 2:
+        signals.append("UNBALANCED_QUOTATION")
+    # ASCII apostrophe U+0027 can be an in-word contraction or leading
+    # numeric elision; other unpaired marks must not silently endorse
+    # a possibly clipped quoted turn. Ambiguous trailing possessives HOLD.
+    straight_single = 0
+    for pos, char in enumerate(turn):
+        if char != "'":
+            continue
+        previous = turn[pos - 1] if pos else ""
+        following = turn[pos + 1] if pos + 1 < len(turn) else ""
+        if previous.isalnum() and following.isalnum():
+            continue
+        if not previous.isalnum() and following.isdigit():
+            continue
+        straight_single += 1
+    if straight_single % 2:
         signals.append("UNBALANCED_QUOTATION")
     if len(re.findall(r"[.!?](?=\s|$)", turn)) > 1:
         signals.append("MULTI_SENTENCE_CONTEXT_REQUIRES_SPLIT")
