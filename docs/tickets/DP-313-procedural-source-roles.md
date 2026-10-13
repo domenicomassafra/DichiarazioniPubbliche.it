@@ -81,3 +81,49 @@ authorized official judicial source and original/OCR inspection, qualified
 privacy/rights policy and MiniPC source-to-public conditional-revalidation
 pilot. No source rights, human/machine approval, judicial truth or publication
 authority is inferred.
+
+## 2026-10-13 — Procedural status subject versus affected party (private hold)
+
+A real synthetic court-order regression exposed a source-bound identity gap:
+`evaluate_procedural_document` returned `CANDIDATE_PRIVATE` for the literal
+`Mario è condannato.` with a correctly typed `CONVICTED` court order and
+`subject_person_refs=(person:mario,)`, while the only independently annotated
+`procedural_party_refs` identified a **different** public person `person:bruno`.
+A fully validated phrase hash, jurisdiction and court-author role did not
+establish which party actually had the legal status. Before the fix the
+negative case was **RED** (`CANDIDATE_PRIVATE` rather than `HOLD`).
+
+When a reviewer declares a *specific* procedural status, the private preflight
+now additionally requires nonempty affected-party refs that cover all of the
+span's claimed subject IDs. Omission, unrelated persons or a second subject
+not within the affected parties returns `STATUS_SUBJECT_PARTY_MISMATCH / HOLD`;
+matching approved-public synthetic `person:mario` remains `CANDIDATE_PRIVATE`,
+not a factual verdict, rights receipt or publish grant. An annotation with
+`status=UNKNOWN` is unaffected. This does not assume legal status proves
+any underlying alleged act and does not touch source Capture or court files.
+
+Regression and neighbouring code tests are local synthetic source-only; no
+qualified legal status authority, original document/OCR, privacy approval,
+reviewer identity, MiniPC conditional revalidation or public release proved.
+**All AC-313.1–6 remain OPEN and ticket IN PROGRESS.**
+
+### 2026-10-13 — Independent adversarial multi-party status review P2
+
+Independent native GPT-6 read-only review identified a remaining P2 after
+`STATUS_SUBJECT_PARTY_MISMATCH`: a list of procedural parties is not an
+identity-specific status grant. A synthetic court sentence `Bruno è condannato
+per avere colpito Mario.` with asserted status target `person:mario` could
+retain `person:mario` **and** `person:bruno` in its party list and incorrectly
+produce a private `CONVICTED / CANDIDATE_PRIVATE` for the victim. Focused
+red regression reproduced this exact P2 on PR22's source.
+
+The opt-in preflight now conservatively HOLDS a specifically asserted
+procedural status if either the declared status subjects or procedural
+participants contain multiple distinct people (`STATUS_PARTY_IDENTITY_AMBIGUOUS`),
+regardless of whether one name appears in both lists. A single exact
+subject/affected-party match remains a private candidate; an unrelated
+single-party mismatch remains held. More complex multi-person legal orders
+will require a separately reviewed per-status person binding, not an
+automatic name or quotation inference. Qualified legal reviewers, real case
+material, privacy policy and MiniPC conditional readback remain required;
+**all DP-313 AC are OPEN**, no truth verdict/public status is asserted.
