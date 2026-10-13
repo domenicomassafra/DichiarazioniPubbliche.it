@@ -465,3 +465,42 @@ NO generic retry and NO unconditional timeout increase**. Investigate the
 bounded `_SNAPSHOT` query and disposable PostgreSQL EXPLAIN/lock evidence
 before any transaction behavior change. Existing refund claims never offset
 spending, `dispatch_authorized` stays false, and all AC-514.1–7 remain OPEN.
+
+### 2026-10-13 — Bounded real-PG17 snapshot plan versus synthetic lock control
+
+A post-merge, **read-only forensic reproduction** ran in a fresh disposable
+PostgreSQL 17.11 cluster created by the existing
+`tests/test_dp512_billing_pg_fence_next.py` fixture, with exactly one synthetic
+provider receipt, one synthetic billing classification, and one append-only
+`REFUND_CLAIM`. The original DP-514 refund test completed successfully without
+any real provider or production database access. An `EXPLAIN (ANALYZE,
+BUFFERS, FORMAT JSON)` of the existing `_SNAPSHOT` SELECT yielded planning
+**0.972 ms** and execution **0.385 ms** (top node Aggregate, one returned
+row). Twelve subsequent app-level `_snapshot()` calls, including new `psql`
+processes, took **27.284 ms minimum / 29.981 ms median / 80.012 ms maximum**;
+all returned one synthetic receipt. These measurements demonstrate that the
+small deterministic local fixture is not inherently a 10-second query. They
+**do not** profile GitHub-hosted runner contention or explain historical
+transient failures.
+
+To discriminate error families without changing `_run` or timeouts, a second
+fresh disposable PG17 fixture deliberately held an `ACCESS EXCLUSIVE` lock on
+`provider_receipt` in a separate synthetic transaction while `_snapshot()`
+ran with the existing `statement_timeout=10000ms` and `lock_timeout=8000ms`.
+The expected fail-closed result was **SQLSTATE 55P03 (`LOCK_UNAVAILABLE`)**,
+`exit_code=3`, elapsed **8030 ms**, with the original generic
+`DP514_PG_TRANSACTION_FAILED` preserved. By contrast, the real GitHub CI
+failure emitted **SQLSTATE 57014 (`QUERY_CANCELED`)**, elapsed **10953 ms**.
+This is evidence *against a simple single lock wait as reproduced here*,
+because that case is interrupted by the smaller lock timeout; it cannot rule
+out other lock sequences, query/CPU/resource contention, or independent
+cancellation under GitHub CI. No raw stderr, SQL logs, receipt bodies, DSN,
+provider payloads or secrets were stored as evidence.
+
+**Decision: NO BEHAVIORAL CHANGE.** Retain the exact 10-second statement and
+8-second lock limits, 25-second subprocess cap, no automatic retry, and the
+existing append-only financial invariants. Only a future specific disposable
+CI lock/activity/timing witness or deterministic RED reproducer may justify a
+scoped fix, subject to separate review and CI. The observed `57014` is now
+documented; the **latency mechanism, financial authority, manual MiniPC and
+all DP-514 AC remain OPEN**.
