@@ -286,3 +286,44 @@ test harness, not an externally qualified independent signer.
 **Original DP-431 DONE and all AC unchanged.** No fresh physical MiniPC,
 rights, source or public deployment acceptance. PR/CI exact-head and GitHub
 auto-review billing OFF remain unverified; branch push is distinct from merge.
+
+## 2026-10-14 — Independent reviewer P2 and first-class empty-Content correction
+
+The independent read-only reviewer of branch `9a83e0e` reproduced one
+real **P2 false HOLD** missed by prior synthetic scenario coverage: a public
+schema-valid first-class `contents=[]` with dossiers that reference source
+Content IDs results in **zero Content search records** from actual TypeScript
+`buildSearchIndexMaterial`, yet the DP-431 search completeness check required
+legacy Content records because `_current_identity_sets` tracks source lineage
+for correction/static-route work. Before the fix, focused regression was
+**RED** with `SEARCH_INDEX_PARTIAL` on an otherwise correct search index.
+
+`_check_search_index` now uses the exact expected public search-record keys
+for both orphan and completeness checks, not the broader history/static-route
+identity set. Route-static/history authority and source Content lineage are
+**unchanged**. The same regression is **GREEN** for explicit empty Content;
+synthetic private/phantom Content injection still HOLDs as
+`SEARCH_INDEX_ORPHAN_ENTRY`, while legacy Content fallback when the collection
+is absent still requires genuine canonical records. The independent
+Python→real-TypeScript parity matrix now includes the explicit-empty case,
+without disabling first-class public Content or weakening production guards.
+
+This is post-DONE source-only hardening; **DP-431 remains DONE with all
+original AC and 6 October MiniPC evidence unchanged**, but neither the
+reviewer's local tests nor these changes constitute a new MiniPC acceptance,
+public publication or source-rights approval. Independent re-review of the
+specific correction and final full-suite evidence are recorded separately.
+
+**Post-fix independent review:** reviewer worker-6, STRICT READ-ONLY,
+reproduced green first-class `contents=[]` + actual public-schema validator
+and real TypeScript materialization; invented private/source Content remained
+orphan-HOLD, every missing Finding/Person/Topic remained `SEARCH_INDEX_PARTIAL`,
+and omitted source-Content static route still `ROUTE_STATIC_PARTIAL`. **PASS
+within bounded source scope, no additional P1/P2**, no code edits by reviewer.
+The final updated real TS↔Python parity matrix now covers **9 projections**,
+including first-class empty Content; **67 focused tests PASS**. Exactly one
+complete post-fix Python suite ran on the final patched source:
+**3,446/3,446 PASS, exit 0, 333.829 seconds**. Benchmark deterministic
+**5/5 PASS**. End-to-end `npm run check:rebuild` and production-boundary test
+both PASS, including four fail-closed injected failures and `noindex` demo
+isolation. This does NOT repeat/replace any October 6 physical acceptance.

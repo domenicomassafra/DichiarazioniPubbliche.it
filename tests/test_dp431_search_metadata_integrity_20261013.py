@@ -153,6 +153,23 @@ class DP431SearchMetadataIntegrityTests(unittest.TestCase):
         self.assertFalse(receipt.consistent)
         self.assertIn("SEARCH_INDEX_STALE_METADATA", receipt.blockers)
 
+    def test_first_class_explicitly_empty_content_does_not_force_legacy_search_record(self):
+        # A first-class empty public Content catalog is valid and the actual
+        # TS builder never falls back to source.content_id in this case.
+        # The correction/static graph still tracks source Content lineage;
+        # search *record completeness* is a different contract.
+        for key in ("old_projection", "new_projection"):
+            self.scenario[key]["contents"] = []
+        index = search_index(self.scenario["new_projection"])
+        self.assertFalse([r for r in index["records"] if r["kind"] == "content"])
+        receipt = check(self.scenario, search_index=index)
+        self.assertTrue(receipt.consistent, receipt.blockers)
+        bad = deepcopy(index)
+        bad["records"].append({"kind": "content", "id": "content:stale", "title": "PRIVATE"})
+        blocked = check(self.scenario, search_index=bad)
+        self.assertFalse(blocked.consistent)
+        self.assertIn("SEARCH_INDEX_ORPHAN_ENTRY", blocked.blockers)
+
 
 if __name__ == "__main__":
     unittest.main()

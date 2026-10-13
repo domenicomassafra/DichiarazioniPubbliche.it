@@ -58,6 +58,12 @@ def main() -> None:
             "source_occurrence": {"wording_type": "REPORTED_QUOTE"}
         }
         projections.append(shaped)
+    # Explicit first-class empty Content is NOT legacy fallback. Source
+    # Content lineage may still be tracked by DP431 static/history manifests,
+    # but the public search artifact must have zero Content records.
+    empty_contents = copy.deepcopy(cases[0]["new_projection"])
+    empty_contents["contents"] = []
+    projections.append(empty_contents)
     built = _real_typescript(projections)
     expected_types = {"finding", "person", "topic", "content"}
     types_seen: set[str] = set()

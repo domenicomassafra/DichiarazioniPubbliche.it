@@ -480,7 +480,6 @@ def _check_search_index(
         blockers=blockers,
         stale_artifacts=stale_artifacts,
     )
-    expected = _current_identity_sets(current)
     canonical_records = _expected_search_records(current)
     seen: set[tuple[str, str]] = set()
     records = search_index.get("records")
@@ -505,10 +504,6 @@ def _check_search_index(
             _add_once(stale_artifacts, label)
             continue
         seen.add(identity)
-        if identifier not in expected[kind]:
-            _add_once(blockers, "SEARCH_INDEX_ORPHAN_ENTRY")
-            _add_once(orphan_artifacts, label)
-            continue
         expected_record = canonical_records.get(identity)
         if expected_record is None:
             _add_once(blockers, "SEARCH_INDEX_ORPHAN_ENTRY")
@@ -526,11 +521,14 @@ def _check_search_index(
             _add_once(blockers, "SEARCH_INDEX_STALE_METADATA")
             _add_once(stale_artifacts, label)
 
-    for kind in _ENTITY_KINDS:
-        for identifier in sorted(expected[kind]):
-            if (kind, identifier) not in seen:
-                _add_once(blockers, "SEARCH_INDEX_PARTIAL")
-                _add_once(missing_artifacts, f"search:{kind}:{identifier}")
+    # Search record eligibility differs from historical source lineage:
+    # `contents=[]` is a first-class empty catalog, not a request for legacy
+    # per-dossier Content fallback rows. Static route/history tracking still
+    # uses all source Content identities in `_current_identity_sets`.
+    for kind, identifier in sorted(canonical_records):
+        if (kind, identifier) not in seen:
+            _add_once(blockers, "SEARCH_INDEX_PARTIAL")
+            _add_once(missing_artifacts, f"search:{kind}:{identifier}")
     return fingerprint
 
 
