@@ -167,3 +167,27 @@ is no independently issued live release pin, genuine qualified identity or
 rights authorization, deployed first-class API/route/search/sitemap,
 atomic revoke/cache invalidation or MiniPC positive/negative canary.
 Local synthetic SSR is not proof of a production/public v3 cutover.
+
+## 2026-10-13 — Withheld alias collision cannot hide an unrelated approved Person
+
+The opt-in first-class Person projection had a false negative at the public
+identity boundary: it computed same-display-name ambiguity before withholding
+two independently approved records with a cross-person stable-ID/slug alias
+collision. Consequently, an otherwise approved third Person sharing one of
+those display names disappeared, even though the conflicting namesakes could
+not be published. The unrelated Person could have zero Statements; the
+projection silently discarded its legitimate approved empty state.
+
+A deterministic regression was RED on the original code and GREEN after the
+minimal ordering correction: first withhold ID/slug-colliding identities,
+then compute homonym disambiguation only from remaining publishable records.
+Both private roster orders preserve the one unrelated Person, deny lookup of
+the colliding identities, preserve its zero-Statement state and produce the
+same release fingerprint as a build containing that Person alone. DP-437,
+DP-438 and DP-439 adjacent focused tests **34/34 PASS**, deterministic
+benchmark **5/5 PASS**; the main suite and delivery/CI are recorded separately.
+
+This is an isolated source-only public identity correctness fix; it does not
+add a public v3 Person route, search/sitemap activation, owner-approved source
+rights, independent current release pins or MiniPC publication authority.
+**DP-438 remains IN PROGRESS and AC-438.1–.6 stay unchecked.**

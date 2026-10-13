@@ -392,6 +392,29 @@ class PublicPersonV3Tests(unittest.TestCase):
                 private = person("person:private", slug="persona-terza", name="Privata Demo")
                 self.assertEqual(result, project(people=[*roster, private], identities=decisions))
 
+    def test_excluded_identifier_collision_cannot_withhold_independent_same_name_person(self):
+        # The ID/slug alias pair must be withheld. Neither excluded record is
+        # an eligible public namesake when disambiguating the remaining roster.
+        aliased = person("person:one", slug="shared-alias", name="Alex Demo")
+        colliding = person("shared-alias", slug="persona-due", name="Seconda Demo")
+        independent = person("person:third", slug="persona-terza", name="Alex Demo")
+        self.assertIsNone(independent["disambiguator"])
+        candidates = [aliased, colliding, independent]
+        decisions = [identity(row) for row in candidates]
+        for roster in (candidates, list(reversed(candidates))):
+            with self.subTest(order=[row["person_id"] for row in roster]):
+                visible = project(people=roster, identities=decisions)
+                self.assertEqual([p["person_id"] for p in visible["people"]], ["person:third"])
+                self.assertEqual(visible["people"][0]["statements"], [])
+                self.assertIsNone(get_public_person_v3(visible, "person:one"))
+                self.assertIsNone(get_public_person_v3(visible, "shared-alias"))
+                self.assertIsNone(get_public_person_v3(visible, "persona-due"))
+                self.assertIsNotNone(get_public_person_v3(visible, "persona-terza"))
+                self.assertEqual(
+                    visible["dataset_sha256"],
+                    project(people=[independent], identities=[identity(independent)])["dataset_sha256"],
+                )
+
     def test_duplicate_review_event_is_not_independent_approval(self):
         first = person()
         second = person("person:two", slug="persona-due", name="Persona Due")
