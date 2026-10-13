@@ -493,3 +493,59 @@ the accepted methodology or public projection. Fresh Mac validation:
 `dp215_ac_9_complete=false`; `git diff --check` PASS. These tests protect
 the existing scoped-source and rights logic, but the real MiniPC negative
 readback is what determines the pending AC-215.9 acceptance state.
+
+## 2026-10-13 — Wave 3 metadata-only candidate explanations, no AC-215.9 closure
+
+The local preflight register config/garlasco-public-discovery-leads.v1.json now
+carries a separate 'source_intelligence_proposals_wave3' section for **all 15
+existing public locators**: six earlier unreviewed candidate pages, eight
+institutional metadata probes documented on 2026-10-13 and the original
+Procura homepage locator. This is an **unreviewed planning overlay**; the
+original intake arrays and the existing DP-214 readiness reader are unchanged.
+No additional URL, real Content/Source Profile, approved Source relation,
+DP-209 Discovery Hit, immutable Capture, licensed text, quotation or runtime
+authority was created. The six page candidates and homepage remain link/navigation
+references; the Cassation HTML index is also conservatively a secondary
+reference until the actual decision/version can be reviewed. Procedural and
+first-party roles on other institutional document locators remain *proposals*,
+bound to their specific 'document_kind', not automatic fact findings.
+
+For every locator the overlay binds a proposed Source Intelligence role to an
+existing metadata record class, its explicit unresolved scope review, the
+record/page observation date (or null for the homepage), an unreviewed version,
+an upstream grouping and known cross-catalog identity reference, independence
+'NOT_ESTABLISHED', rights 'UNKNOWN', and explicit false capture/publication/pilot
+flags. The known Camera seduta 607 exact transcript URL is linked to its
+existing Wave-26 probe rather than counted as another independent document;
+the Il Ticino proposed reprint groups under the separately catalogued first-party
+Procura document; the two Garante proceedings keep distinct document keys
+and the existing related-topic link without being merged or treated as
+independent proof of homicide facts. The Senato 2007 act-number conflict
+retains 'OFFICIAL_ACT_NUMBER_CONFLICT_NEEDS_REVIEW'. Dates here identify the
+observed document/page, **not** case-effectivity, version validity or
+a temporal proof for any historical claim.
+
+The new tests/test_dp215_source_role_lineage_wave3_20261013.py compares all
+15 explanations against the actual Wave-22, Wave-26 and native
+source_intelligence.EVIDENCE_ROLES catalogs and refuses stale/duplicated
+or invented roles, scopes, dates, lineage, independent confirmations,
+cleared rights, capture/publication or pilot inclusion. The initial RED was
+the absent Wave-3 key; a metadata-only additive change makes the focused tests
+GREEN. This satisfies a bounded **preparatory file-level traceability check**;
+it does **not** satisfy AC-215.9's persisted, specifically selected real
+DP-214 Content explainability requirement. AC-215.9 stays **OPEN**, ticket
+'IN PROGRESS'; authoritative MiniPC/qualified source, rights and publication
+reviews remain separate and pending.
+
+Local Wave-3 verification: the new three-case test failed RED with the exact
+missing preview key before the catalog overlay; it passes GREEN 3/3 with the
+bounded metadata. The eight-module focused Source Intelligence / DP-214 /
+readiness batch passes **65/65**. Python syntax compilation and
+'git diff --check' pass. A broader 'unittest discover -s tests -q' run
+did not finish in the available local session: after approximately five
+minutes it remained in the existing DB-backed
+'tests/test_m3_runtime_canaries.py' setup, inside
+'SourceIntelligenceStore.sync_contract' waiting on the local PostgreSQL
+subprocess. The worker stopped only its own test process. No broad suite
+PASS or MiniPC runtime acceptance is claimed; integrator CI and actual
+authorized runtime readback remain pending.
