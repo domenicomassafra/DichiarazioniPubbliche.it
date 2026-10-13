@@ -140,3 +140,82 @@ do not call this fence; the dependency graph, allowed restore authority,
 cache/CDN purge and byte-delivery window remain unverified. No MiniPC timing,
 rollback or D cutover evidence exists. **All AC-320.1–.5 stay unchecked,
 ticket IN PROGRESS and launch NO-GO.**
+
+## 2026-10-14 — Seven-surface, revocation-fenced offline reference
+
+Added a substantial **opt-in SQLite-only reference consumer**
+`revocation_served_surfaces_v1.py` and adversarial tests. One immutable
+release ticket, material epoch and **independently supplied manifest pin**
+bind seven simulated public-surface references: HTML, API, SEARCH, FEED,
+SITEMAP, LINKED_CARD and JSON_LD. Each surface has its own bounded exact
+fixture-bytes SHA-256 and belongs to one completely enumerated cohort.
+`seal()` transactionally inserts root publication plus seven individual
+surface hash rows under `BEGIN IMMEDIATE`, refusing conflicting replacements.
+Even a single-surface `check_one()` validates the full stored cohort under
+the same release ticket and manifest before comparing its observed digest.
+This fixture computes reference eligibility but **never serves or stores
+surface body bytes**, issues rights authority, publishes URLs, or calls a
+network/provider/production database.
+
+The new test file first failed **RED** with missing module import; once the
+consumer was implemented, **40/40 targeted + adjacent DP-320/DP-518 tests
+PASS**. Fixtures exercise missing/duplicate/mixed-epoch surfaces, tampered
+payloads/digests, wrong issuer fingerprint, forged source ID, partial or
+cross-release cohorts, conflicting release overwrite, revoked rights,
+privacy hold, correction/supersession, outbox acknowledgment, idempotent
+event replay, no automatic rights restoration, SQLite restart and two-
+connection read/revoke and seal/revoke races. The bounded 100-read SQLite
+reference microbenchmark (~0.013 seconds) is a **local microtest, not public
+withdrawal latency or a delivery SLO**. Ruff, compilation, diff checks,
+independent review and full Python suite are scoped to the source branch.
+
+**Not a production revocation integration:** Capture/Evidence/Finding writers,
+authenticated editorial/rights authority, production PostgreSQL, cache/CDN
+purge/swap, actual served HTML/API/search/feeds, cross-host epoch issuer,
+post-reference-check HTTP byte delivery and MiniPC latency are all missing.
+The code does not and cannot prove that previously transmitted bytes have
+been withdrawn. **DP-320 stays IN PROGRESS, all original AC-320.1–5 remain
+unchecked, and public activation remains NO-GO.**
+
+**Independent post-implementation review (worker-6, read-only): PASS within
+this limited SQLite source contract, no additional reproducible P1/P2.**
+The reviewer inspected exact new source SHA-256
+`5553cf49d9bed8d0cd360e0fd9b6f9623dd6ccfe6ce2d9b314cf80f7a1232478`
+and test SHA-256
+`73619934422f1e00eb5502a822efba42d2ff6198a9abb08778ae3adaf5c60428`
+against the canonical DP-320 epoch module and ticket. Independently reran
+**40/40** targeted/adjacent tests, and separately reproduced rejection of
+self-rehashed/re-pinned modified bytes, altered root publication SHA,
+missing JSON-LD while checking HTML, an extra unsupported surface and
+tampered ticket fingerprint; source and file lint/diff checks PASS. The
+reviewer made no changes to source, Git, DB production or provider state.
+
+The reviewer also identified explicit **unresolved scope**: the original
+AC-320.3 mentions RDF, which is **not** present in the deliberately bounded
+seven-surface fixture; an exotic malformed nested Python ticket can raise a
+generic `AttributeError` rather than the stable refusal class (still denies
+and does not return data). These are not silently treated as accepted public
+behavior or proof of an actual HTTP edge fence. The full Python suite,
+publication SHA and source-only ticket receipt are recorded separately.
+
+**Cross-feature fixture smoke (Mac, provider-free):** a disposable in-memory
+SQLite session consumed the real synthetic DP-439 Python `published()` and
+`make()` Person×Topic/Statement materializers, bound their output bytes to
+seven different simulated surface hashes and to independent synthetic source
+and rights dependencies. `seal()` and `check_all()` accepted the current
+release; after one `RIGHTS_WITHDRAWN` event on the rights dependency, **all
+seven `check_one()` calls refused with `FENCE_STALE_OR_HELD`**, and the
+durable outbox exposed the expected one event. Result:
+`DP320_DP439_REAL_PYTHON_FIXTURE_PASS`. This is an isolated supplementary
+one-off fixture, not permanent operational wiring or a live rights judgment.
+
+**Final branch validation:** exactly one complete source-branch Python suite
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`
+returned **3,452/3,452 tests PASS, exit 0, 315.034 seconds** against this
+final new DP-320 source/test. The deterministic benchmark was **5/5 PASS**;
+targeted new and adjacent DP-320/DP-518 regressions **40/40 PASS**. Ruff
+check, Ruff format check and `git diff --cached --check` PASS. Existing
+DP-429 empty/demo isolated browser, DP-431 actual TS↔Python/parity/rebuild,
+DP-438 pinned reader and DP-439 offline Astro SSR checks were rerun on their
+independently saved source-only branches, not represented as an integrated
+public release or branch PR CI. Original DP-320 acceptance remains OPEN.
