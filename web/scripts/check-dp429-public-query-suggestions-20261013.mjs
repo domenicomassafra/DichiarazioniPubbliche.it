@@ -1,0 +1,180 @@
+/**
+ * Isolated DP-429 public search suggestion check. No build, browser profile,
+ * fixture publication, provider request or repository mutation is required.
+ *
+ * Run from web/ after installing its normal dev dependencies:
+ * node scripts/check-dp429-public-query-suggestions-20261013.mjs
+ */
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const ts = require("typescript");
+const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const componentPath = path.join(webRoot, "src/components/ExploreClient.tsx");
+const indexPath = path.join(webRoot, "src/lib/searchIndex.ts");
+const source = await readFile(componentPath, "utf8");
+const indexSource = await readFile(indexPath, "utf8");
+
+// The current v2 index offers result/source publication timestamps, not a
+// source-attested original declaration date or an archive addition timestamp.
+// Any default labelled "recent declarations" is blocked until DP-409 extends
+// its approved index/projection contract.
+const recordContract = indexSource.split("export interface PublicSearchRecord {")[1]?.split("\n}")[0];
+assert(recordContract, "public search record schema must be present");
+assert.match(recordContract, /published_at: string \| null/);
+assert.doesNotMatch(recordContract, /statement_date|declaration_date|added_at/);
+assert.match(indexSource, /dossier\.finding\.published_at\s*\?\?\s*dossier\.source\.published_at/);
+
+const transpile = (text, filename) => ts.transpileModule(text, {
+  fileName: filename,
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2022,
+    jsx: ts.JsxEmit.ReactJSX,
+  },
+}).outputText;
+function load(text, filename, dependencies) {
+  const out = { exports: {} };
+  new Function("require", "module", "exports", transpile(text, filename))(
+    (id) => {
+      if (!(id in dependencies)) throw new Error("UNEXPECTED_TEST_IMPORT: " + id);
+      return dependencies[id];
+    }, out, out.exports,
+  );
+  return out.exports;
+}
+const search = load(indexSource, indexPath, {
+  "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
+});
+
+const sample = (id, title, kind = "finding", overrides = {}) => ({
+  id, title, kind, subtitle: "", published_at: "2025-04-10",
+  assessment: null, route: "/dichiarazioni/" + id + "/", has_corrections: false,
+  has_rights_of_reply: false, wording_type: "PARAPHRASE", source_wording_type: null,
+  direct_quote_eligible: false, primary_terms: [title], secondary_terms: [],
+  person_id: "person:publica", topic_ids: ["topic:economia"], ...overrides,
+});
+const records = [
+  sample("inflazione", "Inflazione nel bilancio"),
+  sample("spesa", "Spesa pubblica"),
+  sample("salari", "Salari dei lavoratori"),
+  sample("immigrazione", "Immigrazione", "finding", { person_id: "person:diversa" }),
+  sample("riservato", "Termine pubblico diverso", "finding", {
+    primary_terms: ["Termine pubblico diverso"],
+    secondary_terms: ["Notizia pubblicata"],
+  }),
+];
+const index = { records };
+const deps = {
+  react: {
+    useEffect() {},
+    useMemo(fn) { return fn(); },
+    useRef() { return { current: null }; },
+    useState() { throw new Error("configure state before render"); },
+  },
+  "react/jsx-runtime": {
+    jsx: (type, props, key) => ({ type, props: props ?? {}, key }),
+    jsxs: (type, props, key) => ({ type, props: props ?? {}, key }),
+    Fragment: "fragment",
+  },
+  "../lib/format": {
+    assessmentLabel: (value) => value,
+    assessmentTone: () => "neutral",
+    formatDate: (value) => value,
+  },
+  "./design/SegmentedControl": { __esModule: true, default: () => null },
+  "../lib/searchIndex": search,
+};
+const component = load(source, componentPath, deps);
+assert.equal(typeof component.getExploreSuggestions, "function", "public-only suggestions function must exist");
+assert.equal(typeof component.buildExploreUrlKeepingQuery, "function", "URL must retain exact typed query");
+
+const raw = "  inflazone  ";
+assert.equal(
+  new URLSearchParams(component.buildExploreUrlKeepingQuery({
+    query: raw, assessment: "ALL", kind: "ALL", sort: "relevance",
+    personId: "ALL", topicId: "ALL",
+  })).get("q"), raw,
+  "the shared URL must replay the EXACT typed query including spaces",
+);
+assert.equal(
+  new URLSearchParams(component.buildExploreUrlKeepingQuery({
+    query: "  ", assessment: "ALL", kind: "finding", sort: "recent",
+    personId: "ALL", topicId: "ALL",
+  })).get("q"), "  ",
+  "whitespace-only user queries must not be silently rewritten",
+);
+
+assert.deepEqual(
+  component.getExploreSuggestions(index, raw, {}),
+  ["  inflazione  "],
+  "offer only a real approved-index near match with original whitespace retained",
+);
+assert.deepEqual(
+  component.getExploreSuggestions(index, raw, { kind: "topic" }),
+  [],
+  "suggestions must respect the active public kind filter",
+);
+assert.deepEqual(
+  component.getExploreSuggestions(index, "  inflazone  ", { personId: "person:diversa" }),
+  [],
+  "suggestions must respect approved Person facet membership",
+);
+assert.deepEqual(component.getExploreSuggestions(index, "", {}), []);
+assert.deepEqual(component.getExploreSuggestions(index, "x".repeat(201), {}), []);
+assert.deepEqual(component.getExploreSuggestions({ records: [] }, raw, {}), []);
+assert.ok(
+  component.getExploreSuggestions(index, "immigrazione", {}).length === 0,
+  "do not suggest a correction for an exact public term",
+);
+assert.ok(
+  component.getExploreSuggestions({
+    records: Array.from({ length: 150 }, (_, i) => sample(String(i), "Parola" + String(i))),
+  }, "parolb", {}).length <= 4,
+  "suggestions must be bounded even with many public terms",
+);
+
+let state = ["", "ALL", "ALL", "relevance", "ALL", "ALL", true, index, "ready", false];
+let nextStates = [];
+let position = 0;
+deps.react.useState = (initial) => {
+  const slot = position++;
+  if (state[slot] === undefined) state[slot] = initial;
+  return [state[slot], (value) => { nextStates.push([slot, value]); }];
+};
+function render(query) {
+  state[0] = query;
+  position = 0;
+  nextStates = [];
+  return component.default({ expectedProjectionSha256: "a".repeat(64) });
+}
+function walk(node, predicate, found = []) {
+  if (Array.isArray(node)) {
+    node.forEach((item) => walk(item, predicate, found));
+  } else if (node && typeof node === "object") {
+    if (predicate(node)) found.push(node);
+    walk(node.props?.children, predicate, found);
+  }
+  return found;
+}
+const view = render(raw);
+const input = walk(view, (node) => node.type === "input" && node.props.id === "client-search")[0];
+assert.equal(input?.props.value, raw, "typed input remains unchanged before opt-in");
+const suggestionButton = walk(view, (node) =>
+  node.type === "button" && String(node.props.children).includes("inflazione") &&
+  node.props["data-search-suggestion"] === true
+)[0];
+assert(suggestionButton, "visible interactive suggestion should be offered on a no-match query");
+assert.ok(walk(view, (node) => node.type === "button" && node.props["data-search-suggestion"] === true).length <= 4);
+assert.equal(nextStates.length, 0, "rendering a suggestion must never auto-correct the query");
+suggestionButton.props.onClick();
+assert.deepEqual(nextStates, [[0, "  inflazione  "]], "only explicit suggestion click updates query");
+const unchanged = render("Inflazione");
+assert.equal(walk(unchanged, (node) => node.props?.["data-search-suggestion"] === true).length, 0);
+assert.match(source, /non (?:è|sono) la data della dichiarazione/i,
+  "the UI must not mislabel v2 publication as original statement chronology");
+console.log("DP429_SUGGESTIONS_PASS public-only bounded fuzzy opt-in, filters, exact query URL, source-date honesty");

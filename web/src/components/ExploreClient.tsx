@@ -4,10 +4,13 @@ import SegmentedControl from "./design/SegmentedControl";
 import {
   SEARCH_QUERY_MAX_CHARS,
   buildExploreSearch,
+  normalizeSearchText,
   parseExploreSearch,
   searchPublicIndex,
   validateSearchIndex,
+  type ExploreUrlState,
   type PublicSearchIndex,
+  type SearchFilters,
   type SearchRecordKind,
 } from "../lib/searchIndex";
 import type { PublicDossier } from "../lib/types";
@@ -25,6 +28,96 @@ const kindLabels: Record<SearchRecordKind, string> = {
   person: "Persona",
   topic: "Tema",
 };
+
+/** URL state keeps user-entered bytes; only the actual search normalizes input. */
+export function buildExploreUrlKeepingQuery(state: ExploreUrlState): string {
+  const params = new URLSearchParams(buildExploreSearch(state));
+  if (state.query.length > 0) params.set("q", state.query);
+  return params.toString();
+}
+
+function nearbyPublicWord(typed: string, candidate: string, limit: number): boolean {
+  if (Math.abs(typed.length - candidate.length) > limit ||
+      typed[0] !== candidate[0] || typed === candidate) return false;
+  let previous = Array.from({ length: candidate.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= typed.length; row += 1) {
+    const current = [row];
+    let lowest = row;
+    for (let column = 1; column <= candidate.length; column += 1) {
+      const distance = Math.min(
+        previous[column] + 1,
+        current[column - 1] + 1,
+        previous[column - 1] + (typed[row - 1] === candidate[column - 1] ? 0 : 1),
+      );
+      current.push(distance);
+      lowest = Math.min(lowest, distance);
+    }
+    if (lowest > limit) return false;
+    previous = current;
+  }
+  return previous[candidate.length] <= limit;
+}
+
+/**
+ * Suggestions are optional queries from the verified public search vocabulary.
+ * They do not change the query, score people, or extend DP-409's matching rules.
+ */
+export function getExploreSuggestions(
+  index: PublicSearchIndex,
+  rawQuery: string,
+  filters: SearchFilters,
+): string[] {
+  if (!rawQuery.trim() || [...rawQuery].length > SEARCH_QUERY_MAX_CHARS ||
+      searchPublicIndex(index, rawQuery, filters).records.length > 0) return [];
+
+  const words = new Set<string>();
+  // Reserve a bounded share for each public type so a large Content catalog
+  // cannot crowd out Declaration, Person or Topic suggestions.
+  const collected: Record<SearchRecordKind, number> = {
+    finding: 0, content: 0, person: 0, topic: 0,
+  };
+  for (const record of index.records) {
+    if (collected[record.kind] >= 125) continue;
+    collected[record.kind] += 1;
+    for (const term of [...record.primary_terms.slice(0, 5), ...record.secondary_terms.slice(0, 5)]) {
+      if (typeof term !== "string") continue;
+      for (const word of normalizeSearchText(term.slice(0, 160)).split(" ")) {
+        if (word.length >= 4 && word.length <= 24) words.add(word);
+        if (words.size >= 1600) break;
+      }
+      if (words.size >= 1600) break;
+    }
+    if (words.size >= 1600) break;
+  }
+
+  // Preserve the original punctuation, case and whitespace in unedited tokens.
+  const typedWords = [...rawQuery.matchAll(/[\p{L}\p{N}]+/gu)]
+    .filter((match) => {
+      const normalized = normalizeSearchText(match[0]);
+      return normalized.length >= 4 && normalized.length <= 24 &&
+        !normalized.includes(" ");
+    }).slice(0, 3);
+  const candidates = new Set<string>();
+  const vocabulary = [...words].sort((left, right) => left.localeCompare(right, "it"));
+  let candidateChecks = 24;
+  for (const typed of typedWords) {
+    const normalized = normalizeSearchText(typed[0]);
+    const limit = normalized.length >= 6 ? 2 : 1;
+    for (const word of vocabulary) {
+      if (!nearbyPublicWord(normalized, word, limit)) continue;
+      candidateChecks -= 1;
+      const proposal = rawQuery.slice(0, typed.index) + word +
+        rawQuery.slice(typed.index! + typed[0].length);
+      if ([...proposal].length <= SEARCH_QUERY_MAX_CHARS &&
+          searchPublicIndex(index, proposal, filters).records.length > 0) {
+        candidates.add(proposal);
+      }
+      if (candidates.size >= 4 || candidateChecks <= 0) break;
+    }
+    if (candidates.size >= 4 || candidateChecks <= 0) break;
+  }
+  return [...candidates].sort((left, right) => left.localeCompare(right, "it")).slice(0, 4);
+}
 
 export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   const [query, setQuery] = useState("");
@@ -82,7 +175,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
 
   useEffect(() => {
     if (!urlReady) return;
-    const search = buildExploreSearch({ query, assessment, kind, sort, personId, topicId });
+    const search = buildExploreUrlKeepingQuery({ query, assessment, kind, sort, personId, topicId });
     const next = `${window.location.pathname}${search ? `?${search}` : ""}`;
     window.history.replaceState(null, "", next);
   }, [assessment, kind, query, sort, personId, topicId, urlReady]);
@@ -91,6 +184,13 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     if (!index) return null;
     return searchPublicIndex(index, query, { assessment, kind, sort, personId, topicId });
   }, [assessment, index, kind, query, sort, personId, topicId]);
+
+  const suggestions = useMemo(
+    () => index && response?.status === "OK" && response.records.length === 0
+      ? getExploreSuggestions(index, query, { assessment, kind, personId, topicId })
+      : [],
+    [assessment, index, kind, personId, query, response, topicId],
+  );
 
   // Facet choices are exclusively from this verified public projection.
   const people = useMemo(
@@ -143,7 +243,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     const nextSort = overrides.sort ?? sort;
     const nextPersonId = overrides.personId ?? personId;
     const nextTopicId = overrides.topicId ?? topicId;
-    const search = buildExploreSearch({
+    const search = buildExploreUrlKeepingQuery({
       query,
       assessment: nextAssessment,
       kind: nextKind,
@@ -208,6 +308,33 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
         }}>×</button>}
       </div>
       <p id="search-limit" className="dp-visually-hidden">Massimo {SEARCH_QUERY_MAX_CHARS} caratteri. La ricerca resta nel browser.</p>
+
+      {suggestions.length > 0 && (
+        <div className="dp-state" data-state="suggestions" role="region" aria-label="Suggerimenti di ricerca" aria-live="polite">
+          <p className="dp-state__body" style={{ overflowWrap: "anywhere" }}>
+            Nessun risultato per «{query}». Puoi scegliere una ricerca simile presente
+            nel catalogo pubblico. La tua ricerca rimane invariata finché non scegli.
+          </p>
+          <ul style={{ display: "flex", flexWrap: "wrap", gap: "8px", listStyle: "none", padding: 0 }}>
+            {suggestions.map((suggestion) => (
+              <li key={suggestion}>
+                <button
+                  className="quiet-button"
+                  type="button"
+                  data-search-suggestion={true}
+                  style={{ overflowWrap: "anywhere", whiteSpace: "normal" }}
+                  onClick={() => {
+                    setQuery(suggestion);
+                    searchInput.current?.focus();
+                  }}
+                >
+                  Cerca «{suggestion.trim()}»
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {response?.status === "QUERY_TOO_LONG" && (
         <div className="dp-state" data-state="error" role="alert">
@@ -340,6 +467,13 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
 
       {indexState === "ready" && response?.status === "OK" && (
         <>
+          {records.length > 0 && (
+            <p className="claim-row-meta">
+              La data mostrata indica la pubblicazione del risultato o della fonte, quando
+              disponibile: non è la data della dichiarazione. La data di aggiunta
+              all’archivio non è disponibile in questo indice.
+            </p>
+          )}
           <div className="claim-list explore-list">
             {records.map((record, position) => (
               <article className="claim-row explore-row" key={`${record.kind}:${record.id}`}>
