@@ -40,6 +40,130 @@ EXPECTED = {
         "giustizia:written-reply:camera19:4-05562:2025-08-25",
     ),
 }
+# These per-document bindings were checked against the exact PR #12 registry.
+# Same-host evidence is NOT enough: a real Ministry index is not evidence for a
+# Cassation judgment, and a privacy ruling is not proof of homicide findings.
+# Keep the source-specific authority limits in titles AND locator descriptions.
+VERIFIED_SOURCE_METADATA = {'lead:garlasco:cassazione-26919-2024-defamation': {'document_title': 'Corte di cassazione, Quinta '
+                                                                      'sezione penale, sentenza n. '
+                                                                      '26919/2024',
+                                                    'publisher': 'Corte Suprema di Cassazione',
+                                                    'official_metadata_evidence_url': 'https://www.cortedicassazione.it/it/penale_dettaglio.page?contentId=SZP32834',
+                                                    'record_locator': 'Giurisprudenza penale, '
+                                                                      'scheda SZP32834; sentenza '
+                                                                      '26919, deposito 8 luglio '
+                                                                      '2024, udienza 15 marzo '
+                                                                      '2024. Procedimento per '
+                                                                      'diffamazione legato a '
+                                                                      'servizio televisivo sul '
+                                                                      'caso Garlasco; NON sentenza '
+                                                                      'sul delitto di Chiara '
+                                                                      'Poggi. Allegato PDF '
+                                                                      'indicizzato ma endpoint PDF '
+                                                                      'restituisce 404 alla '
+                                                                      'verifica HEAD Mac: '
+                                                                      'conservare scheda HTML come '
+                                                                      'locator valido.',
+                                                    'verification_scope': 'Official court indexed '
+                                                                          'title, sentence number, '
+                                                                          'hearing/deposit dates, '
+                                                                          'and direct HTML HEAD '
+                                                                          '200 only; no court PDF '
+                                                                          'body acquired or '
+                                                                          'licensed',
+                                                    'identity_review_status': 'UNREVIEWED_SOURCE_USE_AND_SUBJECT_SCOPE',
+                                                    'document_date_basis': 'OFFICIAL_INSTITUTIONAL_INDEX',
+                                                    'discovery_type': 'OFFICIAL_CASSATION_DECISION_INDEX'},
+ 'lead:garlasco:garanteprivacy-10149350-2025': {'document_title': 'Garante per la protezione dei '
+                                                                  'dati personali, provvedimento '
+                                                                  "dell'11 luglio 2025, doc. web "
+                                                                  '10149350',
+                                                'publisher': 'Garante per la protezione dei dati '
+                                                             'personali',
+                                                'official_metadata_evidence_url': 'https://www.garanteprivacy.it/home/docweb/-/docweb-display/docweb/10149350',
+                                                'record_locator': 'Docweb 10149350: decisione del '
+                                                                  'Garante su diffusione illecita '
+                                                                  "di immagini dell'esame "
+                                                                  'autoptico di Chiara Poggi. '
+                                                                  'Decisione di tutela dati, non '
+                                                                  'giudizio su responsabilita '
+                                                                  "penale nell'omicidio.",
+                                                'verification_scope': 'Published first-party '
+                                                                      'privacy decision '
+                                                                      'heading/date/docweb and '
+                                                                      'direct HTTPS HEAD 200; no '
+                                                                      'personal images or document '
+                                                                      'bodies copied',
+                                                'identity_review_status': 'UNREVIEWED_SOURCE_USE_AND_SUBJECT_SCOPE',
+                                                'document_date_basis': 'OFFICIAL_INSTITUTIONAL_INDEX',
+                                                'discovery_type': 'FIRST_PARTY_PRIVACY_AUTHORITY_DECISION'},
+ 'lead:garlasco:garanteprivacy-10273026-2026': {'document_title': 'Garante per la protezione dei '
+                                                                  'dati personali, provvedimento '
+                                                                  'del 3 luglio 2026, doc. web '
+                                                                  '10273026',
+                                                'publisher': 'Garante per la protezione dei dati '
+                                                             'personali',
+                                                'official_metadata_evidence_url': 'https://www.garanteprivacy.it/home/docweb/-/docweb-display/docweb/10273026',
+                                                'record_locator': 'Docweb 10273026: distinto '
+                                                                  'provvedimento del Garante '
+                                                                  'relativo alla divulgazione di '
+                                                                  "immagini collegate all'omicidio "
+                                                                  'di Chiara Poggi, con reclamanti '
+                                                                  'familiari; non giudizio penale '
+                                                                  "sull'omicidio.",
+                                                'verification_scope': 'Published first-party '
+                                                                      'privacy decision '
+                                                                      'heading/date/docweb and '
+                                                                      'direct HTTPS HEAD 200; no '
+                                                                      'personal images or document '
+                                                                      'bodies copied',
+                                                'identity_review_status': 'UNREVIEWED_SOURCE_USE_AND_SUBJECT_SCOPE',
+                                                'document_date_basis': 'OFFICIAL_INSTITUTIONAL_INDEX',
+                                                'discovery_type': 'FIRST_PARTY_PRIVACY_AUTHORITY_DECISION',
+                                                'related_document_identity_key': 'garanteprivacy:docweb:10149350',
+                                                'relation': 'SAME_GARLASCO_PRIVACY_TOPIC_DISTINCT_PROCEEDING_NOT_HOMICIDE_EVIDENCE'},
+ 'lead:garlasco:ministero-giustizia-bonetti-4-05562-2025': {'document_title': 'Ministero della '
+                                                                              'Giustizia, risposta '
+                                                                              'scritta '
+                                                                              "all'interrogazione "
+                                                                              '4-05562 Bonetti',
+                                                            'publisher': 'Ministero della '
+                                                                         'Giustizia',
+                                                            'official_metadata_evidence_url': 'https://www.giustizia.it/giustizia/en/contentview.page?contentId=ART1487250',
+                                                            'record_locator': 'Risposta scritta '
+                                                                              'ministeriale '
+                                                                              "all'interrogazione "
+                                                                              'n. 4-05562 '
+                                                                              '(Bonetti), '
+                                                                              'catalogata 25 '
+                                                                              'agosto 2025 '
+                                                                              "nell'indice "
+                                                                              'ministeriale delle '
+                                                                              'risposte 2025; '
+                                                                              'domanda sui '
+                                                                              'controlli relativi '
+                                                                              'alla divulgazione '
+                                                                              'di immagini '
+                                                                              "dell'esame "
+                                                                              'autoptico di Chiara '
+                                                                              'Poggi. La risposta '
+                                                                              "e' un atto "
+                                                                              'ministeriale, non '
+                                                                              'un provvedimento '
+                                                                              'giudiziario.',
+                                                            'verification_scope': 'Ministerial '
+                                                                                  'index entry '
+                                                                                  '4-05562 Bonetti '
+                                                                                  '/ 25 August '
+                                                                                  '2025 and direct '
+                                                                                  'PDF HEAD 200, '
+                                                                                  'application/pdf; '
+                                                                                  'no document '
+                                                                                  'body downloaded',
+                                                            'identity_review_status': 'UNREVIEWED_SOURCE_USE_AND_SUBJECT_SCOPE',
+                                                            'document_date_basis': 'OFFICIAL_INSTITUTIONAL_INDEX',
+                                                            'discovery_type': 'FIRST_PARTY_MINISTRY_PARLIAMENTARY_REPLY'}}
+
 FORBIDDEN_KEYS = {
     "body", "text", "full_text", "transcript", "extracted_text", "pdf_bytes",
     "body_sha256", "capture_id", "passage_id", "content_id", "discovery_ref",
@@ -102,6 +226,14 @@ def validate_wave2(catalog, wave26):
             raise ValueError("UNVERIFIED_WAVE2_IDENTITY")
         if not row.get("document_title") or not row.get("record_locator") or not row.get("publisher"):
             raise ValueError("MISSING_OFFICIAL_METADATA")
+        # Bind all authority-bearing labels and their issuer evidence to the
+        # exact record identity, not merely a valid government HTTPS hostname.
+        verified = VERIFIED_SOURCE_METADATA[row["id"]]
+        for field in ("document_title", "publisher", "official_metadata_evidence_url",
+                      "record_locator", "verification_scope", "identity_review_status",
+                      "document_date_basis", "discovery_type"):
+            if row.get(field) != verified[field]:
+                raise ValueError(f"SOURCE_METADATA_IDENTITY_MISMATCH:{field}")
         if row["document_date_basis"] not in {"OFFICIAL_INSTITUTIONAL_INDEX", "OFFICIAL_DOCUMENT_NUMBER_AND_DATE"}:
             raise ValueError("DATE_AUTHORITY_MISSING")
         if row["proposed_family"] != "OFFICIAL_PROCEDURAL" or row["status"] != "UNREVIEWED" or row["rights_status"] != "UNKNOWN":
@@ -128,6 +260,9 @@ def validate_wave2(catalog, wave26):
                 raise ValueError("INVENTED_RELATED_DOCUMENT")
             if row.get("relation") != "SAME_GARLASCO_PRIVACY_TOPIC_DISTINCT_PROCEEDING_NOT_HOMICIDE_EVIDENCE":
                 raise ValueError("RELATED_DECISION_OVERCLAIM")
+        for field in ("related_document_identity_key", "relation"):
+            if row.get(field) != verified.get(field):
+                raise ValueError(f"SOURCE_METADATA_IDENTITY_MISMATCH:{field}")
     serialized = json.dumps(sorted((r["id"], r["url"], r["document_identity_key"]) for r in rows),
                             separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(serialized.encode()).hexdigest()
@@ -169,6 +304,63 @@ class DP214PublicLeadsWave2Tests(unittest.TestCase):
         changed = copy.deepcopy(self.catalog)
         changed[WAVE2_KEY][2]["related_document_identity_key"] = "invented:judgment"
         with self.assertRaisesRegex(ValueError, "INVENTED_RELATED_DOCUMENT"):
+            validate_wave2(changed, self.wave26)
+
+
+
+    def test_every_title_issuer_evidence_and_locator_is_bound_to_its_document(self):
+        # Swapping in another REAL official page must not establish provenance
+        # for the original lead. This used to pass when the host was on-list.
+        rows = self.catalog[WAVE2_KEY]
+        for i, row in enumerate(rows):
+            for field in ("document_title", "publisher",
+                          "official_metadata_evidence_url", "record_locator"):
+                # Two Garante records legitimately share one issuer label.
+                # Pick a DIFFERENT legitimate institutional value for each swap.
+                unrelated = next(other[field] for other in rows
+                                 if other["id"] != row["id"] and other[field] != row[field])
+                with self.subTest(id=row["id"], field=field):
+                    changed = copy.deepcopy(self.catalog)
+                    changed[WAVE2_KEY][i][field] = unrelated
+                    with self.assertRaisesRegex(
+                        ValueError, "SOURCE_METADATA_IDENTITY_MISMATCH"
+                    ):
+                        validate_wave2(changed, self.wave26)
+
+    def test_cassation_homicide_fiction_and_real_unrelated_ministry_index_fail(self):
+        for field, value in (
+            ("document_title", "Cassazione sentenza definitiva su omicidio"),
+            ("record_locator", "Cassazione ha definitivamente deciso chi ha ucciso Chiara Poggi"),
+            ("publisher", "Ministero della Giustizia"),
+            ("official_metadata_evidence_url",
+             "https://www.giustizia.it/giustizia/en/contentview.page?contentId=ART1487250"),
+            ("verification_scope", "Court judgment establishes murder guilt"),
+            ("identity_review_status", "APPROVED"),
+        ):
+            with self.subTest(field=field):
+                changed = copy.deepcopy(self.catalog)
+                changed[WAVE2_KEY][0][field] = value
+                with self.assertRaisesRegex(
+                    ValueError, f"SOURCE_METADATA_IDENTITY_MISMATCH:{field}"
+                ):
+                    validate_wave2(changed, self.wave26)
+
+    def test_unreviewed_privacy_documents_cannot_gain_fabricated_lineage(self):
+        changed = copy.deepcopy(self.catalog)
+        # The linked Garante record is distinct, and cannot silently become
+        # unrelated or be presented as a judiciary verdict.
+        changed[WAVE2_KEY][2].pop("related_document_identity_key")
+        changed[WAVE2_KEY][2].pop("relation")
+        with self.assertRaisesRegex(ValueError, "SOURCE_METADATA_IDENTITY_MISMATCH"):
+            validate_wave2(changed, self.wave26)
+        changed = copy.deepcopy(self.catalog)
+        changed[WAVE2_KEY][0]["related_document_identity_key"] = (
+            changed[WAVE2_KEY][1]["document_identity_key"]
+        )
+        changed[WAVE2_KEY][0]["relation"] = (
+            "SAME_GARLASCO_PRIVACY_TOPIC_DISTINCT_PROCEEDING_NOT_HOMICIDE_EVIDENCE"
+        )
+        with self.assertRaisesRegex(ValueError, "SOURCE_METADATA_IDENTITY_MISMATCH"):
             validate_wave2(changed, self.wave26)
 
 
