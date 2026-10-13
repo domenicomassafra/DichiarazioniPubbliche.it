@@ -379,3 +379,100 @@ provenance and rights clearance. This local check does not prove a v3
 Source/Content/Statement release handshake, a MiniPC deployment or a manual
 screen-reader pass. No new AC is marked complete. **AC-407.4 and AC-407.7
 remain open; status remains IN PROGRESS / publication NO-GO.**
+
+### 2026-10-13 — Content normalized-claim disclosure and Chrome keyboard regression (source-only)
+
+The currently mounted public-v2 Content reader treated `dossier.claim` as if it
+were a verbatim statement by enclosing the normalized editorial paraphrase in
+quotation marks in both its moment list and selected heading. This contradicted
+the canonical `PRODUCT.md` Q15–Q20 wording rule and the present public-v2
+`wording.normalized_claim` metadata (`PARAPHRASE`, `direct_quote_eligible: false`).
+No verified original words or rights-cleared excerpt were present to justify
+literal quotation. The existing page now visibly identifies its moment text as
+**editorial summaries**, omits quote marks around that text, and identifies
+the summary role in timed marker accessible names. The original source link,
+approved segment/text locator, public finding labels and canonical Statement
+navigation remain in place. This is a safe legacy disclosure correction; it does
+not promote paraphrases to approved v3 verbatim Statements or close DP-435/436.
+
+The real Astro/Chrome fixture regression
+`node prototypes/v4-implementation/dp407/test-contentrecord-real-wave11.mjs`
+failed **RED** before the UI correction (`Content must identify normalized claims
+visibly as editorial summaries`) and passed **GREEN** afterward. It validates
+the fictional 12-moment bundle through `validate_public_bundle`, builds into a
+disposable directory without modifying the shared `web/dist`, checks markup
+disclosure, status `DISPUTED`/`CORRECTED`/`RETRACTED`, absence of a withdrawn
+rationale and private bodies, Chrome accessible timeline names, keyboard Space
+selection and focus, `aria-current`/`aria-expanded`, selected detail, deep-link
+URL/hash preservation, same-origin resource loads, visible focus outline and
+reduced-motion emulation. The initial layout diagnostic appeared to pass at
+**320 CSS px**, but the integrator reproduced an intermittent **343px** overflow;
+the corrected diagnosis and isolated check are documented below. The
+**160 CSS px** diagnostic measures a 320px document due to the preexisting
+`web/src/styles/base.css` `min-width: 320px`. Earlier **200% page-scale**
+simulation preserved selection state, but was not real browser text zoom or
+screen-reader evidence. Neither case closes mobile accessibility acceptance.
+
+**AC-407.4 stays OPEN**: internal unresolved/under-review/blocked states have
+no legal public projection state to disclose. **AC-407.7 stays OPEN** pending
+manual browser zoom, keyboard and real screen-reader/device readback, including
+the documented narrow-viewport boundary. No live source, public release or
+MiniPC deployment was exercised by this isolated test.
+
+Fresh local validation (2026-10-13): `npm run check` in `web` **PASS**
+(120 files, 0 errors, 0 warnings, 0 hints);
+`node web/scripts/check-content-v3-currentness-wave-close.mjs` **PASS**
+(real timed/written Astro routes, schema-valid stale URL exclusion, legacy
+source consistency, approved locator preservation);
+`git diff --check` and `node --check` for the dedicated Chrome script **PASS**.
+These source-only checks do not alter the two open AC statuses.
+
+### 2026-10-13 — Integrator repeatability failure: Chrome 343px transient (rectified)
+
+Fresh integrator rerun of
+`node prototypes/v4-implementation/dp407/test-contentrecord-real-wave11.mjs`
+**failed EXIT 1**, assertion at 320 CSS px:
+`320px viewport exceeds the documented global 320px minimum (343px)`.
+The earlier undifferentiated Chrome layout **PASS** is not reliable proof of
+320px/200%-zoom or manual accessibility acceptance. This was investigated by
+instrumenting the real headless Chrome CDP DOM, not by increasing the permitted
+overflow threshold.
+
+**Exact 343px origin**: immediately after
+`Emulation.setDeviceMetricsOverride({width:320,...})`, Chrome sometimes
+reported `documentElement.clientWidth=320`,
+`documentElement.scrollWidth=343`, `window.innerWidth=343`,
+`visualViewport.width=320` and `body.getBoundingClientRect().width=320`.
+The overflowing *unclipped* elements were in the **shared site header**:
+`details.mobile-nav` and its `summary` both ended at `x=343`; its nested
+`nav` also ended at `x=343`, with links at `x=330`. The Content moment
+panel was in its expected mobile (`position:static`) mode. The wide
+`.content-tape .dp-tape__track` is deliberately contained by the horizontally
+scrollable `.content-tape` and did not account for the document overflow.
+The transient 343px width was reproduced in **two out of three** instrumented
+Chrome runs immediately after device override; another earlier diagnostic
+reported 347px before layout settled.
+
+After waiting on `document.fonts.ready` **after each device override**, then
+two `requestAnimationFrame` callbacks, all three runs measured
+`clientWidth=320`, `scrollWidth=320`, `bodyWidth=320`,
+`document.fonts.status=loaded` and no unclipped overflow. This establishes
+a **CDP viewport/font/layout settling race** involving the global mobile
+navigation, not a demonstrated overflow introduced by the owned
+`ContentRecord.astro` editorial summary text. No shared CSS file was changed.
+
+The regression's default invocation once again exercises only the mounted
+Astro Content editorial/provenance and stable Chrome keyboard/AX checks.
+The separate opt-in `DP407_LAYOUT_AUDIT=1` path waits for settled rendering
+and applies a **strict requested-viewport-width** assertion (no extra pixel or
+larger allowed width). Fresh real Chrome execution: **default EXIT 0**;
+the **opt-in diagnostic EXIT 1** on its 160 CSS px check (actual document width
+320px, expected 160px), after its settled **320 CSS px check passed**.
+The 160px result is an **unresolved horizontal-overflow limitation**, not a successful
+160px responsive/200%-text-zoom acceptance. Chrome page-scale simulation and
+automated focus assertions do not substitute for real 200% browser zoom,
+screen-reader/device checks or MiniPC readback.
+
+**AC-407.4 and AC-407.7 remain OPEN**, and DP-407 stays
+**IN PROGRESS / public release NO-GO**. Any global header/body responsive
+change requires coordination with the owner of the shared styles/layout.
