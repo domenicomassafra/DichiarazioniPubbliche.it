@@ -449,3 +449,64 @@ cannot stop a compromised host/CDN from directly serving malformed raw
 bytes, certify a signed independent CURRENT issuer, or prove physical
 screen-reader, atomic revoke/cache, MiniPC or production behavior.
 No publication, provider call, route or deploy was introduced.
+
+### 2026-10-13 — Independent 320/390 px actual-zoom search and focus check (PR #3 reconciliation)
+
+Independent source/Chrome review was performed against **clean main
+`0fb37c2b9f04ebe667dd25f6ad07d551c461c1ab`** using the pre-existing,
+already-built **synthetic/demo** static `web/dist` (12 public-shape search rows).
+This is **not** an authorized real corpus, public launch, or proof that the
+distributed asset matches the current source tree. Existing unmodified
+`cd web && npm run check:browser` passed with zero external/provider requests,
+keyboard/dialog checks, reduced motion, a 375 px phone viewport, and exact
+200% Chrome browser zoom with 640 CSS px. That checker did **not** exercise
+search-field keyboard clear focus at 320/390 CSS px under actual 200% zoom.
+
+The additional focused, non-duplicative probe is
+`web/scripts/check-dp409-static-search-zoom-20261013.mjs`. It serves only a
+specified existing static bundle on loopback and launches **one temporary
+headless Chrome profile** with a per-host browser zoom of 2.0; resizing its
+physical window to 640/780 px gives **320/390 CSS px**, with
+`devicePixelRatio=2`, `visualViewport.scale=1`, and horizontal `scrollWidth`
+of 320/390 px (no overflow). Search field widths were 230/300 px; filter
+target height was 44 px at both widths. Keyboard Enter opened the filter
+dialog; Escape restored button focus and `aria-expanded=false`; the changed
+synthetic Person select value survived closing/reopening and was serialized in
+the URL. This latter select change used an explicit DOM `change` event, **not**
+a claim of native platform select-keyboard or physical assistive-technology
+acceptance. `prefers-reduced-motion` was respected (dialog animation 0.001 s)
+and monitored external requests were **zero**.
+
+**Reproduced main focus defect (RED):** when keyboard focus moves to
+`Pulisci ricerca` and Enter clears the text, the conditional clear button
+unmounts and `document.activeElement` becomes `BODY`, **not** the still-visible
+`#client-search` field, at **both** 320 and 390 CSS px. Exact reproducer:
+`cd web && DP409_REQUIRE_CLEAR_FOCUS=1 node
+scripts/check-dp409-static-search-zoom-20261013.mjs`, **exit 1** with
+`DP409: keyboard clear loses focus from search input`; plain invocation exits
+0 while explicitly reporting `BROWSER_PROBE_CLEAR_FOCUS_GAP` and
+`clear_focus_pass=false`. This observation-only default deliberately does
+**not** make the known unmerged defect an implicit main-gating new test.
+
+**Existing ownership / isolated GREEN:** the fix already exists in **Draft
+PR #3** (`fix/dp429-clear-search-focus-20261012`, exact reviewed commit
+`4564a6f722aad9bd141ab860da36cbe070263033`), where Explore's
+`searchInput` ref restores `.focus()` on clear. A separate **immutable
+`git archive`** of exactly that PR commit's `web/` files was built with an
+explicit local demo projection to a disposable temporary directory; its
+artifact, **not** shared `web/dist`, was verified with:
+`DP_BROWSER_DIST=<isolated-dist> DP409_REQUIRE_CLEAR_FOCUS=1 node
+scripts/check-dp409-static-search-zoom-20261013.mjs`, **exit 0** and
+`BROWSER_PROBE_PASS_MANUAL_AT_PENDING`. The exact-zoom, clear-focus,
+filter-dialog, state preservation, reduced-motion and no-external-request
+checks passed at **both** widths, with `document.activeElement.id`
+`client-search` after clearing. The isolated build output/profile were
+deleted; no checked-out source, shared dist, provider or DB was changed.
+
+**No duplicate Explore/style patch belongs to DP-409.** Main continues to
+exhibit the known focus loss until PR #3 is independently accepted and
+integrated; the isolated PR test is not evidence of an already deployed fix.
+Physical VoiceOver/screen-reader judgment, real-device assistive technology,
+post-merge acceptance, current approved projection and MiniPC readback are
+outside this synthetic browser proof. **DP-409 remains IN PROGRESS and
+AC-409.8 remains unchecked** pending those independent gates.
