@@ -262,3 +262,27 @@ issuer, qualified editorial entailment, real original source clearance,
 authenticated operator endpoint, transactional cache invalidation, MiniPC
 readback or public launch was proved. The browser view cannot detect a
 withdrawal that its independent release authority has not yet recorded.
+
+## 2026-10-13 — Synopsis source-snapshot timestamp is not reader assembly time
+
+The private opt-in synopsis read model previously returned
+`snapshot_at = now` even when the independently attested public-v3 projection
+was generated earlier. Re-reading identical approved source/editorial inputs
+an hour later produced a **different reported snapshot timestamp with the same
+source-bound synopsis fingerprint**. A focused deterministic test was RED:
+expected the exact source projection time `2026-10-11T12:00:00+00:00`, but
+received the reader assembly time `2026-10-11T16:00:00+00:00`. This could
+overstate corpus freshness and make an unchanged offline artifact appear to
+have been snapshotted at a time when its source dataset had not changed.
+
+The read DTO now emits the canonical UTC `generated_at` timestamp from the
+**already validated and independently pinned public Statement projection**.
+The function still evaluates the separate bounded attestation and time of
+reading against the supplied current `now`, withholding stale and future
+releases, and does not change corpus/source/content/speech-act eligibility.
+Two distinct valid reader times over one immutable v3 projection now produce
+byte-identical `snapshot_at`, synopsis metadata and fingerprint; no online
+generation, source permission, publication or MiniPC route is activated.
+Focused and adjacent source-only tests remain separately required.
+**All AC-440.1–7 remain OPEN** pending real editorial entailment, rights,
+current issuer/revocation and MiniPC readback.
