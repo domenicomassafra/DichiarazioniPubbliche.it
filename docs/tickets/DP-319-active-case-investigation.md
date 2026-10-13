@@ -212,3 +212,22 @@ reruns integration tests, Ruff and remote CI on exact PR SHA separately.
 These fixes are source-only conservative safety fences, **not** audited
 legacy migration or real financial authorization. Historical v1 resume
 remains blocked without an explicit migration plan; all DP-319 AC are OPEN.
+
+### 2026-10-13 — Stored scope versus immutable source epoch P2 regression
+
+A further independent read-only adversarial review found that a corrupted
+`dp319_scopes.source_json` could remain syntactically valid, complete JSON,
+yet replace its original source SHA or source ID with a different value. The
+prior scope scan would then skip it by source identity and allow a second
+cost-bearing reservation on the original source. The test reproduced both
+cases against actual temporary SQLite with an earlier `RESERVED` event:
+**2/2 RED** before the patch (the second registration wrongly succeeded).
+
+The scan now requires every persisted scope source record to match the
+independently immutable, checksummed `dp319_source_epochs` record for that
+exact need and revision before considering its fingerprint or scope key.
+Unbound/tampered source metadata fails `INVESTIGATION_STORE_INTEGRITY_INVALID`
+under the existing write lock, without another reservation. **2/2 GREEN**
+and 77 scoped/neighbor unit tests GREEN after the correction; no real DB,
+provider, Capture or owner authorization touched. Older v1 scope resume and
+all original DP-319 AC remain open pending audited migration and real runtime.

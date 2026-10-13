@@ -434,6 +434,19 @@ class InvestigationSQLiteStore:
         )
         for (earlier_fingerprint,) in prior_scopes:
             raw_scope, earlier_source, _ = cls._scope_row(conn, earlier_fingerprint)
+            # A canonical JSON shape is insufficient: a mutable scope row
+            # must also match the independently append-only registered source
+            # epoch. Otherwise a forged but well-formed SHA/source_id could
+            # hide an earlier cost-bearing reservation from the source fence.
+            epoch = conn.execute(
+                "SELECT record_json,checksum FROM dp319_source_epochs "
+                "WHERE need_id=? AND revision=?",
+                (earlier_source.need_id, earlier_source.revision),
+            ).fetchone()
+            if (epoch is None
+                or epoch[0] != _source_json(earlier_source)
+                or epoch[1] != _hash({"schema": STORE_VERSION, "source": epoch[0]})):
+                raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
             if earlier_fingerprint == fingerprint:
                 continue
             prior_key = (

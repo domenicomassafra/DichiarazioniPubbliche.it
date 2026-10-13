@@ -416,6 +416,39 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
         raw.pop("source_sha256")
         self._expect_corrupted_source_json_to_fail_closed(_json(raw))
 
+    def test_canonical_but_epoch_mismatched_source_sha_cannot_hide_prior_reservation(self):
+        # A syntactically valid scope source is not an immutable source epoch.
+        prior = self.db.reserve(
+            self.s, self.a, self.source, key="modern:epoch-drift", expected_revision=0,
+        )
+        before_count = len(self.snapshot()[1])
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
+                (_json(asdict(replace(self.source, source_sha256="f" * 64))),
+                 prior.decision.plan_fingerprint),
+            )
+        rows_before = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "INTEGRITY_INVALID"):
+            self.db.register(self.s, self.changed(key="temporal"), self.source)
+        self.assertEqual(self.snapshot(), rows_before)
+        self.assertEqual(len(self.snapshot()[1]), before_count)
+
+    def test_canonical_but_epoch_mismatched_source_id_cannot_hide_prior_reservation(self):
+        prior = self.db.reserve(
+            self.s, self.a, self.source, key="modern:identity-drift", expected_revision=0,
+        )
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
+                (_json(asdict(replace(self.source, source_id="source:tampered"))),
+                 prior.decision.plan_fingerprint),
+            )
+        rows_before = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "INTEGRITY_INVALID"):
+            self.db.register(self.s, self.changed(key="authority"), self.source)
+        self.assertEqual(self.snapshot(), rows_before)
+
     def test_cost_free_changed_modern_plan_can_register_and_new_version_can_reserve(self):
         b = self.changed()
         self.assertEqual(
