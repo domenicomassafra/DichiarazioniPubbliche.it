@@ -288,3 +288,65 @@ no-store`, non prova fonte licenziata né cancellazione cache/API/sitemap,
 accessibilità VoiceOver/schermi reali o MiniPC. Nessun commit/push/deploy o
 pubblicazione. Un'ipotetica revoca non ancora ricevuta dal release issuer
 rimane fuori dalla capacità di rilevazione di questo consumer offline.
+
+## 2026-10-14 — Source-pinned v3 Explore read model, no public activation
+
+New opt-in `web/src/lib/publicPersonTopicExploreV3.ts` produces a bounded
+**offline/public-data-only preview** for the actual DP-439 Person×Topic
+join. One asynchronously snapshotted input includes published Person-v3,
+reviewed intersection, immutable searchable original index and separately
+issued current release pins. It reuses the full cross-reader preflight
+to reject independently valid but mutually inconsistent Person/index/source
+artifacts, then executes the real signed-index search. A second expiry check
+prevents returning an out-of-date result after cryptographic awaits.
+
+The view-model supports strict sharable URL `persona`/`tema`/`ordine` filters
+and bounded `pagina=1..500` pagination with `pageSize=1..25`, native original
+Statement date ordering, exact original text **distinct from summary**,
+source title/URL/version/quote SHA and literal locator, Person/Topic routes,
+current-corpus generated timestamp and explicit coverage note. Unknown,
+unpublished or withdrawn Person/Topic URL filters yield generic `NO_MATCH`
+without echoing the caller's private ID in returned labels/share URLs; facet
+options are sourced only from the already approved Person collection and
+Topic memberships actually present in the pinned search index. It has no
+ranking of persons, source retrieval, provider call or publication authority.
+
+Test `web/scripts/check-public-person-topic-explore-v3.mjs` was initially
+**RED** because this new consumer did not exist. It is now **GREEN** using
+the real synthetic Python DP-439 `published()/make()` generator, with two
+approved People, three dated exact original Statements and four Topic
+memberships. It proves Person×Topic selection, exact original/locator, page
+1/2 ordering and share URL replay, detached output, invalid/private facet
+non-disclosure, malformed/duplicate pagination refusal, separately revoked
+Topic memberships, stale mixed source pins and late SHA expiry refusal.
+Existing Python→TS public index, v3 cross-reader and private Person×Topic
+Astro SSR regressions PASS. `npm run check` validates the new module with
+**0 errors/0 warnings** (one preexisting DP-429 unused-import hint).
+
+The new module is **not wired to a public Astro route**, and there is no live
+pin-issuer, source-rights authorization, real editorial Topic membership,
+cache-invalidation readback, provider-offline hosting acceptance or MiniPC
+pilot in this release. Original DP-439 **IN PROGRESS**, AC-439.1–7 all
+unchanged and open. All fixtures are artificial and publication remains off.
+
+Independent read-only review exposed a **P2 filter-choice ambiguity**: two
+independently approved homonymous People yielded identical display labels,
+and two independently distinguishable Topic route IDs both appeared as the
+same generic "Tema pubblico approvato". This prevented an accessible filter
+reader from selecting an exact person/Topic despite distinct pinned IDs.
+The new duplicate-label assertions reproduced RED. The Person option now
+includes its **approved** disambiguator and validated canonical public route;
+Topic options use the only public distinguishing information available in
+this v3 search artifact (their already pinned public route), without deriving
+unreviewed semantic names from private records. Same fixture now GREEN.
+No new identity inference, additional public attribution, or URL/source
+permissions are granted. The reporter's final re-review is tracked separately.
+
+**Independent final review:** worker-7, read-only, inspected the final new
+source/test diff and independently validated distinct pinned Person routes,
+approved disambiguators, Topic canonical-route uniqueness, malformed/page
+limit refusal, private URL normalization, source detach before SHA and expiry
+after SHA. Real Python→TypeScript fixture and adjacent v3 search/cross-reader
+tests PASS; **no additional P1/P2** within source-only scope. The reviewer
+performed no edits, publication, provider or Git writes. This adds no physical
+browser VoiceOver/200% public-v3 route, rights approval or real-source AC.
