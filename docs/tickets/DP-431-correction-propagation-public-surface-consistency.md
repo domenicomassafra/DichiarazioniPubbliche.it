@@ -219,3 +219,30 @@ This is a **source-only post-closure security improvement**. The historical
 6 October MiniPC/static-host acceptance and original `Status: DONE`/AC remain
 unchanged; this commit is not a fresh MiniPC promotion, live rights approval,
 provider run or production deployment.
+
+## 2026-10-14 — Restore fail-closed local rebuild acceptance coverage
+
+The existing `npm run check:rebuild` fixture harness could not exercise its
+actual correction/hold checks because it built known demo records through the
+**production** Astro path without explicit demo opt-in. The production guard
+properly refused those records before the new strict metadata checker ran.
+This was a test-harness incompatibility, not a reason to authorize demo data
+for public publication.
+
+`web/scripts/check_dp431_rebuild.py` now enables demo mode **only in its own
+temporary directory beneath `web`**, for the seed and a scoped test-only
+replacement of the Astro build callback. The production
+`web/scripts/dp431_rebuild.py::_run_astro_build` remains unchanged and still
+strips demo opt-in. The test asserts the resulting fixture seed, hold/correction
+builds all keep `noindex,nofollow`, `robots.txt` Disallow, and no sitemap URLs;
+it cannot silently generate a normally crawlable demo site.
+
+The complete `npm run check:rebuild` is GREEN (correction, hold, stale-file
+cleanup, current API/search/route/metadata/history parity and four injected
+partial failures correctly HOLD). The independent
+`node web/scripts/check-production-projection-boundary.mjs` remains GREEN:
+renamed demo records without explicit opt-in are still rejected, opt-in local
+demo builds stay nonindexable, and empty genuine-shape projection builds work.
+`npm run check:search` also passes. Before this test-only follow-up the source
+patch had passed **3,445/3,445** full Python unit tests and benchmark **5/5**;
+the original DP-431 MiniPC proof/status/AC remain untouched. No live rollout.
