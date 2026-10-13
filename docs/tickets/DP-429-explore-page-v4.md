@@ -188,9 +188,20 @@ count. Both approved-empty and explicitly local populated-fixture artifacts were
 built independently; fixture data were not published. Fresh `npm run check`
 (0 diagnostics), `check:search` (PASS), `check:quality` (PASS), and
 `check:design:a11y` (8 PASS) are source/static evidence, not live MiniPC,
-screen-reader, manual owner or editorial acceptance. Delivery state remains
-`PUSHED_FOR_REVIEW` when the remote branch SHA is verified; PR is held under the
-existing auto-review billing guard until effective provider settings readback.
+screen-reader, manual owner or editorial acceptance. At the 2026-10-12
+checkpoint, delivery was `PUSHED_FOR_REVIEW` with PR creation held because the
+external automatic-review billing setting was not yet confirmed OFF.
+
+**2026-10-13 owner update:** the owner explicitly confirmed automatic code
+reviews are disabled everywhere and instructed removal of that blocker. The
+historical `PR_HELD_AUTOREVIEW_BILLING_GUARD` is therefore **RESOLVED by owner
+attestation**, not an open ticket or an outstanding PR-creation prerequisite.
+The accessible ChatGPT settings independently showed the visible personal
+switches OFF but did not expose the historically linked GitHub identity;
+do not misrepresent owner confirmation as a provider-account readback. Normal
+local review, actual PR CI, native review threads, manual accessibility and
+editorial/publication gates remain separate and applicable. No automatic
+Codex review or extra-credit review is requested by this change.
 
 MiniPC real-Chrome 155 isolated-source follow-up, 2026-10-12: the approved-empty
 canary passed 18 route checks, exact 200% zoom, keyboard and zero external
