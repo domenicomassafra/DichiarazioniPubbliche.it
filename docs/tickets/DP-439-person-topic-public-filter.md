@@ -350,3 +350,83 @@ after SHA. Real Python→TypeScript fixture and adjacent v3 search/cross-reader
 tests PASS; **no additional P1/P2** within source-only scope. The reviewer
 performed no edits, publication, provider or Git writes. This adds no physical
 browser VoiceOver/200% public-v3 route, rights approval or real-source AC.
+
+## 2026-10-14 — Accessible, offline opt-in Person×Topic SSR preview
+
+New **unwired** `web/src/components/PrivatePersonTopicExploreV3.astro` renders
+one previously cross-reader-validated, independently pinned DP-439 preview as
+an isolated complete Astro HTML document, without enabling any production
+route, dynamic fetching or public publication. It requires explicit
+`allowPrivatePreview` at the SSR composition site and fails closed otherwise.
+The document contains `robots` and `googlebot` `noindex,nofollow,noarchive,
+nosnippet`, and navigation/source links are marked `nofollow`. It exposes
+only approved public Person/Topic facet options, the exact original
+Statement wording (visibly separate from summaries, and not evaluated as a
+fact verdict), date with its original-occurrence meaning, source locator,
+version and SHA metadata, explicit corpus limitations, keyboard skip links,
+and page navigation. A preview with no available records has a neutral empty
+state rather than an inferred person status or unseen evidence count.
+
+The real Python DP-439 fixture builds the pinned join and public index, the
+TypeScript reader verifies the consistency pins, and an **isolated temporary
+Astro SSR** renders positive, zero-corpus, no-membership, unknown/private
+URL and post-revocation cases. Source quotes and facet names are escaped as
+ordinary HTML text (never untrusted HTML). Malicious script/img/SVG markup in
+synthetic fixture text is inert; unsafe source links and invalid/duplicate
+option identities fail closed. Page numbers and size remain bounded.
+
+The first test was **RED** because the component did not exist, then GREEN
+with the real Python→TypeScript→Astro path. A second RED adversarial test
+showed that a manually forged post-validation preview could reintroduce an
+unknown/private Person through a `currentUrl` or `nextUrl`. The SSR boundary
+now verifies current/pagination URLs against only the validated approved
+options and exact query/sort/Person/Topic context; unknown private facets,
+cross-scope page links and inconsistent back/forward page transitions reject
+rather than rendering. Full isolated fixture test now **PASS**, alongside
+`npm run check`: **129 files, 0 errors, 0 warnings**, one preexisting DP-429
+unused-import hint. This is synthetic source-only HTML acceptance, not
+independent source rights, a qualified public v3 release issuer, an actual
+site route, authorized user session, provider/MiniPC rollout or physical
+screen-reader acceptance. **DP-439 remains IN PROGRESS; AC-439.1–7 unchanged.**
+
+**Independent post-review P2 and corrected SSR authority boundary.** A
+separate read-only reviewer successfully reproduced a conditional flaw in the
+initial SSR implementation: after a valid pinned reader response, a caller
+could mutate the mutable `preview` prop to insert a fabricated original quote
+with a stale digest and append a private-looking Person facet, and Astro would
+render both. The initial extra URL guard did not prevent a forged *option*.
+The proof was synthetic and conditional on untrusted postvalidation props,
+not an observation of a live route or real private roster access.
+
+New **RED** checks reproduced forged original/roster props in a disposable
+Astro build. Instead of relying on a mutable prevalidated `preview`, the
+component now takes only `input` (the source, Person and search-index bundle),
+independently supplied current release `pins`, exact URL state and bounded
+page size; it requires explicit private opt-in and rejects a legacy `preview`
+prop **before any awaited operation**. In its own frontmatter it reconstructs
+the preview via `readPinnedPersonTopicExploreV3`, which clones the input,
+validates source/Person/index cross-reader SHA and semantic parity, rejects
+unapproved facets and checks expiry after asynchronous digests. Hostile
+post-validation quotes, extra roster facets, mixed hash revisions, malformed
+URL state and expired pins now fail closed. The rebuilt Python→TypeScript→
+Astro regression is **GREEN** with no wired public route or source-body fetch.
+The final independent reviewer verification and Astro typecheck are separate
+delivery evidence; all physical/editorial/rights/MiniPC acceptance stays OPEN.
+
+**Final independent re-review:** worker-6, strictly read-only, verified exact
+new SSR component SHA256 `4d9048e99c5fc08e383b9d9f33b79b84479f4b3456c7c4755bc6685c45b120d5`
+and new Python→TS→Astro test SHA256 `04dff827f6da6e695ce42f0602038b71a0d257b5398f177617c8f7ddbe6f95f2`.
+The reviewer independently probed true pinned Python/TypeScript fixture,
+forged original/index, extra private Person, illicit Topic membership,
+source drift, expired issuer and unknown/private URL non-disclosure: all
+negative cases correctly refuse or return generic `NO_MATCH`; no new
+reproducible P1/P2 in the reviewed source scope. The reviewer performed
+no file/Git/provider mutations and deliberately did not run a simultaneous
+Astro build against the shared temporary dependency link.
+
+Prime's final **serial** `node web/scripts/check-dp439-private-explore-ssr-20261014.mjs`
+PASS, adjacent DP-439 public search and cross-reader Node tests PASS,
+**27/27** targeted Python tests PASS and `npm run check` **129 files, 0
+errors, 0 warnings** (one existing DP-429 import hint). The temporary
+dependency symlink is local-only; no production deployment, real source
+rights, current authenticated issuer or physical MiniPC approval is claimed.
