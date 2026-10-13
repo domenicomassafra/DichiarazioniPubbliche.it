@@ -151,3 +151,34 @@ authority record: arbitrary caller-supplied CLEARED status alone cannot
 authorize a real search and does not prove source rights. The actual durable
 worker must still validate its signed/current permissions and spending gates
 in a transaction. None of AC-319.1–.5 or MiniPC real canary is closed.
+
+### 2026-10-13 — Existing SQLite fingerprint migration duplication P1 (fail-closed)
+
+Independent review found a previously missed **durable replay P1** in the
+new full-scope plan fingerprint: even *unchanged* research assignments obtain
+a different SHA than records already saved by the v1 planner. An old
+SQLite scope with a pending, potentially cost-bearing reservation could
+no longer resume (`INVESTIGATION_STORE_INTEGRITY_INVALID`), while a new
+`register` and `reserve` accepted the same source and plan under its new SHA,
+creating a second unknown-cost attempt. A temporary real SQLite regression
+reproduced the old writer's immutable scope/event rows and the duplicate
+reservation before the correction; a green pure planner test and prior CI
+were insufficient to detect this cross-version path.
+
+The append-only opt-in `investigation_attempts_store_v1.py` now checks old
+scopes **inside the existing `BEGIN IMMEDIATE` before registering new work**.
+For the same immutable source/content/candidate/material/version/hash, a
+stored scope with the older fingerprint algorithm (including completed or
+pending reservations) produces
+`INVESTIGATION_STORE_LEGACY_FINGERPRINT_CONFLICT` without changing old rows,
+even if the newly supplied authority question/time/jurisdiction has changed
+or rights were later revoked and re-cleared. Distinct newly versioned source
+material and unrelated needs are not falsely fenced. The old scope remains
+**not resumable** under the new planner and requires a separately authorized
+append-only migration/readback design; this patch intentionally refuses
+new attempts rather than rewriting historical cost/receipt identity.
+
+The independent six-case real SQLite upgrade test is RED before the store
+fence and GREEN after. The source-level scopes remain private proposals, not
+real provider calls or legal authority. DP-319.1–.5 and MiniPC acceptance
+remain OPEN.

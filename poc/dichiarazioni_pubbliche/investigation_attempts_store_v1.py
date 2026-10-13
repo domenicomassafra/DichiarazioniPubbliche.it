@@ -407,6 +407,43 @@ class InvestigationSQLiteStore:
             raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
         return row[0], recorded, row[2]
 
+    @classmethod
+    def _reject_legacy_source_scope(
+        cls, conn: sqlite3.Connection, current: InvestigationSourceRecord,
+        fingerprint: str,
+    ) -> None:
+        """Fence old fingerprints for this immutable source before new work.
+
+        Earlier planner versions omitted authority-bearing fields from the
+        hash. Old SQLite events remain append-only; re-registering the same
+        source under the stronger hash could authorize duplicate billed work.
+        This is intentionally not a migration or old-receipt readback.
+        """
+        rows = conn.execute(
+            "SELECT plan_fingerprint FROM dp319_scopes "
+            "WHERE plan_fingerprint<>? "
+            "AND json_extract(source_json,'$.need_id')=? "
+            "AND json_extract(source_json,'$.source_id')=? "
+            "AND json_extract(source_json,'$.candidate_id')=? "
+            "AND json_extract(source_json,'$.material_fingerprint')=? "
+            "AND json_extract(source_json,'$.source_version')=? "
+            "AND json_extract(source_json,'$.source_sha256')=?",
+            (
+                fingerprint, current.need_id, current.source_id,
+                current.candidate_id, current.material_fingerprint,
+                current.source_version, current.source_sha256,
+            ),
+        )
+        for (earlier_fingerprint,) in rows:
+            raw_scope, earlier_source, _ = cls._scope_row(conn, earlier_fingerprint)
+            earlier_spec, earlier_assignments = _resume_scope(raw_scope)
+            if _assert_inputs(
+                earlier_spec, earlier_assignments, earlier_source,
+            ) != earlier_fingerprint:
+                # Covers both incomplete and completed legacy attempts, even
+                # if the submitted new scope narrows a time/jurisdiction cap.
+                raise ValueError("INVESTIGATION_STORE_LEGACY_FINGERPRINT_CONFLICT")
+
     def register(
         self,
         spec: InvestigationSpec,
@@ -420,6 +457,7 @@ class InvestigationSQLiteStore:
         with closing(self._connect()) as conn, conn:
             conn.execute("BEGIN IMMEDIATE")
             self._require_current(conn, current)
+            self._reject_legacy_source_scope(conn, current, fingerprint)
             conn.execute(
                 "INSERT OR IGNORE INTO dp319_scopes VALUES (?,?,?,0)",
                 (
