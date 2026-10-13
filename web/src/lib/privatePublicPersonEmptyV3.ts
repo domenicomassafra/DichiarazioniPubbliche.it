@@ -112,6 +112,14 @@ export async function readPinnedPrivatePublicPersonV3(
   pins: PrivatePublicPersonPins,
   identifier: string,
 ): Promise<PrivatePersonPreview> {
+  // The approved collection, v3 source, search index, sitemap and independent
+  // pins are one point-in-time release. Never consume caller-owned objects
+  // after an awaited digest, even if a nested reader cloned its own input.
+  let detached: {input: typeof input; pins: PrivatePublicPersonPins};
+  try { detached=structuredClone({input,pins}); }
+  catch { fail("SOURCE_STALE"); }
+  input=detached.input;
+  pins=detached.pins;
   if (pins?.allowPrivatePersonPreview !== true) fail("OPT_IN_REQUIRED");
   if (!obj(pins) || ![pins.personSha256, pins.statementSha256, pins.intersectionSha256,
     pins.indexSha256, pins.personSitemapSha256].every(h => typeof h === "string" && SHA.test(h)) ||
@@ -187,6 +195,9 @@ export async function readPinnedPrivatePublicPersonV3(
       entry.item.statement_date !== indexedRecord.statement_date ||
       canonicalJson(entry.item.locator) !== canonicalJson(indexedRecord.original.locator)) fail("INDEX_STALE");
   }
+  // The final sitemap/source SHA may complete after validUntil. Never return
+  // a Person (or a generic unavailable result) from an expired release.
+  if (expires <= Date.now()) fail("AUTHORITY_EXPIRED");
   // No request-specific material is projected before all cross-release checks.
   if (typeof identifier !== "string" || !ID.test(identifier)) return UNAVAILABLE;
   const person = people.people.find(p => p.person_id === identifier || p.slug === identifier);

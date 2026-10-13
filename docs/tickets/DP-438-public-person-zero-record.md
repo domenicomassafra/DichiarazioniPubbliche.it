@@ -217,3 +217,45 @@ The combined first-class Person backend and frontend source branch passed
 and adjacent backend DP-437/438/439 tests **34/34 PASS**. No newly
 qualified source, public route, private data read or production publication
 was authorized; original **AC-438.1–.6 remain OPEN**.
+
+## 2026-10-13 — Cross-reader and private wrapper snapshot hardening
+
+Two additional, independently reproducible P2 consumer defects existed after
+the direct Person reader fix. In `preflightPublicV3CrossReaderRelease`, a valid
+SHA-pinned Person collection was checked but the validated snapshot was
+discarded. The later route/history join read the original caller-owned
+collection after an awaited digest. On an actual Python-generated bundle
+containing **two separately approved zero-Statement People**, the preflight
+returned `CONSISTENT_PREVIEW_ONLY` with a private/unreviewed Person URL
+substituted during SHA under the previous approved hash (RED).
+
+The cross-reader now snapshots Person, DP-439 join, search index **and release
+pins together before its first asynchronous digest** and consumes only that
+snapshot. A new executable Python→Node regression proves GREEN for late
+Person identity/URL, join, index and independently issued pin mutations,
+with the two approved stable Person routes unchanged. No route is activated.
+
+The private `readPinnedPrivatePublicPersonV3` wrapper independently suffered
+the same alias issue: immediately after the sitemap digest, a caller could
+replace an already-approved zero-Person display name/route. The wrapper then
+returned the changed private name in its result (deterministic RED). It now
+snapshots source, Person, join, index, sitemap and pins before any `await`.
+The existing Python→TypeScript private reader test includes the malicious
+sitemap-digest interleave and checks that the previously approved zero-Person
+identity survives unchanged (GREEN).
+
+Independent read-only review then reproduced a second asynchronous integrity
+gap: both consumers checked `validUntil` only before digest operations. A
+previously valid release could expire during a digest and still return
+`CONSISTENT_PREVIEW_ONLY` or `APPROVED_EMPTY` (two additional RED regressions,
+the latter after the *last sitemap digest*). Both readers now check expiry
+again immediately before their final success result, with the private reader
+also guarding generic-unavailable responses after validation. The deterministic
+clock-interleaving tests are GREEN without weakening the independently issued
+pins or modifying Date.now in application source.
+
+These checks are **local synthetic source-consumer proofs**, not an actual
+publication, a new real identity/source/rights review or a MiniPC canary.
+DP-438 remains `IN PROGRESS`; AC-438.1–.6 remain unchecked. Independent code
+review, complete adjacent tests and exact remote-branch delivery are tracked
+separately from original acceptance.
