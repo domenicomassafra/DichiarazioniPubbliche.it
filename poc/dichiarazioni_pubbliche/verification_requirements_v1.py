@@ -155,6 +155,37 @@ def select_requirement_profile(
     return VerificationRequirementProfile(claim_kind, *profile) if profile else None
 
 
+def _has_independent_role_sources(
+    rows: tuple[RequirementEvidence, ...] | list[RequirementEvidence],
+    required_roles: tuple[str, ...],
+) -> bool:
+    """Bind each required role to a different original root AND source family.
+
+    Separate set counts can be satisfied with overlapping rows even when no
+    pair of required roles has independent provenance on both dimensions.
+    """
+    candidates = tuple(
+        tuple(row for row in rows if row.evidence_role == role)
+        for role in required_roles
+    )
+
+    def cover(index: int, roots: frozenset[str], families: frozenset[str]) -> bool:
+        if index == len(candidates):
+            return True
+        return any(
+            cover(
+                index + 1,
+                roots | {row.primary_root_ref},
+                families | {row.source_family_ref},
+            )
+            for row in candidates[index]
+            if row.primary_root_ref not in roots
+            and row.source_family_ref not in families
+        )
+
+    return cover(0, frozenset(), frozenset())
+
+
 def preflight_verification_requirements(
     claim: RequirementClaim,
     observations: tuple[RequirementEvidence, ...],
@@ -267,6 +298,17 @@ def preflight_verification_requirements(
         reason_codes.add("INDEPENDENT_ORIGINAL_ROOT_MISSING")
     if profile and len(families) < profile.independent_roots_required:
         reason_codes.add("INDEPENDENT_SOURCE_FAMILY_MISSING")
+    role_sources_independent = profile is None or _has_independent_role_sources(
+        eligible, profile.required_roles
+    )
+    if (
+        profile
+        and not role_sources_independent
+        and set(profile.required_roles).issubset(roles)
+        and len(roots) >= profile.independent_roots_required
+        and len(families) >= profile.independent_roots_required
+    ):
+        reason_codes.add("INDEPENDENT_ROLE_SOURCE_PAIR_MISSING")
     if profile is None and claim.claim_kind != "NON_FACTUAL":
         state = "NOT_CHECKABLE_PROFILE_UNAVAILABLE"
     elif claim.run_state == "NOT_STARTED":
@@ -280,6 +322,7 @@ def preflight_verification_requirements(
         or not set(profile.required_roles).issubset(roles)
         or len(roots) < profile.independent_roots_required
         or len(families) < profile.independent_roots_required
+        or not role_sources_independent
     ):
         state = "CHECKED_INSUFFICIENT_EVIDENCE"
     elif {row.stance for row in eligible} >= {"SUPPORT", "REFUTE"}:
@@ -391,7 +434,11 @@ def compare_private_event_sequence(
             roots = {row.primary_root_ref for row, _ in group}
             families = {row.source_family_ref for row, _ in group}
             if (not {"PRIMARY_RECORD", "INDEPENDENT_RECORD"}.issubset(roles)
-                    or len(roots) < 2 or len(families) < 2):
+                    or len(roots) < 2 or len(families) < 2
+                    or not _has_independent_role_sources(
+                        [row for row, _ in group],
+                        ("PRIMARY_RECORD", "INDEPENDENT_RECORD"),
+                    )):
                 insufficient = True
                 reasons.add("EVENT_INDEPENDENCE_MISSING")
                 continue

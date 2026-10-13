@@ -340,3 +340,24 @@ projection/API or deployed release. Therefore the synthetic component fixture **
 positive public route or MiniPC fingerprint/readback required by `AC-405.3`. Real assisted
 screen-reader, keyboard and contrast acceptance for `AC-405.6` is also outstanding. **Both
 checkboxes remain unchecked; status remains IN PROGRESS.**
+
+### 2026-10-13 — isolated empty-Person role integrity and accessible group
+
+An isolated Astro regression reproduced that the `approvedEmptyPerson` rendering guard
+accepted an impossible public role date (`2024-02-30`) and would build public HTML.
+The component now requires real calendar dates and rejects `valid_to` before
+`valid_from`; dated approved-role groups have explicit `role="group"` semantics
+with an accessible label. The synthetic approved-zero fixture checks these three
+negative interval cases, the positive role label/link, populated compatibility,
+and all existing fail-closed cases. This is component-level hardening only:
+`/persone/[slug]` still depends on the public-v2 dossier projection, so it
+cannot emit an independently authorized zero-statement Person route. AC-405.3
+remains unchecked pending the DP-438 public collection and approved route/readback;
+AC-405.6 still requires actual human assistive-technology and keyboard review.
+
+Local validation: `node web/scripts/check-dp405-approved-empty.mjs` **PASS**
+(11 fail-closed cases), `cd web && npm run check` **PASS** (120 files,
+0 errors/warnings/hints), and `git diff --check` **PASS**. Independently,
+`npm run check:design` **FAILS** on two hardcoded `#ccc` fallbacks in
+`web/src/components/PublicTopicV3.astro:238,241`, an existing non-owned Topic
+component; it was left unchanged and the design gate is not reported green.

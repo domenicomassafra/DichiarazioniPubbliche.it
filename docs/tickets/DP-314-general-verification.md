@@ -152,6 +152,40 @@ version, independent gold, authorized reviewer, durable ledger, provider,
 or publication authority is created by these local source-only checks.
 **All original AC-314.1–.6 remain open; status IN PROGRESS.**
 
+## 2026-10-13 — Role-bound root/family independence (isolated worker follow-up)
+
+Two new synthetic regressions exposed a further false `CHECKABLE_PENDING`:
+the preflight counted two distinct roots and two distinct source families
+separately while satisfying the required `PRIMARY_RECORD` and
+`INDEPENDENT_RECORD` roles from overlapping combinations. For example,
+`PRIMARY(root:a, family:a)`, `INDEPENDENT(root:b, family:a)`, and
+`PRIMARY(root:b, family:b)` passed despite **no** primary/independent pair
+having both distinct roots and distinct families. The private event-sequence
+comparison likewise reported a computable date order when this invalid
+combination appeared for one event and another event had valid records.
+
+Both new tests reproduced **RED** on `83588bdb`: the preflight incorrectly
+returned `CHECKABLE_PENDING`, and the sequence comparator incorrectly treated
+the event observations as eligible. The narrow correction now requires a
+role-covering assignment of independently rooted and independently familied
+evidence, both at profile preflight and **per event**. Defective combinations
+return `CHECKED_INSUFFICIENT_EVIDENCE`; the preflight also reports
+`INDEPENDENT_ROLE_SOURCE_PAIR_MISSING` and the comparator retains its existing
+`EVENT_INDEPENDENCE_MISSING`. Positive controls with a genuinely independent
+record still yield `CHECKABLE_PENDING` and the expected *private observation*
+comparison. The pre-existing cross-root identical-byte, source-rights,
+review-approval, date-cutoff, jurisdiction, same-day ordering and
+unsupported-profile fences remain in force.
+
+**GREEN:** both new regressions, existing DP-314/DP-314 wave closure,
+DP-316 authority and deterministic verification-runtime tests **60/60 PASS**;
+scoped Ruff, Python compileall and `git diff --check` PASS. This is a
+source-only synthetic correction in an isolated worktree, with no live source,
+provider, database or publication proof. Declared source-family identities
+are unauthenticated; external approved origins and immutable lineage,
+review/rights authority, challenger/gold verification, append-only decisions,
+MiniPC deployment and public readback are still absent. **AC-314.1–.6 remain
+OPEN; Status: IN PROGRESS.**
 
 ## Owner round aggiuntivo — 13 ottobre 2026
 

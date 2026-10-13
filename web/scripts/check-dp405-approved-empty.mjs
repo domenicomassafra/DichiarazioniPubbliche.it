@@ -98,6 +98,20 @@ import demo from "../data/demo-projection.json";
   assert.match(withRole, /href="https:\/\/example.test\/registro"/);
   assert.match(withRole, /fine non indicata/);
   assert.doesNotMatch(withRole, /in corso/);
+  assert.match(withRole, /role="group" aria-label="Incarichi pubblici approvati con periodo e fonte"/);
+
+  // Even a supposedly approved input must not render impossible or reversed
+  // public role intervals when the caller is accidentally handed bad data.
+  for (const [valid_from, valid_to] of [
+    ["2024-02-30", null],
+    ["2024-04-01", "2024-03-31"],
+    ["2024-01-01", "2024-13-01"],
+  ]) {
+    await build({ ...sample, roles: [{
+      role_id: "role:bad-dates", label: "Titolo", organization: null,
+      valid_from, valid_to, source_url: "https://example.test/registro",
+    }] }, { expectedFailure: true });
+  }
 
   await build(sample, { expectedFailure: true, omitApproval: true });
   await build({ ...sample, status: "HELD" }, { expectedFailure: true });
@@ -120,7 +134,7 @@ import demo from "../data/demo-projection.json";
         valid_from: "2024-01-01", valid_to: null, source_url }],
     }, { expectedFailure: true });
   }
-  console.log("DP-405 Person component: PASS (approved zero, legacy populated, safe links, 8 fail-closed cases)");
+  console.log("DP-405 Person component: PASS (approved zero, legacy populated, safe links, 11 fail-closed cases)");
 } finally {
   await rm(scratch, { recursive: true, force: true });
 }
