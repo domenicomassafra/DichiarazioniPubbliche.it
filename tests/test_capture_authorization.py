@@ -85,6 +85,142 @@ def content_state(**updates):
 
 
 class PrivateCaptureAuthorizationTests(unittest.TestCase):
+    def test_operator_current_rights_reader_rejects_malformed_review_refs(self):
+        # tools/capture_content.py uses private_capture_rights_guard, NOT the
+        # optional SourceFamilyUseGuard.  Its operation-time review boundary
+        # must not accept malformed rows supplied by a current-rights reader.
+        for altered in (
+            {"rights_receipt_ref": " "},
+            {"rights_receipt_ref": "receipt with spaces"},
+            {"rights_receipt_ref": 17},
+            {"reviewer_ref": "\t"},
+            {"reviewer_ref": 17},
+        ):
+            with self.subTest(altered=altered):
+                with self.assertRaisesRegex(
+                    PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_REVIEW_INCOMPLETE"
+                ):
+                    authorize(record(**altered))
+
+    def test_operator_rejects_malformed_uses_that_embed_capture_use_name(self):
+        # Never perform membership on an untrusted string: "PERMITTED_USE"
+        # in "NOT_PERMITTED_USE" must not grant any private Capture use.
+        for uses in ("NOT_RESEARCH_CAPTURE_PRIVATE", [PRIVATE_CAPTURE_USE], (17, PRIVATE_CAPTURE_USE)):
+            with self.subTest(uses=uses):
+                with self.assertRaisesRegex(
+                    PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_USE_NOT_PERMITTED"
+                ):
+                    authorize(record(permitted_uses=uses))
+
+    def test_operator_real_capture_guard_blocks_bad_review_before_any_fetch(self):
+        # A synthetic current CLEARED rights reader can be malformed despite
+        # the registry's write-time checks.  Model the exact operator CLI
+        # guard, exercise CapturePipeline's real admission path, offline.
+        with tempfile.TemporaryDirectory() as temp:
+            class CountingStore(FakeCaptureStore):
+                permit_issues = 0
+
+                def issue_ingestion_acquisition_permit(self, **kwargs):
+                    self.permit_issues += 1
+                    return super().issue_ingestion_acquisition_permit(**kwargs)
+
+            store = CountingStore()
+            fetch_count = []
+            guard = private_capture_rights_guard(
+                read_current=lambda _: record(rights_receipt_ref="receipt with spaces", reviewer_ref=" "),
+                read_content_state=lambda _: content_state(),
+                rights_record_id="private-rights:reviewed",
+                content_id=CONTENT_ID,
+                canonical_url=URL,
+                source_family=SOURCE_FAMILY,
+            )
+
+            def unexpected_fetch(*args, **kwargs):
+                fetch_count.append(1)
+                self.fail("malformed review reached the operator fetcher")
+
+            with self.assertRaisesRegex(
+                PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_REVIEW_INCOMPLETE"
+            ):
+                capture_content(
+                    content_id=CONTENT_ID, url=URL,
+                    store=store, body_store=CaptureBodyStore(Path(temp)),
+                    fetcher=unexpected_fetch, rights_guard=guard,
+                )
+            self.assertEqual(fetch_count, [])
+            self.assertEqual(store.permit_issues, 0)
+            self.assertFalse(store.captures)
+            self.assertFalse(store.passages)
+            self.assertFalse(list(Path(temp).rglob("*.body")))
+
+    def test_operator_real_capture_guard_blocks_malformed_use_before_fetch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            class CountingStore(FakeCaptureStore):
+                permit_issues = 0
+
+                def issue_ingestion_acquisition_permit(self, **kwargs):
+                    self.permit_issues += 1
+                    return super().issue_ingestion_acquisition_permit(**kwargs)
+
+            store = CountingStore()
+            calls = []
+            guard = private_capture_rights_guard(
+                read_current=lambda _: record(permitted_uses="NOT_RESEARCH_CAPTURE_PRIVATE"),
+                read_content_state=lambda _: content_state(),
+                rights_record_id="private-rights:reviewed",
+                content_id=CONTENT_ID,
+                canonical_url=URL,
+                source_family=SOURCE_FAMILY,
+            )
+            with self.assertRaisesRegex(
+                PrivateCaptureAuthorizationBlocked, "PRIVATE_CAPTURE_USE_NOT_PERMITTED"
+            ):
+                capture_content(
+                    content_id=CONTENT_ID, url=URL, store=store,
+                    body_store=CaptureBodyStore(Path(temp)),
+                    fetcher=lambda *args, **kwargs: calls.append("fetch"),
+                    rights_guard=guard,
+                )
+            self.assertEqual(calls, [])
+            self.assertEqual(store.permit_issues, 0)
+            self.assertFalse(store.captures)
+            self.assertFalse(store.passages)
+            self.assertFalse(list(Path(temp).rglob("*.body")))
+
+    def test_operator_real_capture_guard_preserves_valid_receipt_and_reviewer(self):
+        # The registry permits nonempty reviewer names containing spaces;
+        # opaque receipt references themselves contain no whitespace.
+        with tempfile.TemporaryDirectory() as temp:
+            store = FakeCaptureStore()
+            fetches = []
+            guard = private_capture_rights_guard(
+                read_current=lambda _: record(
+                    rights_receipt_ref="rights-receipt:opaque-2026-10",
+                    reviewer_ref="qualified reviewer 1",
+                ),
+                read_content_state=lambda _: content_state(),
+                rights_record_id="private-rights:reviewed",
+                content_id=CONTENT_ID,
+                canonical_url=URL,
+                source_family=SOURCE_FAMILY,
+            )
+
+            def valid_offline_fetch(url, **_):
+                fetches.append(url)
+                return fetched(b"<p>Offline synthetic positive sample.</p>", url=url)
+
+            guard()
+            result = capture_content(
+                content_id=CONTENT_ID, url=URL, store=store,
+                body_store=CaptureBodyStore(Path(temp)),
+                fetcher=valid_offline_fetch, rights_guard=guard,
+            )
+            self.assertEqual(fetches, [URL])
+            self.assertEqual(result.parse_status, "SUCCEEDED")
+            self.assertEqual(len(store.captures), 1)
+            self.assertEqual(len(store.passages), 1)
+            self.assertEqual(len(list(Path(temp).rglob("*.body"))), 1)
+
     def test_recalled_rights_during_capture_lookup_blocks_before_body_write(self):
         with tempfile.TemporaryDirectory() as temp:
             current = [record()]

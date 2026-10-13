@@ -138,8 +138,16 @@ def evaluate_source_use(
         return SourceUseDecision(use, "UNRESOLVED", "SOURCE_USE_NOT_CLEARED", "RESOLVE_SOURCE_RIGHTS")
     reviewed = _aware(record.reviewed_at)
     expiry = _aware(record.expires_at) if record.expires_at is not None else None
+    # A non-DB current reader can return an unnormalized record. Mirror the
+    # rights registry's receipt/reviewer contract at the operation boundary:
+    # truthy whitespace or non-text values are not evidence of review.
+    receipt = record.rights_receipt_ref
+    reviewer = record.reviewer_ref
     if (
-        not record.rights_receipt_ref or not record.reviewer_ref
+        not isinstance(receipt, str) or not 0 < len(receipt) <= 512
+        or any(char.isspace() or char == "\x00" for char in receipt)
+        or not isinstance(reviewer, str) or not 0 < len(reviewer.strip()) <= 256
+        or "\x00" in reviewer
         or reviewed is None or reviewed > now
         or (record.expires_at is not None and expiry is None)
     ):

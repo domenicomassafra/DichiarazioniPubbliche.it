@@ -81,6 +81,40 @@ def evaluate(record, *, use="FETCH"):
 
 
 class SourceUseContractTests(unittest.TestCase):
+    def test_malformed_receipt_or_reviewer_cannot_authorize_capture(self):
+        # Fake/current-rights readers can bypass the registry's write-time
+        # normalization. Presence alone is not a reviewed rights receipt.
+        for changed in (
+            {"rights_receipt_ref": " "},
+            {"rights_receipt_ref": "receipt with spaces"},
+            {"rights_receipt_ref": 17},
+            {"reviewer_ref": "\t"},
+            {"reviewer_ref": 17},
+        ):
+            with self.subTest(changed=changed):
+                record = reviewed(**changed)
+                decision = evaluate(record)
+                self.assertFalse(decision.permitted)
+                self.assertEqual(decision.reason_code, "SOURCE_USE_REVIEW_INVALID")
+                with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_REVIEW_INVALID$"):
+                    guard(lambda _: record).require("FETCH")
+
+    def test_malformed_receipt_ref_blocks_real_capture_before_fetch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = FakeCaptureStore()
+            with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_REVIEW_INVALID$"):
+                capture_content(
+                    content_id=SUBJECT.content_id, url=URL, store=store,
+                    body_store=CaptureBodyStore(Path(temp)),
+                    source_use_guard=guard(
+                        lambda _: reviewed(rights_receipt_ref=" ", reviewer_ref="operator:qualified"),
+                    ),
+                    fetcher=lambda *a, **k: self.fail("invalid receipt must block before fetch"),
+                )
+            self.assertFalse(store.captures)
+            self.assertFalse(store.passages)
+            self.assertFalse(list(Path(temp).rglob("*.body")))
+
     def test_malformed_use_list_cannot_authorize_a_substring(self):
         # Python's 'FETCH' in 'NOT_FETCH' must never act as a use grant.
         malformed = reviewed(permitted_uses="NOT_FETCH")
