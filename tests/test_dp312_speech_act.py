@@ -378,6 +378,55 @@ class SpeechActContextTests(unittest.TestCase):
                 self.assertEqual(result.stance, "UNKNOWN")
                 self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
 
+    def test_curly_quote_pairing_handles_unlisted_s_final_terms_without_endorsement(self):
+        def classify(source, language="en"):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                quote_start=0, quote_end=len(source),
+                turn_start=0, turn_end=len(source),
+                utterer_id="person:a", turn_speaker_ids=("person:a",),
+                source_part_ref="part:a", turn_complete=True, language=language,
+            )
+
+        reported = (
+            ("He said ‘I support us’ today.", "en"),
+            ("He said ‘I vote yes’ today.", "en"),
+            ("He said ‘I support you always’ yesterday.", "en"),
+            ("Er sagte ‘Ich unterstütze uns’ gestern.", "de"),
+        )
+        for source, language in reported:
+            with self.subTest(source=source):
+                result = classify(source, language)
+                self.assertEqual(
+                    (result.state, result.speech_act, result.stance),
+                    ("CANDIDATE_PRIVATE", "REPORT", "NON_COMMITTAL"),
+                )
+                self.assertNotIn("UNBALANCED_QUOTATION", result.signal_codes)
+                self.assertEqual(
+                    verify_speech_act_context_metadata(
+                        result.to_metadata(), source_text=source
+                    ).binding_sha256,
+                    result.binding_sha256,
+                )
+
+        for source in (
+            "I support us’ policy.",
+            "I support yes’ policy.",
+            "I support always’ policy.",
+            "I support this’ policy.",
+            "He said ‘I support workers’ yesterday.",
+            "He said ‘I support James’ yesterday.",
+            "He said ‘I support us’ yesterday.’",
+            "‘I support us ‘always’ today.’",
+            "’I support us’ today.",
+        ):
+            with self.subTest(source=source):
+                result = classify(source)
+                self.assertEqual(result.state, "HOLD_FOR_CONTEXT")
+                self.assertEqual(result.stance, "UNKNOWN")
+                self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
+
     def test_multiple_sentences_cannot_be_collapsed_into_one_stance(self):
         source = "Io sostengo che il piano sia utile. Ma non sostengo che sia definitivo."
         result = assess(source)

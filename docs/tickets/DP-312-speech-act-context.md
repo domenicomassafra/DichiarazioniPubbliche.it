@@ -67,3 +67,28 @@ Independent review of the initial incomplete-curly-quote protection identified l
 An independent exact-PR review identified both directions of a second U+2019 scope bug: `He said ‘I support this’ yesterday.`, `‘I support this’ she said.` and the German `Er sagte ‘Ich unterstütze das’ gestern.` were incorrectly held, because the earlier generic s-ending possessive recognizer swallowed the quote closer. Conversely the orphan `I support this’ policy.` was falsely labeled `ASSERTION / ENDORSE / CANDIDATE_PRIVATE`. The new adversarial test reproduced six failing subcases (including uppercase `THIS` and `his`), before the repair. A bounded list of closed-class non-possessive words now prevents those quote closers from being consumed as s-possessive apostrophes. The same recognizer is used when matching explicit `‘…’` pairs and checking ordered delimiters: a paired quote with a reporter cue stays `REPORT / NON_COMMITTAL`, while an orphan closer holds with `UNBALANCED_QUOTATION / UNKNOWN`. Earlier `workers’ rights`, `James’ plan`, `’90s`, contraction, and fully balanced-quote controls remain valid.
 
 Some s-ending nouns are intrinsically ambiguous in this bounded lexical preflight. For example, `He said ‘I support James’ yesterday.` and `He said ‘I support workers’ yesterday.` remain `HOLD_FOR_CONTEXT / UNKNOWN` because the same punctuation may denote a possessive with an omitted closing quote; they cannot be lexically endorsed or treated as proven reported speech. Manual/contextual review and multilingual evidence remain necessary. No source Capture, rights authorization, factual validation, downstream reanalysis, editorial approval, or MiniPC replay was performed; all AC-312.1–312.6 remain OPEN.
+
+## 2026-10-13 — Replace finite s-ending word list with bounded curly quote pairing
+
+Independent replay on the preceding opt-in classifier revealed that a finite
+English/German non-possessive word blacklist cannot distinguish an s-final
+closing U+2019 quotation mark from a plural/name possessive. Normal paired
+reported quotations ending `us`, `yes`, `always` and German `uns` incorrectly
+became `HOLD_FOR_CONTEXT`; in the opposite direction, orphan `us’`/`yes’`
+could be treated as direct `ASSERTION / ENDORSE`. Eight synthetic adversarial
+cases reproduced the errors **RED** on the preceding PR head.
+
+The private preflight now uses one bounded left-to-right U+2018/U+2019
+orthographic pairing function shared by both quotation extraction and
+unbalanced-delimiter signals, replacing the finite blacklist. Internal
+contractions and numeric elisions are not closers; plausible name/plural
+possessives within a proposed quotation can require conservative HOLD when
+there is no independently distinguishable closing delimiter. Natural paired
+reported quotations remain `REPORT / NON_COMMITTAL`; dangling, reversed,
+nested or orphaned delimiters still HOLD with no endorsement. Tests were
+**GREEN** for all eight new contrasts and 90 neighboring source-only checks;
+benchmark 5/5, Ruff and diff check pass. The classifier is not a full
+language parser, qualified source reviewer, or publication permit: ambiguous
+noun/quotation boundaries are intentionally held, and all AC-312.1–.6 stay
+OPEN pending real multilingual annotated sources, protected runtime and
+human acceptance. No source Capture, rights grant or MiniPC deploy occurred.
