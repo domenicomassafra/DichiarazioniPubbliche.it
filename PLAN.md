@@ -894,3 +894,10 @@ The frozen Wave 19 full suite then passed **2115/2115 Python tests**
 in **175.612s** with 100-table restore drill PASS; benchmark **5/5**,
 ticket contract, compileall and diff checks PASS. No accepted MiniPC
 canary, publication rights or review authority is inferred.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Round aggiuntivo13Oct acquisito (60/80 domande multi-progetto): suggerimenti ricerca; recenti per data; filtri cronologia/pertinenza/esiti documentati da affinare senza ranking persone; originale+traduzione; testo come base e audio/video/hosting da approfondire; sintesi+prove; mobile confronto verticale; corrente+storico consentito; copertura contestuale; gruppi eccezioni. Prima di implementare esposizione esiti, verificare semantica e stati del dominio. Per media, approfondire source-use/rights/embed/link/copia e hosting/costi/storage/availability/cancellation tramite ticket esistenti: nessuna scelta implicita del MiniPC. Non riaprire le20decisioni10Oct; nessuna nuova acquisizione/runtime/publish.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

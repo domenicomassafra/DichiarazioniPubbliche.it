@@ -175,3 +175,10 @@ an internal sibling validation artifact rather than a public route. The approved
 currently empty, so search correctly contains zero records and no dynamic Statement/Person/Topic/
 Content/Trace route is fabricated. This removes the previously recorded live DP-401 static/API
 drift and completes the runtime portion of AC-431.8.
+
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q8 link ordinario alla versione corrente, avviso visibile di correzione materiale e collegamento distinto a storico quando disponibile e consentito. Non ripubblicare contenuto ritirato o privo di diritti nello storico; mantenere coerenza tra pagina/search/API.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.

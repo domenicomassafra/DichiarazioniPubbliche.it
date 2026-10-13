@@ -236,3 +236,9 @@ handles that event. The worker demonstrated **RED** against the previous
 `DP429_BROWSER=1` approved-empty and local-populated QA still passes.
 This is strengthened source/regression proof, not a manual screen-reader
 acceptance or permission to merge/deploy/publicly publish content.
+
+## Owner round aggiuntivo — 13 ottobre 2026
+
+Q1 suggerimenti espliciti di ricerca, query originale preservata. Q2 Esplora iniziale per data recente della dichiarazione, distinto da data di aggiunta. Q3 filtri/sezioni per cronologia, pertinenza ed esiti documentati di verifica della singola proposizione. “Più giuste/sbagliate” è richiesta UX da affinare su stati approvati, non autorizza punteggi/ranking delle persone, booleani da opinioni o comparazione non calibrata. Distinguere SUPPORTED/FACTUALLY_FALSE da NOT_CHECKED/insufficient/conflict/non-factual; sorting quantitativo richiede criterio adeguato, altrimenti usare filtro per categoria.
+
+Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
