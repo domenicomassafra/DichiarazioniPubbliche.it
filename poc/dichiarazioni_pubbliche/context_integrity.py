@@ -402,11 +402,21 @@ def curated_context_approval(
 SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
 _SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
 _SPEECH_ACT_MAX_TURN_CHARS = 12000
-# U+2019 can also be an intra-word apostrophe, an s-possessive before
-# another word, or an elided decade (’90s). Treat only those bounded
-# orthographic forms as apostrophes; any other unmatched mark holds.
+# U+2019 is sometimes an apostrophe, but an s-final *word* is not
+# necessarily a possessive: "this’ policy" has a stray quote closer,
+# and "‘I support this’ yesterday" is a paired quotation. Keep a
+# conservative closed-class exclusion for words that cannot take an
+# s-possessive; genuine nouns (workers’, James’) are still supported.
+_NON_POSSESSIVE_S_WORDS = (
+    "as", "das", "dies", "dieses", "does", "es", "has", "hers", "his",
+    "is", "its", "ours", "theirs", "this", "was", "yours",
+)
+_S_POSSESSIVE_GUARDS = "".join(
+    rf"(?<!\b{word})" for word in _NON_POSSESSIVE_S_WORDS
+)
 _CURLY_APOSTROPHE_RE = re.compile(
-    r"(?<=\w)’(?=\w)|(?<=[sS])’(?=\s+\w)|(?<!\w)’(?=\d)"
+    r"(?<=\w)’(?=\w)|(?<!\w)’(?=\d)|"
+    + r"(?i:" + _S_POSSESSIVE_GUARDS + r"(?<=s)’(?=\s+\w))"
 )
 _QUOTED_TEXT_RE = re.compile(
     r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|"""
