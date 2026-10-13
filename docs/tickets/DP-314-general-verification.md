@@ -192,3 +192,67 @@ OPEN; Status: IN PROGRESS.**
 Q3 richiede filtri per esito verificato della specifica proposizione, non giudizi sulle persone. Esiti non verificati/insufficienti/conflittuali/non-fattuali rimangono distinti e non diventano falsità. Q6 sintesi breve e limiti immediatamente visibili, prove e spiegazione completa raggiungibili; nessuna nuova verifica o pubblicazione attestata.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+## 2026-10-14 — Private requirement-profile research batch (source-only)
+
+A bounded, opt-in private `requirement_research_batch_v1.py` now composes the
+existing per-claim `verification_requirements_v1.py` preflight into a
+**deterministic multi-claim research worklist**, without any source body,
+provider call or new claim outcome. Every item is bound to an exact input
+preflight fingerprint and reports the claim kind, available *operator-declared*
+eligible/excluded evidence IDs, current preflight state, exact gap codes and
+typed next steps. Distinct required evidence roles, original-root and
+source-family independence, mirrored bytes, legal jurisdiction, dates,
+unreviewed/withdrawn source use and contradictory observations produce
+separate private tasks. Explicit `NON_FACTUAL`, unknown profile, no run,
+conflict and checkable-but-not-verified states never turn into a verdict.
+
+Inputs are bounded to 32 claims / 512 metadata evidence rows; mismatched
+claim keys, duplicate claim IDs, untyped dictionaries (including private
+body fields), list/tuple schema mismatches and excess inputs fail closed.
+Deterministic sorted replay produces the same exact fingerprint independent
+of claim/evidence input ordering. A source-rights revocation changes only the
+affected claim plan and batch fingerprint; no historical Finding/public
+projection is overwritten. RED: the new module was absent and the seven
+new feature tests failed; GREEN: **25/25** combined DP-314 new/existing
+requirement tests PASS. No source identity signer, actual rights decision,
+model adjudication, gold challenge, live operator queue or cost is inferred.
+
+This is a **new executable private planning seam**, not a factual verifier,
+real-world legal review, accepted rights grant, persistence, provider
+integration or production release. DP-314 remains **IN PROGRESS**;
+AC-314.1–.6 stay unchecked pending qualified source, evidence and physical
+MiniPC acceptance.
+
+An independent read-only reviewer detected a **P2 planning completeness** gap:
+`NOT_CHECKED` returned only `START_RESEARCH_RUN` even if existing evidence was
+REVOKED/PENDING, independent roots were missing, or required roles uncovered.
+The exact case was reproduced RED. The private worklist now retains that run
+state **and** surfaces all independently assessed rights/role/lineage tasks,
+without launching research or inferring a source approval. New adversarial
+RED→GREEN regression verifies withdrawal during a not-started run. This
+source-only fix and the original requirement preflight receive another review
+before integration; it changes neither the Status nor any original AC.
+
+**Independent post-fix reviewer result:** worker-1, strict read-only, PASS
+within source-contract scope. Independently verified **34/34** DP-314
+requirement and adjacent wave tests and **11/11** private adversarial
+states: NOT_STARTED with all rights revoked, no evidence or pending review;
+late/jurisdiction-mismatched sources, coupled root/family roles, conflicts,
+nonfactual/unsupported profiles, and separately eligible evidence. A rights
+withdrawal changes the affected preflight and overall batch hashes while
+`NOT_CHECKED` stays distinct from factual insufficiency. Invalid external
+review statuses fail closed. No source body, provider call, public/rights
+authority, or factual verdict was observed. Prime's broader targeted matrix
+**45/45 PASS**, benchmark **5/5** and Python compilation PASS. This is not
+an independent qualified editorial gold-data assessment and does not
+complete DP-314.6 or any original AC.
+
+**Final source-branch validation:** one complete Python unittest discovery on
+the final `requirement_research_batch_v1.py` + new eight-test regression diff:
+**3,447/3,447 PASS**, exit code 0, **355.615 s**. Adjacent DP-314 and
+verification-runtime targeted subset **45/45 PASS**, deterministic benchmark
+**5/5 PASS**, Python compilation and `git diff --check` PASS. No production
+database, external provider, live source capture or real rights approval used
+by this branch; the established PostgreSQL tests run in their disposable
+fixtures only. All original DP-314 acceptance gates remain open.
