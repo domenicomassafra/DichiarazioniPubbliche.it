@@ -199,6 +199,27 @@ class ProceduralDocumentRoleTests(unittest.TestCase):
                 self.assertEqual(value.spans[0].status, status)
         self.assertEqual(len({x.status for x in results}), 5)
 
+    def test_final_status_cannot_be_assigned_to_unrelated_procedural_party(self):
+        text = "Mario è condannato."
+        party = (
+            DocumentPerson("person:mario", PrivacyClass.PUBLIC_FIGURE),
+            DocumentPerson("person:bruno", PrivacyClass.PUBLIC_FIGURE),
+        )
+        row = span(
+            text, text=text, kind=AssertionKind.FINDING_ORDER,
+            role=DocumentaryRole.COURT_DECISION, speaker="body:judge",
+            subjects=("person:mario",), procedural_party_refs=("person:bruno",),
+            status=ProceduralStatus.CONVICTED, negation_polarity="AFFIRMED",
+        )
+        wrong = evaluate_procedural_document(source(text), party, (row,))
+        self.assertEqual(wrong.state, "HOLD")
+        self.assertIn("STATUS_SUBJECT_PARTY_MISMATCH", wrong.spans[0].reason_codes)
+        correct = evaluate_procedural_document(source(text), party, (
+            dataclasses.replace(row, procedural_party_refs=("person:mario",)),
+        ))
+        self.assertEqual(correct.state, "CANDIDATE_PRIVATE")
+        self.assertEqual(correct.spans[0].underlying_fact_assessment, "NOT_EVALUATED")
+
     def test_mislabeled_status_or_jurisdiction_effective_date_holds(self):
         phrase = "Mario è indagato."
         base = span(

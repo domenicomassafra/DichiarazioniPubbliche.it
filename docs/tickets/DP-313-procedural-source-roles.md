@@ -81,3 +81,28 @@ authorized official judicial source and original/OCR inspection, qualified
 privacy/rights policy and MiniPC source-to-public conditional-revalidation
 pilot. No source rights, human/machine approval, judicial truth or publication
 authority is inferred.
+
+## 2026-10-13 — Procedural status subject versus affected party (private hold)
+
+A real synthetic court-order regression exposed a source-bound identity gap:
+`evaluate_procedural_document` returned `CANDIDATE_PRIVATE` for the literal
+`Mario è condannato.` with a correctly typed `CONVICTED` court order and
+`subject_person_refs=(person:mario,)`, while the only independently annotated
+`procedural_party_refs` identified a **different** public person `person:bruno`.
+A fully validated phrase hash, jurisdiction and court-author role did not
+establish which party actually had the legal status. Before the fix the
+negative case was **RED** (`CANDIDATE_PRIVATE` rather than `HOLD`).
+
+When a reviewer declares a *specific* procedural status, the private preflight
+now additionally requires nonempty affected-party refs that cover all of the
+span's claimed subject IDs. Omission, unrelated persons or a second subject
+not within the affected parties returns `STATUS_SUBJECT_PARTY_MISMATCH / HOLD`;
+matching approved-public synthetic `person:mario` remains `CANDIDATE_PRIVATE`,
+not a factual verdict, rights receipt or publish grant. An annotation with
+`status=UNKNOWN` is unaffected. This does not assume legal status proves
+any underlying alleged act and does not touch source Capture or court files.
+
+Regression and neighbouring code tests are local synthetic source-only; no
+qualified legal status authority, original document/OCR, privacy approval,
+reviewer identity, MiniPC conditional revalidation or public release proved.
+**All AC-313.1–6 remain OPEN and ticket IN PROGRESS.**

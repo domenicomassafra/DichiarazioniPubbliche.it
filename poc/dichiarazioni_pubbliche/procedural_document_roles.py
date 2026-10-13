@@ -411,6 +411,14 @@ def evaluate_procedural_document(
         if not isinstance(span.status, ProceduralStatus):
             codes.append("PROCEDURAL_STATUS_UNSUPPORTED")
         else:
+            # A procedural state is about the named affected party, not any
+            # unrelated person merely mentioned in the same document. Missing
+            # or mismatched parties cannot establish an exact private target.
+            if span.status != ProceduralStatus.UNKNOWN and (
+                not span.procedural_party_refs
+                or not set(span.subject_person_refs).issubset(span.procedural_party_refs)
+            ):
+                codes.append("STATUS_SUBJECT_PARTY_MISMATCH")
             # A status mentioned in testimony, a reporter's quotation or a
             # party allegation does not attest that procedural state, even
             # when embedded verbatim in an authentic court order. Keep such
