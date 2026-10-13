@@ -361,3 +361,53 @@ AC-214.1/.2/.4/.5/.6/.7/.8 remain unchecked, and AC-215.9 also remains open.
 **Phase / dependencies:** Phase 3/4 Garlasco campaign after smallest integrated pilot; hard DP-209..213/117 and actual source-family permits, A-NEW-02/03/04 as applicable; soft B rights, D budget; corpus owner.
 
 **Related future specifications (separate ownership):** DP-235, DP-236, DP-237, DP-243. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+### 2026-10-13 — Four institutional parliamentary leads, metadata-only catalog
+
+This bounded discovery tranche **adds four URL/record metadata probes** to
+`config/garlasco-public-discovery-leads.v1.json`, in the separate
+`metadata_only_official_probes` section. The six prior unreviewed candidate
+URLs and the single official Procura locator remain unchanged and continue to
+yield **6 unreviewed file candidates, 1 source locator, 0 accepted pilot
+items** under the existing `load_unreviewed_public_leads` reader. The new
+probes are deliberately excluded from `candidates`, the 100-item ingestion
+manifest, and DP-209 Discovery Hits. The collection's last known authoritative
+MiniPC readback is still **PAUSED / 18 existing Content members / rights
+UNKNOWN**, with no new persisted source/Capture/Passage/Candidate.
+
+On **2026-10-13**, a bounded direct **HTTPS `HEAD` only** check returned:
+
+| Public institutional record | Document/session date | `HEAD` status | Locator and interpretation |
+| --- | --- | --- | --- |
+| [Senato XV, scheda 279270](https://www.senato.it/show-doc?id=279270&idoggetto=0&leg=15&tipodoc=Sindisp) | 2007-09-19 | **202** | Institutional index calls this an act 3-00941, while the corresponding Senato Allegato B lists the Garlasco reference as **3-00940**. **Identity mismatch remains unreviewed**; do not use as an authenticated exact-atto citation without reconciliation. |
+| [Camera XIX, seduta 579, Allegato B](https://www.camera.it/leg19/410?idSeduta=0579&tipo=atti_indirizzo_controllo) | 2025-12-05 | **200** | Relevant parliamentary oversight act **4-05086** appears within a session document containing other acts. |
+| [Camera XIX, seduta 607, stenografico](https://documenti.camera.it/leg19/resoconti/assemblea/html/sed0607/stenografico.htm) | 2026-02-03 | **200** | The institutional transcript references Garlasco in **Vittoria Baldino's** parliamentary remarks, page 55. **Same exact URL** already appears as `wave26:camera:leg19:sed607` in `config/garlasco-source-governance-wave26.v1.json`: explicit lineage, **not independent confirmation or a second capture**. |
+| [Senato XIX, seduta 361, stenografico](https://www.senato.it/show-doc?id=1477466&leg=19&part=doc_dc-ressten_rs&tipodoc=Resaula) | 2025-10-30 | **202** | Parliamentary debate mentions Garlasco in discussion of judicial reform; neither a court judgment nor evidence for claims about the investigation. |
+
+The official Senato/Camera indexed page headings, session dates and bounded
+Garlasco relevance were compared with the respective public institutional
+listings; no article, transcript, speech or PDF body was copied, written to
+the repository or archived. **`202` is not `200`**, nor proof of an immediately
+fetchable HTML body. All four records retain
+`status=UNREVIEWED`, `rights_status=UNKNOWN`,
+`provenance_status=UNVERIFIED_IN_DATABASE`, `candidate_only=true`,
+`capture_authorized=false`, `capture_performed=false` and
+`count_as_logical_item=false`. The metadata never authorizes attributed
+quotes, model processing, a new Content, an independent provenance claim or
+PUBLISH. Parliamentary records prove their own parliamentary proceedings
+only; they are not judicial case records and no opinion is taken as a verdict.
+
+Executable replay/dedupe receipt:
+`tests/test_dp214_public_lead_catalog_20261013.py` checks the exact four
+grounded HTTPS URLs, canonical URL/query-order duplicate identity, unique
+document keys, independent record dates, truthful `HEAD` codes, stable sorted
+replay fingerprint, restrictive metadata-only fields, unchanged six-candidate
+readiness counts and exact Wave-26 lineage. Negative mutations of rights,
+capture permission, pilot count, embedded body and invented parent reference
+fail. Initial **RED** was missing `metadata_only_official_probes`; after
+catalog population the focused four tests and existing lead/readiness/feasibility
+tests passed. This local catalog check performs **no network request** and
+does **not** establish live MiniPC 18-Content collision clearance, source
+rights, persisted Discovery, Capture or any accepted AC-214.1/.2/.4-.8.
+Those acceptance gates remain **OPEN**, with AC-214.3 already independently
+checked by the historical 30-claim evidence above.
