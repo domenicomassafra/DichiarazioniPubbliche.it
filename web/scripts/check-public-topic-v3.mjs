@@ -37,7 +37,8 @@ const pin = {
   expectedPeopleDatasetSha256: people_sha,
   expectedTopicSha256: hash(economia),
   topicId: economia.topic_id,
-  validUntil: "2026-10-12T13:00:00+00:00",
+  // Synthetic positive pin expires after this test starts; never a production approval.
+  validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   allowTopicV3: true,
 };
 
@@ -106,7 +107,9 @@ try {
 
   await rejects("opt-in-off", populated, economia, {allowTopicV3:false});
   await rejects("stale-release", revoked, economia); // held/withdrawn new release, OLD pin
-  await rejects("expired-authority", populated, economia, {validUntil:"2026-10-11T00:00:00Z"});
+  await rejects("expired-authority", populated, economia, {
+    validUntil: new Date(Date.now() - 60_000).toISOString(),
+  });
   await rejects("unknown-topic", populated, economia, {topicId:"topic:missing"});
   await rejects("wrong-topic-digest", populated, economia, {expectedTopicSha256:hash(economica)});
   const forged = structuredClone(populated);
