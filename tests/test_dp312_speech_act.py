@@ -239,6 +239,49 @@ class SpeechActContextTests(unittest.TestCase):
                 self.assertEqual(result.speech_act, "QUOTE")
                 self.assertNotEqual(result.stance, "ENDORSE")
 
+    def test_unbalanced_curly_single_quote_does_not_endorse_quoted_words(self):
+        def classify(source):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                quote_start=0, quote_end=len(source),
+                turn_start=0, turn_end=len(source),
+                utterer_id="person:a", turn_speaker_ids=("person:a",),
+                source_part_ref="part:a", turn_complete=True, language="en",
+            )
+
+        for fragment in (
+            "‘I support the policy.",
+            "’I support the policy.",
+            "’I support the policy.‘",
+            "‘I support the ‘policy’ today.’",
+            "‘I’m certain I support the policy.",
+        ):
+            with self.subTest(fragment=fragment):
+                result = classify(fragment)
+                self.assertEqual(result.state, "HOLD_FOR_CONTEXT")
+                self.assertEqual(result.stance, "UNKNOWN")
+                self.assertIn("UNBALANCED_QUOTATION", result.signal_codes)
+                self.assertFalse(result.publication_authority)
+                self.assertEqual(
+                    verify_speech_act_context_metadata(
+                        result.to_metadata(), source_text=fragment
+                    ).binding_sha256,
+                    result.binding_sha256,
+                )
+
+        for quoted in ("‘I support the policy.’", "‘I’m certain I support the policy.’"):
+            with self.subTest(quoted=quoted):
+                complete = classify(quoted)
+                self.assertEqual((complete.speech_act, complete.stance),
+                                 ("QUOTE", "NON_COMMITTAL"))
+                self.assertEqual(complete.state, "CANDIDATE_PRIVATE")
+        for plain in ("I support the policy.", "I’m certain I support the policy."):
+            with self.subTest(plain=plain):
+                direct = classify(plain)
+                self.assertEqual((direct.speech_act, direct.stance, direct.state),
+                                 ("ASSERTION", "ENDORSE", "CANDIDATE_PRIVATE"))
+
     def test_multiple_sentences_cannot_be_collapsed_into_one_stance(self):
         source = "Io sostengo che il piano sia utile. Ma non sostengo che sia definitivo."
         result = assess(source)

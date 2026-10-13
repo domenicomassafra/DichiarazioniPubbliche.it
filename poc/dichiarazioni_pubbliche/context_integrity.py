@@ -403,7 +403,7 @@ SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
 _SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
 _SPEECH_ACT_MAX_TURN_CHARS = 12000
 _QUOTED_TEXT_RE = re.compile(
-    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|‘[^‘’]+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”]+”|‘(?:[^‘’]|(?<=\w)’(?=\w))+’|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
 )
 _SPEECH_ACT_CUES = {
     "it": {
@@ -578,6 +578,11 @@ def assess_speech_act_context(
     for opener, closer in (("«", "»"), ("‹", "›"), ("“", "”")):
         if turn.count(opener) != turn.count(closer):
             signals.append("UNBALANCED_QUOTATION")
+    # Accept alternating curly quote pairs, excluding apostrophes within
+    # words (I’m, l’amore). Equal counts alone miss reversed/nested quotes.
+    curly_delimiters = "".join(re.findall(r"‘|(?<!\w)’|’(?!\w)", turn))
+    if curly_delimiters != "‘’" * (len(curly_delimiters) // 2):
+        signals.append("UNBALANCED_QUOTATION")
     if turn.count('"') % 2:
         signals.append("UNBALANCED_QUOTATION")
     if len(re.findall(r"[.!?](?=\s|$)", turn)) > 1:
