@@ -223,3 +223,40 @@ This is local private-ledger isolation only. There was no real source or
 provider execution, no MiniPC/Studio readback, no independently annotated
 multi-speaker acceptance or cost/false-attribution baseline. Original
 **AC-240.1–.6 remain OPEN**, status **IN PROGRESS**, release **NO-GO**.
+
+### 2026-10-13 — Independent P2: PRAGMA pathname does not identify SQLite's held inode
+
+Independent GPT-6 high review of the first SQLite path-swap fix reproduced a
+second **read-poisoning P2**, even after `PRAGMA database_list` and file `stat`
+were checked. With one private `0600` trusted database at revision 0 and an
+unrelated `0644` SQLite database containing an extra synthetic attempt at
+revision 1, a concurrent local `rename()` moved the unrelated **regular**
+file under the trusted pathname just for `sqlite3.connect`, then restored the
+files immediately. SQLite retained the foreign open handle while
+`PRAGMA database_list` reported the restored trusted *path*. Both subsequent
+`Path.stat()` checks appeared valid, yet `read(plan)` returned the foreign
+revision 1. A real SQLite regression reproduced this **RED**. The analogous
+writer test raised SQLite `SQLITE_READONLY_DBMOVED`; that observation must not
+be misreported as a confirmed cross-database private-row write.
+
+Read-only opens now use a validated `os.open(O_RDONLY|O_NOFOLLOW)` descriptor,
+compare its **actual `fstat()` device/inode and 0600 mode** with the initial
+private source, and open SQLite through the pinned `file:/dev/fd/N?mode=ro`
+path while the descriptor remains open. SQLite holds the original open file
+rather than following any intervening pathname swap; the descriptor is closed
+once the independent SQLite read handle exists. A previously accepted
+rename-swap no longer redirects SQLite into the unrelated external plan, while
+normal source snapshots and replay remain readable. The existing writable
+path remains guarded by the original 0600 check, post-connect pathname check
+and SQLite's moved-database write protection; this is **not** a general VFS
+identity or cross-process hostile-writer security proof.
+
+A second RED→GREEN negative covers external `WAL` journal mode. A pinned
+read-only `/dev/fd` SQLite path does not identify the original WAL sidecar,
+which can produce `disk I/O error` or a stale read; it now fails closed with
+`MULTIPERSON_STORE_PATH_INVALID`, without serving partial receipts. The
+reference private batch store still uses SQLite's default DELETE journal
+mode and does not claim WAL compatibility. **58/58 local DP240 and neighboring
+candidate-batch tests PASS**, scoped Ruff and diff check PASS. No real source,
+provider, MiniPC, live database or publication action occurred. All original
+AC-240.1–.6 stay OPEN, ticket IN PROGRESS, current release NO-GO.

@@ -526,6 +526,62 @@ print(json.dumps({'before':before.revision,'after':after.revision,
             )
         self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
 
+    def test_regular_file_swap_during_read_cannot_poison_private_receipts(self):
+        from contextlib import closing
+        from unittest.mock import patch
+
+        trusted = self.store.register(self.plan)
+        self.assertEqual(trusted.revision, 0)
+        alternate = self.path.with_name("foreign.sqlite3")
+        foreign = PrivateBatchSQLiteStore(alternate)
+        foreign.register(self.plan)
+        foreign.observe(
+            self.plan, self.plan.items[0], observation(self.plan.items[0]),
+            attempt_key="exposed:attempt", expected_revision=0,
+        )
+        alternate.chmod(0o644)
+        original = sqlite3.connect
+        preserved = self.path.with_name("preserved-original.sqlite3")
+        swaps = 0
+
+        def switched_open(database, *args, **kwargs):
+            nonlocal swaps
+            if str(database) != self.path.as_uri() + "?mode=ro":
+                return original(database, *args, **kwargs)
+            swaps += 1
+            self.path.rename(preserved)
+            alternate.rename(self.path)
+            try:
+                return original(database, *args, **kwargs)
+            finally:
+                self.path.rename(alternate)
+                preserved.rename(self.path)
+
+        with patch(
+            "dichiarazioni_pubbliche.multi_person_batch_store_v1.sqlite3.connect",
+            side_effect=switched_open,
+        ):
+            observed = self.store.read(self.plan)
+        self.assertEqual(observed.revision, 0)
+        self.assertEqual(observed.attempts, ())
+        self.assertEqual(self.store.read(self.plan).revision, 0)
+        with closing(original(alternate)) as foreign_file:
+            self.assertEqual(foreign_file.execute(
+                "SELECT revision FROM dp240_plans WHERE plan_sha256=?",
+                (self.plan.plan_sha256,),
+            ).fetchone()[0], 1)
+        self.assertEqual(swaps, 0, "reader must pin the original DB file, not reopen a swappable pathname")
+
+    def test_wal_mode_is_explicitly_held_not_read_as_stale_main_inode(self):
+        # An FD-bound readonly view must never silently omit pending WAL
+        # receipts from a pinned private plan; this store writes in DELETE
+        # journal mode and does not support external WAL mutation.
+        self.store.register(self.plan)
+        with closing(sqlite3.connect(self.path)) as writer:
+            self.assertEqual(writer.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
+            with self.assertRaisesRegex(ValueError, "MULTIPERSON_STORE_PATH_INVALID"):
+                self.store.read(self.plan)
+
     def test_unknown_store_read_never_creates_file_or_persists_private_text(self):
         new_path = self.path.with_name("never-created.sqlite3")
         with self.assertRaisesRegex(ValueError, "PATH_INVALID"):

@@ -154,14 +154,34 @@ class PrivateBatchSQLiteStore:
         if not stat.S_ISREG(verified.st_mode) or verified.st_mode & 0o077:
             raise ValueError("MULTIPERSON_STORE_PERMISSIONS_INVALID")
         if readonly:
-            # Reads must never create a new database or silently mutate a
-            # schema, even when a caller passes a never-initialized path.
-            connection = sqlite3.connect(
-                self.path.as_uri() + "?mode=ro",
-                uri=True,
-                isolation_level=None,
-                timeout=5.0,
-            )
+            # A pathname returned by PRAGMA database_list is NOT the inode
+            # SQLite actually opened. Pin a private regular-file descriptor
+            # first and open the readonly SQLite handle through that FD.
+            # A concurrent rename-only replacement of the original pathname
+            # cannot redirect this handle into an unrelated private ledger.
+            fd = None
+            try:
+                fd = os.open(
+                    self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_CLOEXEC", 0),
+                )
+                pinned = os.fstat(fd)
+                original_identity = (verified.st_dev, verified.st_ino)
+                if (not stat.S_ISREG(pinned.st_mode)
+                    or pinned.st_mode & 0o077
+                    or (pinned.st_dev, pinned.st_ino) != original_identity
+                    or (self.path.stat().st_dev, self.path.stat().st_ino)
+                    != original_identity):
+                    raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+                connection = sqlite3.connect(
+                    f"file:/dev/fd/{fd}?mode=ro", uri=True,
+                    isolation_level=None, timeout=5.0,
+                )
+            except (OSError, sqlite3.DatabaseError) as exc:
+                raise ValueError("MULTIPERSON_STORE_PATH_INVALID") from exc
+            finally:
+                if fd is not None:
+                    os.close(fd)
         else:
             connection = sqlite3.connect(self.path, isolation_level=None, timeout=5.0)
         # SQLite opens the database after our pathname/mode check. A local
@@ -178,17 +198,29 @@ class PrivateBatchSQLiteStore:
             ]
             if len(main_files) != 1 or self.path.is_symlink():
                 raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
-            opened = Path(main_files[0]).stat()
             current = self.path.stat()
             original_identity = (verified.st_dev, verified.st_ino)
-            if (
-                original_identity != (opened.st_dev, opened.st_ino)
-                or original_identity != (current.st_dev, current.st_ino)
-                or not stat.S_ISREG(opened.st_mode)
-            ):
+            if (original_identity != (current.st_dev, current.st_ino)):
                 raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+            if not readonly:
+                # For writers, SQLite's own moved-database detection still
+                # prevents a transaction after replacement of the main inode.
+                # The PRAGMA path alone is not proof of an opened FD identity.
+                opened = Path(main_files[0]).stat()
+                if (not stat.S_ISREG(opened.st_mode)
+                    or original_identity != (opened.st_dev, opened.st_ino)):
+                    raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
+            else:
+                opened = verified
             if opened.st_mode & 0o077 or current.st_mode & 0o077:
                 raise ValueError("MULTIPERSON_STORE_PERMISSIONS_INVALID")
+            if readonly:
+                # FD URI is deliberately independent of a pathname swap.
+                # Its journal sidecar path is not the canonical DB sidecar;
+                # never serve a potentially stale WAL-mode ledger snapshot.
+                mode = connection.execute("PRAGMA journal_mode").fetchone()
+                if not mode or mode[0] != "delete":
+                    raise ValueError("MULTIPERSON_STORE_PATH_INVALID")
         except (OSError, sqlite3.DatabaseError) as exc:
             connection.close()
             raise ValueError("MULTIPERSON_STORE_PATH_INVALID") from exc
