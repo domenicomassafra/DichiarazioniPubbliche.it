@@ -638,9 +638,15 @@ def assess_speech_act_context(
     quote_spans = sorted((*curly_spans, *other_spans))
     if curly_unbalanced:
         signals.append("UNBALANCED_QUOTATION")
-    for opener, closer in (("«", "»"), ("‹", "›"), ("“", "”")):
+    for opener, closer in (("«", "»"), ("‹", "›")):
         if turn.count(opener) != turn.count(closer):
             signals.append("UNBALANCED_QUOTATION")
+    # Matching counts do not establish ordered typographic double quotes:
+    # reversed ”...“ or nested “...“...” was previously misclassified
+    # as a directly endorsed assertion. Require alternating complete pairs.
+    smart_double = "".join(char for char in turn if char in "“”")
+    if smart_double != "“”" * (len(smart_double) // 2):
+        signals.append("UNBALANCED_QUOTATION")
     if turn.count('"') % 2:
         signals.append("UNBALANCED_QUOTATION")
     if len(re.findall(r"[.!?](?=\s|$)", turn)) > 1:

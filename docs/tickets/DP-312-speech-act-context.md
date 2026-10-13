@@ -92,3 +92,20 @@ language parser, qualified source reviewer, or publication permit: ambiguous
 noun/quotation boundaries are intentionally held, and all AC-312.1–.6 stay
 OPEN pending real multilingual annotated sources, protected runtime and
 human acceptance. No source Capture, rights grant or MiniPC deploy occurred.
+
+## 2026-10-13 — Ordered double-typographic quotation integrity (independent P2)
+
+A separate native read-only review of the source-only PR reproduced a
+false private endorsement for a reversed U+201D/U+201C pair: `”I support the
+policy“` and analogous Italian/German support turns were treated as direct
+`ASSERTION / ENDORSE` because the existing source parser checked only equal
+open/close counts. A new focused negative regression was **RED in three
+languages** before the change. The parser now also requires each complete
+U+201C/U+201D sequence to alternate in source order; reversed or nested
+non-pairs force `UNBALANCED_QUOTATION / HOLD_FOR_CONTEXT / UNKNOWN` before
+lexical endorsement. Valid complete quotation, direct assertion and the new
+U+2018/U+2019 orthographic scanner remain independently guarded. The
+regression is GREEN and 91 related tests, Ruff, deterministic benchmark and
+diff check pass. This is a private fail-closed preflight only, not a
+multilingual grammar guarantee, attribution/rights approval or public route.
+All original AC-312.1–6 remain OPEN.
