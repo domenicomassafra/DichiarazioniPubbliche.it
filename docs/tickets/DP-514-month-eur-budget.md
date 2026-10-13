@@ -441,3 +441,27 @@ synthetic tests and 22 isolated disposable PG and diagnostic tests PASS,
 Ruff and diff-check PASS. The exact new CI SHA must be verified before any
 technical merge. The original DP-514 SQL failure is still unexplained; no
 retry, provider billing action or changed PG timeout has been introduced.
+
+### 2026-10-13 — Fifth real failure yields SQLSTATE 57014 in disposable CI
+
+The diagnostics above have now captured the *first original PostgreSQL error
+class* on a new, real (not rerun) backend job: Draft PR #19 source SHA
+`db92016275f640a32a64165225399734a79cec02`, GitHub Actions run
+`38397519673`, Ubuntu Python 3.12 job `115296427545` failed the same
+`test_claimed_refund_is_append_only_but_never_offsets_spend` during
+`SNAPSHOT` on a local `dp512_test_` PostgreSQL fixture. Its bounded output:
+
+`DP514_CI_PG_DIAGNOSTIC operation=SNAPSHOT exit_code=3 sqlstate=57014 category=QUERY_CANCELED elapsed_ms=10953`
+
+This is **strong evidence of PostgreSQL query cancellation** after about
+10.95 seconds. The same `_run()` sets `statement_timeout='10000ms'`, making
+statement timeout a plausible immediate cause, but the redacted diagnostic
+does **not** establish whether the root trigger was CPU contention, an
+unexpected row/plan cost, blocked lock, other CI capacity pressure, or an
+explicit cancellation. The test fixture inserts only synthetic receipt
+material; the original unredacted PostgreSQL message was intentionally not
+retained. The same test continues to fail a CI gate: **NO root-cause fix,
+NO generic retry and NO unconditional timeout increase**. Investigate the
+bounded `_SNAPSHOT` query and disposable PostgreSQL EXPLAIN/lock evidence
+before any transaction behavior change. Existing refund claims never offset
+spending, `dispatch_authorized` stays false, and all AC-514.1–7 remain OPEN.
