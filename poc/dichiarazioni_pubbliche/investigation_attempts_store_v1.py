@@ -447,6 +447,38 @@ class InvestigationSQLiteStore:
                 or epoch[0] != _source_json(earlier_source)
                 or epoch[1] != _hash({"schema": STORE_VERSION, "source": epoch[0]})):
                 raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+            earlier_spec, earlier_assignments = _resume_scope(raw_scope)
+            if (earlier_spec.need_id != earlier_source.need_id
+                or earlier_spec.material_fingerprint != earlier_source.material_fingerprint):
+                raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+            # The persisted scope's source pointer can be changed to another
+            # *valid* immutable epoch. A cost-bearing RESERVED event is the
+            # append-only identity anchor: validate its original source and
+            # checksum before treating any scoped reservation as unrelated.
+            for event_no, kind, raw, checksum in conn.execute(
+                "SELECT event_no,kind,event_json,checksum FROM dp319_events "
+                "WHERE plan_fingerprint=? ORDER BY event_no",
+                (earlier_fingerprint,),
+            ):
+                if checksum != _hash({
+                    "schema": STORE_VERSION, "plan": earlier_fingerprint,
+                    "seq": event_no, "kind": kind, "payload": raw,
+                }):
+                    raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
+                if kind != "RESERVED":
+                    continue
+                event = _parse(raw, {f.name for f in fields(InvestigationReservation)})
+                if (
+                    event["plan_fingerprint"] != earlier_fingerprint
+                    or event["material_fingerprint"] != earlier_source.material_fingerprint
+                    or event["source_id"] != earlier_source.source_id
+                    or event["candidate_id"] != earlier_source.candidate_id
+                    or event["source_version"] != earlier_source.source_version
+                    or event["source_sha256"] != earlier_source.source_sha256
+                    or type(event["source_revision"]) is not int
+                    or event["source_revision"] != earlier_source.revision
+                ):
+                    raise ValueError("INVESTIGATION_STORE_INTEGRITY_INVALID")
             if earlier_fingerprint == fingerprint:
                 continue
             prior_key = (
@@ -456,7 +488,6 @@ class InvestigationSQLiteStore:
             )
             if prior_key != source_key:
                 continue
-            earlier_spec, earlier_assignments = _resume_scope(raw_scope)
             if _assert_inputs(
                 earlier_spec, earlier_assignments, earlier_source,
             ) != earlier_fingerprint:

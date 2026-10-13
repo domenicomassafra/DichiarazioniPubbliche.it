@@ -449,6 +449,53 @@ class ModernCrossScopeCostFenceTests(unittest.TestCase):
             self.db.register(self.s, self.changed(key="authority"), self.source)
         self.assertEqual(self.snapshot(), rows_before)
 
+    def test_swapping_scope_to_different_valid_epoch_cannot_hide_cost_receipt(self):
+        prior = self.db.reserve(
+            self.s, self.a, self.source, key="modern:epoch-swap", expected_revision=0,
+        )
+        second = source(
+            revision=2, version="capture:v2", fingerprint="source-version-sha:b",
+            sha="f" * 64,
+        )
+        self.db.record_source(second, expected_revision=1)
+        # Same immutable material later reappears after an intervening source
+        # epoch. A prior RESERVED still binds the *original* source bytes.
+        third = replace(self.source, revision=3)
+        self.db.record_source(third, expected_revision=2)
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
+                (_json(asdict(second)), prior.decision.plan_fingerprint),
+            )
+        original_rows = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "INTEGRITY_INVALID"):
+            self.db.register(
+                self.s, self.changed(key="authority"), third,
+            )
+        self.assertEqual(self.snapshot(), original_rows)
+        self.assertEqual(len(self.snapshot()[1]), 1)
+
+    def test_unrelated_valid_source_epoch_cannot_replace_earlier_cost_receipt(self):
+        prior = self.db.reserve(
+            self.s, self.a, self.source, key="modern:unrelated-epoch", expected_revision=0,
+        )
+        unrelated = replace(
+            self.source, need_id="need:unrelated", source_id="source:unrelated",
+            candidate_id="candidate:unrelated", material_fingerprint="material:unrelated",
+            source_version="capture:unrelated", source_sha256="f" * 64,
+        )
+        self.db.record_source(unrelated, expected_revision=0)
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE dp319_scopes SET source_json=? WHERE plan_fingerprint=?",
+                (_json(asdict(unrelated)), prior.decision.plan_fingerprint),
+            )
+        before = self.snapshot()
+        with self.assertRaisesRegex(ValueError, "INTEGRITY_INVALID"):
+            self.db.register(self.s, self.changed(key="authority"), self.source)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(len(self.snapshot()[1]), 1)
+
     def test_cost_free_changed_modern_plan_can_register_and_new_version_can_reserve(self):
         b = self.changed()
         self.assertEqual(

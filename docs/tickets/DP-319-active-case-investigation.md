@@ -231,3 +231,25 @@ under the existing write lock, without another reservation. **2/2 GREEN**
 and 77 scoped/neighbor unit tests GREEN after the correction; no real DB,
 provider, Capture or owner authorization touched. Older v1 scope resume and
 all original DP-319 AC remain open pending audited migration and real runtime.
+
+### 2026-10-13 — Validate original append-only RESERVED source identity
+
+The stricter source-epoch check above still admitted an *indirect* P2 bypass:
+replace one prior scope's mutable `source_json` with a different, entirely
+legitimate registered epoch. Its JSON and checksum then matched a real source
+registry entry, but its persisted `RESERVED` event still referred to the
+original source. This could hide a cost-bearing attempt from a later same-source
+scope registration. Independent red reproductions covered (a) an intervening
+version/epoch on the same need and (b) a separate need and source, leaving the
+original event intact. Before the patch the relevant `register` call succeeded.
+
+`_reject_cross_scope_cost_replay` now checks each prior parsed scope's need and
+material against its source registry binding and checks the append-only event
+checksum and every `RESERVED` event's original source/Content/version/SHA and
+revision against that same registered source **before** comparing current
+source-key equality. Any replacement with another valid source epoch therefore
+fails `INVESTIGATION_STORE_INTEGRITY_INVALID` rather than creating a new paid
+reservation. Both new negative regressions and 79 scoped/neighboring tests
+pass on disposable SQLite; this does not recover old v1 resume, permit a real
+investigation, or close any DP-319 AC. CI and independent current-SHA review
+remain separate required gates.
