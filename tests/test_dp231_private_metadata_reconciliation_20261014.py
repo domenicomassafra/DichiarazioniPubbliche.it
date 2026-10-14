@@ -302,6 +302,49 @@ class PrivateMetadataReviewTests(unittest.TestCase):
                 expected_public_projection_sha256=current["dataset_sha256"],
             )
 
+    def test_same_conflict_code_changed_private_evidence_requires_recheck(self):
+        # Independent P2: the canonical metadata parser stores only a SHA
+        # of an unsafe URL; switching unsafe URL A -> B retains the SAME
+        # UNSAFE_CANONICAL_CANDIDATE conflict code. The review must notice
+        # changed evidence without exposing either URL or its raw content.
+        def private_candidate(url):
+            return build_metadata_enrichment(
+                content_id="content:a",
+                parsed_metadata={"canonical_url_candidates": [url]},
+                content_identity={"canonical_url": "https://example.test/source"},
+            )
+
+        before = private_candidate("http://example.test/PRIVATE_PREVIOUS")
+        current = private_candidate("http://example.test/PRIVATE_CURRENT")
+        self.assertEqual(
+            [row.code for row in before.conflicts],
+            [row.code for row in current.conflicts],
+        )
+        result = self.plan(before, current)
+        self.assertEqual(result.status, "REVIEW_REQUIRED")
+        self.assertEqual(result.new_conflict_codes, ())
+        self.assertIn("metadata_conflict_evidence", result.changed_fields)
+        self.assertIn("METADATA_CONFLICT_EVIDENCE_CHANGED", result.reason_codes)
+        self.assertNotIn("PRIVATE_PREVIOUS", repr(result))
+        self.assertNotIn("PRIVATE_CURRENT", repr(result))
+        self.assertNotIn("example.test", repr(result))
+
+    def test_duplicate_same_private_conflict_changes_evidence_cardinality(self):
+        # Set-based comparison loses multiplicity: one blocked locator vs
+        # two identical blocked locators have distinct pinned metadata.
+        def blocked(locators):
+            return build_metadata_enrichment(
+                content_id="content:a",
+                parsed_metadata={"canonical_url_candidates": locators},
+                content_identity={"canonical_url": "https://example.test/source"},
+            )
+
+        private = "http://example.test/PRIVATE_UNTRUSTED"
+        result = self.plan(blocked([private]), blocked([private, private]))
+        self.assertEqual(result.status, "REVIEW_REQUIRED")
+        self.assertIn("metadata_conflict_evidence", result.changed_fields)
+        self.assertNotIn("PRIVATE_UNTRUSTED", repr(result))
+
 
 if __name__ == "__main__":
     unittest.main()

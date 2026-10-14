@@ -158,3 +158,58 @@ a new provider, MiniPC or legal/editorial acceptance; independent final
 post-fix reviewer and completed full-suite results are separately recorded.
 
 **Definitive combined source-only validation (2026-10-14):** exactly one completed `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q` on detached main with **15 verified byte-identical source/test files** across the new DP-231 feature and published DP-314/DP-320/DP-439/DP-440 worktrees: **3,517/3,517 PASS, exit 0 in 299.292 seconds**. DP-231+adjacent local scope **67/67 PASS**, Ruff check/format PASS, deterministic benchmark **5/5 PASS**. The reviewer independently reproduced the two Content identity P2 cases before these RED→GREEN corrections; the review's bounded post-fix decision is recorded separately, not inferred from implementer test outcomes. No new actual legal rights or oEmbed/provider lookup, no production capture/DB/launch, no MiniPC acceptance, and no Status/AC changes.
+
+**Further independent reviewer P2 after first commit `29feec67`:** worker-9
+reproduced a false-clean manual review when two *different* unsafe canonical
+URL observations have the same `UNSAFE_CANONICAL_CANDIDATE` conflict code.
+The old comparator reduced conflicts to code-only sets, so exact old/new
+independently pinned metadata SHA differed while the planner returned
+`UNCHANGED_REVIEW_PENDING` and no changed fields. A new deterministic REAL
+metadata parser fixture first went **RED**, then the planner began comparing
+**full bounded private typed conflict identities** before emitting only the
+code `METADATA_CONFLICT_EVIDENCE_CHANGED` and generic
+`metadata_conflict_evidence` change flag. No raw conflicting URLs, names,
+provider metadata or private notes leave the review-plan DTO. New and
+adjacent DP-231 tests now **68/68 PASS**, Ruff/format PASS. The historical
+3,517-test run above validated the *previous* SHA, not this newly changed
+source: a separate completed full-suite receipt is mandatory before treating
+this follow-up as final. Independent post-fix re-review is requested and
+its result must be recorded honestly, never inferred from the test count.
+
+**Post-review multiplicity follow-up (2026-10-14):** a separate real
+adversarial fixture showed another false-clean case in the same conflict
+identity comparison: one blocked private canonical candidate versus **two
+identical** blocked candidates changed the exact independently pinned
+metadata snapshot but a `set` comparison lost the duplicate row. The
+`test_duplicate_same_private_conflict_changes_evidence_cardinality` test
+was genuinely **RED**, then changed the comparison to a deterministically
+sorted **multiset** (tuple with multiplicity) of validated private typed
+conflicts; the review output still contains only generic changed-field and
+reason codes, no raw candidate URL or title. DP-231 new+adjacent local
+regression **69/69 GREEN**. A full Python run started before this last
+source fix was deliberately interrupted by TERM (not counted as PASS), and
+will be replaced by one completed full-suite receipt on the final bytes.
+Reviewer independent re-execution of this last exact duplicate case is
+required before claiming a final source-only PASS.
+
+**Final source freeze after both same-code P2 fixes, 2026-10-14:** the
+multiset comparison preserves identical private conflict cardinality and
+an independent reviewer (worker-9, strict read-only, no Git/source changes)
+replayed (a) same conflict code / different private observed URL hashes,
+(b) duplicate identical unsafe candidate one vs two, and (c) reordering
+of distinct observations. Both real SHA-pinned changed-evidence cases now
+require human review, whereas reordering remains unchanged; no raw private
+URL, hostname, private fingerprint, candidate title or source body leaks in
+output. Its independent new+adjacent **101/101 tests PASS** and bounded
+**no remaining P1/P2 reproduced** apply to this code-only source contract,
+not source rights/provider/CDN/public deployment acceptance.
+
+The **single final completed** five-lane full Python suite on exact
+byte-identical code/tests is **3,519/3,519 PASS (exit 0, 293.855 s)**,
+`python3 -m dichiarazioni_pubbliche.benchmark` is **5/5 PASS**,
+Ruff/formatted-check PASS. The earlier **3,517/3,517** full run was on
+pre-P2 bytes; another pre-final run was interrupted by TERM after the
+same-root duplicate finding and is **NOT** counted as a completed result.
+This post-DONE receipt changes no original DP-231 Status/AC and does not
+claim approved official source selection, capture, provider access,
+MiniPC, legal/editorial authority or publication.

@@ -312,6 +312,28 @@ def plan_private_metadata_recheck(
         tuple(sorted(after_codes - before_codes)),
         tuple(sorted(before_codes - after_codes)),
     )
+
+    # A conflict code alone is not an identity for its observed evidence.
+    # E.g. two different blocked private URLs both produce
+    # UNSAFE_CANONICAL_CANDIDATE while their safe digest-only observations
+    # differ. Compare full private snapshots here but expose ONLY a typed
+    # changed-field flag, never raw values, URLs or per-candidate content.
+    def conflict_identity(item: dict[str, Any]) -> tuple:
+        return (
+            item["code"],
+            item["field"],
+            item["expected_origin"],
+            item["expected_value"],
+            tuple(item["observed_values"]),
+        )
+
+    # Preserve cardinality: a repeated blocked candidate is still a change
+    # in the pinned private evidence, even when every typed conflict code
+    # and observed fingerprint is otherwise identical. Order is immaterial.
+    if tuple(sorted(conflict_identity(item) for item in older["conflicts"])) != tuple(
+        sorted(conflict_identity(item) for item in newer["conflicts"])
+    ):
+        changed.add("metadata_conflict_evidence")
     reasons: set[str] = set()
     if source_use_status != "APPROVED":
         reasons.add("SOURCE_USE_NOT_APPROVED")
@@ -325,6 +347,8 @@ def plan_private_metadata_recheck(
         reasons.add("PUBLIC_CONTENT_LOCATOR_MISMATCH")
     if changed:
         reasons.add("METADATA_CHANGED")
+    if "metadata_conflict_evidence" in changed:
+        reasons.add("METADATA_CONFLICT_EVIDENCE_CHANGED")
     if added_codes:
         reasons.add("NEW_METADATA_CONFLICT")
     if source_use_status != "APPROVED" or source_review_status != "APPROVED":
