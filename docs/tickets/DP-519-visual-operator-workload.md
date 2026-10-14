@@ -238,3 +238,22 @@ check was restored. Scoped Ruff lint and formatting, Python compilation and
 `git diff --check` passed. No runtime deployment, real operator-minute
 recording, external source authorization, source text export or provider
 action was performed.
+
+## 2026-10-14 — Aged withdrawal backlog accounting (source only)
+
+An overdue `WITHDRAWAL_PENDING_EXTERNAL_READBACK` item was omitted from
+`older_unresolved_count` despite its explicit outstanding external readback.
+The synthetic RED case with a ten-day-old selected-and-withdrawn asset,
+an expired no-image option and an already-resolved `NO_IMAGE` reported **0**
+aged unresolved cases. The reconciler now includes the pending-withdrawal
+state in its existing unresolved-state set; GREEN reports **1**. Expired
+optional no-image work and an explicit `NO_IMAGE` stay outside that count:
+no owner review, public withdrawal or image eligibility is inferred.
+
+All **62/62** visual, persisted SQLite, disposable PostgreSQL, private HTTP
+and neighboring Studio operator-queue tests pass; scoped Ruff check/format
+and `git diff --check` pass.
+This corrects an AC-519.3 source accounting edge case only. The original
+`AC-519.1–.5` remain **unchecked** and DP-519 remains **IN PROGRESS**:
+actual owner time, authenticated actor/source rights, licensed image choice,
+MiniPC acceptance and DP-518 public withdrawal/readback are still unproved.

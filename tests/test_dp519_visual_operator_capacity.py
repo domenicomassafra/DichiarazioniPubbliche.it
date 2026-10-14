@@ -250,6 +250,42 @@ class VisualOperatorCapacityTests(unittest.TestCase):
         self.assertTrue(outcome.rows[0].withdrawal_review_required)
         self.assertFalse(outcome.rows[0].image_eligible)
 
+    def test_older_unresolved_counts_pending_withdrawal_without_reviving_no_image(self):
+        expired = replace(
+            work("expired", age_days=10), expires_at=NOW - timedelta(days=1)
+        )
+        withdrawal = work("withdrawal", age_days=10, reason="IMAGE_STALE")
+        chosen = event(
+            withdrawal,
+            "chosen",
+            action="CHOOSE_CANDIDATE",
+            asset=withdrawal.asset_sha256,
+            completed=NOW - timedelta(hours=2),
+        )
+        withdrawn = event(
+            withdrawal,
+            "withdrawn",
+            action="WITHDRAW_IMAGE",
+            previous=chosen.event_id,
+        )
+        resolved = work("resolved", age_days=10)
+        done = event(resolved, "resolved", actor="owner:other")
+        report = reconcile_visual_capacity(
+            (expired, withdrawal, resolved),
+            (withdrawn, chosen, done),
+            (),
+            now=NOW,
+        )
+        states = {row.work_key: row.state for row in report.rows}
+        self.assertEqual(states[expired.work_key], "EXPIRED_NO_IMAGE_OPTION")
+        self.assertEqual(
+            states[withdrawal.work_key], "WITHDRAWAL_PENDING_EXTERNAL_READBACK"
+        )
+        self.assertEqual(states[resolved.work_key], "NO_IMAGE_SELECTED")
+        # Safe expired/no-image paths do not invent pending human approval;
+        # an explicit withdrawal remains pending until external readback.
+        self.assertEqual(report.older_unresolved_count, 1)
+
     def test_week_crossing_receipt_is_split_into_actual_iso_weeks(self):
         # 2026-10-12 Mon 00:00 UTC is the ISO week boundary.
         clock = datetime(2026, 10, 12, 0, 11, tzinfo=timezone.utc)
