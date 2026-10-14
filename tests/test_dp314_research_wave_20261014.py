@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import unittest
-from dataclasses import replace
+from dataclasses import fields, replace
 from pathlib import Path
 
 sys.path[:0] = [
@@ -150,6 +150,45 @@ class PrivateResearchWaveTests(unittest.TestCase):
             (replacement.evidence_id,),
         )
         self.assertEqual(planned.status, "MANUAL_RECHECK_REQUIRED")
+
+    def test_mutable_batch_subclass_swaps_private_action_after_validation_denied(self):
+        # Independent worker-9 P2: canonical delta validation accepts a
+        # PrivateResearchBatch subclass that changes `items` AFTER the SHA
+        # validation, before this queue reads its next_steps again.
+        from dichiarazioni_pubbliche.requirement_research_batch_v1 import (
+            PrivateResearchBatch,
+        )
+
+        old = batch()
+        current = batch(
+            observations={
+                "claim:synthetic": (
+                    replace(sources()[0], source_use_status="REVOKED"),
+                    sources()[1],
+                )
+            }
+        )
+
+        class SwappingBatch(PrivateResearchBatch):
+            def __getattribute__(self, name):
+                if name == "items":
+                    accesses = object.__getattribute__(self, "accesses") + 1
+                    object.__setattr__(self, "accesses", accesses)
+                    rows = super().__getattribute__("items")
+                    if accesses >= 7:
+                        return (
+                            replace(
+                                rows[0], next_steps=("PRIVATE_RAW_TRANSCRIPT_SENTINEL",)
+                            ),
+                        )
+                    return rows
+                return super().__getattribute__(name)
+
+        shaped = {item.name: getattr(current, item.name) for item in fields(current)}
+        evil = SwappingBatch(**shaped)
+        object.__setattr__(evil, "accesses", 0)
+        with self.assertRaisesRegex(ValueError, "WAVE_BATCH_INVALID"):
+            self.wave(old, evil)
 
 
 if __name__ == "__main__":

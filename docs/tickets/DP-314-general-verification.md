@@ -344,6 +344,24 @@ nor repeated evidence IDs constitute independent corroboration, source
 approval, factual verification or publication. Final independent re-review
 of the patched source remains separately tracked.
 
+**2026-10-14 follow-up independent P2: batch after-validation TOCTOU.**
+Worker-9 showed that an inherited `PrivateResearchBatch` subclass could
+return its canonical `items` during the upstream delta SHA/preflight checks
+and then replace `next_steps` on a later read, causing an unreviewed private
+action marker to appear in the priority queue despite unchanged externally
+expected pins. A new deterministic subclass reproducer first **RED** (queue
+accepted the modified DTO); `plan_research_wave` now requires exact typed
+immutable `PrivateResearchBatch`/`ResearchGapItem` fields and snapshots both
+batches via deep copy **before** any SHA validation or later use. Only those
+copies feed `compare_research_batches` and subsequent action/reuse/queue
+reads. The old mutable subclass now refuses `WAVE_BATCH_INVALID`.
+Targeted new and adjacent tests **25/25 PASS**; status IN PROGRESS and all
+original DP-314 acceptance remain unchanged. This is a private contract
+security fix, not proof of authorized sources, legal/factual verification,
+provider behavior, editorial rights, or physical MiniPC readiness.
+
 **Independent final read-only re-review:** worker-9 replayed combined loss `evidence:alpha` and gain `evidence:gamma` with exact two priority buckets, plus simultaneous changed requirement profile. Its extended DP-314 test subset **50/50 PASS**, no further P1/P2 reproduced in this bounded private metadata source contract. The reviewer did not edit code, Git, sources, provider or host. Eligible evidence IDs never attest independent corroboration, source rights, verified facts or editorial publication; original DP-314 AC remain OPEN.
 
 **Final codefreeze validation:** combined source-only Python full suite with final DP-320/DP-440/DP-439/DP-314 file byte identity **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**, Ruff/format PASS; research-wave+adjacent DP-314 targeted **24/24 PASS**, independent reviewer 50-case source subset PASS. Simultaneous alpha loss/gamma gain is now visible with separate review steps. The prefinal whole suite was intentionally interrupted exit143 after a subsequently fixed security finding and is not claimed as PASS. Original status and AC remain open, source rights/provider/physical checks unproven.
+
+**Definitive combined source-only validation (2026-10-14):** one completed full Python suite on detached clean main with 15 exact byte-identical source/test files for DP-314/320/439/440 and new private DP-231: **3,517/3,517 PASS, exit 0 in 299.292 seconds**. New+adjacent DP-314 **25/25 PASS**, deterministic benchmark **5/5 PASS**, Ruff check/format PASS. Reviewer independently reproduced the mutable batch subclass P2 before the RED→GREEN source fix; only an actual independent re-review of that final exact code, not this author's tests, can clear the reviewer gate. All original DP-314 Status/AC remain unchanged and physical/rights/editorial/MiniPC/provider acceptances remain OPEN.

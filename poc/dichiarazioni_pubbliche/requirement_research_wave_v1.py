@@ -9,9 +9,14 @@ independent corroboration or a public source; only a private operator warning.
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 
-from .requirement_research_batch_v1 import PrivateResearchBatch, _digest
+from .requirement_research_batch_v1 import (
+    PrivateResearchBatch,
+    ResearchGapItem,
+    _digest,
+)
 from .requirement_research_delta_v1 import compare_research_batches
 
 VERSION = "private-requirement-research-wave-v1"
@@ -73,6 +78,19 @@ def plan_research_wave(
     self-rehashing these mutable inputs. Even unchanged output is *not* an
     endorsement of evidence or an instruction to publish.
     """
+    # The upstream delta validator admits subclasses via isinstance. A
+    # mutable subclass can switch `items` after that validator's SHA check
+    # and inject arbitrary `next_steps` into our later output. Refuse
+    # dynamic subclasses, detach the exact typed rows ONCE, and exclusively
+    # read these snapshots both during validation and queue construction.
+    for candidate in (previous, current):
+        if (
+            type(candidate) is not PrivateResearchBatch
+            or type(candidate.items) is not tuple
+            or any(type(item) is not ResearchGapItem for item in candidate.items)
+        ):
+            raise ValueError("WAVE_BATCH_INVALID")
+    previous, current = deepcopy(previous), deepcopy(current)
     delta = compare_research_batches(
         previous, current, expected_previous_sha256, expected_current_sha256
     )
