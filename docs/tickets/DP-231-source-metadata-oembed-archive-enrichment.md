@@ -357,3 +357,44 @@ contracts, NOT branch-PR CI, owner-issued source approval, live retrieval,
 legal rights, real HTTP/CDN withdrawal, provider success, editorial
 publication, production DB, deployment, or physical MiniPC acceptance.
 Original DP-231 Status and all AC are intentionally unchanged.
+
+### 2026-10-14 — Private official-source *candidate* metadata coverage planner
+
+New strictly offline `private_source_coverage_v1.py` inspects the complete
+public-v2 Content identity union (standalone first-class Content with no Finding
+and dossier-linked Content) against **multiple independently pinned private
+metadata inventories**. It uses the existing governed DP-231 metadata and
+public projection validators and true capture/parser fixtures; it does not
+fetch an oEmbed endpoint or perform a provider GET, capture, source-body read,
+network lookup, source approval, review decision, identity rewrite or public
+route. Results contain **only opaque SHA-256 Content references, generic
+reason codes, aggregate counts and negative-authority flags**; no Content IDs,
+source/canonical URLs, candidate titles, reviewer notes or private source IDs.
+
+The consumer must independently authenticate the public release SHA and
+generated-at, each private metadata record SHA, the inventory+observed-at
+manifest SHA, and the use/review policy SHA. Every input is validated and
+detached before any later URL comparison. An observed-at age threshold signals
+**inventory observation freshness only**: it is neither content publication
+time nor proof the original metadata/source is current. Missing entries in all
+inventories, partially missing entries, stale empty inventories, disagreement
+across metadata snapshots, conflicting private canonical candidates, and
+different dossier/first-class canonical URLs for the *same* Content ID generate
+holds or a fail-closed exception. Two distinct Content IDs that share a URL
+remain separate subjects and never join by URL. Public Content absent from all
+inventories cannot be reported as a clean audit; private-only metadata is also
+held without exposing its ID. Revoked/pending rights or review stays held even
+when private data self-attests an `OFFICIAL_SOURCE` role; role claims never grant
+source approval or publication authority.
+
+`test_dp231_source_coverage_20261014.py` exercised genuine public-v2 and
+capture metadata fixtures: missing standalones, linked dossier sources,
+canonical conflicts, wrong SHA, source-role self-attestation, stale inventory,
+mutating dict subclass, and inventory/policy changes induced after snapshot
+validation. The missing module first produced **RED** (9 test cases) and the
+completed cases are GREEN: new and adjacent DP-231 metadata/cohort/public
+schema tests **84/84 PASS**, Ruff lint/format and Python compile PASS. An
+independent reviewer, authenticated owner/rights authority, production/MiniPC
+and full-suite final integration remain separate gates. The original DP-231
+Status **DONE** and all original acceptance checkboxes remain unchanged; this
+new private planner supplies no approval to use or publish a source.
