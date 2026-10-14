@@ -527,3 +527,39 @@ Focused and adjacent DP-440 suites **41/41 PASS**, Ruff lint/format and
 follow-up and any full-suite/issuer/rights/editorial/MiniPC acceptance
 remain distinct gates. **DP-440 stays IN PROGRESS and AC-440.1–7
 remain unchecked; no provider, DB, publication or source-body operations.**
+
+## 2026-10-14 — Reviewer-11 P2: reissued Topic source-independence collapse
+
+Independent reviewer-11 identified a **new source-only P2** after
+`2be5462f1b389afa7f0ae0101ae3859e6874e05a`. An initially approved
+two-Statement `READY_READ_MODEL` cites two independent sources. Reissuing
+the current `ApprovedTopicIntersection` with *identical* Statement/version
+keys but both original-lineage labels collapsed to the same reviewed root
+causes canonical `prepare_public_synopsis` to withhold with
+`SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES`. The prior cohort planner only
+compared cited keys and material fields; with fully recomputed
+release/read/Topic SHA pins it incorrectly classified this as `CHANGED`
+instead of `HELD`.
+
+**Saved genuine RED→GREEN:** a new focused regression uses the actual
+validated public-v3 two-source and real `PublicSynopsisRead` fixture.
+Canonical synopsis validation independently returns `WITHHELD`; before
+the source fix the cohort test was **RED** (`CHANGED` rather than
+`HELD`). The new current-read guard checks its **actually cited**
+Statement/version records against the current pinned public projection
+and reviewed membership. It requires two independent original-lineage
+labels, Content IDs, source URLs and source hashes, matching the
+canonical synopsis default source-independence threshold. Lost
+corroboration yields only generic
+`CURRENT_READY_SOURCE_INDEPENDENCE_LOST` and an opaque `HELD` item.
+Legitimate distinct Statement/version keys **may share** a lineage label
+when other cited originals remain independently rooted: the existing
+canonical three-Statement/two-lineage fixture still yields
+`IDLE_NO_AUTHORITY`. Missing/duplicate-key or blank-authority proofs
+still fail closed. No original words, Statement/Person IDs, URLs or
+lineage labels appear in results; no automatic approval or effects.
+
+Local source-only new + adjacent DP-440 tests **42/42 PASS**, Ruff
+lint/format and staged diff check PASS. Independent post-fix review,
+full aggregate suite and real editorial/rights/issuer/MiniPC gates are
+still separate; **DP-440 remains IN PROGRESS and AC-440.1–7 unchecked**.

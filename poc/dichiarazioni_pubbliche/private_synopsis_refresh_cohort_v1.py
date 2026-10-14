@@ -408,6 +408,49 @@ def _current_plan(
         raise ValueError("COHORT_REFRESH_INVALID") from exc
 
 
+def _current_ready_source_independence(
+    release: CohortRelease,
+    key: tuple[str, str],
+    read: PublicSynopsisRead,
+) -> bool:
+    """Mirror the public read's two-source corroboration bound on cited rows.
+
+    Reissued Topic membership can retain exactly the same Statement keys
+    while collapsing all independently reviewed original lineage labels.
+    A metadata/citation equality check alone cannot catch that withdrawal.
+    The canonical default synopsis requires at least two distinct original
+    lineages, Content IDs, source URLs and source-body hashes for its cited
+    sentences; do not require one unique lineage *per* Statement key.
+    """
+    proof = release.memberships.get(key)
+    if proof is None:
+        return False
+    lineages = {
+        (statement_id, version_id): lineage
+        for statement_id, version_id, lineage in proof.statement_lineages
+    }
+    rows = {
+        (row["statement_id"], row["version_id"]): row
+        for row in release.public_bundle["statements"]
+    }
+    sources: set[str] = set()
+    contents: set[str] = set()
+    urls: set[str] = set()
+    hashes: set[str] = set()
+    for sentence in read.sentences:
+        for citation in sentence["citations"]:
+            cited_key = (citation["statement_id"], citation["version_id"])
+            row = rows.get(cited_key)
+            lineage = lineages.get(cited_key)
+            if row is None or lineage is None or row["person_id"] != key[0]:
+                return False
+            sources.add(lineage)
+            contents.add(row["content_id"])
+            urls.add(row["source_url"])
+            hashes.add(row["source_sha256"])
+    return min(len(sources), len(contents), len(urls), len(hashes)) >= 2
+
+
 def plan_synopsis_refresh_cohort(
     *,
     previous: CohortRelease,
@@ -512,6 +555,13 @@ def plan_synopsis_refresh_cohort(
             if current_guard.status != "NO_CHANGE_REVIEW_PENDING":
                 invalid_membership = True
                 reasons.add("CURRENT_READY_READ_DEPENDENCY_NOT_VALID")
+        if (
+            current_read is not None
+            and current_read.status == "READY_READ_MODEL"
+            and not _current_ready_source_independence(current, key, current_read)
+        ):
+            invalid_membership = True
+            reasons.add("CURRENT_READY_SOURCE_INDEPENDENCE_LOST")
         if membership_changed:
             reasons.add("TOPIC_REVIEW_RECEIPT_CHANGED")
         if current_read is not None and current_read.status == "WITHHELD":

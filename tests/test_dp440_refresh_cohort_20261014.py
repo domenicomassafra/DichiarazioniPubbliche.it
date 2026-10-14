@@ -254,6 +254,50 @@ class SynopsisCohortTests(unittest.TestCase):
         self.assertFalse(result.publication_authority)
         self.assertFalse(result.source_rights_authority)
 
+    def test_p2_two_source_lineage_collapse_with_reissued_pins_is_held(self):
+        # Reviewer11 RED: both statements are independent in the canonical
+        # approved old read. A new current proof changes *only* the lineage
+        # labels to one root, so the exact canonical synopsis reviewer now
+        # WITHHOLDS even though the Statement key set and SHA pins are valid.
+        old = release(epoch=10)
+        current = release(copy.deepcopy(old.public_bundle), epoch=11)
+        proof = current.memberships[ONE]
+        collapsed = replace(
+            proof,
+            statement_lineages=tuple(
+                (*entry[:2], "reviewed:same-original-root")
+                for entry in proof.statement_lineages
+            ),
+        )
+        current.memberships[ONE] = collapsed
+        rejected = prepare(
+            current.public_bundle,
+            proof=collapsed,
+            sentences=(
+                sentence(current.public_bundle, 0, review_event_id="review:reissued:0"),
+                sentence(current.public_bundle, 1, review_event_id="review:reissued:1"),
+            ),
+        )
+        self.assertEqual(rejected.status, "WITHHELD")
+        self.assertEqual(rejected.reason_code, "SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES")
+        result = self.run_plan(old, current)
+        self.assertEqual(result.status, "MANUAL_RECHECK_REQUIRED")
+        self.assertEqual(result.review_item_count, 1)
+        self.assertEqual(result.items[0].transition, "HELD")
+        self.assertIn(
+            "CURRENT_READY_SOURCE_INDEPENDENCE_LOST", result.items[0].reason_codes
+        )
+        self.assertFalse(result.publication_authority)
+        self.assertFalse(result.source_rights_authority)
+        for sensitive in (
+            "person:1",
+            "topic:official-test",
+            "statement:1",
+            "reviewed:same-original-root",
+            "https://",
+        ):
+            self.assertNotIn(sensitive, repr(result))
+
     def test_simultaneous_added_retired_changed_and_held_opaque_items(self):
         old = release(keys=(ONE, TWO), epoch=10)
         value = copy.deepcopy(old.public_bundle)
