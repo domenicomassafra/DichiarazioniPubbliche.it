@@ -126,6 +126,7 @@ def propose_investigation(
     ids = [row.assignment_id for row in active]
     if len(ids) != len(set(ids)):
         raise ValueError("INVESTIGATION_DUPLICATE_ASSIGNMENTS")
+    active_by_id = {row.assignment_id: row for row in active}
     plan_fp = _hash({
         "need": spec.need_id, "fingerprint": spec.material_fingerprint,
         "question": spec.question_kind, "question_text": spec.question,
@@ -150,10 +151,13 @@ def propose_investigation(
             # A source/proposition version change must reopen under a new
             # exact scope, never relabel old historical receipts as current.
             continue
-        if record.assignment_id not in ids or record.lane != next(
-            row.lane for row in active if row.assignment_id == record.assignment_id
-        ):
+        assigned = active_by_id.get(record.assignment_id)
+        if assigned is None or record.lane != assigned.lane:
             raise ValueError("INVESTIGATION_OBSERVATION_FOREIGN_ASSIGNMENT")
+        if record.spent_usd > assigned.cost_cap_usd:
+            # The overall envelope cannot legitimize a receipt that breached
+            # the narrower limit of the actual assigned attempt.
+            raise ValueError("INVESTIGATION_ASSIGNMENT_COST_EXCEEDED")
         expected_id = "investigation-attempt:" + _hash({
             "plan": plan_fp, "assignment": record.assignment_id,
             "material": spec.material_fingerprint,

@@ -183,6 +183,25 @@ class PrivateInvestigationAttemptTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "FOREIGN_ASSIGNMENT"):
             decision((replace(row, lane="CHALLENGER"),))
 
+    def test_over_budget_assignment_receipt_cannot_count_as_checked(self):
+        # One attempt cannot claim a spend above its *own* assignment ceiling,
+        # even when the overall investigation envelope still has room.
+        first = decision()
+        lane = "ORIGINAL_MEDIA" if first.assignment_id.endswith("ORIGINAL_MEDIA") else "PRIMARY_SOURCE"
+        excessive = receipt(first, lane=lane, result="NO_MATCH", spent_usd=Decimal("0.04"))
+        self.assertLess(excessive.spent_usd, spec().cost_cap_usd)
+        self.assertGreater(excessive.spent_usd, assignment(lane).cost_cap_usd)
+        with self.assertRaisesRegex(ValueError, "INVESTIGATION_ASSIGNMENT_COST_EXCEEDED"):
+            decision((excessive,))
+        # The same upper bound applies to a purportedly reviewed source.
+        claimed_review = replace(excessive, result="REVIEWED_SOURCE_CANDIDATE",
+                                 lineage_id="lineage:one", source_version="source:one",
+                                 source_sha256="a" * 64, review_event_id="review:event")
+        with self.assertRaisesRegex(ValueError, "INVESTIGATION_ASSIGNMENT_COST_EXCEEDED"):
+            decision((claimed_review,))
+        self.assertEqual(decision((replace(excessive, spent_usd=Decimal("0.03")),)).status,
+                         "READY_PRIVATE_PROPOSAL")
+
     def test_new_material_reopens_under_new_version_and_preserves_history(self):
         first = decision()
         record = receipt(first, lane="ORIGINAL_MEDIA" if first.assignment_id.endswith("ORIGINAL_MEDIA") else "PRIMARY_SOURCE")
