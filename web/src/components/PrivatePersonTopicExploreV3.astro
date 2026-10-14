@@ -1,0 +1,268 @@
+---
+/**
+ * DP-439: opt-in, OFFLINE, full-document Astro SSR preview of one independently
+ * pinned public-v3 release. Never fetch, query or authorize sources here.
+ * DO NOT accept a caller-generated preview object: it is mutable after its
+ * cryptographic validation, and could carry forged quotations/private facets.
+ * This file is deliberately not attached to src/pages or any public router.
+ */
+import { readPinnedPersonTopicExploreV3,
+  type PublicV3ExplorePreview } from "../lib/publicPersonTopicExploreV3.ts";
+import type { PublicV3CrossReaderPins } from "../lib/publicV3CrossReaderRelease.ts";
+
+interface Props {
+  input: {people: unknown; join: unknown; index: unknown};
+  pins: PublicV3CrossReaderPins;
+  search: string;
+  pageSize?: number;
+  allowPrivatePreview?: boolean;
+}
+const { input, pins, search, pageSize, allowPrivatePreview = false } = Astro.props;
+const abort = (reason: string): never => { throw new Error(`DP439_PRIVATE_EXPLORE_${reason}`); };
+// Assert explicit opt-in BEFORE any digest/read. Reject even an extra legacy
+// preview prop, so a stale or post-validation tampered object cannot be used as
+// a substitute for the current detached release and independent issuer pins.
+if (allowPrivatePreview !== true) abort("OPT_IN_REQUIRED");
+if (Object.hasOwn(Astro.props,"preview")) abort("MUTABLE_PREVIEW_FORBIDDEN");
+const preview = await readPinnedPersonTopicExploreV3(input, pins, search, {pageSize});
+const internal = /^\/(?:persone|temi|dichiarazioni)\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/;
+const id = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const hash = /^[a-f0-9]{64}$/;
+const statuses = new Set(["PREVIEW_READY", "EMPTY_PUBLIC_CORPUS", "EMPTY_PUBLIC_INTERSECTION", "NO_MATCH", "QUERY_TOO_LONG"]);
+const safeLink = (href: string): string => {
+  if (typeof href !== "string" || !internal.test(href)) abort("UNSAFE_ROUTE");
+  return href;
+};
+const safeSource = (value: string): string => {
+  if (typeof value !== "string" || value.length > 2048 || /[\u0000-\u001f\u007f\\@]/u.test(value)) abort("UNSAFE_SOURCE");
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || !parsed.hostname || parsed.hash || parsed.username || parsed.password) abort("UNSAFE_SOURCE");
+    return value;
+  } catch { return abort("UNSAFE_SOURCE"); }
+};
+const validPageLink = (value: string | null): string | null => {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.length > 1300 || !/^(?:\?[^#]*)?$/.test(value)) abort("UNSAFE_PAGE_URL");
+  const params = new URLSearchParams(value.slice(1));
+  if ([...params.keys()].some(key => !["q", "persona", "tema", "ordine", "pagina"].includes(key) || params.getAll(key).length !== 1)) abort("UNSAFE_PAGE_URL");
+  if (params.has("pagina") && (!/^[1-9]\d{0,2}$/.test(params.get("pagina") ?? "") || Number(params.get("pagina")) > 500)) abort("UNSAFE_PAGE_URL");
+  if (["persona", "tema"].some(key => params.has(key) && !id.test(params.get(key) ?? ""))) abort("UNSAFE_PAGE_URL");
+  if (params.has("ordine") && !["recent", "old", "relevance"].includes(params.get("ordine") ?? "")) abort("UNSAFE_PAGE_URL");
+  const query = params.get("q") ?? "";
+  if ([...query].length > 200 || /[\u0000-\u001f\u007f]/u.test(query)) abort("UNSAFE_PAGE_URL");
+  return value;
+};
+
+if (!preview || preview.publicationAuthorized !== false ||
+    preview.providerCalls !== 0 || preview.dateKind !== "SOURCE_ATTESTED_STATEMENT_DATE" ||
+    !statuses.has(preview.status) || !Array.isArray(preview.records) ||
+    !Array.isArray(preview.personOptions) || !Array.isArray(preview.topicOptions) ||
+    !Number.isSafeInteger(preview.page) || preview.page < 1 || preview.page > 500 ||
+    !Number.isSafeInteger(preview.pageSize) || preview.pageSize < 1 || preview.pageSize > 25 ||
+    !Number.isSafeInteger(preview.totalResults) || preview.totalResults < 0 ||
+    preview.records.length > preview.pageSize ||
+    (preview.status === "PREVIEW_READY") !== (preview.records.length > 0) ||
+    (preview.status !== "PREVIEW_READY" && preview.records.length > 0)) abort("UNVERIFIED_PREVIEW");
+
+const sourceRecords = preview.records.map(row => {
+  if (!row || row.originalWordingType !== "VERBATIM_ORIGINAL" ||
+      typeof row.originalText !== "string" || !row.originalText.trim() || row.originalText.length > 2000 ||
+      !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.statementDate) ||
+      !id.test(row.statementId) || !hash.test(row.quoteSha256) || !hash.test(row.sourceSha256) ||
+      typeof row.sourceTitle !== "string" || !row.sourceTitle.trim() ||
+      !Array.isArray(row.topicRoutes) || !row.topicRoutes.every(route => typeof route === "string" && internal.test(route)) ||
+      !row.sourceLocator || !Number.isSafeInteger(row.sourceLocator.start_char) ||
+      !Number.isSafeInteger(row.sourceLocator.end_char) || row.sourceLocator.start_char < 0 ||
+      row.sourceLocator.end_char <= row.sourceLocator.start_char ||
+      row.sourceLocator.end_char - row.sourceLocator.start_char !== [...row.originalText].length) {
+    abort("UNSAFE_RECORD");
+  }
+  const locator = row.sourceLocator.segment_id !== undefined
+    ? `Segmento ${row.sourceLocator.segment_id}, ${row.sourceLocator.start_ms}–${row.sourceLocator.end_ms} ms; caratteri ${row.sourceLocator.start_char}–${row.sourceLocator.end_char}`
+    : `Caratteri ${row.sourceLocator.start_char}–${row.sourceLocator.end_char}`;
+  return {
+    ...row,
+    statementRoute:safeLink(row.statementRoute),
+    personRoute:safeLink(row.personRoute),
+    sourceUrl:safeSource(row.sourceUrl),
+    topicRoutes:row.topicRoutes.map(safeLink),
+    locator,
+  };
+});
+const personOptions = preview.personOptions.map(option => ({
+  ...option,
+  route:safeLink(option.route),
+  label:String(option.label),
+}));
+const topicOptions = preview.topicOptions.map(option => ({
+  ...option,
+  route:safeLink(option.route),
+  label:String(option.label),
+}));
+if ([...personOptions,...topicOptions].some(option => !id.test(option.id) || !option.label.trim()) ||
+    new Set(personOptions.map(option=>option.id)).size !== personOptions.length ||
+    new Set(topicOptions.map(option=>option.id)).size !== topicOptions.length ||
+    new Set(personOptions.map(option=>option.label)).size !== personOptions.length ||
+    new Set(topicOptions.map(option=>option.label)).size !== topicOptions.length ||
+    (preview.currentPerson !== null && !personOptions.some(option=>option.id===preview.currentPerson?.id)) ||
+    (preview.currentTopic !== null && !topicOptions.some(option=>option.id===preview.currentTopic?.id))) abort("UNSAFE_FACETS");
+
+const currentUrl=validPageLink(preview.currentUrl) ?? "";
+const nextUrl=validPageLink(preview.nextUrl);
+const previousUrl=validPageLink(preview.previousUrl);
+// Even if a caller tampers with an already-validated preview after the pinned
+// reader returns, no link may reintroduce an unrecognized/private facet ID or
+// silently switch the Person, Topic, query or sort between page transitions.
+// All link inputs come solely from the pinned preview's public options.
+const pageParams = (value: string) => new URLSearchParams(value.startsWith("?") ? value.slice(1) : value);
+const currentParams = pageParams(currentUrl);
+if (currentParams.get("persona") !== (preview.currentPerson?.id ?? null) ||
+    currentParams.get("tema") !== (preview.currentTopic?.id ?? null) ||
+    (currentParams.get("pagina") === null ? 1 : Number(currentParams.get("pagina"))) !== preview.page) {
+  abort("URL_FACET_MISMATCH");
+}
+const comparePageLink = (value: string | null, expectedPage: number): void => {
+  if (value === null) return;
+  const params = pageParams(value);
+  for (const key of ["q", "persona", "tema", "ordine"]) {
+    if (params.get(key) !== currentParams.get(key)) abort("URL_SCOPE_MISMATCH");
+  }
+  const target = params.get("pagina") === null ? 1 : Number(params.get("pagina"));
+  if (target !== expectedPage || target < 1 || target > 500) abort("URL_PAGE_MISMATCH");
+};
+comparePageLink(nextUrl,preview.page+1);
+comparePageLink(previousUrl,preview.page-1);
+if ((preview.page===1 && previousUrl!==null) ||
+    (preview.page>1 && previousUrl===null) ||
+    (nextUrl!==null && (preview.page===500 || preview.page*preview.pageSize >= preview.totalResults))) {
+  abort("URL_PAGINATION_MISMATCH");
+}
+const facetHref = (key: "persona" | "tema", value: string | null): string => {
+  const params = new URLSearchParams(currentUrl.slice(1));
+  params.delete("pagina");
+  if (value===null) params.delete(key);
+  else params.set(key,value);
+  const query=params.toString();
+  return query ? `?${query}` : "?";
+};
+const stateMessages: Record<PublicV3ExplorePreview["status"], string> = {
+  PREVIEW_READY:"Risultati delle dichiarazioni originali approvate per questa intersezione.",
+  EMPTY_PUBLIC_CORPUS:"Il corpus pubblico autorizzato è vuoto.",
+  EMPTY_PUBLIC_INTERSECTION:"Non esistono intersezioni Persona × Tema pubblicate in questa versione.",
+  NO_MATCH:"Nessun record pubblico corrisponde ai filtri selezionati.",
+  QUERY_TOO_LONG:"Ricerca non eseguita: il testo supera il limite previsto.",
+};
+const noMatchFlag = preview.status === "NO_MATCH" ? "data-no-match" :
+  preview.status === "EMPTY_PUBLIC_INTERSECTION" ? "data-empty-public-intersection" :
+  preview.status === "EMPTY_PUBLIC_CORPUS" ? "data-empty-public-corpus" :
+  preview.status === "QUERY_TOO_LONG" ? "data-query-too-long" : "data-preview-ready";
+---
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+    <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Anteprima riservata — Dichiarazioni originali per persona e tema</title>
+  </head>
+  <body>
+    <a href="#dp439-results" rel="nofollow" class="skip-link">Vai ai risultati</a>
+    <main data-dp439-private-explore>
+      <header>
+        <p class="boundary">Anteprima isolata · nessuna autorizzazione alla pubblicazione</p>
+        <h1>Dichiarazioni originali per persona e tema</h1>
+        <p data-coverage><strong>Copertura:</strong> {preview.coverageNote}</p>
+        <p><strong>Versione del materiale:</strong> <time datetime={preview.generatedAt}>{preview.generatedAt}</time>.</p>
+        <p class="date-warning"><strong>Data della dichiarazione:</strong> la data indica quella attestata dalla fonte, non quella dell’aggiunta all’archivio. La copertura non è necessariamente esaustiva.</p>
+        <p><strong>Testo originale:</strong> le parole mostrate sono le citazioni originali pubblicabili secondo lo snapshot approvato. <strong>Sintesi non disponibile:</strong> nessuna parafrasi o valutazione automatica è stata prodotta.</p>
+      </header>
+
+      <nav aria-label="Filtri per dichiarazioni pubbliche" class="facets">
+        <section aria-labelledby="dp439-person-facet">
+          <h2 id="dp439-person-facet">Persona pubblica</h2>
+          <ul>
+            <li><a href={facetHref("persona",null)} rel="nofollow" aria-current={preview.currentPerson===null?"page":undefined}>Tutte le persone pubbliche</a></li>
+            {personOptions.map(person => (
+              <li><a href={facetHref("persona",person.id)} rel="nofollow" aria-current={preview.currentPerson?.id===person.id?"page":undefined}>{person.label}</a></li>
+            ))}
+          </ul>
+        </section>
+        <section aria-labelledby="dp439-topic-facet">
+          <h2 id="dp439-topic-facet">Tema pubblico</h2>
+          <ul>
+            <li><a href={facetHref("tema",null)} rel="nofollow" aria-current={preview.currentTopic===null?"page":undefined}>Tutti i temi pubblici</a></li>
+            {topicOptions.map(topic => (
+              <li><a href={facetHref("tema",topic.id)} rel="nofollow" aria-current={preview.currentTopic?.id===topic.id?"page":undefined}>{topic.label}</a></li>
+            ))}
+          </ul>
+        </section>
+      </nav>
+
+      <section id="dp439-results" aria-labelledby="dp439-results-heading" data-status={preview.status}>
+        <h2 id="dp439-results-heading">Risultati pubblici</h2>
+        <p role="status" aria-live="polite" aria-atomic="true">{stateMessages[preview.status]} Totale: {preview.totalResults}. Pagina {preview.page}.</p>
+        {preview.status !== "PREVIEW_READY" && (
+          <p data-empty-status={noMatchFlag}>Non vengono mostrate dichiarazioni da record privati, ritirati o non approvati.</p>
+        )}
+        {sourceRecords.length > 0 && (
+          <ol class="records">
+            {sourceRecords.map(row => (
+              <li>
+                <article data-statement-id={row.statementId} data-statement-date={row.statementDate}>
+                  <h3><a href={row.statementRoute} rel="nofollow">Dichiarazione originale del {row.statementDate}</a></h3>
+                  <p><time datetime={row.statementDate}>{row.statementDate}</time> · <a href={row.personRoute} rel="nofollow">Scheda pubblica della persona</a></p>
+                  <p><strong>Citazione testuale originale · {row.originalWordingType}</strong></p>
+                  <blockquote data-source-original lang={row.originalLanguage} cite={row.sourceUrl}>
+                    <p>{row.originalText}</p>
+                  </blockquote>
+                  <p><strong>Sintesi non disponibile.</strong> Nessuna valutazione di veridicità è attribuita a questa dichiarazione senza un Finding pubblicato.</p>
+                  <p>Fonte: <cite><a href={row.sourceUrl} rel="nofollow noreferrer noopener">{row.sourceTitle}</a></cite>
+                    · <span data-source-version>Versione {row.sourceVersion}</span>
+                    · <span data-source-locator>{row.locator}</span>
+                  </p>
+                  <p class="fingerprints"><span data-quote-sha256={row.quoteSha256}>Impronta della citazione: {row.quoteSha256}</span>
+                    · <span>Impronta della fonte: {row.sourceSha256}</span></p>
+                  {row.topicRoutes.length > 0 && (
+                    <p>Temi approvati: {row.topicRoutes.map((route,index) => (
+                      <><a href={route} rel="nofollow">{route}</a>{index < row.topicRoutes.length - 1 ? ", " : ""}</>
+                    ))}</p>
+                  )}
+                </article>
+              </li>
+            ))}
+          </ol>
+        )}
+        <nav class="pagination" aria-label="Paginazione dei risultati">
+          {previousUrl !== null && <a data-pager-previous href={previousUrl} rel="nofollow">← Pagina precedente</a>}
+          <span>Pagina {preview.page} · {preview.pageSize} elementi al massimo per pagina</span>
+          {nextUrl !== null && <a data-pager-next href={nextUrl} rel="nofollow">Pagina successiva →</a>}
+        </nav>
+      </section>
+    </main>
+  </body>
+</html>
+
+<style is:inline>
+  body { margin:0; color:#182436; background:#fff; font: 1rem/1.6 system-ui, sans-serif; }
+  a { color:#174b8e; overflow-wrap:anywhere; }
+  a:focus-visible { outline:3px solid #204eae; outline-offset:3px; }
+  main { max-width:72rem; margin:auto; padding:clamp(1rem,4vw,3rem); }
+  .boundary { font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .date-warning { border-left:4px solid #52657c; padding-left:1rem; }
+  .facets { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap:1rem; }
+  .facets ul { list-style:none; padding:0; }
+  .facets li { margin-block:.4rem; }
+  .facets a, .pagination a { display:inline-block; padding:.6rem .75rem; min-height:2.75rem; box-sizing:border-box; }
+  .facets [aria-current="page"] { border:2px solid currentColor; font-weight:700; }
+  .records { padding-left:1.5rem; }
+  .records article { padding-block:1.2rem; border-bottom:1px solid #bbc5d1; }
+  blockquote { margin:1rem 0; padding:1rem; border-left:3px solid #68768a; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .fingerprints { overflow-wrap:anywhere; font-size:.8rem; }
+  .pagination { display:flex; flex-wrap:wrap; align-items:center; gap:.8rem; margin-block:1.5rem; }
+  .skip-link { position:absolute; left:-9999px; }
+  .skip-link:focus { left:1rem; top:1rem; padding:.5rem; background:white; z-index:2; }
+  @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } }
+</style>

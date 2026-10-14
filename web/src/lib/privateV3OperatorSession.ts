@@ -10,11 +10,13 @@
 import {canonicalJson} from "./searchIndex.ts";
 import {
   parsePrivatePersonTopicUrl,
+  serializePrivatePersonTopicUrl,
   readPrivatePersonTopicV3,
   type PrivatePersonTopicPins,
   type PrivatePersonTopicRead,
   type PrivatePersonTopicRow,
 } from "./privatePersonTopicV3.ts";
+import {type PublicStatementSearchV3} from "./publicStatementSearchV3.ts";
 import {
   readPrivateSynopsisBrowserV3,
   type PrivateSynopsisBrowserV3,
@@ -175,16 +177,34 @@ export async function readPrivateV3OperatorSession(
   const browser=await readPrivateSynopsisBrowserV3(snapshot,expected,readCurrentPins);
   if(Date.parse(browser.snapshotAt)<Date.parse(query.generatedAt) || browser.publicationAuthorized!==false ||
       browser.providerCalls!==0) fault("MIXED_SNAPSHOT");
+  // A syntactically legal URL value is not evidence of public membership.
+  // The source/index pair has already been completely validated against the
+  // current pins by readPrivatePersonTopicV3. Only this detached, published
+  // Person×Topic intersection can contribute shareable source identities.
+  // Unmatched free-text is never echoed: it could contain a private identity,
+  // a double-encoded control marker or an unreviewed source identifier.
+  const index=snapshot.index as PublicStatementSearchV3;
+  const approvedSourceIds=new Set(index.records
+    .filter(row=>row.person_id===expected.personId &&
+      row.topics.some(topic=>topic.topic_id===expected.topicId))
+    .map(row=>row.source.content_id));
+  const shareableState={
+    ...state,
+    page:query.page,
+    query:query.totalResults>0 ? state.query : "",
+    ...(state.sourceId!==undefined && !approvedSourceIds.has(state.sourceId)
+      ? {sourceId:undefined} : {}),
+  };
+  const shareableQuery=serializePrivatePersonTopicUrl(shareableState);
   // Independent cross-check of all source versions present both in the
   // paginated search and in the synopsis. Absence is not false endorsement.
-  const rendered=renderQuery(query,browser,
-    urlQuery.startsWith("?")?urlQuery.slice(1):urlQuery);
+  const rendered=renderQuery(query,browser,shareableQuery);
   await checkCurrent();
   return {
     status:"PRIVATE_OPERATOR_SESSION",
     publicationAuthorized:false,providerCalls:0,
     robots:"noindex,nofollow,noarchive",
-    html:rendered,shareableQuery:urlQuery.startsWith("?")?urlQuery.slice(1):urlQuery,
+    html:rendered,shareableQuery,
     resultCount:query.totalResults,page:query.page,
     previousUrl:query.previousUrl,nextUrl:query.nextUrl,
     rows:structuredClone(query.records),
