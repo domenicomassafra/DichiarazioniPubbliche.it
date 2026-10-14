@@ -149,3 +149,23 @@ separately handled. The focused regression and 94 related unit tests are
 **GREEN**, Ruff/diff and deterministic benchmark 5/5 PASS; no human source
 approval, source Capture, MiniPC readback or language-wide semantic gold is
 implied. **All DP312 AC-312.1–.6 remain OPEN.**
+
+## 2026-10-14 — CJK quotation delimiters around English source words
+
+An independent local source-only test found that complete quoted turns framed by
+the common corner/book/title delimiters U+300C/U+300D, U+300E/U+300F,
+U+300A/U+300B or U+3010/U+3011 were misclassified as direct
+`ASSERTION / ENDORSE / CANDIDATE_PRIVATE` even when their quoted English
+words were identical to a properly attributed standalone assertion. A focused
+test first failed four positive-quotation contrast cases (four RED failures).
+The bounded lexical parser now recognizes each forward ordered pair and holds
+orphan, reversed and nested marks with `UNBALANCED_QUOTATION`; the well-paired
+complete quotation is `QUOTE / NON_COMMITTAL`, and genuinely direct words
+remain a private candidate. Focused **32/32** DP-312, 15/15 legacy context,
+26/26 relations and 7/7 independent opinion consumers PASS; deterministic
+benchmark 5/5, Ruff, repository contract and diff-check PASS.
+
+This classification is neither a source-use grant nor publication authority;
+real source/identity review, multilingual gold, affected downstream replays and
+MiniPC readback remain absent. **AC-312.1–6 stay OPEN** and the release is not
+made GO by this source-only repair.

@@ -282,6 +282,47 @@ class SpeechActContextTests(unittest.TestCase):
                 self.assertEqual((direct.speech_act, direct.stance, direct.state),
                                  ("ASSERTION", "ENDORSE", "CANDIDATE_PRIVATE"))
 
+    def test_cjk_typographic_quote_delimiters_never_create_false_endorsement(self):
+        def classify(source):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode()).hexdigest(),
+                quote_start=0, quote_end=len(source),
+                turn_start=0, turn_end=len(source),
+                utterer_id="person:a", turn_speaker_ids=("person:a",),
+                source_part_ref="part:a", turn_complete=True, language="en",
+            )
+
+        # Quotation characters can surround an English translated/source
+        # utterance; the English language tag cannot erase their semantics.
+        for opening, closing in (("「", "」"), ("『", "』"), ("《", "》"), ("【", "】")):
+            with self.subTest(style=opening):
+                quoted = f"{opening}I support this policy.{closing}"
+                result = classify(quoted)
+                self.assertEqual((result.speech_act, result.stance), ("QUOTE", "NON_COMMITTAL"))
+                self.assertFalse(result.publication_authority)
+                self.assertEqual(
+                    verify_speech_act_context_metadata(result.to_metadata(), source_text=quoted).binding_sha256,
+                    result.binding_sha256,
+                )
+                for fragment in (
+                    f"{opening}I support this policy.",
+                    f"I support this policy.{closing}",
+                    f"{closing}I support this policy.{opening}",
+                    f"{opening}{opening}I support this policy.{closing}{closing}",
+                ):
+                    with self.subTest(fragment=fragment):
+                        held = classify(fragment)
+                        self.assertEqual(held.state, "HOLD_FOR_CONTEXT")
+                        self.assertNotEqual(held.stance, "ENDORSE")
+                        self.assertIn("UNBALANCED_QUOTATION", held.signal_codes)
+
+        direct = classify("I support this policy.")
+        self.assertEqual(
+            (direct.state, direct.speech_act, direct.stance),
+            ("CANDIDATE_PRIVATE", "ASSERTION", "ENDORSE"),
+        )
+
     def test_curly_possessives_and_decade_elisions_are_not_broken_quotes(self):
         def classify(source):
             return assess_speech_act_context(
