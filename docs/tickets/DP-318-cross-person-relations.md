@@ -97,3 +97,35 @@ requires independent identity and equivalence review, append-only attestation,
 revocation/currentness and projection gating; AC-318.5 still requires real
 MiniPC Person/Topic/Trace readback and source rights. No original AC or ticket
 is newly marked DONE, no source rights or public authority is inferred.
+
+## 2026-10-14 — One captured utterance cannot substantiate two relation endpoints
+
+An additional source-only fail-open remained after the different-day,
+same-Person alias guard. With **two different Persons** and distinct Statement
+IDs but the *same* source-part reference, immutable source hash, quote
+boundaries and quote hash, independently hashed lexical receipts incorrectly
+yielded `CROSS_PERSON_AGREEMENT`. The same captured utterance aliased under
+two Statement IDs **on the same day** yielded `SAME_PERSON_REAFFIRMATION`.
+Both misrepresent one captured utterance as independent relation evidence.
+
+**RED:** two adversarial tests reproduced both false assertions against the
+original evaluator (`CROSS_PERSON_AGREEMENT` and `SAME_PERSON_REAFFIRMATION`
+instead of `HOLD`). The bounded guard now detects identical immutable source
+spans regardless of Person, Statement ID and claimed date, returning `HOLD`
+with `IDENTICAL_SOURCE_SPAN_REUSED`. Positive fixture references that
+previously reused a fake common `capture:part` were corrected to represent
+independent captured utterances. Distinct captures with the same exact words
+remain eligible for private cross-Person agreement and same-Person
+reaffirmation hypotheses; no review or publication authority is granted.
+
+**GREEN:** 98 focused DP-318, legacy relation-runtime/policy and repository,
+plus adjacent intent-policy tests pass. Ruff lint, Python compilation and
+owned-file trailing-whitespace/newline checks pass. Whole-file `ruff format
+--check` reports existing unformatted passages in these previously unformatted
+DP-318 files; unrelated formatting was left intact for bounded review. The
+integrator owns the final Git diff check under its exclusive lease. The
+references and speaker receipts are still synthetic caller
+inputs. No authoritative Capture/person ledger authentication, append-only
+relation revocation, real published non-factual Statement review, source rights
+approval or MiniPC Person/Topic/Trace readback is evidenced. **DP-318 remains
+IN PROGRESS, AC-318.1–.5 all OPEN** pending their original acceptance gates.
