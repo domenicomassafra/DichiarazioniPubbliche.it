@@ -219,3 +219,63 @@ DP-429 empty/demo isolated browser, DP-431 actual TS↔Python/parity/rebuild,
 DP-438 pinned reader and DP-439 offline Astro SSR checks were rerun on their
 independently saved source-only branches, not represented as an integrated
 public release or branch PR CI. Original DP-320 acceptance remains OPEN.
+
+## 2026-10-14 — Opt-in eighth RDF reference and single-corpus DP-431 search fence
+
+New source-only additive extension of the **already published** DP-320 seven-
+surface SQLite prototype. The immutable original `ALL_SURFACES` contract
+remains exactly seven entries; a separately requested `include_rdf=True`
+selects the explicitly versioned *eight*-surface cohort, adding `RDF` after
+JSON-LD. Legacy seven-element manifest SHAs and seeded releases remain valid
+only as their original seven-element cohort and **cannot silently become an
+eight-element approval**. The root manifest fingerprint covers the full
+selected cohort, each exact public fixture bytes SHA and their source epoch;
+one `BEGIN IMMEDIATE` transaction seals/rechecks the complete bounded set.
+If the stored RDF row disappears or is corrupted, checking unrelated SEARCH
+or HTML also refuses. A mixed seven/eight or privately re-pinned corrected
+RDF document cannot bypass the original immutable release reference.
+
+The new deterministic fixtures now generate BOTH Search Index v1 and N-Triples
+using **one and the same real Python `build_public_projection` synthetic
+public-v2 dataset**, not two unrelated samples. The unmodified DP-431
+`check_correction_propagation` source verifies the same index/projection
+receipt; the same corpus serializes actual `projection_ntriples`. Neither
+fixture contains real political person/source permissions or editorial
+material. The new test begins **RED** with missing `EXTENDED_SURFACES`; then
+**47/47** combined new RDF/source-search + unchanged seven-surface DP-320/
+DP-518 tests PASS. All eight surface reads refuse after each independent
+synthetic `RIGHTS_WITHDRAWN`, `PRIVACY_HOLD`, `CORRECTION` and
+`SOURCE_SUPERSEDED` event; root outbox shows one immutable revocation.
+Wrong/missing RDF, malicious rehash/re-pin and release-conflict readbacks
+reject. A genuine two-connection SQLite test proves an RDF reference read
+holds its transaction against a racing rights revoker, with a subsequent stale
+read refused; malformed nested ticket metadata returns a fixed safe denial
+instead of an uncontrolled Python attribute error. This is reference-level
+admission only; it provides no HTTP bytes, source approval, real PostgreSQL
+writer integration, CDN/edge invalidation, authorized public RDF route,
+live source role, physical MiniPC proof or measured withdrawal latency.
+
+**All AC-320.1–5 remain OPEN; ticket Status remains IN PROGRESS and real
+public launch remains NO-GO.** Focused results are source-only, while a new
+complete suite and independent final review require separate receipts.
+
+**Review-status receipt:** previously successful independent worker-6 could
+not be revived for this new revision (two separate startup failures), and a
+new worker-8 independent invitation also failed before receiving source
+inputs. **NO independent PASS on the new RDF diff is claimed.** Prime's
+bounded real-source source-only audit and complete focused test matrix are
+author self-review; the true external/independent review gate is still
+**PENDING** before any PR/production release. Neither prior reviewer PASS on
+the original seven-surface SHA nor current source-only tests are substitutes.
+
+**Definitive local suite (source-only, not CI):** a disposable **uncommitted,
+detached test worktree** over clean canonical main copied the exact final
+DP-320 eight-surface source and new test, the already published seven-surface
+regression test, and the two disjoint new DP-440 files byte-for-byte. ONE
+full Python unittest discovery on this combined exact source overlay returned
+**3,469/3,469 PASS, exit 0, 298.492 seconds**. Independent file SHA/byte
+comparison before the run confirmed the delivery source copies. The
+deterministic benchmark **5/5 PASS**, Ruff check/format and compileall PASS;
+DP-320 new+adjacent targeted **47/47 PASS**. This is neither exact-head GitHub
+PR CI nor an independently reviewed release; operational rights and all
+original acceptance remain OPEN.

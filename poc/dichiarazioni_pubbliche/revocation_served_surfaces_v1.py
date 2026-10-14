@@ -1,6 +1,6 @@
 """DP-320 opt-in OFFLINE reference for revocation-fenced served surface claims.
 
-Seven *simulated* public artifacts are bound to one immutable SQLite release
+Seven legacy or eight opt-in *simulated* public artifacts bind one SQLite release
 ticket, one whole-set manifest SHA and each material's exact bytes digest.
 No HTML, response body, private source, complaint, or rights authority is
 stored, returned, logged, or automatically published by this module.
@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 from .revocation_epoch_fence import (
     IsolatedPublicationEpochStore,
+    MaterialEpoch,
     PublicationEpochTicket,
     RevocationFenceHeld,
     _fingerprint,
@@ -38,6 +39,9 @@ ALL_SURFACES = (
     "LINKED_CARD",
     "JSON_LD",
 )
+# RDF is opt-in so existing seven-surface tickets/manifest digests retain
+# their exact immutable cohort and cannot be silently widened on a read.
+EXTENDED_SURFACES = (*ALL_SURFACES, "RDF")
 MAX_ARTIFACT_BYTES = 64 * 1024
 
 
@@ -62,10 +66,20 @@ def _held(code: str) -> None:
 def _validated_metadata(
     ticket: PublicationEpochTicket,
     item: SurfaceArtifact,
+    *,
+    surfaces: tuple[str, ...] = ALL_SURFACES,
 ) -> tuple[str, str, str, int, str, str]:
+    if not isinstance(ticket, PublicationEpochTicket) or (
+        not isinstance(ticket.dependencies, tuple)
+        or not ticket.dependencies
+        or any(
+            type(dependency) is not MaterialEpoch for dependency in ticket.dependencies
+        )
+    ):
+        _held("TICKET_INVALID")
     if type(item) is not SurfaceArtifact:
         _held("METADATA_INVALID")
-    if item.surface not in ALL_SURFACES:
+    if item.surface not in surfaces:
         _held("SURFACE_INVALID")
     if item.release_id != ticket.release_id:
         _held("RELEASE_MISMATCH")
@@ -108,15 +122,23 @@ def _validated_metadata(
 def _complete_metadata(
     ticket: PublicationEpochTicket,
     artifacts: tuple[SurfaceArtifact, ...],
+    *,
+    surfaces: tuple[str, ...] = ALL_SURFACES,
 ) -> tuple[tuple[str, str, str, int, str, str], ...]:
     if not isinstance(ticket, PublicationEpochTicket) or (
-        not isinstance(ticket.dependencies, tuple) or not ticket.dependencies
+        not isinstance(ticket.dependencies, tuple)
+        or not ticket.dependencies
+        or any(
+            type(dependency) is not MaterialEpoch for dependency in ticket.dependencies
+        )
     ):
         _held("TICKET_INVALID")
-    if type(artifacts) is not tuple or len(artifacts) != len(ALL_SURFACES):
+    if type(artifacts) is not tuple or len(artifacts) != len(surfaces):
         _held("SCOPE_INVALID")
-    metadata = tuple(_validated_metadata(ticket, value) for value in artifacts)
-    if tuple(row[0] for row in metadata) != ALL_SURFACES:
+    metadata = tuple(
+        _validated_metadata(ticket, value, surfaces=surfaces) for value in artifacts
+    )
+    if tuple(row[0] for row in metadata) != surfaces:
         _held("SURFACE_ORDER_OR_DUPLICATE")
     return metadata
 
@@ -149,9 +171,16 @@ def _manifest_hash(
 def surface_manifest_sha256(
     ticket: PublicationEpochTicket,
     artifacts: tuple[SurfaceArtifact, ...],
+    *,
+    include_rdf: bool = False,
 ) -> str:
     """Compute fixture digest; NEVER treat self-hashing as owner authorization."""
-    return _manifest_hash(ticket, _complete_metadata(ticket, artifacts))
+    if type(include_rdf) is not bool:
+        _held("SCOPE_INVALID")
+    surfaces = EXTENDED_SURFACES if include_rdf else ALL_SURFACES
+    return _manifest_hash(
+        ticket, _complete_metadata(ticket, artifacts, surfaces=surfaces)
+    )
 
 
 class IsolatedServedSurfaceFence:
@@ -159,16 +188,20 @@ class IsolatedServedSurfaceFence:
 
     Caller supplies an isolated connection with the base fixture schema. The
     extra surface table is opt-in, never globally installed. One transaction
-    atomically compares material epochs, root publication and all seven
+    atomically compares material epochs, root publication and all seven (or
+    eight with explicit RDF opt-in)
     individually digested, immutable surface references. Every simulated read
     rechecks the *whole* cohort, not just the chosen URL/surface.
     """
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(self, conn: sqlite3.Connection, *, include_rdf: bool = False) -> None:
         if type(conn) is not sqlite3.Connection:
             _held("CONNECTION_INVALID")
+        if type(include_rdf) is not bool:
+            _held("SCOPE_INVALID")
         self.conn = conn
         self.base = IsolatedPublicationEpochStore(conn)
+        self.surfaces = EXTENDED_SURFACES if include_rdf else ALL_SURFACES
 
     def init_fixture_schema(self) -> None:
         self.conn.executescript("""
@@ -201,12 +234,14 @@ class IsolatedServedSurfaceFence:
             "FROM dp320_surface_reference WHERE release_id=? ORDER BY surface",
             (ticket.release_id,),
         ).fetchall()
-        if len(rows) != len(ALL_SURFACES):
+        if len(rows) != len(self.surfaces):
             _held("SCOPE_MISSING")
         by_surface = {row[0]: row for row in rows}
-        if len(by_surface) != len(ALL_SURFACES) or set(by_surface) != set(ALL_SURFACES):
+        if len(by_surface) != len(self.surfaces) or set(by_surface) != set(
+            self.surfaces
+        ):
             _held("SURFACE_MISMATCH")
-        metadata = tuple(tuple(by_surface[surface][:6]) for surface in ALL_SURFACES)
+        metadata = tuple(tuple(by_surface[surface][:6]) for surface in self.surfaces)
         if any(row[6] != pinned_manifest for row in rows):
             _held("MANIFEST_MISMATCH")
         for row in metadata:
@@ -232,12 +267,12 @@ class IsolatedServedSurfaceFence:
         artifacts: tuple[SurfaceArtifact, ...],
         independently_pinned_manifest_sha256: str,
     ) -> bool:
-        """Atomically seal all seven material refs under one current ticket.
+        """Atomically seal the selected complete cohort under one current ticket.
 
         No replace, delete, upsert, silent correction or auto restore is
         supported. A replacement needs a separately governed new release.
         """
-        metadata = _complete_metadata(ticket, artifacts)
+        metadata = _complete_metadata(ticket, artifacts, surfaces=self.surfaces)
         try:
             pinned = _sha(independently_pinned_manifest_sha256)
         except RevocationFenceHeld:
@@ -296,7 +331,7 @@ class IsolatedServedSurfaceFence:
             self.base._check(ticket)
             stored = self._published_metadata(ticket, pinned)
             if one:
-                if observed[0] != stored[ALL_SURFACES.index(observed[0][0])]:
+                if observed[0] != stored[self.surfaces.index(observed[0][0])]:
                     _held("MATERIAL_MISMATCH")
             elif stored != observed:
                 _held("MATERIAL_MISMATCH")
@@ -315,7 +350,7 @@ class IsolatedServedSurfaceFence:
         """Reference-only admission for one bounded body, with whole-set check."""
         if not isinstance(ticket, PublicationEpochTicket):
             _held("TICKET_INVALID")
-        item = _validated_metadata(ticket, observation)
+        item = _validated_metadata(ticket, observation, surfaces=self.surfaces)
         return self._read(
             ticket, independently_pinned_manifest_sha256, (item,), one=True
         )
@@ -327,7 +362,7 @@ class IsolatedServedSurfaceFence:
         independently_pinned_manifest_sha256: str,
     ) -> bool:
         """Check all material bodies against the SAME immutable current cohort."""
-        metadata = _complete_metadata(ticket, observations)
+        metadata = _complete_metadata(ticket, observations, surfaces=self.surfaces)
         return self._read(
             ticket, independently_pinned_manifest_sha256, metadata, one=False
         )
