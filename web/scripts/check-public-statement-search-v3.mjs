@@ -97,6 +97,9 @@ assert.equal(index.records.every((row) => row.finding_id === null), true);
 assert.equal(index.records.every((row) => row.statement_route === "/dichiarazioni/" + row.statement_id.replace(":", "-") + "/"), true);
 assert.equal(index.records.every((row) => row.source.url.startsWith("https:") && row.source.sha256.length === 64), true);
 assert.equal(index.records.every((row) => row.original.quote_sha256.length === 64 && row.original.locator.start_char >= 0), true);
+assert.equal(index.records.every((row) => !Object.hasOwn(row, "archive_added_at") &&
+  !Object.hasOwn(row, "declared_at")), true,
+  "the approved v3 search schema exposes only statement_date; archive-added time has no authority");
 const before = canonicalJson(index);
 assert.equal(canonicalJson(await buildPublicStatementSearchV3(actualDp439Join, pins)), before);
 assert.deepEqual(await validatePublicStatementSearchV3(structuredClone(index), trusted), index);
@@ -107,7 +110,8 @@ const fixture = JSON.parse(observed.stdout).full;
 const result = (query, filters = {}, asset = index, expected = trusted) =>
   searchPublicStatementsV3(asset, expected, query, filters);
 assert.deepEqual((await result("")).records.map((row) => row.statement_id),
-  ["statement:3", "statement:2", "statement:1"], "empty search is public chronological order");
+  ["statement:3", "statement:2", "statement:1"],
+  "default recent orders the Statement day, not archive ingestion or index creation");
 assert.deepEqual((await result("costa 10 euro")).records.map((row) => row.statement_id),
   ["statement:3", "statement:2", "statement:1"], "exact original words are searchable");
 assert.equal((await result("Documento Dimostrativo")).records.length, 3, "approved source title is a secondary term");
@@ -184,6 +188,22 @@ async function rehash(value) {
   const bytes = new TextEncoder().encode(canonicalJson(material));
   const sha = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(sha), (n) => n.toString(16).padStart(2, "0")).join("");
+}
+// An independent issuer digest is necessary, but cannot silently authorize a
+// new date field absent from the current source/schema decision. A future
+// archival-addition field needs a separately reviewed upstream contract.
+for (const [field, value] of [
+  ["archive_added_at", "2026-10-14T12:00:00Z"],
+  ["declared_at", "2026-10-14T12:00:00Z"],
+]) {
+  const dateExpansion = structuredClone(index);
+  dateExpansion.records[0][field] = value;
+  dateExpansion.index_sha256 = await rehash(dateExpansion);
+  const dateExpansionPins = { ...trusted, indexSha256: dateExpansion.index_sha256 };
+  await assert.rejects(() => result("", {}, dateExpansion,
+    dateExpansionPins),
+  /PUBLIC_V3_INDEX_RECORD_INVALID/,
+  "unauthorized date field must be rejected even when the entire artifact is repinned: " + field);
 }
 for (const forged of [tamperedQuote, tamperedTopic, tamperedRoute]) {
   forged.index_sha256 = await rehash(forged);

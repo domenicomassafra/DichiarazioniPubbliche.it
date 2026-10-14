@@ -38,6 +38,7 @@ export interface V3SourceLocator {
 export interface V3StatementRecord {
   statement_id: string;
   version_id: string;
+  /** Source-bound calendar day of this Statement, not archive insertion or index generation. */
   statement_date: string;
   person_id: string;
   person_name: string;
@@ -76,6 +77,7 @@ export interface V3SearchUrlState {
   query: string;
   personId: string | null;
   topicId: string | null;
+  /** recent/old compare statement_date; no archive-addition ordering is authorized. */
   sort: "recent" | "old" | "relevance";
 }
 export interface V3SearchResult {
