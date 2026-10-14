@@ -213,3 +213,79 @@ same-root duplicate finding and is **NOT** counted as a completed result.
 This post-DONE receipt changes no original DP-231 Status/AC and does not
 claim approved official source selection, capture, provider access,
 MiniPC, legal/editorial authority or publication.
+
+### 2026-10-14 — Private multi-Content source metadata cohort (post-DONE product extension)
+
+The separate **source-only/offline** `private_source_metadata_cohort_v1.py`
+consumes two owner-supplied, independently pinned public-v2 projections
+(previous/current dataset SHA-256 and generated-at) plus two independently
+SHA-pinned private metadata inventories. It returns one stable **opaque
+SHA-256 Content reference** per in-scope Content, deterministic counts and
+reason codes for manual review. It runs existing DP-231 single-Content
+reconciliation on records present in both inventories. It NEVER includes
+raw Content IDs, candidate titles, unsafe canonical URLs, source bodies,
+private reviewer notes, oEmbed network responses or identities in the DTO.
+No source/Content mutation, web request, capture, provider, DB write,
+automated source approval, factual verdict or editorial publication occurs.
+
+The product explicitly handles public Content without Findings, source
+URL disagreements between dossier and public Content representations,
+private metadata inventory arrival/absence vs *actual public Content*
+addition/retirement, rights/review holds, canonical-source changes across
+a pair of releases, and changed same-code private conflicts (including
+duplicate evidence cardinality). Every public dataset, metadata read model,
+release generated-at and per-source review/use policy is validated before
+classifying; generation time rollback and reused generation timestamp for a
+different dataset SHA fail closed. Identical content with reordered private
+inventory entries is deterministic. `UNCHANGED` still means only
+**manual review pending**, never approved source or factual acceptance.
+
+An initial **RED** proved the module was not implemented. Three additional
+saved adversarial **RED→GREEN** tests prevented mislabeling missing/new
+private metadata as retired/new public Content, and prevented same-time
+changed-dataset release identity from masquerading as an ordinary update.
+New and adjacent Python **83/83 PASS** with Ruff/format PASS at initial
+code freeze. An independent reviewer, complete full suite, and final exact
+Git SHA are recorded in a subsequent receipt; until that evidence exists
+**review/final release remains PENDING**. This extension does not change
+DP-231's original Status/AC or resolve the owner/legal/physical/production
+provider permissions associated with source capture and publication.
+
+**Adversarial DP-231 cohort follow-up:** independent reviewer worker-9
+identified the material risk that a newly published first-class Content
+may be absent from BOTH private metadata inventories while still appearing
+in the pinned public-v2 projection. The first implementation counted only
+inventory IDs and falsely returned `IDLE_PRIVATE_REVIEW_PENDING`. Two real
+Python public projection fixtures proved this **RED**: (1) newly published
+standalone Content with no metadata, and (2) all current public Content
+with neither private metadata entry. The planner now reconciles the
+**complete bounded union of public dossier and first-class Content IDs**
+from both pinned releases together with inventory IDs. Such items yield a
+specific `UNSCOPED_PUBLIC_CONTENT_REVIEW`, contribute to `held_count`,
+and force `MANUAL_COHORT_RECHECK_REQUIRED` without inventing source-policy
+approval. The public scope is capped at 256 IDs; larger input refuses
+rather than showing a misleading clean summary. Both RED tests are GREEN.
+Separately, three earlier RED→GREEN tests distinguish missing/new private
+metadata from retired/new public Content and reject two different public
+datasets sharing an identical owner-issued generation timestamp. All status
+and output values remain private, opaque and non-authoritative. At this
+last source freeze, **85/85 new+adjacent tests PASS**, Ruff/check/format PASS.
+The independent reviewer has been asked to re-review this complete post-fix
+diff; the completed full Python suite and exact branch SHA must be added
+only after actual final execution/readback. No Status/AC change or new
+owner/legal/physical/provider acceptance follows from this local artifact.
+
+**Final code-frozen six-lane integration, 2026-10-14:** one Python
+`unittest discover -s tests -q` on a detached main checkout containing
+**17 byte-identical source/test files** from DP-231 base, this new DP-231
+cohort, DP-314 private research wave, DP-320 RDF/SEARCH, DP-439 temporal
+and DP-440 cited synopsis branches completed **3,535/3,535 PASS, exit 0
+in 296.985 s**. The deterministic benchmark passed **5/5**; DP-231 cohort
+plus prior DP-231/source-enrichment/public-projection adjacent subset
+**85/85 PASS**; Ruff lint and format checks PASS. Astro `npm run check` on
+the new branch reported **123 files, 0 errors, 0 warnings and 1 preexisting
+hint**. Isolated empty/demo Chrome keyboard/AX/reflow/200% zoom and the
+production projection boundary all PASS, with DP-429 public suggestions
+contract PASS. These are local offline/isolated source tests, not PR CI,
+production release, source-rights grants, editorial sign-off or MiniPC.
+The repository's original DP-231 status and AC remain untouched.
