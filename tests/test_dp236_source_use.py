@@ -124,6 +124,36 @@ class SourceUseContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_RECORD_CONTRACT_INVALID$"):
             guard(lambda _: malformed).require("FETCH")
 
+    def test_malformed_attribution_constraints_cannot_authorize_private_capture(self):
+        # The registry persists attribution requirements as normalized codes.
+        # A malformed current-reader object cannot promote a string/list,
+        # invalid code or over-limit tuple into an operational use decision.
+        for constraints in (
+            "CREDIT_AUTHOR", ["CREDIT_AUTHOR"], ("CREDIT AUTHOR",),
+            (42,), ("CREDIT_AUTHOR",) * 33,
+        ):
+            with self.subTest(constraints=constraints):
+                malformed = reviewed(attribution_requirements=constraints)
+                decision = evaluate(malformed, use="FETCH")
+                self.assertEqual(decision.reason_code, "SOURCE_USE_RECORD_CONTRACT_INVALID")
+                self.assertFalse(decision.permitted)
+                with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_RECORD_CONTRACT_INVALID$"):
+                    guard(lambda _: malformed).require("FETCH")
+        with tempfile.TemporaryDirectory() as temp:
+            store = FakeCaptureStore()
+            with self.assertRaisesRegex(SourceUseBlocked, "^SOURCE_USE_RECORD_CONTRACT_INVALID$"):
+                capture_content(
+                    content_id=SUBJECT.content_id, url=URL, store=store,
+                    body_store=CaptureBodyStore(Path(temp)),
+                    source_use_guard=guard(
+                        lambda _: reviewed(attribution_requirements="CREDIT_AUTHOR"),
+                    ),
+                    fetcher=lambda *a, **k: self.fail("invalid rights constraints must block before fetch"),
+                )
+            self.assertFalse(store.captures)
+            self.assertFalse(store.passages)
+            self.assertFalse(list(Path(temp).rglob("*.body")))
+
     def test_metadata_only_cannot_be_promoted_to_capture_ocr_asr_or_public(self):
         record = reviewed(permitted_uses=("DISCOVER_METADATA",))
         self.assertTrue(evaluate(record, use="DISCOVER_METADATA").permitted)
@@ -149,6 +179,17 @@ class SourceUseContractTests(unittest.TestCase):
         self.assertNotEqual(
             first.decision_fingerprint,
             evaluate(reviewed(permitted_uses=CAPTURE_USES + ("ARCHIVE",))).decision_fingerprint,
+        )
+
+    def test_changed_attribution_constraints_change_use_decision_fingerprint(self):
+        # A changed condition for the same private use must be visible in the
+        # capture decision receipt even when a caller supplies a stale record ID.
+        without_credit = evaluate(reviewed(attribution_requirements=()))
+        with_credit = evaluate(reviewed(attribution_requirements=("CREDIT_AUTHOR",)))
+        self.assertTrue(without_credit.permitted)
+        self.assertTrue(with_credit.permitted)
+        self.assertNotEqual(
+            without_credit.decision_fingerprint, with_credit.decision_fingerprint,
         )
 
     def test_current_revision_policy_and_exact_artifact_are_required(self):

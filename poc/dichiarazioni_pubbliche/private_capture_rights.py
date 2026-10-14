@@ -15,6 +15,7 @@ from typing import Callable
 
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.rights_registry import (
+    MAX_POLICY_CODES,
     PRIVATE_RIGHTS_RECORD_VERSION,
     PrivateRightsRecord,
     RightsSubject,
@@ -28,6 +29,7 @@ PRIVATE_SOURCE_USES = frozenset({
 })
 PUBLIC_SOURCE_USE = "EXCERPT_PUBLIC"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_MACHINE_CODE = re.compile(r"^[A-Z0-9][A-Z0-9._:-]{0,127}$")
 
 
 class SourceUseBlocked(PrivateCaptureAuthorizationBlocked):
@@ -77,6 +79,7 @@ def _fingerprint(record: PrivateRightsRecord, use: str) -> str:
         "reviewed_at": record.reviewed_at,
         "expires_at": record.expires_at,
         "permitted_uses": sorted(record.permitted_uses),
+        "attribution_requirements": sorted(record.attribution_requirements),
         "use": use,
     }
     return hashlib.sha256(
@@ -110,6 +113,12 @@ def evaluate_source_use(
         or record.record_visibility != "PRIVATE"
         or not isinstance(record.permitted_uses, tuple)
         or any(not isinstance(item, str) for item in record.permitted_uses)
+        or not isinstance(record.attribution_requirements, tuple)
+        or len(record.attribution_requirements) > MAX_POLICY_CODES
+        or any(
+            not isinstance(item, str) or not _MACHINE_CODE.fullmatch(item)
+            for item in record.attribution_requirements
+        )
     ):
         return SourceUseDecision(use, "DENIED", "SOURCE_USE_RECORD_CONTRACT_INVALID", "REVIEW_RECORD_CONTRACT")
     try:

@@ -74,3 +74,33 @@ Original AC-236.1–AC-236.6 remain open pending authenticated qualified decisio
 - The operation-time operator gate now rejects malformed receipt/reviewer refs consistently with registry normalization (opaque receipt string, nonempty, at most 512 chars, no whitespace/NUL; reviewer string, nonblank, at most 256 trimmed chars, no NUL). It also requires `permitted_uses` to be a tuple of strings before exact membership: a malformed `"NOT_RESEARCH_CAPTURE_PRIVATE"` string formerly passed as a substring, as did malformed list/tuple containers. Negative tests failed before this second fix and pass after it.
 - CLI-equivalent guard/capture regression verifies **zero fetch, zero acquisition permit and zero body/passage/capture persistence** for both the forged review and malformed uses. A legitimate opaque receipt with a valid spaced reviewer name still completes offline fetch, capture, parse and one body write. Operator tests **18/18**, DP-236 and capture pipeline **43/43**, extended five-module focused suite **90/90**, Ruff, compileall and diff check passed locally.
 - This closes the reproduced **operation-time malformed-review/use-list bypass** in the CLI guard only. Strings accepted as receipt references are **not** authenticated signatures or legal permission; no production current-rights/issuer validation, full source-version proof, MiniPC readback or public excerpt approval occurred. AC-236.1–236.6 remain open.
+
+## 2026-10-14 — Attribution-constraint integrity of source-use decisions (offline)
+
+- The optional `evaluate_source_use` reader boundary admitted a synthetic
+  `CURRENT/CLEARED` record with `attribution_requirements="CREDIT_AUTHOR"`
+  (a string instead of the registry's normalized code tuple). It returned
+  `SOURCE_USE_PERMITTED` despite the malformed rights condition. Independently,
+  two otherwise identical valid synthetic records differing only in
+  `attribution_requirements=()` versus `("CREDIT_AUTHOR",)` produced the
+  **same** use-decision fingerprint, concealing the changed source-use
+  condition in the Capture audit fingerprint. Both cases were observed **RED**
+  in focused tests before correction.
+- The optional operation-time guard now validates the attribution tuple's
+  machine-code shape and registry count bound, just as it already validates
+  `permitted_uses`, and includes the constraints in the decision fingerprint.
+  New negative cases cover a string, list, invalid/mixed tuple and excessive
+  entries; a synthetic `capture_content` path proves malformed constraints
+  block **before any fake fetch, Capture/Passage persistence or body write**.
+  A valid changed attribution condition now yields a distinct fingerprint.
+  This is a contract/audit boundary, **not** enforcement or approval of any
+  claimed legal attribution duty or actual licence.
+- Local, offline verification: DP-236/DP-237 and adjacent lawful-exact-quote/
+  historical-corpus preflight suites **59/59 PASS**, rights-registry
+  PostgreSQL/capture/schema/legacy locator/authorization suites **69/69 PASS**,
+  targeted Python compilation and `git diff --check` PASS. No live rights
+  decision, source acquisition, external-provider use, MiniPC readback,
+  original-media locator or public excerpt release was performed.
+  **DP-236 stays IN PROGRESS; AC-236.1–.6 remain OPEN** pending authenticated
+  current permissions, exact source-version rights, legal dispositions and
+  runtime proof. DP-237 was regression-checked but unchanged.
