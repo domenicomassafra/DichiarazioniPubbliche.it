@@ -787,6 +787,65 @@ body.is-studio {
   background: var(--paper-1);
 }
 
+/* Source-bound, independently removable Explore facets. Wrapping and
+ * bounded text preserve accessible touch targets even at 200% zoom. */
+.explore-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--rule-hairline);
+}
+
+.explore-active-filters__heading {
+  color: var(--ink-700);
+  font-size: var(--text-label);
+  font-weight: var(--weight-semibold);
+}
+
+.explore-active-filters__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.explore-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule-control);
+  border-radius: var(--radius-control);
+  color: var(--ink-900);
+  background: var(--paper-raised);
+  text-align: start;
+  cursor: pointer;
+}
+
+.explore-filter-chip > span:first-child {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.explore-filter-chip:focus-visible {
+  outline: var(--focus-ring-width) solid var(--cobalt-700);
+  outline-offset: 2px;
+}
+
+@media (max-width: 40rem) {
+  .explore-active-filters__list { flex-basis: 100%; }
+  .explore-filter-chip { max-width: min(100%, 20rem); }
+}
+
 .filter-controls {
   display: flex;
   align-items: center;
