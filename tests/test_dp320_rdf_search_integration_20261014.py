@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import threading
@@ -45,6 +47,40 @@ from test_public_projection import FakeSource, valid_row  # noqa: E402
 NOW = datetime(2026, 10, 14, 1, tzinfo=timezone.utc)
 
 
+def real_typescript_search_bytes(projection: dict) -> bytes:
+    """Run actual production TS builder *and validator* on the Python fixture.
+
+    No HTTP, source capture, installed global launcher or provider. Node reads
+    only the repo's TS modules. The Python metadata guard below remains a
+    separate parity assertion, not a substitute for the served search asset.
+    """
+    js = """
+import {buildSearchIndexMaterial,finalizeSearchIndex,validateSearchIndex,canonicalJson} from './src/lib/searchIndex.ts';
+let input='';for await(const chunk of process.stdin) input+=chunk;
+const projection=JSON.parse(input);
+const index=await finalizeSearchIndex(buildSearchIndexMaterial(projection));
+await validateSearchIndex(index,projection.dataset_sha256);
+process.stdout.write(canonicalJson(index));
+"""
+    root = Path(__file__).resolve().parents[1] / "web"
+    completed = subprocess.run(
+        ["node", "--experimental-strip-types", "--input-type=module", "-e", js],
+        cwd=root,
+        input=json.dumps(projection, ensure_ascii=False),
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=20,
+        check=False,
+        env={**os.environ, "NODE_NO_WARNINGS": "1"},
+    )
+    if completed.returncode:
+        raise AssertionError(
+            "DP320_REAL_TS_SEARCH_ASSET_INVALID:" + completed.stderr[-500:]
+        )
+    return completed.stdout.encode("utf-8")
+
+
 def real_artifacts():
     # Both actual Python materializers read the SAME approved-shaped synthetic
     # projection; do not disguise two unrelated fixture corpora as one release.
@@ -62,12 +98,28 @@ def real_artifacts():
     )
     assert checked.consistent and len(actual_index["records"]) >= 3
     assert actual_index["projection_sha256"] == shared_projection["dataset_sha256"]
-    real_search = json.dumps(
-        actual_index,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
+    real_search = real_typescript_search_bytes(shared_projection)
+    served = json.loads(real_search)
+    actual = {(row["kind"], row["id"]): row for row in served["records"]}
+    # DP431's *Python guard* checks metadata only, whereas the actual TS
+    # asset has the full public record schema. Compare overlapping fields,
+    # never equate the partial receipt with the full served search material.
+    assert len(served["records"]) == len(actual)
+    for public_receipt in actual_index["records"]:
+        if (
+            public_receipt["kind"] == "content"
+            and shared_projection.get("contents") == []
+        ):
+            # The older DP431 metadata-only Python guard retains content
+            # *lineage* in its receipts. Canonical production TypeScript does
+            # NOT generate Content SEARCH records for explicit contents=[].
+            # Never seal/serve the guard's fabricated legacy Content record.
+            assert not any(row["kind"] == "content" for row in served["records"])
+            continue
+        canonical_record = actual[(public_receipt["kind"], public_receipt["id"])]
+        assert all(
+            canonical_record[key] == value for key, value in public_receipt.items()
+        )
     real_rdf = projection_ntriples(shared_projection).encode()
     assert real_search and real_rdf.startswith(
         b"<https://dichiarazionipubbliche.it/id/"
@@ -115,6 +167,24 @@ class ExtendedRdfAndSearchFenceTests(unittest.TestCase):
 
     def seal(self):
         self.assertTrue(self.fence.seal(self.ticket, self.items, self.manifest))
+
+    def test_search_asset_has_real_typescript_consumer_required_fields(self):
+        # This must be the actual TS search asset shape, not the smaller
+        # DP431 *metadata guard* fixture, which cannot be served to Explore.
+        index = json.loads(real_artifacts()["SEARCH"])
+        self.assertEqual(
+            index["schema_version"], "dichiarazioni-pubbliche-search-index-v1"
+        )
+        self.assertEqual(
+            index["projection_schema_version"], "dichiarazioni-pubbliche-public-v2"
+        )
+        self.assertEqual(len(index["index_sha256"]), 64)
+        self.assertTrue(index["generated_at"])
+        self.assertTrue(index["records"])
+        self.assertIn("route", index["records"][0])
+        self.assertIn("direct_quote_eligible", index["records"][0])
+        self.assertIn("primary_terms", index["records"][0])
+        self.assertIn("secondary_terms", index["records"][0])
 
     def test_eighth_rdf_optional_and_entire_real_search_cohort_pinned(self):
         self.assertEqual(len(ALL_SURFACES), 7)

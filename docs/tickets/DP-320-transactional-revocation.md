@@ -306,3 +306,35 @@ stopped, **exit 143 and not represented as success**, to add a genuine
 temporal as-of RED→GREEN regression before this definitive completed run.
 This remains local source validation, not PR CI, independent approval or
 any physical/rights/provider acceptance.
+
+## 2026-10-14 — Independent P2 discovery: actual TypeScript SEARCH bytes
+
+Independent reviewer worker-9 identified a consequential P2 in the prior
+**test contract**, not an observed live authorization bypass: the fixture
+sealed the smaller DP-431 Python *metadata-only* search receipt as `SEARCH`.
+That lacks required `projection_schema_version`, `generated_at`, full
+per-record route/term fields and the independently checked `index_sha256`;
+the actual production TypeScript `validateSearchIndex` refuses it. It also
+incorrectly counted a legacy Content search row when explicit
+`contents=[]` prohibits fallback. Hence prior SQLite tests did **not** prove
+that the SEARCH bytes were accepted by the actual frontend reader.
+
+New deterministic RED requires full canonical Search Index v1 fields; it
+failed on the published surrogate. The corrected fixture locally executes
+the real `buildSearchIndexMaterial`, `finalizeSearchIndex` and
+`validateSearchIndex` TypeScript via Node with no HTTP/provider/source-body
+access. Its input is the same real synthetic Python public-v2 projection
+used for DP-431 Python metadata and linked-data N-Triples. The final
+sealed `SEARCH` bytes come from **the validated TS asset**; the Python
+metadata receipt is only compared on shared public Finding/Person/Topic
+fields, and explicit `contents=[]` is verified to produce no TS Content
+records even though the metadata guard can still track Content lineage.
+The 8-surface SQLite checks, real TS validation, four revoke reasons and
+adjacent DP-320/DP-518 regressions are now **48/48 PASS**. A further
+independent re-review of this corrected diff was requested; do not infer
+its result from the initial finding. No HTTP/CDN revocation, real route,
+PostgreSQL/MiniPC, rights or editorial acceptance is claimed.
+
+**Final independent source-only re-review:** worker-9, read-only, reran the corrected actual TypeScript Search Index v1 fixture (builder + finalizer + validator) and checked six canonical top-level fields, complete public record fields, and no fabricated Content search record when `contents=[]`. Separately replayed the RDF/SQLite eight-surface and legacy-seven tests; its DP-320 subset **39/39 PASS**, prime's wider DP-320/DP-518 **48/48 PASS**. No remaining reproduced P1/P2 in this *bounded test/source contract*. Reviewer made no Git, source, provider or host changes. Historical HTTP/CDN bytes, production PostgreSQL, source rights, public routes and MiniPC remain outside acceptance.
+
+**Final post-review codefreeze validation:** one completed full Python unittest discovery on a detached main worktree containing exact byte-identical DP-320, DP-440, DP-439 and DP-314 source/test files returned **3,503/3,503 PASS, exit 0, 306.597 s**. Deterministic benchmark **5/5 PASS**, Ruff/check/format PASS. Exact TS Search Index builder, finalizer and validator and corrected `contents=[]` regression are included. A prefinal full-suite attempt was deliberately terminated **exit 143** after the reviewer found a further DP-440 source mutation problem; it is NOT counted as PASS. Reviewer independently rechecked the corrected bounded DP320 tests; no CI/production/physical acceptance inferred.
