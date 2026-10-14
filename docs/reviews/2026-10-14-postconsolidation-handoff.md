@@ -1,5 +1,23 @@
 # DichiarazioniPubbliche.it — handoff operativo / pending finale
 
+**Nuovo checkpoint quinta tranche, 14 ottobre:** il branch integratore
+`integrate/dp-20261014-all-lanes` ha il source commit
+`e7210a73fdfcdf8f3cf42fe78264127a48a6221c`, letto uguale da remoto,
+con tre ulteriori RED→GREEN DP-319/440/320 (costo assignment, autonomia
+review synopsis, limit 128 per ticket di revoca). Le prove locali sono
+44/43/51 PASS con lint e diffcheck verdi; [ricevuta DP02](2026-10-14-dp02-execution-closure.md)
+separa esattamente le fix dal mancato completamento degli AC reali.
+**Full Python sul nuovo source: 3664/3664 PASS, exit0, 358,844 s**, log
+`/tmp/dp02-wave5-final-full-20261014.log`: non trasferire a questo SHA
+il precedente 3661/1 della wave4. Ops response precedente c49809b resta
+pubblicata, eventuale nuovo addendum richiede lease esplicita concorrente.
+Preflight **NO-GO/49**, contatori 162/90 DONE/72 non DONE invariati.
+**Response lane02 quinta wave** è effettivamente pubblicata su Ops `main`
+come `94feaad5401a1abab29856a480d6bb7dbe4e88e8` (uno e un solo path,
+SHA remoto identico). Lease writer Core07 esplicita ricevuta e rilasciata;
+dirty WIP 01/05/305 e Core07 sono rimasti non staged/intatti.
+
+
 **Quarta wave DP02, nuova frontiera (14 ottobre):** source integratrice
 `91b1783654b69888196b509bab71c19dc1aaf1ce` sul branch
 `integrate/dp-20261014-all-lanes`, verificata con readback remoto; sei

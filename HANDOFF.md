@@ -1,5 +1,24 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+> **Quinta tranche DP02 (14 ottobre):** codice integratore pubblicato a
+> `e7210a73fdfcdf8f3cf42fe78264127a48a6221c`, dopo tre nuovi commit
+> RED→GREEN source-only: DP-319 `1746aca` (cap costi assignment, 44 PASS),
+> DP-440 `e91b44f` (review sentence distinta da membership/currentness,
+> 43 PASS), DP-320 `e7210a7` (ticket con >128 deps non ammesso, 51 PASS).
+> Ruff/diff-check verdi, staging e readback remoti per ogni commit; tutte le
+> acceptance originarie restano **OPEN**, come source/rights, PG/issuer,
+> editoriale e pilot. [Ricevuta DP02 quinta wave](docs/reviews/2026-10-14-dp02-execution-closure.md).
+> **Full Python FINALE 3664/3664 PASS**, `OK`, exit0, **358,844 s** sul
+> source `e7210a7`, log `/tmp/dp02-wave5-final-full-20261014.log`.
+> È una vera nuova esecuzione, non un riuso del run wave4 3661/1;
+> l'intermittenza DP238 non si è ripresentata ma la causa resta ignota.
+> Status 162/90 DONE/72 non DONE,
+> preflight **NO-GO/49**; `main` prodotto ancora protetto dalla guardia PR.
+> **Response Ops 297 quinta wave pubblicata** su ControlCenter `main` a
+> `94feaad5401a1abab29856a480d6bb7dbe4e88e8`, `ls-remote` uguale,
+> un solo file response02 staged sotto lease Core07 esplicita poi RILASCIATA,
+> WIP 01/05/305 e Core07 preservati.
+
 > **Quarta wave DP02, 14 ottobre — SOURCE `91b1783654b69888196b509bab71c19dc1aaf1ce` salvata su branch remoto:**
 > ripresa dal checkpoint integratore `0eba7fb` e da ControlCenter Ops
 > `main` `65dafd8`. Il precedente DP-517 OIDC origin è stato provato con

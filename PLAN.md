@@ -1008,6 +1008,27 @@ passaggio tecnico necessario è rerun integrale verde in ambiente isolato,
 o diagnosi del subprocess PDF sotto carico con regressione RED→GREEN;
 non si dichiara accertata una causa ambientale senza prova. [Ricevuta](docs/reviews/2026-10-14-dp02-execution-closure.md).
 
+**Quinta tranche DP02, 14 ottobre, nuovi ticket source-only corretti:**
+DP-319 `1746acac54c872ded5570ef3b8ad35edc097c765` (receipt oltre
+assignment cap; 44/44), DP-440 `e91b44fb354b0673248c69e33a8763a6091f8c5c`
+(review separata di sintesi; 43/43), DP-320
+`e7210a73fdfcdf8f3cf42fe78264127a48a6221c` (ri-validazione cap
+dipendenze; 51/51). Tutti RED→GREEN, Ruff/diff-check PASS, Git prime writer
+seriale, push con SHA remoto letto. Sono correzioni tecniche, non chiusura
+degli AC originari né autorizzazione legale/rights/issuer/MiniPC.
+Quattro worker sono stati assegnati ma il frontend di esecuzione non ne ha
+garantito la presa in carico: nessun risultato fittizio viene contato. La
+full suite Python obbligatoria sul codice `e7210a7` è **GREEN 3664/3664,
+exit0, 358,844 s**, log `/tmp/dp02-wave5-final-full-20261014.log`.
+Gate statici
+e preflight **NO-GO/49**, registro **162 / 90 DONE / 72 non DONE**.
+**Response lane Ops quinta wave pubblicata e readback**:
+`94feaad5401a1abab29856a480d6bb7dbe4e88e8` su ControlCenter `main`
+con un solo file response02, lease Core07 esplicita prima e rilasciata dopo,
+preimage `941252f0ff7406d533e47343517735167d03f4f9` identica a remote.
+Il commit è documentale, non un avanzamento dell'integratore DP `main`;
+dirty WIP 01/05/305/fleet/Core07 intatti.
+
 **Writer Ops, addendum full suite:** lease esclusiva concessa e rilasciata
 dal prime Core07 dopo push di `c49809baada076fcb4f6a88ea9f8e82adb9a3a59`
 della sola response02 packet 297; `origin/main` letto identico, nessun

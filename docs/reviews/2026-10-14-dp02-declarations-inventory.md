@@ -80,3 +80,22 @@ considerate complete o pubblicate**. Il loro contenuto vincolante attende
 owner, Q-306 e revisione legale/privacy DP-304/307/702; non va sostituito da
 titolarità, recapiti, diritti o promesse di retention inventate. Il controllo
 Astro e la build demo opt-in non mutano questo risultato.
+
+## 2026-10-14 — Quinta tranche: crosswalk rivalidato con documenti e lane Ops
+
+Lo scanner dei link Markdown relativi è stato rieseguito **dopo** gli
+aggiornamenti reali di `HANDOFF.md`, `PLAN.md`, ricevuta e post-handoff:
+**138/138 link esistenti e 0 path mancanti** in sette file (questo
+inventario 68; ricevuta DP02 5; postconsolidamento 9; HANDOFF 46;
+operator-runbook 1; runbook OAuth 0; PLAN 9). I locator esterni nominati
+esplicitamente sono stati verificati per esistenza nel Mac Studio:
+`ControlCenter/.../297-handoff-restart-20261012/02-dichiarazioni-pubbliche.prompt.md`,
+la sua `02-dichiarazioni-pubbliche.response.md` e la directory skills
+`~/.dstack/package/skills/`. Questo prova navigabilità del checkout,
+**non** semantica/approvazione delle SOP, autorizzazione delle Skills,
+link pubblici HTTP, dati reali, CI PR, endpoint MiniPC o retention.
+I file route `metodo`, `correzioni`, `dati`, `progetto` sono presenti;
+`privacy`, `termini`, `contatti`, `contribuisci` sono **ancora assenti**.
+Il registro Q-306/DP-304/307/701/702, le responsabilità/recapiti e i
+diritti rimangono gate esterni. Non si è aggiunta alcuna pagina sostitutiva
+o dichiarazione pubblica con approvazione fittizia.
