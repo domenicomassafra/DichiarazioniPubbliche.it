@@ -166,6 +166,30 @@ class SynopsisRefreshPlanTests(unittest.TestCase):
                 expected_previous_synopsis_read_sha256=issuer_pin,
             )
 
+    def test_bundle_rows_mutated_after_shallow_validation_must_refuse_stale_hash(self):
+        # Reviewer P2: validation using dict(bundle) copied the top-level
+        # mapping but not its nested Statement records. Later access to
+        # mutable rows can change original words with the old digest intact.
+        original = bundle()
+
+        class PostValidationMutation(dict):
+            def __getitem__(self, key):
+                if key == "statements":
+                    rows = super().__getitem__(key)
+                    rows[0]["original_text"] = "POST_VALIDATION_PRIVATE_RAW_MUTATION"
+                    return rows
+                return super().__getitem__(key)
+
+        old = PostValidationMutation(copy.deepcopy(original))
+        current = PostValidationMutation(copy.deepcopy(original))
+        with self.assertRaisesRegex(ValueError, "REFRESH_PUBLIC_BUNDLE_INVALID"):
+            self.plan(
+                old,
+                current,
+                reviewed=prepare(original),
+                current_membership=intersection(original),
+            )
+
     def test_current_projection_drift_hold_even_if_old_citation_unchanged(self):
         old = bundle()
         current = copy.deepcopy(old)

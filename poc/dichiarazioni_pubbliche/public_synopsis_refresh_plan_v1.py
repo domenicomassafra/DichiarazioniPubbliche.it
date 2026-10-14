@@ -92,6 +92,34 @@ def _sha(value: object) -> bool:
     return isinstance(value, str) and bool(_HASH.fullmatch(value))
 
 
+def _frozen_public_bundle(value: Mapping[str, object]) -> dict:
+    """Detach validated public rows before any digest or citation dereference.
+
+    Dynamic Mapping/dict subclasses can change nested Statement bytes after
+    shallow `dict(...)` validation. This private reference API deliberately
+    accepts only ordinary public-projection dicts, then serializes the full
+    bounded JSON tree into a new plain dict used throughout reconciliation.
+    """
+    if type(value) is not dict:
+        raise ValueError("REFRESH_PUBLIC_BUNDLE_INVALID")
+    try:
+        material = json.dumps(
+            value,
+            sort_keys=True,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        if len(material.encode("utf-8")) > 4_000_000:
+            raise ValueError("too large")
+        snapshot = json.loads(material)
+        if type(snapshot) is not dict:
+            raise ValueError("not an object")
+        return snapshot
+    except (TypeError, ValueError, OverflowError, RecursionError) as exc:
+        raise ValueError("REFRESH_PUBLIC_BUNDLE_INVALID") from exc
+
+
 def synopsis_read_sha256(read: PublicSynopsisRead) -> str:
     """Digest all emitted read bytes; caller MUST pin this independently.
 
@@ -203,9 +231,11 @@ def plan_synopsis_refresh(
         current_bundle, Mapping
     ):
         raise ValueError("REFRESH_PUBLIC_BUNDLE_INVALID")
+    previous_bundle = _frozen_public_bundle(previous_bundle)
+    current_bundle = _frozen_public_bundle(current_bundle)
     try:
-        validate_public_bundle(dict(previous_bundle), allow_statement_v3=True)
-        validate_public_bundle(dict(current_bundle), allow_statement_v3=True)
+        validate_public_bundle(previous_bundle, allow_statement_v3=True)
+        validate_public_bundle(current_bundle, allow_statement_v3=True)
     except (ValueError, TypeError, KeyError) as exc:
         raise ValueError("REFRESH_PUBLIC_BUNDLE_INVALID") from exc
     for value, expected in (

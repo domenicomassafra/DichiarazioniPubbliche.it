@@ -356,9 +356,29 @@ historical leak or actual live route exploit. Final independent review still
 **PENDING**: worker sessions were unavailable. Original DP-440 Status and
 AC remain unchanged, no rights/editorial/provider/MiniPC acceptance claimed.
 
+**New independent reviewer P2 on source bundle mutation:** worker-9
+reproduced a distinct post-validation time-of-check/use defect. The old
+`dict(previous_bundle)`/`dict(current_bundle)` conversion was shallow:
+nested original wording could change on later caller-controlled access
+while stored `dataset_sha256` values remained unchanged. A specially
+constructed in-memory dict subclass triggered the issue, producing a
+misleading `NO_CHANGE_REVIEW_PENDING` despite mutated source material.
+New deterministic regression first **RED** because the planner accepted
+that untrusted post-validation mutation. The planner now refuses dynamic
+Mapping/dict subclasses, makes a bounded **detached JSON snapshot of both
+complete public bundles before ANY validation or later citation read**, and
+performs every SHA/currentness/comparison operation on those snapshots.
+Source-only new/adjacent DP-440 tests now **27/27 PASS**. The final
+independent re-review of this second P2 is requested separately; this does
+not establish authenticated issuer identity, real rights or publication.
+
 **Post-patch regression:** the original read-model mutation probe is now
 RED→GREEN, and **26/26** new and adjacent DP-440 tests PASS. The exact
 source and test bytes used in the detached aggregate overlay produced one
 complete **3,476/3,476 Python PASS**, exit 0 in 330.917 s, and benchmark
 **5/5 PASS**. Ruff and format PASS. This is source-only author review;
 independent reviewer proof remains outstanding, so no PR or public route.
+
+**Independent final source-only re-review:** worker-9 replayed the prior malicious dynamic `SwappingCurrent(dict)` after the new full `_frozen_public_bundle` snapshot and observed `REFRESH_PUBLIC_BUNDLE_INVALID` before any callback could mutate citation rows. A plain-dict source tamper before validation without a matching SHA was also refused; a mutation after full detach had no effect on the pinned snapshot. Reviewed new+adjacent DP-440 **27/27 PASS**. No additional reproduced P1/P2 within this bounded private planning contract; reviewer wrote no source/Git/provider data. This PASS is not an authenticated issuer, rights, editorial, semantic, PR-CI or physical MiniPC acceptance.
+
+**Final codefreeze test receipt:** one completed combined Python unittest discovery on detached main plus byte-identical new DP-320/DP-440/DP-439/DP-314 source and tests returned **3,503/3,503 PASS, exit 0 in 306.597 s**, benchmark **5/5 PASS**, Ruff check/format PASS. Post-source-detachment DP-440 new+adjacent **27/27 PASS** and independent reviewer confirmed malicious post-shallow-copy mutation now refused. A previous prefinal full test was interrupted **exit 143** after source changes and never counted as PASS. This records local source checks only, no reviewer rights, editorial conclusion, PR CI, provider or production acceptance.
