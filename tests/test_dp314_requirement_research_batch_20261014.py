@@ -6,7 +6,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dichiarazioni_pubbliche.verification_requirements_v1 import RequirementClaim
 from test_dp314_verification_requirements import claim, record, sources
 
 

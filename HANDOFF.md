@@ -1,5 +1,18 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+> **Aggiornamento operativo 14 ottobre 2026 (integratore):** il checkpoint
+> corrente è nel branch `integrate/dp-20261014-all-lanes`, **non in `main`**.
+> L'intera ricognizione Git, le 11 integrazioni effettive, i test post-review,
+> la pulizia misurata dei worktree e i blocker di release sono in
+> [ricevuta di consolidamento](docs/reviews/2026-10-14-all-lanes-consolidation-receipt.md).
+> Per la prossima sessione, leggere prima
+> [handoff aggiornato e pending](docs/reviews/2026-10-14-postconsolidation-handoff.md).
+> Lo SHA `2a85c7855f7c6438cfc57092388370ef183ac168` è il checkpoint remoto
+> documentale precedente al follow-up Ruff/handoff; non attribuire test o CI
+> a commit successivi senza riesecuzione. Il repository `main` è ancora
+> `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, protetto da PR+review.
+> Status/AC e gate fonte/legale/editoriale/MiniPC/auto-review restano aperti.
+
 **Tranche seconda ondata dopo c16d823, 12 ottobre 2026:**
 [Post-commit HELD_SOURCE receipt isolation, Studio operatore Collection
 PG, revocation-currentness, private v3 Person/Topic/Statement,
