@@ -75,6 +75,15 @@ uploads, private dossiers or other personal records are linked to members.
    `https://dichiarazionipubbliche.it/account/oauth/callback`. Never paste
    client secrets into Git, browser JavaScript or a static file. Use a regular
    private secret file with owner UID and mode 0600, inside a 0700 directory.
+   The opt-in service must use **exactly** `--account-site-origin
+   https://dichiarazionipubbliche.it`: `https://www.dichiarazionipubbliche.it`,
+   unrelated/lookalike `.it` hosts, host suffix injection and an explicit
+   `:443` are rejected rather than silently normalized or redirected.
+   Preflight the three independent hostile-origin classes (unrelated host,
+   lookalike/suffix, `www`/port alias) and the exact positive callback with
+   `tests.test_public_account.PublicAccountTests.test_oidc_redirect_must_use_the_registered_account_origin`.
+   This is **local source verification**, not confirmation of the Google
+   console registration, TLS/proxy behavior or permission to enable accounts.
 3. Install the explicit backend account crypto profile (`pip install
    '.[account]'`) in the target runtime. Supply **all four** opt-in arguments
    `--account-client-id`, `--account-client-secret-file`, `--account-db`,
