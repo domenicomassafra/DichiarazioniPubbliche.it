@@ -12,6 +12,61 @@ queue. The post-grilling expansion introduced 37 ticket specifications, and the
 canonical register at the 2026-10-12 `f92c1c5` checkpoint contained 162 tickets:
 90 DONE, 52 IN PROGRESS, 6 BLOCKED, 14 FUTURE (72 not DONE).
 
+## 2026-10-14 — DP02 eighth technical tranche, private HTTP hardlinks
+
+After the distinct DP-517 initial root/symlink fence `2516e42`, a public
+hardlink with the same inode as a private SQLite account file still returned
+HTTP 200 to anonymous GET, including a hardlink named `index.html` served via
+`/`. Four source-private families (SQLite, WAL, SHM and OAuth secret) now
+have synthetic HTTP denial and normal-public-asset positive controls. New
+scoped correction `dfd178d3ae05cf3d11e8f6ec78f574902023e022` was
+committed with its regression and ticket only, pushed on
+`integrate/dp-20261014-all-lanes`, and remote SHA read back equal. Related
+tests **156/156 PASS**; Ruff, compileall, diff-check PASS. Account runbook
+updated without changing identity or retention policy.
+
+The previous full Python suite on `2516e42` measured **3670 tests / three
+DP238 PDF worker unavailable failures**, exit 1; the isolated born-digital
+PDF module retest was 11/11 PASS. The subsequent full suite on `dfd178d`
+measured 3674 tests / one documentation-contract failure, because this
+paragraph originally preceded the canonical PLAN reporter invocation.
+The section now follows the metadata to preserve the tested contract,
+without weakening the original test. The subsequent complete full suite
+on unchanged `dfd178d` source and corrected document bytes was
+**3674/3674 PASS, exit0, 1353.431s**; log
+`/tmp/dp02-wave8-planfixed-full-20261014.log`.
+All original DP517 AC and DP312 AC remain OPEN for actual qualified rights,
+approved policies, Google and physical runtime. **Release NO-GO/49** and
+**162 total / 90 DONE / 72 not DONE** are unchanged, with no PR/merge/deploy.
+
+## 2026-10-14 — DP02 sesta tranche source-only, non release acceptance
+
+DP-312 private speech-act/context preflight: citazioni tipografiche
+U+300C/U+300D, U+300E/U+300F, U+300A/U+300B e U+3010/U+3011 intorno
+a parole inglesi venivano classificate `ASSERTION/ENDORSE`. Quattro casi
+RED, riparazione minima quote/HOLD, 32 focused + 48 adjacent e benchmark
+5/5 PASS. Source integratore pubblicata e letta dal remoto al commit
+`4873a2fb7508165a62a6de42ed49a9cbc4fa9379`; full Python sullo stesso
+codice **3665/3665 PASS, exit0, 571,183 s**. Nessun originale DP-312
+AC-312.1–6 chiuso: mancano source annotato/diritti, Gold linguistico,
+downstream replay e MiniPC. Reporter **162/90 DONE/72 non DONE**,
+launch preflight **NO-GO/49** invariati e PR/CI, legal/privacy/editorial,
+release authority e deploy non acquisiti. Per la ricevuta e il crosswalk
+vedere [DP02 execution closure](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Settima tranche indipendente, DP-517:** sullo stesso integratore è stata
+pubblicata la correzione sorgente
+`2516e42f4421757c393cf912f9483a70f2bbf1d4`, con SHA remoto uguale.
+L'avvio del server account con SQLite sotto static root poteva esporre in
+HTTP 200 anonimo database e identità fittizie; un symlink a database privato
+era ugualmente servito, e il secret OAuth in root pubblica non veniva
+rifiutato. Prove RED di HTTP reale localhost su dati sintetici, poi guard
+DB/secret e realpath GET/HEAD; **121/121** test account/API/privacy PASS,
+Ruff e diff-check PASS. Questa protezione non equivale ad attivazione Google,
+legal erasure o readback MiniPC: tutti gli AC-517.1–7 e il profilo FUTURE
+restano aperti. Full Python sul codice nuovo da attestare separatamente;
+no PR/main/deploy. NO-GO/49 e 90 DONE/72 non DONE invariati.
+
 ## 2026-10-10 post-grilling integration — planning contract, not completion
 
 The four actual native Chat On Steroids lanes are integrated into the **one** canonical PLAN. The master traceability matrix and gated execution path are in [post-grilling coverage and sequencing](docs/reviews/2026-10-10-post-grilling-coverage-and-sequencing.md); owner-facing semantics and superseded proposals are in [target reconciliation](docs/reviews/2026-10-10-post-grilling-target-reconciliation.md).

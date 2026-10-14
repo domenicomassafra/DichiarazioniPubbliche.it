@@ -1,5 +1,57 @@
 # DichiarazioniPubbliche.it — handoff operativo / pending finale
 
+**Ottava tranche DP02, source remoto:** nuovo hardlink P1 dopo la
+protezione root/symlink DP517: alias HTTP pubblico con stesso inode del
+database SQLite/account o delle sidecar WAL/SHM poteva ancora esporre
+contenuto privato. Le nuove prove HTTP locali hanno mostrato sette RED
+più il gap del path segreto; `dfd178d3ae05cf3d11e8f6ec78f574902023e022`
+introduce guard di inode sul file realmente selezionato (anche index),
+passaggio del secret path CLI e divieto di segreto dentro public root;
+**156/156 test account/API/privacy, Ruff, compileall e diff-check PASS**.
+Branch remoto uguale, nessun `main`/PR/deploy/MiniPC. [Dettagli della
+tranche](2026-10-14-dp02-execution-closure.md) e
+[runbook account](../release/account-oidc-activation.md).
+
+**Full Python wave8 successiva alla correzione PLAN:** sorgente immutata
+`dfd178d3ae05cf3d11e8f6ec78f574902023e022`, **3674/3674 PASS,
+exit0, 1353.431s** sul tree documentale corretto, log
+`/tmp/dp02-wave8-planfixed-full-20261014.log`. Il primo run su
+`dfd178d` aveva `3674/1 FAIL` nel test originale di autorità documentale:
+la sezione nuova in testa a PLAN oscurava il comando canonico richiesto.
+Riposizionamento della sola sezione, test immutato e RED→GREEN mirato.
+
+**Gate Python storico da non nascondere:** full sul source
+`2516e42` era **3670 test, tre FAIL DP238 PDF worker unavailable, exit 1**,
+nonostante retest isolato PDF 11/11 PASS. Il precedente 3665/3665 PASS
+appartiene al commit DP312 `4873a2f`; la prova completa su `dfd178d` è
+riportata sopra. **162/90 DONE/72 aperti e preflight NO-GO/49**;
+DP312 e DP517 mantengono gli AC originali aperti, così come i gate
+PR/CI, dati/diritti, legal/privacy, source reali, MiniPC e screen reader.
+
+**Settima tranche DP02, 14 ottobre:** nuovo commit DP-517
+`2516e42f4421757c393cf912f9483a70f2bbf1d4`, separato da DP312 e
+pubblicato sul branch integratore con readback SHA uguale. Server account
+misconfigurato poteva consegnare SQLite account e dati fittizi con GET
+anonimo, oppure via symlink; secret OAuth sotto static root ammesso dalla
+CLI. RED HTTP reale ma solo locale/temp, protezione di path privati e
+static GET/HEAD, **121/121 test** specifici+adiacenti, Ruff/diff-check
+PASS. Nessuna autentica Google, legal approval, CDN/MiniPC, PR/main/deploy.
+DP-517 FUTURE con AC1–7 OPEN. Full Python sul nuovo commit distinta da
+quella DP312, da attestare; launch preflight resta NO-GO/49 e reporter
+90 DONE/72 non DONE.
+
+**Sesta tranche DP02, 14 ottobre:** nuovo source commit DP-312
+`4873a2fb7508165a62a6de42ed49a9cbc4fa9379` su branch
+`integrate/dp-20261014-all-lanes`, push/readback remoto uguale e worktree
+pulito. Quattro falsi endorsement da quote CJK complete sono passati da RED
+a GREEN con test avversari per delimitatori malformati; 32 focused, 48
+adiacenti, benchmark 5/5, Ruff e diff-check PASS. **Full Python 3665/3665
+PASS, exit0, 571,183 s** sullo SHA del codice. L'originale DP312 AC1–6
+è ancora OPEN: non è stata ottenuta alcuna licenza/identità/Gold, prova
+MiniPC, approvazione editoriale o via libera a un lettore pubblico.
+Contatori **162/90 DONE/72 non DONE** e preflight **NO-GO/49** invariati;
+`main` DP rimane distinto e non avanzato. [Dettagli e prove](2026-10-14-dp02-execution-closure.md).
+
 **Nuovo checkpoint quinta tranche, 14 ottobre:** il branch integratore
 `integrate/dp-20261014-all-lanes` ha il source commit
 `e7210a73fdfcdf8f3cf42fe78264127a48a6221c`, letto uguale da remoto,

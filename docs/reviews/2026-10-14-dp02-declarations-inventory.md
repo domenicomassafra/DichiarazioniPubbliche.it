@@ -99,3 +99,39 @@ I file route `metodo`, `correzioni`, `dati`, `progetto` sono presenti;
 Il registro Q-306/DP-304/307/701/702, le responsabilità/recapiti e i
 diritti rimangono gate esterni. Non si è aggiunta alcuna pagina sostitutiva
 o dichiarazione pubblica con approvazione fittizia.
+
+## 2026-10-14 — Ottava tranche: dichiarazioni, privacy e crosswalk confermati
+
+Sul source integratore `dfd178d3ae05cf3d11e8f6ec78f574902023e022`
+restano realmente presenti le quattro route sorgente Metodo, Correzioni,
+Dati/API e Progetto; non ci sono ancora `privacy.astro`, `termini.astro`,
+`contatti.astro` o `contribuisci.astro`, né una dichiarazione reale con
+ricevuta di diritti, reviewer e pubblicazione MiniPC attestata. Lo
+Statement v3 e la parità backend/Astro testati sono solo fixture demo
+esplicite e noindex, non contenuto autorizzato.
+
+La [regressione DP-312](../tickets/DP-312-speech-act-context.md) mantiene
+separata la citazione completa (`QUOTE/NON_COMMITTAL`) dall'endorsement
+diretto su delimitatori CJK e occidentali; la sua full suite 3665/3665
+appartiene allo SHA `4873a2f`. La [protezione account DP-517](../tickets/DP-517-reader-google-login.md)
+ha ricevuto un ulteriore guard contro hardlink di SQLite/WAL/SHM e del
+secret OAuth su `dfd178d`, con test locali 156/156, e il
+[runbook OIDC](../release/account-oidc-activation.md) avverte che la
+protezione non equivale a isolamento fisico/proxy certificato.
+
+La scansione locale dei link Markdown relativi nei sette documenti correnti
+è **153/153 destinazioni esistenti, zero mancanti** (inventario 76,
+HANDOFF 49, PLAN 10, ricevuta di execution 5, postconsolidamento 12,
+operator-runbook 1, runbook OIDC 0). È un controllo di esistenza dei path,
+non un HTTP 200 o un'approvazione. I locator del mandato
+e della risposta `02-dichiarazioni-pubbliche` nel packet ControlCenter 297
+esistono e restano un riferimento esterno, non un'approvazione della release.
+Le directory canoniche SOP (`docs/ops/`), Skills owner
+(`~/.dstack/package/skills/`), Rules (`AGENTS.md`, `PRODUCT.md`, policy e ADR)
+e Operations (operator-runbook, threat model, retention) continuano ad avere
+ruoli distinti e nessuna fornisce di per sé diritti o consenso.
+
+Il registro mantiene **162 ticket, 90 DONE, 72 non DONE**; preflight release
+**NO-GO/49** per Q-306, artefatti e ticket di lancio. Nessuna pagina
+Privacy/Termini/Contatti/Contribuisci è stata creata senza owner e legal,
+nessun ticket con AC esterne è stato marcato DONE e nessun deploy avviato.

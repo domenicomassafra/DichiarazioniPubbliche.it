@@ -1,5 +1,128 @@
 # DP02 — esecuzione parallela, bug fix e gate di release (14 ottobre 2026)
 
+## Ottava tranche — hardlink account, prova negativa reale e nuovo source SHA
+
+**Commit pubblicato:** `dfd178d3ae05cf3d11e8f6ec78f574902023e022`,
+branch `integrate/dp-20261014-all-lanes`, readback remoto identico; stage
+esclusivamente `public_api.py`, `test_dp517_account_static_exposure_20261014.py`
+e `DP-517-reader-google-login.md`. È un P1 aggiuntivo, **non** la
+riedizione del controllo root/symlink di `2516e42` già integrato.
+
+**RED:** sei combinazioni HTTP `GET`/`HEAD` di hardlink del database SQLite,
+WAL e SHM più la route `/` con alias `index.html` potevano esporre file
+privati: sette failure reali su soli dati sintetici e socket loopback. La
+protezione `Path.resolve()` non rileva identità di inode. Una regressione
+separata del segreto OAuth hardlink ha inizialmente fallito perché il server
+programmatico non riceveva la path privata del secret.
+
+**GREEN:** dopo il controllo delle identità `(st_dev, st_ino)` sul file
+finale, incluso il default index, database e sidecar non sono scaricabili
+con un alias hardlink. Il secret file protetto viene fornito al server
+tramite il percorso CLI e controllato con gli stessi criteri; una
+configurazione diretta con segreto dentro public root è respinta.
+`GET /index.html`, `GET /`, `HEAD` pubblici e `401` dell'account anonimo
+restano validi. **156/156** test account/API/privacy collegati PASS; lint
+Ruff, `compileall`, `git diff --check` PASS. Nessuna autenticazione reale,
+payload privato dell'owner, binding esposto o modifica MiniPC.
+
+**Full suite precedente distinta:** source `2516e42`, log
+`/tmp/dp02-wave7-dp517-full-20261014.log`: **3670 test in 1213,821 s,
+3 FAIL, exit 1**. Precisamente DP-238
+`test_encrypted_document_needs_external_authority`,
+`test_page_count_limit_precedes_text_extraction`,
+`test_pdf_image_mixed_with_text_requires_ocr_or_independent_review` hanno
+ottenuto `DOCUMENT_PDF_WORKER_UNAVAILABLE` invece della categoria PDF
+attesa. Retest isolato PDF **11/11 PASS**; causa deterministica ancora non
+provata, nessun aumento del timeout. La full suite sul più recente
+`dfd178d` richiede un exit finale proprio; un `OK` del parent non basta.
+
+**Run completi sul nuovo source:** primo run su `dfd178d` e documenti
+ancora in modifica: `Ran 3674 tests in 681.616s`, `FAILED (failures=1)`,
+exit1. Il test originale
+`LiveDocumentationAuthorityTests.test_plan_labels_pre_expansion_125_ticket_checkpoint_as_historical`
+richiedeva il comando reporter nei primi 1500 caratteri di `PLAN.md`:
+la sezione DP02 era stata aggiunta sopra i metadata canonici. **RED→GREEN**
+spostando solo la sezione sotto i metadata, senza modificare il test:
+test mirato e repository contract PASS. La successiva full suite sullo
+stesso source `dfd178d` e sul `PLAN.md` corretto è **3674/3674 PASS,
+exit0, 1353.431s**, log `/tmp/dp02-wave8-planfixed-full-20261014.log`.
+Questo non costituisce un fix della precedente intermittente DP238:
+nessuna modifica al parser PDF/timeout è stata fatta.
+
+**CI di branch per `dfd178d`:** GitHub Actions run `38617805928` risulta
+`completed/success`, ma il dettaglio job prova esclusivamente
+`repository contract=success`; `backend matrix`, `web static frontend` e
+`detached clean-clone smoke` sono tutti `skipped`. Questo NON attesta CI di
+PR o readiness di produzione e non supera la guardia di auto-review billing.
+
+**Originali:** AC-517.1–7 ancora OPEN e ticket FUTURE; il guard inode
+locale non è sandbox atomica contro writer malevoli, né certifica Google,
+privacy/retention, reverse proxy/MiniPC, CDN o accessibilità. Anche DP312
+resta OPEN; registro 162/90 DONE/72 non DONE, preflight NO-GO/49, guardia
+PR billing e tutte le decisioni Q-306 invariati.
+
+## Settima tranche — DP-517 isolamento del database account da static HTTP
+
+Nuovo commit sorgente separato
+`2516e42f4421757c393cf912f9483a70f2bbf1d4` pubblicato sul medesimo
+branch `integrate/dp-20261014-all-lanes` con SHA remoto uguale. In una
+prova HTTP reale, loopback e account SQLite **temporaneo con utente
+sintetico**, il server account che serviva anche una `static_dir` coincidente
+con quella del database permetteva `GET /accounts.sqlite3` anonimo 200
+e restituiva header SQLite e indirizzo fittizio. Un symlink pubblico a file
+SQLite privato passava; un segreto OAuth posto sotto public root superava
+la configurazione CLI. Le tre classi erano RED prima del fix.
+
+Il server ora rifiuta l'account SQLite la cui path reale ricade sotto la
+root pubblica; la CLI controlla allo stesso modo SQLite e secret OAuth;
+GET e HEAD statici, quando account è attivo, rifiutano symlink il cui target
+esce dalla root. Pagine statiche GET/HEAD e sessione anonima mantengono i
+comportamenti precedenti. Test mirati e adiacenti account/HTTP/API/inventario
+privacy **121/121 PASS**, Ruff, compileall e diff-check PASS. La review
+del prime ha limitato lo stage ai tre file DP517 (source, nuovo test, ticket).
+
+**AC-517.1–7 restano tutti OPEN / ticket FUTURE**: non è stato usato
+Google reale né letto un account vero; mancano approvazione della privacy,
+WAL/backups/retention e diritti, replica MiniPC/proxy/CDN, accessibilità,
+owner signoff, PR/CI e rollback. Non trasformare in evento pubblico la
+fixture localhost. La full suite Python sul nuovo SHA è da attestare con
+un nuovo run; quella DP312 3665/3665 PASS appartiene al parent
+`4873a2f`, non basta automaticamente come gate di DP517.
+
+## Sesta tranche — DP-312 citazioni contestuali e full Python sul nuovo codice
+
+Il branch integratore `integrate/dp-20261014-all-lanes` è passato dal sigillo
+precedente `bf96a8bab02b4f24abcbb9dcab83096bb25aa36a` al fix
+**DP-312** `4873a2fb7508165a62a6de42ed49a9cbc4fa9379`, con
+`HEAD == ls-remote origin` e worktree pulito dopo push. Una fonte inglese
+racchiusa nei quattro stili di virgolette CJK (U+300C/D, U+300E/F,
+U+300A/B, U+3010/11) produceva falsamente `ASSERTION/ENDORSE` come
+fosse l'adesione diretta dell'utterer. Il nuovo test ha riprodotto quattro
+failure RED prima del fix; ora le quote complete sono `QUOTE/NON_COMMITTAL`
+e le forme incomplete, invertite o annidate generano `HOLD_FOR_CONTEXT`
+con `UNBALANCED_QUOTATION`. Controllo positivo di frase davvero diretta,
+replay metadata immutabile, 32/32 test DP312, 15/15 legacy context,
+26/26 relations, 7/7 opinion reader, benchmark 5/5, Ruff,
+repository contract e diff-check PASS. Commit con soli sorgente, test e
+ticket DP312, senza provider/host/diritti pubblici.
+
+**Full Python sulla source esatta `4873a2f`:**
+`PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`,
+`Ran 3665 tests in 571.183s`, `OK`, exit0,
+log `/tmp/dp02-wave6-dp312-full-20261014.log`.
+La formattazione globale di quei due Python resta debito preesistente:
+`ruff format --check` falliva anche sulle rispettive versioni `bf96a8b`;
+`ruff check` nuovo PASS, nessuna riscrittura cosmetica. La quinta tranche
+precedente era già 3664 PASS sullo SHA diverso `e7210a7`/sigillo docs
+`bf96a8b`, e la vecchia failure DP238 della quarta wave resta storica.
+
+**Disposition originale non cambiata:** DP-312.1–6 OPEN (Gold/speaker,
+licensed multilingual source, rights, downstream invalidation, MiniPC).
+Registro 162/90 DONE/72 non DONE, preflight NO-GO/49 con 16 Q-306,
+4 artefatti release mancanti e 29 launch ticket non DONE, più guardia
+PR billing/CI, documenti legali, approvazioni, rights e test reader/CDN.
+Questo solo commit di branch remoto non autorizza PR/merge o deploy.
+
 ## Quinta wave — tre ulteriori fix indipendenti e prerequisiti di rilascio
 
 **Response lane02 pubblicata sul packet ControlCenter Ops `main`:**

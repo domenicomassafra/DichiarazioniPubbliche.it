@@ -1,5 +1,51 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+> **Ottava tranche DP02, nuovo difetto P1 account static (14 ottobre):**
+> dopo il commit DP-517 `2516e42`, un hardlink dentro la root pubblica
+> aggirava la protezione basata sui symlink e permetteva il download
+> anonimo di SQLite, WAL, SHM o del database come `index.html`. Test HTTP
+> locali su soli dati fittizi hanno restituito sette failure RED; una prova
+> separata ha individuato il mancato passaggio del path del segreto OAuth.
+> Il fix `dfd178d3ae05cf3d11e8f6ec78f574902023e022`, già pushato e
+> letto identico dal remoto, rifiuta alias con stesso device/inode e
+> protegge il path del segreto CLI, senza bloccare normali pagine HTML.
+> **156/156 test account/API/privacy PASS**, Ruff, compileall e diff-check
+> verdi. [Runbook account](docs/release/account-oidc-activation.md) e
+> [ticket DP-517](docs/tickets/DP-517-reader-google-login.md) aggiornati.
+> La suite integrale del source `2516e42` ha avuto **3 FAIL DP238/3670**
+> (`DOCUMENT_PDF_WORKER_UNAVAILABLE`) sotto carico, non corretti con timeout;
+> sul nuovo source `dfd178d` il primo run completo ha trovato un solo
+> errore documentale nel posizionamento della sezione `PLAN.md` (3674/1
+> FAIL). La correzione ha conservato il test originale e ripristinato il
+> comando reporter canonico nell'intestazione. La seconda full suite sul
+> source invariato e documenti corretti è **3674/3674 PASS**, exit0,
+> 1353,431 s, log `/tmp/dp02-wave8-planfixed-full-20261014.log`.
+> Non dedurre OAuth/proxy/diritti/release da una protezione HTTP locale:
+> **162/90 DONE/72 non DONE, NO-GO/49** restano invariati.
+>
+> **Sesta tranche DP02 (14 ottobre, sorgente già remoto):** DP-312
+> `4873a2fb7508165a62a6de42ed49a9cbc4fa9379` corregge una falsa
+> attribuzione `ASSERTION/ENDORSE` per quattro famiglie di virgolette CJK
+> intorno a parole inglesi. Quattro RED iniziali, poi 32 test focalizzati,
+> 48 adiacenti, benchmark 5/5, Ruff e diff-check PASS; unico commit dei tre
+> path DP312 e remoto uguale. **Full Python sul nuovo SHA: 3665/3665 PASS,
+> exit0, 571,183 s** (`/tmp/dp02-wave6-dp312-full-20261014.log`).
+> È solo un preflight privato, non una firma di source/review; AC-312.1–6
+> ancora OPEN. Reporter 90 DONE/72 non DONE e preflight NO-GO/49;
+> niente PR, merge su `main`, permesso editoriale o deploy. La
+> [ricevuta corrente](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> distingue questa nuova esecuzione dai 3664 PASS del sigillo precedente.
+>
+> **DP-517 source hardening aggiuntivo, settima tranche:** commit remoto
+> `2516e42f4421757c393cf912f9483a70f2bbf1d4` (branch integratore,
+> `ls-remote` uguale) corregge il download HTTP anonimo del database SQLite
+> degli account e di un alias symlink quando la root pubblica era configurata
+> male. Prova RED HTTP loopback/temp con sole identità fittizie, quindi
+> separazione path DB/secret, guard realpath per GET/HEAD statici, 121/121
+> test focalizzati+adiacenti e Ruff PASS. `DP-517` resta FUTURE, AC1–7 OPEN;
+> prove account Google reale, MiniPC/proxy/CDN, legal/privacy e PR/CI assenti.
+> Full Python sul codice DP-517: nuova esecuzione da attestare separatamente.
+>
 > **Quinta tranche DP02 (14 ottobre):** codice integratore pubblicato a
 > `e7210a73fdfcdf8f3cf42fe78264127a48a6221c`, dopo tre nuovi commit
 > RED→GREEN source-only: DP-319 `1746aca` (cap costi assignment, 44 PASS),

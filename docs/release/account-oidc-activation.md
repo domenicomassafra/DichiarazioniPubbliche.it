@@ -64,6 +64,18 @@ purged on requests; an approved unattended cleanup/backups schedule and account
 data-erasure procedure are still required before remote activation. No source
 uploads, private dossiers or other personal records are linked to members.
 
+**Static hosting separation:** The private account database, `-wal` and `-shm`
+sidecars and OAuth secret must remain outside the static root, with no symlink
+or hardlink aliases into published assets. The local account-enabled host
+rejects DB/secret paths under the public root and tests final static-file
+device/inode against known account-private files, including `index.html`
+resolution; the CLI passes the private secret path to this check. Test both
+GET and HEAD with disposable fake records via
+`tests/test_dp517_account_static_exposure_20261014.py`. This protection is
+not a filesystem confinement proof under a malicious concurrent writer;
+deploy privileges, root write access, reverse-proxy/static-offload paths and
+backup leakage require separate MiniPC and security acceptance.
+
 ## Required before enabling on MiniPC
 
 1. Product owner confirms purpose, terms, identity-controller/contact channel,
