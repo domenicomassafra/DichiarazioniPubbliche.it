@@ -279,3 +279,30 @@ deterministic benchmark **5/5 PASS**, Ruff check/format and compileall PASS;
 DP-320 new+adjacent targeted **47/47 PASS**. This is neither exact-head GitHub
 PR CI nor an independently reviewed release; operational rights and all
 original acceptance remain OPEN.
+
+**2026-10-14 post-ship source-only review of exact published `af9fb892`:**
+Prime (the implementer, **not** an independent reviewer) re-inspected the
+actual diff against parent `38bb8707`. The unchanged seven-surface contract
+and new opt-in RDF eighth surface use distinct complete manifest shapes;
+`_complete_metadata` checks bounded bodies, ticket dependencies and exact
+surface order, `seal` and `_read` both perform `BEGIN IMMEDIATE` followed by
+the canonical ticket epoch check and full stored-cohort manifest readback.
+Inspectors reran the real shared-public-projection Python Search Index/RDF
+fixture, the four revoke reasons, missing RDF blocking an unrelated HTML or
+SEARCH check, rehashed/re-pinned RDF denial, legacy seven/eight refusal,
+malformed nested ticket rejection and the separate-connection read/revoker
+barrier: **47/47 scoped tests PASS**, no newly reproduced P1/P2 in this
+source-only contract. It cannot fence HTTP bytes sent after commit, purge
+distributed caches or certify editorial rights. **Independent diff review
+remains PENDING**; no external reviewer ACK, PR CI or full acceptance inferred.
+
+**Final revalidation of the three separate source lanes:** one completed
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q`
+on an isolated detached main overlay with SHA/byte-identical DP-320, DP-440
+and new DP-439 source/test files returned **3,476/3,476 PASS, exit 0,
+330.917 seconds**; Ruff check/format and deterministic benchmark **5/5
+PASS**. An earlier run on a pre-final DP-439 source was intentionally
+stopped, **exit 143 and not represented as success**, to add a genuine
+temporal as-of RED→GREEN regression before this definitive completed run.
+This remains local source validation, not PR CI, independent approval or
+any physical/rights/provider acceptance.
