@@ -289,3 +289,71 @@ production projection boundary all PASS, with DP-429 public suggestions
 contract PASS. These are local offline/isolated source tests, not PR CI,
 production release, source-rights grants, editorial sign-off or MiniPC.
 The repository's original DP-231 status and AC remain untouched.
+
+**Independent postcommit P2 follow-up on first cohort SHA `04ca313`:**
+Worker-9 (strictly read-only) reproduced a false clean rights-policy outcome
+using a mutable caller-owned policy dictionary: after `REVOKED/PENDING`
+validated, a downstream canonical-URL read changed that dict to
+`APPROVED/APPROVED` before the planner reread it, producing an erroneous
+`IDLE_PRIVATE_REVIEW_PENDING`. The new saved **RED→GREEN** fixture mutates
+policy at exactly this boundary. The planner now builds an exact typed
+validated policy snapshot before ANY such URL calculation and reads only
+this detached snapshot; the revoked source returns `WITHHELD_SOURCE_POLICY`
+with held count 1. This is a private source contract preflight, not a live
+issuer or legal permission guarantee.
+
+The same independent reviewer reproduced a separate P2 on real public
+lifecycle: metadata for a newly published standalone Content may predate
+its public release, or private metadata may survive Content retirement.
+The first cohort implementation eagerly resolved every private record
+against BOTH public releases and raised `COHORT_PRIVATE_METADATA_NOT_PUBLIC`
+rather than returning a typed new/retired review. Two true saved RED fixtures
+now pass: the planner derives public membership from each complete pinned
+release first, validates locators **only where the Content was public in
+that release**, and classifies actual public additions/retirements before
+private metadata arrival/absence. Metadata that was NEVER public on either
+side gets an explicit `PRIVATE_CONTENT_NOT_PUBLIC_HOLD`, with no raw ID leak.
+The complete public Content union still catches unscoped new Content and
+all same-ID canonical URL contradictions. Targeted new/adjacent tests
+**88/88 PASS**, Ruff and format checks PASS. The previous completed full
+suite **3,535/3,535** applies to **pre-fix SHA `04ca313` only**, not this
+subsequent source. An independent final re-review of BOTH P2 patches and
+one new final full suite are required before claiming final PASS on the
+follow-up commit. No original Status or AC were changed.
+
+**Final independent reviewer re-check of both postcommit cohort P2 fixes:**
+worker-9 executed a strictly read-only, source-only audit on the exact
+final owned source/test diff. Genuine independently pinned public-v2
+release fixtures prove a new standalone Content absent both metadata
+inventories yields a held `UNSCOPED_PUBLIC_CONTENT_REVIEW`; newly
+published/retired Content with already-present private metadata gives
+`NEW_CONTENT_METADATA_REVIEW`/`RETIRED_CONTENT_REVIEW` rather than an
+exception. In-memory `source_policies` deliberately changed from
+`REVOKED/PENDING` to `APPROVED/APPROVED` during the later canonical-URL
+operation now cannot change its validated private policy snapshot: the
+source stays `WITHHELD_SOURCE_POLICY`, held count 1. Never-published
+private-only Content returns a hold without ID or URL echo; stale private
+SHA refuses. Reviewer independently ran **72/72 bounded tests PASS**
+(cohort19, single-Content DP231 15, enrichment6, schema32) and reported
+**NO additional reproducible P1/P2 in that scope**. The reviewer wrote no
+code, tests, docs, Git, host, DB or provider state. This finding does
+NOT establish authenticated owner-issued permit, production HTTP/CDN
+withdrawal, MiniPC, rights, legal/editorial or publication acceptance.
+
+**Final post-P2 code-frozen six-lane proof (2026-10-14):** after the
+rights-policy snapshot and actual public Content-lifecycle fixes, a detached
+main worktree with the exact **17 byte-identical code/test paths** from the
+six delivered source-only lanes completed
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q`
+**3,538/3,538 PASS, exit 0, in 289.038 seconds**. The earlier completed
+3,535/3,535 suite verified the superseded 04ca313 source, NOT the present
+patch. Focused new+adjacent owner tests **88/88 PASS**; independent source
+reviewer tests **72/72 PASS** in the bounded described scope. Deterministic
+benchmark **5/5 PASS**, Ruff and format checks PASS, Astro check **123 files,
+zero errors/zero warnings, one existing hint**, and isolated empty/demo
+keyboard/AX/mobile-reflow/200%-zoom + production boundary checks PASS.
+These are LOCAL source-only, synthetic public-v2 and offline browser
+contracts, NOT branch-PR CI, owner-issued source approval, live retrieval,
+legal rights, real HTTP/CDN withdrawal, provider success, editorial
+publication, production DB, deployment, or physical MiniPC acceptance.
+Original DP-231 Status and all AC are intentionally unchanged.

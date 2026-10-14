@@ -6,6 +6,7 @@ import copy
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path[:0] = [
     str(Path(__file__).resolve().parents[1] / "poc"),
@@ -174,8 +175,15 @@ class PrivateMetadataCohortTests(unittest.TestCase):
             self.plan(source_policies={})
         with self.assertRaisesRegex(ValueError, "COHORT_PRIVATE_OPT_IN_REQUIRED"):
             self.plan(private_opt_in=False)
-        with self.assertRaisesRegex(ValueError, "COHORT_PRIVATE_METADATA_NOT_PUBLIC"):
-            self.plan(current={"content:secret": captured(content_id="content:secret")})
+        held = self.plan(
+            current={"content:secret": captured(content_id="content:secret")}
+        )
+        self.assertIn(
+            "PRIVATE_CONTENT_NOT_PUBLIC_HOLD",
+            {item.status for item in held.review_items},
+        )
+        self.assertEqual(held.status, "MANUAL_COHORT_RECHECK_REQUIRED")
+        self.assertNotIn("content:secret", repr(held))
 
     def test_public_canonical_content_dossier_conflict_must_fail_closed(self):
         projected = real_public()
@@ -305,6 +313,50 @@ class PrivateMetadataCohortTests(unittest.TestCase):
             result.review_items[0].status, "UNSCOPED_PUBLIC_CONTENT_REVIEW"
         )
         self.assertEqual(result.status, "MANUAL_COHORT_RECHECK_REQUIRED")
+
+    def test_revoked_policy_cannot_swap_after_validated_preflight(self):
+        from dichiarazioni_pubbliche import private_source_metadata_cohort_v1 as cohort
+
+        policy = {"content:a": ("REVOKED", "PENDING")}
+        original = cohort._canonical_url
+
+        def malicious_postvalidation_swap(*args):
+            policy["content:a"] = ("APPROVED", "APPROVED")
+            return original(*args)
+
+        with patch.object(
+            cohort, "_canonical_url", side_effect=malicious_postvalidation_swap
+        ):
+            result = self.plan(source_policies=policy)
+        self.assertEqual(result.review_items[0].status, "WITHHELD_SOURCE_POLICY")
+        self.assertEqual(result.held_count, 1)
+        self.assertEqual(result.status, "MANUAL_COHORT_RECHECK_REQUIRED")
+
+    def test_public_addition_with_early_private_metadata_is_supported(self):
+        old, new = real_public(), release_with_standalone()
+        inventory = {
+            "content:a": captured(),
+            "content:standalone": captured(content_id="content:standalone"),
+        }
+        result = self.plan(inventory, inventory, before=old, after=new)
+        self.assertEqual(result.added_count, 1)
+        self.assertIn(
+            "NEW_CONTENT_METADATA_REVIEW", {row.status for row in result.review_items}
+        )
+
+    def test_public_retirement_with_retained_private_metadata_is_supported(self):
+        old, new = release_with_standalone(), real_public()
+        new["generated_at"] = "2026-10-15T12:00:00Z"
+        inventory = {
+            "content:a": captured(),
+            "content:standalone": captured(content_id="content:standalone"),
+        }
+        result = self.plan(inventory, inventory, before=old, after=new)
+        self.assertEqual(result.retired_count, 1)
+        self.assertIn(
+            "RETIRED_CONTENT_REVIEW", {row.status for row in result.review_items}
+        )
+        self.assertFalse(result.absence_of_original_established)
 
 
 if __name__ == "__main__":

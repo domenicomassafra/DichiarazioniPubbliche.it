@@ -240,41 +240,52 @@ def plan_private_metadata_cohort(
         )
     ):
         _fail("COHORT_SOURCE_POLICY_MISMATCH")
+    # Source policy is caller-owned and can change after the exact validation
+    # pass while a downstream public URL is computed. Capture the fully
+    # validated immutable values ONCE, then never read the caller dict again.
+    validated_policies = {
+        identifier: (policy[0], policy[1])
+        for identifier, policy in source_policies.items()
+    }
+
+    old_public_ids = _public_content_ids(before_public)
+    new_public_ids = _public_content_ids(after_public)
 
     old_url = {
         identifier: _canonical_url(before_public, identifier)
-        for identifier in before_pins
+        for identifier in sorted(old_public_ids)
     }
     new_url = {
         identifier: _canonical_url(after_public, identifier)
-        for identifier in after_pins
+        for identifier in sorted(new_public_ids)
     }
     rows: list[PrivateCohortReviewItem] = []
     counts = dict(unchanged=0, changed=0, held=0, added=0, retired=0)
 
     for identifier in sorted(identifiers):
-        use, review = source_policies.get(identifier, ("PENDING", "PENDING"))
+        use, review = validated_policies.get(identifier, ("PENDING", "PENDING"))
         reasons: tuple[str, ...] = ()
         fields: tuple[str, ...] = ()
         if identifier not in scoped_ids:
             status = "UNSCOPED_PUBLIC_CONTENT_REVIEW"
             reasons = ("PUBLIC_CONTENT_METADATA_NOT_IN_REVIEW_SCOPE",)
+        elif identifier not in old_public_ids and identifier in new_public_ids:
+            status = "NEW_CONTENT_METADATA_REVIEW"
+            counts["added"] += 1
+            reasons = ("NEW_PUBLIC_CONTENT_NOT_SOURCE_APPROVAL",)
+        elif identifier in old_public_ids and identifier not in new_public_ids:
+            status = "RETIRED_CONTENT_REVIEW"
+            counts["retired"] += 1
+            reasons = ("RETIRED_PUBLIC_CONTENT_RECHECK",)
+        elif identifier not in old_public_ids and identifier not in new_public_ids:
+            status = "PRIVATE_CONTENT_NOT_PUBLIC_HOLD"
+            reasons = ("PRIVATE_METADATA_WITHOUT_PUBLISHED_CONTENT",)
         elif identifier not in before_pins:
-            if _is_published_content(before_public, identifier):
-                status = "NEW_METADATA_RECORD_REVIEW"
-                reasons = ("NEW_PRIVATE_METADATA_NOT_SOURCE_APPROVAL",)
-            else:
-                status = "NEW_CONTENT_METADATA_REVIEW"
-                counts["added"] += 1
-                reasons = ("NEW_PUBLIC_CONTENT_NOT_SOURCE_APPROVAL",)
+            status = "NEW_METADATA_RECORD_REVIEW"
+            reasons = ("NEW_PRIVATE_METADATA_NOT_SOURCE_APPROVAL",)
         elif identifier not in after_pins:
-            if _is_published_content(after_public, identifier):
-                status = "MISSING_CURRENT_METADATA_REVIEW"
-                reasons = ("CURRENT_PRIVATE_METADATA_MISSING",)
-            else:
-                status = "RETIRED_CONTENT_REVIEW"
-                counts["retired"] += 1
-                reasons = ("RETIRED_PUBLIC_CONTENT_RECHECK",)
+            status = "MISSING_CURRENT_METADATA_REVIEW"
+            reasons = ("CURRENT_PRIVATE_METADATA_MISSING",)
         elif old_url[identifier] != new_url[identifier]:
             status = "PUBLIC_SOURCE_LOCATOR_CHANGED_HOLD"
             reasons = ("PUBLIC_SOURCE_IDENTITY_DRIFT",)
@@ -305,6 +316,7 @@ def plan_private_metadata_cohort(
             status.startswith("WITHHELD")
             or status == "PUBLIC_SOURCE_LOCATOR_CHANGED_HOLD"
             or status == "UNSCOPED_PUBLIC_CONTENT_REVIEW"
+            or status == "PRIVATE_CONTENT_NOT_PUBLIC_HOLD"
         ):
             counts["held"] += 1
         if status == "UNCHANGED_REVIEW_PENDING":
