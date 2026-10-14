@@ -316,6 +316,39 @@ class IncrementalWatchTests(unittest.TestCase):
         self.assertEqual(result.disposition, "CHANGED")
         self.assertEqual(result.children[0].observed_sha256, SHA_A)
 
+    def test_200_older_last_modified_cannot_replace_newer_confirmed_source(self):
+        p = policy()
+        confirmed = state(
+            p, content_sha256=SHA_B, source_version="record-v2",
+            etag='"etag-b"', last_modified="Sat, 10 Oct 2026 10:00:00 GMT",
+        )
+        # Upstream serves an older body and validator after the newer version
+        # was confirmed. This is not proof of a new amendment or freshness.
+        _, result = check(p, confirmed, outcome=response())
+        self.assertEqual(result.disposition, "UNAVAILABLE")
+        self.assertEqual(result.reason, "LAST_MODIFIED_REGRESSED")
+        self.assertEqual(result.children, ())
+        self.assertTrue(result.needs_source_review)
+        self.assertEqual(result.next_state.content_sha256, SHA_B)
+        self.assertEqual(result.next_state.source_version, "record-v2")
+        self.assertEqual(result.next_state.etag, '"etag-b"')
+        self.assertEqual(result.next_state.last_modified, confirmed.last_modified)
+        self.assertEqual(
+            result.next_state.last_successful_observed_at,
+            confirmed.last_successful_observed_at,
+        )
+        self.assertGreater(result.next_state.retry_not_before, T0)
+
+        # A full 200 carrying the same verified body/version is a successful
+        # unchanged check even when the server rewrites its validators.
+        _, same_body = check(
+            p, confirmed, outcome=response(
+                content_sha256=SHA_B, source_version="record-v2", etag='"etag-new"',
+            ),
+        )
+        self.assertEqual(same_body.disposition, "UNCHANGED")
+        self.assertEqual(same_body.children, ())
+
     def test_first_200_requires_verifiable_sha_and_proposes_one_child(self):
         p = policy()
         s = WatchState(source_id=p.source_id)

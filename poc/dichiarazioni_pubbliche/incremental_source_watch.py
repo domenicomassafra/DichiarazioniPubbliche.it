@@ -517,6 +517,12 @@ def reconcile_watch_observation(
         state.content_sha256 != digest
         or (state.source_version is not None and state.source_version != version)
     )
+    if (changed and modified is not None and state.last_modified is not None
+            and parsedate_to_datetime(modified) < parsedate_to_datetime(state.last_modified)):
+        # A changed body/version carrying an older HTTP validator may be a
+        # stale cached representation. Do not replace the confirmed source
+        # head or record successful freshness until the anomaly is resolved.
+        return replace(failed("LAST_MODIFIED_REGRESSED"), needs_source_review=True)
     updated = replace(
         _with_attempt(state, plan, fingerprint, observed_at=at),
         content_sha256=digest, source_version=version,

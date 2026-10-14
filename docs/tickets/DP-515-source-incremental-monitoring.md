@@ -198,3 +198,27 @@ capability/cost records and downstream DP-511/510 admission, persisted
 health digest from authenticated data, MiniPC canary and public cache/rights
 revocation acceptance. No production DB, provider, HTTP, real source,
 MiniPC, deploy, commit or push used in this slice.
+
+## 2026-10-14 — Stale changed-200 validator regression (source-only)
+
+An offline adversarial fixture exposed that a changed HTTP `200` carrying an
+older `Last-Modified` than the last successfully admitted source version
+replaced the confirmed hash/version and recorded a new successful observation.
+For example, a source with version v2 and `Last-Modified` 10 October could be
+silently regressed to v1 with `Last-Modified` 9 October, even though that
+response might come from a stale origin or cache.
+
+The pure reconciliation now marks a changed body/version with regressed
+`Last-Modified` as `UNAVAILABLE/LAST_MODIFIED_REGRESSED`, retains the confirmed
+source version/hash/ETag/validator and last successful timestamp, applies the
+existing bounded backoff, and raises a private source-review flag without any
+child proposal. A full `200` with independently verified identical content and
+version remains `UNCHANGED` even if validators are rewritten. A changed `200`
+without comparable validators follows the existing content/hash review path.
+
+The pure-function and real disposable SQLite regressions were both **RED**
+before the patch (`CHANGED` instead of `UNAVAILABLE`) and **GREEN** after.
+The focused DP-515/source-watcher suite passes **48/48**; Ruff lint, targeted
+compile and diff checks pass. HTTP, rights/cost receipts, MiniPC and public
+cache were not exercised. All original **AC-515.1–515.7 remain unchecked**, the
+ticket stays **IN PROGRESS**, and unattended production watching stays **NO-GO**.

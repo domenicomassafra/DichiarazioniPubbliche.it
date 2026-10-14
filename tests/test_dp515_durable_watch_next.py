@@ -167,6 +167,49 @@ class DurableWatchTests(unittest.TestCase):
                 observation=observation(),
             )
 
+    def test_persisted_newer_version_is_not_rolled_back_by_stale_200(self):
+        p_recent = replace(
+            self.p,
+            source_id="official:senate:recent",
+            locator_id="official:senate:recent-feed",
+        )
+        recent = replace(
+            self.s,
+            source_id=p_recent.source_id,
+            policy_fingerprint=policy_fingerprint(p_recent),
+            content_sha256=H2,
+            source_version="v2",
+            etag='"new"',
+            last_modified="Sat, 10 Oct 2026 08:00:00 GMT",
+        )
+        self.store.register_fixture_source(p_recent, recent, readiness(p_recent))
+        plan = self.store.begin_poll(
+            p_recent.source_id,
+            attempt_id="poll:old",
+            attempted_at=NOW,
+        )
+        self.assertTrue(plan.allowed)
+        result = self.store.commit_observation(
+            p_recent.source_id,
+            attempt_id="poll:old",
+            observation=observation(hash_value=H1, version="v1", etag='"old"'),
+        )
+        self.assertEqual(result.disposition, "UNAVAILABLE")
+        self.assertEqual(result.reason, "LAST_MODIFIED_REGRESSED")
+        self.assertEqual(result.children, ())
+        self.assertTrue(result.needs_source_review)
+        self.assertEqual(self.store.private_proposals(p_recent.source_id), ())
+        self.reopen()
+        saved = self.store.read_state(p_recent.source_id)
+        self.assertEqual(saved.content_sha256, H2)
+        self.assertEqual(saved.source_version, "v2")
+        self.assertEqual(saved.etag, '"new"')
+        self.assertEqual(saved.last_modified, recent.last_modified)
+        self.assertEqual(
+            saved.last_successful_observed_at, recent.last_successful_observed_at
+        )
+        self.assertGreater(saved.retry_not_before, NOW)
+
     def finish_after_begin(self):
         self.begin()
         return self.finish()
