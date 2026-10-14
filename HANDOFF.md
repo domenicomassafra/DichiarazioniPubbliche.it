@@ -1,5 +1,26 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+> **Quarta wave DP02, 14 ottobre — SOURCE `91b1783654b69888196b509bab71c19dc1aaf1ce` salvata su branch remoto:**
+> ripresa dal checkpoint integratore `0eba7fb` e da ControlCenter Ops
+> `main` `65dafd8`. Il precedente DP-517 OIDC origin è stato provato con
+> negativo/positivo e 107/107 test, mentre il
+> [runbook di attivazione](docs/release/account-oidc-activation.md) è stato
+> allineato sul callback esatto (`a302cd8`). Sei patch RED→GREEN nuove sono
+> pubblicate e rileggibili: DP-313 `0870c48`, DP-318 `5ad4bf4`,
+> DP-438 `2b2880e`, DP-317 `f126d00`, DP-439 `3f090b9`,
+> DP-435 `91b1783`, ogni commit con sole path owned e writer prime unico.
+> [Ricevuta DP02 e limiti di acceptance](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> e [censimento pubblico/crosswalk 124 link ora validati](docs/reviews/2026-10-14-dp02-declarations-inventory.md)
+> sono i locator correnti. La release resta **NO-GO/49**: 16 decisioni Q-306,
+> 4 artefatti mancanti, 29 ticket di lancio aperti, PR/CI full/auto-review,
+> source-use, Gold, screen reader e MiniPC/CDN/owner ancora indipendenti.
+> **90 DONE / 72 non DONE**, `main` del prodotto non avanzato. Una suite
+> completa sul codice wave4 deve essere attribuita al suo exit code, non alla
+> precedente full suite di wave3. La risposta di lane nel packet Ops 297
+> è **ora pubblicata** sul `main` ControlCenter a
+> `685a04e74878516f30edeb7e4b8720d68c1c012a`, un solo path di risposta
+> e readback remoto identico; WIP delle altre lane preservati.
+
 > **Terza wave DP02, 14 ottobre:** branch remoto
 > **Ops packet 297 addendum pubblicato:** ControlCenter `main` aggiornato
 > a `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`, un solo file

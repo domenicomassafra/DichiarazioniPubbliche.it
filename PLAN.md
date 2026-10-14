@@ -969,3 +969,30 @@ PR/backend/web/clean-clone manual/CI non attestati. I quattro ticket
 restano **IN PROGRESS** con AC originali aperti, next gate
 `PR_HELD_AUTOREVIEW_BILLING_GUARD` e poi accettazione diritti/editoriale,
 MiniPC e CDN. [Ricevuta](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Quarta wave di release-closure dal checkpoint `0eba7fb`, 14 ottobre:**
+DP-517 era già in `df4c0ee`, senza duplicare la sua fix: ri-eseguiti
+redirect-origin e 107/107 test con runbook allineato `a302cd8`. Altri
+sei RED→GREEN sorgente/test/ticket su branch integratore, con esclusiva
+serializzazione Git prime e readback remoto: DP-313 `0870c48` status
+processuale revocato; DP-318 `5ad4bf4` unicità span; DP-438 `2b2880e`
+review storiche; DP-317 `f126d00` permesso TRANSLATE; DP-439 `3f090b9`
+lineage revocation; DP-435 `91b1783` speaker non risolto. Ogni AC originale
+resta **IN PROGRESS** fino alle prove reali legali, su fonti, B/editoriali,
+MiniPC e UI/reader; non contare una fix tecnica come ticket DONE.
+Inventario pubblico aggiornato con 117 link locali validi, quattro pagine
+legali/informative ancora assenti, nessuna identità o policy inventata.
+Gate di lancio misurato: **NO-GO/49** = 16 Q-306, 4 artefatti release,
+29 ticket di lancio. Reporter **162 total / 90 DONE / 72 non DONE**.
+La build demo esplicitamente noindex passa Astro/search/Statement/parity,
+route 8/8 e accessibilità automatica 8/8; build di produzione resta
+correttamente bloccata senza proiezione approvata. Prima di PR/merge è
+necessario superare la guardia auto-review billing e verificare CI PR.
+[Receipt](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Consegna packet ControlCenter 297 quarta-wave documentale:** il file
+solo-lane `02-dichiarazioni-pubbliche.response.md` è pubblicato sul suo Ops
+`main` a `685a04e74878516f30edeb7e4b8720d68c1c012a`, remote readback
+identico, dopo riconciliazione dell'avanzamento Ops concorrente `fd7aef3`;
+WIP 01/05/305 e altri file fleet/Hermes/DStack preservati senza staging.
+La source branch DP continua separata senza PR, merge o deploy.

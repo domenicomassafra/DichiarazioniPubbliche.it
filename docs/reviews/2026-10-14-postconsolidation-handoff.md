@@ -1,5 +1,25 @@
 # DichiarazioniPubbliche.it — handoff operativo / pending finale
 
+**Quarta wave DP02, nuova frontiera (14 ottobre):** source integratrice
+`91b1783654b69888196b509bab71c19dc1aaf1ce` sul branch
+`integrate/dp-20261014-all-lanes`, verificata con readback remoto; sei
+tranche RED→GREEN DP-313/318/438/317/439/435, più runbook OIDC DP-517
+verificato (107/107). Il [rapporto esecutivo](2026-10-14-dp02-execution-closure.md)
+contiene gli SHA per ticket, le prove, la natura solo sintetica e i
+criteri originali ancora OPEN. Il
+[censimento delle dichiarazioni](2026-10-14-dp02-declarations-inventory.md)
+ora documenta 117 link iniziali e **124/124 relativi sul tree aggiornato**,
+e identifica con precisione le quattro
+route informative/legali ancora assenti. ControlCenter Ops era
+`65dafd8` a inizio ripresa; il successivo aggiornamento della sola
+`02-dichiarazioni-pubbliche.response.md` è stato **pubblicato** con writer
+Ops esclusivo su `main` a `685a04e74878516f30edeb7e4b8720d68c1c012a`
+e readback remoto identico, senza toccare 01/05/305. Status registro: 162/90 DONE/72 non DONE;
+`PR_HELD_AUTOREVIEW_BILLING_GUARD`, rights/qualifiche, pilot MiniPC e
+`NO-GO/49` rimangono aperti. La full suite finale wave4 deve essere
+identificata per l'esatto codice, non per test precedenti.
+
+
 **Ultimo source checkpoint DP02 (terza wave):** `186ef17e59fe73cab061a5301ffbe0d9f5443721`
 **ControlCenter Ops packet 297** ora contiene anche il readback della
 terza wave in `main` a `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`,

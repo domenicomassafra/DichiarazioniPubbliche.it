@@ -1,5 +1,94 @@
 # DP02 — esecuzione parallela, bug fix e gate di release (14 ottobre 2026)
 
+## Quarta wave — checkpoint `0eba7fb`, sei nuovi fix e verifica DP-517
+
+Ripresa dall'integratore locale/remoto
+`0eba7fb77dde1e6867f2114527f9dc241bffbe48` e dal packet ControlCenter
+Ops `main` `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`. Le quattro fix
+DP-517/516/243/515 della terza wave erano **già** nei commit precedenti;
+non sono state rigiocate o contate come nuove correzioni. La checkout
+integratrice rimane la sola branch `integrate/dp-20261014-all-lanes`;
+`origin/main` del prodotto non è stato toccato.
+
+**DP-517 verificato di nuovo sulla source esistente:** il test di origine
+OIDC esatta PASS, cinque varianti ostili (`unrelated.it`, lookalike, suffisso
+host, `www`, `:443`) e la callback positiva sono coperte; la suite di
+account, web boundary, privacy e public API è **107/107 PASS**, Ruff e
+`git diff --check` PASS. Il runbook
+[`account-oidc-activation.md`](../release/account-oidc-activation.md) ora
+spiega le tre classi di abuso, l'origine strettamente registrata e i limiti
+del test locale. Il solo commit documentale è
+`a302cd896ab647a6f34247b18190e8f80a594a82`, pubblicato e riletto.
+**AC-517.1–7 restano tutti OPEN**: Google Cloud reale, controller/legal,
+consenso, retention, proxy HTTPS/MiniPC e UX fisica non attestati.
+
+| Ticket | Commit remoto della quarta wave | Difetto con RED→GREEN e prova locale | Stato originale |
+| --- | --- | --- | --- |
+| DP-313 | `0870c48b7f84a6f08c5324237a8f4409345f4d24` | Condanna/assoluzione/archiviazione annullata poteva apparire come stato corrente: ora `STATUS_REVERSAL_UNRESOLVED/HOLD`; 88/88 test mirati e adiacenti PASS | AC-313.1–6 OPEN |
+| DP-318 | `5ad4bf4810d0dcb0f83f829083187f72c4946359` | Un solo span immutabile assegnato a due persone o alias nello stesso giorno poteva generare agreement/reaffirmation; ora `IDENTICAL_SOURCE_SPAN_REUSED/HOLD`; 98/98 suite allargata PASS | AC-318.1–5 OPEN |
+| DP-438 | `2b2880e6dbe2eef34d282f6ac38119516f416c20` | Approvazione storica Person riutilizzata per altra Person o ruolo pubblicabile; ownership lungo tutta la cronologia, 107/107 adiacenti e benchmark 5/5 PASS | AC-438.1–6 OPEN |
+| DP-317 | `f126d00eccce34a2aa8f186f19dbb5dabd18f954` | Traduzione editoriale con solo `STORE_BODY` risultava coerente senza diritto `TRANSLATE`; ora blocco esplicito, 50/50 rights/quote/revocation PASS | AC-317.1–6 OPEN |
+| DP-439 | `3f090b9e1d0514e6ff820ac7ee856068dfbdd30f` | Falsa riammissione post-`REVOKED` cambiando `membership_id` o retrodatando `reviewed_at`; lineage e tempo fail closed, 106/106 adiacenti PASS | AC-439.1–7 OPEN |
+| DP-435 | `91b1783654b69888196b509bab71c19dc1aaf1ce` | Placeholder persona `UNKNOWN`/`person:unresolved` poteva arrivare nello Statement pubblico v3 con cinque gate formalmente coerenti; ora escluso, 45/45 schema/proiezione PASS | AC-435.1–5 OPEN |
+
+Ogni consegna è stata preceduta da un fallimento RED riprodotto, poi
+corretta e rieseguita GREEN. Le sei pubblicazioni Git sono state serializzate
+dal **solo prime**, con staging esclusivo dei path del ticket,
+`git diff --cached --check`, push e readback `ls-remote` della SHA esatta;
+i worker CoS hanno consegnato diff e prove con **NO_GIT**. Le acceptance
+originali rimangono `IN PROGRESS`, perché sorgente sintetica, review/cattura
+non attestate, legge/diritti, vera UI pubblica e MiniPC/CDN richiedono prove
+e autorità separate. Per DP-318, DP-438 e DP-439 il check globale Ruff di
+formattazione presenta debito già presente nella baseline: lint Ruff sui
+diff PASS, nessuna riscrittura cosmetica massiva o dichiarazione di formatter
+verde è stata effettuata.
+
+**Documenti e superfici verificate:** il censimento
+[`2026-10-14-dp02-declarations-inventory.md`](2026-10-14-dp02-declarations-inventory.md)
+ha una prova ripetuta di **117/117 link Markdown relativi esistenti** in sei
+file (inclusi 68 nel suo crosswalk SOP/Skills/Rules/Operations/handoff).
+Una nuova scansione, successiva all'aggiunta dei link della quarta wave,
+conferma **124/124 link relativi e zero path mancanti** sui medesimi sei
+documenti: 68 nel censimento, 4 nella ricevuta, 7 nel post-handoff,
+44 in HANDOFF, 1 nel runbook operatore e 0 nel runbook account. Sono verifiche
+dei file sorgente, non HTTP live né autorizzazioni legali o editoriali.
+Metodo, Correzioni, Dati/API e Progetto esistono come source route;
+Privacy, Termini, Contatti e Contribuisci non esistono ancora nel tree
+`web/src/pages/` e **non** possono essere dichiarate approvate o pubblicate
+senza owner e consulente qualificato. La demo Astro noindex non è una
+proiezione editoriale autorizzata.
+
+**Gate finali della wave:** `python3 tools/check_launch_preflight.py
+--expect-no-go` restituisce `NO-GO/49` (16 decisioni legali Q-306 non
+concluse, 4 artefatti release mancanti e 29 ticket di lancio non DONE).
+Il reporter restituisce **162 total / 90 DONE / 52 IN PROGRESS / 6 BLOCKED /
+14 FUTURE / 72 non DONE / ready=0**, `PLAN.md` coerente. Il ramo resta
+soggetto a `PR_HELD_AUTOREVIEW_BILLING_GUARD`; PR/CI backend+web completa,
+manual AT, rights, pilot e deploy non sono sostituibili dai test di fixture.
+
+**CI Github sul source della quarta wave** `91b1783654b69888196b509bab71c19dc1aaf1ce`:
+run `38600359003` `completed/success`, ma **solo** `repository contract`
+è `success`; `web static frontend`, `backend matrix` e `detached clean-clone`
+sono `skipped`. Le vere prove frontend locali sullo stesso codice sono Astro
+check **0 errori / 0 warning / 1 hint**, demo noindex controllata 34 pagine,
+search, Statement, parity, routes canoniche 8/8, projection-boundary,
+accessibilità automatica 8/8, quality, trust e corrections tutti PASS.
+La build di produzione priva di `DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH`
+è giustamente **HELD**, non va dichiarata PASS per aver usato la demo opt-in.
+Il readback finale del bundle autorizzato, VoiceOver/device e la CI PR
+rimangono prove autonome non eseguite.
+
+**Pubblicazione della risposta Ops:** mentre le altre lane avanzavano la
+propria checkout, `origin/main` ControlCenter si è attestato a `fd7aef3`;
+da quella base il writer DP02 ha committato **il solo file**
+`297-handoff-restart-20261012/02-dichiarazioni-pubbliche.response.md`, commit
+`685a04e74878516f30edeb7e4b8720d68c1c012a`, push regolare e
+`git ls-remote origin refs/heads/main` identico. I WIP non owned (lane
+01/05/305, fleet, Hermes, DStack) non sono stati staged, resettati o
+modificati dalla lane02. Questo è un receipt documentale Ops, non una
+promozione del codice DP `main`.
+
+
 ## Terza wave, codice DP `186ef17`, risposta ControlCenter Ops pubblicata
 
 **Readback finale ControlCenter Ops:** dopo il primo commit packet 297
