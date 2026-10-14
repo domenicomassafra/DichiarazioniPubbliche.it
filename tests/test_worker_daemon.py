@@ -861,6 +861,9 @@ class WorkerDaemonTests(unittest.TestCase):
                         "verification_rule": {
                             "metric": "tax_rate",
                             "value": 10,
+                            "population": "ALL",
+                            "geography": "IT",
+                            "unit": "percent",
                             "reference_period": "2026",
                         },
                         "estimated_cost_usd": 0,
@@ -881,7 +884,7 @@ class WorkerDaemonTests(unittest.TestCase):
                 "source_id": "istat-sdmx",
                 "independence_group": "istat-sdmx:2026",
                 "rights_status": "UNKNOWN",
-                "dimensions": {},
+                "dimensions": {"population": "ALL", "geography": "IT"},
                 "authoritative": True,
                 "status": "APPROVED",
                 "metadata": {"evidence_source_id": "istat-sdmx"},

@@ -448,10 +448,11 @@ class EvidenceEffectiveTimePersistencePostgresTests(unittest.TestCase):
             );
             INSERT INTO evidence_observation(
               id,evidence_id,observation_type,metric,value_numeric,unit,reference_period,
-              extraction_method,extraction_version,status
+              dimensions,extraction_method,extraction_version,status
             ) VALUES (
               'observation:dp227:no-end','evidence:dp227:no-end','NUMERIC_VALUE',
-              'employment_rate_pct',63.2,'percent','2026-07','SYNTHETIC','v1','APPROVED'
+              'employment_rate_pct',63.2,'percent','2026-07',
+              '{"population":"ALL","geography":"IT"}'::jsonb,'SYNTHETIC','v1','APPROVED'
             );
             """
         )
@@ -471,6 +472,8 @@ class EvidenceEffectiveTimePersistencePostgresTests(unittest.TestCase):
             claim_requirements={
                 "metric": "employment_rate_pct",
                 "unit": "percent",
+                "population": "ALL",
+                "geography": "IT",
                 "reference_period": "2026-07",
             },
             evidence=(item,),

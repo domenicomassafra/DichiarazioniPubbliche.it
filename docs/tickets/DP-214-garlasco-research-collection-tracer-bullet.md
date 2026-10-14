@@ -464,3 +464,26 @@ included Content with rights UNKNOWN** (no new MiniPC readback). **AC-214.1,
 .2, .4, .5, .6, .7 and .8 remain open**; the established historical
 AC-214.3 evidence is unaffected. The 2007 Senato 3-00941 vs 3-00940
 identity ambiguity also remains **unresolved**, without a false reconciliation.
+
+### 2026-10-14 — Claim-side source-scope fail-closed guard (local only)
+
+The shared Source Intelligence `FIELD_MATCH` evaluator now rejects empty **or
+partially supplied** claim-side dimensions instead of treating an approved
+statistical source as sufficient without comparing every configured metric,
+unit, population, geography and reference period. A mismatched reference period
+also no longer leaves that evidence ID in the assessment's qualifying set.
+The empty-context, partial-context and mismatched-period regressions were
+observed RED before their corresponding corrections and GREEN afterward;
+the adjacent nine-module source, Garlasco and Source Intelligence batch passed
+**77/77**, with Python compilation and `git diff --check` passing. The
+Verification consumer already blocks assessment states other than
+`SUFFICIENT_FOR_RULE`; this change makes its missing-scope input fail closed.
+
+This is a source-policy safety fix only. There was no source-body acquisition,
+rights/license review, new Discovery/Capture/Passage, real corpus replay,
+production database mutation or MiniPC readback in this tranche. The latest
+independently recorded authoritative pilot baseline remains the prior **PAUSED
+18/100** metadata seed with **82 additional real reviewed items outstanding**;
+the per-source rights, provenance, evidence role, scope, version and derivation
+checks still require reviewed receipts before processing or promotion. **Only
+AC-214.3 remains checked; AC-214.1/.2/.4/.5/.6/.7/.8 stay OPEN.**

@@ -769,59 +769,61 @@ def assess_evidence_set(
                 for name in fields
                 if str(claim_requirements.get(name) or "").strip()
             }
-            if expected_fields:
-                matching = [
-                    item
-                    for item in qualified
-                    if all(
-                        (_field_value(item, name) or "").casefold()
-                        == expected.casefold()
-                        for name, expected in expected_fields.items()
+            # Every configured match dimension is mandatory. An absent or
+            # partially supplied claim-side scope must not match vacuously.
+            matching = [
+                item
+                for item in qualified
+                if fields and len(expected_fields) == len(fields) and all(
+                    (_field_value(item, name) or "").casefold()
+                    == expected.casefold()
+                    for name, expected in expected_fields.items()
+                )
+            ]
+            rule_ok = bool(matching)
+            if rule_ok:
+                qualified = matching
+            else:
+                for item in qualified:
+                    rejected.append(
+                        {"evidence_id": item.evidence_id, "reason": "SCOPE_MISMATCH"}
                     )
-                ]
-                rule_ok = bool(matching)
-                if rule_ok:
-                    qualified = matching
-                else:
-                    for item in qualified:
-                        rejected.append(
-                            {"evidence_id": item.evidence_id, "reason": "SCOPE_MISMATCH"}
+                if rule.coverage_need_enabled:
+                    needs.append(
+                        CoverageNeedCandidate(
+                            requirement_kind=rule.kind,
+                            reason=rule.rationale_code,
+                            authority_scope=expected_fields,
                         )
-                    if rule.coverage_need_enabled:
-                        needs.append(
-                            CoverageNeedCandidate(
-                                requirement_kind=rule.kind,
-                                reason=rule.rationale_code,
-                                authority_scope=expected_fields,
-                            )
+                    )
+                if status is None:
+                    non_temporal = {
+                        name: expected
+                        for name, expected in expected_fields.items()
+                        if name != "reference_period"
+                    }
+                    scope_matches = [
+                        item
+                        for item in qualified
+                        if all(
+                            (_field_value(item, name) or "").casefold()
+                            == expected.casefold()
+                            for name, expected in non_temporal.items()
                         )
-                    if status is None:
-                        non_temporal = {
-                            name: expected
-                            for name, expected in expected_fields.items()
-                            if name != "reference_period"
-                        }
-                        scope_matches = [
-                            item
-                            for item in qualified
-                            if all(
-                                (_field_value(item, name) or "").casefold()
-                                == expected.casefold()
-                                for name, expected in non_temporal.items()
-                            )
-                        ]
-                        if (
-                            "reference_period" in expected_fields
-                            and scope_matches
-                            and all(
-                                (_field_value(item, "reference_period") or "").casefold()
-                                != expected_fields["reference_period"].casefold()
-                                for item in scope_matches
-                            )
-                        ):
-                            status = "TEMPORAL_MISMATCH"
-                        else:
-                            status = "SCOPE_MISMATCH"
+                    ]
+                    if (
+                        "reference_period" in expected_fields
+                        and scope_matches
+                        and all(
+                            (_field_value(item, "reference_period") or "").casefold()
+                            != expected_fields["reference_period"].casefold()
+                            for item in scope_matches
+                        )
+                    ):
+                        status = "TEMPORAL_MISMATCH"
+                    else:
+                        status = "SCOPE_MISMATCH"
+                qualified = []
         elif rule.kind == "AUTHORITY_SCOPE":
             fields = tuple(str(value) for value in rule.parameters.get("match") or [])
             required_fields_present = all(
