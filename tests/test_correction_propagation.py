@@ -1,6 +1,8 @@
 import json
+import re
 import sys
 import unittest
+import unicodedata
 from copy import deepcopy
 from pathlib import Path
 
@@ -19,22 +21,121 @@ FIXTURE = ROOT / "tests" / "fixtures" / "correction-propagation-v1.json"
 
 
 def scenarios():
-    return json.loads(FIXTURE.read_text())["scenarios"]
+    cases = json.loads(FIXTURE.read_text())["scenarios"]
+    # Legacy compact scenarios predate DP-409's full v1 record fields. Fill
+    # synthetic public-contract fields in the input fixtures, not in the
+    # checker, so missing fields in an actual search index ALWAYS fail closed.
+    for case in cases:
+        for key in ("old_projection", "new_projection"):
+            projection = case[key]
+            for dossier in projection["dossiers"]:
+                dossier.setdefault("claim_type", "QUOTE_ATTRIBUTION")
+                dossier["speaker"].setdefault("public_roles", [])
+                dossier["source"].setdefault("published_at", None)
+                dossier["finding"].setdefault("assessment", "SUPPORTED")
+                dossier["finding"].setdefault("published_at", None)
+                dossier.setdefault("corrections", [])
+                dossier.setdefault("rights_of_reply", [])
+            for topic in projection["topics"]:
+                topic.setdefault("slug", _slug(topic["topic_id"]))
+                topic.setdefault("scope_text", None)
+            for content in projection["contents"]:
+                content.setdefault("slug", _slug(content["content_id"]))
+                content.setdefault("content_kind", "WRITTEN")
+                content.setdefault("published_at", None)
+    return cases
+
+
+def _slug(value):
+    normalized = unicodedata.normalize("NFKD", value.lower())
+    unmarked = "".join(ch for ch in normalized if not unicodedata.category(ch).startswith("M"))
+    return re.sub(r"[^a-z0-9]+", "-", unmarked).strip("-")
+
+
+def _terms(values):
+    out = []
+    for raw in values:
+        term = str(raw).strip() if raw is not None else ""
+        if term and term not in out:
+            out.append(term)
+    return out
+
+
+def _record(kind, identifier, title, subtitle, published_at, assessment,
+            route, primary, secondary, *, corrections=False, replies=False,
+            wording=None, source_wording=None, **facets):
+    return {
+        "id": identifier, "kind": kind, "title": title, "subtitle": subtitle,
+        "published_at": published_at, "assessment": assessment, "route": route,
+        "has_corrections": corrections, "has_rights_of_reply": replies,
+        "wording_type": wording, "source_wording_type": source_wording,
+        "direct_quote_eligible": False,
+        "primary_terms": _terms(primary), "secondary_terms": _terms(secondary),
+        **facets,
+    }
 
 
 def search_index(projection):
+    """Faithful synthetic DP-409 v1 records; independent of the DP-431 checker."""
     state = propagation._projection_state(projection)
     records = []
-    for kind in propagation._ENTITY_KINDS:
-        rows = getattr(state, "people" if kind == "person" else f"{kind}s")
-        for identifier in sorted(rows):
-            records.append(
-                {
-                    "id": identifier,
-                    "kind": kind,
-                    "title": state.titles[(kind, identifier)],
-                }
-            )
+    people = set()
+    fallback_contents = set()
+    topics_by_finding = {}
+    for topic in projection.get("topics", []):
+        for membership in topic["memberships"]:
+            for fid in membership["finding_ids"]:
+                topics_by_finding.setdefault(fid, set()).add(topic["topic_id"])
+    for dossier in projection["dossiers"]:
+        fid, speaker, source, finding = (
+            dossier["finding_id"], dossier["speaker"], dossier["source"], dossier["finding"]
+        )
+        roles = [
+            value for role in speaker.get("public_roles", [])
+            for value in (role["role"], role.get("organization_name"))
+        ]
+        records.append(_record(
+            "finding", fid, dossier["claim"], f'{speaker["name"]} · {source["title"]}',
+            finding.get("published_at") if finding.get("published_at") is not None
+            else source.get("published_at"),
+            finding["assessment"], f'/dichiarazioni/{_slug(fid)}/',
+            [dossier["claim"]],
+            [speaker["name"], source["title"], dossier["claim_type"], finding["assessment"], *roles],
+            corrections=bool(dossier.get("corrections")), replies=bool(dossier.get("rights_of_reply")),
+            wording="PARAPHRASE",
+            source_wording=(dossier.get("wording") or {}).get("source_occurrence", {}).get("wording_type"),
+            person_id=speaker["id"], topic_ids=sorted(topics_by_finding.get(fid, ())),
+        ))
+        if speaker["id"] not in people:
+            people.add(speaker["id"])
+            records.append(_record(
+                "person", speaker["id"], speaker["name"], " · ".join(_terms(roles)),
+                None, None, f'/persone/{_slug(speaker["id"])}/',
+                [speaker["name"]], roles,
+            ))
+        if "contents" not in projection and source["content_id"] not in fallback_contents:
+            fallback_contents.add(source["content_id"])
+            records.append(_record(
+                "content", source["content_id"], source["title"], "Fonte pubblica",
+                source.get("published_at"), None,
+                f'/contenuti/{_slug(source["content_id"])}/',
+                [source["title"]], [],
+            ))
+    for topic in projection.get("topics", []):
+        records.append(_record(
+            "topic", topic["topic_id"], topic["canonical_name"],
+            topic.get("scope_text") if topic.get("scope_text") is not None else "Tema pubblico revisionato",
+            None, None, f'/temi/{topic["slug"]}/',
+            [topic["canonical_name"]], [topic.get("scope_text")],
+        ))
+    for content in projection.get("contents", []):
+        records.append(_record(
+            "content", content["content_id"], content["title"],
+            content["content_kind"].lower(), content.get("published_at"),
+            None, f'/contenuti/{content["slug"]}/',
+            [content["title"]], [content["content_kind"]],
+        ))
+    records.sort(key=lambda row: (row["kind"], row["id"]))
     return {
         "schema_version": "dichiarazioni-pubbliche-search-index-v1",
         "projection_sha256": state.fingerprint,

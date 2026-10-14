@@ -96,7 +96,13 @@ def real_artifacts():
         linked_data_receipt=linked_data_receipt(shared_projection),
         route_static_manifest=route_manifest(shared_projection, shared_projection),
     )
-    assert checked.consistent and len(actual_index["records"]) >= 3
+    assert checked.consistent, checked.blockers
+    # DP-431's corrected Python contract, like the actual TS consumer, treats
+    # an explicit empty first-class Content catalog as no searchable Content.
+    # Two records (Finding and Person) are correct for this synthetic release;
+    # expecting a third fallback Content was a stale cross-lane test premise.
+    assert shared_projection.get("contents") == []
+    assert {row["kind"] for row in actual_index["records"]} == {"finding", "person"}
     assert actual_index["projection_sha256"] == shared_projection["dataset_sha256"]
     real_search = real_typescript_search_bytes(shared_projection)
     served = json.loads(real_search)
@@ -105,17 +111,9 @@ def real_artifacts():
     # asset has the full public record schema. Compare overlapping fields,
     # never equate the partial receipt with the full served search material.
     assert len(served["records"]) == len(actual)
+    assert len(served["records"]) == len(actual_index["records"])
+    assert {(row["kind"], row["id"]) for row in actual_index["records"]} == set(actual)
     for public_receipt in actual_index["records"]:
-        if (
-            public_receipt["kind"] == "content"
-            and shared_projection.get("contents") == []
-        ):
-            # The older DP431 metadata-only Python guard retains content
-            # *lineage* in its receipts. Canonical production TypeScript does
-            # NOT generate Content SEARCH records for explicit contents=[].
-            # Never seal/serve the guard's fabricated legacy Content record.
-            assert not any(row["kind"] == "content" for row in served["records"])
-            continue
         canonical_record = actual[(public_receipt["kind"], public_receipt["id"])]
         assert all(
             canonical_record[key] == value for key, value in public_receipt.items()
@@ -185,6 +183,27 @@ class ExtendedRdfAndSearchFenceTests(unittest.TestCase):
         self.assertIn("direct_quote_eligible", index["records"][0])
         self.assertIn("primary_terms", index["records"][0])
         self.assertIn("secondary_terms", index["records"][0])
+
+    def test_corrected_dp431_guard_and_real_ts_index_have_exact_empty_content_parity(
+        self,
+    ):
+        # This fixture originally failed on the combined published DP-431 and
+        # DP-320 files: eight DP-320 tests assumed a fabricated third Content
+        # row with contents=[]. Require exact metadata-to-consumer identity,
+        # not an exception for stale Python legacy rows.
+        shared_projection = build_public_projection(
+            FakeSource([valid_row()]), generated_at="2026-10-13T12:00:00Z"
+        )
+        self.assertEqual(shared_projection["contents"], [])
+        index = search_index(shared_projection)
+        served = json.loads(
+            next(item.content for item in self.items if item.surface == "SEARCH")
+        )
+        metadata = {(row["kind"], row["id"]) for row in index["records"]}
+        actual = {(row["kind"], row["id"]) for row in served["records"]}
+        self.assertEqual(metadata, actual)
+        self.assertEqual({kind for kind, _ in actual}, {"finding", "person"})
+        self.assertEqual(len(actual), 2)
 
     def test_eighth_rdf_optional_and_entire_real_search_cohort_pinned(self):
         self.assertEqual(len(ALL_SURFACES), 7)

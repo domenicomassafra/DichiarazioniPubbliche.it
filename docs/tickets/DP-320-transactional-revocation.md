@@ -338,3 +338,32 @@ PostgreSQL/MiniPC, rights or editorial acceptance is claimed.
 **Final independent source-only re-review:** worker-9, read-only, reran the corrected actual TypeScript Search Index v1 fixture (builder + finalizer + validator) and checked six canonical top-level fields, complete public record fields, and no fabricated Content search record when `contents=[]`. Separately replayed the RDF/SQLite eight-surface and legacy-seven tests; its DP-320 subset **39/39 PASS**, prime's wider DP-320/DP-518 **48/48 PASS**. No remaining reproduced P1/P2 in this *bounded test/source contract*. Reviewer made no Git, source, provider or host changes. Historical HTTP/CDN bytes, production PostgreSQL, source rights, public routes and MiniPC remain outside acceptance.
 
 **Final post-review codefreeze validation:** one completed full Python unittest discovery on a detached main worktree containing exact byte-identical DP-320, DP-440, DP-439 and DP-314 source/test files returned **3,503/3,503 PASS, exit 0, 306.597 s**. Deterministic benchmark **5/5 PASS**, Ruff/check/format PASS. Exact TS Search Index builder, finalizer and validator and corrected `contents=[]` regression are included. A prefinal full-suite attempt was deliberately terminated **exit 143** after the reviewer found a further DP-440 source mutation problem; it is NOT counted as PASS. Reviewer independently rechecked the corrected bounded DP320 tests; no CI/production/physical acceptance inferred.
+
+## 2026-10-14 — DP-431 + DP-320 integrator: explicit empty Content SEARCH parity
+
+This is a **new separate isolated integration branch** based on the published
+DP-320 RDF/SEARCH fence with three exact source/test paths imported from the
+clean published DP-431 search-metadata integrator, **not** from the still-dirty
+DP-431 worker worktree. In the combined real sources, DP-431 correctly treats
+`contents=[]` as a first-class **empty** Search Content catalog and the actual
+TypeScript `buildSearchIndexMaterial` → `finalizeSearchIndex` →
+`validateSearchIndex` consumer similarly returns two records (Finding and
+Person) for the approved-shaped synthetic fixture. The older DP-320 test
+mistakenly expected `>=3` metadata records from its pre-DP-431 fallback.
+
+Actual combined **RED**: `test_dp320_rdf_search_integration_20261014.py`
+returned exit 1, **8/8 failed** at that stale minimum-record assertion. No
+HTTP/CDN bypass was observed. The integration fixture now refuses fabricated
+legacy Content rows and requires an exact `(kind,id)` identity set plus the
+full shared metadata-field parity against the actual TypeScript asset, with
+an explicit new regression for `contents=[]`. Combined **GREEN** after this
+test-contract fix: DP-320 RDF/SEARCH **9/9**, DP-431 integrity **7/7**,
+DP-320 SQLite served-surface **13/13**, all exit 0. `git diff --check` and
+Ruff lint pass; published DP-431 source and pre-existing tests retain their
+prior formatting (no mass refactor). Exact remote SHA, post-fix independent
+review and final combined Python suite must be recorded separately when done.
+
+This is a **local synthetic/offline source integration receipt only**:
+historical CDN HTTP withdrawals, real PostgreSQL, MiniPC, rights clearance,
+source approval, editorial correctness, PR CI and deploy remain unverified.
+Original DP-320 Status/AC are unchanged; no direct merge to `main`.
