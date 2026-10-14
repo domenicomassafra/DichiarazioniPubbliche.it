@@ -20,6 +20,10 @@ PROCEDURAL_DOCUMENT_ROLES_VERSION = "procedural-document-roles-v1"
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _NEGATIONS = re.compile(r"\b(?:non|mai|nessun[ao]?|not|never|no|nicht|nie|kein(?:e|en)?)\b", re.I)
+_STATUS_REVERSALS = re.compile(
+    r"\b(?:annullat[oaie]|annullament[oi]|revocat[oaie]|revoca|riformat[oaie]|"
+    r"overturned|vacated|quashed|reversed|revoked|set\s+aside)\b", re.I
+)
 _PROCEDURAL_WORDS = {
     "INVESTIGATED": re.compile(r"\b(?:indagat[oaie]|investigated)\b", re.I),
     "CHARGED": re.compile(r"\b(?:imputat[oaie]|defendant|charged)\b", re.I),
@@ -461,6 +465,11 @@ def evaluate_procedural_document(
                 codes.append("PROCEDURAL_STATUS_UNRESOLVED")
             if hits and span.negation_polarity == "NEGATED":
                 codes.append("NEGATED_STATUS_NOT_ESTABLISHED")
+            if hits and span.status != ProceduralStatus.UNKNOWN and _STATUS_REVERSALS.search(excerpt):
+                # An order quoting a revoked/overturned disposition cannot
+                # assign that former status as current from a lexical hit.
+                # A reviewed version/effect binding is needed separately.
+                codes.append("STATUS_REVERSAL_UNRESOLVED")
         if span.status_jurisdiction_ref != source.jurisdiction_ref:
             codes.append("STATUS_JURISDICTION_MISMATCH")
         if _date(span.status_effective_date, "STATUS_EFFECTIVE") > _date(
