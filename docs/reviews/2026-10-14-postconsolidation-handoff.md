@@ -7,9 +7,27 @@ Questo documento è una ricevuta tecnica e un punto di ripartenza, **non** una
 chiusura delle acceptance fisiche, legali, editoriali, di sicurezza applicata
 alla produzione o delle autorizzazioni sulle fonti.
 
+**Ripresa DP02 del 14 ottobre:** la
+[ricevuta delle nuove tranche](2026-10-14-dp02-execution-closure.md)
+confronta i commit effettivamente consegnati e il CI readback sul branch
+integratore con le acceptance ancora mancanti. Usa quella ricevuta e i ticket
+originali per le successive decisioni; gli SHA storici sotto non sono l'HEAD
+attuale.
+Il codice `a63fe133` ha ora una suite completa fresca **3.637/3.637 PASS,
+exit 0, 520,154 s**; la CI branch `38587368015` esegue il solo
+`repository contract`, con gli altri job `skipped`. La
+[mappa delle dichiarazioni e delle superfici SOP/Skills/Rules/Operations](2026-10-14-dp02-declarations-inventory.md)
+documenta route presenti e testi legali/pubblici non ancora autorizzati.
+
 ## TL;DR e autorità Git
 
 - `main == origin/main` **`33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`**, pulito e intenzionalmente invariato.
+- **Chiarimento CI verificato il 14 ottobre:** `gh run view 38561882494`
+  sul commit integratore `15fee6c` riporta `success` **solo** per
+  `repository contract`; le tre famiglie di job backend (matrix), web e
+  clean-clone sono `skipped`, conformemente ai rispettivi `if` PR/main
+  nel workflow. Lo stesso vale per la run `38561730777` (`0228fa8`).
+  Nessuna full matrix di PR/merge è stata quindi provata da queste run.
 - Il branch `integrate/dp-20261014-all-lanes` contiene **11 merge Git reali**
   delle corsie DP-231, DP-314, DP-320/431, DP-429, DP-435/436, DP-438,
   DP-439 e DP-440. La baseline integrata e revisionata è

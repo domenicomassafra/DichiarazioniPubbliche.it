@@ -7,6 +7,9 @@
 > [ricevuta di consolidamento](docs/reviews/2026-10-14-all-lanes-consolidation-receipt.md).
 > Per la prossima sessione, leggere prima
 > [handoff aggiornato e pending](docs/reviews/2026-10-14-postconsolidation-handoff.md).
+> La [ricevuta della ripresa esecutiva DP02 del 14 ottobre](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> elenca le correzioni recenti, i commit integrati, le prove e i gate
+> ancora aperti. I ticket e `PLAN.md` mantengono l'autorità sulle acceptance.
 > Lo SHA `2a85c7855f7c6438cfc57092388370ef183ac168` è il checkpoint remoto
 > documentale precedente al follow-up Ruff/handoff; non attribuire test o CI
 > a commit successivi senza riesecuzione. Il repository `main` è ancora
@@ -17,6 +20,22 @@
 > modificati e benchmark 5/5 PASS. Eventuali successivi commit solo-documento
 > non modificano questo codice, ma vanno comunque verificati per SHA remoto.
 > Status/AC e gate fonte/legale/editoriale/MiniPC/auto-review restano aperti.
+> **Readback GitHub CI 14 ottobre, DP02:** le run `38561882494`
+> (`15fee6c`) e `38561730777` (`0228fa8`) hanno conclusione globale
+> `success`, ma **solo `repository contract` è stato eseguito**; backend
+> matrix, web static frontend e detached clean-clone risultano `skipped`.
+> Il workflow riserva quei job a PR e `main` (`.github/workflows/ci.yml`).
+> Non confondere questo verde parziale con la CI backend/web di una PR,
+> né con i 3.624 test locali documentati sopra.
+> I commit di codice successivi a `0228fa8` richiedono prove proprie:
+> la precedente full suite non li certifica retroattivamente.
+> **DP02 sulla source `a63fe133`: suite conclusa con 3.637/3.637 PASS,
+> exit 0, 520,154 s** (`PYTHONPATH=poc python3 -B -m unittest discover
+> -s tests -q`). GitHub Actions run `38587368015` è `success` solo per
+> `repository contract`; backend/web/clean-clone sono `skipped` prima di
+> PR/main. [Ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> e [inventario documenti pubblici](docs/reviews/2026-10-14-dp02-declarations-inventory.md)
+> registrano i commit, le prove e i gate editoriali/legali/MiniPC NO-GO.
 
 **Tranche seconda ondata dopo c16d823, 12 ottobre 2026:**
 [Post-commit HELD_SOURCE receipt isolation, Studio operatore Collection

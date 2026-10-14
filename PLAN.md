@@ -901,3 +901,34 @@ canary, publication rights or review authority is inferred.
 Round aggiuntivo13Oct acquisito (60/80 domande multi-progetto): suggerimenti ricerca; recenti per data; filtri cronologia/pertinenza/esiti documentati da affinare senza ranking persone; originale+traduzione; testo come base e audio/video/hosting da approfondire; sintesi+prove; mobile confronto verticale; corrente+storico consentito; copertura contestuale; gruppi eccezioni. Prima di implementare esposizione esiti, verificare semantica e stati del dominio. Per media, approfondire source-use/rights/embed/link/copia e hosting/costi/storage/availability/cancellation tramite ticket esistenti: nessuna scelta implicita del MiniPC. Non riaprire le20decisioni10Oct; nessuna nuova acquisizione/runtime/publish.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+## Active workflow — DP02 / 14 ottobre 2026
+
+Fonte operativa: [ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md),
+[handoff post-consolidamento](docs/reviews/2026-10-14-postconsolidation-handoff.md)
+e ticket originari. Quattro worker CoS nativi hanno operato su verticali
+disgiunte con lease Git esclusiva per ogni commit; la lista dei commit e
+delle prove fresche è nella ricevuta, senza ledger parallelo. I ticket
+rimangono al loro stato originale fino a completa acceptance.
+
+**Passo corrente di implementazione/review:** integrare le tranche verificate
+nel branch già esistente, eseguire i controlli sul codice finale e verificare
+lo SHA remoto. **Frontiera di decisione:** `PR_HELD_AUTOREVIEW_BILLING_GUARD`
+fino a `Automatic review=OFF` sulla vera identità collegata e override repo,
+oppure accettazione esplicita dell'eventuale consumo; poi PR contro `main`,
+CI completa e merge gate. Distinti: diritti/approvazioni editoriali,
+100 fonti Garlasco, decisione `archive_added_at`, pilot DP-443, manual AT,
+PostgreSQL e reader MiniPC/CDN. DP-514 SQLSTATE57014 mantiene aperta
+la verifica ospitata della latenza residua. Nessun provider a pagamento,
+deploy o pubblicazione è stato attivato da questo ciclo.
+
+**Readback dopo nuova tranche, 14 ottobre:** sono stati pubblicati nello
+stesso branch integratore DP-214/215, 409, 429, 410, 514, 315, 236, 512,
+238, 240, 241, la fixture di compatibilità DP-303 e l'inventario delle
+pagine/documenti pubblici. Sul codice `a63fe133` la suite Python finale
+è **3.637/3.637 PASS, exit0**; checks frontend, Ruff e contract/licensing
+sono verdi. Prossimo passo: sigillare la ricevuta con readback remoto,
+dimostrare OFF effettivo dell'auto-review o accettare esplicitamente il
+costo, quindi PR, CI completa, review e merge gate. I gate di diritti,
+editoriale, pilot, MiniPC e dispositivi restano indipendenti e aperti.
+**90 DONE / 72 non DONE; release NO-GO.**
