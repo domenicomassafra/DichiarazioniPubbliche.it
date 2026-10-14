@@ -60,3 +60,23 @@ Queste etichette sono una **mappa delle superfici realmente esistenti**, non nom
 4. **Per le sei pagine informative:** il loro scope è distinto dall'archivio; il [preflight](../ops/informational-preview-bundle-preflight-20261010.md), gli AC di privacy/legal/accessibilità/titolarità e il readback dell'host restano requisiti separati. Non usare `--bundle-only` come autorizzazione editoriale o deploy.
 
 **Stato di questa consegna:** `INVENTORY_ONLY / NO_APPROVAL / NO_DEPLOY`. Solo questo documento è di proprietà della corsia DP02 inventory; nessun ticket, PLAN, handoff, policy, route, firma o stato di pubblicazione è stato alterato da questa nota.
+
+## Verifica ripetuta sul checkpoint integratore `0eba7fb` e runbook DP-517
+
+Una scansione reale `Path.exists()` di tutti i collegamenti Markdown relativi,
+escludendo solo URL HTTP(S), `mailto` e ancore locali, ha verificato **117/117
+destinazioni esistenti, 0 mancanti** nei seguenti sei artefatti: questo inventario
+(68), ricevuta DP02 (2), handoff post-consolidamento (5), `HANDOFF.md` (41),
+runbook operatore (1), runbook OIDC (0). Il controllo è **di esistenza del path**,
+non prova che una SOP sia autorizzata o che un link host/CDN risponda 200.
+Le coordinate del packet Ops 297 rimangono esterne al repository DP e sono
+state verificate separatamente nel checkout ControlCenter.
+
+Nel sorgente `web/src/pages/` risultano presenti `metodo.astro`,
+`correzioni.astro`, `dati.astro` e `progetto.astro`; risultano **assenti**
+`privacy.astro`, `termini.astro`, `contatti.astro`, `contribuisci.astro`.
+Conseguentemente queste ultime quattro pagine **non possono essere
+considerate complete o pubblicate**. Il loro contenuto vincolante attende
+owner, Q-306 e revisione legale/privacy DP-304/307/702; non va sostituito da
+titolarità, recapiti, diritti o promesse di retention inventate. Il controllo
+Astro e la build demo opt-in non mutano questo risultato.
