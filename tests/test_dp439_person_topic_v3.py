@@ -168,6 +168,48 @@ class PersonTopicV3Tests(unittest.TestCase):
         self.assertEqual(make(later, later_people, decisions)["data"], [])
         self.assertEqual(make(later, later_people, decisions)["result_count"], 0)
 
+    def test_revoked_membership_cannot_be_reissued_under_a_new_lineage_id(self):
+        _, bundle, people, _, _ = published()
+        approved = event(bundle, 0, "topic:economia")
+        revoked = replace(
+            event(bundle, 0, "topic:economia", revision=2, status="REVOKED"),
+            reviewed_at="2026-10-11T13:10:00+00:00",
+        )
+        reissued = replace(
+            event(bundle, 0, "topic:economia", revision=3),
+            membership_id="membership:replacement:statement:1:topic:economia",
+            reviewed_at="2026-10-11T13:20:00+00:00",
+        )
+        self.assertEqual(make(bundle, people, (approved, revoked))["data"], [])
+        # A higher revision cannot escape a revocation by changing the
+        # supposedly immutable membership identity for the same subject.
+        with self.assertRaises(ValueError):
+            make(bundle, people, (approved, revoked, reissued))
+
+    def test_revocation_cannot_be_undone_by_backdated_higher_revision(self):
+        _, bundle, people, _, _ = published()
+        approved = event(bundle, 0, "topic:economia")
+        revoked = replace(
+            event(bundle, 0, "topic:economia", revision=2, status="REVOKED"),
+            reviewed_at="2026-10-11T13:40:00+00:00",
+        )
+        backdated = replace(
+            event(bundle, 0, "topic:economia", revision=3),
+            reviewed_at="2026-10-11T13:20:00+00:00",
+        )
+        self.assertEqual(make(bundle, people, (approved, revoked))["data"], [])
+        # The later adjudication is REVOKED in real event time. Sorting solely
+        # on revision would mistakenly publish the older APPROVED decision.
+        with self.assertRaises(ValueError):
+            make(bundle, people, (approved, revoked, backdated))
+        reinstated = replace(backdated, reviewed_at="2026-10-11T13:50:00+00:00")
+        self.assertEqual(
+            [row["statement_id"] for row in make(
+                bundle, people, (approved, revoked, reinstated),
+            )["data"]],
+            ["statement:1"],
+        )
+
     def test_invalid_or_expired_authority_fingerprint_hash_quote_or_person_holds(self):
         _, bundle, people, _, decisions = published()
         cases = [

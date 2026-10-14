@@ -696,3 +696,41 @@ This is a private source-only hardening extension. DP-439 stays **IN PROGRESS**
 with original AC-439.1–7 unchecked. Independent code review, CI and an
 actual authenticated issuer/rights, public delivery and physical MiniPC
 readback remain separate gates.
+
+### 2026-10-14 — Membership revocation lineage and review ordering (source-only)
+
+The offline public Person×Topic join previously selected the maximum numeric
+revision for each `(statement_id, version_id, topic_id)` without checking that
+all revisions belonged to **one immutable `membership_id`** or that review
+timestamps followed revision order. Given an independently supplied manifest
+containing `APPROVED` revision 1, `REVOKED` revision 2 and `APPROVED` revision 3,
+the old join republished the original Statement when revision 3 either switched
+to a new membership ID or had a `reviewed_at` earlier than the real revocation.
+These malformed histories did not fail the existing membership fingerprint
+check because that hash faithfully represented the invalid manifest.
+
+Two separate adversarial tests were recorded **RED** against the original
+source (`AssertionError: ValueError not raised`, 2 failures). The materializer
+now validates the complete per-subject history before selecting the current
+decision: duplicated revision numbers still fail; any lineage-ID change or
+decreasing review timestamp across revisions raises `ValueError`. Equal
+timestamp resolution remains allowed when revision order is unambiguous. A
+chronologically later approved revision using the original membership ID
+remains an explicitly tested valid reinstatement. A truly new independently
+authorized subject/lineage would require a separate, reviewed contract; it
+cannot silently revive the withdrawn subject in this v3 join.
+
+**GREEN source-only receipt:** `tests.test_dp439_person_topic_v3` 10/10 PASS;
+adjacent DP-435, DP-436, DP-437, DP-438, DP-439 temporal/cohort and DP-440
+Python tests 106/106 PASS; deterministic benchmark 5/5 PASS; `ruff check`
+on both changed Python files PASS; `py_compile` PASS; scoped
+`git diff --check` PASS. `ruff format --check` remains **non-green** on both
+already non-formatted files: its diff begins in untouched imports/helpers;
+reformatting the entire pre-existing modules was excluded from this bounded
+security patch. No Git index/commit/push, real provider/source/rights grant,
+public deployment or MiniPC/browser action occurred.
+
+**Status remains IN PROGRESS; AC-439.1–.7 remain unchecked.** An authenticated
+manifest/review issuer, independent legal/rights approval, public reader
+revocation-cache convergence, accessible mobile/UI validation and MiniPC
+positive/negative readback are still required for original acceptance.

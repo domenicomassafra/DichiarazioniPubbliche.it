@@ -230,7 +230,18 @@ def build_public_person_topic_v3(
     for key, history in revision_sets.items():
         if len({entry["revision"] for entry in history}) != len(history):
             raise ValueError("DP439_AMBIGUOUS_TOPIC_REVISION")
-        decision = max(history, key=lambda entry: entry["revision"])
+        history.sort(key=lambda entry: entry["revision"])
+        # A revocation belongs to one immutable membership lineage. A new
+        # identifier or a backdated higher revision cannot silently resurrect
+        # a subject whose last real review event withdrew approval.
+        if len({entry["membership_id"] for entry in history}) != 1:
+            raise ValueError("DP439_MEMBERSHIP_LINEAGE_CHANGED")
+        if any(
+            _instant(previous["reviewed_at"]) > _instant(current["reviewed_at"])
+            for previous, current in zip(history, history[1:])
+        ):
+            raise ValueError("DP439_MEMBERSHIP_REVISION_BACKDATED")
+        decision = history[-1]
         if decision["status"] != "APPROVED":
             continue
         attested_at, valid_until = (_instant(decision["reviewed_at"]),
