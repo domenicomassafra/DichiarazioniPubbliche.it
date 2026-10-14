@@ -417,3 +417,21 @@ duplicate/unordered dependencies and wrong ticket version. Scoped Ruff lint,
 format and `git diff --check` PASS. This receipt is **author-local source-only**;
 independent post-commit review and final cross-lane suite must be recorded
 separately. All original `AC-320` remain unchecked, Status IN PROGRESS.
+
+**2026-10-14 — Final independent and integrated receipt for the PRIVATE
+release-transition slice.** Independent worker-9 reviewed exact source/test
+commit `b833925dd4ffbded24703f180cb15d4a8850b9e8` STRICT READONLY,
+with no edits/Git/provider writes. Real SQLite `:memory:` ticket/8-artifact,
+rights revocation, stale epoch, caller policy mutation, SHA-manifest tamper,
+wrong version/scope and opaque/no-authority adversarial replays returned
+**10/10 dedicated and 50/50 DP-320 adjacent PASS**, no P1/P2 reproduced in
+this bounded OFFLINE planner. The final post-review detached 36-file overlay
+(all source/test bytes SHA-256 identical to their published lane branches)
+completed **3,611/3,611 Python PASS, exit 0, 396.578 seconds**. Exact
+manifest digest `04481e83eeb08963a802e6db9c41c6079c3b10ad85a5cbedea64c527c4989ebe`;
+benchmark synthetic **5/5 PASS**; scoped six new source/test Ruff lint and
+format PASS. Python fixture run emitted ResourceWarnings but ended `OK`.
+Historic broad-overlay DP-314 Ruff F401 was not relabeled as a global PASS.
+This is NOT PR CI or authenticated issuer, editorial/legal approval, current
+production DB/PostgreSQL, CDN/HTTP withdrawal, real MiniPC or source rights
+acceptance. **Original DP-320 Status/AC unchanged; no PR/main merge.**
