@@ -192,3 +192,39 @@ unattended billing-dependent dispatch NO-GO.** The remaining requirements
 include production-owned additive migration, authenticated billing/account
 and refund line matching, actual plan quota/energy, FX, budget reservation
 under shared writer locks, MiniPC test and worker/health parity.
+
+## 2026-10-14 — Fail-closed local energy label in disposable classification result
+
+An actual disposable PostgreSQL 17 reproduction found that
+`dp512_pg_record()` returned the full untrusted value of
+`provider_receipt.receipt->>'local_energy_basis'` inside its otherwise
+redacted private classification JSON. A synthetic canonical UNKNOWN
+receipt containing `PRIVATE_TOKEN_PROVIDER_USAGE_VALUE` in that nested
+field returned the marker verbatim, although the original DP-512 ledger
+contract accepts only `UNKNOWN`, `ESTIMATED` and `MEASURED`. A historical
+`LOCAL_COMPUTE_UNMETERED` label likewise escaped unnormalized instead
+of expressing unknown energy. Neither value is defensible accounting
+metadata or safe to copy to a private consumer/report.
+
+The isolated PostgreSQL classification SQL now uses an explicit three-value
+allowlist, returning `UNKNOWN` for missing, invalid or historical labels.
+It preserves the immutable canonical receipt JSON unchanged and retains the
+existing permitted `UNKNOWN`, `ESTIMATED` and `MEASURED` values. This fix
+does **not** infer observed Wh, authenticate energy telemetry, establish a
+cash amount, classify a bill as paid or activate dispatch. It changes only
+the sanitized `local_energy_basis` field in the disposable classification
+result; original fingerprint, append-only CAS/replay and all other monetary
+fields remain on their existing paths.
+
+Real disposable PostgreSQL test was **RED** before the change
+(`PRIVATE_TOKEN_PROVIDER_USAGE_VALUE` surfaced instead of `UNKNOWN`),
+then **GREEN** with raw receipt preservation, no private-marker leakage,
+no invoice/dispatch authority and canonical-label roundtrips. The wider
+DP-512/513/514 + policy suite passed **101/101** on the Mac including
+isolated real PostgreSQL fixtures; scoped compileall, Ruff F821/F823 and
+`git diff --check` pass. This is a source-only redaction/integrity
+correction, not proof of real billing source rights or MiniPC runtime
+acceptance. **DP-512 remains IN PROGRESS; AC-512.1–.6 stay unchecked.**
+Authoritative invoice/usage and provider-plan evidence, exact corrections,
+reconciliation, atomic dispatch reservations and MiniPC consumer parity
+remain subject to their independent acceptance gates.

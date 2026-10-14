@@ -152,7 +152,12 @@ BEGIN
   'zero_cost_verified',false,
   'dispatch_authorized',false,
   'cash_settled',false,
-  'local_energy_basis',COALESCE(NULLIF(original.receipt->>'local_energy_basis',''),'UNKNOWN')
+  -- The nested receipt is private, untrusted JSON. Never echo arbitrary
+  -- strings or legacy labels through the sanitized classification result.
+  'local_energy_basis',CASE
+    WHEN original.receipt->>'local_energy_basis' IN ('UNKNOWN','ESTIMATED','MEASURED')
+      THEN original.receipt->>'local_energy_basis'
+    ELSE 'UNKNOWN' END
  );
  INSERT INTO dp512_pg_event(
   event_id,receipt_id,revision,expected_revision,original_fingerprint,

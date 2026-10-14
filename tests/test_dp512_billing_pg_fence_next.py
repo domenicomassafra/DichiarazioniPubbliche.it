@@ -188,6 +188,44 @@ class BillingPgFenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "BILLING_CLASSIFICATION_CONFLICT"):
             self.save(key, asserted_basis="EXTERNAL_PLAN", asserted_usd="0")
 
+    def test_untrusted_local_energy_basis_never_leaks_private_receipt(self):
+        # A historic provider receipt is immutable but its nested energy label
+        # is untrusted. Only canonical labels may leave the private PG store.
+        for suffix, raw_basis in (
+            ("private-energy", "PRIVATE_TOKEN_PROVIDER_USAGE_VALUE"),
+            ("legacy-energy", "LOCAL_COMPUTE_UNMETERED"),
+        ):
+            key = self.receipt(
+                suffix, operation_key=f"operation:{suffix}",
+                receipt_body=f"'{json.dumps({'local_energy_basis': raw_basis})}'::jsonb",
+            )
+            outcome = self.save(key, event_id=f"event:{suffix}")
+            self.assertEqual(outcome["local_energy_basis"], "UNKNOWN")
+            self.assertNotIn(raw_basis, json.dumps(outcome))
+            self.assertFalse(outcome["dispatch_authorized"])
+            self.assertFalse(outcome["invoice_attested"])
+            self.assertEqual(
+                self.sql("SELECT receipt->>'local_energy_basis' "
+                         f"FROM provider_receipt WHERE id='receipt:{suffix}'"),
+                raw_basis,
+            )
+
+    def test_canonical_local_energy_labels_still_roundtrip(self):
+        for suffix, energy_basis in (
+            ("unknown-energy", "UNKNOWN"),
+            ("estimated-energy", "ESTIMATED"),
+            ("measured-energy", "MEASURED"),
+        ):
+            key = self.receipt(
+                suffix, operation_key=f"operation:{suffix}",
+                receipt_body=f"'{json.dumps({'local_energy_basis': energy_basis})}'::jsonb",
+            )
+            result = self.save(key, event_id=f"event:{suffix}")
+            self.assertEqual(result["local_energy_basis"], energy_basis)
+            self.assertIsNone(result["recorded_usd"])
+            self.assertFalse(result["invoice_attested"])
+            self.assertFalse(result["dispatch_authorized"])
+
     def test_measured_requires_raw_canonical_measured_and_source_reference(self):
         key = self.receipt(
             "measured",
