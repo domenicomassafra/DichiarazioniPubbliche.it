@@ -350,3 +350,55 @@ after SHA. Real Python→TypeScript fixture and adjacent v3 search/cross-reader
 tests PASS; **no additional P1/P2** within source-only scope. The reviewer
 performed no edits, publication, provider or Git writes. This adds no physical
 browser VoiceOver/200% public-v3 route, rights approval or real-source AC.
+
+## 2026-10-14 — Offline temporal Explore facets from pinned public originals
+
+New isolated opt-in private `private_person_topic_temporal_v1.py` with
+adversarial real-Python DP-439 Person×Topic membership fixtures. It produces
+month-bucket summaries from the date **printed on each public original
+Statement**, carefully labelled `ORIGINAL_STATEMENT_DATE_NOT_INGESTION_OR_ARCHIVE`.
+The model distinguishes count of public Person×Topic intersections from the
+number of unique Statement/version originals, so a Statement linked to two
+approved topics never becomes two independent original records. Exact
+public Person/Topic filters combine with bounded first/last month, a
+deterministic descending timeline and counts of distinct public persons and
+topics. Unknown or private-looking facet identifiers return generic
+`NO_MATCH` with **no ID, label, text, quote or private roster echoed**.
+
+The source refuses absent opt-in, wrong independently supplied join/source/
+person release SHA, mutated joined Person ID after digest, impossible or
+future month or source dates, and deliberately does not infer that an empty
+corpus means no historical statement exists. A real revised DP-439 membership
+manifest with all memberships REVOKED changes the release SHA and fails
+against the old independent join pin; the new pin yields a neutral empty
+preview. Initial module-import **RED**, then new and adjacent bounded Python
+tests **GREEN**; no network, provider, routing, editorial or DB operation.
+
+This is an **offline reference read model, not published Explore UI**, and
+does not renew issuer/membership/rights permission. Manual VoiceOver/200%
+public-route checks, current authenticated pin issuer, source licensing and
+physical MiniPC remain **OPEN**. No original DP-439 Status/AC was changed.
+Independent *review of this new diff* remains **PENDING** because no reviewer
+worker was operable; prior independent PASS on earlier DP-439 source must not
+be misrepresented as a review of this new temporal code.
+
+**Post-source-audit adversarial RED→GREEN:** even when all original
+Statement dates were in the past, an as-of timeline could previously
+consume a fully valid pinned *future-created* public join, misrepresenting
+when that corpus was available. A new test at a date preceding the real
+synthetic projection timestamp reproduced this before the fix; the reader
+now refuses with `TEMPORAL_SNAPSHOT_IN_FUTURE`, after verifying the join's
+immutable release SHA and parsing its timezone-aware UTC snapshot instant.
+This does not invent an archive-added time and changes no editorial or
+factual determination. Source-only review by prime, not independent PASS.
+
+**Final bounded validation:** 14/14 combined private temporal facet and
+original DP-439 Python tests PASS. A single completed full Python suite
+on a byte-identical detached main overlay containing the new feature plus
+the updated DP-320/DP-440 code returned **3,476/3,476 PASS**, exit 0 in
+330.917 s; Ruff/format/compile and deterministic benchmark 5/5 PASS.
+The published DP-439 opt-in SSR still passes real Python→reader→Astro
+noindex, XSS, empty/unknown/revoked, and Astro `npm run check` reports
+129 files, zero errors, zero warnings, one preexisting hint. Manual/physical
+accessibility, current issuer/rights and independent reviewer approval remain
+PENDING. All original DP-439 Status/AC preserved.
