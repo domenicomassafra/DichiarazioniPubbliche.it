@@ -197,7 +197,13 @@ def _statement_v3_snapshot(
     try:
         if not isinstance(bundle, dict) or bundle.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
             raise _unavailable()
-        validated = validate_public_bundle(bundle, allow_statement_v3=True)
+        # Validate and serialize one detached public snapshot. The caller may
+        # still mutate the original bundle after validation (e.g. during a
+        # rights withdrawal); never emit its new, unverified quote or identity
+        # under the old dataset fingerprint.
+        validated = validate_public_bundle(
+            copy.deepcopy(bundle), allow_statement_v3=True
+        )
         for record in validated["statements"]:
             _validate_statement_v3_source_url(record["source_url"])
         return validated
