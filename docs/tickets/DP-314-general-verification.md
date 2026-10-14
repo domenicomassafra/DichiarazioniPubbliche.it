@@ -407,3 +407,23 @@ source gold/factual assessment, MiniPC operation, provider/billing approval,
 public projection or original DP-314 acceptance. **Status: IN PROGRESS;
 AC-314.1–6 remain unchecked.** Independent diff review and any broader
 source-branch integration checks are separate.
+
+**2026-10-14 — Post-review independent and combined codefreeze receipt.**
+Reviewer `worker-9` performed an actual strict READONLY review against the
+committed new profile transitions source/test (`787acf2076d21691545a8e84a119b3e5fe463b39`,
+parent `cd4a5ff595e772ad61690c6eb289cc030429382b`), with no edits or
+provider access: new **13/13**, all DP-314 **64/64**, external SHA pin and
+self-rehashed eligibility forgery rejected, rights/reviewer/profile/evidence
+transitions and private metadata non-echo checked; **no new P1/P2 reproduced
+in this bounded source-only scope**. The final 30-file detached cross-lane
+overlay (byte-identical to the published source/test files) completed its
+**single post-review Python full suite: 3,572/3,572 PASS, exit 0,
+384.450 seconds**. Benchmark deterministic 5/5 and scoped new-source Ruff
+lint/format PASS. One inherited DP-314 research-batch test retains a historic
+Ruff F401 unused import in the broad overlay; do not call that global Ruff
+invocation PASS. Combined source manifest SHA-256:
+`15badae206c51cfda9976c86d8eaf6fce10b0e8ccc3ff12480a376db21d3320f`.
+The full suite emitted ResourceWarnings on temporary fixture resources but
+finished OK. Not PR CI or physical, editorial, owner/source-rights, real
+factual adjudication, MiniPC or provider acceptance. **Status IN PROGRESS,
+AC-314.1–6 still unchecked**, no merge/publication/production write.
