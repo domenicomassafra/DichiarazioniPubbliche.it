@@ -117,3 +117,44 @@ returned HTTP 404 from the API when checked on 2026-10-08. That result is
 source profiles remain unconfigured for this optional lookup. A future real
 source activation must pass the source-owner rights/permission and live
 endpoint receipt gates separately; `DP-231` does not grant them.
+
+### 2026-10-14 — Source-only private metadata recheck (post-DONE hardening)
+
+An **additive, offline** `private_source_metadata_review_v1.py` now compares
+two actual Python capture-parser/metadata-enrichment outputs against
+separately expected private SHA-256 receipts and one current validated,
+independently SHA-and-generation-pinned public-v2 projection. It never
+performs capture, oEmbed/provider lookup, archive operation, network I/O,
+Content mutation, source-role selection or editorial publication.
+
+It produces a deterministic bounded owner-only manual review worklist with
+field-level changes (title, description, author, publisher, canonical URL,
+oEmbed endpoint), newly introduced/resolved typed metadata conflicts, source
+use/review holds and a separate `PUBLIC_CONTENT_LOCATOR_MISMATCH` hold.
+**No raw URLs, candidate names, titles, private notes or HTML are returned**.
+Unchanged input remains `UNCHANGED_REVIEW_PENDING`, never approved or
+published. A metadata change does NOT establish source correctness, while an
+empty metadata capture does NOT establish absence of original source.
+
+Real Python fixtures run the existing `extract_source_metadata` HTML
+parser, `build_metadata_enrichment`, `build_public_projection`, and
+`validate_public_bundle`; no fake official-source identity or permission is
+introduced. Initial new-module **RED** reproduced on eight tests, followed
+by implementation and targeted GREEN. An independent source-only reviewer
+identified two important P2 source-identity omissions: a schema-valid,
+reviewed standalone public Content with `finding_ids=[]` was overlooked,
+and a published canonical Content with the *same* ID but a different URL
+from a dossier was silently ignored. Two explicit **RED→GREEN** tests now
+require checking both `contents` and dossier source identities within one
+identically pinned public release. Valid standalone Content is reconcilable;
+ambiguous Content/dossier URL identity refuses fail-closed.
+
+Private projection fixtures and optional-source parser remain separate from
+the live owner/source-role authorization: an input `APPROVED` status or a
+synthetic SHA does **not** acquire rights or constitute factual verification.
+The original DP-231 status remains DONE and **all original AC/status text
+is untouched**. This is additional bounded source-contract hardening, not
+a new provider, MiniPC or legal/editorial acceptance; independent final
+post-fix reviewer and completed full-suite results are separately recorded.
+
+**Definitive combined source-only validation (2026-10-14):** exactly one completed `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q` on detached main with **15 verified byte-identical source/test files** across the new DP-231 feature and published DP-314/DP-320/DP-439/DP-440 worktrees: **3,517/3,517 PASS, exit 0 in 299.292 seconds**. DP-231+adjacent local scope **67/67 PASS**, Ruff check/format PASS, deterministic benchmark **5/5 PASS**. The reviewer independently reproduced the two Content identity P2 cases before these RED→GREEN corrections; the review's bounded post-fix decision is recorded separately, not inferred from implementer test outcomes. No new actual legal rights or oEmbed/provider lookup, no production capture/DB/launch, no MiniPC acceptance, and no Status/AC changes.
