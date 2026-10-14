@@ -302,3 +302,48 @@ is not a production DB or live provider readback. The independent worker-2
 ran 42 focused source/preflight/wave tests and benchmark 5/5 and rechecked
 both self-rehashed malicious metadata probes: `DELTA_BATCH_INVALID` on each,
 with **no remaining P1/P2 reproduced** in the private delta contract.
+
+## 2026-10-14 — Private cross-claim research recheck queue
+
+New offline `requirement_research_wave_v1.py` and adversarial fixture tests
+consume two **separately SHA-pinned, validated** DP-314 metadata batches via
+the canonical `compare_research_batches` consumer. The bounded deterministic
+owner-only queue prioritizes evidence eligibility loss, deleted claims,
+changed requirement profiles, changed preflight inputs, and new claims.
+Each entry contains only canonical claim/evidence IDs, typed manual
+`next_steps` and a direction explicitly labelled **NOT a provider revocation**
+or source permission. A claim removed from the worklist remains a review
+task, not silently completed. Shared eligible evidence IDs across two
+claims generate a **reuse warning**, never independent corroboration.
+
+Initial real test **RED** (new module unavailable) then GREEN. Source-only
+adversarial review found another concrete **RED**: concurrent requirement-
+profile change and evidence eligibility loss showed only the loss, concealing
+the independent need to re-review the profile. The planner now queues both,
+in bounded priority order; combined new/adjacent DP-314 tests **23/23 PASS**.
+The return type always has `private_only=True`, zero source bodies/provider
+calls, `verdict=None` and no factual, rights, reviewer or publication
+authority. Expected SHA values must come from independently controlled owner
+state, not caller-rehashed input. The new output is **not a source approval,
+source scraper, scheduled research operation, or authorized public record**.
+
+The older independent PASS of DP-314 batch/delta source does **not** apply
+automatically to this new wave module. Independent final reviewer status is
+tracked separately; physical MiniPC, legal/rights/source authority and all
+original DP-314 AC remain OPEN, ticket Status stays IN PROGRESS.
+
+**Independent reviewer P2: simultaneous eligibility turnover.** Worker-9
+reproduced a canonical DP-314 change losing `evidence:alpha` and gaining
+`evidence:gamma` for the same claim; the first queue showed the loss but
+silently omitted the independent manual check of the newly eligible gamma.
+Deterministic RED asserted both evidence IDs and `NEW_EVIDENCE_ELIGIBILITY`.
+The corrected planner emits distinct human-review steps for both directions
+and does not suppress a simultaneous changed requirement profile.
+New and adjacent DP-314 tests **24/24 PASS**; neither newly eligible source
+nor repeated evidence IDs constitute independent corroboration, source
+approval, factual verification or publication. Final independent re-review
+of the patched source remains separately tracked.
+
+**Independent final read-only re-review:** worker-9 replayed combined loss `evidence:alpha` and gain `evidence:gamma` with exact two priority buckets, plus simultaneous changed requirement profile. Its extended DP-314 test subset **50/50 PASS**, no further P1/P2 reproduced in this bounded private metadata source contract. The reviewer did not edit code, Git, sources, provider or host. Eligible evidence IDs never attest independent corroboration, source rights, verified facts or editorial publication; original DP-314 AC remain OPEN.
+
+**Final codefreeze validation:** combined source-only Python full suite with final DP-320/DP-440/DP-439/DP-314 file byte identity **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**, Ruff/format PASS; research-wave+adjacent DP-314 targeted **24/24 PASS**, independent reviewer 50-case source subset PASS. Simultaneous alpha loss/gamma gain is now visible with separate review steps. The prefinal whole suite was intentionally interrupted exit143 after a subsequently fixed security finding and is not claimed as PASS. Original status and AC remain open, source rights/provider/physical checks unproven.
