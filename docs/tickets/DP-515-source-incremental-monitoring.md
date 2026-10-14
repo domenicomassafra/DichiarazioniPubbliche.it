@@ -222,3 +222,47 @@ The focused DP-515/source-watcher suite passes **48/48**; Ruff lint, targeted
 compile and diff checks pass. HTTP, rights/cost receipts, MiniPC and public
 cache were not exercised. All original **AC-515.1–515.7 remain unchecked**, the
 ticket stays **IN PROGRESS**, and unattended production watching stays **NO-GO**.
+
+## 2026-10-14 — Non-invasive MiniPC consumer readback and original-AC blocker
+
+Read-only, strict batch SSH to the actual MiniPC (`minipc`, Linux) confirmed the
+deploy mirror `/home/udodo/src/DichiarazioniPubbliche.it`. Its installed
+`poc/dichiarazioni_pubbliche/source_watcher.py` SHA-256 is
+`74ff8cd36017fbeb8d886c7b90c88053168be4073e68d47434e3e96e02b4737f`,
+identical to the integration checkout at `08629895c811bd3a9b6b4861f2523f6489d4cff4`.
+Neither `incremental_source_watch.py` nor `source_watch_store_v1.py` exists in
+the MiniPC mirror; this is not a deployed DP-515 incremental consumer.
+
+The existing user `dichiarazioni-pubbliche-source-poll.timer` and
+`dichiarazioni-pubbliche-source-poll-daily.timer` are both loaded, active and
+enabled. The two corresponding oneshot services were observed loaded/inactive,
+with `Result=success`. The actual `source-poll.service` executes
+`python3 -m dichiarazioni_pubbliche.scheduler_daemon` from the deploy mirror:
+this is the pre-existing source polling route, **not** the DP-515 opt-in
+SQLite watcher. No timer, service, provider, HTTP fetch, queue, DB, stored user
+data, migration, deployment or public reader was changed or exercised.
+
+Local verification on the integration checkout:
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest
+tests.test_dp515_incremental_watch tests.test_dp515_durable_watch_next
+tests.test_source_watcher -q` passed **48/48**; source/store compile passed,
+`git diff --check` passed before this receipt and the pre-receipt worktree
+was clean. The SQLite test DBs are disposable local fixtures: their `READY`
+values, observations, costs and restart scenarios are synthetic. They prove
+bounded private CAS/dedup/backoff behavior only, not authenticated rights,
+real source changes, durable canonical PostgreSQL admission or real consumers.
+
+**Decision: `NO_CHANGE` to source/runtime.** No newly reproduced technical RED
+in the owned watch/store seam independently completes any original AC.
+**AC-515.1–AC-515.7 remain unchecked / IN PROGRESS / unattended DP-515 NO-GO.**
+The dependency is an owner/operations decision and independent acceptance:
+source-specific legally usable acquisition and revalidation rights with genuine
+current receipts (source/editorial-rights owner); a versioned approved DP-514
+EUR/month budget plus actual provider/quota/charge authority and atomic USD/EUR
+queue reservation (budget/operator owner); canonical PostgreSQL watch/admission
+and DP-511/DP-510 downstream review/hold wiring (integration owner); then a
+governed isolated MiniPC changed/unchanged/revoked-rights canary and public
+freshness/cache negative readback (MiniPC/release and editorial acceptance
+owners). Resume only after those observable source, approval, cost and install
+prerequisites change. Retain the existing polling units unchanged; their
+presence is not DP-515 authorization or public freshness evidence.
