@@ -165,12 +165,13 @@ def build_source_coverage(
     latest = rows[-1] if rows else None
     successes = [row for row in rows if row.status in {"UNCHANGED", "CHANGED"} and row.rights_status == "CLEARED"]
     last_success = successes[-1] if successes else None
-    # A missing derived baseline is not proof that the latest observed body
-    # has already been reanalysed. A known transition in the successful
-    # observation history still requires an explicit baseline/readback.
+    # Without a derived baseline, an explicitly CHANGED first success or a
+    # differing observed hash is unresolved until an independent readback.
+    # A first UNCHANGED success can still attest its reviewed source scope;
+    # later version-label churn with identical bytes remains a cheap no-op.
     changed_since_baseline = bool(last_success) and (
         last_success.content_sha256 != baseline_sha256 if baseline_sha256 is not None
-        else len({row.content_sha256 for row in successes}) > 1
+        else successes[0].status == "CHANGED" or len({row.content_sha256 for row in successes}) > 1
     )
     state, reason, delta = "NOT_COVERED", "COVERAGE_NO_OBSERVATION", "REVIEW_COVERAGE_GAP"
     if latest is not None:

@@ -136,3 +136,29 @@ and MiniPC evidence is available.
 Q9 breve indicazione della copertura/lacune/freshness nelle pagine Persona/Tema interessate, dettagli raggiungibili. Non convertire campione osservato in copertura globale né dati non acquisiti in assenza di dichiarazioni.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+### 2026-10-14 — First changed source observation without a reviewed baseline (source-only partial)
+
+The bounded reconciler had a false-currentness branch: a first authorized,
+completely enumerated observation explicitly marked `CHANGED`, with no reviewed
+derived `baseline_sha256` and no earlier in-scope success to compare, produced
+`CURRENT_WITHIN_OBSERVED_SCOPE` and allowed the opt-in public freshness descriptor.
+The independently supplied changed-source status already signals a prior version
+transition, but it did not establish that public derivations were refreshed.
+
+`test_first_changed_observation_without_derived_baseline_cannot_claim_public_freshness`
+reproduced **RED** (`CURRENT_WITHIN_OBSERVED_SCOPE` instead of `STALE`), then **GREEN**:
+the read model now keeps that first `CHANGED` body `STALE`, with the normal
+capability/budget/rights-gated `REVIEW_CHANGED_SOURCE` proposal and no public
+freshness descriptor. A later `UNCHANGED` re-observation of the same bytes does
+not silently clear the hold. Explicit reviewed baseline matching the new body
+restores scoped currentness; a first complete `UNCHANGED` observation remains
+eligible; a subsequent metadata/version-label change with an identical body
+remains an economical no-op. Dispatch remains unauthorized in all cases.
+
+Verification: **17/17** `tests.test_dp244_coverage_catalog` pass and **93/93**
+focused plus neighboring coverage/revalidation/watch tests pass; source/test
+`compileall`, targeted Ruff and `git diff --check` pass. No production data,
+fetch, provider, scheduler, MiniPC, reader or publication gate was exercised.
+The original **AC-244.1–.6 remain OPEN** pending authenticated source receipts,
+persistent ledger/cost evidence and real permitted-source/runtime proof.

@@ -123,6 +123,41 @@ class CoverageCatalogTests(unittest.TestCase):
         self.assertEqual(limited.delta_proposal, "NONE")
         self.assertEqual(limited.reason_code, "COVERAGE_CHANGE_CHILD_GATES_NOT_READY")
 
+    def test_first_changed_observation_without_derived_baseline_cannot_claim_public_freshness(self):
+        # A reviewed enumeration can attest the bounded source scope, but a CHANGED
+        # body still cannot attest that downstream derived readers used its bytes.
+        changed = observation(status="CHANGED", source_version="version:2", content_sha256="b" * 64)
+        pending = reconcile((changed,))
+        self.assertEqual(pending.state, "STALE")
+        self.assertEqual(pending.reason_code, "COVERAGE_CHANGED_SOURCE_REANALYSIS_PENDING")
+        self.assertEqual(pending.delta_proposal, "REVIEW_CHANGED_SOURCE")
+        self.assertIsNone(public_freshness_descriptor(pending, public_scope_review_id="review:public"))
+
+        # Re-observation of the same bytes is cheap, not evidence of reanalysis.
+        unchanged_again = replace(
+            changed, attempt_id="attempt:2", status="UNCHANGED",
+            attempted_at=NOW, observation_receipt_id="receipt:official:test:2",
+        )
+        self.assertEqual(reconcile((changed, unchanged_again)).state, "STALE")
+
+        # A matching reviewed baseline clears the hold; a first UNCHANGED
+        # enumeration remains a legitimate source-coverage CURRENT observation.
+        reviewed = reconcile((changed,), baseline_sha256="b" * 64)
+        self.assertEqual(reviewed.state, "CURRENT_WITHIN_OBSERVED_SCOPE")
+        self.assertIsNotNone(public_freshness_descriptor(reviewed, public_scope_review_id="review:public"))
+        first_unchanged = reconcile((observation(),))
+        self.assertEqual(first_unchanged.state, "CURRENT_WITHIN_OBSERVED_SCOPE")
+
+        # A later CHANGED status can be only a new version label. When the
+        # already observed body is identical it needs no new derived work.
+        initial = observation()
+        relabeled = replace(
+            initial, attempt_id="attempt:2", status="CHANGED", source_version="version:2",
+            attempted_at=NOW, observation_receipt_id="receipt:official:test:2",
+        )
+        self.assertEqual(reconcile((initial, relabeled)).state, "CURRENT_WITHIN_OBSERVED_SCOPE")
+        self.assertEqual(reconcile((initial, relabeled)).delta_proposal, "NONE")
+
     def test_newer_revoked_rights_never_reopen_changed_source_work(self):
         changed = observation(
             attempt_id="attempt:1", attempted_at=NOW - timedelta(minutes=20),
