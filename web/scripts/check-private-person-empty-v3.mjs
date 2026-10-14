@@ -123,6 +123,60 @@ assert.equal(first.statements[1].locator.start_char,originalLocator);
 data.source.statements[0].locator.start_char=originalLocator;
 const safeData=data;
 
+// Regression: the private wrapper must NOT re-read mutable caller-owned
+// Person fields after the sitemap digest has already authenticated the
+// approved route set. The late digest hook runs before the final card is made.
+const callerRace=structuredClone(safeData);
+const raceDigestInput=canonicalJson(routes);
+const subtle=globalThis.crypto.subtle;
+const originalDigest=subtle.digest;
+let injected=false;
+try {
+  subtle.digest=async function(algorithm,bytes){
+    const hash=await originalDigest.call(this,algorithm,bytes);
+    if(!injected && new TextDecoder().decode(bytes)===raceDigestInput){
+      injected=true;
+      const target=callerRace.people.people.find(p=>p.person_id==="person:zero");
+      target.display_name="PRIVATE UNREVIEWED NAME";
+      target.route="/persone/private-unreviewed-route/";
+      target.disambiguator="PRIVATE UNREVIEWED ALIAS";
+    }
+    return hash;
+  };
+  const approvedRace=await run("person:zero",callerRace);
+  assert(injected,"private Person post-sitemap digest race not exercised");
+  assert.equal(approvedRace.status,"APPROVED_EMPTY");
+  assert.equal(approvedRace.person.displayName,"Alex Demo",
+    "late caller-owned name was presented as approved under earlier Person SHA");
+  assert.equal(approvedRace.person.route,"/persone/persona-zero/");
+  assert.doesNotMatch(JSON.stringify(approvedRace),/PRIVATE UNREVIEWED/);
+}finally{subtle.digest=originalDigest;}
+
+// The independently issued expiry may pass before the first digest yet
+// expire after all nested readers, at the LAST sitemap SHA. Refuse success.
+{
+  const now=Date.now;
+  const begin=now();
+  const expiration=begin+5_000;
+  let clock=begin;
+  let hookSeen=false;
+  try{
+    Date.now=()=>clock;
+    subtle.digest=async function(algorithm,bytes){
+      const hash=await originalDigest.call(this,algorithm,bytes);
+      if(!hookSeen && new TextDecoder().decode(bytes)===raceDigestInput){
+        hookSeen=true;
+        clock=expiration+1_000;
+      }
+      return hash;
+    };
+    await assert.rejects(run("person:zero",safeData,{
+      ...pins,validUntil:new Date(expiration).toISOString(),
+    }),/AUTHORITY_EXPIRED/,"private zero-Person returned after release expiry");
+    assert(hookSeen,"private late sitemap expiry was not exercised");
+  }finally{Date.now=now;subtle.digest=originalDigest;}
+}
+
 await assert.rejects(run("person:A",safeData,{...pins,allowPrivatePersonPreview:false}),/OPT_IN/);
 await assert.rejects(run("person:A",safeData,{...pins,personSha256:"0".repeat(64)}),/STALE|PIN/);
 await assert.rejects(run("person:A",safeData,{...pins,validUntil:"2000-01-01T00:00:00Z"}),/EXPIRED/);

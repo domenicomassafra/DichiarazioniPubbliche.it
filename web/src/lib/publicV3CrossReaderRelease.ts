@@ -83,38 +83,46 @@ export async function preflightPublicV3CrossReaderRelease(
   input: {people: unknown; join: unknown; index: unknown},
   pins: PublicV3CrossReaderPins,
 ): Promise<PublicV3CrossReaderPreview> {
-  if (pins?.allowV3Preview !== true) fail("PUBLIC_V3_RELEASE_OPT_IN_REQUIRED");
-  if (![pins.personSha256, pins.statementSha256, pins.intersectionSha256, pins.indexSha256]
+  // The three caller-owned collections AND independent pins must be detached
+  // together before the first asynchronous SHA. A validated Person reader
+  // cannot protect a second consumer that later reads the original array.
+  let detached!: {input: typeof input; pins: PublicV3CrossReaderPins};
+  try { detached = structuredClone({input, pins}); }
+  catch { fail("PUBLIC_V3_RELEASE_INPUT_INVALID"); }
+  const safeInput = detached.input;
+  const safePins = detached.pins;
+  if (safePins?.allowV3Preview !== true) fail("PUBLIC_V3_RELEASE_OPT_IN_REQUIRED");
+  if (![safePins.personSha256, safePins.statementSha256, safePins.intersectionSha256, safePins.indexSha256]
     .every((value) => typeof value === "string" && HASH.test(value))) {
     fail("PUBLIC_V3_RELEASE_PINS_REQUIRED");
   }
-  const expires = Date.parse(pins.validUntil);
-  if (typeof pins.validUntil !== "string" ||
-    !/(?:Z|[+-]\d{2}:\d{2})$/.test(pins.validUntil) ||
+  const expires = Date.parse(safePins.validUntil);
+  if (typeof safePins.validUntil !== "string" ||
+    !/(?:Z|[+-]\d{2}:\d{2})$/.test(safePins.validUntil) ||
     !Number.isFinite(expires) || expires <= Date.now()) {
     fail("PUBLIC_V3_RELEASE_EXPIRED");
   }
-  if (!obj(input) || !obj(input.people) || !Array.isArray(input.people.people)) {
+  if (!obj(safeInput) || !obj(safeInput.people) || !Array.isArray(safeInput.people.people)) {
     fail("PUBLIC_V3_RELEASE_PEOPLE_INVALID");
   }
-  const people = input.people as { people: unknown[] };
-  const { join, index } = input;
+  const people = safeInput.people as { people: unknown[] };
+  const { join, index } = safeInput;
   // readApprovedPersonV3 always validates the entire collection, not just the
   // requested Person. An absent sentinel also validates a zero-person release.
   const identifier = obj(people.people[0])
     ? asString(people.people[0].person_id) : "preview:empty";
   await readApprovedPersonV3(people, {
     allowPersonV3: true,
-    expectedCollectionSha256: pins.personSha256,
+    expectedCollectionSha256: safePins.personSha256,
     identifier,
   });
   const releasePins = {
-    intersectionSha256: pins.intersectionSha256,
-    statementSha256: pins.statementSha256,
-    personSha256: pins.personSha256,
+    intersectionSha256: safePins.intersectionSha256,
+    statementSha256: safePins.statementSha256,
+    personSha256: safePins.personSha256,
   };
   const verifiedIndex = await validatePublicStatementSearchV3(index, {
-    ...releasePins, indexSha256: pins.indexSha256,
+    ...releasePins, indexSha256: safePins.indexSha256,
   });
   const reconstructed = await buildPublicStatementSearchV3(join, releasePins);
   if (canonicalJson(reconstructed) !== canonicalJson(verifiedIndex)) {
@@ -162,6 +170,9 @@ export async function preflightPublicV3CrossReaderRelease(
   if (verifiedIndex.source_status === "EMPTY_PUBLIC_CORPUS" && byStatement.size > 0) {
     fail("PUBLIC_V3_CROSS_READER_MISMATCH");
   }
+  // Validity was checked before several awaited cryptographic operations.
+  // Refuse a coherent but already-expired preview at the final boundary.
+  if (expires <= Date.now()) fail("PUBLIC_V3_RELEASE_EXPIRED");
   return {
     status: "CONSISTENT_PREVIEW_ONLY",
     publicationAuthorized: false,
@@ -173,9 +184,9 @@ export async function preflightPublicV3CrossReaderRelease(
     statementRoutes: verifiedIndex.records.map((item) => item.statement_route).sort(),
     topicRoutes: [...topicRoutes].sort(),
     releasePins: {
-      personSha256: pins.personSha256,
-      intersectionSha256: pins.intersectionSha256,
-      indexSha256: pins.indexSha256,
+      personSha256: safePins.personSha256,
+      intersectionSha256: safePins.intersectionSha256,
+      indexSha256: safePins.indexSha256,
     },
   };
 }

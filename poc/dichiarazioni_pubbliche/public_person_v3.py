@@ -349,23 +349,29 @@ def build_public_people_v3(
     # *different* Person's ID is as ambiguous as two identical public slugs;
     # withhold all affected subjects instead of resolving by iteration order.
     identifier_owners: dict[str, set[str]] = defaultdict(set)
-    name_counts: dict[str, int] = defaultdict(int)
     for person in approved:
         identifier_owners[person["person_id"]].add(person["person_id"])
         identifier_owners[person["slug"]].add(person["person_id"])
-        name_counts[person["display_name"].casefold()] += 1
     conflicted_person_ids = {
         person_id for owners in identifier_owners.values() if len(owners) > 1
         for person_id in owners
     }
+    # Only identities still eligible for publication participate in the
+    # homonym check. An already-withheld alias collision must not hide an
+    # unrelated approved, zero-Statement Person with the same display name.
+    unambiguous_ids = [person for person in approved
+                       if person["person_id"] not in conflicted_person_ids]
+    name_counts: dict[str, int] = defaultdict(int)
+    for person in unambiguous_ids:
+        name_counts[person["display_name"].casefold()] += 1
     ambiguous_names = {
         name for name, count in name_counts.items() if count > 1 and any(
             person["display_name"].casefold() == name and person["disambiguator"] is None
-            for person in approved
+            for person in unambiguous_ids
         )
     }
-    visible = [person for person in approved if person["person_id"] not in conflicted_person_ids
-               and person["display_name"].casefold() not in ambiguous_names]
+    visible = [person for person in unambiguous_ids
+               if person["display_name"].casefold() not in ambiguous_names]
     visible.sort(key=lambda item: (item["display_name"].casefold(), item["person_id"]))
     return {
         "schema_version": PUBLIC_PERSON_SCHEMA_VERSION,
