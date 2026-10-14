@@ -286,3 +286,303 @@ generation, source permission, publication or MiniPC route is activated.
 Focused and adjacent source-only tests remain separately required.
 **All AC-440.1–7 remain OPEN** pending real editorial entailment, rights,
 current issuer/revocation and MiniPC readback.
+
+## 2026-10-14 — Private source-linked synopsis regeneration planner
+
+New source-only `public_synopsis_refresh_plan_v1.py` with deterministic
+`tests/test_dp440_synopsis_refresh_plan_20261014.py`. The opt-in private
+revalidation consumer compares two actual schema-validated v3 public
+Statement projections against a previously prepared DP-440 synopsis and a
+separately supplied current DP-439 Topic membership. It requires independently
+obtained expected SHA-256 pins for **both** projections and the previous
+synopsis and checks each old sentence's citation against the old actual
+published Statement/version/quote hash/source locator/date/language. It
+reports only changed or missing public Statement/version IDs and finite
+remediation codes, never source bodies, sentence prose, editorial notes,
+identity inference or any factual/rights/publication authority.
+
+The implementation was genuinely **RED** on absent new module. Focused
+regressions verify immutable no-change review-pending output; changed
+original/source SHA/version/date, missing citations or removed Topic
+membership requiring review; revoked/held/pending/expired membership withholding;
+forged or mismatched pins/metadata raising fixed refusals and zero provider
+calls. A further test reproduced **RED** for changes only to public projection
+`generated_at` because the canonical dataset SHA intentionally omits that
+timestamp. The worklist now tracks exact `generated_at` separately and
+requires a fresh review even when every corpus row fingerprint is unchanged.
+An additional **RED→GREEN** case proved one legitimately reviewed public
+Statement may support multiple separately reviewed synopsis sentences; the
+planner now deduplicates changed/missing *source reference IDs* rather than
+rejecting that lawful repeated citation or counting it as independent
+corroboration.
+The no-difference state is explicitly `NO_CHANGE_REVIEW_PENDING`, **never**
+READY/PUBLISH: independently authenticated issuer status, source rights,
+human semantic entailment and citation review remain external. This is
+revalidation planning, not a summary generator or a cache eviction program.
+Original DP-440 **IN PROGRESS, AC-440.1–7 unchanged and OPEN**; no editorial,
+legal, physical MiniPC, provider or production serving acceptance.
+
+**Review-status receipt:** the existing independent reviewer could not
+restart, and the separately requested replacement worker failed to start
+before any new file inspection. There is **NO genuine independent PASS** for
+this new planner at this time. Prime source-only adversarial replay and
+deterministic tests count as implementation validation, not independent or
+qualified human/editorial review. PR and production-release gates remain
+held and every original DP-440 AC stays open.
+
+**Definitive local tests:** new+adjacent DP-440 Python **25/25 PASS**, genuine
+RED→GREEN cases recorded above. The two new source/test files are byte-
+identical to those used for the single combined full Python unittest run in
+the disposable uncommitted test overlay of main with the disjoint DP-320
+eight-surface source/test: **3,469/3,469 PASS, exit 0, 298.492 seconds**;
+deterministic benchmark **5/5 PASS**, Ruff check/format and Python compileall
+PASS. No PR CI, production data, provider calls or independent reviewer PASS
+are implied. All original real editorial/source/rights/MiniPC gates stay OPEN.
+
+## 2026-10-14 — Post-ship source-only P2: mutable synopsis read DTO
+
+Prime source-only adversarial inspection (NOT an independent reviewer) found
+that the original synopsis issuer fingerprint alone did not bind emitted
+nested `PublicSynopsisRead.sentences` bytes. A caller could mutate an
+already prepared sentence after the reader computed its digest, retain the
+original issuer fingerprint, and obtain a no-change revalidation result.
+Genuine **RED** fixture preceded the additional required exact-read pin;
+now `synopsis_read_sha256` fingerprints the complete read DTO against an
+**independently supplied owner receipt**, and mutated text is refused with
+`REFRESH_READ_PIN_MISMATCH`. Self-rehashing the untrusted DTO does not prove
+issuer identity or approval. Planner output never includes the sentence
+body, so this is a pre-publication accuracy/freshness guard, not a proven
+historical leak or actual live route exploit. Final independent review still
+**PENDING**: worker sessions were unavailable. Original DP-440 Status and
+AC remain unchanged, no rights/editorial/provider/MiniPC acceptance claimed.
+
+**New independent reviewer P2 on source bundle mutation:** worker-9
+reproduced a distinct post-validation time-of-check/use defect. The old
+`dict(previous_bundle)`/`dict(current_bundle)` conversion was shallow:
+nested original wording could change on later caller-controlled access
+while stored `dataset_sha256` values remained unchanged. A specially
+constructed in-memory dict subclass triggered the issue, producing a
+misleading `NO_CHANGE_REVIEW_PENDING` despite mutated source material.
+New deterministic regression first **RED** because the planner accepted
+that untrusted post-validation mutation. The planner now refuses dynamic
+Mapping/dict subclasses, makes a bounded **detached JSON snapshot of both
+complete public bundles before ANY validation or later citation read**, and
+performs every SHA/currentness/comparison operation on those snapshots.
+Source-only new/adjacent DP-440 tests now **27/27 PASS**. The final
+independent re-review of this second P2 is requested separately; this does
+not establish authenticated issuer identity, real rights or publication.
+
+**Post-patch regression:** the original read-model mutation probe is now
+RED→GREEN, and **26/26** new and adjacent DP-440 tests PASS. The exact
+source and test bytes used in the detached aggregate overlay produced one
+complete **3,476/3,476 Python PASS**, exit 0 in 330.917 s, and benchmark
+**5/5 PASS**. Ruff and format PASS. This is source-only author review;
+independent reviewer proof remains outstanding, so no PR or public route.
+
+**Independent final source-only re-review:** worker-9 replayed the prior malicious dynamic `SwappingCurrent(dict)` after the new full `_frozen_public_bundle` snapshot and observed `REFRESH_PUBLIC_BUNDLE_INVALID` before any callback could mutate citation rows. A plain-dict source tamper before validation without a matching SHA was also refused; a mutation after full detach had no effect on the pinned snapshot. Reviewed new+adjacent DP-440 **27/27 PASS**. No additional reproduced P1/P2 within this bounded private planning contract; reviewer wrote no source/Git/provider data. This PASS is not an authenticated issuer, rights, editorial, semantic, PR-CI or physical MiniPC acceptance.
+
+**Final codefreeze test receipt:** one completed combined Python unittest discovery on detached main plus byte-identical new DP-320/DP-440/DP-439/DP-314 source and tests returned **3,503/3,503 PASS, exit 0 in 306.597 s**, benchmark **5/5 PASS**, Ruff check/format PASS. Post-source-detachment DP-440 new+adjacent **27/27 PASS** and independent reviewer confirmed malicious post-shallow-copy mutation now refused. A previous prefinal full test was interrupted **exit 143** after source changes and never counted as PASS. This records local source checks only, no reviewer rights, editorial conclusion, PR CI, provider or production acceptance.
+
+## 2026-10-14 — Private cross-release multi-synopsis refresh cohort
+
+New *offline, private* `private_synopsis_refresh_cohort_v1.py` adds a
+bounded cohort reconciliation layer over the existing
+`public_synopsis_refresh_plan_v1.py`, using actual
+`PublicSynopsisRead` and `ApprovedTopicIntersection` types and two
+validated public-v3 Statement releases. Every prior/current release has an
+owner-managed full-material SHA pin; each individual read model and Topic
+membership also requires its own separately retained SHA pin. Each read
+envelope binds a strictly increasing, source-specific issuer epoch. An
+old-epoch read cannot be relabeled as a new issuer result; same-epoch
+release replay is refused. Pins must originate from an independently
+trusted issuer store; locally computed hashes alone confer no authority.
+
+Before validating or comparing any release, the planner detaches every
+complete public bundle, read model, citation array and membership map into
+plain bounded structures, and rejects dynamic subclasses, unexpected
+typed fields, duplicate/replayed issuer periods and mismatched read/policy
+pins. It checks the canonical v3 public source contract and existing
+per-synopsis citation/material/currentness planner, including a separate
+**current-read versus current-membership** pass so that a newly asserted
+`READY_READ_MODEL` cannot silently retain citations no longer in the
+approved-shaped Topic membership. Source rights/review declarations,
+source version and quotation hashes are retained only inside the input
+snapshot and its digest; changed dependencies schedule human recheck.
+
+The deterministic, sorted private review items distinguish `ADDED`,
+`RETIRED`, `CHANGED` and `HELD`, with explicit external source-rights,
+editorial entailment and publication gates. Opaque item references are
+HMAC-SHA256 over the Person×Topic key with an independent owner-provided
+private key. **No** Person/Topic/Statement IDs, original text, source URL,
+synopsis prose or private review tokens are emitted in output. No
+automatic source approval, fact verification, regeneration, published
+Finding, public route, provider calls, DB writes or publication permission.
+
+**Source-only RED→GREEN:** the new tests initially failed on absent
+`private_synopsis_refresh_cohort_v1` (`ModuleNotFoundError`); the first
+implementation then exposed and corrected a retired-versus-held
+classification gap. A later adversarial test identified **RED** where a
+fresh review-event receipt replacing only the Topic membership attestation,
+with byte-identical read-model text, silently returned no work. The
+corrected comparison detects changed full Topic-review receipts and
+schedules `CHANGED` with `TOPIC_REVIEW_RECEIPT_CHANGED` even without a
+Statement/text drift. New tests **11/11 PASS** and combined
+DP-440 new + canonical synopsis + earlier refresh planner **38/38 PASS**.
+The real synthetic public-v3 fixture contains multiple independently
+source-backed Statements for two public Person IDs and multiple topics.
+Tests cover cross-release replay, immutable snapshot/dynamic subclass
+denial, stale read/release/membership pins, time/currentness,
+simultaneous changed/retired/held items, added synopsis without approval,
+rights/review/source changes, Topic citation exclusion and no identifiers
+or URLs in result objects. Ruff check/format, Python compile PASS. Full
+repository integration and independent post-source review remain separate.
+**DP-440 remains IN PROGRESS; AC-440.1–7 remain unchecked.** Real issuer
+authentication, qualified source-rights/editorial approval, MiniPC
+revalidation, revocation latency, and public HTML/API/cache readback
+remain unproven.
+
+## 2026-10-14 — Independent reviewer P2: malformed Topic authority and omitted cohort
+
+Independent worker-11 identified two substantive fail-open gaps in the
+**published** private cohort planner at exact commit
+`375271a4550278f08b5dcdde6a95fe89f618a7b2`:
+
+1. The new cohort release validator checked the Topic membership identity
+   and dataset digest but did **not** validate full original-Statement
+   lineage coverage or the reviewer/currentness authority fields. A genuine
+   `ApprovedTopicIntersection` altered to have empty or duplicate
+   `statement_lineages`, an empty `review_event_id`, or an empty
+   `currentness_attestation_id`, then fully re-pinned, could be reported
+   as an ordinary `CHANGED` item. The same malformed proof in **both**
+   releases could silently yield `IDLE_NO_AUTHORITY` (zero review items).
+   The canonical `prepare_public_synopsis` would WITHHOLD for missing
+   lineage review or membership authority.
+2. The cohort enumerated only prior and current synopsis read keys.
+   A newly reviewed current Person×Topic membership without a synopsis
+   read in **either** inventory was silently skipped, falsely returning
+   `IDLE_NO_AUTHORITY`.
+
+**Genuine local RED, before source patch:** two new focused tests exercised
+actual two-Person public-v3 Statement bundles and real
+`PublicSynopsisRead` fixtures. All release/read/membership SHA digests
+were self-consistently regenerated to rule out incidental stale-pin
+rejection. Four malformed current proofs were accepted instead of raising
+`COHORT_MEMBERSHIP_INVALID`; a current-only membership with no read
+returned `IDLE_NO_AUTHORITY` rather than a human review item
+(five failing subcases across two tests).
+
+**GREEN source fix:** membership validation now requires exact typed,
+bounded, nonblank reviewer and currentness IDs, unique Statement/version
+keys, full one-to-one original-source lineage coverage, no duplicate
+lineage refs and a bounded known status. Invalid historical or current
+proofs now refuse with a **generic** `COHORT_MEMBERSHIP_INVALID` (including
+the malformed proof replayed in both releases), without publishing source
+identities or leaking the invalid review fields. Cohort enumeration now
+uses the union of all previous/current **read and membership** keys;
+a current membership lacking a current read emits a deterministic,
+HMAC-opaque `HELD` item with
+`CURRENT_MEMBERSHIP_READ_MISSING` and
+`NEW_SYNOPSIS_REVIEW_REQUIRED`. A genuinely retired read *and*
+membership remains distinguishable from the missing-current-read hold.
+No autoapproval, source capture, provider calls or public side effects.
+
+Post-patch **new cohort tests 13/13**, DP-440 new+adjacent tests
+**40/40 PASS**; Ruff lint/format and scoped Git diff checks PASS.
+This records only an author-side local synthetic RED→GREEN remediation:
+worker-11 independent **post-fix** review remains required, as do any
+broader-suite integration or real issuer/rights/editorial/physical
+revocation approvals. **Status remains IN PROGRESS; AC-440.1–7 remain
+unchecked.**
+
+## 2026-10-14 — Reviewer-11 false-deny: shared provenance lineage labels
+
+The prior P2 remediation at `feb78705c2a182d57f1f7cb3a8b2b7b80c1fe5fa`
+over-constrained approved Topic proofs by requiring a distinct original
+lineage *label* for every distinct Statement/version key. This contradicts
+the canonical `prepare_public_synopsis` contract: different Statements
+may belong to one independently reviewed original lineage, while the
+canonical read-maker requires enough **distinct** supporting lineages,
+Content identities, source locators and source hashes for its actual
+reviewed citations. Duplicated Statement/version **keys**, missing
+lineage coverage and blank reviewer/currentness authority are still
+invalid; sharing a lineage label is not a duplicate key.
+
+An actual approved public-v3 three-Statement fixture was constructed using
+the canonical public projection validator and
+`prepare_public_synopsis`: three distinct Statement/version IDs, Content
+IDs, source URLs and SHA values with first and second Statement sharing
+one lineage label and third using a second independent lineage. The
+canonical read is `READY_READ_MODEL`; a two-release private cohort with
+separately pinned genuine reads and memberships was **RED** before the
+change (`COHORT_MEMBERSHIP_INVALID`). The corrected membership shape
+checker requires complete one-to-one coverage of distinct Statement keys
+but permits repeated lineage labels; the same cohort is now GREEN
+(`IDLE_NO_AUTHORITY`, zero automatic approvals). The earlier adversarial
+malformed-proof cases (empty/replayed/duplicate Statement-key lineages,
+blank reviewer/attestation IDs), missing-current-read hold, source pins,
+and no raw identities/URLs in emitted review items remain asserted.
+
+Focused and adjacent DP-440 suites **41/41 PASS**, Ruff lint/format and
+`git diff --check` PASS. Independent reviewer confirmation of this
+follow-up and any full-suite/issuer/rights/editorial/MiniPC acceptance
+remain distinct gates. **DP-440 stays IN PROGRESS and AC-440.1–7
+remain unchecked; no provider, DB, publication or source-body operations.**
+
+## 2026-10-14 — Reviewer-11 P2: reissued Topic source-independence collapse
+
+Independent reviewer-11 identified a **new source-only P2** after
+`2be5462f1b389afa7f0ae0101ae3859e6874e05a`. An initially approved
+two-Statement `READY_READ_MODEL` cites two independent sources. Reissuing
+the current `ApprovedTopicIntersection` with *identical* Statement/version
+keys but both original-lineage labels collapsed to the same reviewed root
+causes canonical `prepare_public_synopsis` to withhold with
+`SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES`. The prior cohort planner only
+compared cited keys and material fields; with fully recomputed
+release/read/Topic SHA pins it incorrectly classified this as `CHANGED`
+instead of `HELD`.
+
+**Saved genuine RED→GREEN:** a new focused regression uses the actual
+validated public-v3 two-source and real `PublicSynopsisRead` fixture.
+Canonical synopsis validation independently returns `WITHHELD`; before
+the source fix the cohort test was **RED** (`CHANGED` rather than
+`HELD`). The new current-read guard checks its **actually cited**
+Statement/version records against the current pinned public projection
+and reviewed membership. It requires two independent original-lineage
+labels, Content IDs, source URLs and source hashes, matching the
+canonical synopsis default source-independence threshold. Lost
+corroboration yields only generic
+`CURRENT_READY_SOURCE_INDEPENDENCE_LOST` and an opaque `HELD` item.
+Legitimate distinct Statement/version keys **may share** a lineage label
+when other cited originals remain independently rooted: the existing
+canonical three-Statement/two-lineage fixture still yields
+`IDLE_NO_AUTHORITY`. Missing/duplicate-key or blank-authority proofs
+still fail closed. No original words, Statement/Person IDs, URLs or
+lineage labels appear in results; no automatic approval or effects.
+
+Local source-only new + adjacent DP-440 tests **42/42 PASS**, Ruff
+lint/format and staged diff check PASS. Independent post-fix review,
+full aggregate suite and real editorial/rights/issuer/MiniPC gates are
+still separate; **DP-440 remains IN PROGRESS and AC-440.1–7 unchecked**.
+
+**2026-10-14 — Final independent post-P2 and integrated cited cohort proof.**
+Worker-11 (not the source author) performed strict READONLY source review of
+exact corrected code/test commit `77a2683fc36fa8f3c0e2daa725f9bf6b5c77d509`.
+Independent actual public-v3 fixtures replayed the previously reproduced
+P2s: incomplete/blank review identity or Statement lineage refused;
+current-only approved membership with no read HMAC-opaque HELD; two-source
+current lineage collapse canonical `WITHHELD SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES`
+now `HELD CURRENT_READY_SOURCE_INDEPENDENCE_LOST`, never ordinary CHANGED;
+the lawful three Statement/two independent lineage (two rows sharing one
+lineage) canonical READY remains IDLE, no source false-deny. Wrong SHA pins,
+post-pin citation mutation, privacy no-echo and review/rights authority false
+independently checked; **42/42 new+adjacent PASS, no new P1/P2 reproduced in
+bounded scope**, reviewer no edits/Git/provider writes. FINAL detached 36-file
+source/test overlay from exact committed bytes completed **3,611/3,611
+Python PASS, exit 0, 396.578 seconds**, synthetic benchmark **5/5 PASS**,
+scoped new source/test Ruff lint+format PASS, manifest SHA-256
+`04481e83eeb08963a802e6db9c41c6079c3b10ad85a5cbedea64c527c4989ebe`.
+Fixture ResourceWarnings did not cause test failure; inherited DP-314 broad
+Ruff F401 is not a global lint pass. This never authenticates external issuer
+SHA ownership, source rights/independent legal evidence/editorial fact review,
+public v3, HTTP/CDN/PG/MiniPC or PR CI. **Status IN PROGRESS and all
+AC-440.1–7 remain unchecked**, no production/publisher/provider activity.
