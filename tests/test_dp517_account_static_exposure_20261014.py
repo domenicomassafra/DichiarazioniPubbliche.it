@@ -99,6 +99,74 @@ class AccountStaticExposureTests(unittest.TestCase):
         self.assertNotEqual(status, 200)
         self.assertEqual(body, b"")
 
+    def test_hardlinked_private_db_and_sqlite_sidecars_are_not_static_assets(self):
+        # Same-device hardlinks have a public path and no symlink target to
+        # resolve. Before the inode guard anonymous GET returned account bytes.
+        sensitive = (self.store.path,)
+        for suffix in ("-wal", "-shm"):
+            sidecar = Path(str(self.store.path) + suffix)
+            sidecar.write_bytes(("synthetic account " + suffix).encode())
+            sensitive += (sidecar,)
+        for number, source in enumerate(sensitive):
+            alias = self.public / f"public-asset-{number}.html"
+            os.link(source, alias)
+            for method in ("GET", "HEAD"):
+                with self.subTest(source=source.name, method=method):
+                    with build_server(
+                        None,
+                        host="127.0.0.1",
+                        port=0,
+                        static_dir=self.public,
+                        account_service=self.service,
+                    ) as server:
+                        status, body = self.get(server, f"/{alias.name}", method=method)
+                    self.assertNotEqual(status, 200)
+                    if method == "HEAD":
+                        self.assertEqual(body, b"")
+                    self.assertNotIn(b"synthetic@example.invalid", body)
+
+    def test_private_store_hardlinked_as_default_index_is_not_served(self):
+        os.link(self.store.path, self.public / "index.html")
+        with build_server(
+            None,
+            host="127.0.0.1",
+            port=0,
+            static_dir=self.public,
+            account_service=self.service,
+        ) as server:
+            status, body = self.get(server, "/")
+        self.assertNotEqual(status, 200)
+        self.assertNotIn(b"synthetic@example.invalid", body)
+
+    def test_private_oauth_secret_hardlink_must_not_be_served(self):
+        secret_path = self.private / "oauth-secret.txt"
+        secret_path.write_text("synthetic-oauth-secret-closed", encoding="utf-8")
+        os.link(secret_path, self.public / "visible.css")
+        with build_server(
+            None,
+            host="127.0.0.1",
+            port=0,
+            static_dir=self.public,
+            account_service=self.service,
+            account_private_secret_path=secret_path,
+        ) as server:
+            status, body = self.get(server, "/visible.css")
+        self.assertNotEqual(status, 200)
+        self.assertNotIn(b"synthetic-oauth-secret-closed", body)
+
+    def test_programmatic_server_rejects_private_secret_inside_static_root(self):
+        secret_path = self.public / "private-client-key.txt"
+        secret_path.write_text("synthetic-client-key", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "ACCOUNT_PRIVATE_FILE_IN_PUBLIC_ROOT"):
+            build_server(
+                None,
+                host="127.0.0.1",
+                port=0,
+                static_dir=self.public,
+                account_service=self.service,
+                account_private_secret_path=secret_path,
+            )
+
     def test_symlinked_static_root_alias_of_private_db_directory_is_refused(self):
         alias = self.base / "site-alias"
         alias.symlink_to(self.private, target_is_directory=True)
@@ -123,6 +191,15 @@ class AccountStaticExposureTests(unittest.TestCase):
             status, body = self.get(server, "/index.html")
         self.assertEqual(status, 200)
         self.assertEqual(body, b"PUBLIC TEST PAGE")
+        with build_server(
+            None,
+            host="127.0.0.1",
+            port=0,
+            static_dir=self.public,
+            account_service=self.service,
+        ) as server:
+            root_status, root_body = self.get(server, "/")
+        self.assertEqual((root_status, root_body), (200, b"PUBLIC TEST PAGE"))
         with build_server(
             None,
             host="127.0.0.1",

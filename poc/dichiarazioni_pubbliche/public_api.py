@@ -1612,6 +1612,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
     static_dir: str | None = None
     quiet: bool = True
     account_service: AccountService | None = None
+    account_private_secret_path: Path | None = None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         directory = type(self).static_dir
@@ -1802,10 +1803,38 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         # SimpleHTTPRequestHandler normally follows public-root symlinks. When
         # accounts are active, do not let a published asset alias reach the
         # private SQLite DB, its WAL/SHM, or another file outside this root.
+        # A hardlink has no symlink target: compare the actual inode too.
         if type(self).account_service is not None:
             root = Path(type(self).static_dir).resolve()
             candidate = Path(self.translate_path(self.path)).resolve()
-            if not candidate.is_relative_to(root):
+            if candidate.is_dir():
+                # SimpleHTTPRequestHandler chooses an index file after its
+                # initial translate_path. Check that actual served file, too.
+                for index in ("index.html", "index.htm"):
+                    if (candidate / index).is_file():
+                        candidate = (candidate / index).resolve()
+                        break
+            protected = type(self).account_service.store.path
+            sensitive_paths = (protected, Path(str(protected) + "-wal"),
+                               Path(str(protected) + "-shm"))
+            if type(self).account_private_secret_path is not None:
+                sensitive_paths += (type(self).account_private_secret_path,)
+            private_alias = False
+            try:
+                source_stat = candidate.stat()
+            except OSError:
+                pass
+            else:
+                for private_path in sensitive_paths:
+                    try:
+                        private_stat = private_path.stat()
+                    except OSError:
+                        continue
+                    if ((source_stat.st_dev, source_stat.st_ino)
+                            == (private_stat.st_dev, private_stat.st_ino)):
+                        private_alias = True
+                        break
+            if not candidate.is_relative_to(root) or private_alias:
                 self.send_error(404)
                 return
         if method == "GET":
@@ -1868,13 +1897,17 @@ def build_server(
     port: int = 0,
     static_dir: str | os.PathLike[str] | None = None,
     account_service: AccountService | None = None,
+    account_private_secret_path: str | os.PathLike[str] | None = None,
 ) -> ThreadingHTTPServer:
     if account_service is not None and host not in ("127.0.0.1", "::1"):
         raise ValueError("ACCOUNT_LOOPBACK_BIND_REQUIRED")
     resolved_static = str(Path(static_dir).resolve()) if static_dir is not None else None
-    if (account_service is not None and resolved_static is not None
-            and account_service.store.path.resolve().is_relative_to(resolved_static)):
-        raise ValueError("ACCOUNT_PRIVATE_FILE_IN_PUBLIC_ROOT")
+    if account_service is not None and resolved_static is not None:
+        private_paths = [account_service.store.path]
+        if account_private_secret_path is not None:
+            private_paths.append(Path(account_private_secret_path))
+        if any(path.resolve().is_relative_to(resolved_static) for path in private_paths):
+            raise ValueError("ACCOUNT_PRIVATE_FILE_IN_PUBLIC_ROOT")
     handler = type(
         "BoundPublicApiRequestHandler",
         (PublicApiRequestHandler,),
@@ -1882,6 +1915,11 @@ def build_server(
             "projection_path": str(projection_path) if projection_path else None,
             "static_dir": resolved_static,
             "account_service": account_service,
+            "account_private_secret_path": (
+                Path(account_private_secret_path).resolve()
+                if account_service is not None and account_private_secret_path is not None
+                else None
+            ),
         },
     )
     return ThreadingHTTPServer((host, port), handler)
@@ -1936,6 +1974,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         port=args.port,
         static_dir=args.static_dir,
         account_service=account_service,
+        account_private_secret_path=(
+            args.account_client_secret_file if account_service is not None else None
+        ),
     )
     host, port = server.server_address[0], server.server_address[1]
     surface = "public host" if args.static_dir else "public API"

@@ -90,3 +90,31 @@ check, new-test Ruff format, Python compilation and `git diff --check` PASS.
 The pre-existing `public_api.py` does not pass whole-file Ruff format on its
 unchanged baseline; this narrow correction does not reformat unrelated code.
 Only synthetic local files and ephemeral loopback HTTP were exercised.
+
+## 2026-10-14 — independent hardlink escape of private account files
+
+**New P1 beyond the prior symlink/root containment fix:** an anonymous real
+loopback HTTP request could still download a hardlinked copy of the private
+SQLite file under the public asset root. A hardlink shares a device/inode
+with the confidential original but has a separate public path; resolving the
+path stays inside the root. A forged `index.html` hardlink reached the same
+bytes through the directory-default resolution. New synthetic tests were RED
+for database, WAL, SHM aliases via GET/HEAD (six failures) and default index
+(one failure). A separate OAuth-secret hardlink scenario was initially RED
+because the programmatic server did not accept a protected-secret path.
+
+**GREEN scoped source repair:** when the account feature is enabled, the
+static-path guard checks the final directory-index target and compares the
+served file's device/inode with the private account SQLite, WAL and SHM
+paths (when present), plus the CLI's protected OAuth secret path. The
+programmatic server explicitly accepts an optional private secret path for
+the same protection and rejects it outright if placed inside public root.
+Unrelated index.html assets and account 401 responses remain available.
+Nine focused HTTP tests and **156/156** related account/API/privacy tests
+PASS, including synthetic negative GET/HEAD, positive HTML, root index and
+no provider invocation. Ruff, compileall and scoped diff-check PASS.
+
+This is a local same-inode exposure guard, not an atomic filesystem sandbox
+against a malicious concurrent filesystem writer, production MiniPC/proxy
+admission, genuine secret handling or legal/retention approval. **All
+AC-517.1–7 stay OPEN, ticket FUTURE; no OAuth or public account activation.**
