@@ -502,7 +502,11 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
               </li>
             ))}
           </ul>
-          <button className="quiet-button" type="button" onClick={resetFilters}>
+          <button className="quiet-button" type="button" onClick={() => {
+            resetFilters();
+            // The active-filter group unmounts when the last chip is removed.
+            filterButton.current?.focus();
+          }}>
             Azzera tutti i filtri
           </button>
         </div>
@@ -654,7 +658,12 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
                   ? "Non ci sono ancora dichiarazioni o risorse autorizzate nello snapshot pubblico. Nessun risultato privato viene mostrato."
                   : "Modifica la ricerca o azzera i filtri. La combinazione Persona × Tema considera soltanto dichiarazioni pubblicate, senza avviare analisi live."}
               </p>
-              <button className="quiet-button" type="button" onClick={() => { setQuery(""); resetFilters(); }}>Azzera ricerca e filtri</button>
+              <button className="quiet-button" type="button" onClick={() => {
+                setQuery("");
+                resetFilters();
+                // No-match actions disappear once the search is recovered.
+                searchInput.current?.focus();
+              }}>Azzera ricerca e filtri</button>
             </div>
           )}
         </>

@@ -564,11 +564,80 @@ try {
   await key(cdp, "Escape", { code: "Escape", keyCode: 27 });
   await waitFor(cdp, "document.querySelector('dialog')?.open === false", "reopened dialog did not close");
 
+  // The reset control inside the active-chip group unmounts after clearing
+  // every filter. Keyboard focus must land on the stable filter trigger.
+  await navigate(cdp, `${origin}/esplora/?q=ricerca%20precisa&esito=SUPPORTED&tipo=finding`);
+  await waitFor(cdp, "document.querySelectorAll('[data-active-filter]').length === 2", "active filter chips did not restore from the URL");
+  await cdp.evaluate("[...document.querySelectorAll('.explore-active-filters button')].find(button => button.textContent.trim() === 'Azzera tutti i filtri').focus()");
+  await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
+  await waitFor(cdp, "document.querySelector('.explore-active-filters') === null", "reset did not clear active filter chips");
+  assert.equal(await cdp.evaluate("document.activeElement?.classList.contains('filter-button')"), true,
+    "reset-chip group unmounted and stranded keyboard focus instead of returning it to Filtri");
+  assert.equal(await cdp.evaluate("new URLSearchParams(location.search).get('q')"), "ricerca precisa",
+    "resetting filters must preserve the original query");
+  assert.equal(await cdp.evaluate("new URLSearchParams(location.search).has('tipo') || new URLSearchParams(location.search).has('esito')"), false,
+    "resetting filters did not clear active URL filters");
+
+  // The named typo belongs to the explicit local fixture. Real approved
+  // projections may have entirely different vocabulary; their browser QA
+  // must not require a fictional Statement to be present.
+  if (searchIndex.records.some(record => record.kind === "finding" && record.id === "finding:demo:maintenance")) {
+    // Public-only spelling suggestions are opt-in. Neither hydration nor a
+    // viewport change may rewrite the exact query or drop URL facets.
+    const typedTypo = "  manutenzine  ";
+    const typoParams = new URLSearchParams({ q: typedTypo, tipo: "finding", esito: "SUPPORTED" });
+    for (const viewport of [
+      { label: "desktop", width: 1280, height: 850, mobile: false },
+      { label: "reflow", width: 640, height: 450, mobile: false },
+      { label: "phone", width: 375, height: 812, mobile: true },
+    ]) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile,
+      });
+      await navigate(cdp, `${origin}/esplora/?${typoParams}`);
+      await waitFor(cdp, "Boolean(document.querySelector('[data-search-suggestion]'))", `${viewport.label}: typo suggestion missing`);
+      const offered = await cdp.evaluate(`(() => ({
+        input: document.querySelector('#client-search').value,
+        urlQuery: new URLSearchParams(location.search).get('q'),
+        urlType: new URLSearchParams(location.search).get('tipo'),
+        urlOutcome: new URLSearchParams(location.search).get('esito'),
+        labels: [...document.querySelectorAll('[data-search-suggestion]')].map(button => button.textContent.trim()),
+        widths: [innerWidth, document.documentElement.scrollWidth],
+        heights: [...document.querySelectorAll('[data-search-suggestion]')].map(button => button.getBoundingClientRect().height),
+      }))()`);
+      assert.equal(offered.input, typedTypo, `${viewport.label}: hydration corrected the original query`);
+      assert.equal(offered.urlQuery, typedTypo, `${viewport.label}: share URL lost whitespace`);
+      assert.equal(offered.urlType, "finding", `${viewport.label}: type facet was lost`);
+      assert.equal(offered.urlOutcome, "SUPPORTED", `${viewport.label}: public outcome facet was lost`);
+      assert(offered.labels.some(label => label.includes("manutenzione")), `${viewport.label}: approved typo correction not offered`);
+      assert(offered.labels.length <= 4, `${viewport.label}: suggestions are unbounded`);
+      assert(offered.widths[1] <= offered.widths[0] + 1, `${viewport.label}: suggestion caused horizontal page overflow`);
+      assert(offered.heights.every(height => height >= 44), `${viewport.label}: suggestion tap target too small`);
+      await cdp.evaluate("[...document.querySelectorAll('[data-search-suggestion]')].find(button => button.textContent.includes('manutenzione')).focus()");
+      await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
+      await waitFor(cdp, "document.querySelector('#client-search')?.value === '  manutenzione  '", `${viewport.label}: explicit correction failed`);
+      await waitFor(cdp, "document.querySelectorAll('.explore-row').length > 0", `${viewport.label}: corrected public results missing`);
+      assert.equal(await cdp.evaluate("document.activeElement?.id"), "client-search", `${viewport.label}: suggestion did not restore search focus`);
+      assert.equal(await cdp.evaluate("new URLSearchParams(location.search).get('q')"), "  manutenzione  ", `${viewport.label}: explicit correction URL missing`);
+      assert.equal(await cdp.evaluate("new URLSearchParams(location.search).get('esito')"), "SUPPORTED", `${viewport.label}: correction dropped outcome facet`);
+      assert.equal(await cdp.evaluate("new URLSearchParams(location.search).get('tipo')"), "finding", `${viewport.label}: correction dropped type facet`);
+      assert.equal(await cdp.evaluate("[...document.querySelectorAll('.explore-row .claim-row-claim')].every(link => link.getAttribute('href').startsWith('/dichiarazioni/'))"), true,
+        `${viewport.label}: corrected result left the approved Statement routes`);
+    }
+    await cdp.send("Emulation.clearDeviceMetricsOverride");
+  }
+
   await navigate(cdp, `${origin}/esplora/?q=nessunrisultatoimpossibile`);
   await waitFor(cdp, "Boolean(document.querySelector('[data-state=empty]'))", "no-match state missing");
   const emptyCopy = await cdp.evaluate("document.querySelector('[data-state=empty]')?.textContent");
   assert.match(emptyCopy, /Nessun record pubblico corrisponde/);
   assert.match(emptyCopy, /Azzera ricerca e filtri/);
+  await cdp.evaluate("document.querySelector('[data-state=empty] button').focus()");
+  await key(cdp, "Enter", { code: "Enter", keyCode: 13, text: "\r" });
+  await waitFor(cdp, "document.querySelector('[data-state=empty]') === null", "no-match reset failed to restore results");
+  assert.equal(await cdp.evaluate("document.activeElement?.id"), "client-search",
+    "no-match reset unmounted the focused button instead of returning focus to search");
+  await waitFor(cdp, "new URLSearchParams(location.search).has('q') === false", "no-match reset did not clear the URL query");
 
   const overlong = "x".repeat(201);
   await navigate(cdp, `${origin}/esplora/?q=${overlong}`);

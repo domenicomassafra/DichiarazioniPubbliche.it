@@ -328,3 +328,37 @@ checks **PASS**, including renamed-demo refusal and non-indexable test mode.
 automated synthetic-browser controls only: real manual screen-reader and
 MiniPC/public release acceptance remain **OPEN**, with ticket Status and AC
 unchanged; no public v3 records or editorial review were activated.
+
+### 2026-10-14 — Explore reset focus and browser suggestion parity (source-only)
+
+The active-filter group and no-match state both rendered reset buttons that
+unmounted themselves after activation. Keyboard users previously lost focus to
+the page body; the real-Chrome regression first failed with
+`reset-chip group unmounted and stranded keyboard focus`. The existing Explore
+client now restores focus to the stable `Filtri` trigger after clearing the
+active chips, or the search input after clearing the no-match query and facets.
+The modal's own reset button keeps its existing dialog-local behavior.
+
+The browser QA now verifies optional visible typo suggestions using the
+explicitly local demo index at desktop 1280px, 640px reflow and 375px phone:
+the untouched `  manutenzine  ` query remains byte-for-byte intact in input
+and URL before opt-in, both `SUPPORTED` and `finding` facets remain selected,
+the suggestion button offers approved `manutenzione` with a >=44px target and
+no horizontal overflow, and Enter applies the correction while restoring
+search focus. The corrected URL keeps whitespace and both facets and opens
+only canonical Finding routes. This is fixture-only evidence, not real content
+or proof that a public projection has been published.
+
+`DP429_BROWSER=1 node tests/dp429_explore_accessibility_regression.mjs`
+(run from repo root) now **PASS** for independently built approved-empty and
+populated demo states, including the existing keyboard, reduced-motion and
+actual 200% browser zoom checks. `web` `check:search`,
+`check:design:a11y` (8 checks), the isolated suggestion test and Astro check
+(0 errors, 0 warnings, one preexisting analyzer hint) also **PASS**.
+An explicit `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build`
+then `npm run check:quality` **PASS** (34 demo HTML routes, all
+`noindex,nofollow`); an unrestricted build appropriately requires the real
+public projection path and was not misreported as a successful live release.
+No manual AT/owner visual acceptance, external PR/CI, release pin readback,
+MiniPC deployment or public audience proof is asserted. Original accessibility
+criterion and ticket remain **IN PROGRESS**.
