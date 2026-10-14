@@ -493,3 +493,37 @@ worker-11 independent **post-fix** review remains required, as do any
 broader-suite integration or real issuer/rights/editorial/physical
 revocation approvals. **Status remains IN PROGRESS; AC-440.1–7 remain
 unchecked.**
+
+## 2026-10-14 — Reviewer-11 false-deny: shared provenance lineage labels
+
+The prior P2 remediation at `feb78705c2a182d57f1f7cb3a8b2b7b80c1fe5fa`
+over-constrained approved Topic proofs by requiring a distinct original
+lineage *label* for every distinct Statement/version key. This contradicts
+the canonical `prepare_public_synopsis` contract: different Statements
+may belong to one independently reviewed original lineage, while the
+canonical read-maker requires enough **distinct** supporting lineages,
+Content identities, source locators and source hashes for its actual
+reviewed citations. Duplicated Statement/version **keys**, missing
+lineage coverage and blank reviewer/currentness authority are still
+invalid; sharing a lineage label is not a duplicate key.
+
+An actual approved public-v3 three-Statement fixture was constructed using
+the canonical public projection validator and
+`prepare_public_synopsis`: three distinct Statement/version IDs, Content
+IDs, source URLs and SHA values with first and second Statement sharing
+one lineage label and third using a second independent lineage. The
+canonical read is `READY_READ_MODEL`; a two-release private cohort with
+separately pinned genuine reads and memberships was **RED** before the
+change (`COHORT_MEMBERSHIP_INVALID`). The corrected membership shape
+checker requires complete one-to-one coverage of distinct Statement keys
+but permits repeated lineage labels; the same cohort is now GREEN
+(`IDLE_NO_AUTHORITY`, zero automatic approvals). The earlier adversarial
+malformed-proof cases (empty/replayed/duplicate Statement-key lineages,
+blank reviewer/attestation IDs), missing-current-read hold, source pins,
+and no raw identities/URLs in emitted review items remain asserted.
+
+Focused and adjacent DP-440 suites **41/41 PASS**, Ruff lint/format and
+`git diff --check` PASS. Independent reviewer confirmation of this
+follow-up and any full-suite/issuer/rights/editorial/MiniPC acceptance
+remain distinct gates. **DP-440 stays IN PROGRESS and AC-440.1–7
+remain unchecked; no provider, DB, publication or source-body operations.**

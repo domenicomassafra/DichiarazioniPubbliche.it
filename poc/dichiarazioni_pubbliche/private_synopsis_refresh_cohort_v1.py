@@ -133,11 +133,13 @@ def _proof_text(value: Any) -> bool:
 
 
 def _membership_shape(proof: ApprovedTopicIntersection) -> bool:
-    """Require a complete, injectively reviewed Statement→lineage receipt.
+    """Require a complete per-Statement original-source lineage receipt.
 
     A digest of self-consistent *malformed* proof bytes is not an
     attestation. The per-synopsis citation rechecker checks membership
     inclusion but not all original lineage/review/attestation fields.
+    Distinct Statement/version keys may legitimately share a lineage label:
+    the canonical synopsis reviewer counts source independence separately.
     """
     if (
         not _proof_text(proof.person_id)
@@ -172,11 +174,9 @@ def _membership_shape(proof: ApprovedTopicIntersection) -> bool:
         return False
     version_set = set(proof.statement_versions)
     lineage_keys = {(lineage[0], lineage[1]) for lineage in proof.statement_lineages}
-    lineage_ids = {lineage[2] for lineage in proof.statement_lineages}
     return (
         len(version_set) == len(proof.statement_versions)
         and lineage_keys == version_set
-        and len(lineage_ids) == len(proof.statement_lineages)
     )
 
 

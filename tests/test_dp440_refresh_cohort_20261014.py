@@ -21,7 +21,10 @@ from dichiarazioni_pubbliche.private_synopsis_refresh_cohort_v1 import (  # noqa
     pinned_release_digest,
     pinned_membership_digest,
 )
-from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256  # noqa: E402
+from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
+    projection_dataset_sha256,
+    validate_public_bundle,
+)
 from dichiarazioni_pubbliche.public_synopsis_refresh_plan_v1 import (  # noqa: E402
     synopsis_read_sha256,
 )
@@ -61,6 +64,56 @@ def two_person_bundle():
     value["statements"].extend((first, second))
     value["dataset_sha256"] = projection_dataset_sha256(value)
     return value
+
+
+def three_source_shared_lineage_fixture():
+    """Three real public v3 Statements, two in one reviewed source lineage.
+
+    The canonical synopsis contract needs two *independent* lineages, not
+    three distinct labels. No statement/version identity is duplicated.
+    """
+    value = bundle()
+    third = copy.deepcopy(value["statements"][0])
+    third.update(
+        {
+            "statement_id": "statement:third",
+            "version_id": "statement-version:third",
+            "content_id": "content:third",
+            "source_url": "https://example.test/third",
+            "source_title": "Terza fonte sintetica",
+            "source_version": "source-version:third",
+            "source_sha256": "b" * 64,
+            "statement_date": "2026-10-09",
+            "review_provenance": {
+                name: f"review:{name}:third" for name in third["review_provenance"]
+            },
+        }
+    )
+    value["statements"].append(third)
+    value["dataset_sha256"] = projection_dataset_sha256(value)
+    validate_public_bundle(value, allow_statement_v3=True)
+    pairs = tuple(
+        (row["statement_id"], row["version_id"]) for row in value["statements"]
+    )
+    proof = intersection(
+        value,
+        statement_versions=pairs,
+        statement_lineages=(
+            (*pairs[0], "reviewed:shared-original"),
+            (*pairs[1], "reviewed:shared-original"),
+            (*pairs[2], "reviewed:independent-original"),
+        ),
+    )
+    reviewed = prepare(
+        value,
+        proof=proof,
+        sentences=tuple(
+            sentence(value, index, review_event_id=f"review:approved:{index}")
+            for index in range(3)
+        ),
+    )
+    assert reviewed.status == "READY_READ_MODEL", reviewed.reason_code
+    return value, proof, reviewed
 
 
 def membership(value, key):
@@ -178,6 +231,28 @@ class SynopsisCohortTests(unittest.TestCase):
         self.assertTrue(first.private_only)
         self.assertEqual(first.provider_calls, 0)
         self.assertEqual(first.source_body_count, 0)
+
+    def test_canonical_three_source_shared_lineage_labels_are_not_duplicate_keys(self):
+        # Reviewer11 false-deny: same externally reviewed source lineage
+        # can support distinct Statement/version keys; only duplicate keys
+        # and missing one-to-one coverage are malformed.
+        public, proof, canonical = three_source_shared_lineage_fixture()
+        self.assertEqual(canonical.status, "READY_READ_MODEL")
+        self.assertEqual(len(proof.statement_versions), 3)
+        self.assertEqual(len({row[2] for row in proof.statement_lineages}), 2)
+        before = release(copy.deepcopy(public), keys=(ONE,), epoch=10)
+        after = release(copy.deepcopy(public), keys=(ONE,), epoch=11)
+        for issued in (before, after):
+            issued.memberships[ONE] = proof
+            issued.reads[ONE] = replace(
+                issued.reads[ONE], read=copy.deepcopy(canonical)
+            )
+        result = self.run_plan(before, after)
+        self.assertEqual(result.status, "IDLE_NO_AUTHORITY")
+        self.assertEqual(result.review_item_count, 0)
+        self.assertEqual(result.items, ())
+        self.assertFalse(result.publication_authority)
+        self.assertFalse(result.source_rights_authority)
 
     def test_simultaneous_added_retired_changed_and_held_opaque_items(self):
         old = release(keys=(ONE, TWO), epoch=10)
