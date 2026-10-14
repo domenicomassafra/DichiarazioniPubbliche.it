@@ -365,3 +365,45 @@ provider behavior, editorial rights, or physical MiniPC readiness.
 **Final codefreeze validation:** combined source-only Python full suite with final DP-320/DP-440/DP-439/DP-314 file byte identity **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**, Ruff/format PASS; research-wave+adjacent DP-314 targeted **24/24 PASS**, independent reviewer 50-case source subset PASS. Simultaneous alpha loss/gamma gain is now visible with separate review steps. The prefinal whole suite was intentionally interrupted exit143 after a subsequently fixed security finding and is not claimed as PASS. Original status and AC remain open, source rights/provider/physical checks unproven.
 
 **Definitive combined source-only validation (2026-10-14):** one completed full Python suite on detached clean main with 15 exact byte-identical source/test files for DP-314/320/439/440 and new private DP-231: **3,517/3,517 PASS, exit 0 in 299.292 seconds**. New+adjacent DP-314 **25/25 PASS**, deterministic benchmark **5/5 PASS**, Ruff check/format PASS. Reviewer independently reproduced the mutable batch subclass P2 before the RED→GREEN source fix; only an actual independent re-review of that final exact code, not this author's tests, can clear the reviewer gate. All original DP-314 Status/AC remain unchanged and physical/rights/editorial/MiniPC/provider acceptances remain OPEN.
+
+## 2026-10-14 — Private requirement-profile transition snapshots (independent additive lane)
+
+The new opt-in `private_requirement_profile_transitions_v1.py` accepts bounded
+canonical `RequirementClaim` and `RequirementEvidence` declarations (at most
+32 claims, 512 total evidence rows and 128 per claim). It deep-snapshots **exact
+typed** input dataclasses and dictionary rows before canonical preflight or
+digest, sorts IDs deterministically, and binds each claim's full policy,
+proposition SHA, source provenance, rights/review declarations, profile/rule,
+cutoff and preflight to a private snapshot SHA. Comparisons require **two
+separately held expected SHA pins** and recompute canonical preflight,
+profiles, row SHA and batch SHA before producing any result. An SHA is integrity
+metadata, not authenticated identity, provenance or source clearance.
+
+The change planner distinguishes added and removed claims, requirement-profile
+changes, changed claim inputs, preflight state/reasons, evidence bytes/role/root
+or other metadata, source-use and evidence-review declaration changes, and
+**simultaneous** eligible ID losses and gains. All changed claims remain manual
+recheck tasks; disappearing claims are not silently resolved, and a new
+eligible evidence ID is never automatically approved. Explicit external
+authority gates remain required for source rights, independent evidence
+review, fact verification and publication. Outputs have `verdict=None`,
+`private_only=True`, no source bodies/provider calls, no source approval,
+fact/Finding or publication authority, regardless of caller-declared
+`APPROVED` statuses. Opaque IDs only; no provider/source fetches, persistence,
+public routes, adjudication, or machine-authority replacement.
+
+**RED → GREEN source-only proof:** the 13 new canonical-fixture and adversarial
+tests first produced `ModuleNotFoundError` for the absent source module;
+after implementation and deterministic defensive input validation they
+passed **13/13**. Joined with existing canonical DP-314 preflight, batch,
+delta and wave tests they passed **56/56** (2026-10-14, Mac source host).
+Cases include same-state source bytes/policy drift; simultaneous profile
+change and evidence eligibility loss/gain; caller object mutation after
+snapshot; stale independent pins; forged, self-rehashed preflight eligibility;
+malformed/unbounded inputs; non-factual and unsupported kinds. Scoped Ruff
+check and format checks PASS. This additive lane has **not** established real
+rights authorization, independently attested reviewer/source provenance,
+source gold/factual assessment, MiniPC operation, provider/billing approval,
+public projection or original DP-314 acceptance. **Status: IN PROGRESS;
+AC-314.1–6 remain unchecked.** Independent diff review and any broader
+source-branch integration checks are separate.
