@@ -479,3 +479,83 @@ global-overlay lint limitation and does not change source behavior. No
 authenticated source issuer/right, qualified review, real MiniPC, live v3
 routes, full assistive technology manual acceptance, PR CI or editorial
 publication can be inferred. **Status IN PROGRESS, AC-439.1–7 unchecked**.
+
+## 2026-10-14 — Private multi-release Persona×Tema continuity cohort
+
+New isolated, private-only `private_person_topic_cohort_v1.py` audits a
+chronological cohort of **2–12** independently pinned public Person×Topic
+JOIN releases, rather than comparing just one pair. It reuses the actual
+DP-439 canonical join, source-date temporal and monthly-trend validators.
+Each release requires caller-supplied, **externally owner-authenticated**
+Join/Statement/Person SHA-256 pins and an independently issued timezone-aware
+JOIN creation receipt; a self-rehashed snapshot is not publisher authority.
+All descriptors' primitive pins are frozen **before any** untrusted readmodel
+serialization, and **every** bounded readmodel snapshot is detached before
+SHA validation. The audit rejects malformed descriptors, source date in the
+future, source/JOIN creation provenance violations, chronology regressions,
+stale SHA, a previously seen JOIN digest recycled after an intervening
+different release, and a stable Statement+version whose original date,
+source SHA, quote SHA, or Person identity drifted across even nonadjacent
+releases.
+
+The new audit separates intersection changes from distinct Statement/version
+originals, including a multi-Topic original whose surviving Topic never
+vanished. A withdrawn intersection that reappears in a later independently
+pinned join emits **MANUAL_VISIBILITY_RECHECK_REQUIRED** and generic
+count-only transition rows; it **never** approves that revival or claims
+when approval/revocation/publication actually happened. A private-looking
+unknown Person filter yields neutral NO_MATCH without echoing IDs, names,
+original text, quotes, locators or URLs. A 120-month source-date window
+bound and complete-original cross-release integrity apply even when filters
+would hide the offending original.
+
+Real synthetic DP-439 approved Person/Topic fixture sequence: August
+intersection present → removed on the second join → explicitly restored on
+the third. It exercises original counts versus intersection counts,
+nonconsecutive identity drift, release replay, double-Topic survival,
+bad UTC receipt, SHA mismatch, noncooperative Mapping subclasses,
+future `as_of`, wrong descriptor type, privacy of unknown identifiers,
+and month-restricted queries. TDD baseline **RED 9/9** (module not yet
+present), then initial **GREEN 12/12** dedicated tests. Independent
+READONLY worker-1 identified a concrete P2 subclass-filter bypass:
+an adversarial `str` subtype could compare unequal to its own public
+Person ID, making a truly reappeared approved intersection produce false
+`NO_MATCH` and suppress the mandatory hold despite valid source SHA pins.
+The new regression reproduced RED, and the fix rejects non-plain
+`person_id`/`topic_id` before release validation. **GREEN 13/13** dedicated
+and **37/37** combined adjacent DP-439 source tests; Ruff and format PASS.
+**Independent post-P2 re-review:** worker-1, STRICT READONLY, on exact
+source SHA-256 `2b39cd4ddf255683d755fd1aa79c372c2445a05b1bfb7d36708f13aca975519c`
+and test SHA-256
+`a809fcfb51423b6ff4eb50c27ca8c3319220c018d008f5a1f60ce77a00e1989e`:
+independent 13/13 cohort and 9/9 adjacent monthly trend tests PASS,
+verified both Person and Topic malicious subclasses now reject,
+replayed a recomputed-but-future original source date with no filter and
+filtered Person variants (TEMPORAL_SOURCE_DATE_INVALID), and found
+**no additional reproducible P1/P2 in this bounded offline source scope**.
+Zero reviewer source/test/Git/provider writes. This is not an issuer or
+editorial rights clearance.
+
+Deterministic Python benchmark **5/5 PASS** on this worktree. Astro
+`npm run check` completed **127 files, 0 errors, 0 warnings and one
+pre-existing unused-import hint**; canonical installed `web/node_modules`
+remained untouched, and the worktree-only temporary symlink was unlinked.
+No public routes were changed. The new source/tests above were not changed
+after the reviewer SHA pins.
+
+This release is purely offline and **cannot attest real issuer signatures,
+editorial topic decisions, legal/current rights, provider retrieval,
+MiniPC, published v3 routes, CDN withdrawal or manual accessibility**.
+No original DP-439 Status or AC-439.1–7 is modified. No provider calls,
+publication, deploy, paid service or production DB access.
+
+**Final codefreeze Python suite on this DP-439 worktree:** after the
+independent reviewer checked the exact unchanged source/test SHA above,
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q`
+completed **3,469/3,469 PASS, exit 0, 620.072 seconds**. Full log:
+`/tmp/dp439-cohort-continuity-20261014-final-python.log` (Mac).
+This full run covers the DP-439 branch baseline plus this cohort change; it
+is **not** claimed as a fresh combined run of every concurrent DP-231/314/
+320/440 isolated branch. Temporary fixture ResourceWarnings do not change
+the observed exit code. The pre-existing DP-439 status and acceptance
+checklist remain untouched.
