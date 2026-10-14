@@ -905,6 +905,9 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 ## Active workflow — DP02 / 14 ottobre 2026
 
 **Terza tranche della lane 02, source SHA `186ef17e59fe73cab061a5301ffbe0d9f5443721`:**
+**Addendum Ops packet 297** pubblicato su ControlCenter `main` a
+`65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`, solo risposta02,
+origin SHA esatto e dirty WIP delle altre lane preservato.
 confermati i commit DP517 `df4c0ee` (origin OAuth), DP516 `a595450`
 (rights receipt anche su record completati), DP243 `e9afd0e`
 (stato HELD del parent originale propagato a derivati) e DP515 `186ef17`

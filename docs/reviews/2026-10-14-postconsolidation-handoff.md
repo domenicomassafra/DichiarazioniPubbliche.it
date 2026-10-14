@@ -1,6 +1,9 @@
 # DichiarazioniPubbliche.it — handoff operativo / pending finale
 
 **Ultimo source checkpoint DP02 (terza wave):** `186ef17e59fe73cab061a5301ffbe0d9f5443721`
+**ControlCenter Ops packet 297** ora contiene anche il readback della
+terza wave in `main` a `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`,
+commit documentale separato che preserva gli altri WIP 01/05/305.
 nel solo branch integratore, con DP-517/516/243/515 pubblicati e lettura
 remota verificata. Ticket e status originari restano aperti, release NO-GO.
 La [ricevuta DP02](2026-10-14-dp02-execution-closure.md) e il

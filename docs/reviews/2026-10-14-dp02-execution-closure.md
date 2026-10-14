@@ -2,6 +2,13 @@
 
 ## Terza wave, codice DP `186ef17`, risposta ControlCenter Ops pubblicata
 
+**Readback finale ControlCenter Ops:** dopo il primo commit packet 297
+`3cfb3c4`, l'addendum della sola risposta DP02 è stato pubblicato
+su `origin/main` con SHA `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`,
+verificato identico al checkout. Altri WIP Ops (prompt 01/05 e documenti
+305) restano deliberatamente unstaged/unchanged. Nessuna accettazione
+editoriale o rilascio pubblico deriva da questo commit documentale.
+
 | Ticket | Commit remoto integratore | Difetto riprodotto e prova |
 | --- | --- | --- |
 | DP-517 | `df4c0ee1f102c62913a2c96e24ebec1f5f4e9c9c` | Account OIDC accettava origine HTTPS `.it` estranea/lookalike al callback registrato; dominio esatto ammesso, 107/107 account/web/privacy test PASS, Ruff PASS. Login Google reale e legale ancora OPEN. |

@@ -1,6 +1,10 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
 > **Terza wave DP02, 14 ottobre:** branch remoto
+> **Ops packet 297 addendum pubblicato:** ControlCenter `main` aggiornato
+> a `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`, un solo file
+> `02-dichiarazioni-pubbliche.response.md` nel secondo commit. I WIP
+> 01/05/305 sono conservati, lo SHA remoto Ops coincide col checkout.
 > `integrate/dp-20261014-all-lanes` su codice `186ef17e59fe73cab061a5301ffbe0d9f5443721`.
 > Fix indipendenti DP-517 OIDC redirect, DP-516 rights receipt, DP-243
 > traduzione/copia da originale HELD, DP-515 fonte stale `Last-Modified`.
