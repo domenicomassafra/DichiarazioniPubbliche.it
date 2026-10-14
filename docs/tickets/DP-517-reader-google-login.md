@@ -118,3 +118,32 @@ This is a local same-inode exposure guard, not an atomic filesystem sandbox
 against a malicious concurrent filesystem writer, production MiniPC/proxy
 admission, genuine secret handling or legal/retention approval. **All
 AC-517.1–7 stay OPEN, ticket FUTURE; no OAuth or public account activation.**
+
+## 2026-10-14 — authoritative MiniPC and public-reader readback (read-only)
+
+The canonical MiniPC (`ssh minipc`, host `udodo`) has the deploy mirror at
+`/home/udodo/src/DichiarazioniPubbliche.it` (`VERSION` `0.0.1`), but that
+installed mirror does **not** contain
+`poc/dichiarazioni_pubbliche/public_account.py`. The live public origin
+`https://dichiarazionipubbliche.it/` returned HTTP 200 while
+`https://dichiarazionipubbliche.it/account/session` returned HTTP 404;
+an exploratory localhost port 8765 request also returned 404, but is not
+treated as proof of the production routing topology. No live credentials,
+private account bodies, OAuth, host configuration or production files were
+read or modified. The source-only protections above are **not installed or
+accepted on the MiniPC**.
+
+**Acceptance gate / owner:** AC-517.1, .4, .5 and .7 need owner/security/legal
+authorization of the exact Google OAuth application and redirect, approved
+notices/retention/backup-erasure procedure, and a reversible MiniPC/proxy
+installation; then an authorized synthetic/test-account registration,
+re-login, logout, full-session deletion and rollback with actual public
+origin readback. AC-517.2/.3 require that real installed boundary's
+adversarial negative/privacy/cache tests; AC-517.6 additionally needs
+accessible device/screen-reader acceptance. **Responsible:** owner for
+legal/OAuth scope and genuine test identity, deployment operator for the
+approved MiniPC/proxy path, accessibility reviewer for manual AT evidence.
+**Observable unblock:** recorded qualified approvals and test-client
+configuration, followed by an installed exact-source MiniPC canary and
+public reader proof. The ticket remains FUTURE, with AC-517.1–7 unchecked;
+do not enable a production login as a workaround.
