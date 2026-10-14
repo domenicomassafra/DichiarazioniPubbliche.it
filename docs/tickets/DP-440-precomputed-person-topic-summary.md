@@ -440,3 +440,56 @@ repository integration and independent post-source review remain separate.
 authentication, qualified source-rights/editorial approval, MiniPC
 revalidation, revocation latency, and public HTML/API/cache readback
 remain unproven.
+
+## 2026-10-14 — Independent reviewer P2: malformed Topic authority and omitted cohort
+
+Independent worker-11 identified two substantive fail-open gaps in the
+**published** private cohort planner at exact commit
+`375271a4550278f08b5dcdde6a95fe89f618a7b2`:
+
+1. The new cohort release validator checked the Topic membership identity
+   and dataset digest but did **not** validate full original-Statement
+   lineage coverage or the reviewer/currentness authority fields. A genuine
+   `ApprovedTopicIntersection` altered to have empty or duplicate
+   `statement_lineages`, an empty `review_event_id`, or an empty
+   `currentness_attestation_id`, then fully re-pinned, could be reported
+   as an ordinary `CHANGED` item. The same malformed proof in **both**
+   releases could silently yield `IDLE_NO_AUTHORITY` (zero review items).
+   The canonical `prepare_public_synopsis` would WITHHOLD for missing
+   lineage review or membership authority.
+2. The cohort enumerated only prior and current synopsis read keys.
+   A newly reviewed current Person×Topic membership without a synopsis
+   read in **either** inventory was silently skipped, falsely returning
+   `IDLE_NO_AUTHORITY`.
+
+**Genuine local RED, before source patch:** two new focused tests exercised
+actual two-Person public-v3 Statement bundles and real
+`PublicSynopsisRead` fixtures. All release/read/membership SHA digests
+were self-consistently regenerated to rule out incidental stale-pin
+rejection. Four malformed current proofs were accepted instead of raising
+`COHORT_MEMBERSHIP_INVALID`; a current-only membership with no read
+returned `IDLE_NO_AUTHORITY` rather than a human review item
+(five failing subcases across two tests).
+
+**GREEN source fix:** membership validation now requires exact typed,
+bounded, nonblank reviewer and currentness IDs, unique Statement/version
+keys, full one-to-one original-source lineage coverage, no duplicate
+lineage refs and a bounded known status. Invalid historical or current
+proofs now refuse with a **generic** `COHORT_MEMBERSHIP_INVALID` (including
+the malformed proof replayed in both releases), without publishing source
+identities or leaking the invalid review fields. Cohort enumeration now
+uses the union of all previous/current **read and membership** keys;
+a current membership lacking a current read emits a deterministic,
+HMAC-opaque `HELD` item with
+`CURRENT_MEMBERSHIP_READ_MISSING` and
+`NEW_SYNOPSIS_REVIEW_REQUIRED`. A genuinely retired read *and*
+membership remains distinguishable from the missing-current-read hold.
+No autoapproval, source capture, provider calls or public side effects.
+
+Post-patch **new cohort tests 13/13**, DP-440 new+adjacent tests
+**40/40 PASS**; Ruff lint/format and scoped Git diff checks PASS.
+This records only an author-side local synthetic RED→GREEN remediation:
+worker-11 independent **post-fix** review remains required, as do any
+broader-suite integration or real issuer/rights/editorial/physical
+revocation approvals. **Status remains IN PROGRESS; AC-440.1–7 remain
+unchecked.**

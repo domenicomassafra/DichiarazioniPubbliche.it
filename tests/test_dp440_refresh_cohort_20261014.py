@@ -266,6 +266,58 @@ class SynopsisCohortTests(unittest.TestCase):
         self.assertEqual([item.transition for item in plan.items], ["CHANGED"])
         self.assertIn("TOPIC_REVIEW_RECEIPT_CHANGED", plan.items[0].reason_codes)
 
+    def test_p2_malformed_current_membership_is_not_a_usable_review_proof(self):
+        """Independently pinned current member cannot forge source lineage/attestation."""
+        previous = release(epoch=10)
+        current = release(copy.deepcopy(previous.public_bundle), epoch=11)
+        proof = current.memberships[ONE]
+        compromised = (
+            replace(proof, statement_lineages=()),
+            replace(proof, currentness_attestation_id=""),
+            replace(proof, review_event_id=""),
+            replace(
+                proof,
+                statement_lineages=(
+                    proof.statement_lineages[0],
+                    proof.statement_lineages[0],
+                ),
+            ),
+        )
+        for forged in compromised:
+            with self.subTest(forged=forged):
+                replica = copy.deepcopy(current)
+                replica.memberships[ONE] = forged
+                # Both release and individual membership pins are freshly
+                # obtained, i.e. ordinary self-hashing cannot prove approval.
+                with self.assertRaisesRegex(ValueError, "COHORT_MEMBERSHIP_INVALID"):
+                    self.run_plan(previous, replica)
+                # The same forged proof persisted unchanged over BOTH
+                # releases previously yielded IDLE_NO_AUTHORITY / zero tasks.
+                stale_previous = copy.deepcopy(previous)
+                stale_previous.memberships[ONE] = replace(
+                    forged,
+                    dataset_sha256=stale_previous.public_bundle["dataset_sha256"],
+                )
+                with self.assertRaisesRegex(ValueError, "COHORT_MEMBERSHIP_INVALID"):
+                    self.run_plan(stale_previous, replica)
+
+    def test_p2_new_current_topic_membership_without_any_read_is_not_idle(self):
+        """A new reviewed intersection with no read needs manual production/hold."""
+        previous = release(keys=(ONE,), epoch=10)
+        current = release(copy.deepcopy(previous.public_bundle), keys=(ONE,), epoch=11)
+        current.memberships[TWO] = membership(current.public_bundle, TWO)
+        # The second topic/person combination is not present in either
+        # synopsis read inventory; it must never silently disappear.
+        result = self.run_plan(previous, current)
+        self.assertEqual(result.status, "MANUAL_RECHECK_REQUIRED")
+        self.assertEqual(result.review_item_count, 1)
+        self.assertEqual(result.items[0].transition, "HELD")
+        self.assertIn("CURRENT_MEMBERSHIP_READ_MISSING", result.items[0].reason_codes)
+        self.assertIn("NEW_SYNOPSIS_REVIEW_REQUIRED", result.items[0].manual_actions)
+        self.assertEqual(len(result.items[0].opaque_ref), 64)
+        for secret in ("person:2", "topic:second-test", "https://", "original_text"):
+            self.assertNotIn(secret, repr(result))
+
     def test_canonical_sort_is_independent_of_mapping_insertion_order(self):
         old = release(epoch=10)
         current = release(

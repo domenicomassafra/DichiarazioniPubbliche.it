@@ -122,6 +122,64 @@ def _key(key: Any) -> bool:
     )
 
 
+def _proof_text(value: Any) -> bool:
+    """Mirror the public synopsis authority's trimmed, bounded text rule."""
+    return (
+        type(value) is str
+        and 0 < len(value) <= 150
+        and value == value.strip()
+        and "\x00" not in value
+    )
+
+
+def _membership_shape(proof: ApprovedTopicIntersection) -> bool:
+    """Require a complete, injectively reviewed Statement→lineage receipt.
+
+    A digest of self-consistent *malformed* proof bytes is not an
+    attestation. The per-synopsis citation rechecker checks membership
+    inclusion but not all original lineage/review/attestation fields.
+    """
+    if (
+        not _proof_text(proof.person_id)
+        or not _proof_text(proof.topic_id)
+        or not _proof_text(proof.review_event_id)
+        or not _proof_text(proof.currentness_attestation_id)
+        or type(proof.status) is not str
+        or proof.status not in {"APPROVED", "PENDING", "HELD", "REVOKED"}
+        or type(proof.currentness_attested_at) is not str
+        or type(proof.currentness_valid_until) is not str
+        or not proof.currentness_attested_at
+        or not proof.currentness_valid_until
+        or type(proof.statement_versions) is not tuple
+        or not 1 <= len(proof.statement_versions) <= 512
+        or type(proof.statement_lineages) is not tuple
+        or len(proof.statement_lineages) != len(proof.statement_versions)
+    ):
+        return False
+    if any(
+        type(pair) is not tuple
+        or len(pair) != 2
+        or not all(_proof_text(part) for part in pair)
+        for pair in proof.statement_versions
+    ):
+        return False
+    if any(
+        type(lineage) is not tuple
+        or len(lineage) != 3
+        or not all(_proof_text(part) for part in lineage)
+        for lineage in proof.statement_lineages
+    ):
+        return False
+    version_set = set(proof.statement_versions)
+    lineage_keys = {(lineage[0], lineage[1]) for lineage in proof.statement_lineages}
+    lineage_ids = {lineage[2] for lineage in proof.statement_lineages}
+    return (
+        len(version_set) == len(proof.statement_versions)
+        and lineage_keys == version_set
+        and len(lineage_ids) == len(proof.statement_lineages)
+    )
+
+
 def _release_material(release: CohortRelease) -> dict[str, Any]:
     return {
         "version": VERSION,
@@ -300,6 +358,7 @@ def _validate_release(release: CohortRelease) -> None:
             (proof.person_id, proof.topic_id) != key
             or type(proof.dataset_sha256) is not str
             or not _HEX.fullmatch(proof.dataset_sha256)
+            or not _membership_shape(proof)
         ):
             raise ValueError("COHORT_MEMBERSHIP_INVALID")
 
@@ -406,7 +465,12 @@ def plan_synopsis_refresh_cohort(
     _validate_release(previous)
     _validate_release(current)
     entries: list[CohortReviewItem] = []
-    for key in sorted(previous.reads.keys() | current.reads.keys()):
+    for key in sorted(
+        previous.reads.keys()
+        | current.reads.keys()
+        | previous.memberships.keys()
+        | current.memberships.keys()
+    ):
         old = previous.reads.get(key)
         new = current.reads.get(key)
         previous_read = old.read if old else None
@@ -452,6 +516,14 @@ def plan_synopsis_refresh_cohort(
             reasons.add("TOPIC_REVIEW_RECEIPT_CHANGED")
         if current_read is not None and current_read.status == "WITHHELD":
             reasons.add("CURRENT_READ_WITHHELD")
+            invalid_membership = True
+        if membership is not None and current_read is None:
+            # A currently reviewed Person×Topic with no read in either
+            # inventory must not silently disappear from the worklist.
+            # This also holds a vanished current read while its membership
+            # remains asserted (rather than incorrectly treating it retired).
+            reasons.add("CURRENT_MEMBERSHIP_READ_MISSING")
+            actions.add("NEW_SYNOPSIS_REVIEW_REQUIRED")
             invalid_membership = True
         if invalid_membership:
             transition = "HELD"
