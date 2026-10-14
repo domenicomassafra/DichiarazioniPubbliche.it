@@ -563,3 +563,26 @@ Local source-only new + adjacent DP-440 tests **42/42 PASS**, Ruff
 lint/format and staged diff check PASS. Independent post-fix review,
 full aggregate suite and real editorial/rights/issuer/MiniPC gates are
 still separate; **DP-440 remains IN PROGRESS and AC-440.1–7 unchecked**.
+
+**2026-10-14 — Final independent post-P2 and integrated cited cohort proof.**
+Worker-11 (not the source author) performed strict READONLY source review of
+exact corrected code/test commit `77a2683fc36fa8f3c0e2daa725f9bf6b5c77d509`.
+Independent actual public-v3 fixtures replayed the previously reproduced
+P2s: incomplete/blank review identity or Statement lineage refused;
+current-only approved membership with no read HMAC-opaque HELD; two-source
+current lineage collapse canonical `WITHHELD SYNOPSIS_TOO_FEW_PUBLISHED_SOURCES`
+now `HELD CURRENT_READY_SOURCE_INDEPENDENCE_LOST`, never ordinary CHANGED;
+the lawful three Statement/two independent lineage (two rows sharing one
+lineage) canonical READY remains IDLE, no source false-deny. Wrong SHA pins,
+post-pin citation mutation, privacy no-echo and review/rights authority false
+independently checked; **42/42 new+adjacent PASS, no new P1/P2 reproduced in
+bounded scope**, reviewer no edits/Git/provider writes. FINAL detached 36-file
+source/test overlay from exact committed bytes completed **3,611/3,611
+Python PASS, exit 0, 396.578 seconds**, synthetic benchmark **5/5 PASS**,
+scoped new source/test Ruff lint+format PASS, manifest SHA-256
+`04481e83eeb08963a802e6db9c41c6079c3b10ad85a5cbedea64c527c4989ebe`.
+Fixture ResourceWarnings did not cause test failure; inherited DP-314 broad
+Ruff F401 is not a global lint pass. This never authenticates external issuer
+SHA ownership, source rights/independent legal evidence/editorial fact review,
+public v3, HTTP/CDN/PG/MiniPC or PR CI. **Status IN PROGRESS and all
+AC-440.1–7 remain unchecked**, no production/publisher/provider activity.
