@@ -74,14 +74,24 @@ alla produzione o delle autorizzazioni sulle fonti.
   `RequirementClaim` in `tests/test_dp314_requirement_research_batch_20261014.py`
   (Ruff F401). Ruff ora **PASS su tutti i 40 file Python modificati**;
   64/64 test DP314 PASS e benchmark 5/5 PASS dopo la correzione. Questa
-  modifica non cambia il comportamento runtime. La nuova full Python sul
-  follow-up va annotata solo dopo conclusione effettiva.
+  modifica non cambia il comportamento runtime. Sul commit codice
+  **`0228fa8196d4136ca4807b9fa224592fe666ea49`**, la full suite
+  post-correzione è **3.624/3.624 PASS, exit 0, 664.442 secondi**;
+  log `/tmp/dp-20261014-lint-handoff-postfix-full.log`. I successivi commit
+  esclusivamente documentali non modificano il sorgente verificato.
 - `ruff format --check` globale non era verde sul checkpoint integratore:
   14 file storici non conformi; non fare mass-format mentre altre verifiche
   dipendono da SHA, senza ticket e review del diff.
 - Non equiparare Python/Node/Astro o browser isolato a CI su PR, MiniPC
   operativo, reale ritiro HTTP/CDN, PostgreSQL live, VoiceOver fisico, diritti o
   verifica qualificata dei fatti.
+
+**Limite review finale:** la code review indipendente documentata riguarda
+il checkpoint integratore sorgente `28f57c4...`; per il follow-up del solo
+import F401 e handoff è stata effettuata una verifica source-only del diff,
+dei test e delle corrispondenze byte. I tentativi di risvegliare due worker
+per una seconda revisione non sono stati acquisiti dal composer Chat On
+Steroids. Non dichiarare per questo commit un secondo PASS indipendente.
 
 ## Inventario, quattro host, cleanup
 

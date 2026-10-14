@@ -11,6 +11,11 @@
 > documentale precedente al follow-up Ruff/handoff; non attribuire test o CI
 > a commit successivi senza riesecuzione. Il repository `main` è ancora
 > `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, protetto da PR+review.
+> **Post-fix verificato:** sul commit codice `0228fa8196d4136ca4807b9fa224592fe666ea49`
+> full Python **3.624/3.624 PASS**, exit 0, **664.442 s**, log
+> `/tmp/dp-20261014-lint-handoff-postfix-full.log`; lint Ruff sui 40 Python
+> modificati e benchmark 5/5 PASS. Eventuali successivi commit solo-documento
+> non modificano questo codice, ma vanno comunque verificati per SHA remoto.
 > Status/AC e gate fonte/legale/editoriale/MiniPC/auto-review restano aperti.
 
 **Tranche seconda ondata dopo c16d823, 12 ottobre 2026:**
