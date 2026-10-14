@@ -128,6 +128,7 @@ def _valid_role(value: Any) -> dict[str, Any]:
 
 def _current_decisions(
     rows: Iterable[Mapping[str, Any]], *, key: str, fields: frozenset[str],
+    event_owners: dict[str, set[tuple[str, str, str]]],
 ) -> dict[str, dict[str, Any]]:
     """A corrupt/ambiguous history holds the subject; last revision can revoke."""
     grouped: dict[str, list[Any]] = defaultdict(list)
@@ -158,6 +159,12 @@ def _current_decisions(
             for review_field in ("identity_review_id", "publication_review_id", "review_event_id"):
                 if review_field in fields and len({item[review_field] for item in parsed}) != len(parsed):
                     raise ValueError("review event reused after decision revision")
+            # Revisions supersede publication state, but their review events
+            # remain spent: a new subject/approval kind may not reuse an old
+            # identity, publication or role approval event.
+            for item in parsed:
+                for review_field in fields & {"identity_review_id", "publication_review_id", "review_event_id"}:
+                    event_owners[item[review_field]].add((key, identifier, review_field))
             result[identifier] = max(parsed, key=lambda item: item["revision"])
         except (TypeError, ValueError, StopIteration):
             # A malformed revocation must not expose an earlier approval.
@@ -166,17 +173,24 @@ def _current_decisions(
 
 
 def _without_reused_review_events(
-    decisions: dict[str, dict[str, Any]], *, review_fields: tuple[str, ...],
+    decisions: dict[str, dict[str, Any]], *, key: str,
+    event_owners: Mapping[str, set[tuple[str, str, str]]],
 ) -> dict[str, dict[str, Any]]:
-    """One review event must not authorize two independently reviewed subjects."""
-    owners: dict[str, set[str]] = defaultdict(set)
-    for identifier, decision in decisions.items():
-        for field in review_fields:
-            owners[decision[field]].add(identifier)
-    conflicted = {identifier for identifiers in owners.values() if len(identifiers) > 1
-                  for identifier in identifiers}
+    """Keep identity approval separate from role approval across full history."""
+    conflicted: set[tuple[str, str]] = set()
+    for owners in event_owners.values():
+        person_owners = {owner for owner in owners if owner[0] == "person_id"}
+        if len(person_owners) > 1:
+            conflicted.update((domain, identifier) for domain, identifier, _ in person_owners)
+        if len(owners) > 1:
+            # A reused role decision is unsafe, even if the other owner is
+            # a Person review. The independently approved Person can remain.
+            conflicted.update(
+                (domain, identifier) for domain, identifier, _ in owners
+                if domain == "role_id"
+            )
     return {identifier: decision for identifier, decision in decisions.items()
-            if identifier not in conflicted}
+            if (key, identifier) not in conflicted}
 
 
 def _identity_approved(row: dict[str, Any], decision: dict[str, Any] | None) -> bool:
@@ -264,22 +278,21 @@ def build_public_people_v3(
             or public_bundle["dataset_sha256"] != current_public_dataset_sha256):
         raise ValueError("PublicPerson v3 requires current published Statement fingerprint")
 
+    event_owners: dict[str, set[tuple[str, str, str]]] = defaultdict(set)
+    identity_candidates = _current_decisions(
+        identity_decisions, key="person_id", fields=_IDENTITY_DECISION_FIELDS,
+        event_owners=event_owners,
+    )
+    role_candidates = _current_decisions(
+        role_decisions, key="role_id", fields=_ROLE_DECISION_FIELDS,
+        event_owners=event_owners,
+    )
     identities = _without_reused_review_events(
-        _current_decisions(identity_decisions, key="person_id", fields=_IDENTITY_DECISION_FIELDS),
-        review_fields=("identity_review_id", "publication_review_id"),
+        identity_candidates, key="person_id", event_owners=event_owners,
     )
     role_reviews = _without_reused_review_events(
-        _current_decisions(role_decisions, key="role_id", fields=_ROLE_DECISION_FIELDS),
-        review_fields=("review_event_id",),
+        role_candidates, key="role_id", event_owners=event_owners,
     )
-    identity_events = {
-        decision[field] for decision in identities.values()
-        for field in ("identity_review_id", "publication_review_id")
-    }
-    role_reviews = {
-        role_id: decision for role_id, decision in role_reviews.items()
-        if decision["review_event_id"] not in identity_events
-    }
     roster: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for row in private_people:
         if isinstance(row, Mapping) and isinstance(row.get("person_id"), str):

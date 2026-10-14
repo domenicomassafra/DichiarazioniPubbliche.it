@@ -287,3 +287,35 @@ publication, a new real identity/source/rights review or a MiniPC canary.
 DP-438 remains `IN PROGRESS`; AC-438.1–.6 remain unchecked. Independent code
 review, complete adjacent tests and exact remote-branch delivery are tracked
 separately from original acceptance.
+
+## 2026-10-14 — Historical review-event reuse guard (source-only, pending integration)
+
+The independent DP-438 projection checked duplicate identity/publication and
+role review events only in each subject's **latest** revision. A reproducible
+counterexample reused Person A's revision-1 identity review event as Person B's
+current publication approval after Person A advanced to revision 2. Both
+Persons were emitted as `PUBLISHED` in either roster order. A second
+counterexample reused Person A's old publication review event as a role
+approval, exposing a dated public role and `role_at_statement` even though
+that role lacked an independent review event. The two negative tests were
+RED before the correction (three failing executions, including roster order).
+
+The preflight now records **validated decision history** event ownership
+before selecting latest revisions. A review event reused across different
+identity/publication subjects or approval types withholds the affected
+identities. Reused role events withhold the affected public roles and their
+statement-time labels while an independently approved Person remains
+visible. Clean revision-2 identities and independently reviewed historical
+roles remain visible. This is a private, opt-in v3 source gate; no new live
+release pin, publication decision, public URL/API/search/sitemap activation,
+identity or rights authorization, MiniPC readback or manual UI acceptance is
+claimed. **DP-438 remains IN PROGRESS and AC-438.1–.6 stay OPEN.**
+
+Local proof on the owned three-file diff: DP-437/438/439/440 adjacent
+`unittest` matrix **107/107 PASS**, deterministic benchmark **5/5 PASS**,
+`ruff check` **PASS**, `compileall` **PASS** and owned-path
+`git diff --check` **PASS**. The pre-existing module and test are already
+outside Ruff's optional full-file formatter style on the unmodified HEAD;
+`ruff format --check` therefore also reports unformatted files at baseline.
+Their unrelated code was not reformatted. Source integration, CI and
+actual runtime acceptance are reserved for separate proof.
