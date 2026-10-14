@@ -18,6 +18,7 @@ from dichiarazioni_pubbliche.private_source_metadata_review_v1 import (  # noqa:
 )
 from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256  # noqa: E402
 from dichiarazioni_pubbliche.source_metadata_enrichment import (  # noqa: E402
+    MetadataEnrichment,
     build_metadata_enrichment,
 )
 from test_dp231_metadata_release_cohort_20261014 import (  # noqa: E402
@@ -89,6 +90,84 @@ def audit(projection=None, inventories=None, policies=None, **overrides):
 
 
 class SourceCoverageTests(unittest.TestCase):
+    def test_pinned_empty_metadata_records_are_missing_coverage_even_when_present(self):
+        # Real public-v2 projection contains one dossier-linked source and one
+        # standalone Content. Two fully pinned inventories can contain exact,
+        # legal MetadataEnrichment records yet carry no useful source metadata.
+        # Such records must not manufacture complete source coverage.
+        empty = {
+            identifier: MetadataEnrichment(
+                content_id=identifier,
+                candidates=(),
+                canonical_url_candidates=(),
+                oembed_endpoint_candidates=(),
+                conflicts=(),
+            )
+            for identifier in ("content:a", "content:standalone")
+        }
+        plan = audit(inventories={"capture": empty, "registry": dict(empty)})
+        self.assertEqual(plan.content_count, 2)
+        self.assertEqual(plan.missing_count, 2)
+        self.assertEqual(plan.held_count, 2)
+        self.assertEqual(plan.status, "PRIVATE_COVERAGE_HOLDS")
+        self.assertEqual(len(plan.items), 2)
+        self.assertTrue(
+            all(
+                "METADATA_EMPTY_RECORD_REVIEW" in item.reason_codes
+                for item in plan.items
+            )
+        )
+        self.assertNotIn("content:standalone", repr(plan))
+        self.assertNotIn("content:a", repr(plan))
+        self.assertNotIn("https://", repr(plan))
+
+    def test_partially_empty_inventory_and_conflict_only_have_distinct_reasons(self):
+        # Empty metadata in one inventory leaves a coverage gap even when
+        # another inventory has substantive captured source candidates.
+        empty = MetadataEnrichment(
+            content_id="content:a",
+            candidates=(),
+            canonical_url_candidates=(),
+            oembed_endpoint_candidates=(),
+            conflicts=(),
+        )
+        partial = audit(
+            projection=real_public(),
+            inventories={
+                "capture": {"content:a": empty},
+                "registry": {"content:a": captured()},
+            },
+            policies={"content:a": ("APPROVED", "APPROVED")},
+        )
+        self.assertEqual(partial.missing_count, 1)
+        self.assertEqual(partial.held_count, 1)
+        self.assertIn("METADATA_EMPTY_RECORD_REVIEW", partial.items[0].reason_codes)
+
+        # A conflict-only record carries real diagnostic evidence and is
+        # already held for manual conflict review; don't call it empty.
+        blocked = build_metadata_enrichment(
+            content_id="content:a",
+            parsed_metadata={
+                "canonical_url_candidates": ["http://blocked.example.test/PRIVATE"]
+            },
+            content_identity={},
+        )
+        self.assertFalse(blocked.candidates)
+        self.assertFalse(blocked.canonical_url_candidates)
+        self.assertTrue(blocked.conflicts)
+        conflict = audit(
+            projection=real_public(),
+            inventories={"capture": {"content:a": blocked}},
+            policies={"content:a": ("APPROVED", "APPROVED")},
+        )
+        self.assertEqual(conflict.missing_count, 0)
+        self.assertEqual(conflict.held_count, 1)
+        self.assertIn(
+            "PRIVATE_METADATA_CONFLICT_REVIEW", conflict.items[0].reason_codes
+        )
+        self.assertNotIn("METADATA_EMPTY_RECORD_REVIEW", conflict.items[0].reason_codes)
+        self.assertNotIn("blocked.example.test/PRIVATE", repr(conflict))
+
     def test_real_linked_dossier_and_standalone_public_content_in_both_inventories(
         self,
     ):

@@ -302,6 +302,24 @@ def plan_private_source_coverage(
                 reasons.add("METADATA_ABSENT_ALL_INVENTORIES")
             elif len(available) != len(normalized):
                 reasons.add("METADATA_MISSING_IN_INVENTORY")
+            # A valid, hash-pinned DTO with zero actual metadata or conflict
+            # evidence is still NO coverage. Inventory presence and digest
+            # verification alone cannot establish candidate enrichment.
+            # Conflict-only captures are useful review evidence and remain
+            # represented by PRIVATE_METADATA_CONFLICT_REVIEW below.
+            if any(
+                not any(
+                    entry[field]
+                    for field in (
+                        "candidates",
+                        "canonical_url_candidates",
+                        "oembed_endpoint_candidates",
+                        "conflicts",
+                    )
+                )
+                for entry in available.values()
+            ):
+                reasons.add("METADATA_EMPTY_RECORD_REVIEW")
             if available and len({entry["sha256"] for entry in available.values()}) > 1:
                 reasons.add("METADATA_INVENTORY_DISCORDANCE")
             # A stale inventory's *absence* of a record is also stale coverage:
@@ -328,7 +346,8 @@ def plan_private_source_coverage(
             reasons.add("MANUAL_SOURCE_COVERAGE_REVIEW")
         if any(
             reason.startswith("METADATA_ABSENT")
-            or reason == "METADATA_MISSING_IN_INVENTORY"
+            or reason
+            in {"METADATA_MISSING_IN_INVENTORY", "METADATA_EMPTY_RECORD_REVIEW"}
             for reason in reasons
         ):
             missing_count += 1

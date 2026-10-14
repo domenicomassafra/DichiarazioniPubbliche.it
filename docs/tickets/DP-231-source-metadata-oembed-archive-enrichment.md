@@ -398,3 +398,30 @@ independent reviewer, authenticated owner/rights authority, production/MiniPC
 and full-suite final integration remain separate gates. The original DP-231
 Status **DONE** and all original acceptance checkboxes remain unchanged; this
 new private planner supplies no approval to use or publish a source.
+
+**2026-10-14 — Independent reviewer P2, empty but pinned metadata coverage
+follow-up:** a real public-v2 bundle containing one dossier-linked Content
+and one standalone first-class Content was paired with two private inventories.
+For each Content both inventories carried exact-type `MetadataEnrichment`
+records with zero candidates, zero canonical URLs, zero oEmbed endpoints and
+zero conflict evidence, all with valid individual and inventory SHA pins and
+use/review policies. The prior coverage planner incorrectly returned
+`PRIVATE_REVIEW_ONLY`, `missing_count=0`, `held_count=0`: having a metadata
+DTO was mistaken for having actual source metadata coverage. An independent
+worker reproduced this P2, and saved targeted tests reproduced **RED**
+(expected missing/held 2, actual 0) before the correction.
+
+The planner now emits only generic `METADATA_EMPTY_RECORD_REVIEW` for a
+public Content that has an entirely empty pinned record in **any** inventory,
+increments missing and held once per affected Content, and schedules manual
+coverage review. Empty-only public sources remain explicit gaps even when every
+inventory includes a formally valid record. A separately tested partial
+empty-versus-substantive inventory pair remains held; a conflict-only record
+with real diagnostic evidence retains `PRIVATE_METADATA_CONFLICT_REVIEW`
+without being falsely labeled empty. All checks stay offline, SHA-pinned and
+anonymous; no underlying identity, URL, source body or permissions are exposed
+or changed. Regression and adjacent tests **86/86 PASS**, Ruff lint/format,
+Python compile and diff validation PASS after this source correction. The
+follow-up requires a new independent source review; the original DP-231
+`Status: DONE` and all original AC remain unchanged. No legal/rights approval,
+provider retrieval, public route, MiniPC or deployment is established.
