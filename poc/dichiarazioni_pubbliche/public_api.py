@@ -1798,6 +1798,21 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
             "/account/api/session", "/account/api/logout", "/account/api/delete",
         }
 
+    def _serve_static(self, method: str) -> None:
+        # SimpleHTTPRequestHandler normally follows public-root symlinks. When
+        # accounts are active, do not let a published asset alias reach the
+        # private SQLite DB, its WAL/SHM, or another file outside this root.
+        if type(self).account_service is not None:
+            root = Path(type(self).static_dir).resolve()
+            candidate = Path(self.translate_path(self.path)).resolve()
+            if not candidate.is_relative_to(root):
+                self.send_error(404)
+                return
+        if method == "GET":
+            super().do_GET()
+        else:
+            super().do_HEAD()
+
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
         if self._is_account_path():
@@ -1807,7 +1822,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         elif path == LLMS_PATH:
             self._serve_llms("GET")
         elif type(self).static_dir is not None:
-            super().do_GET()
+            self._serve_static("GET")
         else:
             self._serve_api("GET")
 
@@ -1821,7 +1836,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         elif path == LLMS_PATH:
             self._serve_llms("HEAD")
         elif type(self).static_dir is not None:
-            super().do_HEAD()
+            self._serve_static("HEAD")
         else:
             self._serve_api("HEAD")
 
@@ -1857,6 +1872,9 @@ def build_server(
     if account_service is not None and host not in ("127.0.0.1", "::1"):
         raise ValueError("ACCOUNT_LOOPBACK_BIND_REQUIRED")
     resolved_static = str(Path(static_dir).resolve()) if static_dir is not None else None
+    if (account_service is not None and resolved_static is not None
+            and account_service.store.path.resolve().is_relative_to(resolved_static)):
+        raise ValueError("ACCOUNT_PRIVATE_FILE_IN_PUBLIC_ROOT")
     handler = type(
         "BoundPublicApiRequestHandler",
         (PublicApiRequestHandler,),
@@ -1895,6 +1913,11 @@ def main(argv: Iterable[str] | None = None) -> int:
                        args.account_db, args.account_site_origin)
     if any(account_options) and not all(account_options):
         parser.error("account OIDC requires client ID, protected secret file, private DB and HTTPS site origin")
+    if all(account_options) and args.static_dir:
+        root = Path(args.static_dir).resolve()
+        if any(path.resolve().is_relative_to(root)
+               for path in (args.account_client_secret_file, args.account_db)):
+            parser.error("ACCOUNT_PRIVATE_FILE_IN_PUBLIC_ROOT")
     account_service = None
     if all(account_options):
         try:

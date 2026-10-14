@@ -55,3 +55,38 @@ The regression and existing local account, web-boundary and privacy inventory
 tests pass offline. This is a source hardening result for AC-517.2/5 only;
 real client registration, lawful handling and retention/backup acceptance,
 MiniPC proxy/host readback, live token, deletion and UX evidence remain OPEN.
+
+## Source-only private account file containment — 2026-10-14
+
+**RED real local HTTP, synthetic only:** With an opt-in `AccountService` backed
+by a temporary 0600 SQLite file and `static_dir` aimed at that same directory,
+an anonymous `GET /accounts.sqlite3` returned HTTP **200**, SQLite bytes and a
+synthetic user's email. The public host inherited static file serving without
+verifying separation from the private account store. An additional public
+symlink to an out-of-root SQLite file also returned 200; a configured OAuth
+client secret inside the public document root passed CLI admission. The new
+DP-517 regression reproduced all three fail-open paths before the fix.
+
+**GREEN local correction:** `build_server` now refuses any activated account
+store whose resolved SQLite path is under the selected static document root.
+The account CLI separately refuses an OAuth secret or SQLite DB whose resolved
+path falls inside that root, before constructing an account server. With
+accounts enabled, static GET and HEAD also refuse symlinks escaping the root,
+including aliases to account data. Ordinary site HTML GET/HEAD and the
+unauthenticated session endpoint retain their previous behavior when private
+files are outside the served root. No Google code exchange, live credentials,
+public host or production database was involved.
+
+These are bounded source-only protections relevant to `AC-517.3` (private
+account data absent from public static routes) and `AC-517.5` (safe local
+configuration). They neither authorize remote Google OAuth nor prove actual
+MiniPC/proxy/CDN configuration, privacy erasure of WAL/backups, legal review,
+browser accessibility or owner-approved rollback. **All original AC-517.1–7
+remain unchecked; DP-517 remains FUTURE, account launch disabled.**
+
+**Source verification:** focused DP-517 account HTTP, existing account,
+public API/HTTP and privacy-inventory suites **121/121 PASS**, scoped Ruff
+check, new-test Ruff format, Python compilation and `git diff --check` PASS.
+The pre-existing `public_api.py` does not pass whole-file Ruff format on its
+unchanged baseline; this narrow correction does not reformat unrelated code.
+Only synthetic local files and ephemeral loopback HTTP were exercised.
