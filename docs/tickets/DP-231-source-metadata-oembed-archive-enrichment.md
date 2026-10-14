@@ -425,3 +425,25 @@ Python compile and diff validation PASS after this source correction. The
 follow-up requires a new independent source review; the original DP-231
 `Status: DONE` and all original AC remain unchanged. No legal/rights approval,
 provider retrieval, public route, MiniPC or deployment is established.
+
+**2026-10-14 — Final independent post-P2 and integrated coverage receipt.**
+Worker-9 independently reproduced empty-but-valid `MetadataEnrichment` in
+both source inventories for a genuine synthetic linked Content and standalone
+public Content, then worker-11 saved RED→GREEN `METADATA_EMPTY_RECORD_REVIEW`
+counting **missing2/held2** without exposing ID or URL. Corrected source/test
+commit `ec84a88f42930dfc21ebeda7e4c800a00488ec0e` received an actual
+independent STRICT READONLY adversarial re-review by worker-10 (NOT the
+author): **54/54 focused+adjacent/enrichment PASS**, both empty envelopes
+held, partial empty/full and conflict-only controls differentiated, no new
+P1/P2 reproduced within scope. No reviewer edits/Git/provider writes.
+The final detached 36-file codefreeze, byte-identical to this correction and
+the other published lanes, completed **3,611/3,611 Python PASS, exit 0,
+396.578 seconds**; deterministic benchmark **5/5**, six new source/test
+Ruff lint and format PASS, manifest SHA-256
+`04481e83eeb08963a802e6db9c41c6079c3b10ad85a5cbedea64c527c4989ebe`.
+The Python full suite emitted fixture ResourceWarnings but ended OK; historic
+inherited DP-314 Ruff F401 prevents a blanket global Ruff PASS claim.
+No original source-role approval, GET body/capture, current legal rights,
+source owner/issuer authentication, MiniPC, PR CI or editorial/public release
+can be inferred. **Original DP-231 Status DONE and all AC unchanged**;
+this post-DONE hardening does not grant a new acceptance or publisher action.
