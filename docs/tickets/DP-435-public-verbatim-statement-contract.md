@@ -110,3 +110,29 @@ hint in DP-429 test). No source-use approval, new public v3 route, MiniPC
 release, Capture or publication was performed. All original
 **AC-435.1–.5 remain OPEN** until independently qualified source rights,
 the full authorized consumer/correction rollout and real host readback.
+
+## 2026-10-14 — Unresolved Person identity blocked at public Statement schema
+
+The opt-in v3 `validate_public_statement` accepted any nonempty `person_id`.
+Even if all five supplied publication proofs repeated the same unresolved
+identity placeholder, `_sanitize_public_statement` and the bundle validator
+emitted a public exact-wording Statement with that Person as the apparent
+speaker. Syntactically consistent source/rights/review references cannot
+resolve a human identity. This is a false-eligible attribution at the schema
+boundary, despite the separate requirement for authoritative Person approval.
+
+**RED** against the previous implementation: the actual opt-in projection
+published the Statement in four negative subcases, with `person_id` equal to
+`UNKNOWN`, `person:unknown`, `person:unresolved` or `person:unspecified`.
+**GREEN:** the v3 schema now rejects unknown/unresolved/unspecified/none or
+empty namespace segments in the Person identifier; the projection omits the
+private candidate entirely without emitting a public placeholder or leaking
+its identity. Both syntactically resolved synthetic Person fixtures and the
+default public-v2 projection preserve their existing behavior. No external
+identity authority is inferred from this string check.
+
+The source-only regression suite exercises the real isolated projection with
+synthetic independent-looking approvals. It does not establish real editorial
+review, identity or source-rights clearance, true quoted-source chronology,
+MiniPC readback, public v3 activation, correction/revocation, or consumer
+migration. **DP-435 remains IN PROGRESS; AC-435.1–.5 all OPEN.**

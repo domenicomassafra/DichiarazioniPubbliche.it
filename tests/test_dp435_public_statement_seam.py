@@ -29,7 +29,8 @@ STAMP = "2026-10-11T12:00:00+00:00"
 SOURCE = "Domanda: quanto costa? Risposta: costa 10 euro, non 20."
 QUOTE = "costa 10 euro, non 20."
 START = SOURCE.index(QUOTE)
-SHA = lambda text: hashlib.sha256(text.encode("utf-8")).hexdigest()
+def SHA(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 class IsolatedStatementSource:
@@ -207,6 +208,22 @@ class PublicStatementContractTests(unittest.TestCase):
                     else:
                         source.gates[name]["person_id"] = "person:other"
                     self.assertEqual(self.build_v3(source)["statements"], [])
+
+    def test_unresolved_person_id_cannot_be_published_by_matching_gate_claims(self):
+        # Independent-looking approval references cannot turn an explicit
+        # unresolved identity placeholder into an attributable public quote.
+        for placeholder in (
+            "UNKNOWN", "person:unknown", "person:unresolved", "person:unspecified",
+            "person:none", "person:",
+        ):
+            with self.subTest(person_id=placeholder):
+                source = IsolatedStatementSource()
+                source.row["person_id"] = placeholder
+                for gate in source.gates.values():
+                    gate["person_id"] = placeholder
+                public = self.build_v3(source)
+                self.assertEqual(public["statements"], [])
+                self.assertNotIn(placeholder, str(public))
 
     def test_rights_unknown_expired_invalid_scope_and_reused_review_event(self):
         for damage in ("rights_unknown", "expired", "no_expiry", "scope", "same_reviewer"):

@@ -457,6 +457,13 @@ def validate_public_statement(statement: dict[str, Any]) -> dict[str, Any]:
         value = record[field]
         if not isinstance(value, str) or not value.strip() or len(value) > 300:
             raise PublicSchemaValidationError(f"public_statement.{field} invalid")
+    if any(
+        part.strip().upper() in {"", "NONE", "UNKNOWN", "UNRESOLVED", "UNSPECIFIED"}
+        for part in record["person_id"].split(":")
+    ):
+        # A syntactically complete review reference cannot resolve a placeholder
+        # identity. Only externally verified people may own public statements.
+        raise PublicSchemaValidationError("public_statement.person_id unresolved")
     try:
         if date.fromisoformat(record["statement_date"]).isoformat() != record["statement_date"]:
             raise ValueError("noncanonical statement date")
@@ -473,7 +480,7 @@ def validate_public_statement(statement: dict[str, Any]) -> dict[str, Any]:
         raise PublicSchemaValidationError("public_statement.original_text invalid")
     if "\x00" in original or "\r" in original:
         raise PublicSchemaValidationError("public_statement.original_text control characters")
-    source_sha = _validate_sha256(record["source_sha256"], field="statement.source_sha256")
+    _validate_sha256(record["source_sha256"], field="statement.source_sha256")
     quote_sha = _validate_sha256(record["quote_sha256"], field="statement.quote_sha256")
     if hashlib.sha256(original.encode("utf-8")).hexdigest() != quote_sha:
         raise PublicSchemaValidationError("public_statement original wording hash mismatch")
