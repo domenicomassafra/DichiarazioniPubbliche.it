@@ -24,6 +24,7 @@ from dichiarazioni_pubbliche.multi_person_batch_store_v1 import (  # noqa: E402
 from tests.test_dp240_multi_person_batch import (  # noqa: E402
     manifest,
     plan,
+    rehash_plan,
     reviewed_contexts,
 )
 
@@ -474,6 +475,18 @@ print(json.dumps({'before':before.revision,'after':after.revision,
         self.assertEqual(unrelated.index.observed_count, 0)
         self.assertEqual(unrelated.revision, 0)
         self.assertEqual(self.store.read(self.plan), committed)
+
+    def test_rehashed_swapped_person_partitions_are_not_registered_or_replayed(self):
+        first, second, third = self.plan.items
+        foreign = rehash_plan(replace(self.plan, items=(
+            replace(first, partition_id=second.partition_id),
+            replace(second, partition_id=first.partition_id),
+            third,
+        )))
+        with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_PARTITION_MISMATCH"):
+            self.store.register(foreign)
+        # A refused source/Person lineage cannot create a durable plan.
+        self.assertFalse(self.path.exists())
 
     def test_sqlite_open_rejects_swapped_world_readable_file_before_private_write(self):
         # An intermediate rename+symlink can target a different SQLite file

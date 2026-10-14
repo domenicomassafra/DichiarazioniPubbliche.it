@@ -337,6 +337,20 @@ class MixedPersonPrivateBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ORDER_INVALID"):
             reconcile_isolated_private_results(reordered, ())
 
+    def test_rehashed_cross_person_partition_swap_cannot_borrow_source_lineage(self):
+        original = plan()
+        first, second, third = original.items
+        self.assertNotEqual(first.speaker_candidate_id, second.speaker_candidate_id)
+        # All other Content/Capture/Passage/Person fields stay untouched;
+        # a recomputed SHA must not make another Person's partition canonical.
+        swapped = rehash_plan(replace(original, items=(
+            replace(first, partition_id=second.partition_id),
+            replace(second, partition_id=first.partition_id),
+            third,
+        )))
+        with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_PARTITION_MISMATCH"):
+            reconcile_isolated_private_results(swapped, ())
+
     def test_rehashed_ready_plan_requires_a_nonempty_person_candidate(self):
         original = plan()
         for speaker in (None, "", "  "):

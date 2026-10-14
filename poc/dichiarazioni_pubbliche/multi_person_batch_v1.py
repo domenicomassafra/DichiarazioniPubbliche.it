@@ -234,6 +234,25 @@ class PrivateBatchReceiptIndex:
     dispatch_authorized: bool = False
 
 
+def _partition_id(item: ReviewedPassageContext | IsolatedBatchItem) -> str:
+    """Bind one partition to its exact source span and speaker candidate."""
+    return "batch-partition:" + _stable_hash(
+        (
+            item.passage_id,
+            item.passage_sha256,
+            item.content_id,
+            item.capture_id,
+            item.source_sha256,
+            item.selector_fingerprint,
+            item.context_version,
+            item.language_tag,
+            item.speaker_candidate_id,
+            item.speech_role,
+            item.speech_act,
+        )
+    )
+
+
 def plan_isolated_candidate_batch(
     batch: CandidateBatch,
     contexts: Mapping[str, ReviewedPassageContext],
@@ -274,21 +293,7 @@ def plan_isolated_candidate_batch(
         # Distinct Content, Capture, source, contextual span and speaker never
         # share one extraction partition. Mixed-source batches are manifests,
         # not a single trusted prompt or stitched quotation.
-        partition_id = "batch-partition:" + _stable_hash(
-            (
-                context.passage_id,
-                context.passage_sha256,
-                context.content_id,
-                context.capture_id,
-                context.source_sha256,
-                context.selector_fingerprint,
-                context.context_version,
-                context.language_tag,
-                context.speaker_candidate_id,
-                context.speech_role,
-                context.speech_act,
-            )
-        )
+        partition_id = _partition_id(context)
         status, reason = "HELD", "MULTIPERSON_UNATTRIBUTED_CONTEXT"
         if context.rights_status != "CLEARED":
             reason = "MULTIPERSON_SOURCE_RIGHTS_HELD"
@@ -485,6 +490,11 @@ def _validate_isolated_plan(plan: IsolatedBatchPlan) -> None:
         raise ValueError("MULTIPERSON_PLAN_COUNTS_INVALID")
     if plan.plan_sha256 != _plan_digest(plan.collection_id, plan.manifest_sha256, plan.items):
         raise ValueError("MULTIPERSON_PLAN_TAMPERED")
+    # A checksum recalculated over swapped or invented partition IDs is not
+    # proof of source identity. Keep existing schema/status/hash error priority,
+    # then bind every partition to exact Content/Passage/speaker attributes.
+    if any(item.partition_id != _partition_id(item) for item in plan.items):
+        raise ValueError("MULTIPERSON_PLAN_PARTITION_MISMATCH")
 
 
 def reconcile_isolated_private_results(
