@@ -338,3 +338,27 @@ eight-surface source/test: **3,469/3,469 PASS, exit 0, 298.492 seconds**;
 deterministic benchmark **5/5 PASS**, Ruff check/format and Python compileall
 PASS. No PR CI, production data, provider calls or independent reviewer PASS
 are implied. All original real editorial/source/rights/MiniPC gates stay OPEN.
+
+## 2026-10-14 — Post-ship source-only P2: mutable synopsis read DTO
+
+Prime source-only adversarial inspection (NOT an independent reviewer) found
+that the original synopsis issuer fingerprint alone did not bind emitted
+nested `PublicSynopsisRead.sentences` bytes. A caller could mutate an
+already prepared sentence after the reader computed its digest, retain the
+original issuer fingerprint, and obtain a no-change revalidation result.
+Genuine **RED** fixture preceded the additional required exact-read pin;
+now `synopsis_read_sha256` fingerprints the complete read DTO against an
+**independently supplied owner receipt**, and mutated text is refused with
+`REFRESH_READ_PIN_MISMATCH`. Self-rehashing the untrusted DTO does not prove
+issuer identity or approval. Planner output never includes the sentence
+body, so this is a pre-publication accuracy/freshness guard, not a proven
+historical leak or actual live route exploit. Final independent review still
+**PENDING**: worker sessions were unavailable. Original DP-440 Status and
+AC remain unchanged, no rights/editorial/provider/MiniPC acceptance claimed.
+
+**Post-patch regression:** the original read-model mutation probe is now
+RED→GREEN, and **26/26** new and adjacent DP-440 tests PASS. The exact
+source and test bytes used in the detached aggregate overlay produced one
+complete **3,476/3,476 Python PASS**, exit 0 in 330.917 s, and benchmark
+**5/5 PASS**. Ruff and format PASS. This is source-only author review;
+independent reviewer proof remains outstanding, so no PR or public route.

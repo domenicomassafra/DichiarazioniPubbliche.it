@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Mapping
 
@@ -92,6 +92,29 @@ def _sha(value: object) -> bool:
     return isinstance(value, str) and bool(_HASH.fullmatch(value))
 
 
+def synopsis_read_sha256(read: PublicSynopsisRead) -> str:
+    """Digest all emitted read bytes; caller MUST pin this independently.
+
+    The older ``read.fingerprint`` covers review inputs and sentences, but
+    alone cannot detect mutation of its mutable nested DTO *after* validation.
+    This additive pin binds the exact copy destined for offline reconciliation.
+    Its return value is not an issuer signature or publication authority.
+    """
+    if type(read) is not PublicSynopsisRead:
+        raise ValueError("REFRESH_REVIEW_INVALID")
+    try:
+        encoded = json.dumps(
+            asdict(read),
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise ValueError("REFRESH_REVIEW_INVALID") from exc
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
 def _validate_review(
     review: PublicSynopsisRead, old: Mapping[str, object]
 ) -> set[tuple[str, str]]:
@@ -165,6 +188,7 @@ def plan_synopsis_refresh(
     expected_previous_dataset_sha256: str,
     expected_current_dataset_sha256: str,
     expected_previous_synopsis_sha256: str,
+    expected_previous_synopsis_read_sha256: str,
     now: datetime,
 ) -> SynopsisRefreshPlan:
     """Determine which old reviewed citations need *human* refresh.
@@ -196,6 +220,12 @@ def plan_synopsis_refresh(
         or expected_previous_synopsis_sha256 != previous_synopsis.fingerprint
     ):
         raise ValueError("REFRESH_PIN_MISMATCH")
+    if (
+        not _sha(expected_previous_synopsis_read_sha256)
+        or synopsis_read_sha256(previous_synopsis)
+        != expected_previous_synopsis_read_sha256
+    ):
+        raise ValueError("REFRESH_READ_PIN_MISMATCH")
     reviewed = _validate_review(previous_synopsis, previous_bundle)
     if not isinstance(current_membership, ApprovedTopicIntersection):
         raise ValueError("REFRESH_MEMBERSHIP_INVALID")

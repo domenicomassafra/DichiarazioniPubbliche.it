@@ -31,6 +31,7 @@ class SynopsisRefreshPlanTests(unittest.TestCase):
     ):
         from dichiarazioni_pubbliche.public_synopsis_refresh_plan_v1 import (
             plan_synopsis_refresh,
+            synopsis_read_sha256,
         )
 
         original = previous_bundle if previous_bundle is not None else bundle()
@@ -51,6 +52,7 @@ class SynopsisRefreshPlanTests(unittest.TestCase):
             expected_previous_dataset_sha256=original["dataset_sha256"],
             expected_current_dataset_sha256=current["dataset_sha256"],
             expected_previous_synopsis_sha256=old_review.fingerprint,
+            expected_previous_synopsis_read_sha256=synopsis_read_sha256(old_review),
             now=NOW,
         )
         args.update(overrides)
@@ -140,6 +142,28 @@ class SynopsisRefreshPlanTests(unittest.TestCase):
                 reviewed=replace(
                     first, sentences=({"PRIVATE_RAW_TRANSCRIPT": "DO NOT SHOW"},)
                 ),
+            )
+
+    def test_post_reader_sentence_text_mutation_with_old_issuer_pin_denied(self):
+        from dichiarazioni_pubbliche.public_synopsis_refresh_plan_v1 import (
+            synopsis_read_sha256,
+        )
+
+        baseline = bundle()
+        validated = prepare(baseline)
+        issuer_pin = synopsis_read_sha256(validated)
+        forged = copy.deepcopy(validated)
+        forged.sentences[0]["text"] = "PRIVATE_UNAPPROVED_TRANSCRIPT_DO_NOT_SHOW"
+        # Older code compared only the original fingerprint: its underlying
+        # membership-proof data was unavailable, and this mutable DTO text was
+        # not re-digested. A known independent read-pin must fail closed.
+        with self.assertRaisesRegex(ValueError, "REFRESH_READ_PIN_MISMATCH"):
+            self.plan(
+                baseline,
+                baseline,
+                reviewed=forged,
+                expected_previous_synopsis_sha256=validated.fingerprint,
+                expected_previous_synopsis_read_sha256=issuer_pin,
             )
 
     def test_current_projection_drift_hold_even_if_old_citation_unchanged(self):
