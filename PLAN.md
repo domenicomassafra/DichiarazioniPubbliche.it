@@ -904,6 +904,26 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+**Terza tranche della lane 02, source SHA `186ef17e59fe73cab061a5301ffbe0d9f5443721`:**
+confermati i commit DP517 `df4c0ee` (origin OAuth), DP516 `a595450`
+(rights receipt anche su record completati), DP243 `e9afd0e`
+(stato HELD del parent originale propagato a derivati) e DP515 `186ef17`
+(HTTP 200 con Last-Modified regredito non aggiorna una versione confermata).
+TDD RED→GREEN; 107, 55, 51 e 70 test mirati/adiacenti rispettivamente,
+Ruff e diff-check PASS; quattro sha remoti identici ai commit locali.
+Registro ancora **162 / 90 DONE / 72 non DONE**: nessun originale AC è
+dimostrato completo da test synthetic/disposable. ControlCenter Ops packet
+297 risposta DP02 `main` pubblicata a `3cfb3c433d79fd1dc4f7c543e5dae1263700303f`,
+con WIP 01/05/305 intatto. Run GitHub `38596675716` solo contract green;
+gate PR/billing, legal Q-306, rights, MiniPC, release e Manual AT restano
+**NO-GO/49**. La ricevuta DP02 contiene il censimento delle dichiarazioni
+e i riferimenti SOP/Skills/Rules/Operations.
+**Full Python sul codice definitivo `186ef17`: 3.652/3.652 PASS,
+exit 0, 322,598 s**. Astro 0 errori/0 warning/1 hint,
+search/Statement/parity/routes 8/8/a11y 8/8/projection PASS;
+contratto, privacy inventory, licenze, fixture, versioni, Ruff e diffcheck
+PASS. GH branch run solo repository contract, originali blocker invariati.
+
 Fonte operativa: [ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md),
 [handoff post-consolidamento](docs/reviews/2026-10-14-postconsolidation-handoff.md)
 e ticket originari. Quattro worker CoS nativi hanno operato su verticali

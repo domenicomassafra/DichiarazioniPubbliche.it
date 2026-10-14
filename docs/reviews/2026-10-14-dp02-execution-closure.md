@@ -1,5 +1,56 @@
 # DP02 — esecuzione parallela, bug fix e gate di release (14 ottobre 2026)
 
+## Terza wave, codice DP `186ef17`, risposta ControlCenter Ops pubblicata
+
+| Ticket | Commit remoto integratore | Difetto riprodotto e prova |
+| --- | --- | --- |
+| DP-517 | `df4c0ee1f102c62913a2c96e24ebec1f5f4e9c9c` | Account OIDC accettava origine HTTPS `.it` estranea/lookalike al callback registrato; dominio esatto ammesso, 107/107 account/web/privacy test PASS, Ruff PASS. Login Google reale e legale ancora OPEN. |
+| DP-516 | `a595450ee4b8560ff190c2960484d977bdf3f225` | Rami di backfill già completati/deduplicati accettavano current rights receipt con CR/LF, padding o overlength; quattro RED→GREEN, 55/55 test planner, SQLite, PostgreSQL e DP243 PASS, Ruff/format PASS. Diritti veri, pilot e MiniPC aperti. |
+| DP-243 | `e9afd0ec5c847b0ff4a859895961d14e77624587` | Traduzione/copia d'archivio da originale HELD poteva diventare PRIVATE_REVIEW_ONLY; parent source/role/locator/rights ora trasferiscono `PARENT_SOURCE_UNVERIFIED`; 51/51 DP243/516 PASS. Fonte primaria autentica e review aperte. |
+| DP-515 | `186ef17e59fe73cab061a5301ffbe0d9f5443721` | HTTP 200 con bytes/versione diversi e Last-Modified più vecchio poteva fare rollback del source head confermato; ora `UNAVAILABLE/LAST_MODIFIED_REGRESSED`, backoff/review privati, zero figli, 70/70 test mirati/adiacenti PASS. Originali AC runtime/rights aperti. |
+
+I quattro commit sono in un unico branch `integrate/dp-20261014-all-lanes`,
+con staging dei soli path owned, `git diff --cached --check`, push e
+`git ls-remote` corrispondenti. `origin/main` DP resta al checkpoint
+protetto `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, senza PR.
+La run GitHub `38596675716` su `186ef17` è `completed/success` soltanto
+per `repository contract`; backend matrix, frontend e clean-clone sono
+`skipped` secondo il workflow branch, non un accettato CI/PR.
+
+La risposta di lane è **pubblicata su ControlCenter Ops `main`**:
+commit `3cfb3c433d79fd1dc4f7c543e5dae1263700303f`, SHA di `origin/main`
+verificato identico, soltanto
+`297-handoff-restart-20261012/{02-dichiarazioni-pubbliche.prompt.md,02-dichiarazioni-pubbliche.response.md,README.md}`;
+WIP concorrenti delle lane 01/05/305 preservati nel checkout Ops. Il
+[censimento delle dichiarazioni](2026-10-14-dp02-declarations-inventory.md)
+contiene 68 link validati fra route, SOP/Skills/Rules/Operations e packet
+297. Sei route informative in sorgente, ma Privacy/Termini/Contatti/
+Contribuisci e revisione Q-306 non autorizzate come pagine legali pubbliche:
+nessun testo o recapito personale inventato. L'archivio di dichiarazioni
+reali richiede readback MiniPC/CDN/source permit separati.
+
+I controlli già rieseguiti sul source `186ef17`: `ruff check` sui nove
+source/test della wave, `git diff --check`, repository contract, privacy
+inventory tecnico 1.266 campi, 47 asset licensing, fixture hashes e
+version consistency PASS. Astro 0 errori/0 warning (1 hint), search,
+Statement, backend parity, 8/8 accessibilità automatica, route 8/8 e
+projection boundary PASS. **Preflight release NO-GO/49**: 16 quesiti Q-306
+non conclusi, quattro artefatti release mancanti, 29 ticket di lancio
+non DONE. Registro esatto: 162 total, 90 DONE, 52 IN PROGRESS, 6 BLOCKED,
+14 FUTURE, 72 non DONE, ready=0. Manual screen reader e reale PR CI
+rimangono assenti. La full suite Python finale viene attribuita soltanto
+al relativo codice e all'exit code misurato, separatamente dalle 3.645
+prove della seconda wave.
+
+**Full suite finale della terza wave, codice `186ef17e59fe73cab061a5301ffbe0d9f5443721`:**
+`PYTHONPATH=poc python3 -B -m unittest discover -s tests -q` ha
+concluso **3.652/3.652 PASS, exit 0, 322,598 s** nel log locale
+`/tmp/dp02-wave3-final-full-20261014.log`. Nessuna failure o error;
+ResourceWarning SQLite/HTTP non fatali. I test includono i consumer
+originari, PostgreSQL disposable e le regressioni delle quattro tranche.
+Questa prova appartiene al source `186ef17`; un commit successivo
+solo-documentale richiede comunque git SHA readback e repository contract.
+
 Questa è una ricevuta **della lane 02** del packet ControlCenter
 `20260929-main-release-closure/297-handoff-restart-20261012`, non un nuovo
 backlog né un permesso di pubblicare dichiarazioni o distribuire software.

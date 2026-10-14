@@ -1,5 +1,18 @@
 # DichiarazioniPubbliche.it — handoff operativo / pending finale
 
+**Ultimo source checkpoint DP02 (terza wave):** `186ef17e59fe73cab061a5301ffbe0d9f5443721`
+nel solo branch integratore, con DP-517/516/243/515 pubblicati e lettura
+remota verificata. Ticket e status originari restano aperti, release NO-GO.
+La [ricevuta DP02](2026-10-14-dp02-execution-closure.md) e il
+[censimento pubblico](2026-10-14-dp02-declarations-inventory.md)
+sono l'autorità del nuovo readback. Ops packet 297 ha pubblicato la
+risposta della lane su `main` con commit `3cfb3c433d79fd1dc4f7c543e5dae1263700303f`;
+le altre lane Ops restano indipendenti. GH run `38596675716`: solo
+repository contract PASS, PR/backend/web/clean-clone non attestati.
+**Gate finale wave3 sul source `186ef17`:** 3.652/3.652 unittest PASS,
+exit 0, 322,598 s; `PR_HELD_AUTOREVIEW_BILLING_GUARD` e
+launch preflight `NO-GO/49` invariati.
+
 **Data:** 14 ottobre 2026, ora locale Europe/Rome. **Repo canonico:**
 `/Users/domenico/Code/DichiarazioniPubbliche.it` su Mac Studio. **Integratore:**
 `/Users/domenico/Code/DP-20261014-all-lanes-integrator`.

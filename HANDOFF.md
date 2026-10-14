@@ -1,5 +1,25 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+> **Terza wave DP02, 14 ottobre:** branch remoto
+> `integrate/dp-20261014-all-lanes` su codice `186ef17e59fe73cab061a5301ffbe0d9f5443721`.
+> Fix indipendenti DP-517 OIDC redirect, DP-516 rights receipt, DP-243
+> traduzione/copia da originale HELD, DP-515 fonte stale `Last-Modified`.
+> TDD negativo→positivo, test mirati, Ruff, `git diff --check` e quattro
+> commit separati con `ls-remote` verificato; ticket **IN PROGRESS** per
+> acceptance esterne ancora aperte. La risposta DP02 è stata pubblicata
+> anche nel packet 297 ControlCenter Ops `main` a `3cfb3c433d79fd1dc4f7c543e5dae1263700303f`
+> con tre soli file owned e WIP delle altre lane preservato. Riferimenti:
+> [receipt wave3](docs/reviews/2026-10-14-dp02-execution-closure.md),
+> [inventario dichiarazioni](docs/reviews/2026-10-14-dp02-declarations-inventory.md).
+> La CI GitHub `38596675716` sul codice wave3 è `success` **solo** per
+> `repository contract`; backend/web/clean-clone ancora `skipped` sul
+> branch. PR, approvazioni legal/editoriali, source-use, MiniPC/CDN e
+> manual screen reader sono **NO-GO**.
+> **Full suite finale wave3 sulla source `186ef17`: 3.652/3.652 PASS,
+> exit 0, 322,598 s**, log `/tmp/dp02-wave3-final-full-20261014.log`;
+> warning SQLite/HTTP non fatali. Questo non soddisfa PR/CI completa,
+> accettazione MiniPC/CDN né i 49 blocker del preflight di release.
+
 > **Aggiornamento operativo 14 ottobre 2026 (integratore):** il checkpoint
 > corrente è nel branch `integrate/dp-20261014-all-lanes`, **non in `main`**.
 > L'intera ricognizione Git, le 11 integrazioni effettive, i test post-review,
