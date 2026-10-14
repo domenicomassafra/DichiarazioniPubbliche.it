@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import importlib.util
 import json
+import os
 import subprocess
+import tempfile
 import unittest
 from dataclasses import replace
 from unittest.mock import patch
@@ -49,6 +51,20 @@ def _pdf(pages: tuple[str, ...], *, image: bool = False) -> bytes:
 class BornDigitalPdfTests(unittest.TestCase):
     def setUp(self):
         self.parser = BornDigitalPDFTextParser()
+
+    def test_worker_import_does_not_depend_on_caller_cwd_or_pythonpath(self):
+        body = _pdf(("The actual text remains private.",))
+        caller_directory = os.getcwd()
+        with tempfile.TemporaryDirectory() as unrelated_directory:
+            try:
+                os.chdir(unrelated_directory)
+                with patch.dict(os.environ, {"PYTHONPATH": ""}):
+                    result = self.parser.parse(fetched(body, media="application/pdf"))
+            finally:
+                os.chdir(caller_directory)
+        self.assertEqual(result.status, "SUCCEEDED", result.error_category)
+        self.assertEqual(result.metadata["page_count"], 1)
+        self.assertIn("actual text remains private", result.canonical_text)
 
     def test_real_two_page_pdf_roundtrip_and_explicit_unreviewed_fidelity(self):
         body = _pdf(

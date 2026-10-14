@@ -97,3 +97,36 @@ through the existing shared adapter without modification.
 PASS, targeted `compileall` PASS, `git diff --check` PASS on the local checkout.
 No OCR provider, real source, rights evidence, MiniPC proof, independent fidelity
 gold, or public quote acceptance was exercised. All AC-238.1–.6 remain open.
+
+## 2026-10-14 — Isolated PDF worker import-root recovery
+
+The 3,632-test integration run reported eight born-digital PDF failures with
+`DOCUMENT_PDF_WORKER_UNAVAILABLE`; the independently focused 10 tests previously
+passed. A controlled real generated PDF invocation reproduced this same error
+after changing the caller working directory to an unrelated temporary folder and
+clearing `PYTHONPATH`: the child returned status 1 with
+`ModuleNotFoundError: No module named 'dichiarazioni_pubbliche'` after 0.109 s.
+This proves a worker **startup/import** failure independent of the PDF body and
+the 5-second timeout, but does not yet prove the exact environmental trigger of
+the original integration-run failures.
+
+The subprocess now uses the resolved package parent as its working directory,
+fixed at module import, allowing `python -m` to resolve the installed source tree
+even when the caller changes cwd or loses the inherited relative `PYTHONPATH`.
+There are no relative data-file inputs in the worker entry point or its import
+path; the only extraction input remains the bounded PDF bytes over stdin. The
+optional `pypdf` import and resource limits remain in the child. Fail-closed
+exit codes, parser errors, 5-second wall timeout, 3/4-second CPU limits, and
+the 512-MiB memory limit are unchanged.
+
+**RED:** new real-PDF test with unrelated cwd and empty `PYTHONPATH` failed with
+`DOCUMENT_PDF_WORKER_UNAVAILABLE`. **GREEN:** that test passed after the fix;
+22 adjacent PDF/native-document tests PASS, including adversarial image, role,
+rights, source-hash, selector and worker-failure checks. Six additional real
+PDF worker invocations under up to three concurrent callers, each with unrelated
+cwd and empty `PYTHONPATH`, all returned `SUCCEEDED` (0.40–0.60 s each).
+`compileall` and `git diff --check` PASS. Independent source diff review found
+no P0/P1 issue. No full-suite rerun was performed concurrently with other
+integration work; a clean independent full run is still needed to attribute and
+clear the original eight intermittent failures. Original AC-238.1–.6 stay open;
+this is source-only, synthetic local evidence without MiniPC or editorial proof.

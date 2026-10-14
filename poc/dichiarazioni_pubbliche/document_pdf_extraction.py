@@ -30,6 +30,9 @@ from dichiarazioni_pubbliche.source_watcher import FetchedBytes
 
 PDF_TEXT_VERSION = "isolated-pypdf-text-candidate-v1"
 _MAX_RESULT_BYTES = MAX_PARSED_TEXT_CHARS * 6 + 32_768
+# The worker is launched via ``python -m``. Resolve the package root when this
+# module loads so a caller's later chdir/PYTHONPATH changes cannot hide it.
+_WORKER_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 class BornDigitalPDFTextParser:
@@ -79,6 +82,7 @@ class BornDigitalPDFTextParser:
                 input=fetched.body,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
+                cwd=_WORKER_PACKAGE_ROOT,
                 timeout=5,
                 check=False,
             )
