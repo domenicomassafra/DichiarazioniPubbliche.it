@@ -63,3 +63,22 @@ synthetic tests and **99** DP-236/237/241/243/244/515/321 combined tests
 PASS locally, Ruff PASS; source commit `4a586dd`. All six AC remain unchecked:
 no genuine archive artifacts/rights/person provenance, MiniPC readback or
 public B/C approval is yet demonstrated.
+
+**2026-10-14 DP02 worker-14 — source-only P1 derivative provenance guard, pending integration.**
+The existing preflight gave an Italian editorial translation `PRIVATE_REVIEW_ONLY`
+with no holds even though its exact German original was `HELD` because the
+speaker was a narrator, the Capture locator was stale or the original lacked
+FETCH/STORE/PARSE rights (despite retaining TRANSLATE). An archive copy could
+likewise inherit a held original while presenting a clean row. These four
+cases failed before the fix. The preflight now checks the final original row
+state after building all rows, regardless of sorting order, and explicitly
+holds linked translations/copies with `PARENT_SOURCE_UNVERIFIED`. Independent
+derivative-specific holds and the original provenance remain preserved.
+
+Synthetic RED→GREEN regression: two added tests covering four held-original
+cases; final DP-243 tests **19/19 PASS**, adjacent DP-516 planner/checkpoint
+tests **32/32 PASS**, combined **51/51 PASS**. Ruff check/format, Python
+compileall and owned-path `git diff --check` PASS. This remains an offline
+review proposal; **AC-243.1–243.6 remain OPEN** pending qualified real
+archive rights/attribution/version evidence, legal/editorial approvals,
+DP-443 pilot and MiniPC/runtime readback. No source was acquired or published.
