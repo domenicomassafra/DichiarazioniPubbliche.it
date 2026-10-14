@@ -367,3 +367,25 @@ This is a **local synthetic/offline source integration receipt only**:
 historical CDN HTTP withdrawals, real PostgreSQL, MiniPC, rights clearance,
 source approval, editorial correctness, PR CI and deploy remain unverified.
 Original DP-320 Status/AC are unchanged; no direct merge to `main`.
+
+**2026-10-14 — Independent post-integrator review, final suite, and remote
+receipt.** Integration source/test SHA prior to this documentation-only
+followup `52a5568a488eb91b24fee40318e84c62fabb37c0` passed independent
+strict READONLY `worker-10` review: DP-320 real RDF/SEARCH **9/9**,
+DP-431 integrity **7/7**, served surfaces **13/13**, correction propagation
+**12/12** = **41/41 PASS**. The reviewer confirmed canonical production TS
+builder/finalizer/validator repeatedly and full Python metadata record
+equality for explicit `contents=[]` (2 Finding/Person records), legacy absent
+`contents` (3 with fallback Content), and approved first-class Content
+(3 records), including stale metadata denial; imported DP-431 source/test
+blobs equal their published original commit `089461ab9572f06ed77b6696fa1bd7bf0d55163e`.
+No new P1/P2 reproduced in this bounded fixture contract. Actual final
+detached 30-file combined Python suite **3,572/3,572 PASS, exit 0,
+384.450 seconds**; benchmark **5/5**, patch/test Ruff lint and new test
+format PASS. Historic imported DP-431 files remain nonformatted and one
+historic inherited DP-314 test has Ruff F401: no global lint PASS claimed.
+Source/test manifest SHA-256
+`15badae206c51cfda9976c86d8eaf6fce10b0e8ccc3ff12480a376db21d3320f`.
+This is not proof of live HTTP/CDN rights withdrawal, PostgreSQL, source
+approval, publication, full MiniPC test, PR CI or physical readiness.
+**Status IN PROGRESS and original AC unchanged**; no PR or main merge.
