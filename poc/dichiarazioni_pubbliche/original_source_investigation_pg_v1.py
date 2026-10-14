@@ -255,6 +255,8 @@ class IsolatedOriginalRecoveryPg:
               AND EXISTS (
                  SELECT 1 FROM private_source_rights_record rr
                  WHERE rr.passage_id=pa.id AND rr.rights_status='CLEARED'
+                   AND rr.content_id=ci.id
+                   AND rr.locator_kind='PASSAGE' AND rr.locator_value=pa.id
                    AND rr.reviewed_at IS NOT NULL AND rr.reviewer_ref IS NOT NULL
                    AND rr.rights_receipt_ref IS NOT NULL
                    AND (rr.expires_at IS NULL OR rr.expires_at > now())
@@ -298,7 +300,8 @@ class IsolatedOriginalRecoveryPg:
              pa.end_char, pa.page_start, pa.page_end, pa.text_sha256,
              pa.extraction_method, pa.extraction_version, pa.metadata,
              rr.id, rr.subject_fingerprint, rr.source_family,
-             rr.locator_kind, rr.locator_value, rr.policy_version,
+             rr.content_id, rr.passage_id, rr.locator_kind, rr.locator_value,
+             rr.supersedes_id, rr.policy_version,
              rr.rights_status, rr.rights_receipt_ref, rr.permitted_uses,
              rr.reviewed_at, rr.expires_at, rr.reviewer_ref,
              (SELECT COALESCE(jsonb_agg(jsonb_build_array(
