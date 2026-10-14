@@ -137,8 +137,20 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         raise ValueError("DENIAL_INPUT_UNBOUNDED_OR_INVALID")
     if any(not isinstance(row, PriorOccurrence) for row in occurrences):
         raise ValueError("DENIAL_OCCURRENCE_INVALID")
+    # Detached, validated base-type values are the only source of both the
+    # receipt and the decision. A frozen dataclass can still be subclassed or
+    # mutated via __dict__; re-reading caller-owned rows after hashing them
+    # could turn a revoked/contextual snapshot into an apparent counterexample.
+    target = DenialTarget(**{
+        field.name: getattr(target, field.name) for field in fields(DenialTarget)
+    })
+    occurrences = tuple(PriorOccurrence(**{
+        field.name: getattr(row, field.name) for field in fields(PriorOccurrence)
+    }) for row in occurrences)
     if not isinstance(current_source_versions, dict):
         current_source_versions = {}
+    else:
+        current_source_versions = dict(current_source_versions)
     # A replay has no meaningful input sequence. Sort by complete typed provenance,
     # including ties on occurrence/source IDs (e.g. a conflicting revocation).
     occurrence_snapshots = tuple(sorted(

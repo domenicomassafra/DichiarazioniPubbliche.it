@@ -104,3 +104,35 @@ separate duplicate ID conflicts. No provider or production record was used;
 locator/reviewer approval, coverage manifest and attempts, multi-consumer
 correction invalidation, DP-318 linked trace/public projection, and authorized
 MiniPC pilot readback have not been established by this offline executor change.
+
+## 2026-10-14 — Caller-owned occurrence changed after receipt snapshot (source-only)
+
+The private evaluator canonicalized `_receipt_fields(row)` for its SHA-256
+receipt, then evaluated the *original* `PriorOccurrence` object rather than
+the values captured for that receipt. `@dataclass(frozen=True)` guards
+ordinary assignment, but subclassed typed inputs can change what attribute
+reads return (and the underlying `__dict__` remains mutable). In a
+deterministic synthetic adversarial replay, one validated prior returned
+`REVOKED` on the receipt read and `CURRENT` on the decision read, while
+another returned `REPORTED_QUOTE` then `ASSERTION`. Both yielded
+`REFUTED_WITH_COUNTEREXAMPLE` even though the captured provenance described
+a revoked or merely reported prior quotation. The regression was **RED
+(2 subcase failures)** against the previously exported evaluator.
+
+The evaluator now detaches and revalidates each target and prior as a base
+typed dataclass value, and detaches the supplied source-version mapping,
+before generating any receipt or making any denial decision. All matching,
+conflict resolution, source-currentness, time/scope, and digest calculations
+consume the same detached values. **GREEN**: the two adversarial cases
+produce `CHECKED_INSUFFICIENT_EVIDENCE`, matching the corresponding stable
+revoked/contextual records exactly. Existing successful source-bound private
+counterexamples and original SHA replay behavior remain intact.
+Focused local evidence: DP-315 18/18, `test_policy_intent` 35/35, benchmark
+5/5 and scoped Ruff PASS; Python compile and `git diff --check` PASS.
+
+This is a synthetic data-integrity hardening at the pure private boundary;
+it does not establish a trusted source/version issuer, independently approved
+quote locator, coverage attempts, a public Finding or a correction propagation
+contract across DP-318 and the live reader. **Status stays IN PROGRESS; all
+original AC-315.1–.5 stay unchecked**, pending the existing real-source,
+coverage, source/rights, downstream publication and MiniPC gates.
