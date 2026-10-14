@@ -148,6 +148,32 @@ class PrivateTemporalExploreTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "TEMPORAL_MONTH_INVALID"):
                     self.view(first_month=invalid)
 
+    def test_noncooperative_read_model_data_swap_after_digest_cannot_inject_private_count(
+        self,
+    ):
+        # Independent reviewer P2: the inherited DP439 filter validates one
+        # digest then accesses the caller's mutable `data` again. This fake
+        # Mapping swaps in a private-looking row on the fourth read.
+        original = copy.deepcopy(self.join)
+        forged = copy.deepcopy(original["data"][0])
+        forged["person_id"] = "PRIVATE_PERSON_SENTINEL"
+
+        class SwitchAfterDigest(dict):
+            reads = 0
+
+            def __getitem__(self, key):
+                if key == "data":
+                    self.reads += 1
+                    if self.reads >= 4:
+                        return [forged]
+                return super().__getitem__(key)
+
+        attack = SwitchAfterDigest(original)
+        result = self.view(read_model=attack, person_id="PRIVATE_PERSON_SENTINEL")
+        self.assertEqual(result["status"], "NO_MATCH")
+        self.assertEqual(result["record_count"], 0)
+        self.assertNotIn("PRIVATE_PERSON_SENTINEL", repr(result))
+
 
 if __name__ == "__main__":
     unittest.main()

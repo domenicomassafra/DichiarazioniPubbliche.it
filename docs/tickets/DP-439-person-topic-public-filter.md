@@ -402,3 +402,21 @@ noindex, XSS, empty/unknown/revoked, and Astro `npm run check` reports
 129 files, zero errors, zero warnings, one preexisting hint. Manual/physical
 accessibility, current issuer/rights and independent reviewer approval remain
 PENDING. All original DP-439 Status/AC preserved.
+
+**Independent P2 after SHA validation:** worker-9 reproduced a noncooperative
+Python `dict` subclass that replaces the public join's `data` on the fourth
+access, *after* the canonical DP-439 filter SHA check but *before* returned
+rows are copied. The original temporal reader could therefore count a forged
+`PRIVATE_PERSON_SENTINEL` while the independently pinned digest remained
+unchanged. Synthetic RED reproduced `READY_PRIVATE_PREVIEW` for that ID.
+The repaired private temporal reader now makes a bounded detached JSON
+snapshot **before all pin checks**, validates exact source, Person and join
+SHA on that snapshot and passes only the detached plain dict to the
+canonical filter. The former RED is GREEN: unknown private-looking Person
+produces `NO_MATCH` without echo; 15/15 new and adjacent DP-439 tests PASS.
+This was an in-memory source contract finding, not an observed historical
+real private identity disclosure. Final independent re-review requested.
+
+**Final independent source-only re-review:** worker-9 separately replayed the original noncooperative `SwitchAfterDigest` fake public join. The detached-snapshot reader returns `NO_MATCH`, record count 0, never dereferencing the caller's mutable `data` after snapshot. Reviewer Python DP-439 subset **15/15 PASS**, no further reproduced P1/P2 within this offline count-only model. No actual private identity data, published route, manual accessibility, issuer entitlement, legal/rights or MiniPC acceptance is asserted.
+
+**Final codefreeze validation:** combined Python unittest discovery over byte-identical final DP-320/DP-440/DP-439/DP-314 source-only changes **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**; DP-439 private timeline+canonical join **15/15 PASS**, independent reviewer reverified `SwitchAfterDigest` private-ID injection now returns `NO_MATCH`. Astro SSR 129 files 0 errors, 0 warnings and one preexisting hint; offline route only, no public serving. Interrupted prefinal Python attempt exit143 excluded from acceptance.

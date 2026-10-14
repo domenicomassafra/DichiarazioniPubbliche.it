@@ -7,6 +7,7 @@ they are not ingestion, archive-added, legal-currentness or rights timestamps.
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import date, datetime, timezone
 from typing import Any, Mapping
@@ -50,6 +51,22 @@ def prepare_temporal_preview(
         raise ValueError("TEMPORAL_EXPLICIT_OPT_IN_REQUIRED")
     if type(as_of) is not date or not 2000 <= as_of.year <= 2200:
         raise ValueError("TEMPORAL_DATE_INVALID")
+    if not isinstance(read_model, Mapping):
+        raise ValueError("TEMPORAL_STALE_OR_TAMPERED")
+    # Copy into plain JSON before inspecting ANY digest or facet. The canonical
+    # DP439 filter legitimately validates the SHA, but its public DTO reader
+    # may dereference `data` again. A noncooperative Mapping can swap rows
+    # between those accesses. All subsequent reads use this detached snapshot
+    # rather than the caller's mutable object. Bound the untrusted input.
+    try:
+        frozen_json = json.dumps(read_model, ensure_ascii=True, allow_nan=False)
+        if len(frozen_json) > 4_000_000:
+            raise ValueError("TEMPORAL_INPUT_TOO_LARGE")
+        pinned_snapshot = json.loads(frozen_json)
+        if type(pinned_snapshot) is not dict:
+            raise ValueError("TEMPORAL_INVALID_SNAPSHOT")
+    except (TypeError, ValueError, OverflowError, RecursionError) as exc:
+        raise ValueError("TEMPORAL_STALE_OR_TAMPERED") from exc
     if (
         any(
             type(value) is not str or _HASH.fullmatch(value) is None
@@ -59,10 +76,9 @@ def prepare_temporal_preview(
                 expected_people_sha256,
             )
         )
-        or not isinstance(read_model, Mapping)
-        or read_model.get("dataset_sha256") != expected_join_sha256
-        or read_model.get("source_dataset_sha256") != expected_statement_sha256
-        or read_model.get("person_dataset_sha256") != expected_people_sha256
+        or pinned_snapshot.get("dataset_sha256") != expected_join_sha256
+        or pinned_snapshot.get("source_dataset_sha256") != expected_statement_sha256
+        or pinned_snapshot.get("person_dataset_sha256") != expected_people_sha256
     ):
         raise ValueError("TEMPORAL_PIN_MISMATCH")
     low, high = _month(first_month, as_of=as_of), _month(last_month, as_of=as_of)
@@ -70,7 +86,7 @@ def prepare_temporal_preview(
         raise ValueError("TEMPORAL_MONTH_INVALID")
     try:
         validated = filter_public_person_topic_v3(
-            read_model,
+            pinned_snapshot,
             expected_dataset_sha256=expected_join_sha256,
             person_id=person_id,
             topic_id=topic_id,
