@@ -389,3 +389,31 @@ Source/test manifest SHA-256
 This is not proof of live HTTP/CDN rights withdrawal, PostgreSQL, source
 approval, publication, full MiniPC test, PR CI or physical readiness.
 **Status IN PROGRESS and original AC unchanged**; no PR or main merge.
+
+## 2026-10-14 — New private served-surface release transition audit
+
+New opt-in **OFFLINE** `private_surface_release_transition_v1.py` compares two
+complete, independently owner-pinned DP-320 seven/eight-surface release
+manifest reference cohorts. Its exactly typed detached tickets/artifacts are
+validated against full SHA-256 material manifests, canonical versioned ticket
+fingerprints and exact dependency scopes before comparing immutable surface
+hashes. It separately requires external UTC release-created receipts and
+exact source-use/review declarations. It distinguishes unchanged material,
+changed Search/API/HTML/etc bytes, explicit RDF added/removed scope, source
+dependency/epoch drift and revoked/pending/denied/expired rights declaration;
+the latter is always WITHHELD. Results contain named public *surface types*,
+hashes and counts only: no source ID, raw artifact body, URL or private source
+identifier is returned. No source approval, legal rights, editorial status,
+automatic publication, DB read/write, HTTP/CDN action or provider call.
+
+**RED→GREEN:** new ten-fixture adversarial test module initially failed at
+`ModuleNotFoundError` before the feature existed (exit 1). After implementation
+and subsequent owner-path formatting, **10/10 passed**: genuine isolated
+SQLite minted release tickets and eight canonical `SurfaceArtifact` bytes,
+exact changed Search surface, policy rights/review holds, material tamper or
+self-rehash with stale owner pin, UTC rollback/future, seven→eight RDF scope,
+dependency material drift, post-call policy mutation, malformed self-rehashed
+duplicate/unordered dependencies and wrong ticket version. Scoped Ruff lint,
+format and `git diff --check` PASS. This receipt is **author-local source-only**;
+independent post-commit review and final cross-lane suite must be recorded
+separately. All original `AC-320` remain unchecked, Status IN PROGRESS.
