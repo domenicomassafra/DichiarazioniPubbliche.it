@@ -159,7 +159,10 @@ export async function readPinnedPersonTopicExploreV3(
   const records = status==="PREVIEW_READY" ? filtered.slice(start,start+pageSize).map(rowOf) : [];
   const nextUrl = (status==="PREVIEW_READY"&&start+pageSize<totalResults)
     ? pageUrl(safeState,page+1):null;
-  const previousUrl = page>1?pageUrl(safeState,page-1):null;
+  // A bare empty query is fine as a canonical current-page reference, but
+  // href="" on an SSR page keeps the *current* ?pagina=2 URL. Explicitly
+  // address page 1 when the previous-page link has no other filters.
+  const previousUrl = page>1?(pageUrl(safeState,page-1)||"?pagina=1"):null;
   return {status,publicationAuthorized:false,providerCalls:0,
     coverageNote:response.coverage_note,generatedAt:response.generated_at,
     dateKind:"SOURCE_ATTESTED_STATEMENT_DATE",totalResults,

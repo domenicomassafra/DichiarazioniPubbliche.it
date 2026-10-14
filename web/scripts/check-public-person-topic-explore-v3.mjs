@@ -70,6 +70,20 @@ const second=await read(input,pins,first.nextUrl,1);
 assert.equal(second.records[0].statementId,"statement:1");
 assert.equal(second.previousUrl.includes("pagina=1"),false);
 
+// Independently reproduced P2: for unfiltered page 2 the former
+// previousUrl was the empty string. In SSR href="" reloads the current
+// ?pagina=2 URL, so the previous-page control could never navigate back.
+const unfilteredSecond=await read(input,pins,"?pagina=2",1);
+assert.equal(unfilteredSecond.status,"PREVIEW_READY");
+assert.equal(unfilteredSecond.page,2);
+assert.equal(unfilteredSecond.currentUrl,"?pagina=2");
+assert.equal(unfilteredSecond.previousUrl,"?pagina=1");
+assert.notEqual(unfilteredSecond.previousUrl,"", "never emit an empty SSR pagination href");
+const unfilteredPrevious=await read(input,pins,unfilteredSecond.previousUrl,1);
+assert.equal(unfilteredPrevious.page,1);
+assert.equal(unfilteredPrevious.status,"PREVIEW_READY");
+assert.notEqual(unfilteredPrevious.records[0].statementId,unfilteredSecond.records[0].statementId);
+
 const original=structuredClone(first.records);
 fixture.join.data[0].original_text="PRIVATE UNREVIEWED TEXT AFTER RETURN";
 assert.deepEqual(first.records,original);

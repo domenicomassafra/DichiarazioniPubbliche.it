@@ -350,3 +350,26 @@ after SHA. Real Python→TypeScript fixture and adjacent v3 search/cross-reader
 tests PASS; **no additional P1/P2** within source-only scope. The reviewer
 performed no edits, publication, provider or Git writes. This adds no physical
 browser VoiceOver/200% public-v3 route, rights approval or real-source AC.
+
+## 2026-10-14 — Private Explore v3 unfiltered previous-page link P2
+
+Independent reviewer reproduced a pager navigation defect in the separately
+published source-pinned Explore v3 preview: on an **unfiltered second page**,
+the previous link was serialized as an empty string. Rendering that value as
+SSR `href=""` keeps the current `?pagina=2` URL instead of returning to
+page 1. A real Python→TypeScript approved three-Statement fixture now asserts
+that page 2 supplies `previousUrl="?pagina=1"`, and replays this URL to
+verify a different approved first-page Statement. The saved test was **RED**
+on the parent commit (`'' !== '?pagina=1'`) before the source patch.
+
+The source-only fix supplies an explicit `?pagina=1` **only** when a
+previous-page link would otherwise have an empty query. It preserves the
+canonical unfiltered current-page URL and existing shareable filtered
+pagination, strict `pagina` bounds, externally pinned release checks,
+expiry/withdrawal holds and non-disclosure of unknown Person/Topic facets.
+The genuine local Node fixture is GREEN. An isolated temporary copy of the
+web app was checked using the already installed Astro dependencies without
+changing any other tracked worktree; Astro reported **127 files, 0 errors,
+0 warnings, 1 inherited unused-import hint**. This is not a live SSR/browser
+accessibility or production deployment acceptance. DP-439 Status remains
+**IN PROGRESS**, all AC-439.1–7 unchanged, no public activation/PR/main.
