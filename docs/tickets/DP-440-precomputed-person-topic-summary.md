@@ -382,3 +382,61 @@ independent reviewer proof remains outstanding, so no PR or public route.
 **Independent final source-only re-review:** worker-9 replayed the prior malicious dynamic `SwappingCurrent(dict)` after the new full `_frozen_public_bundle` snapshot and observed `REFRESH_PUBLIC_BUNDLE_INVALID` before any callback could mutate citation rows. A plain-dict source tamper before validation without a matching SHA was also refused; a mutation after full detach had no effect on the pinned snapshot. Reviewed new+adjacent DP-440 **27/27 PASS**. No additional reproduced P1/P2 within this bounded private planning contract; reviewer wrote no source/Git/provider data. This PASS is not an authenticated issuer, rights, editorial, semantic, PR-CI or physical MiniPC acceptance.
 
 **Final codefreeze test receipt:** one completed combined Python unittest discovery on detached main plus byte-identical new DP-320/DP-440/DP-439/DP-314 source and tests returned **3,503/3,503 PASS, exit 0 in 306.597 s**, benchmark **5/5 PASS**, Ruff check/format PASS. Post-source-detachment DP-440 new+adjacent **27/27 PASS** and independent reviewer confirmed malicious post-shallow-copy mutation now refused. A previous prefinal full test was interrupted **exit 143** after source changes and never counted as PASS. This records local source checks only, no reviewer rights, editorial conclusion, PR CI, provider or production acceptance.
+
+## 2026-10-14 — Private cross-release multi-synopsis refresh cohort
+
+New *offline, private* `private_synopsis_refresh_cohort_v1.py` adds a
+bounded cohort reconciliation layer over the existing
+`public_synopsis_refresh_plan_v1.py`, using actual
+`PublicSynopsisRead` and `ApprovedTopicIntersection` types and two
+validated public-v3 Statement releases. Every prior/current release has an
+owner-managed full-material SHA pin; each individual read model and Topic
+membership also requires its own separately retained SHA pin. Each read
+envelope binds a strictly increasing, source-specific issuer epoch. An
+old-epoch read cannot be relabeled as a new issuer result; same-epoch
+release replay is refused. Pins must originate from an independently
+trusted issuer store; locally computed hashes alone confer no authority.
+
+Before validating or comparing any release, the planner detaches every
+complete public bundle, read model, citation array and membership map into
+plain bounded structures, and rejects dynamic subclasses, unexpected
+typed fields, duplicate/replayed issuer periods and mismatched read/policy
+pins. It checks the canonical v3 public source contract and existing
+per-synopsis citation/material/currentness planner, including a separate
+**current-read versus current-membership** pass so that a newly asserted
+`READY_READ_MODEL` cannot silently retain citations no longer in the
+approved-shaped Topic membership. Source rights/review declarations,
+source version and quotation hashes are retained only inside the input
+snapshot and its digest; changed dependencies schedule human recheck.
+
+The deterministic, sorted private review items distinguish `ADDED`,
+`RETIRED`, `CHANGED` and `HELD`, with explicit external source-rights,
+editorial entailment and publication gates. Opaque item references are
+HMAC-SHA256 over the Person×Topic key with an independent owner-provided
+private key. **No** Person/Topic/Statement IDs, original text, source URL,
+synopsis prose or private review tokens are emitted in output. No
+automatic source approval, fact verification, regeneration, published
+Finding, public route, provider calls, DB writes or publication permission.
+
+**Source-only RED→GREEN:** the new tests initially failed on absent
+`private_synopsis_refresh_cohort_v1` (`ModuleNotFoundError`); the first
+implementation then exposed and corrected a retired-versus-held
+classification gap. A later adversarial test identified **RED** where a
+fresh review-event receipt replacing only the Topic membership attestation,
+with byte-identical read-model text, silently returned no work. The
+corrected comparison detects changed full Topic-review receipts and
+schedules `CHANGED` with `TOPIC_REVIEW_RECEIPT_CHANGED` even without a
+Statement/text drift. New tests **11/11 PASS** and combined
+DP-440 new + canonical synopsis + earlier refresh planner **38/38 PASS**.
+The real synthetic public-v3 fixture contains multiple independently
+source-backed Statements for two public Person IDs and multiple topics.
+Tests cover cross-release replay, immutable snapshot/dynamic subclass
+denial, stale read/release/membership pins, time/currentness,
+simultaneous changed/retired/held items, added synopsis without approval,
+rights/review/source changes, Topic citation exclusion and no identifiers
+or URLs in result objects. Ruff check/format, Python compile PASS. Full
+repository integration and independent post-source review remain separate.
+**DP-440 remains IN PROGRESS; AC-440.1–7 remain unchecked.** Real issuer
+authentication, qualified source-rights/editorial approval, MiniPC
+revalidation, revocation latency, and public HTML/API/cache readback
+remain unproven.
