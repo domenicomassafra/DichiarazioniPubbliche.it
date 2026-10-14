@@ -996,3 +996,20 @@ solo-lane `02-dichiarazioni-pubbliche.response.md` è pubblicato sul suo Ops
 identico, dopo riconciliazione dell'avanzamento Ops concorrente `fd7aef3`;
 WIP 01/05/305 e altri file fleet/Hermes/DStack preservati senza staging.
 La source branch DP continua separata senza PR, merge o deploy.
+
+**Full Python obbligatoria wave4 (evidenza eseguita, non verde):**
+`PYTHONPATH=poc python3 -B -m unittest discover -s tests -q` sul source
+`91b1783654b69888196b509bab71c19dc1aaf1ce` ha eseguito **3.661 test
+in 826,816 s / exit 1** per **una sola failure DP238** born-digital PDF
+`DOCUMENT_PDF_WORKER_UNAVAILABLE`. Suite mirata PDF 11/11 e PDF+document
+extraction 22/22 PASS al retest, ma non sostituiscono il run integrale.
+No change ai limiti di sicurezza, no escalation a DONE/GO. Il nuovo
+passaggio tecnico necessario è rerun integrale verde in ambiente isolato,
+o diagnosi del subprocess PDF sotto carico con regressione RED→GREEN;
+non si dichiara accertata una causa ambientale senza prova. [Ricevuta](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Writer Ops, addendum full suite:** lease esclusiva concessa e rilasciata
+dal prime Core07 dopo push di `c49809baada076fcb4f6a88ea9f8e82adb9a3a59`
+della sola response02 packet 297; `origin/main` letto identico, nessun
+WIP 01/05/305/fleet staged o modificato dalla lane. DP238 full suite ancora
+non verde, nonostante retest 22/22 PASS; nessuna PR o promozione implicita.

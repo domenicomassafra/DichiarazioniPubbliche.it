@@ -20,6 +20,16 @@
 > è **ora pubblicata** sul `main` ControlCenter a
 > `685a04e74878516f30edeb7e4b8720d68c1c012a`, un solo path di risposta
 > e readback remoto identico; WIP delle altre lane preservati.
+> **Full suite wave4 ESEGUITA ma NON VERDE:** 3.661 test / 1 failure DP-238
+> `DOCUMENT_PDF_WORKER_UNAVAILABLE`, exit1, 826,816 s sul source `91b1783`.
+> Retest DP238 isolato 11/11 e con extraction 22/22 PASS, ma ciò non annulla
+> la failure integrata. Vedere [ricevuta DP02](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> e log `/tmp/dp02-wave4-final-full-20261014.log`. Nessun aumento deadline
+> o falsa promozione di source/diritti/release; nuovo run completo verde
+> resta necessario prima di considerare questo gate soddisfatto.
+> **Ops packet 297 addendum full-suite pubblicato** sotto lease esplicita
+> poi rilasciata, `c49809baada076fcb4f6a88ea9f8e82adb9a3a59` su
+> ControlCenter `main`, un solo file response02, SHA remoto uguale.
 
 > **Terza wave DP02, 14 ottobre:** branch remoto
 > **Ops packet 297 addendum pubblicato:** ControlCenter `main` aggiornato

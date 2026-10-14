@@ -88,6 +88,35 @@ da quella base il writer DP02 ha committato **il solo file**
 modificati dalla lane02. Questo è un receipt documentale Ops, non una
 promozione del codice DP `main`.
 
+**Gate full-suite obbligatorio sul codice `91b1783654b69888196b509bab71c19dc1aaf1ce`: NON SUPERATO.**
+La vera esecuzione `PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`
+ha eseguito **3.661 test in 826,816 s**, exit **1**, con **una failure**:
+`tests.test_dp238_born_digital_pdf.BornDigitalPdfTests.test_real_two_page_pdf_roundtrip_and_explicit_unreviewed_fidelity`
+ha restituito `FAILED / DOCUMENT_PDF_WORKER_UNAVAILABLE` mentre il test
+chiedeva `SUCCEEDED`. Log originale preservato:
+`/tmp/dp02-wave4-final-full-20261014.log`. Nessun altro test è indicato
+come FAIL/ERROR. Non è lecito chiamare questa esecuzione 3661/3661 PASS.
+La stessa suite DP-238 rilanciata subito **isolatamente** è risultata
+**11/11 PASS**, e il retest con adiacenti estrazione-documento è risultato
+**22/22 PASS**, exit0 in 4,457 s; Ruff parser/test e `git diff --check`
+PASS. Il PDF worker ha una deadline di 5 secondi e fallisce **chiuso** in
+caso di subprocess non disponibile/timeout. In assenza di diagnostica del
+subprocess nella prova fallita, il sovraccarico host è un'ipotesi, **non una
+causa accertata**. Non sono stati aumentati i limiti o nascosti test per
+ottenere un falso verde. Il gate richiede una nuova suite integrale verde
+sullo SHA candidato in ambiente sufficientemente isolato e, se il problema
+si ripete, diagnosi deterministica e fix con RED→GREEN. Questo NO-GO tecnico
+si aggiunge ai 49 vincoli di launch preflight, senza sostituirli.
+
+**Addendum definitivo Ops sotto lease esclusiva:** dal checkpoint Ops
+`8aa5f0d36a55f65b7a1cc3c43fca9dbee1b927c4` il solo file
+`02-dichiarazioni-pubbliche.response.md` è stato aggiornato con il risultato
+full-suite e retest realmente misurati al commit
+`c49809baada076fcb4f6a88ea9f8e82adb9a3a59` su `main` Ops;
+`ls-remote` ha letto lo stesso SHA. I WIP 01/05/305 e di Core07/fleet sono
+rimasti intatti. La lease concessa dal writer Core07 è stata **rilasciata
+esplicitamente**; ulteriori scritture Ops necessitano una nuova lease.
+
 
 ## Terza wave, codice DP `186ef17`, risposta ControlCenter Ops pubblicata
 

@@ -18,6 +18,13 @@ e readback remoto identico, senza toccare 01/05/305. Status registro: 162/90 DON
 `PR_HELD_AUTOREVIEW_BILLING_GUARD`, rights/qualifiche, pilot MiniPC e
 `NO-GO/49` rimangono aperti. La full suite finale wave4 deve essere
 identificata per l'esatto codice, non per test precedenti.
+**Full run wave4 effettivo:** 3.661 test, **1 FAIL DP238 PDF worker unavailable**,
+exit 1 in 826,816 s, source `91b1783`. Regressioni DP238 mirate 11/11 e
+22/22 incluse adiacenti PASS; il gate integrale resta **non superato**.
+Log e prova riproducibile in [ricevuta DP02](2026-10-14-dp02-execution-closure.md).
+L'addendum al packet Ops 297 con la suite **non verde** è pubblicato in
+Ops `main` a `c49809baada076fcb4f6a88ea9f8e82adb9a3a59`, sotto lease
+esplicita esclusiva successivamente rilasciata, senza alterare altri WIP.
 
 
 **Ultimo source checkpoint DP02 (terza wave):** `186ef17e59fe73cab061a5301ffbe0d9f5443721`
