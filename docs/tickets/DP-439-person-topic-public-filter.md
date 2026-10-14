@@ -420,3 +420,42 @@ real private identity disclosure. Final independent re-review requested.
 **Final independent source-only re-review:** worker-9 separately replayed the original noncooperative `SwitchAfterDigest` fake public join. The detached-snapshot reader returns `NO_MATCH`, record count 0, never dereferencing the caller's mutable `data` after snapshot. Reviewer Python DP-439 subset **15/15 PASS**, no further reproduced P1/P2 within this offline count-only model. No actual private identity data, published route, manual accessibility, issuer entitlement, legal/rights or MiniPC acceptance is asserted.
 
 **Final codefreeze validation:** combined Python unittest discovery over byte-identical final DP-320/DP-440/DP-439/DP-314 source-only changes **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**; DP-439 private timeline+canonical join **15/15 PASS**, independent reviewer reverified `SwitchAfterDigest` private-ID injection now returns `NO_MATCH`. Astro SSR 129 files 0 errors, 0 warnings and one preexisting hint; offline route only, no public serving. Interrupted prefinal Python attempt exit143 excluded from acceptance.
+
+## 2026-10-14 — Private month-to-month source-date change inspection (new isolated slice)
+
+`private_person_topic_trend_v1.py` adds an opt-in, count-only **private**
+comparison of two independently pinned DP-439 read-model releases. Each release
+requires externally authenticated Join / public Statement / public Person SHA
+pins **and two independently attested actual JOIN-created UTC timestamps**;
+both read models are detached before any validation or comparison. The
+existing temporal validator checks all original Statement dates and refuses
+historical `as_of` dates before its immutable UTC *source* projection day.
+The additional JOIN creation receipts prevent a newer Topic membership join
+from being backdated merely because the source projection existed earlier;
+legitimate later joins of an older source snapshot remain possible.
+Monthly rows separate Person×Topic *intersection counts* from distinct
+Statement/version originals and report newly visible and no-longer-visible
+intersections/originals between the two snapshots. A second approved Topic
+membership for the same original changes an intersection count but does not
+create a second original. A stable Statement/version whose date, Person, source
+or quote fingerprint drifts is rejected. Bounds are at most 120 calendar months.
+
+**Time semantics:** the buckets are the dates printed on the original
+Statements. Newly visible/removed are **comparison results between snapshots**,
+not proof of when a Statement was uttered, published, withdrawn or independently
+fact-checked. Unknown private-looking filters return generic `NO_MATCH` without
+IDs, text, quotes, URLs, identity labels or private roster. Results never claim
+absence of historical statements, license, current rights or publication
+authority. No public v3 route or provider call is introduced.
+
+`test_dp439_temporal_trends_20261014.py` reproduces actual approved synthetic
+source / Person / Topic releases with August retirement, September duplicate
+Topic membership and October newly visible original, plus independently pinned
+cross-snapshot date drift, wrong SHA, future source/JOIN `as_of`, invalid dates,
+UTC creation receipt ordering and legitimate earlier-source rollback, mutable
+Mapping after digest and private-ID no-echo. Missing module first reproduced
+**RED** (8 test cases), then implemented **GREEN**. Dedicated and
+adjacent DP-437/438/439 Python tests **50/50 PASS**, Ruff lint/format and
+Python compile **PASS**. This is source-only; source licensing, current release
+issuer, real MiniPC data, public UI/accessibility, independent reviewer and all
+original `AC-439.1`–`.7` remain **OPEN**. `Status: IN PROGRESS` unchanged.
