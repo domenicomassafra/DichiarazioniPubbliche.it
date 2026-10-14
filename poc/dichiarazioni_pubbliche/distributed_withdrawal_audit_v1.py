@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from dataclasses import asdict
@@ -45,6 +46,18 @@ REQUIRED_PUBLIC_CONSUMERS = frozenset(
         "CACHE_EDGE",
     }
 )
+
+# Legacy static routes can survive a rebuild under filenames absent from the
+# proposed consumer inventory. Only known build asset formats in dedicated
+# asset directories are outside this route-coverage check; an API/search JSON
+# file in those directories is still a public-content route, not an asset.
+_BUILD_ASSET_DIRECTORIES = frozenset({"_astro", "assets", "static", "images", "fonts"})
+_BUILD_ASSET_SUFFIXES = frozenset({
+    ".avif", ".css", ".gif", ".ico", ".jpeg", ".jpg", ".js", ".map",
+    ".mjs", ".otf", ".png", ".svg", ".ttf", ".wasm", ".webp", ".woff",
+    ".woff2",
+})
+_MAX_LOCAL_RELEASE_ENTRIES = 10000
 
 
 @dataclass(frozen=True, slots=True)
@@ -510,6 +523,44 @@ def audit_local_static_withdrawal(
     )
     if result.status != "CONSISTENT_UNATTESTED":
         return result
+    # Reading only declared routes cannot prove even offline absence of stale
+    # legacy HTML/API/search files left behind by a previous static generation.
+    # Enumerate the *selected local release root*, not arbitrary filesystem
+    # trees. A missed directory or an unlisted symlink may itself be servable.
+    # Stream and bound directory entries so a large or corrupt release cannot
+    # hang the safety audit or be treated as successfully inspected.
+    try:
+        pending = [root]
+        entries_seen = 0
+        while pending:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    entries_seen += 1
+                    if entries_seen > _MAX_LOCAL_RELEASE_ENTRIES:
+                        raise ValueError("DP518_LOCAL_SCAN_LIMIT_EXCEEDED")
+                    if entry.is_symlink():
+                        raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(Path(entry.path))
+                        continue
+                    if not entry.is_file(follow_symlinks=False):
+                        raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+                    candidate = Path(entry.path)
+                    relative = candidate.relative_to(root)
+                    if relative.as_posix() in seen_paths:
+                        continue
+                    if (
+                        relative.parts[0] in _BUILD_ASSET_DIRECTORIES
+                        and candidate.suffix.lower() in _BUILD_ASSET_SUFFIXES
+                    ):
+                        continue
+                    return WithdrawalReadbackAudit(
+                        "READBACK_UNTRUSTED_OR_DRIFT",
+                        ("LOCAL_UNINVENTORIED_PUBLIC_FILE",),
+                        len(inventory), (),
+                    )
+    except OSError as exc:
+        raise ValueError("DP518_LOCAL_PATH_UNSAFE") from exc
     # A withdrawn release may retain unaffected content. Those bytes must
     # still match the pinned local inventory or the rehearsal is incomplete.
     if any(

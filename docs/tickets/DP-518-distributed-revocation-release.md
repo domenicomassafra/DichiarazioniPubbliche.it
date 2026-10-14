@@ -205,3 +205,36 @@ readback on the MiniPC or measured withdrawal SLO. No public
 consumer is wired to it, and it cannot attest any future byte sent
 after the transaction commits. **AC-518.1–7 remain all unchecked;
 DP-518 remains IN PROGRESS and public release NO-GO.**
+
+## 2026-10-14 — Unlisted stale route in local release root (partial)
+
+**RED reproduced:** the existing `audit_local_static_withdrawal` validated
+the twelve declared consumer paths for each entity, but did not enumerate
+actual files beyond that inventory. After a local reanalysis/withdrawal, an
+older `person:revoked/statement-old.html` left in the selected public root
+could still be served as an old quote while all 24 declared paths were safe;
+the local audit incorrectly returned `CONSISTENT_UNATTESTED`. An unlisted
+symlink to an outside file was likewise ignored. Both focused tests failed
+against the pre-fix checker.
+
+The checker now streams every directory entry **only within the selected
+local public release root**, refuses unlisted HTML/API/JSON/linked-data and
+other public-file paths as `READBACK_UNTRUSTED_OR_DRIFT` with a sanitized
+`LOCAL_UNINVENTORIED_PUBLIC_FILE` code, and rejects symlinks and inaccessible
+or nonregular paths. An explicit 10,000-entry ceiling fails closed if the
+candidate tree is too large to audit. Conventional build assets (`_astro`,
+`assets`, `static`, `images`, `fonts`) are tolerated only for known CSS/JS,
+image, font and other static-build extensions; an extra `search-old.json`
+under `_astro` is still rejected. A site with other public informational HTML
+must include it in the actual release inventory before this offline checker
+can claim local consistency.
+
+**GREEN source-only evidence:** 28/28 local and distributed DP-518 tests,
+22/22 adjacent disposable PostgreSQL DP-518/DP-320 tests, scoped Ruff,
+compilation and `git diff --check` PASS. The selected root, sidecar receipt,
+asset classification and all values remain caller-provided local rehearsal
+inputs. Asset names/extensions do not attest the contents of an actual
+compiled JS bundle or browser/CDN cache. No runtime/public host, physical
+purge, authoritative immutable release pointer, source rights acceptance,
+latency measurement or rollback-owner evidence was obtained. All original
+**AC-518.1–7 remain open**, status **IN PROGRESS** and public release **NO-GO**.

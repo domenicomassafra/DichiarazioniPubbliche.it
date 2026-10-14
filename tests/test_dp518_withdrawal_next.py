@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from dataclasses import asdict, replace
 from pathlib import Path
+from unittest.mock import patch
 
 from dichiarazioni_pubbliche.distributed_withdrawal_audit_v1 import (
     REQUIRED_PUBLIC_CONSUMERS,
@@ -183,6 +184,57 @@ class LocalWithdrawalNextTests(unittest.TestCase):
         result = self.audit()
         self.assertEqual(result.status, "READBACK_UNTRUSTED_OR_DRIFT")
         self.assertEqual(result.sanitized_reason_codes, ("LOCAL_UNAFFECTED_ARTIFACT_DRIFT",))
+
+    def test_uninventoried_legacy_route_blocks_clean_withdrawal(self):
+        self.assertEqual(self.audit().status, "CONSISTENT_UNATTESTED")
+        legacy = self.root / "person:revoked" / "statement-old.html"
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        legacy.write_bytes(b"old quote still served by legacy static route")
+        result = self.audit()
+        self.assertEqual(result.status, "READBACK_UNTRUSTED_OR_DRIFT")
+        self.assertEqual(result.sanitized_reason_codes, ("LOCAL_UNINVENTORIED_PUBLIC_FILE",))
+        self.assertNotIn("statement-old.html", repr(result))
+        legacy.unlink()
+        self.assertEqual(self.audit().status, "CONSISTENT_UNATTESTED")
+
+    def test_selected_root_can_contain_known_build_assets_but_not_old_search_json(self):
+        for name, body in (
+            ("_astro/layout.abc123.js", b"export const view = 'ok';"),
+            ("_astro/layout.abc123.css", b"body { display: block }"),
+            ("assets/brand.webp", b"webp fixture"),
+            ("static/fonts/body.woff2", b"font fixture"),
+        ):
+            asset = self.root / name
+            asset.parent.mkdir(parents=True, exist_ok=True)
+            asset.write_bytes(body)
+        self.assertEqual(self.audit().status, "CONSISTENT_UNATTESTED")
+        legacy = self.root / "_astro" / "search-old.json"
+        legacy.write_bytes(b'{"hits":["revoked quote"]}')
+        result = self.audit()
+        self.assertEqual(result.status, "READBACK_UNTRUSTED_OR_DRIFT")
+        self.assertEqual(result.sanitized_reason_codes, ("LOCAL_UNINVENTORIED_PUBLIC_FILE",))
+
+    def test_uninventoried_symlink_route_cannot_hide_old_public_bytes(self):
+        legacy = self.root / "old-quote.html"
+        legacy.symlink_to(self.receipt)
+        with self.assertRaisesRegex(ValueError, "DP518_LOCAL_PATH_UNSAFE"):
+            self.audit()
+
+    def test_selected_release_root_enumeration_errors_fail_closed(self):
+        with patch(
+            "dichiarazioni_pubbliche.distributed_withdrawal_audit_v1.os.scandir",
+            side_effect=PermissionError("restricted release root"),
+        ):
+            with self.assertRaisesRegex(ValueError, "DP518_LOCAL_PATH_UNSAFE"):
+                self.audit()
+
+    def test_selected_release_root_entry_limit_fails_closed(self):
+        with patch(
+            "dichiarazioni_pubbliche.distributed_withdrawal_audit_v1."
+            "_MAX_LOCAL_RELEASE_ENTRIES", 2,
+        ):
+            with self.assertRaisesRegex(ValueError, "DP518_LOCAL_SCAN_LIMIT_EXCEEDED"):
+                self.audit()
 
     def test_symlink_escape_and_unmapped_routes_cannot_pass_local_readback(self):
         outside = self.root.parent / (self.root.name + "-outside")
