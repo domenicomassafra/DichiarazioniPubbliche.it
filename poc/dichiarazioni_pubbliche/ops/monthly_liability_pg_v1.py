@@ -318,8 +318,13 @@ COMMIT;
 
 # One real PG REPEATABLE READ snapshot. Raw receipt JSON and private scope are
 # deliberately excluded; the next independent DP-513 read checks ledger parity.
+# In a freshly bootstrapped disposable database, missing table statistics can
+# inflate this one-row query's estimated cost above jit_above_cost. Avoid JIT
+# compilation inside this bounded snapshot transaction; do not change session
+# defaults, financial behavior, or the existing statement/lock timeout gates.
 _SNAPSHOT = r"""
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL jit=off;
 SELECT COALESCE(json_agg(json_build_object(
   'id',r.id,'operation_key',r.operation_key,'attempt',r.attempt,
   'basis',CASE WHEN r.billing_basis='ESTIMATED_ONLY' AND

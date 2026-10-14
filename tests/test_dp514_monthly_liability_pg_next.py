@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +16,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from tests import test_dp512_billing_pg_fence_next as fixture  # noqa: E402
 from dichiarazioni_pubbliche.ops.monthly_liability_pg_v1 import (  # noqa: E402
     DisposableMonthlyLiabilityPg,
+    _SNAPSHOT,
 )
 from dichiarazioni_pubbliche.ops.cost_policy import (  # noqa: E402
     BudgetPolicy, CostSnapshot, MonthlyBudgetState, MonthlyEurPolicy,
@@ -191,6 +193,27 @@ class MonthlyLiabilityPgTests(unittest.TestCase):
         ):
             with self.assertRaises(RuntimeError):
                 self.sql(statement)
+
+    def test_cold_snapshot_disables_jit_locally_without_changing_liability(self):
+        key = self.receipt("jit", basis="MEASURED_PROVIDER_COST", measured="0.21")
+        self.classify(key, "MEASURED_PROVIDER_COST", "0.21", evidence="usage:synthetic")
+        self.reader.append(receipt_id=key, event_id="refund:jit", expected_revision=0,
+                           kind="REFUND_CLAIM", amount_usd="0.21")
+        self.assertEqual(self.sql("SHOW jit;"), "on")
+        # Observe the real transaction setting inside the same snapshot query,
+        # without changing its ledger read or persisting any session setting.
+        observed = self.reader._run(
+            _SNAPSHOT.replace("SELECT COALESCE(", "SHOW jit;\nSELECT COALESCE(", 1),
+            _family="SNAPSHOT",
+        ).splitlines()
+        self.assertEqual(observed[0], "off")
+        self.assertEqual(len(json.loads(observed[1])), 1)
+        self.assertEqual(self.sql("SHOW jit;"), "on")
+        report = self.report()
+        self.assertEqual(report.recorded_measured_usd, Decimal("0.21"))
+        self.assertEqual(report.unverified_refund_claim_usd, Decimal("0.21"))
+        self.assertTrue(report.hold_new_spend)
+        self.assertFalse(report.dispatch_authorized)
 
     def test_parallel_competing_cas_one_commits_and_loser_cannot_double_claim(self):
         key = self.receipt("race", basis="ESTIMATED_ONLY", estimate="0.05")
