@@ -932,3 +932,17 @@ dimostrare OFF effettivo dell'auto-review o accettare esplicitamente il
 costo, quindi PR, CI completa, review e merge gate. I gate di diritti,
 editoriale, pilot, MiniPC e dispositivi restano indipendenti e aperti.
 **90 DONE / 72 non DONE; release NO-GO.**
+
+**Seconda wave reale, 14 ottobre:** quattro worker nuovi, avviati dopo
+fallimento verificato della riattivazione dei precedenti, hanno contribuito
+fix independent DP242 `0cee79d`, DP244 `0c7ee20`, DP519 `323deef`,
+DP518 `bb00177`. Unico writer integratore, SHA remoti verificati, diff
+scopati. Test Python finale **3.645/3.645 PASS, exit 0** sulla source
+`bb00177`; `ruff check`/repository contract/licenze/privacy inventory PASS,
+`ruff format --check` rimane non conforme su quattro file già non conformi
+nella baseline `5f9cb1f` (debito cosmetico, non promuovere a Gold). GH
+run `38593285587` sul codice nuovo verde solo per repository contract;
+PR/backend/web/clean-clone manual/CI non attestati. I quattro ticket
+restano **IN PROGRESS** con AC originali aperti, next gate
+`PR_HELD_AUTOREVIEW_BILLING_GUARD` e poi accettazione diritti/editoriale,
+MiniPC e CDN. [Ricevuta](docs/reviews/2026-10-14-dp02-execution-closure.md).

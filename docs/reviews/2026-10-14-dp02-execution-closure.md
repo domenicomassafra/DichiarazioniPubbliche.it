@@ -38,6 +38,25 @@ I ticket originali e `PLAN.md` governano i criteri di acceptance.
 | DP-240 | `0da37940007da3ac9346c29867c50b947daf1e6d` | Rifiuto di `partition_id` scambiato tra due persone/content anche dopo checksum del piano ricalcolato; regressioni pure+SQLite RED→GREEN, 77/77 DP240/private candidates/Studio |
 | DP-241 | `a63fe1330e6de73f03ebe8a9341d2c5f0abe6573` | Guard di recupero fonti su diritti del Content esatto e locator `PASSAGE` originale; mismatch rights leaf Content/locator RED→GREEN su PostgreSQL, 93/93 DP241/319 e 12/12 adiacenti |
 
+### Seconda wave indipendente — nuove prove conseguenziali
+
+| Ticket | Commit integratore remoto | Prova delimitata |
+| --- | --- | --- |
+| DP-242 | `0cee79d310cdbc78e53c6000914ce1eddb1b8b7c` | Preflight Studio rifiuta flag `segment_publication_blocked` omesso o pseudo-booleano (1, 0, stringhe): solo `None` osservato o `False` letterale è ammissibile come sorgente; 70/70 test DP242/DP240/Studio/discovery PASS |
+| DP-244 | `0c7ee204c5eb4e5a290ddbea70279115df39d351` | Prima osservazione `CHANGED` senza baseline derivata revisionata non può dichiarare copertura corrente né emettere freshness descriptor; preservati i casi `UNCHANGED` legittimi; 17/17 mirati e 93/93 adiacenti PASS |
+| DP-519 | `323deef771ff73c2d66fc04a6555116a6bde970e` | `WITHDRAWAL_PENDING_EXTERNAL_READBACK` anziano compare nell'arretrato reale; `NO_IMAGE_SELECTED` e immagine opzionale scaduta restano esclusi; 62/62 visual/SQLite/PostgreSQL/HTTP/Studio PASS |
+| DP-518 | `bb00177a6138014cb66e627b61faf637c23f9df3` | Audit locale di release rifiuta vecchi HTML/JSON non inventariati, symlink e errori di scansione, limite 10.000 entry; tollera asset statici dichiarati; 50/50 test DP518/DP320 PASS |
+
+Ogni finding è stato provato **RED prima del fix** e GREEN dopo, con Ruff,
+compilazione e `git diff --check` sui file posseduti. Le quattro tranche
+sono commit disgiunti e pubblicati con readback `git ls-remote` esatto; la
+nuova source HEAD `bb00177a6138014cb66e627b61faf637c23f9df3` non è un
+merge `main`. DP-242/244/518/519 mantengono tutti gli AC originali
+**IN PROGRESS**: non esiste prova con fonti/autorizzazioni autentiche,
+attestazione B, operatori qualificati, MiniPC o CDN. Il controllo locale
+DP-518 non certifica il contenuto degli asset JavaScript di build tollerati
+né l'assenza di cache esterne; l'accettazione HTTP/CDN rimane separata.
+
 Ogni commit elencato è stato pubblicato **sullo stesso ramo remoto** con
 readback effettivo della SHA, senza staging globale o sostituzione dei diff
 altrui. Le ricevute per-ticket dettagliano le fixture, i confini e le AC
@@ -89,7 +108,7 @@ equivale a una CI completa. La precedente suite post-fix
 **3.624/3.624 PASS** è prova locale sul codice di `0228fa8`, non su ogni
 successivo codice di questa wave.
 
-**CI source corrente:** GitHub Actions run `38587368015` su
+**CI source del commit precedente alla seconda wave:** GitHub Actions run `38587368015` su
 `a63fe1330e6de73f03ebe8a9341d2c5f0abe6573` è `completed/success`:
 `repository contract=success`, mentre backend matrix, web static e detached
 clean-clone sono `skipped` sui branch push. Non è una CI PR né autorizzazione
@@ -98,6 +117,31 @@ Statement, parity, routes, projection-boundary e 8/8 check di accessibilità
 automatici PASS; resta la prova manuale con screen reader e dispositivo.
 I controlli repository, inventario privacy, asset/licenze, fixture, versioni,
 Ruff sui sorgenti/test modificati e `git diff --check` sono PASS.
+
+**Readback seconda wave (SHA `bb00177`):** GitHub Actions run
+`38593285587`, `completed/success` con `repository contract=success`;
+backend matrix, web static e detached clean-clone **`skipped`**. Il browser
+GitHub non sta provando la suite completa di PR.
+
+**Full suite definitiva, codice `bb00177a6138014cb66e627b61faf637c23f9df3`:**
+`PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`
+**3.645/3.645 PASS, exit 0, 362,131 s**, test reali PostgreSQL disposable,
+SQLite, prodotto/consumer e ripristino; log locale
+`/tmp/dp02-wave2-full-20261014.log`. I `ResourceWarning` SQLite/HTTP
+non fatali non costituiscono prove di accesso MiniPC/live. Il run completo
+precedente da 3.637/3.637 resta attribuito al suo diverso source SHA
+`a63fe133`.
+
+**Controlli integrativi sul codice `bb00177`:** repository contract,
+inventario privacy tecnico, hash e 47 asset licenze, fixture inventory,
+version consistency, `ruff check` sugli otto file Python source/test della
+wave e `git diff --check` PASS. `ruff format --check` non è verde su quattro
+file (`coverage_catalog_v1.py`, `distributed_withdrawal_audit_v1.py`, e
+rispettivi test DP244/DP518): gli stessi quattro file della baseline
+`5f9cb1f` fallivano già il check formatter; la differenza del format mostra
+molte righe preesistenti. Non è stata eseguita una riscrittura massiva fuori
+dal fix; registrare questo debito cosmetico distinto dal lint, dai test e
+dall'accettazione prodotto.
 
 Il follow-up Ruff di DP-314 è già incluso dalla baseline `0228fa8`; il
 verificatore generalista originale conserva **AC-314.1–.6 aperti** per

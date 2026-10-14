@@ -18,6 +18,11 @@ exit 0, 520,154 s**; la CI branch `38587368015` esegue il solo
 `repository contract`, con gli altri job `skipped`. La
 [mappa delle dichiarazioni e delle superfici SOP/Skills/Rules/Operations](2026-10-14-dp02-declarations-inventory.md)
 documenta route presenti e testi legali/pubblici non ancora autorizzati.
+**Aggiornamento successivo:** codice `bb00177` con DP242/244/519/518,
+full Python **3.645/3.645 PASS, exit0, 362,131 s**; Github run
+`38593285587` esegue solo repository contract. La
+[ricevuta DP02](2026-10-14-dp02-execution-closure.md) è il punto di
+ripartenza più recente, con tutti gli AC originali e release NO-GO.
 
 ## TL;DR e autorità Git
 

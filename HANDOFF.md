@@ -36,6 +36,13 @@
 > PR/main. [Ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md)
 > e [inventario documenti pubblici](docs/reviews/2026-10-14-dp02-declarations-inventory.md)
 > registrano i commit, le prove e i gate editoriali/legali/MiniPC NO-GO.
+> **Seconda wave DP02, source `bb00177`: 3.645/3.645 Python PASS,
+> exit 0, 362,131 s.** Quattro commit sul branch integratore per DP242,
+> DP244, DP519, DP518, rispettive regressioni RED→GREEN e controllo di
+> provenienza/ritiro/freschezza. GitHub Actions `38593285587`: solo
+> `repository contract=success`, backend/web/clean-clone `skipped`.
+> [Ricevuta aggiornata](docs/reviews/2026-10-14-dp02-execution-closure.md):
+> nessuna autorità per nuova PR, merge, pubblicazione o deploy inferita.
 
 **Tranche seconda ondata dopo c16d823, 12 ottobre 2026:**
 [Post-commit HELD_SOURCE receipt isolation, Studio operatore Collection
