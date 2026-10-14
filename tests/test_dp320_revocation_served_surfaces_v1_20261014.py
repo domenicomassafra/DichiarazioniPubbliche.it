@@ -17,7 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.revocation_epoch_fence import (  # noqa: E402
     IsolatedPublicationEpochStore,
+    MaterialEpoch,
     RevocationFenceHeld,
+    _ticket_fingerprint,
 )
 from dichiarazioni_pubbliche.revocation_served_surfaces_v1 import (  # noqa: E402
     ALL_SURFACES,
@@ -92,6 +94,38 @@ class RevocationServedSurfaceTests(unittest.TestCase):
                 self.fence.check_one(self.ticket, observation, self.manifest)
             )
         self.assertTrue(self.fence.seal(self.ticket, self.items, self.manifest))
+
+    def test_forged_large_self_consistent_ticket_cannot_bypass_mint_dependency_cap(self):
+        # mint() caps a dependency cohort at 128. A caller must not bypass
+        # that cap by constructing an otherwise correctly hashed ticket.
+        for i in range(127):
+            self.core.register_fixture_source(
+                f"source:extra:{i:03d}", hashlib.sha256(f"extra:{i}".encode()).hexdigest()
+            )
+        deps = [*self.ticket.dependencies]
+        deps.extend(
+            MaterialEpoch(f"source:extra:{i:03d}", 0, hashlib.sha256(f"extra:{i}".encode()).hexdigest())
+            for i in range(127)
+        )
+        deps = tuple(sorted(deps, key=lambda d: d.dependency_id))
+        self.assertEqual(len(deps), 129)
+        forged = replace(self.ticket, dependencies=deps, fingerprint=_ticket_fingerprint(self.ticket.release_id, deps))
+        observations = self.artifacts(ticket_fingerprint=forged.fingerprint)
+        manifest = surface_manifest_sha256(forged, observations)
+        with self.assertRaisesRegex(RevocationFenceHeld, "DEPENDENCY_SCOPE"):
+            self.fence.seal(forged, observations, manifest)
+        legitimate_deps = tuple(
+            dependency for dependency in deps
+            if dependency.dependency_id != "source:extra:126"
+        )
+        self.assertEqual(len(legitimate_deps), 128)
+        legitimate = replace(
+            forged, dependencies=legitimate_deps,
+            fingerprint=_ticket_fingerprint(forged.release_id, legitimate_deps),
+        )
+        valid_observations = self.artifacts(ticket_fingerprint=legitimate.fingerprint)
+        valid_manifest = surface_manifest_sha256(legitimate, valid_observations)
+        self.assertTrue(self.fence.seal(legitimate, valid_observations, valid_manifest))
 
     def test_surface_corruption_absence_cross_epoch_and_source_denied(self):
         self.seal()

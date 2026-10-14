@@ -435,3 +435,23 @@ Historic broad-overlay DP-314 Ruff F401 was not relabeled as a global PASS.
 This is NOT PR CI or authenticated issuer, editorial/legal approval, current
 production DB/PostgreSQL, CDN/HTTP withdrawal, real MiniPC or source rights
 acceptance. **Original DP-320 Status/AC unchanged; no PR/main merge.**
+
+### 2026-10-14 — Bounded ticket revalidation must match mint scope
+
+The source-only SQLite revocation store capped `mint(dependency_ids)` at 128,
+but its later `_check(ticket)` accepted an otherwise self-consistent,
+correctly fingerprinted `PublicationEpochTicket` containing **129** distinct
+dependencies. A caller able to fabricate such a reference could successfully
+seal the offline seven-surface cohort even though canonical admission would
+have refused minting the oversized dependency set. This is a bounded
+resource/scope invariant, not a claim of public issuer authority.
+
+The new seven-surface SQLite fixture was **RED** before the guard
+(`assertRaises RevocationFenceHeld` failed), then **GREEN** after the shared
+transactional `_check` rejects `FENCE_DEPENDENCY_SCOPE_INVALID`.
+A legitimate 128-dependency positive case remains sealable under the same
+manifest and material digest fences. DP320 focus **14/14 PASS** and served/
+revocation/PG-transition/RDF/search neighbors **51/51 PASS**, Ruff and
+`git diff --check` PASS. Source-only, no public authority inferred;
+**AC-320.1–5 remain OPEN** pending real PostgreSQL CAS, issuer and rights,
+CDN/cache negative readback, latency and MiniPC rehearsal.
