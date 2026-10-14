@@ -208,3 +208,32 @@ the real PG test then **FAILED** because an ambiguous second live rights row
 was incorrectly accepted. Restoring the guard returned it to **PASS**.
 All data was synthetic in a disposable database; no production data or
 real archive source was accessed and no deploy/push was performed.
+
+## 2026-10-14 — Skipped-source current-rights receipt validation (source only)
+
+An additional fail-open occurred in the completed-checkpoint/duplicate-archive
+branches. DP-515 rejected current `rights_receipt` values with control bytes,
+padding, or more than 256 characters, but DP-516 discarded the unsuccessful
+poll-plan reason and treated any nonblank `READY` rights reference as valid.
+It could therefore return `PRIVATE_REVIEW_PLAN` while a skipped source carried
+an invalid current rights readback. The initial adversarial regression was
+**RED** for four cases: a resumed committed Capture with LF, padding, or
+overlength receipt, and a deduplicated archive with embedded CR.
+
+The skipped-source branch now applies DP-515's exact receipt-label shape
+constraints independently of poll/backoff eligibility. Every malformed
+current rights reference holds the **entire** batch, with no proposals or
+hypothetical budget state, while unchanged valid receipts keep their existing
+no-reprocessing semantics. Two regression test methods cover the four negative
+inputs. **GREEN:** 53/53 DP-516 planner, SQLite checkpoint, disposable PG
+checkpoint, and adjacent DP-243 preflight tests passed. Ruff lint/format,
+compilation, and `git diff --check` passed. In a broader 75-test run, one
+independent DP-515 `test_200_older_last_modified_cannot_replace_newer_confirmed_source`
+failed (`CHANGED` versus expected `UNAVAILABLE`) and reproduced alone;
+DP-515 is outside this tranche and assigned to its own worker.
+
+All rights references and pilot signatures in these tests are synthetic
+caller-supplied fixtures. There was no real rights-authority readback, durable
+budget CAS, authenticated DP-443 pilot, MiniPC source replay, release, or
+public withdrawal. **DP-516 stays IN PROGRESS, AC-516.1–.6 all OPEN, and
+historical scaling NO-GO.**
