@@ -286,3 +286,55 @@ generation, source permission, publication or MiniPC route is activated.
 Focused and adjacent source-only tests remain separately required.
 **All AC-440.1–7 remain OPEN** pending real editorial entailment, rights,
 current issuer/revocation and MiniPC readback.
+
+## 2026-10-14 — Private source-linked synopsis regeneration planner
+
+New source-only `public_synopsis_refresh_plan_v1.py` with deterministic
+`tests/test_dp440_synopsis_refresh_plan_20261014.py`. The opt-in private
+revalidation consumer compares two actual schema-validated v3 public
+Statement projections against a previously prepared DP-440 synopsis and a
+separately supplied current DP-439 Topic membership. It requires independently
+obtained expected SHA-256 pins for **both** projections and the previous
+synopsis and checks each old sentence's citation against the old actual
+published Statement/version/quote hash/source locator/date/language. It
+reports only changed or missing public Statement/version IDs and finite
+remediation codes, never source bodies, sentence prose, editorial notes,
+identity inference or any factual/rights/publication authority.
+
+The implementation was genuinely **RED** on absent new module. Focused
+regressions verify immutable no-change review-pending output; changed
+original/source SHA/version/date, missing citations or removed Topic
+membership requiring review; revoked/held/pending/expired membership withholding;
+forged or mismatched pins/metadata raising fixed refusals and zero provider
+calls. A further test reproduced **RED** for changes only to public projection
+`generated_at` because the canonical dataset SHA intentionally omits that
+timestamp. The worklist now tracks exact `generated_at` separately and
+requires a fresh review even when every corpus row fingerprint is unchanged.
+An additional **RED→GREEN** case proved one legitimately reviewed public
+Statement may support multiple separately reviewed synopsis sentences; the
+planner now deduplicates changed/missing *source reference IDs* rather than
+rejecting that lawful repeated citation or counting it as independent
+corroboration.
+The no-difference state is explicitly `NO_CHANGE_REVIEW_PENDING`, **never**
+READY/PUBLISH: independently authenticated issuer status, source rights,
+human semantic entailment and citation review remain external. This is
+revalidation planning, not a summary generator or a cache eviction program.
+Original DP-440 **IN PROGRESS, AC-440.1–7 unchanged and OPEN**; no editorial,
+legal, physical MiniPC, provider or production serving acceptance.
+
+**Review-status receipt:** the existing independent reviewer could not
+restart, and the separately requested replacement worker failed to start
+before any new file inspection. There is **NO genuine independent PASS** for
+this new planner at this time. Prime source-only adversarial replay and
+deterministic tests count as implementation validation, not independent or
+qualified human/editorial review. PR and production-release gates remain
+held and every original DP-440 AC stays open.
+
+**Definitive local tests:** new+adjacent DP-440 Python **25/25 PASS**, genuine
+RED→GREEN cases recorded above. The two new source/test files are byte-
+identical to those used for the single combined full Python unittest run in
+the disposable uncommitted test overlay of main with the disjoint DP-320
+eight-surface source/test: **3,469/3,469 PASS, exit 0, 298.492 seconds**;
+deterministic benchmark **5/5 PASS**, Ruff check/format and Python compileall
+PASS. No PR CI, production data, provider calls or independent reviewer PASS
+are implied. All original real editorial/source/rights/MiniPC gates stay OPEN.
