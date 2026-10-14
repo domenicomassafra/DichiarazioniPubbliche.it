@@ -586,3 +586,19 @@ Ruff F401 is not a global lint pass. This never authenticates external issuer
 SHA ownership, source rights/independent legal evidence/editorial fact review,
 public v3, HTTP/CDN/PG/MiniPC or PR CI. **Status IN PROGRESS and all
 AC-440.1–7 remain unchecked**, no production/publisher/provider activity.
+
+### 2026-10-14 — Separate synopsis sentence-review event (source-only)
+
+The opt-in `prepare_public_synopsis` accepted a supposedly reviewed synopsis
+sentence whose `review_event_id` was **identical** to the topic membership
+approval or currentness attestation. These are different review decisions:
+the mere existence of a topic intersection/currentness receipt must not stand
+in for independent editorial review of claims in a public-facing synopsis.
+The new regression was **RED** (2/2 cases returned `READY_READ_MODEL`)
+before the fix. The precomputed read-model now withholds any sentence reusing
+either intersection event as `SYNOPSIS_SENTENCE_PROVENANCE_INVALID`; distinct
+synthetic sentence-review events preserve the prior positive behavior.
+**43/43** focused and DP440 refresh/cohort adjacent tests GREEN, Ruff check,
+`git diff --check` PASS. This structural separation does not authenticate
+real reviewers, semantic entailment or source permissions; **AC-440.1–7 all
+OPEN**, source-only technical hardening and no MiniPC/public deployment.

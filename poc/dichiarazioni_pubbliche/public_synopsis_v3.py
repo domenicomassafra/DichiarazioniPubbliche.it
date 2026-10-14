@@ -169,6 +169,9 @@ def prepare_public_synopsis(
             return withheld("SYNOPSIS_SENTENCE_UNREVIEWED")
         if (not _text(sentence.review_event_id, 160)
             or sentence.review_event_id in reviewed_ids
+            or sentence.review_event_id in {
+                intersection.review_event_id, intersection.currentness_attestation_id
+            }
             or sentence.kind not in {"SOURCE_LIST_ONLY", "REVIEWED_DESCRIPTIVE_SUMMARY"}
             or not sentence.source_statement_versions
             or len(sentence.source_statement_versions) > 12
