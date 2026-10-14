@@ -40,3 +40,18 @@ Depends on: DP-304, DP-307, DP-501, DP-502
 
 ## Completion receipt
  Not implemented/activated remotely; planning only. Future exact signed owner scope, Google registration/redirect, runtime hash, account lifecycle + erasure results, MiniPC before/after route/public readback and rollback record.
+
+## Source-only redirect origin regression — 2026-10-14
+
+The opt-in OIDC service previously accepted any syntactically valid HTTPS `.it`
+host as its configured `site_origin`, including unrelated and lookalike domains.
+The owner account activation runbook specifies the single registered callback
+`https://dichiarazionipubbliche.it/account/oauth/callback`; an unapproved
+origin could therefore be used to construct a Google authorization redirect
+outside that reviewed host boundary. A RED regression reproduced admission of
+unrelated, lookalike and `www` origins. `AccountService` now admits only the
+canonical configured origin, retaining the original HTTP/HTTPS syntax check.
+The regression and existing local account, web-boundary and privacy inventory
+tests pass offline. This is a source hardening result for AC-517.2/5 only;
+real client registration, lawful handling and retention/backup acceptance,
+MiniPC proxy/host readback, live token, deletion and UX evidence remain OPEN.

@@ -1,15 +1,12 @@
 import base64
 from contextlib import redirect_stderr
-import hashlib
 import http.client
 import io
 import json
 import os
-import stat
 import sys
 import tempfile
 import threading
-import time
 import unittest
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -17,11 +14,11 @@ from urllib.parse import parse_qs, urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
-from dichiarazioni_pubbliche.public_account import (
-    AccountService, AccountStore, GoogleOidcProvider, OIDC_AUTHORIZE,
+from dichiarazioni_pubbliche.public_account import (  # noqa: E402
+    AccountService, AccountStore, OIDC_AUTHORIZE,
     read_secret_file, verify_google_id_token,
 )
-from dichiarazioni_pubbliche.public_api import build_server
+from dichiarazioni_pubbliche.public_api import build_server  # noqa: E402
 
 
 class FakeProvider:
@@ -114,6 +111,24 @@ class PublicAccountTests(unittest.TestCase):
                     AccountStore(Path(unsafe) / "accounts.sqlite3")
             with self.assertRaisesRegex(ValueError, "HTTPS_ORIGIN"):
                 AccountService("client_id", "http://dichiarazionipubbliche.it", self._service(directory).store, FakeProvider(), visitor_key="private-visitor-key")
+
+    def test_oidc_redirect_must_use_the_registered_account_origin(self):
+        # A syntactically valid .it origin can request OAuth callbacks and
+        # bind member cookies at an unreviewed hostname. Activation
+        # must use the single origin documented in the account runbook.
+        with tempfile.TemporaryDirectory() as directory:
+            store = self._service(directory).store
+            for origin in (
+                "https://unrelated.it",
+                "https://dichiarazionipubbliche-accounts.it",
+                "https://dichiarazionipubbliche.it.bad.it",
+                "https://www.dichiarazionipubbliche.it",
+                "https://dichiarazionipubbliche.it:443",
+            ):
+                with self.subTest(origin=origin), self.assertRaisesRegex(ValueError, "ACCOUNT_ORIGIN_INVALID"):
+                    AccountService("client_id", origin, store, FakeProvider(), visitor_key="private-visitor-key")
+            service = AccountService("client_id", "https://dichiarazionipubbliche.it", store, FakeProvider(), visitor_key="private-visitor-key")
+            self.assertEqual(service.callback, "https://dichiarazionipubbliche.it/account/oauth/callback")
 
     def test_public_http_is_read_only_by_default_and_loopback_only_with_accounts(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -226,7 +241,8 @@ class SignedGoogleTokenTests(unittest.TestCase):
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         numbers = private_key.public_key().public_numbers()
-        encode = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+        def encode(value):
+            return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
         jwks = {"keys": [{
             "kty": "RSA", "use": "sig", "alg": "RS256", "kid": "test-key",
             "n": encode(numbers.n.to_bytes(256, "big")), "e": encode(numbers.e.to_bytes(3, "big")),
