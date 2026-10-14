@@ -430,3 +430,37 @@ PASS, adjacent DP-439 public search and cross-reader Node tests PASS,
 errors, 0 warnings** (one existing DP-429 import hint). The temporary
 dependency symlink is local-only; no production deployment, real source
 rights, current authenticated issuer or physical MiniPC approval is claimed.
+
+### 2026-10-14 — Private operator session share-link P2: public-membership-only filters
+
+Independent source-only reviewer-11 reproduced a private operator link
+reflection in the inherited `privateV3OperatorSession.ts` with real synthetic
+Python public-v3 Statement/Person/Topic and cited-synopsis fixture: the fully
+pinned session returned **zero** matching rows for
+`fonte=content:private-secret` but embedded that unapproved caller-supplied
+source identifier in the HTML `data-session-url` and `shareableQuery`.
+A no-match free-text `q=person:private-secret` (and once-decoded `%2500`)
+was likewise echoed into the generated link. This proves a reflection of
+caller input, **not** disclosure of a previously unknown private record.
+
+An explicit regression was saved **RED** before correction. The operator
+session now validates the **entire** published source, Person, Topic and
+search index via the existing pinned reader before deriving any share link.
+Only Content IDs with a current published Statement for the exact pinned
+Person×Topic may persist as a `fonte` URL filter. A free-text query that
+matches no approved public result is not reissued into a share link, and
+the URL is deterministically serialized from validated filters and the
+effective page, rather than copied from the request. The originally
+requested filters still govern the current private search result; no
+unapproved source results or raw private roster are introduced. Valid
+public source/title queries, ordered paging, released-snapshot checks and
+revocation/epoch races remain covered by the genuine Python→TS→Astro test.
+No public route, provider use, persistent browser history mutation or
+publication capability is added. A caller's preexisting address bar/history
+cannot be sanitized retroactively by this offline session reader; the
+new returned HTML/share URL only contains permitted public filters.
+
+This is a private source-only hardening extension. DP-439 stays **IN PROGRESS**
+with original AC-439.1–7 unchecked. Independent code review, CI and an
+actual authenticated issuer/rights, public delivery and physical MiniPC
+readback remain separate gates.

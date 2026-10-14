@@ -96,6 +96,43 @@ assert.equal(next.resultCount,2);
 assert.equal((await read(assets,pins,"?"+next.previousUrl)).rows[0].statementId,"statement:2");
 assert.deepEqual(await read(),first,"query URL reload is deterministic for pinned release");
 
+// RED: a valid operator session used to copy raw caller-supplied source IDs
+// and no-hit query markers into a shareable href, even after zero records.
+// Exact public source/topic membership, NOT input grammar, must authorize
+// what may reappear in share URLs or query history suggestions.
+const approvedSource=first.rows[0].sourceContentId;
+const approvedFilter=await read(assets,pins,url+"&fonte="+encodeURIComponent(approvedSource));
+assert.equal(approvedFilter.resultCount,1);
+assert.equal(new URLSearchParams(approvedFilter.shareableQuery).get("fonte"),approvedSource);
+assert.match(approvedFilter.html,/data-session-url/);
+const publicQuery=first.rows[0].sourceTitle;
+const publicSearch=await read(assets,pins,url+"&q="+encodeURIComponent(publicQuery));
+assert.ok(publicSearch.resultCount>0,"an approved public title must stay searchable");
+assert.equal(new URLSearchParams(publicSearch.shareableQuery).get("q"),publicQuery);
+for(const hostile of [
+  {key:"fonte",marker:"content:private-secret",value:"content%3Aprivate-secret"},
+  {key:"q",marker:"person:private-secret",value:"person%3Aprivate-secret"},
+  {key:"q",marker:"%00",value:"%2500"},
+]) {
+  const result=await read(assets,pins,url+"&"+hostile.key+"="+hostile.value);
+  assert.equal(result.status,"PRIVATE_OPERATOR_SESSION");
+  assert.equal(result.resultCount,0);
+  assert.equal(new URLSearchParams(result.shareableQuery).get(hostile.key),null,
+    `unapproved ${hostile.key} must not be reissued as a shareable filter`);
+  assert.doesNotMatch(decodeURIComponent(JSON.stringify(result)),
+    new RegExp(hostile.marker.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")),
+    `unapproved ${hostile.key} must not appear in HTML, share link or page links`);
+  assert.equal(new URLSearchParams(result.shareableQuery).get("persona"),pins.personId);
+  assert.equal(new URLSearchParams(result.shareableQuery).get("tema"),pins.topicId);
+  assert.match(result.html,/data-session-url/);
+}
+const combined=await read(assets,pins,
+  url+"&fonte=content%3Aprivate-secret&q=person%3Aprivate-secret&pagina=2");
+assert.equal(combined.resultCount,0);
+assert.equal(combined.page,1,"share the effective page after a no-match request");
+assert.equal(new URLSearchParams(combined.shareableQuery).get("pagina"),null);
+assert.doesNotMatch(decodeURIComponent(JSON.stringify(combined)),/private-secret/);
+
 const reject=(name,a=assets,p=pins,q=url,current=async()=>({...p}),pattern=/DP439_SESSION_|DP440_|PUBLIC_|DP439_PRIVATE_/)=>
   assert.rejects(read(a,p,q,current),pattern,name);
 await reject("wrong Person cannot leak unrelated synopsis",assets,pins,"?persona=person%3AB&tema=topic%3Aeconomia");
@@ -141,7 +178,7 @@ try{
   await writeFile(join(scratch,"astro.config.mjs"),
     "import {defineConfig} from 'astro/config';export default defineConfig({output:'static'});");
   const modulePath=fileURLToPath(new URL("../src/lib/privateV3OperatorSession.ts",import.meta.url));
-  const page=[
+  const page=(sessionUrl=url)=>[
     "---",
     `import {readPrivateV3OperatorSession} from ${JSON.stringify(modulePath)};`,
     'import assets from "../../assets.json";',
@@ -149,17 +186,17 @@ try{
     'import current from "../../current.json";',
     'let reads=0;',
     'const {driftAt=0,...nowPins}=current;',
-    `const view=await readPrivateV3OperatorSession(assets,expected,${JSON.stringify(url)},`,
+    `const view=await readPrivateV3OperatorSession(assets,expected,${JSON.stringify(sessionUrl)},`,
     ' async()=>({...nowPins,epoch:nowPins.epoch+(driftAt&&++reads===driftAt?1:0)}),{pageSize:1});',
     "---",
     '<html lang="it"><head><meta name="robots" content={view.robots} /></head>',
     '<body><Fragment set:html={view.html}/></body></html>',
   ].join("\n");
-  await writeFile(join(scratch,"src/pages/index.astro"),page);
-  async function build(a,p,current,out){
+  async function build(a,p,current,out,sessionUrl=url){
     await writeFile(join(scratch,"assets.json"),JSON.stringify(a));
     await writeFile(join(scratch,"pins.json"),JSON.stringify(p));
     await writeFile(join(scratch,"current.json"),JSON.stringify(current));
+    await writeFile(join(scratch,"src/pages/index.astro"),page(sessionUrl));
     return spawnSync(join(web,"node_modules/.bin/astro"),[
       "build","--root",scratch,"--outDir",join(scratch,out),
     ],{cwd:scratch,encoding:"utf8",timeout:45000});
@@ -175,6 +212,13 @@ try{
   assert.match(html,/data-original-quote/);
   assert.match(html,/id="dp439-operator-record-1" tabindex="-1"/);
   assert.doesNotMatch(html,/<img\s|review_provenance/);
+  const scrubbed=await build(approved,pins,pins,"scrubbed",
+    url+"&fonte=content%3Aprivate-secret&q=person%3Aprivate-secret");
+  assert.equal(scrubbed.status,0,scrubbed.stdout+"\n"+scrubbed.stderr);
+  const scrubbedHtml=await readFile(join(scratch,"scrubbed/index.html"),"utf8");
+  assert.match(scrubbedHtml,/data-session-url/);
+  assert.match(scrubbedHtml,/0 risultati nel corpus pubblico approvato/);
+  assert.doesNotMatch(scrubbedHtml,/private-secret|content%3Aprivate|person%3Aprivate/);
   const late=await build(approved,pins,{...pins,driftAt:6},"late");
   assert.notEqual(late.status,0,"revoke between render and reply must abort SSR");
   assert.match(late.stdout+late.stderr,/CURRENT_CHANGED/);
