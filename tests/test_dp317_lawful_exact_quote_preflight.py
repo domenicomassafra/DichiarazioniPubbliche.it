@@ -319,7 +319,11 @@ class LawfulExactQuotePreflightTests(unittest.TestCase):
             translation_parent_sha256=SHA("German wording"),
         )
         self.assertTrue(
-            check(req=translated, claim=scoped(translated)).source_only_consistent
+            check(
+                req=translated,
+                claim=scoped(translated),
+                record=private_rights(permitted_uses=("STORE_BODY", "TRANSLATE")),
+            ).source_only_consistent
         )
         for invalid in (
             replace(translated, text_role="SOURCE_ORIGINAL"),
@@ -334,6 +338,33 @@ class LawfulExactQuotePreflightTests(unittest.TestCase):
                 self.assertFalse(
                     check(req=invalid, claim=scoped(invalid)).source_only_consistent
                 )
+
+    def test_translation_rights_must_include_private_translate_use(self):
+        translated = request(
+            representation="EDITORIAL_TRANSLATION",
+            text_role="IDENTIFIED_TRANSLATION",
+            source_language="de",
+            displayed_language="it",
+            translation_parent_sha256=SHA("original-german-quote"),
+        )
+        scoped_claim = scoped(translated)
+        # A separately scoped, case-reviewed public translation claim cannot
+        # silently expand an underlying STORE_BODY-only private source grant.
+        denied = check(req=translated, claim=scoped_claim)
+        self.assertEqual(denied.reason_code, "SOURCE_USE_NOT_PERMITTED")
+        self.assertFalse(denied.source_only_consistent)
+        self.assertFalse(denied.public_quote_permitted)
+
+        explicitly_allowed = check(
+            req=translated,
+            claim=scoped_claim,
+            record=private_rights(permitted_uses=("STORE_BODY", "TRANSLATE")),
+        )
+        self.assertTrue(explicitly_allowed.source_only_consistent)
+        self.assertEqual(
+            explicitly_allowed.reason_code, "EXTERNAL_QUALIFIED_AND_LIVE_PROOF_REQUIRED"
+        )
+        self.assertFalse(explicitly_allowed.public_quote_permitted)
 
     def test_film_audio_screenshot_embed_never_inherit_transcript_text_license(self):
         for representation in ("FILM_CLIP", "AUDIO_CLIP", "SCREENSHOT", "EMBED"):

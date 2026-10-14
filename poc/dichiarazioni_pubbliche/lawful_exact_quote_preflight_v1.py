@@ -387,18 +387,24 @@ def evaluate_exact_quote_preflight(
     if problem is not None:
         return _held(problem, fingerprint)
     try:
-        private_use = evaluate_source_use(
-            private_rights_record,
-            subject=request.subject,
-            rights_record_id=private_rights_record_id,
-            policy_version=private_rights_policy_version,
-            use="STORE_BODY",
-            now=now,
-        )
+        required_private_uses = ("STORE_BODY",)
+        if request.representation == "EDITORIAL_TRANSLATION":
+            # The source-specific permission to store the original cannot
+            # silently authorize a distinct private translation operation.
+            required_private_uses += ("TRANSLATE",)
+        for required_use in required_private_uses:
+            private_use = evaluate_source_use(
+                private_rights_record,
+                subject=request.subject,
+                rights_record_id=private_rights_record_id,
+                policy_version=private_rights_policy_version,
+                use=required_use,
+                now=now,
+            )
+            if not private_use.permitted:
+                return _held(private_use.reason_code, fingerprint)
     except (AttributeError, TypeError, ValueError):
         return _held("QUOTE_PRIVATE_RIGHTS_CONTRACT_INVALID", fingerprint)
-    if not private_use.permitted:
-        return _held(private_use.reason_code, fingerprint)
     problem = _claim_problem(
         request, rights_claim, now, current_revocation_epoch, fingerprint
     )
