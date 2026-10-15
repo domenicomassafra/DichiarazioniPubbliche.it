@@ -960,6 +960,43 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+### Owner mandate 15 ottobre 2026 — almeno un ticket completo (run successivo)
+
+**Risultato verificabile:** nuova issue tecnica circoscritta **DP-520 DONE**
+(offset `MEDIA_SEGMENT_REF.variant_end_char` negativo, reale RED→GREEN,
+24/24 test prime, 68/68 focused+adjacent worker, 5/5 benchmark e
+commit/push `e4dffdf` fix + `ef8e0d8` closure). È una **nuova
+correzione source-only**; non viene presentata come chiusura fittizia
+degli originali. Backlog **163/91 DONE/72 non-DONE/READY=0**,
+`tools/report_ticket_status.py` conferma PLAN/ticket parity.
+
+Tre worker nativi GPT-6 High riutilizzati, tutti con primo turno
+e finish: DP-237 `e4dffdf` (locator negativo), DP-318 `3d3c174`
+(stesso source-part con hash di revisione differente) e DP-407
+`ea5a16d` (timestamp su URL con fragment preesistente).
+Ticket originali DP-237/318/407 rimangono **IN PROGRESS** per
+le rispettive AC su fonte approvata/attestazione, pubblicazione,
+UI/AT e MiniPC; nessun test fittizio le chiude. Invito worker-5
+DP-516/519 **FAILED startup** (chat aperta senza primo turno);
+nessun retry per nasconderlo.
+
+**Prova e delivery**: i tre commit source e la chiusura DP-520
+sono stati pubblicati sul branch integratore, main invariato.
+Test prime combinati DP237/DP318 63/63 PASS; DP407 actual Astro/
+Chrome currentness checker PASS; Python benchmark/Ruff/contract PASS
+mirati. Una sola full Python su snapshot detached `ea5a16d`
+(`/tmp/dp02-wave002-exact-full-20261015.log`):
+**3.683/3.683 PASS, exit 0 in 456,338 s**. Astro
+check 129 file/0 errori/0 warning/1 hint, Ruff e benchmark 5/5
+PASS. Il test è attribuito soltanto allo SHA `ea5a16d`, non al vecchio
+PASS 3681. Symlink temporaneo node_modules rimosso, worktree test
+detached rimosso pulito senza force; due originali preservati.
+WIP DP-512 concorrente preservato intatto.
+Ricevuta canonica: `docs/reviews/2026-10-15-dp02-at-least-one-ticket.md`.
+PR non creata (auto-review billing guard, full PR CI/approval non
+provati), NO-GO/49; file di risposta Ops aggiornato localmente sotto
+Core07 lease di Git ancora pendente.
+
 ### Continuazione owner 15 ottobre 2026 — quattro dispatch richiesti
 
 L'owner ha chiesto esplicitamente di continuare questa lane, attivando
