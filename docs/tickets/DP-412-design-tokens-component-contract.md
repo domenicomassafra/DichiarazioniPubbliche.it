@@ -608,3 +608,30 @@ The sole open design acceptance is still **AC-412.5**: genuine VoiceOver
 speech, keyboard/focus, 200% zoom at desktop/320/390, target dimensions,
 grayscale/reduced-motion and restored GUI handoff. Node/PG suites and PR
 CI cannot substitute for that screen-reader acceptance.
+
+
+### 2026-10-15 — Focus restoration race, fast Dialog toggle (PR #26)
+
+The original `useRestoreFocus()` cleared `hadFocusRef` immediately after
+scheduling `requestAnimationFrame`, before focus was actually returned to the
+invoker. A fast `open=true → false → true → false` update cancelled the first
+frame but had already erased the pending restoration flag. A second close
+therefore left focus un-restored. This is not proof of any particular
+VoiceOver announcement, but is a real focus-management race in the design
+primitive used by Dialog.
+
+A new deterministic, no-browser lifecycle harness in
+`web/scripts/check-focus-restore.mjs` reproduced the unmodified bug **RED**
+(`close/reopen within one frame must not lose original invoker`: expected
+`[trigger2]`, got `[]`). The minimal repair defers clearing the captured
+invoker until the restoration frame actually runs and preserves the original
+invoker across a cancelled frame / rapid reopen. Its tests exercise normal
+close, rapid close/reopen, unmounted invoker fallback, and subsequent separate
+invoker **4/4 GREEN**. The existing `check-design-a11y.mjs` now executes this
+regression as part of its normal 10-group contract check. No new React
+primitive, dependency or browser/profile is introduced.
+
+These are deterministic hook/RAF contract checks, **NOT the real screen-reader
+speech, keyboard/focus-order and 320/390px at 200% acceptance**.
+**AC-412.5 and original DP-412 remain OPEN until the full GUI matrix is
+verified after the CoS09→CoS02 handoff.**

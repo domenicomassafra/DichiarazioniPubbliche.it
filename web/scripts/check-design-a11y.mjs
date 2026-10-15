@@ -185,4 +185,8 @@ check("Reduced-motion variants keep static loading/selection states", () => {
   assert.match(primitives, /\.dp-segmented__option\[data-checked='true'\]::after/);
 });
 
-console.log(JSON.stringify({ result: "PASS", checks, scope: "Node SSR/contract/contrast", manual_screen_reader: "PENDING", exact_browser_zoom: "covered by separate browser QA" }));
+// Exercise real focus-hook scheduling with a deterministic React-hook/RAF
+// harness. This is a regression gate, not a substitute for real VoiceOver.
+await import("./check-focus-restore.mjs");
+
+console.log(JSON.stringify({ result: "PASS", checks, scope: "Node SSR/contract/contrast/focus-scheduling", manual_screen_reader: "PENDING", exact_browser_zoom: "covered by separate browser QA" }));
