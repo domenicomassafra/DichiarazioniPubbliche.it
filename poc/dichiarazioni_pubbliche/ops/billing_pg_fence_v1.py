@@ -336,6 +336,9 @@ class DisposableBillingPgFence:
             u.scheme not in {"postgresql", "postgres"}
             or u.hostname not in {"127.0.0.1", "localhost"}
             or not u.path.startswith("/dp512_test_")
+            # This DSN is passed to psql as an argv value: credentials must
+            # come from the native libpq store, never URI userinfo.
+            or u.password is not None
             or u.query
             or u.fragment
         ):

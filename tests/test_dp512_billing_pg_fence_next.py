@@ -496,6 +496,16 @@ class BillingPgFenceTests(unittest.TestCase):
         self.assertEqual(outcomes, {2, "BILLING_REVISION_CONFLICT"})
         self.assertEqual(self.sql("SELECT count(*) FROM dp512_pg_adjustment"), "1")
 
+    def test_disposable_client_rejects_password_embedded_in_psql_argv_dsn(self):
+        # The psql subprocess receives -d with the DSN in its command-line
+        # arguments. Database credentials belong in libpq's native store,
+        # not a process listing or the model-visible command transcript.
+        with self.assertRaisesRegex(ValueError, "BILLING_DISPOSABLE_DSN_REQUIRED"):
+            DisposableBillingPgFence(
+                "postgresql://postgres:private-password@127.0.0.1:5432/"
+                "dp512_test_billing"
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

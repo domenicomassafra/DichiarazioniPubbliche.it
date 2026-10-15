@@ -523,3 +523,18 @@ actual reconciliation. AC-512.1–.3 and .5–.6 remain OPEN for the previously
 specified billing, reservations and installed-consumer proofs. This is a
 substantive independently testable technical slice, not a new ticket or
 substitute for real money movement.
+
+### CoS02 final security/standards review before delivery
+
+The local two-axis Standards/Spec review identified an additional security
+regression opportunity in the existing subprocess seam: libpq credentials
+embedded in a password-bearing DSN would be exposed as part of the native
+psql argv. A new negative test was RED (constructor incorrectly accepted
+the URI); the same disposable fence now rejects DSNs with URL passwords.
+Authentication for a properly configured localhost test server can still use
+the native libpq credential mechanism without sending passwords in CLI
+arguments. The final scoped reconciliation/billing/health set is **39/39
+PASS**, with scoped Ruff and diff checks PASS. The new adjustment API,
+database schema and ticket remain source-only/disposable; no authenticated
+invoice, external provider charge, live migration or cash refund has been
+produced by this change.
