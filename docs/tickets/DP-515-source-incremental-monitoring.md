@@ -266,3 +266,47 @@ freshness/cache negative readback (MiniPC/release and editorial acceptance
 owners). Resume only after those observable source, approval, cost and install
 prerequisites change. Retain the existing polling units unchanged; their
 presence is not DP-515 authorization or public freshness evidence.
+
+## 2026-10-15 — Crashed same-gate watch lease recovery (isolated fixture)
+
+The disposable SQLite attempt ledger had a reproducible deadlock under a
+crashed watcher: a persisted `IN_FLIGHT` attempt prevented any second poll of
+the source indefinitely while its rights/capability/budget gate revision stayed
+unchanged. The existing `abandon_stale_attempt` could only retire a reservation
+after a gate-epoch change. This is a concrete local subset of the original
+AC-515.5 lease/replay gap, not evidence of a production worker lease.
+
+The existing **opt-in fixture adapter** now pins an immutable expiration on
+each new attempt (`lease_expires_at`, UTC, default 300 seconds; explicit bounded
+duration 1–86400 seconds). Identical retry must preserve the original deadline,
+including after closing/reopening the SQLite file. An explicit
+`expire_stale_attempt(source_id, attempt_id, as_of,
+expected_state_revision, expected_gate_revision)` requires the trusted caller's
+aware UTC-equivalent clock readback, an elapsed deadline, the exact source and
+current state/gate revisions. It CAS-retires that attempt within one
+`BEGIN IMMEDIATE` transaction. A late supplied observation with timestamp at
+or after the deadline cannot advance source success or create any proposal;
+recovery preserves old validators, state, cost and receipt history. A different
+attempt ID can then be admitted under the current gates; an abandoned attempt
+cannot be replayed. The disposable schema now rejects pre-lease fixture files
+at initialization, requiring fixture recreation rather than silently assigning
+post-hoc authority to old attempts.
+
+**RED→GREEN proof:** three new tests first raised missing-method/signature
+errors against the pre-fix adapter. Following the change, five new tests cover
+crash/reopen, same-gate recovery, premature expiry and invalid/naive inputs,
+lease deadline/replay pinning, rights-revision CAS, boundary-time late
+responses, and competing SQLite connections racing commit against expiry.
+Focused DP-515 and source watcher tests: **53/53 PASS**; target compile and
+`git diff --check` PASS. All times, READY labels and responses are local synthetic
+fixtures; the adapter does not perform HTTP, schedule, enqueue, reserve money,
+access canonical PostgreSQL or publish. The caller's clock and identity are
+not authenticated by this fixture, so the result must not be promoted to
+unattended runtime authority.
+
+**Original AC-515.1–515.7 remain unchecked / IN PROGRESS / unattended NO-GO.**
+Still externally blocked: source-specific authorization and rights readback,
+approved DP-514 budget/provider charging and queue capability, canonical PG
+lease/admission and DP-511/DP-510 revoke/reanalysis wiring, verified operator
+health/coverage data, and governed MiniPC source/candidate and public-cache
+readbacks. The existing polling services remain the separate legacy consumer.
