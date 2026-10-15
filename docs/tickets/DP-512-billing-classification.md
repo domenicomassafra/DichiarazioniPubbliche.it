@@ -482,3 +482,44 @@ Standards found no remaining consequential issue in the bounded correction
 Spec review confirmed fail-closed UNKNOWN per-source and known global BREACH,
 with all six original DP-512 AC still open. External source allocation, real
 billing and installed consumer acceptance were not fabricated.
+
+## 2026-10-15 — CoS02 continuation: append-only refund/correction candidates
+
+The original AC-512.4 gap was missing historic adjustment receipts, not
+permission to rewrite canonical provider_receipt or treat caller-provided
+statement references as invoices. Reused the existing disposable PostgreSQL
+classification/CAS seam (ops/billing_pg_fence_v1.py) rather than creating
+another billing authority, provider path, dispatcher or production migration.
+The new DisposableBillingPgFence.adjust accepts only a previously classified
+**recorded-measured** canonical attempt, version/revision, bounded positive
+amount, exact event/kind and operator-supplied evidence reference. It records
+REFUND, CORRECTION_UP or CORRECTION_DOWN under an append-only trigger;
+each event shares the existing per-receipt revision lock and stores a fingerprint
+of unchanged original receipt bytes. Resulting balances are explicitly named
+unverified_net_recorded_usd: neither the reference nor its checksum
+authenticates a provider statement, authorizes spend, or confirms cash settlement.
+No canonical receipt or public data are rewritten, and no provider credentials
+or free-form bill bodies are returned.
+
+Three real canonical-schema PostgreSQL tests first failed RED because the
+adjust interface did not exist. After implementing exact immutable event
+replay, restart behavior, negative/over-credit rejection, concurrent client
+CAS and redaction, all **18/18 PostgreSQL fence tests passed**. A separate
+review found a consequential double-credit alias: reusing one source reference
+as REFUND then as CORRECTION_DOWN could pass an event-kind-scoped uniqueness
+check. One adversarial regression failed RED; the reference uniqueness is now
+receipt-wide irrespective of event kind, enforced both by table constraint and
+re-application index for existing disposable test schemas. Final scoped
+billing, digest and ledger regressions: **38/38 PASS**, Ruff and whitespace
+checks PASS. The next full-source suite and MiniPC disposable readback must be
+recorded separately against their exact SHA, not inferred from this focused
+test. No production migration/install, bill matching, reserve/debit authority,
+real refund, invoice attestation or ticket DONE is claimed.
+
+**Original AC-512.4 remains OPEN** for independently observed, authenticated
+provider/statement correction evidence, full historic backfill preview,
+integration into authorized production canonical migration/consumers and
+actual reconciliation. AC-512.1–.3 and .5–.6 remain OPEN for the previously
+specified billing, reservations and installed-consumer proofs. This is a
+substantive independently testable technical slice, not a new ticket or
+substitute for real money movement.

@@ -402,6 +402,100 @@ class BillingPgFenceTests(unittest.TestCase):
             "PROMPT SECRET",
         )
 
+    def test_measured_charge_refund_and_correction_are_immutable_cas_events(self):
+        key = self.receipt("adjust", basis="MEASURED_PROVIDER_COST",
+                           measured="0.40", status="SUCCEEDED")
+        self.save(key, asserted_basis="MEASURED_PROVIDER_COST",
+                  asserted_usd="0.40", evidence_ref="usage:synthetic")
+        before = self.sql("SELECT md5(json_agg(r ORDER BY id)::text) FROM provider_receipt r")
+        first = self.store.adjust(
+            receipt_id=key, event_id="adjust:refund", expected_revision=1,
+            adjustment_kind="REFUND", amount_usd="0.10",
+            evidence_ref="statement:refund-1",
+        )
+        self.assertEqual(first["revision"], 2)
+        self.assertEqual(first["unverified_net_recorded_usd"], "0.300000")
+        self.assertFalse(first["invoice_attested"])
+        self.assertFalse(first["cash_settled"])
+        self.assertFalse(first["dispatch_authorized"])
+        reopened = DisposableBillingPgFence(self.dsn)
+        self.assertEqual(first, reopened.adjust(
+            receipt_id=key, event_id="adjust:refund", expected_revision=1,
+            adjustment_kind="REFUND", amount_usd="0.10",
+            evidence_ref="statement:refund-1",
+        ))
+        second = reopened.adjust(
+            receipt_id=key, event_id="adjust:correction", expected_revision=2,
+            adjustment_kind="CORRECTION_UP", amount_usd="0.05",
+            evidence_ref="statement:correction-1",
+        )
+        self.assertEqual(second["unverified_net_recorded_usd"], "0.350000")
+        self.assertEqual(self.sql("SELECT count(*) FROM dp512_pg_adjustment"), "2")
+        self.assertEqual(before, self.sql(
+            "SELECT md5(json_agg(r ORDER BY id)::text) FROM provider_receipt r"))
+        self.assertNotIn("statement:refund-1", json.dumps(first))
+        with self.assertRaisesRegex(Exception, "append-only"):
+            self.sql("UPDATE dp512_pg_adjustment SET amount_usd=0.01;")
+
+    def test_refund_requires_recorded_measured_parent_provenance_and_nonnegative_net(self):
+        unknown = self.receipt("unbilled", basis="UNKNOWN")
+        self.save(unknown)
+        with self.assertRaisesRegex(ValueError, "BILLING_ADJUSTMENT_MEASURED_REQUIRED"):
+            self.store.adjust(receipt_id=unknown, event_id="adjust:unbilled",
+                              expected_revision=1, adjustment_kind="REFUND",
+                              amount_usd="0.01", evidence_ref="statement:refund")
+        key = self.receipt("bounded", basis="MEASURED_PROVIDER_COST",
+                           measured="0.10", attempt=2)
+        self.save(key, event_id="event:bounded",
+                  asserted_basis="MEASURED_PROVIDER_COST",
+                  asserted_usd="0.10", evidence_ref="usage:bounded")
+        def adjust(event="adjust:bad", revision=1, kind="REFUND",
+                   amount="0.01", evidence="statement:refund"):
+            return self.store.adjust(
+                receipt_id=key, event_id=event, expected_revision=revision,
+                adjustment_kind=kind, amount_usd=amount, evidence_ref=evidence)
+        with self.assertRaisesRegex(ValueError, "BILLING_ADJUSTMENT_UNDERFLOW"):
+            adjust(amount="0.11")
+        for amount in ("0", "-0.01", "NaN", "0.0000001"):
+            with self.subTest(amount=amount), self.assertRaisesRegex(
+                ValueError, "BILLING_AMOUNT_"
+            ):
+                adjust(amount=amount)
+        with self.assertRaisesRegex(ValueError, "BILLING_EVIDENCE_REFERENCE_INVALID"):
+            adjust(evidence="")
+        with self.assertRaisesRegex(ValueError, "BILLING_ADJUSTMENT_KIND_INVALID"):
+            adjust(kind="FAKE_PAYMENT")
+        first = adjust(amount="0.08", event="adjust:real")
+        self.assertEqual(first["unverified_net_recorded_usd"], "0.020000")
+        with self.assertRaisesRegex(ValueError, "BILLING_ADJUSTMENT_REPLAY_CONFLICT"):
+            adjust(amount="0.07", event="adjust:real")
+        with self.assertRaisesRegex(ValueError, "BILLING_ADJUSTMENT_REFERENCE_REUSED"):
+            adjust(amount="0.01", event="adjust:other", revision=2)
+        with self.assertRaisesRegex(ValueError, "BILLING_ADJUSTMENT_REFERENCE_REUSED"):
+            adjust(amount="0.01", event="adjust:alternate-kind", revision=2,
+                   kind="CORRECTION_DOWN")
+        self.assertEqual(self.sql("SELECT count(*) FROM dp512_pg_adjustment"), "1")
+
+    def test_competing_adjustments_same_revision_only_one_commits(self):
+        key = self.receipt("refund-race", basis="MEASURED_PROVIDER_COST",
+                           measured="0.10", status="SUCCEEDED")
+        self.save(key, asserted_basis="MEASURED_PROVIDER_COST",
+                  asserted_usd="0.10", evidence_ref="usage:race")
+        def adjust(n):
+            try:
+                return DisposableBillingPgFence(self.dsn).adjust(
+                    receipt_id=key, event_id=f"adjust:race:{n}",
+                    expected_revision=1, adjustment_kind="REFUND",
+                    amount_usd="0.06", evidence_ref=f"statement:race:{n}",
+                )["revision"]
+            except ValueError as exc:
+                return str(exc)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = {future.result(timeout=20) for future in (
+                pool.submit(adjust, 1), pool.submit(adjust, 2))}
+        self.assertEqual(outcomes, {2, "BILLING_REVISION_CONFLICT"})
+        self.assertEqual(self.sql("SELECT count(*) FROM dp512_pg_adjustment"), "1")
+
 
 if __name__ == "__main__":
     unittest.main()
