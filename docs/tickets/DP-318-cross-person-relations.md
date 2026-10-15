@@ -129,3 +129,28 @@ inputs. No authoritative Capture/person ledger authentication, append-only
 relation revocation, real published non-factual Statement review, source rights
 approval or MiniPC Person/Topic/Trace readback is evidenced. **DP-318 remains
 IN PROGRESS, AC-318.1–.5 all OPEN** pending their original acceptance gates.
+
+## 2026-10-15 — Incompatible revisions of one captured source part
+
+**RED source-only regression:** The real private speech-act assessor produced
+two individually well-formed receipts sharing the same `source_part_ref` but
+binding different immutable source SHA-256 values (two revisions of the same
+Capture). The DP-318 relation classifier accepted the supplied common
+proposition/equivalence and returned `CROSS_PERSON_AGREEMENT` for different
+Persons, despite the incompatible source snapshots. This could also make
+one Person appear to reaffirm a position across two revisions of one part.
+
+**GREEN narrow correction:** Two inputs with the same source-part reference
+and different source hashes now yield `HOLD` with
+`SOURCE_PART_REVISION_CONFLICT`, before a private relation kind is emitted.
+The regression covers both cross-Person and same-Person comparisons; a
+distinct independent source part still yields a *private* positive candidate.
+The original evaluator's result remains unauthoritative, with
+`publication_authority=False` in both negative and positive cases.
+
+This closes a reproducible source-version mixing gap relevant to
+`AC-318.4`, **not** the original criterion. There is no independent
+Capture/source-currentness authority, reviewer attestation, public relation
+read model, approved original quotations, real Person/Topic/Trace MiniPC
+readback or source-rights approval. **Status stays IN PROGRESS and
+AC-318.1–.5 stay OPEN.**

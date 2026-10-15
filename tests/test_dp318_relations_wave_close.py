@@ -173,6 +173,53 @@ class DP318RelationWaveCloseTests(unittest.TestCase):
         self.assertEqual(safe.kind, StatementRelationKind.SAME_PERSON_REAFFIRMATION)
         self.assertEqual(safe.state, "CANDIDATE_PRIVATE")
 
+    def test_same_capture_part_across_source_revisions_must_hold(self):
+        # An immutable Capture part cannot simultaneously have two different
+        # source hashes. Comparing two revisions as independent utterances
+        # could assert cross-person agreement or longitudinal reaffirmation.
+        updated_speech = _attested_private_speech(
+            "person:two", "Io sostengo che questa misura sia utile.",
+            part=self.left.speech_act.source_part_ref,
+        )
+        self.assertNotEqual(
+            updated_speech.source_sha256, self.left.speech_act.source_sha256
+        )
+        self.assertEqual(updated_speech.state, "CANDIDATE_PRIVATE")
+        incompatible = _statement(
+            "statement:updated", "person:two",
+            "Io sostengo che questa misura sia utile.", speech_act=updated_speech,
+        )
+        result = evaluate_scoped_statement_relation(self.left, incompatible)
+        self.assertEqual(result.kind, StatementRelationKind.HOLD)
+        self.assertIn("SOURCE_PART_REVISION_CONFLICT", result.rationale_codes)
+        self.assertFalse(result.publication_authority)
+
+        same_person_revision = _attested_private_speech(
+            "person:one", "Io sostengo che questa misura sia utile.",
+            part=self.left.speech_act.source_part_ref,
+        )
+        own_result = evaluate_scoped_statement_relation(
+            self.left,
+            dataclasses.replace(
+                incompatible, person_id="person:one", statement_date="2025-07-01",
+                speech_act=same_person_revision,
+            ),
+        )
+        self.assertEqual(own_result.kind, StatementRelationKind.HOLD)
+        self.assertIn("SOURCE_PART_REVISION_CONFLICT", own_result.rationale_codes)
+
+        # A distinct capture part remains a private candidate, even when the
+        # two receipts contain different exact words.
+        separate_part = _attested_private_speech(
+            "person:two", "Io sostengo che questa misura sia utile.",
+            part="capture:independent-updated",
+        )
+        eligible = evaluate_scoped_statement_relation(
+            self.left, dataclasses.replace(incompatible, speech_act=separate_part)
+        )
+        self.assertEqual(eligible.kind, StatementRelationKind.CROSS_PERSON_AGREEMENT)
+        self.assertFalse(eligible.publication_authority)
+
     def test_distinct_capture_quote_spans_remain_private_relation_candidates(self):
         # Two independent captured speeches on separate source-part references
         # are not suppressed because their original words happen to match.

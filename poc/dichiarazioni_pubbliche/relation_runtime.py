@@ -443,6 +443,14 @@ def evaluate_scoped_statement_relation(
             rationale.append("SPEECH_ACT_POLARITY_MISMATCH")
         if (
             earlier_speech.source_part_ref == later_speech.source_part_ref
+            and earlier_speech.source_sha256 != later_speech.source_sha256
+        ):
+            # One captured source part has one immutable byte version. Two
+            # revisions of it cannot become independent relation endpoints;
+            # the canonical current source must be resolved first.
+            rationale.append("SOURCE_PART_REVISION_CONFLICT")
+        if (
+            earlier_speech.source_part_ref == later_speech.source_part_ref
             and earlier_speech.source_sha256 == later_speech.source_sha256
             and earlier_speech.quote_start == later_speech.quote_start
             and earlier_speech.quote_end == later_speech.quote_end
