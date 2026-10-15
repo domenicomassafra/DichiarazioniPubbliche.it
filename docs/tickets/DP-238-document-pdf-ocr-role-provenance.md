@@ -130,3 +130,41 @@ no P0/P1 issue. No full-suite rerun was performed concurrently with other
 integration work; a clean independent full run is still needed to attribute and
 clear the original eight intermittent failures. Original AC-238.1–.6 stay open;
 this is source-only, synthetic local evidence without MiniPC or editorial proof.
+
+## 2026-10-15 — Reject partial HTTP PDF as a full immutable source
+
+The opt-in `BornDigitalPDFTextParser.parse()` accepted all status codes
+200–299. An HTTP **206 Partial Content** response with a syntactically
+valid PDF body could thus be treated as a *complete* source and yield
+apparently version-bound page/Passage selectors and content hashes even
+when the source server explicitly reported only a byte range.
+
+A real generated PDF and isolated valid child-worker response reproduce
+**RED** (the 206 path returned `SUCCEEDED` where a fail-closed result
+was required). The status guard now accepts only an exact HTTP 200 as
+a complete-document PDF extraction; a 206 returns
+`FAILED / DOCUMENT_SOURCE_STATUS_INVALID` with no text or spans,
+while a valid 200 response remains a private non-verbatim candidate.
+The mocked worker response in this one test separates the HTTP status
+invariant from independently tested optional-worker process availability;
+it does **not** self-grade PDF fidelity.
+
+**Validation:** the targeted RED test failed before the source fix
+(`SUCCEEDED` instead of `FAILED`) and GREEN passed after. Prime reran
+`tests.test_dp238_document_extraction` plus this exact adversarial
+test: **12/12 PASS**, scoped Ruff/diff checks PASS. A broader
+`test_dp238_born_digital_pdf + test_dp238_document_extraction` attempt
+ran **23 tests with four failures** caused by the real PDF subprocess
+returning `DOCUMENT_PDF_WORKER_UNAVAILABLE`, rather than the
+expected parsed status. The shared host showed load averages around
+**190/199/139** with numerous busy browser workers: those four tests
+are **not PASS**, and the true PDF worker bootstrap under normal
+load is unverified by this tranche. The HTTP 206 guard itself is a
+pre-worker input validation and is independently green. Do not
+promote this result to end-to-end PDF/OCR acceptance.
+
+This source-only fix changes no source rights, review identity, OCR
+provider, upstream byte-range assembly, database, public route or MiniPC.
+**Original AC-238.1–6 remain OPEN / IN PROGRESS** for approved
+machine-readable and scanned sources, independent OCR gold, role and
+critical-span fidelity, persistent replay and real MiniPC readback.

@@ -110,6 +110,31 @@ class BornDigitalPdfTests(unittest.TestCase):
             ),
         )
 
+    def test_partial_http_content_cannot_be_treated_as_complete_pdf_capture(self):
+        # Even a syntactically valid PDF binary returned with HTTP 206 is a
+        # ranged response, not an attestation of the complete source version.
+        # Downstream immutable page selectors must not bind to partial bytes.
+        body = _pdf(("The entire official record cannot be inferred from a range.",))
+        # Isolate the actual HTTP status contract from a separately tested
+        # optional worker process that can be unavailable under host load.
+        response = json.dumps({
+            "status": "SUCCEEDED",
+            "pages": ["The entire official record cannot be inferred from a range."],
+        }).encode()
+        with patch(
+            "dichiarazioni_pubbliche.document_pdf_extraction.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=response),
+        ):
+            complete = self.parser.parse(fetched(body, media="application/pdf"))
+            partial = self.parser.parse(
+                replace(fetched(body, media="application/pdf"), status_code=206)
+            )
+        self.assertEqual(complete.status, "SUCCEEDED", complete.error_category)
+        self.assertEqual(partial.status, "FAILED")
+        self.assertEqual(partial.error_category, "DOCUMENT_SOURCE_STATUS_INVALID")
+        self.assertFalse(partial.canonical_text)
+        self.assertFalse(partial.spans)
+
     def test_pdf_image_mixed_with_text_requires_ocr_or_independent_review(self):
         body = _pdf(("This is text beside scan.",), image=True)
         result = self.parser.parse(fetched(body, media="application/pdf"))

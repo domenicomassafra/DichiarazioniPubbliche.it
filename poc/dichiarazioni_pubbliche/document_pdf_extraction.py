@@ -55,7 +55,10 @@ class BornDigitalPDFTextParser:
             return failed("DOCUMENT_BODY_INVALID")
         if fetched.content_length != len(fetched.body):
             return failed("DOCUMENT_LENGTH_MISMATCH")
-        if type(fetched.status_code) is not int or not 200 <= fetched.status_code < 300:
+        # A ranged HTTP 206 response can be syntactically parseable yet
+        # omit pages of the canonical source; never bind its bytes to a
+        # complete-document Capture/Passage lineage.
+        if type(fetched.status_code) is not int or fetched.status_code != 200:
             return failed("DOCUMENT_SOURCE_STATUS_INVALID")
         if len(fetched.body) > MAX_DOCUMENT_BYTES:
             return failed("DOCUMENT_BODY_OVERSIZE")
