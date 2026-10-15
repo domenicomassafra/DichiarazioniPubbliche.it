@@ -425,3 +425,17 @@ unblocked, review this branch against the existing integrator (or include
 its parent tranche when targeting main), run required CI/review-thread/merge
 gates, then prove installed consumers separately. DP-512 remains IN PROGRESS
 for the six original criteria and their missing evidence in the table above.
+
+Source commit `52df2048bff55fac19af6e4cce12f4f9091575ea` was pushed to
+`refs/heads/fix/dp512-health-cost-unknown-20261015`; local HEAD and actual
+remote ref were read back equal. `verify_main_delivery.py --review-check`
+returned `REMOTE_BRANCH_SAVED`, with clean publication checkout. Main
+remained `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe` and CoS integrator
+remained `63f60e9dc54938957c849959cd3b66d411935495`. No PR was opened,
+no merge/deploy occurred. The subsequent receipt checkpoint changes only
+PLAN and this ticket; the tested source hashes above remain unchanged.
+Root retains recovery/integration ownership of the eight shared-checkout
+DP-512 WIP files, saved on this remote branch, until the prime acquires the
+exact committed slice. The independent review checkout is clean and its
+branch is intentionally retained for that integration. No stash or worker
+process remains in the publication checkout.

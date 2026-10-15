@@ -973,11 +973,13 @@ consumer proof, not installed health/worker parity or authenticated invoices.
 
 Active skills: `/Users/domenico/.codex/skills/code-implement/SKILL.md` and
 `/Users/domenico/.codex/skills/code-review/SKILL.md`; reuse/Ponytail provenance
-is recorded in the ticket. Current step: publish reviewed owned bytes on
+is recorded in the ticket. Current step: reviewed owned bytes published as source commit
+`52df2048bff55fac19af6e4cce12f4f9091575ea` on
 `fix/dp512-health-cost-unknown-20261015` from independent checkout
 `/Users/domenico/Code/DP-512-health-review-20261015`, based on settled CoS
 `63f60e9`, preserving the shared integrator index/ref and eight owned WIP files.
-Frontier: remote branch proof, then existing auto-review billing guard, PR/CI/
+Remote readback and `verify_main_delivery.py --review-check` PASS.
+Frontier: existing auto-review billing guard, PR/CI/
 merge gates and real billing/corrections/reservations/runtime acceptance.
 No additional worker, production DB change, deploy or paid call. No original
 AC or ticket is marked DONE: 162 total / 90 DONE / 72 non-DONE remain.
