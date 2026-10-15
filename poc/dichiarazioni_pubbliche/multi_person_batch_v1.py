@@ -20,7 +20,7 @@ from dichiarazioni_pubbliche.private_candidate_batch import (
 )
 
 
-VERSION = "multi-person-candidate-isolation-v1"
+VERSION = "multi-person-candidate-isolation-v2"
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _BCP47 = re.compile(r"[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}\Z")
 _ROLES = {"DIRECT_SPEAKER", "AUTHOR", "REPORTER", "QUOTED_SPEAKER", "UNRESOLVED"}
@@ -235,7 +235,7 @@ class PrivateBatchReceiptIndex:
 
 
 def _partition_id(item: ReviewedPassageContext | IsolatedBatchItem) -> str:
-    """Bind one partition to its exact source span and speaker candidate."""
+    """Bind a partition to source family, span, and speaker candidate."""
     return "batch-partition:" + _stable_hash(
         (
             item.passage_id,
@@ -243,12 +243,16 @@ def _partition_id(item: ReviewedPassageContext | IsolatedBatchItem) -> str:
             item.content_id,
             item.capture_id,
             item.source_sha256,
+            item.source_family,
             item.selector_fingerprint,
             item.context_version,
+            item.context_review_id,
             item.language_tag,
             item.speaker_candidate_id,
+            item.identity_review_status,
             item.speech_role,
             item.speech_act,
+            item.rights_status,
         )
     )
 

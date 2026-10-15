@@ -300,3 +300,56 @@ was invoked. A deterministic hash still is **not** proof of upstream rights,
 speaker identity or provider completion. All original **AC-240.1–.6 remain
 OPEN**, status **IN PROGRESS**, release **NO-GO**, with real gold/baseline,
 authenticated provenance and MiniPC/Studio evidence pending.
+
+### 2026-10-15 — Multi-source family and context-partition replay binding
+
+The versioned private DP-240 partition identity initially covered the exact
+Content/Capture/Passage/source hash and speaker candidate, but omitted the
+source family and two distinct reviewed-context identities. A caller could
+exchange the `source_family` values of two otherwise source-exact items,
+recalculate the **untrusted** outer plan SHA-256, and retain each item's old
+partition. The pure readback and real isolated SQLite `register` accepted the
+contradictory source-family partitions. This was a real local source-isolation
+gap, not evidence that any provider generated an incorrect attribution.
+
+The shared partition derivation now binds `source_family`, `context_review_id`,
+`identity_review_status` and `rights_status` alongside the existing source,
+selector, language, speaker candidate, speech role and act. Recomputed plan
+checksums cannot conceal a change in those fields while retaining the old
+partition. A legitimate new source-family manifest produces its **own**
+partition, while an unchanged second source keeps its distinct partition.
+
+The plan and private receipt format's logical `VERSION` is explicitly bumped
+from `multi-person-candidate-isolation-v1` to
+`multi-person-candidate-isolation-v2` because all canonical partition digests
+change. This does **not** migrate old persisted v1 plans or delete their SQLite
+bytes. Old v1 input is rejected at the version gate; the integrator/operator
+must preserve existing immutable receipts, inventory any actual v1 state and
+plan a reviewed compatibility/rehydration path before a runtime adoption.
+The private SQLite table schema is unchanged. Neither a new source-rights
+attestation nor a provider result can be inferred from a v2 checksum.
+
+**RED → GREEN:** two focused tests initially failed (`ValueError not raised`)
+when a source-family swap with a recalculated plan checksum was accepted by
+both pure readback and actual disposable SQLite registration. A follow-on
+adversarial test demonstrated two additional RED subcases: borrowing another
+item's contextual review receipt and raising a candidate's identity-review
+status while retaining its prior partition. All now fail closed; the SQLite
+negative confirms no invalid ledger is created. Positive tests verify normal
+v2 planning, independent family partition changes, same-key replay, held and
+failed states, concurrent SQLite writers, crash recovery and the adjacent
+private CandidateBatch and DP-242 Studio handoff contracts. Local focused
+suite: **81/81 PASS**. Scoped Ruff lint, Python compile and
+`git diff --check`: **PASS**. Tests use fabricated Persons, Contents, context
+receipts and provider observations strictly as adversarial local inputs;
+there were no paid/model calls, live capture, MiniPC or public changes.
+
+**Original AC-240.1–AC-240.6 stay unchecked, IN PROGRESS, release NO-GO.**
+The remaining A-Z proofs require genuinely approved distinct Person/speaker
+and multiple-Content source/span gold; independent quoted-voice/homonym
+annotation and correct candidate output/wording review; authenticated durable
+per-item provider retries and downstream rights review; a preregistered
+source-level isolated-vs-mixed batch precision, token, cost, latency and
+memory measurement; and real MiniPC persisted replay plus Studio operator
+readback proving correct hold/attribution and unchanged unrelated public and
+corpus counts. None are supplied by synthetic fixtures or a local checksum.

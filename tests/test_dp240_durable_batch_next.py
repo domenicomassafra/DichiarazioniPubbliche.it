@@ -57,6 +57,17 @@ class DurableBatchNextTests(unittest.TestCase):
         )
         self.plan = plan(batch, contexts)
 
+    def test_real_store_refuses_rehashed_foreign_source_family_binding(self):
+        first, second, third = self.plan.items
+        tampered = rehash_plan(replace(self.plan, items=(
+            replace(first, source_family=second.source_family),
+            replace(second, source_family=first.source_family),
+            third,
+        )))
+        with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_PARTITION_MISMATCH"):
+            self.store.register(tampered)
+        self.assertFalse(self.path.exists(), "Invalid source-family plan created ledger")
+
     def test_real_sqlite_partial_resume_and_process_restart(self):
         initial = self.store.register(self.plan)
         self.assertEqual((initial.revision, initial.index.pending_count), (0, 3))
