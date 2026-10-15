@@ -65,6 +65,18 @@ class HealthDigestPostgresTests(unittest.TestCase):
             self.assertNotIn(forbidden, encoded)
         self.assertIn('UNRECOGNIZED_STATUS', encoded)
 
+    def test_legacy_receipt_without_both_timestamps_is_not_silently_dropped(self):
+        self.receipt('undated', basis='ZERO_COST', estimate='0')
+        self.pg.sql("UPDATE provider_receipt SET started_at=NULL, completed_at=NULL "
+                    "WHERE id='receipt:undated';")
+        digest = self.digest(datetime.now(timezone.utc))
+        # A timestamp-free historical receipt cannot be dated to the present
+        # UTC window: show unallocated liability, do not rewrite its history.
+        self.assertEqual(digest['billing_today']['attempt_count'], 0)
+        self.assertEqual(digest['billing_today']['undated_unallocated_receipts'], 1)
+        statuses = {row['id']: row['status'] for row in digest['slo']['objectives']}
+        self.assertEqual(statuses['SLO-COST-GLOBAL-DAILY'], 'UNKNOWN')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -125,6 +125,151 @@ class AccountStaticExposureTests(unittest.TestCase):
                         self.assertEqual(body, b"")
                     self.assertNotIn(b"synthetic@example.invalid", body)
 
+    def test_account_disabled_does_not_reenable_private_symlink_or_hardlink(self):
+        # Disabling account routes is not a grant to expose leftover private
+        # account files through the static server on rollback/restart.
+        (self.public / "private-link.html").symlink_to(self.store.path)
+        os.link(self.store.path, self.public / "private-alias.html")
+        for relative in ("private-link.html", "private-alias.html"):
+            for method in ("GET", "HEAD"):
+                with self.subTest(relative=relative, method=method):
+                    with build_server(
+                        None, static_dir=self.public, account_service=None,
+                    ) as server:
+                        status, body = self.get(server, f"/{relative}", method=method)
+                    self.assertNotEqual(status, 200)
+                    self.assertNotIn(b"synthetic@example.invalid", body)
+
+    def test_account_disabled_never_serves_private_db_index_or_sqlite_name(self):
+        os.link(self.store.path, self.public / "index.html")
+        for method in ("GET", "HEAD"):
+            with build_server(None, static_dir=self.public, account_service=None) as server:
+                status, body = self.get(server, "/", method=method)
+            self.assertNotEqual(status, 200)
+            self.assertNotIn(b"synthetic@example.invalid", body)
+        (self.public / "index.html").unlink()
+        (self.public / "backup.sqlite3").write_bytes(b"SQLite format 3\x00private")
+        with build_server(None, static_dir=self.public, account_service=None) as server:
+            status, body = self.get(server, "/backup.sqlite3")
+        self.assertNotEqual(status, 200)
+        self.assertNotIn(b"SQLite format 3", body)
+
+    def test_atomic_static_open_refuses_symlink_swapped_after_directory_check(self):
+        public_asset = self.public / "layout.css"
+        public_asset.write_bytes(b"body { color: black; }")
+        private_secret = self.private / "synthetic-secret.txt"
+        private_secret.write_bytes(b"PRIVATE SYNTHETIC CREDENTIAL")
+        original_open = os.open
+        replaced = False
+
+        def race_open(path, flags, *args, **kwargs):
+            nonlocal replaced
+            if path == "layout.css" and kwargs.get("dir_fd") is not None and not replaced:
+                replaced = True
+                public_asset.unlink()
+                public_asset.symlink_to(private_secret)
+            return original_open(path, flags, *args, **kwargs)
+
+        with patch("dichiarazioni_pubbliche.public_api.os.open", side_effect=race_open):
+            with build_server(None, static_dir=self.public, account_service=None) as server:
+                status, body = self.get(server, "/layout.css")
+        self.assertTrue(replaced, "Regression did not exercise descriptor opening")
+        self.assertNotEqual(status, 200)
+        self.assertNotIn(private_secret.read_bytes(), body)
+
+    def test_safe_nested_static_index_keeps_canonical_slash_redirect(self):
+        folder = self.public / "esplora"
+        folder.mkdir()
+        (folder / "index.html").write_bytes(b"SAFE STATIC INDEX")
+        with build_server(None, static_dir=self.public, account_service=None) as server:
+            redirect, body = self.get(server, "/esplora")
+        self.assertEqual(redirect, 301)
+        self.assertEqual(body, b"")
+        with build_server(None, static_dir=self.public, account_service=None) as server:
+            status, body = self.get(server, "/esplora/")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"SAFE STATIC INDEX")
+        with build_server(None, static_dir=self.public, account_service=None) as server:
+            status, body = self.get(server, "/esplora/index.html/")
+        self.assertNotEqual(status, 200)
+        self.assertNotIn(b"SAFE STATIC INDEX", body)
+
+    def test_pinned_static_root_survives_ancestor_swap_without_private_bytes(self):
+        parent = self.base / "configured"
+        public = parent / "public"
+        public.mkdir(parents=True)
+        (public / "index.html").write_bytes(b"ORIGINAL APPROVED STATIC ROOT")
+        foreign_parent = self.base / "foreign-private"
+        foreign_public = foreign_parent / "public"
+        foreign_public.mkdir(parents=True)
+        (foreign_public / "index.html").write_bytes(b"PRIVATE SYNTHETIC FILE CONTENT")
+        with build_server(None, static_dir=public, account_service=None) as server:
+            # Swap a *parent* pathname, not the final file: O_NOFOLLOW on the
+            # last path component alone would still follow this symlink.
+            parent.rename(self.base / "original-relocated")
+            parent.symlink_to(foreign_parent, target_is_directory=True)
+            status, body = self.get(server, "/")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"ORIGINAL APPROVED STATIC ROOT")
+        self.assertNotIn(b"PRIVATE SYNTHETIC FILE CONTENT", body)
+
+    def test_shutdown_cannot_reuse_root_descriptor_during_inflight_http_get(self):
+        (self.public / "index.html").write_bytes(b"APPROVED ROOT CONTENT")
+        (self.private / "index.html").write_bytes(b"PRIVATE SYNTHETIC CLOSED-FD CONTENT")
+        waiting = threading.Event()
+        resume = threading.Event()
+        closed = threading.Event()
+        results = []
+        original_dup = os.dup
+        private_fd = []
+        with build_server(None, static_dir=self.public, account_service=None) as server:
+            root_fd = server.static_root_fd
+
+            def block_before_dup(fd):
+                if fd == root_fd and threading.current_thread() is not threading.main_thread():
+                    waiting.set()
+                    if not resume.wait(5):
+                        raise TimeoutError("root duplication gate timed out")
+                return original_dup(fd)
+
+            def fetch():
+                connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+                try:
+                    connection.request("GET", "/")
+                    reply = connection.getresponse()
+                    results.append((reply.status, reply.read()))
+                finally:
+                    connection.close()
+
+            def close_and_reuse():
+                server.server_close()
+                private_fd.append(os.open(self.private, os.O_RDONLY | os.O_DIRECTORY))
+                closed.set()
+
+            listener = threading.Thread(target=server.serve_forever, daemon=True)
+            client = threading.Thread(target=fetch, daemon=True)
+            closer = threading.Thread(target=close_and_reuse, daemon=True)
+            with patch("dichiarazioni_pubbliche.public_api.os.dup", side_effect=block_before_dup):
+                listener.start()
+                client.start()
+                try:
+                    self.assertTrue(waiting.wait(3), "HTTP request never reached root fd duplication")
+                    closer.start()
+                    # Before synchronization, server_close releases the fd and
+                    # a private directory reuses its integer before os.dup.
+                    closed.wait(0.4)
+                finally:
+                    resume.set()
+                    client.join(timeout=6)
+                    closer.join(timeout=6)
+                    server.shutdown()
+                    listener.join(timeout=3)
+                    for fd in private_fd:
+                        os.close(fd)
+            self.assertFalse(client.is_alive())
+            self.assertFalse(closer.is_alive())
+            self.assertEqual(results, [(200, b"APPROVED ROOT CONTENT")])
+
     def test_private_store_hardlinked_as_default_index_is_not_served(self):
         os.link(self.store.path, self.public / "index.html")
         with build_server(

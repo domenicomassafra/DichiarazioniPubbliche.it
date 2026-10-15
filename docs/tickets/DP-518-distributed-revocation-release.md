@@ -238,3 +238,6 @@ compiled JS bundle or browser/CDN cache. No runtime/public host, physical
 purge, authoritative immutable release pointer, source rights acceptance,
 latency measurement or rollback-owner evidence was obtained. All original
 **AC-518.1–7 remain open**, status **IN PROGRESS** and public release **NO-GO**.
+
+## 2026-10-15 — CoS02 uninventoried release assets
+Draft PR #25 review reproduced a false-green local withdrawal audit for stale revoked words in an unlisted _astro/*.js and a hardlink to the **private** release receipt masquerading as JS. The directory/suffix bypass has been removed: **every uninventoried served file**, including CSS/JS/images/fonts, yields READBACK_UNTRUSTED_OR_DRIFT / LOCAL_UNINVENTORIED_PUBLIC_FILE. Such a fail-closed result is not real build approval; a future live release requires a complete independently pinned asset inventory and actual origin/CDN readback. All AC-518.1–7 remain OPEN.

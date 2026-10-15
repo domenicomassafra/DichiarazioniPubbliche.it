@@ -19,6 +19,7 @@ from dichiarazioni_pubbliche.health_digest import (  # noqa: E402
 
 class FakeDb:
     receipt_rows = ()
+    undated_count = 0
 
     def run(self, sql, **variables):
         if "FROM processing_job" in sql and "GROUP BY job_type" in sql:
@@ -37,6 +38,8 @@ class FakeDb:
             )
         if "FROM content_item" in sql and "GROUP BY processing_status" in sql:
             return '[{"processing_status":"CLAIM_EXTRACTION_BLOCKED","count":2}]'
+        if "count(*)" in sql and "FROM provider_receipt" in sql:
+            return str(self.undated_count)
         if "FROM provider_receipt" in sql:
             self.receipt_window = variables
             return json.dumps(self.receipt_rows)
@@ -157,6 +160,42 @@ class HealthDigestTests(unittest.TestCase):
         self.assertEqual(digest["billing_today"]["unknown_cash_attempts"], 1)
         statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
         self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+
+    def test_unverified_zero_cost_cannot_make_cash_slo_healthy(self):
+        # Legacy receipts can infer ZERO_COST from a zero estimate without
+        # independent provider evidence of free usage.
+        digest = self.digest([self.receipt("zero", "ZERO_COST", estimate="0")])
+        self.assertEqual(digest["billing_today"]["zero_cost_attempts"], 1)
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+
+    def test_zero_upper_bound_estimate_without_provider_proof_is_not_free(self):
+        # The real provider candidate batch may record a zero provisional
+        # bound with ESTIMATED_ONLY, which is not verified free service.
+        digest = self.digest([self.receipt("zero-bound", "ESTIMATED_ONLY", estimate="0")])
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+
+    def test_zero_recorded_measured_without_independent_proof_is_not_free(self):
+        digest = self.digest([self.receipt("measured-zero", "MEASURED_PROVIDER_COST", measured="0")])
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+
+    def test_decimal_boundary_cost_ratio_does_not_false_breach(self):
+        digest = self.digest([
+            self.receipt("first", "ESTIMATED_ONLY", estimate="0.1"),
+            self.receipt("second", "ESTIMATED_ONLY", estimate="0.2"),
+        ], max_cost_usd_per_day=0.5)
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        # Equality at the warning boundary is AT_RISK, not a >target BREACH.
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "AT_RISK")
+
+    def test_decimal_breach_just_above_ratio_survives_json_float_rounding(self):
+        digest = self.digest([
+            self.receipt("amount", "ESTIMATED_ONLY", estimate="0.1"),
+        ], max_cost_usd_per_day=0.16666666666666666)
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "BREACH")
 
     def test_receipt_reader_uses_explicit_half_open_utc_day(self):
         from datetime import timedelta

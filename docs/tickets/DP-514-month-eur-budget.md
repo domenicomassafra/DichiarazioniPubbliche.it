@@ -625,3 +625,6 @@ then passed **37/37** with Ruff and diff checks green. The full-suite failure
 and this targeted repair are both recorded; no previous failing full run
 is relabeled as a pass. This is test/contract reconciliation, not monthly
 EUR authorization, provider attestation, deployment or closure of AC-514.1–7.
+
+## 2026-10-15 — CoS02 historic observation versus adjusted CAS
+Draft PR #25 review reproduced DP-514 rejecting legal DP-512 refund candidates as stale billing classification. Its PG consumer now validates combined DP-512 revision lineage while anchoring the historical monthly observation to the **last classification** event. A refund candidate leaves prior OBSERVED events valid but never cash-settled. After a real reclassification, a new REFUND_CLAIM alone must not relabel an old observation as current; a new OBSERVED CAS is required before month readback succeeds. The exact regressions and test receipts are source/disposable only. No observed invoice, FX, EUR reservation, paid dispatch, live release or AC-514 closure is claimed.

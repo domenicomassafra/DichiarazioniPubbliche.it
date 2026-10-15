@@ -39,7 +39,9 @@ import hashlib
 import json
 import os
 import re
+import stat
 import threading
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from email.utils import formatdate
@@ -1809,47 +1811,119 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         }
 
     def _serve_static(self, method: str) -> None:
-        # SimpleHTTPRequestHandler normally follows public-root symlinks. When
-        # accounts are active, do not let a published asset alias reach the
-        # private SQLite DB, its WAL/SHM, or another file outside this root.
-        # A hardlink has no symlink target: compare the actual inode too.
-        if type(self).account_service is not None:
-            root = Path(type(self).static_dir).resolve()
-            candidate = Path(self.translate_path(self.path)).resolve()
-            if candidate.is_dir():
-                # SimpleHTTPRequestHandler chooses an index file after its
-                # initial translate_path. Check that actual served file, too.
-                for index in ("index.html", "index.htm"):
-                    if (candidate / index).is_file():
-                        candidate = (candidate / index).resolve()
+        # An account rollback does not make its private SQLite DB or secrets
+        # public. Verify and serve the *same opened descriptor*: a pathname
+        # preflight followed by SimpleHTTPRequestHandler.send_head() could
+        # race a symlink swap between the check and the actual open().
+        root = Path(type(self).static_dir)
+        raw = Path(self.translate_path(self.path))
+        try:
+            relative = raw.relative_to(root)
+        except ValueError:
+            self.send_error(404)
+            return
+        if ".." in relative.parts:
+            self.send_error(404)
+            return
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        file_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+        try:
+            with ExitStack() as stack:
+                # The server pinned its root inode *before listening* and
+                # opened every absolute ancestor with O_NOFOLLOW. A writer
+                # swapping the configured parent path cannot redirect this.
+                # Duplicate under the server's lifecycle lock: shutdown must
+                # never close/recycle the integer between lookup and dup().
+                current_fd = self.server.dup_static_root()
+                if current_fd is None:
+                    self.send_error(404)
+                    return
+                stack.callback(os.close, current_fd)
+                parts = relative.parts
+                for component in parts[:-1]:
+                    current_fd = os.open(component, directory_flags, dir_fd=current_fd)
+                    stack.callback(os.close, current_fd)
+                leaf = parts[-1] if parts else None
+                is_directory = leaf is None or stat.S_ISDIR(
+                    os.stat(leaf, dir_fd=current_fd, follow_symlinks=False).st_mode
+                )
+                if is_directory:
+                    if leaf is not None:
+                        current_fd = os.open(leaf, directory_flags, dir_fd=current_fd)
+                        stack.callback(os.close, current_fd)
+                    # Preserve SimpleHTTPRequestHandler's canonical trailing
+                    # slash redirect without reopening any filesystem path.
+                    request_url = urlsplit(self.path)
+                    if not request_url.path.endswith("/"):
+                        location = request_url.path + "/"
+                        if request_url.query:
+                            location += "?" + request_url.query
+                        self.send_response(301)
+                        self.send_header("Location", location)
+                        self.send_header("Content-Length", "0")
+                        self.end_headers()
+                        return
+                    # Deliberately never expose directory listings.
+                    for index in ("index.html", "index.htm"):
+                        try:
+                            opened_fd = os.open(index, file_flags, dir_fd=current_fd)
+                        except FileNotFoundError:
+                            continue
+                        leaf = index
                         break
-            protected = type(self).account_service.store.path
-            sensitive_paths = (protected, Path(str(protected) + "-wal"),
-                               Path(str(protected) + "-shm"))
-            if type(self).account_private_secret_path is not None:
-                sensitive_paths += (type(self).account_private_secret_path,)
-            private_alias = False
-            try:
-                source_stat = candidate.stat()
-            except OSError:
-                pass
-            else:
-                for private_path in sensitive_paths:
-                    try:
-                        private_stat = private_path.stat()
-                    except OSError:
-                        continue
-                    if ((source_stat.st_dev, source_stat.st_ino)
-                            == (private_stat.st_dev, private_stat.st_ino)):
-                        private_alias = True
-                        break
-            if not candidate.is_relative_to(root) or private_alias:
-                self.send_error(404)
-                return
-        if method == "GET":
-            super().do_GET()
-        else:
-            super().do_HEAD()
+                    else:
+                        self.send_error(404)
+                        return
+                else:
+                    if urlsplit(self.path).path.endswith("/"):
+                        self.send_error(404)
+                        return
+                    opened_fd = os.open(leaf, file_flags, dir_fd=current_fd)
+                with os.fdopen(opened_fd, "rb") as opened:
+                    info = os.fstat(opened.fileno())
+                    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                        # Hardlinks cannot be distinguished from aliases of
+                        # private bytes in account-off mode. Static build
+                        # assets must be single-link files in this boundary.
+                        self.send_error(404)
+                        return
+                    name = leaf.lower()
+                    if (name.endswith(
+                        (".sqlite", ".sqlite3", ".db", ".db3", "-wal", "-shm",
+                         ".pem", ".key")
+                    ) or name in {".env", ".pgpass"}):
+                        self.send_error(404)
+                        return
+                    if opened.read(16) == b"SQLite format 3\x00":
+                        self.send_error(404)
+                        return
+                    opened.seek(0)
+                    if type(self).account_service is not None:
+                        private = type(self).account_service.store.path
+                        paths = (private, Path(str(private) + "-wal"),
+                                 Path(str(private) + "-shm"))
+                        if type(self).account_private_secret_path is not None:
+                            paths += (type(self).account_private_secret_path,)
+                        for private_path in paths:
+                            try:
+                                private_stat = private_path.stat()
+                            except OSError:
+                                continue
+                            if (info.st_dev, info.st_ino) == (
+                                private_stat.st_dev, private_stat.st_ino
+                            ):
+                                self.send_error(404)
+                                return
+                    self.send_response(200)
+                    self.send_header("Content-type", self.guess_type(leaf))
+                    self.send_header("Content-Length", str(info.st_size))
+                    self.send_header("Last-Modified", self.date_time_string(info.st_mtime))
+                    self.end_headers()
+                    if method == "GET":
+                        self.copyfile(opened, self.wfile)
+        except OSError:
+            self.send_error(404)
+
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
@@ -1899,6 +1973,45 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
     do_OPTIONS = _reject  # noqa: N815
 
 
+class _PinnedStaticHTTPServer(ThreadingHTTPServer):
+    """Own one document-root dirfd for the entire listener lifetime."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # TCPServer.__init__ may call server_close() on bind failure, so the
+        # synchronization primitive must exist before parent construction.
+        self._static_root_lock = threading.Lock()
+        self.static_root_fd: int | None = None
+        super().__init__(*args, **kwargs)
+
+    def dup_static_root(self) -> int | None:
+        with self._static_root_lock:
+            return os.dup(self.static_root_fd) if self.static_root_fd is not None else None
+
+    def server_close(self) -> None:
+        with self._static_root_lock:
+            try:
+                super().server_close()
+            finally:
+                if self.static_root_fd is not None:
+                    os.close(self.static_root_fd)
+                    self.static_root_fd = None
+
+
+def _open_static_root(directory: Path) -> int:
+    """Open every path component beneath '/' without following any symlink."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    opened = os.open("/", flags)
+    try:
+        for component in directory.parts[1:]:
+            next_fd = os.open(component, flags, dir_fd=opened)
+            os.close(opened)
+            opened = next_fd
+        return opened
+    except BaseException:
+        os.close(opened)
+        raise
+
+
 def build_server(
     projection_path: str | os.PathLike[str] | None,
     *,
@@ -1931,7 +2044,15 @@ def build_server(
             ),
         },
     )
-    return ThreadingHTTPServer((host, port), handler)
+    root_fd = _open_static_root(Path(resolved_static)) if resolved_static is not None else None
+    try:
+        server = _PinnedStaticHTTPServer((host, port), handler)
+    except BaseException:
+        if root_fd is not None:
+            os.close(root_fd)
+        raise
+    server.static_root_fd = root_fd
+    return server
 
 
 def main(argv: Iterable[str] | None = None) -> int:

@@ -47,16 +47,9 @@ REQUIRED_PUBLIC_CONSUMERS = frozenset(
     }
 )
 
-# Legacy static routes can survive a rebuild under filenames absent from the
-# proposed consumer inventory. Only known build asset formats in dedicated
-# asset directories are outside this route-coverage check; an API/search JSON
-# file in those directories is still a public-content route, not an asset.
-_BUILD_ASSET_DIRECTORIES = frozenset({"_astro", "assets", "static", "images", "fonts"})
-_BUILD_ASSET_SUFFIXES = frozenset({
-    ".avif", ".css", ".gif", ".ico", ".jpeg", ".jpg", ".js", ".map",
-    ".mjs", ".otf", ".png", ".svg", ".ttf", ".wasm", ".webp", ".woff",
-    ".woff2",
-})
+# Legacy static routes or assets can survive a rebuild under paths absent
+# from the pinned inventory; even a hashed JS filename can contain revoked
+# material or an alias of a private receipt. No suffix-based exception.
 _MAX_LOCAL_RELEASE_ENTRIES = 10000
 
 
@@ -549,11 +542,10 @@ def audit_local_static_withdrawal(
                     relative = candidate.relative_to(root)
                     if relative.as_posix() in seen_paths:
                         continue
-                    if (
-                        relative.parts[0] in _BUILD_ASSET_DIRECTORIES
-                        and candidate.suffix.lower() in _BUILD_ASSET_SUFFIXES
-                    ):
-                        continue
+                    # An unlisted JS/CSS/image/font may contain revoked text
+                    # or embedded private data. Suffixes/asset directories
+                    # provide no binding to this release's signed inventory.
+                    # Fail closed until every served asset is inventoried.
                     return WithdrawalReadbackAudit(
                         "READBACK_UNTRUSTED_OR_DRIFT",
                         ("LOCAL_UNINVENTORIED_PUBLIC_FILE",),

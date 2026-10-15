@@ -49,6 +49,15 @@ def _evidence_iso_date(value: str | None, field_name: str) -> str | None:
     return canonical
 
 
+def count_undated_operation_receipts(db: PsqlRuntime) -> int:
+    """Read aggregate unallocated legacy liability at the canonical SQL seam."""
+    raw = db.run(
+        "SELECT count(*) FROM provider_receipt "
+        "WHERE started_at IS NULL AND completed_at IS NULL;"
+    )
+    return int(raw.strip() or "0")
+
+
 class QueueExecutionCostStore(PsqlRuntime):
     """Narrow PostgreSQL store for queue execution and provider-cost accounting.
 

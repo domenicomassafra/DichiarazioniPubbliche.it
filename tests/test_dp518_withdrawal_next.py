@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import tempfile
 import unittest
 from dataclasses import asdict, replace
@@ -197,7 +198,7 @@ class LocalWithdrawalNextTests(unittest.TestCase):
         legacy.unlink()
         self.assertEqual(self.audit().status, "CONSISTENT_UNATTESTED")
 
-    def test_selected_root_can_contain_known_build_assets_but_not_old_search_json(self):
+    def test_uninventoried_build_assets_cannot_clear_revocation_absence_audit(self):
         for name, body in (
             ("_astro/layout.abc123.js", b"export const view = 'ok';"),
             ("_astro/layout.abc123.css", b"body { display: block }"),
@@ -207,12 +208,38 @@ class LocalWithdrawalNextTests(unittest.TestCase):
             asset = self.root / name
             asset.parent.mkdir(parents=True, exist_ok=True)
             asset.write_bytes(body)
-        self.assertEqual(self.audit().status, "CONSISTENT_UNATTESTED")
+        # JS/CSS/images can themselves contain withdrawn text, HTML snippets,
+        # or embedded body data. A suffix/directory allowlist is not a proof
+        # that the bytes belong to the attested generation.
+        unverified = self.audit()
+        self.assertEqual(unverified.status, "READBACK_UNTRUSTED_OR_DRIFT")
+        self.assertEqual(
+            unverified.sanitized_reason_codes,
+            ("LOCAL_UNINVENTORIED_PUBLIC_FILE",),
+        )
         legacy = self.root / "_astro" / "search-old.json"
         legacy.write_bytes(b'{"hits":["revoked quote"]}')
         result = self.audit()
         self.assertEqual(result.status, "READBACK_UNTRUSTED_OR_DRIFT")
         self.assertEqual(result.sanitized_reason_codes, ("LOCAL_UNINVENTORIED_PUBLIC_FILE",))
+
+    def test_uninventoried_js_with_stale_revoked_quote_fails_closed(self):
+        asset = self.root / "_astro" / "stale.abc123.js"
+        asset.parent.mkdir(parents=True)
+        asset.write_bytes(b'window.staleQuote="REVOKED SYNTHETIC WORDING";')
+        status = self.audit()
+        self.assertEqual(status.status, "READBACK_UNTRUSTED_OR_DRIFT")
+        self.assertEqual(status.sanitized_reason_codes, ("LOCAL_UNINVENTORIED_PUBLIC_FILE",))
+
+    def test_private_release_receipt_hardlinked_as_js_never_passes_audit(self):
+        asset = self.root / "_astro" / "release.abc123.js"
+        asset.parent.mkdir(parents=True)
+        os.link(self.receipt, asset)
+        status = self.audit()
+        self.assertEqual(status.status, "READBACK_UNTRUSTED_OR_DRIFT")
+        self.assertEqual(status.sanitized_reason_codes, ("LOCAL_UNINVENTORIED_PUBLIC_FILE",))
+        self.assertFalse(status.withdrawal_verified_on_live_host)
+        self.assertNotIn(self.receipt.read_text(), repr(status))
 
     def test_uninventoried_symlink_route_cannot_hide_old_public_bytes(self):
         legacy = self.root / "old-quote.html"

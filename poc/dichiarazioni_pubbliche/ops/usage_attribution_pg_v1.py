@@ -112,7 +112,14 @@ SELECT COALESCE(json_agg(json_build_object(
   'original_fingerprint', md5(to_jsonb(r)::text),
   'state_revision', st.revision,
   'state_original_fingerprint', st.original_fingerprint,
-  'history_count', (SELECT COUNT(*) FROM dp512_pg_event ev WHERE ev.receipt_id=r.id),
+  -- Classification and immutable adjustment events share one DP-512 CAS
+  -- revision sequence. Checking classification events alone would mistake a
+  -- valid refund/correction for missing history and drop every consumer.
+  'history_count', history.event_count,
+  'history_distinct_revisions', history.distinct_revisions,
+  'history_first_revision', history.first_revision,
+  'history_last_revision', history.last_revision,
+  'history_original_drift', history.original_drift,
   'latest', (SELECT json_build_object(
       'revision',ev.revision,
       'original_fingerprint',ev.original_fingerprint,
@@ -125,7 +132,23 @@ SELECT COALESCE(json_agg(json_build_object(
 ) ORDER BY COALESCE(r.started_at,r.completed_at),r.id)::text,'[]')
 FROM provider_receipt r
 LEFT JOIN content_item c ON c.id=r.content_id
-LEFT JOIN dp512_pg_state st ON st.receipt_id=r.id;
+LEFT JOIN dp512_pg_state st ON st.receipt_id=r.id
+LEFT JOIN LATERAL (
+ SELECT count(*)::integer AS event_count,
+        count(DISTINCT revision)::integer AS distinct_revisions,
+        min(revision) AS first_revision,
+        max(revision) AS last_revision,
+        count(*) FILTER (
+          WHERE original_fingerprint <> md5(to_jsonb(r)::text)
+        )::integer AS original_drift
+ FROM (
+   SELECT revision, original_fingerprint FROM dp512_pg_event
+    WHERE receipt_id=r.id
+   UNION ALL
+   SELECT revision, original_fingerprint FROM dp512_pg_adjustment
+    WHERE receipt_id=r.id
+ ) h
+) history ON true;
 COMMIT;
 """
 
@@ -159,8 +182,13 @@ def _assert_dp512_fence(
         or rev < 1
         or type(count) is not int
         or count != rev
+        or record.get("history_distinct_revisions") != rev
+        or record.get("history_first_revision") != 1
+        or record.get("history_last_revision") != rev
+        or record.get("history_original_drift") != 0
         or not isinstance(last, dict)
-        or last.get("revision") != rev
+        or type(last.get("revision")) is not int
+        or not 1 <= last["revision"] <= rev
         or last.get("original_fingerprint") != record["original_fingerprint"]
         or record["state_original_fingerprint"] != record["original_fingerprint"]
         or not isinstance(last.get("result_json"), dict)
@@ -189,7 +217,7 @@ def _assert_dp512_fence(
         or result.get("invoice_attested") is not False
         or result.get("dispatch_authorized") is not False
         or result.get("receipt_id") != receipt.receipt_id
-        or result.get("revision") != rev
+        or result.get("revision") != last.get("revision")
         or result.get("basis") != expected_basis
         or result.get("source_reference_present")
         is not last.get("source_reference_present")

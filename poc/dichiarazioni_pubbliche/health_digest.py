@@ -6,11 +6,14 @@ import os
 import re
 import tempfile
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
-from dichiarazioni_pubbliche.queue_store import QueueExecutionCostStore
+from dichiarazioni_pubbliche.queue_store import (
+    QueueExecutionCostStore, count_undated_operation_receipts,
+)
 from dichiarazioni_pubbliche.operation_ledger import reconcile_operation_billing
 from dichiarazioni_pubbliche.ops.slo import evaluate as evaluate_slos
 from dichiarazioni_pubbliche.ops.slo import get_slo
@@ -58,12 +61,13 @@ def build_slo_measurements(
     *,
     queue: list[dict[str, Any]],
     queue_age: dict[str, Any],
-    estimated_cost_usd_today: float,
+    estimated_cost_usd_today: float | Decimal,
     max_cost_usd_per_day: float,
     max_cost_usd_per_source_day: float,
     provider_receipts_today: list[dict[str, Any]],
     projection_generated_at: str | None,
     now: datetime,
+    unallocated_cash_liability: bool = False,
 ) -> dict[str, Any]:
     """Derive the flat measurement mapping that the pure SLO module consumes.
 
@@ -101,17 +105,23 @@ def build_slo_measurements(
         except (TypeError, ValueError):
             projection_age = None
 
-    global_cap = max(float(max_cost_usd_per_day), 0.0)
-    cost_uncertain = any(row.get("cash_uncertain") for row in provider_receipts_today)
+    global_cap = max(Decimal(str(max_cost_usd_per_day)), Decimal("0"))
+    cost_uncertain = unallocated_cash_liability or any(
+        row.get("cash_uncertain") for row in provider_receipts_today
+    )
 
-    def cost_fraction(amount: float, cap: float, slo_id: str) -> float | None:
+    def cost_fraction(amount: float | Decimal, cap: Decimal, slo_id: str) -> Decimal | None:
         if cap <= 0:
             return None
-        fraction = amount / cap
+        # Decide the boundary in decimal money space before float-only SLO
+        # serialization. 0.1 + 0.2 must not become a spurious >60% breach.
+        fraction = Decimal(str(amount)) / cap
         # Known spend over the objective already proves a breach, even when
         # another attempt is unpriced. Otherwise uncertainty cannot imply OK.
-        if cost_uncertain and fraction <= get_slo(slo_id).target:
+        if cost_uncertain and fraction <= Decimal(str(get_slo(slo_id).target)):
             return None
+        # The pure SLO evaluator compares Decimal against Decimal before
+        # presentation converts measured ratios to JSON-compatible floats.
         return fraction
 
     return {
@@ -120,7 +130,7 @@ def build_slo_measurements(
         ),
         "queue_drain_ratio": drain_ratio,
         "estimated_cost_usd_today": (
-            cost_fraction(float(estimated_cost_usd_today), global_cap, "SLO-COST-GLOBAL-DAILY")
+            cost_fraction(estimated_cost_usd_today, global_cap, "SLO-COST-GLOBAL-DAILY")
         ),
         # The reconciliation groups are by provider, operation and status,
         # not by approved content/source identity. Dividing the largest
@@ -209,6 +219,10 @@ def build_health_digest(
         """,
     )
     day_start = current.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # A permanently undated historical receipt has no provable daily bucket.
+    # Do not fabricate a date using now(); instead keep the selected UTC day
+    # exact and fail the cash SLO closed while unallocated liability exists.
+    undated_unallocated_receipts = count_undated_operation_receipts(db)
     billing = reconcile_operation_billing(
         QueueExecutionCostStore.operation_ledger_receipts(
             db, since=day_start.isoformat(), until=(day_start + timedelta(days=1)).isoformat()
@@ -222,18 +236,26 @@ def build_health_digest(
             key = (group.provider_id, group.operation, attempt.status)
             row = receipt_groups.setdefault(key, {
                 "provider_id": group.provider_id, "operation": group.operation,
-                "status": attempt.status, "count": 0, "cost_usd": 0.0,
+                "status": attempt.status, "count": 0, "cost_usd": Decimal("0"),
                 "cash_uncertain": False,
                 "cost_basis": "RECORDED_OR_ESTIMATED_NOT_AUTHENTICATED",
             })
             row["count"] += 1
-            row["cost_usd"] += float(
-                attempt.recorded_measured_usd or attempt.provisional_estimated_usd or 0
+            row["cost_usd"] += (
+                attempt.recorded_measured_usd or attempt.provisional_estimated_usd or Decimal("0")
             )
             row["cash_uncertain"] |= (
-                attempt.cash_uncertainty or attempt.billing_basis == "EXTERNAL_PLAN"
+                attempt.cash_uncertainty or attempt.billing_basis in {"EXTERNAL_PLAN", "ZERO_COST"}
+                or (attempt.billing_basis == "ESTIMATED_ONLY"
+                    and attempt.provisional_estimated_usd == Decimal("0"))
+                or (attempt.billing_basis == "MEASURED_PROVIDER_COST"
+                    and attempt.recorded_measured_usd == Decimal("0"))
             )
-    receipts = [receipt_groups[key] for key in sorted(receipt_groups)]
+    # The JSON digest stays numeric; conversion to float occurs only at output.
+    receipts = [
+        {**receipt_groups[key], "cost_usd": float(receipt_groups[key]["cost_usd"])}
+        for key in sorted(receipt_groups)
+    ]
     transcripts = _query_json(
         db,
         """
@@ -415,7 +437,7 @@ def build_health_digest(
         category = error_category(row.get("last_error"))
         blocker_counts[category] = blocker_counts.get(category, 0) + int(row["count"])
 
-    total_cost = sum(float(row.get("cost_usd") or 0) for row in receipts)
+    total_cost = sum((row["cost_usd"] for row in receipt_groups.values()), Decimal("0"))
     measurements = build_slo_measurements(
         queue=queue,
         queue_age=queue_age,
@@ -425,6 +447,7 @@ def build_health_digest(
         provider_receipts_today=receipts,
         projection_generated_at=projection_generated_at,
         now=current,
+        unallocated_cash_liability=undated_unallocated_receipts > 0,
     )
     slo_results = evaluate_slos(measurements)
     blockers = [
@@ -462,6 +485,7 @@ def build_health_digest(
             )},
             "window_start": day_start.isoformat(),
             "window_end": (day_start + timedelta(days=1)).isoformat(),
+            "undated_unallocated_receipts": undated_unallocated_receipts,
             "provider_grouping_is_source_attribution": False,
         },
         "transcripts": transcripts,
