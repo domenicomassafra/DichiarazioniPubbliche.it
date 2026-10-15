@@ -1,0 +1,9 @@
+# Prerequisites: uv and Node 24/npm (the web CI version).
+# Local development only: no credentials, providers, database or public build.
+setupAgentStartupPolicy: wait-for-setup
+scripts:
+  setup: |
+    set -eu
+    uv venv --allow-existing --python 3.14 .venv
+    uv pip install --python .venv/bin/python --editable .
+    npm --prefix web ci
