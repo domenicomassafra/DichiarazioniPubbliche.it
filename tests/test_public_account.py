@@ -9,6 +9,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -194,6 +195,47 @@ class PublicAccountTests(unittest.TestCase):
                     self.assertEqual(request("POST", "/account/api/delete", cookie=session, origin="https://evil.example", csrf=details["csrf"])[0], 403)
                     self.assertEqual(request("POST", "/account/api/logout", cookie=session, origin=service.site_origin, csrf=details["csrf"])[0], 200)
                     self.assertEqual(request("GET", "/account/api/session", cookie=session)[0], 401)
+                finally:
+                    server.shutdown()
+                    thread.join(timeout=3)
+
+    def test_http_session_read_preserves_signed_visitor_rate_bucket(self):
+        # A rejected session read must not refresh an already valid visitor
+        # cookie: doing so resets the browser's 5-per-minute login-start cap.
+        with tempfile.TemporaryDirectory() as directory:
+            service = self._service(directory)
+            with build_server(None, host="127.0.0.1", port=0, account_service=service) as server:
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+
+                def request(method, path, *, visitor=""):
+                    headers = {"Host": "dichiarazionipubbliche.it", "Connection": "close"}
+                    if visitor:
+                        headers["Cookie"] = visitor
+                    if method == "POST":
+                        headers["Origin"] = service.site_origin
+                        headers["Content-Length"] = "0"
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+                    try:
+                        connection.request(method, path, headers=headers)
+                        response = connection.getresponse()
+                        return response.status, dict(response.getheaders()), response.read()
+                    finally:
+                        connection.close()
+
+                try:
+                    with patch("time.time", return_value=1000):
+                        status, headers, _ = request("GET", "/account/api/session")
+                        self.assertEqual(status, 401)
+                        visitor = headers["Set-Cookie"].split(";", 1)[0]
+                        for _ in range(5):
+                            self.assertEqual(request("POST", "/account/auth/google", visitor=visitor)[0], 303)
+                        # The previous cookie is still valid when the account
+                        # page checks login status again between attempts.
+                        status, refreshed_headers, _ = request("GET", "/account/api/session", visitor=visitor)
+                        self.assertEqual(status, 401)
+                        self.assertNotIn("Set-Cookie", refreshed_headers)
+                        self.assertEqual(request("POST", "/account/auth/google", visitor=visitor)[0], 429)
                 finally:
                     server.shutdown()
                     thread.join(timeout=3)

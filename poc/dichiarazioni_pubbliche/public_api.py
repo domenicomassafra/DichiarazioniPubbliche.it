@@ -1764,10 +1764,19 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                 if path == "/account/api/session" and not urlsplit(self.path).query:
                     result = service.inspect(self._account_cookie(SESSION_COOKIE), now)
                     if result.status == 401:
-                        reply(401, result.body, cookie=(
-                            f"{VISITOR_COOKIE}={service.new_visitor()}; Path=/; Secure; "
-                            "HttpOnly; SameSite=Lax; Max-Age=2592000"
-                        ))
+                        # Preserve a signed visitor cookie across anonymous
+                        # session reads. Refreshing it on every 401 silently
+                        # resets the per-browser login-start rate bucket.
+                        visitor = self._account_cookie(VISITOR_COOKIE)
+                        try:
+                            service.visitor_bucket(visitor)
+                            cookie = ""
+                        except ValueError:
+                            cookie = (
+                                f"{VISITOR_COOKIE}={service.new_visitor()}; Path=/; Secure; "
+                                "HttpOnly; SameSite=Lax; Max-Age=2592000"
+                            )
+                        reply(401, result.body, cookie=cookie)
                         return
                 elif path == "/account/oauth/callback":
                     query = urlsplit(self.path).query

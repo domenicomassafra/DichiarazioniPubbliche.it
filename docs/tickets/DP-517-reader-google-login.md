@@ -147,3 +147,30 @@ approved MiniPC/proxy path, accessibility reviewer for manual AT evidence.
 configuration, followed by an installed exact-source MiniPC canary and
 public reader proof. The ticket remains FUTURE, with AC-517.1–7 unchecked;
 do not enable a production login as a workaround.
+
+## 2026-10-15 — preserve a valid browser rate bucket on session reads
+
+**RED synthetic loopback HTTP:** After five accepted login starts using the
+same signed `__Host-dp-visitor` cookie in one minute, an anonymous
+`GET /account/api/session` returned HTTP 401 **and replaced the valid cookie**.
+That newly signed cookie selected a fresh 5/minute throttle bucket, making the
+ordinary account status check reset the advertised per-browser limit.
+
+**GREEN local correction:** The account handler now validates and preserves
+an existing signed visitor cookie when a session is unauthenticated; it issues
+a new visitor cookie only when none valid is supplied. The new test asserts
+first issuance, preservation on a subsequent 401 and HTTP 429 for the sixth
+login attempt in the same minute. Deliberately clearing/rotating client cookies
+can still evade a cookie-scoped limit; the separate durable global 120/minute
+limit remains the aggregate guard. No live Google provider, credentials,
+MiniPC installation or public account activation was involved.
+
+This is a source-only repair relevant to `AC-517.2/.5`; **AC-517.1–7 remain
+OPEN** pending the signed privacy/OAuth/host acceptance and real reader proof.
+
+**Read-only host check (2026-10-15):** `curl` GET of the canonical public
+`https://dichiarazionipubbliche.it/account/api/session` returned HTTP **404**.
+The named `ssh minipc` metadata check found the account source absent from
+`/home/udodo/src/DichiarazioniPubbliche.it/poc/dichiarazioni_pubbliche/public_account.py`.
+Neither result establishes an authorized activation or installed source match;
+the new local protection has not been deployed.

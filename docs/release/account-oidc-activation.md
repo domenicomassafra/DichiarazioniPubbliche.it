@@ -20,6 +20,11 @@ DP-508's disabled public-intake gate and the zero-account public reader API.
   and a durable global limit of **120/minute**. Rate/quota is shared across
   threads through SQLite `BEGIN IMMEDIATE`; a denied start returns HTTP 429.
   Neither raw IP nor device identifier enters the throttling ledger.
+  Anonymous session status reads preserve an existing valid signed visitor
+  cookie rather than rotating its throttle bucket. Clearing/rotating browser
+  cookies can evade that cookie-scoped 5/minute bucket, so the independent
+  120/minute global guard is essential; actual abuse/rate controls still
+  require MiniPC/proxy acceptance.
 - GET `/account/oauth/callback` consumes the state once, exchanges the code
   only at Google's HTTPS token endpoint, checks a server-retrieved JWKS RSA
   signature, pinned issuer, exact client audience/authorized party, nonce,
