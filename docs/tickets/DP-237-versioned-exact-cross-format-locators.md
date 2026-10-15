@@ -101,3 +101,31 @@ database operation, fabricated accepted evidence or public release was used.
 permitted source parsing, protected MiniPC/Studio readback, viewer seek and
 cross-format human acceptance. Source changes were made solely inside an
 isolated worker worktree; no commit, push or deployment occurred.
+
+## 2026-10-15 — Negative transcript end-offset alias rejected
+
+The opt-in `MEDIA_SEGMENT_REF` validator accepted a source-relative
+`variant_end_char` **below zero**, because Python slicing interprets negative
+indices relative to the end of a string. For an otherwise valid source
+variant and verified segment, setting `variant_end_char` to
+`original_end - len(variant_text)` selected exactly the same substring while
+turning an invalid persisted coordinate into `LOCATED`. This undermined the
+exact time/segment locator boundary in AC-237.2 and AC-237.5.
+
+The focused regression reproduced `LOCATED` (**RED**) for this negative alias
+on the existing private fixture, alongside a valid positive control. The
+media resolver now requires nonnegative, strictly ordered segment coordinates
+within `len(variant_text)` before comparing text and hashes;
+the same invalid alias becomes `BLOCKED / LOCATOR_MEDIA_TEXT_MISMATCH`
+(**GREEN**). The existing speaker, source, transcript-variant, hash, duration
+and document selectors are unchanged. Locator/derivation/recovery neighbors
+pass **68/68** local tests; scoped Ruff lint, syntax compilation and diff
+check pass. These are self-contained private test bytes, not licensed or
+independently attested real media.
+
+**Status remains IN PROGRESS, AC-237.1–.6 OPEN:** a rights-permitted actual
+written/PDF and timed source, an independently verified parser/segment,
+viewer-seek behavior and authorized MiniPC Studio/reader readback are still
+required for original end-to-end acceptance. No approved source, rights,
+public authority, network fetch, production database or runtime deployment
+was created by this regression.

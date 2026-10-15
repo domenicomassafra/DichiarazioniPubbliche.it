@@ -335,6 +335,28 @@ class ExactLocatorMediaTests(unittest.TestCase):
             ).status, "STALE",
         )
 
+    def test_negative_variant_end_offset_must_not_alias_real_segment(self):
+        segment, passage, locator, quote = media_fixture()
+        # Python slices accept negative ends: the exact same segment bytes can
+        # be selected by an invalid persisted, source-relative coordinate.
+        negative_end = segment.variant_end_char - len(segment.variant_text)
+        self.assertLess(negative_end, 0)
+        self.assertEqual(
+            segment.variant_text[segment.variant_start_char:negative_end],
+            segment.segment_text,
+        )
+        positive = resolve_exact_source_locator(
+            locator, passage=passage, media_segment=segment, quote_text=quote,
+        )
+        self.assertTrue(positive.located)
+        negative = resolve_exact_source_locator(
+            locator, passage=passage,
+            media_segment=replace(segment, variant_end_char=negative_end),
+            quote_text=quote,
+        )
+        self.assertEqual(negative.status, "BLOCKED")
+        self.assertEqual(negative.blockers, ("LOCATOR_MEDIA_TEXT_MISMATCH",))
+
     def test_wrong_speaker_segment_content_variant_and_timing_block(self):
         segment, passage, locator, quote = media_fixture()
         base = dict(passage=passage, media_segment=segment, quote_text=quote)
