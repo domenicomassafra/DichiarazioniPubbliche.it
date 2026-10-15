@@ -68,7 +68,6 @@ class OperationLedgerSchemaTests(unittest.TestCase):
         paths = (
             ROOT / "poc" / "dichiarazioni_pubbliche" / "queue_store.py",
             ROOT / "poc" / "dichiarazioni_pubbliche" / "scheduler_daemon.py",
-            ROOT / "poc" / "dichiarazioni_pubbliche" / "health_digest.py",
             ROOT
             / "poc"
             / "dichiarazioni_pubbliche"
@@ -80,6 +79,13 @@ class OperationLedgerSchemaTests(unittest.TestCase):
             self.assertIn("MEASURED_PROVIDER_COST", text)
             self.assertIn("measured_cost_usd", text)
             self.assertIn("estimated_cost_usd", text)
+
+    def test_health_digest_delegates_to_canonical_receipt_reconciliation(self):
+        text = (ROOT / "poc/dichiarazioni_pubbliche/health_digest.py").read_text()
+        self.assertIn("QueueExecutionCostStore.operation_ledger_receipts(", text)
+        self.assertIn("reconcile_operation_billing(", text)
+        self.assertIn('"billing_today"', text)
+        self.assertNotIn("FROM provider_receipt", text)
 
 
 if __name__ == "__main__":

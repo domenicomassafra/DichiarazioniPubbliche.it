@@ -959,6 +959,30 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+### Codex independent DP-512 tranche — 15 ottobre 2026
+
+Owner requested exactly one Codex subagent while CoS worked on DP-312/517/515/405.
+That worker is settled; root acquired the DP-512 digest/ledger/test slice.
+Current source: existing canonical receipt reader and reconciliation reused;
+UNKNOWN cost/absent energy stay unknown and known cost breaches remain visible.
+Review Standards/Spec has no remaining consequential findings. Focused Mac
+91/91, independent root 48/48, isolated actual MiniPC PostgreSQL 2/2 and
+full Python **3690/3690 in 542.708 s** pass; exact limits and log are in
+[DP-512](docs/tickets/DP-512-billing-classification.md). This is candidate
+consumer proof, not installed health/worker parity or authenticated invoices.
+
+Active skills: `/Users/domenico/.codex/skills/code-implement/SKILL.md` and
+`/Users/domenico/.codex/skills/code-review/SKILL.md`; reuse/Ponytail provenance
+is recorded in the ticket. Current step: publish reviewed owned bytes on
+`fix/dp512-health-cost-unknown-20261015` from independent checkout
+`/Users/domenico/Code/DP-512-health-review-20261015`, based on settled CoS
+`63f60e9`, preserving the shared integrator index/ref and eight owned WIP files.
+Frontier: remote branch proof, then existing auto-review billing guard, PR/CI/
+merge gates and real billing/corrections/reservations/runtime acceptance.
+No additional worker, production DB change, deploy or paid call. No original
+AC or ticket is marked DONE: 162 total / 90 DONE / 72 non-DONE remain.
+
+
 ### Continuazione owner 15 ottobre 2026 — quattro dispatch richiesti
 
 L'owner ha chiesto esplicitamente di continuare questa lane, attivando
