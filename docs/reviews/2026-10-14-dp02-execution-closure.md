@@ -702,3 +702,148 @@ della build approvata** di `/esplora/` su cui un reviewer umano può
 eseguire la prova VoiceOver DP-429 (filtro, annuncio conteggi, ritorno focus
 e cronologia), conservando esito PASS/FAIL? Fino a questa e alle altre
 condizioni elencate, nessuna nuova audit wave, PR, main merge o release.
+
+## LANE 02 · WAVE 001 · Continuazione owner 15/10/2026 08:36 CEST · PARTIAL / NO-GO
+
+**Mandato aggiornato:** l'owner ha richiesto quattro subagenti nativi con
+ticket differenti e implementazione A→Z, più file di risposta aggiornato.
+L'esito precedente BLOCKED/0 worker riportato sopra è una fotografia della
+tranche precedente, non il nuovo esito. Sono stati richiesti **quattro inviti**
+CoS e sono stati verificati **tre veri primi turni**; un quarto startup è
+fallito per backpressure nativa e la verticale è stata assunta dal coordinatore.
+Tre difetti locali reali sono stati riprodotti RED→GREEN, integrati e
+pubblicati senza trasformarli in acceptance reale di produzione.
+
+### Quattro posti originali e settlement
+
+| Posto | Agente nativo / primo turno / modello | Owned e risultato verificato | Settlement / limiti |
+|---|---|---|---|
+| **DP-312** | `worker-1`, primo turno acquisito, `gpt-6-thinking` high | `context_integrity.py`, `tests/test_dp312_speech_act.py`, ticket. Cinque false attribuzioni EN/DE (`none/neither/nobody`, `weder/niemand`) erano `ASSERTION/ENDORSE`; RED→GREEN ora `HOLD_FOR_CONTEXT/UNKNOWN`, replay di hash e rifiuto fonte alterata. 171 test/controlli adiacenti dichiarati PASS dal worker; 33/33 unit mirati rieseguiti dal prime, benchmark 5/5. | `worker-1` ha eseguito `agents finish`, sleeping, nessuna lease Git. Commit/push `6be686c84f81da1863bde81ee47aad900ed3fb28`. **AC-312.1–6 OPEN**: source/rights, contrast set Gold, lingua osservata, original/translation, downstream invalidation e MiniPC ancora esterni. |
+| **DP-517** | `worker-2`, primo turno acquisito, `gpt-6-thinking` high | `public_api.py` (lease path specifica), `tests/test_public_account.py`, ticket e runbook OIDC. HTTP reale localhost RED: GET session 401 rigenerava anche un `__Host-dp-visitor` valido, azzerando il limite 5/min. GREEN: cookie firmato preservato, sesto login nella finestra = 429. 117/117 adiacenti PASS worker; 9/9 account focali PASS prime. | Lease path `public_api.py` esplicitamente rilasciata, `worker-2` `agents finish`, sleeping. Commit/push `908b17fc4c89506ddca7616cdd16094eb7e4f1fa`. Cookie cancellato intenzionalmente apre ancora bucket nuovo; limite globale 120/min resta distinto. **AC-517.1–7 OPEN**, account remoto spento: privacy, OAuth, test identity, installazione reversibile e AT mancanti. |
+| **DP-515** | `worker-3`, primo turno acquisito, `gpt-6-thinking` high | `source_watch_store_v1.py`, `tests/test_dp515_durable_watch_next.py`, ticket. Prima un `IN_FLIGHT` con gate invariato poteva bloccare un source per sempre dopo crash. Ora expiry immutabile, lease 1–86400s/default 300, CAS `BEGIN IMMEDIATE` su state/gate/source, rifiuto observation oltre deadline, restart e due writer; 53/53 focused+adjacent PASS worker e prime, Ruff e format PASS. | `worker-3` `agents finish`, sleeping. Commit/push `25c94d145f5d813bde76bdf51851ebf3b37453ab`. Store resta **solo fixture SQLite opt-in disposable**, non writer PG né scheduler produttivo. **AC-515.1–7 OPEN** per diritti, budget autentico, PG/DP-511/510, canary MiniPC e reader freshness/cache. |
+| **DP-405** | `worker-4`: invito creato `gpt-6-thinking` high ma **startup FAILED** (`command queue full`); **nessun primo turno**, non contarlo; coordinatore subentra | Letti route `web/src/pages/persone/[slug].astro`, `PersonRecord.astro`, `PublicPersonArchiveV3.astro`, `publicPersonV3.ts` e test. Route reale ancora dossier-v2-derived, nessun PublicPerson DP-438 zero-record effettivamente approvato e pin indipendente: cutover non autorizzato, **NO_CHANGE** source. `node web/scripts/check-dp405-approved-empty.mjs` lanciato ma primo Astro build `spawnSync ETIMEDOUT` (limite test 60s): **non PASS**. GET HTTPS unknown Person = 404. | Non ripetuto avvio nella coda satura; nessun worker o processo DP-405 lasciato attivo. **AC-405.3/.6 OPEN**: richiedono risorsa/pin owner/editoriale, readback MiniPC e VoiceOver manuale. Nessuna biografia/record sintetico pubblicato. |
+
+**Totale worker realmente avviati:** **3/4**; quarto invito fallito,
+nessun modello/effort alternativo, nessun fallback silenzioso e nessun
+worker non assestato. Il coordinatore ha integrato ogni diff con **lease Git
+esclusiva prime**, stage solo path owned e push puntuali con remoto uguale
+a locale. Non sono stati creati ulteriori task o wave. Il ramo contiene ora
+tre commit coerenti; non sono stati reinstallati 11 merge storici.
+
+### Crosswalk ticket, AC e prove reali
+
+| Ticket originale | Stato prima → dopo | Criterio tecnico nuovo e comando falsificante | AC residue e owner di sblocco |
+|---|---|---|---|
+| DP-312 | IN PROGRESS → IN PROGRESS | Cinque quantificatori negativi in `tests/test_dp312_speech_act.py`; `PYTHONPATH=poc python3 -B -m unittest tests.test_dp312_speech_act -q` **33/33 PASS**. Risolve un false endorsement privato, NON un AC originale completo. | AC-312.1–6; owner source/rights + Gold DP-321 deve fornire fonti license-safe, contrasti annotati, pari traduzioni e replay MiniPC. |
+| DP-517 | FUTURE → FUTURE | `tests.test_public_account` **9/9 PASS** prime, 117/117 adiacenti worker; localhost session401 preserving visitor/new-cookie when absent, sesto `/account/auth/google` 429. GET `https://dichiarazionipubbliche.it/account/api/session` **404**; modulo account assente sul MiniPC. | AC-517.1–7; owner/privacy/legal approva termini/erasure/backup, Google Cloud real app+test identity, operator MiniPC install/proxy e reviewer AT. |
+| DP-515 | IN PROGRESS → IN PROGRESS | `PYTHONPATH=poc python3 -B -m unittest tests.test_dp515_incremental_watch tests.test_dp515_durable_watch_next tests.test_source_watcher -q` **53/53 PASS**, CAS/readback disposable. | AC-515.1–7; owner fonte/diritti, budget DP-514/operator e integration PG/queue, poi canary MiniPC e revoca/cache pubblica. |
+| DP-405 | IN PROGRESS → IN PROGRESS | `web/src/pages/persone/[slug].astro` ancora v2. Test DP405 **ETIMEDOUT senza prova**; unknown HTTP 404, non route approved-zero positiva. | AC-405.3 e .6; owner DP-438 approvazione Persona+pin reale, operator release e reviewer AT fisico. |
+| DP-429 (coordinatore, non quinto posto) | IN PROGRESS → IN PROGRESS | VoiceOver/screen reader reale non eseguito; keyboard/zoom automatici storici non chiudono AC mista. | MANUAL: URL+pin approvato di `/esplora/` e reviewer AT, test su contatore, filtri, history, focus e 200%. |
+
+**Reporter originale:** 162 total / 90 DONE / 52 IN PROGRESS /
+6 BLOCKED / 14 FUTURE / 72 non DONE / READY=0, file-ticket e PLAN
+concordi. **Delta chiusure integrali = 0; nuovi fix tecnici = 3;
+AC complete originali aggiuntive = 0**. Preflight rimane **NO-GO/49**
+(16 Q-306, 4 artefatti release, 29 gate ticket), non 49 ticket ulteriori.
+
+### Review, codice e delivery
+
+Review locale `code-review` sui due assi Standards/Spec:
+`git diff 3e906674b5e195fb88fe8a8a7a469fd1bc0ea91c..25c94d145f5d813bde76bdf51851ebf3b37453ab`,
+hash SHA-256 del diff
+`bf84b4c8c8ace3651a20056c861e3553f4e022fbe2597601f988e3953fb34a24`.
+10 file, **522 inserzioni, 14 rimozioni**. Letti i tre seam Python,
+i test di regressione, i tre ticket AC, il runbook OIDC e i contratti
+repository; nessun finding consequenziale riproducibile sul nuovo delta,
+non review esaustiva del vecchio diff vs main. `ruff check` sei file
+source/test **PASS**, `ruff format --check` dei due DP-515 **PASS**,
+`git diff --check` **PASS**, benchmark deterministico **5/5 PASS**,
+`python3 tools/check_repository_contract.py` **PASS**. Format debt
+preesistente su DP-312/517 non riscritto a tappeto. Il test DP-405 timeout
+resta **non PASS**. Due full suite avviate e interrotte dai worker per
+non duplicare la **singola full integrata prime** sul codice finale.
+
+**Full Python integrata prime:** la prima run sul checkout integratore
+condiviso è stata **interrotta intenzionalmente / exit 130**, log
+`/tmp/dp02-wave001-continuation-full-20261015.log`, dopo che sono
+comparse modifiche concorrenti estranee alla lane DP-512 in
+`poc/dichiarazioni_pubbliche/health_digest.py`, nei test health/ledger,
+nel suo ticket e in un nuovo test untracked. Non usare tale run per
+attribuire PASS/failure al commit source isolato. La suite
+`PYTHONPATH=poc python3 -B -m unittest discover -s tests -q` è stata
+avviata **nel worktree temporaneo detached con tracked source pulito**
+`/tmp/dp02-wave001-isolated-25c94d1-20261015`, fissato sullo SHA
+`25c94d145f5d813bde76bdf51851ebf3b37453ab`;
+la sola dipendenza locale aggiunta è il symlink temporaneo
+`web/node_modules` verso i pacchetti installati (non sorgenti tracciati),
+da scollegare dopo il test;
+log `/tmp/dp02-wave001-isolated-full-20261015.log` —
+**3.681/3.681 PASS, 426,148 secondi, exit 0, zero failures/errors**.
+Rilevati ResourceWarning SQLite/HTTP non fatali; prova sul sorgente
+fissato, non su DP-512 WIP concorrente. Verificata la sola dipendenza
+symlink non tracciata, rimossa con `unlink` dell'alias (non del target);
+poi `git worktree remove` senza force su tree pulito **PASS**:
+ritornati ai soli due worktree canonici, senza eliminare dati unici.
+Nessuno dei
+diff concorrenti DP-512 è stato stage/commit dalla lane 02.
+Non trasferire PASS storico 3674/3674 da
+`db03d51` al nuovo codice. Se fallisce DP-238, conservare i failure
+esatti e non convertire retest mirato in PASS generale.
+
+Sorgente integratore Mac Studio:
+`/Users/domenico/Code/DP-20261014-all-lanes-integrator`, branch
+`integrate/dp-20261014-all-lanes`; commit source coorte e
+`refs/heads/integrate/dp-20261014-all-lanes` remoto verificati identici
+`25c94d145f5d813bde76bdf51851ebf3b37453ab`.
+Main canonica locale e remoto
+`33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, non toccata;
+due worktree preservati e nessuno stash. Prima della ricevuta restano
+`PLAN.md` e questa receipt WIP **owned coordinatore**, oltre ai diff
+DP-512 **estranei e preservati** (`health_digest.py`, `operation_ledger.py`,
+test/ticket correlati): stage/commit finale limitato ai due owned.
+Nessun merge/deploy, nessuna mutazione DB o server MiniPC.
+
+PR sul branch esistente ancora **0**. `PR_HELD_AUTOREVIEW_BILLING_GUARD`:
+nessun readback sicuro dell'identità effettivamente GitHub-linked per
+`Automatic review=OFF` personale **e** override repository;
+stato `EXTERNAL_AUTOREVIEW_SETTING_UNVERIFIED`. Nessun `@codex review`,
+review a consumo, push su main o merge. La run GitHub Actions
+`38693270893` su `25c94d1` è SUCCESS ma con il solo job
+`repository contract` PASS: web/backend/detached clone SKIPPED;
+non è CI PR completa.
+`verify_main_delivery.py --review-check` va ripetuto sul commit finale
+documentale; non attesta PR/CI/manual. Prima di un merge servono PR reale,
+CI esatta, thread paginati/risolti, `check_pr_merge_gate.py` e gate
+legal/editoriale/source/host/manual.
+
+**PR description pronta ma HELD, base `main` / head
+`integrate/dp-20261014-all-lanes`:** "Integrare i WIP originali DP02 e
+tre regressioni fail-closed in semantica, account e incremental watch".
+Scope: undici merge sorgente preesistenti, più tre commit piccoli di questa
+continuazione e loro test/receipt; invarianti no automatic publication,
+source-rights e identity-review separati. Evidence: Python focused/adjacent,
+benchmark, Ruff, ricevute ticket e SHA sorgente fissato; la full exact-head
+rimane separata e non può essere sostituita dal job solo-contract dei push.
+**Readiness PR=HELD** finché non si dimostra il vero account linked
+& override repo OFF o consenso esplicito owner ai costi. **Readiness
+merge=NO** anche dopo apertura, finché non esistono CI PR completa,
+review locale sull'intero range, paginazione threads GitHub,
+`PR_MERGE_GATE_PASS` e approvals/source/runtime/manual dovuti.
+
+### Risposta di trasporto e prossima azione
+
+Il coordinatore aggiorna `PLAN.md` Active workflow e la presente
+ricevuta prodotto; questa **sezione completa di continuazione** è la
+risposta univoca da copiare nel file
+`/Users/domenico/ControlCenter/src/controlcenter-ops/tasks/20260929-main-release-closure/310-prompt-to-prompt-20261015/02-WAVE-001-COS.response.md`.
+Il repository Ops condiviso presenta WIP di altre lane: la copia locale
+si produce senza toccare index/ref Ops e resta **PENDING_CORE07_OPS_LEASE**
+per commit/push/readback Ops da parte dell'unico writer Core07. Non
+duplicare alcun WIP già presente. Nessun worker ha processi pendenti
+assegnati; nessuna attivazione provider, account, fonte, Persona, AT o
+pubblicazione è implicita.
+
+**Prossima frontiera:** blocchi di fonte/Gold, OAuth/privacy, budget/PG,
+approvazione Persona/pin e AT. Unica domanda manuale precisa: **qual è
+l'URL e l'hash della build approvata di `/esplora/` per il test VoiceOver
+DP-429?** Non avviare una nuova wave di hardening invariata.

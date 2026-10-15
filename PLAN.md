@@ -959,6 +959,71 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+### Continuazione owner 15 ottobre 2026 — quattro dispatch richiesti
+
+L'owner ha chiesto esplicitamente di continuare questa lane, attivando
+quattro subagenti nativi distinti per lavorare i ticket A→Z e producendo
+il file aggiornato di risposta. Il coordinatore mantiene gli AC originali
+e i gate esterni senza sostituirli con test sintetici.
+
+Chat On Steroids run nativo `db064fbe-f612-4db0-b701-3cc4e8661ba6`.
+`agents.spawn` ha accettato quattro *inviti* con modello osservato
+`gpt-6-thinking`, reasoning `high`: `worker-1` DP-312, `worker-2`
+DP-517, `worker-3` DP-515, `worker-4` DP-405. La coda ha poi
+esplicitamente restituito `worker-4 failed` per `command queue full`,
+senza primo turno: **non contarlo avviato**, non reiterare uno spawn che
+creerebbe ulteriori tab nella coda satura. Il coordinatore assume DP-405.
+`worker-1/2/3` hanno comunicato primi turni e gap tecnici candidati,
+con file disgiunti; soltanto worker-2 ha ricevuto lease path temporanea
+su `public_api.py` per l'handler `/account/api/session` quando RED
+riprodotto. Il prime resta unico writer Git index/ref/commit/push.
+
+**In corso**: verificare RED→GREEN dei worker ed esito della route DP-405,
+due assi code-review, test appropriati, acquisto immediato dei diff
+e consegna unica sul branch integratore. **In attesa**: source Gold/rights,
+grant privacy/OIDC, budget/PG/canary e approved Persona/AT; nessun bypass
+o attivazione live. La precedente sezione `Esito Chat On Steroids` è
+il checkpoint della tranche anteriore, non lo stato terminale di questa
+continuazione. Il trasporto finale si salva solo dopo settlement.
+
+**Readback e settlement tecnico:** `worker-1`, `worker-2` e `worker-3`
+hanno tutti avuto primo turno reale, prodotto regressioni RED→GREEN
+rispettivamente DP-312/517/515 e chiamato `agents finish`; `worker-4`
+resta FAILED senza primo turno. Tutti i diff worker sono assorbiti dal
+prime in tre commit sul branch prodotto remoto:
+`6be686c84f81da1863bde81ee47aad900ed3fb28` (DP-312),
+`908b17fc4c89506ddca7616cdd16094eb7e4f1fa` (DP-517) e
+`25c94d145f5d813bde76bdf51851ebf3b37453ab` (DP-515), con
+`git ls-remote` uguale per ognuno. Test 33/33, 9/9 e 53/53
+rieseguiti dal prime sui rispettivi seam; il worker DP-517 aveva
+117/117 adiacenti, DP-312 171 verifiche adiacenti; benchmark 5/5,
+Ruff e contratto repo verdi. DP-405 assunto dal prime:
+`node web/scripts/check-dp405-approved-empty.mjs` ha restituito
+`ETIMEDOUT` prima del primo artifact Astro, **non PASS**; nessun
+approved Person/pin per la route positiva. Tutte le AC originali
+DP-312.1–6, DP-517.1–7, DP-515.1–7, DP-405.3/.6 rimangono
+aperte, zero ticket chiusi; gate DP-429 manuale invariato.
+
+**Passo finale corrente:** la prima full Python combinata sul checkout
+integratore condiviso è stata interrotta con exit 130 poiché erano
+comparsi WIP concorrenti DP-512 (ticket, `health_digest.py`, test e
+un test nuovo untracked): preservare quei file e non attribuire
+l'esito al solo source SHA. Una full sostitutiva si sta eseguendo su
+worktree detached isolato `25c94d145f5d813bde76bdf51851ebf3b37453ab`,
+log `/tmp/dp02-wave001-isolated-full-20261015.log`:
+**3.681/3.681 PASS, exit0 in 426,148 s** sul source SHA esatto.
+Symlink temporaneo node_modules rimosso dopo il test e worktree detached
+rimosso senza force dopo readback pulito; restano due worktree canonici.
+Non ereditare PASS `db03d51` né
+convertire eventuale failure DP-238 in verde. Dopo la suite:
+completare la receipt di continuazione, verificare reporter e
+`check_launch_preflight.py --expect-no-go`, stage soltanto
+`PLAN.md` e receipt, commit/push su branch integratore,
+`verify_main_delivery.py --review-check`, generare file di trasporto
+`02-WAVE-001-COS.response.md` in Ops senza Git Ops priva di lease;
+per il commit/push Ops occorre writer Core07. PR held per
+`EXTERNAL_AUTOREVIEW_SETTING_UNVERIFIED`.
+
 ### Esito Chat On Steroids — lane 02 / wave 001, 15 ottobre 2026
 
 **BLOCKED / WAIT_OWNER, tranche assestata.** Il coordinatore ha letto il prompt
