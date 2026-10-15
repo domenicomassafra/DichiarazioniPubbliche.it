@@ -1,6 +1,46 @@
 # DP-512 — Truthful operation billing classification and retrospective reconciliation
 
 Status: IN PROGRESS
+
+## Active workflow — 2026-10-15, owner-requested independent ticket closure
+
+The owner requested one Codex subagent on another original ticket while CoS
+works. A bounded acceptance crosswalk found no fully closable original among
+DP-215/229/233/304/422 without existing source/legal/runtime approvals. The
+remaining executable DP-512.4/.6 digest gap is explicitly documented below:
+health aggregation currently combines estimates with recorded measured labels
+and turns UNKNOWN into zero. Root grants this worker path ownership of this
+ticket, `health_digest.py`, `test_health_digest.py` and, if needed, a separate
+real-PostgreSQL consumer regression. CoS retains Git/index/ref ownership and
+`PLAN.md`; root reconciles the shared plan after settlement.
+
+Skill source: `/Users/domenico/.codex/skills/code-implement/SKILL.md`, including
+its Ponytail ladder. Step: reproduce the digest misclassification, then reuse
+the existing queue-store receipt reader and `reconcile_operation_billing`
+instead of adding another billing model, SQL writer or datastore. Existing
+implementation at the current integrator revision is adopted unchanged for
+receipt replay/conflict and unverified-billing semantics. No additional
+dependency or external-provider integration is needed for this consumer fix.
+Frontier: implementation, review, local/MiniPC disposable proof and full
+Python verification complete. Root owns publication in the independent
+checkout `/Users/domenico/Code/DP-512-health-review-20261015`, branch
+`fix/dp512-health-cost-unknown-20261015`; the CoS checkout/index is preserved.
+The single requested Codex subagent is settled; no disposable server remains.
+Full closure remains blocked on the original independent billing evidence,
+corrections/refunds, reservations and authoritative MiniPC acceptance. No
+AC/status, source rights, production data or activation is authorized by this
+slice. The existing PR billing/merge gates remain; root publishes an
+independent review branch without using the CoS index/ref lease.
+
+Ponytail source actually read before design is the maintained donor fusion
+inside the canonical `code-implement` skill: upstream
+`DietrichGebert/ponytail`, revision
+`14a0d79548d4de8fc2de95c1b94bb0de63a739d3`,
+`skills/ponytail/SKILL.md` (MIT). The skill's separate `internal ponytail`
+locator was not found in the enabled Codex/Agent Skills or DStack package
+skill trees; no separate internal file load is claimed. The fused ladder was
+applied directly: existing canonical receipt reader/reconciliation, no new
+dependency, writer, migration, service or billing authority.
 Milestone: M5 — reliability, security, operations, and data lifecycle
 Depends on: DP-230, DP-506
 
@@ -228,3 +268,190 @@ acceptance. **DP-512 remains IN PROGRESS; AC-512.1–.6 stay unchecked.**
 Authoritative invoice/usage and provider-plan evidence, exact corrections,
 reconciliation, atomic dispatch reservations and MiniPC consumer parity
 remain subject to their independent acceptance gates.
+
+## 2026-10-15 — Truthful private health consumer, original ticket remains open
+
+The owner-requested independent Codex worker fixed the already documented
+health-consumer gap under AC-512.4/.6. The real digest now delegates its
+receipt query to `QueueExecutionCostStore.operation_ledger_receipts` and its
+classification/replay/conflict semantics to `reconcile_operation_billing`.
+An exact repeated receipt is counted once; conflicting attempt identities
+refuse a digest. Private digest schema v2 separately reports recorded
+measured-labeled USD, provisional estimated USD, unknown cash attempts,
+external-plan attempts, zero-cost labels and unknown energy. Billed USD,
+plan quota and measured Wh remain null; invoice attestation and dispatch
+authority remain false. `estimated_cost_usd_today` now contains estimates
+only. The compatibility provider-group `cost_usd` is explicitly labelled
+`RECORDED_OR_ESTIMATED_NOT_AUTHENTICATED`, for known budget-risk arithmetic.
+Unknown cash or unallocated external-plan liability makes cost SLOs UNKNOWN;
+a known sum already over the objective continues to show BREACH.
+
+The reader uses an explicit half-open UTC day, with the existing canonical
+started-at/else-completed-at timestamp semantics, rather than the database
+session timezone or `now()` fallback. Undated receipts are not allocated to
+a day by this reader; this slice does not claim exhaustive historic backfill.
+Provider/operation/status grouping is retained and explicitly labelled as
+**not source attribution**; true per-source attribution remains a separate
+consumer-parity limitation. Only allowlisted aggregate data leaves the
+reconciliation report: no receipt/operation identity, raw provider body,
+untrusted status detail or credentials enters the digest.
+
+Independent parent review found missing `local_energy_basis` still counted
+as zero unknown-energy attempts. There is no attested not-applicable state
+in this receipt model. The smallest canonical correction now counts absent
+and explicit UNKNOWN energy consistently in both ledger aggregators, and
+normalizes the report's absent energy label to UNKNOWN. Explicit ESTIMATED
+and MEASURED labels stay distinct, and the immutable original receipt stays
+unchanged. This is a read-model correction, not observed energy telemetry.
+
+Fresh proof on the final code bytes:
+
+- Five new health regressions first produced two failures/three errors; the
+  final health module passes 8/8, including known BREACH with another UNKNOWN
+  attempt, unknown-zero ceiling, exact replay/conflict and UTC offset handling.
+- The missing-energy adversarial case first failed `1 != 2`; the final
+  ledger regression covers missing, UNKNOWN, ESTIMATED and MEASURED without
+  changing the original legacy value.
+- `PYTHONPATH=poc python3 -B -m unittest tests.test_health_digest
+  tests.test_operation_ledger tests.test_operation_ledger_schema
+  tests.test_dp512_billing tests.test_dp512_reconciliation tests.test_ops_slo
+  tests.test_queue_store tests.test_dp512_health_digest_20261015
+  tests.test_dp512_billing_pg_fence_next -q`: **91/91 PASS**, exit 0,
+  8.019 seconds. This includes 15 real disposable PostgreSQL cases.
+- The new two-case consumer regression uses the full canonical schema and
+  actual SQL/Python digest, proving UTC month-boundary inclusion/exclusion,
+  unchanged canonical row hashes, UNKNOWN/recorded-cost separation and
+  redaction. The same exact test ran on MiniPC: **2/2 PASS**, exit 0,
+  2.406 seconds. All 255 bundled source/support files were SHA-256 verified
+  before execution, with provider/production credentials absent. The test
+  used its own temporary server, random port and disposable database only.
+  PostgreSQL consumers were confirmed zero and the bundle was removed.
+- MiniPC-tested SHA-256: `health_digest.py`
+  `108bb3c04e4cdd6d9e9ef029a6799e39d22eee24aaf378169c617065a4d2971d`;
+  `operation_ledger.py`
+  `e33429896fdfb0629f96f25e37dc8cc845bf6a154e146ba6a1edb2cd7a7b19b3`;
+  consumer test
+  `9dd3602c1e828bb782fd9a87cd5b1b2a22ba05038192a595c7f8db31451b314a`.
+- Ruff, scoped compilation and `git diff --check` PASS. No affected checked-in
+  admission/source pin was found in the bounded config/tools/release/tests
+  references to the two changed source files. No domain/publication behavior
+  changed, so no new semantic benchmark is asserted.
+- Local `code-review` Standards/Spec serial passes and independent parent
+  review resolved the missing-energy finding; no remaining consequential
+  finding in this eight-file slice. The parent separately reran 48/48
+  focused checks. No new subagents, GitHub review or paid API were invoked.
+
+The first CoS shared-checkout full suite was interrupted after this worker's
+08:37 source/test overlay appeared. Its replacement detached run at committed
+`25c94d1` excludes these DP-512 bytes. **Neither run proves this change.** A
+single integrated full suite on the final stable DP-512 code was subsequently
+started by root, log `/tmp/dp512-root-final-full-20261015.log`, and is
+**FULL_RESULT_PENDING** at worker handoff (superseded by the final receipt below). No full suite was started by this
+worker. The MiniPC proof above is an isolated candidate consumer test, **not
+installation of the changed digest**, production ledger acceptance or a
+complete AC-512.6 pass. No deployment, production data, provider call or
+public/editorial state changed.
+
+Original acceptance remains open:
+
+| Original criterion | Proven slice / exact remaining gate | Closure owner and observable input |
+|---|---|---|
+| AC-512.1 | Synthetic classes and disposable canonical receipts; no independently observed authenticated billed attempt/plan allocation/energy. | Billing/account operator supplies authorized provider usage/invoice evidence and applicable measurements. |
+| AC-512.2 | UNKNOWN/zero estimate and absent-energy negatives now reach the digest truthfully; real zero-fee/billing authentication remains unproven. | Billing/account operator supplies exact observed provenance; unknown stays unknown. |
+| AC-512.3 | Existing canonical attempt replay/CAS tests pass; truthful real failed/retried billed attempts remain unobserved. | Runtime/billing operator provides authorized joined attempt and billing receipts. |
+| AC-512.4 | Digest separates recorded/provisional/unknown/plan/energy and preserves original receipts; canonical historical correction/refund events and a complete safe backfill preview remain absent. | Ledger/billing integration owner delivers auditable immutable corrections/refunds and preview. |
+| AC-512.5 | Digest UNKNOWN cannot imply healthy zero; no dispatch/reservation behavior was changed. | Queue/budget owner proves canonical atomic reservations, observed reconciliation and bounded operator action. |
+| AC-512.6 | MiniPC disposable actual digest+PostgreSQL month-boundary/redaction 2/2 proven. Installed worker/scheduler/health parity, source attribution, concurrent attempts and original release/readback remain open. | Runtime operator installs the accepted revision and exercises the remaining original parity/concurrency matrix. |
+
+**Status stays IN PROGRESS; AC-512.1–.6 remain unchecked; zero ticket closures.**
+The fresh reporter remains 162 total / 90 DONE / 72 non-DONE, READY=0,
+PLAN/files agree. The bounded alternative-closure scan found existing external
+frontiers on DP-215.9 (selected real Garlasco sources/SI/rights), DP-229.8
+(independently attested challenger/incorporation/qualified waiver authority),
+DP-233.10 (approved parliamentary source-family rights), DP-304.1 (complete
+approved field/purpose/retention and qualified review), and DP-422.1
+(approved populated projection, declared dependencies and live route readback).
+No extra hardening or fabricated closure was substituted for these inputs.
+
+Handoff: root/prime acquires these eight owned paths only:
+`poc/dichiarazioni_pubbliche/health_digest.py`,
+`poc/dichiarazioni_pubbliche/operation_ledger.py`,
+`tests/test_health_digest.py`, `tests/test_operation_ledger.py`,
+`tests/test_operation_ledger_schema.py`, `tests/test_dp512_reconciliation.py`,
+`tests/test_dp512_health_digest_20261015.py`, and this ticket. CoS retains the
+index/ref/commit/push lease and PLAN/receipt ownership. At this handoff the
+slice is **BLOCKED_UNPUSHED** on that integration lease and pending final suite;
+root owns acquisition, focused review, coherent commit/push/readback and plan
+reconciliation. PR creation remains held by the existing automatic-review
+billing guard; PR/CI/merge and installed-consumer gates remain distinct.
+
+
+## 2026-10-15 — Root final verification and review-branch delivery
+
+The single requested Codex subagent finished and its eight-file result was
+acquired and reviewed. Full Python over the final source/test candidate:
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover
+-s tests -q` completed **3690/3690 PASS in 542.708 s**, log
+`/tmp/dp512-root-final-full-20261015.log`. The terminal session was unavailable
+on later readback, so no recovered process exit-code claim is made; the log
+contains the complete unittest `Ran 3690 tests` / `OK` result and successful
+restore drill. No test process remains. The seven source/test files in the
+publication checkout were byte-compared with that candidate; the later
+changes are documentation only. CoS's separate **3681/3681** isolated run
+was on source `25c94d1`, excluding DP-512, and is not used as proof here.
+
+Publication starts from CoS's settled documentation head
+`63f60e9`, preserving all three code fixes and its receipt unchanged. Root
+uses the separate review checkout/branch named in Active workflow, stages
+only the eight delivered files plus this tranche's PLAN checkpoint, and
+pushes that branch with actual remote SHA readback. This supersedes the
+worker-handoff BLOCKED_UNPUSHED lease condition once remote equality is
+verified; it does not claim main integration or deployment. Shared integrator
+DP-512 WIP is retained byte-identical, owned by this tranche, pending
+prime integration; no reset, stash, clean or foreign staging is performed.
+
+Local Standards/Spec review has zero remaining consequential findings after
+the missing-energy correction. Repository contract, focused tests,
+MiniPC candidate proof and whitespace checks remain green. PR readiness:
+UNKNOWN liability stays explicit in health JSON and cost SLOs, already
+provable overspend remains BREACH, and no receipt/operation identities or
+provider payloads enter the new aggregate. No billing/dispatch authority,
+schema migration or installed runtime change is introduced.
+
+`PR_HELD_AUTOREVIEW_BILLING_GUARD` remains active until the linked account's
+personal and repository settings are verified OFF or the owner accepts the
+possible consumption. Do not open a PR solely to trigger reviews. Once
+unblocked, review this branch against the existing integrator (or include
+its parent tranche when targeting main), run required CI/review-thread/merge
+gates, then prove installed consumers separately. DP-512 remains IN PROGRESS
+for the six original criteria and their missing evidence in the table above.
+
+Source commit `52df2048bff55fac19af6e4cce12f4f9091575ea` was pushed to
+`refs/heads/fix/dp512-health-cost-unknown-20261015`; local HEAD and actual
+remote ref were read back equal. `verify_main_delivery.py --review-check`
+returned `REMOTE_BRANCH_SAVED`, with clean publication checkout. Main
+remained `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe` and CoS integrator
+remained `63f60e9dc54938957c849959cd3b66d411935495`. No PR was opened,
+no merge/deploy occurred. The subsequent receipt checkpoint changes only
+PLAN and this ticket; the tested source hashes above remain unchanged.
+Root retains recovery/integration ownership of the eight shared-checkout
+DP-512 WIP files, saved on this remote branch, until the prime acquires the
+exact committed slice. The independent review checkout is clean and its
+branch is intentionally retained for that integration. No stash or worker
+process remains in the publication checkout.
+
+## 2026-10-15 — Chat On Steroids CoS02 integrator acquisition
+
+The newly assigned CoS02 prime acquired the seven source/test files as exact
+byte matches of the already published `70a5ef8` review checkout, then replaced
+the integrator's older ticket receipt with the complete previously delivered
+ticket. The integrator retains the historical commits and their original
+acceptance states; this handoff is not a second implementation claim.
+
+The new prime reran 91/91 focused unittest checks, scoped Ruff, compileall
+and whitespace verification on these integrator bytes. No billing provider,
+production database, user data, source publication or paid dispatch was used.
+Technical DP-512 acquisition does not close AC-512.1–.6: independently
+authenticated billing/refund provenance, atomic production reservations,
+approved historic correction replay and installed MiniPC consumer parity
+remain subject to real evidence and separate review/release gates.

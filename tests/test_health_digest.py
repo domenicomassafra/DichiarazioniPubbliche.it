@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -17,7 +18,9 @@ from dichiarazioni_pubbliche.health_digest import (  # noqa: E402
 
 
 class FakeDb:
-    def run(self, sql):
+    receipt_rows = ()
+
+    def run(self, sql, **variables):
         if "FROM processing_job" in sql and "GROUP BY job_type" in sql:
             return '[{"job_type":"CLAIM_EXTRACT","state":"BLOCKED","count":2}]'
         if "'oldest_queued_seconds'" in sql:
@@ -35,10 +38,8 @@ class FakeDb:
         if "FROM content_item" in sql and "GROUP BY processing_status" in sql:
             return '[{"processing_status":"CLAIM_EXTRACTION_BLOCKED","count":2}]'
         if "FROM provider_receipt" in sql:
-            return (
-                '[{"provider_id":"youtube","operation":"CAPTION_PROBE",'
-                '"status":"SUCCESS","count":2,"cost_usd":0}]'
-            )
+            self.receipt_window = variables
+            return json.dumps(self.receipt_rows)
         if "'variants'" in sql:
             return (
                 '{"variants":2,"raw_segments":10,"canonical_segments":10,'
@@ -81,6 +82,83 @@ class FakeDb:
 
 
 class HealthDigestTests(unittest.TestCase):
+    @staticmethod
+    def receipt(key, basis, *, estimate=None, measured=None, **extra):
+        return {
+            "receipt_id": f"receipt:{key}", "operation_key": f"operation:{key}",
+            "attempt": 1, "provider_id": "provider:fixture",
+            "operation": "CAPTION_PROBE", "status": "SUCCESS",
+            "billing_basis": basis, "estimated_cost_usd": estimate,
+            "measured_cost_usd": measured, **extra,
+        }
+
+    def digest(self, rows, **kwargs):
+        db = FakeDb()
+        db.receipt_rows = rows
+        with tempfile.TemporaryDirectory() as tmp:
+            return build_health_digest(
+                db, private_root=Path(tmp),
+                now=datetime(2026, 10, 15, tzinfo=timezone.utc), **kwargs,
+            )
+
+    def test_billing_separates_unverified_measured_estimates_unknown_plan_energy(self):
+        paid = self.receipt("paid", "MEASURED_PROVIDER_COST", measured="0.1")
+        digest = self.digest([
+            paid, paid,
+            self.receipt("estimate", "ESTIMATED_ONLY", estimate="0.2"),
+            self.receipt("unknown", "UNKNOWN", estimate="0"),
+            self.receipt("plan", "EXTERNAL_PLAN"),
+            self.receipt("local", "ZERO_COST", local_energy_basis="UNKNOWN"),
+        ])
+        billing = digest["billing_today"]
+        self.assertEqual(billing["recorded_measured_usd"], 0.1)
+        self.assertEqual(billing["provisional_estimated_usd"], 0.2)
+        self.assertEqual(digest["estimated_cost_usd_today"], 0.2)
+        self.assertEqual(billing["attempt_count"], 5)
+        self.assertEqual(billing["duplicate_receipt_replays"], 1)
+        self.assertEqual(billing["unknown_cash_attempts"], 1)
+        self.assertEqual(billing["external_plan_attempts"], 1)
+        self.assertEqual(billing["unknown_energy_attempts"], 5)
+        self.assertIsNone(billing["authoritative_billed_usd"])
+        self.assertIsNone(billing["plan_quota_consumed"])
+        self.assertIsNone(billing["measured_energy_wh"])
+        self.assertFalse(billing["invoice_attested"])
+        self.assertFalse(billing["authorizes_dispatch"])
+        self.assertNotIn("receipt:paid", json.dumps(digest))
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+        self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "UNKNOWN")
+
+    def test_known_breach_is_not_hidden_by_an_unknown_attempt(self):
+        digest = self.digest([
+            self.receipt("known", "ESTIMATED_ONLY", estimate="0.7"),
+            self.receipt("unknown", "UNKNOWN"),
+        ], max_cost_usd_per_day=1, max_cost_usd_per_source_day=1)
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "BREACH")
+        self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "BREACH")
+
+    def test_unknown_zero_ceiling_is_not_healthy_zero_cost(self):
+        digest = self.digest([self.receipt("unknown", "UNKNOWN", estimate="0")])
+        self.assertEqual(digest["billing_today"]["unknown_cash_attempts"], 1)
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+
+    def test_receipt_reader_uses_explicit_half_open_utc_day(self):
+        from datetime import timedelta
+        db = FakeDb()
+        build_health_digest(
+            db, private_root=Path("/nonexistent-dp512-fixture"),
+            now=datetime(2026, 11, 1, 0, 30, tzinfo=timezone(timedelta(hours=2))),
+        )
+        self.assertEqual(db.receipt_window["since"], "2026-10-31T00:00:00+00:00")
+        self.assertEqual(db.receipt_window["until"], "2026-11-01T00:00:00+00:00")
+
+    def test_conflicting_attempt_does_not_generate_a_healthy_digest(self):
+        first = self.receipt("one", "ESTIMATED_ONLY", estimate="0.1")
+        with self.assertRaisesRegex(ValueError, "OPERATION_ATTEMPT_ID_CONFLICT"):
+            self.digest([first, {**first, "receipt_id": "receipt:other"}])
+
     def test_error_category_never_emits_raw_detail(self):
         self.assertEqual(
             error_category("OMNIROUTE_TIERED_OFFICIAL_RUNTIME_BLOCKED: private detail"),

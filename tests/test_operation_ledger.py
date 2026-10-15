@@ -14,6 +14,7 @@ from dichiarazioni_pubbliche.operation_ledger import (  # noqa: E402
     deterministic_operation_key,
     filter_operation_receipts,
     operation_usage_receipt_from_row,
+    reconcile_operation_billing,
 )
 
 
@@ -45,6 +46,26 @@ def receipt(
 
 
 class OperationLedgerTests(unittest.TestCase):
+    def test_missing_energy_is_unknown_without_rewriting_legacy_receipt(self):
+        original = receipt("op:missing", 1, "ESTIMATED_ONLY", estimated="0.1")
+        rows = (
+            original,
+            replace(original, receipt_id="receipt:unknown", operation_key="op:unknown",
+                    local_energy_basis="UNKNOWN"),
+            replace(original, receipt_id="receipt:known", operation_key="op:known",
+                    local_energy_basis="MEASURED"),
+            replace(original, receipt_id="receipt:estimate", operation_key="op:estimate",
+                    local_energy_basis="ESTIMATED"),
+        )
+        report = reconcile_operation_billing(rows)
+        self.assertEqual(report.unknown_energy_attempts, 2)
+        self.assertEqual(aggregate_operation_receipts(rows).unknown_local_energy_operation_count, 2)
+        groups = {group.operation_key: group for group in report.groups}
+        self.assertEqual(groups["op:missing"].attempts[0].local_energy_basis, "UNKNOWN")
+        self.assertEqual(groups["op:known"].attempts[0].local_energy_basis, "MEASURED")
+        self.assertEqual(groups["op:estimate"].attempts[0].local_energy_basis, "ESTIMATED")
+        self.assertIsNone(original.local_energy_basis)
+
     def test_operation_key_is_stable_and_provider_model_scoped(self):
         first = deterministic_operation_key(
             operation="CLAIM_EXTRACT",

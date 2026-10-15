@@ -132,7 +132,7 @@ class BillingReconciliationTests(unittest.TestCase):
         report = reconcile_operation_billing(rows)
         self.assertEqual(report.unknown_cash_attempts, 1)
         self.assertEqual(report.external_plan_attempts, 1)
-        self.assertEqual(report.unknown_energy_attempts, 1)
+        self.assertEqual(report.unknown_energy_attempts, 3)
         self.assertEqual(report.provisional_estimated_usd, Decimal("0.30"))
         self.assertEqual(report.recorded_measured_usd, Decimal("0"))
         self.assertIsNone(report.plan_quota_consumed)
