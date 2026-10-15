@@ -959,6 +959,42 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+### Ripresa 15 ottobre 2026 — packet310, wave CoS 001
+
+Mandato corrente: preparare un solo prompt autocontenuto per trasporto umano
+Codex → Chat On Steroids; nessun worker/chat avviato da Codex. Prompt:
+`/Users/domenico/ControlCenter/src/controlcenter-ops/tasks/20260929-main-release-closure/310-prompt-to-prompt-20261015/02-WAVE-001-COS.prompt.md`.
+Le tranche datate sotto restano prove storiche, non la coda di dispatch corrente.
+
+Readback iniziale: integratore locale/remoto `8ebb12ea7e9adb0fdfa3ecfda1b6f6f6dd1873c2`,
+main locale/remoto `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, due worktree
+puliti, zero stash/PR aperte. Reporter fresco: 162/90 DONE/72 non DONE,
+READY=0, PLAN/ticket coerenti; preflight NO-GO/49. CI `38636192174`
+sullo stesso HEAD esegue soltanto repository contract; altri job skipped.
+
+Skill attive per questa consegna documentale:
+`/Users/domenico/.codex/skills/skill-writing-for-agents/SKILL.md` (scrittura)
+e `/Users/domenico/.codex/skills/code-review/SKILL.md` (review locale proporzionata).
+Passo: prompt con quattro posti nominati DP-312/517/515/405, ammessi solo
+su criteri originali eseguibili, più integrazione/review del coordinatore.
+Frontiera indipendente: nessun nuovo lavoro per aggirare fonte/Gold,
+OAuth/privacy, diritti/budget/PG o approvazione/pin Persona; DP-429 resta
+manuale separato. Zero worker READY sono attestati da questo checkpoint;
+CoS verifica eventuali cambiamenti dei prerequisiti prima dell'ammissione,
+lasciando pending i posti bloccati senza ripetere prove immutate.
+
+Review documentale locale: Standards 0 finding, Spec 0 finding sul prompt
+SHA-256 `4d855390abc5781eb411ef1585b305d6644034fbc0302b52ca4b605a9fdd99d9`;
+quattro posti, roundtrip, 16 locator sorgente e whitespace verificati.
+Contratto repository e reporter PASS; nessuna modifica source/test o
+nuova esecuzione full-suite. Lease prodotto Codex02 limitata a PLAN.md
+per commit/push/readback, da rilasciare alla consegna.
+
+Attesa: trasporto umano del prompt e risposta unica della stessa lane;
+nessuna attività in background. PR held fino a OFF effettivo auto-review
+account+repo o consenso owner al consumo; nessun merge, deploy, account
+Google, nuova spesa o pubblicazione editoriale deriva da questa preparazione.
+
 **Terza tranche della lane 02, source SHA `186ef17e59fe73cab061a5301ffbe0d9f5443721`:**
 **Addendum Ops packet 297** pubblicato su ControlCenter `main` a
 `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`, solo risposta02,
