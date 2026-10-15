@@ -267,6 +267,24 @@ class CoverageCatalogTests(unittest.TestCase):
                     build_source_coverage(unit(**changed_scope), (row,), now=NOW,
                                           rights_ready=True)
 
+    def test_longer_staleness_policy_cannot_reuse_short_window_source_receipt(self):
+        # A source review bound to a 60s freshness contract cannot be relabeled
+        # as 365 days while keeping the old receipt's scope fingerprint.
+        short_policy = unit(max_staleness_seconds=60)
+        receipt = observation(scope_fingerprint=short_policy.scope_fingerprint())
+        short = build_source_coverage(
+            short_policy, (receipt,), now=NOW, baseline_sha256=SHA,
+            rights_ready=True,
+        )
+        self.assertEqual(short.state, "STALE")
+        relaxed_policy = unit(max_staleness_seconds=365 * 86400)
+        self.assertNotEqual(short_policy.scope_fingerprint(), relaxed_policy.scope_fingerprint())
+        with self.assertRaisesRegex(ValueError, "COVERAGE_MIXED_SCOPE"):
+            build_source_coverage(
+                relaxed_policy, (receipt,), now=NOW, baseline_sha256=SHA,
+                rights_ready=True,
+            )
+
     def test_backfill_and_subscription_modes_do_not_fabricate_shared_coverage(self):
         one = reconcile((observation(),))
         subscription_unit = unit(mode="INCREMENTAL_SUBSCRIPTION")

@@ -652,6 +652,7 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-517 | FUTURE | Reader Google sign-up/login/logout/delete MiniPC activation | DP-304, DP-307, DP-501, DP-502 |
 | DP-518 | IN PROGRESS | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |
 | DP-519 | IN PROGRESS | Operator visual-quality capacity and exception time budget | DP-417, DP-304 |
+| DP-521 | DONE | Prevent stale-source observation receipt reuse under a widened freshness-policy window | DP-244 |
 | DP-520 | DONE | Reject negative exact-media variant offsets that alias a valid Python slice (source-only regression) | DP-237 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is

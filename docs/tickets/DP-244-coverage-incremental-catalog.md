@@ -162,3 +162,34 @@ focused plus neighboring coverage/revalidation/watch tests pass; source/test
 fetch, provider, scheduler, MiniPC, reader or publication gate was exercised.
 The original **AC-244.1–.6 remain OPEN** pending authenticated source receipts,
 persistent ledger/cost evidence and real permitted-source/runtime proof.
+
+### 2026-10-15 — Freshness-policy replay authority cannot be widened
+
+The private coverage scope fingerprint bound interval, mode, language, source,
+collection and policy *version*, but omitted the actual
+`CoverageUnit.max_staleness_seconds` value. A caller could replay an
+unchanged observation from a 60-second freshness window using a new unit
+with a 365-day window **without changing the purported receipt's scope
+fingerprint**. The source's actual last observation was already stale;
+the widened policy incorrectly returned `CURRENT_WITHIN_OBSERVED_SCOPE`.
+This is a real receipt-scope integrity bug, not a remote-source fixture
+that supplies independent license or freshness authority.
+
+The unit's scoped fingerprint now includes the exact integer staleness
+allowance, so a receipt bound to one window raises
+`COVERAGE_MIXED_SCOPE` when reused under another. Previously issued
+opt-in fixture scope fingerprints do not silently upgrade: they must be
+independently re-attested under the new policy. Existing exact-scope
+idempotency, rights blocks, outage precedence, source-change holds and
+non-publication guarantees are unchanged.
+
+**RED:** `test_longer_staleness_policy_cannot_reuse_short_window_source_receipt`
+failed because no `ValueError` was raised. **GREEN:** the guard now
+rejects the scope swap, while the genuine short scope reports
+`STALE`. The full focused coverage catalog suite passes **18/18**;
+Ruff check, targeted compileall and `git diff --check` PASS.
+Technical issue DP-521 records the bounded source-only closure
+separately. Original **DP-244 AC-244.1–.6 remain OPEN /
+IN PROGRESS** pending authenticated source observations and rights,
+durable store/conditional requests, cost and MiniPC permitted canary.
+No source provider or production runtime was invoked.

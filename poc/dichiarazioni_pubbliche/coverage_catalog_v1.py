@@ -72,7 +72,8 @@ class CoverageUnit:
             self.unit_id, self.source_family, self.source_id, self.collection_id,
             self.language, self.source_format, self.expected_content_class,
             self.mode, self.policy_version, _aware(self.interval_start).isoformat(),
-            _aware(self.interval_end).isoformat(), self.version,
+            _aware(self.interval_end).isoformat(), self.max_staleness_seconds,
+            self.version,
         ))
 
 
