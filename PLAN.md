@@ -959,6 +959,51 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+### Esito Chat On Steroids — lane 02 / wave 001, 15 ottobre 2026
+
+**BLOCKED / WAIT_OWNER, tranche assestata.** Il coordinatore ha letto il prompt
+packet310 e verificato `agents.status`: quattro slot nativi liberi, ma zero
+posti ammissibili dopo crosswalk AC originali e receipt: DP-312 (fonte/Gold/
+replay), DP-517 (privacy/OIDC/MiniPC), DP-515 (diritti/budget/PG/canary) e
+DP-405 (Persona DP-438 approvata/pin, AT) restano **PENDING, 0/4 avviati**.
+Nessun processo/worker viene lasciato attivo e nessun criterio/ticket è
+stato chiuso per sostituire una prova mancante con fixture.
+
+Checkpoint fresco prima della ricevuta: branch integratore remoto/locale
+`576472b384647e2c300f1d19eb11378ce42844d7`, canonical
+`main == origin/main` `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`;
+checkout puliti, due worktree, zero stash e zero PR. HEAD avanzato da
+`8ebb12e` per il solo commit documentale `576472b`; non ricreati merge.
+Reporter **162 totale / 90 DONE / 52 IN PROGRESS / 6 BLOCKED /
+14 FUTURE / 72 non DONE / READY=0**, PLAN/ticket concordi; preflight
+**NO-GO/49** invariato. MiniPC `ssh minipc` accessibile: opt-in
+`public_account.py`, `incremental_source_watch.py` e
+`source_watch_store_v1.py` assenti dal mirror. GET pubblico
+`/account/api/session` **404**, senza inferire configurazione del proxy.
+
+Skill: `~/.codex/skills/code-review/SKILL.md`; review locale Standards e
+Spec sul diff `main...HEAD` e sugli AC DP-312/517/515/405/429, limitata
+ai quattro seam sorgente principali, documenti originali e overlay (vuoto):
+nessun finding nuovo riproducibile nel perimetro esaminato, **non** audit
+integrale delle 162 modifiche/18.181 inserzioni. Contratto repository e
+`git diff --check main...HEAD` PASS; nessuna suite Python integrata rifatta
+in assenza di cambi al codice. CI `38688636967` su `576472b` SUCCESS
+solo repository contract, backend/web/clean-clone SKIPPED. Browser CoS
+`BROWSER_NOT_DISPATCHED`: account GitHub-linked auto-review personale+
+override repo non verificati OFF; **PR_HELD_AUTOREVIEW_BILLING_GUARD**.
+
+**Passo:** ricevuta completa in
+`docs/reviews/2026-10-14-dp02-execution-closure.md` (sezione wave 001).
+**Frontiera:** non aprire una wave tecnica invariata. Il responsabile
+source/rights porta annotazioni autorizzate e Gold (DP-312), owner/
+privacy/OAuth produce grant + identità test (DP-517), budget/rights/
+PG operator rende ammissibile DP-515, owner/editoriale approva Persona
+first-class e pin (DP-405), AT reviewer esegue VoiceOver reale (DP-429).
+L'owner Core07 è responsabile della copia di trasporto
+`02-WAVE-001-COS.response.md` in ControlCenter dopo lease Ops concreta;
+**nessuna mutazione Ops** svolta dal coordinatore. Nessun DB, provider,
+deploy, login, pubblicazione o main merge.
+
 ### Ripresa 15 ottobre 2026 — packet310, wave CoS 001
 
 Mandato corrente: preparare un solo prompt autocontenuto per trasporto umano

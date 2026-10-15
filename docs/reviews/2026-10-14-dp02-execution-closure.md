@@ -587,3 +587,118 @@ Il documento locale di raccordo ControlCenter della lane è
 `/Users/domenico/ControlCenter/src/controlcenter-ops/tasks/20260929-main-release-closure/297-handoff-restart-20261012/02-dichiarazioni-pubbliche.response.md`;
 il repository Ops è condiviso con altre lane e richiede una propria lease
 esclusiva per commit e `origin/main`.
+
+## LANE 02 · WAVE 001 · 2026-10-15 08:02 CEST (+02:00) · BLOCKED / WAIT_OWNER
+
+**Esito e significato:** una tranche CoS conclusa come ricognizione finale
+dei prerequisiti e review locale; zero delle quattro implementazioni
+originali era ammissibile con input nuovi. Nessuna implementazione sorgente,
+installazione, chiusura originale, approvazione, pubblicazione o attivazione
+è stata simulata. La wave non apre una nuova coda di audit.
+
+### Ticket originali, acceptance e responsabili
+
+| Originale | Prima → dopo | Prova fresca 15/10 e AC autentiche | Residuo, responsabile e condizione osservabile |
+|---|---|---|---|
+| **DP-312** | IN PROGRESS → IN PROGRESS | `docs/tickets/DP-312-speech-act-context.md` AC-312.1–6 tuttora non spuntate; diff di `poc/dichiarazioni_pubbliche/context_integrity.py` sul ramo conferma riparazione lessicale quote CJK, non Gold indipendente. `python3 tools/report_ticket_status.py --json` concorde. Nessuna AC nuova provata. | **EXTERNAL/PENDING-OWNER**: responsabili source/rights, Gold DP-321, runtime. Acquisire contrast set annotato license-safe IT/DE/terza lingua realmente osservata con selector e identity review, replay/invalidation source-bound e capture MiniPC autorizzata. Il comando falsificante dopo lo sblocco è una replay suite su quella fonte/versione e relativi consumer, non altre fixture lessicali. |
+| **DP-517** | FUTURE → FUTURE | `docs/tickets/DP-517-reader-google-login.md` AC-517.1–7 aperte; `ssh minipc` mostra `public_account.py=absent`; `curl` GET `https://dichiarazionipubbliche.it/account/api/session` = **HTTP 404** (endpoint canonico, senza conclusioni sul proxy). Nessuna AC nuova provata. | **PENDING-OWNER/EXTERNAL**: owner, privacy/legal, amministratore Google OAuth, operator MiniPC e reviewer AT. Grant scritto retention/backup-erasure e test identity, client Google con callback esatto `https://dichiarazionipubbliche.it/account/oauth/callback`, installazione reversibile consentita. Solo poi eseguire signup→relogin→logout→delete tutte le sessioni, negativi OIDC/CSRF/PII/cache, permessi/WAL/rollback su MiniPC+origin. Login resta spento. |
+| **DP-515** | IN PROGRESS → IN PROGRESS | `docs/tickets/DP-515-source-incremental-monitoring.md` AC-515.1–7 non spuntate. `ssh minipc` conferma `incremental_source_watch.py=absent` e `source_watch_store_v1.py=absent`; la prova precedente distingue correttamente i timer polling legacy attivi dal consumer opt-in. Nessuna AC nuova provata. | **EXTERNAL/PENDING-OWNER**: diritti revalidation fonte-esatta, ricevute autentiche DP-514/budget EUR, integrazione lease/CAS e PostgreSQL canonico con queue/DP-511/510 sotto assegnazione esplicita, operator MiniPC/canary. Dopo tali input falsificare unchanged/no-duplicate e changed/restart/concorrenza/revoca/freshness su canary isolata. Non toccare timer legacy o DB live. |
+| **DP-405** | IN PROGRESS → IN PROGRESS | `docs/tickets/DP-405-person-record-ui.md` mantiene AC-405.3 e .6 aperte. Route `web/src/pages/persone/[slug].astro` ancora dossier-v2-derived; il componente v3 con fixture zero non è route positiva approvata. Nessuna AC nuova provata. | **PENDING-OWNER/MANUAL**: DP-438 owner/editoriale deve autorizzare Person first-class **zero Statement** con pin immutabile di proiezione e cutover; operator MiniPC deve attestare HTML e negativo 404 per private/unknown; reviewer fisico deve passare screen-reader, keyboard, contrast e zoom per AC-405.6 indipendentemente. Non inventare Persona. |
+| **DP-429** (gate coordinatore, non quinto posto) | IN PROGRESS → IN PROGRESS | `docs/tickets/DP-429-explore-page-v4.md`: prove storiche Chrome keyboard/AX/zoom non sono VoiceOver umano; AC mista resta non spuntata. Nessun retest invariato. | **MANUAL**: reviewer AT esegua un solo scenario `/esplora/` su build e pin esatti approvati: annuncio contatore, tipo Persone/Temi, filtri, history Back, modal focus/return e 200% senza perdita stato. Conservare riscontro anche negativo, senza chiamarlo pass automatico. |
+
+**Totali e classificazione:** prima = dopo **162** originali, **90 DONE,
+52 IN PROGRESS, 6 BLOCKED, 14 FUTURE, 72 non DONE, READY=0**;
+`files_agree_with_plan=true`. **Ticket integralmente chiusi: 0**;
+AC originali aggiuntive verificate: **0**; source fix nuove: **0**. Il
+`python3 tools/check_launch_preflight.py --expect-no-go` emette
+`NO-GO/49`, receipt
+`96fb7b178b371dcaac129496ba3f436a803ca063557f1e6a28be0d6346070c3f`:
+16 Q-306, 4 artefatti release assenti, 29 gate di ticket; non 49 nuovi ticket
+e nessun doppio conteggio con Core07.
+
+### Quattro posti nativi e lavoro coordinatore
+
+`mcp__Chat_On_Steroids_Core__agents(status)`: nessun worker di questa
+sessione, **4 slot liberi**. **Avviati 0/4, primi turni 0,
+identificativi/modello/effort N/A**; non si è cambiata alcuna selezione
+GPT-6/high/provider. Sono rimasti PENDING, nell'ordine, posto 1 DP-312
+(`context_integrity.py`/test/ticket), posto 2 DP-517
+(`public_account.py`, `public_api.py` solo su lease, runbook/test),
+posto 3 DP-515 (`incremental_source_watch.py`,
+`source_watch_store_v1.py`, test/ticket), posto 4 DP-405 (route Astro,
+`PersonRecord.astro` e test/ticket). **No dispatch**, poiché nessuno
+aveva un cambiamento osservabile nei prerequisiti che autorizzasse un
+intervento originale; quattro worker avviati per ripetere hardening o test
+invariati sarebbero una falsa ammissione. Nessun worker, lease runtime,
+processo o risultato è rimasto non assestato.
+
+Il coordinatore ha letto contratti home/shared/repo, fonti canoniche,
+ticket e receipt della lane. Ha verificato `main...HEAD`, hash del
+diff `509719de706d10885e7a93b39e02b0a13fc717d9ba65ab18674aca7270f63032`,
+overlay tracked/untracked **vuoto**, e condotto i due assi locali della
+skill `~/.codex/skills/code-review/SKILL.md`: **Standards** sui seam
+Python letti e invarianti fail-closed; **Spec** sul crosswalk AC e sui
+receipt esistenti. Scope effettivamente ispezionato: elenco/statistica
+del diff `main...HEAD` (**162 file, +18.181/−221**), diff sorgente
+`context_integrity.py`, `incremental_source_watch.py`,
+`public_account.py`, `public_api.py`, commit documentale
+`8ebb12e..576472b`, quattro ticket originali, DP-429 e DP-438,
+runbook/account, HANDOFF, consolidamento e PLAN. **Nessun finding
+conseguenziale riproducibile** in questo perimetro, **nessun PASS
+indipendente sull'intero diff** da rivendicare.
+
+### Git, PR, CI, pin e verifiche
+
+- Integratore esistente `/Users/domenico/Code/DP-20261014-all-lanes-integrator`,
+  `integrate/dp-20261014-all-lanes`; HEAD e remoto al checkpoint
+  **`576472b384647e2c300f1d19eb11378ce42844d7`**, avanzato
+  esclusivamente da `8ebb12e` per `PLAN.md` documentale, non per nuovi
+  sorgenti. Canonical `/Users/domenico/Code/DichiarazioniPubbliche.it`
+  `main == origin/main` **`33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`**.
+  `git status --porcelain=v1` vuoto; due worktree puliti, zero stash,
+  11 merge storici preservati. Nessuna nuova versione installata.
+- `python3 tools/check_repository_contract.py` **PASS**;
+  `git diff --check main...HEAD` **PASS**;
+  `python3 ~/.dstack/scripts/verify_main_delivery.py --repo
+  /Users/domenico/Code/DP-20261014-all-lanes-integrator --review-check`
+  **REMOTE_BRANCH_SAVED** sullo SHA sopra, **PR_CI_MANUAL=NOT_VERIFIED**.
+  Nessuna suite Python o web ripetuta, dato che nessun codice/runtime
+  è cambiato in questa wave; 3674/3674 full rimane prova storica sul
+  diverso sigillo `db03d51`.
+- `gh pr list --state open` e `gh api repos/.../pulls` = **0 PR**.
+  GitHub Actions `38688636967` su `576472b` è `completed/success`
+  solo `repository contract`; backend matrix, web static e detached clone
+  **SKIPPED**. Non è gate di merge né pass runtime.
+- **`PR_HELD_AUTOREVIEW_BILLING_GUARD`**: la capacità browser CoS
+  per confermare l'identità GitHub-linked ha risposto
+  `BROWSER_NOT_DISPATCHED`; l'owner ha attestato OFF in passato,
+  ma non esiste qui readback provider personale **e** override repository
+  dello stesso account. Stato `EXTERNAL_AUTOREVIEW_SETTING_UNVERIFIED`.
+  Nessuna PR creata, nessuna review a consumo/automatica, `@codex review`,
+  merge o push diretto a main. `check_pr_merge_gate.py` non applicabile
+  in assenza di PR; quando ammessa serviranno SHA esatto, CI PR completa,
+  review/thread paginati, test e gate prima di un merge.
+- MiniPC letto via SSH alias canonico `minipc` (host `udodo`),
+  contratto host e repo verificati, mirror non-Git `VERSION=0.0.1`;
+  moduli opt-in account/watch assenti; `/account/api/session` origine
+  **404**. Nessuna scrittura su MiniPC/DB, no source rights/capture,
+  budget provider, download massivo, deploy o pubblicazione. Non
+  riesaminati pin installati che questa wave non ha modificato.
+
+**File owned in questa wave:** soltanto `PLAN.md` Active workflow e
+questa stessa ricevuta. Il loro commit documentale e il readback remoto
+successivi vanno verificati come SHA branch di consegna, senza spacciare
+il checkpoint sorgente per merge/main o prova live. Nessuna lease
+ControlCenter/Core07 disponibile: la copia esatta
+`310-prompt-to-prompt-20261015/02-WAVE-001-COS.response.md`
+**non è stata scritta** nel repository Ops condiviso.
+**Owner Core07:** ottenere lease Ops concreta, trascrivere questa
+sezione integralmente come file di trasporto, commit/push/readback Ops
+senza sovrascrivere WIP concorrente. La ricevuta canonica prodotto
+e la risposta in chat consentono il recupero.
+
+**WAIT_OWNER (una domanda manuale specifica):** qual è il **URL e pin/hash
+della build approvata** di `/esplora/` su cui un reviewer umano può
+eseguire la prova VoiceOver DP-429 (filtro, annuncio conteggi, ritorno focus
+e cronologia), conservando esito PASS/FAIL? Fino a questa e alle altre
+condizioni elencate, nessuna nuova audit wave, PR, main merge o release.
