@@ -559,3 +559,29 @@ and the supported key shortcut showed only a Quickstart process rather
 than a verified spoken-control session. DOM/AX or SSR cannot substitute
 for real assistive-technology acceptance. This scoped source correction and
 preview explicitly **do not close AC-412.5 or the original DP-412**.
+
+### 2026-10-15 — EvidenceTape naming during AC-412.5 preparation
+
+Preparing the private PR #26 fixture exposed a consequential accessible-name
+defect within the existing primitive family. `EvidenceTape` derived the `h3` ID
+and the `ol[aria-labelledby]` reference directly from a human-language `label`.
+For `Cronologia del contenuto`, the generated ID contained whitespace (invalid
+as a single ARIA IDREF), and two instances with the same label produced
+duplicate IDs.
+
+An added assertion in the existing `check-design-a11y.mjs` was run RED on the
+uncorrected component (`each tape needs its own heading id`: one distinct
+reference instead of two). Minimal repair: `EvidenceTape.tsx` uses React
+`useId()` once per instance, pointing heading and list to its unique
+whitespace-free ID. The assertion passed GREEN; `check:design:a11y` **10/10**
+and `check:design` **PASS**. Astro check verified 123 files, zero errors
+and zero warnings, with one unrelated pre-existing hint; the explicitly
+opted-in local demo build produced 34 pages without public delivery.
+This is SSR/ARIA/build contract proof, **not** VoiceOver speech, keyboard
+or zoom acceptance.
+
+The fresh private fixture uses corrected source; HTTP 200 at loopback is only
+static-delivery evidence, not a GUI/AT consumer pass. AC-412.5 remains
+unchecked until a genuine exclusive-GUI screen-reader and visual matrix,
+including restored VoiceOver/browser state, is complete. Do not merge from
+these source results alone.

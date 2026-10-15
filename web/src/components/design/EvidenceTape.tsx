@@ -29,7 +29,7 @@
  * - Keyboard: real buttons, so Tab and Enter work with no custom handling.
  */
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { cx } from "./shared";
 
 export interface TapeMark {
@@ -63,16 +63,17 @@ export function EvidenceTape({
   children,
   className
 }: EvidenceTapeProps) {
+  const headingId = useId();
   // A rail with one mark carries no chronology. Rendering it would be a
   // decorative timeline, which the non-goals ban.
   if (marks.length < 2) return null;
 
   return (
     <div className={cx("dp-tape", className)}>
-      <h3 className="dp-label" id={`${label}-tape-heading`}>
+      <h3 className="dp-label" id={headingId}>
         {label}
       </h3>
-      <ol className="dp-tape__track" aria-labelledby={`${label}-tape-heading`}>
+      <ol className="dp-tape__track" aria-labelledby={headingId}>
         {marks.map((mark) => (
           <li key={mark.id}>
             <button

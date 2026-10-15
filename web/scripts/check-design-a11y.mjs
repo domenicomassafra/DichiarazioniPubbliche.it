@@ -18,6 +18,7 @@ const entry = [
   'export { SegmentedControl } from "../src/components/design/SegmentedControl";',
   'export { Disclosure } from "../src/components/design/Disclosure";',
   'export { Dialog } from "../src/components/design/Dialog";',
+  'export { EvidenceTape } from "../src/components/design/EvidenceTape";',
 ].join("\n");
 
 let components;
@@ -126,6 +127,28 @@ check("The dialog is named by its visible title rather than being an unnamed nat
   assert(reference, "dialog must explicitly point to its visible heading");
   assert(html.includes(`<h2 id="${reference}" class="dp-overlay__title">Dialogo di prova</h2>`),
     "accessible dialog name must be its visible title");
+});
+
+check("EvidenceTape headings resolve as unique single-ID ARIA references even with spaced labels", () => {
+  const props = {
+    label: "Cronologia del contenuto",
+    marks: [
+      { id: "a", label: "01", accessibleLabel: "Evento di prova uno" },
+      { id: "b", label: "02", accessibleLabel: "Evento di prova due" },
+    ],
+    onSelect: () => {},
+  };
+  const html = renderToStaticMarkup(createElement("div", null,
+    createElement(components.EvidenceTape, props),
+    createElement(components.EvidenceTape, props),
+  ));
+  const references = [...html.matchAll(/<ol[^>]*aria-labelledby="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(references.length, 2);
+  assert.equal(new Set(references).size, 2, "each tape needs its own heading id");
+  for (const reference of references) {
+    assert.doesNotMatch(reference, /\s/, "ARIA IDREF must be one whitespace-free id");
+    assert(html.includes(`id="${reference}"`), `unresolved tape heading ${reference}`);
+  }
 });
 
 const css = await readFile(path.join(root, "src/styles/tokens.css"), "utf8");
