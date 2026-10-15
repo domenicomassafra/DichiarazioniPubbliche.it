@@ -961,6 +961,38 @@ Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova,
 
 ## Active workflow — DP02 / 14 ottobre 2026
 
+### Continuazione owner 15 ottobre 2026 — DP238/239/240/244, DP521 DONE
+
+**Risultato:** quattro ticket originali disgiunti lavorati e quattro
+correzioni RED→GREEN pubblicate. `DP-238` rifiuta HTTP206 come PDF
+completo (`f3cf013`); `DP-239` mantiene il meno Unicode U+2212 nel
+confronto tedesco/italiano (`e2ebff6`); `DP-240` vincola partizioni
+private a famiglia, reviewer, identity e rights con esplicita VERSION
+v2 (`0ca9ab1`); `DP-244` impedisce riuso di un receipt di freschezza
+60s con contratto di 365 giorni (`cda1fce`). Ticket tecnico autonomo
+`DP-521 DONE` con quattro AC source-only dimostrate; gli
+**originali DP238/239/240/244 restano IN PROGRESS** per diritti,
+Gold, reale provider/PG, Studio/MiniPC e QA. **164 totale, 92 DONE,
+72 originali non-DONE, READY=0**; status PLAN/ticket concordi.
+
+**Native CoS actual:** quattro incarichi richiesti. Solo `worker-2`
+DP239 e `worker-3` DP240 hanno un primo turno confermato ed
+`agents finish`; `worker-1` DP238 due risvegli falliti, sostituto
+`worker-7` startup failed, `worker-6` DP244 startup failed.
+DP238 e DP244 realizzati direttamente da prime, **2/4 lavoratori
+effettivamente avviati**, nessuno finto. Source/local test prime su
+`f3cf013`: **96/96 PASS**, benchmark **5/5 PASS**, Ruff e contract
+PASS. Test PDF con subprocess reale **23 con 4 FAIL**
+`DOCUMENT_PDF_WORKER_UNAVAILABLE` su host load >190;
+nessuna full Python attestata su nuovo SHA. Nessun reset/stage degli
+otto file DP512 concorrenti.
+
+La receipt canonica è
+`docs/reviews/2026-10-15-dp02-four-ticket-continuation.md`;
+file trasporto Ops `02-WAVE-001-COS.response.md` aggiornabile
+localmente, commit/push Ops solo dopo lease Core07. PR
+`PR_HELD_AUTOREVIEW_BILLING_GUARD`, main invariata e NO-GO/49.
+
 ### Owner mandate 15 ottobre 2026 — almeno un ticket completo (run successivo)
 
 **Risultato verificabile:** nuova issue tecnica circoscritta **DP-520 DONE**
