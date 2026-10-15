@@ -509,3 +509,53 @@ The Topic v3 opt-in consumer remains deliberately unrouted and was not approved
 for public exposure. **AC-412.5 stays open** for its independent human
 keyboard/AT/zoom/grayscale/reduced-motion acceptance; no MiniPC readback is
 claimed for this local component correction.
+
+### 2026-10-15 — Dialog accessible-name defect and private browser/MiniPC checkpoint
+
+**DP-412 remains IN PROGRESS; AC-412.5 remains unchecked.** The frozen design
+component source was identical on main
+33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe and cumulative PR #25
+before this scoped change. The native Dialog displayed a required visible
+heading but omitted the aria-labelledby reference to that heading, contrary
+to its own accessible-name contract. A visually present title alone does not
+name a dialog for assistive technology.
+
+The new regression in web/scripts/check-design-a11y.mjs failed **RED**:
+"dialog must explicitly point to its visible heading". The minimal fix
+in Dialog.tsx uses React useId() for a stable heading ID, wires the dialog
+aria-labelledby to that ID and assigns it to the actual visible h2.
+Afterward the contract check passed **GREEN, 9/9 groups**; design-token checks
+PASS, Astro check: 123 files, zero errors/warnings and one unrelated existing
+hint. An explicitly opted-in local demo Astro build produced 34 pages with no
+publication. An initial demo-data build without this opt-in correctly failed
+the required public projection gate.
+
+An existing owner-operated Zen session rendered a **private loopback-only**
+React composition of actual design primitives: Dialog/sheet, Disclosure,
+SegmentedControl, Button normal/busy/disabled, TextField normal/error,
+StatusText four states, Row, SectionIndex, EvidenceTape, Surface, loading,
+empty and blocked/error states. It used synthetic labels and a noindex,
+nofollow page, not an approved public route. Dialog opening was observed in
+the actual browser. Zen's zoom UI displayed **200%** and its native Responsive
+Design Mode read back **320px** and **390px** viewports at that browser zoom.
+An actual 320x480 responsive capture was inspected. These real browser checks
+do **not** establish screen-reader speech or a complete focus/target-size audit.
+
+The same exact preview HTML/CSS/JS was transferred into a private scratch
+directory on the real MiniPC and served by a loopback-only Python HTTP
+listener, then displayed in Zen over a private SSH forward. HTTP 200 and
+actual rendered content were observed. JavaScript SHA-256 fetched via MiniPC
+was 6e3d070f7b588a0f34cb935aa6448bcb002a5f1a13daa4dcf8fc7bd24737365d,
+equal to the Mac bundle; CSS SHA-256 was
+b2d247d8b38993b504bca94d54a4480e0ed2b5937257c711aa4643da784a8e66.
+This proves **only** the private isolated consumer; no installed/live site,
+production worker, timer, DB, deployment or public route was changed.
+
+**Still open:** actual VoiceOver announced names/states, complete keyboard
+focus-order exercise of the component family on desktop/mobile, measured
+targets, grayscale and reduced-motion visible equivalents and all resulting
+corrections. macOS accessibility trust was observed, but opening VoiceOver
+and the supported key shortcut showed only a Quickstart process rather
+than a verified spoken-control session. DOM/AX or SSR cannot substitute
+for real assistive-technology acceptance. This scoped source correction and
+preview explicitly **do not close AC-412.5 or the original DP-412**.

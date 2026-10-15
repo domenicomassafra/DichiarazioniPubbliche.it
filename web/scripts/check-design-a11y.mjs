@@ -17,6 +17,7 @@ const entry = [
   'export { StatusText } from "../src/components/design/StatusText";',
   'export { SegmentedControl } from "../src/components/design/SegmentedControl";',
   'export { Disclosure } from "../src/components/design/Disclosure";',
+  'export { Dialog } from "../src/components/design/Dialog";',
 ].join("\n");
 
 let components;
@@ -115,6 +116,16 @@ check("Native radio/disclosure semantics and text-first system states are presen
   assert.match(render(components.ErrorState, { title: "Non disponibile", body: "Riprova", variant: "blocked" }), /role="status"/);
   assert.match(render(components.Skeleton, {}), /aria-hidden="true"/);
   assert.match(render(components.SkeletonRegion, { label: "Caricamento" }, createElement(components.Skeleton)), /aria-busy="true"/);
+});
+
+check("The dialog is named by its visible title rather than being an unnamed native modal", () => {
+  const html = render(components.Dialog, {
+    open: false, onClose: () => {}, title: "Dialogo di prova",
+  }, "Contenuto di prova");
+  const reference = html.match(/<dialog[^>]*aria-labelledby="([^"]+)"/)?.[1];
+  assert(reference, "dialog must explicitly point to its visible heading");
+  assert(html.includes(`<h2 id="${reference}" class="dp-overlay__title">Dialogo di prova</h2>`),
+    "accessible dialog name must be its visible title");
 });
 
 const css = await readFile(path.join(root, "src/styles/tokens.css"), "utf8");
