@@ -113,6 +113,60 @@ class SpeechActContextTests(unittest.TestCase):
                     result.binding_sha256,
                 )
 
+    def test_negative_quantifiers_cannot_create_false_support_endorsement(self):
+        # A negative direct object invalidates an apparent support cue. These
+        # local controls do not stand in for source-licensed multilingual gold.
+        cases = (
+            ("I support the proposal.", "I support none of these proposals.", "en"),
+            ("I support the proposal.", "I support neither proposal.", "en"),
+            ("I support the proposal.", "I support nobody.", "en"),
+            (
+                "Ich unterstütze den Vorschlag.",
+                "Ich unterstütze weder Vorschlag A noch Vorschlag B.",
+                "de",
+            ),
+            (
+                "Ich unterstütze den Vorschlag.",
+                "Ich unterstütze niemanden.",
+                "de",
+            ),
+        )
+
+        def evaluate(source, language):
+            return assess_speech_act_context(
+                source_text=source,
+                source_sha256=hashlib.sha256(source.encode("utf-8")).hexdigest(),
+                quote_start=0, quote_end=len(source), turn_start=0,
+                turn_end=len(source), utterer_id="person:a",
+                turn_speaker_ids=("person:a",), source_part_ref="capture:a",
+                turn_complete=True, language=language,
+            )
+
+        for positive_source, negative_source, language in cases:
+            with self.subTest(source=negative_source):
+                direct = evaluate(positive_source, language)
+                negative = evaluate(negative_source, language)
+                self.assertEqual(
+                    (direct.state, direct.speech_act, direct.stance),
+                    ("CANDIDATE_PRIVATE", "ASSERTION", "ENDORSE"),
+                )
+                self.assertEqual(
+                    (negative.state, negative.speech_act, negative.stance),
+                    ("HOLD_FOR_CONTEXT", "UNKNOWN", "UNKNOWN"),
+                )
+                self.assertIn("NEGATION_SCOPE_UNRESOLVED", negative.signal_codes)
+                self.assertNotEqual(direct.binding_sha256, negative.binding_sha256)
+                self.assertEqual(
+                    verify_speech_act_context_metadata(
+                        negative.to_metadata(), source_text=negative_source
+                    ).binding_sha256,
+                    negative.binding_sha256,
+                )
+                with self.assertRaisesRegex(ValueError, "SOURCE_HASH_MISMATCH"):
+                    verify_speech_act_context_metadata(
+                        negative.to_metadata(), source_text=positive_source
+                    )
+
     def test_reported_quote_and_performance_do_not_endorse(self):
         for source, act in (
             ("Secondo Ada, «Io sostengo che il piano è utile».", "REPORT"),

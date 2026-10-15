@@ -169,3 +169,27 @@ This classification is neither a source-use grant nor publication authority;
 real source/identity review, multilingual gold, affected downstream replays and
 MiniPC readback remain absent. **AC-312.1–6 stay OPEN** and the release is not
 made GO by this source-only repair.
+
+## 2026-10-15 — Negative quantifiers in private EN/DE support preflight
+
+Five deterministic source-independent contrasts reproduced a consequential
+false attribution in the existing classifier: `I support none of these
+proposals.`, `I support neither proposal.`, `I support nobody.`, `Ich
+unterstütze weder Vorschlag A noch Vorschlag B.` and `Ich unterstütze
+niemanden.` were all `ASSERTION / ENDORSE / CANDIDATE_PRIVATE` before the
+patch, despite their explicitly negative quantifiers. A new focused test
+first failed all five cases (**RED**), against direct positive controls.
+The minimal lexical extension recognizes EN `none/neither/nobody` and DE
+`weder/niemand*` plus inflected `kein*` as negation cues, so the five negative
+cases conservatively yield `HOLD_FOR_CONTEXT / UNKNOWN / UNKNOWN` with
+`NEGATION_SCOPE_UNRESOLVED`. Positive controls remain private candidates;
+each negative result is bound to its exact source hash, deterministic metadata
+replay succeeds, and a changed source fails replay. Focused speech-act,
+legacy-context and relation tests **81/81 PASS** after the fix.
+
+This is an isolated local safety regression, **not** independent linguistic
+gold or authorization to publish. It does not verify observed source identity,
+source-use rights, translation correctness, real consumer invalidation,
+MiniPC Capture or external editorial approval. **All six AC-312.1–6 remain
+OPEN** until the original licensed-source, gold, downstream and runtime
+acceptance receipts are available.
