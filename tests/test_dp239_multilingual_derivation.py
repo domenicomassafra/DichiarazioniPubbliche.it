@@ -379,6 +379,27 @@ class DP239TranslationTests(unittest.TestCase):
         )
         self.assertIn("NUMBER_UNPARSED_OR_AMBIGUOUS", ambiguous.signal_codes)
 
+    def test_german_italian_unicode_minus_sign_cannot_be_dropped(self):
+        # U+2212 is the mathematical minus used in German reports and tables.
+        # Ignoring it makes a reversal of a monetary value or percentage
+        # indistinguishable from a faithful machine translation.
+        for original, italian, expect_mismatch in (
+            ("Anna zahlte −12 Euro.", "Anna ha pagato 12 euro.", True),
+            ("Anna zahlte −12 Euro.", "Anna ha pagato -12 euro.", False),
+            ("Anna zahlte −12,5 Euro.", "Anna ha pagato 12,5 euro.", True),
+            ("Anna zahlte −12% Zinsen.", "Anna ha pagato 12% interessi.", True),
+        ):
+            with self.subTest(original=original, translation=italian):
+                row = written_fixture(original)
+                row["translated_text"] = italian
+                row["actor_anchors"] = (ActorAnchor("person:anna", "Anna"),)
+                draft = build_private_translation(**row)
+                self.assertEqual(
+                    "NUMBER_MISMATCH" in draft.signal_codes, expect_mismatch
+                )
+                self.assertEqual(draft.status, "HELD")
+                self.assertFalse(draft.public_quote_eligible)
+
     def test_named_month_date_and_unmapped_semantics_are_held(self):
         row = written_fixture("Anna sprach am 4. Mai 2026.")
         row["translated_text"] = "Anna ha parlato il 4 maggio 2026."

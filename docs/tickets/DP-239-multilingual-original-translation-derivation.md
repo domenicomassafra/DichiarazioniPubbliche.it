@@ -139,3 +139,41 @@ persisted/MiniPC real-source dual readback, accepted DE→IT independent
 meaning-risk gold, exact derivative-use permissions, consumer integration,
 rights revocation, owner/qualified B review and authorized provider/budget
 receipts remain external before public activation.
+
+## 2026-10-15 — German/Italian Unicode minus sign safety
+
+**RED on the actual private translation builder:** The German source
+`Anna zahlte −12 Euro.` (U+2212 mathematical minus) and Italian
+`Anna ha pagato 12 euro.` incorrectly received **no** `NUMBER_MISMATCH`,
+because the numeric lexer silently discarded U+2212. Conversely a faithful
+Italian `-12` was incorrectly flagged as a different number. The same
+fail-open occurred for `−12,5` versus `12,5` and `−12%` versus `12%`.
+One synthetic original/derivative test produced **four failing subcases**
+before the fix.
+
+**GREEN source-only:** The German/Italian lexical guard now recognizes
+U+2212 as a leading minus and normalizes it with ASCII `-` for the existing
+conservative numeric magnitude, decimal and percent comparison. The test
+requires three lost-sign mismatches plus one same-value no-mismatch control;
+all remain private `HELD` drafts, with no source/translation authority or
+publication permission. This is an additional negative regression relevant
+to `AC-239.2`; it does not establish a measured independently annotated
+multilingual meaning-risk matrix, corpus persistence, licensed derivative
+use, exact consumer rights or authorized real-source MiniPC readback.
+
+**DP-239 remains `IN PROGRESS`, with AC-239.1–6 unchecked.** The accepted
+DE→IT gold/reference set, source/language identification and rights grants,
+durable original/derivative pipeline and MiniPC consumer canary are still
+required before full original acceptance.
+
+**Local validation and host boundary:** Focused DP-239 plus stable
+wording/DP-237/original-locator suites **59/59 PASS**. Ruff `check` on the
+two changed Python files, Python compilation and owned `git diff --check`
+PASS. A broader 82-test adjacent run included four concurrent DP-238 PDF
+worker failures (`DOCUMENT_PDF_WORKER_UNAVAILABLE`); these occurred only in
+the separately owned DP-238 tests, so no combined-suite PASS is claimed.
+A read-only named `ssh minipc` check found
+`/home/udodo/src/DichiarazioniPubbliche.it/poc/dichiarazioni_pubbliche/multilingual_derivation.py`
+**absent**. No real source, approved translation, provider, rights record,
+production database or live reader was accessed or modified. The source
+repair is not installed on that host.
