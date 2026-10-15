@@ -802,6 +802,11 @@ due worktree preservati e nessuno stash. Prima della ricevuta restano
 DP-512 **estranei e preservati** (`health_digest.py`, `operation_ledger.py`,
 test/ticket correlati): stage/commit finale limitato ai due owned.
 Nessun merge/deploy, nessuna mutazione DB o server MiniPC.
+**Sigillo documentale intermedio:** commit `46cdc5ee265d5459556da134e863bc5f0a44920b`
+contenente soltanto `PLAN.md` e questa receipt, `git push` riuscito e
+`git ls-remote` sul branch uguale a HEAD; `origin/main` invariato.
+Gli otto file DP-512 estranei rimangono WIP nel checkout condiviso e
+non sono stati stagati dalla lane 02.
 
 PR sul branch esistente ancora **0**. `PR_HELD_AUTOREVIEW_BILLING_GUARD`:
 nessun readback sicuro dell'identità effettivamente GitHub-linked per
@@ -811,8 +816,13 @@ review a consumo, push su main o merge. La run GitHub Actions
 `38693270893` su `25c94d1` è SUCCESS ma con il solo job
 `repository contract` PASS: web/backend/detached clone SKIPPED;
 non è CI PR completa.
-`verify_main_delivery.py --review-check` va ripetuto sul commit finale
-documentale; non attesta PR/CI/manual. Prima di un merge servono PR reale,
+`verify_main_delivery.py --review-check` è stato eseguito sul commit
+documentale `46cdc5e` e ha restituito **`BLOCKED_UNPUSHED
+DIRTY_FILES=8 REMOTE_MISMATCH=False`**: è il vincolo del checker alla
+pulizia del checkout condiviso, **non** una discrepanza fra SHA locale
+e remoto. Nessun reset/stash/clean dei file DP-512 altrui per simulare
+un PASS; la prova Git diretta salva il branch ma non attesta PR/CI/manual.
+Prima di un merge servono PR reale,
 CI esatta, thread paginati/risolti, `check_pr_merge_gate.py` e gate
 legal/editoriale/source/host/manual.
 
@@ -823,7 +833,8 @@ Scope: undici merge sorgente preesistenti, più tre commit piccoli di questa
 continuazione e loro test/receipt; invarianti no automatic publication,
 source-rights e identity-review separati. Evidence: Python focused/adjacent,
 benchmark, Ruff, ricevute ticket e SHA sorgente fissato; la full exact-head
-rimane separata e non può essere sostituita dal job solo-contract dei push.
+è **3.681/3.681 PASS nel worktree detached**, separata dal job
+solo-contract dei push.
 **Readiness PR=HELD** finché non si dimostra il vero account linked
 & override repo OFF o consenso esplicito owner ai costi. **Readiness
 merge=NO** anche dopo apertura, finché non esistono CI PR completa,

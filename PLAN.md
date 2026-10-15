@@ -1004,25 +1004,27 @@ approved Person/pin per la route positiva. Tutte le AC originali
 DP-312.1–6, DP-517.1–7, DP-515.1–7, DP-405.3/.6 rimangono
 aperte, zero ticket chiusi; gate DP-429 manuale invariato.
 
-**Passo finale corrente:** la prima full Python combinata sul checkout
+**Chiusura verifiche:** la prima full Python combinata sul checkout
 integratore condiviso è stata interrotta con exit 130 poiché erano
 comparsi WIP concorrenti DP-512 (ticket, `health_digest.py`, test e
 un test nuovo untracked): preservare quei file e non attribuire
-l'esito al solo source SHA. Una full sostitutiva si sta eseguendo su
+l'esito al solo source SHA. La full sostitutiva è stata eseguita su
 worktree detached isolato `25c94d145f5d813bde76bdf51851ebf3b37453ab`,
 log `/tmp/dp02-wave001-isolated-full-20261015.log`:
 **3.681/3.681 PASS, exit0 in 426,148 s** sul source SHA esatto.
 Symlink temporaneo node_modules rimosso dopo il test e worktree detached
 rimosso senza force dopo readback pulito; restano due worktree canonici.
-Non ereditare PASS `db03d51` né
-convertire eventuale failure DP-238 in verde. Dopo la suite:
-completare la receipt di continuazione, verificare reporter e
-`check_launch_preflight.py --expect-no-go`, stage soltanto
-`PLAN.md` e receipt, commit/push su branch integratore,
-`verify_main_delivery.py --review-check`, generare file di trasporto
-`02-WAVE-001-COS.response.md` in Ops senza Git Ops priva di lease;
-per il commit/push Ops occorre writer Core07. PR held per
-`EXTERNAL_AUTOREVIEW_SETTING_UNVERIFIED`.
+La full storica `db03d51` resta prova su codice diverso. Reporter
+162/90 DONE/72 non DONE, READY=0 e preflight NO-GO/49 coerenti.
+Sigillo doc `46cdc5ee265d5459556da134e863bc5f0a44920b`
+(solo PLAN e receipt) committato/pushato con SHA locale/remoto uguali.
+`verify_main_delivery.py --review-check` ha restituito
+`BLOCKED_UNPUSHED DIRTY_FILES=8 REMOTE_MISMATCH=False`: gli otto file
+DP-512 concorrenti sono WIP non owned, preservati senza stash/reset/clean;
+nessuna discrepanza effettiva fra HEAD e remoto. Copia di trasporto
+`02-WAVE-001-COS.response.md` già creata nel path Ops separato;
+per il commit/push Ops serve lease di Core07. PR held per
+`EXTERNAL_AUTOREVIEW_SETTING_UNVERIFIED`, zero ticket originali chiusi.
 
 ### Esito Chat On Steroids — lane 02 / wave 001, 15 ottobre 2026
 
