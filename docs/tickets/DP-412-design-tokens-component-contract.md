@@ -585,3 +585,26 @@ static-delivery evidence, not a GUI/AT consumer pass. AC-412.5 remains
 unchecked until a genuine exclusive-GUI screen-reader and visual matrix,
 including restored VoiceOver/browser state, is complete. Do not merge from
 these source results alone.
+
+### 2026-10-15 — Independent CI merge-gate repair, no accessibility closure
+
+The new PR #26 commit `0037d581` passed its push-event CI but its full
+GitHub matrix failed on both attempts in DP-514's **unrelated**, pre-existing
+disposable PostgreSQL first snapshot. The trace and limited evidence are
+recorded under the original DP-514 ticket, not counted as an accessibility
+failure or as proof of a user-facing backend regression.
+
+To keep PR #26 mergeable without suppressing a red gate or merging the
+unrelated cumulative PR #25, the same narrow snapshot mitigation already
+implemented in integrator commit `3afb196` was ported into this isolated
+branch: transaction-local `SET LOCAL jit=off` and a focused real-PG
+regression RED→GREEN. The isolated financial matrix passed **114/114**
+tests on Mac PostgreSQL 17.11; the original 10s statement, 8s lock and 25s
+process limits and no-spend/unaudited-refund guards stay unchanged. This
+does not prove that hosted GitHub scheduling was the entire latency cause:
+the new exact-SHA CI must pass before considering merge.
+
+The sole open design acceptance is still **AC-412.5**: genuine VoiceOver
+speech, keyboard/focus, 200% zoom at desktop/320/390, target dimensions,
+grayscale/reduced-motion and restored GUI handoff. Node/PG suites and PR
+CI cannot substitute for that screen-reader acceptance.

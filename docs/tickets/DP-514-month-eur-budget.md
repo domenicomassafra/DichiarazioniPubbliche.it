@@ -628,3 +628,36 @@ EUR authorization, provider attestation, deployment or closure of AC-514.1–7.
 
 ## 2026-10-15 — CoS02 historic observation versus adjusted CAS
 Draft PR #25 review reproduced DP-514 rejecting legal DP-512 refund candidates as stale billing classification. Its PG consumer now validates combined DP-512 revision lineage while anchoring the historical monthly observation to the **last classification** event. A refund candidate leaves prior OBSERVED events valid but never cash-settled. After a real reclassification, a new REFUND_CLAIM alone must not relabel an old observation as current; a new OBSERVED CAS is required before month readback succeeds. The exact regressions and test receipts are source/disposable only. No observed invoice, FX, EUR reservation, paid dispatch, live release or AC-514 closure is claimed.
+### 2026-10-15 — PR #26 merge-gate: reuse existing cold-plan JIT mitigation
+
+While validating the independent DP-412 accessibility PR #26, GitHub Actions
+matrix run `38762785701`, attempts 1 and 2, failed in the same unrelated
+DP-514 disposable PostgreSQL first-read test,
+`test_claimed_refund_is_append_only_but_never_offsets_spend`. Ubuntu Python
+3.14 reported `SNAPSHOT` SQLSTATE `57014` after 10154/11478 ms; detached
+clean-clone Python 3.12 failed on the same test. Each bounded wait witness
+observed an active backend with no lock/blocker in its latest sample; this
+does not prove that JIT alone caused every hosted timeout. The older PR #26
+head `8e572ed` ran this same backend source successfully in run `38756718017`.
+
+The existing integrator commit `3afb1968f8e37674ce8438e53a82097c1810ae24`
+had already demonstrated cold-plan excess JIT compilation on a **disposable**
+Linux PostgreSQL fixture (see the historical 2026-10-14 receipt on the
+integrator's version of this ticket). Rather than increase timeouts or invent
+a replacement, PR #26 incorporates just that previously validated minimal
+mitigation: `SET LOCAL jit=off` inside `_SNAPSHOT`'s existing
+`REPEATABLE READ READ ONLY` transaction. No statement/lock/process deadline,
+CAS, append-only constraint, billing/invoice authority, retry policy or
+production connection changes. The existing DP-514 test runner now verifies
+the actual JIT setting inside the SQL transaction, restores the independent
+session default, and checks unchanged measured USD 0.21 / unverified refund
+USD 0.21 with spend authorization denied. New test **RED** before the SQL
+line (`on` instead of `off`), **GREEN** after; 17 focused PostgreSQL tests
+PASS under explicit CI diagnostic flags on macOS PostgreSQL 17.11.
+
+This is **source and disposable-fixture evidence only**, not the conclusion
+of the GitHub run for the new commit. A fresh exact-head hosted CI is required
+before this can remove the PR #26 merge blocker. DP-514 original acceptance
+and real billing reconciliation remain OPEN; the patch does not convert a
+measured provider cost or refund claim into invoiced cash. PR #25's
+integrator branch and production MiniPC services/database were not modified.
