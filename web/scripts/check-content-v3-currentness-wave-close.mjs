@@ -83,6 +83,14 @@ try {
   await symlink(path.join(webRoot, "node_modules"), path.join(stagedWeb, "node_modules"), "dir");
 
   const approved = withPublicContents();
+  // A reviewed timed source can legitimately carry its own fragment and query.
+  // The Content moment link must replace the fragment with the media-time
+  // locator, not append a second '#' that no browser can interpret as #t.
+  const withFragment = "https://example.test/demo/maintenance?edition=1#intro";
+  for (const dossier of approved.dossiers.filter((item) => item.source.content_id === "content:demo:maintenance")) {
+    dossier.source.url = withFragment;
+  }
+  approved.contents.find((item) => item.content_id === "content:demo:maintenance").url = withFragment;
   const initial = await runBuild(approved);
   const timed = approved.dossiers.find((item) => item.finding_id.endsWith("moment-06"));
   const written = approved.dossiers.find((item) => item.finding_id === "finding:demo:study");
@@ -90,6 +98,10 @@ try {
   assert(initial.timed.includes(timed.claim), "approved timed Source/Content/Statement moment must appear");
   assert(initial.written.includes(written.claim), "approved written selector must appear");
   assert(initial.timed.includes("#t=150"), "approved timed locator must be tied to the source segment");
+  assert(initial.timed.includes("https://example.test/demo/maintenance?edition=1#t=150"),
+    "Content timed locator must preserve the reviewed query and replace any existing source fragment");
+  assert(!initial.timed.includes("#intro#t="),
+    "Content cannot append an uninterpretable second fragment to a reviewed source URL");
   assert(initial.written.includes("Passaggio 420–612"), "approved written locator must retain checked text offsets");
 
   const stale = withPublicContents();
