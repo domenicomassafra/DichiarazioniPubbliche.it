@@ -607,3 +607,21 @@ canonical USD+EUR atomic queue admission, real MiniPC restart proof and
 any paid/public dispatch approval. Source delivery on the integration
 branch is separate from a reviewed exact-SHA CI run, protected-main merge,
 deployment, and financial acceptance.
+
+## 2026-10-15 — CoS02 adjacent DP-512 credential safety contract
+
+The first integrated full run on the DP-512 refund/correction and
+password-in-argv hardening revision completed 3703 tests with **one
+DP-514 diagnostic test ERROR**, not a PASS. The existing DP-514 synthetic
+diagnostic test still expected a disposable client containing a password
+in the psql DSN to launch its mocked subprocess and raise a transaction
+error. The corrected shared DP-512 fence now rejects that DSN before
+spawning psql, as required by the no-secrets-in-argv rule. The DP-514
+regression was adapted **without weakening diagnostic redaction**: credentials
+in the URI must raise the sanitized disposable-DSN error and the subprocess
+mock must remain uncalled; passwordless disposable DSNs retain the original
+sanitized RuntimeError/no-diagnostic checks. The scoped DP-514+DP-512 suite
+then passed **37/37** with Ruff and diff checks green. The full-suite failure
+and this targeted repair are both recorded; no previous failing full run
+is relabeled as a pass. This is test/contract reconciliation, not monthly
+EUR authorization, provider attestation, deployment or closure of AC-514.1–7.
