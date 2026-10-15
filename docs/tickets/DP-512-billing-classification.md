@@ -455,3 +455,30 @@ Technical DP-512 acquisition does not close AC-512.1–.6: independently
 authenticated billing/refund provenance, atomic production reservations,
 approved historic correction replay and installed MiniPC consumer parity
 remain subject to real evidence and separate review/release gates.
+
+### CoS02 local two-axis code-review correction — source-cost SLO
+
+Spec review exposed that `build_slo_measurements` interpreted the largest
+provider/operation/status billing group as the cost of a *source*. The canonical
+receipt reader does not return a source-authoritative allocation, and the
+digest already sets `provider_grouping_is_source_attribution=False`. Therefore
+the old per-source ratio could falsely report `OK` for provider groups without
+any source attribution, or falsely name a source-level `BREACH`. A new
+no-uncertainty regression plus the existing known-global-breach case both
+failed before the correction (respectively `OK` and `BREACH` rather than
+`UNKNOWN` for the source-cost SLO). The source-cost measurement now remains
+`UNKNOWN` until source-bound cost provenance is available; known global
+budget overspend continues to report `BREACH`. The operator action no longer
+claims that a provider grouping identifies the editorial source. This is a
+fail-closed consumer refactor, not a new authenticated billing statement or
+completion of AC-512.4/.5.
+
+TDD/verification on the corrected integrator: two regressions RED (source-cost
+`OK`/`BREACH` without a source identity), then the complete health/SLO/
+operation-ledger/reconciliation selection **45/45 GREEN**; scoped Ruff and
+repository contract PASS; whitespace check PASS. Serial code-review axes:
+Standards found no remaining consequential issue in the bounded correction
+(no new writer, store, schema, dependency, data exposure or provider access).
+Spec review confirmed fail-closed UNKNOWN per-source and known global BREACH,
+with all six original DP-512 AC still open. External source allocation, real
+billing and installed consumer acceptance were not fabricated.

@@ -136,7 +136,21 @@ class HealthDigestTests(unittest.TestCase):
         ], max_cost_usd_per_day=1, max_cost_usd_per_source_day=1)
         statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
         self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "BREACH")
-        self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "BREACH")
+        # Provider/operation aggregation has no authenticated source binding.
+        self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "UNKNOWN")
+
+    def test_per_source_slo_never_uses_provider_group_as_source_identity(self):
+        digest = self.digest([
+            self.receipt("a", "MEASURED_PROVIDER_COST", measured="0.4"),
+            self.receipt("b", "MEASURED_PROVIDER_COST", measured="0.4",
+                         status="FAILED"),
+        ], max_cost_usd_per_day=1, max_cost_usd_per_source_day=1)
+        self.assertFalse(digest["billing_today"]["provider_grouping_is_source_attribution"])
+        self.assertEqual(digest["billing_today"]["recorded_measured_usd"], 0.8)
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "BREACH")
+        # Two grouped receipt rows are NOT two approved source ledgers.
+        self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "UNKNOWN")
 
     def test_unknown_zero_ceiling_is_not_healthy_zero_cost(self):
         digest = self.digest([self.receipt("unknown", "UNKNOWN", estimate="0")])

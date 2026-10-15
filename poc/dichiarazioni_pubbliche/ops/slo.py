@@ -171,7 +171,10 @@ SLOS: tuple[Slo, ...] = (
         window_seconds=86_400,
         comparison="at_most",
         required_measurements=("provider_receipts_today",),
-        action="Identify the source from the receipts table; pause that source.",
+        action=(
+            "Verify a source-bound receipt/cost ledger before attributing daily "
+            "spend to any source; provider/operation groups are insufficient."
+        ),
         rationale="A single misbehaving source must not be able to consume the "
         "entire global allowance.",
     ),

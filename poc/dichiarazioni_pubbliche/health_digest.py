@@ -102,11 +102,6 @@ def build_slo_measurements(
             projection_age = None
 
     global_cap = max(float(max_cost_usd_per_day), 0.0)
-    source_cap = max(float(max_cost_usd_per_source_day), 0.0)
-    per_source = max(
-        (float(row.get("cost_usd") or 0) for row in provider_receipts_today),
-        default=0.0,
-    )
     cost_uncertain = any(row.get("cash_uncertain") for row in provider_receipts_today)
 
     def cost_fraction(amount: float, cap: float, slo_id: str) -> float | None:
@@ -127,9 +122,11 @@ def build_slo_measurements(
         "estimated_cost_usd_today": (
             cost_fraction(float(estimated_cost_usd_today), global_cap, "SLO-COST-GLOBAL-DAILY")
         ),
-        "provider_receipts_today": (
-            cost_fraction(per_source, source_cap, "SLO-COST-SOURCE-DAILY")
-        ),
+        # The reconciliation groups are by provider, operation and status,
+        # not by approved content/source identity. Dividing the largest
+        # provider group by a source cap can report a fabricated healthy
+        # per-source budget. Await independently bound source attribution.
+        "provider_receipts_today": None,
         "projection_health": 1.0,
         "projection_generated_at_age_seconds": projection_age,
     }
