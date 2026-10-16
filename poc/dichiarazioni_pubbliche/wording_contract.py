@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
+from dichiarazioni_pubbliche.context_integrity import assess_speech_act_context
+
 
 WORDING_CONTRACT_VERSION = "wording-contract-v1"
 SOURCE_OCCURRENCE_ROLE = "SOURCE_OCCURRENCE"
@@ -583,6 +585,31 @@ def _names(text: str) -> tuple[str, ...]:
     return tuple(sorted(candidates))
 
 
+def _speech_act_translation_hint(text: str, language: str) -> str | None:
+    """Use the existing lexical hypothesis only to flag possible meaning drift.
+
+    The artificial reference below is a local comparison token, never evidence
+    of a real speaker, attribution, review, or permission to publish.
+    """
+    if language not in {"it", "en", "de"} or len(text) > 12000:
+        return None
+    token = "translation-comparison:unverified"
+    review = assess_speech_act_context(
+        source_text=text,
+        source_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        quote_start=0,
+        quote_end=len(text),
+        turn_start=0,
+        turn_end=len(text),
+        utterer_id=token,
+        turn_speaker_ids=(token,),
+        source_part_ref="translation-comparison:source",
+        turn_complete=True,
+        language=language,
+    )
+    return review.speech_act if review.speech_act != "UNKNOWN" else None
+
+
 @dataclass(frozen=True)
 class TranslationAssessment:
     state: TranslationReviewState
@@ -644,6 +671,10 @@ def assess_translation(
         signals.append("PROPER_NAME_CHANGED")
     if source_lang not in _NEGATIONS or target_lang not in _NEGATIONS:
         signals.append("LANGUAGE_RISK_RULE_UNAVAILABLE")
+    source_act = _speech_act_translation_hint(source, source_lang)
+    target_act = _speech_act_translation_hint(translated, target_lang)
+    if source_act != target_act and (source_act is not None or target_act is not None):
+        signals.append("SPEECH_ACT_TRANSLATION_CHANGED_OR_UNRESOLVED")
     if translation_method == "MACHINE" and not human_reviewed:
         signals.append("MACHINE_TRANSLATION_REQUIRES_REVIEW")
 

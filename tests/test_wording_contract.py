@@ -334,6 +334,28 @@ class WordingContractTests(unittest.TestCase):
         self.assertIn("LANGUAGE_RISK_RULE_UNAVAILABLE", unknown.signal_codes)
         self.assertEqual(unknown.state, TranslationReviewState.NEEDS_REVIEW)
 
+    def test_translated_report_or_critique_cannot_become_direct_endorsement(self):
+        for source, translated, language in (
+            ("Secondo Ada, «Io sostengo il piano».", "I support the plan.", "it"),
+            ("Er sagte «Ich unterstütze den Plan».", "Io sostengo il piano.", "de"),
+            ("I criticize «I support the plan».", "Io sostengo il piano.", "en"),
+        ):
+            with self.subTest(source=source):
+                result = assess_translation(
+                    source_text=source,
+                    translated_text=translated,
+                    source_language=language,
+                    target_language="it" if language != "it" else "en",
+                    method="HUMAN",
+                    human_reviewed=True,
+                )
+                self.assertIn(
+                    "SPEECH_ACT_TRANSLATION_CHANGED_OR_UNRESOLVED",
+                    result.signal_codes,
+                )
+                self.assertEqual(result.state, TranslationReviewState.NEEDS_REVIEW)
+                self.assertFalse(result.public_quote_eligible)
+
     def test_changed_legal_status_is_held(self):
         result = assess_translation(
             source_text="Mario Rossi è indagato.",
