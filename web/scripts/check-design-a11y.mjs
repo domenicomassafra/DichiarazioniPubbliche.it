@@ -186,6 +186,15 @@ check("Reduced-motion variants keep static loading/selection states", () => {
   assert.match(primitives, /\.dp-segmented__option\[data-checked='true'\]::after/);
 });
 
+check("Narrow or zoomed segmented radio groups reflow every option instead of clipping labels", () => {
+  const narrow = primitives.match(/@media \(max-width: 40rem\) \{\s*(\.dp-segmented \{[^}]+\}\s*\.dp-segmented__option \{[^}]+\}\s*\.dp-segmented__option \+ \.dp-segmented__option \{[^}]+\})/);
+  assert(narrow, "narrow segmented radios need a group/option reflow rule");
+  assert.match(narrow[1], /flex-direction:\s*column;/);
+  assert.match(narrow[1], /white-space:\s*normal;/);
+  assert.match(narrow[1], /overflow-wrap:\s*anywhere;/);
+  assert.match(narrow[1], /border-block-start:\s*1px solid var\(--rule-hairline\);/);
+});
+
 // Exercise real focus-hook scheduling with a deterministic React-hook/RAF
 // harness. This is a regression gate, not a substitute for real VoiceOver.
 await import("./check-focus-restore.mjs");

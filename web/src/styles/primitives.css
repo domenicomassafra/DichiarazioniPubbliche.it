@@ -680,6 +680,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Keep every radio and its label visible when zoom or a narrow viewport makes
+   the horizontal segmented group wider than the available line. */
+@media (max-width: 40rem) {
+  .dp-segmented {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .dp-segmented__option {
+    min-inline-size: 0;
+    justify-content: flex-start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dp-segmented__option + .dp-segmented__option {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--rule-hairline);
+  }
+}
+
 /* The SegmentedControl option is a <label> wrapping a visually hidden radio,
    so its focus ring is painted via :focus-within above. With :focus-visible
    alone the group would be keyboard-operable with no visible indicator. */

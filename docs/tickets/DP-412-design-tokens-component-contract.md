@@ -650,3 +650,28 @@ in `check-design-a11y.mjs` together with the existing restoration test.
 
 This is a code-level focus event regression, not spoken VoiceOver evidence.
 AC-412.5, merge/consumer delivery and original DP-412 closure remain OPEN.
+
+### 2026-10-16 — Native Zen 200% / 320px segmented radio clipping
+
+After CoS09 released the Mac Studio GUI explicitly at 12:43 CEST, the owner-local
+loopback fixture built from PR #26 `3ebf621d6ea2d8483eaa0d6080fa8809fafd81aa`
+was exercised in the actual Zen browser. The native zoom control visibly read
+**200%**; Zen Responsive Design Mode was set to **320 × 480**. In this real
+viewport, the three-option `SegmentedControl` displayed only its first two
+radio labels within the container: the disabled third label was clipped by
+the horizontal `inline-flex` + `overflow: hidden` + nonwrapping option text.
+The initial 390 × 480 view and 320 × 480 view were observed, but the effective
+CSS `innerWidth`, full target matrix and screen-reader speech were not yet
+recorded; this is one reproduced visual defect, not a global AT pass.
+
+The narrow-screen regression added to `check-design-a11y.mjs` failed **RED**
+on the real unchanged stylesheet with `narrow segmented radios need a
+group/option reflow rule`. The smallest component-scoped CSS repair places
+all options in a vertically stacked, wrapping radio group at 40rem and below,
+maintains a separating block-start rule, visible text and the existing
+keyboard/radio semantics. The 11 Node accessibility contract groups now pass
+**GREEN**, including previous focus restore 4/4 and Dialog initial focus 2/2.
+This static guard complements, but does not replace, the observed failure and
+the follow-up visual check on the repaired stylesheet. **AC-412.5 remains OPEN**
+until actual voice announcements, keyboard behavior, 200% zoom/reflow,
+grayscale/reduced motion and restore/handoff all pass on the current commit.
