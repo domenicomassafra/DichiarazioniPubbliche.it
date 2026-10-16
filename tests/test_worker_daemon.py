@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +36,7 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
+from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
 
 
 class FakePrivateStore:
@@ -451,7 +453,7 @@ class WorkerDaemonTests(unittest.TestCase):
             False,
         )
 
-    def test_claim_parent_fans_out_only_after_real_capability_gates(self):
+    def test_claim_parent_fans_out_without_unpriced_remote_canary(self):
         store = FakeStore(
             [
                 job(
@@ -483,14 +485,14 @@ class WorkerDaemonTests(unittest.TestCase):
         )
         summary = worker.run(1)
         self.assertEqual(summary.completed, 1)
-        self.assertEqual(client.probes, 1)
+        self.assertEqual(client.probes, 0)
         self.assertEqual(len(store.bulk_jobs), 1)
         self.assertEqual(store.bulk_jobs[0]["job_type"], "CLAIM_EXTRACT_WINDOW")
         self.assertEqual(store.bulk_jobs[0]["state"], "QUEUED")
         self.assertNotIn("text", store.bulk_jobs[0]["payload"])
         self.assertGreater(store.bulk_jobs[0]["payload"]["estimated_cost_usd"], 0)
 
-    def test_claim_parent_failed_canary_blocks_without_provider_downgrade(self):
+    def test_claim_parent_missing_segments_retries_without_remote_paid_canary(self):
         store = FakeStore(
             [
                 job(
@@ -509,16 +511,13 @@ class WorkerDaemonTests(unittest.TestCase):
             claim_rate=0.15,
         ).run(1)
 
-        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(summary.blocked, 0)
+        self.assertEqual(summary.retried, 1)
         self.assertEqual(summary.completed, 0)
-        self.assertEqual(client.probes, 1)
+        self.assertEqual(client.probes, 0)
         self.assertEqual(client.extracts, 0)
         self.assertEqual(store.bulk_jobs, [])
-        self.assertTrue(
-            store.block_reasons["job:CLAIM_EXTRACT"].startswith(
-                "CLAIM_EXTRACTION_CANARY_FAILED:"
-            )
-        )
+        self.assertEqual(store.states["job:CLAIM_EXTRACT"], "QUEUED")
 
     def test_claim_parent_blocks_when_cost_model_is_missing(self):
         store = FakeStore(
@@ -1158,6 +1157,45 @@ class WorkerDaemonTests(unittest.TestCase):
         ).run(1)
         self.assertEqual(summary.blocked, 1)
         self.assertEqual(client.probes, 0)
+
+    def test_external_claim_prepare_does_not_spend_on_hidden_canary(self):
+        store = FakeStore([job("CLAIM_PREPARE", {
+            "variant_id": "transcript:synthetic", "estimated_cost_usd": 0,
+        })])
+        client = FakeClaimClient(healthy=False)
+        worker = self.make_worker(store, claim_client=client, claim_rate=0.15)
+        worker.run(1)
+        # Remote .probe() uses a chat-completions request, not a free GET health.
+        self.assertEqual(client.probes, 0)
+
+    def test_external_claim_window_has_no_extra_paid_canary(self):
+        store = FakeStore([job("CLAIM_EXTRACT_WINDOW", {
+            "input_sha256": "synthetic", "segment_indices": [0],
+            "estimated_cost_usd": 0.05,
+        })])
+        client = FakeClaimClient(healthy=False)
+        self.make_worker(store, claim_client=client, claim_rate=0.15).run(1)
+        self.assertEqual(client.probes, 0)
+
+    def test_real_omniroute_canary_completion_stays_uninvoked_at_zero_budget(self):
+        # The real remote client implements probe() with a metered-capable
+        # _post(/v1/chat/completions); intercept it without any network.
+        client = OmniRouteClaimClient(
+            api_key="synthetic-nonlive-key", base_url="http://127.0.0.1:20128"
+        )
+        zero = WorkerBudget(
+            max_cost_usd_per_job=0.0,
+            max_cost_usd_per_day=0.0,
+            max_cost_usd_per_source_day=0.0,
+        )
+        store = FakeStore([job("CLAIM_PREPARE", {
+            "variant_id": "transcript:synthetic", "estimated_cost_usd": 0,
+        })])
+        with patch.object(client, "_post", side_effect=AssertionError("PAID_CANARY_SENT")) as sent:
+            self.make_worker(
+                store, claim_client=client, claim_rate=0.15, budget=zero,
+            ).run(1)
+            sent.assert_not_called()
 
     def test_digest_pinned_local_claim_route_preserves_free_preflight(self):
         local = LocalOllamaClaimClient(expected_model_digest="0" * 64)

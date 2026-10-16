@@ -570,7 +570,7 @@ they do not date an undated receipt or assume that a zero estimate proves free
 usage. Both use the same start-first clock for known daily attribution.
 Remote ASR requires a finite positive job estimate; remote OmniRoute claim
 windows require a finite positive bound and rate, and preparatory remote claim
-probes require a positive rate plus a current cost snapshot without unresolved
+admission requires a positive rate plus a current cost snapshot without unresolved
 liabilities. An explicitly configured, digest-pinned `LocalOllamaClaimClient`
 and the exact local ASR route remain distinguishable from paid-capable remote
 providers. No provider or paid-model request was issued by these tests.
@@ -586,3 +586,24 @@ policy, to avoid either inventing free usage or unnecessarily freezing all
 non-paid jobs. The fail-closed global paid gate is deliberately retained.
 All six original AC-512 remain OPEN, as does any live MiniPC admission or
 provider billing activation. No release/publication authority is granted.
+
+### Same-original follow-up — eliminate unpriced OmniRoute canary requests
+
+Independent exact-source review demonstrated that `OmniRouteClaimClient.probe()`
+is **not** a free metadata-only readiness check: it makes an authenticated
+`/v1/chat/completions` generation request with a 256-token cap. A remote claim
+preparation job with estimated cost zero could trigger that call even when all
+three budget caps were zero; no distinct provider attempt receipt or budget
+reservation existed for the canary. Two adversarial tests were RED on the old
+source. The bounded repair skips only this paid-capable remote canary and lets
+normal claim extraction carry its already required finite positive budget
+estimate; the known digest-pinned local Ollama readiness probe remains intact.
+With the actual `OmniRouteClaimClient` and `_post` intercepted before network,
+the zero-budget preparation path produces **zero generation calls**, including
+when source segments are absent. Runtime extraction failures remain subject to
+the existing handler's retry/block outcomes, not presumed readiness.
+
+This deliberately removes one preflight canary, **not** the provider's
+authentication requirement, source-use controls, real per-attempt billing
+evidence requirement, or cross-worker atomic money reservation. Those and
+safe ZERO_COST provenance/liveness reconciliation remain open under AC-512.5.

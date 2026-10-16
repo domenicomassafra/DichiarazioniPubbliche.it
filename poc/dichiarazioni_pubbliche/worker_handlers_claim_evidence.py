@@ -13,6 +13,7 @@ from dichiarazioni_pubbliche.claim_windows import (
     build_claim_windows,
     canonical_segment_from_row,
 )
+from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient
 from dichiarazioni_pubbliche.evidence_runtime import (
     EvidencePolicyError,
     EvidenceRateLimited,
@@ -116,6 +117,12 @@ class ClaimEvidenceJobHandlers:
             return "CLAIM_EXTRACTION_CREDENTIAL_MISSING"
         if self.claim_max_usd_per_1k_total_tokens is None:
             return "CLAIM_EXTRACTION_COST_MODEL_MISSING"
+        if not isinstance(self.claim_client, LocalOllamaClaimClient):
+            # OmniRouteClient.probe() is an authenticated chat completion,
+            # NOT a free health GET. A hidden canary has no distinct cost
+            # reservation or attempt receipt. Do not invoke it before paid
+            # remote work; actual extraction is budget-gated in _ensure_budget.
+            return None
         if self._claim_probe is None:
             self._claim_probe = self.claim_client.probe()
         if not self._claim_probe.healthy:
