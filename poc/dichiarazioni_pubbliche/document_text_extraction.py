@@ -293,21 +293,29 @@ def document_passages_from_capture(
         parser = DocumentTextParser()
     if not isinstance(parser, DocumentTextParser):
         from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+        from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
 
-        if type(parser) is not BornDigitalPDFTextParser or media != "application/pdf":
+        if type(parser) not in {BornDigitalPDFTextParser, ScannedPDFOCRParser} or media != "application/pdf":
             raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
     elif media == "application/pdf":
         raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
-    replay = parser.parse(fetched)
+    # Reject an unauthorised or different source before invoking the native
+    # document/OCR worker. A later replay mismatch must not incur processing
+    # or derive even temporary text from revoked capture bytes.
     if (
         capture.status != "CAPTURED"
+        or capture.hold_status != "NONE"
         or capture.rights_status != "CLEARED"
         or capture.content_sha256 != _sha(fetched.body)
         or capture.final_url != fetched.final_url
         or capture.media_type != media
-        or capture.parser_method != replay.parser_method
-        or capture.parser_version != replay.parser_version
         or capture.metadata.get("parse_status") not in {None, "SUCCEEDED"}
+    ):
+        raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
+    replay = parser.parse(fetched)
+    if (
+        capture.parser_method != replay.parser_method
+        or capture.parser_version != replay.parser_version
         or replay.status != "SUCCEEDED"
         or parsed != replay
     ):
@@ -342,8 +350,30 @@ def document_passages_from_capture(
                 "reading_order": page["reading_order"],
                 "original_byte_offset_available": False,
                 "verbatim_reviewed": False,
-                **({"pdf_text_fidelity": "UNREVIEWED_PDF_EXTRACTION"}
-                   if media == "application/pdf" else {}),
+                **({"pdf_text_fidelity": (
+                    "UNREVIEWED_OCR_EXTRACTION" if replay.metadata.get("ocr_applied")
+                    else "UNREVIEWED_PDF_EXTRACTION"
+                )} if media == "application/pdf" else {}),
+                **({
+                    "ocr_engine_version": replay.metadata["ocr_engine_version"],
+                    "ocr_profile": replay.metadata["ocr_profile"],
+                    "ocr_critical_span_state": "HELD_INDEPENDENT_REVIEW_REQUIRED",
+                    "ocr_word_boxes": [
+                        {
+                            **box,
+                            "crosses_passage_boundary": (
+                                box["start_char"] < span.start_char
+                                or box["end_char"] > span.end_char
+                            ),
+                        }
+                        # Keep both references when a word crosses a private
+                        # Passage split. Silently dropping its source coordinates
+                        # would weaken the OCR locator and critical-span hold.
+                        for box in replay.metadata["ocr_word_boxes"]
+                        if box["start_char"] < span.end_char
+                        and box["end_char"] > span.start_char
+                    ],
+                } if replay.metadata.get("ocr_applied") else {}),
             },
         ))
     return tuple(passages)
