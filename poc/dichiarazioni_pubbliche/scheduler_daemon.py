@@ -421,16 +421,24 @@ class PsqlStore:
             variables["source_id"] = source_id
         raw = self._run(
             f"""
-            SELECT COALESCE(sum(
+            SELECT CASE WHEN COALESCE(bool_or(
+                CASE
+                    WHEN r.billing_basis='MEASURED_PROVIDER_COST'
+                        THEN r.measured_cost_usd IS NULL OR r.measured_cost_usd <= 0
+                    WHEN r.billing_basis='ESTIMATED_ONLY'
+                        THEN r.estimated_cost_usd IS NULL OR r.estimated_cost_usd <= 0
+                    ELSE TRUE
+                END
+            ), false) THEN 'Infinity' ELSE COALESCE(sum(
                 CASE
                     WHEN r.billing_basis='MEASURED_PROVIDER_COST'
                         THEN r.measured_cost_usd
                     ELSE r.estimated_cost_usd
                 END
-            ), 0)::text
+            ), 0)::text END
             FROM provider_receipt r
             LEFT JOIN content_item c ON c.id = r.content_id
-            WHERE COALESCE(r.completed_at, r.started_at, now()) >= date_trunc('day', now())
+            WHERE COALESCE(r.started_at, r.completed_at, now()) >= date_trunc('day', now())
             {source_filter};
             """,
             **variables,

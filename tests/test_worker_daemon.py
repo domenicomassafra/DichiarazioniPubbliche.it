@@ -1,3 +1,4 @@
+import math
 import sys
 import tempfile
 import unittest
@@ -32,6 +33,7 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
     WorkerBudget,
     WorkerProcessLock,
 )
+from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 
 
 class FakePrivateStore:
@@ -1077,6 +1079,37 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(summary.deferred, 1)
         self.assertEqual(summary.blocked, 0)
         self.assertEqual(store.states["job:TRANSCRIPT_ACQUIRE_ASR"], "QUEUED")
+
+    def test_paid_asr_missing_zero_or_nonfinite_estimate_fails_preflight(self):
+        for value in (None, 0.0, "NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value):
+                store = FakeStore([])
+                worker = self.make_worker(store)
+                payload = {
+                    "provider_id": "groq-whisper-large-v3-turbo",
+                    "route": "groq/whisper-large-v3-turbo",
+                }
+                if value is not None:
+                    payload["estimated_cost_usd"] = value
+                with self.assertRaisesRegex(BlockedJob, "ESTIMATED_COST"):
+                    worker._ensure_budget(
+                        job("TRANSCRIPT_ACQUIRE_ASR", payload),
+                        store.content("content:pulp64"),
+                    )
+
+    def test_paid_asr_holds_on_unknown_previous_liability(self):
+        store = FakeStore([])
+        store.cost_snapshot = lambda source_id: CostSnapshot(math.inf, math.inf)
+        worker = self.make_worker(store)
+        with self.assertRaisesRegex(Exception, "BUDGET|LIABILITY"):
+            worker._ensure_budget(
+                job("TRANSCRIPT_ACQUIRE_ASR", {
+                    "provider_id": "groq-whisper-large-v3-turbo",
+                    "route": "groq/whisper-large-v3-turbo",
+                    "estimated_cost_usd": 0.05,
+                }),
+                store.content("content:pulp64"),
+            )
 
     def test_asr_without_runtime_key_blocks_without_network(self):
         store = FakeStore(

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import math
 import os
 import socket
 from dataclasses import asdict, dataclass
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient
+from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_ASR_PROVIDER_ID
+from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ASR_ROUTE
 from dichiarazioni_pubbliche.provider_optin import configure_provider_clients
 from dichiarazioni_pubbliche.evidence_runtime import (
     SafeEvidenceFetcher,
@@ -165,12 +168,25 @@ class ProcessingWorker(
             raise BlockedJob(f"SOURCE_NOT_IN_REGISTRY:{source_id}") from exc
 
     def _ensure_budget(self, job: ProcessingJob, content: ContentRecord) -> None:
+        remote_asr = job.job_type == "TRANSCRIPT_ACQUIRE_ASR" and not (
+            job.payload.get("provider_id") == LOCAL_ASR_PROVIDER_ID
+            and job.payload.get("route") == LOCAL_ASR_ROUTE
+        )
+        raw_estimate = job.payload.get("estimated_cost_usd")
+        if remote_asr and (raw_estimate is None or raw_estimate == ""):
+            raise BlockedJob("PAID_ASR_ESTIMATED_COST_REQUIRED")
         try:
-            estimate = float(job.payload.get("estimated_cost_usd") or 0.0)
+            if isinstance(raw_estimate, bool):
+                raise ValueError("boolean estimate")
+            estimate = float(raw_estimate if raw_estimate is not None else 0.0)
         except (TypeError, ValueError) as exc:
             raise BlockedJob("INVALID_ESTIMATED_COST") from exc
+        if not math.isfinite(estimate):
+            raise BlockedJob("NONFINITE_ESTIMATED_COST")
         if estimate < 0:
             raise BlockedJob("NEGATIVE_ESTIMATED_COST")
+        if remote_asr and estimate == 0:
+            raise BlockedJob("PAID_ASR_ESTIMATED_COST_REQUIRED")
         if estimate > self.budget.max_cost_usd_per_job:
             raise DeferredJob(
                 "JOB_COST_CAP_REACHED", self.budget.budget_defer_seconds
@@ -178,6 +194,12 @@ class ProcessingWorker(
         if estimate == 0:
             return
         snapshot = self.store.cost_snapshot(content.source_id)
+        if not math.isfinite(snapshot.global_day_usd) or not math.isfinite(
+            snapshot.source_day_usd
+        ):
+            raise DeferredJob(
+                "UNKNOWN_BILLING_LIABILITY_HELD", self.budget.budget_defer_seconds
+            )
         if snapshot.global_day_usd + estimate > self.budget.max_cost_usd_per_day:
             raise DeferredJob(
                 "GLOBAL_DAILY_BUDGET_REACHED", self.budget.budget_defer_seconds

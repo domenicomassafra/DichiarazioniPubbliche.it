@@ -23,7 +23,6 @@ from dichiarazioni_pubbliche.queue_runtime import (
     CostSnapshot,
     PsqlRuntime,
     ProcessingJob,
-    QueueRuntimeStore,
     _dollar_quote,
     deterministic_canonical_segment_id,
     deterministic_followup_job_id,
@@ -281,6 +280,24 @@ class QueueExecutionCostStore(PsqlRuntime):
         raw = self.run(
             """
             SELECT json_build_object(
+                'global_unknown', COALESCE(bool_or(
+                    CASE
+                        WHEN r.billing_basis='MEASURED_PROVIDER_COST'
+                            THEN r.measured_cost_usd IS NULL OR r.measured_cost_usd <= 0
+                        WHEN r.billing_basis='ESTIMATED_ONLY'
+                            THEN r.estimated_cost_usd IS NULL OR r.estimated_cost_usd <= 0
+                        ELSE TRUE
+                    END
+                ), false),
+                'source_unknown', COALESCE(bool_or(
+                    CASE
+                        WHEN r.billing_basis='MEASURED_PROVIDER_COST'
+                            THEN r.measured_cost_usd IS NULL OR r.measured_cost_usd <= 0
+                        WHEN r.billing_basis='ESTIMATED_ONLY'
+                            THEN r.estimated_cost_usd IS NULL OR r.estimated_cost_usd <= 0
+                        ELSE TRUE
+                    END
+                ) FILTER (WHERE c.source_id = :'source_id'), false),
                 'global', COALESCE(sum(
                     CASE
                         WHEN r.billing_basis='MEASURED_PROVIDER_COST'
@@ -299,13 +316,18 @@ class QueueExecutionCostStore(PsqlRuntime):
             )::text
             FROM provider_receipt r
             LEFT JOIN content_item c ON c.id = r.content_id
-            WHERE COALESCE(r.completed_at, r.started_at, now())
+            WHERE COALESCE(r.started_at, r.completed_at, now())
                 >= date_trunc('day', now());
             """,
             source_id=source_id,
         )
         row = json.loads(raw or '{"global":0,"source":0}')
-        return CostSnapshot(float(row["global"]), float(row["source"]))
+        # Never collapse NULL/UNKNOWN/unattested-zero to an authorized free
+        # daily budget. The worker treats infinity as an explicit admission HOLD.
+        return CostSnapshot(
+            float("inf") if row.get("global_unknown") is True else float(row["global"]),
+            float("inf") if row.get("source_unknown") is True else float(row["source"]),
+        )
 
     def operation_ledger_receipts(
         self,

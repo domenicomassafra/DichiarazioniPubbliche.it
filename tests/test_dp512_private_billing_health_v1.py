@@ -18,6 +18,7 @@ from dichiarazioni_pubbliche.ops.private_billing_health_v1 import (  # noqa: E40
     read_private_billing_health,
 )
 from dichiarazioni_pubbliche.queue_store import QueueExecutionCostStore  # noqa: E402
+from dichiarazioni_pubbliche.scheduler_daemon import PsqlStore  # noqa: E402
 
 
 class PrivateBillingHealthPgTests(unittest.TestCase):
@@ -166,7 +167,7 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
             report["scheduler_health_parity"], "RECEIPT_IDS_MATCH_NONATOMIC"
         )
 
-    def test_cross_period_completed_vs_started_difference_is_hold(self):
+    def test_cross_period_completion_uses_canonical_start_window(self):
         self.insert(
             "cross-period",
             basis="ESTIMATED_ONLY",
@@ -176,9 +177,9 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
         )
         report = self.report()
         self.assertEqual(report["attempt_count"], 0)
-        self.assertEqual(report["scheduler_health_parity"], "MISMATCH_HELD")
+        self.assertEqual(report["scheduler_health_parity"], "RECEIPT_IDS_MATCH_NONATOMIC")
         self.assertFalse(report["dispatch_authorized"])
-        self.assertEqual(report["scheduler_window_attempt_count"], 1)
+        self.assertEqual(report["scheduler_window_attempt_count"], 0)
         self.assertEqual(report["provisional_estimated_usd"], "0.000000")
 
     def test_zero_ceiling_is_never_verified_free_and_bounds_are_strict(self):
@@ -195,6 +196,28 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
             self.report(
                 since="2026-10-16T00:00:00+00:00", until="2026-10-15T00:00:00+00:00"
             )
+
+    def test_unknown_receipt_does_not_appear_free_in_worker_cost_snapshot(self):
+        self.insert("unpriced", basis="ESTIMATED_ONLY", estimated="NULL")
+        self.sql(
+            "UPDATE provider_receipt SET started_at=now(),completed_at=now() "
+            "WHERE id='receipt:unpriced';"
+        )
+        snapshot = self.store.cost_snapshot("fixture-source")
+        self.assertEqual(snapshot.global_day_usd, float("inf"))
+        scheduler = PsqlStore(pg_fixture.BillingPgFenceTests.dsn)
+        self.assertEqual(scheduler.cost_today(), float("inf"))
+
+    def test_unverified_zero_receipt_is_held_by_both_actual_pg_consumers(self):
+        self.insert("unverified-zero", basis="ZERO_COST", estimated="0")
+        self.sql(
+            "UPDATE provider_receipt SET started_at=now(),completed_at=now() "
+            "WHERE id='receipt:unverified-zero';"
+        )
+        self.assertEqual(self.store.cost_snapshot("fixture-source").global_day_usd, float("inf"))
+        self.assertEqual(
+            PsqlStore(pg_fixture.BillingPgFenceTests.dsn).cost_today(), float("inf")
+        )
 
     def test_private_cli_uses_libpq_env_and_emits_aggregate_only(self):
         self.insert(

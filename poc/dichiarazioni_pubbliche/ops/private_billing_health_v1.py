@@ -1,10 +1,9 @@
 """Bounded, private DP-512 ledger/health/scheduler window parity readback.
 
 Reuses the canonical QueueExecutionCostStore and operation-ledger reconciliation.
-The current private health digest uses the canonical ledger window, which
-selects started_at before completed_at. Scheduler cost_today instead prefers
-completed_at and falls back to now() for permanently undated rows. This
-read-only checker detects drift without granting paid dispatch.
+Both scheduler and canonical ledger now select started_at before completed_at.
+Permanently undated rows are held rather than treated as verified-free. This
+read-only checker detects remaining drift without granting paid dispatch.
 """
 
 from __future__ import annotations
@@ -28,8 +27,8 @@ SELECT COALESCE(json_agg(id ORDER BY id)::text, '[]')
 FROM (
     SELECT id
     FROM provider_receipt
-    WHERE COALESCE(completed_at, started_at, now()) >= :'since'::timestamptz
-      AND COALESCE(completed_at, started_at, now()) < :'until'::timestamptz
+    WHERE COALESCE(started_at, completed_at, now()) >= :'since'::timestamptz
+      AND COALESCE(started_at, completed_at, now()) < :'until'::timestamptz
     ORDER BY id
     LIMIT 1001
 ) x;
