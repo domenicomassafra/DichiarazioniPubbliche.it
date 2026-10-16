@@ -92,6 +92,46 @@ const deps = {
 const component = load(source, componentPath, deps);
 assert.equal(typeof component.getExploreSuggestions, "function", "public-only suggestions function must exist");
 assert.equal(typeof component.buildExploreUrlKeepingQuery, "function", "URL must retain exact typed query");
+assert.equal(typeof component.getExploreActiveFilters, "function", "active mobile filters need a public-only accessible projection");
+assert.equal(typeof component.getExploreFacetCounts, "function", "public facet options must show accurate approved intersection counts");
+
+const publicFacets = { records: [
+  sample("person:approved", "Persona verificata", "person", {route:"/persone/person-approved/",person_id:undefined,topic_ids:undefined}),
+  sample("topic:approved", "Tema verificato", "topic", {route:"/temi/topic-approved/",person_id:undefined,topic_ids:undefined}),
+] };
+const activeState = {
+  query:"non cambiare",kind:"finding",assessment:"SUPPORTED",sort:"recent",
+  personId:"person:approved",topicId:"topic:approved",
+};
+const active = component.getExploreActiveFilters(publicFacets,activeState);
+assert.deepEqual(active.map(item=>item.key),["kind","assessment","sort","personId","topicId"]);
+assert(active.some(item=>item.label.includes("Persona verificata")));
+assert(active.some(item=>item.label.includes("Tema verificato")));
+const forgedState={...activeState,personId:"person:PRIVATE_DO_NOT_LEAK",topicId:"topic:PRIVATE_DO_NOT_LEAK"};
+const safeLabels=component.getExploreActiveFilters(publicFacets,forgedState);
+assert.doesNotMatch(JSON.stringify(safeLabels),/PRIVATE_DO_NOT_LEAK/,
+  "an unrecognized URL facet must never echo a private person or topic ID");
+assert.deepEqual(component.getExploreActiveFilters(publicFacets,{
+  query:"",kind:"ALL",assessment:"ALL",sort:"relevance",personId:"ALL",topicId:"ALL",
+}),[],"no chips for an empty filter state");
+const countedIndex={records:[
+  ...publicFacets.records,
+  sample("topic:second", "Secondo tema", "topic", {route:"/temi/topic-second/",person_id:undefined,topic_ids:undefined}),
+  sample("finding:one","Bilancio pubblico","finding",{person_id:"person:approved",topic_ids:["topic:approved"]}),
+  sample("finding:two","Bilancio approvato","finding",{person_id:"person:approved",topic_ids:["topic:second"]}),
+  sample("finding:held","Totale altro","finding",{person_id:"person:other",topic_ids:["topic:else"]}),
+]};
+const counted=component.getExploreFacetCounts(countedIndex,"Bilancio",{assessment:"ALL",sort:"relevance"});
+assert.equal(counted.people["person:approved"],2);
+assert.equal(counted.topics["topic:approved"],1);
+assert.equal(counted.people["person:other"],undefined,"nonmatching records may not pollute visible option counts");
+const intersection=component.getExploreFacetCounts(countedIndex,"Bilancio",{
+  assessment:"ALL",sort:"relevance",topicId:"topic:approved",personId:"person:approved",
+});
+assert.equal(intersection.people["person:approved"],1);
+assert.equal(intersection.topics["topic:approved"],1);
+assert.equal(intersection.topics["topic:second"],1,
+  "topic choices must count alternative approved memberships while ignoring the currently active Topic");
 
 const raw = "  inflazone  ";
 assert.equal(
@@ -227,4 +267,28 @@ const unchanged = render("Inflazione");
 assert.equal(walk(unchanged, (node) => node.props?.["data-search-suggestion"] === true).length, 0);
 assert.match(source, /non (?:è|sono) la data della dichiarazione/i,
   "the UI must not mislabel v2 publication as original statement chronology");
+// Mobile refinement controls must expose selected public facets outside the
+// modal, be keyboard-operable and remove exactly one URL filter at a time.
+state=["", "SUPPORTED", "finding", "recent", "person:approved", "topic:approved", true, publicFacets, "ready", false];
+const chipView=render("ricerca precisa");
+const chips=walk(chipView,node=>node.type==="button" && node.props["data-active-filter"]);
+assert.equal(chips.length,5,"each active filter must have a removable chip");
+assert(chips.every(item=>item.props.type==="button" && /Rimuovi filtro:/.test(item.props["aria-label"])));
+assert(chips.every(item=>item.props.style===undefined),"touch targets must come from responsive CSS, not inline overrides");
+const personChip=chips.find(item=>item.props["data-active-filter"]==="personId");
+assert(personChip,"approved Person filter chip missing");
+assert.match(JSON.stringify(personChip),/Persona verificata/);
+nextStates=[];
+const savedWindow=globalThis.window;
+const navigations=[];
+globalThis.window={location:{pathname:"/esplora/"},history:{pushState(_a,_b,url){navigations.push(url);}}};
+try{personChip.props.onClick();}finally{globalThis.window=savedWindow;}
+assert.deepEqual(nextStates,[[4,"ALL"]],"only the Person facet state may change");
+assert.equal(navigations.length,1);
+const nextParams=new URL(navigations[0],"https://example.test").searchParams;
+assert.equal(nextParams.get("persona"),null);
+assert.equal(nextParams.get("tema"),"topic:approved");
+assert.equal(nextParams.get("q"),"ricerca precisa");
+const unavailable=render("ricerca precisa");
+assert.doesNotMatch(JSON.stringify(unavailable),/PRIVATE_DO_NOT_LEAK/);
 console.log("DP429_SUGGESTIONS_PASS public-only bounded fuzzy opt-in, filters, exact query URL, source-date honesty");

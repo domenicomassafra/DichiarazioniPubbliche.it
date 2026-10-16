@@ -498,6 +498,7 @@ def resolve_exact_source_locator(
             or type(segment.variant_start_char) is not int
             or type(segment.variant_end_char) is not int
             or segment.variant_start_char < 0
+            or segment.variant_end_char <= segment.variant_start_char
             or segment.variant_end_char > len(segment.variant_text)
             or segment.variant_text[segment.variant_start_char:segment.variant_end_char]
             != segment.segment_text

@@ -170,3 +170,6 @@ energy, bounded approved workload and quality validation, invoice/refund
 and source/Content/job experimental joins, nor MiniPC runtime acceptance
 has been demonstrated by this PG fixture. No empirical pilot
 completion or production authorization is implied.
+
+## 2026-10-15 — CoS02 combined adjustment history
+Draft PR #25 review found that DP-513 rejected valid refund/correction events because it equated classification event count with the shared DP-512 CAS revision. The read-only PG reader now checks a dense, nonduplicate combined classification+adjustment immutable history and fingerprints without treating an unverified credit as cash or billing authority. Missing/doubled revisions still fail closed. Real provider usage/billing matching and installed consumer acceptance remain OPEN.

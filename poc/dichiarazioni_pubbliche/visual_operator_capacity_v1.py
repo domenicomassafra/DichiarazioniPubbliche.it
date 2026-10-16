@@ -487,6 +487,7 @@ def reconcile_visual_capacity(
             "STALE_IMAGE_VERSION_HOLD",
             "CAPACITY_NO_IMAGE_OPTION",
             "EXPIRED_IMAGE_HOLD",
+            "WITHDRAWAL_PENDING_EXTERNAL_READBACK",
         }
     )
     # A case may have several chained sessions (defer, resume, choose/none).

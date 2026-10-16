@@ -40,3 +40,142 @@ Depends on: DP-304, DP-307, DP-501, DP-502
 
 ## Completion receipt
  Not implemented/activated remotely; planning only. Future exact signed owner scope, Google registration/redirect, runtime hash, account lifecycle + erasure results, MiniPC before/after route/public readback and rollback record.
+
+## Source-only redirect origin regression — 2026-10-14
+
+The opt-in OIDC service previously accepted any syntactically valid HTTPS `.it`
+host as its configured `site_origin`, including unrelated and lookalike domains.
+The owner account activation runbook specifies the single registered callback
+`https://dichiarazionipubbliche.it/account/oauth/callback`; an unapproved
+origin could therefore be used to construct a Google authorization redirect
+outside that reviewed host boundary. A RED regression reproduced admission of
+unrelated, lookalike and `www` origins. `AccountService` now admits only the
+canonical configured origin, retaining the original HTTP/HTTPS syntax check.
+The regression and existing local account, web-boundary and privacy inventory
+tests pass offline. This is a source hardening result for AC-517.2/5 only;
+real client registration, lawful handling and retention/backup acceptance,
+MiniPC proxy/host readback, live token, deletion and UX evidence remain OPEN.
+
+## Source-only private account file containment — 2026-10-14
+
+**RED real local HTTP, synthetic only:** With an opt-in `AccountService` backed
+by a temporary 0600 SQLite file and `static_dir` aimed at that same directory,
+an anonymous `GET /accounts.sqlite3` returned HTTP **200**, SQLite bytes and a
+synthetic user's email. The public host inherited static file serving without
+verifying separation from the private account store. An additional public
+symlink to an out-of-root SQLite file also returned 200; a configured OAuth
+client secret inside the public document root passed CLI admission. The new
+DP-517 regression reproduced all three fail-open paths before the fix.
+
+**GREEN local correction:** `build_server` now refuses any activated account
+store whose resolved SQLite path is under the selected static document root.
+The account CLI separately refuses an OAuth secret or SQLite DB whose resolved
+path falls inside that root, before constructing an account server. With
+accounts enabled, static GET and HEAD also refuse symlinks escaping the root,
+including aliases to account data. Ordinary site HTML GET/HEAD and the
+unauthenticated session endpoint retain their previous behavior when private
+files are outside the served root. No Google code exchange, live credentials,
+public host or production database was involved.
+
+These are bounded source-only protections relevant to `AC-517.3` (private
+account data absent from public static routes) and `AC-517.5` (safe local
+configuration). They neither authorize remote Google OAuth nor prove actual
+MiniPC/proxy/CDN configuration, privacy erasure of WAL/backups, legal review,
+browser accessibility or owner-approved rollback. **All original AC-517.1–7
+remain unchecked; DP-517 remains FUTURE, account launch disabled.**
+
+**Source verification:** focused DP-517 account HTTP, existing account,
+public API/HTTP and privacy-inventory suites **121/121 PASS**, scoped Ruff
+check, new-test Ruff format, Python compilation and `git diff --check` PASS.
+The pre-existing `public_api.py` does not pass whole-file Ruff format on its
+unchanged baseline; this narrow correction does not reformat unrelated code.
+Only synthetic local files and ephemeral loopback HTTP were exercised.
+
+## 2026-10-14 — independent hardlink escape of private account files
+
+**New P1 beyond the prior symlink/root containment fix:** an anonymous real
+loopback HTTP request could still download a hardlinked copy of the private
+SQLite file under the public asset root. A hardlink shares a device/inode
+with the confidential original but has a separate public path; resolving the
+path stays inside the root. A forged `index.html` hardlink reached the same
+bytes through the directory-default resolution. New synthetic tests were RED
+for database, WAL, SHM aliases via GET/HEAD (six failures) and default index
+(one failure). A separate OAuth-secret hardlink scenario was initially RED
+because the programmatic server did not accept a protected-secret path.
+
+**GREEN scoped source repair:** when the account feature is enabled, the
+static-path guard checks the final directory-index target and compares the
+served file's device/inode with the private account SQLite, WAL and SHM
+paths (when present), plus the CLI's protected OAuth secret path. The
+programmatic server explicitly accepts an optional private secret path for
+the same protection and rejects it outright if placed inside public root.
+Unrelated index.html assets and account 401 responses remain available.
+Nine focused HTTP tests and **156/156** related account/API/privacy tests
+PASS, including synthetic negative GET/HEAD, positive HTML, root index and
+no provider invocation. Ruff, compileall and scoped diff-check PASS.
+
+This is a local same-inode exposure guard, not an atomic filesystem sandbox
+against a malicious concurrent filesystem writer, production MiniPC/proxy
+admission, genuine secret handling or legal/retention approval. **All
+AC-517.1–7 stay OPEN, ticket FUTURE; no OAuth or public account activation.**
+
+## 2026-10-14 — authoritative MiniPC and public-reader readback (read-only)
+
+The canonical MiniPC (`ssh minipc`, host `udodo`) has the deploy mirror at
+`/home/udodo/src/DichiarazioniPubbliche.it` (`VERSION` `0.0.1`), but that
+installed mirror does **not** contain
+`poc/dichiarazioni_pubbliche/public_account.py`. The live public origin
+`https://dichiarazionipubbliche.it/` returned HTTP 200 while
+`https://dichiarazionipubbliche.it/account/session` returned HTTP 404;
+an exploratory localhost port 8765 request also returned 404, but is not
+treated as proof of the production routing topology. No live credentials,
+private account bodies, OAuth, host configuration or production files were
+read or modified. The source-only protections above are **not installed or
+accepted on the MiniPC**.
+
+**Acceptance gate / owner:** AC-517.1, .4, .5 and .7 need owner/security/legal
+authorization of the exact Google OAuth application and redirect, approved
+notices/retention/backup-erasure procedure, and a reversible MiniPC/proxy
+installation; then an authorized synthetic/test-account registration,
+re-login, logout, full-session deletion and rollback with actual public
+origin readback. AC-517.2/.3 require that real installed boundary's
+adversarial negative/privacy/cache tests; AC-517.6 additionally needs
+accessible device/screen-reader acceptance. **Responsible:** owner for
+legal/OAuth scope and genuine test identity, deployment operator for the
+approved MiniPC/proxy path, accessibility reviewer for manual AT evidence.
+**Observable unblock:** recorded qualified approvals and test-client
+configuration, followed by an installed exact-source MiniPC canary and
+public reader proof. The ticket remains FUTURE, with AC-517.1–7 unchecked;
+do not enable a production login as a workaround.
+
+## 2026-10-15 — preserve a valid browser rate bucket on session reads
+
+**RED synthetic loopback HTTP:** After five accepted login starts using the
+same signed `__Host-dp-visitor` cookie in one minute, an anonymous
+`GET /account/api/session` returned HTTP 401 **and replaced the valid cookie**.
+That newly signed cookie selected a fresh 5/minute throttle bucket, making the
+ordinary account status check reset the advertised per-browser limit.
+
+**GREEN local correction:** The account handler now validates and preserves
+an existing signed visitor cookie when a session is unauthenticated; it issues
+a new visitor cookie only when none valid is supplied. The new test asserts
+first issuance, preservation on a subsequent 401 and HTTP 429 for the sixth
+login attempt in the same minute. Deliberately clearing/rotating client cookies
+can still evade a cookie-scoped limit; the separate durable global 120/minute
+limit remains the aggregate guard. No live Google provider, credentials,
+MiniPC installation or public account activation was involved.
+
+This is a source-only repair relevant to `AC-517.2/.5`; **AC-517.1–7 remain
+OPEN** pending the signed privacy/OAuth/host acceptance and real reader proof.
+
+**Read-only host check (2026-10-15):** `curl` GET of the canonical public
+`https://dichiarazionipubbliche.it/account/api/session` returned HTTP **404**.
+The named `ssh minipc` metadata check found the account source absent from
+`/home/udodo/src/DichiarazioniPubbliche.it/poc/dichiarazioni_pubbliche/public_account.py`.
+Neither result establishes an authorized activation or installed source match;
+the new local protection has not been deployed.
+
+## 2026-10-15 — CoS02 account-off static-file safety
+Draft PR #25 local review reproduced anonymous GET/HEAD HTTP 200 of private synthetic SQLite bytes when account_service=None and a published path was a symlink or hardlink (including index.html). An additional synthetic concurrent-writer swap reproduced a pathname-check-before-open TOCTOU disclosure. The static reader now opens every component relative to a pinned document-root directory descriptor using O_NOFOLLOW, checks the **same opened regular single-link file** (SQLite magic, sensitive paths and account private inode where known), and serves content from that descriptor; directory listings stay off. RED→GREEN regressions include the symlink swap on final open. Intentional conservative limitation: hardlinked build assets cannot be served without a separately verified release-source identity. No live account, provider, real rollout or final AC-517.1–7 acceptance is implied.
+
+Independent review found a second P1 after path pinning: the listener's root fd could be closed during shutdown between a request's integer lookup and `os.dup`, then reused as a synthetic private directory fd. A real loopback GET returned the synthetic private index (RED). `dup_static_root` and `server_close` now share a lifecycle lock; the same concurrent test returns approved bytes only (GREEN). Root is pinned at construction, before listen; this deliberately does **not** follow a later symlink-based release pointer switch. Withdrawal/revocation still requires controlled rebinding/restart and live origin/CDN readback, and `If-Modified-Since`-only static 304 behavior is not preserved pending an authoritative revocation-safe cache policy. No claim of full privacy or original AC closure.

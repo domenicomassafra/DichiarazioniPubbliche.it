@@ -167,3 +167,155 @@ is no independently issued live release pin, genuine qualified identity or
 rights authorization, deployed first-class API/route/search/sitemap,
 atomic revoke/cache invalidation or MiniPC positive/negative canary.
 Local synthetic SSR is not proof of a production/public v3 cutover.
+
+## 2026-10-14 — Independent request-identity race review and fix
+
+An independent, strictly **read-only** reviewer of remote branch `706667c`
+identified and reproduced a remaining P2: `readApprovedPersonV3()` correctly
+detached the public Person collection but read the **caller-owned mutable
+`options.identifier`** after multiple awaited cryptographic digests. With an
+approved two-Person (one approved zero-statement, homonymous) collection,
+mutating the selector from `person:approved` to `person:zero` during the first
+real digest returned the other Person under an unchanged approved collection
+hash. The new deterministic test was **RED** (`person:zero` returned while
+`person:approved` had been requested).
+
+The consumer now clones and validates opt-in, independently issued collection
+pin and request identifier **before any await** and uses only that frozen
+selection. The exact same digest-race test is **GREEN**. The independent
+reviewer then rechecked the new two-file diff and independently mutated
+the selector, hash and opt-in simultaneously during SHA; the original
+requested Person remained selected. Invalid/noncloneable option fields and
+blank identity fail closed; direct-Person, cross-reader and private wrapper
+caller audits found no further reproducible P1/P2 in this bounded scope.
+Actual Python→Node positive/negative, homonyms/zero-Statement, original-
+quotation and delayed expiry regressions remain separate from this fix.
+
+This is a source-only, **independently reviewed** security correction, not
+qualified identity authentication, rights approval, public-v3 rollout,
+MiniPC acceptance or automatic publication. DP-438 **IN PROGRESS**,
+AC-438.1–.6 all unchanged and unchecked.
+
+## 2026-10-13 — Withheld alias collision cannot hide an unrelated approved Person
+
+The opt-in first-class Person projection had a false negative at the public
+identity boundary: it computed same-display-name ambiguity before withholding
+two independently approved records with a cross-person stable-ID/slug alias
+collision. Consequently, an otherwise approved third Person sharing one of
+those display names disappeared, even though the conflicting namesakes could
+not be published. The unrelated Person could have zero Statements; the
+projection silently discarded its legitimate approved empty state.
+
+A deterministic regression was RED on the original code and GREEN after the
+minimal ordering correction: first withhold ID/slug-colliding identities,
+then compute homonym disambiguation only from remaining publishable records.
+Both private roster orders preserve the one unrelated Person, deny lookup of
+the colliding identities, preserve its zero-Statement state and produce the
+same release fingerprint as a build containing that Person alone. DP-437,
+DP-438 and DP-439 adjacent focused tests **34/34 PASS**, deterministic
+benchmark **5/5 PASS**; the main suite and delivery/CI are recorded separately.
+
+This is an isolated source-only public identity correctness fix; it does not
+add a public v3 Person route, search/sitemap activation, owner-approved source
+rights, independent current release pins or MiniPC publication authority.
+**DP-438 remains IN PROGRESS and AC-438.1–.6 stay unchecked.**
+
+## 2026-10-13 — Immutable approved Person frontend readout
+
+The opt-in `readApprovedPersonV3` consumer independently validated a
+cryptographically pinned collection but returned the caller-owned nested
+Person record. A deterministic synthetic RED showed that changing the caller
+after validation replaced the returned approved display name, disambiguator,
+role interval, original opinion quote and source URL/locator with private
+unapproved values while the collection fingerprint stayed unchanged. The
+same caller-controlled substitution can race an asynchronous digest.
+
+The consumer now detaches the collection **before** its first asynchronous
+digest, validates that snapshot and returns only its contained approved
+Person. A new regression covers later and interleaved mutation, two approved
+same-name but distinct-ID identities, an independently approved zero-Statement
+Person, null Finding for a published opinion, and identical unknown/held
+lookups. RED became GREEN with the original code/contract retained.
+
+The combined first-class Person backend and frontend source branch passed
+`node web/scripts/check-dp438-person-v3-immutable-20261013.mjs`,
+`check-person-v3-archive.mjs`, `check-private-person-empty-v3.mjs`,
+`check-private-person-topic-v3.mjs`, TypeScript/Astro `npm run check`
+(0 errors, 0 warnings, one unrelated existing DP-429 unused-import hint),
+and adjacent backend DP-437/438/439 tests **34/34 PASS**. No newly
+qualified source, public route, private data read or production publication
+was authorized; original **AC-438.1–.6 remain OPEN**.
+
+## 2026-10-13 — Cross-reader and private wrapper snapshot hardening
+
+Two additional, independently reproducible P2 consumer defects existed after
+the direct Person reader fix. In `preflightPublicV3CrossReaderRelease`, a valid
+SHA-pinned Person collection was checked but the validated snapshot was
+discarded. The later route/history join read the original caller-owned
+collection after an awaited digest. On an actual Python-generated bundle
+containing **two separately approved zero-Statement People**, the preflight
+returned `CONSISTENT_PREVIEW_ONLY` with a private/unreviewed Person URL
+substituted during SHA under the previous approved hash (RED).
+
+The cross-reader now snapshots Person, DP-439 join, search index **and release
+pins together before its first asynchronous digest** and consumes only that
+snapshot. A new executable Python→Node regression proves GREEN for late
+Person identity/URL, join, index and independently issued pin mutations,
+with the two approved stable Person routes unchanged. No route is activated.
+
+The private `readPinnedPrivatePublicPersonV3` wrapper independently suffered
+the same alias issue: immediately after the sitemap digest, a caller could
+replace an already-approved zero-Person display name/route. The wrapper then
+returned the changed private name in its result (deterministic RED). It now
+snapshots source, Person, join, index, sitemap and pins before any `await`.
+The existing Python→TypeScript private reader test includes the malicious
+sitemap-digest interleave and checks that the previously approved zero-Person
+identity survives unchanged (GREEN).
+
+Independent read-only review then reproduced a second asynchronous integrity
+gap: both consumers checked `validUntil` only before digest operations. A
+previously valid release could expire during a digest and still return
+`CONSISTENT_PREVIEW_ONLY` or `APPROVED_EMPTY` (two additional RED regressions,
+the latter after the *last sitemap digest*). Both readers now check expiry
+again immediately before their final success result, with the private reader
+also guarding generic-unavailable responses after validation. The deterministic
+clock-interleaving tests are GREEN without weakening the independently issued
+pins or modifying Date.now in application source.
+
+These checks are **local synthetic source-consumer proofs**, not an actual
+publication, a new real identity/source/rights review or a MiniPC canary.
+DP-438 remains `IN PROGRESS`; AC-438.1–.6 remain unchecked. Independent code
+review, complete adjacent tests and exact remote-branch delivery are tracked
+separately from original acceptance.
+
+## 2026-10-14 — Historical review-event reuse guard (source-only, pending integration)
+
+The independent DP-438 projection checked duplicate identity/publication and
+role review events only in each subject's **latest** revision. A reproducible
+counterexample reused Person A's revision-1 identity review event as Person B's
+current publication approval after Person A advanced to revision 2. Both
+Persons were emitted as `PUBLISHED` in either roster order. A second
+counterexample reused Person A's old publication review event as a role
+approval, exposing a dated public role and `role_at_statement` even though
+that role lacked an independent review event. The two negative tests were
+RED before the correction (three failing executions, including roster order).
+
+The preflight now records **validated decision history** event ownership
+before selecting latest revisions. A review event reused across different
+identity/publication subjects or approval types withholds the affected
+identities. Reused role events withhold the affected public roles and their
+statement-time labels while an independently approved Person remains
+visible. Clean revision-2 identities and independently reviewed historical
+roles remain visible. This is a private, opt-in v3 source gate; no new live
+release pin, publication decision, public URL/API/search/sitemap activation,
+identity or rights authorization, MiniPC readback or manual UI acceptance is
+claimed. **DP-438 remains IN PROGRESS and AC-438.1–.6 stay OPEN.**
+
+Local proof on the owned three-file diff: DP-437/438/439/440 adjacent
+`unittest` matrix **107/107 PASS**, deterministic benchmark **5/5 PASS**,
+`ruff check` **PASS**, `compileall` **PASS** and owned-path
+`git diff --check` **PASS**. The pre-existing module and test are already
+outside Ruff's optional full-file formatter style on the unmodified HEAD;
+`ruff format --check` therefore also reports unformatted files at baseline.
+Their unrelated code was not reformatted. Source integration, CI and
+actual runtime acceptance are reserved for separate proof.

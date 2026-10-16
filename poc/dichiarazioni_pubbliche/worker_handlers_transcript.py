@@ -437,6 +437,7 @@ class TranscriptAsrJobHandlers:
             raise RetryableJob("LEASE_LOST_BEFORE_ASR", 0)
 
         self._require_current_ingestion_relevance(content)
+        self._reserve_paid_dispatch(job, content)
         transcriber = GroqUrlTranscriber(self.groq_api_key)
         try:
             result = transcriber.transcribe_url(audio_url)

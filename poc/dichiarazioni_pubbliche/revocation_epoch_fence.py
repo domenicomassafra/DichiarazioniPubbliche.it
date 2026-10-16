@@ -116,6 +116,10 @@ class IsolatedPublicationEpochStore:
         self.conn.commit()
 
     def _check(self, ticket: PublicationEpochTicket) -> None:
+        if (isinstance(ticket, PublicationEpochTicket)
+            and isinstance(ticket.dependencies, tuple)
+            and len(ticket.dependencies) > 128):
+            raise RevocationFenceHeld("FENCE_DEPENDENCY_SCOPE_INVALID")
         if (
             not isinstance(ticket, PublicationEpochTicket) or ticket.version != VERSION or
             not ticket.dependencies or not isinstance(ticket.dependencies, tuple) or

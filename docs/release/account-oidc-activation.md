@@ -20,6 +20,11 @@ DP-508's disabled public-intake gate and the zero-account public reader API.
   and a durable global limit of **120/minute**. Rate/quota is shared across
   threads through SQLite `BEGIN IMMEDIATE`; a denied start returns HTTP 429.
   Neither raw IP nor device identifier enters the throttling ledger.
+  Anonymous session status reads preserve an existing valid signed visitor
+  cookie rather than rotating its throttle bucket. Clearing/rotating browser
+  cookies can evade that cookie-scoped 5/minute bucket, so the independent
+  120/minute global guard is essential; actual abuse/rate controls still
+  require MiniPC/proxy acceptance.
 - GET `/account/oauth/callback` consumes the state once, exchanges the code
   only at Google's HTTPS token endpoint, checks a server-retrieved JWKS RSA
   signature, pinned issuer, exact client audience/authorized party, nonce,
@@ -64,6 +69,18 @@ purged on requests; an approved unattended cleanup/backups schedule and account
 data-erasure procedure are still required before remote activation. No source
 uploads, private dossiers or other personal records are linked to members.
 
+**Static hosting separation:** The private account database, `-wal` and `-shm`
+sidecars and OAuth secret must remain outside the static root, with no symlink
+or hardlink aliases into published assets. The local account-enabled host
+rejects DB/secret paths under the public root and tests final static-file
+device/inode against known account-private files, including `index.html`
+resolution; the CLI passes the private secret path to this check. Test both
+GET and HEAD with disposable fake records via
+`tests/test_dp517_account_static_exposure_20261014.py`. This protection is
+not a filesystem confinement proof under a malicious concurrent writer;
+deploy privileges, root write access, reverse-proxy/static-offload paths and
+backup leakage require separate MiniPC and security acceptance.
+
 ## Required before enabling on MiniPC
 
 1. Product owner confirms purpose, terms, identity-controller/contact channel,
@@ -75,6 +92,15 @@ uploads, private dossiers or other personal records are linked to members.
    `https://dichiarazionipubbliche.it/account/oauth/callback`. Never paste
    client secrets into Git, browser JavaScript or a static file. Use a regular
    private secret file with owner UID and mode 0600, inside a 0700 directory.
+   The opt-in service must use **exactly** `--account-site-origin
+   https://dichiarazionipubbliche.it`: `https://www.dichiarazionipubbliche.it`,
+   unrelated/lookalike `.it` hosts, host suffix injection and an explicit
+   `:443` are rejected rather than silently normalized or redirected.
+   Preflight the three independent hostile-origin classes (unrelated host,
+   lookalike/suffix, `www`/port alias) and the exact positive callback with
+   `tests.test_public_account.PublicAccountTests.test_oidc_redirect_must_use_the_registered_account_origin`.
+   This is **local source verification**, not confirmation of the Google
+   console registration, TLS/proxy behavior or permission to enable accounts.
 3. Install the explicit backend account crypto profile (`pip install
    '.[account]'`) in the target runtime. Supply **all four** opt-in arguments
    `--account-client-id`, `--account-client-secret-file`, `--account-db`,

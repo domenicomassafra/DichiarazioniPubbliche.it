@@ -319,6 +319,68 @@ class HistoricalPreflightTests(unittest.TestCase):
         self.assertIn("PARENT_TRANSLATION_RIGHTS_UNVERIFIED", row.holds)
         self.assertEqual(row.state, "HELD")
 
+    def test_derived_translation_inherits_unverified_original_provenance(self):
+        original = two()[1].entries[0]
+        translation = entry(
+            subject="HITLER",
+            content_id="source:synthetic:translation",
+            sha=C,
+            kind="EDITORIAL_TRANSLATION",
+            language="it",
+            origin_content_id=original.content_id,
+            origin_sha256=B,
+            collection_id="collection:de",
+            edition_method="HUMAN_TRANSLATION",
+            edition_date=NOW,
+        )
+        original_variants = (
+            ("narrator", replace(original, attribution_role="NARRATOR")),
+            (
+                "stale locator",
+                replace(
+                    original,
+                    exact_locator=replace(original.exact_locator, status="STALE"),
+                ),
+            ),
+            (
+                "translate-only grant",
+                replace(
+                    original,
+                    rights_record=replace(
+                        original.rights_record, permitted_uses=("TRANSLATE",)
+                    ),
+                ),
+            ),
+        )
+        for reason, parent in original_variants:
+            with self.subTest(reason=reason):
+                decision = preflight_historical_corpus(
+                    (two()[0], manifest("HITLER", (parent, translation))), now=NOW
+                )
+                rows = {row.content_id: row for row in decision.rows}
+                self.assertEqual(rows[parent.content_id].state, "HELD")
+                child = rows[translation.content_id]
+                self.assertEqual(child.state, "HELD")
+                self.assertIn("PARENT_SOURCE_UNVERIFIED", child.holds)
+
+    def test_archive_copy_cannot_launder_held_original_speaker(self):
+        original = entry(attribution_role="REPORTED")
+        archived = entry(
+            content_id="source:synthetic:archive",
+            sha=C,
+            kind="ARCHIVE_COPY",
+            origin_content_id=original.content_id,
+            origin_sha256=A,
+        )
+        result = preflight_historical_corpus(
+            (manifest("MUSSOLINI", (original, archived)), two()[1]), now=NOW
+        )
+        copy_row = next(
+            row for row in result.rows if row.content_id == archived.content_id
+        )
+        self.assertEqual(copy_row.state, "HELD")
+        self.assertIn("PARENT_SOURCE_UNVERIFIED", copy_row.holds)
+
     def test_shared_content_dedupes_membership_without_cross_person_attribution(self):
         src = entry()
         src = replace(src, additional_collection_ids=("collection:alternate",))

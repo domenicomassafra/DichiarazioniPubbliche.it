@@ -44,6 +44,49 @@ await assert.rejects(read(detail, { allowStatementV3: true, expectedDatasetSha25
 await assert.rejects(read(detail, { ...allowed, expectedDatasetSha256: "f".repeat(64) }), /FINGERPRINT/);
 await assert.rejects(read({ meta: { public_schema_version: v2.schema_version }, data: detail.data }), /FIELDS|FINGERPRINT|SCHEMA/);
 assert.deepEqual((await read(detail)).data, detail.data, "a governed v3 API detail must survive unmodified");
+// A successfully validated result must not alias caller-owned input. After a
+// later rights withdrawal/replacement, the old verified fingerprint must not
+// authorize newly swapped private text or source URLs.
+const mutableDetail = structuredClone(detail);
+const checkedSnapshot = await read(mutableDetail);
+const expectedOriginal = checkedSnapshot.data.original.text;
+const expectedUrl = checkedSnapshot.data.source.url;
+mutableDetail.data.original.text = "PRIVATE NOT APPROVED POST VALIDATION";
+mutableDetail.data.source.url = "https://example.test/forged-private-source";
+mutableDetail.meta.dataset_sha256 = "f".repeat(64);
+assert.equal(checkedSnapshot.data.original.text, expectedOriginal,
+  "validated source wording aliases an untrusted mutable caller");
+assert.equal(checkedSnapshot.data.source.url, expectedUrl,
+  "validated source URL aliases an untrusted mutable caller");
+assert.equal(checkedSnapshot.meta.dataset_sha256, detail.meta.dataset_sha256,
+  "validated dataset fingerprint aliases an untrusted mutable caller");
+// An adversarial caller can also race the last asynchronous digest, after
+// validation has computed the approved hash but before its Promise resumes.
+const racing = structuredClone(detail);
+const subtle = globalThis.crypto.subtle;
+const originalDigestFunction = subtle.digest;
+let digestCount = 0;
+try {
+  subtle.digest = async function (algorithm, input) {
+    const bytes = await originalDigestFunction.call(this, algorithm, input);
+    if (++digestCount === 2) {
+      racing.data.original.text = "PRIVATE CONCURRENT UNREVIEWED QUOTE";
+      racing.data.source.url = "https://example.test/unapproved-race";
+      racing.data.summary.text = "PRIVATE CONCURRENT UNREVIEWED SUMMARY";
+    }
+    return bytes;
+  };
+  const racingResult = await read(racing);
+  assert.equal(digestCount, 2, "test failed to interleave at the second digest");
+  assert.equal(racingResult.data.original.text, detail.data.original.text,
+    "caller race substituted the approved quotation after hash validation");
+  assert.equal(racingResult.data.source.url, detail.data.source.url,
+    "caller race substituted the source locator after hash validation");
+  assert.equal(racingResult.data.summary?.text, detail.data.summary?.text,
+    "caller race substituted the separately reviewed summary");
+} finally {
+  subtle.digest = originalDigestFunction;
+}
 assert.equal(detail.data.original.wording_type, "VERBATIM_ORIGINAL");
 assert.equal(detail.data.finding_id, null, "an opinion need not manufacture a factual Finding");
 assert.equal(detail.data.translation?.wording_type, "TRANSLATION");
@@ -119,6 +162,70 @@ try {
   const falsified = corrupt((value) => { value.data.original.wording_type = "PARAPHRASE"; });
   const spoofed = await fixtureBuild(falsified, true, "spoofed");
   assert.notEqual(spoofed.status, 0, "Astro component rendered a paraphrase as a source quote");
+
+  // The legacy, directly supplied governed source-record mode must not become
+  // a way around the explicit v3 opt-in and independently pinned source record.
+  const original = detail.data;
+  const directStatement = {
+    statement_id: original.statement_id,
+    version_id: original.version_id,
+    person_id: original.person.id,
+    speaker_name: original.person.name,
+    content_id: original.source.content_id,
+    source_title: original.source.title,
+    source_url: original.source.url,
+    source_version: original.source.version_id,
+    source_sha256: original.source.sha256,
+    original_text: original.original.text,
+    quote_sha256: original.original.quote_sha256,
+    language: original.original.language,
+    statement_date: original.statement_date,
+    source_kind: original.source.kind,
+    locator: original.original.locator,
+    speech_act: original.speech_act,
+    endorsed: original.endorsed,
+    review_provenance: {
+      rights: "review:rights:fixture", attribution: "review:attribution:fixture",
+      context: "review:context:fixture", wording: "review:wording:fixture",
+      publication: "review:publication:fixture",
+    },
+    finding_id: original.finding_id,
+    summary: original.summary === null ? null : {
+      ...original.summary, review_event_id: "review:summary:fixture",
+    },
+    translation: original.translation === null ? null : {
+      ...original.translation, review_event_id: "review:translation:fixture",
+    },
+  };
+  const directDigest = await crypto.subtle.digest(
+    "SHA-256", new TextEncoder().encode(canonicalJson(directStatement)),
+  );
+  const directRecordPin = Buffer.from(directDigest).toString("hex");
+  async function directBuild(enabled, recordPin, output) {
+    await writeFile(join(temp, "direct.json"), JSON.stringify(directStatement));
+    const componentPage = [
+      "---",
+      `import VerbatimStatementRecord from ${JSON.stringify(component)};`,
+      'import direct from "../../direct.json";',
+      "---",
+      "<html lang=\"it\"><body>",
+      `<VerbatimStatementRecord statement={direct} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(detail.meta.dataset_sha256)} expectedRecordSha256=${JSON.stringify(recordPin)} />`,
+      "</body></html>",
+    ].join("\n");
+    await writeFile(join(temp, "src/pages/index.astro"), componentPage);
+    return spawnSync(join(web, "node_modules/.bin/astro"), [
+      "build", "--root", temp, "--outDir", join(temp, output),
+    ], { cwd: web, encoding: "utf8", timeout: 120_000 });
+  }
+  const unoptedDirect = await directBuild(false, directRecordPin, "direct-unopted");
+  assert.notEqual(unoptedDirect.status, 0, "direct source record bypassed explicit v3 opt-in");
+  const unpinnedDirect = await directBuild(true, "f".repeat(64), "direct-unpinned");
+  assert.notEqual(unpinnedDirect.status, 0, "direct source record bypassed the external record pin");
+  const governedDirect = await directBuild(true, directRecordPin, "direct-governed");
+  assert.equal(governedDirect.status, 0, `direct pinned source render failed: ${governedDirect.stderr}`);
+  const directHtml = await readFile(join(temp, "direct-governed/index.html"), "utf8");
+  assert.match(directHtml, /Parole originali dalla fonte/);
+  assert.match(directHtml, /data-dataset-sha256="[a-f0-9]{64}"/);
   console.log("DP-436 isolated Astro original/translation/summary SSR and fail-closed opt-in PASS");
 } finally {
   await rm(temp, { recursive: true, force: true });

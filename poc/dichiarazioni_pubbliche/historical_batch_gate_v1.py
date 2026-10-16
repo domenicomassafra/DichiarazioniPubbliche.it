@@ -463,7 +463,13 @@ def plan_historical_batch(
                     if (
                         watch.readiness.rights_status != "READY"
                         or not isinstance(watch.readiness.rights_receipt, str)
-                        or not watch.readiness.rights_receipt.strip()
+                        or not 0 < len(watch.readiness.rights_receipt) <= 256
+                        or watch.readiness.rights_receipt
+                        != watch.readiness.rights_receipt.strip()
+                        or any(
+                            ord(char) < 32 or ord(char) == 127
+                            for char in watch.readiness.rights_receipt
+                        )
                     ):
                         holds.add(hold_prefix + "_RIGHTS_NOT_READY")
                     if (

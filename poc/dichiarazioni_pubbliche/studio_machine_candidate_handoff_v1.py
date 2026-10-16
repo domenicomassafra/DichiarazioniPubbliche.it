@@ -291,7 +291,14 @@ def preview_candidate_machine_handoff(
             and passage.get("capture_status") == "CAPTURED"
             and passage.get("capture_hold_status") == "NONE"
             and passage.get("canonical_segment_id") is None
-            and passage.get("segment_publication_blocked") is not True
+            # A written Passage has no media segment (None); an explicit
+            # unblocked flag must be the boolean False. Integer/string
+            # lookalikes cannot silently clear a publication hold.
+            and "segment_publication_blocked" in passage
+            and (
+                passage.get("segment_publication_blocked") is None
+                or passage.get("segment_publication_blocked") is False
+            )
             and isinstance(context.get("speaker_person_id"), str)
             and bool(context["speaker_person_id"].strip())
             and context.get("speaker_is_public") is True

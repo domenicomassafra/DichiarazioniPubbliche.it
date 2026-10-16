@@ -6,12 +6,14 @@ from __future__ import annotations
 import copy
 import html
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 
 WEB_ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +21,7 @@ REPO_ROOT = WEB_ROOT.parent
 sys.path.insert(0, str(WEB_ROOT / "scripts"))
 sys.path.insert(0, str(REPO_ROOT / "poc"))
 
+import dp431_rebuild as rebuild_impl  # noqa: E402
 from dp431_rebuild import RebuildGuardError, rebuild_static  # noqa: E402
 from dichiarazioni_pubbliche.public_api import API_BASE_PATH, dispatch  # noqa: E402
 from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
@@ -90,9 +93,16 @@ def _corrected_projection(old: dict) -> tuple[dict, str, str, str, list[str]]:
 
 
 def _build_seed(projection_path: Path, output: Path) -> None:
-    env = dict(**__import__("os").environ)
+    if (not projection_path.parent.name.startswith(".dp431-static-rebuild-") or
+            projection_path.resolve().parent != output.resolve().parent or
+            projection_path.resolve().parent.parent != WEB_ROOT.resolve()):
+        raise AssertionError("DP431_TEST_ONLY_DEMO_WORKSPACE_REQUIRED")
+    env = os.environ.copy()
     env["DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH"] = str(projection_path)
-    env.pop("DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION", None)
+    # This script explicitly tests synthetic demo records in a disposable
+    # local tree. The flag is NOT inherited from an operator environment.
+    # Production rebuild_static still strips this flag and fails closed.
+    env["DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION"] = "1"
     result = subprocess.run(
         [str(WEB_ROOT / "node_modules" / ".bin" / "astro"), "build", "--force", "--outDir", str(output)],
         cwd=WEB_ROOT,
@@ -104,6 +114,39 @@ def _build_seed(projection_path: Path, output: Path) -> None:
     )
     if result.returncode != 0:
         raise AssertionError(f"seed build failed:\n{result.stdout[-8000:]}")
+
+
+def _fixture_only_astro_build(stage: Path, projection_path: Path) -> None:
+    """Run the real Astro build with local demo opt-in ONLY inside this canary.
+
+    Replaces the module-level build callback in a scoped test-only patch; no
+    modification of the production rebuild function or its environment guard.
+    Both inputs must belong to this script's disposable web-local directory.
+    """
+    if (projection_path.resolve().parent != stage.resolve().parent or
+            not stage.parent.name.startswith(".dp431-static-rebuild-") or
+            stage.parent.resolve().parent != WEB_ROOT.resolve()):
+        raise AssertionError("DP431_TEST_ONLY_DEMO_WORKSPACE_REQUIRED")
+    env = os.environ.copy()
+    env["DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH"] = str(projection_path.resolve())
+    env["DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION"] = "1"
+    result = subprocess.run(
+        [str(WEB_ROOT / "node_modules" / ".bin" / "astro"), "build", "--force", "--outDir", str(stage)],
+        cwd=WEB_ROOT, env=env, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False,
+    )
+    if result.returncode != 0:
+        raise RebuildGuardError(
+            "DP431_ASTRO_BUILD_FAILED",
+            details={"returncode": result.returncode, "output": result.stdout[-8000:]},
+        )
+
+
+def _assert_demo_nonindexable(directory: Path) -> None:
+    rendered = directory.joinpath("index.html").read_text(encoding="utf-8")
+    assert '<meta name="robots" content="noindex,nofollow"' in rendered, "demo became indexable"
+    assert directory.joinpath("robots.txt").read_text(encoding="utf-8") == "User-agent: *\nDisallow: /\n"
+    assert not re.search(r"<loc>", directory.joinpath("sitemap.xml").read_text(encoding="utf-8"))
 
 
 def _slug(value: str) -> str:
@@ -202,10 +245,10 @@ def main() -> int:
     # workspace on the same filesystem as web/.astro so Linux hosts where
     # /tmp is a separate mount do not fail with EXDEV before the DP-431 guard
     # itself is exercised.
-    with tempfile.TemporaryDirectory(
-        prefix=".dp431-static-rebuild-",
-        dir=WEB_ROOT,
-    ) as raw:
+    with (
+        patch.object(rebuild_impl, "_run_astro_build", _fixture_only_astro_build),
+        tempfile.TemporaryDirectory(prefix=".dp431-static-rebuild-", dir=WEB_ROOT) as raw,
+    ):
         root = Path(raw)
         old_path = root / "old.json"
         new_path = root / "held.json"
@@ -216,6 +259,7 @@ def main() -> int:
 
         seed = root / "seed"
         _build_seed(old_path, seed)
+        _assert_demo_nonindexable(seed)
         (seed / "stale-static.txt").write_text("must disappear", encoding="utf-8")
 
         publish = root / "publish-success"
@@ -228,6 +272,7 @@ def main() -> int:
             receipt_dir=receipts,
         )
         assert receipt["status"] == "CONSISTENT"
+        _assert_demo_nonindexable(publish)
         assert receipt["propagation_receipt"]["status"] == "CONSISTENT"
         assert not (publish / "stale-static.txt").exists(), "old static orphan survived clean rebuild"
         assert not (publish / "dichiarazioni" / _slug(removed_finding)).exists(), "held Statement survived"
@@ -263,6 +308,7 @@ def main() -> int:
             receipt_dir=corrected_receipts,
         )
         assert corrected_receipt["status"] == "CONSISTENT"
+        _assert_demo_nonindexable(corrected_publish)
         assert not (corrected_publish / "dichiarazioni" / _slug(old_finding)).exists(), "superseded Statement survived"
         current_statement = corrected_publish / "dichiarazioni" / _slug(corrected_finding) / "index.html"
         assert current_statement.is_file(), "corrected Statement missing"

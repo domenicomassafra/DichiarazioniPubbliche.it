@@ -1,27 +1,25 @@
 import base64
 from contextlib import redirect_stderr
-import hashlib
 import http.client
 import io
 import json
 import os
-import stat
 import sys
 import tempfile
 import threading
-import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
-from dichiarazioni_pubbliche.public_account import (
-    AccountService, AccountStore, GoogleOidcProvider, OIDC_AUTHORIZE,
+from dichiarazioni_pubbliche.public_account import (  # noqa: E402
+    AccountService, AccountStore, OIDC_AUTHORIZE,
     read_secret_file, verify_google_id_token,
 )
-from dichiarazioni_pubbliche.public_api import build_server
+from dichiarazioni_pubbliche.public_api import build_server  # noqa: E402
 
 
 class FakeProvider:
@@ -115,6 +113,24 @@ class PublicAccountTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "HTTPS_ORIGIN"):
                 AccountService("client_id", "http://dichiarazionipubbliche.it", self._service(directory).store, FakeProvider(), visitor_key="private-visitor-key")
 
+    def test_oidc_redirect_must_use_the_registered_account_origin(self):
+        # A syntactically valid .it origin can request OAuth callbacks and
+        # bind member cookies at an unreviewed hostname. Activation
+        # must use the single origin documented in the account runbook.
+        with tempfile.TemporaryDirectory() as directory:
+            store = self._service(directory).store
+            for origin in (
+                "https://unrelated.it",
+                "https://dichiarazionipubbliche-accounts.it",
+                "https://dichiarazionipubbliche.it.bad.it",
+                "https://www.dichiarazionipubbliche.it",
+                "https://dichiarazionipubbliche.it:443",
+            ):
+                with self.subTest(origin=origin), self.assertRaisesRegex(ValueError, "ACCOUNT_ORIGIN_INVALID"):
+                    AccountService("client_id", origin, store, FakeProvider(), visitor_key="private-visitor-key")
+            service = AccountService("client_id", "https://dichiarazionipubbliche.it", store, FakeProvider(), visitor_key="private-visitor-key")
+            self.assertEqual(service.callback, "https://dichiarazionipubbliche.it/account/oauth/callback")
+
     def test_public_http_is_read_only_by_default_and_loopback_only_with_accounts(self):
         with tempfile.TemporaryDirectory() as directory:
             service = self._service(directory)
@@ -183,6 +199,47 @@ class PublicAccountTests(unittest.TestCase):
                     server.shutdown()
                     thread.join(timeout=3)
 
+    def test_http_session_read_preserves_signed_visitor_rate_bucket(self):
+        # A rejected session read must not refresh an already valid visitor
+        # cookie: doing so resets the browser's 5-per-minute login-start cap.
+        with tempfile.TemporaryDirectory() as directory:
+            service = self._service(directory)
+            with build_server(None, host="127.0.0.1", port=0, account_service=service) as server:
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+
+                def request(method, path, *, visitor=""):
+                    headers = {"Host": "dichiarazionipubbliche.it", "Connection": "close"}
+                    if visitor:
+                        headers["Cookie"] = visitor
+                    if method == "POST":
+                        headers["Origin"] = service.site_origin
+                        headers["Content-Length"] = "0"
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+                    try:
+                        connection.request(method, path, headers=headers)
+                        response = connection.getresponse()
+                        return response.status, dict(response.getheaders()), response.read()
+                    finally:
+                        connection.close()
+
+                try:
+                    with patch("time.time", return_value=1000):
+                        status, headers, _ = request("GET", "/account/api/session")
+                        self.assertEqual(status, 401)
+                        visitor = headers["Set-Cookie"].split(";", 1)[0]
+                        for _ in range(5):
+                            self.assertEqual(request("POST", "/account/auth/google", visitor=visitor)[0], 303)
+                        # The previous cookie is still valid when the account
+                        # page checks login status again between attempts.
+                        status, refreshed_headers, _ = request("GET", "/account/api/session", visitor=visitor)
+                        self.assertEqual(status, 401)
+                        self.assertNotIn("Set-Cookie", refreshed_headers)
+                        self.assertEqual(request("POST", "/account/auth/google", visitor=visitor)[0], 429)
+                finally:
+                    server.shutdown()
+                    thread.join(timeout=3)
+
     def test_verbose_http_logging_never_prints_account_oauth_code_state_or_queries(self):
         # Real HTTPServer logging, with `quiet=False`, must protect rejected
         # OAuth callbacks and sensitive queries even when debug logging is on.
@@ -226,7 +283,8 @@ class SignedGoogleTokenTests(unittest.TestCase):
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         numbers = private_key.public_key().public_numbers()
-        encode = lambda value: base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+        def encode(value):
+            return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
         jwks = {"keys": [{
             "kty": "RSA", "use": "sig", "alg": "RS256", "kid": "test-key",
             "n": encode(numbers.n.to_bytes(256, "big")), "e": encode(numbers.e.to_bytes(3, "big")),

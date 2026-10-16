@@ -256,3 +256,38 @@ real disposable PostgreSQL and existing DP-241/DP-319 planners. Scoped
 `ruff check`, `compileall` and `git diff --check` PASS. This does **not**
 replace real approved-source, independent-rights, MiniPC, DP-511 or Studio
 acceptance; all six original AC remain OPEN.
+
+### 2026-10-14 — cross-Content rights-leaf source gate, bounded local follow-up
+
+**Real disposable PostgreSQL RED:** a current `CLEARED` rights leaf with
+`passage_id` pointing at the target Passage but `content_id` pointing to a
+different canonical Content was accepted by `IsolatedOriginalRecoveryPg.register`.
+This could silently grant a source-recovery reservation against the wrong
+Content/rights subject. The regression
+`test_foreign_content_rights_leaf_cannot_authorize_target_passage` first failed
+with `AssertionError: ValueError not raised` on the unfixed guard, using only
+synthetic private records and a disposable loopback PostgreSQL cluster.
+
+**Bounded fix:** registration, reservation, completion and readback require the
+single live rights leaf to bind the same canonical `Content` and exact `PASSAGE`
+locator as the Source→Content→Capture→Passage join, not merely carry the same
+`passage_id`. The immutable plan provenance fingerprint now also includes the
+rights `content_id`, `passage_id` and `supersedes_id`. The positive authorized
+Passage fixture stays valid. A second negative covers an unrelated `CONTENT`
+locator with a coincidentally populated target `passage_id`.
+
+No rights grant, external acquisition, live PostgreSQL mutation or DP-511
+reanalysis was performed. The actual legal/independent original-source search,
+qualified reviewer, Studio/MiniPC pilot and all **AC-241.1–.6 remain OPEN**;
+ticket **IN PROGRESS**. This local source gate does not close the original AC.
+
+**Local validation:** the isolated negative and authorized-positive PostgreSQL
+cases pass together (2/2). DP-241/DP-319 combined suite
+(`test_dp241_recovery_pg_wave_close`, `test_dp241_recovery_pg_next`,
+`test_dp241_original_source_investigation`,
+`test_dp319_durable_investigation_next`) is **93/93 PASS** on disposable local
+PostgreSQL, with existing SQLite `ResourceWarning` messages from DP-319.
+Adjacent source preflight, source-span review and DP-221 rights/public-boundary
+tests are **12/12 PASS**.
+Scoped `ruff check`, `compileall` and `git diff --check` PASS. Neither test
+fixtures nor rights records are reviewer/legal or production authority.

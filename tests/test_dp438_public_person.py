@@ -392,6 +392,29 @@ class PublicPersonV3Tests(unittest.TestCase):
                 private = person("person:private", slug="persona-terza", name="Privata Demo")
                 self.assertEqual(result, project(people=[*roster, private], identities=decisions))
 
+    def test_excluded_identifier_collision_cannot_withhold_independent_same_name_person(self):
+        # The ID/slug alias pair must be withheld. Neither excluded record is
+        # an eligible public namesake when disambiguating the remaining roster.
+        aliased = person("person:one", slug="shared-alias", name="Alex Demo")
+        colliding = person("shared-alias", slug="persona-due", name="Seconda Demo")
+        independent = person("person:third", slug="persona-terza", name="Alex Demo")
+        self.assertIsNone(independent["disambiguator"])
+        candidates = [aliased, colliding, independent]
+        decisions = [identity(row) for row in candidates]
+        for roster in (candidates, list(reversed(candidates))):
+            with self.subTest(order=[row["person_id"] for row in roster]):
+                visible = project(people=roster, identities=decisions)
+                self.assertEqual([p["person_id"] for p in visible["people"]], ["person:third"])
+                self.assertEqual(visible["people"][0]["statements"], [])
+                self.assertIsNone(get_public_person_v3(visible, "person:one"))
+                self.assertIsNone(get_public_person_v3(visible, "shared-alias"))
+                self.assertIsNone(get_public_person_v3(visible, "persona-due"))
+                self.assertIsNotNone(get_public_person_v3(visible, "persona-terza"))
+                self.assertEqual(
+                    visible["dataset_sha256"],
+                    project(people=[independent], identities=[identity(independent)])["dataset_sha256"],
+                )
+
     def test_duplicate_review_event_is_not_independent_approval(self):
         first = person()
         second = person("person:two", slug="persona-due", name="Persona Due")
@@ -413,6 +436,65 @@ class PublicPersonV3Tests(unittest.TestCase):
         cross_domain["review_event_id"] = identity(first)["publication_review_id"]
         held_role = project(roles=[a], reviews=[cross_domain])
         self.assertEqual(held_role["people"][0]["roles"], [])
+
+    def test_old_identity_review_event_cannot_approve_another_person(self):
+        first = person()
+        second = person("person:two", slug="persona-due", name="Persona Due")
+        old_approval = identity(first)
+        latest_approval = identity(first, revision=2)
+        clean_second = identity(second)
+        clean = project(
+            people=[first, second],
+            identities=[old_approval, latest_approval, clean_second],
+        )
+        self.assertEqual(
+            {row["person_id"] for row in clean["people"]}, {"person:one", "person:two"}
+        )
+        reused = identity(second)
+        reused["publication_review_id"] = old_approval["identity_review_id"]
+        for roster in ([first, second], [second, first]):
+            with self.subTest(roster=[row["person_id"] for row in roster]):
+                result = project(
+                    people=roster,
+                    identities=[old_approval, latest_approval, reused],
+                )
+                self.assertEqual(result["people"], [])
+                self.assertIsNone(get_public_person_v3(result, first["slug"]))
+                self.assertIsNone(get_public_person_v3(result, second["person_id"]))
+                self.assertEqual(
+                    result["dataset_sha256"], project(people=[], identities=[])["dataset_sha256"]
+                )
+
+    def test_old_identity_publication_event_cannot_approve_public_role(self):
+        first = person()
+        old_approval = identity(first)
+        latest_approval = identity(first, revision=2)
+        historical = role()
+        clean = project(
+            people=[first],
+            identities=[old_approval, latest_approval],
+            roles=[historical],
+            reviews=[role_review(historical)],
+            statements=[statement()],
+        )
+        self.assertEqual(clean["people"][0]["roles"][0]["label"], "Delegato")
+        self.assertEqual(
+            clean["people"][0]["statements"][0]["role_at_statement"]["label"],
+            "Delegato",
+        )
+        reused = role_review(historical)
+        reused["review_event_id"] = old_approval["publication_review_id"]
+        result = project(
+            people=[first],
+            identities=[old_approval, latest_approval],
+            roles=[historical],
+            reviews=[reused],
+            statements=[statement()],
+        )
+        self.assertEqual(len(result["people"]), 1)
+        public = get_public_person_v3(result, first["person_id"])
+        self.assertEqual(public["roles"], [])
+        self.assertIsNone(public["statements"][0]["role_at_statement"])
 
     def test_private_changes_without_new_approved_decision_are_observably_ignored(self):
         p = person()

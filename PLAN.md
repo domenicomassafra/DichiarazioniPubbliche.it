@@ -12,6 +12,61 @@ queue. The post-grilling expansion introduced 37 ticket specifications, and the
 canonical register at the 2026-10-12 `f92c1c5` checkpoint contained 162 tickets:
 90 DONE, 52 IN PROGRESS, 6 BLOCKED, 14 FUTURE (72 not DONE).
 
+## 2026-10-14 — DP02 eighth technical tranche, private HTTP hardlinks
+
+After the distinct DP-517 initial root/symlink fence `2516e42`, a public
+hardlink with the same inode as a private SQLite account file still returned
+HTTP 200 to anonymous GET, including a hardlink named `index.html` served via
+`/`. Four source-private families (SQLite, WAL, SHM and OAuth secret) now
+have synthetic HTTP denial and normal-public-asset positive controls. New
+scoped correction `dfd178d3ae05cf3d11e8f6ec78f574902023e022` was
+committed with its regression and ticket only, pushed on
+`integrate/dp-20261014-all-lanes`, and remote SHA read back equal. Related
+tests **156/156 PASS**; Ruff, compileall, diff-check PASS. Account runbook
+updated without changing identity or retention policy.
+
+The previous full Python suite on `2516e42` measured **3670 tests / three
+DP238 PDF worker unavailable failures**, exit 1; the isolated born-digital
+PDF module retest was 11/11 PASS. The subsequent full suite on `dfd178d`
+measured 3674 tests / one documentation-contract failure, because this
+paragraph originally preceded the canonical PLAN reporter invocation.
+The section now follows the metadata to preserve the tested contract,
+without weakening the original test. The subsequent complete full suite
+on unchanged `dfd178d` source and corrected document bytes was
+**3674/3674 PASS, exit0, 1353.431s**; log
+`/tmp/dp02-wave8-planfixed-full-20261014.log`.
+All original DP517 AC and DP312 AC remain OPEN for actual qualified rights,
+approved policies, Google and physical runtime. **Release NO-GO/49** and
+**162 total / 90 DONE / 72 not DONE** are unchanged, with no PR/merge/deploy.
+
+## 2026-10-14 — DP02 sesta tranche source-only, non release acceptance
+
+DP-312 private speech-act/context preflight: citazioni tipografiche
+U+300C/U+300D, U+300E/U+300F, U+300A/U+300B e U+3010/U+3011 intorno
+a parole inglesi venivano classificate `ASSERTION/ENDORSE`. Quattro casi
+RED, riparazione minima quote/HOLD, 32 focused + 48 adjacent e benchmark
+5/5 PASS. Source integratore pubblicata e letta dal remoto al commit
+`4873a2fb7508165a62a6de42ed49a9cbc4fa9379`; full Python sullo stesso
+codice **3665/3665 PASS, exit0, 571,183 s**. Nessun originale DP-312
+AC-312.1–6 chiuso: mancano source annotato/diritti, Gold linguistico,
+downstream replay e MiniPC. Reporter **162/90 DONE/72 non DONE**,
+launch preflight **NO-GO/49** invariati e PR/CI, legal/privacy/editorial,
+release authority e deploy non acquisiti. Per la ricevuta e il crosswalk
+vedere [DP02 execution closure](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Settima tranche indipendente, DP-517:** sullo stesso integratore è stata
+pubblicata la correzione sorgente
+`2516e42f4421757c393cf912f9483a70f2bbf1d4`, con SHA remoto uguale.
+L'avvio del server account con SQLite sotto static root poteva esporre in
+HTTP 200 anonimo database e identità fittizie; un symlink a database privato
+era ugualmente servito, e il secret OAuth in root pubblica non veniva
+rifiutato. Prove RED di HTTP reale localhost su dati sintetici, poi guard
+DB/secret e realpath GET/HEAD; **121/121** test account/API/privacy PASS,
+Ruff e diff-check PASS. Questa protezione non equivale ad attivazione Google,
+legal erasure o readback MiniPC: tutti gli AC-517.1–7 e il profilo FUTURE
+restano aperti. Full Python sul codice nuovo da attestare separatamente;
+no PR/main/deploy. NO-GO/49 e 90 DONE/72 non DONE invariati.
+
 ## 2026-10-10 post-grilling integration — planning contract, not completion
 
 The four actual native Chat On Steroids lanes are integrated into the **one** canonical PLAN. The master traceability matrix and gated execution path are in [post-grilling coverage and sequencing](docs/reviews/2026-10-10-post-grilling-coverage-and-sequencing.md); owner-facing semantics and superseded proposals are in [target reconciliation](docs/reviews/2026-10-10-post-grilling-target-reconciliation.md).
@@ -597,6 +652,8 @@ Goal: make unattended operation and recovery boring and measurable.
 | DP-517 | FUTURE | Reader Google sign-up/login/logout/delete MiniPC activation | DP-304, DP-307, DP-501, DP-502 |
 | DP-518 | IN PROGRESS | Revocation/correction distribution and immutable MiniPC release readback | DP-303, DP-308, DP-431, DP-510, DP-511, DP-502 |
 | DP-519 | IN PROGRESS | Operator visual-quality capacity and exception time budget | DP-417, DP-304 |
+| DP-521 | DONE | Prevent stale-source observation receipt reuse under a widened freshness-policy window | DP-244 |
+| DP-520 | DONE | Reject negative exact-media variant offsets that alias a valid Python slice (source-only regression) | DP-237 |
 
 Exit criteria: restore is tested, retention is explicit, source/provider failure is
 observable, budget cannot explode, public/admin trust boundaries have tests, a known-bad
@@ -901,3 +958,353 @@ canary, publication rights or review authority is inferred.
 Round aggiuntivo13Oct acquisito (60/80 domande multi-progetto): suggerimenti ricerca; recenti per data; filtri cronologia/pertinenza/esiti documentati da affinare senza ranking persone; originale+traduzione; testo come base e audio/video/hosting da approfondire; sintesi+prove; mobile confronto verticale; corrente+storico consentito; copertura contestuale; gruppi eccezioni. Prima di implementare esposizione esiti, verificare semantica e stati del dominio. Per media, approfondire source-use/rights/embed/link/copia e hosting/costi/storage/availability/cancellation tramite ticket esistenti: nessuna scelta implicita del MiniPC. Non riaprire le20decisioni10Oct; nessuna nuova acquisizione/runtime/publish.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+## Active workflow — DP02 / 14 ottobre 2026
+
+### Continuazione owner 15 ottobre 2026 — DP238/239/240/244, DP521 DONE
+
+**Risultato:** quattro ticket originali disgiunti lavorati e quattro
+correzioni RED→GREEN pubblicate. `DP-238` rifiuta HTTP206 come PDF
+completo (`f3cf013`); `DP-239` mantiene il meno Unicode U+2212 nel
+confronto tedesco/italiano (`e2ebff6`); `DP-240` vincola partizioni
+private a famiglia, reviewer, identity e rights con esplicita VERSION
+v2 (`0ca9ab1`); `DP-244` impedisce riuso di un receipt di freschezza
+60s con contratto di 365 giorni (`cda1fce`). Ticket tecnico autonomo
+`DP-521 DONE` con quattro AC source-only dimostrate; gli
+**originali DP238/239/240/244 restano IN PROGRESS** per diritti,
+Gold, reale provider/PG, Studio/MiniPC e QA. **164 totale, 92 DONE,
+72 originali non-DONE, READY=0**; status PLAN/ticket concordi.
+
+**Native CoS actual:** quattro incarichi richiesti. Solo `worker-2`
+DP239 e `worker-3` DP240 hanno un primo turno confermato ed
+`agents finish`; `worker-1` DP238 due risvegli falliti, sostituto
+`worker-7` startup failed, `worker-6` DP244 startup failed.
+DP238 e DP244 realizzati direttamente da prime, **2/4 lavoratori
+effettivamente avviati**, nessuno finto. Source/local test prime su
+`f3cf013`: **96/96 PASS**, benchmark **5/5 PASS**, Ruff e contract
+PASS. Test PDF con subprocess reale **23 con 4 FAIL**
+`DOCUMENT_PDF_WORKER_UNAVAILABLE` su host load >190;
+nessuna full Python attestata su nuovo SHA. Nessun reset/stage degli
+otto file DP512 concorrenti.
+
+La receipt canonica è
+`docs/reviews/2026-10-15-dp02-four-ticket-continuation.md`;
+file trasporto Ops `02-WAVE-001-COS.response.md` aggiornabile
+localmente, commit/push Ops solo dopo lease Core07. PR
+`PR_HELD_AUTOREVIEW_BILLING_GUARD`, main invariata e NO-GO/49.
+
+### Owner mandate 15 ottobre 2026 — almeno un ticket completo (run successivo)
+
+**Risultato verificabile:** nuova issue tecnica circoscritta **DP-520 DONE**
+(offset `MEDIA_SEGMENT_REF.variant_end_char` negativo, reale RED→GREEN,
+24/24 test prime, 68/68 focused+adjacent worker, 5/5 benchmark e
+commit/push `e4dffdf` fix + `ef8e0d8` closure). È una **nuova
+correzione source-only**; non viene presentata come chiusura fittizia
+degli originali. Backlog **163/91 DONE/72 non-DONE/READY=0**,
+`tools/report_ticket_status.py` conferma PLAN/ticket parity.
+
+Tre worker nativi GPT-6 High riutilizzati, tutti con primo turno
+e finish: DP-237 `e4dffdf` (locator negativo), DP-318 `3d3c174`
+(stesso source-part con hash di revisione differente) e DP-407
+`ea5a16d` (timestamp su URL con fragment preesistente).
+Ticket originali DP-237/318/407 rimangono **IN PROGRESS** per
+le rispettive AC su fonte approvata/attestazione, pubblicazione,
+UI/AT e MiniPC; nessun test fittizio le chiude. Invito worker-5
+DP-516/519 **FAILED startup** (chat aperta senza primo turno);
+nessun retry per nasconderlo.
+
+**Prova e delivery**: i tre commit source e la chiusura DP-520
+sono stati pubblicati sul branch integratore, main invariato.
+Test prime combinati DP237/DP318 63/63 PASS; DP407 actual Astro/
+Chrome currentness checker PASS; Python benchmark/Ruff/contract PASS
+mirati. Una sola full Python su snapshot detached `ea5a16d`
+(`/tmp/dp02-wave002-exact-full-20261015.log`):
+**3.683/3.683 PASS, exit 0 in 456,338 s**. Astro
+check 129 file/0 errori/0 warning/1 hint, Ruff e benchmark 5/5
+PASS. Il test è attribuito soltanto allo SHA `ea5a16d`, non al vecchio
+PASS 3681. Symlink temporaneo node_modules rimosso, worktree test
+detached rimosso pulito senza force; due originali preservati.
+WIP DP-512 concorrente preservato intatto.
+Ricevuta canonica: `docs/reviews/2026-10-15-dp02-at-least-one-ticket.md`.
+PR non creata (auto-review billing guard, full PR CI/approval non
+provati), NO-GO/49; file di risposta Ops aggiornato localmente sotto
+Core07 lease di Git ancora pendente.
+
+### Continuazione owner 15 ottobre 2026 — quattro dispatch richiesti
+
+L'owner ha chiesto esplicitamente di continuare questa lane, attivando
+quattro subagenti nativi distinti per lavorare i ticket A→Z e producendo
+il file aggiornato di risposta. Il coordinatore mantiene gli AC originali
+e i gate esterni senza sostituirli con test sintetici.
+
+Chat On Steroids run nativo `db064fbe-f612-4db0-b701-3cc4e8661ba6`.
+`agents.spawn` ha accettato quattro *inviti* con modello osservato
+`gpt-6-thinking`, reasoning `high`: `worker-1` DP-312, `worker-2`
+DP-517, `worker-3` DP-515, `worker-4` DP-405. La coda ha poi
+esplicitamente restituito `worker-4 failed` per `command queue full`,
+senza primo turno: **non contarlo avviato**, non reiterare uno spawn che
+creerebbe ulteriori tab nella coda satura. Il coordinatore assume DP-405.
+`worker-1/2/3` hanno comunicato primi turni e gap tecnici candidati,
+con file disgiunti; soltanto worker-2 ha ricevuto lease path temporanea
+su `public_api.py` per l'handler `/account/api/session` quando RED
+riprodotto. Il prime resta unico writer Git index/ref/commit/push.
+
+**In corso**: verificare RED→GREEN dei worker ed esito della route DP-405,
+due assi code-review, test appropriati, acquisto immediato dei diff
+e consegna unica sul branch integratore. **In attesa**: source Gold/rights,
+grant privacy/OIDC, budget/PG/canary e approved Persona/AT; nessun bypass
+o attivazione live. La precedente sezione `Esito Chat On Steroids` è
+il checkpoint della tranche anteriore, non lo stato terminale di questa
+continuazione. Il trasporto finale si salva solo dopo settlement.
+
+**Readback e settlement tecnico:** `worker-1`, `worker-2` e `worker-3`
+hanno tutti avuto primo turno reale, prodotto regressioni RED→GREEN
+rispettivamente DP-312/517/515 e chiamato `agents finish`; `worker-4`
+resta FAILED senza primo turno. Tutti i diff worker sono assorbiti dal
+prime in tre commit sul branch prodotto remoto:
+`6be686c84f81da1863bde81ee47aad900ed3fb28` (DP-312),
+`908b17fc4c89506ddca7616cdd16094eb7e4f1fa` (DP-517) e
+`25c94d145f5d813bde76bdf51851ebf3b37453ab` (DP-515), con
+`git ls-remote` uguale per ognuno. Test 33/33, 9/9 e 53/53
+rieseguiti dal prime sui rispettivi seam; il worker DP-517 aveva
+117/117 adiacenti, DP-312 171 verifiche adiacenti; benchmark 5/5,
+Ruff e contratto repo verdi. DP-405 assunto dal prime:
+`node web/scripts/check-dp405-approved-empty.mjs` ha restituito
+`ETIMEDOUT` prima del primo artifact Astro, **non PASS**; nessun
+approved Person/pin per la route positiva. Tutte le AC originali
+DP-312.1–6, DP-517.1–7, DP-515.1–7, DP-405.3/.6 rimangono
+aperte, zero ticket chiusi; gate DP-429 manuale invariato.
+
+**Chiusura verifiche:** la prima full Python combinata sul checkout
+integratore condiviso è stata interrotta con exit 130 poiché erano
+comparsi WIP concorrenti DP-512 (ticket, `health_digest.py`, test e
+un test nuovo untracked): preservare quei file e non attribuire
+l'esito al solo source SHA. La full sostitutiva è stata eseguita su
+worktree detached isolato `25c94d145f5d813bde76bdf51851ebf3b37453ab`,
+log `/tmp/dp02-wave001-isolated-full-20261015.log`:
+**3.681/3.681 PASS, exit0 in 426,148 s** sul source SHA esatto.
+Symlink temporaneo node_modules rimosso dopo il test e worktree detached
+rimosso senza force dopo readback pulito; restano due worktree canonici.
+La full storica `db03d51` resta prova su codice diverso. Reporter
+162/90 DONE/72 non DONE, READY=0 e preflight NO-GO/49 coerenti.
+Sigillo doc `46cdc5ee265d5459556da134e863bc5f0a44920b`
+(solo PLAN e receipt) committato/pushato con SHA locale/remoto uguali.
+`verify_main_delivery.py --review-check` ha restituito
+`BLOCKED_UNPUSHED DIRTY_FILES=8 REMOTE_MISMATCH=False`: gli otto file
+DP-512 concorrenti sono WIP non owned, preservati senza stash/reset/clean;
+nessuna discrepanza effettiva fra HEAD e remoto. Copia di trasporto
+`02-WAVE-001-COS.response.md` già creata nel path Ops separato;
+per il commit/push Ops serve lease di Core07. PR held per
+`EXTERNAL_AUTOREVIEW_SETTING_UNVERIFIED`, zero ticket originali chiusi.
+
+### Esito Chat On Steroids — lane 02 / wave 001, 15 ottobre 2026
+
+**BLOCKED / WAIT_OWNER, tranche assestata.** Il coordinatore ha letto il prompt
+packet310 e verificato `agents.status`: quattro slot nativi liberi, ma zero
+posti ammissibili dopo crosswalk AC originali e receipt: DP-312 (fonte/Gold/
+replay), DP-517 (privacy/OIDC/MiniPC), DP-515 (diritti/budget/PG/canary) e
+DP-405 (Persona DP-438 approvata/pin, AT) restano **PENDING, 0/4 avviati**.
+Nessun processo/worker viene lasciato attivo e nessun criterio/ticket è
+stato chiuso per sostituire una prova mancante con fixture.
+
+Checkpoint fresco prima della ricevuta: branch integratore remoto/locale
+`576472b384647e2c300f1d19eb11378ce42844d7`, canonical
+`main == origin/main` `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`;
+checkout puliti, due worktree, zero stash e zero PR. HEAD avanzato da
+`8ebb12e` per il solo commit documentale `576472b`; non ricreati merge.
+Reporter **162 totale / 90 DONE / 52 IN PROGRESS / 6 BLOCKED /
+14 FUTURE / 72 non DONE / READY=0**, PLAN/ticket concordi; preflight
+**NO-GO/49** invariato. MiniPC `ssh minipc` accessibile: opt-in
+`public_account.py`, `incremental_source_watch.py` e
+`source_watch_store_v1.py` assenti dal mirror. GET pubblico
+`/account/api/session` **404**, senza inferire configurazione del proxy.
+
+Skill: `~/.codex/skills/code-review/SKILL.md`; review locale Standards e
+Spec sul diff `main...HEAD` e sugli AC DP-312/517/515/405/429, limitata
+ai quattro seam sorgente principali, documenti originali e overlay (vuoto):
+nessun finding nuovo riproducibile nel perimetro esaminato, **non** audit
+integrale delle 162 modifiche/18.181 inserzioni. Contratto repository e
+`git diff --check main...HEAD` PASS; nessuna suite Python integrata rifatta
+in assenza di cambi al codice. CI `38688636967` su `576472b` SUCCESS
+solo repository contract, backend/web/clean-clone SKIPPED. Browser CoS
+`BROWSER_NOT_DISPATCHED`: account GitHub-linked auto-review personale+
+override repo non verificati OFF; **PR_HELD_AUTOREVIEW_BILLING_GUARD**.
+
+**Passo:** ricevuta completa in
+`docs/reviews/2026-10-14-dp02-execution-closure.md` (sezione wave 001).
+**Frontiera:** non aprire una wave tecnica invariata. Il responsabile
+source/rights porta annotazioni autorizzate e Gold (DP-312), owner/
+privacy/OAuth produce grant + identità test (DP-517), budget/rights/
+PG operator rende ammissibile DP-515, owner/editoriale approva Persona
+first-class e pin (DP-405), AT reviewer esegue VoiceOver reale (DP-429).
+L'owner Core07 è responsabile della copia di trasporto
+`02-WAVE-001-COS.response.md` in ControlCenter dopo lease Ops concreta;
+**nessuna mutazione Ops** svolta dal coordinatore. Nessun DB, provider,
+deploy, login, pubblicazione o main merge.
+
+### Ripresa 15 ottobre 2026 — packet310, wave CoS 001
+
+Mandato corrente: preparare un solo prompt autocontenuto per trasporto umano
+Codex → Chat On Steroids; nessun worker/chat avviato da Codex. Prompt:
+`/Users/domenico/ControlCenter/src/controlcenter-ops/tasks/20260929-main-release-closure/310-prompt-to-prompt-20261015/02-WAVE-001-COS.prompt.md`.
+Le tranche datate sotto restano prove storiche, non la coda di dispatch corrente.
+
+Readback iniziale: integratore locale/remoto `8ebb12ea7e9adb0fdfa3ecfda1b6f6f6dd1873c2`,
+main locale/remoto `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, due worktree
+puliti, zero stash/PR aperte. Reporter fresco: 162/90 DONE/72 non DONE,
+READY=0, PLAN/ticket coerenti; preflight NO-GO/49. CI `38636192174`
+sullo stesso HEAD esegue soltanto repository contract; altri job skipped.
+
+Skill attive per questa consegna documentale:
+`/Users/domenico/.codex/skills/skill-writing-for-agents/SKILL.md` (scrittura)
+e `/Users/domenico/.codex/skills/code-review/SKILL.md` (review locale proporzionata).
+Passo: prompt con quattro posti nominati DP-312/517/515/405, ammessi solo
+su criteri originali eseguibili, più integrazione/review del coordinatore.
+Frontiera indipendente: nessun nuovo lavoro per aggirare fonte/Gold,
+OAuth/privacy, diritti/budget/PG o approvazione/pin Persona; DP-429 resta
+manuale separato. Zero worker READY sono attestati da questo checkpoint;
+CoS verifica eventuali cambiamenti dei prerequisiti prima dell'ammissione,
+lasciando pending i posti bloccati senza ripetere prove immutate.
+
+Review documentale locale: Standards 0 finding, Spec 0 finding sul prompt
+SHA-256 `4d855390abc5781eb411ef1585b305d6644034fbc0302b52ca4b605a9fdd99d9`;
+quattro posti, roundtrip, 16 locator sorgente e whitespace verificati.
+Contratto repository e reporter PASS; nessuna modifica source/test o
+nuova esecuzione full-suite. Lease prodotto Codex02 limitata a PLAN.md
+per commit/push/readback, da rilasciare alla consegna.
+
+Attesa: trasporto umano del prompt e risposta unica della stessa lane;
+nessuna attività in background. PR held fino a OFF effettivo auto-review
+account+repo o consenso owner al consumo; nessun merge, deploy, account
+Google, nuova spesa o pubblicazione editoriale deriva da questa preparazione.
+
+**Terza tranche della lane 02, source SHA `186ef17e59fe73cab061a5301ffbe0d9f5443721`:**
+**Addendum Ops packet 297** pubblicato su ControlCenter `main` a
+`65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`, solo risposta02,
+origin SHA esatto e dirty WIP delle altre lane preservato.
+confermati i commit DP517 `df4c0ee` (origin OAuth), DP516 `a595450`
+(rights receipt anche su record completati), DP243 `e9afd0e`
+(stato HELD del parent originale propagato a derivati) e DP515 `186ef17`
+(HTTP 200 con Last-Modified regredito non aggiorna una versione confermata).
+TDD RED→GREEN; 107, 55, 51 e 70 test mirati/adiacenti rispettivamente,
+Ruff e diff-check PASS; quattro sha remoti identici ai commit locali.
+Registro ancora **162 / 90 DONE / 72 non DONE**: nessun originale AC è
+dimostrato completo da test synthetic/disposable. ControlCenter Ops packet
+297 risposta DP02 `main` pubblicata a `3cfb3c433d79fd1dc4f7c543e5dae1263700303f`,
+con WIP 01/05/305 intatto. Run GitHub `38596675716` solo contract green;
+gate PR/billing, legal Q-306, rights, MiniPC, release e Manual AT restano
+**NO-GO/49**. La ricevuta DP02 contiene il censimento delle dichiarazioni
+e i riferimenti SOP/Skills/Rules/Operations.
+**Full Python sul codice definitivo `186ef17`: 3.652/3.652 PASS,
+exit 0, 322,598 s**. Astro 0 errori/0 warning/1 hint,
+search/Statement/parity/routes 8/8/a11y 8/8/projection PASS;
+contratto, privacy inventory, licenze, fixture, versioni, Ruff e diffcheck
+PASS. GH branch run solo repository contract, originali blocker invariati.
+
+Fonte operativa: [ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md),
+[handoff post-consolidamento](docs/reviews/2026-10-14-postconsolidation-handoff.md)
+e ticket originari. Quattro worker CoS nativi hanno operato su verticali
+disgiunte con lease Git esclusiva per ogni commit; la lista dei commit e
+delle prove fresche è nella ricevuta, senza ledger parallelo. I ticket
+rimangono al loro stato originale fino a completa acceptance.
+
+**Passo corrente di implementazione/review:** integrare le tranche verificate
+nel branch già esistente, eseguire i controlli sul codice finale e verificare
+lo SHA remoto. **Frontiera di decisione:** `PR_HELD_AUTOREVIEW_BILLING_GUARD`
+fino a `Automatic review=OFF` sulla vera identità collegata e override repo,
+oppure accettazione esplicita dell'eventuale consumo; poi PR contro `main`,
+CI completa e merge gate. Distinti: diritti/approvazioni editoriali,
+100 fonti Garlasco, decisione `archive_added_at`, pilot DP-443, manual AT,
+PostgreSQL e reader MiniPC/CDN. DP-514 SQLSTATE57014 mantiene aperta
+la verifica ospitata della latenza residua. Nessun provider a pagamento,
+deploy o pubblicazione è stato attivato da questo ciclo.
+
+**Readback dopo nuova tranche, 14 ottobre:** sono stati pubblicati nello
+stesso branch integratore DP-214/215, 409, 429, 410, 514, 315, 236, 512,
+238, 240, 241, la fixture di compatibilità DP-303 e l'inventario delle
+pagine/documenti pubblici. Sul codice `a63fe133` la suite Python finale
+è **3.637/3.637 PASS, exit0**; checks frontend, Ruff e contract/licensing
+sono verdi. Prossimo passo: sigillare la ricevuta con readback remoto,
+dimostrare OFF effettivo dell'auto-review o accettare esplicitamente il
+costo, quindi PR, CI completa, review e merge gate. I gate di diritti,
+editoriale, pilot, MiniPC e dispositivi restano indipendenti e aperti.
+**90 DONE / 72 non DONE; release NO-GO.**
+
+**Seconda wave reale, 14 ottobre:** quattro worker nuovi, avviati dopo
+fallimento verificato della riattivazione dei precedenti, hanno contribuito
+fix independent DP242 `0cee79d`, DP244 `0c7ee20`, DP519 `323deef`,
+DP518 `bb00177`. Unico writer integratore, SHA remoti verificati, diff
+scopati. Test Python finale **3.645/3.645 PASS, exit 0** sulla source
+`bb00177`; `ruff check`/repository contract/licenze/privacy inventory PASS,
+`ruff format --check` rimane non conforme su quattro file già non conformi
+nella baseline `5f9cb1f` (debito cosmetico, non promuovere a Gold). GH
+run `38593285587` sul codice nuovo verde solo per repository contract;
+PR/backend/web/clean-clone manual/CI non attestati. I quattro ticket
+restano **IN PROGRESS** con AC originali aperti, next gate
+`PR_HELD_AUTOREVIEW_BILLING_GUARD` e poi accettazione diritti/editoriale,
+MiniPC e CDN. [Ricevuta](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Quarta wave di release-closure dal checkpoint `0eba7fb`, 14 ottobre:**
+DP-517 era già in `df4c0ee`, senza duplicare la sua fix: ri-eseguiti
+redirect-origin e 107/107 test con runbook allineato `a302cd8`. Altri
+sei RED→GREEN sorgente/test/ticket su branch integratore, con esclusiva
+serializzazione Git prime e readback remoto: DP-313 `0870c48` status
+processuale revocato; DP-318 `5ad4bf4` unicità span; DP-438 `2b2880e`
+review storiche; DP-317 `f126d00` permesso TRANSLATE; DP-439 `3f090b9`
+lineage revocation; DP-435 `91b1783` speaker non risolto. Ogni AC originale
+resta **IN PROGRESS** fino alle prove reali legali, su fonti, B/editoriali,
+MiniPC e UI/reader; non contare una fix tecnica come ticket DONE.
+Inventario pubblico aggiornato con 117 link locali validi, quattro pagine
+legali/informative ancora assenti, nessuna identità o policy inventata.
+Gate di lancio misurato: **NO-GO/49** = 16 Q-306, 4 artefatti release,
+29 ticket di lancio. Reporter **162 total / 90 DONE / 72 non DONE**.
+La build demo esplicitamente noindex passa Astro/search/Statement/parity,
+route 8/8 e accessibilità automatica 8/8; build di produzione resta
+correttamente bloccata senza proiezione approvata. Prima di PR/merge è
+necessario superare la guardia auto-review billing e verificare CI PR.
+[Receipt](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Consegna packet ControlCenter 297 quarta-wave documentale:** il file
+solo-lane `02-dichiarazioni-pubbliche.response.md` è pubblicato sul suo Ops
+`main` a `685a04e74878516f30edeb7e4b8720d68c1c012a`, remote readback
+identico, dopo riconciliazione dell'avanzamento Ops concorrente `fd7aef3`;
+WIP 01/05/305 e altri file fleet/Hermes/DStack preservati senza staging.
+La source branch DP continua separata senza PR, merge o deploy.
+
+**Full Python obbligatoria wave4 (evidenza eseguita, non verde):**
+`PYTHONPATH=poc python3 -B -m unittest discover -s tests -q` sul source
+`91b1783654b69888196b509bab71c19dc1aaf1ce` ha eseguito **3.661 test
+in 826,816 s / exit 1** per **una sola failure DP238** born-digital PDF
+`DOCUMENT_PDF_WORKER_UNAVAILABLE`. Suite mirata PDF 11/11 e PDF+document
+extraction 22/22 PASS al retest, ma non sostituiscono il run integrale.
+No change ai limiti di sicurezza, no escalation a DONE/GO. Il nuovo
+passaggio tecnico necessario è rerun integrale verde in ambiente isolato,
+o diagnosi del subprocess PDF sotto carico con regressione RED→GREEN;
+non si dichiara accertata una causa ambientale senza prova. [Ricevuta](docs/reviews/2026-10-14-dp02-execution-closure.md).
+
+**Quinta tranche DP02, 14 ottobre, nuovi ticket source-only corretti:**
+DP-319 `1746acac54c872ded5570ef3b8ad35edc097c765` (receipt oltre
+assignment cap; 44/44), DP-440 `e91b44fb354b0673248c69e33a8763a6091f8c5c`
+(review separata di sintesi; 43/43), DP-320
+`e7210a73fdfcdf8f3cf42fe78264127a48a6221c` (ri-validazione cap
+dipendenze; 51/51). Tutti RED→GREEN, Ruff/diff-check PASS, Git prime writer
+seriale, push con SHA remoto letto. Sono correzioni tecniche, non chiusura
+degli AC originari né autorizzazione legale/rights/issuer/MiniPC.
+Quattro worker sono stati assegnati ma il frontend di esecuzione non ne ha
+garantito la presa in carico: nessun risultato fittizio viene contato. La
+full suite Python obbligatoria sul codice `e7210a7` è **GREEN 3664/3664,
+exit0, 358,844 s**, log `/tmp/dp02-wave5-final-full-20261014.log`.
+Gate statici
+e preflight **NO-GO/49**, registro **162 / 90 DONE / 72 non DONE**.
+**Response lane Ops quinta wave pubblicata e readback**:
+`94feaad5401a1abab29856a480d6bb7dbe4e88e8` su ControlCenter `main`
+con un solo file response02, lease Core07 esplicita prima e rilasciata dopo,
+preimage `941252f0ff7406d533e47343517735167d03f4f9` identica a remote.
+Il commit è documentale, non un avanzamento dell'integratore DP `main`;
+dirty WIP 01/05/305/fleet/Core07 intatti.
+
+**Writer Ops, addendum full suite:** lease esclusiva concessa e rilasciata
+dal prime Core07 dopo push di `c49809baada076fcb4f6a88ea9f8e82adb9a3a59`
+della sola response02 packet 297; `origin/main` letto identico, nessun
+WIP 01/05/305/fleet staged o modificato dalla lane. DP238 full suite ancora
+non verde, nonostante retest 22/22 PASS; nessuna PR o promozione implicita.

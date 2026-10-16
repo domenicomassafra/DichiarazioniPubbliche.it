@@ -221,6 +221,11 @@ DECLARE
   original_hash text;
   billing dp512_pg_state%ROWTYPE;
   billing_last dp512_pg_event%ROWTYPE;
+  history_count integer;
+  history_distinct integer;
+  history_first integer;
+  history_last integer;
+  history_drift integer;
   state_row dp514_pg_state%ROWTYPE;
   prior dp514_pg_event%ROWTYPE;
   expected_usd numeric(12,6);
@@ -247,8 +252,30 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'DP514_CLASSIFICATION_MISSING'; END IF;
   SELECT * INTO billing_last FROM dp512_pg_event
    WHERE receipt_id=p_receipt ORDER BY revision DESC LIMIT 1;
+  -- Both immutable DP-512 event tables consume revisions from one CAS. A
+  -- legitimate adjustment must not invalidate the original classification
+  -- or any earlier DP-514 observation, but missing/duplicated history still
+  -- blocks budget reconciliation.
+  SELECT count(*)::integer, count(DISTINCT revision)::integer,
+         min(revision), max(revision),
+         count(*) FILTER (WHERE original_fingerprint<>original_hash)::integer
+    INTO history_count,history_distinct,history_first,history_last,history_drift
+    FROM (
+      SELECT revision,original_fingerprint FROM dp512_pg_event
+       WHERE receipt_id=p_receipt
+      UNION ALL
+      SELECT revision,original_fingerprint FROM dp512_pg_adjustment
+       WHERE receipt_id=p_receipt
+    ) ledger;
   IF billing.original_fingerprint <> original_hash
-    OR billing_last.revision IS DISTINCT FROM billing.revision
+    OR billing.revision < 1
+    OR history_count IS DISTINCT FROM billing.revision
+    OR history_distinct IS DISTINCT FROM billing.revision
+    OR history_first IS DISTINCT FROM 1
+    OR history_last IS DISTINCT FROM billing.revision
+    OR history_drift IS DISTINCT FROM 0
+    OR billing_last.revision IS NULL
+    OR billing_last.revision > billing.revision
     OR billing_last.original_fingerprint IS DISTINCT FROM original_hash
     OR billing_last.asserted_basis IS DISTINCT FROM original.billing_basis
     OR billing_last.asserted_usd IS DISTINCT FROM
@@ -283,7 +310,7 @@ BEGIN
       OR prior.expected_revision<>p_revision
       OR prior.kind<>p_kind OR prior.asserted_usd IS DISTINCT FROM p_usd
       OR prior.original_fingerprint<>original_hash
-      OR prior.billing_revision<>billing.revision THEN
+      OR prior.billing_revision<>billing_last.revision THEN
        RAISE EXCEPTION 'DP514_EVENT_REPLAY_CONFLICT';
     END IF;
     RETURN jsonb_build_object(
@@ -306,7 +333,7 @@ BEGIN
     billing_revision,kind,asserted_usd
   ) VALUES(
     p_event,p_receipt,p_revision+1,p_revision,original_hash,
-    billing.revision,p_kind,p_usd
+    billing_last.revision,p_kind,p_usd
   );
   RETURN jsonb_build_object(
     'revision',p_revision+1,'receipt_id',p_receipt,'kind',p_kind,
@@ -335,6 +362,10 @@ SELECT COALESCE(json_agg(json_build_object(
   'measured',r.measured_cost_usd::text,
   'fingerprint',md5(to_jsonb(r)::text),
   'billing_revision',b.revision,
+  -- Adjustments advance the shared CAS but do not change the underlying
+  -- classification attested by a historical liability observation.
+  'billing_classification_revision',(SELECT ev.revision FROM dp512_pg_event ev
+    WHERE ev.receipt_id=r.id ORDER BY ev.revision DESC LIMIT 1),
   'billing_fingerprint',b.original_fingerprint,
   'liability_revision',l.revision,
   'liability_fingerprint',l.original_fingerprint,
@@ -349,7 +380,11 @@ SELECT COALESCE(json_agg(json_build_object(
   'refund_claim_usd', (SELECT coalesce(sum(ev.asserted_usd),0)::text
     FROM dp514_pg_event ev WHERE ev.receipt_id=r.id AND ev.kind='REFUND_CLAIM'),
   'observation_events',(SELECT count(*) FROM dp514_pg_event ev
-    WHERE ev.receipt_id=r.id AND ev.kind='OBSERVED')
+    WHERE ev.receipt_id=r.id AND ev.kind='OBSERVED'),
+  'observations_current_class',(SELECT count(*) FROM dp514_pg_event ev
+    WHERE ev.receipt_id=r.id AND ev.kind='OBSERVED'
+      AND ev.billing_revision=(SELECT cls.revision FROM dp512_pg_event cls
+        WHERE cls.receipt_id=r.id ORDER BY cls.revision DESC LIMIT 1))
 ) ORDER BY coalesce(r.started_at,r.completed_at),r.id)::text,'[]')
 FROM provider_receipt r
 LEFT JOIN dp512_pg_state b ON b.receipt_id=r.id
@@ -570,7 +605,11 @@ class DisposableMonthlyLiabilityPg:
                     or row["liability_revision"] != last["revision"]
                     or row["liability_fingerprint"] != row["fingerprint"]
                     or last["original_fingerprint"] != row["fingerprint"]
-                    or last["billing_revision"] != row["billing_revision"]):
+                    or last["billing_revision"] != row["billing_classification_revision"]
+                    # An unverified REFUND_CLAIM is not revalidation of an
+                    # earlier OBSERVED amount after classification changed.
+                    or (row["observation_events"] > 0
+                        and row["observations_current_class"] == 0)):
                     raise ValueError("DP514_LIABILITY_INTEGRITY")
             at_text = row.get("started") or row.get("completed")
             try:

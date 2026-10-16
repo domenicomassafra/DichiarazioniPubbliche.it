@@ -199,6 +199,10 @@ class M3RuntimeCanaries(unittest.TestCase):
               'candidate-extraction-v1',jsonb_build_object(
                 'speech_mode','DIRECT_UTTERANCE',
                 'context_integrity',jsonb_build_object('state','CLEAR_AUTOMATIC','quote_sha256',:'quote_hash'),
+                -- DP-215 FIELD_MATCH requires all five dimensions. The job
+                -- supplies metric + period; persist the remaining claim scope.
+                'source_requirements',jsonb_build_object(
+                  'unit','percent','population','ALL','geography','IT'),
                 'wording',:'wording'::jsonb
               )
             );
@@ -227,10 +231,11 @@ class M3RuntimeCanaries(unittest.TestCase):
             );
             INSERT INTO evidence_observation(
               id,evidence_id,observation_type,metric,value_numeric,unit,reference_period,
-              extraction_method,extraction_version,status
+              dimensions,extraction_method,extraction_version,status
             ) VALUES (
               'observation:dp303-canary','evidence:dp303-canary','NUMERIC_VALUE','tax_rate',10,
-              'percent','2026','SYNTHETIC_FIXTURE','fixture-v1','APPROVED'
+              'percent','2026','{"population":"ALL","geography":"IT"}'::jsonb,
+              'SYNTHETIC_FIXTURE','fixture-v1','APPROVED'
             );
             INSERT INTO finding(id,claim_id,assessment,rationale,publication_status,policy_version,created_at)
             VALUES (

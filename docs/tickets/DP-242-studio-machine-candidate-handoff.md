@@ -222,3 +222,25 @@ machine B authority and resumption, end-to-end authorized source proof,
 UI/keyboard/MiniPC acceptance and production writer serialization must
 still be demonstrated independently. No false human review or operator
 publication capability was created.
+
+## 2026-10-14 — Candidate publication-block type guard (source-only)
+
+An adversarial DP-242 candidate preflight supplied a non-boolean
+`segment_publication_blocked` value (`1`, `0`, `"true"`, or `"BLOCKED"`). The
+previous identity comparison (`is not True`) classified each as
+`HELD_MACHINE_AUTHORITY_UNAVAILABLE`, implying otherwise coherent candidate
+source lineage despite the ambiguous publication block. A missing block field
+also passed. The preflight now permits only an **observed** `None` (written
+Passage without a media segment) or the exact boolean `False`; all ambiguous,
+missing, and asserted block values return `HELD_SOURCE_OR_ATTRIBUTION` and
+`INVESTIGATE_SOURCE_OR_ATTRIBUTION`. All authority/dispatch/publication flags
+remain false.
+
+Focused TDD: the new adversarial test was RED with **three failing subcases**
+before the code change; after the guard was tightened, **70/70** DP-242,
+DP-240, Studio candidate review and Discovery tests were GREEN. `ruff check`,
+`ruff format --check`, Python compilation and `git diff --check` passed on
+the source-only checkout. This does not execute an actual B authority request
+or prove a MiniPC persisted production read. **DP-242 remains IN PROGRESS;
+AC-242.1–.6 stay OPEN** pending the original real-source, authenticated
+transactional, autonomous downstream and UI/runtime proofs.

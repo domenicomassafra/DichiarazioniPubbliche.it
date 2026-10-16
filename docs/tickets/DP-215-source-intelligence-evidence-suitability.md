@@ -549,3 +549,38 @@ minutes it remained in the existing DB-backed
 subprocess. The worker stopped only its own test process. No broad suite
 PASS or MiniPC runtime acceptance is claimed; integrator CI and actual
 authorized runtime readback remain pending.
+
+## 2026-10-14 — Required-field assessment and qualifying-ID guard
+
+`assess_evidence_set` previously treated a `FIELD_MATCH` rule with no provided
+claim-side fields as satisfied, allowing an otherwise approved statistical
+observation to yield `SUFFICIENT_FOR_RULE` without any metric, unit or reference
+period to compare. A partially supplied metric-only claim could also pass
+while omitting required unit, population, geography and period. When an explicit
+reference period mismatched, the assessment reported `TEMPORAL_MISMATCH` but
+still retained the mismatched evidence ID in `qualifying_evidence_ids`. All
+three failures were independently reproduced RED in
+`tests/test_source_intelligence.py`. The evaluator now requires **every**
+configured `FIELD_MATCH` dimension (`len(expected_fields) == len(fields)`),
+emits the existing `SCOPE_MISMATCH` and `FIELD_MATCH` Coverage Need for absent
+or partial context, and clears the qualifying set on failed comparison;
+specific period mismatches retain the existing temporal status. Positive
+Source Intelligence, Verification and effective-time PostgreSQL test fixtures
+now explicitly bind population/geography where the shared profile requires it.
+Neither a source profile nor a metadata-only lineage proposal grants rights
+to collect or publish source material.
+
+Local verification after correction: source-intelligence, schema, Garlasco
+tracer/readiness/discovery/lead-identity and DP-214/215 catalog suites
+**77/77 PASS**, Verification consumer **23/23 PASS**, isolated PostgreSQL
+effective-time persistence **4/4 PASS**, adjacent security/public/source suites
+**120/120 PASS**, deterministic benchmark **5/5 PASS**, targeted `compileall`
+PASS and `git diff --check` PASS. No live
+rights grant, approved independent-lineage relation, real 100-item source
+corpus, MiniPC database reread or authorized runtime acceptance occurred.
+This fixes one local policy issue under existing AC-215.3/.4, **does not
+reclose or advance AC-215.9**, and keeps DP-215 **IN PROGRESS**. AC-215.9's
+observable unblock condition remains individually selected/persisted real
+Garlasco sources with reviewed role, identity, derivation/independence,
+applicable scope/version/time and explicit separate acquisition/publication
+rights, followed by authoritative MiniPC per-item readback.

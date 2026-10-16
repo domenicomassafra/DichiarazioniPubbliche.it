@@ -94,6 +94,34 @@ class UsageAttributionPgTests(unittest.TestCase):
         self.assertFalse(report.invoice_attested)
         self.assertNotIn("provider-usage:fixture:s1", repr(report))
 
+    def test_immutable_adjustment_keeps_dp513_canonical_read_without_cash_credit(self):
+        key = self.receipt(
+            "adjusted-measured", basis="MEASURED_PROVIDER_COST",
+            measured="0.40", status="SUCCEEDED",
+        )
+        self.save(
+            key, asserted_basis="MEASURED_PROVIDER_COST", asserted_usd="0.40",
+            evidence_ref="provider-usage:synthetic",
+        )
+        self.store.adjust(
+            receipt_id=key, event_id="adjustment:refund",
+            expected_revision=1, adjustment_kind="REFUND",
+            amount_usd="0.10", evidence_ref="statement:synthetic-refund",
+        )
+        report = self.reader.read()
+        self.assertEqual(report.attempt_count, 1)
+        self.assertEqual(report.attempts[0].classification_revision, 2)
+        self.assertEqual(report.recorded_measured_usd, Decimal("0.40"))
+        self.assertFalse(report.invoice_attested)
+        self.assertFalse(report.dispatch_authorized)
+        self.assertEqual(self.sql("SELECT count(*) FROM dp512_pg_adjustment;"), "1")
+        # Valid adjustment history is accepted, but a fabricated future
+        # revision without an immutable event must still fail closed.
+        self.sql("UPDATE dp512_pg_state SET revision=3 WHERE receipt_id="
+                 "'receipt:adjusted-measured';")
+        with self.assertRaisesRegex(ValueError, "DP513_CANONICAL_RECEIPT_DRIFT"):
+            self.reader.read()
+
     def test_provider_and_logical_attempts_retry_failures_and_reader_parity(self):
         first = self.receipt("one", status="FAILED", basis="UNKNOWN")
         second = self.receipt(

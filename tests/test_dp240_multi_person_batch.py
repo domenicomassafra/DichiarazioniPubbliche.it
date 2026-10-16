@@ -337,6 +337,69 @@ class MixedPersonPrivateBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "ORDER_INVALID"):
             reconcile_isolated_private_results(reordered, ())
 
+    def test_rehashed_cross_person_partition_swap_cannot_borrow_source_lineage(self):
+        original = plan()
+        first, second, third = original.items
+        self.assertNotEqual(first.speaker_candidate_id, second.speaker_candidate_id)
+        # All other Content/Capture/Passage/Person fields stay untouched;
+        # a recomputed SHA must not make another Person's partition canonical.
+        swapped = rehash_plan(replace(original, items=(
+            replace(first, partition_id=second.partition_id),
+            replace(second, partition_id=first.partition_id),
+            third,
+        )))
+        with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_PARTITION_MISMATCH"):
+            reconcile_isolated_private_results(swapped, ())
+
+    def test_rehashed_source_family_swap_cannot_reuse_foreign_partition(self):
+        original = plan()
+        first, second, third = original.items
+        self.assertNotEqual(first.source_family, second.source_family)
+        # A source family determines extraction policy and source isolation.
+        # Recomputing only the outer plan SHA must not let an item keep its
+        # original partition after silently borrowing another source family.
+        swapped = rehash_plan(replace(original, items=(
+            replace(first, source_family=second.source_family),
+            replace(second, source_family=first.source_family),
+            third,
+        )))
+        with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_PARTITION_MISMATCH"):
+            reconcile_isolated_private_results(swapped, ())
+
+        # A genuinely different upstream source-family manifest is a new
+        # source partition even when its Passage and speaker IDs are equal.
+        upstream = manifest()
+        changed = replace(upstream, items=(
+            replace(upstream.items[0], source_family="source-family:official-other"),
+            *upstream.items[1:],
+        ))
+        changed = replace(changed, sha256=_batch_digest(changed))
+        actual = plan(changed, reviewed_contexts(changed))
+        self.assertNotEqual(original.items[0].partition_id, actual.items[0].partition_id)
+        self.assertEqual(original.items[1].partition_id, actual.items[1].partition_id)
+        self.assertNotEqual(original.plan_sha256, actual.plan_sha256)
+
+        # Old source-family-unbound v1 plans cannot be silently upgraded by
+        # supplying only their old version label and recomputed outer SHA.
+        legacy = rehash_plan(replace(original, version="multi-person-candidate-isolation-v1"))
+        with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_SCHEMA_INVALID"):
+            reconcile_isolated_private_results(legacy, ())
+
+    def test_rehashed_identity_review_or_context_receipt_swap_cannot_reuse_partition(self):
+        original = plan()
+        first, second, third = original.items
+        # Both items remain eligible for a private proposal, but assigning
+        # source B's review credential to A would change the claimed speaker
+        # provenance without changing the current partition identifier.
+        for updated in (
+            replace(first, context_review_id=second.context_review_id),
+            replace(first, identity_review_status="REVIEWED_SAME_PERSON"),
+        ):
+            with self.subTest(updated=updated):
+                changed = rehash_plan(replace(original, items=(updated, second, third)))
+                with self.assertRaisesRegex(ValueError, "MULTIPERSON_PLAN_PARTITION_MISMATCH"):
+                    reconcile_isolated_private_results(changed, ())
+
     def test_rehashed_ready_plan_requires_a_nonempty_person_candidate(self):
         original = plan()
         for speaker in (None, "", "  "):

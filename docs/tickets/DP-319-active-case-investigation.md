@@ -253,3 +253,26 @@ reservation. Both new negative regressions and 79 scoped/neighboring tests
 pass on disposable SQLite; this does not recover old v1 resume, permit a real
 investigation, or close any DP-319 AC. CI and independent current-SHA review
 remain separate required gates.
+
+### 2026-10-14 — Per-assignment spend receipt cannot exceed its own cap
+
+An independent source-only TDD review of `propose_investigation` found that
+an observation reporting `spent_usd=0.04` for an approved assignment limited
+to `0.03` was accepted when the overall investigation budget was `0.10`.
+Such an over-ceiling receipt could be counted as a completed `NO_MATCH`
+attempt or an apparently reviewed source candidate, despite exceeding the
+**specific assigned attempt** budget. The negative regression was **RED**:
+`test_over_budget_assignment_receipt_cannot_count_as_checked` failed because
+the planner did not reject the over-budget record.
+
+The pure private planner now checks each observation against the **matching
+assignment's exact `cost_cap_usd`**, after verifying assignment identity/lane
+and before accepting any receipt or resolution. Exceeding that narrower cap
+raises `INVESTIGATION_ASSIGNMENT_COST_EXCEEDED`; a receipt at the permitted
+cap can still proceed according to its independent plan and evidence gates.
+TDD GREEN: **44/44** DP319 planner/durable-neighbor tests PASS, Ruff lint
+PASS, `git diff --check` PASS. This is a local replay gate, not a real D
+billing reconciliation or authority to spend, claim reviewed evidence or
+publish. **DP-319 remains IN PROGRESS; AC-319.1–.5 remain OPEN** pending
+real authorized sources, provider/ledger readback, durable runtime and
+downstream MiniPC acceptance.

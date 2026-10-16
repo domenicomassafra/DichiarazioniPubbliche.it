@@ -177,6 +177,21 @@ class CandidatePreviewTests(unittest.TestCase):
         self.promotion.data["passages"].append(dict(self.promotion.data["passages"][0]))
         self.assertEqual(self.preview()["status"], "HELD_SOURCE_OR_ATTRIBUTION")
 
+    def test_non_boolean_publication_block_must_not_appear_machine_eligible(self):
+        """A malformed persisted publication hold is never a cleared source."""
+        for flag in (1, 0, "true", "BLOCKED", "MISSING"):
+            with self.subTest(flag=flag):
+                self.promotion = PromotionContext()
+                passage = self.promotion.data["passages"][0]
+                if flag == "MISSING":
+                    passage.pop("segment_publication_blocked")
+                else:
+                    passage["segment_publication_blocked"] = flag
+                result = self.preview()
+                self.assertEqual(result["status"], "HELD_SOURCE_OR_ATTRIBUTION")
+                self.assertEqual(result["action"], "INVESTIGATE_SOURCE_OR_ATTRIBUTION")
+                self.assertIs(result["dispatch_authorized"], False)
+
     def test_invalid_actor_or_source_lineage_cannot_appear_machine_eligible(self):
         """Machine-unavailable is reserved for a coherent, source-bound candidate."""
         for field, value in (

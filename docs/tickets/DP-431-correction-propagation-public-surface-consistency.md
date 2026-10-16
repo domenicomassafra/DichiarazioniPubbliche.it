@@ -182,3 +182,148 @@ drift and completes the runtime portion of AC-431.8.
 Q8 link ordinario alla versione corrente, avviso visibile di correzione materiale e collegamento distinto a storico quando disponibile e consentito. Non ripubblicare contenuto ritirato o privo di diritti nello storico; mantenere coerenza tra pagina/search/API.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+## 2026-10-13 — Post-closure search-index metadata integrity hardening
+
+An independent source review found a fail-open inconsistency in the already
+implemented public correction-propagation checker: while the record title and
+projection SHA were current, an index row could carry stale, missing or extra
+searchable metadata under the same version. The initial five-field Finding-only
+check also skipped absent keys and never compared Person, Topic or Content
+metadata. That allowed a stale Person label, role term, Topic scope, Content
+subtitle or route to survive a correction without a propagation HOLD.
+
+The checker now reconstructs the complete canonical v1 `PublicSearchRecord`
+for **Finding, Person, Topic and Content** from the current approved public
+projection, matching `web/src/lib/searchIndex.ts` including current Topic
+membership, first occurrence of a Person, first-class/legacy Content,
+wording type, date precedence, flags, route and primary/secondary search terms.
+Every row must match the complete allowlisted record; missing fields, extra
+private terms, stale identity/facets and old route data cause
+`SEARCH_INDEX_STALE_METADATA` and a fail-closed HOLD. Previous stale-title,
+duplicate, orphan and partial-entry protections remain in force.
+
+Synthetic RED→GREEN regressions cover the original optional-key bypass, all
+four record kinds and missing/extra search metadata. The existing correction
+fixtures were upgraded to the complete real schema rather than weakened in
+production. Real TypeScript `buildSearchIndexMaterial` and an independent
+Python fixture constructor agreed on six projection scenarios. On the
+integrator's copied final three-file source patch, 66 focused projection and
+correction tests, Python compileall, the deterministic 5/5 benchmark, and
+`git diff --check` pass. Full suite and independent final review are separate
+release evidence. The preexisting `check:rebuild` demo-seed guard currently
+rejects a normal public build of demonstration records; its public safety
+check has **not** been disabled or bypassed to manufacture acceptance.
+
+This is a **source-only post-closure security improvement**. The historical
+6 October MiniPC/static-host acceptance and original `Status: DONE`/AC remain
+unchanged; this commit is not a fresh MiniPC promotion, live rights approval,
+provider run or production deployment.
+
+## 2026-10-14 — Restore fail-closed local rebuild acceptance coverage
+
+The existing `npm run check:rebuild` fixture harness could not exercise its
+actual correction/hold checks because it built known demo records through the
+**production** Astro path without explicit demo opt-in. The production guard
+properly refused those records before the new strict metadata checker ran.
+This was a test-harness incompatibility, not a reason to authorize demo data
+for public publication.
+
+`web/scripts/check_dp431_rebuild.py` now enables demo mode **only in its own
+temporary directory beneath `web`**, for the seed and a scoped test-only
+replacement of the Astro build callback. The production
+`web/scripts/dp431_rebuild.py::_run_astro_build` remains unchanged and still
+strips demo opt-in. The test asserts the resulting fixture seed, hold/correction
+builds all keep `noindex,nofollow`, `robots.txt` Disallow, and no sitemap URLs;
+it cannot silently generate a normally crawlable demo site.
+
+The complete `npm run check:rebuild` is GREEN (correction, hold, stale-file
+cleanup, current API/search/route/metadata/history parity and four injected
+partial failures correctly HOLD). The independent
+`node web/scripts/check-production-projection-boundary.mjs` remains GREEN:
+renamed demo records without explicit opt-in are still rejected, opt-in local
+demo builds stay nonindexable, and empty genuine-shape projection builds work.
+`npm run check:search` also passes. Before this test-only follow-up the source
+patch had passed **3,445/3,445** full Python unit tests and benchmark **5/5**;
+the original DP-431 MiniPC proof/status/AC remain untouched. No live rollout.
+
+## 2026-10-14 — Final remote-branch source-only review and TS/Python parity
+
+Reviewed the **actual committed branch** `b3944cb2ec3694fe0d446dff0cc891443aa8a8ae`
+against the unmodified `main` base `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`.
+The original worker's three changed test/source files match the integrator
+**byte for byte** (`cmp` succeeded independently for each file). No earlier
+dirty worker file, stash or other worktree was deleted or overwritten.
+
+The previously unavailable worker review was **not** relabeled as complete.
+A bounded in-session **source-only two-axis diff review** checked standards
+(no external provider/corpus I/O, fail-closed behavior, bounded prepublication
+scope, no new production authorization) and original DP-431 spec semantics
+(revocation/correction fingerprint consistency, missing/extra metadata and
+all four published object kinds). No reproducible additional P1/P2 appeared
+in that reviewed scope; this is **not** a separate qualified editorial,
+browser-user or security certification. The independently written
+`web/scripts/check_dp431_typescript_python_parity.py` executes the actual
+`buildSearchIndexMaterial` JavaScript/TypeScript module, rather than a second
+hand-copied TypeScript expectation, on eight bounded Python-generated
+projections. Finding, Person, Topic and first-class/legacy Content records
+match the canonical Python checker exactly; an unapproved Topic facet,
+private search term, missing field and extra key all cause a propagation
+HOLD. Result: `DP431_TS_PY_PARITY_PASS`.
+
+Exactly **one complete Python suite** was run for this final committed tree:
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`
+returned **3,445 tests, OK (368.843 s), exit 0**. The deterministic benchmark
+returned **5/5 PASS**. Real `npm run check:rebuild` returned PASS for the
+correction/hold/static/API/history matrix and four fail-closed injections;
+`node scripts/check-production-projection-boundary.mjs` returned PASS for
+demo refusal, non-indexable fixture mode and empty approved-shape build;
+`npm run check:search` returned PASS. The demo-only build seam remains inside
+the temporary test harness, and `web/src/lib/projection.ts` and the production
+rebuild module are unchanged. The new parity script is an additive local
+test harness, not an externally qualified independent signer.
+
+**Original DP-431 DONE and all AC unchanged.** No fresh physical MiniPC,
+rights, source or public deployment acceptance. PR/CI exact-head and GitHub
+auto-review billing OFF remain unverified; branch push is distinct from merge.
+
+## 2026-10-14 — Independent reviewer P2 and first-class empty-Content correction
+
+The independent read-only reviewer of branch `9a83e0e` reproduced one
+real **P2 false HOLD** missed by prior synthetic scenario coverage: a public
+schema-valid first-class `contents=[]` with dossiers that reference source
+Content IDs results in **zero Content search records** from actual TypeScript
+`buildSearchIndexMaterial`, yet the DP-431 search completeness check required
+legacy Content records because `_current_identity_sets` tracks source lineage
+for correction/static-route work. Before the fix, focused regression was
+**RED** with `SEARCH_INDEX_PARTIAL` on an otherwise correct search index.
+
+`_check_search_index` now uses the exact expected public search-record keys
+for both orphan and completeness checks, not the broader history/static-route
+identity set. Route-static/history authority and source Content lineage are
+**unchanged**. The same regression is **GREEN** for explicit empty Content;
+synthetic private/phantom Content injection still HOLDs as
+`SEARCH_INDEX_ORPHAN_ENTRY`, while legacy Content fallback when the collection
+is absent still requires genuine canonical records. The independent
+Python→real-TypeScript parity matrix now includes the explicit-empty case,
+without disabling first-class public Content or weakening production guards.
+
+This is post-DONE source-only hardening; **DP-431 remains DONE with all
+original AC and 6 October MiniPC evidence unchanged**, but neither the
+reviewer's local tests nor these changes constitute a new MiniPC acceptance,
+public publication or source-rights approval. Independent re-review of the
+specific correction and final full-suite evidence are recorded separately.
+
+**Post-fix independent review:** reviewer worker-6, STRICT READ-ONLY,
+reproduced green first-class `contents=[]` + actual public-schema validator
+and real TypeScript materialization; invented private/source Content remained
+orphan-HOLD, every missing Finding/Person/Topic remained `SEARCH_INDEX_PARTIAL`,
+and omitted source-Content static route still `ROUTE_STATIC_PARTIAL`. **PASS
+within bounded source scope, no additional P1/P2**, no code edits by reviewer.
+The final updated real TS↔Python parity matrix now covers **9 projections**,
+including first-class empty Content; **67 focused tests PASS**. Exactly one
+complete post-fix Python suite ran on the final patched source:
+**3,446/3,446 PASS, exit 0, 333.829 seconds**. Benchmark deterministic
+**5/5 PASS**. End-to-end `npm run check:rebuild` and production-boundary test
+both PASS, including four fail-closed injected failures and `noindex` demo
+isolation. This does NOT repeat/replace any October 6 physical acceptance.

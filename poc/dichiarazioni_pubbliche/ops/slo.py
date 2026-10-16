@@ -15,6 +15,7 @@ exact digest key that must be present for the objective to be computable.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
 
@@ -46,7 +47,7 @@ class Slo:
     action: str
     rationale: str
 
-    def evaluate(self, measured: float | None) -> str:
+    def evaluate(self, measured: float | Decimal | None) -> str:
         """Return one of SLO_STATUSES for a measured value.
 
         ``None`` (measurement unavailable) is UNKNOWN, never OK. This is the
@@ -56,19 +57,25 @@ class Slo:
         if measured is None:
             return "UNKNOWN"
         try:
-            value = float(measured)
+            value = measured if isinstance(measured, Decimal) else float(measured)
         except (TypeError, ValueError):
             return "UNKNOWN"
+        if isinstance(value, Decimal) and not value.is_finite():
+            return "UNKNOWN"
+        target = Decimal(str(self.target)) if isinstance(value, Decimal) else self.target
+        warning_fraction = Decimal("0.75") if isinstance(value, Decimal) else 0.75
+        risk_fraction = Decimal("0.25") if isinstance(value, Decimal) else 0.25
         if self.comparison == "at_most":
-            if value > self.target:
+            if value > target:
                 return "BREACH"
-            if value > self.target * 0.75:
+            if value > target * warning_fraction:
                 return "AT_RISK"
             return "OK"
         if self.comparison == "at_least":
-            if value < self.target:
+            if value < target:
                 return "BREACH"
-            if value < min(1.0, self.target + (1.0 - self.target) * 0.25):
+            one = Decimal("1") if isinstance(value, Decimal) else 1.0
+            if value < min(one, target + (one - target) * risk_fraction):
                 return "AT_RISK"
             return "OK"
         return "UNKNOWN"
@@ -171,7 +178,10 @@ SLOS: tuple[Slo, ...] = (
         window_seconds=86_400,
         comparison="at_most",
         required_measurements=("provider_receipts_today",),
-        action="Identify the source from the receipts table; pause that source.",
+        action=(
+            "Verify a source-bound receipt/cost ledger before attributing daily "
+            "spend to any source; provider/operation groups are insufficient."
+        ),
         rationale="A single misbehaving source must not be able to consume the "
         "entire global allowance.",
     ),
@@ -203,7 +213,7 @@ def evaluate(measured: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
                 "kind": slo.kind,
                 "objective": slo.objective,
                 "status": slo.evaluate(value),
-                "measured": value,
+                "measured": float(value) if isinstance(value, Decimal) else value,
                 "target": slo.target,
                 "window_seconds": slo.window_seconds,
                 "action": slo.action,

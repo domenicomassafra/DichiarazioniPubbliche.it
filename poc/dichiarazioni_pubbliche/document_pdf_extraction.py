@@ -30,6 +30,9 @@ from dichiarazioni_pubbliche.source_watcher import FetchedBytes
 
 PDF_TEXT_VERSION = "isolated-pypdf-text-candidate-v1"
 _MAX_RESULT_BYTES = MAX_PARSED_TEXT_CHARS * 6 + 32_768
+# The worker is launched via ``python -m``. Resolve the package root when this
+# module loads so a caller's later chdir/PYTHONPATH changes cannot hide it.
+_WORKER_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 class BornDigitalPDFTextParser:
@@ -52,7 +55,10 @@ class BornDigitalPDFTextParser:
             return failed("DOCUMENT_BODY_INVALID")
         if fetched.content_length != len(fetched.body):
             return failed("DOCUMENT_LENGTH_MISMATCH")
-        if type(fetched.status_code) is not int or not 200 <= fetched.status_code < 300:
+        # A ranged HTTP 206 response can be syntactically parseable yet
+        # omit pages of the canonical source; never bind its bytes to a
+        # complete-document Capture/Passage lineage.
+        if type(fetched.status_code) is not int or fetched.status_code != 200:
             return failed("DOCUMENT_SOURCE_STATUS_INVALID")
         if len(fetched.body) > MAX_DOCUMENT_BYTES:
             return failed("DOCUMENT_BODY_OVERSIZE")
@@ -79,6 +85,7 @@ class BornDigitalPDFTextParser:
                 input=fetched.body,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
+                cwd=_WORKER_PACKAGE_ROOT,
                 timeout=5,
                 check=False,
             )

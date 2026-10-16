@@ -58,6 +58,15 @@ const msLabel = (ms?: number | null) => {
     : `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
+const timedSourceHref = (url: string, startMs: number): string => {
+  // URL fragments have exactly one delimiter. Preserve the reviewed source
+  // origin/path/query, but replace any pre-existing section fragment with the
+  // approved timed locator rather than constructing "#section#t=seconds".
+  const target = new URL(url);
+  target.hash = `t=${Math.floor(startMs / 1000)}`;
+  return target.href;
+};
+
 const momentLocator = (dossier: PublicDossier) => {
   const segments = dossier.source.segments ?? [];
   const bounded = segments.filter((item) =>
@@ -72,7 +81,7 @@ const momentLocator = (dossier: PublicDossier) => {
       label: `${msLabel(startMs)}–${msLabel(endMs)}`,
       startMs,
       endMs,
-      sourceHref: `${source.url}#t=${Math.floor(startMs / 1000)}`,
+      sourceHref: timedSourceHref(source.url, startMs),
       detail: `${bounded.length} ${bounded.length === 1 ? "segmento pubblico" : "segmenti pubblici"}`
     };
   }

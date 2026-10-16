@@ -140,3 +140,318 @@ do not call this fence; the dependency graph, allowed restore authority,
 cache/CDN purge and byte-delivery window remain unverified. No MiniPC timing,
 rollback or D cutover evidence exists. **All AC-320.1–.5 stay unchecked,
 ticket IN PROGRESS and launch NO-GO.**
+
+## 2026-10-14 — Seven-surface, revocation-fenced offline reference
+
+Added a substantial **opt-in SQLite-only reference consumer**
+`revocation_served_surfaces_v1.py` and adversarial tests. One immutable
+release ticket, material epoch and **independently supplied manifest pin**
+bind seven simulated public-surface references: HTML, API, SEARCH, FEED,
+SITEMAP, LINKED_CARD and JSON_LD. Each surface has its own bounded exact
+fixture-bytes SHA-256 and belongs to one completely enumerated cohort.
+`seal()` transactionally inserts root publication plus seven individual
+surface hash rows under `BEGIN IMMEDIATE`, refusing conflicting replacements.
+Even a single-surface `check_one()` validates the full stored cohort under
+the same release ticket and manifest before comparing its observed digest.
+This fixture computes reference eligibility but **never serves or stores
+surface body bytes**, issues rights authority, publishes URLs, or calls a
+network/provider/production database.
+
+The new test file first failed **RED** with missing module import; once the
+consumer was implemented, **40/40 targeted + adjacent DP-320/DP-518 tests
+PASS**. Fixtures exercise missing/duplicate/mixed-epoch surfaces, tampered
+payloads/digests, wrong issuer fingerprint, forged source ID, partial or
+cross-release cohorts, conflicting release overwrite, revoked rights,
+privacy hold, correction/supersession, outbox acknowledgment, idempotent
+event replay, no automatic rights restoration, SQLite restart and two-
+connection read/revoke and seal/revoke races. The bounded 100-read SQLite
+reference microbenchmark (~0.013 seconds) is a **local microtest, not public
+withdrawal latency or a delivery SLO**. Ruff, compilation, diff checks,
+independent review and full Python suite are scoped to the source branch.
+
+**Not a production revocation integration:** Capture/Evidence/Finding writers,
+authenticated editorial/rights authority, production PostgreSQL, cache/CDN
+purge/swap, actual served HTML/API/search/feeds, cross-host epoch issuer,
+post-reference-check HTTP byte delivery and MiniPC latency are all missing.
+The code does not and cannot prove that previously transmitted bytes have
+been withdrawn. **DP-320 stays IN PROGRESS, all original AC-320.1–5 remain
+unchecked, and public activation remains NO-GO.**
+
+**Independent post-implementation review (worker-6, read-only): PASS within
+this limited SQLite source contract, no additional reproducible P1/P2.**
+The reviewer inspected exact new source SHA-256
+`5553cf49d9bed8d0cd360e0fd9b6f9623dd6ccfe6ce2d9b314cf80f7a1232478`
+and test SHA-256
+`73619934422f1e00eb5502a822efba42d2ff6198a9abb08778ae3adaf5c60428`
+against the canonical DP-320 epoch module and ticket. Independently reran
+**40/40** targeted/adjacent tests, and separately reproduced rejection of
+self-rehashed/re-pinned modified bytes, altered root publication SHA,
+missing JSON-LD while checking HTML, an extra unsupported surface and
+tampered ticket fingerprint; source and file lint/diff checks PASS. The
+reviewer made no changes to source, Git, DB production or provider state.
+
+The reviewer also identified explicit **unresolved scope**: the original
+AC-320.3 mentions RDF, which is **not** present in the deliberately bounded
+seven-surface fixture; an exotic malformed nested Python ticket can raise a
+generic `AttributeError` rather than the stable refusal class (still denies
+and does not return data). These are not silently treated as accepted public
+behavior or proof of an actual HTTP edge fence. The full Python suite,
+publication SHA and source-only ticket receipt are recorded separately.
+
+**Cross-feature fixture smoke (Mac, provider-free):** a disposable in-memory
+SQLite session consumed the real synthetic DP-439 Python `published()` and
+`make()` Person×Topic/Statement materializers, bound their output bytes to
+seven different simulated surface hashes and to independent synthetic source
+and rights dependencies. `seal()` and `check_all()` accepted the current
+release; after one `RIGHTS_WITHDRAWN` event on the rights dependency, **all
+seven `check_one()` calls refused with `FENCE_STALE_OR_HELD`**, and the
+durable outbox exposed the expected one event. Result:
+`DP320_DP439_REAL_PYTHON_FIXTURE_PASS`. This is an isolated supplementary
+one-off fixture, not permanent operational wiring or a live rights judgment.
+
+**Final branch validation:** exactly one complete source-branch Python suite
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -B -m unittest discover -s tests -q`
+returned **3,452/3,452 tests PASS, exit 0, 315.034 seconds** against this
+final new DP-320 source/test. The deterministic benchmark was **5/5 PASS**;
+targeted new and adjacent DP-320/DP-518 regressions **40/40 PASS**. Ruff
+check, Ruff format check and `git diff --cached --check` PASS. Existing
+DP-429 empty/demo isolated browser, DP-431 actual TS↔Python/parity/rebuild,
+DP-438 pinned reader and DP-439 offline Astro SSR checks were rerun on their
+independently saved source-only branches, not represented as an integrated
+public release or branch PR CI. Original DP-320 acceptance remains OPEN.
+
+## 2026-10-14 — Opt-in eighth RDF reference and single-corpus DP-431 search fence
+
+New source-only additive extension of the **already published** DP-320 seven-
+surface SQLite prototype. The immutable original `ALL_SURFACES` contract
+remains exactly seven entries; a separately requested `include_rdf=True`
+selects the explicitly versioned *eight*-surface cohort, adding `RDF` after
+JSON-LD. Legacy seven-element manifest SHAs and seeded releases remain valid
+only as their original seven-element cohort and **cannot silently become an
+eight-element approval**. The root manifest fingerprint covers the full
+selected cohort, each exact public fixture bytes SHA and their source epoch;
+one `BEGIN IMMEDIATE` transaction seals/rechecks the complete bounded set.
+If the stored RDF row disappears or is corrupted, checking unrelated SEARCH
+or HTML also refuses. A mixed seven/eight or privately re-pinned corrected
+RDF document cannot bypass the original immutable release reference.
+
+The new deterministic fixtures now generate BOTH Search Index v1 and N-Triples
+using **one and the same real Python `build_public_projection` synthetic
+public-v2 dataset**, not two unrelated samples. The unmodified DP-431
+`check_correction_propagation` source verifies the same index/projection
+receipt; the same corpus serializes actual `projection_ntriples`. Neither
+fixture contains real political person/source permissions or editorial
+material. The new test begins **RED** with missing `EXTENDED_SURFACES`; then
+**47/47** combined new RDF/source-search + unchanged seven-surface DP-320/
+DP-518 tests PASS. All eight surface reads refuse after each independent
+synthetic `RIGHTS_WITHDRAWN`, `PRIVACY_HOLD`, `CORRECTION` and
+`SOURCE_SUPERSEDED` event; root outbox shows one immutable revocation.
+Wrong/missing RDF, malicious rehash/re-pin and release-conflict readbacks
+reject. A genuine two-connection SQLite test proves an RDF reference read
+holds its transaction against a racing rights revoker, with a subsequent stale
+read refused; malformed nested ticket metadata returns a fixed safe denial
+instead of an uncontrolled Python attribute error. This is reference-level
+admission only; it provides no HTTP bytes, source approval, real PostgreSQL
+writer integration, CDN/edge invalidation, authorized public RDF route,
+live source role, physical MiniPC proof or measured withdrawal latency.
+
+**All AC-320.1–5 remain OPEN; ticket Status remains IN PROGRESS and real
+public launch remains NO-GO.** Focused results are source-only, while a new
+complete suite and independent final review require separate receipts.
+
+**Review-status receipt:** previously successful independent worker-6 could
+not be revived for this new revision (two separate startup failures), and a
+new worker-8 independent invitation also failed before receiving source
+inputs. **NO independent PASS on the new RDF diff is claimed.** Prime's
+bounded real-source source-only audit and complete focused test matrix are
+author self-review; the true external/independent review gate is still
+**PENDING** before any PR/production release. Neither prior reviewer PASS on
+the original seven-surface SHA nor current source-only tests are substitutes.
+
+**Definitive local suite (source-only, not CI):** a disposable **uncommitted,
+detached test worktree** over clean canonical main copied the exact final
+DP-320 eight-surface source and new test, the already published seven-surface
+regression test, and the two disjoint new DP-440 files byte-for-byte. ONE
+full Python unittest discovery on this combined exact source overlay returned
+**3,469/3,469 PASS, exit 0, 298.492 seconds**. Independent file SHA/byte
+comparison before the run confirmed the delivery source copies. The
+deterministic benchmark **5/5 PASS**, Ruff check/format and compileall PASS;
+DP-320 new+adjacent targeted **47/47 PASS**. This is neither exact-head GitHub
+PR CI nor an independently reviewed release; operational rights and all
+original acceptance remain OPEN.
+
+**2026-10-14 post-ship source-only review of exact published `af9fb892`:**
+Prime (the implementer, **not** an independent reviewer) re-inspected the
+actual diff against parent `38bb8707`. The unchanged seven-surface contract
+and new opt-in RDF eighth surface use distinct complete manifest shapes;
+`_complete_metadata` checks bounded bodies, ticket dependencies and exact
+surface order, `seal` and `_read` both perform `BEGIN IMMEDIATE` followed by
+the canonical ticket epoch check and full stored-cohort manifest readback.
+Inspectors reran the real shared-public-projection Python Search Index/RDF
+fixture, the four revoke reasons, missing RDF blocking an unrelated HTML or
+SEARCH check, rehashed/re-pinned RDF denial, legacy seven/eight refusal,
+malformed nested ticket rejection and the separate-connection read/revoker
+barrier: **47/47 scoped tests PASS**, no newly reproduced P1/P2 in this
+source-only contract. It cannot fence HTTP bytes sent after commit, purge
+distributed caches or certify editorial rights. **Independent diff review
+remains PENDING**; no external reviewer ACK, PR CI or full acceptance inferred.
+
+**Final revalidation of the three separate source lanes:** one completed
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q`
+on an isolated detached main overlay with SHA/byte-identical DP-320, DP-440
+and new DP-439 source/test files returned **3,476/3,476 PASS, exit 0,
+330.917 seconds**; Ruff check/format and deterministic benchmark **5/5
+PASS**. An earlier run on a pre-final DP-439 source was intentionally
+stopped, **exit 143 and not represented as success**, to add a genuine
+temporal as-of RED→GREEN regression before this definitive completed run.
+This remains local source validation, not PR CI, independent approval or
+any physical/rights/provider acceptance.
+
+## 2026-10-14 — Independent P2 discovery: actual TypeScript SEARCH bytes
+
+Independent reviewer worker-9 identified a consequential P2 in the prior
+**test contract**, not an observed live authorization bypass: the fixture
+sealed the smaller DP-431 Python *metadata-only* search receipt as `SEARCH`.
+That lacks required `projection_schema_version`, `generated_at`, full
+per-record route/term fields and the independently checked `index_sha256`;
+the actual production TypeScript `validateSearchIndex` refuses it. It also
+incorrectly counted a legacy Content search row when explicit
+`contents=[]` prohibits fallback. Hence prior SQLite tests did **not** prove
+that the SEARCH bytes were accepted by the actual frontend reader.
+
+New deterministic RED requires full canonical Search Index v1 fields; it
+failed on the published surrogate. The corrected fixture locally executes
+the real `buildSearchIndexMaterial`, `finalizeSearchIndex` and
+`validateSearchIndex` TypeScript via Node with no HTTP/provider/source-body
+access. Its input is the same real synthetic Python public-v2 projection
+used for DP-431 Python metadata and linked-data N-Triples. The final
+sealed `SEARCH` bytes come from **the validated TS asset**; the Python
+metadata receipt is only compared on shared public Finding/Person/Topic
+fields, and explicit `contents=[]` is verified to produce no TS Content
+records even though the metadata guard can still track Content lineage.
+The 8-surface SQLite checks, real TS validation, four revoke reasons and
+adjacent DP-320/DP-518 regressions are now **48/48 PASS**. A further
+independent re-review of this corrected diff was requested; do not infer
+its result from the initial finding. No HTTP/CDN revocation, real route,
+PostgreSQL/MiniPC, rights or editorial acceptance is claimed.
+
+**Final independent source-only re-review:** worker-9, read-only, reran the corrected actual TypeScript Search Index v1 fixture (builder + finalizer + validator) and checked six canonical top-level fields, complete public record fields, and no fabricated Content search record when `contents=[]`. Separately replayed the RDF/SQLite eight-surface and legacy-seven tests; its DP-320 subset **39/39 PASS**, prime's wider DP-320/DP-518 **48/48 PASS**. No remaining reproduced P1/P2 in this *bounded test/source contract*. Reviewer made no Git, source, provider or host changes. Historical HTTP/CDN bytes, production PostgreSQL, source rights, public routes and MiniPC remain outside acceptance.
+
+**Final post-review codefreeze validation:** one completed full Python unittest discovery on a detached main worktree containing exact byte-identical DP-320, DP-440, DP-439 and DP-314 source/test files returned **3,503/3,503 PASS, exit 0, 306.597 s**. Deterministic benchmark **5/5 PASS**, Ruff/check/format PASS. Exact TS Search Index builder, finalizer and validator and corrected `contents=[]` regression are included. A prefinal full-suite attempt was deliberately terminated **exit 143** after the reviewer found a further DP-440 source mutation problem; it is NOT counted as PASS. Reviewer independently rechecked the corrected bounded DP320 tests; no CI/production/physical acceptance inferred.
+
+## 2026-10-14 — DP-431 + DP-320 integrator: explicit empty Content SEARCH parity
+
+This is a **new separate isolated integration branch** based on the published
+DP-320 RDF/SEARCH fence with three exact source/test paths imported from the
+clean published DP-431 search-metadata integrator, **not** from the still-dirty
+DP-431 worker worktree. In the combined real sources, DP-431 correctly treats
+`contents=[]` as a first-class **empty** Search Content catalog and the actual
+TypeScript `buildSearchIndexMaterial` → `finalizeSearchIndex` →
+`validateSearchIndex` consumer similarly returns two records (Finding and
+Person) for the approved-shaped synthetic fixture. The older DP-320 test
+mistakenly expected `>=3` metadata records from its pre-DP-431 fallback.
+
+Actual combined **RED**: `test_dp320_rdf_search_integration_20261014.py`
+returned exit 1, **8/8 failed** at that stale minimum-record assertion. No
+HTTP/CDN bypass was observed. The integration fixture now refuses fabricated
+legacy Content rows and requires an exact `(kind,id)` identity set plus the
+full shared metadata-field parity against the actual TypeScript asset, with
+an explicit new regression for `contents=[]`. Combined **GREEN** after this
+test-contract fix: DP-320 RDF/SEARCH **9/9**, DP-431 integrity **7/7**,
+DP-320 SQLite served-surface **13/13**, all exit 0. `git diff --check` and
+Ruff lint pass; published DP-431 source and pre-existing tests retain their
+prior formatting (no mass refactor). Exact remote SHA, post-fix independent
+review and final combined Python suite must be recorded separately when done.
+
+This is a **local synthetic/offline source integration receipt only**:
+historical CDN HTTP withdrawals, real PostgreSQL, MiniPC, rights clearance,
+source approval, editorial correctness, PR CI and deploy remain unverified.
+Original DP-320 Status/AC are unchanged; no direct merge to `main`.
+
+**2026-10-14 — Independent post-integrator review, final suite, and remote
+receipt.** Integration source/test SHA prior to this documentation-only
+followup `52a5568a488eb91b24fee40318e84c62fabb37c0` passed independent
+strict READONLY `worker-10` review: DP-320 real RDF/SEARCH **9/9**,
+DP-431 integrity **7/7**, served surfaces **13/13**, correction propagation
+**12/12** = **41/41 PASS**. The reviewer confirmed canonical production TS
+builder/finalizer/validator repeatedly and full Python metadata record
+equality for explicit `contents=[]` (2 Finding/Person records), legacy absent
+`contents` (3 with fallback Content), and approved first-class Content
+(3 records), including stale metadata denial; imported DP-431 source/test
+blobs equal their published original commit `089461ab9572f06ed77b6696fa1bd7bf0d55163e`.
+No new P1/P2 reproduced in this bounded fixture contract. Actual final
+detached 30-file combined Python suite **3,572/3,572 PASS, exit 0,
+384.450 seconds**; benchmark **5/5**, patch/test Ruff lint and new test
+format PASS. Historic imported DP-431 files remain nonformatted and one
+historic inherited DP-314 test has Ruff F401: no global lint PASS claimed.
+Source/test manifest SHA-256
+`15badae206c51cfda9976c86d8eaf6fce10b0e8ccc3ff12480a376db21d3320f`.
+This is not proof of live HTTP/CDN rights withdrawal, PostgreSQL, source
+approval, publication, full MiniPC test, PR CI or physical readiness.
+**Status IN PROGRESS and original AC unchanged**; no PR or main merge.
+
+## 2026-10-14 — New private served-surface release transition audit
+
+New opt-in **OFFLINE** `private_surface_release_transition_v1.py` compares two
+complete, independently owner-pinned DP-320 seven/eight-surface release
+manifest reference cohorts. Its exactly typed detached tickets/artifacts are
+validated against full SHA-256 material manifests, canonical versioned ticket
+fingerprints and exact dependency scopes before comparing immutable surface
+hashes. It separately requires external UTC release-created receipts and
+exact source-use/review declarations. It distinguishes unchanged material,
+changed Search/API/HTML/etc bytes, explicit RDF added/removed scope, source
+dependency/epoch drift and revoked/pending/denied/expired rights declaration;
+the latter is always WITHHELD. Results contain named public *surface types*,
+hashes and counts only: no source ID, raw artifact body, URL or private source
+identifier is returned. No source approval, legal rights, editorial status,
+automatic publication, DB read/write, HTTP/CDN action or provider call.
+
+**RED→GREEN:** new ten-fixture adversarial test module initially failed at
+`ModuleNotFoundError` before the feature existed (exit 1). After implementation
+and subsequent owner-path formatting, **10/10 passed**: genuine isolated
+SQLite minted release tickets and eight canonical `SurfaceArtifact` bytes,
+exact changed Search surface, policy rights/review holds, material tamper or
+self-rehash with stale owner pin, UTC rollback/future, seven→eight RDF scope,
+dependency material drift, post-call policy mutation, malformed self-rehashed
+duplicate/unordered dependencies and wrong ticket version. Scoped Ruff lint,
+format and `git diff --check` PASS. This receipt is **author-local source-only**;
+independent post-commit review and final cross-lane suite must be recorded
+separately. All original `AC-320` remain unchecked, Status IN PROGRESS.
+
+**2026-10-14 — Final independent and integrated receipt for the PRIVATE
+release-transition slice.** Independent worker-9 reviewed exact source/test
+commit `b833925dd4ffbded24703f180cb15d4a8850b9e8` STRICT READONLY,
+with no edits/Git/provider writes. Real SQLite `:memory:` ticket/8-artifact,
+rights revocation, stale epoch, caller policy mutation, SHA-manifest tamper,
+wrong version/scope and opaque/no-authority adversarial replays returned
+**10/10 dedicated and 50/50 DP-320 adjacent PASS**, no P1/P2 reproduced in
+this bounded OFFLINE planner. The final post-review detached 36-file overlay
+(all source/test bytes SHA-256 identical to their published lane branches)
+completed **3,611/3,611 Python PASS, exit 0, 396.578 seconds**. Exact
+manifest digest `04481e83eeb08963a802e6db9c41c6079c3b10ad85a5cbedea64c527c4989ebe`;
+benchmark synthetic **5/5 PASS**; scoped six new source/test Ruff lint and
+format PASS. Python fixture run emitted ResourceWarnings but ended `OK`.
+Historic broad-overlay DP-314 Ruff F401 was not relabeled as a global PASS.
+This is NOT PR CI or authenticated issuer, editorial/legal approval, current
+production DB/PostgreSQL, CDN/HTTP withdrawal, real MiniPC or source rights
+acceptance. **Original DP-320 Status/AC unchanged; no PR/main merge.**
+
+### 2026-10-14 — Bounded ticket revalidation must match mint scope
+
+The source-only SQLite revocation store capped `mint(dependency_ids)` at 128,
+but its later `_check(ticket)` accepted an otherwise self-consistent,
+correctly fingerprinted `PublicationEpochTicket` containing **129** distinct
+dependencies. A caller able to fabricate such a reference could successfully
+seal the offline seven-surface cohort even though canonical admission would
+have refused minting the oversized dependency set. This is a bounded
+resource/scope invariant, not a claim of public issuer authority.
+
+The new seven-surface SQLite fixture was **RED** before the guard
+(`assertRaises RevocationFenceHeld` failed), then **GREEN** after the shared
+transactional `_check` rejects `FENCE_DEPENDENCY_SCOPE_INVALID`.
+A legitimate 128-dependency positive case remains sealable under the same
+manifest and material digest fences. DP320 focus **14/14 PASS** and served/
+revocation/PG-transition/RDF/search neighbors **51/51 PASS**, Ruff and
+`git diff --check` PASS. Source-only, no public authority inferred;
+**AC-320.1–5 remain OPEN** pending real PostgreSQL CAS, issuer and rights,
+CDN/cache negative readback, latency and MiniPC rehearsal.

@@ -27,6 +27,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 OIDC_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
 OIDC_TOKEN = "https://oauth2.googleapis.com/token"
 OIDC_JWKS = "https://www.googleapis.com/oauth2/v3/certs"
+ACCOUNT_PUBLIC_ORIGIN = "https://dichiarazionipubbliche.it"
 SESSION_COOKIE = "__Host-dp-session"
 FLOW_COOKIE = "__Host-dp-oidc"
 VISITOR_COOKIE = "__Host-dp-visitor"
@@ -317,7 +318,7 @@ class AccountService:
             raise ValueError("ACCOUNT_CLIENT_ID_INVALID")
         if not re.fullmatch(r"https://[a-z0-9.-]+(?::443)?", site_origin):
             raise ValueError("ACCOUNT_HTTPS_ORIGIN_REQUIRED")
-        if site_origin.endswith(".") or ".." in site_origin or not site_origin.split("//", 1)[1].endswith(".it"):
+        if site_origin != ACCOUNT_PUBLIC_ORIGIN:
             raise ValueError("ACCOUNT_ORIGIN_INVALID")
         self.client_id = client_id
         self.site_origin = site_origin

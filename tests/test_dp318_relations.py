@@ -25,11 +25,12 @@ from dichiarazioni_pubbliche.relation_policy import (  # noqa: E402
 )
 
 
-def context(person="person:a", *, speech="Secondo me la misura è utile.", language="it"):
+def context(person="person:a", *, speech="Secondo me la misura è utile.", language="it",
+            source_part_ref="capture:part"):
     return assess_speech_act_context(
         source_text=speech, source_sha256=hashlib.sha256(speech.encode()).hexdigest(),
         quote_start=0, quote_end=len(speech), turn_start=0, turn_end=len(speech),
-        utterer_id=person, turn_speaker_ids=(person,), source_part_ref="capture:part",
+        utterer_id=person, turn_speaker_ids=(person,), source_part_ref=source_part_ref,
         turn_complete=True, language=language,
     )
 
@@ -57,7 +58,7 @@ def statement(identifier="statement:a", *, person="person:a", date="2025-01-01",
         position=position,
         scope=SCOPE,
         speech_act=speech_act or context(
-            person, speech=(
+            person, source_part_ref=f"capture:{identifier}", speech=(
                 "Secondo me la misura è dannosa."
                 if position == "OPPOSE"
                 else "Secondo me la misura è utile."
@@ -251,11 +252,13 @@ class DP318ScopedStatementTests(unittest.TestCase):
     def test_factual_statement_candidate_keeps_finding_requirement(self):
         first = statement(
             statement_kind="FACTUAL",
-            speech_act=context(speech="Io sostengo che la misura sia utile."),
+            speech_act=context(speech="Io sostengo che la misura sia utile.",
+                               source_part_ref="capture:independent-a"),
         )
         second = statement(
             "statement:b", person="person:b", statement_kind="FACTUAL",
-            speech_act=context("person:b", speech="Io sostengo che la misura sia utile."),
+            speech_act=context("person:b", speech="Io sostengo che la misura sia utile.",
+                               source_part_ref="capture:independent-b"),
         )
         result = evaluate_scoped_statement_relation(first, second)
         self.assertEqual(result.kind, StatementRelationKind.CROSS_PERSON_AGREEMENT)

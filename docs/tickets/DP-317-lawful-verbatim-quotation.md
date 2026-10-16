@@ -52,3 +52,33 @@ universal char ceiling or fabricated counsel receipt. Source/test commit
 DP-236/DP-320 regressions PASS; Ruff lint/format PASS. This does not authorize
 actual archive licenses, translation reproduction, front-end v3 conversion,
 CDN release or any quoted public record. All AC-317.1–.6 remain unchecked.
+
+## 2026-10-14 — Distinct private translation-use preflight (source only)
+
+A real source-only rights-use mismatch was reproduced: a scoped claim for
+`EDITORIAL_TRANSLATION` + `IDENTIFIED_TRANSLATION` could reach
+`source_only_consistent=True` when the underlying DP-236 private rights record
+granted only `STORE_BODY` and explicitly did not grant `TRANSLATE`. The exact
+requested public use, parent-hash labeling, capture scope and claimed legal
+review were otherwise coherent. The negative test failed before the patch:
+expected `SOURCE_USE_NOT_PERMITTED`, observed
+`EXTERNAL_QUALIFIED_AND_LIVE_PROOF_REQUIRED` (source consistency asserted).
+
+`evaluate_exact_quote_preflight` now separately checks `TRANSLATE` for an
+editorial translation, in addition to the existing `STORE_BODY` requirement,
+using the same source subject, current rights record, reviewed policy and
+evaluation time. A matching explicit source-family `TRANSLATE` private use
+restores *source-only consistency* in the synthetic positive control, while
+`public_quote_permitted` remains **False** and the external DP-307/DP-320/
+DP-443 gates remain mandatory. Original-language quotes and official source
+transcriptions are not inferred to be new editorial translations.
+
+Focused/adjacent local proof: DP-317, quote-binding, DP-236 source-use and
+DP-320 revocation-epoch suites **50/50 PASS**; Ruff check and format check,
+Python compileall and `git diff --check` **PASS**. No live provider or Git
+integration performed in this source-only worker tranche.
+
+This hardening is a local source/test receipt, **not** qualification of a
+legal basis, a real translated document, a source-use grant, public rights,
+revocation-at-request authority, MiniPC operation or end-user acceptance.
+**All AC-317.1–.6 remain OPEN; ticket IN PROGRESS.**

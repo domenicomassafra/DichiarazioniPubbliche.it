@@ -510,3 +510,82 @@ Physical VoiceOver/screen-reader judgment, real-device assistive technology,
 post-merge acceptance, current approved projection and MiniPC readback are
 outside this synthetic browser proof. **DP-409 remains IN PROGRESS and
 AC-409.8 remains unchecked** pending those independent gates.
+
+### 2026-10-14 — Statement date semantics and archive-addition decision (source-only)
+
+**Confirmed owner intent:** the 13 October DP-429 Q2 decision, reaffirmed in
+ControlCenter task 297's 14 October owner packet, separates *dichiarazioni
+recenti* (the date the statement was made) from historical statements *recently
+added to the archive*. These are two different events. The first is a
+Statement chronology; the second needs its own authoritative archive event.
+
+**Current contracts inspected:**
+
+- Running public-v2 search uses `PublicSearchRecord.published_at` as its
+  default date key. Finding publication, with source publication as fallback,
+  **is not a verified original declaration date**. DP-429's already integrated
+  UI labels this boundary correctly; v2 must not be relabeled as a
+  chronological original-Statement feed.
+- Opt-in v3 `PublicStatementSearchV3` indexes only the independently gated
+  `statement_date` calendar day, through the exact Statement-v3 and DP-439
+  joined source. Its `recent`/`old` sorts compare that day, with stable
+  Statement/version tie-breaks. The `generated_at` release timestamp is
+  metadata, never a statement or archive-addition date. A same-day order
+  therefore does not claim a particular time of day.
+- No approved `archive_added_at` field or historical public-addition event
+  exists in the Statement-v3 schema, DP-439 join, v3 index or v2 public
+  projection. The 14 October postconsolidation handoff explicitly classifies
+  this upstream decision as **not authorized**. No inference from source
+  publication, Capture ingestion, index generation or initial discovery is
+  sufficient to backfill it.
+
+**Reviewed alternatives awaiting owner decision:**
+
+1. **Explicit archived-at event (if approved upstream):** define
+   `archive_added_at` as an attested UTC instant when an approved, eligible
+   Statement first became publicly addressable in a published archive release.
+   Pin it to a specific publication/release event and preserve withdrawal
+   history. Decide whether reinstatement, a corrected version, or a changed
+   source requires a distinct event; distinguish the first appearance from the
+   latest eligible return. Older Statements lacking a verifiable event receive
+   `null`/unknown, never the build timestamp or an invented historic date.
+   Source schema, API/read model and search index need a coordinated versioned
+   migration, current-release pins and withdrawal checks before Explore can
+   offer the separate sort/filter or badge.
+2. **No new archived-at field:** continue date-of-declaration sorting only
+   where the original Statement date is independently eligible; where
+   release comparison is available, present a distinctly named *newly visible
+   between these two attested snapshots* indicator with explicit coverage
+   window. DP-439 temporal counts already document that snapshot appearance
+   does not establish an original archive-addition timestamp. Without two
+   reliable snapshots, omit the label/filter instead of guessing.
+
+**PENDING-OWNER / upstream DP-435/DP-437/DP-436 and release authority:**
+choose the event semantics, version/reappearance behavior and historical
+unknown-data presentation; approve the required authoritative publication
+receipt before requesting a first-class archival timestamp. If this decision
+is not made, keep archive-added sorting absent. A source-only v3 date field
+does not authorize v3 publication, reclassify the existing v2 default sort,
+or close DP-429 Q2.
+
+**Focused preventive change:** the isolated
+`web/src/lib/publicStatementSearchV3.ts` documents that `statement_date`
+drives `recent`/`old`. The independent
+`web/scripts/check-public-statement-search-v3.mjs` now asserts no
+`archive_added_at`/`declared_at` is silently included and proves an index
+with either invented key fails its exact schema validation **even after both
+asset and external expected digests are updated**. The authentic synthetic
+DP-439 four-membership / three-Statement search and revoked two-Statement
+test still pass. This is a regression guard for existing authority, not a
+new date feature, DB migration, public v3 release or owner/editorial sign-off.
+Local recheck: `node --experimental-strip-types
+scripts/check-public-statement-search-v3.mjs` PASS (3 synthetic originals,
+2 after rights withdrawal, 909 bytes gzip, about 0.2 ms/query);
+`npm run check:search`, `npm run check:statement`,
+`npm run check:statement-parity` PASS; the focused upstream
+DP-435/DP-439 Python suites pass 20/20, `npm run check` returns
+0 errors/0 warnings/1 pre-existing hint in DP-429's suggestion script, and
+`git diff --check` PASS. No site rebuild/live test was claimed for
+this source-only schema-preservation check.
+**DP-409 remains IN PROGRESS, AC-409.8 remains unchecked, with DP-408 and
+actual v3/physical-reader release acceptance still open.**

@@ -192,3 +192,238 @@ OPEN; Status: IN PROGRESS.**
 Q3 richiede filtri per esito verificato della specifica proposizione, non giudizi sulle persone. Esiti non verificati/insufficienti/conflittuali/non-fattuali rimangono distinti e non diventano falsità. Q6 sintesi breve e limiti immediatamente visibili, prove e spiegazione completa raggiungibili; nessuna nuova verifica o pubblicazione attestata.
 
 Decisione/ricerca futura registrata: nessuna implementazione o acceptance nuova, status e criteri originali invariati.
+
+## 2026-10-14 — Private requirement-profile research batch (source-only)
+
+A bounded, opt-in private `requirement_research_batch_v1.py` now composes the
+existing per-claim `verification_requirements_v1.py` preflight into a
+**deterministic multi-claim research worklist**, without any source body,
+provider call or new claim outcome. Every item is bound to an exact input
+preflight fingerprint and reports the claim kind, available *operator-declared*
+eligible/excluded evidence IDs, current preflight state, exact gap codes and
+typed next steps. Distinct required evidence roles, original-root and
+source-family independence, mirrored bytes, legal jurisdiction, dates,
+unreviewed/withdrawn source use and contradictory observations produce
+separate private tasks. Explicit `NON_FACTUAL`, unknown profile, no run,
+conflict and checkable-but-not-verified states never turn into a verdict.
+
+Inputs are bounded to 32 claims / 512 metadata evidence rows; mismatched
+claim keys, duplicate claim IDs, untyped dictionaries (including private
+body fields), list/tuple schema mismatches and excess inputs fail closed.
+Deterministic sorted replay produces the same exact fingerprint independent
+of claim/evidence input ordering. A source-rights revocation changes only the
+affected claim plan and batch fingerprint; no historical Finding/public
+projection is overwritten. RED: the new module was absent and the seven
+new feature tests failed; GREEN: **25/25** combined DP-314 new/existing
+requirement tests PASS. No source identity signer, actual rights decision,
+model adjudication, gold challenge, live operator queue or cost is inferred.
+
+This is a **new executable private planning seam**, not a factual verifier,
+real-world legal review, accepted rights grant, persistence, provider
+integration or production release. DP-314 remains **IN PROGRESS**;
+AC-314.1–.6 stay unchecked pending qualified source, evidence and physical
+MiniPC acceptance.
+
+An independent read-only reviewer detected a **P2 planning completeness** gap:
+`NOT_CHECKED` returned only `START_RESEARCH_RUN` even if existing evidence was
+REVOKED/PENDING, independent roots were missing, or required roles uncovered.
+The exact case was reproduced RED. The private worklist now retains that run
+state **and** surfaces all independently assessed rights/role/lineage tasks,
+without launching research or inferring a source approval. New adversarial
+RED→GREEN regression verifies withdrawal during a not-started run. This
+source-only fix and the original requirement preflight receive another review
+before integration; it changes neither the Status nor any original AC.
+
+**Independent post-fix reviewer result:** worker-1, strict read-only, PASS
+within source-contract scope. Independently verified **34/34** DP-314
+requirement and adjacent wave tests and **11/11** private adversarial
+states: NOT_STARTED with all rights revoked, no evidence or pending review;
+late/jurisdiction-mismatched sources, coupled root/family roles, conflicts,
+nonfactual/unsupported profiles, and separately eligible evidence. A rights
+withdrawal changes the affected preflight and overall batch hashes while
+`NOT_CHECKED` stays distinct from factual insufficiency. Invalid external
+review statuses fail closed. No source body, provider call, public/rights
+authority, or factual verdict was observed. Prime's broader targeted matrix
+**45/45 PASS**, benchmark **5/5** and Python compilation PASS. This is not
+an independent qualified editorial gold-data assessment and does not
+complete DP-314.6 or any original AC.
+
+**Final source-branch validation:** one complete Python unittest discovery on
+the final `requirement_research_batch_v1.py` + new eight-test regression diff:
+**3,447/3,447 PASS**, exit code 0, **355.615 s**. Adjacent DP-314 and
+verification-runtime targeted subset **45/45 PASS**, deterministic benchmark
+**5/5 PASS**, Python compilation and `git diff --check` PASS. No production
+database, external provider, live source capture or real rights approval used
+by this branch; the established PostgreSQL tests run in their disposable
+fixtures only. All original DP-314 acceptance gates remain open.
+
+## 2026-10-14 — Private requirement-batch change detection (additional feature)
+
+New opt-in `requirement_research_delta_v1.py` compares two strictly typed,
+bounded metadata worklists produced by the DP-314 private requirement planner.
+It verifies **both canonical batch fingerprints and separately supplied
+expected pins** and rechecks the batch's own digest and row counts. It reports
+`UNCHANGED` versus `RECHECK_REQUIRED`, with exact added, removed and changed
+claim IDs, evidence ID **eligibility losses/gains**, and typed manual follow-up.
+A disappearing claim is never assumed closed; changed source SHA invalidates
+the old worklist even if the preflight category is unchanged, and other claims
+stay byte-equivalent. No action/research run is triggered.
+
+This is **reconciliation**, not a revocation listener or approval ledger:
+eligibility loss does not assert an actual provider revoke, and a correct SHA
+is not an authenticated source, rights or reviewer credential. The outputs
+remain private with `verdict=None`, `publication_authority=False`,
+`source_approval_authority=False`, zero provider calls/source bodies. Bounds
+are 32 claims and 512 metadata evidence IDs per batch, with no HTTP, DB,
+LLM, source-body, provider, public route or editorial publication calls.
+
+Initial **RED**: seven new tests failed because the source module did not
+exist; subsequent **GREEN** exercised exact replay, rights withdrawal,
+provenance-only drift, added/removed claims, cross-claim isolation and
+malformed metadata. An independent **read-only** reviewer found a genuine P2:
+caller-rehashed arbitrary `state`/`next_steps` strings could be reflected in
+a delta despite zero source-body-count metadata. The source now accepts
+only the canonical preflight state enum and planner's typed action vocabulary;
+adversarial tests rehash the malicious strings and assert fail-closed.
+The independent reviewer repeated the original repro after the correction:
+**PASS**, no remaining reproduced P1/P2 in the bounded source scope.
+
+After correction, **53/53** targeted DP-314/verification runtime tests,
+deterministic benchmark **5/5**, Python compilation and `git diff --check`
+PASS. The complete Python suite and branch delivery are recorded separately.
+Original **DP-314 remains IN PROGRESS**, all AC-314.1–6 unchanged and OPEN;
+no MiniPC, real-source, legal/rights, challenger or public-corpus acceptance.
+
+**Final source-branch full suite:** one `PYTHONDONTWRITEBYTECODE=1
+PYTHONPATH=poc python3 -B -m unittest discover -s tests -q` run on the new
+delta source with adversarial test returned **3,455 tests, OK, exit 0
+(359.355 s)**. This synthetic suite includes disposable test fixtures; it
+is not a production DB or live provider readback. The independent worker-2
+ran 42 focused source/preflight/wave tests and benchmark 5/5 and rechecked
+both self-rehashed malicious metadata probes: `DELTA_BATCH_INVALID` on each,
+with **no remaining P1/P2 reproduced** in the private delta contract.
+
+## 2026-10-14 — Private cross-claim research recheck queue
+
+New offline `requirement_research_wave_v1.py` and adversarial fixture tests
+consume two **separately SHA-pinned, validated** DP-314 metadata batches via
+the canonical `compare_research_batches` consumer. The bounded deterministic
+owner-only queue prioritizes evidence eligibility loss, deleted claims,
+changed requirement profiles, changed preflight inputs, and new claims.
+Each entry contains only canonical claim/evidence IDs, typed manual
+`next_steps` and a direction explicitly labelled **NOT a provider revocation**
+or source permission. A claim removed from the worklist remains a review
+task, not silently completed. Shared eligible evidence IDs across two
+claims generate a **reuse warning**, never independent corroboration.
+
+Initial real test **RED** (new module unavailable) then GREEN. Source-only
+adversarial review found another concrete **RED**: concurrent requirement-
+profile change and evidence eligibility loss showed only the loss, concealing
+the independent need to re-review the profile. The planner now queues both,
+in bounded priority order; combined new/adjacent DP-314 tests **23/23 PASS**.
+The return type always has `private_only=True`, zero source bodies/provider
+calls, `verdict=None` and no factual, rights, reviewer or publication
+authority. Expected SHA values must come from independently controlled owner
+state, not caller-rehashed input. The new output is **not a source approval,
+source scraper, scheduled research operation, or authorized public record**.
+
+The older independent PASS of DP-314 batch/delta source does **not** apply
+automatically to this new wave module. Independent final reviewer status is
+tracked separately; physical MiniPC, legal/rights/source authority and all
+original DP-314 AC remain OPEN, ticket Status stays IN PROGRESS.
+
+**Independent reviewer P2: simultaneous eligibility turnover.** Worker-9
+reproduced a canonical DP-314 change losing `evidence:alpha` and gaining
+`evidence:gamma` for the same claim; the first queue showed the loss but
+silently omitted the independent manual check of the newly eligible gamma.
+Deterministic RED asserted both evidence IDs and `NEW_EVIDENCE_ELIGIBILITY`.
+The corrected planner emits distinct human-review steps for both directions
+and does not suppress a simultaneous changed requirement profile.
+New and adjacent DP-314 tests **24/24 PASS**; neither newly eligible source
+nor repeated evidence IDs constitute independent corroboration, source
+approval, factual verification or publication. Final independent re-review
+of the patched source remains separately tracked.
+
+**2026-10-14 follow-up independent P2: batch after-validation TOCTOU.**
+Worker-9 showed that an inherited `PrivateResearchBatch` subclass could
+return its canonical `items` during the upstream delta SHA/preflight checks
+and then replace `next_steps` on a later read, causing an unreviewed private
+action marker to appear in the priority queue despite unchanged externally
+expected pins. A new deterministic subclass reproducer first **RED** (queue
+accepted the modified DTO); `plan_research_wave` now requires exact typed
+immutable `PrivateResearchBatch`/`ResearchGapItem` fields and snapshots both
+batches via deep copy **before** any SHA validation or later use. Only those
+copies feed `compare_research_batches` and subsequent action/reuse/queue
+reads. The old mutable subclass now refuses `WAVE_BATCH_INVALID`.
+Targeted new and adjacent tests **25/25 PASS**; status IN PROGRESS and all
+original DP-314 acceptance remain unchanged. This is a private contract
+security fix, not proof of authorized sources, legal/factual verification,
+provider behavior, editorial rights, or physical MiniPC readiness.
+
+**Independent final read-only re-review:** worker-9 replayed combined loss `evidence:alpha` and gain `evidence:gamma` with exact two priority buckets, plus simultaneous changed requirement profile. Its extended DP-314 test subset **50/50 PASS**, no further P1/P2 reproduced in this bounded private metadata source contract. The reviewer did not edit code, Git, sources, provider or host. Eligible evidence IDs never attest independent corroboration, source rights, verified facts or editorial publication; original DP-314 AC remain OPEN.
+
+**Final codefreeze validation:** combined source-only Python full suite with final DP-320/DP-440/DP-439/DP-314 file byte identity **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**, Ruff/format PASS; research-wave+adjacent DP-314 targeted **24/24 PASS**, independent reviewer 50-case source subset PASS. Simultaneous alpha loss/gamma gain is now visible with separate review steps. The prefinal whole suite was intentionally interrupted exit143 after a subsequently fixed security finding and is not claimed as PASS. Original status and AC remain open, source rights/provider/physical checks unproven.
+
+**Definitive combined source-only validation (2026-10-14):** one completed full Python suite on detached clean main with 15 exact byte-identical source/test files for DP-314/320/439/440 and new private DP-231: **3,517/3,517 PASS, exit 0 in 299.292 seconds**. New+adjacent DP-314 **25/25 PASS**, deterministic benchmark **5/5 PASS**, Ruff check/format PASS. Reviewer independently reproduced the mutable batch subclass P2 before the RED→GREEN source fix; only an actual independent re-review of that final exact code, not this author's tests, can clear the reviewer gate. All original DP-314 Status/AC remain unchanged and physical/rights/editorial/MiniPC/provider acceptances remain OPEN.
+
+## 2026-10-14 — Private requirement-profile transition snapshots (independent additive lane)
+
+The new opt-in `private_requirement_profile_transitions_v1.py` accepts bounded
+canonical `RequirementClaim` and `RequirementEvidence` declarations (at most
+32 claims, 512 total evidence rows and 128 per claim). It deep-snapshots **exact
+typed** input dataclasses and dictionary rows before canonical preflight or
+digest, sorts IDs deterministically, and binds each claim's full policy,
+proposition SHA, source provenance, rights/review declarations, profile/rule,
+cutoff and preflight to a private snapshot SHA. Comparisons require **two
+separately held expected SHA pins** and recompute canonical preflight,
+profiles, row SHA and batch SHA before producing any result. An SHA is integrity
+metadata, not authenticated identity, provenance or source clearance.
+
+The change planner distinguishes added and removed claims, requirement-profile
+changes, changed claim inputs, preflight state/reasons, evidence bytes/role/root
+or other metadata, source-use and evidence-review declaration changes, and
+**simultaneous** eligible ID losses and gains. All changed claims remain manual
+recheck tasks; disappearing claims are not silently resolved, and a new
+eligible evidence ID is never automatically approved. Explicit external
+authority gates remain required for source rights, independent evidence
+review, fact verification and publication. Outputs have `verdict=None`,
+`private_only=True`, no source bodies/provider calls, no source approval,
+fact/Finding or publication authority, regardless of caller-declared
+`APPROVED` statuses. Opaque IDs only; no provider/source fetches, persistence,
+public routes, adjudication, or machine-authority replacement.
+
+**RED → GREEN source-only proof:** the 13 new canonical-fixture and adversarial
+tests first produced `ModuleNotFoundError` for the absent source module;
+after implementation and deterministic defensive input validation they
+passed **13/13**. Joined with existing canonical DP-314 preflight, batch,
+delta and wave tests they passed **56/56** (2026-10-14, Mac source host).
+Cases include same-state source bytes/policy drift; simultaneous profile
+change and evidence eligibility loss/gain; caller object mutation after
+snapshot; stale independent pins; forged, self-rehashed preflight eligibility;
+malformed/unbounded inputs; non-factual and unsupported kinds. Scoped Ruff
+check and format checks PASS. This additive lane has **not** established real
+rights authorization, independently attested reviewer/source provenance,
+source gold/factual assessment, MiniPC operation, provider/billing approval,
+public projection or original DP-314 acceptance. **Status: IN PROGRESS;
+AC-314.1–6 remain unchecked.** Independent diff review and any broader
+source-branch integration checks are separate.
+
+**2026-10-14 — Post-review independent and combined codefreeze receipt.**
+Reviewer `worker-9` performed an actual strict READONLY review against the
+committed new profile transitions source/test (`787acf2076d21691545a8e84a119b3e5fe463b39`,
+parent `cd4a5ff595e772ad61690c6eb289cc030429382b`), with no edits or
+provider access: new **13/13**, all DP-314 **64/64**, external SHA pin and
+self-rehashed eligibility forgery rejected, rights/reviewer/profile/evidence
+transitions and private metadata non-echo checked; **no new P1/P2 reproduced
+in this bounded source-only scope**. The final 30-file detached cross-lane
+overlay (byte-identical to the published source/test files) completed its
+**single post-review Python full suite: 3,572/3,572 PASS, exit 0,
+384.450 seconds**. Benchmark deterministic 5/5 and scoped new-source Ruff
+lint/format PASS. One inherited DP-314 research-batch test retains a historic
+Ruff F401 unused import in the broad overlay; do not call that global Ruff
+invocation PASS. Combined source manifest SHA-256:
+`15badae206c51cfda9976c86d8eaf6fce10b0e8ccc3ff12480a376db21d3320f`.
+The full suite emitted ResourceWarnings on temporary fixture resources but
+finished OK. Not PR CI or physical, editorial, owner/source-rights, real
+factual adjudication, MiniPC or provider acceptance. **Status IN PROGRESS,
+AC-314.1–6 still unchecked**, no merge/publication/production write.

@@ -12,7 +12,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import asdict, fields
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from dichiarazioni_pubbliche.incremental_source_watch import (
     WatchChildProposal,
@@ -29,6 +29,10 @@ from dichiarazioni_pubbliche.incremental_source_watch import (
     policy_fingerprint,
     reconcile_watch_observation,
 )
+
+
+_DEFAULT_LEASE_SECONDS = 300
+_MAX_LEASE_SECONDS = 86400
 
 
 def _json(value: object) -> str:
@@ -105,6 +109,7 @@ class LocalSourceWatchStore:
                 planning_gate_revision INTEGER NOT NULL,
                 prior_state_json TEXT NOT NULL, planning_gate_json TEXT NOT NULL,
                 plan_json TEXT NOT NULL, plan_sha256 TEXT NOT NULL,
+                lease_expires_at TEXT NOT NULL,
                 observation_json TEXT, reconciliation_gate_json TEXT,
                 decision_json TEXT,
                 PRIMARY KEY(source_id, attempt_id)
@@ -121,6 +126,14 @@ class LocalSourceWatchStore:
             """
         )
         self.connection.execute("PRAGMA foreign_keys=ON")
+        # This is a disposable fixture schema. Do not silently reinterpret
+        # pre-lease attempts as expirable after a code upgrade.
+        columns = {
+            row[1]
+            for row in self.connection.execute("PRAGMA table_info(dp515_watch_attempt)")
+        }
+        if "lease_expires_at" not in columns:
+            raise ValueError("WATCH_STORE_FIXTURE_SCHEMA_RECREATE_REQUIRED")
 
     def _begin(self) -> None:
         if self.connection.in_transaction:
@@ -244,26 +257,48 @@ class LocalSourceWatchStore:
             raise
 
     def begin_poll(
-        self, source_id: str, *, attempt_id: str, attempted_at: datetime
+        self,
+        source_id: str,
+        *,
+        attempt_id: str,
+        attempted_at: datetime,
+        lease_seconds: int = _DEFAULT_LEASE_SECONDS,
     ) -> WatchPlan:
         """Atomically pin one planned HTTP operation; performs no HTTP itself."""
+        if (
+            type(lease_seconds) is not int
+            or not 1 <= lease_seconds <= _MAX_LEASE_SECONDS
+        ):
+            raise ValueError("WATCH_STORE_LEASE_DURATION_INVALID")
+        admitted_at = _utc(attempted_at, "ATTEMPTED_AT")
+        assert admitted_at is not None
+        expiry = admitted_at + timedelta(seconds=lease_seconds)
         self._begin()
         try:
             policy, state, gate, gate_revision = self._source(source_id)
             existing = self.connection.execute(
                 "SELECT plan_json, plan_sha256, planning_gate_json, "
-                "prior_state_json, status, planning_gate_revision "
+                "prior_state_json, status, planning_gate_revision, lease_expires_at "
                 "FROM dp515_watch_attempt WHERE source_id=? AND attempt_id=?",
                 (source_id, attempt_id),
             ).fetchone()
             if existing is not None:
-                raw, digest, raw_gate, raw_state, status, initial_revision = existing
+                (
+                    raw,
+                    digest,
+                    raw_gate,
+                    raw_state,
+                    status,
+                    initial_revision,
+                    old_expiry,
+                ) = existing
                 plan = _unpack(WatchPlan, raw)
                 previous = _unpack(WatchState, raw_state)
                 initial_gate = _unpack(WatchReadiness, raw_gate)
                 if (
                     _sha(raw) != digest
-                    or plan.attempted_at != _utc(attempted_at, "ATTEMPTED_AT")
+                    or plan.attempted_at != admitted_at
+                    or _utc(_datetime(old_expiry), "LEASE_EXPIRY") != expiry
                     or plan_watch_poll(
                         policy,
                         previous,
@@ -302,8 +337,9 @@ class LocalSourceWatchStore:
                 self.connection.execute(
                     "INSERT INTO dp515_watch_attempt "
                     "(source_id, attempt_id, status, planning_gate_revision, "
-                    "prior_state_json, planning_gate_json, plan_json, plan_sha256) "
-                    "VALUES (?, ?, 'IN_FLIGHT', ?, ?, ?, ?, ?)",
+                    "prior_state_json, planning_gate_json, plan_json, plan_sha256, "
+                    "lease_expires_at) "
+                    "VALUES (?, ?, 'IN_FLIGHT', ?, ?, ?, ?, ?, ?)",
                     (
                         source_id,
                         attempt_id,
@@ -312,6 +348,7 @@ class LocalSourceWatchStore:
                         _json(asdict(gate)),
                         raw,
                         _sha(raw),
+                        expiry.isoformat(),
                     ),
                 )
             self.connection.commit()
@@ -330,7 +367,8 @@ class LocalSourceWatchStore:
             row = self.connection.execute(
                 "SELECT status, planning_gate_revision, prior_state_json, "
                 "planning_gate_json, plan_json, "
-                "plan_sha256, observation_json, reconciliation_gate_json, decision_json "
+                "plan_sha256, observation_json, reconciliation_gate_json, decision_json, "
+                "lease_expires_at "
                 "FROM dp515_watch_attempt "
                 "WHERE source_id=? AND attempt_id=?",
                 (source_id, attempt_id),
@@ -347,6 +385,7 @@ class LocalSourceWatchStore:
                 observed,
                 prior_reconciliation_gate,
                 saved,
+                lease_expiry,
             ) = row
             prior = _unpack(WatchState, old_state_json)
             first_gate = _unpack(WatchReadiness, first_gate_json)
@@ -385,6 +424,11 @@ class LocalSourceWatchStore:
                     raise ValueError("WATCH_STORE_REPLAY_BINDING_MISMATCH")
                 self.connection.commit()
                 return result
+            observed_at = _utc(observation.observed_at, "OBSERVED_AT")
+            if observed_at is None or observed_at >= _utc(
+                _datetime(lease_expiry), "LEASE_EXPIRY"
+            ):
+                raise ValueError("WATCH_STORE_LEASE_EXPIRED")
             if (
                 status != "IN_FLIGHT"
                 or state != prior
@@ -444,6 +488,59 @@ class LocalSourceWatchStore:
             "WHERE source_id=? AND status='COMMITTED'",
             (source_id,),
         ).fetchone()[0]
+
+    def expire_stale_attempt(
+        self,
+        source_id: str,
+        *,
+        attempt_id: str,
+        as_of: datetime,
+        expected_state_revision: int,
+        expected_gate_revision: int,
+    ) -> None:
+        """CAS-retire a crashed fixture poll after its immutable lease deadline.
+
+        The caller supplies an independently verified clock/readback. This only
+        frees a local attempt slot; it never claims a fetch, observation, cost,
+        downstream job, or successful freshness update.
+        """
+        if (
+            type(expected_state_revision) is not int
+            or expected_state_revision < 0
+            or type(expected_gate_revision) is not int
+            or expected_gate_revision < 0
+        ):
+            raise ValueError("WATCH_STORE_LEASE_REVISION_INVALID")
+        now = _utc(as_of, "LEASE_AS_OF")
+        assert now is not None
+        self._begin()
+        try:
+            _, state, _, gate_revision = self._source(source_id)
+            if state.revision != expected_state_revision:
+                raise ValueError("WATCH_STORE_STATE_REVISION_CONFLICT")
+            if gate_revision != expected_gate_revision:
+                raise ValueError("WATCH_STORE_GATE_REVISION_CONFLICT")
+            row = self.connection.execute(
+                "SELECT status, lease_expires_at FROM dp515_watch_attempt "
+                "WHERE source_id=? AND attempt_id=?",
+                (source_id, attempt_id),
+            ).fetchone()
+            if row is None or row[0] != "IN_FLIGHT":
+                raise ValueError("WATCH_STORE_LEASE_NOT_ACTIVE")
+            if now < _utc(_datetime(row[1]), "LEASE_EXPIRY"):
+                raise ValueError("WATCH_STORE_LEASE_NOT_EXPIRED")
+            updated = self.connection.execute(
+                "UPDATE dp515_watch_attempt SET status='ABANDONED' "
+                "WHERE source_id=? AND attempt_id=? AND status='IN_FLIGHT' "
+                "AND lease_expires_at=?",
+                (source_id, attempt_id, row[1]),
+            )
+            if updated.rowcount != 1:
+                raise ValueError("WATCH_STORE_LEASE_NOT_ACTIVE")
+            self.connection.commit()
+        except BaseException:
+            self.connection.rollback()
+            raise
 
     def abandon_stale_attempt(
         self,

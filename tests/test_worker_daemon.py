@@ -1,7 +1,9 @@
+import math
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +34,10 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
     WorkerBudget,
     WorkerProcessLock,
 )
+from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
+from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
+from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
+from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
 
 
 class FakePrivateStore:
@@ -144,6 +150,8 @@ class FakeStore:
         self.verification_template = None
         self.relevance_allowed = True
         self.relevance_checks = []
+        self.budget_reservations = []
+        self.budget_reservation_response = "RESERVED"
 
     def reap_expired(self, max_attempts):
         return 0
@@ -165,6 +173,10 @@ class FakeStore:
 
     def cost_snapshot(self, source_id):
         return CostSnapshot(0.0, 0.0)
+
+    def reserve_worker_budget(self, **kwargs):
+        self.budget_reservations.append(kwargs)
+        return self.budget_reservation_response
 
     def renew(self, *args, **kwargs):
         return True
@@ -448,7 +460,7 @@ class WorkerDaemonTests(unittest.TestCase):
             False,
         )
 
-    def test_claim_parent_fans_out_only_after_real_capability_gates(self):
+    def test_claim_parent_fans_out_without_unpriced_remote_canary(self):
         store = FakeStore(
             [
                 job(
@@ -476,17 +488,18 @@ class WorkerDaemonTests(unittest.TestCase):
         worker = self.make_worker(
             store,
             claim_client=client,
-            claim_rate=0.0,
+            claim_rate=0.15,
         )
         summary = worker.run(1)
         self.assertEqual(summary.completed, 1)
-        self.assertEqual(client.probes, 1)
+        self.assertEqual(client.probes, 0)
         self.assertEqual(len(store.bulk_jobs), 1)
         self.assertEqual(store.bulk_jobs[0]["job_type"], "CLAIM_EXTRACT_WINDOW")
         self.assertEqual(store.bulk_jobs[0]["state"], "QUEUED")
         self.assertNotIn("text", store.bulk_jobs[0]["payload"])
+        self.assertGreater(store.bulk_jobs[0]["payload"]["estimated_cost_usd"], 0)
 
-    def test_claim_parent_failed_canary_blocks_without_provider_downgrade(self):
+    def test_claim_parent_missing_segments_retries_without_remote_paid_canary(self):
         store = FakeStore(
             [
                 job(
@@ -502,19 +515,16 @@ class WorkerDaemonTests(unittest.TestCase):
         summary = self.make_worker(
             store,
             claim_client=client,
-            claim_rate=0.0,
+            claim_rate=0.15,
         ).run(1)
 
-        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(summary.blocked, 0)
+        self.assertEqual(summary.retried, 1)
         self.assertEqual(summary.completed, 0)
-        self.assertEqual(client.probes, 1)
+        self.assertEqual(client.probes, 0)
         self.assertEqual(client.extracts, 0)
         self.assertEqual(store.bulk_jobs, [])
-        self.assertTrue(
-            store.block_reasons["job:CLAIM_EXTRACT"].startswith(
-                "CLAIM_EXTRACTION_CANARY_FAILED:"
-            )
-        )
+        self.assertEqual(store.states["job:CLAIM_EXTRACT"], "QUEUED")
 
     def test_claim_parent_blocks_when_cost_model_is_missing(self):
         store = FakeStore(
@@ -573,7 +583,7 @@ class WorkerDaemonTests(unittest.TestCase):
             {
                 "input_sha256": window.input_sha256,
                 "segment_indices": [0],
-                "estimated_cost_usd": 0.0,
+                "estimated_cost_usd": 0.05,
             },
         )
         client = FakeClaimClient(
@@ -592,10 +602,12 @@ class WorkerDaemonTests(unittest.TestCase):
         summary = self.make_worker(
             store,
             claim_client=client,
-            claim_rate=0.0,
+            claim_rate=0.15,
         ).run(1)
         self.assertEqual(summary.completed, 1)
         self.assertEqual(client.extracts, 1)
+        self.assertEqual(len(store.budget_reservations), 1)
+        self.assertEqual(store.budget_reservations[0]["job_id"], "job:CLAIM_EXTRACT_WINDOW")
         self.assertEqual(len(store.inserted_claim_rows), 1)
         self.assertEqual(
             store.inserted_claim_rows[0]["segment_ids"],
@@ -607,9 +619,40 @@ class WorkerDaemonTests(unittest.TestCase):
         )
         self.assertEqual(store.receipts[-1]["operation"], "CLAIM_EXTRACT")
         self.assertEqual(store.receipts[-1]["measured_cost_usd"], 0.0)
-        self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.0)
+        self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.05)
         self.assertEqual(store.receipts[-1]["total_tokens"], 15)
         self.assertEqual(store.status_updates[-1][1], "CLAIMS_EXTRACTED")
+
+    def test_claim_window_reservation_denial_prevents_provider_call(self):
+        store = FakeStore([job("CLAIM_EXTRACT_WINDOW")])
+        store.canonical_rows = [{
+            "id": "canonical:0", "segment_index": 0,
+            "start_ms": 0, "end_ms": 1000,
+            "canonical_text": "Il prezzo è 10 euro.",
+            "transcript_status": "RESOLVED", "publication_blocked": False,
+            "sensitive_signature": [],
+        }]
+        from dichiarazioni_pubbliche.claim_windows import (
+            build_claim_windows, canonical_segment_from_row,
+        )
+        window = build_claim_windows(
+            [canonical_segment_from_row(store.canonical_rows[0])]
+        )[0]
+        store.jobs[0] = job("CLAIM_EXTRACT_WINDOW", {
+            "input_sha256": window.input_sha256,
+            "segment_indices": [0],
+            "estimated_cost_usd": 0.05,
+        })
+        store.budget_reservation_response = "GLOBAL_DAILY_BUDGET_REACHED"
+        client = FakeClaimClient()
+        summary = self.make_worker(
+            store, claim_client=client, claim_rate=0.15,
+        ).run(1)
+        self.assertEqual(summary.deferred, 1)
+        self.assertEqual(client.probes, 0)
+        self.assertEqual(client.extracts, 0)
+        self.assertEqual(len(store.budget_reservations), 1)
+        self.assertEqual(store.receipts, [])
 
     def test_claim_window_blocks_when_job_statement_date_is_invalid(self):
         store = FakeStore(
@@ -861,6 +904,9 @@ class WorkerDaemonTests(unittest.TestCase):
                         "verification_rule": {
                             "metric": "tax_rate",
                             "value": 10,
+                            "population": "ALL",
+                            "geography": "IT",
+                            "unit": "percent",
                             "reference_period": "2026",
                         },
                         "estimated_cost_usd": 0,
@@ -881,7 +927,7 @@ class WorkerDaemonTests(unittest.TestCase):
                 "source_id": "istat-sdmx",
                 "independence_group": "istat-sdmx:2026",
                 "rights_status": "UNKNOWN",
-                "dimensions": {},
+                "dimensions": {"population": "ALL", "geography": "IT"},
                 "authoritative": True,
                 "status": "APPROVED",
                 "metadata": {"evidence_source_id": "istat-sdmx"},
@@ -1074,6 +1120,171 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(summary.deferred, 1)
         self.assertEqual(summary.blocked, 0)
         self.assertEqual(store.states["job:TRANSCRIPT_ACQUIRE_ASR"], "QUEUED")
+
+    def test_paid_asr_missing_zero_or_nonfinite_estimate_fails_preflight(self):
+        for value in (None, 0.0, "NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value):
+                store = FakeStore([])
+                worker = self.make_worker(store)
+                payload = {
+                    "provider_id": "groq-whisper-large-v3-turbo",
+                    "route": "groq/whisper-large-v3-turbo",
+                }
+                if value is not None:
+                    payload["estimated_cost_usd"] = value
+                with self.assertRaisesRegex(BlockedJob, "ESTIMATED_COST"):
+                    worker._ensure_budget(
+                        job("TRANSCRIPT_ACQUIRE_ASR", payload),
+                        store.content("content:pulp64"),
+                    )
+
+    def test_paid_asr_holds_on_unknown_previous_liability(self):
+        store = FakeStore([])
+        store.cost_snapshot = lambda source_id: CostSnapshot(math.inf, math.inf)
+        worker = self.make_worker(store)
+        with self.assertRaisesRegex(Exception, "BUDGET|LIABILITY"):
+            worker._ensure_budget(
+                job("TRANSCRIPT_ACQUIRE_ASR", {
+                    "provider_id": "groq-whisper-large-v3-turbo",
+                    "route": "groq/whisper-large-v3-turbo",
+                    "estimated_cost_usd": 0.05,
+                }),
+                store.content("content:pulp64"),
+            )
+
+    def test_remote_claim_window_missing_or_zero_estimate_never_probes(self):
+        for value in (None, 0.0, "NaN"):
+            with self.subTest(value=value):
+                payload = {"input_sha256": "synthetic", "segment_indices": [0]}
+                if value is not None:
+                    payload["estimated_cost_usd"] = value
+                store = FakeStore([job("CLAIM_EXTRACT_WINDOW", payload)])
+                client = FakeClaimClient()
+                summary = self.make_worker(
+                    store, claim_client=client, claim_rate=0.15,
+                ).run(1)
+                self.assertEqual(summary.blocked, 1)
+                self.assertEqual(client.probes, 0)
+                self.assertEqual(client.extracts, 0)
+
+    def test_remote_claim_probe_holds_on_unknown_prior_liability(self):
+        store = FakeStore([job("CLAIM_PREPARE", {
+            "variant_id": "transcript:synthetic", "estimated_cost_usd": 0,
+        })])
+        snapshot_calls = []
+
+        def unknown_snapshot(source_id):
+            snapshot_calls.append(source_id)
+            return CostSnapshot(math.inf, math.inf)
+
+        store.cost_snapshot = unknown_snapshot
+        client = FakeClaimClient()
+        summary = self.make_worker(
+            store, claim_client=client, claim_rate=0.15,
+        ).run(1)
+        self.assertEqual(summary.deferred, 1)
+        self.assertEqual(client.probes, 0)
+        self.assertEqual(client.extracts, 0)
+        self.assertEqual(len(snapshot_calls), 1)
+
+    def test_external_zero_rate_is_not_attested_free_claim_dispatch(self):
+        store = FakeStore([job("CLAIM_EXTRACT_WINDOW", {
+            "estimated_cost_usd": 0,
+        })])
+        client = FakeClaimClient()
+        summary = self.make_worker(
+            store, claim_client=client, claim_rate=0.0,
+        ).run(1)
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(client.probes, 0)
+
+    def test_external_claim_prepare_does_not_spend_on_hidden_canary(self):
+        store = FakeStore([job("CLAIM_PREPARE", {
+            "variant_id": "transcript:synthetic", "estimated_cost_usd": 0,
+        })])
+        client = FakeClaimClient(healthy=False)
+        worker = self.make_worker(store, claim_client=client, claim_rate=0.15)
+        worker.run(1)
+        # Remote .probe() uses a chat-completions request, not a free GET health.
+        self.assertEqual(client.probes, 0)
+
+    def test_external_claim_window_has_no_extra_paid_canary(self):
+        store = FakeStore([job("CLAIM_EXTRACT_WINDOW", {
+            "input_sha256": "synthetic", "segment_indices": [0],
+            "estimated_cost_usd": 0.05,
+        })])
+        client = FakeClaimClient(healthy=False)
+        self.make_worker(store, claim_client=client, claim_rate=0.15).run(1)
+        self.assertEqual(client.probes, 0)
+
+    def test_real_omniroute_canary_completion_stays_uninvoked_at_zero_budget(self):
+        # The real remote client implements probe() with a metered-capable
+        # _post(/v1/chat/completions); intercept it without any network.
+        client = OmniRouteClaimClient(
+            api_key="synthetic-nonlive-key", base_url="http://127.0.0.1:20128"
+        )
+        zero = WorkerBudget(
+            max_cost_usd_per_job=0.0,
+            max_cost_usd_per_day=0.0,
+            max_cost_usd_per_source_day=0.0,
+        )
+        store = FakeStore([job("CLAIM_PREPARE", {
+            "variant_id": "transcript:synthetic", "estimated_cost_usd": 0,
+        })])
+        with patch.object(client, "_post", side_effect=AssertionError("PAID_CANARY_SENT")) as sent:
+            self.make_worker(
+                store, claim_client=client, claim_rate=0.15, budget=zero,
+            ).run(1)
+            sent.assert_not_called()
+
+    def test_stale_remote_claim_window_underbound_must_not_invoke_provider(self):
+        store = FakeStore([])
+        store.canonical_rows = [{
+            "id": "canonical:0", "segment_index": 0,
+            "start_ms": 0, "end_ms": 1000,
+            "canonical_text": "Il valore pubblico e un numero di prova.",
+            "transcript_status": "RESOLVED", "publication_blocked": False,
+            "sensitive_signature": [],
+        }]
+        from dichiarazioni_pubbliche.claim_windows import (
+            build_claim_windows, canonical_segment_from_row,
+        )
+        window = build_claim_windows(
+            [canonical_segment_from_row(row) for row in store.canonical_rows]
+        )[0]
+        client = OmniRouteClaimClient(
+            api_key="synthetic-nonlive-key", base_url="http://127.0.0.1:20128"
+        )
+        self.assertGreater(
+            estimate_claim_request_cost(
+                estimated_input_tokens=window.estimated_input_tokens,
+                max_output_tokens=client.max_output_tokens,
+                max_usd_per_1k_total_tokens=0.15,
+            ),
+            WorkerBudget().max_cost_usd_per_job,
+        )
+        store.jobs = [job("CLAIM_EXTRACT_WINDOW", {
+            "input_sha256": window.input_sha256,
+            "segment_indices": list(window.segment_indices),
+            "estimated_cost_usd": 0.05,
+        })]
+        with patch.object(client, "_post", side_effect=AssertionError("UNBUDGETED_PROVIDER_CALL")) as sent:
+            summary = self.make_worker(
+                store, claim_client=client, claim_rate=0.15,
+            ).run(1)
+            self.assertEqual(summary.deferred, 1)
+            sent.assert_not_called()
+
+    def test_digest_pinned_local_claim_route_preserves_free_preflight(self):
+        local = LocalOllamaClaimClient(expected_model_digest="0" * 64)
+        store = FakeStore([])
+        worker = self.make_worker(store, claim_client=local, claim_rate=0.0)
+        # No real local inference is invoked; this only verifies classification
+        # of the explicit pinned on-device transport at the budget boundary.
+        worker._ensure_budget(
+            job("CLAIM_EXTRACT_WINDOW", {"estimated_cost_usd": 0.0}),
+            store.content("content:pulp64"),
+        )
 
     def test_asr_without_runtime_key_blocks_without_network(self):
         store = FakeStore(

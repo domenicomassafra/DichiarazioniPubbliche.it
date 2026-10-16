@@ -544,3 +544,87 @@ No production, public build or provider operation is included. This change
 provides an eventual safe witness, not a fix or proof of the intermittent
 timeout mechanism. The existing timeouts, no-retry policy, unresolved
 financial authority, MiniPC readback and all original DP-514 AC remain OPEN.
+
+### 2026-10-14 — Linux LLVM-JIT cold-plan finding and transaction-local mitigation
+
+New readback of the **actual** GitHub Actions failure run `38460425665`
+(2026-10-13, canonical `main` SHA `35b69df20e4919b062769bef4eab2b47c537061d`)
+found two independent Ubuntu snapshots canceled with `SQLSTATE 57014`:
+Python 3.13 after **12446 ms** and Python 3.14 after **10251 ms**. Both emitted
+the bounded CI wait witness with **16 samples** and the same terminal state:
+`active`, `wait_type=NONE`, `wait_event=NONE`, `ungranted_lock=0`,
+`blocker=0`, `historical_blocker_seen=0`. These readings supply evidence
+against an observed PostgreSQL lock wait at this seam; they do not identify
+which non-waiting activity occupied the hosted runner's timeout interval.
+
+The exact `_SNAPSHOT` SELECT, against a freshly initialized **disposable**
+PostgreSQL database containing one synthetic canonical receipt, one DP-512
+classification and one DP-514 `REFUND_CLAIM`, had a cold planner cost of
+**200424.06**, although actual SQL execution on local Homebrew PostgreSQL
+17.11 was **0.410 ms**. Its initial missing table statistics overestimate
+the query by enough to exceed PostgreSQL's default `jit_above_cost=100000`.
+The Mac build reports `jit=on` but `pg_jit_available()=false` and therefore
+cannot reproduce LLVM compilation. After `ANALYZE` of these disposable tables,
+the same query's cost fell to **8.28** and execution to **0.381 ms**.
+
+An independent, short-lived **PostgreSQL 18.6 Ubuntu disposable cluster**
+was created on the MiniPC with a temporary scratch copy of the synthetic
+fixture (no service/database/paid-provider/production connection; the cluster
+was stopped and its temporary directory removed). There `jit=on`,
+`pg_jit_available()=true`, and the unchanged cold SELECT compiled **58 JIT
+functions** (JIT total **28.605 ms**) and executed in **42.304 ms** with
+estimated cost **200424.06**. In the same synthetic DB, switching only
+`jit=off` yielded **0.669 ms** execution and identical one-row result;
+after `ANALYZE`, `jit=on` no longer invoked JIT (cost **8.28**,
+execution **0.521 ms**). Thus unnecessary cold-plan LLVM compilation is
+**demonstrated**, but the ~10–12-second GitHub-hosted cancellations were **not
+deterministically reproduced**: their full latency cause remains OPEN, and a
+single green runner is not proof of resolution.
+
+To eliminate that measured, unnecessary compilation from this bounded
+disposable read, `_SNAPSHOT` now issues **`SET LOCAL jit=off` inside its
+existing `REPEATABLE READ READ ONLY` transaction**. It does not change
+the process/session/server defaults, statement timeout **10000 ms**, lock
+timeout **8000 ms**, process timeout **25 s**, SQL result or any receipt,
+USD/EUR accounting, invoice/FX authority or dispatch policy; no retry was
+added. A new real-PostgreSQL regression was **RED** before the change
+(`jit=on` inside the transaction), then **GREEN** afterward (`jit=off`
+inside, a separate subsequent session still `on`, same USD 0.21 measured
+liability and USD 0.21 unverified refund claim, `hold_new_spend=True`,
+`dispatch_authorized=False`). The focused 34 tests pass on local PostgreSQL
+17.11 and independently on disposable Linux PostgreSQL 18.6 with JIT
+available; a broader DP-512/513/514 + existing cost-policy matrix passes
+**141/141** on the Mac, including real PG and SQLite fixtures. Compileall
+and scoped `git diff --check` pass. These are
+development/isolated-host observations, not MiniPC integration acceptance.
+
+**Classification:** scoped JIT overhead mitigation verified on disposable
+databases; historical `SQLSTATE 57014` end-to-end root-cause/hosted-CI
+regression gate **OPEN** until an integrated exact-SHA CI run and additional
+diagnostic evidence justify closure. All original **AC-514.1–.7 remain
+OPEN**, as do owner monthly threshold/FX/invoice/provider authority,
+canonical USD+EUR atomic queue admission, real MiniPC restart proof and
+any paid/public dispatch approval. Source delivery on the integration
+branch is separate from a reviewed exact-SHA CI run, protected-main merge,
+deployment, and financial acceptance.
+
+## 2026-10-15 — CoS02 adjacent DP-512 credential safety contract
+
+The first integrated full run on the DP-512 refund/correction and
+password-in-argv hardening revision completed 3703 tests with **one
+DP-514 diagnostic test ERROR**, not a PASS. The existing DP-514 synthetic
+diagnostic test still expected a disposable client containing a password
+in the psql DSN to launch its mocked subprocess and raise a transaction
+error. The corrected shared DP-512 fence now rejects that DSN before
+spawning psql, as required by the no-secrets-in-argv rule. The DP-514
+regression was adapted **without weakening diagnostic redaction**: credentials
+in the URI must raise the sanitized disposable-DSN error and the subprocess
+mock must remain uncalled; passwordless disposable DSNs retain the original
+sanitized RuntimeError/no-diagnostic checks. The scoped DP-514+DP-512 suite
+then passed **37/37** with Ruff and diff checks green. The full-suite failure
+and this targeted repair are both recorded; no previous failing full run
+is relabeled as a pass. This is test/contract reconciliation, not monthly
+EUR authorization, provider attestation, deployment or closure of AC-514.1–7.
+
+## 2026-10-15 — CoS02 historic observation versus adjusted CAS
+Draft PR #25 review reproduced DP-514 rejecting legal DP-512 refund candidates as stale billing classification. Its PG consumer now validates combined DP-512 revision lineage while anchoring the historical monthly observation to the **last classification** event. A refund candidate leaves prior OBSERVED events valid but never cash-settled. After a real reclassification, a new REFUND_CLAIM alone must not relabel an old observation as current; a new OBSERVED CAS is required before month readback succeeds. The exact regressions and test receipts are source/disposable only. No observed invoice, FX, EUR reservation, paid dispatch, live release or AC-514 closure is claimed.

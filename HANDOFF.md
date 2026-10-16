@@ -1,5 +1,169 @@
 # Dichiarazioni Pubbliche — handoff operativo attuale
 
+> **Ottava tranche DP02, nuovo difetto P1 account static (14 ottobre):**
+> dopo il commit DP-517 `2516e42`, un hardlink dentro la root pubblica
+> aggirava la protezione basata sui symlink e permetteva il download
+> anonimo di SQLite, WAL, SHM o del database come `index.html`. Test HTTP
+> locali su soli dati fittizi hanno restituito sette failure RED; una prova
+> separata ha individuato il mancato passaggio del path del segreto OAuth.
+> Il fix `dfd178d3ae05cf3d11e8f6ec78f574902023e022`, già pushato e
+> letto identico dal remoto, rifiuta alias con stesso device/inode e
+> protegge il path del segreto CLI, senza bloccare normali pagine HTML.
+> **156/156 test account/API/privacy PASS**, Ruff, compileall e diff-check
+> verdi. [Runbook account](docs/release/account-oidc-activation.md) e
+> [ticket DP-517](docs/tickets/DP-517-reader-google-login.md) aggiornati.
+> La suite integrale del source `2516e42` ha avuto **3 FAIL DP238/3670**
+> (`DOCUMENT_PDF_WORKER_UNAVAILABLE`) sotto carico, non corretti con timeout;
+> sul nuovo source `dfd178d` il primo run completo ha trovato un solo
+> errore documentale nel posizionamento della sezione `PLAN.md` (3674/1
+> FAIL). La correzione ha conservato il test originale e ripristinato il
+> comando reporter canonico nell'intestazione. La seconda full suite sul
+> source invariato e documenti corretti è **3674/3674 PASS**, exit0,
+> 1353,431 s, log `/tmp/dp02-wave8-planfixed-full-20261014.log`.
+> Non dedurre OAuth/proxy/diritti/release da una protezione HTTP locale:
+> **162/90 DONE/72 non DONE, NO-GO/49** restano invariati.
+>
+> **Sesta tranche DP02 (14 ottobre, sorgente già remoto):** DP-312
+> `4873a2fb7508165a62a6de42ed49a9cbc4fa9379` corregge una falsa
+> attribuzione `ASSERTION/ENDORSE` per quattro famiglie di virgolette CJK
+> intorno a parole inglesi. Quattro RED iniziali, poi 32 test focalizzati,
+> 48 adiacenti, benchmark 5/5, Ruff e diff-check PASS; unico commit dei tre
+> path DP312 e remoto uguale. **Full Python sul nuovo SHA: 3665/3665 PASS,
+> exit0, 571,183 s** (`/tmp/dp02-wave6-dp312-full-20261014.log`).
+> È solo un preflight privato, non una firma di source/review; AC-312.1–6
+> ancora OPEN. Reporter 90 DONE/72 non DONE e preflight NO-GO/49;
+> niente PR, merge su `main`, permesso editoriale o deploy. La
+> [ricevuta corrente](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> distingue questa nuova esecuzione dai 3664 PASS del sigillo precedente.
+>
+> **DP-517 source hardening aggiuntivo, settima tranche:** commit remoto
+> `2516e42f4421757c393cf912f9483a70f2bbf1d4` (branch integratore,
+> `ls-remote` uguale) corregge il download HTTP anonimo del database SQLite
+> degli account e di un alias symlink quando la root pubblica era configurata
+> male. Prova RED HTTP loopback/temp con sole identità fittizie, quindi
+> separazione path DB/secret, guard realpath per GET/HEAD statici, 121/121
+> test focalizzati+adiacenti e Ruff PASS. `DP-517` resta FUTURE, AC1–7 OPEN;
+> prove account Google reale, MiniPC/proxy/CDN, legal/privacy e PR/CI assenti.
+> Full Python sul codice DP-517: nuova esecuzione da attestare separatamente.
+>
+> **Quinta tranche DP02 (14 ottobre):** codice integratore pubblicato a
+> `e7210a73fdfcdf8f3cf42fe78264127a48a6221c`, dopo tre nuovi commit
+> RED→GREEN source-only: DP-319 `1746aca` (cap costi assignment, 44 PASS),
+> DP-440 `e91b44f` (review sentence distinta da membership/currentness,
+> 43 PASS), DP-320 `e7210a7` (ticket con >128 deps non ammesso, 51 PASS).
+> Ruff/diff-check verdi, staging e readback remoti per ogni commit; tutte le
+> acceptance originarie restano **OPEN**, come source/rights, PG/issuer,
+> editoriale e pilot. [Ricevuta DP02 quinta wave](docs/reviews/2026-10-14-dp02-execution-closure.md).
+> **Full Python FINALE 3664/3664 PASS**, `OK`, exit0, **358,844 s** sul
+> source `e7210a7`, log `/tmp/dp02-wave5-final-full-20261014.log`.
+> È una vera nuova esecuzione, non un riuso del run wave4 3661/1;
+> l'intermittenza DP238 non si è ripresentata ma la causa resta ignota.
+> Status 162/90 DONE/72 non DONE,
+> preflight **NO-GO/49**; `main` prodotto ancora protetto dalla guardia PR.
+> **Response Ops 297 quinta wave pubblicata** su ControlCenter `main` a
+> `94feaad5401a1abab29856a480d6bb7dbe4e88e8`, `ls-remote` uguale,
+> un solo file response02 staged sotto lease Core07 esplicita poi RILASCIATA,
+> WIP 01/05/305 e Core07 preservati.
+
+> **Quarta wave DP02, 14 ottobre — SOURCE `91b1783654b69888196b509bab71c19dc1aaf1ce` salvata su branch remoto:**
+> ripresa dal checkpoint integratore `0eba7fb` e da ControlCenter Ops
+> `main` `65dafd8`. Il precedente DP-517 OIDC origin è stato provato con
+> negativo/positivo e 107/107 test, mentre il
+> [runbook di attivazione](docs/release/account-oidc-activation.md) è stato
+> allineato sul callback esatto (`a302cd8`). Sei patch RED→GREEN nuove sono
+> pubblicate e rileggibili: DP-313 `0870c48`, DP-318 `5ad4bf4`,
+> DP-438 `2b2880e`, DP-317 `f126d00`, DP-439 `3f090b9`,
+> DP-435 `91b1783`, ogni commit con sole path owned e writer prime unico.
+> [Ricevuta DP02 e limiti di acceptance](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> e [censimento pubblico/crosswalk 124 link ora validati](docs/reviews/2026-10-14-dp02-declarations-inventory.md)
+> sono i locator correnti. La release resta **NO-GO/49**: 16 decisioni Q-306,
+> 4 artefatti mancanti, 29 ticket di lancio aperti, PR/CI full/auto-review,
+> source-use, Gold, screen reader e MiniPC/CDN/owner ancora indipendenti.
+> **90 DONE / 72 non DONE**, `main` del prodotto non avanzato. Una suite
+> completa sul codice wave4 deve essere attribuita al suo exit code, non alla
+> precedente full suite di wave3. La risposta di lane nel packet Ops 297
+> è **ora pubblicata** sul `main` ControlCenter a
+> `685a04e74878516f30edeb7e4b8720d68c1c012a`, un solo path di risposta
+> e readback remoto identico; WIP delle altre lane preservati.
+> **Full suite wave4 ESEGUITA ma NON VERDE:** 3.661 test / 1 failure DP-238
+> `DOCUMENT_PDF_WORKER_UNAVAILABLE`, exit1, 826,816 s sul source `91b1783`.
+> Retest DP238 isolato 11/11 e con extraction 22/22 PASS, ma ciò non annulla
+> la failure integrata. Vedere [ricevuta DP02](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> e log `/tmp/dp02-wave4-final-full-20261014.log`. Nessun aumento deadline
+> o falsa promozione di source/diritti/release; nuovo run completo verde
+> resta necessario prima di considerare questo gate soddisfatto.
+> **Ops packet 297 addendum full-suite pubblicato** sotto lease esplicita
+> poi rilasciata, `c49809baada076fcb4f6a88ea9f8e82adb9a3a59` su
+> ControlCenter `main`, un solo file response02, SHA remoto uguale.
+
+> **Terza wave DP02, 14 ottobre:** branch remoto
+> **Ops packet 297 addendum pubblicato:** ControlCenter `main` aggiornato
+> a `65dafd8ecb31b45889d2dc90fbdb63dd81d7d1c2`, un solo file
+> `02-dichiarazioni-pubbliche.response.md` nel secondo commit. I WIP
+> 01/05/305 sono conservati, lo SHA remoto Ops coincide col checkout.
+> `integrate/dp-20261014-all-lanes` su codice `186ef17e59fe73cab061a5301ffbe0d9f5443721`.
+> Fix indipendenti DP-517 OIDC redirect, DP-516 rights receipt, DP-243
+> traduzione/copia da originale HELD, DP-515 fonte stale `Last-Modified`.
+> TDD negativo→positivo, test mirati, Ruff, `git diff --check` e quattro
+> commit separati con `ls-remote` verificato; ticket **IN PROGRESS** per
+> acceptance esterne ancora aperte. La risposta DP02 è stata pubblicata
+> anche nel packet 297 ControlCenter Ops `main` a `3cfb3c433d79fd1dc4f7c543e5dae1263700303f`
+> con tre soli file owned e WIP delle altre lane preservato. Riferimenti:
+> [receipt wave3](docs/reviews/2026-10-14-dp02-execution-closure.md),
+> [inventario dichiarazioni](docs/reviews/2026-10-14-dp02-declarations-inventory.md).
+> La CI GitHub `38596675716` sul codice wave3 è `success` **solo** per
+> `repository contract`; backend/web/clean-clone ancora `skipped` sul
+> branch. PR, approvazioni legal/editoriali, source-use, MiniPC/CDN e
+> manual screen reader sono **NO-GO**.
+> **Full suite finale wave3 sulla source `186ef17`: 3.652/3.652 PASS,
+> exit 0, 322,598 s**, log `/tmp/dp02-wave3-final-full-20261014.log`;
+> warning SQLite/HTTP non fatali. Questo non soddisfa PR/CI completa,
+> accettazione MiniPC/CDN né i 49 blocker del preflight di release.
+
+> **Aggiornamento operativo 14 ottobre 2026 (integratore):** il checkpoint
+> corrente è nel branch `integrate/dp-20261014-all-lanes`, **non in `main`**.
+> L'intera ricognizione Git, le 11 integrazioni effettive, i test post-review,
+> la pulizia misurata dei worktree e i blocker di release sono in
+> [ricevuta di consolidamento](docs/reviews/2026-10-14-all-lanes-consolidation-receipt.md).
+> Per la prossima sessione, leggere prima
+> [handoff aggiornato e pending](docs/reviews/2026-10-14-postconsolidation-handoff.md).
+> La [ricevuta della ripresa esecutiva DP02 del 14 ottobre](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> elenca le correzioni recenti, i commit integrati, le prove e i gate
+> ancora aperti. I ticket e `PLAN.md` mantengono l'autorità sulle acceptance.
+> Lo SHA `2a85c7855f7c6438cfc57092388370ef183ac168` è il checkpoint remoto
+> documentale precedente al follow-up Ruff/handoff; non attribuire test o CI
+> a commit successivi senza riesecuzione. Il repository `main` è ancora
+> `33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe`, protetto da PR+review.
+> **Post-fix verificato:** sul commit codice `0228fa8196d4136ca4807b9fa224592fe666ea49`
+> full Python **3.624/3.624 PASS**, exit 0, **664.442 s**, log
+> `/tmp/dp-20261014-lint-handoff-postfix-full.log`; lint Ruff sui 40 Python
+> modificati e benchmark 5/5 PASS. Eventuali successivi commit solo-documento
+> non modificano questo codice, ma vanno comunque verificati per SHA remoto.
+> Status/AC e gate fonte/legale/editoriale/MiniPC/auto-review restano aperti.
+> **Readback GitHub CI 14 ottobre, DP02:** le run `38561882494`
+> (`15fee6c`) e `38561730777` (`0228fa8`) hanno conclusione globale
+> `success`, ma **solo `repository contract` è stato eseguito**; backend
+> matrix, web static frontend e detached clean-clone risultano `skipped`.
+> Il workflow riserva quei job a PR e `main` (`.github/workflows/ci.yml`).
+> Non confondere questo verde parziale con la CI backend/web di una PR,
+> né con i 3.624 test locali documentati sopra.
+> I commit di codice successivi a `0228fa8` richiedono prove proprie:
+> la precedente full suite non li certifica retroattivamente.
+> **DP02 sulla source `a63fe133`: suite conclusa con 3.637/3.637 PASS,
+> exit 0, 520,154 s** (`PYTHONPATH=poc python3 -B -m unittest discover
+> -s tests -q`). GitHub Actions run `38587368015` è `success` solo per
+> `repository contract`; backend/web/clean-clone sono `skipped` prima di
+> PR/main. [Ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md)
+> e [inventario documenti pubblici](docs/reviews/2026-10-14-dp02-declarations-inventory.md)
+> registrano i commit, le prove e i gate editoriali/legali/MiniPC NO-GO.
+> **Seconda wave DP02, source `bb00177`: 3.645/3.645 Python PASS,
+> exit 0, 362,131 s.** Quattro commit sul branch integratore per DP242,
+> DP244, DP519, DP518, rispettive regressioni RED→GREEN e controllo di
+> provenienza/ritiro/freschezza. GitHub Actions `38593285587`: solo
+> `repository contract=success`, backend/web/clean-clone `skipped`.
+> [Ricevuta aggiornata](docs/reviews/2026-10-14-dp02-execution-closure.md):
+> nessuna autorità per nuova PR, merge, pubblicazione o deploy inferita.
+
 **Tranche seconda ondata dopo c16d823, 12 ottobre 2026:**
 [Post-commit HELD_SOURCE receipt isolation, Studio operatore Collection
 PG, revocation-currentness, private v3 Person/Topic/Statement,

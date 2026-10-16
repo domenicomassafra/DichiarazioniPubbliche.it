@@ -288,3 +288,449 @@ no-store`, non prova fonte licenziata né cancellazione cache/API/sitemap,
 accessibilità VoiceOver/schermi reali o MiniPC. Nessun commit/push/deploy o
 pubblicazione. Un'ipotetica revoca non ancora ricevuta dal release issuer
 rimane fuori dalla capacità di rilevazione di questo consumer offline.
+
+## 2026-10-14 — Source-pinned v3 Explore read model, no public activation
+
+New opt-in `web/src/lib/publicPersonTopicExploreV3.ts` produces a bounded
+**offline/public-data-only preview** for the actual DP-439 Person×Topic
+join. One asynchronously snapshotted input includes published Person-v3,
+reviewed intersection, immutable searchable original index and separately
+issued current release pins. It reuses the full cross-reader preflight
+to reject independently valid but mutually inconsistent Person/index/source
+artifacts, then executes the real signed-index search. A second expiry check
+prevents returning an out-of-date result after cryptographic awaits.
+
+The view-model supports strict sharable URL `persona`/`tema`/`ordine` filters
+and bounded `pagina=1..500` pagination with `pageSize=1..25`, native original
+Statement date ordering, exact original text **distinct from summary**,
+source title/URL/version/quote SHA and literal locator, Person/Topic routes,
+current-corpus generated timestamp and explicit coverage note. Unknown,
+unpublished or withdrawn Person/Topic URL filters yield generic `NO_MATCH`
+without echoing the caller's private ID in returned labels/share URLs; facet
+options are sourced only from the already approved Person collection and
+Topic memberships actually present in the pinned search index. It has no
+ranking of persons, source retrieval, provider call or publication authority.
+
+Test `web/scripts/check-public-person-topic-explore-v3.mjs` was initially
+**RED** because this new consumer did not exist. It is now **GREEN** using
+the real synthetic Python DP-439 `published()/make()` generator, with two
+approved People, three dated exact original Statements and four Topic
+memberships. It proves Person×Topic selection, exact original/locator, page
+1/2 ordering and share URL replay, detached output, invalid/private facet
+non-disclosure, malformed/duplicate pagination refusal, separately revoked
+Topic memberships, stale mixed source pins and late SHA expiry refusal.
+Existing Python→TS public index, v3 cross-reader and private Person×Topic
+Astro SSR regressions PASS. `npm run check` validates the new module with
+**0 errors/0 warnings** (one preexisting DP-429 unused-import hint).
+
+The new module is **not wired to a public Astro route**, and there is no live
+pin-issuer, source-rights authorization, real editorial Topic membership,
+cache-invalidation readback, provider-offline hosting acceptance or MiniPC
+pilot in this release. Original DP-439 **IN PROGRESS**, AC-439.1–7 all
+unchanged and open. All fixtures are artificial and publication remains off.
+
+Independent read-only review exposed a **P2 filter-choice ambiguity**: two
+independently approved homonymous People yielded identical display labels,
+and two independently distinguishable Topic route IDs both appeared as the
+same generic "Tema pubblico approvato". This prevented an accessible filter
+reader from selecting an exact person/Topic despite distinct pinned IDs.
+The new duplicate-label assertions reproduced RED. The Person option now
+includes its **approved** disambiguator and validated canonical public route;
+Topic options use the only public distinguishing information available in
+this v3 search artifact (their already pinned public route), without deriving
+unreviewed semantic names from private records. Same fixture now GREEN.
+No new identity inference, additional public attribution, or URL/source
+permissions are granted. The reporter's final re-review is tracked separately.
+
+**Independent final review:** worker-7, read-only, inspected the final new
+source/test diff and independently validated distinct pinned Person routes,
+approved disambiguators, Topic canonical-route uniqueness, malformed/page
+limit refusal, private URL normalization, source detach before SHA and expiry
+after SHA. Real Python→TypeScript fixture and adjacent v3 search/cross-reader
+tests PASS; **no additional P1/P2** within source-only scope. The reviewer
+performed no edits, publication, provider or Git writes. This adds no physical
+browser VoiceOver/200% public-v3 route, rights approval or real-source AC.
+
+## 2026-10-14 — Offline temporal Explore facets from pinned public originals
+
+New isolated opt-in private `private_person_topic_temporal_v1.py` with
+adversarial real-Python DP-439 Person×Topic membership fixtures. It produces
+month-bucket summaries from the date **printed on each public original
+Statement**, carefully labelled `ORIGINAL_STATEMENT_DATE_NOT_INGESTION_OR_ARCHIVE`.
+The model distinguishes count of public Person×Topic intersections from the
+number of unique Statement/version originals, so a Statement linked to two
+approved topics never becomes two independent original records. Exact
+public Person/Topic filters combine with bounded first/last month, a
+deterministic descending timeline and counts of distinct public persons and
+topics. Unknown or private-looking facet identifiers return generic
+`NO_MATCH` with **no ID, label, text, quote or private roster echoed**.
+
+The source refuses absent opt-in, wrong independently supplied join/source/
+person release SHA, mutated joined Person ID after digest, impossible or
+future month or source dates, and deliberately does not infer that an empty
+corpus means no historical statement exists. A real revised DP-439 membership
+manifest with all memberships REVOKED changes the release SHA and fails
+against the old independent join pin; the new pin yields a neutral empty
+preview. Initial module-import **RED**, then new and adjacent bounded Python
+tests **GREEN**; no network, provider, routing, editorial or DB operation.
+
+This is an **offline reference read model, not published Explore UI**, and
+does not renew issuer/membership/rights permission. Manual VoiceOver/200%
+public-route checks, current authenticated pin issuer, source licensing and
+physical MiniPC remain **OPEN**. No original DP-439 Status/AC was changed.
+Independent *review of this new diff* remains **PENDING** because no reviewer
+worker was operable; prior independent PASS on earlier DP-439 source must not
+be misrepresented as a review of this new temporal code.
+
+**Post-source-audit adversarial RED→GREEN:** even when all original
+Statement dates were in the past, an as-of timeline could previously
+consume a fully valid pinned *future-created* public join, misrepresenting
+when that corpus was available. A new test at a date preceding the real
+synthetic projection timestamp reproduced this before the fix; the reader
+now refuses with `TEMPORAL_SNAPSHOT_IN_FUTURE`, after verifying the join's
+immutable release SHA and parsing its timezone-aware UTC snapshot instant.
+This does not invent an archive-added time and changes no editorial or
+factual determination. Source-only review by prime, not independent PASS.
+
+**Final bounded validation:** 14/14 combined private temporal facet and
+original DP-439 Python tests PASS. A single completed full Python suite
+on a byte-identical detached main overlay containing the new feature plus
+the updated DP-320/DP-440 code returned **3,476/3,476 PASS**, exit 0 in
+330.917 s; Ruff/format/compile and deterministic benchmark 5/5 PASS.
+The published DP-439 opt-in SSR still passes real Python→reader→Astro
+noindex, XSS, empty/unknown/revoked, and Astro `npm run check` reports
+129 files, zero errors, zero warnings, one preexisting hint. Manual/physical
+accessibility, current issuer/rights and independent reviewer approval remain
+PENDING. All original DP-439 Status/AC preserved.
+
+**Independent P2 after SHA validation:** worker-9 reproduced a noncooperative
+Python `dict` subclass that replaces the public join's `data` on the fourth
+access, *after* the canonical DP-439 filter SHA check but *before* returned
+rows are copied. The original temporal reader could therefore count a forged
+`PRIVATE_PERSON_SENTINEL` while the independently pinned digest remained
+unchanged. Synthetic RED reproduced `READY_PRIVATE_PREVIEW` for that ID.
+The repaired private temporal reader now makes a bounded detached JSON
+snapshot **before all pin checks**, validates exact source, Person and join
+SHA on that snapshot and passes only the detached plain dict to the
+canonical filter. The former RED is GREEN: unknown private-looking Person
+produces `NO_MATCH` without echo; 15/15 new and adjacent DP-439 tests PASS.
+This was an in-memory source contract finding, not an observed historical
+real private identity disclosure. Final independent re-review requested.
+
+**Final independent source-only re-review:** worker-9 separately replayed the original noncooperative `SwitchAfterDigest` fake public join. The detached-snapshot reader returns `NO_MATCH`, record count 0, never dereferencing the caller's mutable `data` after snapshot. Reviewer Python DP-439 subset **15/15 PASS**, no further reproduced P1/P2 within this offline count-only model. No actual private identity data, published route, manual accessibility, issuer entitlement, legal/rights or MiniPC acceptance is asserted.
+
+**Final codefreeze validation:** combined Python unittest discovery over byte-identical final DP-320/DP-440/DP-439/DP-314 source-only changes **3,503/3,503 PASS, exit 0, 306.597 s**; deterministic benchmark **5/5 PASS**; DP-439 private timeline+canonical join **15/15 PASS**, independent reviewer reverified `SwitchAfterDigest` private-ID injection now returns `NO_MATCH`. Astro SSR 129 files 0 errors, 0 warnings and one preexisting hint; offline route only, no public serving. Interrupted prefinal Python attempt exit143 excluded from acceptance.
+
+## 2026-10-14 — Private month-to-month source-date change inspection (new isolated slice)
+
+`private_person_topic_trend_v1.py` adds an opt-in, count-only **private**
+comparison of two independently pinned DP-439 read-model releases. Each release
+requires externally authenticated Join / public Statement / public Person SHA
+pins **and two independently attested actual JOIN-created UTC timestamps**;
+both read models are detached before any validation or comparison. The
+existing temporal validator checks all original Statement dates and refuses
+historical `as_of` dates before its immutable UTC *source* projection day.
+The additional JOIN creation receipts prevent a newer Topic membership join
+from being backdated merely because the source projection existed earlier;
+legitimate later joins of an older source snapshot remain possible.
+Monthly rows separate Person×Topic *intersection counts* from distinct
+Statement/version originals and report newly visible and no-longer-visible
+intersections/originals between the two snapshots. A second approved Topic
+membership for the same original changes an intersection count but does not
+create a second original. A stable Statement/version whose date, Person, source
+or quote fingerprint drifts is rejected. Bounds are at most 120 calendar months.
+
+**Time semantics:** the buckets are the dates printed on the original
+Statements. Newly visible/removed are **comparison results between snapshots**,
+not proof of when a Statement was uttered, published, withdrawn or independently
+fact-checked. Unknown private-looking filters return generic `NO_MATCH` without
+IDs, text, quotes, URLs, identity labels or private roster. Results never claim
+absence of historical statements, license, current rights or publication
+authority. No public v3 route or provider call is introduced.
+
+`test_dp439_temporal_trends_20261014.py` reproduces actual approved synthetic
+source / Person / Topic releases with August retirement, September duplicate
+Topic membership and October newly visible original, plus independently pinned
+cross-snapshot date drift, wrong SHA, future source/JOIN `as_of`, invalid dates,
+UTC creation receipt ordering and legitimate earlier-source rollback, mutable
+Mapping after digest and private-ID no-echo. Missing module first reproduced
+**RED** (8 test cases), then implemented **GREEN**. Dedicated and
+adjacent DP-437/438/439 Python tests **50/50 PASS**, Ruff lint/format and
+Python compile **PASS**. This is source-only; source licensing, current release
+issuer, real MiniPC data, public UI/accessibility, independent reviewer and all
+original `AC-439.1`–`.7` remain **OPEN**. `Status: IN PROGRESS` unchanged.
+
+**2026-10-14 — Independent final monthly-readmodel review and codefreeze.**
+Actual strict READONLY reviewer `worker-9` audited exact pre-receipt code
+commit `e19c1d41c018591d8f9267d6e65e0b437eddcaec` against its temporal
+parent: **9/9** new and **24/24** adjacent tests PASS, plus independent
+approved join replays for Aug/Sep/Oct unique originals vs intersections,
+JOIN-created UTC receipt future/rollback/naive and source-date drift denial,
+distinct Topic membership, revoked visibility and detached-dict adversaries;
+**no reproducible new P1/P2 in this bounded private source-only scope**.
+The same byte-identical source/test took part in one final 30-file local
+Python suite **3,572/3,572 PASS, exit 0, 384.450 seconds**, deterministic
+benchmark **5/5**, scoped Ruff and format PASS. Manifest SHA-256:
+`15badae206c51cfda9976c86d8eaf6fce10b0e8ccc3ff12480a376db21d3320f`.
+The separate offline SSR Astro check had **129 files, 0 errors, 0 warnings,
+1 hint**; opt-in/noindex SSR and browser empty/demo automation passed on
+their own published code lanes. One inherited DP-314 test F401 remains a
+global-overlay lint limitation and does not change source behavior. No
+authenticated source issuer/right, qualified review, real MiniPC, live v3
+routes, full assistive technology manual acceptance, PR CI or editorial
+publication can be inferred. **Status IN PROGRESS, AC-439.1–7 unchecked**.
+
+## 2026-10-14 — Private multi-release Persona×Tema continuity cohort
+
+New isolated, private-only `private_person_topic_cohort_v1.py` audits a
+chronological cohort of **2–12** independently pinned public Person×Topic
+JOIN releases, rather than comparing just one pair. It reuses the actual
+DP-439 canonical join, source-date temporal and monthly-trend validators.
+Each release requires caller-supplied, **externally owner-authenticated**
+Join/Statement/Person SHA-256 pins and an independently issued timezone-aware
+JOIN creation receipt; a self-rehashed snapshot is not publisher authority.
+All descriptors' primitive pins are frozen **before any** untrusted readmodel
+serialization, and **every** bounded readmodel snapshot is detached before
+SHA validation. The audit rejects malformed descriptors, source date in the
+future, source/JOIN creation provenance violations, chronology regressions,
+stale SHA, a previously seen JOIN digest recycled after an intervening
+different release, and a stable Statement+version whose original date,
+source SHA, quote SHA, or Person identity drifted across even nonadjacent
+releases.
+
+The new audit separates intersection changes from distinct Statement/version
+originals, including a multi-Topic original whose surviving Topic never
+vanished. A withdrawn intersection that reappears in a later independently
+pinned join emits **MANUAL_VISIBILITY_RECHECK_REQUIRED** and generic
+count-only transition rows; it **never** approves that revival or claims
+when approval/revocation/publication actually happened. A private-looking
+unknown Person filter yields neutral NO_MATCH without echoing IDs, names,
+original text, quotes, locators or URLs. A 120-month source-date window
+bound and complete-original cross-release integrity apply even when filters
+would hide the offending original.
+
+Real synthetic DP-439 approved Person/Topic fixture sequence: August
+intersection present → removed on the second join → explicitly restored on
+the third. It exercises original counts versus intersection counts,
+nonconsecutive identity drift, release replay, double-Topic survival,
+bad UTC receipt, SHA mismatch, noncooperative Mapping subclasses,
+future `as_of`, wrong descriptor type, privacy of unknown identifiers,
+and month-restricted queries. TDD baseline **RED 9/9** (module not yet
+present), then initial **GREEN 12/12** dedicated tests. Independent
+READONLY worker-1 identified a concrete P2 subclass-filter bypass:
+an adversarial `str` subtype could compare unequal to its own public
+Person ID, making a truly reappeared approved intersection produce false
+`NO_MATCH` and suppress the mandatory hold despite valid source SHA pins.
+The new regression reproduced RED, and the fix rejects non-plain
+`person_id`/`topic_id` before release validation. **GREEN 13/13** dedicated
+and **37/37** combined adjacent DP-439 source tests; Ruff and format PASS.
+**Independent post-P2 re-review:** worker-1, STRICT READONLY, on exact
+source SHA-256 `2b39cd4ddf255683d755fd1aa79c372c2445a05b1bfb7d36708f13aca975519c`
+and test SHA-256
+`a809fcfb51423b6ff4eb50c27ca8c3319220c018d008f5a1f60ce77a00e1989e`:
+independent 13/13 cohort and 9/9 adjacent monthly trend tests PASS,
+verified both Person and Topic malicious subclasses now reject,
+replayed a recomputed-but-future original source date with no filter and
+filtered Person variants (TEMPORAL_SOURCE_DATE_INVALID), and found
+**no additional reproducible P1/P2 in this bounded offline source scope**.
+Zero reviewer source/test/Git/provider writes. This is not an issuer or
+editorial rights clearance.
+
+Deterministic Python benchmark **5/5 PASS** on this worktree. Astro
+`npm run check` completed **127 files, 0 errors, 0 warnings and one
+pre-existing unused-import hint**; canonical installed `web/node_modules`
+remained untouched, and the worktree-only temporary symlink was unlinked.
+No public routes were changed. The new source/tests above were not changed
+after the reviewer SHA pins.
+
+This release is purely offline and **cannot attest real issuer signatures,
+editorial topic decisions, legal/current rights, provider retrieval,
+MiniPC, published v3 routes, CDN withdrawal or manual accessibility**.
+No original DP-439 Status or AC-439.1–7 is modified. No provider calls,
+publication, deploy, paid service or production DB access.
+
+**Final codefreeze Python suite on this DP-439 worktree:** after the
+independent reviewer checked the exact unchanged source/test SHA above,
+`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc:tests python3 -B -m unittest discover -s tests -q`
+completed **3,469/3,469 PASS, exit 0, 620.072 seconds**. Full log:
+`/tmp/dp439-cohort-continuity-20261014-final-python.log` (Mac).
+This full run covers the DP-439 branch baseline plus this cohort change; it
+is **not** claimed as a fresh combined run of every concurrent DP-231/314/
+320/440 isolated branch. Temporary fixture ResourceWarnings do not change
+the observed exit code. The pre-existing DP-439 status and acceptance
+checklist remain untouched.
+
+## 2026-10-14 — Private Explore v3 unfiltered previous-page link P2
+
+Independent reviewer reproduced a pager navigation defect in the separately
+published source-pinned Explore v3 preview: on an **unfiltered second page**,
+the previous link was serialized as an empty string. Rendering that value as
+SSR `href=""` keeps the current `?pagina=2` URL instead of returning to
+page 1. A real Python→TypeScript approved three-Statement fixture now asserts
+that page 2 supplies `previousUrl="?pagina=1"`, and replays this URL to
+verify a different approved first-page Statement. The saved test was **RED**
+on the parent commit (`'' !== '?pagina=1'`) before the source patch.
+
+The source-only fix supplies an explicit `?pagina=1` **only** when a
+previous-page link would otherwise have an empty query. It preserves the
+canonical unfiltered current-page URL and existing shareable filtered
+pagination, strict `pagina` bounds, externally pinned release checks,
+expiry/withdrawal holds and non-disclosure of unknown Person/Topic facets.
+The genuine local Node fixture is GREEN. An isolated temporary copy of the
+web app was checked using the already installed Astro dependencies without
+changing any other tracked worktree; Astro reported **127 files, 0 errors,
+0 warnings, 1 inherited unused-import hint**. This is not a live SSR/browser
+accessibility or production deployment acceptance. DP-439 Status remains
+**IN PROGRESS**, all AC-439.1–7 unchanged, no public activation/PR/main.
+
+## 2026-10-14 — Accessible, offline opt-in Person×Topic SSR preview
+
+New **unwired** `web/src/components/PrivatePersonTopicExploreV3.astro` renders
+one previously cross-reader-validated, independently pinned DP-439 preview as
+an isolated complete Astro HTML document, without enabling any production
+route, dynamic fetching or public publication. It requires explicit
+`allowPrivatePreview` at the SSR composition site and fails closed otherwise.
+The document contains `robots` and `googlebot` `noindex,nofollow,noarchive,
+nosnippet`, and navigation/source links are marked `nofollow`. It exposes
+only approved public Person/Topic facet options, the exact original
+Statement wording (visibly separate from summaries, and not evaluated as a
+fact verdict), date with its original-occurrence meaning, source locator,
+version and SHA metadata, explicit corpus limitations, keyboard skip links,
+and page navigation. A preview with no available records has a neutral empty
+state rather than an inferred person status or unseen evidence count.
+
+The real Python DP-439 fixture builds the pinned join and public index, the
+TypeScript reader verifies the consistency pins, and an **isolated temporary
+Astro SSR** renders positive, zero-corpus, no-membership, unknown/private
+URL and post-revocation cases. Source quotes and facet names are escaped as
+ordinary HTML text (never untrusted HTML). Malicious script/img/SVG markup in
+synthetic fixture text is inert; unsafe source links and invalid/duplicate
+option identities fail closed. Page numbers and size remain bounded.
+
+The first test was **RED** because the component did not exist, then GREEN
+with the real Python→TypeScript→Astro path. A second RED adversarial test
+showed that a manually forged post-validation preview could reintroduce an
+unknown/private Person through a `currentUrl` or `nextUrl`. The SSR boundary
+now verifies current/pagination URLs against only the validated approved
+options and exact query/sort/Person/Topic context; unknown private facets,
+cross-scope page links and inconsistent back/forward page transitions reject
+rather than rendering. Full isolated fixture test now **PASS**, alongside
+`npm run check`: **129 files, 0 errors, 0 warnings**, one preexisting DP-429
+unused-import hint. This is synthetic source-only HTML acceptance, not
+independent source rights, a qualified public v3 release issuer, an actual
+site route, authorized user session, provider/MiniPC rollout or physical
+screen-reader acceptance. **DP-439 remains IN PROGRESS; AC-439.1–7 unchanged.**
+
+**Independent post-review P2 and corrected SSR authority boundary.** A
+separate read-only reviewer successfully reproduced a conditional flaw in the
+initial SSR implementation: after a valid pinned reader response, a caller
+could mutate the mutable `preview` prop to insert a fabricated original quote
+with a stale digest and append a private-looking Person facet, and Astro would
+render both. The initial extra URL guard did not prevent a forged *option*.
+The proof was synthetic and conditional on untrusted postvalidation props,
+not an observation of a live route or real private roster access.
+
+New **RED** checks reproduced forged original/roster props in a disposable
+Astro build. Instead of relying on a mutable prevalidated `preview`, the
+component now takes only `input` (the source, Person and search-index bundle),
+independently supplied current release `pins`, exact URL state and bounded
+page size; it requires explicit private opt-in and rejects a legacy `preview`
+prop **before any awaited operation**. In its own frontmatter it reconstructs
+the preview via `readPinnedPersonTopicExploreV3`, which clones the input,
+validates source/Person/index cross-reader SHA and semantic parity, rejects
+unapproved facets and checks expiry after asynchronous digests. Hostile
+post-validation quotes, extra roster facets, mixed hash revisions, malformed
+URL state and expired pins now fail closed. The rebuilt Python→TypeScript→
+Astro regression is **GREEN** with no wired public route or source-body fetch.
+The final independent reviewer verification and Astro typecheck are separate
+delivery evidence; all physical/editorial/rights/MiniPC acceptance stays OPEN.
+
+**Final independent re-review:** worker-6, strictly read-only, verified exact
+new SSR component SHA256 `4d9048e99c5fc08e383b9d9f33b79b84479f4b3456c7c4755bc6685c45b120d5`
+and new Python→TS→Astro test SHA256 `04dff827f6da6e695ce42f0602038b71a0d257b5398f177617c8f7ddbe6f95f2`.
+The reviewer independently probed true pinned Python/TypeScript fixture,
+forged original/index, extra private Person, illicit Topic membership,
+source drift, expired issuer and unknown/private URL non-disclosure: all
+negative cases correctly refuse or return generic `NO_MATCH`; no new
+reproducible P1/P2 in the reviewed source scope. The reviewer performed
+no file/Git/provider mutations and deliberately did not run a simultaneous
+Astro build against the shared temporary dependency link.
+
+Prime's final **serial** `node web/scripts/check-dp439-private-explore-ssr-20261014.mjs`
+PASS, adjacent DP-439 public search and cross-reader Node tests PASS,
+**27/27** targeted Python tests PASS and `npm run check` **129 files, 0
+errors, 0 warnings** (one existing DP-429 import hint). The temporary
+dependency symlink is local-only; no production deployment, real source
+rights, current authenticated issuer or physical MiniPC approval is claimed.
+
+### 2026-10-14 — Private operator session share-link P2: public-membership-only filters
+
+Independent source-only reviewer-11 reproduced a private operator link
+reflection in the inherited `privateV3OperatorSession.ts` with real synthetic
+Python public-v3 Statement/Person/Topic and cited-synopsis fixture: the fully
+pinned session returned **zero** matching rows for
+`fonte=content:private-secret` but embedded that unapproved caller-supplied
+source identifier in the HTML `data-session-url` and `shareableQuery`.
+A no-match free-text `q=person:private-secret` (and once-decoded `%2500`)
+was likewise echoed into the generated link. This proves a reflection of
+caller input, **not** disclosure of a previously unknown private record.
+
+An explicit regression was saved **RED** before correction. The operator
+session now validates the **entire** published source, Person, Topic and
+search index via the existing pinned reader before deriving any share link.
+Only Content IDs with a current published Statement for the exact pinned
+Person×Topic may persist as a `fonte` URL filter. A free-text query that
+matches no approved public result is not reissued into a share link, and
+the URL is deterministically serialized from validated filters and the
+effective page, rather than copied from the request. The originally
+requested filters still govern the current private search result; no
+unapproved source results or raw private roster are introduced. Valid
+public source/title queries, ordered paging, released-snapshot checks and
+revocation/epoch races remain covered by the genuine Python→TS→Astro test.
+No public route, provider use, persistent browser history mutation or
+publication capability is added. A caller's preexisting address bar/history
+cannot be sanitized retroactively by this offline session reader; the
+new returned HTML/share URL only contains permitted public filters.
+
+This is a private source-only hardening extension. DP-439 stays **IN PROGRESS**
+with original AC-439.1–7 unchecked. Independent code review, CI and an
+actual authenticated issuer/rights, public delivery and physical MiniPC
+readback remain separate gates.
+
+### 2026-10-14 — Membership revocation lineage and review ordering (source-only)
+
+The offline public Person×Topic join previously selected the maximum numeric
+revision for each `(statement_id, version_id, topic_id)` without checking that
+all revisions belonged to **one immutable `membership_id`** or that review
+timestamps followed revision order. Given an independently supplied manifest
+containing `APPROVED` revision 1, `REVOKED` revision 2 and `APPROVED` revision 3,
+the old join republished the original Statement when revision 3 either switched
+to a new membership ID or had a `reviewed_at` earlier than the real revocation.
+These malformed histories did not fail the existing membership fingerprint
+check because that hash faithfully represented the invalid manifest.
+
+Two separate adversarial tests were recorded **RED** against the original
+source (`AssertionError: ValueError not raised`, 2 failures). The materializer
+now validates the complete per-subject history before selecting the current
+decision: duplicated revision numbers still fail; any lineage-ID change or
+decreasing review timestamp across revisions raises `ValueError`. Equal
+timestamp resolution remains allowed when revision order is unambiguous. A
+chronologically later approved revision using the original membership ID
+remains an explicitly tested valid reinstatement. A truly new independently
+authorized subject/lineage would require a separate, reviewed contract; it
+cannot silently revive the withdrawn subject in this v3 join.
+
+**GREEN source-only receipt:** `tests.test_dp439_person_topic_v3` 10/10 PASS;
+adjacent DP-435, DP-436, DP-437, DP-438, DP-439 temporal/cohort and DP-440
+Python tests 106/106 PASS; deterministic benchmark 5/5 PASS; `ruff check`
+on both changed Python files PASS; `py_compile` PASS; scoped
+`git diff --check` PASS. `ruff format --check` remains **non-green** on both
+already non-formatted files: its diff begins in untouched imports/helpers;
+reformatting the entire pre-existing modules was excluded from this bounded
+security patch. No Git index/commit/push, real provider/source/rights grant,
+public deployment or MiniPC/browser action occurred.
+
+**Status remains IN PROGRESS; AC-439.1–.7 remain unchecked.** An authenticated
+manifest/review issuer, independent legal/rights approval, public reader
+revocation-cache convergence, accessible mobile/UI validation and MiniPC
+positive/negative readback are still required for original acceptance.

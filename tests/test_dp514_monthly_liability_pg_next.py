@@ -194,6 +194,43 @@ class MonthlyLiabilityPgTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.sql(statement)
 
+    def test_adjustment_after_observation_keeps_monthly_replay_and_append_usable(self):
+        key = self.receipt(
+            "adjust-cross-ledger", basis="MEASURED_PROVIDER_COST",
+            measured="0.40", status="SUCCEEDED",
+        )
+        self.classify(key, "MEASURED_PROVIDER_COST", "0.40",
+                      evidence="usage:synthetic")
+        first = self.reader.append(
+            receipt_id=key, event_id="obs:before-adjust", expected_revision=0,
+            kind="OBSERVED", amount_usd="0.40",
+        )
+        self.store.adjust(
+            receipt_id=key, event_id="adjust:refund-cross-ledger",
+            expected_revision=1, adjustment_kind="REFUND",
+            amount_usd="0.10", evidence_ref="statement:synthetic",
+        )
+        self.assertEqual(
+            self.reader.append(
+                receipt_id=key, event_id="obs:before-adjust",
+                expected_revision=0, kind="OBSERVED", amount_usd="0.40",
+            ),
+            first,
+        )
+        second = self.reader.append(
+            receipt_id=key, event_id="obs:after-adjust", expected_revision=1,
+            kind="REFUND_CLAIM", amount_usd="0.10",
+        )
+        self.assertEqual(second["revision"], 2)
+        report = self.report()
+        self.assertEqual(report.recorded_measured_usd, Decimal("0.40"))
+        self.assertEqual(report.unverified_refund_claim_usd, Decimal("0.10"))
+        self.assertEqual(report.observation_events, 1)
+        self.assertEqual(report.refund_claim_events, 1)
+        self.assertTrue(report.hold_new_spend)
+        self.assertFalse(report.invoice_attested)
+        self.assertFalse(report.dispatch_authorized)
+
     def test_cold_snapshot_disables_jit_locally_without_changing_liability(self):
         key = self.receipt("jit", basis="MEASURED_PROVIDER_COST", measured="0.21")
         self.classify(key, "MEASURED_PROVIDER_COST", "0.21", evidence="usage:synthetic")
@@ -304,6 +341,34 @@ class MonthlyLiabilityPgTests(unittest.TestCase):
         self.assertEqual(report.observation_events, 2)
         self.assertEqual(report.provisional_estimated_usd, Decimal("0.14"))
         self.assertFalse(report.invoice_attested)
+
+    def test_refund_claim_cannot_revalidate_stale_observation_after_reclassification(self):
+        key = self.receipt("stale-class", basis="ESTIMATED_ONLY", estimate="0.14")
+        self.classify(key, "ESTIMATED_ONLY", "0.14")
+        self.reader.append(
+            receipt_id=key, event_id="obs:stale-first", expected_revision=0,
+            kind="OBSERVED", amount_usd="0.14",
+        )
+        self.store.record(
+            receipt_id=key, event_id="event:class-new", expected_revision=1,
+            asserted_basis="ESTIMATED_ONLY", asserted_usd="0.14",
+            evidence_ref=None,
+        )
+        self.reader.append(
+            receipt_id=key, event_id="claim:new-class", expected_revision=1,
+            kind="REFUND_CLAIM", amount_usd="0.04",
+        )
+        with self.assertRaisesRegex(ValueError, "DP514_LIABILITY_INTEGRITY"):
+            self.report()
+        self.reader.append(
+            receipt_id=key, event_id="obs:current-class", expected_revision=2,
+            kind="OBSERVED", amount_usd="0.14",
+        )
+        report = self.report()
+        self.assertEqual(report.observation_events, 2)
+        self.assertEqual(report.refund_claim_events, 1)
+        self.assertTrue(report.hold_new_spend)
+        self.assertFalse(report.dispatch_authorized)
 
     def test_double_read_refuses_new_receipt_between_dp513_and_snapshot(self):
         key = self.receipt("first", basis="ESTIMATED_ONLY", estimate="0.01")

@@ -3,13 +3,18 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import math
 import os
 import socket
 from dataclasses import asdict, dataclass
+from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 from typing import Any
 
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient
+from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_ASR_PROVIDER_ID
+from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ASR_ROUTE
+from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient
 from dichiarazioni_pubbliche.provider_optin import configure_provider_clients
 from dichiarazioni_pubbliche.evidence_runtime import (
     SafeEvidenceFetcher,
@@ -165,19 +170,51 @@ class ProcessingWorker(
             raise BlockedJob(f"SOURCE_NOT_IN_REGISTRY:{source_id}") from exc
 
     def _ensure_budget(self, job: ProcessingJob, content: ContentRecord) -> None:
+        remote_asr = job.job_type == "TRANSCRIPT_ACQUIRE_ASR" and not (
+            job.payload.get("provider_id") == LOCAL_ASR_PROVIDER_ID
+            and job.payload.get("route") == LOCAL_ASR_ROUTE
+        )
+        remote_claim = (
+            job.job_type in {"CLAIM_PREPARE", "CLAIM_EXTRACT", "CLAIM_EXTRACT_WINDOW"}
+            and self.claim_client is not None
+            and not isinstance(self.claim_client, LocalOllamaClaimClient)
+        )
+        if remote_claim and (
+            self.claim_max_usd_per_1k_total_tokens is None
+            or not math.isfinite(self.claim_max_usd_per_1k_total_tokens)
+            or self.claim_max_usd_per_1k_total_tokens <= 0
+        ):
+            raise BlockedJob("REMOTE_CLAIM_COST_UNATTESTED")
+        raw_estimate = job.payload.get("estimated_cost_usd")
+        if remote_asr and (raw_estimate is None or raw_estimate == ""):
+            raise BlockedJob("PAID_ASR_ESTIMATED_COST_REQUIRED")
         try:
-            estimate = float(job.payload.get("estimated_cost_usd") or 0.0)
+            if isinstance(raw_estimate, bool):
+                raise ValueError("boolean estimate")
+            estimate = float(raw_estimate if raw_estimate is not None else 0.0)
         except (TypeError, ValueError) as exc:
             raise BlockedJob("INVALID_ESTIMATED_COST") from exc
+        if not math.isfinite(estimate):
+            raise BlockedJob("NONFINITE_ESTIMATED_COST")
         if estimate < 0:
             raise BlockedJob("NEGATIVE_ESTIMATED_COST")
+        if remote_asr and estimate == 0:
+            raise BlockedJob("PAID_ASR_ESTIMATED_COST_REQUIRED")
+        if remote_claim and job.job_type == "CLAIM_EXTRACT_WINDOW" and estimate == 0:
+            raise BlockedJob("PAID_CLAIM_ESTIMATED_COST_REQUIRED")
         if estimate > self.budget.max_cost_usd_per_job:
             raise DeferredJob(
                 "JOB_COST_CAP_REACHED", self.budget.budget_defer_seconds
             )
-        if estimate == 0:
+        if estimate == 0 and not remote_claim:
             return
         snapshot = self.store.cost_snapshot(content.source_id)
+        if not math.isfinite(snapshot.global_day_usd) or not math.isfinite(
+            snapshot.source_day_usd
+        ):
+            raise DeferredJob(
+                "UNKNOWN_BILLING_LIABILITY_HELD", self.budget.budget_defer_seconds
+            )
         if snapshot.global_day_usd + estimate > self.budget.max_cost_usd_per_day:
             raise DeferredJob(
                 "GLOBAL_DAILY_BUDGET_REACHED", self.budget.budget_defer_seconds
@@ -188,6 +225,59 @@ class ProcessingWorker(
         ):
             raise DeferredJob(
                 "SOURCE_DAILY_BUDGET_REACHED", self.budget.budget_defer_seconds
+            )
+
+    def _reserve_paid_dispatch(
+        self, job: ProcessingJob, content: ContentRecord, *, minimum_usd: float = 0.0
+    ) -> None:
+        """Durable cross-worker admission just before an external paid request.
+
+        An ambiguous replay must not dispatch again. Missing DB migration
+        fails closed instead of allowing the old read-only preflight.
+        """
+        try:
+            estimate = max(float(job.payload["estimated_cost_usd"]), minimum_usd)
+            if not math.isfinite(estimate) or estimate <= 0:
+                raise ValueError("invalid remote cost")
+
+            def ceiling(value: float) -> str:
+                if not math.isfinite(value) or value < 0:
+                    raise ValueError("invalid budget")
+                return str(Decimal(str(value)).quantize(
+                    Decimal("0.000001"), rounding=ROUND_CEILING
+                ))
+
+            upper = ceiling(estimate)
+            job_cap = ceiling(self.budget.max_cost_usd_per_job)
+            global_cap = ceiling(self.budget.max_cost_usd_per_day)
+            source_cap = ceiling(self.budget.max_cost_usd_per_source_day)
+        except (KeyError, TypeError, ValueError, ArithmeticError) as exc:
+            raise BlockedJob("PAID_DISPATCH_COST_INVALID") from exc
+        if Decimal(upper) > Decimal(job_cap):
+            raise DeferredJob("JOB_COST_CAP_REACHED", self.budget.budget_defer_seconds)
+        try:
+            state = self.store.reserve_worker_budget(
+                job_id=job.job_id, attempt=job.attempt,
+                worker_id=self.worker_id, source_id=content.source_id,
+                upper_bound_usd=upper, max_job_usd=job_cap,
+                max_global_usd=global_cap, max_source_usd=source_cap,
+            )
+        except (RuntimeError, AttributeError) as exc:
+            # DB error text could expose connection details: do not persist it.
+            raise DeferredJob("BUDGET_RESERVATION_UNAVAILABLE",
+                              self.budget.budget_defer_seconds) from exc
+        if state != "RESERVED":
+            raise DeferredJob(
+                state if state in {
+                    "BUDGET_RESERVATION_REPLAY_HELD",
+                    "UNKNOWN_BILLING_LIABILITY_HELD",
+                    "GLOBAL_DAILY_BUDGET_REACHED",
+                    "SOURCE_DAILY_BUDGET_REACHED",
+                    "JOB_COST_CAP_REACHED",
+                    "BUDGET_JOB_LEASE_OR_SOURCE_INVALID",
+                    "BUDGET_LIMIT_INVALID",
+                } else "BUDGET_RESERVATION_DENIED",
+                self.budget.budget_defer_seconds,
             )
 
 

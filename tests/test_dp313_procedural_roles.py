@@ -361,6 +361,41 @@ class ProceduralDocumentRoleTests(unittest.TestCase):
         self.assertIn("NEGATED_STATUS_NOT_ESTABLISHED", result.spans[0].reason_codes)
         self.assertEqual(result.spans[0].underlying_fact_assessment, "NOT_EVALUATED")
 
+    def test_revoked_or_overturned_disposition_is_not_a_current_conviction(self):
+        # A current court document can describe an overturned earlier order.
+        # A positive lexical hit for "condanna"/"convicted" does not establish
+        # the affected person's present procedural status in such a span.
+        reversed_orders = (
+            ("La condanna di Mario è stata annullata in appello.", ProceduralStatus.CONVICTED, "it"),
+            ("Il giudice ha revocato la condanna di Mario.", ProceduralStatus.CONVICTED, "it"),
+            ("L'assoluzione di Mario è stata annullata.", ProceduralStatus.ACQUITTED, "it"),
+            ("L'archiviazione per Mario è stata revocata.", ProceduralStatus.DISMISSED, "it"),
+            ("Mario was convicted, but the conviction was overturned.", ProceduralStatus.CONVICTED, "en"),
+        )
+        mario = (DocumentPerson("person:mario", PrivacyClass.PUBLIC_FIGURE),)
+        for phrase, claimed_status, language in reversed_orders:
+            with self.subTest(phrase=phrase, claimed_status=claimed_status):
+                row = span(
+                    phrase, text=phrase, kind=AssertionKind.INSTITUTIONAL_FACT,
+                    role=DocumentaryRole.AUTHOR, speaker="body:judge",
+                    subjects=("person:mario",), procedural_party_refs=("person:mario",),
+                    status=claimed_status, negation_polarity="AFFIRMED",
+                )
+                decision = evaluate_procedural_document(source(phrase, language=language), mario, (row,))
+                self.assertEqual(decision.state, "HOLD")
+                self.assertIn("STATUS_REVERSAL_UNRESOLVED", decision.spans[0].reason_codes)
+                self.assertEqual(decision.spans[0].underlying_fact_assessment, "NOT_EVALUATED")
+
+        affirmed = "Il giudice conferma la condanna di Mario."
+        row = span(
+            affirmed, text=affirmed, kind=AssertionKind.INSTITUTIONAL_FACT,
+            role=DocumentaryRole.AUTHOR, speaker="body:judge",
+            subjects=("person:mario",), procedural_party_refs=("person:mario",),
+            status=ProceduralStatus.CONVICTED, negation_polarity="AFFIRMED",
+        )
+        decision = evaluate_procedural_document(source(affirmed), mario, (row,))
+        self.assertEqual(decision.state, "CANDIDATE_PRIVATE")
+
     def test_news_cannot_authoritatively_label_a_court_status(self):
         phrase = "Mario è condannato."
         result = evaluate_procedural_document(

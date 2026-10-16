@@ -165,7 +165,7 @@ def aggregate_operation_receipts(
             zero_keys.add(row.operation_key)
         if row.cash_cost_uncertainty == "UNKNOWN":
             unknown_keys.add(row.operation_key)
-        if row.local_energy_basis == "UNKNOWN":
+        if row.local_energy_basis in (None, "UNKNOWN"):
             unknown_energy_keys.add(row.operation_key)
 
         total_tokens += row.total_tokens or 0
@@ -406,7 +406,7 @@ def reconcile_operation_billing(
                         if r.billing_basis == "ESTIMATED_ONLY" else None),
                     cash_uncertainty=(r.billing_basis == "UNKNOWN"
                         or r.cash_cost_uncertainty == "UNKNOWN"),
-                    local_energy_basis=r.local_energy_basis,
+                    local_energy_basis=r.local_energy_basis or "UNKNOWN",
                     comparison_status=comparison.get(
                         (r.operation_key, r.attempt), "NO_STATEMENT_LINE"),
                 )
@@ -429,7 +429,7 @@ def reconcile_operation_billing(
                                   r.cash_cost_uncertainty == "UNKNOWN" for r in rows),
         external_plan_attempts=sum(r.billing_basis == "EXTERNAL_PLAN" for r in rows),
         zero_cost_attempts=sum(r.billing_basis == "ZERO_COST" for r in rows),
-        unknown_energy_attempts=sum(r.local_energy_basis == "UNKNOWN" for r in rows),
+        unknown_energy_attempts=sum(r.local_energy_basis in (None, "UNKNOWN") for r in rows),
         matched_unverified_billing_lines=matched,
         disputed_billing_lines=disputed,
         unmatched_billing_lines=unmatched,

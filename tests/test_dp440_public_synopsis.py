@@ -208,6 +208,22 @@ class PublicSynopsisContractTests(unittest.TestCase):
         self.assertEqual(prepare(value, sentences=(sentence(value), sentence(value))).reason_code,
                          "SYNOPSIS_SENTENCE_PROVENANCE_INVALID")
 
+    def test_topic_membership_or_currentness_event_cannot_review_synopsis_sentence(self):
+        value = bundle()
+        proof = intersection(value)
+        # Approval of membership/currentness is not an independent editorial
+        # sentence review even when the public Statement citations are valid.
+        for reused in (proof.review_event_id, proof.currentness_attestation_id):
+            with self.subTest(reused=reused):
+                sentences = (
+                    sentence(value, review_event_id=reused),
+                    sentence(value, 1, review_event_id="review:summary:separate"),
+                )
+                result = prepare(value, proof=proof, sentences=sentences)
+                self.assertEqual(result.status, "WITHHELD")
+                self.assertEqual(result.reason_code, "SYNOPSIS_SENTENCE_PROVENANCE_INVALID")
+        self.assertEqual(prepare(value, proof=proof).status, "READY_READ_MODEL")
+
     def test_later_private_source_locator_mutation_cannot_rewrite_citation(self):
         value = bundle()
         public_read = prepare(value)

@@ -407,7 +407,7 @@ _SPEECH_ACT_MAX_TURN_CHARS = 12000
 # orthographic exceptions. An s-final possessive at the apparent boundary is
 # inherently ambiguous: prefer HOLD to inferring a speaker's endorsement.
 _OTHER_QUOTED_TEXT_RE = re.compile(
-    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”„‟]+”|„[^„“”‟]+“|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
+    r"""«[^«»]+»|»[^«»]+«|‹[^‹›]+›|›[^‹›]+‹|“[^“”„‟]+”|„[^„“”‟]+“|\u300c[^\u300c\u300d]+\u300d|\u300e[^\u300e\u300f]+\u300f|\u300a[^\u300a\u300b]+\u300b|\u3010[^\u3010\u3011]+\u3011|"[^"\n]+"|(?<!\w)'[^'\n]+'(?!\w)"""
 )
 _ORTHOGRAPHIC_WORD_RE = re.compile(r"\w+", re.UNICODE)
 _NEXT_WORD_RE = re.compile(r"\s+\w", re.UNICODE)
@@ -501,7 +501,7 @@ _SPEECH_ACT_CUES = {
         "denial": re.compile(r"\b(?:i\s+(?:do\s+not|don't|never)\s+(?:say|said|support|endorse|believe)|i\s+deny\s+that)\b", re.I),
         "endorse": re.compile(r"\b(?:i\s+(?:support|maintain|affirm|believe)\s+that|i\s+support)\b", re.I),
         "support": re.compile(r"\bi\s+(?:support|endorse)\b", re.I),
-        "negation": re.compile(r"\b(?:not|never|no|without|don't|didn't)\b", re.I),
+        "negation": re.compile(r"\b(?:not|never|no|none|neither|nobody|without|don't|didn't)\b", re.I),
         "qualification": re.compile(r"\b(?:but|however|except|unless|although)\b", re.I),
         "conditional": re.compile(r"\b(?:if|provided\s+that|only\s+when)\b", re.I),
     },
@@ -513,7 +513,7 @@ _SPEECH_ACT_CUES = {
         "denial": re.compile(r"\b(?:ich\s+habe\s+(?:nie|nicht)\s+gesagt|ich\s+unterstütze\s+nicht)\b", re.I),
         "endorse": re.compile(r"\b(?:ich\s+(?:unterstütze|befürworte|behaupte)|ich\s+sage\s*,?\s+dass)\b", re.I),
         "support": re.compile(r"\bich\s+(?:unterstütze|befürworte)\b", re.I),
-        "negation": re.compile(r"\b(?:nicht|nie|kein|keine|keinen|niemals|ohne)\b", re.I),
+        "negation": re.compile(r"\b(?:nicht|nie|kein\w*|niemals|ohne|weder|niemand\w*)\b", re.I),
         "qualification": re.compile(r"\b(?:aber|jedoch|außer|obwohl|es\s+sei\s+denn)\b", re.I),
         "conditional": re.compile(r"\b(?:wenn|falls|sofern|vorausgesetzt)\b", re.I),
     },
@@ -661,6 +661,15 @@ def assess_speech_act_context(
         if len(angle_marks) % 2 or any(
             angle_marks[i:i + 2] not in (opener + closer, closer + opener)
             for i in range(0, len(angle_marks), 2)
+        ):
+            signals.append("UNBALANCED_QUOTATION")
+    # Corner/book/title quotation marks can enclose otherwise English text;
+    # the source language tag does not convert reported speech to endorsement.
+    for opener, closer in (("\u300c", "\u300d"), ("\u300e", "\u300f"), ("\u300a", "\u300b"), ("\u3010", "\u3011")):
+        cjk_marks = "".join(char for char in turn if char in (opener, closer))
+        if len(cjk_marks) % 2 or any(
+            cjk_marks[i:i + 2] != opener + closer
+            for i in range(0, len(cjk_marks), 2)
         ):
             signals.append("UNBALANCED_QUOTATION")
     # U+201E + U+201C are the conventional German low/high double pair;

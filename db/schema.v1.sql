@@ -2951,6 +2951,25 @@ CREATE TABLE IF NOT EXISTS processing_job (
 CREATE INDEX IF NOT EXISTS processing_job_queue_idx
     ON processing_job(state, available_at, lease_until);
 
+-- DP-512.5: private attempted-cost holds, never a public bill/approval.
+-- Additive migration owns the reserve_worker_budget transactional function.
+CREATE TABLE IF NOT EXISTS worker_budget_reservation (
+    job_id text NOT NULL REFERENCES processing_job(id),
+    attempt integer NOT NULL CHECK (attempt >= 0),
+    content_id text NOT NULL REFERENCES content_item(id),
+    source_id text NOT NULL REFERENCES source(id),
+    upper_bound_usd numeric(12,6) NOT NULL CHECK (upper_bound_usd > 0),
+    state text NOT NULL DEFAULT 'RESERVED'
+        CHECK (state IN ('RESERVED', 'RECEIPTED')),
+    receipt_id text REFERENCES provider_receipt(id),
+    reserved_at timestamptz NOT NULL DEFAULT now(),
+    receipted_at timestamptz,
+    PRIMARY KEY (job_id, attempt),
+    CHECK ((state = 'RECEIPTED') = (receipt_id IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS worker_budget_reservation_day_idx
+    ON worker_budget_reservation(reserved_at, source_id);
+
 CREATE TABLE IF NOT EXISTS source_health (
     source_id               text PRIMARY KEY REFERENCES source(id) ON DELETE CASCADE,
     status                  text NOT NULL,

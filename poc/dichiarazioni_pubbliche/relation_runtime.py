@@ -442,17 +442,23 @@ def evaluate_scoped_statement_relation(
             # independent gold for opposite semantic negation scope.
             rationale.append("SPEECH_ACT_POLARITY_MISMATCH")
         if (
-            left.person_id == right.person_id
-            and left.statement_date != right.statement_date
-            and earlier_speech.source_part_ref == later_speech.source_part_ref
+            earlier_speech.source_part_ref == later_speech.source_part_ref
+            and earlier_speech.source_sha256 != later_speech.source_sha256
+        ):
+            # One captured source part has one immutable byte version. Two
+            # revisions of it cannot become independent relation endpoints;
+            # the canonical current source must be resolved first.
+            rationale.append("SOURCE_PART_REVISION_CONFLICT")
+        if (
+            earlier_speech.source_part_ref == later_speech.source_part_ref
             and earlier_speech.source_sha256 == later_speech.source_sha256
             and earlier_speech.quote_start == later_speech.quote_start
             and earlier_speech.quote_end == later_speech.quote_end
             and earlier_speech.quote_sha256 == later_speech.quote_sha256
         ):
-            # Reassigning the same captured utterance to a later calendar day
-            # cannot manufacture longitudinal evidence of reaffirmation.
-            # Other same-day/multi-person aliases require store-side review.
+            # A single immutable source span is one utterance regardless of
+            # Statement IDs, assigned persons or claimed dates. It cannot
+            # establish independent cross-person or longitudinal positions.
             rationale.append("IDENTICAL_SOURCE_SPAN_REUSED")
 
     left_person_known = _person_id_resolved(left.person_id)

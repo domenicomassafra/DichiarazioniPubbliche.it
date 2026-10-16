@@ -80,7 +80,8 @@ class MonthlyLiabilityPgDiagnosticTests(unittest.TestCase):
             ),
         )
         for environment, dsn in configurations:
-            with self.subTest(environment=environment, dsn=dsn):
+            credentialed = ":secret@" in dsn
+            with self.subTest(environment=environment, credentialed=credentialed):
                 captured = io.StringIO()
                 with (
                     patch.dict(os.environ, environment),
@@ -89,18 +90,29 @@ class MonthlyLiabilityPgDiagnosticTests(unittest.TestCase):
                         return_value=self.fail_psql(stderr=PRIVATE),
                     ) as run,
                     redirect_stderr(captured),
-                    self.assertRaisesRegex(
-                        RuntimeError, "^DP514_PG_TRANSACTION_FAILED$"
-                    ),
                 ):
-                    DisposableMonthlyLiabilityPg(dsn)._snapshot()
+                    if credentialed:
+                        # The shared DP-512 fence now rejects credentials
+                        # before spawning psql; diagnostic opt-in cannot
+                        # override the safer no-password-in-argv invariant.
+                        with self.assertRaisesRegex(
+                            ValueError, "^BILLING_DISPOSABLE_DSN_REQUIRED$"
+                        ):
+                            DisposableMonthlyLiabilityPg(dsn)._snapshot()
+                        self.assertEqual(run.call_count, 0)
+                    else:
+                        with self.assertRaisesRegex(
+                            RuntimeError, "^DP514_PG_TRANSACTION_FAILED$"
+                        ):
+                            DisposableMonthlyLiabilityPg(dsn)._snapshot()
                 # Other repository tests can finalize SQLite objects while
                 # stderr is briefly captured, especially on CPython/macOS.
                 # Assert our diagnostic channel and injected private data are
                 # absent, not that unrelated ResourceWarnings never occur.
                 self.assertNotIn("DP514_CI_PG_DIAGNOSTIC", captured.getvalue())
                 self.assertNotIn(PRIVATE, captured.getvalue())
-                self.assertNotIn("VERBOSITY=verbose", run.call_args.args[0])
+                if not credentialed:
+                    self.assertNotIn("VERBOSITY=verbose", run.call_args.args[0])
 
     def test_rejects_non_disposable_dsn_before_any_psql(self):
         for dsn in (

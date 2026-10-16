@@ -167,6 +167,49 @@ class DurableWatchTests(unittest.TestCase):
                 observation=observation(),
             )
 
+    def test_persisted_newer_version_is_not_rolled_back_by_stale_200(self):
+        p_recent = replace(
+            self.p,
+            source_id="official:senate:recent",
+            locator_id="official:senate:recent-feed",
+        )
+        recent = replace(
+            self.s,
+            source_id=p_recent.source_id,
+            policy_fingerprint=policy_fingerprint(p_recent),
+            content_sha256=H2,
+            source_version="v2",
+            etag='"new"',
+            last_modified="Sat, 10 Oct 2026 08:00:00 GMT",
+        )
+        self.store.register_fixture_source(p_recent, recent, readiness(p_recent))
+        plan = self.store.begin_poll(
+            p_recent.source_id,
+            attempt_id="poll:old",
+            attempted_at=NOW,
+        )
+        self.assertTrue(plan.allowed)
+        result = self.store.commit_observation(
+            p_recent.source_id,
+            attempt_id="poll:old",
+            observation=observation(hash_value=H1, version="v1", etag='"old"'),
+        )
+        self.assertEqual(result.disposition, "UNAVAILABLE")
+        self.assertEqual(result.reason, "LAST_MODIFIED_REGRESSED")
+        self.assertEqual(result.children, ())
+        self.assertTrue(result.needs_source_review)
+        self.assertEqual(self.store.private_proposals(p_recent.source_id), ())
+        self.reopen()
+        saved = self.store.read_state(p_recent.source_id)
+        self.assertEqual(saved.content_sha256, H2)
+        self.assertEqual(saved.source_version, "v2")
+        self.assertEqual(saved.etag, '"new"')
+        self.assertEqual(saved.last_modified, recent.last_modified)
+        self.assertEqual(
+            saved.last_successful_observed_at, recent.last_successful_observed_at
+        )
+        self.assertGreater(saved.retry_not_before, NOW)
+
     def finish_after_begin(self):
         self.begin()
         return self.finish()
@@ -277,6 +320,212 @@ class DurableWatchTests(unittest.TestCase):
         older = self.begin("poll:older", NOW - timedelta(seconds=1))
         self.assertFalse(older.allowed)
         self.assertEqual(older.reason, "ATTEMPT_OUT_OF_ORDER")
+
+    def test_crashed_poll_same_gate_expires_with_atomic_cas_and_restarts(self):
+        self.begin()
+        self.reopen()
+        with self.assertRaisesRegex(ValueError, "ATTEMPT_IN_FLIGHT"):
+            self.begin("poll:replacement", NOW + timedelta(minutes=6))
+        with self.assertRaisesRegex(ValueError, "LEASE_NOT_EXPIRED"):
+            self.store.expire_stale_attempt(
+                self.p.source_id,
+                attempt_id="poll:one",
+                as_of=NOW + timedelta(seconds=299),
+                expected_state_revision=3,
+                expected_gate_revision=0,
+            )
+        with self.assertRaisesRegex(ValueError, "STATE_REVISION_CONFLICT"):
+            self.store.expire_stale_attempt(
+                self.p.source_id,
+                attempt_id="poll:one",
+                as_of=NOW + timedelta(minutes=5),
+                expected_state_revision=4,
+                expected_gate_revision=0,
+            )
+        self.store.expire_stale_attempt(
+            self.p.source_id,
+            attempt_id="poll:one",
+            as_of=NOW + timedelta(minutes=5),
+            expected_state_revision=3,
+            expected_gate_revision=0,
+        )
+        self.assertEqual(self.store.read_state(self.p.source_id), self.s)
+        self.assertEqual(self.store.committed_attempt_count(self.p.source_id), 0)
+        self.assertEqual(self.store.private_proposals(self.p.source_id), ())
+        with self.assertRaisesRegex(ValueError, "STATE_REVISION_CONFLICT"):
+            self.finish()
+        with self.assertRaisesRegex(ValueError, "STATE_REVISION_CONFLICT"):
+            self.begin()
+        self.reopen()
+        plan = self.begin("poll:replacement", NOW + timedelta(minutes=5, seconds=1))
+        self.assertTrue(plan.allowed)
+        self.assertEqual(
+            self.finish(
+                observation(at=NOW + timedelta(minutes=5, seconds=2)),
+                key="poll:replacement",
+            ).disposition,
+            "CHANGED",
+        )
+
+    def test_pinned_lease_cannot_be_shortened_on_replay_or_expired_twice(self):
+        self.store.begin_poll(
+            self.p.source_id,
+            attempt_id="poll:custom",
+            attempted_at=NOW,
+            lease_seconds=600,
+        )
+        self.reopen()
+        with self.assertRaisesRegex(ValueError, "REPLAY_CONFLICT"):
+            self.store.begin_poll(
+                self.p.source_id,
+                attempt_id="poll:custom",
+                attempted_at=NOW,
+                lease_seconds=30,
+            )
+        with self.assertRaisesRegex(ValueError, "LEASE_NOT_EXPIRED"):
+            self.store.expire_stale_attempt(
+                self.p.source_id,
+                attempt_id="poll:custom",
+                as_of=NOW + timedelta(minutes=5),
+                expected_state_revision=3,
+                expected_gate_revision=0,
+            )
+        self.store.expire_stale_attempt(
+            self.p.source_id,
+            attempt_id="poll:custom",
+            as_of=NOW + timedelta(minutes=10),
+            expected_state_revision=3,
+            expected_gate_revision=0,
+        )
+        with self.assertRaisesRegex(ValueError, "LEASE_NOT_ACTIVE"):
+            self.store.expire_stale_attempt(
+                self.p.source_id,
+                attempt_id="poll:custom",
+                as_of=NOW + timedelta(minutes=11),
+                expected_state_revision=3,
+                expected_gate_revision=0,
+            )
+
+    def test_late_observation_cannot_claim_success_after_lease_deadline(self):
+        self.store.begin_poll(
+            self.p.source_id,
+            attempt_id="poll:short",
+            attempted_at=NOW,
+            lease_seconds=30,
+        )
+        for second in (30, 31):
+            with self.subTest(second=second):
+                with self.assertRaisesRegex(ValueError, "LEASE_EXPIRED"):
+                    self.store.commit_observation(
+                        self.p.source_id,
+                        attempt_id="poll:short",
+                        observation=observation(at=NOW + timedelta(seconds=second)),
+                    )
+        self.assertEqual(self.store.read_state(self.p.source_id), self.s)
+        self.assertEqual(self.store.committed_attempt_count(self.p.source_id), 0)
+        self.store.expire_stale_attempt(
+            self.p.source_id,
+            attempt_id="poll:short",
+            as_of=NOW + timedelta(seconds=31),
+            expected_state_revision=3,
+            expected_gate_revision=0,
+        )
+
+    def test_lease_expiration_requires_valid_inputs_and_current_gate(self):
+        for invalid in (0, -1, True, 86401, 2.5):
+            with self.subTest(duration=invalid):
+                with self.assertRaisesRegex(ValueError, "LEASE_DURATION_INVALID"):
+                    self.store.begin_poll(
+                        self.p.source_id,
+                        attempt_id="poll:one",
+                        attempted_at=NOW,
+                        lease_seconds=invalid,
+                    )
+        self.begin()
+        with self.assertRaisesRegex(ValueError, "LEASE_AS_OF_TZ_REQUIRED"):
+            self.store.expire_stale_attempt(
+                self.p.source_id,
+                attempt_id="poll:one",
+                as_of=NOW.replace(tzinfo=None),
+                expected_state_revision=3,
+                expected_gate_revision=0,
+            )
+        self.store.update_fixture_readiness(
+            readiness(self.p, rights_status="REVOKED"),
+            expected_gate_revision=0,
+        )
+        with self.assertRaisesRegex(ValueError, "GATE_REVISION_CONFLICT"):
+            self.store.expire_stale_attempt(
+                self.p.source_id,
+                attempt_id="poll:one",
+                as_of=NOW + timedelta(minutes=10),
+                expected_state_revision=3,
+                expected_gate_revision=0,
+            )
+        self.store.expire_stale_attempt(
+            self.p.source_id,
+            attempt_id="poll:one",
+            as_of=NOW + timedelta(minutes=10),
+            expected_state_revision=3,
+            expected_gate_revision=1,
+        )
+        denied = self.begin("poll:after-expiry", NOW + timedelta(minutes=11))
+        self.assertFalse(denied.allowed)
+        self.assertEqual(denied.reason, "RIGHTS_NOT_READY")
+        self.assertEqual(self.store.private_proposals(self.p.source_id), ())
+
+    def test_two_connections_racing_expiry_and_commit_have_one_winner(self):
+        self.begin()
+        barrier = Barrier(2)
+
+        def compete(action):
+            connection = sqlite3.connect(self.db, isolation_level=None, timeout=3)
+            try:
+                other = LocalSourceWatchStore(connection)
+                barrier.wait(timeout=3)
+                try:
+                    if action == "commit":
+                        other.commit_observation(
+                            self.p.source_id,
+                            attempt_id="poll:one",
+                            observation=observation(),
+                        )
+                    else:
+                        other.expire_stale_attempt(
+                            self.p.source_id,
+                            attempt_id="poll:one",
+                            as_of=NOW + timedelta(minutes=5),
+                            expected_state_revision=3,
+                            expected_gate_revision=0,
+                        )
+                    return action
+                except ValueError as exc:
+                    return str(exc)
+            finally:
+                connection.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = [
+                future.result(timeout=5)
+                for future in (
+                    executor.submit(compete, "commit"),
+                    executor.submit(compete, "expire"),
+                )
+            ]
+        self.assertEqual(sum(result in {"commit", "expire"} for result in results), 1)
+        status = self.conn.execute(
+            "SELECT status FROM dp515_watch_attempt WHERE source_id=? AND attempt_id=?",
+            (self.p.source_id, "poll:one"),
+        ).fetchone()[0]
+        self.assertEqual(status, "COMMITTED" if "commit" in results else "ABANDONED")
+        self.assertEqual(
+            self.store.committed_attempt_count(self.p.source_id),
+            int(status == "COMMITTED"),
+        )
+        self.assertEqual(
+            len(self.store.private_proposals(self.p.source_id)),
+            int(status == "COMMITTED"),
+        )
 
     def test_failed_child_proposal_insert_rolls_back_state_and_replays_after_restart(
         self,

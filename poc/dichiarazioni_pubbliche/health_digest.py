@@ -5,12 +5,18 @@ import json
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
+from dichiarazioni_pubbliche.queue_store import (
+    QueueExecutionCostStore, count_undated_operation_receipts,
+)
+from dichiarazioni_pubbliche.operation_ledger import reconcile_operation_billing
 from dichiarazioni_pubbliche.ops.slo import evaluate as evaluate_slos
+from dichiarazioni_pubbliche.ops.slo import get_slo
 from dichiarazioni_pubbliche.ops.slo import pageable as pageable_slos
 from dichiarazioni_pubbliche.ops.slo import worst_status as worst_slo_status
 from dichiarazioni_pubbliche.ops.taxonomy import actionable as actionable_blockers
@@ -55,12 +61,13 @@ def build_slo_measurements(
     *,
     queue: list[dict[str, Any]],
     queue_age: dict[str, Any],
-    estimated_cost_usd_today: float,
+    estimated_cost_usd_today: float | Decimal,
     max_cost_usd_per_day: float,
     max_cost_usd_per_source_day: float,
     provider_receipts_today: list[dict[str, Any]],
     projection_generated_at: str | None,
     now: datetime,
+    unallocated_cash_liability: bool = False,
 ) -> dict[str, Any]:
     """Derive the flat measurement mapping that the pure SLO module consumes.
 
@@ -98,23 +105,38 @@ def build_slo_measurements(
         except (TypeError, ValueError):
             projection_age = None
 
-    global_cap = max(float(max_cost_usd_per_day), 0.0)
-    source_cap = max(float(max_cost_usd_per_source_day), 0.0)
-    per_source = max(
-        (float(row.get("cost_usd") or 0) for row in provider_receipts_today),
-        default=0.0,
+    global_cap = max(Decimal(str(max_cost_usd_per_day)), Decimal("0"))
+    cost_uncertain = unallocated_cash_liability or any(
+        row.get("cash_uncertain") for row in provider_receipts_today
     )
+
+    def cost_fraction(amount: float | Decimal, cap: Decimal, slo_id: str) -> Decimal | None:
+        if cap <= 0:
+            return None
+        # Decide the boundary in decimal money space before float-only SLO
+        # serialization. 0.1 + 0.2 must not become a spurious >60% breach.
+        fraction = Decimal(str(amount)) / cap
+        # Known spend over the objective already proves a breach, even when
+        # another attempt is unpriced. Otherwise uncertainty cannot imply OK.
+        if cost_uncertain and fraction <= Decimal(str(get_slo(slo_id).target)):
+            return None
+        # The pure SLO evaluator compares Decimal against Decimal before
+        # presentation converts measured ratios to JSON-compatible floats.
+        return fraction
+
     return {
         "queue_oldest_queued_seconds": (
             oldest_queued if queued > 0 else 0.0
         ),
         "queue_drain_ratio": drain_ratio,
         "estimated_cost_usd_today": (
-            float(estimated_cost_usd_today) / global_cap if global_cap > 0 else None
+            cost_fraction(estimated_cost_usd_today, global_cap, "SLO-COST-GLOBAL-DAILY")
         ),
-        "provider_receipts_today": (
-            per_source / source_cap if source_cap > 0 else None
-        ),
+        # The reconciliation groups are by provider, operation and status,
+        # not by approved content/source identity. Dividing the largest
+        # provider group by a source cap can report a fabricated healthy
+        # per-source budget. Await independently bound source attribution.
+        "provider_receipts_today": None,
         "projection_health": 1.0,
         "projection_generated_at_age_seconds": projection_age,
     }
@@ -130,6 +152,8 @@ def build_health_digest(
     projection_generated_at: str | None = None,
 ) -> dict[str, Any]:
     current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("HEALTH_DIGEST_TIMEZONE_REQUIRED")
     queue = _query_json(
         db,
         """
@@ -194,31 +218,44 @@ def build_health_digest(
         ) x;
         """,
     )
-    receipts = _query_json(
-        db,
-        """
-        SELECT COALESCE(json_agg(row_to_json(x)
-            ORDER BY provider_id, operation, status)::text, '[]')
-        FROM (
-            SELECT
-                provider_id,
-                operation,
-                status,
-                count(*)::integer AS count,
-                COALESCE(sum(
-                    CASE
-                        WHEN billing_basis='MEASURED_PROVIDER_COST'
-                            THEN measured_cost_usd
-                        ELSE estimated_cost_usd
-                    END
-                ), 0)::numeric(12,6) AS cost_usd
-            FROM provider_receipt
-            WHERE COALESCE(completed_at, started_at, now())
-                >= date_trunc('day', now())
-            GROUP BY provider_id, operation, status
-        ) x;
-        """,
+    day_start = current.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # A permanently undated historical receipt has no provable daily bucket.
+    # Do not fabricate a date using now(); instead keep the selected UTC day
+    # exact and fail the cash SLO closed while unallocated liability exists.
+    undated_unallocated_receipts = count_undated_operation_receipts(db)
+    billing = reconcile_operation_billing(
+        QueueExecutionCostStore.operation_ledger_receipts(
+            db, since=day_start.isoformat(), until=(day_start + timedelta(days=1)).isoformat()
+        )
     )
+    # Reuse canonical replay/conflict and billing semantics; never export the
+    # report's private receipt/operation identities or raw provider payloads.
+    receipt_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for group in billing.groups:
+        for attempt in group.attempts:
+            key = (group.provider_id, group.operation, attempt.status)
+            row = receipt_groups.setdefault(key, {
+                "provider_id": group.provider_id, "operation": group.operation,
+                "status": attempt.status, "count": 0, "cost_usd": Decimal("0"),
+                "cash_uncertain": False,
+                "cost_basis": "RECORDED_OR_ESTIMATED_NOT_AUTHENTICATED",
+            })
+            row["count"] += 1
+            row["cost_usd"] += (
+                attempt.recorded_measured_usd or attempt.provisional_estimated_usd or Decimal("0")
+            )
+            row["cash_uncertain"] |= (
+                attempt.cash_uncertainty or attempt.billing_basis in {"EXTERNAL_PLAN", "ZERO_COST"}
+                or (attempt.billing_basis == "ESTIMATED_ONLY"
+                    and attempt.provisional_estimated_usd == Decimal("0"))
+                or (attempt.billing_basis == "MEASURED_PROVIDER_COST"
+                    and attempt.recorded_measured_usd == Decimal("0"))
+            )
+    # The JSON digest stays numeric; conversion to float occurs only at output.
+    receipts = [
+        {**receipt_groups[key], "cost_usd": float(receipt_groups[key]["cost_usd"])}
+        for key in sorted(receipt_groups)
+    ]
     transcripts = _query_json(
         db,
         """
@@ -400,7 +437,7 @@ def build_health_digest(
         category = error_category(row.get("last_error"))
         blocker_counts[category] = blocker_counts.get(category, 0) + int(row["count"])
 
-    total_cost = sum(float(row.get("cost_usd") or 0) for row in receipts)
+    total_cost = sum((row["cost_usd"] for row in receipt_groups.values()), Decimal("0"))
     measurements = build_slo_measurements(
         queue=queue,
         queue_age=queue_age,
@@ -410,6 +447,7 @@ def build_health_digest(
         provider_receipts_today=receipts,
         projection_generated_at=projection_generated_at,
         now=current,
+        unallocated_cash_liability=undated_unallocated_receipts > 0,
     )
     slo_results = evaluate_slos(measurements)
     blockers = [
@@ -417,7 +455,7 @@ def build_health_digest(
         for key in sorted(blocker_counts)
     ]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": current.astimezone(timezone.utc).isoformat(),
         "queue": queue,
         "queue_age": queue_age,
@@ -434,7 +472,22 @@ def build_health_digest(
         "source_health": source_health,
         "content": content,
         "provider_receipts_today": receipts,
-        "estimated_cost_usd_today": round(total_cost, 6),
+        "estimated_cost_usd_today": float(billing.provisional_estimated_usd),
+        "billing_today": {
+            "recorded_measured_usd": float(billing.recorded_measured_usd),
+            "provisional_estimated_usd": float(billing.provisional_estimated_usd),
+            **{name: getattr(billing, name) for name in (
+                "operation_count", "attempt_count", "duplicate_receipt_replays",
+                "unknown_cash_attempts", "external_plan_attempts", "zero_cost_attempts",
+                "unknown_energy_attempts", "authoritative_billed_usd",
+                "plan_quota_consumed", "measured_energy_wh", "invoice_attested",
+                "authorizes_dispatch",
+            )},
+            "window_start": day_start.isoformat(),
+            "window_end": (day_start + timedelta(days=1)).isoformat(),
+            "undated_unallocated_receipts": undated_unallocated_receipts,
+            "provider_grouping_is_source_attribution": False,
+        },
         "transcripts": transcripts,
         "claims": claims,
         "evidence": evidence,

@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import importlib.util
 import json
+import os
 import subprocess
+import tempfile
 import unittest
 from dataclasses import replace
 from unittest.mock import patch
@@ -50,6 +52,20 @@ class BornDigitalPdfTests(unittest.TestCase):
     def setUp(self):
         self.parser = BornDigitalPDFTextParser()
 
+    def test_worker_import_does_not_depend_on_caller_cwd_or_pythonpath(self):
+        body = _pdf(("The actual text remains private.",))
+        caller_directory = os.getcwd()
+        with tempfile.TemporaryDirectory() as unrelated_directory:
+            try:
+                os.chdir(unrelated_directory)
+                with patch.dict(os.environ, {"PYTHONPATH": ""}):
+                    result = self.parser.parse(fetched(body, media="application/pdf"))
+            finally:
+                os.chdir(caller_directory)
+        self.assertEqual(result.status, "SUCCEEDED", result.error_category)
+        self.assertEqual(result.metadata["page_count"], 1)
+        self.assertIn("actual text remains private", result.canonical_text)
+
     def test_real_two_page_pdf_roundtrip_and_explicit_unreviewed_fidelity(self):
         body = _pdf(
             ("The witness did not confirm 42.", "Party allegation: no guilty verdict.")
@@ -93,6 +109,31 @@ class BornDigitalPdfTests(unittest.TestCase):
                 language="en",
             ),
         )
+
+    def test_partial_http_content_cannot_be_treated_as_complete_pdf_capture(self):
+        # Even a syntactically valid PDF binary returned with HTTP 206 is a
+        # ranged response, not an attestation of the complete source version.
+        # Downstream immutable page selectors must not bind to partial bytes.
+        body = _pdf(("The entire official record cannot be inferred from a range.",))
+        # Isolate the actual HTTP status contract from a separately tested
+        # optional worker process that can be unavailable under host load.
+        response = json.dumps({
+            "status": "SUCCEEDED",
+            "pages": ["The entire official record cannot be inferred from a range."],
+        }).encode()
+        with patch(
+            "dichiarazioni_pubbliche.document_pdf_extraction.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=response),
+        ):
+            complete = self.parser.parse(fetched(body, media="application/pdf"))
+            partial = self.parser.parse(
+                replace(fetched(body, media="application/pdf"), status_code=206)
+            )
+        self.assertEqual(complete.status, "SUCCEEDED", complete.error_category)
+        self.assertEqual(partial.status, "FAILED")
+        self.assertEqual(partial.error_category, "DOCUMENT_SOURCE_STATUS_INVALID")
+        self.assertFalse(partial.canonical_text)
+        self.assertFalse(partial.spans)
 
     def test_pdf_image_mixed_with_text_requires_ocr_or_independent_review(self):
         body = _pdf(("This is text beside scan.",), image=True)

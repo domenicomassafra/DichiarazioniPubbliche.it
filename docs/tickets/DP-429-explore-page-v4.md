@@ -269,3 +269,96 @@ necessarily the date of the declaration. The interface now labels the known
 date boundary rather than falsely claiming chronological Statement sorting.
 The original DP-429 acceptance and manual/accessibility gate remain open;
 ticket stays **IN PROGRESS**.
+
+## 2026-10-14 — Mobile Explore active facets and public intersection counts
+
+Implemented a substantial v4 Explore refinement on an isolated source branch:
+the current verified static search index now drives an accessible group of
+individually removable **active type, outcome, order, Person and Topic chips**.
+Each action updates only its selected URL facet, retaining the user's exact
+query and unrelated Person/Topic filters; the filter trigger receives focus
+when the removed chip disappears. Every chip has an explicit accessible
+`Rimuovi filtro` action, at least 44px touch height, wrapping text and phone/
+200%-zoom reflow. The filter sheet additionally shows bounded approved
+Finding counts per Person and Topic, recomputed with other selected filters
+held fixed. Topic membership comes **only** from approved public index
+`finding.topic_ids`; a source title, arbitrary matching name or private
+candidate does not create membership. Unknown URL Person/Topic IDs never
+appear as raw text in visible or accessible chip labels, and only actually
+indexed public Person/Topic options receive counts.
+
+`check-dp429-public-query-suggestions-20261013.mjs` was first **RED** on the
+missing active chip projection. After implementation it is **GREEN**, now also
+checking exact single-facet removal with URL/query preservation, invisible
+unknown facet IDs, four independently labeled public record kinds and
+candidate-count intersections across multiple Topic IDs. `npm run check`
+reports 0 errors, 0 warnings, and one **preexisting DP-429 unused `require`
+hint**; `npm run check:search` passes. The isolated empty-public/demo browser
+QA passes keyboard/AX/phone reflow, genuine 200% zoom and zero external
+requests; the production projection boundary still rejects renamed demo
+fixtures and keeps explicit demo runs `noindex`.
+
+The v2 artifact lacks a verified original Statement date and archive-addition
+date. This implementation does **not** invent those fields, change DP-409's
+search schema, expose first-class v3 claims without public release authority,
+or grant search relevance/person scoring. It introduces no database, provider,
+paid service, new public rights decision or MiniPC deploy.
+
+**DP-429 remains IN PROGRESS and all original AC checkboxes stay unchanged.**
+Manual screen-reader/physical/owner acceptance and main PR+CI release gate
+remain external requirements.
+
+### 2026-10-14 — Independent mobile-filter source review and browser rerun
+
+An independent **read-only worker-7** source review of exact remote source
+`15d89f3fa216a615f7c412afb23fbf707cc6b0dc` inspected the committed
+Explore component, CSS, public index validator/searcher and regressions. It
+found **no reproducible new P1/P2** within that source scope. Approved facet
+counts only use current `finding.person_id` and `finding.topic_ids`, checked
+against approved public Person/Topic rows; unknown URL facet labels stay
+generic without echoing potentially private identifiers. Chip removal keeps
+other filters and the exact typed query; source CSS wraps long labels at phone
+and 200%-equivalent widths with >=44px controls. Reviewer test, diff check and
+worktree consistency PASS; reviewer made **no edits, Git or provider calls**.
+
+Prime reran the actual local empty/demo isolated browser QA: keyboard, AX
+automation, reflow and exact 200% browser zoom **PASS**; production-boundary
+checks **PASS**, including renamed-demo refusal and non-indexable test mode.
+`check:search` and eight design/contrast/a11y Node checks PASS. These are
+automated synthetic-browser controls only: real manual screen-reader and
+MiniPC/public release acceptance remain **OPEN**, with ticket Status and AC
+unchanged; no public v3 records or editorial review were activated.
+
+### 2026-10-14 — Explore reset focus and browser suggestion parity (source-only)
+
+The active-filter group and no-match state both rendered reset buttons that
+unmounted themselves after activation. Keyboard users previously lost focus to
+the page body; the real-Chrome regression first failed with
+`reset-chip group unmounted and stranded keyboard focus`. The existing Explore
+client now restores focus to the stable `Filtri` trigger after clearing the
+active chips, or the search input after clearing the no-match query and facets.
+The modal's own reset button keeps its existing dialog-local behavior.
+
+The browser QA now verifies optional visible typo suggestions using the
+explicitly local demo index at desktop 1280px, 640px reflow and 375px phone:
+the untouched `  manutenzine  ` query remains byte-for-byte intact in input
+and URL before opt-in, both `SUPPORTED` and `finding` facets remain selected,
+the suggestion button offers approved `manutenzione` with a >=44px target and
+no horizontal overflow, and Enter applies the correction while restoring
+search focus. The corrected URL keeps whitespace and both facets and opens
+only canonical Finding routes. This is fixture-only evidence, not real content
+or proof that a public projection has been published.
+
+`DP429_BROWSER=1 node tests/dp429_explore_accessibility_regression.mjs`
+(run from repo root) now **PASS** for independently built approved-empty and
+populated demo states, including the existing keyboard, reduced-motion and
+actual 200% browser zoom checks. `web` `check:search`,
+`check:design:a11y` (8 checks), the isolated suggestion test and Astro check
+(0 errors, 0 warnings, one preexisting analyzer hint) also **PASS**.
+An explicit `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build`
+then `npm run check:quality` **PASS** (34 demo HTML routes, all
+`noindex,nofollow`); an unrestricted build appropriately requires the real
+public projection path and was not misreported as a successful live release.
+No manual AT/owner visual acceptance, external PR/CI, release pin readback,
+MiniPC deployment or public audience proof is asserted. Original accessibility
+criterion and ticket remain **IN PROGRESS**.

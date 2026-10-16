@@ -272,3 +272,84 @@ Two actual crash regressions were **RED** on source `c98ba7e`: `ValueError not r
 ### 2026-10-13 — same-PR Linux pre-SELECT HOLD correction
 
 CI on `44f15eb2e5ebfa900fb4a26aa7cfda8a59f6a8fd` exposed a consequence of the preceding repair: after a crash between connection preflight and first SELECT, SQLite on Linux/macOS Python3.11 attempted its own read-only journal recovery before the post-read check, raising `OperationalError: attempt to write a readonly database` instead of the explicit HOLD. Reproduced **RED** on native MiniPC Linux in a disposable copy of this exact committed source/tests: both read and load_plan failed that existing regression (exit1, errors2). Minimal correction reuses `_assert_read_recovery_not_pending()` immediately after `BEGIN` and before the first SELECT in both public readers; the existing post-read check remains to cover later changes while the read transaction holds its lock. No test expectation was loosened, parser or abstraction added. Fresh same 60-test focused suite **PASS on Mac Studio and native MiniPC Linux**, including process-crash, native recovery, exact FD rename attack, positive replay and WAL HOLD; Ruff/diff-check PASS. Isolated Linux source/test fixtures were created under unique `/tmp/dp240-linux-crash.*` and removed by the same command exit trap; no production DB/services/install touched. Root owns same-PR commit/push/CI/merge. All original AC remain OPEN.
+
+### 2026-10-14 — Source/Person partition binding on rehashed private plan
+
+A bounded independent local review reproduced an integrity gap in the
+existing plan replay validator. Planning derived `partition_id` from the
+exact Passage, Capture, Content, source digest, selector, context version,
+language and speaker candidate/role/act. However, replay validated only the
+*uniqueness* of the partition and the caller-recomputable whole-plan SHA.
+Swapping two partition IDs between distinct synthetic Person/source items,
+then recomputing that SHA, passed both the pure private reconciler and the
+real local SQLite `register()` path. It could therefore bind a receipt's
+partition reference to another source/speaker without a corresponding
+source-context change; SHA alone is not source or review authority.
+
+The planner and validator now share the exact deterministic partition
+function. After existing schema, status and integrity checks (preserving
+their original refusal reasons), every replayed partition must equal the
+source/Person-bound derived value. The two new tests were **RED before**
+(`ValueError not raised` in both pure reconciliation and SQLite registration)
+and **GREEN after**. Failed registration does not create a private SQLite
+database. The adjacent DP-240 pure/durable, private-candidate-batch and
+DP-242 Studio suites pass **77/77**. Scoped Ruff and `git diff --check` pass.
+Existing synthetic sources, speaker/role holds, replay immutability and raw
+wording are unchanged; no provider, billing, live source or public dispatch
+was invoked. A deterministic hash still is **not** proof of upstream rights,
+speaker identity or provider completion. All original **AC-240.1–.6 remain
+OPEN**, status **IN PROGRESS**, release **NO-GO**, with real gold/baseline,
+authenticated provenance and MiniPC/Studio evidence pending.
+
+### 2026-10-15 — Multi-source family and context-partition replay binding
+
+The versioned private DP-240 partition identity initially covered the exact
+Content/Capture/Passage/source hash and speaker candidate, but omitted the
+source family and two distinct reviewed-context identities. A caller could
+exchange the `source_family` values of two otherwise source-exact items,
+recalculate the **untrusted** outer plan SHA-256, and retain each item's old
+partition. The pure readback and real isolated SQLite `register` accepted the
+contradictory source-family partitions. This was a real local source-isolation
+gap, not evidence that any provider generated an incorrect attribution.
+
+The shared partition derivation now binds `source_family`, `context_review_id`,
+`identity_review_status` and `rights_status` alongside the existing source,
+selector, language, speaker candidate, speech role and act. Recomputed plan
+checksums cannot conceal a change in those fields while retaining the old
+partition. A legitimate new source-family manifest produces its **own**
+partition, while an unchanged second source keeps its distinct partition.
+
+The plan and private receipt format's logical `VERSION` is explicitly bumped
+from `multi-person-candidate-isolation-v1` to
+`multi-person-candidate-isolation-v2` because all canonical partition digests
+change. This does **not** migrate old persisted v1 plans or delete their SQLite
+bytes. Old v1 input is rejected at the version gate; the integrator/operator
+must preserve existing immutable receipts, inventory any actual v1 state and
+plan a reviewed compatibility/rehydration path before a runtime adoption.
+The private SQLite table schema is unchanged. Neither a new source-rights
+attestation nor a provider result can be inferred from a v2 checksum.
+
+**RED → GREEN:** two focused tests initially failed (`ValueError not raised`)
+when a source-family swap with a recalculated plan checksum was accepted by
+both pure readback and actual disposable SQLite registration. A follow-on
+adversarial test demonstrated two additional RED subcases: borrowing another
+item's contextual review receipt and raising a candidate's identity-review
+status while retaining its prior partition. All now fail closed; the SQLite
+negative confirms no invalid ledger is created. Positive tests verify normal
+v2 planning, independent family partition changes, same-key replay, held and
+failed states, concurrent SQLite writers, crash recovery and the adjacent
+private CandidateBatch and DP-242 Studio handoff contracts. Local focused
+suite: **81/81 PASS**. Scoped Ruff lint, Python compile and
+`git diff --check`: **PASS**. Tests use fabricated Persons, Contents, context
+receipts and provider observations strictly as adversarial local inputs;
+there were no paid/model calls, live capture, MiniPC or public changes.
+
+**Original AC-240.1–AC-240.6 stay unchecked, IN PROGRESS, release NO-GO.**
+The remaining A-Z proofs require genuinely approved distinct Person/speaker
+and multiple-Content source/span gold; independent quoted-voice/homonym
+annotation and correct candidate output/wording review; authenticated durable
+per-item provider retries and downstream rights review; a preregistered
+source-level isolated-vs-mixed batch precision, token, cost, latency and
+memory measurement; and real MiniPC persisted replay plus Studio operator
+readback proving correct hold/attribution and unchanged unrelated public and
+corpus counts. None are supplied by synthetic fixtures or a local checksum.

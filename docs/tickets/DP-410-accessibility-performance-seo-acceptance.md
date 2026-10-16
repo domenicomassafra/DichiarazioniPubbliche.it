@@ -385,3 +385,29 @@ Mac `origin/main` (`sha256 bb98ca8919f6dbee9e88a20e9ef3ae8a15076e6e1145d7265efaf
 No public artifact, projection, source mirror, service, DB or gateway was
 changed, restarted or promoted. Real public-domain deployment and signoffs
 remain separate. DP-304/307/410/701/702 governance/AT gates remain open.
+
+## 2026-10-14 — Public evidence publication date semantics (source-only)
+
+The shared `SourceRow.astro` component used by public Statement, Content and
+legacy verification routes displayed the approved evidence publication date
+inside a plain `<span>`, so its displayed date lacked an HTML machine-readable
+value. This conflicts with DP-410's date/time semantics criterion even though
+the Italian formatted text was visible. An isolated Astro demo build exercised
+all three fictional Statement records and six evidence links; the new
+`tests/dp410_public_source_dates.mjs` first **failed** against the real rendered
+HTML (`<span class="source-date">01 set 2026</span>`), then **passed** after
+changing only the shared source date element to `<time class="source-date"
+datetime="2026-09-01">01 set 2026</time>`. The test verifies each evidence
+publisher, exact link, original publication-date attribute and matching
+human-readable Italian text. It asserts `noindex,nofollow` and builds to a
+temporary directory with explicit local demo authorization; those fictional
+records are never activated as public content.
+
+`node tests/dp410_public_source_dates.mjs` **PASS**, `cd web && npm run
+check` **PASS** (0 errors, 0 warnings, one preexisting hint),
+`cd web && npm run check:design:a11y` **PASS** (8 automated checks), and `git diff --check`
+**PASS**. This fixes one reproducible source-level semantic defect without
+changing the search index, source wording, routes, metadata policy, CSS or
+data model. It is automated markup evidence only: **AC-410.1/.2 and the
+ticket remain IN PROGRESS** pending actual screen-reader, physical visual,
+owner acceptance, integrated CI and MiniPC/public runtime proof.

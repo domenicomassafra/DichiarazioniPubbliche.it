@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from dataclasses import asdict
@@ -45,6 +46,11 @@ REQUIRED_PUBLIC_CONSUMERS = frozenset(
         "CACHE_EDGE",
     }
 )
+
+# Legacy static routes or assets can survive a rebuild under paths absent
+# from the pinned inventory; even a hashed JS filename can contain revoked
+# material or an alias of a private receipt. No suffix-based exception.
+_MAX_LOCAL_RELEASE_ENTRIES = 10000
 
 
 @dataclass(frozen=True, slots=True)
@@ -510,6 +516,43 @@ def audit_local_static_withdrawal(
     )
     if result.status != "CONSISTENT_UNATTESTED":
         return result
+    # Reading only declared routes cannot prove even offline absence of stale
+    # legacy HTML/API/search files left behind by a previous static generation.
+    # Enumerate the *selected local release root*, not arbitrary filesystem
+    # trees. A missed directory or an unlisted symlink may itself be servable.
+    # Stream and bound directory entries so a large or corrupt release cannot
+    # hang the safety audit or be treated as successfully inspected.
+    try:
+        pending = [root]
+        entries_seen = 0
+        while pending:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    entries_seen += 1
+                    if entries_seen > _MAX_LOCAL_RELEASE_ENTRIES:
+                        raise ValueError("DP518_LOCAL_SCAN_LIMIT_EXCEEDED")
+                    if entry.is_symlink():
+                        raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+                    if entry.is_dir(follow_symlinks=False):
+                        pending.append(Path(entry.path))
+                        continue
+                    if not entry.is_file(follow_symlinks=False):
+                        raise ValueError("DP518_LOCAL_PATH_UNSAFE")
+                    candidate = Path(entry.path)
+                    relative = candidate.relative_to(root)
+                    if relative.as_posix() in seen_paths:
+                        continue
+                    # An unlisted JS/CSS/image/font may contain revoked text
+                    # or embedded private data. Suffixes/asset directories
+                    # provide no binding to this release's signed inventory.
+                    # Fail closed until every served asset is inventoried.
+                    return WithdrawalReadbackAudit(
+                        "READBACK_UNTRUSTED_OR_DRIFT",
+                        ("LOCAL_UNINVENTORIED_PUBLIC_FILE",),
+                        len(inventory), (),
+                    )
+    except OSError as exc:
+        raise ValueError("DP518_LOCAL_PATH_UNSAFE") from exc
     # A withdrawn release may retain unaffected content. Those bytes must
     # still match the pinned local inventory or the rehearsal is incomplete.
     if any(

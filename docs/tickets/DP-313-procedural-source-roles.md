@@ -127,3 +127,28 @@ will require a separately reviewed per-status person binding, not an
 automatic name or quotation inference. Qualified legal reviewers, real case
 material, privacy policy and MiniPC conditional readback remain required;
 **all DP-313 AC are OPEN**, no truth verdict/public status is asserted.
+
+## 2026-10-14 — Revoked procedural disposition lexical hold (source only)
+
+An annotated court-order span could assert the current `CONVICTED` status
+while its own exact words explicitly said the earlier conviction had been
+annulled, revoked or overturned. The existing lexical status detector matched
+`condanna`/`convicted` but did not account for the disposition being reversed.
+One new adversarial test reproduced `CANDIDATE_PRIVATE` instead of `HOLD` in
+three independently failing cases before the fix. The source guard now returns
+`STATUS_REVERSAL_UNRESOLVED / HOLD` when an explicitly reversed status term
+coexists with a specifically asserted procedural status in the same annotated
+span. Additional synthetic checks cover annulled acquittal and revoked
+dismissal; a straightforward confirmed conviction still yields only
+`CANDIDATE_PRIVATE`, with underlying facts `NOT_EVALUATED` in every case.
+
+RED: `test_revoked_or_overturned_disposition_is_not_a_current_conviction`
+failed in 3/3 initial subcases. GREEN: DP-313 plus DP-312 speech-act,
+high-risk assertion and DP-314 verification-requirement tests **88/88 PASS**;
+Ruff, Python compileall and `git diff --check` PASS. This is a conservative
+private annotation guard, not automatic resolution of appeal/finality or
+proof of a real court status. Original **AC-313.1–6 remain OPEN**, requiring
+authorized original documents and OCR comparison, qualified legal/privacy
+and rights decisions, independently reviewed procedural versions and the
+MiniPC conditional-revalidation pilot. No provider, publication or source
+rights were exercised or granted.

@@ -17,6 +17,43 @@ from tests.test_dp241_original_source_investigation import receipt
 
 
 class Dp241RecoveryWaveCloseTests(baseline.OriginalSourceRecoveryPgTests):
+    def test_foreign_content_rights_leaf_cannot_authorize_target_passage(self):
+        """A rights leaf referencing this Passage but another Content is not permission."""
+        self.sql("""
+          INSERT INTO content_item(id,source_id,canonical_url,rights_status)
+            VALUES ('content:other','source:clip',
+                    'https://fixture.invalid/unrelated','CLEARED');
+          INSERT INTO private_source_rights_record(
+            id,subject_fingerprint,source_family,locator_kind,locator_value,
+            content_id,passage_id,rights_status,rights_receipt_ref,
+            permitted_uses,reviewed_at,reviewer_ref,policy_version,supersedes_id)
+          SELECT 'rights:foreign-content',subject_fingerprint,source_family,
+            locator_kind,locator_value,'content:other',passage_id,
+            'CLEARED','fixture-foreign-content',permitted_uses,
+            now(),'fixture-reviewer','fixture-v2',id
+          FROM private_source_rights_record WHERE id='rights:clip';
+        """)
+        with self.assertRaisesRegex(ValueError, "SOURCE_STALE_OR_HELD"):
+            self.register()
+        self.assertEqual(self.sql("SELECT count(*) FROM dp241_pg_plan;"), "0")
+
+    def test_passage_pointer_does_not_upgrade_content_locator_rights(self):
+        """An unrelated rights locator type cannot silently grant Passage fetch."""
+        self.sql("""
+          INSERT INTO private_source_rights_record(
+            id,subject_fingerprint,source_family,locator_kind,locator_value,
+            content_id,passage_id,rights_status,rights_receipt_ref,
+            permitted_uses,reviewed_at,reviewer_ref,policy_version,supersedes_id)
+          SELECT 'rights:wrong-locator',subject_fingerprint,source_family,
+            'CONTENT','content:clip',content_id,passage_id,
+            'CLEARED','fixture-content-only',permitted_uses,
+            now(),'fixture-reviewer','fixture-v2',id
+          FROM private_source_rights_record WHERE id='rights:clip';
+        """)
+        with self.assertRaisesRegex(ValueError, "SOURCE_STALE_OR_HELD"):
+            self.register()
+        self.assertEqual(self.sql("SELECT count(*) FROM dp241_pg_plan;"), "0")
+
     def test_capture_final_url_changed_without_hash_change_fences_old_plan(self):
         """Capture URL is part of provenance, not mere cosmetic metadata."""
         self.register()

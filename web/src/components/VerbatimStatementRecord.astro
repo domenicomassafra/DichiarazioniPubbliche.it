@@ -1,6 +1,7 @@
 ---
 import { validateOriginalStatement, type PublicOriginalStatement } from "../lib/statementV3";
 import { validatePublicStatementV3Detail } from "../lib/statementV3Api";
+import { canonicalJson } from "../lib/searchIndex";
 
 interface Props {
   statement?: PublicOriginalStatement;
@@ -35,14 +36,35 @@ const statement = record ? {
   summary: record.summary,
   translation: record.translation,
   finding_id: record.finding_id,
-} : await validateOriginalStatement(input);
+} : await (async () => {
+  // Direct governed source records must not bypass the API mode's explicit
+  // opt-in and independently selected record pin. A declared review ID or
+  // self-reported quote hash alone is not publication authorization.
+  const hash = /^[a-f0-9]{64}$/;
+  if (allowStatementV3 !== true || !hash.test(expectedDatasetSha256 ?? "") ||
+      !hash.test(expectedRecordSha256 ?? "")) {
+    throw new Error("PUBLIC_STATEMENT_DIRECT_PIN_REQUIRED");
+  }
+  // Capture a stable copy before asynchronous validation: a mutable caller
+  // must not swap the wording after hash verification and before SSR.
+  const snapshot = structuredClone(input);
+  const approved = await validateOriginalStatement(snapshot);
+  const bytes = await globalThis.crypto.subtle.digest(
+    "SHA-256", new TextEncoder().encode(canonicalJson(approved)),
+  );
+  const actual = Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  if (actual !== expectedRecordSha256) {
+    throw new Error("PUBLIC_STATEMENT_DIRECT_RECORD_FINGERPRINT_MISMATCH");
+  }
+  return approved;
+})();
 const date = statement.statement_date;
 const sourceSpan = statement.source_kind === "TIMED"
   ? `Segmento ${statement.locator.segment_id} · ${statement.locator.start_ms}–${statement.locator.end_ms} ms`
   : `Testo originale · caratteri ${statement.locator.start_char}–${statement.locator.end_char}`;
 ---
 
-<article class="dp-statement-body" data-contract="public-statement-v3-opt-in" data-dataset-sha256={api?.meta.dataset_sha256}>
+<article class="dp-statement-body" data-contract="public-statement-v3-opt-in" data-dataset-sha256={api?.meta.dataset_sha256 ?? expectedDatasetSha256}>
   <header class="record-header">
     <div class="eyebrow">Parole originali dalla fonte</div>
     <blockquote class="prose" lang={statement.language} cite={statement.source_url}>

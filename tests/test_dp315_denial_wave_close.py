@@ -5,7 +5,7 @@ The source, attribution and review metadata below are entirely synthetic.
 
 import sys
 import unittest
-from dataclasses import replace
+from dataclasses import fields, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +52,44 @@ def evaluate(rows: tuple[PriorOccurrence, ...], predicate: str = "NEVER_UTTERED"
 
 
 class DenialAdversarialReplayTests(unittest.TestCase):
+    def test_mutated_prior_after_receipt_snapshot_cannot_certify_refutation(self):
+        # Frozen dataclasses still have a mutable __dict__ and can be subclassed.
+        # A caller-controlled typed occurrence must not be re-read for a
+        # counterexample after its independently hashed receipt snapshot.
+        class SwitchingPrior(PriorOccurrence):
+            def __getattribute__(self, name):
+                state = object.__getattribute__(self, "__dict__")
+                if state.get("_armed") and name == state["_switch_field"]:
+                    state["_reads"] += 1
+                    return state["_first"] if state["_reads"] == 1 else state["_later"]
+                return super().__getattribute__(name)
+
+        source = replace(occurrence("occ:mutable", "source:mutable:v1"),
+                         endorsed=False)
+        for field, first, later in (
+            ("status", "REVOKED", "CURRENT"),
+            ("speech_act", "REPORTED_QUOTE", "ASSERTION"),
+        ):
+            with self.subTest(field=field):
+                row = SwitchingPrior(**{
+                    item.name: getattr(source, item.name)
+                    for item in fields(PriorOccurrence)
+                })
+                state = vars(row)
+                state.update(_switch_field=field, _first=first, _later=later,
+                             _reads=0, _armed=True)
+                expected = evaluate((replace(source, **{field: first}),))
+                # The quoted case is not an endorsement; the revoked case
+                # cannot reappear as CURRENT while the hashed receipt says revoked.
+                actual = evaluate((row,))
+                self.assertEqual(actual.denial_factual_status,
+                                 "CHECKED_INSUFFICIENT_EVIDENCE")
+                # Context-only occurrences remain listed as reviewed matches,
+                # while a revoked one cannot be a matched occurrence.
+                if field == "status":
+                    self.assertEqual(actual.matched_occurrence_ids, ())
+                self.assertEqual(actual, expected)
+
     def test_two_independent_approved_counterexamples_both_survive_any_order(self):
         alpha = occurrence("occ:alpha", "source:alpha:v1", 2022)
         beta = occurrence("occ:beta", "source:beta:v1", 2024)

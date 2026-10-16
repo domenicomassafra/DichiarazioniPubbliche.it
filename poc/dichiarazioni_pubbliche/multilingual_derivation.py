@@ -40,7 +40,7 @@ MAX_ACTORS = 16
 _BCP47 = re.compile(r"^(?:[A-Za-z]{2,3}|und)(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?(?:-[A-Za-z0-9]{5,8})*$")
 _SHA = re.compile(r"^[a-f0-9]{64}$")
 _DATE = re.compile(r"(?<!\w)(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[./-]\d{1,2}[./-]\d{4})(?!\w)")
-_NUMBER = re.compile(r"(?<!\w)[+-]?\d+(?:[.,]\d+)*%?(?!\w)")
+_NUMBER = re.compile(r"(?<!\w)[+\-\u2212]?\d+(?:[.,]\d+)*%?(?!\w)")
 _MONTH_WORDS = re.compile(r"\b(?:januar|februar|märz|april|mai|juni|juli|august|september|oktober|november|dezember|gennaio|febbraio|marzo|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\b", re.I)
 _NEGATIONS = {
     "de": re.compile(r"\b(?:nicht|nie|niemals|kein(?:e[rsnm]?)?|ohne|weder)\b", re.I),
@@ -274,7 +274,9 @@ def _dates_and_numbers(text: str) -> tuple[tuple[str, ...], tuple[str, ...], boo
 
 def _numeric_value(token: str) -> str:
     """Conservatively compare de/it decimal commas and grouped thousands."""
-    amount = token.removesuffix("%")
+    # German official tables commonly use U+2212 for a negative value. It
+    # must retain the same magnitude/sign as ASCII '-' during comparison.
+    amount = token.removesuffix("%").replace("\u2212", "-")
     if (amount.count(",") > 1 or ("." in amount and not re.fullmatch(
             r"[+-]?\d{1,3}(?:\.\d{3})+(?:,\d+)?", amount))):
         return "UNPARSED:" + token

@@ -50,7 +50,10 @@ class SourceIntelligenceTests(unittest.TestCase):
                 "reference_period": reference_period,
                 "metric": metric,
                 "unit": unit,
-                "dimensions": dimensions or {},
+                "dimensions": (
+                    {"population": "ALL", "geography": "IT"}
+                    if dimensions is None else dimensions
+                ),
                 "value_numeric": value if isinstance(value, (int, float)) else None,
                 "value_text": value if isinstance(value, str) else None,
                 "independence_group": independence_group or source_id,
@@ -73,6 +76,8 @@ class SourceIntelligenceTests(unittest.TestCase):
             "claim_requirements": {
                 "metric": "employment_rate_pct",
                 "unit": "percent",
+                "population": "ALL",
+                "geography": "IT",
                 "reference_period": "2026-07",
             },
             "evidence": evidence,
@@ -132,6 +137,7 @@ class SourceIntelligenceTests(unittest.TestCase):
             "reference_period": "2026-07",
             "metric": "employment_rate_pct",
             "unit": "percent",
+            "dimensions": {"population": "ALL", "geography": "IT"},
             "value_numeric": 63.2,
             "rights_status": "UNKNOWN",
         }
@@ -161,6 +167,45 @@ class SourceIntelligenceTests(unittest.TestCase):
         )
         self.assertEqual(result.status, "TEMPORAL_MISMATCH")
         self.assertTrue(result.coverage_need_candidates)
+        self.assertEqual(result.qualifying_evidence_ids, ())
+
+    def test_missing_statistical_claim_dimensions_cannot_auto_suffice(self):
+        # A reviewed source is not evidence for an unspecified metric, unit or
+        # period: an empty match predicate must not succeed vacuously.
+        result = self.assess(
+            [self.item("istat-sdmx")], claim_requirements={}
+        )
+        self.assertEqual(result.status, "SCOPE_MISMATCH")
+        self.assertEqual(result.qualifying_evidence_ids, ())
+        self.assertTrue(
+            any(need.requirement_kind == "FIELD_MATCH" for need in result.coverage_need_candidates)
+        )
+
+    def test_partial_statistical_claim_dimensions_cannot_auto_suffice(self):
+        # Providing the metric alone must not silently waive the declared
+        # unit, period, population and geography match requirements.
+        complete = {
+            "metric": "employment_rate_pct",
+            "unit": "percent",
+            "population": "ALL",
+            "geography": "IT",
+            "reference_period": "2026-07",
+        }
+        partials = [{"metric": "employment_rate_pct"}] + [
+            {key: value for key, value in complete.items() if key != missing}
+            for missing in complete
+        ]
+        for scope in partials:
+            with self.subTest(scope=scope):
+                result = self.assess(
+                    [self.item("istat-sdmx")], claim_requirements=scope
+                )
+                self.assertEqual(result.status, "SCOPE_MISMATCH")
+                self.assertEqual(result.qualifying_evidence_ids, ())
+                self.assertTrue(
+                    any(need.requirement_kind == "FIELD_MATCH"
+                        for need in result.coverage_need_candidates)
+                )
 
     def test_future_evidence_is_temporal_mismatch(self):
         result = self.assess(

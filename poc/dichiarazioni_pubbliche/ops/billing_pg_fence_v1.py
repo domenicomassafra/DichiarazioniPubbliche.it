@@ -152,7 +152,12 @@ BEGIN
   'zero_cost_verified',false,
   'dispatch_authorized',false,
   'cash_settled',false,
-  'local_energy_basis',COALESCE(NULLIF(original.receipt->>'local_energy_basis',''),'UNKNOWN')
+  -- The nested receipt is private, untrusted JSON. Never echo arbitrary
+  -- strings or legacy labels through the sanitized classification result.
+  'local_energy_basis',CASE
+    WHEN original.receipt->>'local_energy_basis' IN ('UNKNOWN','ESTIMATED','MEASURED')
+      THEN original.receipt->>'local_energy_basis'
+    ELSE 'UNKNOWN' END
  );
  INSERT INTO dp512_pg_event(
   event_id,receipt_id,revision,expected_revision,original_fingerprint,
@@ -161,6 +166,140 @@ BEGIN
         p_basis,p_asserted,evidence_hash,result);
  UPDATE dp512_pg_state SET revision=revision+1 WHERE receipt_id=p_receipt
   AND revision=p_revision;
+ IF NOT FOUND THEN RAISE EXCEPTION 'BILLING_REVISION_CONFLICT'; END IF;
+ RETURN result;
+END $fn$;
+
+-- Separate, append-only comparison candidates: an operator-supplied reference
+-- and amount are not authenticated evidence of a refund or a settled invoice.
+-- This table is deliberately unavailable outside a disposable test database.
+CREATE TABLE IF NOT EXISTS dp512_pg_adjustment (
+  event_id text PRIMARY KEY,
+  receipt_id text NOT NULL REFERENCES dp512_pg_state(receipt_id),
+  revision integer NOT NULL CHECK(revision > 0),
+  expected_revision integer NOT NULL CHECK(expected_revision >= 0),
+  original_fingerprint text NOT NULL CHECK(length(original_fingerprint)=32),
+  adjustment_kind text NOT NULL CHECK(
+    adjustment_kind IN ('REFUND','CORRECTION_UP','CORRECTION_DOWN')),
+  amount_usd numeric(12,6) NOT NULL CHECK(amount_usd > 0),
+  evidence_reference_fingerprint text NOT NULL,
+  unverified_net_recorded_usd numeric(12,6) NOT NULL
+    CHECK(unverified_net_recorded_usd >= 0),
+  result_json jsonb NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  UNIQUE(receipt_id, revision),
+  -- One operator-supplied reference can never create two credits, even if
+  -- the second writer calls the same adjustment a different kind.
+  UNIQUE(receipt_id, evidence_reference_fingerprint)
+);
+-- Re-applying this disposable schema must also harden a previously created
+-- table rather than assuming CREATE TABLE IF NOT EXISTS upgraded its keys.
+CREATE UNIQUE INDEX IF NOT EXISTS dp512_adjustment_reference_unique_v2
+ ON dp512_pg_adjustment(receipt_id, evidence_reference_fingerprint);
+DROP TRIGGER IF EXISTS dp512_adjustment_append_only ON dp512_pg_adjustment;
+CREATE TRIGGER dp512_adjustment_append_only
+ BEFORE UPDATE OR DELETE ON dp512_pg_adjustment
+ FOR EACH ROW EXECUTE FUNCTION dp512_pg_immutable_event();
+
+CREATE OR REPLACE FUNCTION dp512_pg_adjust_record(
+ p_receipt text, p_event text, p_revision integer, p_kind text,
+ p_amount numeric, p_evidence text
+) RETURNS jsonb LANGUAGE plpgsql AS $fn$
+DECLARE
+ original provider_receipt%ROWTYPE;
+ current_row dp512_pg_state%ROWTYPE;
+ previous dp512_pg_adjustment%ROWTYPE;
+ original_hash text;
+ evidence_hash text;
+ prior_delta numeric;
+ signed_delta numeric;
+ net numeric;
+ receipt_count integer;
+ result jsonb;
+BEGIN
+ IF current_database() NOT LIKE 'dp512_test_%' THEN
+   RAISE EXCEPTION 'BILLING_DISPOSABLE_DATABASE_REQUIRED';
+ END IF;
+ -- Same lock order as dp512_pg_record: canonical receipt, then CAS state.
+ SELECT * INTO original FROM provider_receipt WHERE id=p_receipt FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'BILLING_CANONICAL_RECEIPT_MISSING'; END IF;
+ IF original.operation_key IS NULL OR btrim(original.operation_key)=''
+    OR original.attempt < 1 THEN
+   RAISE EXCEPTION 'BILLING_CANONICAL_IDENTITY_INVALID';
+ END IF;
+ SELECT count(*) INTO receipt_count FROM provider_receipt
+  WHERE operation_key=original.operation_key AND attempt=original.attempt;
+ IF receipt_count<>1 THEN
+   RAISE EXCEPTION 'BILLING_CANONICAL_ATTEMPT_AMBIGUOUS';
+ END IF;
+ IF original.billing_basis<>'MEASURED_PROVIDER_COST'
+    OR original.measured_cost_usd IS NULL THEN
+   RAISE EXCEPTION 'BILLING_ADJUSTMENT_MEASURED_REQUIRED';
+ END IF;
+ original_hash := md5(to_jsonb(original)::text);
+ SELECT * INTO current_row FROM dp512_pg_state
+  WHERE receipt_id=p_receipt FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'BILLING_CLASSIFICATION_EVENT_REQUIRED'; END IF;
+ IF current_row.original_fingerprint<>original_hash THEN
+   RAISE EXCEPTION 'BILLING_ORIGINAL_DRIFT';
+ END IF;
+ IF p_kind NOT IN ('REFUND','CORRECTION_UP','CORRECTION_DOWN')
+    OR p_amount IS NULL OR p_amount<=0 OR p_amount>999999.999999
+    OR p_evidence IS NULL OR btrim(p_evidence)='' THEN
+   RAISE EXCEPTION 'BILLING_ADJUSTMENT_INVALID';
+ END IF;
+ evidence_hash := md5(p_evidence);
+ SELECT * INTO previous FROM dp512_pg_adjustment WHERE event_id=p_event;
+ IF FOUND THEN
+   IF previous.receipt_id<>p_receipt
+      OR previous.expected_revision<>p_revision
+      OR previous.adjustment_kind<>p_kind
+      OR previous.amount_usd<>p_amount
+      OR previous.evidence_reference_fingerprint<>evidence_hash
+      OR previous.original_fingerprint<>original_hash THEN
+     RAISE EXCEPTION 'BILLING_ADJUSTMENT_REPLAY_CONFLICT';
+   END IF;
+   RETURN previous.result_json;
+ END IF;
+ IF EXISTS (
+   SELECT 1 FROM dp512_pg_adjustment
+   WHERE receipt_id=p_receipt
+      AND evidence_reference_fingerprint=evidence_hash
+ ) THEN
+   RAISE EXCEPTION 'BILLING_ADJUSTMENT_REFERENCE_REUSED';
+ END IF;
+ IF current_row.revision<>p_revision THEN
+   RAISE EXCEPTION 'BILLING_REVISION_CONFLICT';
+ END IF;
+ SELECT COALESCE(sum(CASE WHEN adjustment_kind='CORRECTION_UP'
+        THEN amount_usd ELSE -amount_usd END),0)
+   INTO prior_delta FROM dp512_pg_adjustment WHERE receipt_id=p_receipt;
+ signed_delta := CASE WHEN p_kind='CORRECTION_UP'
+                     THEN p_amount ELSE -p_amount END;
+ net := original.measured_cost_usd + prior_delta + signed_delta;
+ IF net<0 THEN RAISE EXCEPTION 'BILLING_ADJUSTMENT_UNDERFLOW'; END IF;
+ IF net>999999.999999 THEN RAISE EXCEPTION 'BILLING_ADJUSTMENT_OVERFLOW'; END IF;
+ result := jsonb_build_object(
+   'revision',p_revision+1,
+   'adjustment_kind',p_kind,
+   'unverified_net_recorded_usd',to_char(net,'FM999999999990.000000'),
+   'adjustment_usd',to_char(p_amount,'FM999999999990.000000'),
+   'cash_status','ADJUSTMENT_CANDIDATE_UNVERIFIED',
+   'receipt_id',p_receipt,
+   'original_recorded_usd',
+      to_char(original.measured_cost_usd,'FM999999999990.000000'),
+   'evidence_reference_present',true,
+   'invoice_attested',false,'cash_settled',false,
+   'dispatch_authorized',false,'original_receipt_modified',false
+ );
+ INSERT INTO dp512_pg_adjustment(
+   event_id,receipt_id,revision,expected_revision,original_fingerprint,
+   adjustment_kind,amount_usd,evidence_reference_fingerprint,
+   unverified_net_recorded_usd,result_json)
+ VALUES(p_event,p_receipt,p_revision+1,p_revision,original_hash,
+        p_kind,p_amount,evidence_hash,net,result);
+ UPDATE dp512_pg_state SET revision=revision+1
+  WHERE receipt_id=p_receipt AND revision=p_revision;
  IF NOT FOUND THEN RAISE EXCEPTION 'BILLING_REVISION_CONFLICT'; END IF;
  RETURN result;
 END $fn$;
@@ -197,6 +336,9 @@ class DisposableBillingPgFence:
             u.scheme not in {"postgresql", "postgres"}
             or u.hostname not in {"127.0.0.1", "localhost"}
             or not u.path.startswith("/dp512_test_")
+            # This DSN is passed to psql as an argv value: credentials must
+            # come from the native libpq store, never URI userinfo.
+            or u.password is not None
             or u.query
             or u.fragment
         ):
@@ -240,6 +382,13 @@ class DisposableBillingPgFence:
                 "BILLING_EVENT_REPLAY_CONFLICT",
                 "BILLING_REVISION_CONFLICT",
                 "BILLING_DISPOSABLE_DATABASE_REQUIRED",
+                "BILLING_ADJUSTMENT_MEASURED_REQUIRED",
+                "BILLING_CLASSIFICATION_EVENT_REQUIRED",
+                "BILLING_ADJUSTMENT_INVALID",
+                "BILLING_ADJUSTMENT_REPLAY_CONFLICT",
+                "BILLING_ADJUSTMENT_REFERENCE_REUSED",
+                "BILLING_ADJUSTMENT_UNDERFLOW",
+                "BILLING_ADJUSTMENT_OVERFLOW",
             ):
                 if code in msg:
                     raise ValueError(code) from None
@@ -284,6 +433,53 @@ class DisposableBillingPgFence:
         result = json.loads(output)
         if (
             not isinstance(result, dict)
+            or result.get("dispatch_authorized") is not False
+        ):
+            raise RuntimeError("BILLING_PG_RESULT_UNSAFE")
+        return result
+
+    def adjust(
+        self,
+        *,
+        receipt_id: str,
+        event_id: str,
+        expected_revision: int,
+        adjustment_kind: str,
+        amount_usd: str | Decimal | int,
+        evidence_ref: str,
+    ) -> dict[str, object]:
+        """Record an *unverified* historic adjustment, never a cash settlement.
+
+        Uses the canonical receipt and shared classification CAS revision in
+        an isolated PostgreSQL database; it cannot debit a production ledger.
+        """
+        _label(receipt_id, "RECEIPT_ID")
+        _label(event_id, "EVENT_ID")
+        if type(expected_revision) is not int or expected_revision < 0:
+            raise ValueError("BILLING_REVISION_INVALID")
+        if adjustment_kind not in ("REFUND", "CORRECTION_UP", "CORRECTION_DOWN"):
+            raise ValueError("BILLING_ADJUSTMENT_KIND_INVALID")
+        amount = _money(amount_usd)
+        if Decimal(amount) <= 0:
+            raise ValueError("BILLING_AMOUNT_INVALID")
+        if not isinstance(evidence_ref, str) or not _REF.fullmatch(evidence_ref):
+            raise ValueError("BILLING_EVIDENCE_REFERENCE_INVALID")
+        output = self._run(
+            "SELECT dp512_pg_adjust_record(:'receipt', :'event',"
+            " :'revision'::integer, :'kind', :'money'::numeric,"
+            " :'evidence')::text;",
+            receipt=receipt_id,
+            event=event_id,
+            revision=str(expected_revision),
+            kind=adjustment_kind,
+            money=amount,
+            evidence=evidence_ref,
+        )
+        result = json.loads(output)
+        if (
+            not isinstance(result, dict)
+            or result.get("invoice_attested") is not False
+            or result.get("cash_settled") is not False
             or result.get("dispatch_authorized") is not False
         ):
             raise RuntimeError("BILLING_PG_RESULT_UNSAFE")

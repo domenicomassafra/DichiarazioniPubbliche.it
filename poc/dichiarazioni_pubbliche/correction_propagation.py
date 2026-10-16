@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Iterable, Mapping
 
@@ -23,6 +24,7 @@ class ProjectionState:
     topics: Mapping[str, Mapping[str, Any]]
     titles: Mapping[tuple[str, str], str]
     entity_sha256: Mapping[tuple[str, str], str]
+    has_first_class_contents: bool
 
 
 @dataclass(frozen=True)
@@ -247,6 +249,7 @@ def _projection_state(payload: Mapping[str, Any]) -> ProjectionState:
         topics=topics,
         titles=titles,
         entity_sha256=entity_sha256,
+        has_first_class_contents=payload.get("contents") is not None,
     )
 
 
@@ -331,6 +334,137 @@ def _artifact_fingerprint(
         return None
 
 
+def _search_terms(values: Iterable[Any]) -> list[str]:
+    """Mirror web/src/lib/searchIndex.ts::compactTerms exactly for public strings."""
+    terms: list[str] = []
+    for raw in values:
+        term = str(raw).strip() if raw is not None else ""
+        if term and term not in terms:
+            terms.append(term)
+    return terms
+
+
+def _public_search_slug(identifier: str) -> str:
+    """Mirror format.ts::publicIdSlug (lower, NFKD, remove marks, ASCII slug)."""
+    normalized = unicodedata.normalize("NFKD", identifier.lower())
+    without_marks = "".join(
+        char for char in normalized if not unicodedata.category(char).startswith("M")
+    )
+    return re.sub(r"[^a-z0-9]+", "-", without_marks).strip("-")
+
+
+def _search_record(
+    kind: str,
+    identifier: str,
+    title: str,
+    subtitle: str,
+    published_at: str | None,
+    assessment: str | None,
+    route: str,
+    primary: Iterable[Any],
+    secondary: Iterable[Any],
+    *,
+    corrections: bool = False,
+    replies: bool = False,
+    wording: str | None = None,
+    source_wording: str | None = None,
+    **facets: Any,
+) -> dict[str, Any]:
+    """The full PublicSearchRecord v1 allowlist; no omitted or extra metadata."""
+    return {
+        "id": identifier, "kind": kind, "title": title, "subtitle": subtitle,
+        "published_at": published_at, "assessment": assessment, "route": route,
+        "has_corrections": corrections, "has_rights_of_reply": replies,
+        "wording_type": wording, "source_wording_type": source_wording,
+        "direct_quote_eligible": False,
+        "primary_terms": _search_terms(primary), "secondary_terms": _search_terms(secondary),
+        **facets,
+    }
+
+
+def _expected_search_records(current: ProjectionState) -> dict[tuple[str, str], dict[str, Any]]:
+    """Recreate all four approved v1 search kinds from the CURRENT projection.
+
+    Mirrors findingRecord and buildSearchIndexMaterial in searchIndex.ts:
+    never trust a copied title or self-claimed SHA to authorize hidden terms,
+    route rebinding, wrong facets, or even missing/extra record fields.
+    """
+    result: dict[tuple[str, str], dict[str, Any]] = {}
+    topic_memberships: dict[str, set[str]] = {}
+    for topic_id, topic in current.topics.items():
+        for membership in topic["memberships"]:
+            for finding_id in membership["finding_ids"]:
+                topic_memberships.setdefault(finding_id, set()).add(topic_id)
+
+    for finding_id, dossier in current.findings.items():
+        speaker = dossier["speaker"]
+        source = dossier["source"]
+        finding = dossier["finding"]
+        roles: list[Any] = []
+        for role in speaker.get("public_roles") or []:
+            if not isinstance(role, Mapping):
+                raise ValueError("CORRECTION_PROPAGATION_PUBLIC_ROLE_INVALID")
+            roles.extend((role["role"], role.get("organization_name")))
+        finding_date = finding.get("published_at")
+        original_wording = dossier.get("wording")
+        source_wording = (
+            original_wording["source_occurrence"]["wording_type"]
+            if original_wording is not None else None
+        )
+        result[("finding", finding_id)] = _search_record(
+            "finding", finding_id, dossier["claim"],
+            " · ".join(str(value) for value in (speaker["name"], source["title"]) if value),
+            finding_date if finding_date is not None else source.get("published_at"),
+            finding["assessment"],
+            f"/dichiarazioni/{_public_search_slug(finding_id)}/",
+            (dossier["claim"],),
+            (speaker["name"], source["title"], dossier["claim_type"], finding["assessment"], *roles),
+            corrections=bool(dossier.get("corrections")),
+            replies=bool(dossier.get("rights_of_reply")),
+            wording="PARAPHRASE", source_wording=source_wording,
+            person_id=speaker["id"],
+            topic_ids=sorted(topic_memberships.get(finding_id, ())),
+        )
+        person_id = speaker["id"]
+        if ("person", person_id) not in result:
+            result[("person", person_id)] = _search_record(
+                "person", person_id, speaker["name"],
+                " · ".join(_search_terms(roles)), None, None,
+                f"/persone/{_public_search_slug(person_id)}/",
+                (speaker["name"],), roles,
+            )
+        if not current.has_first_class_contents:
+            content_id = source["content_id"]
+            if ("content", content_id) not in result:
+                result[("content", content_id)] = _search_record(
+                    "content", content_id, source["title"], "Fonte pubblica",
+                    source.get("published_at"), None,
+                    f"/contenuti/{_public_search_slug(content_id)}/",
+                    (source["title"],), (),
+                )
+
+    for topic_id, topic in current.topics.items():
+        result[("topic", topic_id)] = _search_record(
+            "topic", topic_id, topic["canonical_name"],
+            topic["scope_text"] if topic.get("scope_text") is not None
+            else "Tema pubblico revisionato",
+            None, None, f"/temi/{topic['slug']}/",
+            (topic["canonical_name"],), (topic.get("scope_text"),),
+        )
+    if current.has_first_class_contents:
+        for content_id, content in current.contents.items():
+            explicit = content["public_content"]
+            if explicit is None:
+                continue
+            result[("content", content_id)] = _search_record(
+                "content", content_id, explicit["title"],
+                explicit["content_kind"].lower(), explicit.get("published_at"),
+                None, f"/contenuti/{explicit['slug']}/",
+                (explicit["title"],), (explicit["content_kind"],),
+            )
+    return result
+
+
 def _check_search_index(
     search_index: Mapping[str, Any],
     *,
@@ -346,7 +480,7 @@ def _check_search_index(
         blockers=blockers,
         stale_artifacts=stale_artifacts,
     )
-    expected = _current_identity_sets(current)
+    canonical_records = _expected_search_records(current)
     seen: set[tuple[str, str]] = set()
     records = search_index.get("records")
     if not isinstance(records, list):
@@ -370,20 +504,31 @@ def _check_search_index(
             _add_once(stale_artifacts, label)
             continue
         seen.add(identity)
-        if identifier not in expected[kind]:
+        expected_record = canonical_records.get(identity)
+        if expected_record is None:
             _add_once(blockers, "SEARCH_INDEX_ORPHAN_ENTRY")
             _add_once(orphan_artifacts, label)
             continue
-        expected_title = current.titles.get(identity)
+        expected_title = expected_record["title"]
         if expected_title is not None and str(row.get("title") or "") != expected_title:
             _add_once(blockers, "SEARCH_INDEX_STALE_ENTRY")
             _add_once(stale_artifacts, label)
+        # Strict complete-record parity. A missing field is NOT an optional
+        # omission, even if searchIndex.ts's client parser tolerates old v1
+        # assets. All current Finding/Person/Topic/Content representations
+        # must originate from the same approved correction/revocation state.
+        if row != expected_record:
+            _add_once(blockers, "SEARCH_INDEX_STALE_METADATA")
+            _add_once(stale_artifacts, label)
 
-    for kind in _ENTITY_KINDS:
-        for identifier in sorted(expected[kind]):
-            if (kind, identifier) not in seen:
-                _add_once(blockers, "SEARCH_INDEX_PARTIAL")
-                _add_once(missing_artifacts, f"search:{kind}:{identifier}")
+    # Search record eligibility differs from historical source lineage:
+    # `contents=[]` is a first-class empty catalog, not a request for legacy
+    # per-dossier Content fallback rows. Static route/history tracking still
+    # uses all source Content identities in `_current_identity_sets`.
+    for kind, identifier in sorted(canonical_records):
+        if (kind, identifier) not in seen:
+            _add_once(blockers, "SEARCH_INDEX_PARTIAL")
+            _add_once(missing_artifacts, f"search:{kind}:{identifier}")
     return fingerprint
 
 

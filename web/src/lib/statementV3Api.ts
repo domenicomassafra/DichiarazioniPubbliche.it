@@ -90,8 +90,12 @@ export async function validatePublicStatementV3Detail(
   if (!HASH.test(options.expectedRecordSha256 ?? "")) {
     throw new Error("PUBLIC_STATEMENT_API_RECORD_FINGERPRINT_REQUIRED");
   }
-  exactFields(value, ["meta", "data"]);
-  const meta = value.meta;
+  // Never validate one caller-owned object then return the same mutable
+  // reference. Detach before any async SHA-256 work so concurrent caller
+  // changes cannot swap approved wording/source under the old record pin.
+  const snapshot: unknown = structuredClone(value);
+  exactFields(snapshot, ["meta", "data"]);
+  const meta = snapshot.meta;
   exactFields(meta, ["public_schema_version", "dataset_sha256", "generated_at"]);
   if (meta.public_schema_version !== PUBLIC_STATEMENT_V3_SCHEMA) {
     throw new Error("PUBLIC_STATEMENT_API_SCHEMA_INCOMPATIBLE");
@@ -101,7 +105,7 @@ export async function validatePublicStatementV3Detail(
     throw new Error("PUBLIC_STATEMENT_API_FINGERPRINT_MISMATCH");
   }
 
-  const record = value.data;
+  const record = snapshot.data;
   exactFields(record, [
     "statement_id", "version_id", "statement_date", "person", "source", "original",
     "speech_act", "endorsed", "finding_id", "summary", "translation",
@@ -175,5 +179,5 @@ export async function validatePublicStatementV3Detail(
   if (await digest(canonicalJson(record)) !== options.expectedRecordSha256) {
     throw new Error("PUBLIC_STATEMENT_API_RECORD_FINGERPRINT_MISMATCH");
   }
-  return value as unknown as PublicStatementV3ApiDetail;
+  return snapshot as unknown as PublicStatementV3ApiDetail;
 }

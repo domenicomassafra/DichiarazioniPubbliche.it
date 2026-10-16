@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -539,6 +539,26 @@ def preflight_historical_corpus(
                 tuple(sorted(memberships[item.content_id])),
             )
         )
+
+    # A derivative cannot acquire a clean review state from its own receipt
+    # while the linked original is held for speaker, source, rights or revision.
+    # Resolve this after all rows: content-id ordering can place a copy first.
+    original_holds = {
+        row.content_id: row.holds
+        for row in rows
+        if row.source_kind == "PRIMARY_ORIGINAL"
+    }
+    for index, row in enumerate(rows):
+        if (
+            row.source_kind in {"ARCHIVE_COPY", "EDITORIAL_TRANSLATION"}
+            and row.root_content_id is not None
+            and original_holds.get(row.root_content_id)
+        ):
+            rows[index] = replace(
+                row,
+                state="HELD",
+                holds=tuple(sorted(set(row.holds) | {"PARENT_SOURCE_UNVERIFIED"})),
+            )
 
     # The manifest fingerprint is an integrity tag for deterministic replay; it is
     # not a signature, a source authenticity attestation, or an authority token.

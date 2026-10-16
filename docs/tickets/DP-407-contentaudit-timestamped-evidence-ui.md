@@ -476,3 +476,43 @@ screen-reader/device checks or MiniPC readback.
 **AC-407.4 and AC-407.7 remain OPEN**, and DP-407 stays
 **IN PROGRESS / public release NO-GO**. Any global header/body responsive
 change requires coordination with the owner of the shared styles/layout.
+
+### 2026-10-15 — Source-timed-link fragment normalization (source-only)
+
+The real `ContentRecord.astro` moment locator appended `#t={seconds}` directly
+to the approved source URL. An otherwise schema-valid original Content URL with
+an existing fragment (for example,
+`https://example.test/demo/maintenance?edition=1#intro`) therefore produced
+`#intro#t=150`, where the approved moment's `t=150` is not a usable media
+fragment. The source identity, query and checked segment timing were otherwise
+correct; this is a concrete public source-navigation defect under AC-407.2.
+
+The existing Content route now uses the standard URL parser to set its single
+timed fragment, preserving the exact original query and path and replacing an
+existing section fragment. No source, time, playable-media permission, public
+state, projection contract or route is fabricated. Written locator links remain
+the unchanged original-source URL.
+
+The permanent isolated Astro regression in
+`web/scripts/check-content-v3-currentness-wave-close.mjs` now changes *only*
+the local fictional and schema-validated timed source fixture to include a
+query and pre-existing fragment. **RED** against the old link builder: the
+literal assertion `Content timed locator must preserve the reviewed query and
+replace any existing source fragment` failed. The same checker also rejects a
+second `#intro#t=` fragment, and preserves its existing source-revision,
+membership, retraction, leakage and written-locator cases. This test does not
+make the demo source publicly approved or request any provider/source URL.
+**GREEN** after the fix: the same
+`node web/scripts/check-content-v3-currentness-wave-close.mjs` passed the actual
+schema validation, isolated timed/written Astro build, HTML assertions and
+local Chrome DOM inspection. The independent `cd web && npm run check` passed
+for 129 files (0 errors, 0 warnings, 1 unrelated TypeScript unused-variable
+hint in `check-dp429-public-query-suggestions-20261013.mjs`).
+`node --check` for the owned regression and `git diff --check` also passed.
+
+The remaining **AC-407.4 and AC-407.7 stay unchecked; DP-407 remains
+IN PROGRESS / production publication NO-GO**. `UNDER_REVIEW`, internal
+`BLOCKED`, and unsettled assessments cannot be rendered as approved public
+Findings without a ratified public-state contract. Automated URL, HTML and
+keyboard checks cannot substitute for the required real screen-reader,
+200% zoom and device acceptance or the MiniPC approved-Content readback.

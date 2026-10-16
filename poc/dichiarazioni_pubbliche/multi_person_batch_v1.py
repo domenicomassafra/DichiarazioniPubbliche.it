@@ -20,7 +20,7 @@ from dichiarazioni_pubbliche.private_candidate_batch import (
 )
 
 
-VERSION = "multi-person-candidate-isolation-v1"
+VERSION = "multi-person-candidate-isolation-v2"
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _BCP47 = re.compile(r"[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}\Z")
 _ROLES = {"DIRECT_SPEAKER", "AUTHOR", "REPORTER", "QUOTED_SPEAKER", "UNRESOLVED"}
@@ -234,6 +234,29 @@ class PrivateBatchReceiptIndex:
     dispatch_authorized: bool = False
 
 
+def _partition_id(item: ReviewedPassageContext | IsolatedBatchItem) -> str:
+    """Bind a partition to source family, span, and speaker candidate."""
+    return "batch-partition:" + _stable_hash(
+        (
+            item.passage_id,
+            item.passage_sha256,
+            item.content_id,
+            item.capture_id,
+            item.source_sha256,
+            item.source_family,
+            item.selector_fingerprint,
+            item.context_version,
+            item.context_review_id,
+            item.language_tag,
+            item.speaker_candidate_id,
+            item.identity_review_status,
+            item.speech_role,
+            item.speech_act,
+            item.rights_status,
+        )
+    )
+
+
 def plan_isolated_candidate_batch(
     batch: CandidateBatch,
     contexts: Mapping[str, ReviewedPassageContext],
@@ -274,21 +297,7 @@ def plan_isolated_candidate_batch(
         # Distinct Content, Capture, source, contextual span and speaker never
         # share one extraction partition. Mixed-source batches are manifests,
         # not a single trusted prompt or stitched quotation.
-        partition_id = "batch-partition:" + _stable_hash(
-            (
-                context.passage_id,
-                context.passage_sha256,
-                context.content_id,
-                context.capture_id,
-                context.source_sha256,
-                context.selector_fingerprint,
-                context.context_version,
-                context.language_tag,
-                context.speaker_candidate_id,
-                context.speech_role,
-                context.speech_act,
-            )
-        )
+        partition_id = _partition_id(context)
         status, reason = "HELD", "MULTIPERSON_UNATTRIBUTED_CONTEXT"
         if context.rights_status != "CLEARED":
             reason = "MULTIPERSON_SOURCE_RIGHTS_HELD"
@@ -485,6 +494,11 @@ def _validate_isolated_plan(plan: IsolatedBatchPlan) -> None:
         raise ValueError("MULTIPERSON_PLAN_COUNTS_INVALID")
     if plan.plan_sha256 != _plan_digest(plan.collection_id, plan.manifest_sha256, plan.items):
         raise ValueError("MULTIPERSON_PLAN_TAMPERED")
+    # A checksum recalculated over swapped or invented partition IDs is not
+    # proof of source identity. Keep existing schema/status/hash error priority,
+    # then bind every partition to exact Content/Passage/speaker attributes.
+    if any(item.partition_id != _partition_id(item) for item in plan.items):
+        raise ValueError("MULTIPERSON_PLAN_PARTITION_MISMATCH")
 
 
 def reconcile_isolated_private_results(

@@ -438,6 +438,65 @@ class HistoricalBatchGateTests(unittest.TestCase):
         self.assertEqual(resumed.proposals, ())
         self.assertIsNone(resumed.proposed_budget_state)
 
+    def test_resume_committed_item_rejects_malformed_current_rights_receipt(self):
+        initial = plan()
+        first = initial.proposals[0]
+        checkpoint = create_checkpoint(
+            initial.batch_id,
+            initial.manifest_fingerprint,
+            (
+                CompletedCapture(
+                    first.item_key,
+                    first.person_id,
+                    first.content_id,
+                    first.source_family,
+                    first.capture_sha256,
+                    "e" * 64,
+                ),
+            ),
+            revision=1,
+        )
+        _, watches = resources()
+        for receipt in ("test:rights\nFORGED", " test:rights ", "x" * 257):
+            with self.subTest(receipt=receipt):
+                malformed = tuple(
+                    replace(w, readiness=replace(w.readiness, rights_receipt=receipt))
+                    if w.content_id == first.content_id
+                    else w
+                    for w in watches
+                )
+                resumed = plan(
+                    checkpoint=checkpoint,
+                    verify_checkpoint=lambda *_: True,
+                    watches=malformed,
+                )
+                self.assertEqual(resumed.status, "HELD")
+                self.assertIn("WATCH_COMPLETED_RIGHTS_NOT_READY", resumed.holds)
+                self.assertEqual(resumed.proposals, ())
+                self.assertIsNone(resumed.proposed_budget_state)
+
+    def test_deduplicated_archive_copy_rejects_malformed_rights_receipt(self):
+        root = entry()
+        copy = entry(
+            content_id="synthetic:archive-invalid-rights-receipt",
+            kind="ARCHIVE_COPY",
+            origin_content_id=root.content_id,
+            origin_sha256=root.source_version_sha256,
+        )
+        manifests = (manifest("MUSSOLINI", (root, copy)), two()[1])
+        costs, watches = resources(manifests)
+        malformed = tuple(
+            replace(w, readiness=replace(w.readiness, rights_receipt="valid\rFORGED"))
+            if w.content_id == copy.content_id
+            else w
+            for w in watches
+        )
+        decision = plan(manifests=manifests, costs=costs, watches=malformed)
+        self.assertEqual(decision.status, "HELD")
+        self.assertIn("WATCH_SKIPPED_RIGHTS_NOT_READY", decision.holds)
+        self.assertEqual(decision.proposals, ())
+        self.assertIsNone(decision.proposed_budget_state)
+
     def test_resume_committed_item_must_recheck_newly_observed_source_version(self):
         initial = plan()
         first = initial.proposals[0]
