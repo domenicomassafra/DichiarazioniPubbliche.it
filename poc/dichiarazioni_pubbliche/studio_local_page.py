@@ -46,8 +46,8 @@ _PAGE = """<!doctype html>
     #corpus-inspector{border:1px solid #68747c;padding:1rem;margin-top:1rem}
     #corpus-inspector dl{display:grid;grid-template-columns:minmax(8rem,12rem) minmax(0,1fr);gap:.45rem}
     #corpus-inspector dd{margin:0;overflow-wrap:anywhere}
-    #collection-lineage-links,#capture-queue-links,#collection-navigation-links{display:grid;gap:.4rem;margin:1rem 0}
-    #collection-lineage-links button,#capture-queue-links button,#collection-navigation-links button{text-align:left;overflow-wrap:anywhere}
+    #collection-lineage-links,#capture-queue-links,#collection-navigation-links,#inbox-annotation-links{display:grid;gap:.4rem;margin:1rem 0}
+    #collection-lineage-links button,#capture-queue-links button,#collection-navigation-links button,#inbox-annotation-links button{text-align:left;overflow-wrap:anywhere}
     pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#e9ebe6;padding:1rem;font-size:.86rem}
     @media(max-width:40rem){body{padding:.8rem}.controls,label{display:grid;width:100%}}
   </style>
@@ -298,6 +298,7 @@ _PAGE = """<!doctype html>
         <button type="submit">Consulta Inbox persistita</button></div>
       </form>
       <p id="inbox-annotation-summary" role="status" aria-live="polite">Nessun Hit caricato.</p>
+      <p class="quiet">Conteggi riferiti alla pagina corrente, non all’intera raccolta. Ogni Hit resta privato fino alla verifica dei diritti e della provenienza.</p>
       <div id="inbox-annotation-links" role="group" aria-label="Discovery Hit selezionabili per lo storico e l'annotazione privata"></div>
       <h2>Verifica compatibilità selezione multipla</h2>
       <p>Controllo sullo stesso snapshot SQL per massimo 10 Hit. Anteprima soltanto, senza approvazioni, rifiuti o scritture.</p>
@@ -1498,6 +1499,17 @@ _PAGE = """<!doctype html>
           if (form === inboxForm) {
             results.textContent = 'Solo riferimenti Discovery validati nell’Inbox.';
             const inbox = receipt?.data;
+            const queueTypes = new Set(['NEW_CONTENT', 'EXISTING_CONTENT', 'DUPLICATE_WITHIN_RUN',
+              'HOST_LIMIT', 'RESULT_LIMIT', 'OUTSIDE_DATE_WINDOW', 'REJECTED_POLICY',
+              'AMBIGUOUS_CONTENT_IDENTITY']);
+            const queueLabels = {
+              NEW_CONTENT: 'Nuova fonte', EXISTING_CONTENT: 'Contenuto già presente',
+              DUPLICATE_WITHIN_RUN: 'Doppione nella scoperta',
+              HOST_LIMIT: 'Limite sorgente', RESULT_LIMIT: 'Limite risultati',
+              OUTSIDE_DATE_WINDOW: 'Fuori intervallo date',
+              REJECTED_POLICY: 'Escluso dalla policy',
+              AMBIGUOUS_CONTENT_IDENTITY: 'Identità non risolta'
+            };
             const valid = response.ok && receipt?.contract_version === 'studio-local-readonly-api-v1'
               && inbox?.contract_version === 'studio-discovery-inbox-v2'
               && inbox.collection_id === data.collection_id
@@ -1506,25 +1518,47 @@ _PAGE = """<!doctype html>
               && Array.isArray(inbox.rows) && inbox.rows.length <= data.limit
               && inbox.rows.every(row =>
                 row.collection_id === data.collection_id && SAFE_REF.test(row.hit_id)
+                && queueTypes.has(row.queue)
+                && (row.content_id === null || SAFE_REF.test(row.content_id))
+                && (row.reason_code === null || SAFE_REF.test(row.reason_code))
+                && row.provenance_path?.hit_id === row.hit_id
+                && row.provenance_path?.collection_id === data.collection_id
+                && ['run_id', 'query_id', 'manifest_id'].every(
+                  key => SAFE_REF.test(row.provenance_path[key]))
                 && row.private_only === true && row.read_only === true
                 && row.action_authorized === false && row.publication_authority === false
                 && (row.annotation_revision === null ||
                   Number.isSafeInteger(row.annotation_revision) && row.annotation_revision >= 0)
-                && Array.isArray(row.blockers) && row.blockers.every(code => SAFE_REF.test(code)))
+                && Array.isArray(row.blockers) && row.blockers.every(code => SAFE_REF.test(code))
+                && Array.isArray(row.unblock_conditions)
+                && row.unblock_conditions.length === row.blockers.length
+                && row.unblock_conditions.every((item, i) =>
+                  item.blocker === row.blockers[i] && SAFE_REF.test(item.unblock_condition)))
               && (inbox.next_after_id === null || SAFE_REF.test(inbox.next_after_id));
             if (!valid) {
               inboxAnnotationSummary.textContent = 'Inbox non verificabile, nessun Hit navigabile.';
               status.textContent = 'Dati non verificabili.';
               return;
             }
-            inboxAnnotationSummary.textContent = inbox.rows.length
-              + ' Hit persistiti; seleziona per aprire lo storico e preparare una decisione firmata esternamente.';
+            const count = type => inbox.rows.filter(row => row.queue === type).length;
+            const needsAttention = inbox.rows.filter(row =>
+              row.blockers.length > 0 || row.queue === 'AMBIGUOUS_CONTENT_IDENTITY').length;
+            inboxAnnotationSummary.textContent = 'Pagina corrente: ' + inbox.rows.length
+              + ' risultati · nuove ' + count('NEW_CONTENT')
+              + ' · esistenti ' + count('EXISTING_CONTENT')
+              + ' · doppioni ' + count('DUPLICATE_WITHIN_RUN')
+              + ' · da analizzare ' + needsAttention
+              + '. Seleziona una voce per consultare lo storico.';
             for (const row of inbox.rows) {
               const button = document.createElement('button');
               button.type = 'button';
-              button.textContent = 'Hit ' + row.hit_id + ' · revisione '
+              button.textContent = queueLabels[row.queue] + ' · Hit ' + row.hit_id
+                + (row.content_id ? ' · Content ' + row.content_id : '')
+                + (row.reason_code ? ' · motivo ' + row.reason_code : '')
+                + ' · revisione '
                 + (row.annotation_revision === null ? 'lineage non verificata' : row.annotation_revision)
-                + ' · blocchi: ' + row.blockers.join(', ');
+                + ' · da verificare: ' + (row.unblock_conditions.map(item =>
+                  item.blocker + ' → ' + item.unblock_condition).join('; ') || 'nessun blocco segnalato');
               button.addEventListener('click', () => {
                 if (!inboxAnnotationLinks.contains(button)) return;
                 triageHistoryForm.elements.namedItem('collection_id').value = inbox.collection_id;
@@ -1540,6 +1574,17 @@ _PAGE = """<!doctype html>
                 triageHistoryForm.requestSubmit();
               });
               inboxAnnotationLinks.append(button);
+            }
+            if (inbox.next_after_id) {
+              const more = document.createElement('button');
+              more.type = 'button';
+              more.textContent = 'Pagina successiva della Discovery Inbox';
+              more.addEventListener('click', () => {
+                if (!inboxAnnotationLinks.contains(more)) return;
+                inboxForm.elements.namedItem('after_id').value = inbox.next_after_id;
+                inboxForm.requestSubmit();
+              });
+              inboxAnnotationLinks.append(more);
             }
             return;
           }

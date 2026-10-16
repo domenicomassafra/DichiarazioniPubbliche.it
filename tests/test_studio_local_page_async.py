@@ -299,6 +299,54 @@ async function main() {
   await drain();
   assert.equal(coverageLinks.children.length, 0, 'stale Coverage Need page must fail closed');
   assert.doesNotMatch(ids.get('results').textContent, /PRIVATE_STALE_NEED/);
+  const inboxForm = forms['/v1/discovery/inbox'];
+  assert.ok(inboxForm, 'persisted Discovery Inbox needs a private operator form');
+  inboxForm.fields.collection_id = 'research:pilot';
+  inboxForm.fields.limit = '3';
+  pending = inboxForm.fire('submit');
+  assert.equal(requests.at(-1).path, '/v1/discovery/inbox');
+  const inboxRow = (hit_id, queue, reason_code = null) => ({
+    collection_id: 'research:pilot', hit_id, queue, reason_code, content_id: 'content:one',
+    provenance_path: {hit_id, collection_id: 'research:pilot', run_id: 'run:one',
+      query_id: 'query:one', manifest_id: 'manifest:one'},
+    private_only: true, read_only: true, action_authorized: false,
+    publication_authority: false, annotation_revision: 0,
+    blockers: ['PRIVATE_SOURCE_RIGHTS_REVIEW_NOT_EVALUATED'],
+    unblock_conditions: [{blocker: 'PRIVATE_SOURCE_RIGHTS_REVIEW_NOT_EVALUATED',
+      unblock_condition: 'VERIFY_CURRENT_PRIVATE_SOURCE_RIGHTS_RECORD'}]
+  });
+  const hitRows = [inboxRow('hit:new', 'NEW_CONTENT'),
+    inboxRow('hit:duplicate', 'DUPLICATE_WITHIN_RUN', 'DUPLICATE'),
+    inboxRow('hit:old', 'EXISTING_CONTENT')];
+  reply({contract_version: 'studio-discovery-inbox-v2', collection_id: 'research:pilot',
+    private_only: true, read_only: true, action_authorized: false,
+    publication_authority: false, rows: hitRows, next_after_id: 'hit:old'});
+  await pending;
+  const inboxLinks = ids.get('inbox-annotation-links');
+  assert.match(ids.get('inbox-annotation-summary').textContent,
+    /nuove 1 · esistenti 1 · doppioni 1 · da analizzare 3/);
+  assert.match(inboxLinks.children[0].textContent, /Nuova fonte/);
+  assert.match(inboxLinks.children[1].textContent, /Doppione nella scoperta/);
+  assert.match(inboxLinks.children[1].textContent, /VERIFY_CURRENT_PRIVATE_SOURCE_RIGHTS_RECORD/);
+  inboxLinks.children[1].fire('click');
+  assert.equal(requests.at(-1).path, '/v1/discovery/triage-history');
+  assert.equal(JSON.parse(requests.at(-1).options.body).hit_id, 'hit:duplicate');
+  reply({private_only: true});
+  await drain();
+  const nextInbox = inboxLinks.children.find(x => /Pagina successiva/.test(x.textContent));
+  assert.ok(nextInbox, 'more Discovery Hits must remain accessible by pagination');
+  nextInbox.fire('click');
+  assert.equal(requests.at(-1).path, '/v1/discovery/inbox');
+  assert.equal(JSON.parse(requests.at(-1).options.body).after_id, 'hit:old');
+  reply({contract_version: 'studio-discovery-inbox-v2', collection_id: 'research:pilot',
+    private_only: true, read_only: true, action_authorized: false,
+    publication_authority: false,
+    rows: [{...inboxRow('hit:bad', 'NEW_CONTENT'), provenance_path: {
+      ...inboxRow('hit:bad', 'NEW_CONTENT').provenance_path, collection_id: 'other'}}],
+    next_after_id: null});
+  await drain();
+  assert.equal(inboxLinks.children.length, 0, 'foreign provenance must fail closed');
+  assert.doesNotMatch(ids.get('inbox-annotation-summary').textContent, /hit:bad/);
   pending = queue.fire('submit');
   token.value = 'b'.repeat(64);
   token.fire('input');
@@ -307,6 +355,7 @@ async function main() {
   assert.equal(queueLinks.children.length, 0, 'token replacement clears prior operator references');
   assert.equal(candidateLinks.children.length, 0, 'token replacement clears Candidate references');
   assert.equal(coverageLinks.children.length, 0, 'token replacement clears Coverage Needs');
+  assert.equal(inboxLinks.children.length, 0, 'token replacement clears Discovery Inbox');
   assert.equal(lineage.children.length, 0);
   assert.doesNotMatch(ids.get('results').textContent, /OLD_OPERATOR_RESPONSE/);
   ids.get('clear').fire('click');
