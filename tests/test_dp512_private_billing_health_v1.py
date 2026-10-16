@@ -219,6 +219,19 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
             PsqlStore(pg_fixture.BillingPgFenceTests.dsn).cost_today(), float("inf")
         )
 
+    def test_unresolved_prior_day_liability_cannot_reset_paid_budget_at_midnight(self):
+        self.insert("prior-unknown", basis="UNKNOWN", estimated="NULL", measured="NULL")
+        self.sql(
+            "UPDATE provider_receipt SET started_at=now()-interval '2 days',"
+            "completed_at=now() WHERE id='receipt:prior-unknown';"
+        )
+        # Known day-window costs may reset. An unresolved liability must not.
+        snapshot = self.store.cost_snapshot("fixture-source")
+        self.assertEqual(snapshot.global_day_usd, float("inf"))
+        self.assertEqual(
+            PsqlStore(pg_fixture.BillingPgFenceTests.dsn).cost_today(), float("inf")
+        )
+
     def test_private_cli_uses_libpq_env_and_emits_aggregate_only(self):
         self.insert(
             "cli",

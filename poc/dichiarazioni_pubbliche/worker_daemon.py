@@ -13,6 +13,7 @@ from typing import Any
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient
 from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_ASR_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ASR_ROUTE
+from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient
 from dichiarazioni_pubbliche.provider_optin import configure_provider_clients
 from dichiarazioni_pubbliche.evidence_runtime import (
     SafeEvidenceFetcher,
@@ -172,6 +173,17 @@ class ProcessingWorker(
             job.payload.get("provider_id") == LOCAL_ASR_PROVIDER_ID
             and job.payload.get("route") == LOCAL_ASR_ROUTE
         )
+        remote_claim = (
+            job.job_type in {"CLAIM_PREPARE", "CLAIM_EXTRACT", "CLAIM_EXTRACT_WINDOW"}
+            and self.claim_client is not None
+            and not isinstance(self.claim_client, LocalOllamaClaimClient)
+        )
+        if remote_claim and (
+            self.claim_max_usd_per_1k_total_tokens is None
+            or not math.isfinite(self.claim_max_usd_per_1k_total_tokens)
+            or self.claim_max_usd_per_1k_total_tokens <= 0
+        ):
+            raise BlockedJob("REMOTE_CLAIM_COST_UNATTESTED")
         raw_estimate = job.payload.get("estimated_cost_usd")
         if remote_asr and (raw_estimate is None or raw_estimate == ""):
             raise BlockedJob("PAID_ASR_ESTIMATED_COST_REQUIRED")
@@ -187,11 +199,13 @@ class ProcessingWorker(
             raise BlockedJob("NEGATIVE_ESTIMATED_COST")
         if remote_asr and estimate == 0:
             raise BlockedJob("PAID_ASR_ESTIMATED_COST_REQUIRED")
+        if remote_claim and job.job_type == "CLAIM_EXTRACT_WINDOW" and estimate == 0:
+            raise BlockedJob("PAID_CLAIM_ESTIMATED_COST_REQUIRED")
         if estimate > self.budget.max_cost_usd_per_job:
             raise DeferredJob(
                 "JOB_COST_CAP_REACHED", self.budget.budget_defer_seconds
             )
-        if estimate == 0:
+        if estimate == 0 and not remote_claim:
             return
         snapshot = self.store.cost_snapshot(content.source_id)
         if not math.isfinite(snapshot.global_day_usd) or not math.isfinite(

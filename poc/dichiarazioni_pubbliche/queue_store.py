@@ -280,24 +280,28 @@ class QueueExecutionCostStore(PsqlRuntime):
         raw = self.run(
             """
             SELECT json_build_object(
-                'global_unknown', COALESCE(bool_or(
-                    CASE
-                        WHEN r.billing_basis='MEASURED_PROVIDER_COST'
-                            THEN r.measured_cost_usd IS NULL OR r.measured_cost_usd <= 0
-                        WHEN r.billing_basis='ESTIMATED_ONLY'
-                            THEN r.estimated_cost_usd IS NULL OR r.estimated_cost_usd <= 0
+                'global_unknown', EXISTS (
+                    SELECT 1 FROM provider_receipt outstanding
+                    WHERE CASE
+                        WHEN outstanding.billing_basis='MEASURED_PROVIDER_COST'
+                            THEN outstanding.measured_cost_usd IS NULL OR outstanding.measured_cost_usd <= 0
+                        WHEN outstanding.billing_basis='ESTIMATED_ONLY'
+                            THEN outstanding.estimated_cost_usd IS NULL OR outstanding.estimated_cost_usd <= 0
                         ELSE TRUE
                     END
-                ), false),
-                'source_unknown', COALESCE(bool_or(
-                    CASE
-                        WHEN r.billing_basis='MEASURED_PROVIDER_COST'
-                            THEN r.measured_cost_usd IS NULL OR r.measured_cost_usd <= 0
-                        WHEN r.billing_basis='ESTIMATED_ONLY'
-                            THEN r.estimated_cost_usd IS NULL OR r.estimated_cost_usd <= 0
+                ),
+                'source_unknown', EXISTS (
+                    SELECT 1 FROM provider_receipt outstanding
+                    JOIN content_item outstanding_content ON outstanding_content.id=outstanding.content_id
+                    WHERE outstanding_content.source_id=:'source_id'
+                    AND CASE
+                        WHEN outstanding.billing_basis='MEASURED_PROVIDER_COST'
+                            THEN outstanding.measured_cost_usd IS NULL OR outstanding.measured_cost_usd <= 0
+                        WHEN outstanding.billing_basis='ESTIMATED_ONLY'
+                            THEN outstanding.estimated_cost_usd IS NULL OR outstanding.estimated_cost_usd <= 0
                         ELSE TRUE
                     END
-                ) FILTER (WHERE c.source_id = :'source_id'), false),
+                ),
                 'global', COALESCE(sum(
                     CASE
                         WHEN r.billing_basis='MEASURED_PROVIDER_COST'
@@ -311,8 +315,7 @@ class QueueExecutionCostStore(PsqlRuntime):
                             THEN r.measured_cost_usd
                         ELSE r.estimated_cost_usd
                     END
-                )
-                    FILTER (WHERE c.source_id = :'source_id'), 0)
+                ) FILTER (WHERE c.source_id = :'source_id'), 0)
             )::text
             FROM provider_receipt r
             LEFT JOIN content_item c ON c.id = r.content_id

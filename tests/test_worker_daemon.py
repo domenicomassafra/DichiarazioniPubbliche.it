@@ -34,6 +34,7 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
     WorkerProcessLock,
 )
 from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
+from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
 
 
 class FakePrivateStore:
@@ -478,7 +479,7 @@ class WorkerDaemonTests(unittest.TestCase):
         worker = self.make_worker(
             store,
             claim_client=client,
-            claim_rate=0.0,
+            claim_rate=0.15,
         )
         summary = worker.run(1)
         self.assertEqual(summary.completed, 1)
@@ -487,6 +488,7 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(store.bulk_jobs[0]["job_type"], "CLAIM_EXTRACT_WINDOW")
         self.assertEqual(store.bulk_jobs[0]["state"], "QUEUED")
         self.assertNotIn("text", store.bulk_jobs[0]["payload"])
+        self.assertGreater(store.bulk_jobs[0]["payload"]["estimated_cost_usd"], 0)
 
     def test_claim_parent_failed_canary_blocks_without_provider_downgrade(self):
         store = FakeStore(
@@ -504,7 +506,7 @@ class WorkerDaemonTests(unittest.TestCase):
         summary = self.make_worker(
             store,
             claim_client=client,
-            claim_rate=0.0,
+            claim_rate=0.15,
         ).run(1)
 
         self.assertEqual(summary.blocked, 1)
@@ -575,7 +577,7 @@ class WorkerDaemonTests(unittest.TestCase):
             {
                 "input_sha256": window.input_sha256,
                 "segment_indices": [0],
-                "estimated_cost_usd": 0.0,
+                "estimated_cost_usd": 0.05,
             },
         )
         client = FakeClaimClient(
@@ -594,7 +596,7 @@ class WorkerDaemonTests(unittest.TestCase):
         summary = self.make_worker(
             store,
             claim_client=client,
-            claim_rate=0.0,
+            claim_rate=0.15,
         ).run(1)
         self.assertEqual(summary.completed, 1)
         self.assertEqual(client.extracts, 1)
@@ -609,7 +611,7 @@ class WorkerDaemonTests(unittest.TestCase):
         )
         self.assertEqual(store.receipts[-1]["operation"], "CLAIM_EXTRACT")
         self.assertEqual(store.receipts[-1]["measured_cost_usd"], 0.0)
-        self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.0)
+        self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.05)
         self.assertEqual(store.receipts[-1]["total_tokens"], 15)
         self.assertEqual(store.status_updates[-1][1], "CLAIMS_EXTRACTED")
 
@@ -1110,6 +1112,63 @@ class WorkerDaemonTests(unittest.TestCase):
                 }),
                 store.content("content:pulp64"),
             )
+
+    def test_remote_claim_window_missing_or_zero_estimate_never_probes(self):
+        for value in (None, 0.0, "NaN"):
+            with self.subTest(value=value):
+                payload = {"input_sha256": "synthetic", "segment_indices": [0]}
+                if value is not None:
+                    payload["estimated_cost_usd"] = value
+                store = FakeStore([job("CLAIM_EXTRACT_WINDOW", payload)])
+                client = FakeClaimClient()
+                summary = self.make_worker(
+                    store, claim_client=client, claim_rate=0.15,
+                ).run(1)
+                self.assertEqual(summary.blocked, 1)
+                self.assertEqual(client.probes, 0)
+                self.assertEqual(client.extracts, 0)
+
+    def test_remote_claim_probe_holds_on_unknown_prior_liability(self):
+        store = FakeStore([job("CLAIM_PREPARE", {
+            "variant_id": "transcript:synthetic", "estimated_cost_usd": 0,
+        })])
+        snapshot_calls = []
+
+        def unknown_snapshot(source_id):
+            snapshot_calls.append(source_id)
+            return CostSnapshot(math.inf, math.inf)
+
+        store.cost_snapshot = unknown_snapshot
+        client = FakeClaimClient()
+        summary = self.make_worker(
+            store, claim_client=client, claim_rate=0.15,
+        ).run(1)
+        self.assertEqual(summary.deferred, 1)
+        self.assertEqual(client.probes, 0)
+        self.assertEqual(client.extracts, 0)
+        self.assertEqual(len(snapshot_calls), 1)
+
+    def test_external_zero_rate_is_not_attested_free_claim_dispatch(self):
+        store = FakeStore([job("CLAIM_EXTRACT_WINDOW", {
+            "estimated_cost_usd": 0,
+        })])
+        client = FakeClaimClient()
+        summary = self.make_worker(
+            store, claim_client=client, claim_rate=0.0,
+        ).run(1)
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual(client.probes, 0)
+
+    def test_digest_pinned_local_claim_route_preserves_free_preflight(self):
+        local = LocalOllamaClaimClient(expected_model_digest="0" * 64)
+        store = FakeStore([])
+        worker = self.make_worker(store, claim_client=local, claim_rate=0.0)
+        # No real local inference is invoked; this only verifies classification
+        # of the explicit pinned on-device transport at the budget boundary.
+        worker._ensure_budget(
+            job("CLAIM_EXTRACT_WINDOW", {"estimated_cost_usd": 0.0}),
+            store.content("content:pulp64"),
+        )
 
     def test_asr_without_runtime_key_blocks_without_network(self):
         store = FakeStore(

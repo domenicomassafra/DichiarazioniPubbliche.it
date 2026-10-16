@@ -552,3 +552,37 @@ An independent subsequent review reproduced two further false-OK cases for `ESTI
 The shipped source candidate in Draft PR #25 is commit `27c21ba5485983eea0b45e29782f8d73b32df863` (not merged or installed). The read-only merge-thread/check gate passed on that commit with completed CI and zero unresolved threads, but this does **not** grant deployment, publication or original acceptance. A read-only exact-commit-to-MiniPC-mirror inventory checked 189 changed paths and found **36 DRIFT, 153 MISSING, zero MATCH**; a single-file overlay cannot claim coherent worker/scheduler/health parity. No live service restart, production migration or billing dispatch was performed.
 
 The exact Git-archive candidate was instead extracted in an owner-private, non-runtime temporary directory on `minipc` and run with a cleared inherited environment and disposable local PostgreSQL. `tests.test_dp512_billing_pg_fence_next`, `tests.test_dp513_usage_attribution_pg_next`, `tests.test_dp514_monthly_liability_pg_next` and `tests.test_dp512_health_digest_20261015` passed **57/57**, exit 0. This proves the new source can run its isolated billing tests on Linux, **not** the installed consumer or a billed provider transaction. Canonical production PostgreSQL was queried only in read-only mode: **63** existing provider receipts, all `ESTIMATED_ONLY`, **0** non-null measured costs, **0** permanently undated receipts, **0** populated `operation_key`/`request_id` fields, and **no `dp512_pg_state` table**. No invoice, source-verifiable attempt join, usage statement, refund, shared live reservation, migrated fence or independent cash-zero attestation was inferred from these counts. **All AC-512.1–6 remain unchecked; DP-512 stays IN PROGRESS.** Before live activation: review and admit the cumulative source/mirror transition and rollback with actual writer/consumer parity, then reconcile authentic provider billing and budget authorities without fabricating history or relaxing UNKNOWN/hold.
+
+## 2026-10-16 — Original AC-512.5 private dispatch-admission follow-up
+
+Independent read-only reviews of Draft PR #25 identified three separate
+admission defects: a prior `UNKNOWN`/NULL receipt counted as spend zero; an
+unpriced remote ASR request (including `NaN`) bypassed the budget gate; and an
+external OmniRoute claim extraction or *probe* could run at claimed zero cost
+even with unresolved cash liability. A further real disposable PostgreSQL
+regression reproduced a prior-day `UNKNOWN` receipt becoming invisible when
+the UTC day changed despite remaining unreconciled. It failed RED before the
+follow-up source change. These are original DP-512.5 defects, not new tickets.
+
+The revised queue and scheduler admission readers now keep **daily known-cost
+aggregation separate from an unbounded `EXISTS` unresolved-liability hold**;
+they do not date an undated receipt or assume that a zero estimate proves free
+usage. Both use the same start-first clock for known daily attribution.
+Remote ASR requires a finite positive job estimate; remote OmniRoute claim
+windows require a finite positive bound and rate, and preparatory remote claim
+probes require a positive rate plus a current cost snapshot without unresolved
+liabilities. An explicitly configured, digest-pinned `LocalOllamaClaimClient`
+and the exact local ASR route remain distinguishable from paid-capable remote
+providers. No provider or paid-model request was issued by these tests.
+
+Focused Python tests cover actual worker dispatch with synthetic claim clients,
+local-route classification, historic and same-day PostgreSQL receipts, valid
+daily known-cost behavior, and zero/NaN/UNKNOWN negatives. No post-commit
+production/readback or global full-suite result is implied by these focused
+checks. **Remaining DP-512.5 acceptance**: no atomic, cross-worker reservation
+or invoice/price attestation; even an authenticated zero-cost receipt producer
+and metadata-only scheduling under persistent `UNKNOWN` need separate safe
+policy, to avoid either inventing free usage or unnecessarily freezing all
+non-paid jobs. The fail-closed global paid gate is deliberately retained.
+All six original AC-512 remain OPEN, as does any live MiniPC admission or
+provider billing activation. No release/publication authority is granted.
