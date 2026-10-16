@@ -206,6 +206,9 @@ class ScannedOCRTests(unittest.TestCase):
             replace(source, rights_status="REVOKED"),
             replace(source, content_sha256=sha(b"different PDF")),
             replace(source, final_url="https://source.example/other"),
+            replace(source, hold_status="LEGAL_HOLD"),
+            replace(source, hold_status="RIGHTS_HOLD"),
+            replace(source, hold_status="PRIVACY_HOLD"),
         ):
             with self.subTest(denied=denied):
                 with patch(

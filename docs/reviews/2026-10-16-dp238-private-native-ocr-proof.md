@@ -86,3 +86,13 @@ document/PDF/OCR tests PASS; Ruff and `git diff --check` PASS. This verifies
 that unauthorised bytes do not reach the worker **through this adapter**; it
 does not grant any source rights or substitute for upstream authorization,
 real-file gold or installed MiniPC Capture/Passage acceptance.
+
+### Hold-state regression in same rights boundary
+
+The corpus retention gate also forbids downstream private use under an active
+legal, rights or privacy hold, even if a Capture's rights_status remains CLEARED.
+The OCR adapter previously failed to inspect `capture.hold_status`; a new
+three-state regression was RED because each held Capture still invoked its
+native subprocess. The same preflight now requires `hold_status == NONE`
+before any parse/replay, matching the existing corpus downstream-use fence.
+Rejected holds create no Passage and launch no native OCR through this adapter.

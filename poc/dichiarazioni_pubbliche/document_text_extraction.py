@@ -304,6 +304,7 @@ def document_passages_from_capture(
     # or derive even temporary text from revoked capture bytes.
     if (
         capture.status != "CAPTURED"
+        or capture.hold_status != "NONE"
         or capture.rights_status != "CLEARED"
         or capture.content_sha256 != _sha(fetched.body)
         or capture.final_url != fetched.final_url
