@@ -355,3 +355,14 @@ five original unresolved source turns held (previously 104 candidates and 22
 total held/oversize turns). Both Mac and isolated MiniPC input-format readbacks
 produced identical bounded counts. All records remain quarantined with rights UNKNOWN.
 The separate DP-233.10 official approved-family MiniPC canary remains open.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** Camera XIX, sitting 607 of
+2026-02-03, page 55, paragraph `iv.289` contains an actual intervention by
+Vittoria Baldino referring to Garlasco. The official transcript source is
+verified with a source SHA-256 and an exact passage hash. The linked WebTV
+session is `https://webtv.camera.it/evento/30272/589615`; no excerpt-level
+video timecode is invented. `tools/verify_t4_p02_owner_acceptance.py` confirms
+the source, private candidate and exact-text replay. Historic full production
+source-family and timing acceptance remains separate.

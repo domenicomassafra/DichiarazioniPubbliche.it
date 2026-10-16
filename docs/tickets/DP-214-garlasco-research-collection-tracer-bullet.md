@@ -499,3 +499,13 @@ Il Ticino derivative are not counted as independent corroboration. No source
 bytes are collected, no extra item is counted toward the authoritative 100,
 and discovery/rights status remains unchanged. The 18/100 PAUSED baseline and
 remaining original AC-214.1/.2/.4–.8 stay open.
+
+### 2026-10-17 — Owner-scoped acceptance (supersedes historical 100-item gate)
+
+**DONE for the owner's 2026-10-17 acceptance:** eleven real, dated, attributed
+Garlasco source entries with canonical links and provenance are inspectable via
+`python3 tools/evaluate_garlasco_source_governance_wave26.py`. The official
+Camera session 607 source is additionally fetched and hash-checked in
+`PYTHONPATH=poc python3 tools/verify_t4_p02_owner_acceptance.py`. The 100-item
+historical campaign remains separately unfinished; this scoped acceptance does
+not claim 100 operational Content captures or authorization to publish.

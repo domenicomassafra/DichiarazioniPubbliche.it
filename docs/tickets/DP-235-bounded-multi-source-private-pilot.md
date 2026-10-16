@@ -128,3 +128,15 @@ readback, not an approved production pilot: the current MiniPC
 exists to authorize operational acquisition, body retention and analysis.
 Do not turn the CC BY notice into an authenticated permit; obtain the qualified
 source-specific rights/use decision and then execute AC-235.1–5 on MiniPC.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** a real official Camera source
+already present in the Garlasco source inventory produces an exact 162-character
+private Passage and HELD Statement Candidate. The real page is read with a
+size limit, exact speaker context and source hash; a private JSON roundtrip
+validates the candidate's original words, selectors and hash, then removes the
+temporary artifact. Command:
+`PYTHONPATH=poc python3 tools/verify_t4_p02_owner_acceptance.py`.
+This is an isolated private proof; the full historical multi-source PostgreSQL
+pilot and operational source-family admission are a separate scope.
