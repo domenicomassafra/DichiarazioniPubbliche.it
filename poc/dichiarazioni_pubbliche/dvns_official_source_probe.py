@@ -8,10 +8,12 @@ approve reuse rights, persist Evidence or enable publication.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
+import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from dichiarazioni_pubbliche.dvns_source_suitability import (
@@ -155,3 +157,52 @@ def acquire_senato_official_candidate(*, opener=None) -> SenatoTechnicalReceipt:
     """Actual bounded HTTPS fetch; only receipt returned, no raw body persisted."""
     blob = _fetch_official_archive(opener=opener)
     return read_back_senato_official_candidate(blob, observed_at_utc=_live_utc())
+
+
+def inspect_senato_official_records(
+    source_archive_bytes: bytes, *, observed_at_utc: str, limit: int = 2,
+) -> tuple[dict[str, str], ...]:
+    """Read a bounded sample with exact original RDF selectors, never a verdict.
+
+    This is operator-facing provenance, not a rights or publication decision.
+    The imported source is independently validated by the existing adapter.
+    """
+    if type(limit) is not int or not 1 <= limit <= 5:
+        raise DvnsOfficialProbeError("DVNS_OFFICIAL_SAMPLE_LIMIT_INVALID")
+    imported = import_senato_open_data_sittings(
+        source_archive_bytes, observed_at_utc=observed_at_utc,
+    ).imported
+    provenance_by_id = {row.record_id: row for row in imported.provenance}
+    sample = []
+    for record in sorted(imported.normalized_batch.values, key=lambda row: row.source_record_id)[:limit]:
+        provenance = provenance_by_id[record.record_id]
+        selectors = dict(provenance.fields)
+        sample.append({
+            "source_record_id": record.source_record_id,
+            "source_url": record.source_url,
+            "source_version": record.source_version,
+            "source_field_selector": selectors["value_numeric"],
+            "metric": record.metric,
+            "value": str(record.value_numeric),
+            "reference_period": record.reference_period or "",
+            "rights_status": imported.rights_status,
+        })
+    return tuple(sample)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Read-only Senato RDF provenance canary")
+    parser.add_argument("--sample-limit", type=int, choices=range(1, 6), default=2)
+    args = parser.parse_args(argv)
+    archive = _fetch_official_archive()
+    observed = _live_utc()
+    receipt = read_back_senato_official_candidate(archive, observed_at_utc=observed)
+    sample = inspect_senato_official_records(
+        archive, observed_at_utc=observed, limit=args.sample_limit,
+    )
+    print(json.dumps({"receipt": asdict(receipt), "sample": sample}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

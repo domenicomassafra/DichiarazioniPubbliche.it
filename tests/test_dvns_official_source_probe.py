@@ -1,8 +1,10 @@
 """Official-data DP-234 technical canary: read-only HTTPS, held rights, replay."""
 
 import io
+import json
 import sys
 import unittest
+from contextlib import redirect_stdout
 from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
@@ -16,6 +18,8 @@ from dichiarazioni_pubbliche.dvns_official_source_probe import (  # noqa: E402
     _DenyRedirect,
     _fetch_official_archive,
     acquire_senato_official_candidate,
+    inspect_senato_official_records,
+    main,
     read_back_senato_official_candidate,
     verify_senato_official_readback,
 )
@@ -111,6 +115,42 @@ class DvnsOfficialSourceProbeTests(unittest.TestCase):
         self.assertEqual(changed.candidate_state, "HELD")
         with self.assertRaisesRegex(DvnsOfficialProbeError, "RECEIPT_MISMATCH"):
             verify_senato_official_readback(other, expected=original)
+
+    def test_operator_preview_retains_original_record_and_rdf_field_locator(self):
+        sample = inspect_senato_official_records(
+            archive(), observed_at_utc="2026-10-10T15:30:00Z", limit=2,
+        )
+        self.assertEqual(len(sample), 2)
+        self.assertEqual({row["source_url"] for row in sample}, {DATASET_URL})
+        self.assertEqual({row["rights_status"] for row in sample}, {"BLOCKED"})
+        for row in sample:
+            self.assertIn(row["source_record_id"], row["source_field_selector"])
+            self.assertTrue(row["source_version"].startswith("sha256:"))
+            self.assertEqual(row["metric"], "senato_assemblea_numero_seduta")
+            self.assertTrue(row["reference_period"])
+            self.assertNotIn("verdict", row)
+        for limit in (0, 6, True):
+            with self.assertRaisesRegex(DvnsOfficialProbeError, "SAMPLE_LIMIT_INVALID"):
+                inspect_senato_official_records(
+                    archive(), observed_at_utc="2026-10-10T15:30:00Z", limit=limit,
+                )
+
+    def test_cli_reads_exact_archive_once_and_preserves_held_source(self):
+        output = io.StringIO()
+        with mock.patch(
+            "dichiarazioni_pubbliche.dvns_official_source_probe._fetch_official_archive",
+            return_value=archive(),
+        ) as fetch, mock.patch(
+            "dichiarazioni_pubbliche.dvns_official_source_probe._live_utc",
+            return_value="2026-10-10T15:30:00Z",
+        ), redirect_stdout(output):
+            self.assertEqual(main(["--sample-limit", "1"]), 0)
+        fetch.assert_called_once_with()
+        result = json.loads(output.getvalue())
+        self.assertEqual(len(result["sample"]), 1)
+        self.assertEqual(result["receipt"]["candidate_state"], "HELD")
+        self.assertEqual(result["receipt"]["imported_records"], 2)
+        self.assertEqual(result["sample"][0]["source_url"], DATASET_URL)
 
 
 if __name__ == "__main__":
