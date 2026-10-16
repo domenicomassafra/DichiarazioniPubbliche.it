@@ -238,6 +238,9 @@ try {
     }
   };
   await send('Runtime.enable');
+  // Headless Chromium can expose DOM focus while leaving its native input
+  // activation pipeline unfocused; emulate the top-level window's focus.
+  await send('Emulation.setFocusEmulationEnabled', {enabled: true});
   await wait(`document.querySelector('form[data-endpoint="/v1/corpus/search"]') !== null`);
   await evaluate(`document.getElementById('token').value = '${'a'.repeat(64)}';
     const form = document.querySelector('form[data-endpoint="/v1/corpus/search"]');
