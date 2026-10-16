@@ -45,12 +45,14 @@ _CAPITALIZED_RE = re.compile(r"\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]{2,
 _NEGATIONS = {
     "it": re.compile(r"\b(?:non|mai|nessun[oa]?|senza)\b", re.I),
     "en": re.compile(r"\b(?:not|never|no|without|n't)\b", re.I),
+    "de": re.compile(r"\b(?:nicht|nie|niemals|kein\w*|ohne|weder|niemand\w*)\b", re.I),
     "fr": re.compile(r"\b(?:ne|pas|jamais|aucun|sans)\b", re.I),
     "es": re.compile(r"\b(?:no|nunca|ning[uú]n|sin)\b", re.I),
 }
 _MODALS = {
     "it": re.compile(r"\b(?:deve|devono|può|possono|potrebbe|potrebbero|dovrebbe|dovrebbero)\b", re.I),
     "en": re.compile(r"\b(?:must|may|might|can|could|should|would)\b", re.I),
+    "de": re.compile(r"\b(?:muss|müssen|soll|sollen|kann|können|könnte|könnten|darf|dürfen)\b", re.I),
     "fr": re.compile(r"\b(?:doit|doivent|peut|peuvent|pourrait|devrait)\b", re.I),
     "es": re.compile(r"\b(?:debe|deben|puede|pueden|podría|debería)\b", re.I),
 }
@@ -62,6 +64,10 @@ _MODAL_CLASSES = {
     "en": {
         "OBLIGATION": re.compile(r"\b(?:must|should)\b", re.I),
         "POSSIBILITY": re.compile(r"\b(?:may|might|can|could|would)\b", re.I),
+    },
+    "de": {
+        "OBLIGATION": re.compile(r"\b(?:muss|müssen|soll|sollen)\b", re.I),
+        "POSSIBILITY": re.compile(r"\b(?:kann|können|könnte|könnten|darf|dürfen)\b", re.I),
     },
     "fr": {
         "OBLIGATION": re.compile(r"\b(?:doit|doivent|devrait)\b", re.I),
@@ -563,6 +569,7 @@ def _names(text: str) -> tuple[str, ...]:
             "non",
             "noi",
             "io",
+            "ich",
             "the",
             "we",
             "i",

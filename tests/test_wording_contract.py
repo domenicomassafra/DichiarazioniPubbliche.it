@@ -309,6 +309,31 @@ class WordingContractTests(unittest.TestCase):
         self.assertIn("MODALITY_CHANGED", result.signal_codes)
         self.assertEqual(result.state, TranslationReviewState.NEEDS_REVIEW)
 
+    def test_german_italian_translation_checks_negation_and_modal_category(self):
+        cases = (
+            ("es kann nicht.", (), TranslationReviewState.HUMAN_REVIEWED),
+            ("es kann.", ("NEGATION_CHANGED",), TranslationReviewState.NEEDS_REVIEW),
+            ("es muss nicht.", ("MODALITY_CHANGED",), TranslationReviewState.NEEDS_REVIEW),
+        )
+        for translated, expected_signals, expected_state in cases:
+            with self.subTest(translated=translated):
+                result = assess_translation(
+                    source_text="non si può.",
+                    translated_text=translated,
+                    source_language="it", target_language="de",
+                    method="HUMAN", human_reviewed=True,
+                )
+                self.assertEqual(result.signal_codes, expected_signals)
+                self.assertEqual(result.state, expected_state)
+                self.assertFalse(result.public_quote_eligible)
+
+        unknown = assess_translation(
+            source_text="non si può.", translated_text="いいえ",
+            source_language="it", target_language="ja", method="MACHINE",
+        )
+        self.assertIn("LANGUAGE_RISK_RULE_UNAVAILABLE", unknown.signal_codes)
+        self.assertEqual(unknown.state, TranslationReviewState.NEEDS_REVIEW)
+
     def test_changed_legal_status_is_held(self):
         result = assess_translation(
             source_text="Mario Rossi è indagato.",
