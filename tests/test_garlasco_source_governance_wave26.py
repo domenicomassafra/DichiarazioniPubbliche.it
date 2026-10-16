@@ -47,7 +47,8 @@ class SourceGovernanceWave26Test(unittest.TestCase):
                             and row["provenance_evidence_url"] for row in rows))
         self.assertTrue(all(row["rights"]["fetch_source_body"].startswith("BLOCKED_")
                             and row["rights"]["analyze_or_translate_body"].startswith("BLOCKED_")
-                            and row["rights"]["publish_exact_quote"].startswith("BLOCKED_")
+                            and row["rights"]["quote_exact_excerpt_with_source_link"].startswith("YES_WITH_CONTEXT_")
+                            and row["rights"]["publish_exact_quote"] == "SUBJECT_TO_EXISTING_EDITORIAL_PUBLICATION_REVIEW"
                             for row in rows))
         self.assertTrue(all(row["rights"]["catalog_link_metadata"] == "AVAILABLE_WITH_PROVENANCE"
                             and row["independence_approved"] is False

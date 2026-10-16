@@ -75,14 +75,20 @@ EVIDENCE_SCOPE = {
 
 
 def _use_status(evidence: str) -> dict[str, str]:
-    """Operator-facing dispositions, never a durable rights registry grant."""
+    """Show bounded editorial quotation separately from bulk/media acquisition.
+
+    The owner's quotation policy concerns a faithful contextual excerpt with a
+    source link. It does not override a site's automation restrictions, supply
+    speaker authentication, or authorize public projection of an unreviewed item.
+    """
     return {
         "catalog_link_metadata": "AVAILABLE_WITH_PROVENANCE",
         "fetch_source_body": "BLOCKED_PENDING_SOURCE_SPECIFIC_PERMISSION",
         "store_or_parse_body": "BLOCKED_PENDING_SOURCE_SPECIFIC_PERMISSION",
         "analyze_or_translate_body": "BLOCKED_PENDING_SOURCE_SPECIFIC_PERMISSION",
         "capture_or_transcribe_media": "BLOCKED_PENDING_SEPARATE_MEDIA_PERMISSION",
-        "publish_exact_quote": "BLOCKED_PENDING_QUALIFIED_EXCERPT_REVIEW",
+        "quote_exact_excerpt_with_source_link": "YES_WITH_CONTEXT_AND_ATTRIBUTION_OWNER_POLICY_2026_10_17",
+        "publish_exact_quote": "SUBJECT_TO_EXISTING_EDITORIAL_PUBLICATION_REVIEW",
         "basis": evidence,
         "decision_kind": "UNREVIEWED_OPERATOR_PREVIEW_NOT_RIGHTS_REGISTRY",
     }

@@ -116,3 +116,14 @@ their source-specific permissions remain UNKNOWN; a metadata link is not a
 `private_source_rights_record` permit. Read-only MiniPC `psql` returned `0|0`
 for all/cleared rights records. No licensed operational body capture, authenticated
 decision or public excerpt approval has been established. AC-236.1–6 remain open.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** every one of the eleven
+`source_inventory` rows presents separate decisions for full-body acquisition,
+analysis, media reuse and faithful excerpt quotation with a source link.
+`quote_exact_excerpt_with_source_link` now records the owner's 2026-10-17
+editorial decision separately from bulk fetch, video copying and public
+projection review. Command: `python3 tools/evaluate_garlasco_source_governance_wave26.py`.
+The earlier full source-rights authentication spec remains a separate project
+milestone and is not implied by the quotation policy.

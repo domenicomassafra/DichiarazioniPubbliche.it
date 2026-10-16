@@ -595,3 +595,12 @@ neither a derivative nor a second URL can create an independent confirmation.
 Its roles use the existing Source Intelligence vocabulary. This is usable
 operator triage, not a persisted reviewed content/source assessment. Therefore
 AC-215.9 and the ticket remain open until per-Content review and MiniPC readback.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** `source_inventory` distinguishes
+official originals, broadcaster originals, reporting, republication and missing
+originals, with derived-source pointers and bounded evidentiary roles. The
+replayed Camera Garlasco intervention is bound to its actual transcript and
+speaker locator by `tools/verify_t4_p02_owner_acceptance.py`. The historical
+larger evidence-sufficiency assessment remains distinct from this scoped task.
