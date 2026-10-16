@@ -2,37 +2,17 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Assessment from "./Assessment.astro";
 import { dossierSlug, formatDate } from "../lib/format";
+import { describeReviewedRelation } from "../lib/relation-description";
 import type { PublicTrace } from "../lib/relations";
 import type { PublicDossier } from "../lib/types";
 
 interface Props { trace: PublicTrace }
 const { trace } = Astro.props;
-const relationCopy: Record<string, { label: string; copy: string }> = {
-  SAME_PROPOSITION: {
-    label: "Stessa proposizione",
-    copy: "Le dichiarazioni sono state collegate come formulazioni della stessa proposizione nel perimetro revisionato."
-  },
-  CLARIFICATION: {
-    label: "Chiarimento",
-    copy: "La relazione revisionata segnala un chiarimento successivo. Il rapporto descrive i testi e il tempo, non l’intenzione della persona."
-  },
-  UPDATE: {
-    label: "Aggiornamento",
-    copy: "La relazione revisionata segnala un aggiornamento successivo. Ogni dichiarazione conserva il proprio esito e la propria fonte."
-  },
-  POSITION_CHANGE_CANDIDATE: {
-    label: "Cambiamento di posizione revisionato",
-    copy: "La relazione approvata segnala un cambiamento di posizione nel tempo. Descrive una variazione tra testi e date senza attribuire intenzioni."
-  },
-  CONTRADICTION_CANDIDATE: {
-    label: "Contraddizione revisionata",
-    copy: "La relazione approvata segnala dichiarazioni non allineate nel perimetro revisionato. Descrive il rapporto tra i testi senza attribuire intenzioni."
-  }
-};
-const relation = relationCopy[trace.relationType] ?? {
-  label: "Relazione revisionata",
-  copy: "Relazione longitudinale approvata tra dichiarazioni pubbliche. La pagina descrive testi, fonti e sequenza temporale senza inferire intenzioni."
-};
+const relation = describeReviewedRelation({
+  relationType: trace.relationType,
+  rationaleCodes: trace.rationaleCodes,
+  participantPersonIds: trace.participants.map((dossier) => dossier.speaker.id)
+});
 const dateOf = (dossier: PublicDossier) => dossier.source.published_at ?? dossier.finding.published_at;
 const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
 ---
