@@ -114,7 +114,9 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
         self.assertEqual(report["recorded_measured_unverified_usd"], "0.100000")
         self.assertEqual(report["legacy_attempt_count"], 1)
         self.assertEqual(report["unknown_cash_attempt_count"], 1)
-        self.assertEqual(report["unknown_local_energy_attempt_count"], 1)
+        # The integrated ledger classifies absent energy provenance as UNKNOWN
+        # for every attempt, not only for the EXTERNAL_PLAN attempt.
+        self.assertEqual(report["unknown_local_energy_attempt_count"], 4)
         self.assertEqual(
             report["scheduler_health_parity"], "RECEIPT_IDS_MATCH_NONATOMIC"
         )
