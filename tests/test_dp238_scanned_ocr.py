@@ -8,16 +8,25 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
-from dichiarazioni_pubbliche.capture_pipeline import MAX_PASSAGE_CHARS
+from dichiarazioni_pubbliche.capture_pipeline import (
+    MAX_PASSAGE_CHARS,
+    CaptureBodyStore,
+    CapturePipelineError,
+    capture_content,
+)
 from dichiarazioni_pubbliche.document_text_extraction import (
     document_passages_from_capture,
 )
 from tests.test_dp238_document_extraction import capture, fetched, sha
+from tests.test_capture_pipeline import FakeCaptureStore
 
 
 PDF = b"%PDF-1.4\nmocked scan pixels\n%%EOF"
@@ -278,6 +287,128 @@ class ScannedOCRTests(unittest.TestCase):
         self.assertEqual(result.status, "FAILED")
         self.assertEqual(result.error_category, "DOCUMENT_OCR_BACKEND_UNAVAILABLE")
         self.assertFalse(result.spans)
+
+
+class CanonicalPersistedScannedOCRTests(unittest.TestCase):
+    """Exercise the canonical capture_content writer, not just the DP238 helper."""
+
+    class CompletePrivateCaptureStore(FakeCaptureStore):
+        """Fake store with the same safety columns as PostgreSQL readback."""
+
+        def find_capture(self, content_id, content_sha256):
+            row = super().find_capture(content_id, content_sha256)
+            if row is not None:
+                persisted = self.captures[(content_id, content_sha256)]["record"]
+                row.update(
+                    rights_status=persisted.rights_status,
+                    body_purged_at=persisted.body_purged_at,
+                )
+            return row
+
+        def upsert_capture(self, record):
+            row = super().upsert_capture(record)
+            persisted = self.captures[(record.content_id, record.content_sha256)]["record"]
+            row.update(
+                rights_status=persisted.rights_status,
+                body_purged_at=persisted.body_purged_at,
+                parser_method=persisted.parser_method,
+                parser_version=persisted.parser_version,
+                final_url=persisted.final_url,
+                media_type=persisted.media_type,
+                metadata=persisted.metadata,
+            )
+            return row
+
+    class ApprovedOwnerSourceGuard:
+        def __init__(self):
+            self.operations = []
+
+        def bind_capture(self, *, content_id, url):
+            assert content_id == "content:owner-product-ocr"
+            assert url == "https://source.example/document"
+
+        def bind_fetched(self, *, final_url):
+            assert final_url == "https://source.example/document"
+
+        def require(self, operation, **kwargs):
+            self.operations.append(operation)
+            assert operation in {"FETCH", "STORE_BODY", "PARSE_OCR"}
+            return SimpleNamespace(decision_fingerprint="a" * 64)
+
+    def _capture(self, store, body_store, *, rights="CLEARED", guard=None):
+        src = self.ApprovedOwnerSourceGuard() if guard is None else guard
+        with patch(
+            "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=_success()),
+        ) as ocr:
+            self.last_ocr_mock = ocr
+            receipt = capture_content(
+                content_id="content:owner-product-ocr",
+                url="https://source.example/document",
+                store=store,
+                body_store=body_store,
+                observed_at="2026-10-16T12:00:00+00:00",
+                fetcher=lambda url, **kwargs: fetched(PDF, media="application/pdf"),
+                parser=ScannedPDFOCRParser(),
+                rights_status=rights,
+                rights_guard=lambda: None,
+                source_use_guard=src,
+                enrichment_policy=None,
+            )
+        return receipt, src, ocr.call_count
+
+    def test_persisted_private_passages_keep_page_boxes_and_critical_hold_on_replay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.CompletePrivateCaptureStore()
+            body_store = CaptureBodyStore(Path(tmp))
+            first, guard, count = self._capture(store, body_store)
+            self.assertEqual(count, 2)  # extraction and immutable source replay
+            self.assertEqual(first.parse_status, "SUCCEEDED")
+            self.assertIn("PARSE_OCR", guard.operations)
+            persisted = store.list_passages(first.selected_capture_id)
+            self.assertEqual(len(persisted), 2)
+            for page, passage in enumerate(sorted(persisted, key=lambda p: p.start_char), 1):
+                self.assertEqual(passage.metadata["page_number"], page)
+                self.assertEqual(passage.metadata["source_sha256"], sha(PDF))
+                self.assertEqual(passage.metadata["pdf_text_fidelity"], "UNREVIEWED_OCR_EXTRACTION")
+                self.assertFalse(passage.metadata["verbatim_reviewed"])
+                self.assertEqual(passage.metadata["ocr_critical_span_state"], "HELD_INDEPENDENT_REVIEW_REQUIRED")
+                self.assertTrue(passage.metadata["ocr_word_boxes"])
+            self.assertEqual(len(persisted[0].metadata["ocr_word_boxes"]), 5)
+            second, _, count2 = self._capture(store, body_store)
+            self.assertEqual(count2, 2)
+            self.assertEqual(first.passage_ids, second.passage_ids)
+            self.assertEqual(second.capture_state, "EXISTING")
+            self.assertEqual(set(second.passage_states), {"EXISTING"})
+
+    def test_rights_unknown_and_existing_held_capture_refuse_ocr_and_insert(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.CompletePrivateCaptureStore()
+            body_store = CaptureBodyStore(Path(tmp))
+            with self.assertRaisesRegex(CapturePipelineError, "DOCUMENT_SOURCE_RIGHTS_NOT_CLEARED"):
+                capture_content(
+                    content_id="content:owner-product-ocr",
+                    url="https://source.example/document",
+                    store=store,
+                    body_store=body_store,
+                    parser=ScannedPDFOCRParser(),
+                    rights_status="CLEARED",
+                    source_use_guard=None,
+                    fetcher=lambda *args, **kwargs: self.fail("must hold before fetch"),
+                )
+            with self.assertRaisesRegex(CapturePipelineError, "DOCUMENT_.*(RIGHTS|AUTH)"):
+                self._capture(store, body_store, rights="UNKNOWN")
+            self.last_ocr_mock.assert_not_called()
+            self.assertEqual(store.captures, {})
+            self.assertEqual(store.passages, {})
+            first, _, _ = self._capture(store, body_store)
+            key = ("content:owner-product-ocr", sha(PDF))
+            held = replace(store.captures[key]["record"], hold_status="RIGHTS_HOLD")
+            store.captures[key]["record"] = held
+            with self.assertRaisesRegex(CapturePipelineError, "DOCUMENT_CAPTURE_HELD"):
+                self._capture(store, body_store)
+            self.last_ocr_mock.assert_not_called()
+            self.assertEqual(len(store.passages), 2)
 
 
 if __name__ == "__main__":

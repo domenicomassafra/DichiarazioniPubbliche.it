@@ -68,6 +68,43 @@ rights, current source hash, exact selector and independent readback, critical
 span holds, version supersession, and public-body non-disclosure before checking
 any original acceptance criterion.
 
+## 2026-10-16 — canonical Capture→PostgreSQL Passage OCR integration (PR100 follow-up)
+
+The prior isolated real OCR exercise proved the DP238 in-memory adapter but
+not the writer that `capture_content` actually invokes. Independent review
+identified a reproducible loss: `capture_pipeline._persist_fetched_capture`
+persisted `_passage_records`, which keeps hashes and IDs but drops page number,
+page SHA, OCR word pixel boxes and the mandatory critical-span HOLD.
+
+The canonical pipeline now uses `document_passages_from_capture` for the exact
+built-in native-document, born-digital PDF and scanned-OCR parser types. It
+requires a current source-use guard and explicit `CLEARED` rights and stored
+selector metadata; an existing non-captured, rights-uncleared, held or purged
+Capture blocks processing. The adapter replays immutable source bytes and
+checks the stored Capture/parser version before any Passage insert. General
+media/HTML writer behavior remains unchanged.
+
+**RED→GREEN**: two new canonical writer regressions first failed with 1
+native-worker call instead of the required source+replay, missing stored page
+metadata, and an unauthorized `UNKNOWN`-rights write. Both now pass. A third
+test exercises actual local PostgreSQL `CapturePipelineStore` SQL rather than
+an in-memory fake. The same targeted PostgreSQL test was executed on the
+MiniPC with the existing **real** two-page rasterized owner-repository PDF,
+Poppler/Tesseract 5.5.0 and an ephemeral PostgreSQL 18 cluster initialized
+and stopped by the test. It passed exact private page/box/HOLD SQL readback,
+unchanged replay (`EXISTING`), a rights-HOLD negative, and zero
+Statement/Claim Candidates.
+
+This is persistent private *isolated test* acceptance with a synthetic
+test-only source rights/relevance receipt for owner-controlled material. The
+production PostgreSQL database, its source rights registry and the live web
+service were untouched. It does **not** certify an independent rights grant
+for an archival source, difficult-scanned reference quality, installed
+MiniPC mirror deployment or public disclosure assurance. DP-238 AC-238.1–6
+remain unchecked; a genuinely approved archival source and independent gold
+are still required for original closure, even though this bounded synthetic
+engineering exercise needs no additional source.
+
 ## 2026-10-16 — Independent same-PR security review follow-up
 
 During a fresh review of the exact original adapter, a source-boundary order

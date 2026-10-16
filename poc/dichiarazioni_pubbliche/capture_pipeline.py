@@ -1055,6 +1055,44 @@ def _passage_records(
     return tuple(records)
 
 
+def _private_document_parser(parser: ParserAdapter) -> bool:
+    """Only built-in DP238 parsers may persist versioned document selectors."""
+    if getattr(parser, "parser_method", None) not in {
+        "NATIVE_DOCUMENT_TEXT", "NATIVE_PDF_TEXT_CANDIDATE", "SCANNED_PDF_OCR_CANDIDATE",
+    }:
+        return False
+    from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+    from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
+    from dichiarazioni_pubbliche.document_text_extraction import DocumentTextParser
+
+    return type(parser) in {DocumentTextParser, BornDigitalPDFTextParser, ScannedPDFOCRParser}
+
+
+def _require_document_capture_authority(
+    *, rights_status: str, source_use_guard: SourceFamilyUseGuard | None,
+    metadata_enabled: bool,
+) -> None:
+    # A caller-provided rights label alone cannot authorize native OCR or
+    # canonical private document storage. Source use must have its own current
+    # FETCH/STORE_BODY/PARSE_* decision; metadata holds the selectors on replay.
+    if rights_status != "CLEARED" or source_use_guard is None:
+        raise CapturePipelineError("DOCUMENT_SOURCE_RIGHTS_NOT_CLEARED")
+    if not metadata_enabled:
+        raise CapturePipelineError("DOCUMENT_SOURCE_SELECTORS_REQUIRED")
+
+
+def _require_current_document_capture(row: Mapping[str, Any]) -> None:
+    # The current persisted row, not just the new operator request, decides
+    # whether private OCR may run. Fail closed on incomplete store readbacks.
+    if (
+        row.get("status") != "CAPTURED"
+        or row.get("hold_status") != "NONE"
+        or row.get("rights_status") != "CLEARED"
+        or row.get("body_purged_at") is not None
+    ):
+        raise CapturePipelineError("DOCUMENT_CAPTURE_HELD")
+
+
 def verify_passage_roundtrip(
     *,
     body: bytes,
@@ -1236,6 +1274,12 @@ def _persist_fetched_capture(
     source_use_guard: SourceFamilyUseGuard | None = None,
 ) -> tuple[ContentCaptureRecord, str, ParseResult, tuple[PassageRecord, ...], tuple[str, ...]]:
     _validate_fetched_resource(fetched, max_response_bytes=MAX_DISCOVERY_RESPONSE_BYTES)
+    private_document = _private_document_parser(parser)
+    if private_document:
+        _require_document_capture_authority(
+            rights_status=rights_status, source_use_guard=source_use_guard,
+            metadata_enabled=metadata_enabled,
+        )
     try:
         store.require_ingestion_acquisition_permit(
             permit_id=permit_id,
@@ -1260,6 +1304,8 @@ def _persist_fetched_capture(
             parse_use, content_sha256=content_sha256, media_type=fetched.media_type,
         )
     existing = store.find_capture(content_id, content_sha256)
+    if private_document and existing:
+        _require_current_document_capture(existing)
     if rights_guard is not None:
         rights_guard()
     if source_use_guard is not None:
@@ -1314,8 +1360,10 @@ def _persist_fetched_capture(
             "STORE_BODY", content_sha256=content_sha256, media_type=fetched.media_type,
         )
     persisted = store.upsert_capture(record)
+    if private_document:
+        _require_current_document_capture(persisted)
     actual_id = str(persisted["id"])
-    if actual_id != record.id:
+    if actual_id != record.id or (private_document and persisted["state"] == "EXISTING"):
         record = ContentCaptureRecord(
             **{
                 **record.to_dict(),
@@ -1370,12 +1418,23 @@ def _persist_fetched_capture(
             source_use_guard.require(
                 parse_use, content_sha256=content_sha256, media_type=fetched.media_type,
             )
-        passages = _passage_records(
-            content_id=content_id,
-            capture_id=actual_id,
-            parse=parse,
-            language=language,
-        )
+        if private_document:
+            from dichiarazioni_pubbliche.document_text_extraction import document_passages_from_capture
+
+            try:
+                passages = document_passages_from_capture(
+                    capture=record, fetched=fetched, parsed=parse,
+                    language=language, parser=parser,
+                )
+            except (ValueError, KeyError, TypeError) as exc:
+                raise CapturePipelineError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH") from exc
+        else:
+            passages = _passage_records(
+                content_id=content_id,
+                capture_id=actual_id,
+                parse=parse,
+                language=language,
+            )
         states = [store.insert_passage(passage) for passage in passages]
         passage_states = tuple(states)
         store.append_event(
@@ -1438,6 +1497,11 @@ def capture_content(
     parser = parser or StdlibVisibleTextParser(
         extract_metadata=enrichment_policy.metadata_enabled
     )
+    if _private_document_parser(parser):
+        _require_document_capture_authority(
+            rights_status=rights_status, source_use_guard=source_use_guard,
+            metadata_enabled=enrichment_policy.metadata_enabled,
+        )
     observed_at = observed_at or _now_iso()
     try:
         datetime.fromisoformat(observed_at[:-1] + "+00:00" if observed_at.endswith("Z") else observed_at)
