@@ -7,6 +7,7 @@ No production DB, rights registry, network capture or public route is involved.
 from __future__ import annotations
 
 from contextlib import nullcontext
+from dataclasses import replace
 import os
 import shutil
 import socket
@@ -22,6 +23,7 @@ from dichiarazioni_pubbliche.capture_pipeline import (
     CapturePipelineStore,
     capture_content,
 )
+from dichiarazioni_pubbliche.corpus_repository import PassageRecord
 from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
 from dichiarazioni_pubbliche.ingestion_relevance import (
     append_ingestion_relevance_authority,
@@ -34,7 +36,7 @@ from dichiarazioni_pubbliche.rights_registry import (
     RightsSubject,
     rights_subject_fingerprint,
 )
-from tests.test_dp238_document_extraction import fetched, sha
+from tests.test_dp238_document_extraction import capture, fetched, sha
 from tests.test_dp238_scanned_ocr import PDF, _success
 
 
@@ -193,6 +195,104 @@ class PrivateCapturePostgresTests(unittest.TestCase):
             policy_version=record.policy_version,
             clock=lambda: datetime(2026, 10, 16, 12, tzinfo=timezone.utc),
         )
+
+    def test_row_locked_private_batch_rejects_hold_after_python_readback(self):
+        from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineError
+
+        # A distinct immutable source version avoids touching the baseline
+        # fixture or deleting from append-only tables between test methods.
+        variant_pdf = PDF.replace(b"mocked scan pixels", b"mocked scan pixels variant")
+        parser = ScannedPDFOCRParser()
+        with patch(
+            "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=_success()),
+        ):
+            precomputed = parser.parse(fetched(variant_pdf, media="application/pdf"))
+
+        def revoke_immediately_before_atomic_insert(*, capture, passages, use_fingerprint):
+            # Simulate a distinct rights writer between the final Python
+            # readback and the SQL row-lock. Only the SQL fence can deny this.
+            self.store.run(
+                "UPDATE content_capture SET hold_status='LEGAL_HOLD' "
+                "WHERE id=:'id'", id=capture.id,
+            )
+            return CapturePipelineStore.insert_private_document_passages(
+                self.store, capture=capture, passages=passages,
+                use_fingerprint=use_fingerprint,
+            )
+
+        with tempfile.TemporaryDirectory() as private_root:
+            with patch.object(parser, "parse", return_value=precomputed), patch.object(
+                self.store, "insert_private_document_passages",
+                side_effect=revoke_immediately_before_atomic_insert,
+            ):
+                with self.assertRaisesRegex(
+                    CapturePipelineError, "DOCUMENT_CAPTURE_FENCE_FAILED"
+                ):
+                    capture_content(
+                        content_id=CONTENT_ID, url=URL, store=self.store,
+                        body_store=CaptureBodyStore(Path(private_root)), parser=parser,
+                        source_use_guard=self._fixture_guard(),
+                        rights_status="CLEARED", rights_guard=lambda: None,
+                        observed_at="2026-10-16T12:00:00+00:00",
+                        fetcher=lambda url, **kw: fetched(variant_pdf, media="application/pdf"),
+                    )
+        self.assertEqual(
+            self.store.run(
+                "SELECT count(*) FROM passage p JOIN content_capture c "
+                "ON c.id=p.capture_id WHERE c.content_sha256=:'hash'",
+                hash=sha(variant_pdf),
+            ), "0",
+        )
+        self.assertEqual(
+            self.store.run(
+                "SELECT hold_status FROM content_capture WHERE content_sha256=:'hash'",
+                hash=sha(variant_pdf),
+            ),
+            "LEGAL_HOLD",
+        )
+
+    def test_private_batch_conflict_rolls_back_earlier_new_passage(self):
+        from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineError
+
+        variant_pdf = PDF.replace(b"mocked scan pixels", b"mocked scan pixels rollback")
+        parser = ScannedPDFOCRParser()
+        with patch(
+            "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=_success()),
+        ):
+            computed = parser.parse(fetched(variant_pdf, media="application/pdf"))
+        with tempfile.TemporaryDirectory() as private_root, patch.object(
+            parser, "parse", return_value=computed,
+        ):
+            receipt = capture_content(
+                content_id=CONTENT_ID, url=URL, store=self.store,
+                body_store=CaptureBodyStore(Path(private_root)), parser=parser,
+                source_use_guard=self._fixture_guard(),
+                rights_status="CLEARED", rights_guard=lambda: None,
+                observed_at="2026-10-16T12:00:00+00:00",
+                fetcher=lambda url, **kw: fetched(variant_pdf, media="application/pdf"),
+            )
+        persisted = self.store.find_capture(CONTENT_ID, sha(variant_pdf))
+        rows = self.store.list_passages(receipt.selected_capture_id)
+        self.assertEqual(len(rows), 2)
+        record = replace(
+            capture(variant_pdf, media="application/pdf"),
+            id=receipt.selected_capture_id, content_id=CONTENT_ID,
+            parser_method=computed.parser_method,
+            parser_version=computed.parser_version,
+        )
+        first = replace(PassageRecord(**rows[0]), id="passage:synthetic-rollback-check")
+        second = replace(PassageRecord(**rows[1]), metadata={**rows[1]["metadata"], "drift": True})
+        with self.assertRaisesRegex(CapturePipelineError, "DOCUMENT_CAPTURE_FENCE_FAILED"):
+            self.store.insert_private_document_passages(
+                capture=record, passages=(first, second),
+                use_fingerprint=persisted["metadata"]["source_use_fingerprint"],
+            )
+        self.assertEqual(
+            self.store.run("SELECT count(*) FROM passage WHERE id=:'id'", id=first.id), "0",
+        )
+        self.assertEqual(len(self.store.list_passages(receipt.selected_capture_id)), 2)
 
     def test_private_sql_write_read_replay_and_held_source(self):
         candidate = os.environ.get("DP238_NATIVE_OCR_PDF")

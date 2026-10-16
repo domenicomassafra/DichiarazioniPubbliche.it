@@ -796,6 +796,85 @@ ORDER BY start_char NULLS LAST, id;
 """.strip()
 
 
+_INSERT_PRIVATE_DOCUMENT_PASSAGES_SQL = r"""
+-- A SINGLE statement: the current Capture row is locked until every private
+-- Passage is committed. A revoker updating that row must serialize before or
+-- after this batch, never between a Python preflight and an INSERT.
+WITH locked AS MATERIALIZED (
+    SELECT id FROM content_capture
+    WHERE id=:'capture_id' AND content_id=:'content_id'
+      AND content_sha256=:'content_sha256'
+      AND status='CAPTURED' AND hold_status='NONE'
+      AND rights_status='CLEARED' AND body_purged_at IS NULL
+      AND parser_method=:'parser_method' AND parser_version=:'parser_version'
+      AND metadata->>'source_use_fingerprint'=:'use_fingerprint'
+    FOR UPDATE
+), requested AS MATERIALIZED (
+    SELECT p.ord, p.row->>'id' AS id, p.row->>'content_id' AS content_id,
+        p.row->>'capture_id' AS capture_id,
+        p.row->>'canonical_segment_id' AS canonical_segment_id,
+        p.row->>'selector_type' AS selector_type,
+        (p.row->>'start_char')::integer AS start_char,
+        (p.row->>'end_char')::integer AS end_char,
+        (p.row->>'page_start')::integer AS page_start,
+        (p.row->>'page_end')::integer AS page_end,
+        p.row->>'text_sha256' AS text_sha256,
+        p.row->>'private_text' AS private_text,
+        p.row->>'language' AS language,
+        p.row->>'extraction_method' AS extraction_method,
+        p.row->>'extraction_version' AS extraction_version,
+        p.row->'metadata' AS metadata
+    FROM jsonb_array_elements(:'passages'::jsonb)
+        WITH ORDINALITY AS p(row, ord)
+), inserted AS (
+    INSERT INTO passage (
+        id, content_id, capture_id, canonical_segment_id, selector_type,
+        start_char, end_char, page_start, page_end, text_sha256, private_text,
+        language, extraction_method, extraction_version, metadata
+    )
+    SELECT p.id, p.content_id, p.capture_id, p.canonical_segment_id,
+           p.selector_type, p.start_char, p.end_char, p.page_start, p.page_end,
+           p.text_sha256, p.private_text, p.language, p.extraction_method,
+           p.extraction_version, p.metadata
+    FROM requested p JOIN locked ON true
+    WHERE p.capture_id=:'capture_id' AND p.content_id=:'content_id'
+      AND p.extraction_method=:'parser_method'
+      AND p.extraction_version=:'parser_version'
+    ON CONFLICT (id) DO NOTHING
+    RETURNING id
+), checked AS (
+    SELECT p.ord,
+      CASE WHEN inserted.id IS NOT NULL THEN 'INSERTED'
+           WHEN old.id IS NOT NULL
+            AND old.content_id=p.content_id
+            AND old.capture_id IS NOT DISTINCT FROM p.capture_id
+            AND old.canonical_segment_id IS NOT DISTINCT FROM p.canonical_segment_id
+            AND old.selector_type=p.selector_type
+            AND old.start_char IS NOT DISTINCT FROM p.start_char
+            AND old.end_char IS NOT DISTINCT FROM p.end_char
+            AND old.page_start IS NOT DISTINCT FROM p.page_start
+            AND old.page_end IS NOT DISTINCT FROM p.page_end
+            AND old.text_sha256=p.text_sha256
+            AND old.private_text IS NOT DISTINCT FROM p.private_text
+            AND old.language IS NOT DISTINCT FROM p.language
+            AND old.extraction_method=p.extraction_method
+            AND old.extraction_version=p.extraction_version
+            AND old.metadata=p.metadata THEN 'EXISTING'
+           ELSE 'CONFLICT' END AS state
+    FROM requested p LEFT JOIN inserted ON inserted.id=p.id
+    LEFT JOIN passage old ON old.id=p.id
+)
+SELECT CASE WHEN (SELECT count(*) FROM locked)=1
+  AND (SELECT count(*) FROM checked WHERE state<>'CONFLICT')=:'expected_count'::integer
+  AND (SELECT count(*) FROM checked)=:'expected_count'::integer
+  THEN (SELECT COALESCE(json_agg(state ORDER BY ord)::text,'[]') FROM checked)
+  -- Force the entire statement (including inserted rows) to roll back when
+  -- either rights/state drift or immutable id collision is detected.
+  ELSE (1 / ((SELECT count(*) FROM locked)-(SELECT count(*) FROM locked)))::text
+  END;
+""".strip()
+
+
 class CapturePipelineStore(PsqlRuntime):
     def read_private_capture_safety_counts(self) -> dict[str, int]:
         """Only a coarse, read-only side-effect guard, not publication authority."""
@@ -958,6 +1037,41 @@ class CapturePipelineStore(PsqlRuntime):
         if state not in {"INSERTED", "EXISTING"}:
             raise CapturePipelineError("PASSAGE_INSERT_CONFLICT")
         return state
+
+    def insert_private_document_passages(
+        self, *, capture: ContentCaptureRecord,
+        passages: tuple[PassageRecord, ...], use_fingerprint: str,
+    ) -> tuple[str, ...]:
+        """One row-locked, all-or-nothing SQL statement for native documents."""
+        if (
+            not passages or len(passages) > MAX_PASSAGES
+            or len({p.id for p in passages}) != len(passages)
+            or not re.fullmatch(r"[0-9a-f]{64}", use_fingerprint)
+            or any(p.capture_id != capture.id or p.content_id != capture.content_id
+                   or p.extraction_method != capture.parser_method
+                   or p.extraction_version != capture.parser_version for p in passages)
+        ):
+            raise CapturePipelineError("DOCUMENT_PASSAGE_BATCH_INVALID")
+        try:
+            response = self.run(
+                _INSERT_PRIVATE_DOCUMENT_PASSAGES_SQL,
+                capture_id=capture.id, content_id=capture.content_id,
+                content_sha256=capture.content_sha256,
+                parser_method=capture.parser_method,
+                parser_version=capture.parser_version,
+                use_fingerprint=use_fingerprint,
+                passages=json.dumps([p.to_dict() for p in passages], ensure_ascii=False),
+                expected_count=len(passages),
+            )
+            states = json.loads(response)
+        except (RuntimeError, ValueError, TypeError, json.JSONDecodeError):
+            # psql may include private SQL parameters or database paths in
+            # diagnostics; expose only a bounded machine code to callers.
+            raise CapturePipelineError("DOCUMENT_CAPTURE_FENCE_FAILED") from None
+        if (not isinstance(states, list) or len(states) != len(passages)
+            or any(s not in {"EXISTING", "INSERTED"} for s in states)):
+            raise CapturePipelineError("DOCUMENT_CAPTURE_FENCE_FAILED")
+        return tuple(states)
 
     def list_passages(self, capture_id: str) -> list[dict[str, Any]]:
         raw = self.run(_LIST_CAPTURE_PASSAGES_SQL, capture_id=capture_id)
@@ -1435,8 +1549,30 @@ def _persist_fetched_capture(
                 parse=parse,
                 language=language,
             )
-        states = [store.insert_passage(passage) for passage in passages]
-        passage_states = tuple(states)
+        if private_document and passages:
+            # The replay worker may have taken seconds: authorization obtained
+            # before it started is insufficient after revocation/hold races.
+            if rights_guard is not None:
+                rights_guard()
+            source_use_guard.require(
+                "STORE_BODY", content_sha256=content_sha256, media_type=fetched.media_type,
+            )
+            source_use_guard.require(
+                parse_use, content_sha256=content_sha256, media_type=fetched.media_type,
+            )
+            current = store.find_capture(content_id, content_sha256)
+            if current is None:
+                raise CapturePipelineError("DOCUMENT_CAPTURE_HELD")
+            _require_current_document_capture(current)
+            writer = getattr(store, "insert_private_document_passages", None)
+            if not callable(writer) or source_use_fingerprint is None:
+                raise CapturePipelineError("DOCUMENT_CAPTURE_FENCE_UNAVAILABLE")
+            passage_states = writer(
+                capture=record, passages=passages,
+                use_fingerprint=source_use_fingerprint,
+            )
+        else:
+            passage_states = tuple(store.insert_passage(passage) for passage in passages)
         store.append_event(
             capture_id=actual_id,
             event_type="PARSE_SUCCEEDED",

@@ -22,6 +22,7 @@ from dichiarazioni_pubbliche.capture_pipeline import (
     CapturePipelineError,
     capture_content,
 )
+from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
 from dichiarazioni_pubbliche.document_text_extraction import (
     document_passages_from_capture,
 )
@@ -295,6 +296,17 @@ class CanonicalPersistedScannedOCRTests(unittest.TestCase):
     class CompletePrivateCaptureStore(FakeCaptureStore):
         """Fake store with the same safety columns as PostgreSQL readback."""
 
+        def insert_private_document_passages(self, *, capture, passages, use_fingerprint):
+            # In-memory model of the guarded batch; PostgreSQL implements the
+            # actual row-locked, one-statement transaction separately.
+            current = self.find_capture(capture.content_id, capture.content_sha256)
+            if (current is None or current["status"] != "CAPTURED"
+                or current["hold_status"] != "NONE"
+                or current["rights_status"] != "CLEARED"
+                or current["body_purged_at"] is not None):
+                raise CapturePipelineError("DOCUMENT_CAPTURE_HELD")
+            return tuple(self.insert_passage(p) for p in passages)
+
         def find_capture(self, content_id, content_sha256):
             row = super().find_capture(content_id, content_sha256)
             if row is not None:
@@ -335,11 +347,20 @@ class CanonicalPersistedScannedOCRTests(unittest.TestCase):
             assert operation in {"FETCH", "STORE_BODY", "PARSE_OCR"}
             return SimpleNamespace(decision_fingerprint="a" * 64)
 
-    def _capture(self, store, body_store, *, rights="CLEARED", guard=None):
+    def _capture(self, store, body_store, *, rights="CLEARED", guard=None, on_replay=None):
         src = self.ApprovedOwnerSourceGuard() if guard is None else guard
+        calls = 0
+
+        def worker(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 2 and on_replay is not None:
+                on_replay()
+            return subprocess.CompletedProcess([], 0, stdout=_success())
+
         with patch(
             "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",
-            return_value=subprocess.CompletedProcess([], 0, stdout=_success()),
+            side_effect=worker,
         ) as ocr:
             self.last_ocr_mock = ocr
             receipt = capture_content(
@@ -409,6 +430,42 @@ class CanonicalPersistedScannedOCRTests(unittest.TestCase):
                 self._capture(store, body_store)
             self.last_ocr_mock.assert_not_called()
             self.assertEqual(len(store.passages), 2)
+
+    def test_source_revoked_during_second_ocr_replay_blocks_all_passage_inserts(self):
+        class RevocableGuard(self.ApprovedOwnerSourceGuard):
+            revoked = False
+
+            def require(self, operation, **kwargs):
+                if self.revoked:
+                    raise SourceUseBlocked("SOURCE_USE_REVOKED")
+                return super().require(operation, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.CompletePrivateCaptureStore()
+            guard = RevocableGuard()
+            with self.assertRaisesRegex(SourceUseBlocked, "SOURCE_USE_REVOKED"):
+                self._capture(
+                    store, CaptureBodyStore(Path(tmp)), guard=guard,
+                    on_replay=lambda: setattr(guard, "revoked", True),
+                )
+            self.assertEqual(self.last_ocr_mock.call_count, 2)
+            self.assertEqual(store.passages, {})
+
+    def test_persisted_legal_hold_during_second_ocr_replay_blocks_all_passages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.CompletePrivateCaptureStore()
+
+            def hold_capture():
+                key = ("content:owner-product-ocr", sha(PDF))
+                row = store.captures[key]
+                row["record"] = replace(row["record"], hold_status="LEGAL_HOLD")
+
+            with self.assertRaisesRegex(CapturePipelineError, "DOCUMENT_CAPTURE_HELD"):
+                self._capture(
+                    store, CaptureBodyStore(Path(tmp)), on_replay=hold_capture,
+                )
+            self.assertEqual(self.last_ocr_mock.call_count, 2)
+            self.assertEqual(store.passages, {})
 
 
 if __name__ == "__main__":

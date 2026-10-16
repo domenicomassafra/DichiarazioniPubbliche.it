@@ -235,3 +235,39 @@ PDF. The original AC-238.1 now has real source-specific **text and scan**
 private-host partial proof; independently verified gold, full installed
 Capture↔Passage consumer, historical role-sensitive matrix, and explicit
 public non-disclosure remain pending.
+
+### 2026-10-16 — independent rights/hold replay race repaired on PR100
+
+Following independent read-only review of `6440e57`, PR100 ownership passed to
+the existing reviewer. Two deterministic adversarial regressions were initially
+**RED**: a current source-use decision revoked during the *second* native OCR
+worker run still allowed two private Passages, and a persisted Capture changed
+to `LEGAL_HOLD` at that same boundary also allowed two Passages. Both paths
+reproduced `SUCCEEDED` despite the post-start change. No public disclosure was
+observed or claimed.
+
+The writer now rechecks the current source-use decisions (`STORE_BODY`,
+`PARSE_OCR`/`PARSE_TEXT`), optional independent rights guard, and persisted
+Capture status/rights/hold/purge **after** parser replay. Built-in native
+document parsers then require a single PostgreSQL statement which locks the
+current Capture row with `FOR UPDATE`, validates its immutable source hash,
+parser identity/version and source-use fingerprint, and conditionally writes
+the complete Passage cohort. Stale Captures and immutable Passage ID conflicts
+abort the **whole** statement, so an earlier new Passage cannot survive a
+later conflict. No change was made to the non-document default capture route.
+
+The two original race reproductions are **GREEN** with zero added Passages.
+Disposable local PostgreSQL also exercised a hold inserted *after* the last
+Python readback but before the SQL lock (zero inserted Passages), normal
+idempotent two-page OCR replay, and a mixed new/invalid Passage cohort (entire
+batch rolled back). Focused six-module verification: **80/80 PASS**, no global
+suite or live DB/provider/service writes. The check uses only synthetic owner
+rights and source bodies; it is **not** an installed MiniPC/native OCR canary.
+
+**Remaining limitation:** the Capture row lock serializes writers changing
+that **same database row**, not a distinct rights registry or legal authority
+that revokes a grant without updating the Capture row. The post-worker rights
+reader closes the reproduced timing window but is not an atomic cross-store
+revocation protocol. Publication stays disabled; independently verified source
+authority, policy/epoch integration, corrected-OCR gold and installed consumer
+still gate original **AC-238.1–6**, all OPEN.
