@@ -115,3 +115,86 @@ downstream private reviewers to hold a partial word and join adjacent Passages.
 No OCR text is promoted to verified quotation. The scoped regression is GREEN
 after this minimal change. Real archival/fidelity gold and live consumer
 acceptance remain outstanding, and all original DP-238 AC remain unchecked.
+
+### 2026-10-16 14:43–14:55 CEST — actual public-use archival scan, native MiniPC PostgreSQL
+
+To exercise the existing original DP-238 AC against a **real** source rather
+than only the owner-authored surrogate, CoS02 retrieved the official NASA NTRS
+record `19640005616`, *Talk given at Huntsville, Alabama during Engineers
+Week (engineering challenges of the 1960s)*:
+
+- Catalog `https://ntrs.nasa.gov/citations/19640005616`; official API
+  `https://ntrs.nasa.gov/api/citations/19640005616` returned
+  `copyright.determinationType=GOV_PUBLIC_USE_PERMITTED`,
+  `copyright.containsThirdPartyMaterial=false`. Metadata response 2,274
+  bytes, SHA256 `d6f68fd0ac3b2c237b6fcb25eadc361709b997385e8570c89480c47138667a66`.
+  This is a source-specific **public-use** catalog indication, not a blanket
+  license for other records, downstream public quotations or a qualified
+  independent fidelity determination.
+- Exact official file
+  `https://ntrs.nasa.gov/api/citations/19640005616/downloads/19640005616.pdf`,
+  HTTP 200 application/pdf, length 670,233 bytes, ETag
+  `0fcd221b9805723a72a7b141cff58a19`, SHA256
+  `9b25371659441c501cf2f48591e7b9bb582fa72c6ddc4d6794c56eb9eb1b9cbb`.
+  Real Poppler on MiniPC: **20 pages**, one 2,544×3,300 gray CCITT scan
+  image/page at 300 dpi, no form/JavaScript/encryption/suspect flag.
+- The defensive OCR adapter intentionally permits at most **4 pages**.
+  To retain this guard, an owner-only derived two-page selection was made using
+  `pdfseparate` and `pdfunite` with pages 1–2, 74,965 bytes, SHA256
+  `b4cadc4f1c18201af63250e74f42b993872f87e22b06e0b80a19ac3c01bdf399`.
+  Private URI `urn:dp238-private:nasa-19640005616:pages-1-2:<derivative SHA>`
+  distinguishes the transform from the NASA HTTP origin. Parent catalog URL,
+  20-page source hash, derivative hash and transformation identifier are
+  carried in the owner-only Capture metadata. Thus the 2-page hash is **not
+  asserted to be the original downloaded PDF**.
+
+Native MiniPC Poppler + Tesseract 5.5.0 (`ita+eng`) on the source-derived
+two pages: `SCANNED_PDF_OCR_CANDIDATE` **SUCCEEDED**, two private Passages
+for pages 1 and 2, **404 candidate words**, 201+203 image-location word boxes;
+parser version carries the actual Tesseract version, no text/role/public-quote
+authority was promoted. The private adapter was taken from the **same pushed
+PR100 head `08a7f3e`** via a separate isolated staging tree.
+
+The canonical `content_capture` and `passage` PostgreSQL 18 DDL, with
+disposable parent stubs and socket-only temporary cluster, produced
+**`PASS_DISPOSABLE_MINIPC_PG`**: Capture+2 Passages `INSERTED` initially,
+the same 3 `EXISTING` on replay, readback `1|2|2|2|2`
+(one Capture, two Passages, both OCR-unreviewed and Tesseract-versioned);
+the `LEGAL_HOLD`, `RIGHTS_HOLD` and `PRIVACY_HOLD` negatives each
+prevented the OCR subprocess from starting. Verified output carries
+`live_database_touched=false`, `live_service_touched=false` and
+`public_projection_authorized=false`. No public route or provider was used.
+
+**Limits:** this is a genuine public-use scan and **real disposable database
+consumer**, but *not* the installed operational Capture→Passage consumer or
+a persisted source authorized for production. A separately transcribed
+multi-column/negation/redaction gold with frozen thresholds has not been
+independently obtained, and the four-page max excludes the unmodified
+20-page document. The speech document does not establish the political/
+judicial-role corpus sample. Original **AC-238.1–6 remain OPEN** until each
+criterion is proved on the actual intended installed product.
+
+#### Companion official machine-readable text, real MiniPC readback
+
+The *same* record lists and serves a separate official
+`/api/citations/19640005616/downloads/19640005616.txt` with HTTP 200,
+`text/plain; charset=utf-8`, 25,865 bytes, ETag
+`3607b94b8c3a6075179ef68362d1b220`, source SHA256
+`2602b9879601f16588ef5b799d6bc54b28ba065d9dc22f5ba077a4a1ae5e4cf1`.
+`DocumentTextParser` parses the exact UTF-8 bytes with
+`document-native-text-v1`, obtaining seven private 4,000-character-bounded
+Passages over a single plain-text page selector. On the **native MiniPC**,
+the current `08a7f3e` adapter read those actual bytes from a separate
+isolated source staging folder; two full replays returned **equal sets of
+seven deterministic Passage IDs**, all `verbatim_reviewed=false`, no
+public projection, process exit 0:
+`PASS_MINIPC_AUTHENTIC_OFFICIAL_TEXT`.
+
+Do not equate this NASA-provided text with a transcription independently
+checked by humans against the 20-page raster source. It is a distinct
+machine-readable product/source version, and its exact parser hash does not
+validate the OCR errors or map its one text selector to the cropped two-page
+PDF. The original AC-238.1 now has real source-specific **text and scan**
+private-host partial proof; independently verified gold, full installed
+Capture↔Passage consumer, historical role-sensitive matrix, and explicit
+public non-disclosure remain pending.
