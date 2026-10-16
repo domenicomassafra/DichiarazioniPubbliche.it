@@ -67,3 +67,22 @@ existing governed Capture→Passage persistence path on MiniPC. Verify source
 rights, current source hash, exact selector and independent readback, critical
 span holds, version supersession, and public-body non-disclosure before checking
 any original acceptance criterion.
+
+## 2026-10-16 — Independent same-PR security review follow-up
+
+During a fresh review of the exact original adapter, a source-boundary order
+defect was reproduced: `document_passages_from_capture` called the PDF/OCR
+parser (including its native subprocess) **before** rejecting a revoked
+capture, mismatched source hash or changed final URL. The call eventually
+failed closed without returning passages, but it still unnecessarily processed
+unapproved bytes.
+
+Added a regression with three rejected captures and a subprocess spy. Before
+the fix all **three** cases failed because OCR was invoked once. The adapter
+now checks Capture status, rights clearance, source SHA, URL, media type and
+stored parse status **before** replay. The later parser/version/result
+identity comparison remains unchanged. After the fix, 27 focused native
+document/PDF/OCR tests PASS; Ruff and `git diff --check` PASS. This verifies
+that unauthorised bytes do not reach the worker **through this adapter**; it
+does not grant any source rights or substitute for upstream authorization,
+real-file gold or installed MiniPC Capture/Passage acceptance.

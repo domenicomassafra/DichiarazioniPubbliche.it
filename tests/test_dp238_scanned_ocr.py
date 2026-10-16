@@ -194,6 +194,34 @@ class ScannedOCRTests(unittest.TestCase):
                     ):
                         document_passages_from_capture(**params)
 
+    def test_revoked_rights_and_mismatched_source_do_not_start_ocr_worker(self):
+        # A rejected source must never reach the native PDF/OCR subprocess.
+        result = self._parse()
+        source = replace(
+            capture(PDF, media="application/pdf"),
+            parser_method=result.parser_method,
+            parser_version=result.parser_version,
+        )
+        for denied in (
+            replace(source, rights_status="REVOKED"),
+            replace(source, content_sha256=sha(b"different PDF")),
+            replace(source, final_url="https://source.example/other"),
+        ):
+            with self.subTest(denied=denied):
+                with patch(
+                    "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run"
+                ) as spawned:
+                    with self.assertRaisesRegex(
+                        ValueError, "DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH"
+                    ):
+                        document_passages_from_capture(
+                            capture=denied,
+                            fetched=fetched(PDF, media="application/pdf"),
+                            parsed=result,
+                            parser=self.parser,
+                        )
+                    spawned.assert_not_called()
+
     def test_missing_engine_is_an_explicit_hold(self):
         with patch(
             "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",

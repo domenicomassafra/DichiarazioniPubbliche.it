@@ -299,16 +299,22 @@ def document_passages_from_capture(
             raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
     elif media == "application/pdf":
         raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
-    replay = parser.parse(fetched)
+    # Reject an unauthorised or different source before invoking the native
+    # document/OCR worker. A later replay mismatch must not incur processing
+    # or derive even temporary text from revoked capture bytes.
     if (
         capture.status != "CAPTURED"
         or capture.rights_status != "CLEARED"
         or capture.content_sha256 != _sha(fetched.body)
         or capture.final_url != fetched.final_url
         or capture.media_type != media
-        or capture.parser_method != replay.parser_method
-        or capture.parser_version != replay.parser_version
         or capture.metadata.get("parse_status") not in {None, "SUCCEEDED"}
+    ):
+        raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
+    replay = parser.parse(fetched)
+    if (
+        capture.parser_method != replay.parser_method
+        or capture.parser_version != replay.parser_version
         or replay.status != "SUCCEEDED"
         or parsed != replay
     ):
