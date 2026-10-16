@@ -34,6 +34,7 @@ QUEUE_EXECUTION_COST_METHODS = {
     "unfinished_sibling_jobs",
     "state_counts",
     "cost_snapshot",
+    "reserve_worker_budget",
     "operation_ledger_receipts",
     "operation_ledger_summary",
     "record_receipt",

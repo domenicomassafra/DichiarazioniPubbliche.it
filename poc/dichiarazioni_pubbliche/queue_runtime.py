@@ -1125,6 +1125,20 @@ class QueueRuntimeStore(PsqlRuntime):
 
         return QueueExecutionCostStore.cost_snapshot(self, source_id)
 
+    def reserve_worker_budget(
+        self, *, job_id: str, attempt: int, worker_id: str, source_id: str,
+        upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
+        max_source_usd: str,
+    ) -> str:
+        from dichiarazioni_pubbliche.queue_store import QueueExecutionCostStore
+
+        return QueueExecutionCostStore.reserve_worker_budget(
+            self, job_id=job_id, attempt=attempt, worker_id=worker_id,
+            source_id=source_id, upper_bound_usd=upper_bound_usd,
+            max_job_usd=max_job_usd, max_global_usd=max_global_usd,
+            max_source_usd=max_source_usd,
+        )
+
     def operation_ledger_receipts(
         self,
         *,

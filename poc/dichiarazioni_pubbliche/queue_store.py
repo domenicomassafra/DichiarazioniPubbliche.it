@@ -289,6 +289,10 @@ class QueueExecutionCostStore(PsqlRuntime):
                             THEN outstanding.estimated_cost_usd IS NULL OR outstanding.estimated_cost_usd <= 0
                         ELSE TRUE
                     END
+                ) OR EXISTS (
+                    SELECT 1 FROM worker_budget_reservation h
+                    WHERE h.state='RESERVED'
+                      AND h.reserved_at < date_trunc('day',now())
                 ),
                 'source_unknown', EXISTS (
                     SELECT 1 FROM provider_receipt outstanding
@@ -308,14 +312,25 @@ class QueueExecutionCostStore(PsqlRuntime):
                             THEN r.measured_cost_usd
                         ELSE r.estimated_cost_usd
                     END
-                ), 0),
+                ), 0) + (
+                    SELECT COALESCE(sum(h.upper_bound_usd),0)
+                    FROM worker_budget_reservation h
+                    WHERE h.state='RESERVED'
+                      AND h.reserved_at >= date_trunc('day',now())
+                ),
                 'source', COALESCE(sum(
                     CASE
                         WHEN r.billing_basis='MEASURED_PROVIDER_COST'
                             THEN r.measured_cost_usd
                         ELSE r.estimated_cost_usd
                     END
-                ) FILTER (WHERE c.source_id = :'source_id'), 0)
+                ) FILTER (WHERE c.source_id = :'source_id'), 0) + (
+                    SELECT COALESCE(sum(h.upper_bound_usd),0)
+                    FROM worker_budget_reservation h
+                    WHERE h.state='RESERVED'
+                      AND h.source_id=:'source_id'
+                      AND h.reserved_at >= date_trunc('day',now())
+                )
             )::text
             FROM provider_receipt r
             LEFT JOIN content_item c ON c.id = r.content_id
@@ -330,6 +345,25 @@ class QueueExecutionCostStore(PsqlRuntime):
         return CostSnapshot(
             float("inf") if row.get("global_unknown") is True else float(row["global"]),
             float("inf") if row.get("source_unknown") is True else float(row["source"]),
+        )
+
+    def reserve_worker_budget(
+        self, *, job_id: str, attempt: int, worker_id: str, source_id: str,
+        upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
+        max_source_usd: str,
+    ) -> str:
+        # The PostgreSQL function atomically checks all workers and inserts
+        # a durable per-attempt hold. Missing migration fails closed.
+        return self.run(
+            """SELECT reserve_worker_budget(
+                 :'job_id', :'attempt'::integer, :'worker_id', :'source_id',
+                 :'upper_bound'::numeric, :'job_cap'::numeric,
+                 :'global_cap'::numeric, :'source_cap'::numeric
+            );""",
+            job_id=job_id, attempt=attempt, worker_id=worker_id,
+            source_id=source_id, upper_bound=upper_bound_usd,
+            job_cap=max_job_usd, global_cap=max_global_usd,
+            source_cap=max_source_usd,
         )
 
     def operation_ledger_receipts(
@@ -534,6 +568,8 @@ class QueueExecutionCostStore(PsqlRuntime):
                 ON CONFLICT (id) DO NOTHING
                 RETURNING
                     id,
+                    attempt,
+                    ledger_scope,
                     CASE
                         WHEN billing_basis='MEASURED_PROVIDER_COST'
                             THEN measured_cost_usd
@@ -547,6 +583,21 @@ class QueueExecutionCostStore(PsqlRuntime):
             )
             WHERE id = :'job_id'
             RETURNING id
+            )
+            , settled_reservation AS (
+                UPDATE worker_budget_reservation h
+                SET state='RECEIPTED', receipt_id=r.id, receipted_at=now()
+                FROM inserted r
+                WHERE h.job_id=:'job_id'
+                  AND h.attempt=(SELECT attempt FROM processing_job
+                                 WHERE id=:'job_id')
+                  AND h.state='RESERVED'
+                  AND r.attempt=GREATEST(h.attempt,1)
+                  AND r.ledger_scope->>'job_id'=:'job_id'
+                  -- Never release a reservation on an underpriced, missing
+                  -- or zero-cost receipt. Keep it held for reconciliation.
+                  AND r.accounted_cost_usd >= h.upper_bound_usd
+                RETURNING h.job_id
             )
             SELECT COALESCE(
                 (SELECT id FROM inserted),

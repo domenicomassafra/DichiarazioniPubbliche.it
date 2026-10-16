@@ -632,3 +632,31 @@ These are safe *admission estimates*, not authoritative provider quotations;
 concurrent attempts still lack an atomic reservation and measured bills and
 safe re-issuance of legacy underpriced jobs remain unproven. Original AC512.5
 and the other DP512 criteria remain **IN PROGRESS**.
+
+### 2026-10-16 — PostgreSQL worker admission reservation (prompt 67)
+
+On the existing Draft PR25, an additive migration creates the
+`worker_budget_reservation` attempt-keyed ledger and the
+`reserve_worker_budget` PostgreSQL function. One transaction uses a global
+advisory lock, checks the real processing-job lease, re-reads immutable canonical
+provider-receipt liability, accounts for outstanding holds and commits an upper
+bound before paid OmniRoute claim extraction or remote Groq ASR. The worker
+denies dispatch if the migration is absent or a lease, cap, prior-day UNKNOWN
+or same-attempt replay is unresolved. The source-window reprice and local
+Ollama/ASR handling are preserved. `record_receipt` can move a reservation to
+`RECEIPTED` only with a fresh same-attempt nonzero priced receipt that covers
+its reserved upper bound; otherwise the original hold remains. `RECEIPTED`
+does **not** mean provider invoice attestation or final settlement.
+
+Fresh, disposable PostgreSQL tests cover competing real connections,
+single-winner admission, receipt/no-double-count, replay, stale previous-day
+reservations, unmatched/UNKNOWN historical receipts and invalid lease.
+Existing queue/store/worker billing suites and the local-provider route remain
+part of the compatibility gate. No live provider, DB, service or public
+projection is exercised by the source change.
+
+**AC-512.5/6 and DP-514 remain OPEN.** Authenticated invoice/usage and verified
+ZERO_COST/plan liability provenance, safe historic reconciliation,
+EUR/FX/month-cap coordination, full independent PR review and installed MiniPC
+consumer proof are still required; the new reservation must not be read as
+authorization to spend or to release the public site.

@@ -150,6 +150,8 @@ class FakeStore:
         self.verification_template = None
         self.relevance_allowed = True
         self.relevance_checks = []
+        self.budget_reservations = []
+        self.budget_reservation_response = "RESERVED"
 
     def reap_expired(self, max_attempts):
         return 0
@@ -171,6 +173,10 @@ class FakeStore:
 
     def cost_snapshot(self, source_id):
         return CostSnapshot(0.0, 0.0)
+
+    def reserve_worker_budget(self, **kwargs):
+        self.budget_reservations.append(kwargs)
+        return self.budget_reservation_response
 
     def renew(self, *args, **kwargs):
         return True
@@ -600,6 +606,8 @@ class WorkerDaemonTests(unittest.TestCase):
         ).run(1)
         self.assertEqual(summary.completed, 1)
         self.assertEqual(client.extracts, 1)
+        self.assertEqual(len(store.budget_reservations), 1)
+        self.assertEqual(store.budget_reservations[0]["job_id"], "job:CLAIM_EXTRACT_WINDOW")
         self.assertEqual(len(store.inserted_claim_rows), 1)
         self.assertEqual(
             store.inserted_claim_rows[0]["segment_ids"],
@@ -614,6 +622,37 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(store.receipts[-1]["estimated_cost_usd"], 0.05)
         self.assertEqual(store.receipts[-1]["total_tokens"], 15)
         self.assertEqual(store.status_updates[-1][1], "CLAIMS_EXTRACTED")
+
+    def test_claim_window_reservation_denial_prevents_provider_call(self):
+        store = FakeStore([job("CLAIM_EXTRACT_WINDOW")])
+        store.canonical_rows = [{
+            "id": "canonical:0", "segment_index": 0,
+            "start_ms": 0, "end_ms": 1000,
+            "canonical_text": "Il prezzo è 10 euro.",
+            "transcript_status": "RESOLVED", "publication_blocked": False,
+            "sensitive_signature": [],
+        }]
+        from dichiarazioni_pubbliche.claim_windows import (
+            build_claim_windows, canonical_segment_from_row,
+        )
+        window = build_claim_windows(
+            [canonical_segment_from_row(store.canonical_rows[0])]
+        )[0]
+        store.jobs[0] = job("CLAIM_EXTRACT_WINDOW", {
+            "input_sha256": window.input_sha256,
+            "segment_indices": [0],
+            "estimated_cost_usd": 0.05,
+        })
+        store.budget_reservation_response = "GLOBAL_DAILY_BUDGET_REACHED"
+        client = FakeClaimClient()
+        summary = self.make_worker(
+            store, claim_client=client, claim_rate=0.15,
+        ).run(1)
+        self.assertEqual(summary.deferred, 1)
+        self.assertEqual(client.probes, 0)
+        self.assertEqual(client.extracts, 0)
+        self.assertEqual(len(store.budget_reservations), 1)
+        self.assertEqual(store.receipts, [])
 
     def test_claim_window_blocks_when_job_statement_date_is_invalid(self):
         store = FakeStore(

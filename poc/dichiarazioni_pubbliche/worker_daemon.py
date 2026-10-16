@@ -7,6 +7,7 @@ import math
 import os
 import socket
 from dataclasses import asdict, dataclass
+from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 from typing import Any
 
@@ -224,6 +225,59 @@ class ProcessingWorker(
         ):
             raise DeferredJob(
                 "SOURCE_DAILY_BUDGET_REACHED", self.budget.budget_defer_seconds
+            )
+
+    def _reserve_paid_dispatch(
+        self, job: ProcessingJob, content: ContentRecord, *, minimum_usd: float = 0.0
+    ) -> None:
+        """Durable cross-worker admission just before an external paid request.
+
+        An ambiguous replay must not dispatch again. Missing DB migration
+        fails closed instead of allowing the old read-only preflight.
+        """
+        try:
+            estimate = max(float(job.payload["estimated_cost_usd"]), minimum_usd)
+            if not math.isfinite(estimate) or estimate <= 0:
+                raise ValueError("invalid remote cost")
+
+            def ceiling(value: float) -> str:
+                if not math.isfinite(value) or value < 0:
+                    raise ValueError("invalid budget")
+                return str(Decimal(str(value)).quantize(
+                    Decimal("0.000001"), rounding=ROUND_CEILING
+                ))
+
+            upper = ceiling(estimate)
+            job_cap = ceiling(self.budget.max_cost_usd_per_job)
+            global_cap = ceiling(self.budget.max_cost_usd_per_day)
+            source_cap = ceiling(self.budget.max_cost_usd_per_source_day)
+        except (KeyError, TypeError, ValueError, ArithmeticError) as exc:
+            raise BlockedJob("PAID_DISPATCH_COST_INVALID") from exc
+        if Decimal(upper) > Decimal(job_cap):
+            raise DeferredJob("JOB_COST_CAP_REACHED", self.budget.budget_defer_seconds)
+        try:
+            state = self.store.reserve_worker_budget(
+                job_id=job.job_id, attempt=job.attempt,
+                worker_id=self.worker_id, source_id=content.source_id,
+                upper_bound_usd=upper, max_job_usd=job_cap,
+                max_global_usd=global_cap, max_source_usd=source_cap,
+            )
+        except (RuntimeError, AttributeError) as exc:
+            # DB error text could expose connection details: do not persist it.
+            raise DeferredJob("BUDGET_RESERVATION_UNAVAILABLE",
+                              self.budget.budget_defer_seconds) from exc
+        if state != "RESERVED":
+            raise DeferredJob(
+                state if state in {
+                    "BUDGET_RESERVATION_REPLAY_HELD",
+                    "UNKNOWN_BILLING_LIABILITY_HELD",
+                    "GLOBAL_DAILY_BUDGET_REACHED",
+                    "SOURCE_DAILY_BUDGET_REACHED",
+                    "JOB_COST_CAP_REACHED",
+                    "BUDGET_JOB_LEASE_OR_SOURCE_INVALID",
+                    "BUDGET_LIMIT_INVALID",
+                } else "BUDGET_RESERVATION_DENIED",
+                self.budget.budget_defer_seconds,
             )
 
 

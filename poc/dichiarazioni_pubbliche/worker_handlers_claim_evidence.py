@@ -170,9 +170,9 @@ class ClaimEvidenceJobHandlers:
                 raise DeferredJob(
                     "CLAIM_WINDOW_COST_REPRICE_REQUIRED", self.budget.budget_defer_seconds
                 )
-            # A second read also narrows the pre-provider scheduling window;
-            # the original AC still requires an atomic cross-worker reserve.
+            # A read-only preflight cannot serialize paid workers.
             self._ensure_budget(job, content)
+            self._reserve_paid_dispatch(job, content, minimum_usd=current_bound)
         try:
             result = self.claim_client.extract(
                 window_text=window.text,
