@@ -451,6 +451,30 @@ class IndependentReferenceBenchmarkTests(unittest.TestCase):
         )
         self.assertFalse(report.release_eligible)
 
+    def test_coverage_counts_observed_public_predictions_without_reference_gold(self):
+        first = case("public-unverified")
+        second = case("abstained-unverified")
+        third = case("missing-unverified")
+        report = evaluate_independent_reference(
+            manifest(first, second, third),
+            (pred(first), pred(second, state="ABSTAIN")),
+        )
+        self.assertEqual(report.status, "BLOCKED_EXTERNAL_GOLD")
+        self.assertEqual(report.reference_eligible_cases, 0)
+        self.assertEqual(report.unverified_reference_cases, 3)
+        self.assertEqual(report.missing_predictions, 1)
+        self.assertEqual(
+            (report.metrics["sample_coverage"].numerator,
+             report.metrics["sample_coverage"].denominator), (1, 3)
+        )
+        self.assertEqual(
+            (report.metrics["abstention"].numerator,
+             report.metrics["abstention"].denominator), (2, 3)
+        )
+        for error in ("false_person", "false_quote", "false_factual_verdict"):
+            self.assertIsNone(report.metrics[error].rate)
+        self.assertFalse(report.release_eligible)
+
     def test_strata_expose_language_claim_source_split_and_risk(self):
         a = case("a", risks=("DENIAL", "NEGATION"))
         b = case(
