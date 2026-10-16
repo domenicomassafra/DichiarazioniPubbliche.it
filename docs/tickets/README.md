@@ -1,27 +1,18 @@
-# Repo-local tickets
+MIGRATO su GitHub Issues il 17/10/2026: https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues?q=is%3Aissue%20DP-. Non aggiornare più questo file.
 
-`PLAN.md` is the canonical ordered backlog. Files in this directory are implementation
-specs for individual ticket IDs.
+# Repo-local tickets — archivio congelato
 
-## Required ticket sections
+Dal 17/10/2026, **GitHub Issues è l'unico tracker** per stato, priorità,
+acceptance e nuove attività. Questo registro e le schede `DP-*.md` sono
+specifiche storiche conservate per consultazione: non modificare più i loro
+stati o criteri e non creare nuovi ticket in questa directory.
 
-Every ticket should contain:
+La migrazione ha riconciliato le 164 schede: 92 già `DONE` rimangono archiviate
+senza nuove issue; le altre 72 sono state verificate rispetto alle issue
+esistenti e alle decisioni T4 del 16/10/2026 (35 `FAI`, 34 `DOPO`, una
+`CHIUDI`, due `ELIMINA`). Per ogni lavoro ancora attivo fa fede l'issue GitHub
+corrispondente. Le schede non vengono cancellate.
 
-- Status and milestone;
-- Problem;
-- Outcome;
-- Scope;
-- Non-goals;
-- Dependencies;
-- Acceptance criteria;
-- Validation/proof;
-- Documentation/data/migration impact;
-- Completion receipt once done.
-
-## Status discipline
-
-Do not mark a ticket DONE because code was written. Required tests, docs, migration
-checks, and MiniPC proof must all exist when the ticket says they are required.
-
-When the project gains a public issue tracker, issue titles should begin with the same
-ticket ID, for example `DP-101: Role intervals and organization provenance`.
+Le vecchie sezioni «Status», «Acceptance criteria» e «Completion receipt» sono
+una fotografia storica, non una seconda lista di lavoro. Le nuove decisioni e le
+prove di completamento vanno riportate esclusivamente nelle GitHub Issues.
