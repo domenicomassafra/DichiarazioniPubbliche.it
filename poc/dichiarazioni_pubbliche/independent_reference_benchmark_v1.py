@@ -422,6 +422,10 @@ def _counts(
         state = p.state if p else "MISSING"
         denominator["abstention"] += 1
         numerator["abstention"] += state in {"ABSTAIN", "MISSING"}
+        # Observable public-output coverage is prediction-only, like abstention.
+        # Requiring external labels here silently reports 0% despite actual
+        # public predictions when the independent verifier is unavailable.
+        numerator["sample_coverage"] += state == "PUBLIC"
         if row.case_id not in eligible:
             continue
         label = row.label
@@ -432,7 +436,6 @@ def _counts(
         )
         denominator["unsupported_publication"] += 1
         denominator["rights_privacy_leak"] += 1
-        numerator["sample_coverage"] += published
         numerator["unsupported_publication"] += published and (
             not safe_possible or not p.claimed_rights_clearance
         )
