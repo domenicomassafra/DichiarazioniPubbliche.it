@@ -1,0 +1,27 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>DP-441 · confronto tra design candidati</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#e9e8e4;color:#182d36}
+header{background:#fff;padding:20px 24px;border-bottom:1px solid #bac3c5}h1{font:600 clamp(1.5rem,3vw,2.7rem)/1.15 Georgia,serif;margin:0 0 8px}p{margin:0}
+nav{display:flex;gap:8px;flex-wrap:wrap;padding:16px 24px}button{padding:12px;border:1px solid #5a7077;background:#fff;color:#18323c;cursor:pointer;min-height:44px}button[aria-pressed=true]{background:#163a4b;color:#fff}
+button:focus-visible,a:focus-visible{outline:3px solid #ad4d11;outline-offset:3px}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 16px 24px}
+.variant{min-width:0;background:white;border:1px solid #bac3c5}.variant h2{font-size:1rem;margin:0;padding:12px 16px}
+.variant iframe{display:block;width:100%;height:780px;border:0;border-top:1px solid #bac3c5}
+.tip{padding:0 24px 22px;font-size:.88rem}
+@media(max-width:800px){.compare{grid-template-columns:1fr}.variant iframe{height:650px}}
+</style></head><body><header><h1>Due percorsi, gli stessi dati.</h1>
+<p>DP-441 · confronto visivo offline · contenuti reali assenti, esempi inventati e marcati.</p></header>
+<nav aria-label="Confronta la stessa schermata"><button type="button" data-view="home" aria-pressed="true">Home · corpus vuoto</button><button type="button" data-view="explore" aria-pressed="false">Esplora · corpus vuoto</button><button type="button" data-view="statement" aria-pressed="false">Dichiarazione · fixture</button><button type="button" data-view="intersection" aria-pressed="false">Persona × Tema · fixture</button><button type="button" data-view="source" aria-pressed="false">Contenuto · fixture</button><button type="button" data-view="trace" aria-pressed="false">Traccia · fixture</button></nav><div class="compare"><div class="variant"><h2>A · Atlante delle parole</h2>
+<iframe id="a" title="Proposta A — Atlante" src="atlante.html?view=home"></iframe></div>
+<div class="variant"><h2>B · Biblioteca delle fonti</h2>
+<iframe id="b" title="Proposta B — Biblioteca" src="biblioteca.html?view=home"></iframe></div></div>
+<p class="tip">Per controllare la vista mobile apri <a href="atlante.html">Atlante</a> o <a href="biblioteca.html">Biblioteca</a> in una scheda a 320/390 px. Nessuna delle alternative è stata scelta.</p>
+<script>
+document.querySelectorAll('button[data-view]').forEach(button=>button.addEventListener('click',()=>{
+ const view=button.dataset.view;
+ document.querySelectorAll('button[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+ document.getElementById('a').src='atlante.html?view='+view;
+ document.getElementById('b').src='biblioteca.html?view='+view;
+}));
+</script></body></html>

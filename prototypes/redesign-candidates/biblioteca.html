@@ -1,0 +1,86 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>DP-441 · biblioteca · anteprima non pubblicabile</title>
+<style>
+* {box-sizing:border-box}
+html {scroll-behavior:smooth} body {margin:0;font-family:system-ui,-apple-system,sans-serif;line-height:1.55;background:var(--paper);color:var(--ink)}
+button, a {font:inherit} a {color:inherit;text-underline-offset:4px} a:focus-visible {outline:3px solid #b45309;outline-offset:5px}
+.skip {position:absolute;left:-10000px;top:1rem;background:#fff;padding:.8rem;z-index:4}.skip:focus {left:1rem}
+.flag {background:#201d1b;color:#fff;padding:.5rem max(1rem,calc((100vw - 1200px)/2));font:600 .75rem/1.4 system-ui;letter-spacing:.07em}
+.site {max-width:1200px;margin:auto;padding:0 24px 80px}
+.masthead {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 0;border-bottom:1px solid var(--rule)}
+.brand {font-weight:800;letter-spacing:-.04em;font-size:1.22rem;text-decoration:none}
+.masthead small {font-size:.76rem;color:var(--muted)}
+.view-nav {display:flex;gap:8px;flex-wrap:wrap;padding:15px 0 0}
+.view-nav a {font-size:.78rem;text-decoration:none;border:1px solid var(--rule);padding:10px 12px;border-radius:3px}
+.view-nav a[aria-current=page] {background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.pane[hidden] {display:none!important}
+main {min-height:60vh}
+.eyebrow {font-size:.72rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--accent)}
+h1,h2,h3,p {margin-top:0} h1 {font:600 clamp(2.4rem,6.3vw,5.5rem)/1.07 Georgia,serif;letter-spacing:-.05em}
+h2 {font:600 clamp(1.5rem,3vw,2.6rem)/1.18 Georgia,serif;letter-spacing:-.035em}
+h3 {font-size:1.06rem;line-height:1.3}
+.lead {font-size:clamp(1.08rem,2.2vw,1.37rem);max-width:65ch}
+.muted {color:var(--muted)}
+.pill {display:inline-block;background:var(--soft);font-size:.78rem;font-weight:700;padding:5px 9px}
+.primary {display:inline-flex;align-items:center;min-height:46px;padding:10px 17px;background:var(--ink);color:var(--paper);text-decoration:none;font-weight:700;margin-top:18px}
+.secondary {display:inline-flex;align-items:center;min-height:46px;padding:10px 17px;border:1px solid var(--ink);text-decoration:none;font-weight:700;margin-top:18px}
+.rule {border-top:1px solid var(--rule);padding-top:22px}
+.card {padding:23px;background:var(--surface);border:1px solid var(--rule);min-width:0}
+.card p:last-child {margin-bottom:0}
+.links {display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+.meta {font-size:.87rem;color:var(--muted)}
+.quote {font:500 clamp(1.6rem,3.7vw,3.2rem)/1.3 Georgia,serif;letter-spacing:-.025em;margin:24px 0}
+.quote:before {content:'“';color:var(--accent)} .quote:after {content:'”';color:var(--accent)}
+.trail {list-style:none;padding:0;margin:0;counter-reset:steps}.trail li {padding:17px 0 17px 42px;border-top:1px solid var(--rule);position:relative}
+.trail li:before {counter-increment:steps;content:counter(steps,decimal-leading-zero);position:absolute;left:0;font-size:.72rem;font-weight:800;color:var(--accent)}
+.grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.foot {margin-top:60px;padding-top:20px;border-top:1px solid var(--rule);font-size:.82rem;color:var(--muted)}
+@media (max-width:700px) {.site {padding:0 16px 60px}.masthead {align-items:flex-start;flex-direction:column;gap:4px;padding:17px 0}.view-nav {flex-wrap:nowrap;overflow-x:auto;margin-right:-16px;padding-right:16px;scrollbar-width:thin}.view-nav a {flex:none}.grid {grid-template-columns:1fr}.card {padding:17px}.flag {padding:8px 16px}.quote {font-size:1.7rem}}
+@media (prefers-reduced-motion:reduce) {html {scroll-behavior:auto}}
+
+
+:root {--paper:#f4f0e7;--ink:#392b26;--muted:#685a53;--rule:#cebfb1;--accent:#925333;--surface:#fffcf7;--soft:#eadbd0}
+.site {max-width:1300px}.pane {padding-top:28px}
+.shelf-label {font:700 .7rem system-ui;letter-spacing:.17em;text-transform:uppercase;color:var(--accent)}
+.library-grid {display:grid;grid-template-columns:minmax(245px,.68fr) minmax(0,1.8fr);gap:0;border:1px solid var(--rule);margin-top:24px;background:var(--surface)}
+.catalog {background:#e9e1d4;border-right:1px solid var(--rule);padding:24px}.catalog a {display:block;padding:14px 0;border-bottom:1px solid var(--rule);font-weight:600}
+.reading {padding:clamp(22px,4vw,60px)}.reading h1 {max-width:17ch;font-size:clamp(2.3rem,5vw,4.7rem)}
+.source-slip {background:var(--soft);padding:20px 24px;border-left:5px solid var(--accent);margin:25px 0}
+.library-record {border:1px solid var(--rule);display:grid;grid-template-columns:.8fr 1.7fr;background:var(--surface);margin:20px 0 36px}
+.library-record aside {padding:22px;background:#e9e1d4;border-right:1px solid var(--rule)}.library-record article {padding:36px}
+.library-record .quote {font-size:clamp(1.5rem,3.2vw,2.7rem)}
+@media(max-width:700px){.pane {padding-top:18px}.library-grid,.library-record {grid-template-columns:1fr}.catalog {border-right:0;border-bottom:1px solid var(--rule);padding:17px}.catalog a {display:inline-block;margin-right:12px}.reading,.library-record article,.library-record aside {padding:20px}.library-record aside {border-bottom:1px solid var(--rule);border-right:0}}
+</style></head><body>
+<a class="skip" href="#main">Vai al contenuto</a><div class="flag">PROTOTIPO NON PUBBLICABILE · CORPUS ZERO · DATI INVENTATI NELLE SCHEDE DI ESEMPIO</div>
+<div class="site"><header class="masthead"><a class="brand" href="?view=home">Dichiarazioni Pubbliche</a><small>Scelta visiva in attesa · Biblioteca</small></header>
+<nav class="view-nav" aria-label="Schermate comparabili"><a href="?view=home" data-view-link="home">Home · corpus vuoto</a><a href="?view=explore" data-view-link="explore">Esplora · corpus vuoto</a><a href="?view=statement" data-view-link="statement">Dichiarazione · fixture</a><a href="?view=intersection" data-view-link="intersection">Persona × Tema · fixture</a><a href="?view=source" data-view-link="source">Contenuto · fixture</a><a href="?view=trace" data-view-link="trace">Traccia · fixture</a></nav><main id="main"><section class="pane" id="home" data-panel="home" hidden aria-label="Home · corpus vuoto"><p class="shelf-label">02 / Biblioteca delle fonti</p><div class="library-grid"><aside class="catalog">
+<p class="shelf-label">Consulta l'archivio</p><a href="?view=explore">Indice delle dichiarazioni ↗</a>
+<a href="?view=source">Scheda di una fonte (esempio) ↗</a><a href="?view=intersection">Persone e temi (esempio) ↗</a>
+<p class="meta">Solo schede autorizzate entrano nell'archivio pubblico.</p></aside><div class="reading">
+<p class="shelf-label">Archivio documentale / stato attuale</p><h1>Ogni dichiarazione ha una fonte.</h1>
+<p class="lead">Esplora il documento, il contesto e le parole esatte. Le correzioni restano consultabili.</p>
+<div class="source-slip"><strong>Catalogo pubblico vuoto</strong><p>Non ci sono dichiarazioni autorizzate da mostrare in questo momento.</p></div>
+<a class="primary" href="?view=explore">Consulta l'indice →</a></div></div></section><section class="pane" id="explore" data-panel="explore" hidden aria-label="Esplora · corpus vuoto"><p class="shelf-label">Catalogo / Esplora</p><div class="library-grid"><aside class="catalog"><p class="shelf-label">Indice per tipologia</p>
+<p>Dichiarazioni</p><p>Persone</p><p>Temi</p><p>Contenuti</p></aside><div class="reading"><h1>Indice consultabile</h1><p class="lead">Dichiarazioni, persone, temi e documenti disponibili, ordinati per tipo.</p>
+<div class="source-slip" role="status"><h2>Nessuna scheda pubblica</h2><p>I filtri sono inattivi perché non ci sono record autorizzati.</p></div>
+<a class="secondary" href="?view=statement">Apri una scheda di esempio →</a></div></div></section><section class="pane" id="statement" data-panel="statement" hidden aria-label="Dichiarazione · fixture"><p class="shelf-label">Scheda 001 / esercitazione senza contenuti reali</p><h1>Dichiarazione e documento</h1>
+<div class="library-record"><aside><p class="shelf-label">Catalogazione</p><p><strong>Autore:</strong> Persona di esempio</p>
+<p><strong>Data:</strong> 12 ottobre 2026 (data fittizia)</p><p><strong>Fonte:</strong> Documento di esempio, pagina 2 (non esiste online)</p>
+<a href="?view=source">Consulta la scheda della fonte →</a></aside><article><p class="eyebrow">Parole originali / fixture, non pubblicato</p><blockquote class="quote">Questo testo è un esempio inventato per valutare la leggibilità.</blockquote>
+<p><strong>Persona di esempio</strong> · 12 ottobre 2026 (data fittizia)</p>
+<p class="meta">Tema: Servizi pubblici (tema dimostrativo)</p><div class="source-slip"><strong>Sintesi (non citazione)</strong><p>Esempio di sintesi distinta dalla frase originale.</p>
+<p class="meta">Verifica fattuale: non eseguita.</p></div><div class="card"><p class="eyebrow">Cronologia / esempio</p><p>Esempio di correzione successiva: versione 2 (non pubblicata).</p><a href="?view=trace">Vedi la traccia →</a></div></article></div></section><section class="pane" id="intersection" data-panel="intersection" hidden aria-label="Persona × Tema · fixture"><p class="eyebrow">Persona × Tema / fixture</p><h1>Registro per persona e argomento</h1>
+<p class="lead">Persona di esempio · Servizi pubblici (tema dimostrativo)</p><div class="card"><h3>Incrocio dimostrativo</h3><p>Persona di esempio × Servizi pubblici (tema dimostrativo). Una sola citazione inventata e datata, senza giudizi sulla persona.</p><a href="?view=statement">Apri il percorso →</a></div><p class="meta">Nessuna sintesi sulla posizione reale di persone esistenti.</p></section><section class="pane" id="source" data-panel="source" hidden aria-label="Contenuto · fixture"><p class="eyebrow">Contenuto / fixture</p><h1>La fonte al centro</h1>
+<p class="lead">Documento di esempio, pagina 2 (non esiste online)</p><div class="grid"><div class="card"><h3>Documento inventato</h3><p>Localizzatore: pagina 2. Nessun PDF o filmato reale viene distribuito.</p></div>
+<div class="card"><h3>Dichiarazione associata</h3><p>Questo testo è un esempio inventato per valutare la leggibilità.</p><a href="?view=statement">Apri il percorso →</a></div></div>
+<p class="meta">Nel prodotto reale questa pagina collegherà il testo esatto al documento/versione con permesso verificato.</p></section><section class="pane" id="trace" data-panel="trace" hidden aria-label="Traccia · fixture"><p class="eyebrow">Traccia e correzione / fixture</p><h1>Registro delle versioni</h1>
+<ol class="trail"><li>12 ottobre 2026: esempio originale, mai pubblicato</li><li>13 ottobre 2026: correzione dimostrativa, mai pubblicata</li></ol>
+<div class="card"><p>Esempio di correzione successiva: versione 2 (non pubblicata).</p><a href="?view=statement">Torna alla dichiarazione →</a></div></section></main>
+<footer class="foot">Prototipo offline DP-441. Nessuna registrazione, verifica o autorizzazione a pubblicare. <a href="atlante.html?view=home">Confronta l'altra versione</a>.</footer></div>
+<script>
+const known = new Set(['home','explore','statement','intersection','source','trace']);
+const query = new URLSearchParams(location.search);
+const view = known.has(query.get('view')) ? query.get('view') : 'home';
+document.querySelectorAll('[data-panel]').forEach(node => node.hidden = node.dataset.panel !== view);
+document.querySelectorAll('[data-view-link]').forEach(node => {if(node.dataset.viewLink === view) node.setAttribute('aria-current','page');});
+</script></body></html>
