@@ -100,7 +100,7 @@ def card(title: str, body: str, link: str | None = None) -> str:
 
 def home(variant: str) -> str:
     if variant == "atlante":
-        return f"""<div class="hero-atlas"><div><p class="eyebrow">01 / Atlante delle parole</p>
+        return """<div class="hero-atlas"><div><p class="eyebrow">01 / Atlante delle parole</p>
 <h1>La parola lascia una traccia.</h1><p class="lead">Un archivio consultabile delle dichiarazioni pubbliche, con parole esatte, data e fonte.</p>
 <span class="pill">Archivio pubblico: nessuna dichiarazione disponibile</span><div><a class="primary" href="?view=explore">Apri Esplora →</a></div></div>
 <aside class="reading-path"><p class="eyebrow">Il percorso di lettura</p><ol class="trail"><li>Trova una dichiarazione</li><li>Leggi le parole originali</li><li>Apri la fonte</li><li>Controlla verifiche e correzioni</li></ol></aside></div>
@@ -117,7 +117,11 @@ def home(variant: str) -> str:
 
 def explore(variant: str) -> str:
     title = "Cerca parole e persone" if variant == "atlante" else "Indice consultabile"
-    intro = "Una ricerca unificata per persona, tema, data e fonte." if variant == "atlante" else "Dichiarazioni, persone, temi e documenti disponibili, ordinati per tipo."
+    intro = (
+        "Una ricerca unificata per persona, tema, data e fonte."
+        if variant == "atlante"
+        else "Dichiarazioni, persone, temi e documenti disponibili, ordinati per tipo."
+    )
     if variant == "atlante":
         return f"""<p class="eyebrow">Esplora / stato reale vuoto</p><h1>{title}</h1><p class="lead">{intro}</p>
 <div class="card" role="status"><h2>Il corpus pubblico è ancora vuoto.</h2><p>La ricerca diventerà utilizzabile quando saranno pubblicate dichiarazioni con fonti autorizzate.</p>
@@ -131,67 +135,83 @@ def explore(variant: str) -> str:
 def statement(variant: str) -> str:
     q = escape(SAMPLE["quote"])
     details = f"""<p class="eyebrow">Parole originali / fixture, non pubblicato</p><blockquote class="quote">{q}</blockquote>
-<p><strong>{escape(SAMPLE['speaker'])}</strong> · {escape(SAMPLE['date'])}</p>
-<p class="meta">Tema: {escape(SAMPLE['topic'])}</p>"""
-    source = f"""<div class="card"><p class="eyebrow">Provenienza · simulata</p><h3>{escape(SAMPLE['source'])}</h3>
+<p><strong>{escape(SAMPLE["speaker"])}</strong> · {escape(SAMPLE["date"])}</p>
+<p class="meta">Tema: {escape(SAMPLE["topic"])}</p>"""
+    source = f"""<div class="card"><p class="eyebrow">Provenienza · simulata</p><h3>{escape(SAMPLE["source"])}</h3>
 <p>Questa fonte è inventata e non possiede un URL esterno. Nessun dato è stato pubblicato.</p>
 <a href="?view=source">Apri il contenuto dimostrativo →</a></div>"""
-    summary = f"""<div class="card"><p class="eyebrow">Sintesi distinta dall'originale</p><p>{escape(SAMPLE['summary'])}</p>
+    summary = f"""<div class="card"><p class="eyebrow">Sintesi distinta dall'originale</p><p>{escape(SAMPLE["summary"])}</p>
 <p class="meta">Verifica fattuale: non eseguita. Nessun verdetto attribuito.</p></div>"""
     correction = f'<div class="card"><p class="eyebrow">Cronologia / esempio</p><p>{escape(SAMPLE["correction"])}</p><a href="?view=trace">Vedi la traccia →</a></div>'
     if variant == "atlante":
         return f"""<div class="atlas-statement"><p class="eyebrow">Dichiarazione / esempio inventato</p><h1>Le parole, poi le prove.</h1>{details}
 <div class="atlas-detail"><div>{source}</div><div>{summary}</div></div><div class="rule">{correction}</div></div>"""
     return f"""<p class="shelf-label">Scheda 001 / esercitazione senza contenuti reali</p><h1>Dichiarazione e documento</h1>
-<div class="library-record"><aside><p class="shelf-label">Catalogazione</p><p><strong>Autore:</strong> {escape(SAMPLE['speaker'])}</p>
-<p><strong>Data:</strong> {escape(SAMPLE['date'])}</p><p><strong>Fonte:</strong> {escape(SAMPLE['source'])}</p>
-<a href="?view=source">Consulta la scheda della fonte →</a></aside><article>{details}<div class="source-slip"><strong>Sintesi (non citazione)</strong><p>{escape(SAMPLE['summary'])}</p>
+<div class="library-record"><aside><p class="shelf-label">Catalogazione</p><p><strong>Autore:</strong> {escape(SAMPLE["speaker"])}</p>
+<p><strong>Data:</strong> {escape(SAMPLE["date"])}</p><p><strong>Fonte:</strong> {escape(SAMPLE["source"])}</p>
+<a href="?view=source">Consulta la scheda della fonte →</a></aside><article>{details}<div class="source-slip"><strong>Sintesi (non citazione)</strong><p>{escape(SAMPLE["summary"])}</p>
 <p class="meta">Verifica fattuale: non eseguita.</p></div>{correction}</article></div>"""
 
 
 def intersection(variant: str) -> str:
-    content = card("Incrocio dimostrativo", f"{escape(SAMPLE['speaker'])} × {escape(SAMPLE['topic'])}. Una sola citazione inventata e datata, senza giudizi sulla persona.", "statement")
-    return f"""<p class="eyebrow">Persona × Tema / fixture</p><h1>{'Una persona. Un tema. Le parole.' if variant == 'atlante' else 'Registro per persona e argomento'}</h1>
-<p class="lead">{escape(SAMPLE['speaker'])} · {escape(SAMPLE['topic'])}</p>{content}<p class="meta">Nessuna sintesi sulla posizione reale di persone esistenti.</p>"""
+    content = card(
+        "Incrocio dimostrativo",
+        f"{escape(SAMPLE['speaker'])} × {escape(SAMPLE['topic'])}. Una sola citazione inventata e datata, senza giudizi sulla persona.",
+        "statement",
+    )
+    return f"""<p class="eyebrow">Persona × Tema / fixture</p><h1>{"Una persona. Un tema. Le parole." if variant == "atlante" else "Registro per persona e argomento"}</h1>
+<p class="lead">{escape(SAMPLE["speaker"])} · {escape(SAMPLE["topic"])}</p>{content}<p class="meta">Nessuna sintesi sulla posizione reale di persone esistenti.</p>"""
 
 
 def source(variant: str) -> str:
-    return f"""<p class="eyebrow">Contenuto / fixture</p><h1>{'La fonte al centro' if variant == 'biblioteca' else 'Risali alla fonte'}</h1>
-<p class="lead">{escape(SAMPLE['source'])}</p><div class="grid">{card('Documento inventato', 'Localizzatore: pagina 2. Nessun PDF o filmato reale viene distribuito.')}
-{card('Dichiarazione associata', escape(SAMPLE['quote']), 'statement')}</div>
+    return f"""<p class="eyebrow">Contenuto / fixture</p><h1>{"La fonte al centro" if variant == "biblioteca" else "Risali alla fonte"}</h1>
+<p class="lead">{escape(SAMPLE["source"])}</p><div class="grid">{card("Documento inventato", "Localizzatore: pagina 2. Nessun PDF o filmato reale viene distribuito.")}
+{card("Dichiarazione associata", escape(SAMPLE["quote"]), "statement")}</div>
 <p class="meta">Nel prodotto reale questa pagina collegherà il testo esatto al documento/versione con permesso verificato.</p>"""
 
 
 def trace(variant: str) -> str:
-    return f"""<p class="eyebrow">Traccia e correzione / fixture</p><h1>{'Le parole cambiano, la storia resta.' if variant == 'atlante' else 'Registro delle versioni'}</h1>
+    return f"""<p class="eyebrow">Traccia e correzione / fixture</p><h1>{"Le parole cambiano, la storia resta." if variant == "atlante" else "Registro delle versioni"}</h1>
 <ol class="trail"><li>12 ottobre 2026: esempio originale, mai pubblicato</li><li>13 ottobre 2026: correzione dimostrativa, mai pubblicata</li></ol>
-<div class="card"><p>{escape(SAMPLE['correction'])}</p><a href="?view=statement">Torna alla dichiarazione →</a></div>"""
+<div class="card"><p>{escape(SAMPLE["correction"])}</p><a href="?view=statement">Torna alla dichiarazione →</a></div>"""
 
 
 def render(variant: str) -> str:
     assert variant in ("atlante", "biblioteca")
-    nav = "".join(f'<a href="?view={v}" data-view-link="{v}">{escape(label)}</a>' for v, label in VIEWS)
+    nav = "".join(
+        f'<a href="?view={v}" data-view-link="{v}">{escape(label)}</a>'
+        for v, label in VIEWS
+    )
     pages = {
-        "home": home(variant), "explore": explore(variant),
-        "statement": statement(variant), "intersection": intersection(variant),
-        "source": source(variant), "trace": trace(variant),
+        "home": home(variant),
+        "explore": explore(variant),
+        "statement": statement(variant),
+        "intersection": intersection(variant),
+        "source": source(variant),
+        "trace": trace(variant),
     }
-    panels = "".join(f'<section class="pane" id="{key}" data-panel="{key}" hidden aria-label="{escape(dict(VIEWS)[key])}">{page}</section>' for key, page in pages.items())
+    panels = "".join(
+        f'<section class="pane" id="{key}" data-panel="{key}" hidden aria-label="{escape(dict(VIEWS)[key])}">{page}</section>'
+        for key, page in pages.items()
+    )
     # Do not let a no-JS screenshot misrepresent these as real records.
     return f"""<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>DP-441 · {variant} · anteprima non pubblicabile</title>
-<style>{BASE}\n{ATLAS if variant == 'atlante' else LIBRARY}</style></head><body>
+<style>{BASE}\n{ATLAS if variant == "atlante" else LIBRARY}</style></head><body>
 <a class="skip" href="#main">Vai al contenuto</a><div class="flag">PROTOTIPO NON PUBBLICABILE · CORPUS ZERO · DATI INVENTATI NELLE SCHEDE DI ESEMPIO</div>
 <div class="site"><header class="masthead"><a class="brand" href="?view=home">Dichiarazioni Pubbliche</a><small>Scelta visiva in attesa · {variant.capitalize()}</small></header>
 <nav class="view-nav" aria-label="Schermate comparabili">{nav}</nav><main id="main">{panels}</main>
-<footer class="foot">Prototipo offline DP-441. Nessuna registrazione, verifica o autorizzazione a pubblicare. <a href="{'biblioteca' if variant == 'atlante' else 'atlante'}.html?view=home">Confronta l'altra versione</a>.</footer></div>
+<footer class="foot">Prototipo offline DP-441. Nessuna registrazione, verifica o autorizzazione a pubblicare. <a href="{"biblioteca" if variant == "atlante" else "atlante"}.html?view=home">Confronta l'altra versione</a>.</footer></div>
 <script>
-const known = new Set({['home','explore','statement','intersection','source','trace']!r});
+const known = new Set({["home", "explore", "statement", "intersection", "source", "trace"]!r});
 const query = new URLSearchParams(location.search);
 const view = known.has(query.get('view')) ? query.get('view') : 'home';
 document.querySelectorAll('[data-panel]').forEach(node => node.hidden = node.dataset.panel !== view);
 document.querySelectorAll('[data-view-link]').forEach(node => {{if(node.dataset.viewLink === view) node.setAttribute('aria-current','page');}});
-</script></body></html>""".replace("['home', 'explore', 'statement', 'intersection', 'source', 'trace']", "['home','explore','statement','intersection','source','trace']")
+</script></body></html>""".replace(
+        "['home', 'explore', 'statement', 'intersection', 'source', 'trace']",
+        "['home','explore','statement','intersection','source','trace']",
+    )
 
 
 def comparison() -> str:
