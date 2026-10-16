@@ -237,6 +237,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                 >
                   <span class="content-moment__locator">{locator.label}</span>
                   <span class="content-moment__claim">{dossier.claim}</span>
+                  <span class="content-moment__wording-label">Formulazione normalizzata · non citazione testuale</span>
                   <span class="content-moment__person">{dossier.speaker.name}</span>
                   {state && <span class="content-moment__status">{state.label}</span>}
                   {!retracted && <Assessment code={dossier.finding.assessment} compact />}
@@ -253,6 +254,7 @@ const allRelations = [...new Set(moments.flatMap(({ dossier }) =>
                     {locator.kind === "timed" ? "Momento selezionato" : locator.kind === "written" ? "Passaggio selezionato" : "Elemento selezionato"} · {locator.label}
                   </div>
                   <h3>{dossier.claim}</h3>
+                  <p>Formulazione normalizzata · non parole letterali della persona.</p>
                   {state && (
                     <section class="dp-state content-publication-state" aria-label="Stato della valutazione pubblicata">
                       <h4 class="dp-state__title">{state.label}</h4>
