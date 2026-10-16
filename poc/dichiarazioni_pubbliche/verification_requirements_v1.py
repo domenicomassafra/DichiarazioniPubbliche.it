@@ -196,11 +196,19 @@ def preflight_verification_requirements(
     a source-bound candidate. Only persisted authority can substantiate it.
     """
     if (
-        not isinstance(claim, RequirementClaim)
+        type(claim) is not RequirementClaim
         or not isinstance(observations, tuple)
         or len(observations) > 128
     ):
         raise ValueError("REQUIREMENT_INPUT_INVALID")
+    # Consume one detached, canonical set of primitive metadata for both the
+    # eligibility decision and its fingerprint. Subclass attribute access can
+    # otherwise return an approved review during filtering and a revoked one
+    # when the snapshot is serialized.
+    if any(type(row) is not RequirementEvidence for row in observations):
+        raise ValueError("REQUIREMENT_EVIDENCE_INPUT_INVALID")
+    claim = RequirementClaim(**asdict(claim))
+    observations = tuple(RequirementEvidence(**asdict(row)) for row in observations)
     _ref(claim.claim_id, "CLAIM")
     _ref(claim.policy_version, "POLICY_VERSION")
     if claim.jurisdiction_ref is not None:
@@ -375,6 +383,18 @@ def compare_private_event_sequence(
         raise ValueError("SEQUENCE_QUESTION_INVALID")
     if not isinstance(observations, tuple) or len(observations) > 128:
         raise ValueError("SEQUENCE_OBSERVATIONS_INVALID")
+
+    # All consumers of this comparison must see the same validated rows,
+    # including the preflight, hash binding, event dates and role/source checks.
+    if type(claim) is not RequirementClaim or any(
+        type(row) is not RequirementEvidence for row in evidence
+    ):
+        raise ValueError("REQUIREMENT_INPUT_INVALID")
+    if any(type(row) is not SequenceEventObservation for row in observations):
+        raise ValueError("SEQUENCE_OBSERVATION_INPUT_INVALID")
+    claim = RequirementClaim(**asdict(claim))
+    evidence = tuple(RequirementEvidence(**asdict(row)) for row in evidence)
+    observations = tuple(SequenceEventObservation(**asdict(row)) for row in observations)
 
     preliminary = preflight_verification_requirements(claim, evidence)
     by_id = {row.evidence_id: row for row in evidence}
