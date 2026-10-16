@@ -4,6 +4,27 @@ Status: IN PROGRESS
 Milestone: M4 — Public product, API, and hosting
 Depends on: DP-209, DP-212, DP-414
 
+## 2026-10-16 — Private Inbox operator visibility (source-only)
+
+The existing authenticated read-only `/v1/discovery/inbox` already returns
+persisted NEW_CONTENT, EXISTING_CONTENT, DUPLICATE_WITHIN_RUN and blocked
+dispositions. The local operator screen previously rendered only Hit IDs,
+revision and blocker codes; it omitted the disposition, unblock condition
+and next-page cursor. It now labels each disposition, counts new/existing/
+duplicate/attention rows **on the visible page only**, exposes persisted
+reason and blocker/retry metadata, and offers a keyboard-operable next page.
+It validates Collection-bound provenance before showing a row and refuses
+cross-Collection/malformed results. Selection still opens the historical
+annotation workflow; it grants no new triage or source-use authority.
+
+The Node-executed real Studio-page JS regression checks all three dispositions,
+an existing Hit history link, cursor submission, hostile/mismatched provenance,
+and token-clearing behavior; `tests.test_studio_local_page_async` passes 2/2.
+MiniPC read-only PostgreSQL snapshot on 2026-10-16: 0 discovery Hits, 0
+discovery runs, 1 Collection. This is **not** proof of new sources discovered
+on the actual runtime; the ticket remains IN PROGRESS until bounded lawful
+discovery produces inspectable persisted rows.
+
 ## Problem
 
 Newly discovered material needs triage. Without an Inbox, automation either stops at logs or silently makes decisions that should be reviewable.
