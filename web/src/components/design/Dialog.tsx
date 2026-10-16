@@ -31,9 +31,9 @@
  * failure.
  */
 
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
 import { cx } from "./shared";
-import { useInitialFocus, useRestoreFocus } from "./useFocusTrap";
+import { useRestoreFocus } from "./useFocusTrap";
 
 export type DialogVariant = "dialog" | "sheet";
 
@@ -67,11 +67,13 @@ export function Dialog({
   className
 }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const titleId = useId();
   const pointerDownInsideRef = useRef(false);
 
-  // These two own behavior; the local ref owns the element they need.
+  // Focus is restored by the shared hook. Initial focus belongs to the
+  // single variant-aware effect below; registering the generic hook here as
+  // well schedules a duplicate focus event (or close then body on a sheet).
   useRestoreFocus(open);
-  useInitialFocus<HTMLDialogElement>(open, dialogRef);
 
   useEffect(() => {
     const node = dialogRef.current;
@@ -153,12 +155,13 @@ export function Dialog({
   return (
     <dialog
       ref={dialogRef}
+      aria-labelledby={titleId}
       className={cx("dp-overlay", variant === "sheet" && "dp-sheet", className)}
       onPointerDown={onPointerDown}
       onClick={onClick}
     >
       <header className="dp-overlay__header">
-        <h2 className="dp-overlay__title">{title}</h2>
+        <h2 id={titleId} className="dp-overlay__title">{title}</h2>
         <button
           type="button"
           className="dp-button"

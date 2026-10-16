@@ -509,3 +509,192 @@ The Topic v3 opt-in consumer remains deliberately unrouted and was not approved
 for public exposure. **AC-412.5 stays open** for its independent human
 keyboard/AT/zoom/grayscale/reduced-motion acceptance; no MiniPC readback is
 claimed for this local component correction.
+
+### 2026-10-15 — Dialog accessible-name defect and private browser/MiniPC checkpoint
+
+**DP-412 remains IN PROGRESS; AC-412.5 remains unchecked.** The frozen design
+component source was identical on main
+33b4590e37a06b0ee31ceb1a2c4ef6ae4f7296fe and cumulative PR #25
+before this scoped change. The native Dialog displayed a required visible
+heading but omitted the aria-labelledby reference to that heading, contrary
+to its own accessible-name contract. A visually present title alone does not
+name a dialog for assistive technology.
+
+The new regression in web/scripts/check-design-a11y.mjs failed **RED**:
+"dialog must explicitly point to its visible heading". The minimal fix
+in Dialog.tsx uses React useId() for a stable heading ID, wires the dialog
+aria-labelledby to that ID and assigns it to the actual visible h2.
+Afterward the contract check passed **GREEN, 9/9 groups**; design-token checks
+PASS, Astro check: 123 files, zero errors/warnings and one unrelated existing
+hint. An explicitly opted-in local demo Astro build produced 34 pages with no
+publication. An initial demo-data build without this opt-in correctly failed
+the required public projection gate.
+
+An existing owner-operated Zen session rendered a **private loopback-only**
+React composition of actual design primitives: Dialog/sheet, Disclosure,
+SegmentedControl, Button normal/busy/disabled, TextField normal/error,
+StatusText four states, Row, SectionIndex, EvidenceTape, Surface, loading,
+empty and blocked/error states. It used synthetic labels and a noindex,
+nofollow page, not an approved public route. Dialog opening was observed in
+the actual browser. Zen's zoom UI displayed **200%** and its native Responsive
+Design Mode read back **320px** and **390px** viewports at that browser zoom.
+An actual 320x480 responsive capture was inspected. These real browser checks
+do **not** establish screen-reader speech or a complete focus/target-size audit.
+
+The same exact preview HTML/CSS/JS was transferred into a private scratch
+directory on the real MiniPC and served by a loopback-only Python HTTP
+listener, then displayed in Zen over a private SSH forward. HTTP 200 and
+actual rendered content were observed. JavaScript SHA-256 fetched via MiniPC
+was 6e3d070f7b588a0f34cb935aa6448bcb002a5f1a13daa4dcf8fc7bd24737365d,
+equal to the Mac bundle; CSS SHA-256 was
+b2d247d8b38993b504bca94d54a4480e0ed2b5937257c711aa4643da784a8e66.
+This proves **only** the private isolated consumer; no installed/live site,
+production worker, timer, DB, deployment or public route was changed.
+
+**Still open:** actual VoiceOver announced names/states, complete keyboard
+focus-order exercise of the component family on desktop/mobile, measured
+targets, grayscale and reduced-motion visible equivalents and all resulting
+corrections. macOS accessibility trust was observed, but opening VoiceOver
+and the supported key shortcut showed only a Quickstart process rather
+than a verified spoken-control session. DOM/AX or SSR cannot substitute
+for real assistive-technology acceptance. This scoped source correction and
+preview explicitly **do not close AC-412.5 or the original DP-412**.
+
+### 2026-10-15 — EvidenceTape naming during AC-412.5 preparation
+
+Preparing the private PR #26 fixture exposed a consequential accessible-name
+defect within the existing primitive family. `EvidenceTape` derived the `h3` ID
+and the `ol[aria-labelledby]` reference directly from a human-language `label`.
+For `Cronologia del contenuto`, the generated ID contained whitespace (invalid
+as a single ARIA IDREF), and two instances with the same label produced
+duplicate IDs.
+
+An added assertion in the existing `check-design-a11y.mjs` was run RED on the
+uncorrected component (`each tape needs its own heading id`: one distinct
+reference instead of two). Minimal repair: `EvidenceTape.tsx` uses React
+`useId()` once per instance, pointing heading and list to its unique
+whitespace-free ID. The assertion passed GREEN; `check:design:a11y` **10/10**
+and `check:design` **PASS**. Astro check verified 123 files, zero errors
+and zero warnings, with one unrelated pre-existing hint; the explicitly
+opted-in local demo build produced 34 pages without public delivery.
+This is SSR/ARIA/build contract proof, **not** VoiceOver speech, keyboard
+or zoom acceptance.
+
+The fresh private fixture uses corrected source; HTTP 200 at loopback is only
+static-delivery evidence, not a GUI/AT consumer pass. AC-412.5 remains
+unchecked until a genuine exclusive-GUI screen-reader and visual matrix,
+including restored VoiceOver/browser state, is complete. Do not merge from
+these source results alone.
+
+### 2026-10-15 — Independent CI merge-gate repair, no accessibility closure
+
+The new PR #26 commit `0037d581` passed its push-event CI but its full
+GitHub matrix failed on both attempts in DP-514's **unrelated**, pre-existing
+disposable PostgreSQL first snapshot. The trace and limited evidence are
+recorded under the original DP-514 ticket, not counted as an accessibility
+failure or as proof of a user-facing backend regression.
+
+To keep PR #26 mergeable without suppressing a red gate or merging the
+unrelated cumulative PR #25, the same narrow snapshot mitigation already
+implemented in integrator commit `3afb196` was ported into this isolated
+branch: transaction-local `SET LOCAL jit=off` and a focused real-PG
+regression RED→GREEN. The isolated financial matrix passed **114/114**
+tests on Mac PostgreSQL 17.11; the original 10s statement, 8s lock and 25s
+process limits and no-spend/unaudited-refund guards stay unchanged. This
+does not prove that hosted GitHub scheduling was the entire latency cause:
+the new exact-SHA CI must pass before considering merge.
+
+The sole open design acceptance is still **AC-412.5**: genuine VoiceOver
+speech, keyboard/focus, 200% zoom at desktop/320/390, target dimensions,
+grayscale/reduced-motion and restored GUI handoff. Node/PG suites and PR
+CI cannot substitute for that screen-reader acceptance.
+
+
+### 2026-10-15 — Focus restoration race, fast Dialog toggle (PR #26)
+
+The original `useRestoreFocus()` cleared `hadFocusRef` immediately after
+scheduling `requestAnimationFrame`, before focus was actually returned to the
+invoker. A fast `open=true → false → true → false` update cancelled the first
+frame but had already erased the pending restoration flag. A second close
+therefore left focus un-restored. This is not proof of any particular
+VoiceOver announcement, but is a real focus-management race in the design
+primitive used by Dialog.
+
+A new deterministic, no-browser lifecycle harness in
+`web/scripts/check-focus-restore.mjs` reproduced the unmodified bug **RED**
+(`close/reopen within one frame must not lose original invoker`: expected
+`[trigger2]`, got `[]`). The minimal repair defers clearing the captured
+invoker until the restoration frame actually runs and preserves the original
+invoker across a cancelled frame / rapid reopen. Its tests exercise normal
+close, rapid close/reopen, unmounted invoker fallback, and subsequent separate
+invoker **4/4 GREEN**. The existing `check-design-a11y.mjs` now executes this
+regression as part of its normal 10-group contract check. No new React
+primitive, dependency or browser/profile is introduced.
+
+These are deterministic hook/RAF contract checks, **NOT the real screen-reader
+speech, keyboard/focus-order and 320/390px at 200% acceptance**.
+**AC-412.5 and original DP-412 remain OPEN until the full GUI matrix is
+verified after the CoS09→CoS02 handoff.**
+
+### 2026-10-16 — Duplicate initial Dialog focus, source-only fix
+
+The real `Dialog` registered both `useInitialFocus()` and its own
+variant-aware effect. Opening a default dialog consequently scheduled two
+close-button focuses; opening with `initialFocus="body"` focused the close
+button before moving focus to the dialog itself. A deterministic effect/RAF
+fixture reproduced duplicate focus **RED** (expected `["close"]`, observed
+`["close","close"]`). The component now uses only its variant-aware initial
+focus effect and retains the shared `useRestoreFocus()` on close.
+`check-dialog-initial-focus.cjs` passes both modes **2/2 GREEN**, integrated
+in `check-design-a11y.mjs` together with the existing restoration test.
+
+This is a code-level focus event regression, not spoken VoiceOver evidence.
+AC-412.5, merge/consumer delivery and original DP-412 closure remain OPEN.
+
+### 2026-10-16 — Native Zen 200% / 320px segmented radio clipping
+
+After CoS09 released the Mac Studio GUI explicitly at 12:43 CEST, the owner-local
+loopback fixture built from PR #26 `3ebf621d6ea2d8483eaa0d6080fa8809fafd81aa`
+was exercised in the actual Zen browser. The native zoom control visibly read
+**200%**; Zen Responsive Design Mode was set to **320 × 480**. In this real
+viewport, the three-option `SegmentedControl` displayed only its first two
+radio labels within the container: the disabled third label was clipped by
+the horizontal `inline-flex` + `overflow: hidden` + nonwrapping option text.
+The initial 390 × 480 view and 320 × 480 view were observed, but the effective
+CSS `innerWidth`, full target matrix and screen-reader speech were not yet
+recorded; this is one reproduced visual defect, not a global AT pass.
+
+The narrow-screen regression added to `check-design-a11y.mjs` failed **RED**
+on the real unchanged stylesheet with `narrow segmented radios need a
+group/option reflow rule`. The smallest component-scoped CSS repair places
+all options in a vertically stacked, wrapping radio group at 40rem and below,
+maintains a separating block-start rule, visible text and the existing
+keyboard/radio semantics. The 11 Node accessibility contract groups now pass
+**GREEN**, including previous focus restore 4/4 and Dialog initial focus 2/2.
+This static guard complements, but does not replace, the observed failure and
+the follow-up visual check on the repaired stylesheet. **AC-412.5 remains OPEN**
+until actual voice announcements, keyboard behavior, 200% zoom/reflow,
+grayscale/reduced motion and restore/handoff all pass on the current commit.
+
+### 2026-10-16 — Desktop narrow-column reflow (same original AC-412.5)
+
+The mobile-only CSS repair above was insufficient when a `SegmentedControl`
+appeared in a **280px-wide parent at a desktop 1024px viewport**. A real
+isolated headless Chrome run on PR26 `440e3fd` measured 421px of scrollable
+radio contents inside a 278px client width; the third option's right bound
+was 469.8px while the group's right bound was 328px, and `overflow:hidden`
+clipped it. This was a genuine second layout failure, not a spoken AT test.
+
+The minimum shared CSS fix lets desktop radio options flex-wrap, shrink and
+wrap their labels while retaining the earlier narrow-viewport vertical
+layout. A new `check-design-a11y.mjs` regression was **RED** against the
+unchanged CSS (missing desktop wrap), then **GREEN 12/12** together with
+focus restore 4/4 and dialog initial focus 2/2. Real headless Chrome with
+the updated fixture measured the 280px group at 1024px viewport:
+scrollWidth=clientWidth=278px, all three radio options fully inside, each
+44px high and third option now in a second row. Rechecked isolated headless
+320/390px layouts: no overflow, all three options 44px, ArrowDown switches
+the native radio from first to second. Design system PASS; Astro check of
+125 files: 0 errors, 0 warnings, one unrelated hint. No global GUI input,
+native Zen zoom or spoken VoiceOver was performed in this slice, so the
+original AC-412.5 remains unchecked and PR26 must remain Draft.

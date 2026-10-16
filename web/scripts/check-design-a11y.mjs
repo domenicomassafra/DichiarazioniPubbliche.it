@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { build } from "esbuild";
@@ -17,6 +18,8 @@ const entry = [
   'export { StatusText } from "../src/components/design/StatusText";',
   'export { SegmentedControl } from "../src/components/design/SegmentedControl";',
   'export { Disclosure } from "../src/components/design/Disclosure";',
+  'export { Dialog } from "../src/components/design/Dialog";',
+  'export { EvidenceTape } from "../src/components/design/EvidenceTape";',
 ].join("\n");
 
 let components;
@@ -117,6 +120,38 @@ check("Native radio/disclosure semantics and text-first system states are presen
   assert.match(render(components.SkeletonRegion, { label: "Caricamento" }, createElement(components.Skeleton)), /aria-busy="true"/);
 });
 
+check("The dialog is named by its visible title rather than being an unnamed native modal", () => {
+  const html = render(components.Dialog, {
+    open: false, onClose: () => {}, title: "Dialogo di prova",
+  }, "Contenuto di prova");
+  const reference = html.match(/<dialog[^>]*aria-labelledby="([^"]+)"/)?.[1];
+  assert(reference, "dialog must explicitly point to its visible heading");
+  assert(html.includes(`<h2 id="${reference}" class="dp-overlay__title">Dialogo di prova</h2>`),
+    "accessible dialog name must be its visible title");
+});
+
+check("EvidenceTape headings resolve as unique single-ID ARIA references even with spaced labels", () => {
+  const props = {
+    label: "Cronologia del contenuto",
+    marks: [
+      { id: "a", label: "01", accessibleLabel: "Evento di prova uno" },
+      { id: "b", label: "02", accessibleLabel: "Evento di prova due" },
+    ],
+    onSelect: () => {},
+  };
+  const html = renderToStaticMarkup(createElement("div", null,
+    createElement(components.EvidenceTape, props),
+    createElement(components.EvidenceTape, props),
+  ));
+  const references = [...html.matchAll(/<ol[^>]*aria-labelledby="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(references.length, 2);
+  assert.equal(new Set(references).size, 2, "each tape needs its own heading id");
+  for (const reference of references) {
+    assert.doesNotMatch(reference, /\s/, "ARIA IDREF must be one whitespace-free id");
+    assert(html.includes(`id="${reference}"`), `unresolved tape heading ${reference}`);
+  }
+});
+
 const css = await readFile(path.join(root, "src/styles/tokens.css"), "utf8");
 const primitives = await readFile(path.join(root, "src/styles/primitives.css"), "utf8");
 const literals = new Map([...css.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-f]{6})\s*;/gi)]
@@ -151,4 +186,36 @@ check("Reduced-motion variants keep static loading/selection states", () => {
   assert.match(primitives, /\.dp-segmented__option\[data-checked='true'\]::after/);
 });
 
-console.log(JSON.stringify({ result: "PASS", checks, scope: "Node SSR/contract/contrast", manual_screen_reader: "PENDING", exact_browser_zoom: "covered by separate browser QA" }));
+check("Narrow or zoomed segmented radio groups reflow every option instead of clipping labels", () => {
+  const narrow = primitives.match(/@media \(max-width: 40rem\) \{\s*(\.dp-segmented \{[^}]+\}\s*\.dp-segmented__option \{[^}]+\}\s*\.dp-segmented__option \+ \.dp-segmented__option \{[^}]+\})/);
+  assert(narrow, "narrow segmented radios need a group/option reflow rule");
+  assert.match(narrow[1], /flex-direction:\s*column;/);
+  assert.match(narrow[1], /white-space:\s*normal;/);
+  assert.match(narrow[1], /overflow-wrap:\s*anywhere;/);
+  assert.match(narrow[1], /border-block-start:\s*1px solid var\(--rule-hairline\);/);
+});
+
+check("Desktop segmented radios do not clip when a containing column is narrower than the viewport", () => {
+  // A 1024px viewport can still contain a 280px card. The viewport-only
+  // 40rem rule does not apply there; allow labels to wrap within that card.
+  const group = primitives.match(/\.dp-segmented \{([^}]+)\}/)?.[1];
+  const option = primitives.match(/\.dp-segmented__option \{([^}]+)\}/)?.[1];
+  assert(group && option, "segmented group and option CSS missing");
+  assert.match(group, /flex-wrap:\s*wrap;/);
+  assert.match(option, /flex:\s*1 1 auto;/);
+  assert.match(option, /min-inline-size:\s*0;/);
+  assert.match(option, /white-space:\s*normal;/);
+  assert.match(option, /overflow-wrap:\s*anywhere;/);
+});
+
+// Exercise real focus-hook scheduling with a deterministic React-hook/RAF
+// harness. This is a regression gate, not a substitute for real VoiceOver.
+await import("./check-focus-restore.mjs");
+// A Dialog must schedule one initial focus event, not a generic one followed
+// by a variant-specific one. The latter can cause duplicate AT announcements.
+execFileSync(process.execPath, [path.join(root, "scripts/check-dialog-initial-focus.cjs")], {
+  cwd: root,
+  stdio: "inherit",
+});
+
+console.log(JSON.stringify({ result: "PASS", checks, scope: "Node SSR/contract/contrast/focus-scheduling", manual_screen_reader: "PENDING", exact_browser_zoom: "covered by separate browser QA" }));

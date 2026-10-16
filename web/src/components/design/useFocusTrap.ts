@@ -40,7 +40,10 @@ export function useRestoreFocus(active: boolean) {
       // trigger the "active" element can be `<body>`, and restoring focus to
       // `<body>` would silently drop the user at the top of the document.
       const activeEl = document.activeElement as HTMLElement | null;
-      if (activeEl && activeEl !== document.body) {
+      // A close can be reversed before the scheduled restore frame. In that
+      // case retain the original invoker rather than overwriting it with a
+      // transient dialog/body focus target.
+      if (!hadFocusRef.current && activeEl && activeEl !== document.body) {
         invokerRef.current = activeEl;
         hadFocusRef.current = true;
       }
@@ -49,13 +52,16 @@ export function useRestoreFocus(active: boolean) {
       // Wait a frame: the dialog may still be closing and would steal focus
       // back on its own teardown.
       const id = requestAnimationFrame(() => {
+        // Clear the captured invoker only after restoration actually runs.
+        // Cleaning up a cancelled frame must not erase it on rapid reopen.
+        hadFocusRef.current = false;
+        invokerRef.current = null;
         if (document.contains(invoker)) {
           invoker.focus();
         } else {
           document.querySelector<HTMLElement>("[data-dialog-return-focus]")?.focus();
         }
       });
-      hadFocusRef.current = false;
       return () => cancelAnimationFrame(id);
     }
     return undefined;

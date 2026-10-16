@@ -611,6 +611,9 @@
    -------------------------------------------------------------------------- */
 .dp-segmented {
   display: inline-flex;
+  /* A desktop viewport can contain a much narrower card/sidebar. Wrapping
+     here prevents the viewport-only mobile layout from clipping radio labels. */
+  flex-wrap: wrap;
   align-items: stretch;
   border: 1px solid var(--rule-control);
   border-radius: var(--radius-control);
@@ -622,6 +625,8 @@
 .dp-segmented__option {
   position: relative;
   display: inline-flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
@@ -632,7 +637,8 @@
   color: var(--ink-700);
   font-size: var(--density-type-label);
   font-weight: var(--weight-medium);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   transition: var(--transition-control);
 }
 
@@ -678,6 +684,28 @@
   font-family: var(--font-data);
   font-size: var(--text-meta);
   font-variant-numeric: tabular-nums;
+}
+
+/* Keep every radio and its label visible when zoom or a narrow viewport makes
+   the horizontal segmented group wider than the available line. */
+@media (max-width: 40rem) {
+  .dp-segmented {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .dp-segmented__option {
+    min-inline-size: 0;
+    justify-content: flex-start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .dp-segmented__option + .dp-segmented__option {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--rule-hairline);
+  }
 }
 
 /* The SegmentedControl option is a <label> wrapping a visually hidden radio,
