@@ -96,3 +96,22 @@ three-state regression was RED because each held Capture still invoked its
 native subprocess. The same preflight now requires `hold_status == NONE`
 before any parse/replay, matching the existing corpus downstream-use fence.
 Rejected holds create no Passage and launch no native OCR through this adapter.
+
+### 14:25 CEST — OCR pixel-box provenance across a 4,000-character Passage split
+
+Direct review of the existing DP-238 private adapter found a further concrete
+AC-238.1/AC-238.5 locator gap: OCR word coordinates were attached to a Passage
+only when the word was *entirely contained* in its character range. A valid
+word crossing the deterministic `MAX_PASSAGE_CHARS=4000` split silently
+disappeared from the `ocr_word_boxes` lists of **both** Passages.
+The new real adapter regression inserts a word beginning at offset 3998 and
+ending beyond 4000; it was **RED** (zero pixel boxes in the first Passage).
+
+The repaired metadata projection keeps the original absolute word offsets,
+pixel box, page and OCR confidence on **both intersected Passages**, explicitly
+setting `crosses_passage_boundary=true`. Completely contained boxes are still
+retained with `false`. This prevents silent loss of provenance while allowing
+downstream private reviewers to hold a partial word and join adjacent Passages.
+No OCR text is promoted to verified quotation. The scoped regression is GREEN
+after this minimal change. Real archival/fidelity gold and live consumer
+acceptance remain outstanding, and all original DP-238 AC remain unchecked.

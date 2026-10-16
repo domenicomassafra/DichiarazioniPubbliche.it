@@ -13,6 +13,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
+from dichiarazioni_pubbliche.capture_pipeline import MAX_PASSAGE_CHARS
 from dichiarazioni_pubbliche.document_text_extraction import (
     document_passages_from_capture,
 )
@@ -115,6 +116,45 @@ class ScannedOCRTests(unittest.TestCase):
         self.assertEqual(
             passages[0].metadata["ocr_word_boxes"][3]["confidence_percent"], 54
         )
+
+    def test_long_ocr_word_straddling_passage_boundary_keeps_page_coordinates(self):
+        # The native page can be longer than MAX_PASSAGE_CHARS. A word may cross
+        # a character-based private Passage split; its pixel box must not vanish.
+        text = "x" * (MAX_PASSAGE_CHARS - 2) + "nonconfermo" + " fine"
+        start = MAX_PASSAGE_CHARS - 2
+        word = [start, start + len("nonconfermo"), 5, 8, 110, 20, 51]
+        payload = json.dumps({
+            "status": "SUCCEEDED", "engine": "tesseract 5.5.0",
+            "pages": [{"text": text, "pixels": [500, 600], "words": [word]}],
+        }).encode()
+        with patch(
+            "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=payload),
+        ):
+            parsed = self.parser.parse(fetched(PDF, media="application/pdf"))
+        self.assertEqual(parsed.status, "SUCCEEDED")
+        source = replace(
+            capture(PDF, media="application/pdf"),
+            parser_method=parsed.parser_method,
+            parser_version=parsed.parser_version,
+        )
+        with patch(
+            "dichiarazioni_pubbliche.document_scanned_ocr.subprocess.run",
+            return_value=subprocess.CompletedProcess([], 0, stdout=payload),
+        ):
+            passages = document_passages_from_capture(
+                capture=source,
+                fetched=fetched(PDF, media="application/pdf"),
+                parsed=parsed,
+                parser=self.parser,
+            )
+        self.assertEqual(len(passages), 2)
+        for passage in passages:
+            self.assertEqual(len(passage.metadata["ocr_word_boxes"]), 1)
+            box = passage.metadata["ocr_word_boxes"][0]
+            self.assertEqual(box["page_number"], 1)
+            self.assertEqual((box["start_char"], box["end_char"]), (start, word[1]))
+            self.assertTrue(box["crosses_passage_boundary"])
 
     def test_actual_http_partial_corruption_and_wrong_media_refused_without_worker(
         self,

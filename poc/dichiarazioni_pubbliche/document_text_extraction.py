@@ -359,9 +359,19 @@ def document_passages_from_capture(
                     "ocr_profile": replay.metadata["ocr_profile"],
                     "ocr_critical_span_state": "HELD_INDEPENDENT_REVIEW_REQUIRED",
                     "ocr_word_boxes": [
-                        box for box in replay.metadata["ocr_word_boxes"]
-                        if span.start_char <= box["start_char"]
-                        and box["end_char"] <= span.end_char
+                        {
+                            **box,
+                            "crosses_passage_boundary": (
+                                box["start_char"] < span.start_char
+                                or box["end_char"] > span.end_char
+                            ),
+                        }
+                        # Keep both references when a word crosses a private
+                        # Passage split. Silently dropping its source coordinates
+                        # would weaken the OCR locator and critical-span hold.
+                        for box in replay.metadata["ocr_word_boxes"]
+                        if box["start_char"] < span.end_char
+                        and box["end_char"] > span.start_char
                     ],
                 } if replay.metadata.get("ocr_applied") else {}),
             },
