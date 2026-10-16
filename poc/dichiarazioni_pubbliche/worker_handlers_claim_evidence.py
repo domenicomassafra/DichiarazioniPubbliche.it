@@ -154,6 +154,25 @@ class ClaimEvidenceJobHandlers:
         )
         if payload_indices != window.segment_indices:
             raise BlockedJob("CLAIM_WINDOW_SEGMENT_DRIFT")
+        if not isinstance(self.claim_client, LocalOllamaClaimClient):
+            # Queued USD values are only old estimates. Reprice the actual
+            # immutable window against the *current* client output ceiling and
+            # current configured rate before any paid completion. A stale
+            # underbound must never grant more tokens than the budget admitted.
+            current_bound = estimate_claim_request_cost(
+                estimated_input_tokens=window.estimated_input_tokens,
+                max_output_tokens=self.claim_client.max_output_tokens,
+                max_usd_per_1k_total_tokens=self.claim_max_usd_per_1k_total_tokens,
+            )
+            if current_bound is None or not math.isfinite(current_bound) or current_bound <= 0:
+                raise BlockedJob("CLAIM_WINDOW_COST_BOUND_UNAVAILABLE")
+            if float(job.payload["estimated_cost_usd"]) < current_bound:
+                raise DeferredJob(
+                    "CLAIM_WINDOW_COST_REPRICE_REQUIRED", self.budget.budget_defer_seconds
+                )
+            # A second read also narrows the pre-provider scheduling window;
+            # the original AC still requires an atomic cross-worker reserve.
+            self._ensure_budget(job, content)
         try:
             result = self.claim_client.extract(
                 window_text=window.text,

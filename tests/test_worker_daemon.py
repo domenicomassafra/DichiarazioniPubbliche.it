@@ -37,6 +37,7 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
 from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
+from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
 
 
 class FakePrivateStore:
@@ -1195,6 +1196,44 @@ class WorkerDaemonTests(unittest.TestCase):
             self.make_worker(
                 store, claim_client=client, claim_rate=0.15, budget=zero,
             ).run(1)
+            sent.assert_not_called()
+
+    def test_stale_remote_claim_window_underbound_must_not_invoke_provider(self):
+        store = FakeStore([])
+        store.canonical_rows = [{
+            "id": "canonical:0", "segment_index": 0,
+            "start_ms": 0, "end_ms": 1000,
+            "canonical_text": "Il valore pubblico e un numero di prova.",
+            "transcript_status": "RESOLVED", "publication_blocked": False,
+            "sensitive_signature": [],
+        }]
+        from dichiarazioni_pubbliche.claim_windows import (
+            build_claim_windows, canonical_segment_from_row,
+        )
+        window = build_claim_windows(
+            [canonical_segment_from_row(row) for row in store.canonical_rows]
+        )[0]
+        client = OmniRouteClaimClient(
+            api_key="synthetic-nonlive-key", base_url="http://127.0.0.1:20128"
+        )
+        self.assertGreater(
+            estimate_claim_request_cost(
+                estimated_input_tokens=window.estimated_input_tokens,
+                max_output_tokens=client.max_output_tokens,
+                max_usd_per_1k_total_tokens=0.15,
+            ),
+            WorkerBudget().max_cost_usd_per_job,
+        )
+        store.jobs = [job("CLAIM_EXTRACT_WINDOW", {
+            "input_sha256": window.input_sha256,
+            "segment_indices": list(window.segment_indices),
+            "estimated_cost_usd": 0.05,
+        })]
+        with patch.object(client, "_post", side_effect=AssertionError("UNBUDGETED_PROVIDER_CALL")) as sent:
+            summary = self.make_worker(
+                store, claim_client=client, claim_rate=0.15,
+            ).run(1)
+            self.assertEqual(summary.deferred, 1)
             sent.assert_not_called()
 
     def test_digest_pinned_local_claim_route_preserves_free_preflight(self):

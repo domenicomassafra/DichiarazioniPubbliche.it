@@ -607,3 +607,28 @@ This deliberately removes one preflight canary, **not** the provider's
 authentication requirement, source-use controls, real per-attempt billing
 evidence requirement, or cross-worker atomic money reservation. Those and
 safe ZERO_COST provenance/liveness reconciliation remain open under AC-512.5.
+
+### Same-original dispatch-bound correction for stale queued claim windows
+
+Independent review of the no-canary commit reproduced one more conditional
+P1: a queued `CLAIM_EXTRACT_WINDOW` with an old USD estimate could retain
+`$0.05` while the runtime provider's current maximum 2048 output tokens and
+configured $0.15/1k rate required an estimated `$0.30945` for that window,
+above the default `$0.25` per-job cap. The fresh parent already computed the
+larger amount correctly, but a stale/understated queued payload could pass
+worker admission and invoke a remote completion. An adversarial actual client
+with `_post` intercepted locally (no network) reproduced this RED.
+
+Immediately before the provider call, the handler now reconstructs the exact
+canonical source window, computes the current bound from its estimated input
+tokens plus the real client output cap and configured rate, and defers a
+queued payload whose bound is lower than the currently required estimate.
+It rechecks budget snapshot after matching the source window, before any
+remote operation; the pinned on-device local provider retains its own path.
+The corresponding RED fixture is GREEN with zero `_post` invocations, and
+the valid scoped extraction path still passes.
+
+These are safe *admission estimates*, not authoritative provider quotations;
+concurrent attempts still lack an atomic reservation and measured bills and
+safe re-issuance of legacy underpriced jobs remain unproven. Original AC512.5
+and the other DP512 criteria remain **IN PROGRESS**.
