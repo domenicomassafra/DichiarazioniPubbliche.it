@@ -129,3 +129,32 @@ viewer-seek behavior and authorized MiniPC Studio/reader readback are still
 required for original end-to-end acceptance. No approved source, rights,
 public authority, network fetch, production database or runtime deployment
 was created by this regression.
+
+## 2026-10-16 — Private navigation proposal from exact verified locator (T4-p03)
+
+`private_source_jump.py` now consumes the already validated DP-237 locator,
+fingerprint and immutable Capture, plus a **separately observed current HTTPS
+byte SHA**. It proposes a page-specific PDF `#page=N` link or a labelled
+best-effort HTML text fragment (`#:~:text=`). A stale hash, a changed locator
+fingerprint, held/uncleared Capture, local/credential-bearing URL or a false
+original hash produces an explicit unavailable result without a link. A PDF
+page jump locates the **page**, not the exact word/pixel coordinate; browsers
+can ignore text fragments. This code cannot grant source-use rights.
+
+The mechanism reuses browser-native schemes described by Adobe's [PDF page
+link documentation](https://helpx.adobe.com/it/acrobat/kb/link-html-pdf-page-acrobat.html)
+and GoogleChromeLabs' [Text Fragments](https://github.com/GoogleChromeLabs/link-to-text-fragment)
+instead of adding a client-side viewer or browser extension. 19 focused
+DP-237 tests and 82 adjacent DP-237/239/241/242 tests pass locally. The
+independent `curl | shasum` recheck on the real NASA NTRS PDF
+`19640005616` observed
+`9b25371659441c501cf2f48591e7b9bb582fa72c6ddc4d6794c56eb9eb1b9cbb`,
+identical to the previously pinned original bytes in the DP-238 evidence.
+
+**DP-237 remains IN PROGRESS, all original AC unchecked.** The new proposal
+is not wired to Studio/private DB navigation; no current independently
+authorized Capture→Passage source jump or live media seek was demonstrated,
+and the canonical original NASA PDF differs from the owner-only cropped OCR
+derivative. The metadata-only Studio inspector intentionally does not expose
+Capture `final_url` or private text without a separately governed right to use
+it. No production data, public route or publication policy was changed.
