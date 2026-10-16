@@ -154,6 +154,40 @@ class AccountStaticExposureTests(unittest.TestCase):
         self.assertNotEqual(status, 200)
         self.assertNotIn(b"SQLite format 3", body)
 
+    def test_account_rollback_does_not_expose_hidden_config_or_credential_paths(self):
+        (self.public / "index.html").write_bytes(b"PUBLIC APPROVED STATIC CONTENT")
+        (self.public / ".env.production").write_bytes(b"PRIVATE SYNTHETIC ENV CONTENT")
+        (self.public / ".git").mkdir()
+        (self.public / ".git" / "config").write_bytes(
+            b"PRIVATE SYNTHETIC GIT CREDENTIAL"
+        )
+        (self.public / "nested").mkdir()
+        (self.public / "nested" / ".env.local").write_bytes(
+            b"PRIVATE SYNTHETIC LOCAL ENV"
+        )
+        (self.public / ".well-known").mkdir()
+        (self.public / ".well-known" / "security.txt").write_bytes(
+            b"PUBLIC SECURITY CONTACT"
+        )
+        for method in ("GET", "HEAD"):
+            for path in ("/.env.production", "/.git/config", "/nested/.env.local"):
+                with self.subTest(method=method, path=path):
+                    with build_server(
+                        None, static_dir=self.public, account_service=None
+                    ) as server:
+                        status, body = self.get(server, path, method=method)
+                    self.assertEqual(status, 404)
+                    self.assertNotIn(b"PRIVATE SYNTHETIC", body)
+            for path in ("/index.html", "/.well-known/security.txt"):
+                with self.subTest(method=method, path=path):
+                    with build_server(
+                        None, static_dir=self.public, account_service=None
+                    ) as server:
+                        status, body = self.get(server, path, method=method)
+                    self.assertEqual(status, 200)
+                    if method == "HEAD":
+                        self.assertEqual(body, b"")
+
     def test_atomic_static_open_refuses_symlink_swapped_after_directory_check(self):
         public_asset = self.public / "layout.css"
         public_asset.write_bytes(b"body { color: black; }")

@@ -1825,6 +1825,12 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         if ".." in relative.parts:
             self.send_error(404)
             return
+        # A rollback may leave .env.* credentials or repository metadata in a
+        # directory later passed as a static root. Refuse hidden path segments
+        # at every depth, while preserving the public .well-known convention.
+        if any(part.startswith(".") and part != ".well-known" for part in relative.parts):
+            self.send_error(404)
+            return
         directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
         file_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
         try:
