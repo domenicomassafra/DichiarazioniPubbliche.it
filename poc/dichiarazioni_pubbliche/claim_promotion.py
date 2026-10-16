@@ -432,6 +432,8 @@ WITH lock_row AS (
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
       AND cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'
+      AND (cc.metadata->'speech_act_context' IS NULL
+           OR cc.metadata#>>'{speech_act_context,speech_act}' IN ('ASSERTION','OPINION'))
       AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
       AND cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'
       AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
@@ -601,6 +603,8 @@ WITH lock_row AS (
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
       AND cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'
+      AND (cc.metadata->'speech_act_context' IS NULL
+           OR cc.metadata#>>'{speech_act_context,speech_act}' IN ('ASSERTION','OPINION'))
       AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
       AND cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'
       AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
@@ -724,6 +728,8 @@ WITH lock_row AS (
     WHERE cc.id=:'candidate_id'
       AND cc.status IN ('CANDIDATE','DUPLICATE')
       AND cc.metadata->>'speech_mode'='DIRECT_UTTERANCE'
+      AND (cc.metadata->'speech_act_context' IS NULL
+           OR cc.metadata#>>'{speech_act_context,speech_act}' IN ('ASSERTION','OPINION'))
       AND cc.metadata#>>'{context_integrity,state}' IN ('CLEAR_AUTOMATIC','APPROVED_CURATED')
       AND cc.metadata#>>'{wording,source_occurrence,wording_type}'='VERBATIM_ORIGINAL'
       AND cc.metadata#>>'{wording,normalized_claim,wording_type}'='PARAPHRASE'
@@ -998,6 +1004,11 @@ def promote_claim_candidate(
     speech_mode = str(candidate_metadata.get("speech_mode") or "").strip()
     if speech_mode != "DIRECT_UTTERANCE":
         return _blocked(request, "PROMOTION_REPORTED_SPEECH_ORIGIN_REQUIRED")
+    if "speech_act_context" in candidate_metadata:
+        semantic = candidate_metadata["speech_act_context"]
+        if (not isinstance(semantic, Mapping)
+                or semantic.get("speech_act") not in {"ASSERTION", "OPINION"}):
+            return _blocked(request, "PROMOTION_NON_ASSERTIVE_SPEECH_ACT")
     context_integrity = candidate_metadata.get("context_integrity")
     if not isinstance(context_integrity, Mapping):
         return _blocked(request, "PROMOTION_CONTEXT_INTEGRITY_MISSING")
