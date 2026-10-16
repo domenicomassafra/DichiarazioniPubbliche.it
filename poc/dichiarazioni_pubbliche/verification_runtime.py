@@ -824,9 +824,11 @@ def verify_historical_extreme(
             request.statement_date,
         )
 
-    coverage_complete = bool(request.rule.get("coverage_complete", False))
+    # Metadata often arrives from JSON, CSV and provider adapters. A string
+    # such as "false" is truthy in Python but is not verified historical coverage.
+    coverage_complete = request.rule.get("coverage_complete") is True
     explicit_record = any(
-        bool(item.metadata.get("explicit_record_attestation"))
+        item.metadata.get("explicit_record_attestation") is True
         for item, _ in numeric
     )
     if not coverage_complete and not explicit_record:
