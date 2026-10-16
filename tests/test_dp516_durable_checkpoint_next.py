@@ -4,11 +4,13 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from dichiarazioni_pubbliche.historical_batch_gate_v1 import CompletedCapture
 from dichiarazioni_pubbliche.historical_batch_checkpoint_store import SQLiteHistoricalCheckpointStore
 from tests.test_dp516_historical_batch_gate import plan
+from tests.test_dp243_historical_corpus_preflight import entry, two
 
 
 class DurableCheckpointTests(unittest.TestCase):
@@ -99,6 +101,98 @@ class DurableCheckpointTests(unittest.TestCase):
         # A source-only journal callback never serves as publication authority.
         wrong = self.other.verify_current(saved, "batch:foreign")
         self.assertFalse(wrong)
+
+    def test_multi_person_italian_german_batch_recovers_without_duplicate_work(self):
+        """Four bounded original sources survive a two-person crash and resume."""
+        originals = two()
+        manifests = (
+            replace(
+                originals[0],
+                entries=(
+                    originals[0].entries[0],
+                    entry(content_id="source:synthetic:it:second", sha="c" * 64),
+                ),
+            ),
+            replace(
+                originals[1],
+                entries=(
+                    originals[1].entries[0],
+                    entry(
+                        subject="HITLER",
+                        content_id="source:synthetic:de:second",
+                        sha="d" * 64,
+                        language="de",
+                        collection_id="collection:de",
+                        event_timezone="Europe/Berlin",
+                    ),
+                ),
+            ),
+        )
+        initial = plan(manifests=manifests)
+        self.assertEqual(initial.status, "PRIVATE_REVIEW_PLAN")
+        self.assertEqual(len(initial.proposals), 4)
+        self.assertEqual(
+            {(p.person_id, p.original_language) for p in initial.proposals},
+            {
+                (originals[0].person_id, "it"),
+                (originals[1].person_id, "de"),
+            },
+        )
+
+        # An interruption after one Capture per person must preserve both
+        # identities and skip their expensive work after a new store opens.
+        selected = [
+            next(p for p in initial.proposals if p.person_id == person_id)
+            for person_id in (originals[0].person_id, originals[1].person_id)
+        ]
+        checkpoint = None
+        for revision, proposal in enumerate(selected):
+            receipt = CompletedCapture(
+                proposal.item_key,
+                proposal.person_id,
+                proposal.content_id,
+                proposal.source_family,
+                proposal.capture_sha256,
+                "f" * 64,
+            )
+            checkpoint = self.first.commit_capture(
+                batch_id=initial.batch_id,
+                manifest_fingerprint=initial.manifest_fingerprint,
+                expected_revision=revision,
+                capture=receipt,
+                verify_persisted_capture=lambda row, expected=receipt: row == expected,
+            )
+        self.assertIsNotNone(checkpoint)
+        restarted = SQLiteHistoricalCheckpointStore(self.path)
+        persisted = restarted.read(initial.batch_id)
+        self.assertEqual(persisted, checkpoint)
+        resumed = plan(
+            manifests=manifests,
+            checkpoint=persisted,
+            verify_checkpoint=restarted.verify_current,
+        )
+        self.assertEqual(resumed.status, "PRIVATE_REVIEW_PLAN")
+        self.assertEqual(len(resumed.proposals), 2)
+        self.assertEqual(len(resumed.completed_keys), 2)
+        self.assertTrue(
+            set(resumed.completed_keys).isdisjoint(p.item_key for p in resumed.proposals)
+        )
+        self.assertEqual(
+            {p.person_id for p in resumed.proposals},
+            {p.person_id for p in selected},
+        )
+        self.assertFalse(resumed.dispatch_authorized)
+        self.assertFalse(resumed.public_eligible)
+
+        # Restarting again with the same immutable revision never adds work.
+        self.assertEqual(
+            plan(
+                manifests=manifests,
+                checkpoint=restarted.read(initial.batch_id),
+                verify_checkpoint=restarted.verify_current,
+            ),
+            resumed,
+        )
 
 
 if __name__ == "__main__":
