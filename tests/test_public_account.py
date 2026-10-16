@@ -191,6 +191,9 @@ class PublicAccountTests(unittest.TestCase):
                     self.assertEqual(headers["Surrogate-Control"], "no-store")
                     details = json.loads(body)
                     self.assertEqual(details["email"], "verified@example.org")
+                    # A valid reader session, even carrying its CSRF token, cannot publish.
+                    self.assertEqual(request("POST", "/account/api/publish", cookie=session, origin=service.site_origin, csrf=details["csrf"])[0], 405)
+                    self.assertEqual(request("POST", "/api/v1/admin/publish", cookie=session, origin=service.site_origin, csrf=details["csrf"])[0], 405)
                     self.assertEqual(request("POST", "/account/api/delete", cookie=session, origin=service.site_origin)[0], 403)
                     self.assertEqual(request("POST", "/account/api/delete", cookie=session, origin="https://evil.example", csrf=details["csrf"])[0], 403)
                     self.assertEqual(request("POST", "/account/api/logout", cookie=session, origin=service.site_origin, csrf=details["csrf"])[0], 200)
