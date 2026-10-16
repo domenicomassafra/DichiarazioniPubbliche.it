@@ -293,8 +293,9 @@ def document_passages_from_capture(
         parser = DocumentTextParser()
     if not isinstance(parser, DocumentTextParser):
         from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+        from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
 
-        if type(parser) is not BornDigitalPDFTextParser or media != "application/pdf":
+        if type(parser) not in {BornDigitalPDFTextParser, ScannedPDFOCRParser} or media != "application/pdf":
             raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
     elif media == "application/pdf":
         raise ValueError("DOCUMENT_CAPTURE_OR_EXTRACTION_MISMATCH")
@@ -342,8 +343,20 @@ def document_passages_from_capture(
                 "reading_order": page["reading_order"],
                 "original_byte_offset_available": False,
                 "verbatim_reviewed": False,
-                **({"pdf_text_fidelity": "UNREVIEWED_PDF_EXTRACTION"}
-                   if media == "application/pdf" else {}),
+                **({"pdf_text_fidelity": (
+                    "UNREVIEWED_OCR_EXTRACTION" if replay.metadata.get("ocr_applied")
+                    else "UNREVIEWED_PDF_EXTRACTION"
+                )} if media == "application/pdf" else {}),
+                **({
+                    "ocr_engine_version": replay.metadata["ocr_engine_version"],
+                    "ocr_profile": replay.metadata["ocr_profile"],
+                    "ocr_critical_span_state": "HELD_INDEPENDENT_REVIEW_REQUIRED",
+                    "ocr_word_boxes": [
+                        box for box in replay.metadata["ocr_word_boxes"]
+                        if span.start_char <= box["start_char"]
+                        and box["end_char"] <= span.end_char
+                    ],
+                } if replay.metadata.get("ocr_applied") else {}),
             },
         ))
     return tuple(passages)
