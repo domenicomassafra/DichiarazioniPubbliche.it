@@ -195,6 +195,19 @@ check("Narrow or zoomed segmented radio groups reflow every option instead of cl
   assert.match(narrow[1], /border-block-start:\s*1px solid var\(--rule-hairline\);/);
 });
 
+check("Desktop segmented radios do not clip when a containing column is narrower than the viewport", () => {
+  // A 1024px viewport can still contain a 280px card. The viewport-only
+  // 40rem rule does not apply there; allow labels to wrap within that card.
+  const group = primitives.match(/\.dp-segmented \{([^}]+)\}/)?.[1];
+  const option = primitives.match(/\.dp-segmented__option \{([^}]+)\}/)?.[1];
+  assert(group && option, "segmented group and option CSS missing");
+  assert.match(group, /flex-wrap:\s*wrap;/);
+  assert.match(option, /flex:\s*1 1 auto;/);
+  assert.match(option, /min-inline-size:\s*0;/);
+  assert.match(option, /white-space:\s*normal;/);
+  assert.match(option, /overflow-wrap:\s*anywhere;/);
+});
+
 // Exercise real focus-hook scheduling with a deterministic React-hook/RAF
 // harness. This is a regression gate, not a substitute for real VoiceOver.
 await import("./check-focus-restore.mjs");

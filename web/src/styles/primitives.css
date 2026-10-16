@@ -611,6 +611,9 @@
    -------------------------------------------------------------------------- */
 .dp-segmented {
   display: inline-flex;
+  /* A desktop viewport can contain a much narrower card/sidebar. Wrapping
+     here prevents the viewport-only mobile layout from clipping radio labels. */
+  flex-wrap: wrap;
   align-items: stretch;
   border: 1px solid var(--rule-control);
   border-radius: var(--radius-control);
@@ -622,6 +625,8 @@
 .dp-segmented__option {
   position: relative;
   display: inline-flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
@@ -632,7 +637,8 @@
   color: var(--ink-700);
   font-size: var(--density-type-label);
   font-weight: var(--weight-medium);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   transition: var(--transition-control);
 }
 

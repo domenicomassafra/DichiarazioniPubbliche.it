@@ -675,3 +675,26 @@ This static guard complements, but does not replace, the observed failure and
 the follow-up visual check on the repaired stylesheet. **AC-412.5 remains OPEN**
 until actual voice announcements, keyboard behavior, 200% zoom/reflow,
 grayscale/reduced motion and restore/handoff all pass on the current commit.
+
+### 2026-10-16 — Desktop narrow-column reflow (same original AC-412.5)
+
+The mobile-only CSS repair above was insufficient when a `SegmentedControl`
+appeared in a **280px-wide parent at a desktop 1024px viewport**. A real
+isolated headless Chrome run on PR26 `440e3fd` measured 421px of scrollable
+radio contents inside a 278px client width; the third option's right bound
+was 469.8px while the group's right bound was 328px, and `overflow:hidden`
+clipped it. This was a genuine second layout failure, not a spoken AT test.
+
+The minimum shared CSS fix lets desktop radio options flex-wrap, shrink and
+wrap their labels while retaining the earlier narrow-viewport vertical
+layout. A new `check-design-a11y.mjs` regression was **RED** against the
+unchanged CSS (missing desktop wrap), then **GREEN 12/12** together with
+focus restore 4/4 and dialog initial focus 2/2. Real headless Chrome with
+the updated fixture measured the 280px group at 1024px viewport:
+scrollWidth=clientWidth=278px, all three radio options fully inside, each
+44px high and third option now in a second row. Rechecked isolated headless
+320/390px layouts: no overflow, all three options 44px, ArrowDown switches
+the native radio from first to second. Design system PASS; Astro check of
+125 files: 0 errors, 0 warnings, one unrelated hint. No global GUI input,
+native Zen zoom or spoken VoiceOver was performed in this slice, so the
+original AC-412.5 remains unchecked and PR26 must remain Draft.
