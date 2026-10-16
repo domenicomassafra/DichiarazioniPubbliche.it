@@ -74,6 +74,11 @@ assert.equal(view.robots,"noindex,nofollow,noarchive");
 assert.match(view.html,/data-private-synopsis-browser/);
 assert.match(view.html,/data-synopsis-text/);
 assert.match(view.html,/data-original-quote/);
+assert.equal((view.html.match(/data-original-sources/g)||[]).length,2,
+  "each synopsis must have a distinct labelled original-source section");
+assert.match(view.html,/<section data-original-sources aria-label="Fonti originali citate">/);
+assert.match(view.html,/rel="noreferrer noopener nofollow" data-source-version=/);
+assert.match(view.html,/Apri documento sorgente<\/a>/);
 assert.match(view.html,/&lt;img src=x onerror=alert\(1\)&gt;/);
 assert.doesNotMatch(view.html,/<img\s|<script\s/i);
 assert.match(view.html,/href="\/dichiarazioni\/statement-1\/"/);
@@ -157,6 +162,8 @@ try {
   const html=await readFile(join(scratch,"approved/index.html"),"utf8");
   assert.match(html,/<meta name="robots" content="noindex,nofollow,noarchive"/);
   assert.match(html,/data-original-quote/);
+  assert.match(html,/data-original-sources/);
+  assert.match(html,/Apri documento sorgente<\/a>/);
   assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);
   assert.match(html,/href="#dp440-synopsis-2"/);
   assert.doesNotMatch(html,/<img\s|PRIVATE AUTH ERROR|review_provenance/);

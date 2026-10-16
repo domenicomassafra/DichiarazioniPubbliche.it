@@ -81,9 +81,16 @@ function render(view:PrivateSynopsisCrossPreview):Pick<
       '<p data-synopsis-text>'+html(sentence.text)+'</p>',
       '<nav aria-label="Navigazione della sintesi '+current+'">'+prev+' · '+next+'</nav>',
       '<p><a href="#dp440-source-'+current+'-1">Vai alla prima fonte originale</a></p>',
+      '<section data-original-sources aria-label="Fonti originali citate">',
+      '<h3>Frasi originali e documenti di origine</h3>',
     );
     for (const [j,citation] of sentence.citations.entries()) {
+      let sourceUrl:URL|null=null;
+      try { sourceUrl=new URL(citation.sourceUrl); }
+      catch { fault("CITATION_SOURCE_URL_INVALID"); }
       if (!ROUTES.statement.test(citation.statementRoute) ||
+          !sourceUrl || sourceUrl.protocol!=="https:" || !sourceUrl.hostname ||
+          sourceUrl.username || sourceUrl.password ||
           citation.originalText.length>2000 || citation.originalText.length===0 ||
           citation.speakerName.length>300 || citation.sourceTitle.length>300) {
         fault("CITATION_ROUTE_OR_BODY_INVALID");
@@ -100,11 +107,13 @@ function render(view:PrivateSynopsisCrossPreview):Pick<
         '<a href="'+html(citation.statementRoute)+'" rel="nofollow" data-quote-sha="'+
           html(citation.quoteSha256)+'" data-source-sha="'+html(citation.sourceSha256)+
           '">Apri dichiarazione originale</a>',
+        ' · <a href="'+html(citation.sourceUrl)+'" rel="noreferrer noopener nofollow"',
+        ' data-source-version="'+html(citation.sourceVersion)+'">Apri documento sorgente</a>',
         ' · <a href="#dp440-synopsis-'+current+'">Torna alla sintesi</a>',
         '</figcaption></figure>',
       );
     }
-    fragments.push('</article>');
+    fragments.push('</section></article>');
   }
   fragments.push('</main>');
   return {
