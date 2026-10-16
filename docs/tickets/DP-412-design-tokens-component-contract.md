@@ -635,3 +635,18 @@ These are deterministic hook/RAF contract checks, **NOT the real screen-reader
 speech, keyboard/focus-order and 320/390px at 200% acceptance**.
 **AC-412.5 and original DP-412 remain OPEN until the full GUI matrix is
 verified after the CoS09→CoS02 handoff.**
+
+### 2026-10-16 — Duplicate initial Dialog focus, source-only fix
+
+The real `Dialog` registered both `useInitialFocus()` and its own
+variant-aware effect. Opening a default dialog consequently scheduled two
+close-button focuses; opening with `initialFocus="body"` focused the close
+button before moving focus to the dialog itself. A deterministic effect/RAF
+fixture reproduced duplicate focus **RED** (expected `["close"]`, observed
+`["close","close"]`). The component now uses only its variant-aware initial
+focus effect and retains the shared `useRestoreFocus()` on close.
+`check-dialog-initial-focus.cjs` passes both modes **2/2 GREEN**, integrated
+in `check-design-a11y.mjs` together with the existing restoration test.
+
+This is a code-level focus event regression, not spoken VoiceOver evidence.
+AC-412.5, merge/consumer delivery and original DP-412 closure remain OPEN.

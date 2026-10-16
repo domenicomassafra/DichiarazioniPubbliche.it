@@ -33,7 +33,7 @@
 
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
 import { cx } from "./shared";
-import { useInitialFocus, useRestoreFocus } from "./useFocusTrap";
+import { useRestoreFocus } from "./useFocusTrap";
 
 export type DialogVariant = "dialog" | "sheet";
 
@@ -70,9 +70,10 @@ export function Dialog({
   const titleId = useId();
   const pointerDownInsideRef = useRef(false);
 
-  // These two own behavior; the local ref owns the element they need.
+  // Focus is restored by the shared hook. Initial focus belongs to the
+  // single variant-aware effect below; registering the generic hook here as
+  // well schedules a duplicate focus event (or close then body on a sheet).
   useRestoreFocus(open);
-  useInitialFocus<HTMLDialogElement>(open, dialogRef);
 
   useEffect(() => {
     const node = dialogRef.current;

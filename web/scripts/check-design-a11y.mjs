@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { build } from "esbuild";
@@ -188,5 +189,11 @@ check("Reduced-motion variants keep static loading/selection states", () => {
 // Exercise real focus-hook scheduling with a deterministic React-hook/RAF
 // harness. This is a regression gate, not a substitute for real VoiceOver.
 await import("./check-focus-restore.mjs");
+// A Dialog must schedule one initial focus event, not a generic one followed
+// by a variant-specific one. The latter can cause duplicate AT announcements.
+execFileSync(process.execPath, [path.join(root, "scripts/check-dialog-initial-focus.cjs")], {
+  cwd: root,
+  stdio: "inherit",
+});
 
 console.log(JSON.stringify({ result: "PASS", checks, scope: "Node SSR/contract/contrast/focus-scheduling", manual_screen_reader: "PENDING", exact_browser_zoom: "covered by separate browser QA" }));
