@@ -85,11 +85,11 @@ function render(view:PrivateSynopsisCrossPreview):Pick<
       '<h3>Frasi originali e documenti di origine</h3>',
     );
     for (const [j,citation] of sentence.citations.entries()) {
-      let sourceUrl:URL;
+      let sourceUrl:URL|null=null;
       try { sourceUrl=new URL(citation.sourceUrl); }
       catch { fault("CITATION_SOURCE_URL_INVALID"); }
       if (!ROUTES.statement.test(citation.statementRoute) ||
-          sourceUrl.protocol!=="https:" || !sourceUrl.hostname ||
+          !sourceUrl || sourceUrl.protocol!=="https:" || !sourceUrl.hostname ||
           sourceUrl.username || sourceUrl.password ||
           citation.originalText.length>2000 || citation.originalText.length===0 ||
           citation.speakerName.length>300 || citation.sourceTitle.length>300) {
