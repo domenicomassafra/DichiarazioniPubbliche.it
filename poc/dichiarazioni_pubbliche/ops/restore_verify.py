@@ -125,6 +125,7 @@ LOAD_BEARING_TABLES = (
     "public_schema_contract",
     "provider_receipt",
     "processing_job",
+    "worker_budget_reservation",
     "source_health",
     "source_poll_run",
     "source_poll_run_source",
