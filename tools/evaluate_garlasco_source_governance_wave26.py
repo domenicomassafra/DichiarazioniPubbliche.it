@@ -51,6 +51,41 @@ SOURCE_RELATIONS = {
     "lead:garlasco:lanazione-interview-2026-05": "DIRECT_NEWSPAPER_INTERVIEW",
     "lead:garlasco:procura-pavia-communique-2026-09": "ORIGINAL_OFFICIAL_PROCEDURAL_COMMUNIQUE",
 }
+# Source Intelligence roles describe *what each observed page can prove*.
+# They do not authenticate statements repeated by a newspaper, and none grants
+# independence from another source or rights to store its text.
+EVIDENCE_ROLES = {
+    "PLATFORM_DISTRIBUTION": "SECONDARY_REFERENCE",
+    "BROADCASTER_ORIGINAL": "FIRST_PARTY_STATEMENT",
+    "NEWSROOM_REPORT": "SECONDARY_REFERENCE",
+    "CLAIMED_OFFICIAL_TEXT_REPRINT": "SECONDARY_REFERENCE",
+    "NEWSROOM_WITH_THIRD_PARTY_STATEMENT": "SECONDARY_REFERENCE",
+    "DIRECT_PUBLISHED_INTERVIEW": "FIRST_PARTY_STATEMENT",
+    "OFFICIAL_PROCEDURAL_DOCUMENT": "OFFICIAL_PROCEDURAL_RECORD",
+}
+EVIDENCE_SCOPE = {
+    "PLATFORM_DISTRIBUTION": "EPISODE_DISCOVERY_ONLY_NOT_SEPARATE_CORROBORATION",
+    "BROADCASTER_ORIGINAL": "BROADCAST_LISTING_ONLY_SPEECH_CONTENT_UNREVIEWED",
+    "NEWSROOM_REPORT": "SECONDARY_REPORT_CANNOT_PROVE_OFFICIAL_PROCEEDING",
+    "CLAIMED_OFFICIAL_TEXT_REPRINT": "PROPOSED_DERIVATIVE_NOT_INDEPENDENT_PROOF",
+    "NEWSROOM_WITH_THIRD_PARTY_STATEMENT": "SECONDARY_QUOTE_ORIGINAL_AUTHOR_UNLOCATED",
+    "DIRECT_PUBLISHED_INTERVIEW": "DIRECT_INTERVIEW_REPORT_SPEAKER_ATTRIBUTION_UNREVIEWED",
+    "OFFICIAL_PROCEDURAL_DOCUMENT": "FIRST_PARTY_PROCEDURAL_ACT_NOT_CRIMINAL_GUILT_FINDING",
+}
+
+
+def _use_status(evidence: str) -> dict[str, str]:
+    """Operator-facing dispositions, never a durable rights registry grant."""
+    return {
+        "catalog_link_metadata": "AVAILABLE_WITH_PROVENANCE",
+        "fetch_source_body": "BLOCKED_PENDING_SOURCE_SPECIFIC_PERMISSION",
+        "store_or_parse_body": "BLOCKED_PENDING_SOURCE_SPECIFIC_PERMISSION",
+        "analyze_or_translate_body": "BLOCKED_PENDING_SOURCE_SPECIFIC_PERMISSION",
+        "capture_or_transcribe_media": "BLOCKED_PENDING_SEPARATE_MEDIA_PERMISSION",
+        "publish_exact_quote": "BLOCKED_PENDING_QUALIFIED_EXCERPT_REVIEW",
+        "basis": evidence,
+        "decision_kind": "UNREVIEWED_OPERATOR_PREVIEW_NOT_RIGHTS_REGISTRY",
+    }
 OFFICIAL_ID = "lead:garlasco:procura-pavia-communique-2026-09"
 REPRINT_ID = "lead:garlasco:ilticino-communique-2026-09"
 UNRESOLVED_ID = "lead:garlasco:rai-legal-communique-2026-05"
@@ -179,6 +214,7 @@ def evaluate_packet(wave22: dict, wave26: dict) -> dict:
     _require(len(source_by_id) == len(source_rows)
              and set(source_by_id) == set(original_by_id), "SOURCE_IDENTITIES_INVALID")
     review_queue: list[dict[str, str]] = []
+    source_inventory: list[dict[str, object]] = []
     for lead_id in sorted(source_by_id):
         row = source_by_id[lead_id]
         original = original_by_id[lead_id]
@@ -212,6 +248,29 @@ def evaluate_packet(wave22: dict, wave26: dict) -> dict:
         if lead_id == UNRESOLVED_ID:
             _require(row["original_url"] is None
                      and row["original_status"] == "THIRD_PARTY_STATEMENT_ORIGINAL_UNLOCATED", "ORIGINAL_UNLOCATED")
+        _require(original["page_role"] in EVIDENCE_ROLES, "SOURCE_ROLE_UNSUPPORTED")
+        source_inventory.append({
+            "id": lead_id,
+            "title": original["title"],
+            "author_or_publisher": original["publisher"],
+            "source_date": original["observed_date"],
+            "date_basis": original["date_meaning"],
+            "url": original["url"],
+            "source_family": original["proposed_family"],
+            "evidence_role": EVIDENCE_ROLES[original["page_role"]],
+            "potential_evidence_scope": EVIDENCE_SCOPE[original["page_role"]],
+            "evidence_suitability_reviewed": False,
+            "scope": original["page_role"],
+            "origin_url": row["original_url"],
+            "derivation_or_independence": row["source_relation"],
+            "independence_approved": False,
+            "dependent_on_lead_id": row["dependent_on_lead_id"],
+            "provenance_evidence_url": row["identity_evidence_url"],
+            "rights_evidence_url": row["rights_evidence_url"],
+            "rights": _use_status(row["rights_evidence_status"]),
+            "review_action": row["review_action"],
+            "persisted_discovery": False,
+        })
         review_queue.append({
             "id": lead_id, "type": "PUBLIC_SOURCE_CANDIDATE",
             "next_action": "HUMAN_" + row["review_action"],
@@ -242,6 +301,31 @@ def evaluate_packet(wave22: dict, wave26: dict) -> dict:
         chamber_counts[chamber] += 1
         if video is not None:
             official_text_video_pairs += 1
+        source_inventory.append({
+            "id": probe_id,
+            "title": f"{chamber} legislatura {leg}, seduta {number}",
+            "author_or_publisher": "Camera dei deputati" if chamber == "CAMERA" else "Senato della Repubblica",
+            "source_date": day,
+            "date_basis": "OFFICIAL_SESSION_DATE",
+            "url": transcript,
+            "source_family": "OFFICIAL_PROCEDURAL",
+            "evidence_role": "OFFICIAL_PROCEDURAL_RECORD",
+            "potential_evidence_scope": "OFFICIAL_SPEECH_WORDING_AND_SESSION_NOT_FACTUAL_TRUTH",
+            "evidence_suitability_reviewed": False,
+            "scope": "OFFICIAL_PARLIAMENTARY_SPEECH",
+            "speaker_label_from_official_record": speaker,
+            "speaker_resolution_approved": False,
+            "video_session_url": video,
+            "video_timecode_verified": False,
+            "origin_url": transcript,
+            "derivation_or_independence": "OFFICIAL_RECORD_SINGLE_LINEAGE",
+            "independence_approved": False,
+            "provenance_evidence_url": transcript,
+            "rights_evidence_url": row["rights_evidence_url"],
+            "rights": _use_status(rights),
+            "review_action": "REVIEW_PARLIAMENTARY_TRANSCRIPT_VIDEO_RIGHTS_SPEAKER_TIME",
+            "persisted_discovery": False,
+        })
         review_queue.append({
             "id": probe_id, "type": "DP233_PARLIAMENTARY_SOURCE_CANDIDATE",
             "next_action": "HUMAN_REVIEW_PARLIAMENTARY_TRANSCRIPT_VIDEO_RIGHTS_SPEAKER_TIME",
@@ -262,6 +346,7 @@ def evaluate_packet(wave22: dict, wave26: dict) -> dict:
         "provider_call_authorized": 0,
         "persisted_discovery_hits_proven": 0,
         "operator_review_queue": review_queue,
+        "source_inventory": source_inventory,
         "dp214_215_233_acceptance_proven": False,
     }
 

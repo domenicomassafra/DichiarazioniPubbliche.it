@@ -104,3 +104,15 @@ Original AC-236.1–AC-236.6 remain open pending authenticated qualified decisio
   **DP-236 stays IN PROGRESS; AC-236.1–.6 remain OPEN** pending authenticated
   current permissions, exact source-version rights, legal dispositions and
   runtime proof. DP-237 was regression-checked but unchanged.
+
+### 2026-10-16 — Per-source use previews, without rights escalation
+
+Wave26's `source_inventory` now presents, for each of 11 independently observed
+URL candidates, separate `catalog_link_metadata`, `fetch_source_body`,
+`store_or_parse_body`, `analyze_or_translate_body`, `capture_or_transcribe_media`
+and `publish_exact_quote` dispositions, plus source-specific rights evidence,
+origin and required review action. All content/media operations are held while
+their source-specific permissions remain UNKNOWN; a metadata link is not a
+`private_source_rights_record` permit. Read-only MiniPC `psql` returned `0|0`
+for all/cleared rights records. No licensed operational body capture, authenticated
+decision or public excerpt approval has been established. AC-236.1–6 remain open.

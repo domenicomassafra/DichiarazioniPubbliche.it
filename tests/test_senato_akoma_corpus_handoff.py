@@ -15,6 +15,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
     normalize_statement_candidate,
 )
 from dichiarazioni_pubbliche.senato_akoma_corpus_handoff import (
+    HANDOFF_VERSION,
     SenatoAkomaParser,
     prepare_senato_corpus_handoff,
     verify_senato_handoff_roundtrip,
@@ -47,6 +48,7 @@ class SenatoCorpusHandoffTests(unittest.TestCase):
         self.assertIsNone(capture.body_ref)
         self.assertEqual(capture.metadata["source_license_id"], "CC-BY-4.0")
         self.assertEqual(capture.metadata["source_commit_sha"], "a" * 40)
+        self.assertEqual(capture.parser_version, HANDOFF_VERSION)
         self.assertEqual(capture.metadata["source_blob_sha1"], blob_sha(fixture()))
         self.assertEqual(result.claim_extraction_status, "BLOCKED_PENDING_PRIVATE_RIGHTS_AND_PROVIDER")
 
@@ -62,6 +64,7 @@ class SenatoCorpusHandoffTests(unittest.TestCase):
             self.assertEqual(s.metadata["quote_review_status"], "UNREVIEWED_NORMALIZED_XML_TEXT")
             self.assertEqual(p.text_sha256, hashlib.sha256(s.normalized_statement.encode()).hexdigest())
             self.assertEqual(p.capture_id, capture.id)
+            self.assertEqual(p.extraction_version, HANDOFF_VERSION)
             self.assertLess(p.start_char, p.end_char)
 
     def test_persisted_isolated_records_roundtrip_without_corpus_writes(self):
@@ -119,6 +122,27 @@ class SenatoCorpusHandoffTests(unittest.TestCase):
                 fixture(), source_raw_url=URL, expected_blob_sha1=blob_sha(fixture()),
                 content_id="content:example", observed_at="2026-10-10T10:00:00",
             )
+
+    def test_long_official_speech_retains_exact_words_across_bound_passages(self):
+        original = fixture()
+        lengthy = " ".join(["Garlasco", "contesto"] * 650)
+        self.assertGreater(len(lengthy), 4000)
+        raw = original.replace(b"Un dato: <i>zero</i>.", lengthy.encode("utf-8"))
+        handoff = self._prepare(raw)
+        speech = handoff.statements[1]
+        self.assertGreater(len(speech.passage_ids), 1)
+        bound = [p for p in handoff.passages if p.id in speech.passage_ids]
+        self.assertEqual(len(bound), len(speech.passage_ids))
+        self.assertEqual(speech.normalized_statement, lengthy)
+        self.assertEqual(speech.statement_text_hash, hashlib.sha256(lengthy.encode()).hexdigest())
+        self.assertTrue(all(len(p.private_text) <= 4000 for p in bound))
+        self.assertEqual([p.metadata["source_speech_chunk_index"] for p in bound], list(range(1, len(bound) + 1)))
+        self.assertTrue(all(p.metadata["source_speech_chunk_count"] == len(bound) for p in bound))
+        self.assertFalse(any(h.reason == "CANONICAL_PASSAGE_LIMIT" for h in handoff.held_speeches))
+        verify_senato_handoff_roundtrip(handoff, raw)
+        tampered = replace(handoff, statements=(handoff.statements[0], replace(speech, passage_ids=speech.passage_ids[:-1])))
+        with self.assertRaisesRegex(SenatoAkomaError, "HANDOFF_SOURCE_ROUNDTRIP_MISMATCH"):
+            verify_senato_handoff_roundtrip(tampered, raw)
 
     def test_readback_verifier_rejects_altered_passage_selector_text_and_rights(self):
         original = self._prepare()
