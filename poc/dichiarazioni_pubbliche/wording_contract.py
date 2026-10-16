@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
 
+from dichiarazioni_pubbliche.context_integrity import assess_speech_act_context
+
 
 WORDING_CONTRACT_VERSION = "wording-contract-v1"
 SOURCE_OCCURRENCE_ROLE = "SOURCE_OCCURRENCE"
@@ -45,12 +47,14 @@ _CAPITALIZED_RE = re.compile(r"\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]{2,
 _NEGATIONS = {
     "it": re.compile(r"\b(?:non|mai|nessun[oa]?|senza)\b", re.I),
     "en": re.compile(r"\b(?:not|never|no|without|n't)\b", re.I),
+    "de": re.compile(r"\b(?:nicht|nie|niemals|kein\w*|ohne|weder|niemand\w*)\b", re.I),
     "fr": re.compile(r"\b(?:ne|pas|jamais|aucun|sans)\b", re.I),
     "es": re.compile(r"\b(?:no|nunca|ning[uú]n|sin)\b", re.I),
 }
 _MODALS = {
     "it": re.compile(r"\b(?:deve|devono|può|possono|potrebbe|potrebbero|dovrebbe|dovrebbero)\b", re.I),
     "en": re.compile(r"\b(?:must|may|might|can|could|should|would)\b", re.I),
+    "de": re.compile(r"\b(?:muss|müssen|soll|sollen|kann|können|könnte|könnten|darf|dürfen)\b", re.I),
     "fr": re.compile(r"\b(?:doit|doivent|peut|peuvent|pourrait|devrait)\b", re.I),
     "es": re.compile(r"\b(?:debe|deben|puede|pueden|podría|debería)\b", re.I),
 }
@@ -62,6 +66,10 @@ _MODAL_CLASSES = {
     "en": {
         "OBLIGATION": re.compile(r"\b(?:must|should)\b", re.I),
         "POSSIBILITY": re.compile(r"\b(?:may|might|can|could|would)\b", re.I),
+    },
+    "de": {
+        "OBLIGATION": re.compile(r"\b(?:muss|müssen|soll|sollen)\b", re.I),
+        "POSSIBILITY": re.compile(r"\b(?:kann|können|könnte|könnten|darf|dürfen)\b", re.I),
     },
     "fr": {
         "OBLIGATION": re.compile(r"\b(?:doit|doivent|devrait)\b", re.I),
@@ -563,6 +571,7 @@ def _names(text: str) -> tuple[str, ...]:
             "non",
             "noi",
             "io",
+            "ich",
             "the",
             "we",
             "i",
@@ -574,6 +583,31 @@ def _names(text: str) -> tuple[str, ...]:
         }
     }
     return tuple(sorted(candidates))
+
+
+def _speech_act_translation_hint(text: str, language: str) -> str | None:
+    """Use the existing lexical hypothesis only to flag possible meaning drift.
+
+    The artificial reference below is a local comparison token, never evidence
+    of a real speaker, attribution, review, or permission to publish.
+    """
+    if language not in {"it", "en", "de"} or len(text) > 12000:
+        return None
+    token = "translation-comparison:unverified"
+    review = assess_speech_act_context(
+        source_text=text,
+        source_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        quote_start=0,
+        quote_end=len(text),
+        turn_start=0,
+        turn_end=len(text),
+        utterer_id=token,
+        turn_speaker_ids=(token,),
+        source_part_ref="translation-comparison:source",
+        turn_complete=True,
+        language=language,
+    )
+    return review.speech_act if review.speech_act != "UNKNOWN" else None
 
 
 @dataclass(frozen=True)
@@ -637,6 +671,10 @@ def assess_translation(
         signals.append("PROPER_NAME_CHANGED")
     if source_lang not in _NEGATIONS or target_lang not in _NEGATIONS:
         signals.append("LANGUAGE_RISK_RULE_UNAVAILABLE")
+    source_act = _speech_act_translation_hint(source, source_lang)
+    target_act = _speech_act_translation_hint(translated, target_lang)
+    if source_act != target_act and (source_act is not None or target_act is not None):
+        signals.append("SPEECH_ACT_TRANSLATION_CHANGED_OR_UNRESOLVED")
     if translation_method == "MACHINE" and not human_reviewed:
         signals.append("MACHINE_TRANSLATION_REQUIRES_REVIEW")
 
