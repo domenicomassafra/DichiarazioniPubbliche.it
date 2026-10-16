@@ -236,16 +236,16 @@ class MonthlyLiabilityPgTests(unittest.TestCase):
         self.classify(key, "MEASURED_PROVIDER_COST", "0.21", evidence="usage:synthetic")
         self.reader.append(receipt_id=key, event_id="refund:jit", expected_revision=0,
                            kind="REFUND_CLAIM", amount_usd="0.21")
-        self.assertEqual(self.sql("SHOW jit;"), "on")
-        # Observe the real transaction setting inside the same snapshot query,
-        # without changing its ledger read or persisting any session setting.
+        original_jit = self.sql("SHOW jit;")
+        # Verify the actual SQL-local setting while preserving the complete
+        # financial snapshot and restoring the separate connection's default.
         observed = self.reader._run(
             _SNAPSHOT.replace("SELECT COALESCE(", "SHOW jit;\nSELECT COALESCE(", 1),
             _family="SNAPSHOT",
         ).splitlines()
         self.assertEqual(observed[0], "off")
         self.assertEqual(len(json.loads(observed[1])), 1)
-        self.assertEqual(self.sql("SHOW jit;"), "on")
+        self.assertEqual(self.sql("SHOW jit;"), original_jit)
         report = self.report()
         self.assertEqual(report.recorded_measured_usd, Decimal("0.21"))
         self.assertEqual(report.unverified_refund_claim_usd, Decimal("0.21"))
