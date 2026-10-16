@@ -38,6 +38,35 @@ class SourceGovernanceWave26Test(unittest.TestCase):
         self.assertTrue(all(x["next_action"].startswith("HUMAN_") for x in result["operator_review_queue"]))
         self.assertNotIn("Garlasco: Gli indizi", json.dumps(result))
 
+    def test_real_source_inventory_has_dated_provenance_roles_and_separate_permission_decisions(self):
+        result = evaluate_packet(self.baseline, self.packet)
+        rows = result["source_inventory"]
+        self.assertEqual(len(rows), 11)
+        self.assertEqual(len({row["id"] for row in rows}), 11)
+        self.assertTrue(all(row["author_or_publisher"] and row["source_date"] and row["url"]
+                            and row["provenance_evidence_url"] for row in rows))
+        self.assertTrue(all(row["rights"]["fetch_source_body"].startswith("BLOCKED_")
+                            and row["rights"]["analyze_or_translate_body"].startswith("BLOCKED_")
+                            and row["rights"]["publish_exact_quote"].startswith("BLOCKED_")
+                            for row in rows))
+        self.assertTrue(all(row["rights"]["catalog_link_metadata"] == "AVAILABLE_WITH_PROVENANCE"
+                            and row["independence_approved"] is False
+                            and row["persisted_discovery"] is False for row in rows))
+        by_id = {row["id"]: row for row in rows}
+        official = by_id["lead:garlasco:procura-pavia-communique-2026-09"]
+        reprint = by_id["lead:garlasco:ilticino-communique-2026-09"]
+        self.assertEqual(official["evidence_role"], "OFFICIAL_PROCEDURAL_RECORD")
+        self.assertEqual(reprint["evidence_role"], "SECONDARY_REFERENCE")
+        self.assertEqual(reprint["dependent_on_lead_id"], official["id"])
+        self.assertEqual(reprint["potential_evidence_scope"], "PROPOSED_DERIVATIVE_NOT_INDEPENDENT_PROOF")
+        self.assertFalse(official["evidence_suitability_reviewed"])
+        camera = by_id["wave26:camera:leg19:sed607"]
+        self.assertEqual(camera["speaker_label_from_official_record"], "Vittoria Baldino")
+        self.assertEqual(camera["source_date"], "2026-02-03")
+        self.assertEqual(camera["video_timecode_verified"], False)
+        self.assertTrue(camera["video_session_url"].startswith("https://webtv.camera.it/"))
+        self.assertEqual(camera["potential_evidence_scope"], "OFFICIAL_SPEECH_WORDING_AND_SESSION_NOT_FACTUAL_TRUTH")
+
     def test_single_authority_change_cannot_be_laundered_into_grant(self):
         for change in (
             {"rights_status": "CLEARED"},

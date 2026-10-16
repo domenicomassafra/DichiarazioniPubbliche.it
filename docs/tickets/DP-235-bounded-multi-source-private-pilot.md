@@ -116,3 +116,15 @@ cross-source identity and replay in persisted DB, MiniPC/private Studio
 receipt, provider budget metering, and public counter readback still require
 independent live acceptance. All five original AC stay unchecked, and issue
 status stays **IN PROGRESS**.
+
+### 2026-10-16 — Real-source pilot rights blocker rechecked
+
+The immutable licensed Senato AKN specimen still reconstructs held private
+Capture/Passage/Statement Candidate contracts with original words preserved
+and no publication. This is a genuine input-format and isolated private
+readback, not an approved production pilot: the current MiniPC
+`private_source_rights_record` table contains **0 rows / 0 CLEARED** (read-only
+`psql` result), so no authenticated, exact source-version private-use permit
+exists to authorize operational acquisition, body retention and analysis.
+Do not turn the CC BY notice into an authenticated permit; obtain the qualified
+source-specific rights/use decision and then execute AC-235.1–5 on MiniPC.

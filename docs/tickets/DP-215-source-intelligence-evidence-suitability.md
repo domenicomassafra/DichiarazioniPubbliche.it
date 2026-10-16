@@ -584,3 +584,14 @@ observable unblock condition remains individually selected/persisted real
 Garlasco sources with reviewed role, identity, derivation/independence,
 applicable scope/version/time and explicit separate acquisition/publication
 rights, followed by authoritative MiniPC per-item readback.
+
+### 2026-10-16 — Per-source operator roles and suitability, metadata only
+
+The existing Wave26 governed packet now emits a provenance-bound inventory
+classifying original institutional proceedings, broadcaster originals, direct
+interviews, news reports, proposed reprints and unlocated third-party originals.
+Each has a specific potential evidence scope and `evidence_suitability_reviewed=false`;
+neither a derivative nor a second URL can create an independent confirmation.
+Its roles use the existing Source Intelligence vocabulary. This is usable
+operator triage, not a persisted reviewed content/source assessment. Therefore
+AC-215.9 and the ticket remain open until per-Content review and MiniPC readback.

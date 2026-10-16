@@ -16,8 +16,10 @@ from datetime import datetime
 from dichiarazioni_pubbliche.capture_pipeline import (
     MAX_PASSAGE_CHARS,
     MAX_PASSAGES,
+    MAX_PARSED_TEXT_CHARS,
     ParseResult,
     ParsedSpan,
+    _split_canonical_text,
 )
 from dichiarazioni_pubbliche.corpus_repository import (
     ContentCaptureRecord,
@@ -30,9 +32,12 @@ from dichiarazioni_pubbliche.senato_akoma_stenographic import (
     SenatoAkomaCandidateImport,
     SenatoAkomaError,
     SenatoAkomaHeldSpeech,
+    SenatoAkomaSpeechCandidate,
     import_senato_akoma_stenographic,
 )
 from dichiarazioni_pubbliche.source_watcher import FetchedBytes
+
+HANDOFF_VERSION = "senato-akoma-corpus-handoff-v2"
 
 
 @dataclass(frozen=True)
@@ -67,33 +72,46 @@ def verify_senato_handoff_roundtrip(
         raise SenatoAkomaError("SENATO_AKN_HANDOFF_SOURCE_ROUNDTRIP_MISMATCH")
 
 
-def _canonical_document(source: SenatoAkomaCandidateImport) -> tuple[str, tuple[ParsedSpan, ...], tuple[SenatoAkomaHeldSpeech, ...]]:
+def _canonical_document(source: SenatoAkomaCandidateImport) -> tuple[
+    str, tuple[ParsedSpan, ...], tuple[SenatoAkomaHeldSpeech, ...],
+    tuple[tuple[SenatoAkomaSpeechCandidate, tuple[int, ...]], ...],
+]:
     pieces: list[str] = []
     spans: list[ParsedSpan] = []
     extra_holds: list[SenatoAkomaHeldSpeech] = []
+    included: list[tuple[SenatoAkomaSpeechCandidate, tuple[int, ...]]] = []
     offset = 0
     for speech in source.speeches:
         review = speech.review_text
-        if len(review) > MAX_PASSAGE_CHARS or len(spans) >= MAX_PASSAGES:
+        # Reuse the canonical capture splitter so one long official speech
+        # remains one candidate linked to several bounded literal passages.
+        chunks = _split_canonical_text(review)
+        separator = 2 if pieces else 0
+        if (not chunks or len(spans) + len(chunks) > MAX_PASSAGES
+                or offset + separator + len(review) > MAX_PARSED_TEXT_CHARS):
             extra_holds.append(SenatoAkomaHeldSpeech(speech.ordinal, "CANONICAL_PASSAGE_LIMIT", speech.source_speaker_ref))
             continue
-        if pieces:
+        if separator:
             pieces.append("\n\n")
             offset += 2
         pieces.append(review)
-        spans.append(ParsedSpan(
-            start_char=offset, end_char=offset + len(review), text=review,
-            text_sha256=speech.review_text_sha256,
-        ))
+        indexes = tuple(range(len(spans), len(spans) + len(chunks)))
+        for chunk in chunks:
+            spans.append(ParsedSpan(
+                start_char=offset + chunk.start_char,
+                end_char=offset + chunk.end_char,
+                text=chunk.text, text_sha256=chunk.text_sha256,
+            ))
+        included.append((speech, indexes))
         offset += len(review)
-    return "".join(pieces), tuple(spans), source.held_speeches + tuple(extra_holds)
+    return "".join(pieces), tuple(spans), source.held_speeches + tuple(extra_holds), tuple(included)
 
 
 class SenatoAkomaParser:
     """CapturePipeline.ParserAdapter for exact raw AKN source/commit/blob receipts."""
 
     parser_method = "OFFICIAL_SENATO_AKOMA_STENOGRAPHIC"
-    parser_version = ADAPTER_VERSION
+    parser_version = HANDOFF_VERSION
 
     def __init__(self, *, source_raw_url: str, expected_blob_sha1: str):
         self.source_raw_url = source_raw_url
@@ -113,7 +131,7 @@ class SenatoAkomaParser:
                 source_raw_url=self.source_raw_url,
                 expected_blob_sha1=self.expected_blob_sha1,
             )
-            canonical, spans, held = _canonical_document(source)
+            canonical, spans, held, _ = _canonical_document(source)
             if not spans:
                 raise SenatoAkomaError("SENATO_AKN_NO_REVIEWABLE_PASSAGES")
             return ParseResult(
@@ -122,6 +140,7 @@ class SenatoAkomaParser:
                 canonical_text=canonical, spans=spans,
                 metadata={
                     "official_source_repository": "SenatoDellaRepubblica/AkomaNtosoBulkData",
+                    "handoff_version": HANDOFF_VERSION,
                     "immutable_source_url": source.source_raw_url,
                     "source_commit_sha": source.source_commit_sha,
                     "source_blob_sha1": source.source_blob_sha1,
@@ -164,7 +183,7 @@ def prepare_senato_corpus_handoff(
         raise ValueError("SENATO_HANDOFF_OBSERVATION_INVALID") from None
     if stamp.tzinfo is None:
         raise ValueError("SENATO_HANDOFF_OBSERVATION_TIMEZONE_REQUIRED")
-    canonical, spans, held = _canonical_document(source)
+    canonical, spans, held, included = _canonical_document(source)
     if not spans:
         raise SenatoAkomaError("SENATO_AKN_NO_REVIEWABLE_PASSAGES")
     parsed = SenatoAkomaParser(
@@ -184,11 +203,12 @@ def prepare_senato_corpus_handoff(
         retrieval_method="OFFICIAL_GIT_BLOB_IN_MEMORY",
         retrieval_version=ADAPTER_VERSION, media_type="application/akn+xml",
         body_ref=None, parser_method=SenatoAkomaParser.parser_method,
-        parser_version=ADAPTER_VERSION, rights_status="UNKNOWN",
+        parser_version=HANDOFF_VERSION, rights_status="UNKNOWN",
         retention_class="POLICY_PENDING", hold_status="RIGHTS_HOLD",
         status="QUARANTINED",
         metadata={
             "source_commit_sha": source.source_commit_sha,
+            "handoff_version": HANDOFF_VERSION,
             "source_blob_sha1": source.source_blob_sha1,
             "source_license_id": source.source_license_id,
             "source_license_url": source.source_license_url,
@@ -199,36 +219,41 @@ def prepare_senato_corpus_handoff(
             "content_registry_approval": "UNVERIFIED",
         },
     )
-    included = [speech for speech in source.speeches if len(speech.review_text) <= MAX_PASSAGE_CHARS]
-    included = included[:MAX_PASSAGES]
     passages: list[PassageRecord] = []
     statements: list[StatementCandidateRecord] = []
-    for speech, span in zip(included, spans, strict=True):
-        passage_id = deterministic_corpus_id(
-            "passage", capture_id, ADAPTER_VERSION,
-            str(span.start_char), str(span.end_char), span.text_sha256,
-        )
-        passage = PassageRecord(
-            id=passage_id, content_id=content_id, capture_id=capture_id,
-            selector_type="TEXT_POSITION", start_char=span.start_char,
-            end_char=span.end_char, text_sha256=span.text_sha256,
-            private_text=span.text, language="it",
-            extraction_method=SenatoAkomaParser.parser_method,
-            extraction_version=ADAPTER_VERSION,
-            metadata={"source_speech_id": speech.speech_id, "source_speech_ordinal": speech.ordinal,
-                      "source_review_text_only": True},
-        )
-        if (parsed.canonical_text[passage.start_char:passage.end_char] != passage.private_text
-                or hashlib.sha256(passage.private_text.encode("utf-8")).hexdigest()
-                != passage.text_sha256):
-            raise SenatoAkomaError("SENATO_AKN_PASSAGE_SOURCE_BINDING_FAILED")
-        passages.append(passage)
+    for speech, indexes in included:
+        speech_passage_ids: list[str] = []
+        for chunk_number, index in enumerate(indexes, start=1):
+            span = spans[index]
+            passage_id = deterministic_corpus_id(
+                "passage", capture_id, HANDOFF_VERSION,
+                str(span.start_char), str(span.end_char), span.text_sha256,
+            )
+            passage = PassageRecord(
+                id=passage_id, content_id=content_id, capture_id=capture_id,
+                selector_type="TEXT_POSITION", start_char=span.start_char,
+                end_char=span.end_char, text_sha256=span.text_sha256,
+                private_text=span.text, language="it",
+                extraction_method=SenatoAkomaParser.parser_method,
+                extraction_version=HANDOFF_VERSION,
+                metadata={"source_speech_id": speech.speech_id,
+                          "source_speech_ordinal": speech.ordinal,
+                          "source_speech_chunk_index": chunk_number,
+                          "source_speech_chunk_count": len(indexes),
+                          "source_review_text_only": True},
+            )
+            if (parsed.canonical_text[passage.start_char:passage.end_char] != passage.private_text
+                    or hashlib.sha256(passage.private_text.encode("utf-8")).hexdigest()
+                    != passage.text_sha256):
+                raise SenatoAkomaError("SENATO_AKN_PASSAGE_SOURCE_BINDING_FAILED")
+            passages.append(passage)
+            speech_passage_ids.append(passage_id)
         statements.append(StatementCandidateRecord(
-            id=deterministic_corpus_id("statement-candidate", passage_id, speech.speech_id),
-            content_id=content_id, passage_ids=(passage_id,),
+            id=deterministic_corpus_id("statement-candidate", *speech_passage_ids, speech.speech_id),
+            content_id=content_id, passage_ids=tuple(speech_passage_ids),
             statement_text_hash=speech.review_text_sha256,
             normalized_statement=speech.review_text,
-            extraction_version=ADAPTER_VERSION, speaker_person_id=None,
+            extraction_version=HANDOFF_VERSION, speaker_person_id=None,
             attribution_method=None, status="HELD",
             metadata={
                 "source_speech_id": speech.speech_id,
