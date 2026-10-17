@@ -1344,6 +1344,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                 'content_id', claim.content_id,
                 'normalized_claim', claim.normalized_claim,
                 'claim_type', claim.claim_type,
+                'speaker_person_id', claim.speaker_person_id,
                 'temporal_scope', claim.temporal_scope,
                 'metadata', claim.metadata,
                 'statement_date', COALESCE(
