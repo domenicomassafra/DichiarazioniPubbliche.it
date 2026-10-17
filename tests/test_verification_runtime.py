@@ -219,6 +219,27 @@ class VerificationRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(complete.assessment, VerificationAssessment.SUPPORTED)
 
+    def test_historical_coverage_and_attestation_must_be_explicit_booleans(self):
+        for claimed_coverage in ("false", "true", 1, ["yes"], None):
+            with self.subTest(coverage=claimed_coverage):
+                request = VerificationRequest(
+                    "claim:a", "2026-09-03", "historical_peak",
+                    {"metric": "employment_rate_pct", "value": 63.2,
+                     "coverage_complete": claimed_coverage},
+                )
+                result = verify(request, [evidence(63.2)])
+                self.assertEqual(result.assessment, VerificationAssessment.INSUFFICIENT_EVIDENCE)
+                self.assertIn("HISTORICAL_COVERAGE_INCOMPLETE", result.blockers)
+        for claimed_attestation in ("false", "true", 1, ["yes"], None):
+            with self.subTest(attestation=claimed_attestation):
+                result = verify(
+                    VerificationRequest("claim:a", "2026-09-03", "historical_peak",
+                                        {"metric": "employment_rate_pct", "value": 63.2}),
+                    [evidence(63.2, metadata={"explicit_record_attestation": claimed_attestation})],
+                )
+                self.assertEqual(result.assessment, VerificationAssessment.INSUFFICIENT_EVIDENCE)
+                self.assertIn("HISTORICAL_COVERAGE_INCOMPLETE", result.blockers)
+
     def test_historical_peak_counterexample_before_statement_is_false_not_outdated(self):
         request = VerificationRequest(
             "claim:a",
