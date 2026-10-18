@@ -31,19 +31,68 @@ class BillingDayWindow:
 def read_billing_day_window(
     run: Callable[..., str], *, current: datetime
 ) -> BillingDayWindow:
-    """Match the database's existing local-day admission window, including DST."""
-    name = run("SELECT current_setting('TimeZone');").strip()
+    """Read the exact PostgreSQL admission day, including midnight DST folds.
+
+    ``date_trunc('day', timestamptz)`` resolves ambiguous local midnight
+    inside PostgreSQL. Python's ``replace(hour=0)`` chooses a different fold
+    in some zones (e.g. Havana) and cannot be used as the billing boundary.
+    """
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("HEALTH_DIGEST_TIMEZONE_REQUIRED")
+    unknown = BillingDayWindow(None, None, "UNKNOWN")
     try:
+        # All values are resolved in one PostgreSQL session. The existing
+        # worker admission query uses exactly the same date_trunc expression.
+        raw = run(
+            """
+            WITH bound AS (
+                SELECT :'current'::timestamptz AS instant,
+                       date_trunc('day', :'current'::timestamptz) AS day_start,
+                       date_trunc('day', :'current'::timestamptz + interval '1 day')
+                           AS next_day_start
+            )
+            SELECT json_build_object(
+                'timezone', current_setting('TimeZone'),
+                'local_day', instant::date,
+                'window_start', day_start,
+                'window_end', next_day_start
+            )::text FROM bound;
+            """,
+            current=current.astimezone(timezone.utc).isoformat(),
+        )
+        data = json.loads(raw)
+        if not isinstance(data, dict) or set(data) != {
+            "timezone", "local_day", "window_start", "window_end"
+        }:
+            return unknown
+        name = data["timezone"]
+        if not isinstance(name, str):
+            return unknown
         zone = ZoneInfo(name)
-    except (ValueError, ZoneInfoNotFoundError):
-        return BillingDayWindow(None, None, "UNKNOWN")
-    start = current.astimezone(zone).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    end = start + timedelta(days=1)
-    return BillingDayWindow(
-        start.astimezone(timezone.utc), end.astimezone(timezone.utc), "KNOWN"
-    )
+        start_raw, end_raw = data["window_start"], data["window_end"]
+        if not isinstance(start_raw, str) or not isinstance(end_raw, str):
+            return unknown
+        start = datetime.fromisoformat(start_raw)
+        end = datetime.fromisoformat(end_raw)
+        if (start.tzinfo is None or end.tzinfo is None
+                or start.utcoffset() is None or end.utcoffset() is None):
+            return unknown
+        start_utc = start.astimezone(timezone.utc)
+        end_utc = end.astimezone(timezone.utc)
+        local_day = current.astimezone(zone).date()
+        # Fail closed on missing/contradictory DB day or differing tzdata.
+        # A midnight fold can legitimately put PostgreSQL's day_start *after*
+        # the first local 00:30; do not compare start_utc <= current.
+        if (data["local_day"] != local_day.isoformat()
+                or start_utc.astimezone(zone).date() != local_day
+                or end_utc.astimezone(zone).date() != local_day + timedelta(days=1)
+                or start.utcoffset() != start_utc.astimezone(zone).utcoffset()
+                or end.utcoffset() != end_utc.astimezone(zone).utcoffset()
+                or not timedelta(0) < end_utc - start_utc <= timedelta(days=2)):
+            return unknown
+        return BillingDayWindow(start_utc, end_utc, "KNOWN")
+    except (RuntimeError, TypeError, ValueError, OverflowError, ZoneInfoNotFoundError):
+        return unknown
 
 
 def mark_unknown_billing_window(report: dict[str, Any]) -> None:
