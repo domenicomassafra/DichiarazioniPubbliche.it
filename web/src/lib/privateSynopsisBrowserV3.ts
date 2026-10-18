@@ -60,15 +60,18 @@ function render(view:PrivateSynopsisCrossPreview):Pick<
     '<p data-coverage>'+html(view.coverageNote)+'</p>',
     '<p data-snapshot>Snapshot: <time datetime="'+html(view.snapshotAt)+'">'+
       html(view.snapshotAt)+'</time></p></header>',
-    '<nav aria-label="Indice delle sintesi"><ol>',
-    ...view.sentences.map((_,i)=>
-      '<li><a href="#dp440-synopsis-'+(i+1)+'">Sintesi '+(i+1)+'</a></li>'),
+    '<nav aria-label="Indice delle voci"><ol>',
+    ...view.sentences.map((sentence,i)=>
+      '<li><a href="#dp440-synopsis-'+(i+1)+'">'+
+      (sentence.kind==="SOURCE_LIST_ONLY"?'Elenco fonti ':'Sintesi ')+(i+1)+'</a></li>'),
     '</ol></nav>',
   );
   for (const [i,sentence] of view.sentences.entries()) {
     if (sentence.citations.length<1 || sentence.citations.length>12 ||
         citationCount+sentence.citations.length>24) fault("CITATION_LIMIT");
     const current=i+1;
+    const isSourceList=sentence.kind==="SOURCE_LIST_ONLY";
+    const heading=isSourceList?'Elenco fonti ':'Sintesi ';
     const prev=i>0
       ? '<a href="#dp440-synopsis-'+i+'">Precedente</a>'
       : '<span aria-disabled="true">Precedente</span>';
@@ -77,9 +80,9 @@ function render(view:PrivateSynopsisCrossPreview):Pick<
       : '<span aria-disabled="true">Successiva</span>';
     fragments.push(
       '<article id="dp440-synopsis-'+current+'" tabindex="-1" data-synopsis-entry>',
-      '<h2>Sintesi '+current+' di '+view.sentences.length+'</h2>',
-      '<p data-synopsis-text>'+html(sentence.text)+'</p>',
-      '<nav aria-label="Navigazione della sintesi '+current+'">'+prev+' · '+next+'</nav>',
+      '<h2>'+heading+current+' di '+view.sentences.length+'</h2>',
+      '<p '+(isSourceList?'data-source-list-text':'data-synopsis-text')+'>'+html(sentence.text)+'</p>',
+      '<nav aria-label="Navigazione della voce '+current+'">'+prev+' · '+next+'</nav>',
       '<p><a href="#dp440-source-'+current+'-1">Vai alla prima fonte originale</a></p>',
       '<section data-original-sources aria-label="Fonti originali citate">',
       '<h3>Frasi originali e documenti di origine</h3>',
@@ -109,7 +112,8 @@ function render(view:PrivateSynopsisCrossPreview):Pick<
           '">Apri dichiarazione originale</a>',
         ' · <a href="'+html(citation.sourceUrl)+'" rel="noreferrer noopener nofollow"',
         ' data-source-version="'+html(citation.sourceVersion)+'">Apri documento sorgente</a>',
-        ' · <a href="#dp440-synopsis-'+current+'">Torna alla sintesi</a>',
+        ' · Versione documento: <code data-source-version-text>'+html(citation.sourceVersion)+'</code>',
+        ' · <a href="#dp440-synopsis-'+current+'">Torna alla voce</a>',
         '</figcaption></figure>',
       );
     }
@@ -134,14 +138,19 @@ export async function readPrivateSynopsisBrowserV3(
   expected:PrivateSynopsisCrossPreviewPins,
   readCurrentPins:()=>Promise<PrivateSynopsisCrossPreviewPins>,
 ):Promise<PrivateSynopsisBrowserV3> {
-  const cross=await readPrivateSynopsisCrossPreviewV3(artifacts,expected,readCurrentPins);
+  // An issuer may rotate the caller-owned expected object in place during
+  // an await. Keep the original release frozen across all three reads.
+  let pinned:PrivateSynopsisCrossPreviewPins;
+  try { pinned=structuredClone(expected); }
+  catch { return fault("CROSS_PREVIEW_INVALID"); }
+  const cross=await readPrivateSynopsisCrossPreviewV3(artifacts,pinned,readCurrentPins);
   const rendered=render(cross);
   let current:PrivateSynopsisCrossPreviewPins|undefined;
   try { current=await readCurrentPins(); }
   catch { fault("CURRENT_UNAVAILABLE"); }
-  if (!current || canonicalJson(current)!==canonicalJson(expected) ||
-      !Number.isFinite(Date.parse(expected.validUntil)) ||
-      Date.parse(expected.validUntil)<=Date.now()) {
+  if (!current || canonicalJson(current)!==canonicalJson(pinned) ||
+      !Number.isFinite(Date.parse(pinned.validUntil)) ||
+      Date.parse(pinned.validUntil)<=Date.now()) {
     fault("CURRENT_CHANGED");
   }
   return {
