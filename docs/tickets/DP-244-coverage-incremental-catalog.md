@@ -193,27 +193,3 @@ separately. Original **DP-244 AC-244.1–.6 remain OPEN /
 IN PROGRESS** pending authenticated source observations and rights,
 durable store/conditional requests, cost and MiniPC permitted canary.
 No source provider or production runtime was invoked.
-
-### 2026-10-16 — Read-only MiniPC attempted-source inventory
-
-`tools/source_coverage_report.py --database-url dichiarazioni_pubbliche`
-produces a human-readable, private inventory from existing `source`,
-`source_poll_run_source`, `content_item` and `content_capture` tables.
-It names every registered source/family/language, shows the first and last
-**attempted polling dates**, healthy/blocked/other attempts, local Content and
-Capture counts, and explicitly identifies sources with no attempts or reviewed
-coverage. It never fetches, writes to the database, or infers historical
-completeness, permission or public freshness from a healthy scheduler poll.
-
-The 2026-10-16 MiniPC read-only result: **16** source rows, **55** per-source
-poll attempts (2 healthy), **50** Content items, **0** Capture records.
-Registered polling runs occurred between 2026-09-25 and 2026-10-15; 11
-media sources had no polling run. Polling dates are *not* complete source
-history, and the report declines to call any source interval fully covered.
-The private package evidence includes the per-source table. Local targeted
-DP-244 + reporter tests **20/20 PASS**.
-
-This closes the narrow owner request to *see what is attempted and what is
-missing*, but **not** AC-244.1–6: reviewed enumeration/rights decisions,
-source versions, durable conditional re-observation and permitted canary
-remain to be supplied independently. No public projection is changed.

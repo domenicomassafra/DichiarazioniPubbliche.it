@@ -27,12 +27,23 @@ SELECT coalesce(json_agg(row_to_json(item) ORDER BY item.source_type,
 FROM (
     SELECT s.id AS source_id, s.canonical_name, s.source_type,
            s.language,
-           count(p.id)::integer AS attempts,
-           min(p.run_date)::text AS first_attempt_date,
-           max(p.run_date)::text AS last_attempt_date,
+           count(p.id)::integer AS scheduler_decisions,
+           count(p.id) FILTER (WHERE p.status IN (
+               'HEALTHY', 'FAILED', 'BLOCKED', 'BUDGET_BLOCKED'
+           ))::integer AS attempts,
+           min(p.run_date) FILTER (WHERE p.status IN (
+               'HEALTHY', 'FAILED', 'BLOCKED', 'BUDGET_BLOCKED'
+           ))::text AS first_attempt_date,
+           max(p.run_date) FILTER (WHERE p.status IN (
+               'HEALTHY', 'FAILED', 'BLOCKED', 'BUDGET_BLOCKED'
+           ))::text AS last_attempt_date,
+           max(p.run_date) FILTER (WHERE p.status = 'HEALTHY')::text AS last_healthy_date,
            count(p.id) FILTER (WHERE p.status = 'HEALTHY')::integer AS healthy_attempts,
-           count(p.id) FILTER (WHERE p.status IN ('FAILED', 'BLOCKED', 'BUDGET_BLOCKED'))::integer AS blocked_attempts,
-           count(p.id) FILTER (WHERE p.status NOT IN ('HEALTHY', 'FAILED', 'BLOCKED', 'BUDGET_BLOCKED'))::integer AS other_attempts,
+           count(p.id) FILTER (WHERE p.status = 'FAILED')::integer AS failed_attempts,
+           count(p.id) FILTER (WHERE p.status = 'BLOCKED')::integer AS blocked_attempts,
+           count(p.id) FILTER (WHERE p.status = 'BUDGET_BLOCKED')::integer AS budget_blocked_attempts,
+           count(p.id) FILTER (WHERE p.status LIKE 'SKIPPED_%')::integer AS skipped_decisions,
+           count(p.id) FILTER (WHERE p.status = 'RUNNING')::integer AS pending_decisions,
            (SELECT count(*)::integer FROM content_item c WHERE c.source_id = s.id) AS content_rows,
            (SELECT count(*)::integer FROM content_capture cap
               JOIN content_item c ON c.id = cap.content_id
@@ -49,12 +60,17 @@ _FIELDS = frozenset(
         "canonical_name",
         "source_type",
         "language",
+        "scheduler_decisions",
         "attempts",
         "first_attempt_date",
         "last_attempt_date",
+        "last_healthy_date",
         "healthy_attempts",
+        "failed_attempts",
         "blocked_attempts",
-        "other_attempts",
+        "budget_blocked_attempts",
+        "skipped_decisions",
+        "pending_decisions",
         "content_rows",
         "capture_rows",
     }
@@ -82,20 +98,32 @@ def validate_inventory(raw: object) -> list[dict]:
         ):
             raise ValueError("COVERAGE_REPORT_LANGUAGE_INVALID")
         for field in (
+            "scheduler_decisions",
             "attempts",
             "healthy_attempts",
+            "failed_attempts",
             "blocked_attempts",
-            "other_attempts",
+            "budget_blocked_attempts",
+            "skipped_decisions",
+            "pending_decisions",
             "content_rows",
             "capture_rows",
         ):
             if type(row[field]) is not int or row[field] < 0:
                 raise ValueError("COVERAGE_REPORT_COUNT_INVALID")
         if (
-            row["healthy_attempts"] + row["blocked_attempts"] + row["other_attempts"]
+            row["healthy_attempts"]
+            + row["failed_attempts"]
+            + row["blocked_attempts"]
+            + row["budget_blocked_attempts"]
             != row["attempts"]
         ):
             raise ValueError("COVERAGE_REPORT_ATTEMPTS_INVALID")
+        if (
+            row["attempts"] + row["skipped_decisions"] + row["pending_decisions"]
+            != row["scheduler_decisions"]
+        ):
+            raise ValueError("COVERAGE_REPORT_DECISIONS_INVALID")
         first, last = row["first_attempt_date"], row["last_attempt_date"]
         if row["attempts"] == 0:
             if first is not None or last is not None:
@@ -112,6 +140,22 @@ def validate_inventory(raw: object) -> list[dict]:
                     raise ValueError
             except (TypeError, ValueError) as exc:
                 raise ValueError("COVERAGE_REPORT_WINDOW_INVALID") from exc
+        healthy_date = row["last_healthy_date"]
+        if healthy_date is not None:
+            try:
+                if (
+                    row["healthy_attempts"] == 0
+                    or type(healthy_date) is not str
+                    or len(healthy_date) != 10
+                    or not (first <= healthy_date <= last)
+                    or datetime.fromisoformat(healthy_date).date().isoformat()
+                    != healthy_date
+                ):
+                    raise ValueError
+            except (TypeError, ValueError) as exc:
+                raise ValueError("COVERAGE_REPORT_HEALTHY_DATE_INVALID") from exc
+        elif row["healthy_attempts"]:
+            raise ValueError("COVERAGE_REPORT_HEALTHY_DATE_INVALID")
         rows.append(row)
     return sorted(
         rows, key=lambda r: (r["source_type"], r["canonical_name"], r["source_id"])
@@ -129,36 +173,45 @@ def _cell(value: object) -> str:
 
 def render_report(rows: list[dict], *, generated_at: str) -> str:
     """Human-readable private report with deliberately conservative semantics."""
+    decisions = sum(row["scheduler_decisions"] for row in rows)
     attempts = sum(row["attempts"] for row in rows)
+    skipped = sum(row["skipped_decisions"] for row in rows)
+    pending = sum(row["pending_decisions"] for row in rows)
     captures = sum(row["capture_rows"] for row in rows)
     lines = [
         "# Copertura delle fonti — osservazioni disponibili",
         "",
         f"Rilevazione UTC: {generated_at}. Fonti censite: {len(rows)}; "
-        f"tentativi di polling: {attempts}; Capture: {captures}.",
+        f"decisioni scheduler: {decisions}; esiti di tentativo: {attempts}; "
+        f"saltati: {skipped}; in corso: {pending}; Capture: {captures}.",
         "",
-        "Le date riportano **solo i giorni con tentativi registrati**. "
-        "Non indicano che tutti i documenti del periodo siano stati raccolti.",
+        "Le date indicano **solo i giorni di esiti di tentativo registrati**, "
+        "esclusi i poll saltati. FAILED e BLOCKED descrivono anche tentativi "
+        "senza recupero di documenti. Un'esecuzione diagnostica non attesta "
+        "di per sé un'acquisizione. Non indicano che tutti i documenti del "
+        "periodo siano stati raccolti.",
         "Nessun intervallo è dichiarato *coperto integralmente*: "
         "mancano qui attestazioni indipendenti di enumerazione e relativi diritti.",
         "",
-        "| Fonte | Famiglia | Lingua | Giorni tentati (primo → ultimo) | Tentativi sani / bloccati / altri | Contenuti / Capture | Lacuna |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| Fonte | Famiglia | Lingua | Esiti (primo → ultimo) | Ultimo poll sano | Sani / falliti / bloccati / budget | Saltati / in corso | Contenuti / Capture | Lacuna |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         window = (
             f"{row['first_attempt_date']} → {row['last_attempt_date']}"
             if row["attempts"]
-            else "nessun tentativo"
+            else "nessun esito di tentativo"
         )
         gap = (
-            "nessuna osservazione"
+            "nessun esito di tentativo; copertura sconosciuta"
             if not row["attempts"]
             else "periodi non enumerati / completezza da verificare"
         )
         lines.append(
             f"| {_cell(row['canonical_name'])} | {_cell(row['source_type'])} | {_cell(row['language'])}"
-            f" | {window} | {row['healthy_attempts']} / {row['blocked_attempts']} / {row['other_attempts']}"
+            f" | {window} | {_cell(row['last_healthy_date']) if row['last_healthy_date'] else 'nessuno'}"
+            f" | {row['healthy_attempts']} / {row['failed_attempts']} / {row['blocked_attempts']} / {row['budget_blocked_attempts']}"
+            f" | {row['skipped_decisions']} / {row['pending_decisions']}"
             f" | {row['content_rows']} / {row['capture_rows']} | {gap} |"
         )
     lines.extend(
