@@ -20,8 +20,11 @@ from dichiarazioni_pubbliche.health_digest import (  # noqa: E402
 class FakeDb:
     receipt_rows = ()
     undated_count = 0
+    billing_timezone = "UTC"
 
     def run(self, sql, **variables):
+        if "current_setting('TimeZone')" in sql:
+            return self.billing_timezone
         if "FROM processing_job" in sql and "GROUP BY job_type" in sql:
             return '[{"job_type":"CLAIM_EXTRACT","state":"BLOCKED","count":2}]'
         if "'oldest_queued_seconds'" in sql:
@@ -133,6 +136,29 @@ class HealthDigestTests(unittest.TestCase):
         statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
         self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
         self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "UNKNOWN")
+
+    def test_unavailable_postgres_timezone_marks_billing_unknown(self):
+        db = FakeDb()
+        db.billing_timezone = "Invalid/UnknownSessionZone"
+        db.receipt_rows = [
+            self.receipt("unallocated", "MEASURED_PROVIDER_COST", measured="0.2")
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            digest = build_health_digest(
+                db, private_root=Path(tmp),
+                now=datetime(2026, 10, 25, 12, tzinfo=timezone.utc),
+            )
+        billing = digest["billing_today"]
+        self.assertEqual(billing["window_timezone_status"], "UNKNOWN")
+        self.assertIsNone(billing["window_start"])
+        self.assertIsNone(billing["window_end"])
+        self.assertIsNone(billing["attempt_count"])
+        self.assertIsNone(billing["budget_exposure_upper_bound_usd_today"])
+        self.assertIsNone(digest["estimated_cost_usd_today"])
+        self.assertFalse(billing["invoice_attested"])
+        self.assertFalse(billing["authorizes_dispatch"])
+        statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
 
     def test_known_breach_is_not_hidden_by_an_unknown_attempt(self):
         digest = self.digest([
