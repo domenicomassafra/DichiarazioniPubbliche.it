@@ -38,8 +38,8 @@ duplicate navigation yet; DP-420 remains open on those criteria.
 ## Decision
 
 **NO-GO for a dedicated public Case/Collection page or projection in the
-current release.** Preserve the existing five-template public information
-architecture, routes and data contracts. Keep the entire Research Collection
+current release.** Preserve the existing public information architecture,
+routes and data contracts. Keep the entire Research Collection
 private. Do not relabel an unpublished candidate or unverified allegation as a
 published finding, use a case page to expose private source URLs/passages, or
 make a guilt/reliability/personality ranking from the private collection.
