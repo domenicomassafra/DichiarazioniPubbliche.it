@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+from dichiarazioni_pubbliche.studio_capture_diff_browser import CAPTURE_DIFF_BROWSER_JS
+
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
 
 _PAGE = """<!doctype html>
@@ -381,6 +383,8 @@ _PAGE = """<!doctype html>
       </form>
       <div id="capture-links" role="group" aria-label="Catture confrontate: ispeziona selettori"></div>
       <p id="capture-selector-diff-summary" role="status" aria-live="polite">Nessun confronto di selettori eseguito.</p>
+      <div id="capture-selector-diff-details" role="group" aria-label="Coordinate e riferimenti delle differenze tra catture"></div>
+      <p id="capture-copy-status" role="status" aria-live="polite">I riferimenti di audit sono privati e non autorizzano riproduzione.</p>
       <h2>Selettori dei passaggi</h2>
       <p>Passaggi scritti collegati a una singola versione di cattura. Gli eventuali segmenti multimediali appartengono al Content logico e non vengono attribuiti artificialmente a questa versione.</p>
       <form data-endpoint="/v1/capture/passages">
@@ -457,6 +461,8 @@ _PAGE = """<!doctype html>
     const claimLinks = document.getElementById('claim-links');
     const captureLinks = document.getElementById('capture-links');
     const captureSelectorDiffSummary = document.getElementById('capture-selector-diff-summary');
+    const captureSelectorDiffDetails = document.getElementById('capture-selector-diff-details');
+    const captureCopyStatus = document.getElementById('capture-copy-status');
     const capturePassageLinks = document.getElementById('capture-passage-links');
     const passageCandidateLinks = document.getElementById('passage-candidate-links');
     const passageCandidateSummary = document.getElementById('passage-candidate-summary');
@@ -504,6 +510,7 @@ _PAGE = """<!doctype html>
       'CLAIM_CANDIDATE', 'ATOMIC_CLAIM', 'PERSON', 'ORGANIZATION', 'TOPIC', 'EVENT', 'COLLECTION']);
     const SAFE_REF = /^[A-Za-z0-9_:/.-]{1,180}$/;
     const SAFE_SHA256 = /^[0-9a-f]{64}$/;
+    __CAPTURE_DIFF_BROWSER_HELPERS__
     let selectedCorpusButton = null;
     let selectedCorpusReference = null;
     const mediaLocator = document.getElementById('media-locator');
@@ -663,6 +670,8 @@ _PAGE = """<!doctype html>
       claimLinks.replaceChildren();
       captureLinks.replaceChildren();
       captureSelectorDiffSummary.textContent = 'Nessun confronto di selettori eseguito.';
+      captureSelectorDiffDetails?.replaceChildren();
+      if (captureCopyStatus) captureCopyStatus.textContent = 'I riferimenti di audit sono privati e non autorizzano riproduzione.';
       capturePassageLinks.replaceChildren();
       passageCandidateLinks.replaceChildren();
       passageCandidateSummary.textContent = 'Nessun Passage selezionato.';
@@ -849,6 +858,8 @@ _PAGE = """<!doctype html>
         }
         if (form.dataset.endpoint === '/v1/capture/compare') {
           captureLinks.replaceChildren();
+          captureSelectorDiffDetails?.replaceChildren();
+          if (captureCopyStatus) captureCopyStatus.textContent = 'Nessun riferimento copiato.';
           captureSelectorDiffSummary.textContent = 'Confronto selettori in corso…';
         }
         if (form === capturePassageForm) {
@@ -1682,7 +1693,9 @@ _PAGE = """<!doctype html>
             return;
           }
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
-          results.textContent = JSON.stringify(receipt, null, 2);
+          results.textContent = form === compareForm
+            ? 'Confronto Capture privato: coordinate e hash validati nel pannello Catture.'
+            : JSON.stringify(receipt, null, 2);
           if (response.ok && form.dataset.endpoint === '/v1/media/segment'
               && receipt.data?.canonical_segment) {
             const segment = receipt.data.canonical_segment;
@@ -1693,38 +1706,7 @@ _PAGE = """<!doctype html>
               + ' · sola posizione interna, non permesso di riprodurre';
           }
           if (response.ok && form.dataset.endpoint === '/v1/capture/compare') {
-            const comparison = receipt.data?.selector_comparison;
-            if (receipt.data?.private_only === true && receipt.data?.rights_clearance === false
-                && receipt.data?.publication_authority === false && comparison?.complete === true
-                && comparison.status === 'COMPLETE' && comparison.counts
-                && ['UNCHANGED', 'CHANGED', 'ADDED', 'REMOVED'].every(
-                  key => Number.isInteger(comparison.counts[key]) && comparison.counts[key] >= 0)) {
-              captureSelectorDiffSummary.textContent = 'Selettori delle catture: '
-                + comparison.counts.UNCHANGED + ' invariati, '
-                + comparison.counts.CHANGED + ' modificati, '
-                + comparison.counts.ADDED + ' aggiunti, '
-                + comparison.counts.REMOVED + ' rimossi. '
-                + 'Confronto di soli hash e coordinate, nessun permesso di riproduzione.';
-            } else if (comparison?.status === 'TRUNCATED' && comparison.complete === false) {
-              captureSelectorDiffSummary.textContent = 'Confronto non completo: oltre 20 selettori in almeno una versione. '
-                + 'Aprire i selettori paginati per ispezionarli. Nessuna differenza totale deducibile.';
-            } else {
-              captureSelectorDiffSummary.textContent = 'Confronto di selettori non disponibile.';
-            }
-            for (const position of ['earlier', 'later']) {
-              const capture = receipt.data?.[position];
-              if (typeof capture?.content_sha256 !== 'string' || typeof receipt.data?.content_id !== 'string') continue;
-              const link = document.createElement('button');
-              link.type = 'button';
-              link.textContent = (position === 'earlier' ? 'Precedente' : 'Successiva') + ' · selettori di ' + capture.id;
-              link.addEventListener('click', () => {
-                capturePassageForm.elements.namedItem('content_id').value = receipt.data.content_id;
-                capturePassageForm.elements.namedItem('capture_hash').value = capture.content_sha256;
-                capturePassageForm.elements.namedItem('after_id').value = '';
-                capturePassageForm.requestSubmit();
-              });
-              captureLinks.append(link);
-            }
+            showCaptureComparison(receipt, data, generation);
           }
           if (form === capturePassageForm && response.ok && Array.isArray(receipt.data?.selectors)) {
             const dataForPassages = receipt.data;
@@ -1972,7 +1954,8 @@ _PAGE = """<!doctype html>
 def render_studio_login_page(nonce: str) -> bytes:
     if not isinstance(nonce, str) or not _NONCE.fullmatch(nonce):
         raise ValueError("STUDIO_LOCAL_PAGE_NONCE_INVALID")
-    return _PAGE.replace("__NONCE__", nonce).encode("utf-8")
+    return (_PAGE.replace("__NONCE__", nonce)
+            .replace("__CAPTURE_DIFF_BROWSER_HELPERS__", CAPTURE_DIFF_BROWSER_JS)).encode("utf-8")
 
 
 __all__ = ["render_studio_login_page"]
