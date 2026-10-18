@@ -1,6 +1,20 @@
 """Private, DOM-only helpers for the bounded Capture Passage comparison."""
 
 CAPTURE_DIFF_BROWSER_JS = r"""
+    function validCaptureComparisonScope(receipt, request) {
+      const scope = receipt?.data;
+      return receipt?.contract_version === 'studio-local-readonly-api-v1'
+        && scope?.contract_version === 'studio-capture-inspection-v1'
+        && scope.private_only === true && scope.rights_clearance === false
+        && scope.publication_authority === false
+        && SAFE_REF.test(request.content_id) && scope.content_id === request.content_id
+        && SAFE_REF.test(scope.earlier?.id) && SAFE_REF.test(scope.later?.id)
+        && scope.earlier.id !== scope.later.id
+        && SAFE_SHA256.test(request.earlier_hash) && SAFE_SHA256.test(request.later_hash)
+        && request.earlier_hash !== request.later_hash
+        && scope.earlier.content_sha256 === request.earlier_hash
+        && scope.later.content_sha256 === request.later_hash;
+    }
     function validAuditLocator(locator, contentId, capture, passageId) {
       return locator && !Array.isArray(locator) && typeof locator === 'object'
         && Object.keys(locator).length === 4
@@ -39,16 +53,7 @@ CAPTURE_DIFF_BROWSER_JS = r"""
     function renderCaptureDiffDetails(receipt, request, container, copyStatus, stillCurrent) {
       const scope = receipt?.data;
       const comparison = scope?.selector_comparison;
-      if (receipt?.contract_version !== 'studio-local-readonly-api-v1'
-          || scope?.contract_version !== 'studio-capture-inspection-v1'
-          || scope.private_only !== true || scope.rights_clearance !== false
-          || scope.publication_authority !== false
-          || !SAFE_REF.test(request.content_id) || scope.content_id !== request.content_id
-          || !SAFE_REF.test(scope.earlier?.id) || !SAFE_REF.test(scope.later?.id)
-          || scope.earlier.id === scope.later.id
-          || !SAFE_SHA256.test(request.earlier_hash) || !SAFE_SHA256.test(request.later_hash)
-          || scope.earlier.content_sha256 !== request.earlier_hash
-          || scope.later.content_sha256 !== request.later_hash
+      if (!validCaptureComparisonScope(receipt, request)
           || comparison?.status !== 'COMPLETE' || comparison.complete !== true
           || comparison.max_per_version !== 20
           || !Array.isArray(comparison.changes) || comparison.changes.length > 40) return false;
@@ -103,29 +108,34 @@ CAPTURE_DIFF_BROWSER_JS = r"""
       return true;
     }
     function showCaptureComparison(receipt, data, generation) {
-      const comparison = receipt.data?.selector_comparison;
-      const validDetails = captureSelectorDiffDetails && captureCopyStatus && renderCaptureDiffDetails(
+      const comparison = receipt?.data?.selector_comparison;
+      const validScope = validCaptureComparisonScope(receipt, data);
+      const validDetails = validScope && captureSelectorDiffDetails && captureCopyStatus && renderCaptureDiffDetails(
         receipt, data, captureSelectorDiffDetails, captureCopyStatus,
         () => generation === requestGeneration && /^[0-9a-f]{64,128}$/.test(token.value));
-      if (receipt.data?.private_only === true && receipt.data?.rights_clearance === false
-          && receipt.data?.publication_authority === false && comparison?.complete === true
-          && comparison.status === 'COMPLETE' && comparison.counts
-          && ['UNCHANGED', 'CHANGED', 'ADDED', 'REMOVED'].every(
-            key => Number.isInteger(comparison.counts[key]) && comparison.counts[key] >= 0)) {
-        // Older metadata-only compare payloads can report counts without rows.
-        // They cannot supply copyable audit locators until upgraded.
-        captureSelectorDiffSummary.textContent = validDetails || comparison.changes === undefined
-          ? 'Selettori delle catture: ' + comparison.counts.UNCHANGED + ' invariati, '
+      const counts = comparison?.counts;
+      const validCounts = counts && ['UNCHANGED', 'CHANGED', 'ADDED', 'REMOVED'].every(
+        key => Number.isSafeInteger(counts[key]) && counts[key] >= 0 && counts[key] <= 20)
+        && counts.UNCHANGED + counts.CHANGED + counts.REMOVED <= 20
+        && counts.UNCHANGED + counts.CHANGED + counts.ADDED <= 20;
+      const legacyCounts = comparison?.changes === undefined && comparison?.max_per_version === 20;
+      if (validScope && comparison?.complete === true && comparison.status === 'COMPLETE'
+          && validCounts && (validDetails || legacyCounts)) {
+        captureSelectorDiffSummary.textContent = 'Selettori delle catture: '
+            + comparison.counts.UNCHANGED + ' invariati, '
             + comparison.counts.CHANGED + ' modificati, '
             + comparison.counts.ADDED + ' aggiunti, '
             + comparison.counts.REMOVED + ' rimossi. '
-            + 'Riferimenti privati per versione, senza permesso di riproduzione.'
-          : 'Differenze non verificabili: riferimenti di audit non disponibili.';
-      } else if (comparison?.status === 'TRUNCATED' && comparison.complete === false) {
+            + (validDetails ? 'Riferimenti privati per versione.'
+              : 'Solo conteggi; riferimenti di audit non disponibili.')
+            + ' Nessun permesso di riproduzione.';
+      } else if (validScope && comparison?.status === 'TRUNCATED'
+          && comparison.complete === false && comparison.max_per_version === 20
+          && Array.isArray(comparison.changes) && comparison.changes.length === 0) {
         captureSelectorDiffSummary.textContent = 'Confronto non completo: oltre 20 selettori in almeno una versione. '
           + 'Aprire i selettori paginati per ispezionarli. Nessuna differenza totale deducibile.';
       } else {
-        captureSelectorDiffSummary.textContent = 'Confronto di selettori non disponibile.';
+        captureSelectorDiffSummary.textContent = 'Differenze non verificabili: riferimenti di audit non disponibili.';
       }
       for (const position of validDetails ? ['earlier', 'later'] : []) {
         const capture = receipt.data?.[position];

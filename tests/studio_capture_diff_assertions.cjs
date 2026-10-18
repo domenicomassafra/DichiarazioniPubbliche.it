@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict');
 
 module.exports = async function checkCaptureDiff({forms, requests, complete, ids,
-    copiedReferences, clear, token, results}) {
+    copiedReferences, clear, token, results, deferClipboard}) {
   const compareForm = forms['/v1/capture/compare'];
   compareForm.fields.content_id = 'content:one';
   compareForm.fields.earlier_hash = 'a'.repeat(64);
@@ -28,14 +28,24 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
       earlier_locator: null, later_locator: locator(later, 'passage:added')},
   ].map((row, index) => ({selector_type: 'TEXT_POSITION', start_char: index * 10,
     end_char: index * 10 + 5, page_start: null, page_end: null, ...row}));
-  complete(first, {
+  const scope = {
     contract_version: 'studio-capture-inspection-v1', private_only: true,
     rights_clearance: false, publication_authority: false, content_id: 'content:one',
-    earlier, later, selector_comparison: {complete: true, status: 'COMPLETE',
-      max_per_version: 20, counts: {UNCHANGED: 0, CHANGED: 1, ADDED: 1, REMOVED: 1},
-      changes: diffRows},
-  });
+    earlier, later,
+  };
+  const counts = {UNCHANGED: 0, CHANGED: 1, ADDED: 1, REMOVED: 1};
+  const completed = {
+    complete: true, status: 'COMPLETE', max_per_version: 20, counts, changes: diffRows,
+  };
+  complete(first, {...scope, selector_comparison: completed});
   await compareRequest;
+  async function inspect(data) {
+    const request = compareForm.fire('submit');
+    const index = requests.length - 1;
+    assert.equal(requests[index].path, '/v1/capture/compare');
+    complete(index, data);
+    await request;
+  }
   const diff = ids.get('capture-selector-diff-summary');
   const details = ids.get('capture-selector-diff-details');
   assert.match(diff.textContent, /1 modificati/);
@@ -49,28 +59,50 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
   await details.children[0].children[0].fire('click');
   assert.deepEqual(JSON.parse(copiedReferences.at(-1)), locator(earlier, 'passage:old'));
   assert.doesNotMatch(copiedReferences.at(-1), /url|cookie|body|transcript|secret/i);
-  const corrupt = compareForm.fire('submit');
-  complete(first + 1, {
-    contract_version: 'studio-capture-inspection-v1', private_only: true,
-    rights_clearance: false, publication_authority: false, content_id: 'content:one',
-    earlier, later, selector_comparison: {complete: true, status: 'COMPLETE',
-      max_per_version: 20, counts: {UNCHANGED: 0, CHANGED: 1, ADDED: 0, REMOVED: 0},
-      changes: [{...diffRows[0], later_locator: {...diffRows[0].later_locator,
-        private_body: 'NEVER_COPY_PRIVATE_BODY'}}]},
-  });
-  await corrupt;
+  const releaseClipboard = deferClipboard();
+  const pendingCopy = details.children[0].children[0].fire('click');
+  clear.fire('click');
+  releaseClipboard();
+  await pendingCopy;
+  assert.match(ids.get('capture-copy-status').textContent, /privati/,
+    'late clipboard success must not restore private result after logout');
+  assert.equal(details.children.length, 0, 'logout removes captured selectors');
+  token.value = 'a'.repeat(64);
+  await inspect({...scope, selector_comparison: {...completed,
+    counts: {UNCHANGED: 0, CHANGED: 1, ADDED: 0, REMOVED: 0},
+    changes: [{...diffRows[0], later_locator: {...diffRows[0].later_locator,
+      private_body: 'NEVER_COPY_PRIVATE_BODY'}}]}});
   assert.equal(details.children.length, 0, 'malformed audit locator fails closed');
   assert.match(diff.textContent, /non verificabili/);
   assert.doesNotMatch(results.textContent, /NEVER_COPY_PRIVATE_BODY/);
-  const moreRequest = compareForm.fire('submit');
-  complete(first + 2, {selector_comparison: {complete: false, status: 'TRUNCATED'}});
-  await moreRequest;
+  await inspect({...scope, content_id: 'content:foreign',
+    selector_comparison: {...completed, changes: undefined}});
+  assert.match(diff.textContent, /non verificabili/,
+    'legacy count payload without matching Content must not render');
+  await inspect({...scope, later: {...later, content_sha256: 'e'.repeat(64)},
+    selector_comparison: {...completed, changes: undefined}});
+  assert.match(diff.textContent, /non verificabili/,
+    'legacy count payload without matching Capture SHA must not render');
+  await inspect({...scope, selector_comparison: {...completed, changes: undefined}});
+  assert.match(diff.textContent, /Solo conteggi/,
+    'older count-only response may render only with fully validated Capture scope');
+  assert.equal(details.children.length, 0, 'legacy counters never imply copyable locators');
+  assert.equal(ids.get('capture-links').children.length, 0,
+    'legacy counters never imply a version navigation link');
+  await inspect({...scope, selector_comparison: {
+    status: 'TRUNCATED', complete: false, max_per_version: 20, changes: [],
+  }});
   assert.match(diff.textContent, /Confronto non completo/);
+  await inspect({...scope, content_id: 'content:foreign', selector_comparison: {
+    status: 'TRUNCATED', complete: false, max_per_version: 20, changes: [],
+  }});
+  assert.match(diff.textContent, /non verificabili/,
+    'truncated comparisons must not hide a mismatched scope');
   const staleDiff = compareForm.fire('submit');
   clear.fire('click');
-  complete(first + 3, {selector_comparison: {complete: true, status: 'COMPLETE', counts: {
-    UNCHANGED: 999, CHANGED: 999, ADDED: 999, REMOVED: 999,
-  }}});
+  complete(requests.length - 1, {...scope, selector_comparison: {
+    ...completed, counts: {UNCHANGED: 999, CHANGED: 999, ADDED: 999, REMOVED: 999},
+  }});
   await staleDiff;
   assert.equal(details.children.length, 0, 'disconnect must scrub private passage anchors');
   assert.doesNotMatch(diff.textContent, /999/);
