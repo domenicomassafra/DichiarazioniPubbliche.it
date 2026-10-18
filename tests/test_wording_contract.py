@@ -309,6 +309,65 @@ class WordingContractTests(unittest.TestCase):
         self.assertIn("MODALITY_CHANGED", result.signal_codes)
         self.assertEqual(result.state, TranslationReviewState.NEEDS_REVIEW)
 
+    def test_german_italian_translation_checks_negation_and_modal_category(self):
+        cases = (
+            ("es kann nicht.", (), TranslationReviewState.HUMAN_REVIEWED),
+            ("es kann.", ("NEGATION_CHANGED",), TranslationReviewState.NEEDS_REVIEW),
+            ("es muss nicht.", ("MODALITY_CHANGED",), TranslationReviewState.NEEDS_REVIEW),
+        )
+        for translated, expected_signals, expected_state in cases:
+            with self.subTest(translated=translated):
+                result = assess_translation(
+                    source_text="non si può.",
+                    translated_text=translated,
+                    source_language="it", target_language="de",
+                    method="HUMAN", human_reviewed=True,
+                )
+                self.assertEqual(result.signal_codes, expected_signals)
+                self.assertEqual(result.state, expected_state)
+                self.assertFalse(result.public_quote_eligible)
+
+        unknown = assess_translation(
+            source_text="non si può.", translated_text="いいえ",
+            source_language="it", target_language="ja", method="MACHINE",
+        )
+        self.assertIn("LANGUAGE_RISK_RULE_UNAVAILABLE", unknown.signal_codes)
+        self.assertEqual(unknown.state, TranslationReviewState.NEEDS_REVIEW)
+
+    def test_german_emphatic_negation_cannot_be_cleared_as_positive_support(self):
+        for negative in ("keineswegs", "mitnichten"):
+            with self.subTest(negative=negative):
+                result = assess_translation(
+                    source_text="Ich unterstütze den Plan.",
+                    translated_text=f"Ich unterstütze {negative} den Plan.",
+                    source_language="de", target_language="de",
+                    method="HUMAN", human_reviewed=True,
+                )
+                self.assertIn("NEGATION_CHANGED", result.signal_codes)
+                self.assertEqual(result.state, TranslationReviewState.NEEDS_REVIEW)
+
+    def test_translated_report_or_critique_cannot_become_direct_endorsement(self):
+        for source, translated, language in (
+            ("Secondo Ada, «Io sostengo il piano».", "I support the plan.", "it"),
+            ("Er sagte «Ich unterstütze den Plan».", "Io sostengo il piano.", "de"),
+            ("I criticize «I support the plan».", "Io sostengo il piano.", "en"),
+        ):
+            with self.subTest(source=source):
+                result = assess_translation(
+                    source_text=source,
+                    translated_text=translated,
+                    source_language=language,
+                    target_language="it" if language != "it" else "en",
+                    method="HUMAN",
+                    human_reviewed=True,
+                )
+                self.assertIn(
+                    "SPEECH_ACT_TRANSLATION_CHANGED_OR_UNRESOLVED",
+                    result.signal_codes,
+                )
+                self.assertEqual(result.state, TranslationReviewState.NEEDS_REVIEW)
+                self.assertFalse(result.public_quote_eligible)
+
     def test_changed_legal_status_is_held(self):
         result = assess_translation(
             source_text="Mario Rossi è indagato.",

@@ -10,8 +10,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
+
+from dichiarazioni_pubbliche.context_integrity import verify_speech_act_context_metadata
 
 
 VERSION = "denial-prior-utterance-v1"
@@ -111,7 +114,7 @@ class PriorOccurrence:
             raise ValueError("DENIAL_OCCURRENCE_STATUS_INVALID")
         if self.review_event_id is not None:
             _present(self.review_event_id, "SOURCE_REVIEW")
-        if self.speech_act in {"REPORTED_QUOTE", "CRITICISM", "IRONY", "QUESTION"} and self.endorsed:
+        if self.speech_act in {"REPORTED_QUOTE", "CRITICISM", "IRONY", "QUESTION", "PERFORMANCE"} and self.endorsed:
             raise ValueError("DENIAL_FALSE_ENDORSEMENT_INVALID")
 
 
@@ -131,7 +134,8 @@ class DenialReview:
 
 
 def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ...], *,
-                    current_source_versions: dict[str, str] | None = None) -> DenialReview:
+                    current_source_versions: dict[str, str] | None = None,
+                    prior_source_context: dict[str, tuple[str, Mapping[str, object]]] | None = None) -> DenialReview:
     """Pure conservative check; missing/unknown source version is never approved."""
     if not isinstance(target, DenialTarget) or not isinstance(occurrences, tuple) or len(occurrences) > 128:
         raise ValueError("DENIAL_INPUT_UNBOUNDED_OR_INVALID")
@@ -151,6 +155,53 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         current_source_versions = {}
     else:
         current_source_versions = dict(current_source_versions)
+    # Optional strict source verification. The legacy metadata-only path remains
+    # private, but supplied excerpts must bind exact source/quote bytes, speaker,
+    # complete turn, speech act and endorsement before forming a counterexample.
+    # Neither text nor reviewer assertions are written to the receipt.
+    occurrence_ids = {row.occurrence_id for row in occurrences}
+    if prior_source_context is not None:
+        if (not isinstance(prior_source_context, dict)
+                or len(prior_source_context) > 128
+                or any(key not in occurrence_ids for key in prior_source_context)):
+            raise ValueError("DENIAL_CONTEXT_INPUT_INVALID")
+    supplied_context = dict(prior_source_context) if prior_source_context is not None else None
+    unverified_context_ids: set[str] = set()
+    context_bindings: list[tuple[str, str, str, str | None]] = []
+    if supplied_context is not None:
+        for row in occurrences:
+            supplied = supplied_context.get(row.occurrence_id)
+            source_digest: str | None = None
+            result = None
+            if (isinstance(supplied, tuple) and len(supplied) == 2
+                    and isinstance(supplied[0], str)
+                    and len(supplied[0]) <= 120_000
+                    and isinstance(supplied[1], Mapping)):
+                source_text, metadata = supplied
+                source_digest = hashlib.sha256(source_text.encode()).hexdigest()
+                try:
+                    result = verify_speech_act_context_metadata(
+                        metadata, source_text=source_text,
+                    )
+                except (ValueError, TypeError, KeyError):
+                    pass
+            valid = (
+                result is not None
+                and result.state == "CANDIDATE_PRIVATE"
+                and result.source_sha256 == row.source_sha256
+                and result.quote_sha256 == row.quote_sha256
+                and result.utterer_id == row.utterer_person_id
+                and result.quoted_author_id == row.quoted_person_id
+                and result.speech_act == row.speech_act
+                and (not row.endorsed or result.stance == "ENDORSE")
+            )
+            if not valid:
+                unverified_context_ids.add(row.occurrence_id)
+            context_bindings.append((
+                row.occurrence_id, row.source_sha256,
+                result.binding_sha256 if valid else "UNVERIFIED",
+                source_digest,
+            ))
     # A replay has no meaningful input sequence. Sort by complete typed provenance,
     # including ties on occurrence/source IDs (e.g. a conflicting revocation).
     occurrence_snapshots = tuple(sorted(
@@ -174,6 +225,7 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
     relation = "PRIVATE_HOLD"
     reason = "DENIAL_UNIVERSAL_ABSENCE_NOT_PROVABLE"
     saw_prior_review_gap = False
+    saw_prior_context_gap = False
     saw_prior_source_gap = False
     saw_contextual = False
     saw_foreign_quotation = False
@@ -194,6 +246,9 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         if target.scope != "ALL" and target.scope != row.publication_scope:
             continue
         if row.quote_sha256 != target.target_quote_sha256 or row.proposition_sha256 != target.target_proposition_sha256:
+            continue
+        if row.occurrence_id in unverified_context_ids:
+            saw_prior_context_gap = True
             continue
         if row.status != "CURRENT" or row.review_event_id is None:
             saw_prior_review_gap = True
@@ -229,6 +284,8 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         reason = "DENIAL_CONFLICTING_OCCURRENCE_PROVENANCE"
     elif saw_prior_source_gap:
         reason = "DENIAL_PRIOR_SOURCE_HASH_STALE_OR_UNKNOWN"
+    elif saw_prior_context_gap:
+        reason = "DENIAL_PRIOR_CONTEXT_UNVERIFIED"
     elif saw_prior_review_gap:
         reason = "DENIAL_PRIOR_REVIEW_OR_CURRENTNESS_MISSING"
     elif saw_foreign_quotation:
@@ -246,6 +303,8 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         "known_source_versions": sorted(current_source_versions.items()),
         "version": VERSION,
     }
+    if supplied_context is not None:
+        material["prior_source_context_bindings"] = sorted(context_bindings)
     receipt_sha256 = hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return DenialReview(target.denial_id, receipt_sha256, authenticity, endorsement, verdict,
                         relation, reason, tuple(sorted(set(candidate_ids))))

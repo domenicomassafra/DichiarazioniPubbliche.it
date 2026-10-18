@@ -80,10 +80,8 @@ def resolve_original_source(
 ) -> OriginalSourceResolution:
     """Resolve an approved derivation chain to its original/root Content.
 
-    Only already-approved derivation edges participate. The resolver never turns
-    lexical/model similarity into provenance authority. Ambiguous roots, cycles,
-    unknown-derivation-only paths, or an expected family root that cannot be reached
-    fail closed.
+    Only approved edges resolve lineage; lexical similarity grants no authority.
+    Ambiguous roots, cycles, unknown relations and unreachable roots fail closed.
     """
 
     start = str(content_id or "").strip()
@@ -240,9 +238,14 @@ def resolve_reviewed_original_source(
             path_content_ids=(start,),
             path_edge_ids=(),
         )
+    approved_ids = {
+        str(row.get("id") or row.get("family_id") or "").strip()
+        for row in approved_families
+    }
+    # Multi-edge paths may span reviewed families, never unreviewed ones.
     return resolve_original_source(
         start,
-        edges,
+        (edge for edge in edges if _edge_from_mapping(edge).family_id in approved_ids),
         family_root_content_id=root,
     )
 
@@ -257,11 +260,9 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 class ExactSourceLocator:
     """A quote within one immutable Passage, in its original coordinate system.
 
-    For TEXT_POSITION offsets are absolute in the parsed canonical text; for
-    PAGE_RANGE they are within one PDF page; for MEDIA_SEGMENT_REF they are
-    relative to the original transcript segment text, with full-segment time.
-    Media locators must pin a nonempty speaker ID matching the observed segment.
-    Mixed selectors and stitched spans are not supported.
+    TEXT_POSITION offsets reference canonical text, PAGE_RANGE one PDF page,
+    MEDIA_SEGMENT_REF one pinned transcript segment and its full-segment time.
+    Media requires a matching speaker ID; no stitched or mixed selectors.
     """
 
     content_id: str
@@ -288,8 +289,7 @@ class ExactSourceLocator:
 class ObservedMediaSegment:
     """Trusted private snapshot to validate a single transcript media selector.
 
-    Source variant text and its character offsets are supplied by the caller;
-    a segment timestamp is not a word-level timestamp or speaker approval.
+    Caller supplies variant offsets; segment time proves no word time or speaker.
     """
 
     content_id: str

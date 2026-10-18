@@ -23,6 +23,7 @@ const python=[
   "from dichiarazioni_pubbliche.public_synopsis_v3 import ApprovedTopicIntersection,ReviewedSynopsisSentence,prepare_public_synopsis",
   "_,b,_,roster=fixture()",
   "b['statements'][1]['source_sha256']='a'*64",
+  "b['statements'][0]['source_title']='Documento <script>alert(1)</script>'",
   "b['dataset_sha256']=projection_dataset_sha256(b)",
   "people=build_public_people_v3(roster,[identity(p) for p in roster],[],[],public_bundle=b,current_public_dataset_sha256=b['dataset_sha256'],allow_public_person_v3=True)",
   "decisions=tuple(event(b,i,'topic:economia') for i in (0,1,2))",
@@ -31,7 +32,7 @@ const python=[
   "now=datetime.now(timezone.utc)",
   "keys=tuple((s['statement_id'],s['version_id']) for s in b['statements'][:2])",
   "att=ApprovedTopicIntersection(person_id='person:A',topic_id='topic:economia',dataset_sha256=b['dataset_sha256'],statement_versions=keys,statement_lineages=tuple((*key,'original-lineage:'+str(i)) for i,key in enumerate(keys)),review_event_id='review:topic:independent',status='APPROVED',currentness_attestation_id='attested:independent',currentness_attested_at=now.isoformat(),currentness_valid_until=(now+timedelta(hours=2)).isoformat())",
-  "sentences=tuple(ReviewedSynopsisSentence(text=('Nel corpus raccolto <img src=x onerror=alert(1)> è riportata una posizione.' if i==0 else 'Nel corpus raccolto compare una seconda posizione datata.'),source_statement_versions=(key,),source_quote_sha256=(b['statements'][i]['quote_sha256'],),review_event_id='review:summary:'+str(i),kind='REVIEWED_DESCRIPTIVE_SUMMARY') for i,key in enumerate(keys))",
+  "sentences=tuple(ReviewedSynopsisSentence(text=('Nel corpus raccolto <img src=x onerror=alert(1)> è riportata una posizione.' if i==0 else 'Nel corpus raccolto compare una seconda posizione datata.'),source_statement_versions=(key,),source_quote_sha256=(b['statements'][i]['quote_sha256'],),review_event_id='review:summary:'+str(i),kind=('REVIEWED_DESCRIPTIVE_SUMMARY' if i==0 else 'SOURCE_LIST_ONLY')) for i,key in enumerate(keys))",
   "args=dict(bundle=b,intersection=att,reviewed_sentences=sentences,current_public_dataset_sha256=b['dataset_sha256'],coverage_note='Nel corpus raccolto, copertura incompleta delle fonti.',now=now)",
   "ready=prepare_public_synopsis(**args)",
   "withheld=prepare_public_synopsis(**{**args,'intersection':replace(att,status='REVOKED')})",
@@ -73,7 +74,23 @@ assert.equal(view.providerCalls,0);
 assert.equal(view.robots,"noindex,nofollow,noarchive");
 assert.match(view.html,/data-private-synopsis-browser/);
 assert.match(view.html,/data-synopsis-text/);
+assert.equal((view.html.match(/data-synopsis-text/g)||[]).length,1,
+  "only reviewed descriptive summaries are labelled as synopsis text");
+assert.match(view.html,/<h2>Sintesi 1 di 2<\/h2>/);
+assert.match(view.html,/<h2>Elenco fonti 2 di 2<\/h2>/);
+assert.match(view.html,/<p data-source-list-text>/);
+assert.match(view.html,/<a href="#dp440-synopsis-2">Elenco fonti 2<\/a>/);
 assert.match(view.html,/data-original-quote/);
+assert.equal((view.html.match(/data-original-sources/g)||[]).length,2,
+  "each synopsis must have a distinct labelled original-source section");
+assert.match(view.html,/<section data-original-sources aria-label="Fonti originali citate">/);
+assert.match(view.html,/rel="noreferrer noopener nofollow" data-source-version=/);
+assert.match(view.html,/Apri documento sorgente<\/a>/);
+assert.match(view.html,/Versione documento: <code data-source-version-text>source-version:[^<]+<\/code>/,
+  "source version must be legible, not only stored in a data attribute");
+assert.match(view.html,/Documento &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+assert.doesNotMatch(view.html,/<script\b|<svg\b/i,
+  "source-title markup must remain inert text");
 assert.match(view.html,/&lt;img src=x onerror=alert\(1\)&gt;/);
 assert.doesNotMatch(view.html,/<img\s|<script\s/i);
 assert.match(view.html,/href="\/dichiarazioni\/statement-1\/"/);
@@ -113,6 +130,15 @@ await assert.rejects(read(artifacts,pins,async()=>{
   return {...pins,epoch:reads===3?8:7};
 }),/CURRENT_CHANGED/);
 assert.equal(reads,3,"one additional epoch pin read follows composed HTML rendering");
+const mutableExpected=structuredClone(pins);
+let mutableReads=0;
+await assert.rejects(read(artifacts,mutableExpected,async()=>{
+  mutableReads++;
+  if(mutableReads===3) mutableExpected.epoch++;
+  return {...mutableExpected};
+}),/CURRENT_CHANGED/,
+  "a caller mutating the original expected pins during the final await cannot bless stale HTML");
+assert.equal(mutableReads,3);
 const snapshot=structuredClone(view);
 source.statements[0].original_text+=" late mutation";
 assert.deepEqual(view,snapshot,"rendered HTML is detached from mutable fixtures");
@@ -148,15 +174,22 @@ try {
     await writeFile(join(scratch,"current.json"),JSON.stringify(c));
     return spawnSync(join(web,"node_modules/.bin/astro"),[
       "build","--root",scratch,"--outDir",join(scratch,folder),
-    ],{cwd:scratch,encoding:"utf8",timeout:35000});
+    ],{cwd:scratch,encoding:"utf8",timeout:90000});
   }
   const approved=structuredClone(artifacts);
   approved.source.statements[0].original_text=source.statements[0].original_text.replace(" late mutation","");
   const ok=await build(approved,pins,pins,"approved");
-  assert.equal(ok.status,0,ok.stdout+"\n"+ok.stderr);
+  assert.equal(ok.status,0,
+    (ok.error?.message??"")+"\n"+ok.stdout+"\n"+ok.stderr);
   const html=await readFile(join(scratch,"approved/index.html"),"utf8");
   assert.match(html,/<meta name="robots" content="noindex,nofollow,noarchive"/);
   assert.match(html,/data-original-quote/);
+  assert.match(html,/data-original-sources/);
+  assert.match(html,/Apri documento sorgente<\/a>/);
+  assert.match(html,/Versione documento: <code data-source-version-text>source-version:[^<]+<\/code>/);
+  assert.match(html,/Documento &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html,/<script\b|<svg\b/i);
+  assert.match(html,/<h2>Elenco fonti 2 di 2<\/h2>/);
   assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);
   assert.match(html,/href="#dp440-synopsis-2"/);
   assert.doesNotMatch(html,/<img\s|PRIVATE AUTH ERROR|review_provenance/);

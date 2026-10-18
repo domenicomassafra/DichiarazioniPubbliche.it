@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from .source_watcher import _DiscoveryHTTPSHandler
+
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REGISTRY = ROOT / "config" / "evidence-sources.v1.json"
@@ -456,6 +458,8 @@ class SafeEvidenceFetcher:
             method=method,
         )
         opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}),
+            _DiscoveryHTTPSHandler(self.resolver),
             _PolicyRedirectHandler(
                 source,
                 self.resolver,
