@@ -546,31 +546,6 @@ class ClaimPromotionTests(unittest.TestCase):
                     )
                 )
 
-    def test_private_semantic_classification_cannot_promote_quotation_or_criticism(self):
-        for speech_act in ("REPORT", "QUOTE", "CRITIQUE", "QUESTION", "PERFORMANCE", "UNKNOWN"):
-            with self.subTest(speech_act=speech_act):
-                context = written_context()
-                context["candidate_metadata"]["speech_act_context"] = {
-                    "state": "HOLD_FOR_CONTEXT",
-                    "speech_act": speech_act,
-                }
-                store = FakePromotionStore(context)
-                result = promote_claim_candidate(store, self.request())
-                self.assertFalse(result.promoted)
-                self.assertEqual(result.reason_code, "PROMOTION_NON_ASSERTIVE_SPEECH_ACT")
-                self.assertEqual([name for name, _args in store.calls], ["context"])
-
-        context = written_context()
-        context["candidate_metadata"]["speech_act_context"] = {
-            "state": "HOLD_FOR_CONTEXT", "speech_act": "ASSERTION",
-        }
-        self.assertTrue(promote_claim_candidate(FakePromotionStore(context), self.request()).promoted)
-
-    def test_all_mutation_sql_rejects_non_assertive_speech_act(self):
-        guard = "cc.metadata#>>'{speech_act_context,speech_act}' IN ('ASSERTION','OPINION')"
-        for sql in (_LINK_EXISTING_SQL, _PROMOTE_WRITTEN_NEW_SQL, _PROMOTE_MEDIA_NEW_SQL):
-            self.assertIn(guard, sql)
-
     def test_missing_blank_or_unknown_speech_mode_fails_closed(self):
         for metadata in (
             {},

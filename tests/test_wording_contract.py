@@ -334,6 +334,18 @@ class WordingContractTests(unittest.TestCase):
         self.assertIn("LANGUAGE_RISK_RULE_UNAVAILABLE", unknown.signal_codes)
         self.assertEqual(unknown.state, TranslationReviewState.NEEDS_REVIEW)
 
+    def test_german_emphatic_negation_cannot_be_cleared_as_positive_support(self):
+        for negative in ("keineswegs", "mitnichten"):
+            with self.subTest(negative=negative):
+                result = assess_translation(
+                    source_text="Ich unterstütze den Plan.",
+                    translated_text=f"Ich unterstütze {negative} den Plan.",
+                    source_language="de", target_language="de",
+                    method="HUMAN", human_reviewed=True,
+                )
+                self.assertIn("NEGATION_CHANGED", result.signal_codes)
+                self.assertEqual(result.state, TranslationReviewState.NEEDS_REVIEW)
+
     def test_translated_report_or_critique_cannot_become_direct_endorsement(self):
         for source, translated, language in (
             ("Secondo Ada, «Io sostengo il piano».", "I support the plan.", "it"),
