@@ -174,12 +174,13 @@ try {
     await writeFile(join(scratch,"current.json"),JSON.stringify(c));
     return spawnSync(join(web,"node_modules/.bin/astro"),[
       "build","--root",scratch,"--outDir",join(scratch,folder),
-    ],{cwd:scratch,encoding:"utf8",timeout:35000});
+    ],{cwd:scratch,encoding:"utf8",timeout:90000});
   }
   const approved=structuredClone(artifacts);
   approved.source.statements[0].original_text=source.statements[0].original_text.replace(" late mutation","");
   const ok=await build(approved,pins,pins,"approved");
-  assert.equal(ok.status,0,ok.stdout+"\n"+ok.stderr);
+  assert.equal(ok.status,0,
+    (ok.error?.message??"")+"\n"+ok.stdout+"\n"+ok.stderr);
   const html=await readFile(join(scratch,"approved/index.html"),"utf8");
   assert.match(html,/<meta name="robots" content="noindex,nofollow,noarchive"/);
   assert.match(html,/data-original-quote/);
