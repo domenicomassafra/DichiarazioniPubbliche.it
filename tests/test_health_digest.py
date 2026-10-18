@@ -160,6 +160,35 @@ class HealthDigestTests(unittest.TestCase):
         self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
         self.assertEqual(statuses["SLO-COST-SOURCE-DAILY"], "UNKNOWN")
 
+    def test_provider_digest_never_blends_recorded_cost_with_unverified_estimates(self):
+        # Both attempts share provider, operation and status. Their different
+        # origins must remain visible in every private provider group.
+        digest = self.digest([
+            self.receipt("observed", "MEASURED_PROVIDER_COST", measured="0.15"),
+            self.receipt("estimated", "ESTIMATED_ONLY", estimate="0.20"),
+            self.receipt("unknown", "UNKNOWN"),
+        ])
+        groups = digest["provider_receipts_today"]
+        self.assertEqual(len(groups), 3)
+        by_basis = {row["billing_basis"]: row for row in groups}
+        self.assertEqual(by_basis["MEASURED_PROVIDER_COST"]["cost_usd"], 0.15)
+        self.assertEqual(
+            by_basis["MEASURED_PROVIDER_COST"]["cost_basis"],
+            "RECORDED_MEASURED_UNVERIFIED",
+        )
+        self.assertEqual(by_basis["ESTIMATED_ONLY"]["cost_usd"], 0.2)
+        self.assertEqual(
+            by_basis["ESTIMATED_ONLY"]["cost_basis"],
+            "PROVISIONAL_ESTIMATE_UNVERIFIED",
+        )
+        self.assertTrue(by_basis["UNKNOWN"]["cash_uncertain"])
+        self.assertEqual(by_basis["UNKNOWN"]["cost_basis"], "NO_AUTHENTICATED_PRICE")
+        billing = digest["billing_today"]
+        self.assertEqual(billing["recorded_measured_usd"], 0.15)
+        self.assertEqual(billing["provisional_estimated_usd"], 0.2)
+        self.assertEqual(billing["budget_exposure_upper_bound_usd_today"], 0.35)
+        self.assertIsNone(billing["authoritative_billed_usd"])
+
     def test_unavailable_postgres_timezone_marks_billing_unknown(self):
         db = FakeDb()
         db.billing_timezone = "Invalid/UnknownSessionZone"
