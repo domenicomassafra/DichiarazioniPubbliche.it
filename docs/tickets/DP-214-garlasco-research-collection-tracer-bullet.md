@@ -487,3 +487,25 @@ independently recorded authoritative pilot baseline remains the prior **PAUSED
 the per-source rights, provenance, evidence role, scope, version and derivation
 checks still require reviewed receipts before processing or promotion. **Only
 AC-214.3 remains checked; AC-214.1/.2/.4/.5/.6/.7/.8 stay OPEN.**
+
+### 2026-10-16 — Dated metadata inventory exposed per actual source
+
+`tools/evaluate_garlasco_source_governance_wave26.py` now returns `source_inventory`
+for 11 already observed real source URLs (eight Garlasco media, journalism and
+procedural leads, three official parliamentary transcripts). Each shows
+publisher, date basis, origin/provenance URLs, evidentiary role, linked derivation
+and separate use restrictions. The official Procura document and its tentative
+Il Ticino derivative are not counted as independent corroboration. No source
+bytes are collected, no extra item is counted toward the authoritative 100,
+and discovery/rights status remains unchanged. The 18/100 PAUSED baseline and
+remaining original AC-214.1/.2/.4–.8 stay open.
+
+### 2026-10-17 — Owner-scoped acceptance (supersedes historical 100-item gate)
+
+**DONE for the owner's 2026-10-17 acceptance:** eleven real, dated, attributed
+Garlasco source entries with canonical links and provenance are inspectable via
+`python3 tools/evaluate_garlasco_source_governance_wave26.py`. The official
+Camera session 607 source is additionally fetched and hash-checked in
+`PYTHONPATH=poc python3 tools/verify_t4_p02_owner_acceptance.py`. The 100-item
+historical campaign remains separately unfinished; this scoped acceptance does
+not claim 100 operational Content captures or authorization to publish.

@@ -72,6 +72,16 @@ for (const path of htmlFiles) {
     assert.equal(typeof structured.identifier, "string", `${name}: JSON-LD finding identifier missing`);
     assert.equal(typeof structured.name, "string", `${name}: JSON-LD statement wording missing`);
   }
+  // The legacy v2 claim is a normalized proposition. In particular, the
+  // longitudinal Trace must never put it inside literal quotation marks or a
+  // blockquote, which would misattribute words to a Person.
+  if (html.includes('data-trace-workspace')) {
+    assert.match(html, /Formulazione normalizzata/, `${name}: missing paraphrase disclosure`);
+    assert.doesNotMatch(html, /class="dp-trace-event__claim">[“«]/u,
+      `${name}: normalized claim presented as exact words`);
+    assert.doesNotMatch(html, /<blockquote>[“«]/u,
+      `${name}: normalized claim presented as verbatim quote`);
+  }
 }
 const publicPolicies = await Promise.all([...publicCanonicalRoutes].map(async (route) => {
   const filename = route === "/" ? "index.html" : `${route.slice(1)}index.html`;

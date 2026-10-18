@@ -337,3 +337,32 @@ or substitute for the required explicit source-family disposition. Therefore
 **Phase / dependencies:** Phase 1 source family; hard project-specific source/rights disposition DP-703/305 and A-NEW-02; soft A-NEW-04, B speaker identity; parliamentary adapter owner.
 
 **Related future specifications (separate ownership):** DP-238, DP-317. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+### 2026-10-16 — Complete bounded text for long official interventions
+
+The existing private AKN handoff now reuses the canonical `capture_pipeline`
+text splitter to preserve a long speech as **one HELD Statement Candidate with
+multiple exact, hashed, positioned Passages**. It keeps the original speech
+identity and official person URI, without creating timestamps or granting
+speaker approval. A speech is held whole if the global passage/text bound
+would be exceeded; it is never partially presented as a complete quote.
+The handoff's parser/extraction version is bumped to
+`senato-akoma-corpus-handoff-v2`; the original XML adapter version stays
+unchanged, and changed passage IDs remain distinguishable during replay.
+Authentic pinned official Senato XML (393817 bytes, sitting 310, 2025-05-29)
+readback now yields **121 HELD candidates and 144 passages**, with only the
+five original unresolved source turns held (previously 104 candidates and 22
+total held/oversize turns). Both Mac and isolated MiniPC input-format readbacks
+produced identical bounded counts. All records remain quarantined with rights UNKNOWN.
+The separate DP-233.10 official approved-family MiniPC canary remains open.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** Camera XIX, sitting 607 of
+2026-02-03, page 55, paragraph `iv.289` contains an actual intervention by
+Vittoria Baldino referring to Garlasco. The official transcript source is
+verified with a source SHA-256 and an exact passage hash. The linked WebTV
+session is `https://webtv.camera.it/evento/30272/589615`; no excerpt-level
+video timecode is invented. `tools/verify_t4_p02_owner_acceptance.py` confirms
+the source, private candidate and exact-text replay. Historic full production
+source-family and timing acceptance remains separate.

@@ -17,6 +17,7 @@ const date = formatDate(dossier.finding.published_at ?? dossier.source.published
   <div class="claim-row-main">
     {showTopic && <div class="eyebrow">{claimTypeLabel(dossier.claim_type)}</div>}
     <a class="claim-row-claim" href={`/dichiarazioni/${dossierSlug(dossier)}/`}>{dossier.claim}</a>
+    <div class="claim-row-meta">Formulazione normalizzata · non citazione testuale</div>
     <div class="claim-row-meta">
       <span>{dossier.speaker.name}</span>
       {roleContext && <><span aria-hidden="true">·</span><span>{roleContext}</span></>}

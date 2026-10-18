@@ -116,3 +116,27 @@ cross-source identity and replay in persisted DB, MiniPC/private Studio
 receipt, provider budget metering, and public counter readback still require
 independent live acceptance. All five original AC stay unchecked, and issue
 status stays **IN PROGRESS**.
+
+### 2026-10-16 — Real-source pilot rights blocker rechecked
+
+The immutable licensed Senato AKN specimen still reconstructs held private
+Capture/Passage/Statement Candidate contracts with original words preserved
+and no publication. This is a genuine input-format and isolated private
+readback, not an approved production pilot: the current MiniPC
+`private_source_rights_record` table contains **0 rows / 0 CLEARED** (read-only
+`psql` result), so no authenticated, exact source-version private-use permit
+exists to authorize operational acquisition, body retention and analysis.
+Do not turn the CC BY notice into an authenticated permit; obtain the qualified
+source-specific rights/use decision and then execute AC-235.1–5 on MiniPC.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** a real official Camera source
+already present in the Garlasco source inventory produces an exact 162-character
+private Passage and HELD Statement Candidate. The real page is read with a
+size limit, exact speaker context and source hash; a private JSON roundtrip
+validates the candidate's original words, selectors and hash, then removes the
+temporary artifact. Command:
+`PYTHONPATH=poc python3 tools/verify_t4_p02_owner_acceptance.py`.
+This is an isolated private proof; the full historical multi-source PostgreSQL
+pilot and operational source-family admission are a separate scope.

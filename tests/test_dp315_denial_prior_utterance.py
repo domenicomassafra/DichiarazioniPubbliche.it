@@ -1,6 +1,7 @@
 """DP-315 conservative offline denial checks. All people/source data synthetic."""
 
 import sys
+import hashlib
 import unittest
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 from dichiarazioni_pubbliche.denial_prior_utterance import (  # noqa: E402
     DenialTarget, PriorOccurrence, evaluate_denial,
 )
+from dichiarazioni_pubbliche.context_integrity import assess_speech_act_context  # noqa: E402
 
 YEAR = lambda year: datetime(year, 10, 10, 10, tzinfo=timezone.utc)
 SHA = "a" * 64
@@ -47,6 +49,68 @@ def assess(t=None, rows=None, versions=None):
 
 
 class ThreeTrackDenialTests(unittest.TestCase):
+    def test_optional_original_context_binding_prevents_reported_words_from_refuting_denial(self):
+        words = "Io sostengo che il piano funziona"
+        quote_hash = hashlib.sha256(words.encode()).hexdigest()
+        def case(text, quoted_author_id=None):
+            source_hash = hashlib.sha256(text.encode()).hexdigest()
+            index = text.index(words)
+            context = assess_speech_act_context(
+                source_text=text, source_sha256=source_hash,
+                quote_start=index, quote_end=index + len(words),
+                turn_start=0, turn_end=len(text),
+                utterer_id="person:demo", turn_speaker_ids=("person:demo",),
+                quoted_author_id=quoted_author_id,
+                source_part_ref="source:prior:v1", turn_complete=True,
+                language="it",
+            ).to_metadata()
+            occurrence = prior(source_sha256=source_hash, quote_sha256=quote_hash)
+            versions = {"source:later:v1": "d" * 64, "source:prior:v1": source_hash}
+            return context, occurrence, versions
+
+        direct_context, direct_row, direct_versions = case(words)
+        later = target(target_quote_sha256=quote_hash)
+        confirmed = evaluate_denial(
+            later, (direct_row,), current_source_versions=direct_versions,
+            prior_source_context={direct_row.occurrence_id: (words, direct_context)},
+        )
+        self.assertEqual(confirmed.denial_factual_status, "REFUTED_WITH_COUNTEREXAMPLE")
+        self.assertFalse(confirmed.publication_authority)
+
+        reported = f"Secondo Luca, «{words}»."
+        reported_context, reported_row, reported_versions = case(reported, "person:luca")
+        # A caller can mislabel reported words as direct and add a fictitious
+        # review event. Without checking the original source this falsely
+        # becomes a private counterexample.
+        self.assertEqual(
+            evaluate_denial(later, (reported_row,),
+                            current_source_versions=reported_versions).denial_factual_status,
+            "REFUTED_WITH_COUNTEREXAMPLE",
+        )
+        guarded = evaluate_denial(
+            later, (reported_row,), current_source_versions=reported_versions,
+            prior_source_context={reported_row.occurrence_id: (reported, reported_context)},
+        )
+        self.assertEqual(guarded.denial_factual_status, "CHECKED_INSUFFICIENT_EVIDENCE")
+        self.assertEqual(guarded.relation_status, "PRIVATE_HOLD")
+        self.assertEqual(guarded.reason_code, "DENIAL_PRIOR_CONTEXT_UNVERIFIED")
+        self.assertNotEqual(confirmed.receipt_sha256, guarded.receipt_sha256)
+
+        for supplied in ({}, {direct_row.occurrence_id: (words + " alterato", direct_context)}):
+            with self.subTest(supplied=supplied):
+                held = evaluate_denial(
+                    later, (direct_row,), current_source_versions=direct_versions,
+                    prior_source_context=supplied,
+                )
+                self.assertEqual(held.denial_factual_status, "CHECKED_INSUFFICIENT_EVIDENCE")
+                self.assertEqual(held.reason_code, "DENIAL_PRIOR_CONTEXT_UNVERIFIED")
+                self.assertNotEqual(held.receipt_sha256, confirmed.receipt_sha256)
+        with self.assertRaisesRegex(ValueError, "DENIAL_CONTEXT_INPUT_INVALID"):
+            evaluate_denial(
+                later, (direct_row,), current_source_versions=direct_versions,
+                prior_source_context={"occurrence:unrelated": (words, direct_context)},
+            )
+
     def test_prior_same_person_original_refutes_never_uttered_only_privately(self):
         row = assess()
         self.assertEqual(row.denial_factual_status, "REFUTED_WITH_COUNTEREXAMPLE")
@@ -147,6 +211,8 @@ class ThreeTrackDenialTests(unittest.TestCase):
             target(predicate="NEVER_LIED")
         with self.assertRaisesRegex(ValueError, "FALSE_ENDORSEMENT"):
             prior(speech_act="REPORTED_QUOTE", endorsed=True)
+        with self.assertRaisesRegex(ValueError, "FALSE_ENDORSEMENT"):
+            prior(speech_act="PERFORMANCE", endorsed=True)
         with self.assertRaisesRegex(ValueError, "AWARE_TIME"):
             prior(spoken_at=datetime(2024, 10, 10))
 

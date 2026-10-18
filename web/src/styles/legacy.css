@@ -2797,7 +2797,8 @@ body:not(.is-studio) .main-nav {
   font-weight: var(--weight-claim);
 }
 
-.content-moment__person {
+.content-moment__person,
+.content-moment__wording-label {
   grid-column: 2;
   color: var(--ink-500);
   font-size: var(--text-meta);

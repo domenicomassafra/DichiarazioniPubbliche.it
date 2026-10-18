@@ -584,3 +584,23 @@ observable unblock condition remains individually selected/persisted real
 Garlasco sources with reviewed role, identity, derivation/independence,
 applicable scope/version/time and explicit separate acquisition/publication
 rights, followed by authoritative MiniPC per-item readback.
+
+### 2026-10-16 — Per-source operator roles and suitability, metadata only
+
+The existing Wave26 governed packet now emits a provenance-bound inventory
+classifying original institutional proceedings, broadcaster originals, direct
+interviews, news reports, proposed reprints and unlocated third-party originals.
+Each has a specific potential evidence scope and `evidence_suitability_reviewed=false`;
+neither a derivative nor a second URL can create an independent confirmation.
+Its roles use the existing Source Intelligence vocabulary. This is usable
+operator triage, not a persisted reviewed content/source assessment. Therefore
+AC-215.9 and the ticket remain open until per-Content review and MiniPC readback.
+
+### 2026-10-17 — Owner-scoped acceptance
+
+**DONE for the owner's shortened acceptance:** `source_inventory` distinguishes
+official originals, broadcaster originals, reporting, republication and missing
+originals, with derived-source pointers and bounded evidentiary roles. The
+replayed Camera Garlasco intervention is bound to its actual transcript and
+speaker locator by `tools/verify_t4_p02_owner_acceptance.py`. The historical
+larger evidence-sufficiency assessment remains distinct from this scoped task.
