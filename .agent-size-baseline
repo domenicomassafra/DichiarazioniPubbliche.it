@@ -145,7 +145,7 @@
   "tasks/prompt2prompt/20261010-231757-backlog-post-grilling/native-packets/B-verification-authority.md": 62498,
   "tasks/prompt2prompt/20261010-231757-backlog-post-grilling/native-packets/C-public-product.md": 73111,
   "tasks/prompt2prompt/20261010-231757-backlog-post-grilling/native-packets/D-operations-cost-release.md": 74029,
-  "tests/studio_local_page_async_regression.cjs": 28795,
+  "tests/studio_local_page_async_regression.cjs": 27608,
   "tests/studio_local_page_chrome_regression.mjs": 21398,
   "tests/test_candidate_extraction.py": 66454,
   "tests/test_capture_pipeline.py": 36051,
