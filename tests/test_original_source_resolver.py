@@ -154,6 +154,40 @@ class OriginalSourceResolverTests(unittest.TestCase):
         self.assertEqual(result.root_content_id, "content:root")
         self.assertNotEqual(result.content_id, result.root_content_id)
 
+    def test_reviewed_resolution_never_borrows_an_unrelated_approved_family_edge(self):
+        reviewed = [{"id": "family:reviewed", "root_content_id": "content:root", "status": "APPROVED"}]
+        for foreign_edges in (
+            [edge("foreign", "content:copy", "content:root", family="family:foreign")],
+            [
+                edge("local", "content:copy", "content:mirror", family="family:reviewed"),
+                edge("foreign", "content:mirror", "content:root", family="family:foreign"),
+            ],
+        ):
+            with self.subTest(edges=len(foreign_edges)):
+                result = resolve_reviewed_original_source(
+                    "content:copy", families=reviewed, edges=foreign_edges,
+                )
+                self.assertFalse(result.resolved)
+                self.assertIn("EXPECTED_ROOT_NOT_REACHED", result.blockers)
+
+    def test_reviewed_root_allows_multi_family_chain_only_when_both_reviewed(self):
+        edges = [
+            edge("local", "content:copy", "content:mirror", family="fam:one"),
+            edge("derived", "content:mirror", "content:root", family="fam:two"),
+        ]
+        families = [
+            {"id": "fam:one", "root_content_id": "content:root", "status": "APPROVED"},
+            {"family_id": "fam:two", "root_content_id": "content:root", "status": "APPROVED"},
+        ]
+        approved = resolve_reviewed_original_source("content:copy", families=families, edges=edges)
+        self.assertTrue(approved.resolved)
+        self.assertEqual(approved.path_edge_ids, ("local", "derived"))
+        held = resolve_reviewed_original_source(
+            "content:copy", families=families[:1], edges=edges,
+        )
+        self.assertFalse(held.resolved)
+        self.assertIn("EXPECTED_ROOT_NOT_REACHED", held.blockers)
+
     def test_conflicting_reviewed_family_roots_fail_closed(self):
         result = resolve_reviewed_original_source(
             "content:copy",
