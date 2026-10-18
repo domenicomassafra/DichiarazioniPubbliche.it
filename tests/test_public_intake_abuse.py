@@ -432,6 +432,14 @@ class PersistentIntakeRateStoreTests(unittest.TestCase):
             SQLiteIntakeRateStore(Path(self.tempdir.name) / "other.sqlite3")
         self.assertEqual(self.guard().state, IntakeGuardState.BLOCKED)
 
+    def test_symlink_substituted_after_init_fails_closed(self):
+        moved = self.path.with_name("existing.sqlite3")
+        self.path.rename(moved)
+        self.path.symlink_to(moved)
+        receipt = self.guard()
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
 
 if __name__ == "__main__":
     unittest.main()
