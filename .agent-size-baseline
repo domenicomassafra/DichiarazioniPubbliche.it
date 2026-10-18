@@ -81,7 +81,7 @@
   "poc/dichiarazioni_pubbliche/incremental_source_watch.py": 31552,
   "poc/dichiarazioni_pubbliche/independent_reference_benchmark_v1.py": 24793,
   "poc/dichiarazioni_pubbliche/ingestion_relevance.py": 28429,
-  "poc/dichiarazioni_pubbliche/investigation_attempts_store_v1.py": 39080,
+  "poc/dichiarazioni_pubbliche/investigation_attempts_store_v1.py": 39034,
   "poc/dichiarazioni_pubbliche/knowledge_repository.py": 27258,
   "poc/dichiarazioni_pubbliche/linked_data.py": 29630,
   "poc/dichiarazioni_pubbliche/multi_person_batch_store_v1.py": 23982,
