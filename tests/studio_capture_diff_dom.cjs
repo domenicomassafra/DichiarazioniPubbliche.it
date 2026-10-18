@@ -63,14 +63,23 @@ class FormData {
 const requests = [];
 const copiedReferences = [];
 const fetch = (path, options) => new Promise(resolve => requests.push({path, options, resolve}));
+let pendingClipboard = null;
 vm.runInNewContext(inline[1], {document, FormData, fetch, AbortController,
-  navigator: {clipboard: {writeText: async value => { copiedReferences.push(value); }}}});
+  navigator: {clipboard: {writeText: value => {
+    copiedReferences.push(value);
+    return pendingClipboard ?? Promise.resolve();
+  }}}});
 const complete = (index, data) => requests[index].resolve({ok: true, json: async () => ({
   contract_version: 'studio-local-readonly-api-v1', data,
 })});
 const token = ids.get('token');
 token.value = 'a'.repeat(64);
 checkCaptureDiff({forms, requests, complete, ids, copiedReferences,
-  clear: ids.get('clear'), token, results: ids.get('results')})
+  clear: ids.get('clear'), token, results: ids.get('results'),
+  deferClipboard: () => {
+    let release;
+    pendingClipboard = new Promise(resolve => { release = resolve; });
+    return () => { pendingClipboard = null; release(); };
+  }})
   .then(() => process.stdout.write('DP-419 private Capture diff and audit clipboard PASS\n'))
   .catch(error => { process.stderr.write(error.stack + '\n'); process.exitCode = 1; });
