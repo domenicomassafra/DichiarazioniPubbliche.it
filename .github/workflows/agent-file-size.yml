@@ -1,0 +1,42 @@
+name: Agent file size
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute change base
+        id: base
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = pull_request ]; then
+            base="$PR_BASE"
+          else
+            base="$BEFORE"
+            if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              base="$(git rev-parse HEAD^)"
+            fi
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+      - name: Run pinned canonical checker
+        shell: bash
+        env:
+          CHECK_BASE: ${{ steps.base.outputs.base }}
+        run: |
+          curl --fail --silent --show-error --location \
+            --output "$RUNNER_TEMP/agent-file-size-check.py" \
+            'https://gist.githubusercontent.com/domenicomassafra/55b151abc2a1c1ef45a92c295a5fec16/raw/52ea7ed3e0ebea689763c57b0ab3d9afd421bf71/agent-file-size-check.py'
+          printf '%s  %s\n' '11b08d245002d058a81acda2b593818ea2822cb6a81951f5d185f06afde7c8f4' "$RUNNER_TEMP/agent-file-size-check.py" | sha256sum --check
+          python3 "$RUNNER_TEMP/agent-file-size-check.py" --ci-base "$CHECK_BASE"

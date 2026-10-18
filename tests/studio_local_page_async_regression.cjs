@@ -291,36 +291,8 @@ async function main() {
   assert.doesNotMatch(results.textContent, /STALE_PRIOR_WORKSPACE/,
                       'older workspace response must not overwrite newer result');
   assert.match(media.textContent, /segment:latest/);
-  const compareForm = forms['/v1/capture/compare'];
-  compareForm.fields.earlier_hash = 'a'.repeat(64);
-  compareForm.fields.later_hash = 'c'.repeat(64);
-  const compareRequest = compareForm.fire('submit');
-  assert.equal(requests[9].path, '/v1/capture/compare');
-  complete(9, {
-    private_only: true, rights_clearance: false, publication_authority: false,
-    content_id: 'content:one',
-    selector_comparison: {complete: true, status: 'COMPLETE', counts: {
-      UNCHANGED: 1, CHANGED: 2, ADDED: 3, REMOVED: 4,
-    }},
-  });
-  await compareRequest;
-  const diff = ids.get('capture-selector-diff-summary');
-  assert.match(diff.textContent, /2 modificati/);
-  assert.match(diff.textContent, /3 aggiunti/);
-  assert.match(diff.textContent, /4 rimossi/);
-  const moreRequest = compareForm.fire('submit');
-  complete(10, {selector_comparison: {complete: false, status: 'TRUNCATED'}});
-  await moreRequest;
-  assert.match(diff.textContent, /Confronto non completo/);
-  const staleDiff = compareForm.fire('submit');
-  clear.fire('click');
-  complete(11, {selector_comparison: {complete: true, status: 'COMPLETE', counts: {
-    UNCHANGED: 999, CHANGED: 999, ADDED: 999, REMOVED: 999,
-  }}});
-  await staleDiff;
-  assert.doesNotMatch(diff.textContent, /999/);
-  assert.match(diff.textContent, /Nessun confronto/);
-  token.value = 'a'.repeat(64);
+  // Capture comparisons are covered by studio_capture_diff_dom.cjs, using
+  // the complete version-bound read contract and explicit late-response races.
   const decisionForm = forms['/v1/candidate/decision-receipt'];
   for (const [field,value] of Object.entries({
     candidate_id:'candidate:one',run_id:'run:one',capture_id:'capture:one',

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import socket
 import subprocess
@@ -14,8 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.claim_promotion import (  # noqa: E402
-    ClaimPromotionStore, PromotionRequest, promote_claim_candidate,
+    ClaimPromotionStore, PromotionRequest, deterministic_promotion_id,
+    deterministic_promotion_key, promote_claim_candidate,
 )
+from dichiarazioni_pubbliche.context_integrity import (  # noqa: E402
+    assess_context_integrity, assess_speech_act_context,
+)
+from dichiarazioni_pubbliche.wording_contract import wording_contract_metadata  # noqa: E402
 
 
 def _exe(name: str) -> str:
@@ -153,6 +160,97 @@ class ClaimPromotionReviewPostgresTests(unittest.TestCase):
         reviewed = self.store.context("candidate:1")
         self.assertEqual(reviewed["duplicate_target_ids"], ["claim:equivalent"])
         self.assertEqual(reviewed["same_proposition_target_ids"], [])
+
+    def test_sql_private_speech_act_hold_blocks_link_and_verified_source_allows_it(self):
+        # Only the disposable PostgreSQL cluster created by this test class is used.
+        source = "Io sostengo che il piano funziona."
+        digest = hashlib.sha256(source.encode()).hexdigest()
+        semantic = assess_speech_act_context(
+            source_text=source, source_sha256=digest,
+            quote_start=0, quote_end=len(source), turn_start=0, turn_end=len(source),
+            utterer_id="person:1", turn_speaker_ids=("person:1",),
+            source_part_ref="passage:1", turn_complete=True, language="it",
+        ).to_metadata()
+        context_integrity = assess_context_integrity(
+            source_text=source, source_sha256=digest,
+            quote_start=0, quote_end=len(source),
+        ).to_metadata()
+        metadata = {
+            "speech_mode": "DIRECT_UTTERANCE",
+            "parent_passage_id": "passage:1",
+            "context_integrity": context_integrity,
+            "speech_act_context": semantic,
+            "wording": wording_contract_metadata(
+                occurrence_id="statement:1", source_text_sha256=digest,
+                normalized_claim="Fixture proposition", language="it",
+                derivation_version="test-v1",
+            ),
+        }
+        statement_metadata = {"speech_act_context": semantic}
+        held = dict(semantic, state="HOLD_FOR_CONTEXT")
+        metadata["speech_act_context"] = held
+        statement_metadata["speech_act_context"] = held
+        self.sql(f"""
+            UPDATE content_capture SET status='CAPTURED', hold_status='NONE'
+                WHERE id='capture:1';
+            UPDATE person SET is_public_figure=true WHERE id='person:1';
+            UPDATE passage SET private_text='{source}', text_sha256='{digest}',
+                start_char=0, end_char={len(source)} WHERE id='passage:1';
+            UPDATE statement_candidate SET status='APPROVED',
+                statement_text_hash='{digest}', metadata=$${json.dumps(statement_metadata)}$$::jsonb
+                WHERE id='statement:1';
+            UPDATE claim_candidate SET status='CANDIDATE',
+                metadata=$${json.dumps(metadata)}$$::jsonb WHERE id='candidate:1';
+            INSERT INTO review_event (id, entity_type, entity_id, action, actor_ref, created_at)
+                VALUES ('review:statement:speech', 'STATEMENT_CANDIDATE', 'statement:1',
+                        'APPROVED', 'human:1', now()),
+                       ('review:claim:speech', 'CLAIM_CANDIDATE', 'candidate:1',
+                        'APPROVED', 'human:1', now());
+        """)
+        self.assertEqual(self.store.context("candidate:1")["speech_act_source_text"], source)
+        args = dict(
+            candidate_id="candidate:1", target_claim_id="claim:equivalent",
+            provenance_channel="WRITTEN",
+            promotion_id=deterministic_promotion_id("candidate:1"),
+            idempotency_key=deterministic_promotion_key("candidate:1", "WRITTEN"),
+            provenance_refs=json.dumps(["passage:1"]), actor_ref="human:1",
+            reason="isolated check", metadata="{}",
+        )
+        self.assertEqual(self.store.link_existing(**args), "CONFLICT")
+        self.assertEqual(
+            promote_claim_candidate(self.store, PromotionRequest(
+                candidate_id="candidate:1", provenance_channel="WRITTEN", actor_ref="human:1",
+            )).reason_code,
+            "PROMOTION_SPEECH_ACT_CONTEXT_UNVERIFIED",
+        )
+        metadata["speech_act_context"] = semantic
+        statement_metadata["speech_act_context"] = semantic
+        self.sql(f"""
+            UPDATE statement_candidate SET metadata=$${json.dumps(statement_metadata)}$$::jsonb
+                WHERE id='statement:1';
+            UPDATE claim_candidate SET metadata=$${json.dumps(metadata)}$$::jsonb
+                WHERE id='candidate:1';
+        """)
+        self.sql("UPDATE passage SET private_text='A revised original turn.' WHERE id='passage:1';")
+        self.assertEqual(self.store.link_existing(**args), "CONFLICT")
+        self.sql(f"UPDATE passage SET private_text='{source}' WHERE id='passage:1';")
+        stripped = dict(metadata)
+        stripped.pop("speech_act_context")
+        self.sql(f"""
+            UPDATE claim_candidate SET metadata=$${json.dumps(stripped)}$$::jsonb
+                WHERE id='candidate:1';
+        """)
+        self.assertEqual(self.store.link_existing(**args), "CONFLICT")
+        self.sql(f"""
+            UPDATE claim_candidate SET metadata=$${json.dumps(metadata)}$$::jsonb
+                WHERE id='candidate:1';
+        """)
+        receipt = promote_claim_candidate(self.store, PromotionRequest(
+            candidate_id="candidate:1", provenance_channel="WRITTEN", actor_ref="human:1",
+            reason="isolated positive control",
+        ))
+        self.assertEqual(receipt.reason_code, "PROMOTION_LINKED_EXISTING")
+        self.assertEqual(receipt.target_claim_id, "claim:equivalent")
 
 
 if __name__ == "__main__":
