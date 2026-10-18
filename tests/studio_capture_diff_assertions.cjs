@@ -40,6 +40,10 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
   complete(first, {...scope, selector_comparison: completed});
   await compareRequest;
   async function inspect(data) {
+    // Session logout clears the private form; re-enter the exact audited scope.
+    compareForm.fields.content_id = scope.content_id;
+    compareForm.fields.earlier_hash = earlier.content_sha256;
+    compareForm.fields.later_hash = later.content_sha256;
     const request = compareForm.fire('submit');
     const index = requests.length - 1;
     assert.equal(requests[index].path, '/v1/capture/compare');
