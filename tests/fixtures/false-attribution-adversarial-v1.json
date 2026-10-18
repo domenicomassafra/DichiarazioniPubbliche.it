@@ -1,6 +1,6 @@
 {
   "schema_version": "dp-223-adversarial-benchmark/v1",
-  "fixture_version": "2026-10-06.3",
+  "fixture_version": "2026-10-18.1",
   "provenance": {
     "authorship": "Dichiarazioni Pubbliche contributors",
     "labeling": "independent hand-labeled expectations authored in fixture data; expectations are not derived from benchmark implementation output",
@@ -1528,6 +1528,7 @@
         "content_id": "content:syndication-control",
         "families": [
           {
+            "id": "fam:1",
             "status": "APPROVED",
             "root_content_id": "content:root"
           }
@@ -2493,6 +2494,6 @@
   ],
   "integrity": {
     "algorithm": "sha256-canonical-json-without-integrity",
-    "fixture_sha256": "29d5f3a73d5906ab085b24f09ac7bd5e7792198e1c03c8bedeac656d662f5591"
+    "fixture_sha256": "0a1485c326db28f7df2adf80896df4e5ce3f4762820939593e921476844e45d9"
   }
 }
