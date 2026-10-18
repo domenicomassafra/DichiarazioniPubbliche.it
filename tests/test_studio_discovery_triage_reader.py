@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.studio_discovery_triage_reader import (  # noqa: E402
-    _TRIAGE_HISTORY_SQL, read_triage_history,
+    _TRIAGE_HISTORY_SQL,
 )
 from dichiarazioni_pubbliche.studio_operator_queues import StudioOperatorQueues  # noqa: E402
 from dichiarazioni_pubbliche.studio_local_api import (  # noqa: E402
@@ -233,6 +233,25 @@ class TriageHistoryTests(unittest.TestCase):
             self.assertTrue(part2["lineage_ok"])
             self.assertFalse(part2["reviewer_identity_attested"])
             self.assertNotIn("operator:fixture-only", json.dumps(part2))
+            # A digest drift preserves FK and Attempt/Query links but voids
+            # the original Manifest provenance. Historic decisions stay held.
+            cluster.require_sql(
+                "UPDATE research_discovery_run SET manifest_sha256 = repeat('c', 64) "
+                "WHERE id='run:one';"
+            )
+            try:
+                drifted = queue.inspect_discovery_triage(
+                    collection_id="collection:one", hit_id=fixture_test.hit,
+                )
+                self.assertFalse(drifted["lineage_ok"])
+                self.assertEqual(drifted["head_revision"], 0)
+                self.assertEqual(drifted["results"], [])
+                self.assertIn("DISCOVERY_LINEAGE_MISMATCH", drifted["blockers"])
+            finally:
+                cluster.require_sql(
+                    "UPDATE research_discovery_run SET manifest_sha256 = repeat('a', 64) "
+                    "WHERE id='run:one';"
+                )
             # An already-annotated Hit can subsequently acquire inconsistent
             # Attempt/Query linkage. Exercise the actual SQL against the local
             # disposable cluster: neither its decisions nor its head may leak.

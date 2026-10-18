@@ -22,7 +22,8 @@ _TRIAGE_HISTORY_SQL = """
 WITH scoped_hit AS (
     SELECT hit.id, COALESCE(
         attempt.run_id=run.id AND attempt.query_id=hit.query_id
-        AND discovery_query.manifest_id=manifest.id, false
+        AND discovery_query.manifest_id=manifest.id
+        AND run.manifest_sha256=manifest.manifest_sha256, false
     ) AS lineage_ok
     FROM research_discovery_hit hit
     JOIN research_discovery_run run ON run.id=hit.run_id
