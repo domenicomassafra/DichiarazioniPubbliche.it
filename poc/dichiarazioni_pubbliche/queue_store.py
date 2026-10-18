@@ -277,75 +277,9 @@ class QueueExecutionCostStore(PsqlRuntime):
         return {str(k): int(v) for k, v in json.loads(raw or "{}").items()}
 
     def cost_snapshot(self, source_id: str) -> CostSnapshot:
-        raw = self.run(
-            """
-            SELECT json_build_object(
-                'global_unknown', EXISTS (
-                    SELECT 1 FROM provider_receipt outstanding
-                    WHERE CASE
-                        WHEN outstanding.billing_basis='MEASURED_PROVIDER_COST'
-                            THEN outstanding.measured_cost_usd IS NULL OR outstanding.measured_cost_usd <= 0
-                        WHEN outstanding.billing_basis='ESTIMATED_ONLY'
-                            THEN outstanding.estimated_cost_usd IS NULL OR outstanding.estimated_cost_usd <= 0
-                        ELSE TRUE
-                    END
-                ) OR EXISTS (
-                    SELECT 1 FROM worker_budget_reservation h
-                    WHERE h.state='RESERVED'
-                      AND h.reserved_at < date_trunc('day',now())
-                ),
-                'source_unknown', EXISTS (
-                    SELECT 1 FROM provider_receipt outstanding
-                    JOIN content_item outstanding_content ON outstanding_content.id=outstanding.content_id
-                    WHERE outstanding_content.source_id=:'source_id'
-                    AND CASE
-                        WHEN outstanding.billing_basis='MEASURED_PROVIDER_COST'
-                            THEN outstanding.measured_cost_usd IS NULL OR outstanding.measured_cost_usd <= 0
-                        WHEN outstanding.billing_basis='ESTIMATED_ONLY'
-                            THEN outstanding.estimated_cost_usd IS NULL OR outstanding.estimated_cost_usd <= 0
-                        ELSE TRUE
-                    END
-                ),
-                'global', COALESCE(sum(
-                    CASE
-                        WHEN r.billing_basis='MEASURED_PROVIDER_COST'
-                            THEN r.measured_cost_usd
-                        ELSE r.estimated_cost_usd
-                    END
-                ), 0) + (
-                    SELECT COALESCE(sum(h.upper_bound_usd),0)
-                    FROM worker_budget_reservation h
-                    WHERE h.state='RESERVED'
-                      AND h.reserved_at >= date_trunc('day',now())
-                ),
-                'source', COALESCE(sum(
-                    CASE
-                        WHEN r.billing_basis='MEASURED_PROVIDER_COST'
-                            THEN r.measured_cost_usd
-                        ELSE r.estimated_cost_usd
-                    END
-                ) FILTER (WHERE c.source_id = :'source_id'), 0) + (
-                    SELECT COALESCE(sum(h.upper_bound_usd),0)
-                    FROM worker_budget_reservation h
-                    WHERE h.state='RESERVED'
-                      AND h.source_id=:'source_id'
-                      AND h.reserved_at >= date_trunc('day',now())
-                )
-            )::text
-            FROM provider_receipt r
-            LEFT JOIN content_item c ON c.id = r.content_id
-            WHERE COALESCE(r.started_at, r.completed_at, now())
-                >= date_trunc('day', now());
-            """,
-            source_id=source_id,
-        )
-        row = json.loads(raw or '{"global":0,"source":0}')
-        # Never collapse NULL/UNKNOWN/unattested-zero to an authorized free
-        # daily budget. The worker treats infinity as an explicit admission HOLD.
-        return CostSnapshot(
-            float("inf") if row.get("global_unknown") is True else float(row["global"]),
-            float("inf") if row.get("source_unknown") is True else float(row["source"]),
-        )
+        from dichiarazioni_pubbliche.ops.budget_exposure_v1 import worker_cost_snapshot
+
+        return CostSnapshot(*worker_cost_snapshot(self.run, source_id))
 
     def reserve_worker_budget(
         self, *, job_id: str, attempt: int, worker_id: str, source_id: str,
@@ -1340,17 +1274,13 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
         raw = self.run(
             """
             SELECT COALESCE(json_build_object(
-                'claim_id', claim.id,
-                'content_id', claim.content_id,
+                'claim_id', claim.id, 'content_id', claim.content_id,
                 'normalized_claim', claim.normalized_claim,
                 'claim_type', claim.claim_type,
                 'speaker_person_id', claim.speaker_person_id,
-                'temporal_scope', claim.temporal_scope,
-                'metadata', claim.metadata,
+                'temporal_scope', claim.temporal_scope, 'metadata', claim.metadata,
                 'statement_date', COALESCE(
-                    NULLIF(claim.temporal_scope->>'statement_date', ''),
-                    ''
-                )
+                    NULLIF(claim.temporal_scope->>'statement_date', ''), '')
             )::text, '')
             FROM atomic_claim claim
             JOIN content_item content ON content.id = claim.content_id

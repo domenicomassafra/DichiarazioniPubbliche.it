@@ -1,109 +1,96 @@
 # AGENTS.md
 
-**Inherited global delivery authority:** load the owner-global DStack `contracts/shared-root/AGENTS.md` before these local instructions. This is a **public-facing editorial product**: a local commit is never delivered work, but neither is a direct push to `main` approval to expose statements to the public. The single integrator promptly pushes an exact reviewed change to a short-lived **remote PR branch**, then merges to `origin/main` only after CI and the acceptance required for that change. Legal/editorial approval, MiniPC install, public projection and public reader checks are independent downstream gates. Stage exact owned paths only; never erase unrelated dirty work or call an open PR `DONE`.
+Carica prima `~/.dstack/contracts/shared-root/AGENTS.md`. Qui ci sono solo regole specifiche di Dichiarazioni Pubbliche.
 
-Instructions for coding agents and human contributors working in this repository.
+## Prodotto e tracker
 
-## Read first
+Dichiarazioni Pubbliche conserva dichiarazioni pubbliche con provenienza, evidenze, revisione, correzioni e output pubblico verificabile. Non è un ranking di persone e non pubblica automaticamente output di modelli.
 
-Before changing code, read in this order:
+Repository e tracker operativo: `https://github.com/domenicomassafra/DichiarazioniPubbliche.it`. Dal 17/10/2026 GitHub Issues è l'autorità per lavoro corrente, stato, acceptance e ricevute. Prima di modificare codice leggi body e commenti della issue assegnata. `PLAN.md` e `docs/tickets/DP-*.md` sono storia del backlog precedente: non aggiornarne stato o acceptance.
 
-1. `PRODUCT.md` — product constitution and non-negotiable invariants.
-2. `CONTEXT.md` — canonical domain language.
-3. `ARCHITECTURE.md` — target system shape and runtime authority.
-4. `PLAN.md` — current milestone/ticket graph.
-5. relevant ADRs under `docs/adr/`.
-6. the ticket/spec being implemented.
+Ordine di lettura per ogni ticket:
 
-Historical `docs/00-*` through later wave documents are evidence and design history, not
-the primary authority when they conflict with the canonical files above.
+1. issue GitHub assegnata, inclusi i commenti;
+2. `PRODUCT.md`;
+3. `CONTEXT.md`;
+4. `ARCHITECTURE.md`;
+5. `README.md`, ADR e documenti specifici dell'area toccata.
 
-## Repository and runtime authority
+## Architettura in 5 righe
 
-- Authoritative Git checkout: `/Users/domenico/Code/DichiarazioniPubbliche.it`.
-- `origin/main` is the canonical integration branch. Work on **one short-lived change branch per coherent fix/feature**, push it promptly and open/update a traceable PR. A Draft PR preserves remote work while source CI, reviewer feedback, human editorial approval or MiniPC preview is pending. Do not create long-lived branches or an unbounded worktree per subagent; one integrator remains responsible for the PR and its cleanup after merge.
-- Runtime/backend authority: MiniPC.
-- MiniPC deploy mirror: `/home/udodo/src/DichiarazioniPubbliche.it` and is not a Git checkout.
-- Do not claim runtime completion from Mac-only evidence.
+1. Backend Python in `poc/dichiarazioni_pubbliche`; PostgreSQL è store operativo e queue dove richiesto.
+2. Flusso: source -> capture/transcript -> statement/claim -> evidence -> verifica -> review -> public projection.
+3. Il web è Astro statico in `web/` e legge solo la proiezione pubblica approvata.
+4. Il checkout Git autorevole è `/Users/domenico/Code/DichiarazioniPubbliche.it`; il runtime autorevole è il MiniPC.
+5. Il MiniPC usa il mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; GitHub CI non fa deploy.
 
-## Safety/product invariants
+## Comandi
 
-Never weaken these as a convenience fix:
+Toolchain supportata: Python 3.11, 3.12, 3.13 o 3.14; Node 24 + npm per `web/`. PostgreSQL serve solo ai ticket che richiedono esplicitamente un test DB isolato.
 
-- no auto-publication;
-- evidence retrieval != evidence approval != verification != publication;
-- no person truth/reliability score or political ranking;
-- no voting/political recommendation;
-- no inference of intent from contradiction alone;
-- no face/voice biometric identity matching;
-- public claim attribution requires approved speaker provenance for every segment;
-- right of reply/correction are append-only and private by default;
-- public projection must fail closed and must not expose raw transcript/evidence bodies;
-- do not use future evidence to judge an earlier claim unless evaluating a later outcome;
-- do not invent evidence URLs or generic model-generated evidence queries;
-- do not add major infrastructure without measured need;
-- do not materialize downstream child jobs when the downstream capability is unavailable.
-
-## Engineering workflow
-
-For non-trivial work:
-
-1. identify the governing ticket/spec;
-2. inspect current behavior before editing;
-3. write or update tests at the agreed seam;
-4. implement the smallest coherent change;
-5. run focused tests frequently;
-6. run the full suite once before completion;
-7. run deterministic benchmark when domain/publication behavior changes;
-8. run `git diff --check`;
-9. update docs/ADR/ticket state when the behavior or architecture changed;
-10. prove runtime-affecting changes on MiniPC;
-11. commit only owned paths, push and verify the change branch remote SHA, and open/update its PR; `PUSHED_FOR_REVIEW` is not a done ticket;
-12. merge only once the relevant CI and pre-merge acceptance pass, then verify the resulting `origin/main` SHA and separately track MiniPC/reader deployment.
-
-**Manual bug before merge:** keep the same PR open or Draft, attach the reproducible fault and failing case, fix in that branch, rerun targeted and full relevant CI, and repeat only the affected preview/manual check. Do not discard that branch or create unrelated replacement work.
-
-**Bug after deployment:** if the public reader or rights/integrity path is affected, first fail closed, withdraw the affected public projection or restore the last approved version through the existing rollback policy; then ship a small hotfix PR with regression and real reader readback. Never overwrite published history or turn a merely syntactic pass into source, editorial or legal acceptance.
-
-`python3 ~/.dstack/scripts/verify_main_delivery.py --repo . --review-check` proves an existing branch is saved remotely, **not** that PR/CI/manual checks passed. After merge, `--check` proves the clean `origin/main` source state. The current GitHub CI is source-only and has **no deployment authority**. Informational-site preview (`LAUNCH.md`) is distinct from the full curated archive release; neither should be blocked by unrelated release scope, and neither gains publication permission from a Git merge alone.
-
-Preferred commands:
+Setup locale sul Mac Studio:
 
 ```bash
-python3 -m compileall -q poc tests
-PYTHONPATH=poc python3 -m unittest discover -s tests -v
-PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark
-git diff --check
+python3 -V
+. "$HOME/.nvm/nvm.sh" && nvm use 24
+node -v && npm -v
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+cd web && npm ci && cd ..
 ```
 
-## Database changes
+Build package e web di test:
 
-- Treat `db/schema.v1.sql` plus ordered migrations as a compatibility contract.
-- Prefer additive migrations.
-- Migrations must be idempotent where the runtime procedure expects replay.
-- Production migrations require `ON_ERROR_STOP` and MiniPC proof.
-- Never mutate production data to make a test pass.
-- Use isolated canary DB/schema for destructive or publication-gate acceptance.
+```bash
+. "$HOME/.nvm/nvm.sh" && nvm use 24
+.venv/bin/python -m build --outdir /tmp/dichiarazioni-pubbliche-dist
+cd web && DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build && cd ..
+```
 
-## Provider/runtime blockers
+Test mirati per modifiche a contratto/repository/documentazione come questo file:
 
-Provider failure is an explicit blocked state. Do not switch model/provider, lower the
-quality bar, or fabricate a receipt to turn a blocked test green. A provider-path fix
-must first pass a meaningful canary and any cost gate required by the current ticket.
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest tests.test_repository_contract -v
+python3 tools/check_repository_contract.py
+```
 
-## Documentation rules
+Per codice applicativo esegui prima il modulo `tests.test_*` che copre il seam modificato; poi esegui sempre il gate finale completo:
 
-- Put durable product rules in `PRODUCT.md`.
-- Put domain vocabulary in `CONTEXT.md`.
-- Put system boundaries in `ARCHITECTURE.md`.
-- Put sequencing/dependencies in `PLAN.md`.
-- Put irreversible/significant technical decisions in `docs/adr/`.
-- Put implementation requirements in `docs/tickets/`.
-- Put historical investigation and benchmark receipts under `docs/` without promoting
-  them to authority.
-- Do not turn `HANDOFF.md` into a second architecture or backlog.
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m compileall -q poc tests
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest discover -s tests
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark
+PYTHONDONTWRITEBYTECODE=1 python3 tools/check_contributor_acceptance.py
+. "$HOME/.nvm/nvm.sh" && nvm use 24
+cd web && npm run check && DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION=1 npm run build && npm run check:projection-boundary && cd ..
+git diff --check
+git status --short --branch
+```
 
-## Definition of done
+Esiti attesi: compile silenzioso; unittest termina `OK`; benchmark `5/5` e `100%`; contributor acceptance termina `OK: contributor acceptance satisfied.`; Astro check senza errori; build demo riuscita e non indicizzabile; projection-boundary verde; `git diff --check` senza output.
 
-"Done" means code/spec behavior, tests, documentation, and required runtime proof agree.
-It never means "the code exists on the Mac".
+La demo è solo test. Una build pubblicabile richiede una proiezione approvata e usa `DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH=/percorso/assoluto/index.json`; `DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION` deve essere assente.
+
+## Consegna e installazione
+
+Sequenza obbligatoria: issue -> branch breve -> test -> push -> PR verso `main` -> required CI verde -> acceptance della issue -> merge -> readback di `origin/main` -> eventuale installazione -> prova reale -> ricevuta e chiusura issue. Una CI verde non installa nulla.
+
+Il runtime si installa sul MiniPC nel mirror `/home/udodo/src/DichiarazioniPubbliche.it`. Non esiste un singolo comando canonico di deploy nel repository: usa la procedura candidata -> verifica -> swap con rollback prevista dal ticket/runbook, senza sincronizzare direttamente una working tree sporca. Dopo una promozione runtime, questi readback sono obbligatori:
+
+```bash
+ssh minipc 'systemctl --user is-active dichiarazioni-pubbliche-web.service'
+ssh minipc 'curl -fsS --max-time 5 http://127.0.0.1:18090/api/v1/health'
+curl -fsS --max-time 10 -o /dev/null -w 'public_http=%{http_code}\n' https://dichiarazionipubbliche.it/
+```
+
+Il servizio web usa `deploy/systemd/dichiarazioni-pubbliche-web.service`, serve `/home/udodo/src/DichiarazioniPubbliche.it/web/dist`, legge `/home/udodo/.local/share/dichiarazioni-pubbliche/public/v1/index.json` e ascolta su `127.0.0.1:18090`. Per una modifica solo documentale come `AGENTS.md`, il merge su `main` è l'installazione: il MiniPC non va mutato.
+
+## Non toccare
+
+- Non bypassare publication, provenance, rights, privacy o review gate.
+- Non introdurre person score, ranking politico o identificazione biometrica.
+- Non esporre transcript/evidence body, credenziali o dump operativi nel pubblico.
+- Non usare una demo projection in produzione.
+- Non modificare produzione o migrazioni live per far passare un test.
+- Non aggiornare gli stati nei vecchi `PLAN.md` o `docs/tickets/DP-*.md`.
+- Non rinominare `poc/`, `dichiarazioni_pubbliche` o gli identificatori package fuori da un ticket che lo autorizza.
