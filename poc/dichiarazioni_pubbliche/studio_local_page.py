@@ -654,14 +654,17 @@ _PAGE = """<!doctype html>
     }
     function hidePrivateLocators() {
       clearCorpusResults(true);
+      for (const form of document.querySelectorAll('form[data-endpoint]')) {
+        for (const field of form.querySelectorAll('input,select,textarea')) {
+          if (field.name !== 'limit') field.value = '';
+        }
+      }
       memberLinks.replaceChildren();
       collectionLinks?.replaceChildren();
       workloadLinks?.replaceChildren();
       if (workloadSummary) workloadSummary.textContent = 'Nessuna coda operativa letta.';
       if (workloadForm) {
-        workloadForm.elements.namedItem('collection_id').value = '';
         workloadForm.elements.namedItem('limit').value = '10';
-        workloadForm.elements.namedItem('after').value = '';
       }
       collectionNavigationLinks?.replaceChildren();
       if (collectionNavigationSummary) collectionNavigationSummary.textContent = 'Nessuna navigazione caricata.';
@@ -684,15 +687,9 @@ _PAGE = """<!doctype html>
       if (candidateDetail) candidateDetail.textContent = '';
       if (decisionSummary) decisionSummary.textContent = 'Nessuna ricevuta letta.';
       if (candidateWriteSummary) candidateWriteSummary.textContent = 'Nessuna intenzione candidata inviata.';
-      if (decisionForm) {
-        for (const field of decisionForm.querySelectorAll('input,select')) field.value = '';
-      }
       if (candidateWriteForm) {
-        for (const field of candidateWriteForm.querySelectorAll('input,select,textarea')) {
-          if (field.name === 'expected_revision') field.value = '0';
-          else if (field.name === 'decision') field.value = 'HOLD';
-          else field.value = '';
-        }
+        candidateWriteForm.elements.namedItem('expected_revision').value = '0';
+        candidateWriteForm.elements.namedItem('decision').value = 'HOLD';
       }
       captureQueueLinks?.replaceChildren();
       candidateQueueLinks?.replaceChildren();
@@ -704,23 +701,15 @@ _PAGE = """<!doctype html>
       if (captureQueueSummary) captureQueueSummary.textContent = 'Nessuna coda letta.';
       if (triageWriteSummary) triageWriteSummary.textContent = 'Nessuna annotazione inviata. Il server predefinito è di sola lettura.';
       if (triageWriteForm) {
-        for (const field of triageWriteForm.querySelectorAll('input,select')) {
-          if (field.name === 'expected_revision') field.value = '0';
-          else if (field.name === 'decision') field.value = 'NEEDS_REVIEW';
-          else field.value = '';
-        }
+        triageWriteForm.elements.namedItem('expected_revision').value = '0';
+        triageWriteForm.elements.namedItem('decision').value = 'NEEDS_REVIEW';
       }
       for (const form of [lineageForm, captureQueueForm, candidateQueueForm, coverageQueueForm]) {
-        if (!form) continue;
-        for (const field of form.querySelectorAll('input,select')) {
-          field.value = field.name === 'limit' ? '20' : '';
-        }
+        if (form) form.elements.namedItem('limit').value = '20';
       }
-      if (collectionNavigationForm) collectionNavigationForm.elements.namedItem('after_content_id').value = '';
       mediaLocator.textContent = 'Nessun segmento selezionato.';
       if (mediaContextSummary) mediaContextSummary.textContent = 'Nessun contesto cattura verificato.';
       if (mediaBindingSummary) mediaBindingSummary.textContent = 'Nessun binding verificato.';
-      if (mediaBindingForm) mediaBindingForm.elements.namedItem('binding_id').value = '';
     }
     document.getElementById('clear').addEventListener('click', () => {
       token.value = '';
