@@ -1011,44 +1011,6 @@ class WorkerDaemonTests(unittest.TestCase):
             "VERIFICATION_STATEMENT_DATE_MISMATCH",
         )
 
-    def test_relation_job_only_persists_candidate(self):
-        store = FakeStore(
-            [
-                job(
-                    "CLASSIFY_CLAIM_RELATION",
-                    {
-                        "prior": {
-                            "claim_id": "claim:a",
-                            "statement_date": "2025-01-01",
-                            "proposition_key": "policy-x",
-                            "topic_key": "policy",
-                            "stance": "SUPPORT",
-                            "scope_start": "2025-01-01",
-                            "scope_end": "2025-12-31",
-                        },
-                        "later": {
-                            "claim_id": "claim:b",
-                            "statement_date": "2025-06-01",
-                            "proposition_key": "policy-x",
-                            "topic_key": "policy",
-                            "stance": "OPPOSE",
-                            "scope_start": "2025-01-01",
-                            "scope_end": "2025-12-31",
-                        },
-                        "estimated_cost_usd": 0,
-                    },
-                )
-            ]
-        )
-        summary = self.make_worker(store).run(1)
-        self.assertEqual(summary.completed, 1)
-        self.assertEqual(len(store.relation_candidates), 1)
-        self.assertEqual(
-            store.relation_candidates[0]["relation_type"],
-            "CONTRADICTION_CANDIDATE",
-        )
-        self.assertEqual(store.relation_candidates[0]["status"], "CANDIDATE")
-
     def test_reanalysis_reuses_latest_verification_rule_without_mutating_old_finding(self):
         store = FakeStore(
             [

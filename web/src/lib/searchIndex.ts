@@ -79,8 +79,7 @@ const ROUTE_BY_KIND: Record<SearchRecordKind, RegExp> = {
 function hasCanonicalSearchRoute(record: PublicSearchRecord): boolean {
   if (!KIND_FILTERS.has(record.kind) || typeof record.route !== "string") return false;
   if (!ROUTE_BY_KIND[record.kind].test(record.route)) return false;
-  // Person and Finding routes are derived from approved, stable public IDs.
-  // Do not let a self-hashed search asset silently rebind their identities.
+  // Stable Person/Finding routes cannot be rebound by a self-hashed asset.
   return (record.kind !== "person" && record.kind !== "finding") ||
     record.route === (record.kind === "person"
       ? "/persone/" + publicIdSlug(record.id) + "/"
@@ -180,8 +179,7 @@ function findingRecord(dossier: PublicDossier): PublicSearchRecord {
 export function buildSearchIndexMaterial(projection: PublicProjection): Omit<PublicSearchIndex, "index_sha256"> {
   const records: PublicSearchRecord[] = projection.dossiers.map(findingRecord);
 
-  // A reviewed public Topic membership may name findings, but private/held
-  // members must never create searchable records, facets or membership hints.
+  // Only approved public Finding IDs may create Topic facets.
   const publishedFindings = new Map(
     records.filter((record) => record.kind === "finding").map((record) => [record.id, record]),
   );
@@ -361,7 +359,9 @@ export async function validateSearchIndex(
       (record.kind === "finding" && record.wording_type !== "PARAPHRASE") ||
       (record.kind !== "finding" && record.wording_type !== null) ||
       !Array.isArray(record.primary_terms) ||
-      !Array.isArray(record.secondary_terms)
+      !record.primary_terms.every((term) => typeof term === "string") ||
+      !Array.isArray(record.secondary_terms) ||
+      !record.secondary_terms.every((term) => typeof term === "string")
       || (record.kind === "finding" && (
         (record.person_id !== undefined && (
           typeof record.person_id !== "string" ||

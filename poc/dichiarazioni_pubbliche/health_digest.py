@@ -5,7 +5,7 @@ import json
 import os
 import re
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -20,6 +20,10 @@ from dichiarazioni_pubbliche.ops.slo import get_slo
 from dichiarazioni_pubbliche.ops.slo import pageable as pageable_slos
 from dichiarazioni_pubbliche.ops.slo import worst_status as worst_slo_status
 from dichiarazioni_pubbliche.ops.taxonomy import actionable as actionable_blockers
+from dichiarazioni_pubbliche.ops.budget_exposure_v1 import (
+    private_receipt_groups, read_billing_day_window, read_reserved_budget,
+    mark_unknown_billing_window, ReservedBudget,
+)
 
 
 DEFAULT_OUTPUT = Path.home() / ".local" / "state" / "dichiarazioni-pubbliche" / "health.json"
@@ -218,40 +222,20 @@ def build_health_digest(
         ) x;
         """,
     )
-    day_start = current.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    # A permanently undated historical receipt has no provable daily bucket.
-    # Do not fabricate a date using now(); instead keep the selected UTC day
-    # exact and fail the cash SLO closed while unallocated liability exists.
+    window = read_billing_day_window(db.run, current=current)
+    day_start, day_end = window.start_utc, window.end_utc
     undated_unallocated_receipts = count_undated_operation_receipts(db)
     billing = reconcile_operation_billing(
         QueueExecutionCostStore.operation_ledger_receipts(
-            db, since=day_start.isoformat(), until=(day_start + timedelta(days=1)).isoformat()
-        )
+            db, since=day_start.isoformat(), until=day_end.isoformat()
+        ) if day_start is not None and day_end is not None else ()
     )
-    # Reuse canonical replay/conflict and billing semantics; never export the
-    # report's private receipt/operation identities or raw provider payloads.
-    receipt_groups: dict[tuple[str, str, str], dict[str, Any]] = {}
-    for group in billing.groups:
-        for attempt in group.attempts:
-            key = (group.provider_id, group.operation, attempt.status)
-            row = receipt_groups.setdefault(key, {
-                "provider_id": group.provider_id, "operation": group.operation,
-                "status": attempt.status, "count": 0, "cost_usd": Decimal("0"),
-                "cash_uncertain": False,
-                "cost_basis": "RECORDED_OR_ESTIMATED_NOT_AUTHENTICATED",
-            })
-            row["count"] += 1
-            row["cost_usd"] += (
-                attempt.recorded_measured_usd or attempt.provisional_estimated_usd or Decimal("0")
-            )
-            row["cash_uncertain"] |= (
-                attempt.cash_uncertainty or attempt.billing_basis in {"EXTERNAL_PLAN", "ZERO_COST"}
-                or (attempt.billing_basis == "ESTIMATED_ONLY"
-                    and attempt.provisional_estimated_usd == Decimal("0"))
-                or (attempt.billing_basis == "MEASURED_PROVIDER_COST"
-                    and attempt.recorded_measured_usd == Decimal("0"))
-            )
-    # The JSON digest stays numeric; conversion to float occurs only at output.
+    reserved = (
+        read_reserved_budget(db.run, since=day_start.isoformat(), until=day_end.isoformat())
+        if day_start is not None and day_end is not None
+        else ReservedBudget(Decimal("0"), 0, 0)
+    )
+    receipt_groups = private_receipt_groups(billing)
     receipts = [
         {**receipt_groups[key], "cost_usd": float(receipt_groups[key]["cost_usd"])}
         for key in sorted(receipt_groups)
@@ -438,23 +422,27 @@ def build_health_digest(
         blocker_counts[category] = blocker_counts.get(category, 0) + int(row["count"])
 
     total_cost = sum((row["cost_usd"] for row in receipt_groups.values()), Decimal("0"))
+    budget_exposure = total_cost + reserved.today_usd
     measurements = build_slo_measurements(
         queue=queue,
         queue_age=queue_age,
-        estimated_cost_usd_today=total_cost,
+        estimated_cost_usd_today=budget_exposure,
         max_cost_usd_per_day=max_cost_usd_per_day,
         max_cost_usd_per_source_day=max_cost_usd_per_source_day,
         provider_receipts_today=receipts,
         projection_generated_at=projection_generated_at,
         now=current,
-        unallocated_cash_liability=undated_unallocated_receipts > 0,
+        unallocated_cash_liability=(
+            undated_unallocated_receipts > 0 or reserved.prior_attempts > 0
+            or window.timezone_status == "UNKNOWN"
+        ),
     )
     slo_results = evaluate_slos(measurements)
     blockers = [
         {"category": key, "count": blocker_counts[key]}
         for key in sorted(blocker_counts)
     ]
-    return {
+    report = {
         "schema_version": 2,
         "generated_at": current.astimezone(timezone.utc).isoformat(),
         "queue": queue,
@@ -476,6 +464,11 @@ def build_health_digest(
         "billing_today": {
             "recorded_measured_usd": float(billing.recorded_measured_usd),
             "provisional_estimated_usd": float(billing.provisional_estimated_usd),
+            "outstanding_reserved_upper_bound_usd": float(reserved.today_usd),
+            "outstanding_reserved_attempt_count": reserved.today_attempts,
+            "prior_day_unreconciled_reservation_count": reserved.prior_attempts,
+            "budget_exposure_upper_bound_usd_today": float(budget_exposure),
+            "window_timezone_status": window.timezone_status,
             **{name: getattr(billing, name) for name in (
                 "operation_count", "attempt_count", "duplicate_receipt_replays",
                 "unknown_cash_attempts", "external_plan_attempts", "zero_cost_attempts",
@@ -483,8 +476,8 @@ def build_health_digest(
                 "plan_quota_consumed", "measured_energy_wh", "invoice_attested",
                 "authorizes_dispatch",
             )},
-            "window_start": day_start.isoformat(),
-            "window_end": (day_start + timedelta(days=1)).isoformat(),
+            "window_start": day_start.isoformat() if day_start else None,
+            "window_end": day_end.isoformat() if day_end else None,
             "undated_unallocated_receipts": undated_unallocated_receipts,
             "provider_grouping_is_source_attribution": False,
         },
@@ -500,6 +493,9 @@ def build_health_digest(
             "contains_secrets": False,
         },
     }
+    if window.timezone_status == "UNKNOWN":
+        mark_unknown_billing_window(report)
+    return report
 
 
 def write_private_json(path: Path, payload: dict[str, Any]) -> None:

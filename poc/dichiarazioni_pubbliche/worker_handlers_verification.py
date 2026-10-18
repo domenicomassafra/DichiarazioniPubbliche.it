@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any
 
 from dichiarazioni_pubbliche.coverage_needs import (
@@ -236,6 +236,9 @@ class VerificationRelationReanalysisJobHandlers:
     ) -> StructuredClaimRelationInput:
         if not isinstance(raw, dict):
             raise BlockedJob("RELATION_INPUT_INVALID")
+        continuity = raw.get("asserts_past_continuity", False)
+        if type(continuity) is not bool:
+            raise BlockedJob("RELATION_CONTINUITY_INVALID")
         try:
             return StructuredClaimRelationInput(
                 claim_id=str(raw["claim_id"]).strip(),
@@ -247,9 +250,7 @@ class VerificationRelationReanalysisJobHandlers:
                 stance=str(raw.get("stance") or "").strip() or None,
                 scope_start=str(raw.get("scope_start") or "").strip() or None,
                 scope_end=str(raw.get("scope_end") or "").strip() or None,
-                asserts_past_continuity=bool(
-                    raw.get("asserts_past_continuity", False)
-                ),
+                asserts_past_continuity=continuity,
             )
         except KeyError as exc:
             raise BlockedJob("RELATION_INPUT_INCOMPLETE") from exc
@@ -270,6 +271,22 @@ class VerificationRelationReanalysisJobHandlers:
             later_context["content_id"],
         }:
             raise BlockedJob("RELATION_JOB_CONTENT_MISMATCH")
+        for proposed, context in ((prior, prior_context), (later, later_context)):
+            stored_date = context.get("statement_date")
+            if not isinstance(stored_date, str) or not stored_date.strip():
+                raise BlockedJob("RELATION_STATEMENT_DATE_UNVERIFIED")
+            if proposed.statement_date != stored_date:
+                raise BlockedJob("RELATION_STATEMENT_DATE_MISMATCH")
+        # Person identity must come from the persisted claims. The job payload
+        # is untrusted and may omit or forge a shared speaker. Unknown identity
+        # is explicit so the legacy classifier cannot infer contradictions or
+        # changes of position across unidentified people.
+        def stored_person(context: dict[str, Any]) -> str:
+            value = context.get("speaker_person_id")
+            return value if isinstance(value, str) and value.strip() else "UNKNOWN"
+
+        prior = replace(prior, person_id=stored_person(prior_context))
+        later = replace(later, person_id=stored_person(later_context))
         try:
             result = classify_relation(prior, later)
         except ValueError as exc:

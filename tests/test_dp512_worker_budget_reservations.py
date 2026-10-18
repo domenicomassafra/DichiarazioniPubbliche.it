@@ -5,13 +5,16 @@ import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from tests.test_claim_evidence_retrieval_replay import _bin, _cmd  # noqa: E402
+from dichiarazioni_pubbliche.health_digest import build_health_digest  # noqa: E402
 from dichiarazioni_pubbliche.queue_runtime import QueueRuntimeStore  # noqa: E402
+from dichiarazioni_pubbliche.scheduler_daemon import PsqlStore  # noqa: E402
 
 
 class WorkerBudgetReservationPgTests(unittest.TestCase):
@@ -89,6 +92,13 @@ class WorkerBudgetReservationPgTests(unittest.TestCase):
     def scalar(self, sql):
         return self.exec_sql(self.dsn, sql).strip()
 
+    def health(self):
+        with tempfile.TemporaryDirectory(prefix="dp512-health-") as tmp:
+            return build_health_digest(
+                self.store, private_root=Path(tmp),
+                now=datetime.now(timezone.utc), max_cost_usd_per_day=0.3,
+            )
+
     def test_parallel_worker_admission_is_one_atomic_reservation(self):
         with ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(self.reserve, (1, 2)))
@@ -103,6 +113,15 @@ class WorkerBudgetReservationPgTests(unittest.TestCase):
         snapshot = self.store.cost_snapshot("source:test")
         self.assertAlmostEqual(snapshot.global_day_usd, 0.2)
         self.assertAlmostEqual(snapshot.source_day_usd, 0.2)
+        scheduler = PsqlStore(self.dsn)
+        self.assertAlmostEqual(scheduler.cost_today(), 0.2)
+        self.assertAlmostEqual(scheduler.cost_today("source:test"), 0.2)
+        health = self.health()
+        self.assertEqual(health["billing_today"]["outstanding_reserved_upper_bound_usd"], 0.2)
+        self.assertEqual(health["billing_today"]["outstanding_reserved_attempt_count"], 1)
+        self.assertEqual(health["billing_today"]["budget_exposure_upper_bound_usd_today"], 0.2)
+        statuses = {row["id"]: row["status"] for row in health["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "BREACH")
 
     def test_receipt_reconciles_without_double_debit(self):
         self.assertEqual(self.reserve(1), "RESERVED")
@@ -120,6 +139,9 @@ class WorkerBudgetReservationPgTests(unittest.TestCase):
         ), "RECEIPTED")
         snapshot = self.store.cost_snapshot("source:test")
         self.assertAlmostEqual(snapshot.global_day_usd, 0.2)
+        scheduler = PsqlStore(self.dsn)
+        self.assertAlmostEqual(scheduler.cost_today(), 0.2)
+        self.assertAlmostEqual(scheduler.cost_today("source:test"), 0.2)
         self.assertEqual(self.reserve(2), "GLOBAL_DAILY_BUDGET_REACHED")
         self.assertEqual(self.reserve(3, amount="0.100000"), "RESERVED")
 
@@ -135,6 +157,8 @@ class WorkerBudgetReservationPgTests(unittest.TestCase):
         self.assertEqual(self.reserve(2), "UNKNOWN_BILLING_LIABILITY_HELD")
         self.assertEqual(self.store.cost_snapshot("source:test").global_day_usd,
                          float("inf"))
+        scheduler = PsqlStore(self.dsn)
+        self.assertEqual(scheduler.cost_today(), float("inf"))
 
     def test_prior_day_ambiguous_reservation_survives_midnight(self):
         self.assertEqual(self.reserve(1), "RESERVED")
@@ -146,6 +170,16 @@ class WorkerBudgetReservationPgTests(unittest.TestCase):
         self.assertEqual(self.reserve(2), "UNKNOWN_BILLING_LIABILITY_HELD")
         self.assertEqual(self.store.cost_snapshot("source:test").global_day_usd,
                          float("inf"))
+        self.assertEqual(self.store.cost_snapshot("source:test").source_day_usd,
+                         float("inf"))
+        scheduler = PsqlStore(self.dsn)
+        self.assertEqual(scheduler.cost_today(), float("inf"))
+        self.assertEqual(scheduler.cost_today("source:test"), float("inf"))
+        health = self.health()
+        self.assertEqual(health["billing_today"]["prior_day_unreconciled_reservation_count"], 1)
+        self.assertEqual(health["billing_today"]["outstanding_reserved_upper_bound_usd"], 0.0)
+        statuses = {row["id"]: row["status"] for row in health["slo"]["objectives"]}
+        self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
 
     def test_wrong_lease_or_attempt_does_not_reserve(self):
         self.assertEqual(self.reserve(1, amount="0.000000"),
