@@ -122,5 +122,3 @@ class Dp417ReadbackPostgresTests(unittest.TestCase):
         self.assertEqual(drifted["invalid_lineage_hits"],
                          original["invalid_lineage_hits"] + 1)
         self.assertEqual(drifted["hits"], original["hits"])
-
-
