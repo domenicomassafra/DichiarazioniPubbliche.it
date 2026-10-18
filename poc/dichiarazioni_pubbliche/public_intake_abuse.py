@@ -134,6 +134,7 @@ class InMemoryIntakeRateStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._window_id: int | None = None
+        self._last_epoch: int | None = None
         self._bucket_counts: dict[str, int] = {}
         self._global_count = 0
         self._fingerprints: dict[str, _FingerprintRecord] = {}
@@ -143,6 +144,8 @@ class InMemoryIntakeRateStore:
         return hashlib.sha256(bucket_key.encode("utf-8")).hexdigest()
 
     def _reset_window_if_needed(self, window_id: int) -> None:
+        if self._window_id is not None and window_id < self._window_id:
+            raise ValueError("INTAKE_CLOCK_ROLLBACK")
         if self._window_id != window_id:
             self._window_id = window_id
             self._bucket_counts.clear()
@@ -172,7 +175,10 @@ class InMemoryIntakeRateStore:
         window_id = request.now_epoch // request.window_seconds
         bucket_digest = self._bucket_digest(request.bucket_key)
         with self._lock:
+            if self._last_epoch is not None and request.now_epoch < self._last_epoch:
+                raise ValueError("INTAKE_CLOCK_ROLLBACK")
             self._reset_window_if_needed(window_id)
+            self._last_epoch = request.now_epoch
             self._prune_duplicates(
                 now_epoch=request.now_epoch,
                 ttl=request.duplicate_window_seconds,
@@ -184,7 +190,9 @@ class InMemoryIntakeRateStore:
                 return RateStoreResult(RateStoreStatus.BUCKET_LIMIT)
 
             self._global_count += 1
-            self._bucket_counts[bucket_digest] = self._bucket_counts.get(bucket_digest, 0) + 1
+            self._bucket_counts[bucket_digest] = (
+                self._bucket_counts.get(bucket_digest, 0) + 1
+            )
 
             existing = self._fingerprints.get(request.fingerprint)
             if existing is not None:
@@ -295,7 +303,9 @@ def guard_validated_intake(
             "",
         )
     if rate_store is None:
-        return _receipt(IntakeGuardState.BLOCKED, IntakeSpamReason.RATE_STORE_MISSING, "")
+        return _receipt(
+            IntakeGuardState.BLOCKED, IntakeSpamReason.RATE_STORE_MISSING, ""
+        )
     if clock is None:
         return _receipt(IntakeGuardState.BLOCKED, IntakeSpamReason.CLOCK_MISSING, "")
 
@@ -428,7 +438,12 @@ def guard_validated_intake(
             decision_time,
         )
 
-    return _receipt(IntakeGuardState.ALLOWED_PRIVATE, IntakeSpamReason.OK, decision_time)
+    return _receipt(
+        IntakeGuardState.ALLOWED_PRIVATE, IntakeSpamReason.OK, decision_time
+    )
+
+
+from .sqlite_intake_rate_store import SQLiteIntakeRateStore  # noqa: E402
 
 
 __all__ = [
@@ -439,6 +454,7 @@ __all__ = [
     "MAX_RATE_COUNT",
     "MAX_RATE_WINDOW_SECONDS",
     "InMemoryIntakeRateStore",
+    "SQLiteIntakeRateStore",
     "IntakeAbuseProfile",
     "IntakeGuardReceipt",
     "IntakeGuardState",

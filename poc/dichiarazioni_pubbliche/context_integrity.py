@@ -513,7 +513,7 @@ _SPEECH_ACT_CUES = {
         "denial": re.compile(r"\b(?:ich\s+habe\s+(?:nie|nicht)\s+gesagt|ich\s+unterstütze\s+nicht)\b", re.I),
         "endorse": re.compile(r"\b(?:ich\s+(?:unterstütze|befürworte|behaupte)|ich\s+sage\s*,?\s+dass)\b", re.I),
         "support": re.compile(r"\bich\s+(?:unterstütze|befürworte)\b", re.I),
-        "negation": re.compile(r"\b(?:nicht|nie|kein\w*|niemals|ohne|weder|niemand\w*)\b", re.I),
+        "negation": re.compile(r"\b(?:nicht|nie|kein\w*|niemals|mitnichten|nimmer|ohne|weder|niemand\w*)\b", re.I),
         "qualification": re.compile(r"\b(?:aber|jedoch|außer|obwohl|es\s+sei\s+denn)\b", re.I),
         "conditional": re.compile(r"\b(?:wenn|falls|sofern|vorausgesetzt)\b", re.I),
     },
@@ -647,8 +647,7 @@ def assess_speech_act_context(
     if not parts and not part:
         signals.append("SOURCE_PART_REQUIRED")
 
-    # Pair typographic quotes with one bounded scanner so matching and
-    # endorsement detection consume the same interpretation of apostrophes.
+    # Keep quotation parsing and endorsement detection consistent.
     curly_spans, curly_unbalanced = _curly_quote_spans(turn)
     other_spans = [(m.start(), m.end()) for m in _OTHER_QUOTED_TEXT_RE.finditer(turn)]
     quote_spans = sorted((*curly_spans, *other_spans))

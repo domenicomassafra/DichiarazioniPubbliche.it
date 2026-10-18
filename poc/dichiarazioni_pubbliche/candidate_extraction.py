@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from dichiarazioni_pubbliche.claim_contract import ClaimType, NON_FACTUAL_CLAIM_TYPES
-from dichiarazioni_pubbliche.context_integrity import assess_context_integrity
+from dichiarazioni_pubbliche.candidate_context_safety import candidate_context_assessments
 from dichiarazioni_pubbliche.wording_contract import WordingType, wording_contract_metadata
 from dichiarazioni_pubbliche.corpus_repository import (
     ClaimCandidateRecord,
@@ -830,8 +830,7 @@ def prepare_extraction_batch(
             and raw.get("speaker_mention")
             and speech_mode == "DIRECT_UTTERANCE"
         ):
-            # A written source naming another speaker is reporting that person's
-            # words. It is not the original attributable occurrence.
+            # Written mentions prove no direct authorship.
             speech_mode = "REPORTED_SPEECH"
             reported_speaker = raw.get("speaker_mention")
         if context.selector_type == "MEDIA_SEGMENT_REF":
@@ -845,13 +844,10 @@ def prepare_extraction_batch(
             if media_speaker:
                 attribution_method = "CANONICAL_SEGMENT_SPEAKER"
 
-        context_integrity = assess_context_integrity(
-            source_text=context.text,
-            source_sha256=context.text_sha256,
-            quote_start=start,
-            quote_end=end,
-            speech_mode=speech_mode,
-        ).to_metadata()
+        context_integrity, speech_act_context = candidate_context_assessments(
+            context, quote_start=start, quote_end=end,
+            speech_mode=speech_mode, media_speaker=media_speaker,
+        )
         source_wording_type = (
             WordingType.VERBATIM_ORIGINAL
             if speech_mode == "DIRECT_UTTERANCE"
@@ -895,6 +891,7 @@ def prepare_extraction_batch(
                 "reported_origin": reported_origin,
                 "wording_source_type": source_wording_type.value,
                 "context_integrity": context_integrity,
+                "speech_act_context": speech_act_context,
                 "quote_local_start_char": start,
                 "quote_local_end_char": end,
             },
@@ -958,6 +955,7 @@ def prepare_extraction_batch(
                     "reported_origin_required": speech_mode != "DIRECT_UTTERANCE",
                     "reported_origin": reported_origin,
                     "context_integrity": context_integrity,
+                    "speech_act_context": speech_act_context,
                     "wording": wording_contract_metadata(
                         occurrence_id=statement.id,
                         source_text_sha256=statement.statement_text_hash,
