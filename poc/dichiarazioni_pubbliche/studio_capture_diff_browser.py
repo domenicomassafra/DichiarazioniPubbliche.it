@@ -58,12 +58,20 @@ CAPTURE_DIFF_BROWSER_JS = r"""
           || comparison.max_per_version !== 20
           || !Array.isArray(comparison.changes) || comparison.changes.length > 40) return false;
       const counts = {UNCHANGED: 0, CHANGED: 0, ADDED: 0, REMOVED: 0};
+      const anchors = new Set();
       for (const row of comparison.changes) {
         if (!validCaptureDiffRow(row, scope.content_id, scope.earlier, scope.later)) return false;
+        const anchor = JSON.stringify([
+          row.selector_type, row.start_char, row.end_char, row.page_start, row.page_end,
+        ]);
+        if (anchors.has(anchor)) return false;
+        anchors.add(anchor);
         counts[row.change]++;
       }
       if (!comparison.counts || Object.keys(counts).some(
-        kind => comparison.counts[kind] !== counts[kind])) return false;
+        kind => comparison.counts[kind] !== counts[kind])
+          || counts.UNCHANGED + counts.CHANGED + counts.REMOVED > 20
+          || counts.UNCHANGED + counts.CHANGED + counts.ADDED > 20) return false;
       // Nothing from a malformed response is appended, even if its first rows look safe.
       for (const row of comparison.changes) {
         const item = document.createElement('p');

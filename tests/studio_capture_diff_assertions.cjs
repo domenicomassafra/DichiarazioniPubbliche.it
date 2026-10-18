@@ -75,6 +75,17 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
   assert.equal(details.children.length, 0, 'malformed audit locator fails closed');
   assert.match(diff.textContent, /non verificabili/);
   assert.doesNotMatch(results.textContent, /NEVER_COPY_PRIVATE_BODY/);
+  await inspect({...scope, selector_comparison: {...completed,
+    counts: {UNCHANGED: 0, CHANGED: 2, ADDED: 0, REMOVED: 0},
+    changes: [diffRows[0], diffRows[0]]}});
+  assert.equal(details.children.length, 0, 'duplicate selector anchor must fail closed');
+  assert.match(diff.textContent, /non verificabili/);
+  await inspect({...scope, selector_comparison: {...completed,
+    counts: {UNCHANGED: 0, CHANGED: 21, ADDED: 0, REMOVED: 0},
+    changes: Array.from({length: 21}, (_, index) => ({...diffRows[0],
+      start_char: index * 10, end_char: index * 10 + 5}))}});
+  assert.equal(details.children.length, 0, 'a single Capture cannot exceed twenty selectors');
+  assert.match(diff.textContent, /non verificabili/);
   await inspect({...scope, content_id: 'content:foreign',
     selector_comparison: {...completed, changes: undefined}});
   assert.match(diff.textContent, /non verificabili/,
