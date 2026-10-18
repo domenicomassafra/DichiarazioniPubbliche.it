@@ -5,12 +5,14 @@ import sqlite3
 import tempfile
 import unittest
 from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 
 from dichiarazioni_pubbliche.historical_batch_gate_v1 import CompletedCapture
 from dichiarazioni_pubbliche.historical_batch_checkpoint_store import SQLiteHistoricalCheckpointStore
-from tests.test_dp516_historical_batch_gate import plan
-from tests.test_dp243_historical_corpus_preflight import entry, two
+from dichiarazioni_pubbliche.incremental_source_watch import policy_fingerprint
+from tests.test_dp516_historical_batch_gate import plan, resources
+from tests.test_dp243_historical_corpus_preflight import NOW, entry, two
 
 
 class DurableCheckpointTests(unittest.TestCase):
@@ -26,6 +28,53 @@ class DurableCheckpointTests(unittest.TestCase):
                                     "ARCHIVE", "b" * 64, "c" * 64)
         self.two = CompletedCapture("item:two", "person:two", "content:two",
                                     "ARCHIVE", "d" * 64, "e" * 64)
+
+    @staticmethod
+    def _four_source_manifests():
+        originals = two()
+        return (
+            replace(
+                originals[0],
+                entries=(
+                    originals[0].entries[0],
+                    entry(content_id="source:synthetic:it:second", sha="c" * 64),
+                ),
+            ),
+            replace(
+                originals[1],
+                entries=(
+                    originals[1].entries[0],
+                    entry(
+                        subject="HITLER",
+                        content_id="source:synthetic:de:second",
+                        sha="d" * 64,
+                        language="de",
+                        collection_id="collection:de",
+                        event_timezone="Europe/Berlin",
+                    ),
+                ),
+            ),
+        )
+
+    @staticmethod
+    def _receipt(proposal):
+        return CompletedCapture(
+            proposal.item_key, proposal.person_id, proposal.content_id,
+            proposal.source_family, proposal.capture_sha256, "f" * 64,
+        )
+
+    def _commit_selected(self, initial, selected):
+        checkpoint = None
+        for revision, proposal in enumerate(selected):
+            receipt = self._receipt(proposal)
+            checkpoint = self.first.commit_capture(
+                batch_id=initial.batch_id,
+                manifest_fingerprint=initial.manifest_fingerprint,
+                expected_revision=revision,
+                capture=receipt,
+                verify_persisted_capture=lambda row, expected=receipt: row == expected,
+            )
+        return checkpoint
 
     def test_crash_resume_idempotency_stale_cas_and_restart(self):
         self.assertIsNone(self.first.read(self.batch))
@@ -67,7 +116,6 @@ class DurableCheckpointTests(unittest.TestCase):
     def test_collision_and_immutable_snapshot_history(self):
         self.first.commit_capture(batch_id=self.batch, manifest_fingerprint=self.manifest,
             expected_revision=0, capture=self.one, verify_persisted_capture=lambda row: True)
-        from dataclasses import replace
         with self.assertRaisesRegex(ValueError, "DP516_CHECKPOINT_CAPTURE_CONFLICT"):
             self.other.commit_capture(batch_id=self.batch, manifest_fingerprint=self.manifest,
                 expected_revision=1,
@@ -104,30 +152,8 @@ class DurableCheckpointTests(unittest.TestCase):
 
     def test_multi_person_italian_german_batch_recovers_without_duplicate_work(self):
         """Four bounded original sources survive a two-person crash and resume."""
+        manifests = self._four_source_manifests()
         originals = two()
-        manifests = (
-            replace(
-                originals[0],
-                entries=(
-                    originals[0].entries[0],
-                    entry(content_id="source:synthetic:it:second", sha="c" * 64),
-                ),
-            ),
-            replace(
-                originals[1],
-                entries=(
-                    originals[1].entries[0],
-                    entry(
-                        subject="HITLER",
-                        content_id="source:synthetic:de:second",
-                        sha="d" * 64,
-                        language="de",
-                        collection_id="collection:de",
-                        event_timezone="Europe/Berlin",
-                    ),
-                ),
-            ),
-        )
         initial = plan(manifests=manifests)
         self.assertEqual(initial.status, "PRIVATE_REVIEW_PLAN")
         self.assertEqual(len(initial.proposals), 4)
@@ -145,23 +171,7 @@ class DurableCheckpointTests(unittest.TestCase):
             next(p for p in initial.proposals if p.person_id == person_id)
             for person_id in (originals[0].person_id, originals[1].person_id)
         ]
-        checkpoint = None
-        for revision, proposal in enumerate(selected):
-            receipt = CompletedCapture(
-                proposal.item_key,
-                proposal.person_id,
-                proposal.content_id,
-                proposal.source_family,
-                proposal.capture_sha256,
-                "f" * 64,
-            )
-            checkpoint = self.first.commit_capture(
-                batch_id=initial.batch_id,
-                manifest_fingerprint=initial.manifest_fingerprint,
-                expected_revision=revision,
-                capture=receipt,
-                verify_persisted_capture=lambda row, expected=receipt: row == expected,
-            )
+        checkpoint = self._commit_selected(initial, selected)
         self.assertIsNotNone(checkpoint)
         restarted = SQLiteHistoricalCheckpointStore(self.path)
         persisted = restarted.read(initial.batch_id)
@@ -193,6 +203,139 @@ class DurableCheckpointTests(unittest.TestCase):
             ),
             resumed,
         )
+
+    def test_restart_rejects_stale_or_unverified_durable_checkpoint(self):
+        manifests = self._four_source_manifests()
+        initial = plan(manifests=manifests)
+        selected = [
+            next(p for p in initial.proposals if p.original_language == language)
+            for language in ("it", "de")
+        ]
+        stale = self._commit_selected(initial, selected[:1])
+        current = self.first.commit_capture(
+            batch_id=initial.batch_id,
+            manifest_fingerprint=initial.manifest_fingerprint,
+            expected_revision=stale.revision,
+            capture=self._receipt(selected[1]),
+            verify_persisted_capture=lambda row: row == self._receipt(selected[1]),
+        )
+        restarted = SQLiteHistoricalCheckpointStore(self.path)
+        self.assertEqual(restarted.read(initial.batch_id), current)
+        self.assertFalse(restarted.verify_current(stale, initial.batch_id))
+
+        for checkpoint, verifier, reason in (
+            (stale, restarted.verify_current, "CHECKPOINT_EXTERNAL_TRUST_FAILED"),
+            (current, None, "CHECKPOINT_EXTERNAL_TRUST_REQUIRED"),
+        ):
+            with self.subTest(reason=reason):
+                held = plan(
+                    manifests=manifests, checkpoint=checkpoint,
+                    verify_checkpoint=verifier,
+                )
+                self.assertEqual(held.status, "HELD")
+                self.assertIn(reason, held.holds)
+                self.assertEqual(held.proposals, ())
+                self.assertIsNone(held.proposed_budget_state)
+                self.assertFalse(held.dispatch_authorized)
+                self.assertFalse(held.public_eligible)
+        self.assertEqual(restarted.revision_count(initial.batch_id), 2)
+
+    def test_durable_restart_rejects_cross_person_and_source_identity(self):
+        manifests = self._four_source_manifests()
+        initial = plan(manifests=manifests)
+        self.assertEqual(len(initial.proposals), 4)
+        for language in ("it", "de"):
+            selected = next(p for p in initial.proposals if p.original_language == language)
+            foreign = next(p for p in initial.proposals if p.original_language != language)
+            for field, foreign_value in (
+                ("person_id", foreign.person_id),
+                ("content_id", foreign.content_id),
+                ("capture_sha256", foreign.capture_sha256),
+            ):
+                with self.subTest(language=language, field=field):
+                    # A locally persisted receipt with a valid checksum is not
+                    # permission to transfer work to another historical person.
+                    store = SQLiteHistoricalCheckpointStore(
+                        self.path.parent / f"identity-{language}-{field}.sqlite"
+                    )
+                    forged = replace(self._receipt(selected), **{field: foreign_value})
+                    store.commit_capture(
+                        batch_id=initial.batch_id,
+                        manifest_fingerprint=initial.manifest_fingerprint,
+                        expected_revision=0,
+                        capture=forged,
+                        verify_persisted_capture=lambda row: row == forged,
+                    )
+                    restarted = SQLiteHistoricalCheckpointStore(store.path)
+                    persisted = restarted.read(initial.batch_id)
+                    self.assertTrue(restarted.verify_current(persisted, initial.batch_id))
+                    held = plan(
+                        manifests=manifests, checkpoint=persisted,
+                        verify_checkpoint=restarted.verify_current,
+                    )
+                    self.assertEqual(held.status, "HELD")
+                    self.assertIn("CHECKPOINT_FOREIGN_ITEM", held.holds)
+                    self.assertEqual(held.proposals, ())
+                    self.assertIsNone(held.proposed_budget_state)
+                    self.assertFalse(held.dispatch_authorized)
+                    self.assertFalse(held.public_eligible)
+
+    def test_durable_restart_rechecks_italian_and_german_rights_and_versions(self):
+        manifests = self._four_source_manifests()
+        initial = plan(manifests=manifests)
+        selected = [
+            next(p for p in initial.proposals if p.original_language == language)
+            for language in ("it", "de")
+        ]
+        self._commit_selected(initial, selected)
+        restarted = SQLiteHistoricalCheckpointStore(self.path)
+        persisted = restarted.read(initial.batch_id)
+        _, watches = resources(manifests)
+        for proposal in selected:
+            for condition, reason in (
+                ("revoked", "WATCH_COMPLETED_RIGHTS_NOT_READY"),
+                ("malformed_receipt", "WATCH_COMPLETED_RIGHTS_NOT_READY"),
+                ("source_changed", "WATCH_COMPLETED_SOURCE_CHANGED"),
+            ):
+                with self.subTest(language=proposal.original_language, condition=condition):
+                    watch = next(w for w in watches if w.content_id == proposal.content_id)
+                    if condition == "revoked":
+                        altered = replace(
+                            watch, readiness=replace(watch.readiness, rights_status="REVOKED")
+                        )
+                    elif condition == "malformed_receipt":
+                        altered = replace(
+                            watch, readiness=replace(
+                                watch.readiness, rights_receipt="synthetic:rights\nFORGED"
+                            )
+                        )
+                    else:
+                        altered = replace(
+                            watch,
+                            state=replace(
+                                watch.state,
+                                policy_fingerprint=policy_fingerprint(watch.policy),
+                                content_sha256="0" * 64,
+                                last_successful_observed_at=NOW - timedelta(minutes=1),
+                            ),
+                        )
+                    current_watches = tuple(
+                        altered if w.content_id == proposal.content_id else w
+                        for w in watches
+                    )
+                    held = plan(
+                        manifests=manifests, checkpoint=persisted,
+                        verify_checkpoint=restarted.verify_current,
+                        watches=current_watches,
+                    )
+                    self.assertEqual(held.status, "HELD")
+                    self.assertIn(reason, held.holds)
+                    self.assertEqual(held.proposals, ())
+                    self.assertIsNone(held.proposed_budget_state)
+                    self.assertFalse(held.dispatch_authorized)
+                    self.assertFalse(held.public_eligible)
+        self.assertEqual(restarted.read(initial.batch_id), persisted)
+        self.assertEqual(restarted.revision_count(initial.batch_id), 2)
 
 
 if __name__ == "__main__":
