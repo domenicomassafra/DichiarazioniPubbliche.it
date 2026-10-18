@@ -170,7 +170,7 @@ class VisualCapacityReport:
 
 
 def _check_work(row: VisualWorkItem, now: datetime) -> None:
-    if not isinstance(row, VisualWorkItem):
+    if type(row) is not VisualWorkItem:
         raise ValueError("DP519_WORK_ITEM_INVALID")
     for code in ("work_key", "content_id", "person_id"):
         _id(getattr(row, code), code.upper())
@@ -205,7 +205,7 @@ def _check_work(row: VisualWorkItem, now: datetime) -> None:
 
 
 def _check_event(row: VisualDecisionEvent, item: VisualWorkItem, now: datetime) -> None:
-    if not isinstance(row, VisualDecisionEvent):
+    if type(row) is not VisualDecisionEvent:
         raise ValueError("DP519_EVENT_INVALID")
     for key in ("event_id", "work_key", "actor_id"):
         _id(getattr(row, key), key.upper())
@@ -235,7 +235,7 @@ def _check_event(row: VisualDecisionEvent, item: VisualWorkItem, now: datetime) 
 def _check_exception(
     row: VisualException, work_items: dict[str, VisualWorkItem]
 ) -> None:
-    if not isinstance(row, VisualException):
+    if type(row) is not VisualException:
         raise ValueError("DP519_EXCEPTION_INVALID")
     _id(row.exception_id, "EXCEPTION_ID")
     if row.work_key not in work_items:
@@ -282,17 +282,17 @@ def reconcile_visual_capacity(
     """Pure deterministic worklist and immutable replay of *reported* operator time.
 
     The five-hour default is planning capacity only; no SLA/availability proof.
-    Caller MUST authenticate actor, timestamps, source rights, and image identity
-    externally before any durable acceptance. This function grants no authority.
+    Caller authenticates actor, dates, rights and identity externally.
+    No approval or publication authority is granted.
     """
     stamp = _stamp(now, "NOW")
     _small_int(weekly_planning_minutes, "WEEKLY_PLAN", 10080)
     if (
-        not isinstance(items, tuple)
+        type(items) is not tuple
         or len(items) > _MAX_ITEMS
-        or not isinstance(events, tuple)
+        or type(events) is not tuple
         or len(events) > _MAX_EVENTS
-        or not isinstance(exceptions, tuple)
+        or type(exceptions) is not tuple
         or len(exceptions) > _MAX_EXCEPTIONS
     ):
         raise ValueError(
@@ -310,7 +310,9 @@ def reconcile_visual_capacity(
 
     by_event: dict[str, VisualDecisionEvent] = {}
     for event in events:
-        if not isinstance(event, VisualDecisionEvent) or event.work_key not in by_key:
+        if type(event) is not VisualDecisionEvent:
+            raise ValueError("DP519_EVENT_INVALID")
+        if event.work_key not in by_key:
             raise ValueError("DP519_EVENT_FOREIGN_WORK")
         _check_event(event, by_key[event.work_key], stamp)
         old = by_event.get(event.event_id)
