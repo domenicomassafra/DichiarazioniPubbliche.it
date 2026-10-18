@@ -106,22 +106,29 @@ def mark_unknown_billing_window(report: dict[str, Any]) -> None:
             report["billing_today"][key] = None
 
 
-def private_receipt_groups(billing: Any) -> dict[tuple[str, str, str], dict[str, Any]]:
-    """Group canonical attempts for the digest without receipt IDs or raw bodies."""
-    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+def private_receipt_groups(billing: Any) -> dict[tuple[str, str, str, str], dict[str, Any]]:
+    """Group attempts by billing basis without receipt IDs or raw bodies."""
+    groups: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for group in billing.groups:
         for attempt in group.attempts:
-            key = (group.provider_id, group.operation, attempt.status)
+            key = (
+                group.provider_id, group.operation, attempt.status,
+                attempt.billing_basis,
+            )
             row = groups.setdefault(
                 key,
                 {
                     "provider_id": group.provider_id,
                     "operation": group.operation,
                     "status": attempt.status,
+                    "billing_basis": attempt.billing_basis,
                     "count": 0,
                     "cost_usd": Decimal("0"),
                     "cash_uncertain": False,
-                    "cost_basis": "RECORDED_OR_ESTIMATED_NOT_AUTHENTICATED",
+                    "cost_basis": {
+                        "MEASURED_PROVIDER_COST": "RECORDED_MEASURED_UNVERIFIED",
+                        "ESTIMATED_ONLY": "PROVISIONAL_ESTIMATE_UNVERIFIED",
+                    }.get(attempt.billing_basis, "NO_AUTHENTICATED_PRICE"),
                 },
             )
             row["count"] += 1
