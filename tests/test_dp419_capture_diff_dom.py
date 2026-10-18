@@ -11,18 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.studio_local_page import (  # noqa: E402
-    _PAGE,
     render_studio_login_page,
 )
 
 
 class StudioCaptureDiffDomTests(unittest.TestCase):
     def test_private_template_preserves_reviewed_exact_bytes(self):
-        # Pin the reviewed full Studio HTML/JS contract, including DP-419.
-        # A later intentional edit must update this digest after review.
+        # The helper JavaScript is injected at render time. Hash the final
+        # nonce-bound bytes, including that helper, rather than the raw _PAGE.
         self.assertEqual(
-            sha256(_PAGE.encode("utf-8")).hexdigest(),
-            "e7f24a531c2fd4c3b6578e8bd9cd919706f875e041f3d8ec5447b90f808ed8bb",
+            sha256(render_studio_login_page("a" * 32)).hexdigest(),
+            "8f8f0c2b030490b70bc8fa2be5be2d36689511984e00ed2adfade40a24b5b9bd",
         )
 
     @unittest.skipUnless(shutil.which("node"), "Node.js unavailable")
