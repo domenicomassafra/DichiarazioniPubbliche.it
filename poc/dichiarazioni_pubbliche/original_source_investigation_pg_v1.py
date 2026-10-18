@@ -283,9 +283,7 @@ class IsolatedOriginalRecoveryPg:
     ) -> str:
         """SHA-256 of *database-observed* immutable lineage and rights epoch.
 
-        Stored only as a digest in dp241_pg_plan. The capture/content metadata
-        and rights review version cannot silently move while retaining the
-        original body SHA and approved-looking rights state.
+        Store a digest only; pin actual body references and transcript text.
         """
         return """
         (SELECT encode(sha256(convert_to(jsonb_build_array(
@@ -293,11 +291,11 @@ class IsolatedOriginalRecoveryPg:
              s.language, s.country_code, s.metadata,
              ci.id, ci.source_id, ci.source_external_id, ci.canonical_url,
              ci.published_at, ci.content_sha256, ci.metadata,
-             ca.id, ca.observed_at, ca.final_url, ca.media_type,
+             ca.id, ca.observed_at, ca.final_url, ca.media_type, ca.body_ref,
              ca.content_sha256, ca.retrieval_method, ca.retrieval_version,
              ca.parser_method, ca.parser_version, ca.metadata,
              pa.id, pa.capture_id, pa.selector_type, pa.start_char,
-             pa.end_char, pa.page_start, pa.page_end, pa.text_sha256,
+             pa.end_char, pa.page_start, pa.page_end, pa.text_sha256, pa.private_text,
              pa.extraction_method, pa.extraction_version, pa.metadata,
              rr.id, rr.subject_fingerprint, rr.source_family,
              rr.content_id, rr.passage_id, rr.locator_kind, rr.locator_value,

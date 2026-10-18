@@ -17,6 +17,30 @@ from tests.test_dp241_original_source_investigation import receipt
 
 
 class Dp241RecoveryWaveCloseTests(baseline.OriginalSourceRecoveryPgTests):
+    def test_capture_body_reference_change_fences_registered_plan(self):
+        """A body storage pointer cannot be swapped while preserving its claimed SHA."""
+        self.register()
+        self.sql("UPDATE content_capture SET body_ref='private:wrong-body' "
+                 "WHERE id='capture:content:clip';")
+        with self.assertRaisesRegex(ValueError, "SOURCE_PROVENANCE_STALE"):
+            self.store.reserve(self.p, self.t, source_id="source:clip",
+                               key="request:body-swap", expected_revision=0)
+        self.assertEqual(self.store.history(self.p.plan_id).revision, 0)
+
+    def test_passage_private_text_change_fences_pending_completion(self):
+        """A changed stored transcript must invalidate the exact Passage locator."""
+        self.register()
+        pending = self.store.reserve(self.p, self.t, source_id="source:clip",
+                                     key="request:passage-swap", expected_revision=0)
+        self.sql("UPDATE passage SET private_text='Different speaker and words' "
+                 "WHERE id='passage:content:clip';")
+        with self.assertRaisesRegex(ValueError, "SOURCE_PROVENANCE_STALE"):
+            self.store.complete(self.p, self.t, source_id="source:clip",
+                                key="request:passage-swap",
+                                expected_revision=pending.revision,
+                                observed=receipt(self.p, 0, "NOT_FOUND"))
+        self.assertEqual(self.store.history(self.p.plan_id).revision, 1)
+
     def test_foreign_content_rights_leaf_cannot_authorize_target_passage(self):
         """A rights leaf referencing this Passage but another Content is not permission."""
         self.sql("""
