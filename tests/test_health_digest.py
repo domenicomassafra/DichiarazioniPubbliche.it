@@ -40,6 +40,8 @@ class FakeDb:
             return '[{"processing_status":"CLAIM_EXTRACTION_BLOCKED","count":2}]'
         if "count(*)" in sql and "FROM provider_receipt" in sql:
             return str(self.undated_count)
+        if "FROM worker_budget_reservation" in sql:
+            return '{"daily_amount":0,"daily_count":0,"prior_count":0}'
         if "FROM provider_receipt" in sql:
             self.receipt_window = variables
             return json.dumps(self.receipt_rows)
