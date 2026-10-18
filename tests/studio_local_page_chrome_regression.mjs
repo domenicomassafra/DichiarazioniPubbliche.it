@@ -1,6 +1,5 @@
-// Real Chromium keyboard + DOM proof for the nonce-bound private Studio page.
-// Usage: PYTHONPATH=poc python3 -c 'from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page; print(render_studio_login_page("a"*32).decode())' | node tests/studio_local_page_chrome_regression.mjs
-// The server and token are disposable local fixtures. No PostgreSQL/provider/public requests.
+// Native Chromium keyboard test on rendered private Studio HTML from stdin.
+// Fixtures are local-only; no database, provider or public calls.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -238,8 +237,7 @@ try {
     }
   };
   await send('Runtime.enable');
-  // Headless Chromium can expose DOM focus while leaving its native input
-  // activation pipeline unfocused; emulate the top-level window's focus.
+  // Enable native keyboard focus under headless Chromium.
   await send('Emulation.setFocusEmulationEnabled', {enabled: true});
   await wait(`document.querySelector('form[data-endpoint="/v1/corpus/search"]') !== null`);
   await evaluate(`document.getElementById('token').value = '${'a'.repeat(64)}';
