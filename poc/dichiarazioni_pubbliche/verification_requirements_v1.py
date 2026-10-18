@@ -1,10 +1,8 @@
 """DP-314 opt-in, private verification-requirement preflight.
 
-Caller-supplied provenance is NOT a reviewed primary source or independent
-truth. This produces a bounded research/verifier eligibility proposal, never
-an adjudication, Finding, source-rights grant or publication authorization.
-The existing deterministic verification_runtime remains the authority for
-its supported numerical/text rules, subject to external review gates.
+Unattested inputs support private eligibility only: no Finding, adjudication,
+rights grant or publication. Existing verification_runtime rules retain their
+separate externally reviewed authority.
 """
 
 from __future__ import annotations
@@ -196,11 +194,16 @@ def preflight_verification_requirements(
     a source-bound candidate. Only persisted authority can substantiate it.
     """
     if (
-        not isinstance(claim, RequirementClaim)
+        type(claim) is not RequirementClaim
         or not isinstance(observations, tuple)
         or len(observations) > 128
     ):
         raise ValueError("REQUIREMENT_INPUT_INVALID")
+    # Bind eligibility and audit hash to the same detached typed records.
+    if any(type(row) is not RequirementEvidence for row in observations):
+        raise ValueError("REQUIREMENT_EVIDENCE_INPUT_INVALID")
+    claim = RequirementClaim(**asdict(claim))
+    observations = tuple(RequirementEvidence(**asdict(row)) for row in observations)
     _ref(claim.claim_id, "CLAIM")
     _ref(claim.policy_version, "POLICY_VERSION")
     if claim.jurisdiction_ref is not None:
@@ -375,6 +378,17 @@ def compare_private_event_sequence(
         raise ValueError("SEQUENCE_QUESTION_INVALID")
     if not isinstance(observations, tuple) or len(observations) > 128:
         raise ValueError("SEQUENCE_OBSERVATIONS_INVALID")
+
+    # Preflight, dates, source roles and hash consume identical snapshots.
+    if type(claim) is not RequirementClaim or any(
+        type(row) is not RequirementEvidence for row in evidence
+    ):
+        raise ValueError("REQUIREMENT_INPUT_INVALID")
+    if any(type(row) is not SequenceEventObservation for row in observations):
+        raise ValueError("SEQUENCE_OBSERVATION_INPUT_INVALID")
+    claim = RequirementClaim(**asdict(claim))
+    evidence = tuple(RequirementEvidence(**asdict(row)) for row in evidence)
+    observations = tuple(SequenceEventObservation(**asdict(row)) for row in observations)
 
     preliminary = preflight_verification_requirements(claim, evidence)
     by_id = {row.evidence_id: row for row in evidence}
