@@ -29,24 +29,33 @@ SELECT json_build_object(
                      WHERE status = 'COMPLETED'),
   'blocked_runs', (SELECT count(*) FROM research_discovery_run
                    WHERE status IN ('BLOCKED', 'FAILED')),
+  'incomplete_runs', (SELECT count(*) FROM research_discovery_run
+                      WHERE status IN ('RUNNING', 'PARTIAL')),
   'hits', (SELECT count(*) FROM research_discovery_hit),
   'annotated_hits', (SELECT count(DISTINCT hit_id)
                      FROM research_discovery_triage_decision),
   'invalid_lineage_hits', (SELECT count(*)
     FROM research_discovery_hit hit
-    JOIN research_discovery_run run ON run.id = hit.run_id
-    JOIN research_discovery_manifest manifest ON manifest.id = run.manifest_id
-    JOIN research_discovery_query query ON query.id = hit.query_id
-    JOIN research_discovery_attempt attempt ON attempt.id = hit.attempt_id
-    WHERE attempt.run_id <> run.id OR attempt.query_id <> hit.query_id
-       OR query.manifest_id <> manifest.id
-       OR run.manifest_sha256 <> manifest.manifest_sha256)
+    LEFT JOIN research_discovery_run run ON run.id = hit.run_id
+    LEFT JOIN research_discovery_manifest manifest ON manifest.id = run.manifest_id
+    LEFT JOIN research_discovery_query query ON query.id = hit.query_id
+    LEFT JOIN research_discovery_attempt attempt ON attempt.id = hit.attempt_id
+    WHERE run.id IS NULL OR manifest.id IS NULL OR query.id IS NULL
+       OR attempt.id IS NULL
+       OR attempt.run_id IS DISTINCT FROM run.id
+       OR attempt.query_id IS DISTINCT FROM hit.query_id
+       OR query.manifest_id IS DISTINCT FROM manifest.id
+       OR run.manifest_sha256 IS DISTINCT FROM manifest.manifest_sha256
+       OR EXISTS (SELECT 1 FROM research_discovery_triage_decision decision
+                  WHERE decision.hit_id = hit.id
+                    AND decision.collection_id IS DISTINCT FROM manifest.collection_id))
 )::text;
 COMMIT;
 """
 
 _COUNTS = (
     "collections", "manifests", "runs", "completed_runs", "blocked_runs",
+    "incomplete_runs",
     "hits", "annotated_hits", "invalid_lineage_hits",
 )
 
@@ -56,7 +65,9 @@ def validate_readback(raw: object) -> dict[str, int]:
         raise ValueError("DP417_READBACK_SCHEMA_INVALID")
     if any(type(raw[key]) is not int or raw[key] < 0 for key in _COUNTS):
         raise ValueError("DP417_READBACK_COUNT_INVALID")
-    if (raw["completed_runs"] + raw["blocked_runs"] > raw["runs"]
+    # The schema defines exactly these five Run statuses. Unknown/new states
+    # must not be omitted from the operational blocker totals.
+    if (raw["completed_runs"] + raw["blocked_runs"] + raw["incomplete_runs"] != raw["runs"]
             or raw["annotated_hits"] > raw["hits"]
             or raw["invalid_lineage_hits"] > raw["hits"]):
         raise ValueError("DP417_READBACK_CONTRADICTION")
@@ -70,6 +81,10 @@ def summarize(counts: dict[str, int]) -> dict[str, object]:
         blockers.append("NO_PERSISTED_DISCOVERY_RUN")
     if not counts["hits"]:
         blockers.append("NO_PERSISTED_DISCOVERY_HIT")
+    if counts["blocked_runs"]:
+        blockers.append("BLOCKED_OR_FAILED_DISCOVERY_RUN")
+    if counts["incomplete_runs"]:
+        blockers.append("INCOMPLETE_DISCOVERY_RUN")
     if counts["invalid_lineage_hits"]:
         blockers.append("INVALID_DISCOVERY_LINEAGE")
     return {
