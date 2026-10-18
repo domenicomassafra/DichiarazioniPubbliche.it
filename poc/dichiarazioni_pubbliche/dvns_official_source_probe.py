@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -62,6 +63,10 @@ def _live_utc() -> str:
 
 def _fetch_official_archive(*, opener=None) -> bytes:
     # Fixed official URL: no arbitrary URL, redirect, credentials, query or retry.
+    parsed_url = urllib.parse.urlsplit(DATASET_URL)
+    if (parsed_url.scheme != "https" or parsed_url.netloc != "raw.githubusercontent.com"
+            or parsed_url.query or parsed_url.fragment):
+        raise DvnsOfficialProbeError("DVNS_OFFICIAL_SOURCE_URL_INVALID")
     transport = opener or urllib.request.build_opener(_DenyRedirect())
     request = urllib.request.Request(
         DATASET_URL,
@@ -92,6 +97,28 @@ def _fetch_official_archive(*, opener=None) -> bytes:
         raise DvnsOfficialProbeError("DVNS_OFFICIAL_UNAVAILABLE") from exc
 
 
+def _import_held_official_archive(
+    source_archive_bytes: bytes, *, observed_at_utc: str,
+) -> SenatoOpenDataCandidateImport:
+    """Reject any inconsistency between source bytes, import and rights metadata."""
+    imported = import_senato_open_data_sittings(
+        source_archive_bytes, observed_at_utc=observed_at_utc,
+    )
+    digest = hashlib.sha256(source_archive_bytes).hexdigest()
+    version = "sha256:" + digest
+    if (imported.source_archive_sha256 != digest
+            or imported.source_dataset_url != DATASET_URL
+            or imported.imported.source_version != version
+            or imported.imported.provider_id != PROVIDER_ID
+            or any(row.source_version != version or row.source_url != DATASET_URL
+                   for row in imported.imported.normalized_batch.values)):
+        raise DvnsOfficialProbeError("DVNS_OFFICIAL_SOURCE_RECEIPT_MISMATCH")
+    if (imported.imported.rights_status != "BLOCKED"
+            or imported.rights_gate != "BLOCKED_PENDING_PROJECT_SOURCE_PROFILE_REVIEW"):
+        raise DvnsOfficialProbeError("DVNS_OFFICIAL_RIGHTS_GATE_NOT_HELD")
+    return imported
+
+
 def read_back_senato_official_candidate(
     source_archive_bytes: bytes, *, observed_at_utc: str,
 ) -> SenatoTechnicalReceipt:
@@ -101,7 +128,7 @@ def read_back_senato_official_candidate(
     A separate cross-host verifier reads original bytes and recomputes hashes,
     values and suitability; supplying the timestamp does not claim fresh acquisition.
     """
-    imported: SenatoOpenDataCandidateImport = import_senato_open_data_sittings(
+    imported = _import_held_official_archive(
         source_archive_bytes, observed_at_utc=observed_at_utc,
     )
     contract = load_source_intelligence_contract()
@@ -124,7 +151,7 @@ def read_back_senato_official_candidate(
     source_ids = sorted(row.source_record_id for row in rows)
     return SenatoTechnicalReceipt(
         dataset_url=DATASET_URL,
-        source_sha256=hashlib.sha256(source_archive_bytes).hexdigest(),
+        source_sha256=imported.source_archive_sha256,
         source_bytes=len(source_archive_bytes),
         observed_at_utc=observed_at_utc,
         provider_id=PROVIDER_ID,
@@ -169,7 +196,7 @@ def inspect_senato_official_records(
     """
     if type(limit) is not int or not 1 <= limit <= 5:
         raise DvnsOfficialProbeError("DVNS_OFFICIAL_SAMPLE_LIMIT_INVALID")
-    imported = import_senato_open_data_sittings(
+    imported = _import_held_official_archive(
         source_archive_bytes, observed_at_utc=observed_at_utc,
     ).imported
     provenance_by_id = {row.record_id: row for row in imported.provenance}

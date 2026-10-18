@@ -5,7 +5,7 @@ import json
 import sys
 import unittest
 from contextlib import redirect_stdout
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from unittest import mock
 
@@ -23,7 +23,13 @@ from dichiarazioni_pubbliche.dvns_official_source_probe import (  # noqa: E402
     read_back_senato_official_candidate,
     verify_senato_official_readback,
 )
-from dichiarazioni_pubbliche.senato_open_data_sedute import DATASET_URL  # noqa: E402
+from dichiarazioni_pubbliche.senato_open_data_sedute import (  # noqa: E402
+    DATASET_URL,
+    MAX_ARCHIVE_BYTES,
+    MAX_XML_BYTES,
+    SenatoOpenDataError,
+    import_senato_open_data_sittings,
+)
 from tests.test_senato_open_data_sedute import SOURCE_ROWS, archive  # noqa: E402
 
 
@@ -98,6 +104,53 @@ class DvnsOfficialSourceProbeTests(unittest.TestCase):
         ) as caught:
             acquire_senato_official_candidate(opener=transport)
         self.assertNotIn("private upstream", str(caught.exception))
+
+    def test_invalid_official_url_is_refused_before_any_network_request(self):
+        for url in (
+            DATASET_URL.replace("https://", "http://"),
+            "https://untrusted.example/Leg19/dump-sedute-19.zip",
+            "https://user@raw.githubusercontent.com/Leg19/dump-sedute-19.zip",
+        ):
+            with self.subTest(url=url), mock.patch(
+                "dichiarazioni_pubbliche.dvns_official_source_probe.DATASET_URL", url,
+            ):
+                transport = Transport(Response(archive(), location=url))
+                with self.assertRaisesRegex(DvnsOfficialProbeError, "OFFICIAL_SOURCE_URL_INVALID"):
+                    _fetch_official_archive(opener=transport)
+                self.assertEqual(transport.calls, [])
+
+    def test_readback_and_inspector_refuse_inconsistent_digest_and_rights(self):
+        raw = archive()
+        observed = "2026-10-10T15:30:00Z"
+        imported = import_senato_open_data_sittings(raw, observed_at_utc=observed)
+        cases = (
+            ("archive hash", replace(imported, source_archive_sha256="0" * 64), "SOURCE_RECEIPT_MISMATCH"),
+            ("source version", replace(imported, imported=replace(
+                imported.imported, source_version="sha256:" + "0" * 64,
+            )), "SOURCE_RECEIPT_MISMATCH"),
+            ("rights gate", replace(imported, rights_gate="APPROVED"), "RIGHTS_GATE_NOT_HELD"),
+            ("rights status", replace(imported, imported=replace(
+                imported.imported, rights_status="APPROVED",
+            )), "RIGHTS_GATE_NOT_HELD"),
+        )
+        for mutation, changed, error_code in cases:
+            with self.subTest(mutation=mutation), mock.patch(
+                "dichiarazioni_pubbliche.dvns_official_source_probe.import_senato_open_data_sittings",
+                return_value=changed,
+            ):
+                with self.assertRaisesRegex(DvnsOfficialProbeError, error_code):
+                    read_back_senato_official_candidate(raw, observed_at_utc=observed)
+                with self.assertRaisesRegex(DvnsOfficialProbeError, error_code):
+                    inspect_senato_official_records(raw, observed_at_utc=observed)
+
+    def test_probe_refuses_compressed_rdf_above_expansion_budget(self):
+        oversized_zip = archive(SOURCE_ROWS + " " * MAX_XML_BYTES)
+        self.assertLess(len(oversized_zip), MAX_ARCHIVE_BYTES)
+        for consume in (read_back_senato_official_candidate, inspect_senato_official_records):
+            with self.subTest(consume=consume.__name__), self.assertRaisesRegex(
+                SenatoOpenDataError, "SENATO_RDF_SIZE_OR_ENCRYPTION_INVALID",
+            ):
+                consume(oversized_zip, observed_at_utc="2026-10-10T15:30:00Z")
 
     def test_mutated_source_bytes_fail_independent_cross_host_receipt(self):
         raw = archive()
