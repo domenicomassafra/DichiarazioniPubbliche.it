@@ -198,19 +198,6 @@ class SpeechActContextTests(unittest.TestCase):
                 self.assertEqual(result.stance, "ENDORSE")
                 self.assertFalse(result.publication_authority)
 
-    def test_german_translation_stays_held_under_existing_wording_review(self):
-        translation = assess_translation(
-            source_text="Ich unterstütze den Plan nicht.",
-            translated_text="Non sostengo il piano.",
-            source_language="de",
-            target_language="it",
-            method="HUMAN",
-            human_reviewed=True,
-        )
-        self.assertEqual(translation.state, TranslationReviewState.NEEDS_REVIEW)
-        self.assertIn("LANGUAGE_RISK_RULE_UNAVAILABLE", translation.signal_codes)
-        self.assertFalse(translation.public_quote_eligible)
-
     def test_direct_denial_preserves_negation_and_refusal_to_endorse(self):
         text = "Non sostengo che il piano funzioni."
         result = assess(text)

@@ -1,4 +1,5 @@
 import os
+import socket
 import sys
 import tempfile
 import unittest
@@ -38,6 +39,64 @@ def private_dns(host, port, type=None):
 
 
 class EvidenceRuntimeTests(unittest.TestCase):
+    def _fetcher(self, root, resolver):
+        return SafeEvidenceFetcher(
+            registry={"sources": [{**SOURCE, "accepted_content_types": ["text/plain"]}]},
+            cache=EvidenceCache(Path(root) / "cache"),
+            rate_limiter=FileRateLimiter(Path(root) / "rate.json"),
+            resolver=resolver,
+        )
+
+    def test_rebinding_before_connect_cannot_open_a_private_socket(self):
+        reads = []
+
+        def resolver(host, port, type=None):
+            reads.append(host)
+            ip = "93.184.216.34" if len(reads) == 1 else "127.0.0.1"
+            return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))]
+
+        def boundary(handler, connection_type, request, **kwargs):
+            connection = connection_type(request.host, timeout=1, **kwargs)
+            connection.connect()
+            self.fail("private destination reached")
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict(os.environ, {"https_proxy": "", "HTTPS_PROXY": "", "no_proxy": "", "NO_PROXY": ""}), \
+             patch("socket.getaddrinfo", side_effect=private_dns), \
+             patch("socket.socket", side_effect=AssertionError("private socket attempted")) as opened, \
+             patch("urllib.request.AbstractHTTPHandler.do_open", new=boundary):
+            with self.assertRaisesRegex(ValueError, "DISCOVERY_URL_NONPUBLIC_IP"):
+                self._fetcher(tmp, resolver).fetch("official-test", "https://example.com/official/x")
+        opened.assert_not_called()
+        self.assertGreaterEqual(len(reads), 2)
+
+    def test_environment_proxy_cannot_route_evidence_away_from_the_vetted_host(self):
+        destinations = []
+
+        class Response:
+            code = status = 200
+            msg = "OK"
+            headers = Message()
+            headers["Content-Type"] = "text/plain"
+
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def geturl(self): return "https://example.com/official/x"
+            def getcode(self): return 200
+            def info(self): return self.headers
+            def read(self, limit): return b"ok"
+
+        def boundary(handler, connection_type, request, **kwargs):
+            destinations.append((request.host, request.has_proxy()))
+            return Response()
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict(os.environ, {"https_proxy": "http://127.0.0.1:3128", "HTTPS_PROXY": "http://127.0.0.1:3128", "no_proxy": "", "NO_PROXY": ""}), \
+             patch("urllib.request.AbstractHTTPHandler.do_open", new=boundary):
+            result = self._fetcher(tmp, public_dns).fetch("official-test", "https://example.com/official/x")
+            self.assertEqual(result.body_path.read_bytes(), b"ok")
+        self.assertEqual(destinations, [("example.com", False)])
+
     def test_partial_http_body_is_refused_when_content_length_is_known(self):
         class FakeResponse:
             status = 200
