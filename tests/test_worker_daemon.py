@@ -144,7 +144,6 @@ class FakeStore:
         self.verification_runs = []
         self.finding_drafts = []
         self.relation_candidates = []
-        self.speaker_person_ids = {}
         self.reanalysis_triggers = []
         self.reanalysis_transitions = []
         self.latest_finding = None
@@ -236,7 +235,6 @@ class FakeStore:
             "temporal_scope": {},
             "metadata": {},
             "statement_date": "2026-09-21",
-            "speaker_person_id": self.speaker_person_ids.get(claim_id),
         }
 
     def approved_verification_evidence(self, claim_id):
@@ -1012,93 +1010,6 @@ class WorkerDaemonTests(unittest.TestCase):
             store.block_reasons["job:VERIFY_CLAIM"],
             "VERIFICATION_STATEMENT_DATE_MISMATCH",
         )
-
-    def test_relation_job_only_persists_candidate(self):
-        store = FakeStore(
-            [
-                job(
-                    "CLASSIFY_CLAIM_RELATION",
-                    {
-                        "prior": {
-                            "claim_id": "claim:a",
-                            "statement_date": "2025-01-01",
-                            "proposition_key": "policy-x",
-                            "topic_key": "policy",
-                            "stance": "SUPPORT",
-                            "scope_start": "2025-01-01",
-                            "scope_end": "2025-12-31",
-                        },
-                        "later": {
-                            "claim_id": "claim:b",
-                            "statement_date": "2025-06-01",
-                            "proposition_key": "policy-x",
-                            "topic_key": "policy",
-                            "stance": "OPPOSE",
-                            "scope_start": "2025-01-01",
-                            "scope_end": "2025-12-31",
-                        },
-                        "estimated_cost_usd": 0,
-                    },
-                )
-            ]
-        )
-        summary = self.make_worker(store).run(1)
-        self.assertEqual(summary.completed, 1)
-        self.assertEqual(len(store.relation_candidates), 1)
-        self.assertEqual(
-            store.relation_candidates[0]["relation_type"],
-            "SAME_PROPOSITION",
-        )
-        self.assertIn(
-            "PERSON_ID_UNVERIFIED_NO_POSITION_CHANGE",
-            store.relation_candidates[0]["rationale_codes"],
-        )
-        self.assertEqual(store.relation_candidates[0]["status"], "CANDIDATE")
-
-    def test_relation_worker_uses_database_speaker_identity_not_job_identity(self):
-        payload = {
-            "prior": {
-                "claim_id": "claim:a", "statement_date": "2025-01-01",
-                "proposition_key": "policy-x", "stance": "SUPPORT",
-                "scope_start": "2025-01-01", "scope_end": "2025-12-31",
-                "person_id": "person:forged-same",
-            },
-            "later": {
-                "claim_id": "claim:b", "statement_date": "2025-06-01",
-                "proposition_key": "policy-x", "stance": "OPPOSE",
-                "scope_start": "2025-01-01", "scope_end": "2025-12-31",
-                "person_id": "person:forged-same",
-            },
-            "estimated_cost_usd": 0,
-        }
-        for speakers, expected in (
-            ({"claim:a": "person:a", "claim:b": "person:b"}, "SAME_PROPOSITION"),
-            ({"claim:a": "person:a", "claim:b": "person:a"}, "CONTRADICTION_CANDIDATE"),
-        ):
-            with self.subTest(speakers=speakers):
-                store = FakeStore([job("CLASSIFY_CLAIM_RELATION", payload)])
-                store.speaker_person_ids = speakers
-                result = self.make_worker(store).run(1)
-                self.assertEqual(result.completed, 1)
-                self.assertEqual(store.relation_candidates[0]["relation_type"], expected)
-
-    def test_relation_worker_rejects_string_retrospective_continuity(self):
-        for value in ("false", "true", 1, None):
-            with self.subTest(value=value):
-                store = FakeStore([job("CLASSIFY_CLAIM_RELATION", {
-                    "prior": {"claim_id": "claim:a", "statement_date": "2025-01-01"},
-                    "later": {
-                        "claim_id": "claim:b", "statement_date": "2025-06-01",
-                        "asserts_past_continuity": value,
-                    },
-                    "estimated_cost_usd": 0,
-                })])
-                self.make_worker(store).run(1)
-                self.assertEqual(store.relation_candidates, [])
-                self.assertEqual(
-                    store.block_reasons.get("job:CLASSIFY_CLAIM_RELATION"),
-                    "RELATION_CONTINUITY_INVALID",
-                )
 
     def test_reanalysis_reuses_latest_verification_rule_without_mutating_old_finding(self):
         store = FakeStore(

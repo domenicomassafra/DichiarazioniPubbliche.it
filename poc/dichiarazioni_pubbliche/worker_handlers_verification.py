@@ -271,6 +271,12 @@ class VerificationRelationReanalysisJobHandlers:
             later_context["content_id"],
         }:
             raise BlockedJob("RELATION_JOB_CONTENT_MISMATCH")
+        for proposed, context in ((prior, prior_context), (later, later_context)):
+            stored_date = context.get("statement_date")
+            if not isinstance(stored_date, str) or not stored_date.strip():
+                raise BlockedJob("RELATION_STATEMENT_DATE_UNVERIFIED")
+            if proposed.statement_date != stored_date:
+                raise BlockedJob("RELATION_STATEMENT_DATE_MISMATCH")
         # Person identity must come from the persisted claims. The job payload
         # is untrusted and may omit or forge a shared speaker. Unknown identity
         # is explicit so the legacy classifier cannot infer contradictions or

@@ -15,6 +15,14 @@ const generic: ReviewedRelationDescription = {
   copy: "Le dichiarazioni sono collegate da una relazione approvata. Il rapporto descrive testi, fonti e tempo senza attribuire intenzioni."
 };
 
+const unresolvedIdentity = new Set(["UNKNOWN", "UNSPECIFIED", "UNRESOLVED", "NONE"]);
+
+function resolvedPersonId(value: string): boolean {
+  return value === value.trim() && value.split(":").every(
+    (part) => part !== "" && part === part.trim() && !unresolvedIdentity.has(part.toUpperCase())
+  );
+}
+
 /**
  * No textual comparison, semantic similarity or opposite stance is inferred
  * in the public reader. An agreement/divergence needs an explicit reviewed
@@ -23,7 +31,7 @@ const generic: ReviewedRelationDescription = {
  */
 export function describeReviewedRelation(input: ReviewedRelationDescriptionInput): ReviewedRelationDescription {
   const ids = input.participantPersonIds;
-  if (ids.length !== 2 || ids.some((value) => typeof value !== "string" || !value.trim())) return generic;
+  if (ids.length !== 2 || ids.some((value) => typeof value !== "string" || !resolvedPersonId(value))) return generic;
   const crossPerson = ids[0] !== ids[1];
   const codes = new Set(input.rationaleCodes);
   const agreement = codes.has("CROSS_PERSON_AGREEMENT_REVIEWED");
