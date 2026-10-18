@@ -340,7 +340,7 @@ def preview_candidate_machine_handoff(
 
 def _batch_snapshot_valid(snapshot: CurrentBatchStudioItem) -> bool:
     """Currentness metadata is mandatory, even for an operator-only preview."""
-    if not isinstance(snapshot, CurrentBatchStudioItem):
+    if type(snapshot) is not CurrentBatchStudioItem:
         return False
     ids = (
         snapshot.passage_id,
