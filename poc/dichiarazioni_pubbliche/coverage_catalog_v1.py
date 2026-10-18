@@ -150,8 +150,9 @@ def build_source_coverage(
     if baseline_sha256 is not None:
         _sha(baseline_sha256)
     by_id: dict[str, CoverageObservation] = {}
+    receipt_attempts: dict[str, str] = {}
     for record in observations:
-        if not isinstance(record, CoverageObservation):
+        if type(record) is not CoverageObservation:
             raise ValueError("COVERAGE_OBSERVATION_INVALID")
         if (record.source_id != unit.source_id or record.policy_version != unit.policy_version
                 or record.scope_fingerprint != unit.scope_fingerprint()):
@@ -161,8 +162,23 @@ def build_source_coverage(
         old = by_id.get(record.attempt_id)
         if old is not None and old != record:
             raise ValueError("COVERAGE_REPLAY_CONFLICT")
+        if record.observation_receipt_id is not None:
+            prior_attempt = receipt_attempts.setdefault(record.observation_receipt_id, record.attempt_id)
+            if prior_attempt != record.attempt_id:
+                raise ValueError("COVERAGE_RECEIPT_REPLAY_CONFLICT")
         by_id[record.attempt_id] = record
     rows = sorted(by_id.values(), key=lambda row: (_aware(row.attempted_at), row.attempt_id))
+    for previous, current in zip(rows, rows[1:]):
+        if _aware(previous.attempted_at) == _aware(current.attempted_at) and (
+            previous.status, previous.rights_status, previous.source_version,
+            previous.content_sha256, previous.enumeration_complete_within_scope,
+            previous.enumerated_scope_review_id,
+        ) != (
+            current.status, current.rights_status, current.source_version,
+            current.content_sha256, current.enumeration_complete_within_scope,
+            current.enumerated_scope_review_id,
+        ):
+            raise ValueError("COVERAGE_AMBIGUOUS_ATTEMPT_ORDER")
     latest = rows[-1] if rows else None
     successes = [row for row in rows if row.status in {"UNCHANGED", "CHANGED"} and row.rights_status == "CLEARED"]
     last_success = successes[-1] if successes else None

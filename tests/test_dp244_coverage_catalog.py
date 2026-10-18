@@ -180,6 +180,7 @@ class CoverageCatalogTests(unittest.TestCase):
         newer = observation(
             attempt_id="attempt:2", status="UNCHANGED",
             content_sha256="b" * 64, source_version="version:2",
+            observation_receipt_id="receipt:official:test:2",
         )
         result = reconcile((old, newer))
         self.assertEqual(result.state, "STALE")
@@ -252,6 +253,57 @@ class CoverageCatalogTests(unittest.TestCase):
             reconcile((replace(a, source_id="source:other"),))
         with self.assertRaisesRegex(ValueError, "FUTURE_OBSERVATION"):
             reconcile((replace(a, attempted_at=NOW + timedelta(days=1)),))
+
+    def test_receipt_replay_under_new_attempt_cannot_refresh_expired_source(self):
+        old = observation(attempted_at=NOW - timedelta(days=5))
+        self.assertEqual(reconcile((old,), baseline_sha256=SHA).state, "STALE")
+        replay = replace(old, attempt_id="attempt:2", attempted_at=NOW)
+        with self.assertRaisesRegex(ValueError, "COVERAGE_RECEIPT_REPLAY_CONFLICT"):
+            reconcile((old, replay), baseline_sha256=SHA)
+        # Duplicating the exact same attempt is still an idempotent no-op.
+        self.assertEqual(reconcile((old, old)), reconcile((old,)))
+
+    def test_observation_subclass_with_mutable_rights_getter_is_rejected(self):
+        class MutableRightsObservation(CoverageObservation):
+            def __getattribute__(self, name):
+                if name == "rights_status" and vars(self).get("_armed", False):
+                    reads = vars(self).get("_reads", 0) + 1
+                    object.__setattr__(self, "_reads", reads)
+                    return "REVOKED" if reads % 2 else "CLEARED"
+                return super().__getattribute__(name)
+
+        dynamic = MutableRightsObservation(**vars(observation()))
+        object.__setattr__(dynamic, "_armed", True)
+        with self.assertRaisesRegex(ValueError, "COVERAGE_OBSERVATION_INVALID"):
+            reconcile((dynamic,), baseline_sha256=SHA)
+
+    def test_same_timestamp_conflicting_rights_or_body_never_selects_by_attempt_id(self):
+        success = observation(attempted_at=NOW)
+        revoked = replace(
+            success, attempt_id="attempt:0", status="RIGHTS_BLOCKED",
+            rights_status="REVOKED", source_version=None, content_sha256=None,
+            observation_receipt_id=None, enumerated_scope_review_id=None,
+            enumeration_complete_within_scope=False,
+        )
+        changed = replace(
+            success, attempt_id="attempt:0", status="CHANGED",
+            source_version="version:2", content_sha256="b" * 64,
+            observation_receipt_id="receipt:official:test:changed",
+        )
+        for ambiguous in (revoked, changed):
+            with self.subTest(status=ambiguous.status):
+                with self.assertRaisesRegex(ValueError, "COVERAGE_AMBIGUOUS_ATTEMPT_ORDER"):
+                    reconcile((ambiguous, success), baseline_sha256=SHA)
+        # Two same-second receipts with matching source/version/rights are safe
+        # to reconcile: they cannot change the selected source status.
+        duplicate_body = replace(
+            success, attempt_id="attempt:2",
+            observation_receipt_id="receipt:official:test:2",
+        )
+        self.assertEqual(
+            reconcile((success, duplicate_body), baseline_sha256=SHA).state,
+            "CURRENT_WITHIN_OBSERVED_SCOPE",
+        )
 
     def test_independent_scopes_cannot_reuse_another_units_review_receipt(self):
         row = observation()
