@@ -17,10 +17,9 @@ from dichiarazioni_pubbliche.studio_local_page import (  # noqa: E402
 
 
 class StudioCaptureDiffDomTests(unittest.TestCase):
-    def test_split_template_preserves_reviewed_exact_bytes(self):
-        # The 11-way extraction of the large preexisting page is mechanical.
-        # This digest pins its reviewed assembled HTML + inline JS, including
-        # the deliberate DP-419 UI additions, so no fragment drifts silently.
+    def test_private_template_preserves_reviewed_exact_bytes(self):
+        # Pin the reviewed full Studio HTML/JS contract, including DP-419.
+        # A later intentional edit must update this digest after review.
         self.assertEqual(
             sha256(_PAGE.encode("utf-8")).hexdigest(),
             "e7f24a531c2fd4c3b6578e8bd9cd919706f875e041f3d8ec5447b90f808ed8bb",
