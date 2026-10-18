@@ -200,15 +200,13 @@ def _assert_inputs(
     assignments: tuple[ResearchAssignment, ...],
     current: InvestigationSourceRecord,
 ) -> str:
-    if not isinstance(spec, InvestigationSpec) or not isinstance(
-        current, InvestigationSourceRecord
-    ):
+    if type(spec) is not InvestigationSpec or type(current) is not InvestigationSourceRecord:
         raise ValueError("INVESTIGATION_STORE_INPUT_INVALID")
     if (
-        not isinstance(assignments, tuple)
+        type(assignments) is not tuple
         or not assignments
         or len(assignments) > 16
-        or any(not isinstance(item, ResearchAssignment) for item in assignments)
+        or any(type(item) is not ResearchAssignment for item in assignments)
     ):
         raise ValueError("INVESTIGATION_STORE_ASSIGNMENTS_INVALID")
     if (
@@ -345,7 +343,7 @@ class InvestigationSQLiteStore:
         upstream registry. This method never decides source legality itself.
         """
         if (
-            not isinstance(record, InvestigationSourceRecord)
+            type(record) is not InvestigationSourceRecord
             or type(expected_revision) is not int
         ):
             raise ValueError("INVESTIGATION_STORE_SOURCE_INVALID")
@@ -380,7 +378,7 @@ class InvestigationSQLiteStore:
         conn: sqlite3.Connection, current: InvestigationSourceRecord
     ) -> None:
         if (
-            not isinstance(current, InvestigationSourceRecord)
+            type(current) is not InvestigationSourceRecord
             or InvestigationSQLiteStore._latest(conn, current.need_id) != current
         ):
             raise ValueError("INVESTIGATION_STORE_SOURCE_STALE")
@@ -750,7 +748,7 @@ class InvestigationSQLiteStore:
         self, spec: InvestigationSpec, assignments: tuple[ResearchAssignment, ...]
     ) -> InvestigationStoredState:
         """Read prior receipts without treating a stale scope as current work."""
-        if not isinstance(spec, InvestigationSpec):
+        if type(spec) is not InvestigationSpec:
             raise ValueError("INVESTIGATION_STORE_INPUT_INVALID")
         fingerprint = propose_investigation(
             spec=spec,
@@ -860,7 +858,7 @@ class InvestigationSQLiteStore:
     ) -> InvestigationStoredState:
         _assert_inputs(spec, assignments, current)
         self._inputs_mutation(key, expected_revision)
-        if not isinstance(observation, InvestigationObservation):
+        if type(observation) is not InvestigationObservation:
             raise ValueError("INVESTIGATION_STORE_OBSERVATION_INVALID")
         with closing(self._connect()) as conn, conn:
             conn.execute("BEGIN IMMEDIATE")
