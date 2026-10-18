@@ -64,4 +64,3 @@ class DetachedEvidenceSnapshotTests(unittest.TestCase):
         )
         self.assertEqual(held.state, "CHECKED_INSUFFICIENT_EVIDENCE")
         self.assertNotEqual(held.snapshot_sha256, result.snapshot_sha256)
-
