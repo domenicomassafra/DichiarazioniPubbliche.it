@@ -1274,16 +1274,13 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
         raw = self.run(
             """
             SELECT COALESCE(json_build_object(
-                'claim_id', claim.id,
-                'content_id', claim.content_id,
+                'claim_id', claim.id, 'content_id', claim.content_id,
                 'normalized_claim', claim.normalized_claim,
                 'claim_type', claim.claim_type,
-                'temporal_scope', claim.temporal_scope,
-                'metadata', claim.metadata,
+                'speaker_person_id', claim.speaker_person_id,
+                'temporal_scope', claim.temporal_scope, 'metadata', claim.metadata,
                 'statement_date', COALESCE(
-                    NULLIF(claim.temporal_scope->>'statement_date', ''),
-                    ''
-                )
+                    NULLIF(claim.temporal_scope->>'statement_date', ''), '')
             )::text, '')
             FROM atomic_claim claim
             JOIN content_item content ON content.id = claim.content_id
