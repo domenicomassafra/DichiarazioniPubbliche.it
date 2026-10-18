@@ -1,9 +1,11 @@
 """DP-512: actual health consumer over isolated canonical PostgreSQL receipts."""
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from tests import test_dp512_billing_pg_fence_next as pg_fixture
 from dichiarazioni_pubbliche.health_digest import build_health_digest
@@ -41,7 +43,8 @@ class HealthDigestPostgresTests(unittest.TestCase):
             self.receipt(key, basis='ESTIMATED_ONLY', estimate='0.1')
             self.pg.sql(f"UPDATE provider_receipt SET started_at='{when}', completed_at='{when}' WHERE id='receipt:{key}';")
         before = self.pg.sql('SELECT md5(json_agg(r ORDER BY id)::text) FROM provider_receipt r;')
-        digest = self.digest(datetime(2026, 11, 2, 0, 30, tzinfo=timezone(timedelta(hours=2))))
+        with patch.dict(os.environ, PGTZ="UTC"):
+            digest = self.digest(datetime(2026, 11, 2, 0, 30, tzinfo=timezone(timedelta(hours=2))))
         billing = digest['billing_today']
         self.assertEqual(billing['attempt_count'], 2)
         self.assertEqual(billing['provisional_estimated_usd'], 0.2)
@@ -76,6 +79,39 @@ class HealthDigestPostgresTests(unittest.TestCase):
         self.assertEqual(digest['billing_today']['undated_unallocated_receipts'], 1)
         statuses = {row['id']: row['status'] for row in digest['slo']['objectives']}
         self.assertEqual(statuses['SLO-COST-GLOBAL-DAILY'], 'UNKNOWN')
+
+    def test_rome_dst_billing_day_matches_postgresql_session_timezone(self):
+        for today, utc_start, utc_end in (
+            ("2026-03-29T12:00:00+00:00", "2026-03-28T23:00:00+00:00",
+             "2026-03-29T22:00:00+00:00"),
+            ("2026-10-25T12:00:00+00:00", "2026-10-24T22:00:00+00:00",
+             "2026-10-25T23:00:00+00:00"),
+        ):
+            with self.subTest(today=today):
+                self.pg.sql(
+                    "TRUNCATE dp512_pg_event, dp512_pg_state, provider_receipt CASCADE;"
+                )
+                start = datetime.fromisoformat(utc_start)
+                end = datetime.fromisoformat(utc_end)
+                for key, when in (
+                    ("before", start - timedelta(microseconds=1)),
+                    ("start", start),
+                    ("last", end - timedelta(microseconds=1)),
+                    ("after", end),
+                ):
+                    self.receipt(key, basis="ESTIMATED_ONLY", estimate="0.1")
+                    self.pg.sql(
+                        "UPDATE provider_receipt SET started_at="
+                        f"'{when.isoformat()}',completed_at='{when.isoformat()}' "
+                        f"WHERE id='receipt:{key}';"
+                    )
+                with patch.dict(os.environ, PGTZ="Europe/Rome"):
+                    self.assertEqual(self.db.run("SHOW TIME ZONE;"), "Europe/Rome")
+                    digest = self.digest(datetime.fromisoformat(today))
+                self.assertEqual(digest["billing_today"]["window_start"], utc_start)
+                self.assertEqual(digest["billing_today"]["window_end"], utc_end)
+                self.assertEqual(digest["billing_today"]["attempt_count"], 2)
+                self.assertEqual(digest["billing_today"]["provisional_estimated_usd"], 0.2)
 
 
 if __name__ == '__main__':

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Callable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,42 @@ class ReservedBudget:
     today_usd: Decimal
     today_attempts: int
     prior_attempts: int
+
+
+@dataclass(frozen=True)
+class BillingDayWindow:
+    start_utc: datetime | None
+    end_utc: datetime | None
+    timezone_status: str
+
+
+def read_billing_day_window(
+    run: Callable[..., str], *, current: datetime
+) -> BillingDayWindow:
+    """Match the database's existing local-day admission window, including DST."""
+    name = run("SELECT current_setting('TimeZone');").strip()
+    try:
+        zone = ZoneInfo(name)
+    except (ValueError, ZoneInfoNotFoundError):
+        return BillingDayWindow(None, None, "UNKNOWN")
+    start = current.astimezone(zone).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end = start + timedelta(days=1)
+    return BillingDayWindow(
+        start.astimezone(timezone.utc), end.astimezone(timezone.utc), "KNOWN"
+    )
+
+
+def mark_unknown_billing_window(report: dict[str, Any]) -> None:
+    """Keep private SLO output explicit when the database day is unavailable."""
+    report["estimated_cost_usd_today"] = None
+    for key in report["billing_today"]:
+        if key not in {
+            "window_timezone_status", "invoice_attested",
+            "authorizes_dispatch", "provider_grouping_is_source_attribution",
+        }:
+            report["billing_today"][key] = None
 
 
 def private_receipt_groups(billing: Any) -> dict[tuple[str, str, str], dict[str, Any]]:
