@@ -134,6 +134,7 @@ class InMemoryIntakeRateStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._window_id: int | None = None
+        self._last_epoch: int | None = None
         self._bucket_counts: dict[str, int] = {}
         self._global_count = 0
         self._fingerprints: dict[str, _FingerprintRecord] = {}
@@ -174,7 +175,10 @@ class InMemoryIntakeRateStore:
         window_id = request.now_epoch // request.window_seconds
         bucket_digest = self._bucket_digest(request.bucket_key)
         with self._lock:
+            if self._last_epoch is not None and request.now_epoch < self._last_epoch:
+                raise ValueError("INTAKE_CLOCK_ROLLBACK")
             self._reset_window_if_needed(window_id)
+            self._last_epoch = request.now_epoch
             self._prune_duplicates(
                 now_epoch=request.now_epoch,
                 ttl=request.duplicate_window_seconds,

@@ -185,6 +185,15 @@ class PublicIntakeAbuseGuardTests(unittest.TestCase):
         self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
         self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
 
+    def test_in_memory_same_window_rollback_blocks_without_quota_reset(self):
+        profile = _profile(bucket_limit=1, window_seconds=60)
+        self.clock.value += timedelta(seconds=20)
+        self.assertEqual(self.guard(profile=profile).state, IntakeGuardState.ALLOWED_PRIVATE)
+        self.clock.value -= timedelta(seconds=5)
+        receipt = self.guard(_validation(body="Backdated request"), profile=profile)
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
     def test_global_quota_applies_across_pseudonymous_buckets(self):
         profile = _profile(global_quota=2)
         first = self.guard(
