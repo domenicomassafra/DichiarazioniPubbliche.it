@@ -138,6 +138,10 @@ jobs:
         working-directory: web
         run: npm run check
 
+      - name: Reviewed relation copy cannot infer positions
+        working-directory: web
+        run: npm run check:relations
+
       - name: Static build (fictional demo projection)
         working-directory: web
         env:
