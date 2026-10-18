@@ -1,3 +1,4 @@
+import ast
 import unittest
 from pathlib import Path
 
@@ -65,20 +66,35 @@ class OperationLedgerSchemaTests(unittest.TestCase):
         self.assertNotIn("delete from provider_receipt", lowered)
 
     def test_budget_paths_use_measured_else_estimate(self):
-        paths = (
-            ROOT / "poc" / "dichiarazioni_pubbliche" / "queue_store.py",
-            ROOT / "poc" / "dichiarazioni_pubbliche" / "scheduler_daemon.py",
-            ROOT
-            / "poc"
-            / "dichiarazioni_pubbliche"
-            / "ops"
-            / "provider_outage_drill.py",
-        )
-        for path in paths:
-            text = path.read_text()
+        package = ROOT / "poc" / "dichiarazioni_pubbliche"
+        # Both live consumers now delegate their SQL to a shared module.
+        # Assert the actual call site and inspect each function's own SQL,
+        # so moving a query cannot silently remove the measured-cost rule.
+        queue = (package / "queue_store.py").read_text()
+        scheduler = (package / "scheduler_daemon.py").read_text()
+        self.assertIn("CostSnapshot(*worker_cost_snapshot(self.run, source_id))", queue)
+        self.assertIn("return scheduler_cost_today(self._run, source_id)", scheduler)
+        helper = (package / "ops" / "budget_exposure_v1.py").read_text()
+        parsed = ast.parse(helper)
+        for name in ("worker_cost_snapshot", "scheduler_cost_today"):
+            function = next(
+                node for node in parsed.body
+                if isinstance(node, ast.FunctionDef) and node.name == name
+            )
+            text = ast.get_source_segment(helper, function)
+            self.assertIsNotNone(text)
             self.assertIn("MEASURED_PROVIDER_COST", text)
             self.assertIn("measured_cost_usd", text)
             self.assertIn("estimated_cost_usd", text)
+            self.assertRegex(
+                text,
+                r"WHEN r\.billing_basis='MEASURED_PROVIDER_COST'\s+"
+                r"THEN r\.measured_cost_usd\s+ELSE r\.estimated_cost_usd",
+            )
+            self.assertIn("worker_budget_reservation", text)
+        drill = (package / "ops" / "provider_outage_drill.py").read_text()
+        for token in ("MEASURED_PROVIDER_COST", "measured_cost_usd", "estimated_cost_usd"):
+            self.assertIn(token, drill)
 
     def test_health_digest_delegates_to_canonical_receipt_reconciliation(self):
         text = (ROOT / "poc/dichiarazioni_pubbliche/health_digest.py").read_text()
