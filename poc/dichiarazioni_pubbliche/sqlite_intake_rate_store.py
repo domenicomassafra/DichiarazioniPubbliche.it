@@ -1,25 +1,18 @@
-"""Durable single-host private intake quota accounting (DP-508)."""
+"""Durable local-only SQLite quota store for validated public intake."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import sqlite3
 import stat
 from contextlib import closing
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from dichiarazioni_pubbliche.public_intake_abuse import (
-    MAX_DUPLICATE_CAPACITY,
-    MAX_DUPLICATE_LIMIT,
-    MAX_RATE_COUNT,
-    MAX_RATE_WINDOW_SECONDS,
-    RateStoreRequest,
-    RateStoreResult,
-    RateStoreStatus,
-    _SHA256_HEX,
-    _valid_bucket_key,
-)
+if TYPE_CHECKING:
+    from .public_intake_abuse import RateStoreRequest, RateStoreResult
 
 
 class SQLiteIntakeRateStore:
@@ -62,6 +55,11 @@ class SQLiteIntakeRateStore:
                     last_seen_epoch INTEGER NOT NULL,
                     replay_count INTEGER NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS intake_checkpoint (
+                    singleton INTEGER PRIMARY KEY CHECK (singleton=1),
+                    last_epoch INTEGER NOT NULL,
+                    profile TEXT NOT NULL
+                );
                 """
             )
 
@@ -84,6 +82,16 @@ class SQLiteIntakeRateStore:
 
     @staticmethod
     def _validate_request(request: RateStoreRequest) -> None:
+        from .public_intake_abuse import (
+            MAX_DUPLICATE_CAPACITY,
+            MAX_DUPLICATE_LIMIT,
+            MAX_RATE_COUNT,
+            MAX_RATE_WINDOW_SECONDS,
+            RateStoreRequest,
+            _SHA256_HEX,
+            _valid_bucket_key,
+        )
+
         if not isinstance(request, RateStoreRequest):
             raise ValueError("INTAKE_RATE_REQUEST_INVALID")
         if _valid_bucket_key(request.bucket_key) is None or not _SHA256_HEX.fullmatch(
@@ -106,15 +114,55 @@ class SQLiteIntakeRateStore:
             raise ValueError("INTAKE_RATE_LIMITS_INVALID")
 
     def reserve(self, request: RateStoreRequest) -> RateStoreResult:
+        from .public_intake_abuse import RateStoreResult, RateStoreStatus
+
         self._validate_request(request)
         self._check_private_file()
         window_id = request.now_epoch // request.window_seconds
         bucket_scope = (
             "bucket:" + hashlib.sha256(request.bucket_key.encode()).hexdigest()
         )
+        profile = json.dumps(
+            (
+                request.window_seconds,
+                request.bucket_limit,
+                request.global_quota,
+                request.duplicate_window_seconds,
+                request.duplicate_limit,
+                request.duplicate_capacity,
+            ),
+            separators=(",", ":"),
+        )
         with closing(sqlite3.connect(self.path, timeout=3)) as db:
             with db:
                 db.execute("BEGIN IMMEDIATE")
+                checkpoint = db.execute(
+                    "SELECT last_epoch,profile FROM intake_checkpoint WHERE singleton=1"
+                ).fetchone()
+                if checkpoint is None:
+                    # An older populated store has no reliable clock/config history.
+                    # An operator must provision a new empty store before enabling it.
+                    if (
+                        db.execute("SELECT 1 FROM intake_window LIMIT 1").fetchone()
+                        or db.execute(
+                            "SELECT 1 FROM intake_fingerprint LIMIT 1"
+                        ).fetchone()
+                    ):
+                        raise ValueError("INTAKE_RATE_CHECKPOINT_MISSING")
+                    db.execute(
+                        "INSERT INTO intake_checkpoint VALUES(1,?,?)",
+                        (request.now_epoch, profile),
+                    )
+                else:
+                    last_epoch, stored_profile = checkpoint
+                    if stored_profile != profile:
+                        raise ValueError("INTAKE_RATE_PROFILE_CHANGED")
+                    if request.now_epoch < last_epoch:
+                        raise ValueError("INTAKE_CLOCK_ROLLBACK")
+                    db.execute(
+                        "UPDATE intake_checkpoint SET last_epoch=? WHERE singleton=1",
+                        (request.now_epoch,),
+                    )
                 global_row = db.execute(
                     "SELECT window_id,used FROM intake_window WHERE scope='global'"
                 ).fetchone()

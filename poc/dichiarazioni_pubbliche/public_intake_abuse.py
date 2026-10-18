@@ -15,7 +15,7 @@ import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import Callable, Protocol
 
 from dichiarazioni_pubbliche.policy.intake_policy import (
     INTAKE_POLICY_VERSION,
@@ -23,10 +23,6 @@ from dichiarazioni_pubbliche.policy.intake_policy import (
     IntakeRejectionReason,
     IntakeValidationResult,
 )
-
-
-if TYPE_CHECKING:
-    from dichiarazioni_pubbliche.private_intake_sqlite_store import SQLiteIntakeRateStore
 
 
 INTAKE_ABUSE_GUARD_VERSION = "public-intake-abuse-v1"
@@ -212,14 +208,6 @@ class InMemoryIntakeRateStore:
     def retained_fingerprint_count(self) -> int:
         with self._lock:
             return len(self._fingerprints)
-
-
-def __getattr__(name: str):
-    """Keep the public DP-508 import stable while the SQLite backend is isolated."""
-    if name == "SQLiteIntakeRateStore":
-        from dichiarazioni_pubbliche.private_intake_sqlite_store import SQLiteIntakeRateStore
-        return SQLiteIntakeRateStore
-    raise AttributeError(name)
 
 
 @dataclass(frozen=True)
@@ -449,6 +437,9 @@ def guard_validated_intake(
     return _receipt(
         IntakeGuardState.ALLOWED_PRIVATE, IntakeSpamReason.OK, decision_time
     )
+
+
+from .sqlite_intake_rate_store import SQLiteIntakeRateStore  # noqa: E402
 
 
 __all__ = [

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import socket
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -346,6 +347,74 @@ class PersistentIntakeRateStoreTests(unittest.TestCase):
         self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
         self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
 
+    def test_clock_rollback_within_same_window_fails_closed_after_restart(self):
+        self.clock.value += timedelta(seconds=40)
+        self.assertEqual(self.guard().state, IntakeGuardState.ALLOWED_PRIVATE)
+        self.clock.value -= timedelta(seconds=20)
+        self.store = SQLiteIntakeRateStore(self.path)
+        receipt = self.guard(_validation(body="Replica documentata numero due."))
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
+    def test_denied_request_advances_monotonic_clock_checkpoint(self):
+        profile = _profile(global_quota=1)
+        self.clock.value += timedelta(seconds=10)
+        self.assertEqual(
+            self.guard(profile=profile).state, IntakeGuardState.ALLOWED_PRIVATE
+        )
+        self.clock.value += timedelta(seconds=30)
+        self.assertEqual(
+            self.guard(_validation(body="Denied request"), profile=profile).state,
+            IntakeGuardState.RATE_LIMITED,
+        )
+        self.clock.value -= timedelta(seconds=20)
+        self.store = SQLiteIntakeRateStore(self.path)
+        receipt = self.guard(_validation(body="Older denied request"), profile=profile)
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
+    def test_profile_changes_cannot_reset_quota_or_duplicate_policy(self):
+        changes = (
+            {"window_seconds": 30},
+            {"bucket_limit": 200},
+            {"global_quota": 2000},
+            {"duplicate_capacity": 512},
+        )
+        for index, changed_values in enumerate(changes):
+            with self.subTest(changed_values=changed_values):
+                path = self.path.with_name(f"profile-{index}.sqlite3")
+                first_store = SQLiteIntakeRateStore(path)
+                self.assertEqual(
+                    self.guard(rate_store=first_store).state,
+                    IntakeGuardState.ALLOWED_PRIVATE,
+                )
+                next_store = SQLiteIntakeRateStore(path)
+                receipt = self.guard(
+                    _validation(body=f"Changed profile {index}"),
+                    rate_store=next_store,
+                    profile=_profile(**changed_values),
+                )
+                self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+                self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
+    def test_missing_checkpoint_on_populated_database_fails_closed(self):
+        self.assertEqual(self.guard().state, IntakeGuardState.ALLOWED_PRIVATE)
+        with sqlite3.connect(self.path) as db:
+            db.execute("DELETE FROM intake_checkpoint")
+        self.store = SQLiteIntakeRateStore(self.path)
+        receipt = self.guard(_validation(body="Replica successiva documentata."))
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
+    def test_pre_checkpoint_database_requires_operator_migration(self):
+        self.assertEqual(self.guard().state, IntakeGuardState.ALLOWED_PRIVATE)
+        with sqlite3.connect(self.path) as db:
+            db.execute("DROP TABLE intake_checkpoint")
+        self.store = SQLiteIntakeRateStore(self.path)
+        receipt = self.guard(_validation(body="Replica della seconda istanza."))
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
+
     def test_private_storage_and_database_corruption_fail_closed(self):
         self.assertEqual(os.stat(self.path).st_mode & 0o077, 0)
         self.path.write_bytes(b"not a database")
@@ -362,6 +431,14 @@ class PersistentIntakeRateStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SQLiteIntakeRateStore(Path(self.tempdir.name) / "other.sqlite3")
         self.assertEqual(self.guard().state, IntakeGuardState.BLOCKED)
+
+    def test_symlink_substituted_after_init_fails_closed(self):
+        moved = self.path.with_name("existing.sqlite3")
+        self.path.rename(moved)
+        self.path.symlink_to(moved)
+        receipt = self.guard()
+        self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+        self.assertEqual(receipt.reason, IntakeSpamReason.RATE_STORE_ERROR)
 
 
 if __name__ == "__main__":
