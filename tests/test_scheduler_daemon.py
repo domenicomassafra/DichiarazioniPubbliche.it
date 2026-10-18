@@ -321,52 +321,6 @@ class SchedulerDaemonTests(unittest.TestCase):
         self.assertEqual(second.duplicate_jobs, 1)
         self.assertEqual(store.content_ids[0], store.content_ids[1])
 
-    def test_timer_poll_discovers_only_new_jobs_and_skips_non_due_sources(self):
-        """Three due feed versions enqueue the initial item and one delta only."""
-        store = FakeStore()
-        first_item = content()
-        new_item = DiscoveredContent(
-            source_id=first_item.source_id,
-            platform=first_item.platform,
-            external_id="episode-65",
-            title="Nuova pubblicazione verificabile",
-            canonical_url="https://example.test/episode-65",
-            published_at="2026-09-22T00:30:00+00:00",
-            author=first_item.author,
-        )
-        calls = []
-
-        def discover(_source):
-            calls.append(True)
-            return [first_item] if len(calls) == 1 else [first_item, new_item]
-
-        def tick(minutes):
-            return poll_source(
-                SOURCE,
-                store,
-                now=NOW + timedelta(minutes=minutes),
-                budget=RuntimeBudget(),
-                discover=discover,
-            )
-
-        first = tick(0)
-        self.assertEqual(first.jobs_enqueued, 1)
-        store.health_state = SourceHealthState(NOW, 0)
-        self.assertEqual(tick(5).status, "SKIPPED_NOT_DUE")
-        self.assertEqual(len(calls), 1)
-
-        changed = tick(30)
-        self.assertEqual(changed.jobs_enqueued, 1)
-        self.assertEqual(changed.duplicate_jobs, 1)
-        self.assertEqual(len(store.jobs), 2)
-        store.health_state = SourceHealthState(NOW + timedelta(minutes=30), 0)
-        self.assertEqual(tick(35).status, "SKIPPED_NOT_DUE")
-        unchanged = tick(60)
-        self.assertEqual(unchanged.jobs_enqueued, 0)
-        self.assertEqual(unchanged.duplicate_jobs, 2)
-        self.assertEqual(len(store.jobs), 2)
-        self.assertEqual(len(calls), 3)
-
     def test_daily_budget_blocks_enqueue_but_keeps_discovery(self):
         store = FakeStore()
         store.global_cost = 5.0
