@@ -205,6 +205,22 @@ await assert.rejects(
 );
 await assert.rejects(() => validateSearchIndex(index, "b".repeat(64)), /INCOMPATIBLE/);
 
+// A digest only authenticates canonical bytes, not per-term input types.
+// A signed but malformed array must fail closed before .map(normalizeSearchText).
+for (const [field, malformed] of [
+  ["primary_terms", [null]],
+  ["secondary_terms", [42]],
+]) {
+  const invalid = structuredClone(material);
+  invalid.records[0][field] = malformed;
+  const signed = await finalizeSearchIndex(invalid);
+  await assert.rejects(
+    () => validateSearchIndex(signed, projection.dataset_sha256),
+    /SEARCH_INDEX_RECORD_INVALID/,
+    `${field} entries must be strings even if the index digest is valid`,
+  );
+}
+
 const duplicateRouteMaterial = structuredClone(material);
 duplicateRouteMaterial.records[1].route = duplicateRouteMaterial.records[0].route;
 const duplicateRouteIndex = await finalizeSearchIndex(duplicateRouteMaterial);
