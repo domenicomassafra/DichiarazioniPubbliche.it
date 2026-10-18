@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from tests import test_dp512_billing_pg_fence_next as pg_fixture
 from dichiarazioni_pubbliche.health_digest import build_health_digest
+from dichiarazioni_pubbliche.ops.budget_exposure_v1 import read_billing_day_window
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 
 
@@ -112,6 +113,66 @@ class HealthDigestPostgresTests(unittest.TestCase):
                 self.assertEqual(digest["billing_today"]["window_end"], utc_end)
                 self.assertEqual(digest["billing_today"]["attempt_count"], 2)
                 self.assertEqual(digest["billing_today"]["provisional_estimated_usd"], 0.2)
+
+    def test_db_boundaries_handle_utc_rome_and_havana_midnight_fold(self):
+        cases = (
+            ("UTC", "2026-11-01T04:30:00+00:00",
+             "2026-11-01T00:00:00+00:00", "2026-11-02T00:00:00+00:00"),
+            ("Europe/Rome", "2026-03-29T12:00:00+00:00",
+             "2026-03-28T23:00:00+00:00", "2026-03-29T22:00:00+00:00"),
+            ("Europe/Rome", "2026-10-25T12:00:00+00:00",
+             "2026-10-24T22:00:00+00:00", "2026-10-25T23:00:00+00:00"),
+            ("America/Havana", "2026-11-01T04:30:00+00:00",
+             "2026-11-01T05:00:00+00:00", "2026-11-02T05:00:00+00:00"),
+            ("America/Havana", "2026-11-01T05:30:00+00:00",
+             "2026-11-01T05:00:00+00:00", "2026-11-02T05:00:00+00:00"),
+            ("America/Santiago", "2026-09-06T14:00:00+00:00",
+             "2026-09-06T04:00:00+00:00", "2026-09-07T03:00:00+00:00"),
+        )
+        for zone, when, start, end in cases:
+            with self.subTest(zone=zone, when=when):
+                with patch.dict(os.environ, PGTZ=zone):
+                    self.assertEqual(self.db.run("SHOW TIME ZONE;"), zone)
+                    window = read_billing_day_window(
+                        self.db.run, current=datetime.fromisoformat(when)
+                    )
+                self.assertEqual(window.timezone_status, "KNOWN")
+                self.assertEqual(window.start_utc.isoformat(), start)
+                self.assertEqual(window.end_utc.isoformat(), end)
+
+    def test_midnight_dst_digest_uses_exact_pg_receipt_window(self):
+        for zone, current, start, end in (
+            ("America/Havana", "2026-11-01T05:30:00+00:00",
+             "2026-11-01T05:00:00+00:00", "2026-11-02T05:00:00+00:00"),
+            ("America/Santiago", "2026-09-06T14:00:00+00:00",
+             "2026-09-06T04:00:00+00:00", "2026-09-07T03:00:00+00:00"),
+        ):
+            with self.subTest(zone=zone):
+                self.pg.sql(
+                    "TRUNCATE dp512_pg_event, dp512_pg_state, provider_receipt CASCADE;"
+                )
+                first = datetime.fromisoformat(start)
+                last = datetime.fromisoformat(end)
+                for key, instant in (
+                    ("before", first - timedelta(microseconds=1)),
+                    ("start", first),
+                    ("last", last - timedelta(microseconds=1)),
+                    ("after", last),
+                ):
+                    self.receipt(key, basis="ESTIMATED_ONLY", estimate="0.1")
+                    self.pg.sql(
+                        "UPDATE provider_receipt SET started_at="
+                        f"'{instant.isoformat()}',completed_at='{instant.isoformat()}' "
+                        f"WHERE id='receipt:{key}';"
+                    )
+                with patch.dict(os.environ, PGTZ=zone):
+                    digest = self.digest(datetime.fromisoformat(current))
+                self.assertEqual(digest["billing_today"]["window_timezone_status"], "KNOWN")
+                self.assertEqual(digest["billing_today"]["window_start"], start)
+                self.assertEqual(digest["billing_today"]["window_end"], end)
+                self.assertEqual(digest["billing_today"]["attempt_count"], 2)
+                self.assertEqual(digest["billing_today"]["provisional_estimated_usd"], 0.2)
+                self.assertFalse(digest["billing_today"]["authorizes_dispatch"])
 
 
 if __name__ == '__main__':

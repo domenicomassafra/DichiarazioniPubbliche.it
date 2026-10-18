@@ -3,8 +3,9 @@ import os
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,10 +22,32 @@ class FakeDb:
     receipt_rows = ()
     undated_count = 0
     billing_timezone = "UTC"
+    billing_window_override = None
 
     def run(self, sql, **variables):
-        if "current_setting('TimeZone')" in sql:
-            return self.billing_timezone
+        if "WITH bound AS" in sql and "current_setting('TimeZone')" in sql:
+            if self.billing_window_override is not None:
+                return self.billing_window_override
+            current = datetime.fromisoformat(variables["current"])
+            try:
+                zone = ZoneInfo(self.billing_timezone)
+            except ZoneInfoNotFoundError:
+                return json.dumps({
+                    "timezone": self.billing_timezone,
+                    "local_day": current.date().isoformat(),
+                    "window_start": None, "window_end": None,
+                })
+            start = current.astimezone(zone).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            # FakeDB only models unambiguous UTC days; the real PG tests
+            # exercise DST midnight folds and skipped local midnight.
+            return json.dumps({
+                "timezone": self.billing_timezone,
+                "local_day": current.astimezone(zone).date().isoformat(),
+                "window_start": start.isoformat(),
+                "window_end": (start + timedelta(days=1)).isoformat(),
+            })
         if "FROM processing_job" in sql and "GROUP BY job_type" in sql:
             return '[{"job_type":"CLAIM_EXTRACT","state":"BLOCKED","count":2}]'
         if "'oldest_queued_seconds'" in sql:
@@ -159,6 +182,36 @@ class HealthDigestTests(unittest.TestCase):
         self.assertFalse(billing["authorizes_dispatch"])
         statuses = {row["id"]: row["status"] for row in digest["slo"]["objectives"]}
         self.assertEqual(statuses["SLO-COST-GLOBAL-DAILY"], "UNKNOWN")
+
+    def test_malformed_or_drifted_pg_window_fails_closed_without_billable_rows(self):
+        valid = {
+            "timezone": "UTC", "local_day": "2026-10-25",
+            "window_start": "2026-10-25T00:00:00+00:00",
+            "window_end": "2026-10-26T00:00:00+00:00",
+        }
+        for response in (
+            "not json",
+            json.dumps({**valid, "window_start": "2026-10-25T00:00:00"}),
+            json.dumps({**valid, "local_day": "2026-10-24"}),
+            json.dumps({**valid, "window_end": "2026-10-24T00:00:00+00:00"}),
+            json.dumps({**valid, "window_start": "2026-10-25T00:00:00+01:00"}),
+            json.dumps({**valid, "timezone": "Invalid/UnknownSessionZone"}),
+        ):
+            with self.subTest(response=response):
+                db = FakeDb()
+                db.billing_window_override = response
+                with tempfile.TemporaryDirectory() as tmp:
+                    digest = build_health_digest(
+                        db, private_root=Path(tmp),
+                        now=datetime(2026, 10, 25, 12, tzinfo=timezone.utc),
+                    )
+                self.assertEqual(digest["billing_today"]["window_timezone_status"], "UNKNOWN")
+                self.assertIsNone(digest["billing_today"]["window_start"])
+                self.assertIsNone(digest["billing_today"]["attempt_count"])
+                self.assertIsNone(digest["estimated_cost_usd_today"])
+                self.assertFalse(digest["billing_today"]["invoice_attested"])
+                self.assertFalse(digest["billing_today"]["authorizes_dispatch"])
+                self.assertFalse(hasattr(db, "receipt_window"))
 
     def test_known_breach_is_not_hidden_by_an_unknown_attempt(self):
         digest = self.digest([
