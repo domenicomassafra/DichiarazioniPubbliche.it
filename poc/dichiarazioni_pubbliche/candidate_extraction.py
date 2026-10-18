@@ -16,10 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from dichiarazioni_pubbliche.claim_contract import ClaimType, NON_FACTUAL_CLAIM_TYPES
-from dichiarazioni_pubbliche.context_integrity import (
-    assess_context_integrity,
-    assess_speech_act_context,
-)
+from dichiarazioni_pubbliche.candidate_context_safety import candidate_context_assessments
 from dichiarazioni_pubbliche.wording_contract import WordingType, wording_contract_metadata
 from dichiarazioni_pubbliche.corpus_repository import (
     ClaimCandidateRecord,
@@ -833,8 +830,7 @@ def prepare_extraction_batch(
             and raw.get("speaker_mention")
             and speech_mode == "DIRECT_UTTERANCE"
         ):
-            # A written source naming another speaker is reporting that person's
-            # words. It is not the original attributable occurrence.
+            # Written mentions prove no direct authorship.
             speech_mode = "REPORTED_SPEECH"
             reported_speaker = raw.get("speaker_mention")
         if context.selector_type == "MEDIA_SEGMENT_REF":
@@ -848,29 +844,10 @@ def prepare_extraction_batch(
             if media_speaker:
                 attribution_method = "CANONICAL_SEGMENT_SPEAKER"
 
-        context_integrity = assess_context_integrity(
-            source_text=context.text,
-            source_sha256=context.text_sha256,
-            quote_start=start,
-            quote_end=end,
-            speech_mode=speech_mode,
-        ).to_metadata()
-        # A candidate has no independently approved complete turn, even if a
-        # media segment has a resolved speaker. Keep this source-bound semantic
-        # hypothesis private and held until context and attribution are reviewed.
-        speech_act_context = assess_speech_act_context(
-            source_text=context.text,
-            source_sha256=context.text_sha256,
-            quote_start=start,
-            quote_end=end,
-            turn_start=0,
-            turn_end=len(context.text),
-            utterer_id=media_speaker or "",
-            turn_speaker_ids=(media_speaker,) if media_speaker else (),
-            source_part_ref=context.passage_id,
-            turn_complete=False,
-            language=context.language,
-        ).to_metadata()
+        context_integrity, speech_act_context = candidate_context_assessments(
+            context, quote_start=start, quote_end=end,
+            speech_mode=speech_mode, media_speaker=media_speaker,
+        )
         source_wording_type = (
             WordingType.VERBATIM_ORIGINAL
             if speech_mode == "DIRECT_UTTERANCE"
