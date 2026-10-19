@@ -206,8 +206,8 @@
   "web/scripts/check-browser-qa.mjs": 50918,
   "web/scripts/dp431_rebuild.py": 21719,
   "web/src/components/ExploreClient.tsx": 28008,
-  "web/src/lib/publicStatementSearchV3.ts": 21198,
-  "web/src/lib/searchIndex.ts": 21652,
+  "web/src/lib/publicStatementSearchV3.ts": 21162,
+  "web/src/lib/searchIndex.ts": 21615,
   "web/src/styles/legacy.css": 66483,
   "web/src/styles/primitives.css": 47409
 }

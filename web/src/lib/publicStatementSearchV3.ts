@@ -6,6 +6,7 @@
  */
 import { canonicalJson, normalizeSearchText } from "./searchIndex.ts";
 import { publicIdSlug } from "./format.ts";
+import { publicTextScores } from "./minisearchAdapter.ts";
 
 export const PUBLIC_STATEMENT_SEARCH_V3_SCHEMA = "public-statement-search-v3-opt-in" as const;
 export const PUBLIC_STATEMENT_SEARCH_V3_MAX_QUERY = 200;
@@ -400,20 +401,6 @@ export function parsePublicStatementSearchV3Url(search: string): V3SearchUrlStat
   return state;
 }
 
-function relevance(record: V3StatementRecord, term: string): number {
-  if (!term) return 0;
-  const original = normalizeSearchText(record.original.text);
-  const secondary = [
-    normalizeSearchText(record.person_name),
-    normalizeSearchText(record.source.title),
-  ];
-  if (original === term) return 400;
-  if (original.includes(term)) return 300;
-  if (secondary.some((value) => value === term)) return 200;
-  if (secondary.some((value) => value.includes(term))) return 100;
-  return -1;
-}
-
 /** Browser search validates the pinned static artifact before every result. */
 export async function searchPublicStatementsV3(
   index: unknown, pins: V3IndexPins, rawQuery: string, filters: Partial<V3SearchUrlState> = {},
@@ -431,8 +418,16 @@ export async function searchPublicStatementsV3(
     fail("PUBLIC_V3_SEARCH_FILTER_INVALID");
   }
   const needle = normalizeSearchText(rawQuery.trim());
+  const scores = publicTextScores(verified.records, needle, (record) => ({
+    primary: [record.original.text],
+    secondary: [record.person_name, record.source.title],
+  }), normalizeSearchText, {
+    // The independently pinned hash was checked above; mutation is detected
+    // before a cached lexical index can ever be consulted.
+    asset: index as object, revision: verified.index_sha256,
+  });
   const records = verified.records
-    .map((record) => ({ record, score: relevance(record, needle) }))
+    .map((record, id) => ({ record, score: scores.get(id) ?? -1 }))
     .filter(({ record, score }) =>
       (!needle || score >= 0) &&
       (person === null || record.person_id === person) &&
