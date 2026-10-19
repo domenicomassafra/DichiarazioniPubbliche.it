@@ -343,15 +343,11 @@ def resolve_exact_source_locator(
     media_segment: ObservedMediaSegment | None = None,
     current_source_sha256: str | None = None,
 ) -> ExactSourceLocatorResolution:
-    """Verify one private source locator against an observed immutable version.
+    """Verify a pinned private Capture/Passage or transcript segment locator.
 
-    For written documents, the caller must independently reparse the verified
-    source bytes to obtain canonical/page text using the recorded parser. For
-    media, it must supply an independently observed transcript variant/segment.
-    This checks their consistency; it cannot itself authenticate a parser,
-    establish speaker identity, rights, or external player seek support.
-    Supplying current_source_sha256 additionally checks freshness; otherwise
-    LOCATED means pinned-version validity, not that this is the newest source.
+    Callers independently reparse source bytes or observe transcript segments.
+    This cannot grant parser, speaker, rights or viewer authority. Without
+    current_source_sha256, LOCATED verifies only the historical source version.
     """
     def blocked(
         code: str, status: str = "BLOCKED", version_sha256: str | None = None,
@@ -440,6 +436,10 @@ def resolve_exact_source_locator(
             ):
                 return blocked("LOCATOR_TEXT_SELECTOR_INVALID")
             observed_quote = canonical_text[locator.quote_start:locator.quote_end]
+            # A single TEXT_POSITION Passage can still contain a document
+            # page break. Never turn words from two pages into one quote.
+            if "\f" in observed_quote:
+                return blocked("LOCATOR_QUOTE_DISCONTINUITY")
         else:
             # One-page quotes only: a PAGE_RANGE spanning multiple pages has no
             # precise quotation boundary without separate page-level passages.
