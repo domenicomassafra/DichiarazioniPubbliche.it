@@ -1,7 +1,4 @@
-/* Exercise the actual Studio inline script against a deterministic local DOM.
- * Delayed fetches deliberately ignore abort signals to prove that stale
- * responses cannot repopulate private UI even when cancellation loses a race.
- */
+/* Exercise delayed Studio fetches and stale-response privacy against a local DOM. */
 'use strict';
 
 const assert = require('node:assert/strict');
@@ -51,7 +48,8 @@ for (const id of ['token', 'results', 'status', 'clear', 'member-links',
                   'media-locator', 'corpus-list',
                   'corpus-links', 'corpus-summary', 'corpus-inspector',
                   'corpus-references', 'corpus-inspector-title', 'corpus-back',
-                  'corpus-source-jump', 'corpus-jump-status']) {
+                  'corpus-source-jump', 'corpus-jump-status',
+                  'source-exact-form', 'source-exact-status', 'source-exact-open']) {
   ids.set(id, new Element());
 }
 const forms = {};

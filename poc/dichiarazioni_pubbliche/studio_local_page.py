@@ -10,6 +10,9 @@ from __future__ import annotations
 import re
 
 from dichiarazioni_pubbliche.studio_capture_diff_browser import CAPTURE_DIFF_BROWSER_JS
+from dichiarazioni_pubbliche.studio_exact_source_jump_browser import (
+    EXACT_JUMP_BROWSER_JS, EXACT_JUMP_FORM_HTML,
+)
 
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
 
@@ -148,16 +151,7 @@ _PAGE = """<!doctype html>
       </form>
       <p id="workload-summary" role="status" aria-live="polite">Nessuna coda operativa letta.</p>
       <div id="workload-links" role="group" aria-label="Content operativi selezionabili"></div>
-      <h2 id="collection-navigation-heading" tabindex="-1">Percorso persistito Collection → Capture → Passage → Candidate</h2>
-      <p>Un'unica lettura PostgreSQL coerente di Content inclusi, cattura più recente, selettori scritti e candidati. Solo hash, ID e stati; nessun estratto o permesso. Seleziona un Passage per aprire il dettaglio completo con i Claim Candidate.</p>
-      <form data-endpoint="/v1/collections/navigate">
-        <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
-        <label>Content per pagina (1–10)<input name="limit" type="number" min="1" max="10" value="10" required></label>
-        <label>Dopo Content ID<input name="after_content_id" maxlength="180"></label>
-        <button type="submit">Naviga percorso persistito</button></div>
-      </form>
-      <p id="collection-navigation-summary" role="status" aria-live="polite">Nessuna navigazione caricata.</p>
-      <div id="collection-navigation-links" role="group" aria-label="Content e Passage persistiti selezionabili"></div>
+      __EXACT_SOURCE_JUMP_FORM__
       <h2>Contenuti inclusi</h2><p>Seleziona una raccolta per leggere solo i riferimenti persistiti. Il dettaglio indica i collegamenti verificati e gli elementi ancora assenti.</p>
       <form data-endpoint="/v1/collections/members">
         <div class="controls"><label>ID raccolta<input name="collection_id" maxlength="180" value="research:garlasco" required></label>
@@ -511,6 +505,7 @@ _PAGE = """<!doctype html>
     const SAFE_REF = /^[A-Za-z0-9_:/.-]{1,180}$/;
     const SAFE_SHA256 = /^[0-9a-f]{64}$/;
     __CAPTURE_DIFF_BROWSER_HELPERS__
+    __EXACT_SOURCE_JUMP_BROWSER_HELPERS__
     let selectedCorpusButton = null;
     let selectedCorpusReference = null;
     const mediaLocator = document.getElementById('media-locator');
@@ -654,6 +649,7 @@ _PAGE = """<!doctype html>
     }
     function hidePrivateLocators() {
       clearCorpusResults(true);
+      clearExactSourceJump(true);
       for (const form of document.querySelectorAll('form[data-endpoint]')) {
         for (const field of form.querySelectorAll('input,select,textarea')) {
           if (field.name !== 'limit') field.value = '';
@@ -1083,6 +1079,13 @@ _PAGE = """<!doctype html>
                     capture_id: capture.id, capture_sha256: capture.content_sha256,
                     source_id: item.source_id,
                   };
+                  for (const key of ['collection_id','content_id','capture_id','passage_id']) {
+                    document.getElementById('source-exact-form').elements.namedItem(key).value =
+                      key === 'collection_id' ? tree.collection_id :
+                      key === 'content_id' ? item.content_id :
+                      key === 'capture_id' ? capture.id : passage.id;
+                  }
+                  clearExactSourceJump();
                   lineageForm.elements.namedItem('collection_id').value = tree.collection_id;
                   lineageForm.elements.namedItem('content_id').value = item.content_id;
                   lineageForm.elements.namedItem('capture_id').value = capture.id;
@@ -1944,7 +1947,9 @@ def render_studio_login_page(nonce: str) -> bytes:
     if not isinstance(nonce, str) or not _NONCE.fullmatch(nonce):
         raise ValueError("STUDIO_LOCAL_PAGE_NONCE_INVALID")
     return (_PAGE.replace("__NONCE__", nonce)
-            .replace("__CAPTURE_DIFF_BROWSER_HELPERS__", CAPTURE_DIFF_BROWSER_JS)).encode("utf-8")
+            .replace("__CAPTURE_DIFF_BROWSER_HELPERS__", CAPTURE_DIFF_BROWSER_JS)
+            .replace("__EXACT_SOURCE_JUMP_FORM__", EXACT_JUMP_FORM_HTML)
+            .replace("__EXACT_SOURCE_JUMP_BROWSER_HELPERS__", EXACT_JUMP_BROWSER_JS)).encode("utf-8")
 
 
 __all__ = ["render_studio_login_page"]
