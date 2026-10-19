@@ -385,7 +385,12 @@ class SchedulerDaemonTests(unittest.TestCase):
         self.assertEqual(len(store.failures), 1)
 
 
-class FullSourceSchedulerTests(unittest.TestCase):
+from tests._scheduler_receipt_integrity_cases import ReceiptIntegrityCases
+
+
+class FullSourceSchedulerTests(ReceiptIntegrityCases, unittest.TestCase):
+    fake_store_type = FakeStore
+
     def test_all_adapter_families_are_dispatchable(self):
         from dichiarazioni_pubbliche.scheduler_daemon import SUPPORTED_SOURCE_KINDS
 
@@ -604,27 +609,6 @@ class FullSourceSchedulerTests(unittest.TestCase):
         )
         self.assertEqual(result[0].status, "SKIPPED_NOT_DUE")
         self.assertEqual(result[0].error_category, "NOT_DUE")
-
-    def test_daily_units_and_receipt_schema_are_present(self):
-        root = Path(__file__).resolve().parents[1]
-        service = (root / "deploy/systemd/dichiarazioni-pubbliche-source-poll-daily.service").read_text()
-        timer = (root / "deploy/systemd/dichiarazioni-pubbliche-source-poll-daily.timer").read_text()
-        schema = (root / "db/schema.v1.sql").read_text()
-        migration = (
-            root / "db/migrations/20260925-add-source-poll-run-receipts.sql"
-        ).read_text()
-        self.assertIn("--full-source", service)
-        self.assertIn("OnCalendar=daily", timer)
-        for sql in (schema, migration):
-            self.assertIn("CREATE TABLE IF NOT EXISTS source_poll_run", sql)
-            self.assertIn("CREATE TABLE IF NOT EXISTS source_poll_run_source", sql)
-            self.assertIn("id                      text PRIMARY KEY", sql)
-            self.assertIn("mode                    text NOT NULL", sql)
-            self.assertIn("run_date                date NOT NULL", sql)
-            self.assertIn("effective_config_hash", sql)
-            self.assertIn("error_category", sql)
-            self.assertIn("jobs_enqueued", sql)
-
 
 if __name__ == "__main__":
     unittest.main()
