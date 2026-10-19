@@ -279,7 +279,10 @@ class PublicAccountTests(unittest.TestCase):
 
 
 class SignedGoogleTokenTests(unittest.TestCase):
-    @unittest.skipUnless(__import__("importlib").util.find_spec("cryptography"), "explicit cryptography account profile not installed")
+    @unittest.skipUnless(
+        __import__("importlib").util.find_spec("cryptography") and __import__("importlib").util.find_spec("authlib"),
+        "optional Authlib account profile not installed",
+    )
     def test_real_rs256_signature_and_strict_oidc_claims(self):
         from cryptography.hazmat.primitives.asymmetric import rsa, padding
         from cryptography.hazmat.primitives import hashes

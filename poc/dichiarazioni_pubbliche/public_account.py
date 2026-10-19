@@ -80,18 +80,16 @@ def _google_json(url: str, *, body: bytes | None = None) -> dict:
 def verify_google_id_token(raw: str, jwks: dict, *, client_id: str, nonce: str, now: int) -> tuple[str, str]:
     """Verify RS256 signature, issuer, exact audience, nonce and strict claims."""
     try:
-        from cryptography.hazmat.primitives.asymmetric import padding, rsa
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.exceptions import InvalidSignature
+        from authlib.jose import JoseError, JsonWebToken
     except ImportError:
-        raise ValueError("OIDC_CRYPTOGRAPHY_REQUIRED") from None
+        raise ValueError("OIDC_AUTHLIB_REQUIRED") from None
     if not isinstance(raw, str) or len(raw) > 12000 or raw.count(".") != 2:
         raise ValueError("OIDC_JWT_INVALID")
     a, b, c = raw.split(".")
     try:
         header = json.loads(_decode_segment(a))
         claims = json.loads(_decode_segment(b))
-        signature = _decode_segment(c)
+        _decode_segment(c)
         if not isinstance(header, dict) or not isinstance(claims, dict):
             raise ValueError("OIDC_JWT_INVALID")
         if header.get("alg") != "RS256" or header.get("typ", "JWT") != "JWT":
@@ -109,9 +107,24 @@ def verify_google_id_token(raw: str, jwks: dict, *, client_id: str, nonce: str, 
         e = int.from_bytes(_decode_segment(matches[0]["e"]), "big")
         if not 2048 <= n.bit_length() <= 4096 or e != 65537:
             raise ValueError("OIDC_JWT_KEY_INVALID")
-        rsa.RSAPublicNumbers(e, n).public_key().verify(
-            signature, f"{a}.{b}".encode("ascii"), padding.PKCS1v15(), hashes.SHA256()
+        # Authlib owns signature verification and JWT decoding. Pin the only
+        # accepted algorithm and a single already-validated Google signing key.
+        # Claims remain checked below against this application's stricter
+        # OIDC profile; a generic JWT signature alone is not authentication.
+        claims = JsonWebToken(["RS256"]).decode(
+            raw, matches[0],
+            claims_options={
+                "iss": {"essential": True, "values": ["https://accounts.google.com", "accounts.google.com"]},
+                "aud": {"essential": True, "value": client_id},
+                "sub": {"essential": True},
+                "exp": {"essential": True},
+                "iat": {"essential": True},
+                "nonce": {"essential": True, "value": nonce},
+            },
         )
+        # Google permits modest clock skew at issuance; our checks below
+        # still reject an already-expired token without an expiry grace.
+        claims.validate(now=now, leeway=60)
         if claims.get("iss") not in ("https://accounts.google.com", "accounts.google.com"):
             raise ValueError("OIDC_ISSUER_INVALID")
         if claims.get("aud") != client_id or not isinstance(claims.get("aud"), str):
@@ -130,7 +143,7 @@ def verify_google_id_token(raw: str, jwks: dict, *, client_id: str, nonce: str, 
         if claims.get("email_verified") is not True or not isinstance(email, str) or not _EMAIL.fullmatch(email):
             raise ValueError("OIDC_VERIFIED_EMAIL_REQUIRED")
         return sub, email
-    except (KeyError, TypeError, OverflowError, InvalidSignature, UnicodeError, json.JSONDecodeError, ValueError):
+    except (KeyError, TypeError, OverflowError, JoseError, UnicodeError, json.JSONDecodeError, ValueError):
         raise ValueError("OIDC_TOKEN_VERIFICATION_FAILED") from None
 
 

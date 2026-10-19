@@ -30,9 +30,9 @@ dependencies = []
 # backend-postgres profile. The runtime reaches PostgreSQL through the `psql` CLI,
 # not a Python driver, so this profile intentionally declares no Python package.
 postgres = []
-# Only explicit Google OIDC account deployments install this runtime crypto.
+# Only explicit Google OIDC account deployments install JWT verification.
 # The default public reader/contributor install remains stdlib-only.
-account = ["cryptography>=45.0,<50.0"]
+account = ["Authlib==1.9.1", "cryptography>=45.0,<50.0"]
 # Explicit opt-in private PDF text extraction. Default/contributor installs
 # remain stdlib-only, and absence of this backend always yields a HOLD.
 document-pdf = ["pypdf>=6.0,<7.0"]

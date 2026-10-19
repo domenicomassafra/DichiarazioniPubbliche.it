@@ -12,6 +12,9 @@ Third-party dependencies distributed with the Python package
 --------------------------------------------------------------------------------
 
 The Python runtime is stdlib-only: the distribution declares no runtime dependency.
+The optional `account` extra installs Authlib 1.9.1 (BSD-3-Clause) for
+Google OIDC JWT verification; its original license/copyright notices are
+preserved in the installed distribution. See docs/donors/authlib.md.
 Development-only tooling is declared in pyproject.toml under
 [project.optional-dependencies].dev (build, packaging, pip, setuptools, wheel) and is
 used only to build and validate the distribution. The web frontend depends on the npm
