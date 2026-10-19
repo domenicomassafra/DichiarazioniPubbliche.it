@@ -28,6 +28,7 @@ from dichiarazioni_pubbliche.source_adapters import (
     SourceAdapterError,
 )
 from dichiarazioni_pubbliche.source_watcher import discover_source, load_registry
+from dichiarazioni_pubbliche.source_poll_receipt_store import ReceiptReadStoreMixin, receipts_verified
 
 
 FULL_SOURCE_MODE = "full-source"
@@ -289,7 +290,7 @@ def source_due(
     return now >= health.checked_at + timedelta(minutes=base * backoff)
 
 
-class PsqlStore:
+class PsqlStore(ReceiptReadStoreMixin):
     def __init__(self, database_url: str | None = None, psql: str = "psql") -> None:
         self.database_url = database_url or None
         self.psql = psql
@@ -550,34 +551,6 @@ class PsqlStore:
             error=error[:1000],
         )
 
-    def get_source_poll_run(self, run_id: str) -> dict[str, Any] | None:
-        raw = self._run(
-            """
-            SELECT json_build_object(
-                'run_id', id,
-                'mode', mode,
-                'run_date', run_date::text,
-                'effective_config_hash', effective_config_hash,
-                'status', status,
-                'diagnostic', diagnostic,
-                'started_at', started_at::text,
-                'completed_at', completed_at::text,
-                'source_count', source_count,
-                'discovered', discovered,
-                'content_upserts', content_upserts,
-                'jobs_enqueued', jobs_enqueued,
-                'duplicate_jobs', duplicate_jobs,
-                'budget_blocked', budget_blocked,
-                'omitted_items', omitted_items,
-                'error_category', error_category
-            )::text
-            FROM source_poll_run
-            WHERE id = :'run_id';
-            """,
-            run_id=run_id,
-        )
-        return json.loads(raw) if raw else None
-
     def start_source_poll_run(
         self,
         *,
@@ -616,69 +589,6 @@ class PsqlStore:
             effective_config_hash=effective_config_hash,
             diagnostic="true" if diagnostic else "false",
         )
-
-    def get_source_poll_source(self, run_id: str, source_id: str) -> dict[str, Any] | None:
-        raw = self._run(
-            """
-            SELECT json_build_object(
-                'receipt_id', id,
-                'run_id', run_id,
-                'source_id', source_id,
-                'mode', mode,
-                'run_date', run_date::text,
-                'effective_config_hash', effective_config_hash,
-                'diagnostic', diagnostic,
-                'status', status,
-                'discovered', discovered,
-                'content_upserts', content_upserts,
-                'jobs_enqueued', jobs_enqueued,
-                'duplicate_jobs', duplicate_jobs,
-                'budget_blocked', budget_blocked,
-                'omitted_items', omitted_items,
-                'error', error_category,
-                'error_category', error_category,
-                'started_at', started_at::text,
-                'completed_at', completed_at::text
-            )::text
-            FROM source_poll_run_source
-            WHERE run_id = :'run_id' AND source_id = :'source_id';
-            """,
-            run_id=run_id,
-            source_id=source_id,
-        )
-        return json.loads(raw) if raw else None
-
-    def list_source_poll_sources(self, run_id: str) -> list[dict[str, Any]]:
-        raw = self._run(
-            """
-            SELECT COALESCE(json_agg(row_to_json(x) ORDER BY source_id)::text, '[]')
-            FROM (
-                SELECT
-                    id AS receipt_id,
-                    run_id,
-                    source_id,
-                    mode,
-                    run_date::text,
-                    effective_config_hash,
-                    diagnostic,
-                    status,
-                    discovered,
-                    content_upserts,
-                    jobs_enqueued,
-                    duplicate_jobs,
-                    budget_blocked,
-                    omitted_items,
-                    error_category AS error,
-                    error_category,
-                    started_at::text,
-                    completed_at::text
-                FROM source_poll_run_source
-                WHERE run_id = :'run_id'
-            ) x;
-            """,
-            run_id=run_id,
-        )
-        return [dict(row) for row in json.loads(raw or "[]")]
 
     def source_poll_day_status(
         self,
@@ -1141,7 +1051,7 @@ class PsqlStore:
         error_category: str,
         completed_at: datetime,
     ) -> None:
-        self._run(
+        recorded_id = self._run(
             """
             UPDATE source_poll_run
             SET status = :'status',
@@ -1154,7 +1064,17 @@ class PsqlStore:
                 omitted_items = :'omitted_items',
                 error_category = NULLIF(:'error_category',''),
                 completed_at = :'completed_at'::timestamptz
-            WHERE id = :'run_id';
+            WHERE id = :'run_id'
+              AND (:'status' <> 'COMPLETED' OR (
+                  (SELECT count(*) FROM source_poll_run_source child
+                   WHERE child.run_id = source_poll_run.id) = :'source_count'::integer
+                  AND NOT EXISTS (
+                      SELECT 1 FROM source_poll_run_source child
+                      WHERE child.run_id = source_poll_run.id
+                        AND child.status = 'RUNNING'
+                  )
+              ))
+            RETURNING id;
             """,
             run_id=run_id,
             status=status,
@@ -1168,6 +1088,8 @@ class PsqlStore:
             error_category=error_category,
             completed_at=_utc_datetime(completed_at).isoformat(),
         )
+        if recorded_id != run_id:
+            raise RuntimeError("SOURCE_POLL_PARENT_COMPLETION_REJECTED")
 
 
 def _legacy_persist_items(
@@ -1300,13 +1222,7 @@ def poll_source(
                 completed_at=started_at,
             )
         except Exception as exc:
-            return PollOutcome(
-                source_id,
-                "FAILED",
-                error=_error_category(exc),
-                error_category=_error_category(exc),
-                receipt_id=deterministic_source_receipt_id(context.run_id, source_id),
-            )
+            raise RuntimeError("SOURCE_POLL_RECEIPT_WRITE_FAILED") from exc
         return outcome
 
     try:
@@ -1475,8 +1391,8 @@ def poll_source(
                     completed_at=_utc_datetime(now),
                     failure_category=category,
                 )
-            except Exception:
-                pass
+            except Exception as write_exc:
+                raise RuntimeError("SOURCE_POLL_RECEIPT_WRITE_FAILED") from write_exc
         elif status == "FAILED":
             try:
                 store.mark_failure(source_id, category)
@@ -1514,6 +1430,31 @@ def _result_from_run(
         completed_at=receipt.get("completed_at"),
         diagnostic=bool(receipt.get("diagnostic", False)),
     )
+
+
+def _checked_completed_replay(store: Any, context: SourceRunContext,
+                              sources: list[dict[str, Any]], parent: dict[str, Any]) -> FullSourceResult:
+    children = store.list_source_poll_sources(context.run_id)
+    expected = [str(source.get("id") or "") for source in sources]
+    if (int(parent.get("source_count", -1)) == len(expected)
+            and receipts_verified(context.run_id, expected, children, context)):
+        return _result_from_run(parent, children, status="SKIPPED_ALREADY_COMPLETED")
+    # Reclassify an unprovable historic completion without fabricating child rows.
+    store.complete_source_poll_run(
+        run_id=context.run_id, status="FAILED",
+        source_count=int(parent.get("source_count", 0)),
+        discovered=int(parent.get("discovered", 0)),
+        content_upserts=int(parent.get("content_upserts", 0)),
+        jobs_enqueued=int(parent.get("jobs_enqueued", 0)),
+        duplicate_jobs=int(parent.get("duplicate_jobs", 0)),
+        budget_blocked=int(parent.get("budget_blocked", 0)),
+        omitted_items=int(parent.get("omitted_items", 0)),
+        error_category="RECEIPT_COUNT_MISMATCH", completed_at=_utc_datetime(None),
+    )
+    persisted = store.get_source_poll_run(context.run_id)
+    if not persisted or persisted.get("status") != "FAILED":
+        raise RuntimeError("SOURCE_POLL_PARENT_FAILURE_NOT_PERSISTED")
+    return _result_from_run(persisted, children, status="FAILED")
 
 
 def run_full_source(
@@ -1555,11 +1496,7 @@ def run_full_source(
     )
     existing = store.get_source_poll_run(run_id)
     if existing and existing.get("status") == "COMPLETED":
-        return _result_from_run(
-            existing,
-            store.list_source_poll_sources(run_id),
-            status="SKIPPED_ALREADY_COMPLETED",
-        )
+        return _checked_completed_replay(store, context, sources, existing)
     started = store.start_source_poll_run(
         run_id=run_id,
         mode=context.mode,
@@ -1568,19 +1505,10 @@ def run_full_source(
         diagnostic=context.diagnostic,
     )
     if started == "COMPLETED":
-        receipt = store.get_source_poll_run(run_id) or {
-            "run_id": run_id,
-            "mode": context.mode,
-            "run_date": context.run_date,
-            "effective_config_hash": context.effective_config_hash,
-            "status": "COMPLETED",
-            "diagnostic": context.diagnostic,
-        }
-        return _result_from_run(
-            receipt,
-            store.list_source_poll_sources(run_id),
-            status="SKIPPED_ALREADY_COMPLETED",
-        )
+        receipt = store.get_source_poll_run(run_id)
+        if not receipt:
+            raise RuntimeError("SOURCE_POLL_COMPLETED_PARENT_MISSING")
+        return _checked_completed_replay(store, context, sources, receipt)
 
     source_ids = [str(source.get("id") or "") for source in sources]
     previous = {} if force else store.source_poll_day_status(
@@ -1590,6 +1518,7 @@ def run_full_source(
     )
     state = _RunBudgetState()
     outcomes: list[PollOutcome] = []
+    receipt_write_failed = False
     for source in sources:
         source_id_value = str(source.get("id") or "")
         existing_child = store.get_source_poll_source(run_id, source_id_value)
@@ -1616,6 +1545,7 @@ def run_full_source(
                         completed_at=current,
                     )
                 except Exception as exc:
+                    receipt_write_failed = True
                     outcome = PollOutcome(
                         source_id_value,
                         "FAILED",
@@ -1627,41 +1557,49 @@ def run_full_source(
                     )
                 outcomes.append(outcome)
                 continue
-        outcome = poll_source(
-            source,
-            store,
-            now=current,
-            budget=policy,
-            force=force,
-            limit=min(max(int(limit), 0), MAX_DISCOVERED_ITEMS_PER_SOURCE),
-            discover=discover,
-            context=context,
-            run_state=state,
-        )
+        try:
+            outcome = poll_source(
+                source, store, now=current, budget=policy, force=force,
+                limit=min(max(int(limit), 0), MAX_DISCOVERED_ITEMS_PER_SOURCE),
+                discover=discover, context=context, run_state=state,
+            )
+        except RuntimeError as exc:
+            if str(exc) != "SOURCE_POLL_RECEIPT_WRITE_FAILED":
+                raise
+            receipt_write_failed = True
+            outcome = PollOutcome(source_id_value, "FAILED",
+                                  error="RECEIPT_WRITE_FAILED",
+                                  error_category="RECEIPT_WRITE_FAILED")
         outcomes.append(outcome)
 
     counters = _counters(outcomes)
     failed = any(row.status == "FAILED" for row in outcomes)
-    run_status = "FAILED" if failed else "COMPLETED"
-    error_category = "SOURCE_FAILURE" if failed else ""
-    completed_at = _utc_datetime(now)
     try:
-        store.complete_source_poll_run(
-            run_id=run_id,
-            status=run_status,
-            source_count=counters["source_count"],
-            discovered=counters["discovered"],
-            content_upserts=counters["content_upserts"],
-            jobs_enqueued=counters["jobs_enqueued"],
-            duplicate_jobs=counters["duplicate_jobs"],
-            budget_blocked=counters["budget_blocked"],
-            omitted_items=counters["omitted_items"],
-            error_category=error_category,
-            completed_at=completed_at,
-        )
+        persisted_children = store.list_source_poll_sources(run_id)
+        verified = receipts_verified(run_id, source_ids, persisted_children, context)
+        verification_error = "RECEIPT_COUNT_MISMATCH"
     except Exception:
-        run_status = "FAILED"
-        error_category = "RECEIPT_WRITE_FAILED"
+        verified = False
+        verification_error = "RECEIPT_READ_FAILED"
+    run_status = "COMPLETED" if not failed and verified else "FAILED"
+    error_category = ("RECEIPT_WRITE_FAILED" if receipt_write_failed else
+                      verification_error if not verified else
+                      "SOURCE_FAILURE" if failed else "")
+    completed_at = _utc_datetime(now)
+    completion = dict(run_id=run_id, status=run_status,
+                      error_category=error_category, completed_at=completed_at,
+                      **counters)
+    try:
+        store.complete_source_poll_run(**completion)
+    except Exception:
+        if run_status == "COMPLETED":
+            store.complete_source_poll_run(**{
+                **completion, "status": "FAILED", "error_category": "RECEIPT_WRITE_FAILED"
+            })
+        raise
+    persisted_parent = store.get_source_poll_run(run_id)
+    if not persisted_parent or persisted_parent.get("status") != run_status:
+        raise RuntimeError("SOURCE_POLL_PARENT_COMPLETION_NOT_PERSISTED")
     return FullSourceResult(
         outcomes,
         run_id=run_id,
