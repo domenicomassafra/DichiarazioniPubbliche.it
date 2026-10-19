@@ -111,6 +111,20 @@ jobs:
             exit 1
           fi
 
+  openapi-contract:
+    name: OpenAPI 3.1 developer contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install development-only upstream validator
+        run: python -m pip install ".[dev]"
+      - name: Validate generated OpenAPI, references and response examples
+        run: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_openapi_spec_validator -v
+
   web:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     name: web static frontend

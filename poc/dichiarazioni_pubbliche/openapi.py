@@ -4,10 +4,8 @@ The document is generated from the same route table, vocabulary constants, and
 projection fixture that the handlers use, so it cannot drift into a second field
 vocabulary or a second route contract (DP-403 AC-403.1 / AC-403.8).
 
-The examples are synthetic: every string in this module is either a canonical
-domain term, a schema/version identifier, or a fabricated record built from
-fictional identifiers. No real person, no real claim, and no real evidence URL is
-described here (DP-403 AC-403.6).
+Examples use fictional identifiers and reserved example.test URLs; no real
+person, claim, or evidence is described here (DP-403 AC-403.6).
 """
 
 from __future__ import annotations
@@ -1419,7 +1417,7 @@ def _json(content_schema: dict[str, Any], example: Any, summary: str) -> dict[st
     }
 
 
-def _ok(schema_ref: str, example: Any, summary: str) -> dict[str, Any]:
+def _ok(schema_ref: str | dict[str, Any], example: Any, summary: str) -> dict[str, Any]:
     return {
         "description": summary,
         "headers": _headers(
@@ -1439,7 +1437,7 @@ def _ok(schema_ref: str, example: Any, summary: str) -> dict[str, Any]:
                             "type": "object",
                             "required": ["data", "meta"],
                             "properties": {
-                                "data": {"$ref": schema_ref},
+                                "data": ({"$ref": schema_ref} if isinstance(schema_ref, str) else schema_ref),
                                 "meta": {"$ref": "#/components/schemas/Meta"},
                             },
                         }
