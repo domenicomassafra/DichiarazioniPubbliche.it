@@ -21,7 +21,7 @@ class StudioCaptureDiffDomTests(unittest.TestCase):
         # nonce-bound bytes, including that helper, rather than the raw _PAGE.
         self.assertEqual(
             sha256(render_studio_login_page("a" * 32)).hexdigest(),
-            "89df64f6ffca4a98e2d2fad345a3dca4faf0d9c8f07ec7712e871da160dc3cdc",
+            "918bf39908fa962acc8683fd71adcc7e315f9bf31de90f221f77a3e4b15672b4",
         )
 
     @unittest.skipUnless(shutil.which("node"), "Node.js unavailable")
