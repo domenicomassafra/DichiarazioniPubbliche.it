@@ -54,7 +54,8 @@ class UsageAttributionPgTests(unittest.TestCase):
         report = self.reader.read()
         self.assertEqual(report.attempt_count, 2)
         self.assertEqual(report.operation_count, 1)
-        self.assertEqual(report.unknown_cash_attempts, 1)
+        # An estimated zero has no authenticated free-plan or zero-bill proof.
+        self.assertEqual(report.unknown_cash_attempts, 2)
         self.assertEqual(report.recorded_measured_usd, Decimal("0"))
         self.assertEqual(report.provisional_estimated_usd, Decimal("0"))
         self.assertEqual(
