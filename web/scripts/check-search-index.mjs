@@ -99,6 +99,18 @@ const accent = searchPublicIndex(index, "Jose Rossi");
 assert.equal(accent.records[0]?.id, "person:josé rossi", "diacritics must not affect matching");
 const phrase = searchPublicIndex(index, "inflazione");
 assert.equal(phrase.records[0]?.id, "finding:esatto", "claim match must rank before source metadata match");
+assert.equal(searchPublicIndex(index, "inflaz").records[0]?.id, "finding:esatto",
+  "prefix retrieval must preserve primary field priority");
+assert.equal(searchPublicIndex(index, "inflazzione").records[0]?.id, "finding:esatto",
+  "one-character typo must find the approved claim");
+assert.deepEqual(searchPublicIndex(index, "nessun termine privato").records, [],
+  "unapproved material cannot be retrieved from a public index");
+const mutableIndex = structuredClone(index);
+assert.equal(searchPublicIndex(mutableIndex, "inflazione").records.length > 0, true);
+mutableIndex.records.find((record) => record.id === "finding:esatto").primary_terms = ["Termine nuovo autorizzato"];
+assert.equal(searchPublicIndex(mutableIndex, "inflazione").records.some((record) => record.id === "finding:esatto"), false,
+  "mutation of low-level fixture index must invalidate lexical cache");
+assert.equal(searchPublicIndex(mutableIndex, "Termine nuovo autorizzato").records[0]?.id, "finding:esatto");
 const corrected = searchPublicIndex(index, "spesa").records[0];
 assert.equal(corrected?.has_corrections, true);
 assert.equal(corrected?.has_rights_of_reply, true);

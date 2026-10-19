@@ -1,5 +1,6 @@
 import type { PublicDossier, PublicProjection } from "./types";
 import { publicIdSlug } from "./format.ts";
+import { publicTextScores } from "./minisearchAdapter.ts";
 
 export const SEARCH_INDEX_SCHEMA = "dichiarazioni-pubbliche-search-index-v1" as const;
 export const SEARCH_QUERY_MAX_CHARS = 200;
@@ -513,17 +514,6 @@ function timestamp(record: PublicSearchRecord): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function relevance(record: PublicSearchRecord, needle: string): number {
-  if (!needle) return 0;
-  const primary = record.primary_terms.map(normalizeSearchText);
-  const secondary = record.secondary_terms.map(normalizeSearchText);
-  if (primary.some((term) => term === needle)) return 400;
-  if (primary.some((term) => term.includes(needle))) return 300;
-  if (secondary.some((term) => term === needle)) return 200;
-  if (secondary.some((term) => term.includes(needle))) return 100;
-  return -1;
-}
-
 export function searchPublicIndex(
   index: PublicSearchIndex,
   rawQuery: string,
@@ -540,8 +530,16 @@ export function searchPublicIndex(
   const topicId = filters.topicId ?? "ALL";
   const sort = filters.sort ?? (needle ? "relevance" : "recent");
 
+  const scores = publicTextScores(index.records, needle, (record) => ({
+    primary: record.primary_terms, secondary: record.secondary_terms,
+  }), normalizeSearchText, {
+    asset: index,
+    // Unpinned callers may mutate terms: invalidate on the exact term revision.
+    revision: JSON.stringify(index.records.map(({ primary_terms, secondary_terms }) =>
+      [primary_terms, secondary_terms])),
+  });
   const rows = index.records
-    .map((record) => ({ record, score: relevance(record, needle) }))
+    .map((record, id) => ({ record, score: scores.get(id) ?? -1 }))
     .filter(({ record, score }) =>
       (!needle || score >= 0) &&
       (kind === "ALL" || record.kind === kind) &&

@@ -121,7 +121,7 @@
   "poc/dichiarazioni_pubbliche/research_pilot_readiness.py": 20967,
   "poc/dichiarazioni_pubbliche/review_admin.py": 27627,
   "poc/dichiarazioni_pubbliche/rights_registry.py": 21635,
-  "poc/dichiarazioni_pubbliche/scheduler_daemon.py": 66202,
+  "poc/dichiarazioni_pubbliche/scheduler_daemon.py": 65374,
   "poc/dichiarazioni_pubbliche/source_adapters.py": 35764,
   "poc/dichiarazioni_pubbliche/source_intelligence.py": 52421,
   "poc/dichiarazioni_pubbliche/source_watch_store_v1.py": 25272,
@@ -192,7 +192,7 @@
   "tests/test_reply_governance_postgres.py": 22420,
   "tests/test_research_discovery.py": 52452,
   "tests/test_rights_registry_postgres.py": 20155,
-  "tests/test_scheduler_daemon.py": 23011,
+  "tests/test_scheduler_daemon.py": 21972,
   "tests/test_source_intelligence.py": 25592,
   "tests/test_studio_capture_inspector.py": 23735,
   "tests/test_studio_discovery_triage_schema.py": 25741,
@@ -206,8 +206,8 @@
   "web/scripts/check-browser-qa.mjs": 50918,
   "web/scripts/dp431_rebuild.py": 21719,
   "web/src/components/ExploreClient.tsx": 28008,
-  "web/src/lib/publicStatementSearchV3.ts": 21198,
-  "web/src/lib/searchIndex.ts": 21652,
+  "web/src/lib/publicStatementSearchV3.ts": 21162,
+  "web/src/lib/searchIndex.ts": 21615,
   "web/src/styles/legacy.css": 66483,
   "web/src/styles/primitives.css": 47409
 }

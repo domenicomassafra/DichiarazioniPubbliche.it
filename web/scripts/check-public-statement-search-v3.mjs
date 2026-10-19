@@ -115,6 +115,8 @@ assert.deepEqual((await result("")).records.map((row) => row.statement_id),
 assert.deepEqual((await result("costa 10 euro")).records.map((row) => row.statement_id),
   ["statement:3", "statement:2", "statement:1"], "exact original words are searchable");
 assert.equal((await result("Documento Dimostrativo")).records.length, 3, "approved source title is a secondary term");
+assert.equal((await result("Documento Dimostrati")).records.length, 3, "approved source title supports prefix");
+assert.equal((await result("Documento Dimostrattivo")).records.length, 3, "approved source title tolerates one typo");
 assert.equal((await result("persona sintetica person:B")).records[0].person_id, "person:B");
 assert.equal((await result("economia")).status, "NO_MATCH",
   "Topic label/semantic similarity is never invented from Topic ID or URL");
