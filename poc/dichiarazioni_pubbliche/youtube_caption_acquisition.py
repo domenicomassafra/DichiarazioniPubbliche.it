@@ -38,7 +38,10 @@ class CaptionAcquisitionHandler:
                 input_bytes=None, input_seconds=None,
                 estimated_cost_usd=0.0, status="ACCESS_RESTRICTED",
                 receipt={"error_type": "PlatformAccessRestricted",
-                         "access_path": "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION"},
+                         "access_path": "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION",
+                         "capture_provenance": {
+                             "method": "youtube-transcript-api", "method_version": "1.2.4",
+                         }},
                 request_key=f"{job.payload.get('external_id') or url}:attempt:{job.attempt}",
             )
             raise BlockedJob("YOUTUBE_CAPTION_ACCESS_RESTRICTED")

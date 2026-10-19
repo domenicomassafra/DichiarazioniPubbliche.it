@@ -47,7 +47,8 @@ class CaptionCapture:
     segments: tuple[CaptionSegment, ...]
     probe: CaptionProbe
     provenance: dict[str, str] = field(default_factory=lambda: {
-        "method": "yt-dlp", "raw_format": "json3", "access_path": "YT_DLP_PUBLIC_CAPTION",
+        "method": "yt-dlp", "method_version": "unspecified-external",
+        "raw_format": "json3", "access_path": "YT_DLP_PUBLIC_CAPTION",
     })
 
 
@@ -338,6 +339,7 @@ class YouTubeResolver:
                 probe=capture.probe,
                 provenance={**capture.provenance,
                             "prior_method": "youtube-transcript-api",
+                            "prior_method_version": "1.2.4",
                             "fallback_reason": fallback_reason},
             )
         return capture

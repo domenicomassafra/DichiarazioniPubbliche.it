@@ -191,4 +191,3 @@ class TranscriptApiAdapterTests(unittest.TestCase):
         self.assertEqual(written["receipt"]["access_path"],
                          "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION")
         handler.store.insert_transcript_variant.assert_not_called()
-
