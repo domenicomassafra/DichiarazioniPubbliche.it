@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -124,6 +125,17 @@ class YouTubeCaptionBillingTests(unittest.TestCase):
         record_caption_receipt(store, **params)
         self.assertEqual(store.variables["billing_basis"], "ZERO_COST")
         self.assertEqual(store.variables["estimated_cost_usd"], 0.0)
+        self.assertEqual(json.loads(store.variables["receipt"])["access_path"], "YT_DLP_PUBLIC_CAPTION")
+        record_caption_receipt(store, **(params | {
+            "receipt": {"access_path": "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION",
+                        "capture_provenance": {"method_version": "1.2.4"}},
+        }))
+        self.assertEqual(json.loads(store.variables["receipt"])["access_path"],
+                         "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION")
+        self.assertEqual(json.loads(store.variables["receipt"])["billing_evidence_version"],
+                         "youtube-caption-transcript-api-v1")
+        with self.assertRaisesRegex(ValueError, "ACCESS_PATH_UNRECOGNIZED"):
+            record_caption_receipt(store, **(params | {"receipt": {"access_path": "UNKNOWN"}}))
 
     def test_actual_caption_probe_writer_records_source_provenance(self):
         class Store:

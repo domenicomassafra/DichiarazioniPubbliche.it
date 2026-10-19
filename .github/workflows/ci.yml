@@ -296,3 +296,9 @@ jobs:
 
       - name: Reproducible package artifacts (DP-604)
         run: python3 tools/check_reproducible_package.py
+
+      - name: Optional YouTube caption donor (offline only)
+        run: |
+          python3 -m pip install '.[youtube-captions]'
+          python3 -c 'from importlib.metadata import version; from dichiarazioni_pubbliche.youtube_transcript_client import new_transcript_client; assert version("youtube-transcript-api") == "1.2.4"; assert callable(new_transcript_client().list)'
+          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest tests.test_platform_transcript tests.test_caption_adapter tests.test_transcript_api_integration tests.test_dp512_youtube_caption_reconciliation
