@@ -111,6 +111,16 @@ class OperationUsageReceipt:
         if self.cash_cost_uncertainty not in (None, "UNKNOWN"):
             raise ValueError("OPERATION_RECEIPT_CASH_COST_UNCERTAINTY_INVALID")
 
+    @property
+    def cash_uncertain(self) -> bool:
+        # Raw classifications stay immutable; none attests a free bill or plan.
+        return (
+            self.cash_cost_uncertainty == "UNKNOWN"
+            or self.billing_basis in {"UNKNOWN", "EXTERNAL_PLAN", "ZERO_COST"}
+            or (self.billing_basis == "ESTIMATED_ONLY" and self.estimated_cost_usd == 0)
+            or (self.billing_basis == "MEASURED_PROVIDER_COST" and self.measured_cost_usd == 0)
+        )
+
 
 @dataclass(frozen=True)
 class OperationLedgerSummary:
@@ -138,9 +148,7 @@ def aggregate_operation_receipts(
     receipts: Iterable[OperationUsageReceipt],
 ) -> OperationLedgerSummary:
     rows, _ = _unique_operation_attempts(receipts)
-    # Multiple attempts for one operation are retained as usage evidence, but a completed
-    # operation identity counts once in operation_count. This avoids double-counting
-    # logical work while still exposing retry/attempt consumption.
+    # Count each operation once while preserving each retry's usage.
     operation_keys = {row.operation_key for row in rows}
     measured = Decimal("0")
     estimated_only = Decimal("0")
@@ -190,12 +198,7 @@ def aggregate_operation_receipts(
 def _unique_operation_attempts(
     receipts: Iterable[OperationUsageReceipt],
 ) -> tuple[tuple[OperationUsageReceipt, ...], int]:
-    """A provider attempt is one immutable row, even across repeated reads.
-
-    The existing PostgreSQL ledger indexes (operation_key, attempt) but does
-    not declare that pair UNIQUE. Detect rather than silently bill two rows
-    for one attempt; do not repair, replace or rewrite the underlying rows.
-    """
+    """Deduplicate exact reads; reject conflicting attempts without rewriting rows."""
     by_attempt: dict[tuple[str, int], OperationUsageReceipt] = {}
     by_receipt: dict[str, OperationUsageReceipt] = {}
     duplicates = 0
@@ -226,11 +229,7 @@ _BILLING_STATUS = re.compile(r"[A-Z][A-Z0-9_]{0,63}\Z", re.ASCII)
 
 @dataclass(frozen=True)
 class BillingStatementLine:
-    """Operator-supplied invoice/usage comparison *candidate*, not attestation.
-
-    A reference string and a numerical amount are not authentication of a
-    provider bill. This read-only model never upgrades provider receipt basis.
-    """
+    """Unattested statement comparison candidate; never upgrades receipt basis."""
 
     line_id: str
     receipt_id: str
@@ -326,14 +325,7 @@ def reconcile_operation_billing(
     receipts: Iterable[OperationUsageReceipt],
     statement_lines: Iterable[BillingStatementLine] = (),
 ) -> OperationBillingReconciliation:
-    """Read-only attempt-to-statement comparison; no inferred invoice amounts.
-
-    Uses the exact OperationUsageReceipt objects produced by the existing
-    queue-store PostgreSQL consumer. A recorded MEASURED_PROVIDER_COST remains
-    a *recorded* cost pending independently verified provider reference; even
-    a matching externally supplied line is only MATCHED_UNVERIFIED. Different
-    currencies cannot be compared without a separately evidenced FX rate.
-    """
+    """Compare attempts to unverified statements without billing attestation or FX."""
     rows, duplicate_receipts = _unique_operation_attempts(receipts)
     by_attempt = {(r.operation_key, r.attempt): r for r in rows}
     grouped: dict[str, list[OperationUsageReceipt]] = {}
@@ -404,8 +396,7 @@ def reconcile_operation_billing(
                         if r.billing_basis == "MEASURED_PROVIDER_COST" else None),
                     provisional_estimated_usd=(r.estimated_cost_usd
                         if r.billing_basis == "ESTIMATED_ONLY" else None),
-                    cash_uncertainty=(r.billing_basis == "UNKNOWN"
-                        or r.cash_cost_uncertainty == "UNKNOWN"),
+                    cash_uncertainty=r.cash_uncertain,
                     local_energy_basis=r.local_energy_basis or "UNKNOWN",
                     comparison_status=comparison.get(
                         (r.operation_key, r.attempt), "NO_STATEMENT_LINE"),
@@ -425,8 +416,7 @@ def reconcile_operation_billing(
                                    if r.billing_basis == "MEASURED_PROVIDER_COST"), Decimal("0")),
         provisional_estimated_usd=sum((r.estimated_cost_usd for r in rows
                                       if r.billing_basis == "ESTIMATED_ONLY"), Decimal("0")),
-        unknown_cash_attempts=sum(r.billing_basis == "UNKNOWN" or
-                                  r.cash_cost_uncertainty == "UNKNOWN" for r in rows),
+        unknown_cash_attempts=sum(r.cash_uncertain for r in rows),
         external_plan_attempts=sum(r.billing_basis == "EXTERNAL_PLAN" for r in rows),
         zero_cost_attempts=sum(r.billing_basis == "ZERO_COST" for r in rows),
         unknown_energy_attempts=sum(r.local_energy_basis in (None, "UNKNOWN") for r in rows),

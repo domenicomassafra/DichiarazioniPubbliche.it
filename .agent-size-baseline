@@ -88,7 +88,7 @@
   "poc/dichiarazioni_pubbliche/multi_person_batch_v1.py": 32207,
   "poc/dichiarazioni_pubbliche/multilingual_derivation.py": 32863,
   "poc/dichiarazioni_pubbliche/openapi.py": 101326,
-  "poc/dichiarazioni_pubbliche/operation_ledger.py": 22095,
+  "poc/dichiarazioni_pubbliche/operation_ledger.py": 21464,
   "poc/dichiarazioni_pubbliche/ops/cost_policy.py": 55390,
   "poc/dichiarazioni_pubbliche/ops/monthly_liability_pg_v1.py": 31046,
   "poc/dichiarazioni_pubbliche/ops/threats.py": 37834,
