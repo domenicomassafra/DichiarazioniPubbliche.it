@@ -136,6 +136,13 @@ explicit so environment cleanup cannot silently rename the import/distribution s
   Runtime installations and the `backend-minimal` profile remain stdlib-only;
   provenance and upstream NOTICE are recorded in
   [`../donors/openapi-spec-validator.md`](../donors/openapi-spec-validator.md).
+- RDFLib `7.6.0` is pinned in the `dev` extra for independent N-Triples/JSON-LD
+  parsing, roundtrips and cross-format semantic checks by
+  `tests.test_rdflib_validation` in the `rdf-contract` CI job. A bare
+  `backend-minimal` install uses no RDFLib dependency; its unittest discovery
+  explicitly skips the optional validator. No production serializer changes are
+  authorized by these tests; upstream license/notice are recorded in
+  [`../donors/rdflib.md`](../donors/rdflib.md).
 
 Drift is detected by `tools/check_version_consistency.py` and
 `tests/test_packaging_metadata.py`. A packaging change must not bump a version as a side
