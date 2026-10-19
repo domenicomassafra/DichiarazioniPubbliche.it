@@ -55,8 +55,8 @@ class DistributionMetadataTests(unittest.TestCase):
                 with self.subTest(group=group, requirement=requirement):
                     self.assertRegex(
                         requirement,
-                        r"^[A-Za-z0-9._-]+(?:==|>=)\d[\w.]*,\s*<\s*\d",
-                        f"{group} requirement lacks lower+upper bounds: {requirement}",
+                        r"^[A-Za-z0-9._-]+(?:==\d+(?:\.\d+)*$|>=\d[\w.]*,\s*<\s*\d)",
+                        f"{group} requirement lacks exact pin or lower+upper bounds: {requirement}",
                     )
 
     def test_only_the_import_compatible_package_is_shipped(self) -> None:
