@@ -83,6 +83,14 @@ jobs:
           DP514_CI_PG_WAIT_WITNESS: "1"
         run: PYTHONPATH=poc python -m unittest discover -s tests -v
 
+      - name: Optional Google OIDC account extra security tests
+        # The contributor profile above stays dependency-free. Validate the
+        # explicitly optional Authlib account feature separately on every
+        # supported Python and runner without any live Google credentials.
+        run: |
+          python -m pip install ".[account]"
+          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_public_account tests.test_authlib_google_oidc -v
+
       - name: Deterministic benchmark
         run: PYTHONPATH=poc python -m dichiarazioni_pubbliche.benchmark
 
