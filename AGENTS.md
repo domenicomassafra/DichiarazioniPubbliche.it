@@ -8,6 +8,10 @@ Dichiarazioni Pubbliche conserva dichiarazioni pubbliche con provenienza, eviden
 
 Repository e tracker operativo: `https://github.com/domenicomassafra/DichiarazioniPubbliche.it`. Dal 17/10/2026 GitHub Issues è l'autorità per lavoro corrente, stato, acceptance e ricevute. Prima di modificare codice leggi body e commenti della issue assegnata. `PLAN.md` e `docs/tickets/DP-*.md` sono storia del backlog precedente: non aggiornarne stato o acceptance.
 
+## Riuso prima di tutto (regola dell'owner, 15/10/2026)
+
+Prima di scrivere codice per una funzione, cerca chi l'ha già fatto: repository GitHub/GitLab, pacchetti npm/PyPI/crates, issue e PR di altri progetti che risolvono lo stesso problema. Registra nella issue i candidati con link, licenza, ultimo rilascio e attività. Adotta il pacchetto, oppure forka/clona il repository e adattalo; scrivi codice proprio solo per la parte mancante e con il motivo scritto nella issue. Licenze: annota obblighi (MIT/Apache/BSD ok; LGPL/MPL/GPL/AGPL vanno segnalati all'orchestratore prima dell'adozione). Mantieni la provenienza (repo, commit, licenza) in un file di donor del progetto.
+
 Ordine di lettura per ogni ticket:
 
 1. issue GitHub assegnata, inclusi i commenti;
