@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from dichiarazioni_pubbliche.asr_router import plan_asr
 from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ROUTE
@@ -23,25 +21,11 @@ from dichiarazioni_pubbliche.transcript_contract import (
     reconcile_candidates,
 )
 from dichiarazioni_pubbliche.worker_errors import BlockedJob, RetryableJob
-
-
-def _caption_source_kind(probe: CaptionProbe) -> str:
-    if probe.kind == "manual_caption":
-        return "YOUTUBE_MANUAL_CAPTION"
-    return "YOUTUBE_AUTO_CAPTION"
-
-
-def _segment_rows(capture) -> list[dict[str, Any]]:
-    return [
-        {
-            "segment_index": segment.segment_index,
-            "start_ms": segment.start_ms,
-            "end_ms": segment.end_ms,
-            "text": segment.text,
-            "metadata": {},
-        }
-        for segment in capture.segments
-    ]
+from dichiarazioni_pubbliche.youtube_caption_receipts import (
+    caption_source_kind as _caption_source_kind,
+    record_caption_receipt as _record_caption_receipt,
+    segment_rows as _segment_rows,
+)
 
 
 class TranscriptAsrJobHandlers:
@@ -119,7 +103,7 @@ class TranscriptAsrJobHandlers:
         try:
             probe = self.resolver.probe_caption(candidate.canonical_url)
         except PlatformAccessRestricted:
-            self.store.record_receipt(
+            _record_caption_receipt(self.store,
                 job_id=job.job_id,
                 content_id=content.content_id,
                 provider_id="youtube",
@@ -139,7 +123,7 @@ class TranscriptAsrJobHandlers:
             self._enqueue_asr(content, reason="YOUTUBE_COPY_ACCESS_RESTRICTED")
             return
         except Exception as exc:
-            self.store.record_receipt(
+            _record_caption_receipt(self.store,
                 job_id=job.job_id,
                 content_id=content.content_id,
                 provider_id="youtube",
@@ -159,7 +143,7 @@ class TranscriptAsrJobHandlers:
             raise RetryableJob(f"CAPTION_PROBE_FAILED:{type(exc).__name__}") from exc
 
         self._require_current_ingestion_relevance(content)
-        self.store.record_receipt(
+        _record_caption_receipt(self.store,
             job_id=job.job_id,
             content_id=content.content_id,
             provider_id="youtube",
@@ -255,7 +239,7 @@ class TranscriptAsrJobHandlers:
         try:
             capture = self.resolver.capture_caption(url, probe)
         except Exception as exc:
-            self.store.record_receipt(
+            _record_caption_receipt(self.store,
                 job_id=job.job_id,
                 content_id=content.content_id,
                 provider_id="youtube",
@@ -312,7 +296,7 @@ class TranscriptAsrJobHandlers:
             capture=capture,
             receipt=receipt,
         )
-        self.store.record_receipt(
+        _record_caption_receipt(self.store,
             job_id=job.job_id,
             content_id=content.content_id,
             provider_id="youtube",
