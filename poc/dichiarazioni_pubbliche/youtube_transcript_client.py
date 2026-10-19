@@ -31,7 +31,7 @@ def new_transcript_client():
                 parsed.scheme != "https" or parsed.hostname != "www.youtube.com"
                 or parsed.username or parsed.password or parsed.port not in (None, 443)
             ):
-                raise ValueError("TRANSCRIPT_API_URL_NOT_ALLOWED")
+                raise TranscriptApiRedirectDenied("TRANSCRIPT_API_URL_NOT_ALLOWED")
             kwargs["timeout"] = (3.0, 8.0)
             kwargs["allow_redirects"] = False
             kwargs["stream"] = True

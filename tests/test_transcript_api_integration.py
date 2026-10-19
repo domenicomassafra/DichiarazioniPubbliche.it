@@ -54,7 +54,9 @@ class TranscriptApiAdapterTests(unittest.TestCase):
         fallback.assert_called_once()
 
     def test_pinned_client_limits_hosts_redirects_body_and_timeout(self):
-        from dichiarazioni_pubbliche.youtube_transcript_client import new_transcript_client
+        from dichiarazioni_pubbliche.youtube_transcript_client import (
+            TranscriptApiRedirectDenied, new_transcript_client,
+        )
 
         # Default contributor profile has no requests/youtube-transcript-api;
         # exercise the opt-in session policy without installing either donor.
@@ -82,8 +84,24 @@ class TranscriptApiAdapterTests(unittest.TestCase):
                 "https://www.youtube.com:8443/watch",
                 "https://127.0.0.1/watch",
             ):
-                with self.subTest(url=url), self.assertRaisesRegex(ValueError, "URL_NOT_ALLOWED"):
+                with self.subTest(url=url), self.assertRaisesRegex(TranscriptApiRedirectDenied, "URL_NOT_ALLOWED"):
                     client.get(url)
+            outbound.assert_not_called()
+            # A forged caption URL from donor metadata must not activate yt-dlp
+            # after the constrained client rejects it before any outbound HTTP.
+            restricted_api = SimpleNamespace(
+                list=lambda video_id: client.get("https://foreign.invalid/api/timedtext")
+            )
+            resolver = YouTubeResolver(
+                use_transcript_api=True, transcript_api_factory=lambda: restricted_api,
+            )
+            with patch.object(resolver, "_capture_yt_dlp_caption") as fallback:
+                with self.assertRaisesRegex(PlatformAccessRestricted, "ACCESS_RESTRICTED"):
+                    resolver.capture_caption(
+                        "https://www.youtube.com/watch?v=AbC123_dEfG",
+                        CaptionProbe("manual_caption", "it"),
+                    )
+                fallback.assert_not_called()
             outbound.assert_not_called()
 
             allowed_response = Mock()
