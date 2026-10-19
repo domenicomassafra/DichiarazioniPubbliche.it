@@ -278,3 +278,20 @@ jobs:
 
       - name: Reproducible package artifacts (DP-604)
         run: python3 tools/check_reproducible_package.py
+
+  youtube-captions-optional:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    name: optional YouTube caption client (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install pinned optional donor (no platform requests)
+        run: python -m pip install '.[youtube-captions]'
+      - name: Verify API surface, pinned provenance and offline acquisition fixtures
+        run: |
+          python -c 'from importlib.metadata import version; from youtube_transcript_api import YouTubeTranscriptApi; assert version("youtube-transcript-api") == "1.2.4"; assert callable(YouTubeTranscriptApi().list)'
+          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_platform_transcript tests.test_caption_adapter tests.test_transcript_api_integration tests.test_dp512_youtube_caption_reconciliation
