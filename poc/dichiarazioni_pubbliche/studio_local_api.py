@@ -1,9 +1,6 @@
-"""Explicitly started, operator-local, authenticated read-only Studio API.
+"""Authenticated local read-only Studio API, explicitly started by an operator.
 
-There is no public route, remote bind option, cookie/session scheme, CORS
-permission, HTTP mutation, static-asset delivery or automatic service startup.
-An operator with existing local DB permission must deliberately start it and
-provide a protected token file.  The API has no review/promotion authority.
+No public bind, cookies, CORS, HTTP mutation or review/publication authority.
 """
 
 from __future__ import annotations
@@ -73,6 +70,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/collections/passage-candidates",
     "/v1/collections/passage-lineage",
     "/v1/collections/navigate",
+    "/v1/source/exact-jump",
     "/v1/discovery/list", "/v1/discovery/inspect", "/v1/discovery/triage-history",
     "/v1/discovery/capture-queue", "/v1/discovery/candidate-queue",
     "/v1/discovery/coverage-queue",
@@ -90,12 +88,7 @@ class _StudioCaptureReader(_StudioReadOnlyDb, CapturePipelineStore):
         self, *, collection_id: str, content_id: str, passage_id: str,
         limit: int = 20, after_id: str | None = None,
     ) -> dict[str, Any]:
-        """Persisted included Content→Passage→Statement→Claim IDs, never texts.
-
-        An exact Content/Passage binding is required even when no candidate
-        exists; one wrong or missing foreign key must not become an empty
-        successful fake edge. Claim candidate children are capped per row.
-        """
+        """Persisted, included Content→Passage→Candidate IDs, scoped by every FK."""
         for ref in (collection_id, content_id, passage_id):
             if not isinstance(ref, str) or not _STUDIO_REF.fullmatch(ref):
                 raise ValueError("STUDIO_PASSAGE_CANDIDATE_REF_INVALID")
@@ -202,12 +195,7 @@ class _StudioCaptureReader(_StudioReadOnlyDb, CapturePipelineStore):
         self, *, collection_id: str, content_id: str,
         limit: int = 20, after_id: str | None = None,
     ) -> dict[str, Any]:
-        """Collection membership-bound, paginated Capture navigation; hashes only.
-
-        The query selects no Capture body, title, URL, provider headers,
-        private metadata or archive/purge receipts. The source existence flag
-        is a DB reference check, not rights or reviewer authority.
-        """
+        """Member-scoped Capture IDs and hashes; no text, URL or rights grant."""
         if any(not isinstance(ref, str) or not _STUDIO_REF.fullmatch(ref)
                for ref in (collection_id, content_id)):
             raise ValueError("STUDIO_CAPTURE_COLLECTION_REF_INVALID")
@@ -590,6 +578,7 @@ class StudioLocalReaders:
     decision_reader: Any | None = None
     workload_reader: Any | None = None
     recovery_observations: LocalObservedRecoveryJournal | None = None
+    body_store: Any | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -614,11 +603,15 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         if type(readers.recovery_observations) is not LocalObservedRecoveryJournal:
             raise RuntimeError("STUDIO_RECOVERY_JOURNAL_NOT_CONFIGURED")
         return readers.recovery_observations.read(body["case_id"])
+    if path == "/v1/source/exact-jump":
+        _fields(body, required={
+            "collection_id", "content_id", "capture_id", "passage_id",
+        }, optional={"quote_start", "quote_end", "quote_sha256", "quote_text"})
+        from dichiarazioni_pubbliche.studio_exact_source_jump import read_studio_exact_source_jump
+        return read_studio_exact_source_jump(readers.captures, readers.body_store, **body)
     if path == "/v1/operator/workload":
         _fields(body, required={"collection_id"}, optional={"limit", "after"})
-        # Exact opt-in disposable backend only; the ordinary Studio listener
-        # never creates this backend. Auth + Origin/Host were checked *before*
-        # _dispatch; this is a private bounded operator view, not a grant.
+        # This disposable backend is explicitly opted in after HTTP auth.
         from dichiarazioni_pubbliche.studio_operator_workload_pg_v1 import (
             IsolatedStudioOperatorWorkloadPg,
         )
@@ -698,8 +691,7 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         binding_id = body["binding_id"]
         if not isinstance(binding_id, str) or not _STUDIO_REF.fullmatch(binding_id):
             raise ValueError("STUDIO_MEDIA_BINDING_ID_INVALID")
-        # The function is STABLE and the Studio DB adapter sets the session
-        # transaction READ ONLY. This is *not* a route to the attestation writer.
+        # Stable DB read-only inspection; never invoke the attestation writer.
         raw = readers.captures.run(
             "SELECT inspect_media_capture_segment_binding(:'binding_id')::text;",
             binding_id=binding_id,
@@ -1007,6 +999,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only Studio loopback API; never run behind an edge proxy")
     parser.add_argument("--token-file", required=True, type=Path)
     parser.add_argument("--port", type=int, default=18777)
+    parser.add_argument("--capture-body-root", type=Path)
     parser.add_argument(
         "--handoff-root", type=Path,
         help="Optional existing private 0700 candidate handoff spool for read-only receipts",
@@ -1018,6 +1011,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         token = load_private_token(args.token_file)
+        from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore
+        body_store = (CaptureBodyStore.open_existing_readonly(args.capture_body_root)
+                      if args.capture_body_root else None)
         handoffs = LocalCandidateReviewHandoffQueue(args.handoff_root) if args.handoff_root else None
         recovery = (LocalObservedRecoveryJournal(args.recovery_observation_root)
                     if args.recovery_observation_root else None)
@@ -1027,6 +1023,7 @@ def main(argv: list[str] | None = None) -> int:
             promotion_context=_StudioPromotionContextReader(), handoffs=handoffs,
             decision_reader=_StudioDecisionReader(),
             recovery_observations=recovery,
+            body_store=body_store,
         )
         with StudioLoopbackServer(args.port, readers, token) as server:
             print(f"Studio local API ready on 127.0.0.1:{server.server_port} (read-only)", flush=True)
