@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
 from dichiarazioni_pubbliche.transcript_contract import sensitive_signature
@@ -66,6 +67,38 @@ def parse_youtube_json3(payload: dict[str, Any]) -> list[CaptionSegment]:
         )
         last_text = text
     return rows
+
+
+def parse_transcript_api_snippets(rows: list[dict[str, Any]]) -> list[CaptionSegment]:
+    """Validate the donor timebase before converting seconds to integer ms.
+
+    A malformed, reordered or overlapping result cannot be used as quotation
+    evidence. The resolver can still try the independent JSON3 capture path.
+    """
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("TRANSCRIPT_API_EMPTY")
+    segments: list[CaptionSegment] = []
+    previous_end = 0
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("text"), str):
+            raise ValueError("TRANSCRIPT_API_INVALID_SNIPPET")
+        try:
+            start = Decimal(str(row["start"]))
+            duration = Decimal(str(row["duration"]))
+        except (InvalidOperation, KeyError, TypeError, ValueError) as exc:
+            raise ValueError("TRANSCRIPT_API_INVALID_TIME") from exc
+        if not start.is_finite() or not duration.is_finite() or start < 0 or duration <= 0:
+            raise ValueError("TRANSCRIPT_API_INVALID_TIME")
+        start_ms = int((start * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        end_ms = int(((start + duration) * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        if start_ms < previous_end or end_ms <= start_ms or end_ms >= 2**63:
+            raise ValueError("TRANSCRIPT_API_TIME_CONFLICT")
+        text = re.sub(r"\s+", " ", html.unescape(row["text"])).strip()
+        if not text:
+            raise ValueError("TRANSCRIPT_API_EMPTY_TEXT")
+        segments.append(CaptionSegment(len(segments), start_ms, end_ms, text))
+        previous_end = end_ms
+    return segments
 
 
 def caption_stats(

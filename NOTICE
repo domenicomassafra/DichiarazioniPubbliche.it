@@ -15,6 +15,18 @@ The Python runtime is stdlib-only: the distribution declares no runtime dependen
 The optional `account` extra installs Authlib 1.9.1 (BSD-3-Clause) for
 Google OIDC JWT verification; its original license/copyright notices are
 preserved in the installed distribution. See docs/donors/authlib.md.
+The optional `youtube-captions` extra installs youtube-transcript-api 1.2.4
+(MIT, copyright Jonas Depoix and contributors) for explicitly enabled public
+caption acquisition. The upstream MIT license and copyright notice remain
+with the installed distribution. See docs/donors/youtube-transcript-api.md.
+The optional `feeds` extra installs feedparser 6.0.14 (BSD-2-Clause)
+and feedparser-sgmllib (PSF-2.0) for parsed RSS/Atom metadata. Upstream
+license and copyright notices remain in the installed distributions.
+No third-party parser source is vendored. See docs/donors/feedparser.md.
+The optional `wikidata-proposal` extra installs WikibaseIntegrator 0.12.15
+(MIT; LeMyst and WikibaseIntegrator contributors). Its upstream copyright and
+MIT license remain with that separately installed distribution; no upstream
+source is copied into this repository. See docs/donors/wikibaseintegrator.md.
 Development-only tooling is declared in pyproject.toml under
 [project.optional-dependencies].dev (build, packaging, pip, setuptools, wheel) and is
 used only to build and validate the distribution. The web frontend depends on the npm
