@@ -39,6 +39,15 @@ document-pdf = ["pypdf>=6.0,<7.0"]
 youtube-captions = ["youtube-transcript-api==1.2.4"]
 # Synthetic in-memory PDF fixtures only; never necessary for runtime capture.
 document-pdf-test = ["pypdf>=6.0,<7.0", "reportlab>=4.0,<6.0", "Pillow>=10.0,<13.0"]
+# Opt-in feed backend; default contributor/discovery installation stays stdlib-only.
+# Structural XML validation remains strict with or without this package.
+feeds = ["feedparser==6.0.14"]
+# Explicit private Wikidata candidate proposals only: never in default runtime.
+# Upstream: https://github.com/LeMyst/WikibaseIntegrator (MIT), v0.12.15.
+wikidata-proposal = ["WikibaseIntegrator==0.12.15"]
+# Private, explicit HTML extraction adapter. No automatic fetch or publication.
+# The default contributor profile remains stdlib-only.
+capture-html = ["trafilatura==2.3.1"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [
