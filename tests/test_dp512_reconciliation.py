@@ -130,7 +130,7 @@ class BillingReconciliationTests(unittest.TestCase):
             self.first,
         ]
         report = reconcile_operation_billing(rows)
-        self.assertEqual(report.unknown_cash_attempts, 1)
+        self.assertEqual(report.unknown_cash_attempts, 2)
         self.assertEqual(report.external_plan_attempts, 1)
         self.assertEqual(report.unknown_energy_attempts, 3)
         self.assertEqual(report.provisional_estimated_usd, Decimal("0.30"))
@@ -140,6 +140,24 @@ class BillingReconciliationTests(unittest.TestCase):
         self.assertIsNone(report.measured_energy_wh)
         self.assertIsNone(report.authoritative_billed_usd)
         self.assertFalse(report.cost_complete)
+
+    def test_unattested_zero_estimate_plan_and_zero_recorded_cost_are_cash_unknown(self):
+        rows = [
+            operation_usage_receipt_from_row(persisted("receipt:zero-estimate", 1, "ESTIMATED_ONLY", estimate="0")),
+            operation_usage_receipt_from_row(persisted("receipt:plan", 2, "EXTERNAL_PLAN")),
+            operation_usage_receipt_from_row(persisted("receipt:zero", 3, "ZERO_COST", estimate="0")),
+            operation_usage_receipt_from_row(persisted("receipt:zero-measured", 4, "MEASURED_PROVIDER_COST", cost="0")),
+        ]
+        report = reconcile_operation_billing(rows)
+        self.assertEqual(report.unknown_cash_attempts, 4)
+        self.assertEqual(report.external_plan_attempts, 1)
+        self.assertEqual(report.zero_cost_attempts, 1)
+        self.assertEqual(report.recorded_measured_usd, Decimal("0"))
+        self.assertEqual(report.provisional_estimated_usd, Decimal("0"))
+        self.assertEqual([a.billing_basis for a in report.groups[0].attempts],
+                         ["ESTIMATED_ONLY", "EXTERNAL_PLAN", "ZERO_COST", "MEASURED_PROVIDER_COST"])
+        self.assertTrue(all(a.cash_uncertainty for a in report.groups[0].attempts))
+        self.assertFalse(report.invoice_attested)
 
     def test_missing_or_unpriced_invoice_foreign_currency_is_not_converted(self):
         report = reconcile_operation_billing([self.second], [line(currency="EUR")])

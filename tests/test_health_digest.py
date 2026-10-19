@@ -147,7 +147,7 @@ class HealthDigestTests(unittest.TestCase):
         self.assertEqual(digest["estimated_cost_usd_today"], 0.2)
         self.assertEqual(billing["attempt_count"], 5)
         self.assertEqual(billing["duplicate_receipt_replays"], 1)
-        self.assertEqual(billing["unknown_cash_attempts"], 1)
+        self.assertEqual(billing["unknown_cash_attempts"], 3)
         self.assertEqual(billing["external_plan_attempts"], 1)
         self.assertEqual(billing["unknown_energy_attempts"], 5)
         self.assertIsNone(billing["authoritative_billed_usd"])

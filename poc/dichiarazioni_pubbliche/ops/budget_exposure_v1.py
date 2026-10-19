@@ -137,18 +137,7 @@ def private_receipt_groups(billing: Any) -> dict[tuple[str, str, str, str], dict
                 or attempt.provisional_estimated_usd
                 or Decimal("0")
             )
-            row["cash_uncertain"] |= (
-                attempt.cash_uncertainty
-                or attempt.billing_basis in {"EXTERNAL_PLAN", "ZERO_COST"}
-                or (
-                    attempt.billing_basis == "ESTIMATED_ONLY"
-                    and attempt.provisional_estimated_usd == Decimal("0")
-                )
-                or (
-                    attempt.billing_basis == "MEASURED_PROVIDER_COST"
-                    and attempt.recorded_measured_usd == Decimal("0")
-                )
-            )
+            row["cash_uncertain"] |= attempt.cash_uncertainty
     return groups
 
 

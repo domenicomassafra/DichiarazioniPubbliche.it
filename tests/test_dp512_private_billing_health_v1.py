@@ -114,7 +114,7 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
         self.assertEqual(report["provisional_estimated_usd"], "0.400000")
         self.assertEqual(report["recorded_measured_unverified_usd"], "0.100000")
         self.assertEqual(report["legacy_attempt_count"], 1)
-        self.assertEqual(report["unknown_cash_attempt_count"], 1)
+        self.assertEqual(report["unknown_cash_attempt_count"], 2)
         # The integrated ledger classifies absent energy provenance as UNKNOWN
         # for every attempt, not only for the EXTERNAL_PLAN attempt.
         self.assertEqual(report["unknown_local_energy_attempt_count"], 4)
@@ -196,6 +196,17 @@ class PrivateBillingHealthPgTests(unittest.TestCase):
             self.report(
                 since="2026-10-16T00:00:00+00:00", until="2026-10-15T00:00:00+00:00"
             )
+
+    def test_historic_zero_estimate_reports_unknown_cash_without_mutating_ledger(self):
+        self.insert("historical-zero", basis="ESTIMATED_ONLY", estimated="0")
+        before = self.canonical_hash()
+        report = self.report()
+        self.assertEqual(report["classification_counts"]["ESTIMATED_ONLY"], 1)
+        self.assertEqual(report["unknown_cash_attempt_count"], 1)
+        self.assertEqual(report["provisional_estimated_usd"], "0.000000")
+        self.assertEqual(report["verified_invoice_usd"], None)
+        self.assertFalse(report["invoice_attested"])
+        self.assertEqual(before, self.canonical_hash())
 
     def test_unknown_receipt_does_not_appear_free_in_worker_cost_snapshot(self):
         self.insert("unpriced", basis="ESTIMATED_ONLY", estimated="NULL")
