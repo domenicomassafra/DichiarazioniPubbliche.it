@@ -20,6 +20,7 @@ from dichiarazioni_pubbliche.original_source_resolver import (
     EXACT_SOURCE_LOCATOR_VERSION,
     ExactSourceLocator,
     ExactSourceLocatorResolution,
+    OriginalSourceResolution,
 )
 
 
@@ -85,12 +86,15 @@ def private_written_source_jump(
     resolution: ExactSourceLocatorResolution,
     capture: ContentCaptureRecord,
     observed_live_sha256: str | None,
+    observed_live_url: str | None,
+    original_source: OriginalSourceResolution,
     quote_text: str,
 ) -> PrivateSourceJump:
     """Propose a navigable page or browser text fragment, never an authority grant.
 
-    `observed_live_sha256` is from an independent HTTPS retrieval of the same
-    URL, not the saved Capture or a caller-provided currentness guess. If the
+    `observed_live_sha256` and `observed_live_url` identify one independently
+    retrieved HTTPS response at the captured original address. `original_source`
+    must come from the approved original/derivation family resolver. If the
     original is a local/derived OCR crop, the external URL's different hash
     deliberately prevents a forged exact jump to the full parent document.
     """
@@ -124,6 +128,16 @@ def private_written_source_jump(
     ):
         return unavailable("CAPTURE_VERSION_MISMATCH")
     if (
+        not isinstance(original_source, OriginalSourceResolution)
+        or original_source.content_id != locator.content_id
+        or original_source.status != "SELF_ORIGINAL"
+        or original_source.root_content_id != locator.content_id
+        or original_source.path_content_ids != (locator.content_id,)
+        or original_source.path_edge_ids
+        or original_source.blockers
+    ):
+        return unavailable("REVIEWED_ORIGINAL_SOURCE_NOT_VERIFIED")
+    if (
         not isinstance(observed_live_sha256, str)
         or not _SHA.fullmatch(observed_live_sha256)
         or observed_live_sha256 != capture.content_sha256
@@ -139,6 +153,8 @@ def private_written_source_jump(
     origin = _safe_external_url(capture.final_url)
     if origin is None:
         return unavailable("SOURCE_URL_NOT_SAFE_FOR_NAVIGATION")
+    if _safe_external_url(observed_live_url) != origin:
+        return unavailable("LIVE_SOURCE_URL_MISMATCH")
     if locator.selector_type == "PAGE_RANGE":
         if (
             capture.media_type != "application/pdf"
