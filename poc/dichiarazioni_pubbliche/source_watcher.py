@@ -8,9 +8,7 @@ import socket
 import ssl
 import subprocess
 import urllib.request
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass, asdict
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -20,10 +18,6 @@ ROOT = Path(__file__).resolve().parents[2]
 PRIMARY_REGISTRY = ROOT / "config" / "source-registry.v1.json"
 DEFAULT_REGISTRY = PRIMARY_REGISTRY
 
-ATOM = "http://www.w3.org/2005/Atom"
-YT = "http://www.youtube.com/xml/schemas/2015"
-MEDIA = "http://search.yahoo.com/mrss/"
-ITUNES = "http://www.itunes.com/dtds/podcast-1.0.dtd"
 MAX_DISCOVERY_RESPONSE_BYTES = 4 * 1024 * 1024
 
 
@@ -68,80 +62,32 @@ def get_source(registry: dict[str, Any], source_id: str) -> dict[str, Any]:
 
 
 def parse_youtube_feed(xml_text: str, source_id: str) -> list[DiscoveredContent]:
-    root = ET.fromstring(xml_text)
-    items: list[DiscoveredContent] = []
-    for entry in root.findall(f"{{{ATOM}}}entry"):
-        video_id = entry.findtext(f"{{{YT}}}videoId")
-        title = entry.findtext(f"{{{ATOM}}}title") or ""
-        published = entry.findtext(f"{{{ATOM}}}published") or ""
-        author_node = entry.find(f"{{{ATOM}}}author")
-        author = None
-        if author_node is not None:
-            author = author_node.findtext(f"{{{ATOM}}}name")
-        link_node = entry.find(f"{{{ATOM}}}link[@rel='alternate']")
-        href = (
-            link_node.attrib.get("href")
-            if link_node is not None
-            else f"https://www.youtube.com/watch?v={video_id}"
+    from dichiarazioni_pubbliche.feed_parsing import parse_feed
+
+    return [
+        DiscoveredContent(
+            source_id=source_id, platform="youtube", external_id=item.stable_id,
+            title=item.title, canonical_url=item.link,
+            published_at=item.published, author=item.author,
         )
-        if not video_id:
-            continue
-        items.append(
-            DiscoveredContent(
-                source_id=source_id,
-                platform="youtube",
-                external_id=video_id,
-                title=title,
-                canonical_url=href,
-                published_at=published,
-                author=author,
-            )
-        )
-    return items
+        for item in parse_feed(xml_text, "youtube")
+    ]
 
 
 def parse_podcast_rss(xml_text: str, source_id: str) -> list[DiscoveredContent]:
-    root = ET.fromstring(xml_text)
-    channel = root.find("channel")
-    if channel is None:
-        return []
-    author = channel.findtext(f"{{{ITUNES}}}author") or channel.findtext("title")
-    items: list[DiscoveredContent] = []
-    for item in channel.findall("item"):
-        guid = (item.findtext("guid") or "").strip()
-        title = (item.findtext("title") or "").strip()
-        description = (item.findtext("description") or "").strip()
-        pub_date = (item.findtext("pubDate") or "").strip()
-        published_at = pub_date
-        if pub_date:
-            try:
-                published_at = parsedate_to_datetime(pub_date).isoformat()
-            except (TypeError, ValueError, OverflowError):
-                pass
-        enclosure = item.find("enclosure")
-        media_url = enclosure.attrib.get("url") if enclosure is not None else None
-        media_type = enclosure.attrib.get("type") if enclosure is not None else None
-        duration_raw = (item.findtext(f"{{{ITUNES}}}duration") or "").strip()
-        duration_seconds = int(duration_raw) if duration_raw.isdigit() else None
-        external_id = guid or media_url or title
-        if not external_id:
-            continue
-        items.append(
-            DiscoveredContent(
-                source_id=source_id,
-                platform="podcast_rss",
-                external_id=external_id,
-                title=title,
-                canonical_url=media_url or "",
-                published_at=published_at,
-                author=author or None,
-                media_url=media_url,
-                media_type=media_type,
-                duration_seconds=duration_seconds,
-                description=description,
-            )
+    from dichiarazioni_pubbliche.feed_parsing import parse_feed
+
+    return [
+        DiscoveredContent(
+            source_id=source_id, platform="podcast_rss",
+            external_id=item.stable_id or item.title, title=item.title,
+            canonical_url=item.media_url or "", published_at=item.published,
+            author=item.author, media_url=item.media_url, media_type=item.media_type,
+            duration_seconds=item.duration_seconds, description=item.description,
         )
-    return items
+        for item in parse_feed(xml_text, "podcast")
+        if item.stable_id or item.title
+    ]
 
 
 def validate_discovery_url(

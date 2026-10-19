@@ -6,13 +6,13 @@ import math
 import re
 import socket
 import urllib.error
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
+
+from dichiarazioni_pubbliche.feed_parsing import parse_feed
 
 MAX_DISCOVERY_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_DISCOVERED_ITEMS_PER_SOURCE = 20
@@ -64,18 +64,6 @@ def _legacy_filter_discovered_content(
     from dichiarazioni_pubbliche.source_watcher import filter_discovered_content
 
     return filter_discovered_content(source, items)
-
-
-def _legacy_parse_youtube_feed(xml_text: str, source_id: str) -> list[Any]:
-    from dichiarazioni_pubbliche.source_watcher import parse_youtube_feed
-
-    return parse_youtube_feed(xml_text, source_id)
-
-
-def _legacy_parse_podcast_rss(xml_text: str, source_id: str) -> list[Any]:
-    from dichiarazioni_pubbliche.source_watcher import parse_podcast_rss
-
-    return parse_podcast_rss(xml_text, source_id)
 
 
 def _legacy_validate_discovery_url(
@@ -330,16 +318,22 @@ def _feed_text(
     max_response_bytes: int,
 ) -> str:
     if feed_xml is not None:
-        return feed_xml
-    if fetcher is not None:
-        return fetcher(url)
-    from dichiarazioni_pubbliche import source_watcher
+        xml_text = feed_xml
+    elif fetcher is not None:
+        xml_text = fetcher(url)
+    else:
+        from dichiarazioni_pubbliche import source_watcher
 
-    return source_watcher.fetch_text(
-        url,
-        timeout=timeout,
-        max_response_bytes=max_response_bytes,
-    )
+        xml_text = source_watcher.fetch_text(
+            url,
+            timeout=timeout,
+            max_response_bytes=max_response_bytes,
+        )
+    if not isinstance(xml_text, str):
+        raise SourceAdapterError("MALFORMED_RESPONSE", "FEED_NOT_TEXT")
+    if len(xml_text.encode("utf-8")) > min(max_response_bytes, MAX_DISCOVERY_RESPONSE_BYTES):
+        raise SourceAdapterError("MALFORMED_RESPONSE", "FEED_RESPONSE_TOO_LARGE")
+    return xml_text
 
 
 class SourceAdapter:
@@ -408,27 +402,25 @@ class YouTubeChannelAdapter(SourceAdapter):
             max_response_bytes=max_response_bytes,
         )
         try:
-            raw = _legacy_parse_youtube_feed(
-                xml_text, _text(source.get("id"), MAX_ID_LENGTH, required=True)
-            )
-        except ET.ParseError as exc:
+            raw = parse_feed(xml_text, "youtube")
+        except ValueError as exc:
             raise SourceAdapterError("MALFORMED_RESPONSE", str(exc)) from exc
         normalized: list[DiscoveredContent] = []
         for item in raw:
-            if not item.external_id:
+            if not item.stable_id:
                 raise SourceAdapterError("MISSING_ID", "youtube")
-            canonical = item.canonical_url or (
-                f"https://www.youtube.com/watch?v={item.external_id}"
+            canonical = item.link or (
+                f"https://www.youtube.com/watch?v={item.stable_id}"
             )
             normalized.append(
                 _content(
                     source=source,
                     source_kind=self.kind,
                     platform="youtube",
-                    external_id=item.external_id,
+                    external_id=item.stable_id,
                     title=item.title,
                     canonical_url=canonical,
-                    published_at=item.published_at,
+                    published_at=item.published,
                     author=item.author,
                     resolver=resolver,
                 )
@@ -469,53 +461,26 @@ class PodcastRssAdapter(SourceAdapter):
             max_response_bytes=max_response_bytes,
         )
         try:
-            root = ET.fromstring(xml_text)
-        except ET.ParseError as exc:
+            raw = parse_feed(xml_text, "podcast")
+        except ValueError as exc:
             raise SourceAdapterError("MALFORMED_RESPONSE", str(exc)) from exc
-        channel = root.find("channel")
-        if channel is None:
-            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_CHANNEL_MISSING")
-        expected: list[dict[str, str]] = []
-        for node in channel.findall("item"):
-            guid = (node.findtext("guid") or "").strip()
-            enclosure = node.find("enclosure")
-            enclosure_url = enclosure.attrib.get("url", "").strip() if enclosure is not None else ""
-            if not guid and not enclosure_url:
-                raise SourceAdapterError("MISSING_ID", "rss_item")
-            expected.append(
-                {
-                    "external_id": guid or enclosure_url,
-                    "canonical_url": (node.findtext("link") or "").strip() or enclosure_url,
-                }
-            )
-        try:
-            raw = _legacy_parse_podcast_rss(
-                xml_text, _text(source.get("id"), MAX_ID_LENGTH, required=True)
-            )
-        except ET.ParseError as exc:
-            raise SourceAdapterError("MALFORMED_RESPONSE", str(exc)) from exc
-        if not expected and raw:
-            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_ITEMS_MISSING")
         normalized: list[DiscoveredContent] = []
-        for index, item in enumerate(raw):
-            details = expected[index] if index < len(expected) else {}
-            external_id = details.get("external_id") or item.external_id
-            if not external_id or external_id == item.title and not item.media_url:
+        for item in raw:
+            if not item.stable_id:
                 raise SourceAdapterError("MISSING_ID", "rss_item")
-            canonical = details.get("canonical_url") or item.canonical_url or item.media_url
             normalized.append(
                 _content(
                     source=source,
                     source_kind=source_kind_override or self.kind,
                     platform="podcast_rss",
-                    external_id=external_id,
+                    external_id=item.stable_id,
                     title=item.title,
-                    canonical_url=canonical,
-                    published_at=item.published_at,
+                    canonical_url=item.link,
+                    published_at=item.published,
                     author=item.author,
                     media_url=item.media_url,
                     media_type=item.media_type,
-                    duration_seconds=item.duration_seconds,
+                    duration_seconds=_duration(item.duration_seconds),
                     description=item.description,
                     resolver=resolver,
                 )
@@ -549,63 +514,14 @@ class PublicRssAdapter(SourceAdapter):
             url, feed_xml=feed_xml, fetcher=fetcher,
             timeout=timeout, max_response_bytes=max_response_bytes,
         )
-        if len(xml_text.encode("utf-8")) > min(max_response_bytes, MAX_DISCOVERY_RESPONSE_BYTES):
-            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_RESPONSE_TOO_LARGE")
         try:
-            root = ET.fromstring(xml_text)
-        except ET.ParseError as exc:
-            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_XML_INVALID") from exc
-
+            entries = parse_feed(xml_text, "public")
+        except ValueError as exc:
+            raise SourceAdapterError("MALFORMED_RESPONSE", str(exc)) from exc
         rows: list[DiscoveredContent] = []
-        if root.tag == "rss":
-            channel = root.find("channel")
-            if channel is None:
-                raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_CHANNEL_MISSING")
-            author = channel.findtext("title")
-            entries = [
-                (
-                    node.findtext("guid") or "",
-                    node.findtext("link") or "",
-                    node.findtext("title") or "",
-                    node.findtext("pubDate") or "",
-                    author,
-                )
-                for node in channel.findall("item")
-            ]
-        elif root.tag == "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF":
-            rss = "{http://purl.org/rss/1.0/}"
-            dc = "{http://purl.org/dc/elements/1.1/}"
-            author = root.findtext(f"{rss}channel/{rss}title")
-            entries = [
-                (
-                    node.attrib.get("{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about", ""),
-                    node.findtext(f"{rss}link") or "",
-                    node.findtext(f"{rss}title") or "",
-                    node.findtext(f"{dc}date") or "",
-                    author,
-                )
-                for node in root.findall(f"{rss}item")
-            ]
-        elif root.tag == "{http://www.w3.org/2005/Atom}feed":
-            atom = "{http://www.w3.org/2005/Atom}"
-            author = root.findtext(f"{atom}title")
-            entries = []
-            for node in root.findall(f"{atom}entry"):
-                links = [link.attrib.get("href", "") for link in node.findall(f"{atom}link")
-                         if link.attrib.get("rel", "alternate") == "alternate"]
-                entries.append((
-                    node.findtext(f"{atom}id") or "",
-                    links[0] if links else "",
-                    node.findtext(f"{atom}title") or "",
-                    node.findtext(f"{atom}published") or node.findtext(f"{atom}updated") or "",
-                    node.findtext(f"{atom}author/{atom}name") or author,
-                ))
-        else:
-            raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_OR_ATOM_EXPECTED")
-
-        for stable_id, item_url, title, published_at, author in entries:
-            stable_id = stable_id.strip()
-            item_url = item_url.strip()
+        for entry in entries:
+            stable_id = entry.stable_id.strip()
+            item_url = entry.link.strip()
             if not stable_id and not item_url:
                 raise SourceAdapterError("MISSING_ID", "RSS_ITEM_ID")
             if not item_url:
@@ -614,16 +530,17 @@ class PublicRssAdapter(SourceAdapter):
                     item_url = stable_id
                 else:
                     raise SourceAdapterError("MISSING_ID", "RSS_ITEM_LINK")
-            published_at = published_at.strip()
+            published_at = entry.published.strip()
             if published_at and "," in published_at:
+                from email.utils import parsedate_to_datetime
                 try:
                     published_at = parsedate_to_datetime(published_at).isoformat()
                 except (TypeError, ValueError, OverflowError) as exc:
                     raise SourceAdapterError("MALFORMED_RESPONSE", "RSS_DATE_INVALID") from exc
             rows.append(_content(
                 source=source, source_kind=self.kind, platform="public_rss",
-                external_id=stable_id or item_url, title=title,
-                canonical_url=item_url, published_at=published_at, author=author,
+                external_id=stable_id or item_url, title=entry.title,
+                canonical_url=item_url, published_at=published_at, author=entry.author,
                 resolver=resolver,
             ))
         bounded, _ = _limited(rows, limit)
@@ -863,9 +780,7 @@ def discover_source_result(
             category = "TRANSIENT"
             status = "FAILED"
         return DiscoveryResult((), status, category)
-    except (ET.ParseError, ValueError) as exc:
-        if isinstance(exc, SourceAdapterError):
-            return DiscoveryResult((), "FAILED", exc.category)
+    except ValueError:
         return DiscoveryResult((), "FAILED", "MALFORMED_RESPONSE")
     except TimeoutError:
         return DiscoveryResult((), "FAILED", "TRANSIENT")
