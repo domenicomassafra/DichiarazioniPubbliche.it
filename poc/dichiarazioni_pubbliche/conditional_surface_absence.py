@@ -40,6 +40,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/discovery/candidate-queue",
     "/v1/discovery/coverage-queue",
     "/v1/collections/navigate",
+    "/v1/recovery/observed",  # exact private journal readback, no mutation authority
 })
 _STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
     "/v1/candidate/review-readiness",

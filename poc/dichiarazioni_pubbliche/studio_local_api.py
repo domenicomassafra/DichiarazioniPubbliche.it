@@ -48,6 +48,9 @@ from dichiarazioni_pubbliche.studio_machine_candidate_handoff_v1 import (
     preview_candidate_machine_handoff, preview_discovery_machine_exception,
 )
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
+from dichiarazioni_pubbliche.original_source_observation_v1 import LocalObservedRecoveryJournal
+from dichiarazioni_pubbliche.studio_readonly_db import StudioReadOnlyDb as _StudioReadOnlyDb
+from dichiarazioni_pubbliche.studio_recovery_page import with_recovery_panel
 
 STUDIO_LOCAL_API_VERSION = "studio-local-readonly-api-v1"
 STUDIO_LOCAL_MAX_BODY_BYTES = 4096
@@ -75,36 +78,8 @@ _ALLOWED_PATHS = frozenset({
     "/v1/discovery/coverage-queue",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
     "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
+    "/v1/recovery/observed",
 })
-
-class _StudioReadOnlyDb(PsqlRuntime):
-    """Guard even a mistakenly invoked write at the PostgreSQL session layer."""
-
-    def run(self, sql: str, **variables: object) -> str:
-        args = self._args()
-        for key, value in variables.items():
-            args.extend(["-v", f"{key}={_clean(value)}"])
-        environment = os.environ.copy()
-        environment["PGOPTIONS"] = (
-            environment.get("PGOPTIONS", "")
-            + " -c default_transaction_read_only=on"
-            + " -c statement_timeout=3000"
-            + " -c lock_timeout=1000"
-        ).strip()
-        environment["PGCONNECT_TIMEOUT"] = "3"
-        try:
-            process = subprocess.run(
-                args, input=sql, text=True, capture_output=True, check=False,
-                env=environment, timeout=8,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            raise RuntimeError("STUDIO_LOCAL_DB_TIMEOUT_OR_UNAVAILABLE") from None
-        if process.returncode != 0:
-            raise RuntimeError("STUDIO_LOCAL_DB_QUERY_REFUSED")
-        if len(process.stdout) > 128_000:
-            raise RuntimeError("STUDIO_LOCAL_DB_RESULT_TOO_LARGE")
-        return process.stdout.strip()
-
 
 class _StudioCorpusReader(_StudioReadOnlyDb, CorpusSearchStore):
     pass
@@ -614,6 +589,7 @@ class StudioLocalReaders:
     handoffs: LocalCandidateReviewHandoffQueue | None = None
     decision_reader: Any | None = None
     workload_reader: Any | None = None
+    recovery_observations: LocalObservedRecoveryJournal | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -633,6 +609,11 @@ def _strict_json_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
+    if path == "/v1/recovery/observed":
+        _fields(body, required={"case_id"})
+        if type(readers.recovery_observations) is not LocalObservedRecoveryJournal:
+            raise RuntimeError("STUDIO_RECOVERY_JOURNAL_NOT_CONFIGURED")
+        return readers.recovery_observations.read(body["case_id"])
     if path == "/v1/operator/workload":
         _fields(body, required={"collection_id"}, optional={"limit", "after"})
         # Exact opt-in disposable backend only; the ordinary Studio listener
@@ -933,7 +914,7 @@ class StudioLocalHandler(BaseHTTPRequestHandler):
 
     def _login_page(self) -> None:
         nonce = secrets.token_hex(16)
-        encoded = render_studio_login_page(nonce)
+        encoded = with_recovery_panel(render_studio_login_page(nonce))
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
@@ -1030,15 +1011,22 @@ def main(argv: list[str] | None = None) -> int:
         "--handoff-root", type=Path,
         help="Optional existing private 0700 candidate handoff spool for read-only receipts",
     )
+    parser.add_argument(
+        "--recovery-observation-root", type=Path,
+        help="Optional existing private 0700 DP-241 observed recovery spool (read-only)",
+    )
     args = parser.parse_args(argv)
     try:
         token = load_private_token(args.token_file)
         handoffs = LocalCandidateReviewHandoffQueue(args.handoff_root) if args.handoff_root else None
+        recovery = (LocalObservedRecoveryJournal(args.recovery_observation_root)
+                    if args.recovery_observation_root else None)
         readers = StudioLocalReaders(
             corpus=_StudioCorpusReader(), captures=_StudioCaptureReader(),
             candidates=_StudioCandidateReader(), queues=_StudioQueueReader(),
             promotion_context=_StudioPromotionContextReader(), handoffs=handoffs,
             decision_reader=_StudioDecisionReader(),
+            recovery_observations=recovery,
         )
         with StudioLoopbackServer(args.port, readers, token) as server:
             print(f"Studio local API ready on 127.0.0.1:{server.server_port} (read-only)", flush=True)
