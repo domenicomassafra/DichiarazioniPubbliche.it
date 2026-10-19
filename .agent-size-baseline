@@ -122,7 +122,7 @@
   "poc/dichiarazioni_pubbliche/review_admin.py": 27627,
   "poc/dichiarazioni_pubbliche/rights_registry.py": 21635,
   "poc/dichiarazioni_pubbliche/scheduler_daemon.py": 65374,
-  "poc/dichiarazioni_pubbliche/source_adapters.py": 35764,
+  "poc/dichiarazioni_pubbliche/source_adapters.py": 31704,
   "poc/dichiarazioni_pubbliche/source_intelligence.py": 52421,
   "poc/dichiarazioni_pubbliche/source_watch_store_v1.py": 25272,
   "poc/dichiarazioni_pubbliche/studio_candidate_decision_store_pg.py": 20151,
