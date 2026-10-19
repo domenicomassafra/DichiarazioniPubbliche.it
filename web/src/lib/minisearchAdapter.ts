@@ -2,10 +2,22 @@
  * Never persists an independent index or caches a possibly withdrawn release.
  * Publication, pin, hash and provenance validation belong to the callers.
  */
-import MiniSearch from "minisearch";
+import type MiniSearchType from "minisearch";
+
+// Backend projection-only consumers import searchIndex.ts without npm install.
+// They must still be able to build the canonical public JSON. Actual lexical
+// retrieval requires this local package and fails closed if it is unavailable.
+let MiniSearch: typeof MiniSearchType | undefined;
+try {
+  MiniSearch = (await import("minisearch")).default;
+} catch (error) {
+  if (!(error instanceof Error && "code" in error && error.code === "ERR_MODULE_NOT_FOUND")) {
+    throw error;
+  }
+}
 
 type SearchDocument = { id: number; primary: string; secondary: string };
-const engines = new WeakMap<object, { revision: string; engine: MiniSearch<SearchDocument> }>();
+const engines = new WeakMap<object, { revision: string; engine: MiniSearchType<SearchDocument> }>();
 
 export function publicTextScores<T>(
   records: readonly T[],
@@ -15,6 +27,7 @@ export function publicTextScores<T>(
   cache: { asset: object; revision: string },
 ): Map<number, number> {
   if (!normalizedQuery || records.length === 0) return new Map();
+  if (!MiniSearch) throw new Error("PUBLIC_LOCAL_SEARCH_DEPENDENCY_UNAVAILABLE");
   let existing = engines.get(cache.asset);
   if (!existing || existing.revision !== cache.revision) {
     const engine = new MiniSearch<SearchDocument>({
