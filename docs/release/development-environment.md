@@ -131,6 +131,11 @@ explicit so environment cleanup cannot silently rename the import/distribution s
 - Runtime dependencies: `pyproject.toml` `[project]` (empty).
 - Development dependencies: `pyproject.toml` `[project.optional-dependencies].dev`,
   each with lower+upper bounds.
+- OpenAPI 3.1 conformance is checked only with the `dev` extra by
+  `tests.test_openapi_spec_validator` and the isolated `openapi-contract` CI job.
+  Runtime installations and the `backend-minimal` profile remain stdlib-only;
+  provenance and upstream NOTICE are recorded in
+  [`../donors/openapi-spec-validator.md`](../donors/openapi-spec-validator.md).
 
 Drift is detected by `tools/check_version_consistency.py` and
 `tests/test_packaging_metadata.py`. A packaging change must not bump a version as a side

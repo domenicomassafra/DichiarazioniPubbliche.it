@@ -23,7 +23,9 @@ class CiWorkflowNode24Tests(unittest.TestCase):
         source = WORKFLOW.read_text()
         actions = re.findall(r'^\s+- uses: (actions/(checkout|setup-python|setup-node)@v\d+)\s*$',
                              source, re.MULTILINE)
-        self.assertEqual(len(actions), 7)
+        # New CI jobs may add actions; every actions/* invocation must be checked.
+        self.assertGreater(len(actions), 0)
+        self.assertEqual(len(actions), len(re.findall(r'^\s+- uses: actions/', source, re.MULTILINE)))
         versions = {
             'checkout': 'actions/checkout@v5',
             'setup-python': 'actions/setup-python@v6',
