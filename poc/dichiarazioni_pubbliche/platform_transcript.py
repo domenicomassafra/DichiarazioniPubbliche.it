@@ -188,6 +188,7 @@ class YouTubeResolver:
         proc = subprocess.run(
             [
                 self.yt_dlp,
+                "--ignore-config",
                 "--no-cache-dir",
                 "--skip-download",
                 "--dump-single-json",
@@ -229,6 +230,7 @@ class YouTubeResolver:
             proc = subprocess.run(
                 [
                     self.yt_dlp,
+                    "--ignore-config",
                     "--no-cache-dir",
                     "--skip-download",
                     flag,
