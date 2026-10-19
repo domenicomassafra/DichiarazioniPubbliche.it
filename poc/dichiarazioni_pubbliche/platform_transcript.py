@@ -49,7 +49,7 @@ class PlatformAccessRestricted(RuntimeError):
 
 
 _SERIES_EPISODE = re.compile(
-    r"(pulps*podcast|pulps*special|pulpland)s*#s*(d+)",
+    r"\b(pulp\s*podcast|pulp\s*special|pulpland)\s*#\s*(\d+)\b",
     re.IGNORECASE,
 )
 
@@ -64,7 +64,9 @@ def _series_episode(value: str) -> tuple[str, int] | None:
     match = _SERIES_EPISODE.search(value)
     if not match:
         return None
-    series = re.sub(r"\s+", " ", match.group(1).casefold()).strip()
+    series = re.sub(r"\s+", "", match.group(1).casefold())
+    if series in {"pulppodcast", "pulpspecial"}:
+        series = f"pulp {series[4:]}"
     return series, int(match.group(2))
 
 
@@ -90,13 +92,16 @@ def choose_video_candidate(
         return None
     episode = _series_episode(title)
     if episode is not None:
+        marked = [(candidate, _series_episode(candidate.title)) for candidate in candidates]
         exact = [
             candidate
-            for candidate in candidates
-            if _series_episode(candidate.title) == episode
+            for candidate, candidate_episode in marked
+            if candidate_episode == episode
         ]
         if exact:
             return max(exact, key=lambda candidate: _title_score(title, candidate.title))
+        # A known but different episode must never win on title similarity.
+        candidates = [candidate for candidate, candidate_episode in marked if candidate_episode is None]
     ranked = sorted(
         (
             (_title_score(title, candidate.title), candidate)
