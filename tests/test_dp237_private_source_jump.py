@@ -7,9 +7,10 @@ import unittest
 from dataclasses import replace
 
 from dichiarazioni_pubbliche.original_source_resolver import (
-    resolve_exact_source_locator,
+    resolve_exact_source_locator, resolve_reviewed_original_source,
+    OriginalSourceResolution,
 )
-from dichiarazioni_pubbliche.private_source_jump import private_written_source_jump
+from dichiarazioni_pubbliche.private_source_jump import private_written_source_jump as verified_jump
 from tests.test_dp237_exact_locator import (
     SOURCE_HTML,
     QUOTE,
@@ -18,6 +19,18 @@ from tests.test_dp237_exact_locator import (
     written,
     written_locator,
 )
+
+
+def private_written_source_jump(**options):
+    """A reviewed original and a same-URL live read are required for navigation."""
+    doc = options["capture"]
+    options.setdefault("observed_live_url", doc.final_url)
+    options.setdefault("original_source", resolve_reviewed_original_source(
+        doc.content_id,
+        families=[{"id": "family:reviewed", "status": "APPROVED",
+                   "root_content_id": doc.content_id}], edges=(),
+    ))
+    return verified_jump(**options)
 
 
 class PrivateSourceJumpTests(unittest.TestCase):
@@ -100,6 +113,37 @@ class PrivateSourceJumpTests(unittest.TestCase):
                 quote_text=excerpt,
             ).reason,
             "EXACT_LOCATOR_NOT_VERIFIED",
+        )
+
+    def test_observation_url_and_approved_root_must_match_original(self):
+        doc = replace(
+            capture(), final_url="https://www.senato.it/speech",
+            rights_status="CLEARED",
+        )
+        valid = written(capture=doc)
+        common = dict(
+            locator=written_locator(), resolution=valid, capture=doc,
+            observed_live_sha256=doc.content_sha256, quote_text=QUOTE,
+        )
+        different_address = private_written_source_jump(
+            **common, observed_live_url="https://archive.example/speech",
+        )
+        self.assertEqual(different_address.status, "UNAVAILABLE")
+        self.assertEqual(different_address.reason, "LIVE_SOURCE_URL_MISMATCH")
+        copy_chain = OriginalSourceResolution(
+            content_id=doc.content_id, status="RESOLVED",
+            root_content_id="content:other-original",
+            path_content_ids=(doc.content_id, "content:other-original"),
+            path_edge_ids=("edge:approved",),
+        )
+        unverified_root = private_written_source_jump(
+            **common, original_source=copy_chain,
+        )
+        self.assertEqual(unverified_root.status, "UNAVAILABLE")
+        self.assertEqual(unverified_root.reason, "REVIEWED_ORIGINAL_SOURCE_NOT_VERIFIED")
+        self.assertEqual(
+            private_written_source_jump(**common, original_source=None).reason,
+            "REVIEWED_ORIGINAL_SOURCE_NOT_VERIFIED",
         )
 
     def test_refuses_authenticated_private_and_potentially_secret_urls(self):
