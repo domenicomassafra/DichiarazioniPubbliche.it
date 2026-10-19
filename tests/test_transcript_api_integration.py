@@ -53,6 +53,66 @@ class TranscriptApiAdapterTests(unittest.TestCase):
             self.assertIs(resolver.capture_caption("https://example.test/no-video", existing.probe), existing)
         fallback.assert_called_once()
 
+    def test_pinned_client_limits_hosts_redirects_body_and_timeout(self):
+        from dichiarazioni_pubbliche.youtube_transcript_client import new_transcript_client
+
+        # Default contributor profile has no requests/youtube-transcript-api;
+        # exercise the opt-in session policy without installing either donor.
+        class FakeSession:
+            trust_env = True
+
+            def get(self, url, **kwargs):
+                return self.request("GET", url, **kwargs)
+
+            def request(self, method, url, **kwargs):
+                raise AssertionError("outbound must be mocked")
+
+        with patch("dichiarazioni_pubbliche.youtube_transcript_client.version", return_value="1.2.4"):
+            with patch.dict(sys.modules, {
+                "requests": SimpleNamespace(Session=FakeSession),
+                "youtube_transcript_api": SimpleNamespace(YouTubeTranscriptApi=lambda http_client: http_client)
+            }):
+                client = new_transcript_client()
+        self.assertFalse(client.trust_env)
+        with patch.object(FakeSession, "request") as outbound:
+            for url in (
+                "http://www.youtube.com/watch?v=AbC123_dEfG",
+                "https://www.youtube.com.evil.test/watch",
+                "https://www.youtube.com@127.0.0.1/watch",
+                "https://www.youtube.com:8443/watch",
+                "https://127.0.0.1/watch",
+            ):
+                with self.subTest(url=url), self.assertRaisesRegex(ValueError, "URL_NOT_ALLOWED"):
+                    client.get(url)
+            outbound.assert_not_called()
+
+            allowed_response = Mock()
+            allowed_response.status_code = 200
+            allowed_response.iter_content.return_value = iter([b'{"ok":true}'])
+            outbound.return_value = allowed_response
+            result = client.get("https://www.youtube.com/api/timedtext")
+            self.assertIs(result, allowed_response)
+            self.assertEqual(result._content, b'{"ok":true}')
+            self.assertTrue(result._content_consumed)
+            allowed_response.close.assert_called_once()
+            self.assertEqual(outbound.call_args.kwargs["timeout"], (3.0, 8.0))
+            self.assertFalse(outbound.call_args.kwargs["allow_redirects"])
+            self.assertTrue(outbound.call_args.kwargs["stream"])
+
+            redirected = Mock(status_code=302)
+            outbound.return_value = redirected
+            with self.assertRaisesRegex(RuntimeError, "REDIRECT_DENIED"):
+                client.get("https://www.youtube.com/watch?v=AbC123_dEfG")
+            redirected.close.assert_called_once()
+
+            oversized = Mock()
+            oversized.status_code = 200
+            oversized.iter_content.return_value = iter([b"x" * (2 * 1024 * 1024 + 1)])
+            outbound.return_value = oversized
+            with self.assertRaisesRegex(ValueError, "RESPONSE_LIMIT_EXCEEDED"):
+                client.get("https://www.youtube.com/watch?v=AbC123_dEfG")
+            oversized.close.assert_called_once()
+
     def test_first_attempt_manual_and_auto_preserves_kind_language_hash_and_raw(self):
         for kind, language, generated in (
             ("manual_caption", "it", False),
@@ -121,12 +181,17 @@ class TranscriptApiAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "JSON3 unavailable"):
                 resolver.capture_caption("https://youtu.be/AbC123_dEfG", CaptionProbe("manual_caption", "it"))
 
-    def test_429_ip_block_and_challenge_never_fallback(self):
-        for name in ("TooManyRequests", "IpBlocked", "RequestBlocked", "PoTokenRequired", "HTTPError429"):
+    def test_platform_denials_never_fallback_to_another_client(self):
+        for name in (
+            "TooManyRequests", "IpBlocked", "RequestBlocked", "PoTokenRequired",
+            "YouTubeRequestFailed", "AgeRestricted", "VideoUnplayable",
+            "VideoUnavailable", "FailedToCreateConsentCookie", "TranscriptApiRedirectDenied",
+            "HTTPError401", "HTTPError403", "HTTPError429", "HTTPError451",
+        ):
             with self.subTest(name=name):
                 error = type(name, (Exception,), {})("blocked")
-                if name == "HTTPError429":
-                    error.response = SimpleNamespace(status_code=429)
+                if name.startswith("HTTPError"):
+                    error.response = SimpleNamespace(status_code=int(name.removeprefix("HTTPError")))
                 api, _, _ = self._api_fixture(error=error)
                 resolver = YouTubeResolver(use_transcript_api=True,
                                            transcript_api_factory=lambda: api)

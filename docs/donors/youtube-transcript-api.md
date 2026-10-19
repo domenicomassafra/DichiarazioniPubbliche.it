@@ -8,7 +8,9 @@
 - **Import:** optional `[youtube-captions]` extra pinned to `1.2.4`; disabled by
   default. Operators explicitly enable `DP_YOUTUBE_TRANSCRIPT_API=1` after their
   normal source-use clearance. No cookies, authenticated API or proxies configured;
-  a session disables inherited proxies and bounds connect/read timeouts to 3s/8s.
+  a session disables inherited proxies, limits requests to HTTPS `www.youtube.com`
+  without redirects and bounds connect/read timeouts to 3s/8s, each response to
+  2 MiB and elapsed acquisition of each response to roughly 20s (plus a read timeout).
 - **Port:** external library calls `YouTubeTranscriptApi().list(id)` then the
   selected `find_manually_created_transcript` or `find_generated_transcript`, and
   `.fetch(preserve_formatting=False)`. No donor source files are copied.
@@ -20,7 +22,10 @@
   segments, with the method/version in capture receipts and variant metadata.
 - **Fallback:** missing optional package, unavailable track, timeout, malformed
   timestamps or API breakage revert to existing JSON3 acquisition. Blocks (IP,
-  429, challenge) raise `PlatformAccessRestricted` without trying another client.
+  429, challenge, HTTP access denial, redirects, age/playability/consent restriction) raise
+  `PlatformAccessRestricted` without trying another client. In v1.2.4 the donor
+  wraps HTTP 4xx/5xx as `YouTubeRequestFailed` without retaining the response;
+  this error therefore fails closed even if the status was a transient 5xx.
   If the fallback fails, acquisition fails closed. Automatic publication, source
   rights, revalidation, retention and review gates remain unchanged.
 - **Known risks:** API relies on an undocumented YouTube interface. Upstream

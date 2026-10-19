@@ -289,8 +289,16 @@ class YouTubeResolver:
         except Exception as exc:
             # A 429, IP block or challenge is a policy boundary: do not evade it
             # through another client or cookies/proxies.
-            if getattr(getattr(exc, "response", None), "status_code", None) == 429 or type(exc).__name__ in {
+            # The pinned donor wraps non-429 HTTP errors as YouTubeRequestFailed,
+            # removing the original response object. Treat every such failure,
+            # entitlement/consent denial and explicit challenge as a hold; falling
+            # back to yt-dlp here could circumvent the platform's access decision.
+            if getattr(getattr(exc, "response", None), "status_code", None) in {
+                401, 403, 429, 451,
+            } or type(exc).__name__ in {
                 "TooManyRequests", "IpBlocked", "RequestBlocked", "PoTokenRequired",
+                "YouTubeRequestFailed", "AgeRestricted", "VideoUnplayable",
+                "VideoUnavailable", "FailedToCreateConsentCookie", "TranscriptApiRedirectDenied",
             }:
                 raise PlatformAccessRestricted("TRANSCRIPT_API_ACCESS_RESTRICTED") from exc
             raise
