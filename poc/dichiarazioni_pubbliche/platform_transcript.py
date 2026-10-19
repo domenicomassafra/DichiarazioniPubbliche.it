@@ -9,7 +9,6 @@ import tempfile
 import unicodedata
 from dataclasses import asdict, dataclass, field
 from difflib import SequenceMatcher
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
@@ -267,12 +266,9 @@ class YouTubeResolver:
         if probe.kind not in {"manual_caption", "automatic_caption"} or not probe.language:
             raise ValueError("TRANSCRIPT_API_INVALID_PROBE")
         if self._transcript_api_factory is None:
-            from youtube_transcript_api import YouTubeTranscriptApi
+            from dichiarazioni_pubbliche.youtube_transcript_client import new_transcript_client
 
-            if version("youtube-transcript-api") != "1.2.4":
-                raise RuntimeError("TRANSCRIPT_API_VERSION_UNSUPPORTED")
-
-            factory = YouTubeTranscriptApi
+            factory = new_transcript_client
         else:
             factory = self._transcript_api_factory
         api = factory()

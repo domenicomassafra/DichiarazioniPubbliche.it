@@ -7,7 +7,8 @@
   https://github.com/jdepoix/youtube-transcript-api/blob/v1.2.4/LICENSE
 - **Import:** optional `[youtube-captions]` extra pinned to `1.2.4`; disabled by
   default. Operators explicitly enable `DP_YOUTUBE_TRANSCRIPT_API=1` after their
-  normal source-use clearance. No cookies, authenticated API or proxies configured.
+  normal source-use clearance. No cookies, authenticated API or proxies configured;
+  a session disables inherited proxies and bounds connect/read timeouts to 3s/8s.
 - **Port:** external library calls `YouTubeTranscriptApi().list(id)` then the
   selected `find_manually_created_transcript` or `find_generated_transcript`, and
   `.fetch(preserve_formatting=False)`. No donor source files are copied.

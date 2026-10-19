@@ -27,7 +27,7 @@ from dichiarazioni_pubbliche.youtube_caption_receipts import (
 )
 
 
-class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
+class TranscriptAsrJobHandlers:
     def _require_current_ingestion_relevance(self, content: ContentRecord) -> None:
         try:
             self.store.require_current_ingestion_relevance(
@@ -89,105 +89,10 @@ class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
             {"asr_reason": reason, "asr_route": routing.primary.route},
         )
     def _probe_and_enqueue_caption(
-        self,
-        job: ProcessingJob,
-        content: ContentRecord,
-        candidate: VideoCandidate,
+        self, job: ProcessingJob, content: ContentRecord, candidate: VideoCandidate
     ) -> None:
-        if not self.store.renew(
-            job.job_id, self.worker_id, lease_seconds=self.lease_seconds
-        ):
-            raise RetryableJob("LEASE_LOST_BEFORE_CAPTION_PROBE", 0)
-        self._require_current_ingestion_relevance(content)
-        try:
-            probe = self.resolver.probe_caption(candidate.canonical_url)
-        except PlatformAccessRestricted:
-            _record_caption_receipt(self.store,
-                job_id=job.job_id,
-                content_id=content.content_id,
-                provider_id="youtube",
-                model_id=None,
-                operation="CAPTION_PROBE",
-                request_id=None,
-                input_bytes=None,
-                input_seconds=None,
-                estimated_cost_usd=0.0,
-                status="ACCESS_RESTRICTED",
-                receipt={
-                    "video_id": candidate.video_id,
-                    "reason": "PLATFORM_ENTITLEMENT_REQUIRED",
-                },
-                request_key=f"{candidate.video_id}:attempt:{job.attempt}",
-            )
-            self._enqueue_asr(content, reason="YOUTUBE_COPY_ACCESS_RESTRICTED")
-            return
-        except Exception as exc:
-            _record_caption_receipt(self.store,
-                job_id=job.job_id,
-                content_id=content.content_id,
-                provider_id="youtube",
-                model_id=None,
-                operation="CAPTION_PROBE",
-                request_id=None,
-                input_bytes=None,
-                input_seconds=None,
-                estimated_cost_usd=0.0,
-                status="FAILED",
-                receipt={
-                    "video_id": candidate.video_id,
-                    "error_type": type(exc).__name__,
-                },
-                request_key=f"{candidate.video_id}:attempt:{job.attempt}",
-            )
-            raise RetryableJob(f"CAPTION_PROBE_FAILED:{type(exc).__name__}") from exc
+        return CaptionAcquisitionHandler._probe_and_enqueue_caption(self, job, content, candidate)
 
-        self._require_current_ingestion_relevance(content)
-        _record_caption_receipt(self.store,
-            job_id=job.job_id,
-            content_id=content.content_id,
-            provider_id="youtube",
-            model_id=None,
-            operation="CAPTION_PROBE",
-            request_id=None,
-            input_bytes=None,
-            input_seconds=None,
-            estimated_cost_usd=0.0,
-            status="SUCCESS",
-            receipt={
-                "video_id": candidate.video_id,
-                "caption_found": probe is not None,
-                "caption_kind": probe.kind if probe else None,
-                "caption_language": probe.language if probe else None,
-            },
-            request_key=f"{candidate.video_id}:attempt:{job.attempt}",
-        )
-        if probe is None:
-            self._enqueue_asr(content, reason="NO_ITALIAN_PLATFORM_CAPTION")
-            return
-
-        self.store.enqueue_followup(
-            content_id=content.content_id,
-            job_type="TRANSCRIPT_ACQUIRE_CAPTION",
-            payload={
-                "source_id": content.source_id,
-                "platform": "youtube",
-                "external_id": candidate.video_id,
-                "canonical_url": candidate.canonical_url,
-                "caption_kind": probe.kind,
-                "caption_language": probe.language,
-                "estimated_cost_usd": 0.0,
-            },
-            variant=f"{candidate.video_id}:{probe.kind}:{probe.language}",
-        )
-        self.store.update_content_status(
-            content.content_id,
-            "TRANSCRIPT_CAPTION_QUEUED",
-            {
-                "youtube_video_id": candidate.video_id,
-                "caption_kind": probe.kind,
-                "caption_language": probe.language,
-            },
-        )
     def resolve_platform(self, job: ProcessingJob, content: ContentRecord) -> None:
         source = self._source(content.source_id)
         platform = str(job.payload.get("platform") or "")
@@ -220,6 +125,10 @@ class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
         else:
             raise BlockedJob(f"UNSUPPORTED_PLATFORM:{platform or 'missing'}")
         self._probe_and_enqueue_caption(job, content, candidate)
+    def acquire_caption(self, job: ProcessingJob, content: ContentRecord) -> None:
+        """Retain the registered handler on its family while sharing the capture seam."""
+        return CaptionAcquisitionHandler.acquire_caption(self, job, content)
+
     def canonicalize(self, job: ProcessingJob, content: ContentRecord) -> None:
         variant_id = str(job.payload.get("variant_id") or "").strip()
         if not variant_id:
