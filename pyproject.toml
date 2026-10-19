@@ -38,6 +38,9 @@ account = ["Authlib==1.9.1", "cryptography>=45.0,<50.0"]
 document-pdf = ["pypdf>=6.0,<7.0"]
 # Synthetic in-memory PDF fixtures only; never necessary for runtime capture.
 document-pdf-test = ["pypdf>=6.0,<7.0", "reportlab>=4.0,<6.0", "Pillow>=10.0,<13.0"]
+# Private, explicit HTML extraction adapter. No automatic fetch or publication.
+# The default contributor profile remains stdlib-only.
+capture-html = ["trafilatura==2.3.1"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [
