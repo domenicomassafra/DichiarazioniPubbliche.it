@@ -29,8 +29,10 @@ def job(name: str, labels: list[str], started: str | None, completed: str | None
     }
 
 
-def run(run_id: int, created: str, updated: str, event: str = "pull_request") -> dict:
-    return {"id": run_id, "created_at": created, "updated_at": updated, "event": event}
+def run(run_id: int, created: str, updated: str, event: str = "pull_request",
+        status: str = "completed") -> dict:
+    return {"id": run_id, "created_at": created, "updated_at": updated, "event": event,
+            "status": status}
 
 
 def write_export(directory: Path, runs: list[dict], jobs: dict[int, list[dict]]) -> Path:
@@ -113,6 +115,14 @@ class SummarizeTests(unittest.TestCase):
         self.assertAlmostEqual(pool["macos_minutes"], 6.0)
         self.assertAlmostEqual(pool["macos_minutes_without_verdict"], 4.0)
         self.assertAlmostEqual(pool["macos_share_without_verdict"], 4.0 / 6.0)
+
+    def test_a_run_still_in_flight_has_no_wall_clock(self):
+        runs = [run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:00:20Z", status="in_progress")]
+        jobs = {1: [job("backend macos-latest / py3.11", MACOS, None, None, "queued")]}
+        report = capacity.summarize({str(r["id"]): r for r in runs}, {str(k): v for k, v in jobs.items()})
+        self.assertIsNone(report["run_wall"]["median"])
+        self.assertEqual(report["macos"]["jobs"], 1)
+        self.assertIsNone(report["macos"]["queue_median"])
 
     def test_utilisation_uses_the_macos_slot_capacity_of_the_window(self):
         runs = [run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:10:00Z")]
