@@ -9,17 +9,24 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import fields
-from typing import Callable, Protocol
+from typing import Protocol
 
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore
-from dichiarazioni_pubbliche.corpus_repository import ContentCaptureRecord, PassageRecord
+from dichiarazioni_pubbliche.corpus_repository import (
+    ContentCaptureRecord,
+    PassageRecord,
+)
 from dichiarazioni_pubbliche.document_text_extraction import DocumentTextParser
 from dichiarazioni_pubbliche.original_source_resolver import (
-    ExactSourceLocator, resolve_exact_source_locator, resolve_reviewed_original_source,
+    ExactSourceLocator,
+    resolve_exact_source_locator,
+    resolve_reviewed_original_source,
 )
 from dichiarazioni_pubbliche.private_source_jump import (
-    _safe_external_url, private_written_source_jump,
+    _safe_external_url,
+    private_written_source_jump,
 )
 from dichiarazioni_pubbliche.source_watcher import FetchedBytes, fetch_bytes
 
@@ -100,7 +107,7 @@ class _SnapshotReader(Protocol):
 
 def _model(cls: type, data: object):
     if not isinstance(data, dict):
-        raise ValueError("STUDIO_EXACT_PERSISTED_ROW_INVALID")
+        raise TypeError("STUDIO_EXACT_PERSISTED_ROW_INVALID")
     return cls(**{field.name: data[field.name] for field in fields(cls) if field.name in data})
 
 
@@ -207,7 +214,9 @@ def read_studio_exact_source_jump(
         from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
         parser = ScannedPDFOCRParser()
     elif capture.parser_method == "NATIVE_PDF_TEXT_CANDIDATE" and capture.media_type == "application/pdf":
-        from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+        from dichiarazioni_pubbliche.document_pdf_extraction import (
+            BornDigitalPDFTextParser,
+        )
         parser = BornDigitalPDFTextParser()
     else:
         return refuse("SOURCE_PARSER_UNSUPPORTED")

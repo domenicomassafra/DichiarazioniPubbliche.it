@@ -8,8 +8,8 @@ the page, not an exact pixel box or an independently reviewed quotation.
 
 from __future__ import annotations
 
-import ipaddress
 import hashlib
+import ipaddress
 import json
 import re
 from dataclasses import asdict, dataclass
@@ -25,7 +25,7 @@ from dichiarazioni_pubbliche.original_source_resolver import (
 
 
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
-_HOST = re.compile(r"(?=.{4,253}\Z)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\Z", re.I)
+_HOST = re.compile(r"(?=.{4,253}\Z)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\Z", re.IGNORECASE)
 
 
 @dataclass(frozen=True)

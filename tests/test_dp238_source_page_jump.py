@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 import subprocess
 import tempfile
 import unittest
@@ -12,11 +12,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore
-from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
 from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
-from dichiarazioni_pubbliche.document_text_extraction import document_passages_from_capture
+from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
+from dichiarazioni_pubbliche.document_text_extraction import (
+    document_passages_from_capture,
+)
 from dichiarazioni_pubbliche.source_watcher import FetchedBytes
-from dichiarazioni_pubbliche.studio_exact_source_jump import read_studio_exact_source_jump
+from dichiarazioni_pubbliche.studio_exact_source_jump import (
+    read_studio_exact_source_jump,
+)
+
 from tests.test_dp237_studio_exact_source_jump import Snapshot
 from tests.test_dp238_document_extraction import capture, fetched, sha
 from tests.test_dp238_scanned_ocr import PDF, _success
