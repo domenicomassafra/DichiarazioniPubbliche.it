@@ -86,12 +86,19 @@ class IntakeAbuseProfile:
 
     def valid(self) -> bool:
         return (
-            self.configured
+            type(self.configured) is bool
+            and self.configured
+            and type(self.window_seconds) is int
             and 0 < self.window_seconds <= MAX_RATE_WINDOW_SECONDS
+            and type(self.bucket_limit) is int
             and 0 < self.bucket_limit <= MAX_RATE_COUNT
+            and type(self.global_quota) is int
             and 0 < self.global_quota <= MAX_RATE_COUNT
+            and type(self.duplicate_window_seconds) is int
             and 0 < self.duplicate_window_seconds <= MAX_RATE_WINDOW_SECONDS
+            and type(self.duplicate_limit) is int
             and 0 < self.duplicate_limit <= MAX_DUPLICATE_LIMIT
+            and type(self.duplicate_capacity) is int
             and 0 < self.duplicate_capacity <= MAX_DUPLICATE_CAPACITY
         )
 
@@ -107,6 +114,27 @@ class RateStoreRequest:
     duplicate_window_seconds: int
     duplicate_limit: int
     duplicate_capacity: int
+
+
+def _validate_rate_store_request(request: RateStoreRequest) -> None:
+    """Shared boundary: invalid requests must not mutate either rate store."""
+    if not isinstance(request, RateStoreRequest):
+        raise ValueError("INTAKE_RATE_REQUEST_INVALID")
+    if _valid_bucket_key(request.bucket_key) is None or not _SHA256_HEX.fullmatch(
+        str(request.fingerprint)
+    ):
+        raise ValueError("INTAKE_RATE_IDENTITY_INVALID")
+    ceilings = (
+        (request.now_epoch, 253402300799),
+        (request.window_seconds, MAX_RATE_WINDOW_SECONDS),
+        (request.bucket_limit, MAX_RATE_COUNT),
+        (request.global_quota, MAX_RATE_COUNT),
+        (request.duplicate_window_seconds, MAX_RATE_WINDOW_SECONDS),
+        (request.duplicate_limit, MAX_DUPLICATE_LIMIT),
+        (request.duplicate_capacity, MAX_DUPLICATE_CAPACITY),
+    )
+    if any(type(value) is not int or not 0 < value <= limit for value, limit in ceilings):
+        raise ValueError("INTAKE_RATE_LIMITS_INVALID")
 
 
 @dataclass(frozen=True)
@@ -173,6 +201,7 @@ class InMemoryIntakeRateStore:
             del self._fingerprints[victim]
 
     def reserve(self, request: RateStoreRequest) -> RateStoreResult:
+        _validate_rate_store_request(request)
         window_id = request.now_epoch // request.window_seconds
         bucket_digest = self._bucket_digest(request.bucket_key)
         profile = (
