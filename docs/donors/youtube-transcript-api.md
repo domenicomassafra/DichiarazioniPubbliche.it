@@ -66,3 +66,35 @@
   and `CAPTION_CAPTURE` receipts. Zero provider fee and **zero YouTube Data API
   v3 units** remain in the existing canonical receipt writer. Availability
   depends on upstream; all new acceptance fixtures are offline.
+
+## #169 — acquisition rights security fix (20/10/2026)
+
+The actual `ProcessingWorker` caption probe/capture seam now constructs a
+`SourceFamilyUseGuard` from `PrivateRightsRegistryStore` (same configured DB).
+The required exact rights subject is `source_family=YOUTUBE`, `locator_kind=URL`,
+the chosen YouTube video URL and the source `content_id`. A current private
+`CLEARED` receipt must explicitly permit **both `FETCH` and `STORE_BODY`**;
+missing, expired, revoked, superseded, wrong-content/URL, or unavailable records
+block before any caption network request. The worker re-reads both uses after
+fetch and before storing raw bytes, recording source-rights fingerprints.
+The `transcript_variant.raw_text` and `transcript_segment.text` writes
+are additionally fenced together inside a
+single PostgreSQL transaction: `SELECT ... FOR UPDATE` locks the current rights
+parent, then a fresh statement checks it has not been superseded and inserts
+the variant **and its segments** only from a permitted rights row. The
+`supersedes_id` foreign key
+prevents concurrent revocation from committing while the parent lock is held.
+An ephemeral PostgreSQL regression confirms no caption/segment row if revocation wins
+the lock. Later owner revocations still require downstream retention/retraction
+handling: this gate attests authorization **at insert commit**, not perpetual
+permission to retain prior content.
+Platform access refusal during probe produces `ACCESS_RESTRICTED` and stops;
+it cannot dispatch ASR as an alternate way around an IP/429/consent block.
+The metadata probe now classifies access-denied markers across the **entire**
+`yt-dlp` diagnostic (stderr and stdout), even when a later line says
+`no subtitles`; this records ACCESS_RESTRICTED/HOLD without scheduled retries.
+Only when no captions genuinely exist may the worker enqueue audio ASR, and
+that separate operation requires a current `ASR_MEDIA` permission in addition
+to `FETCH`/`STORE_BODY`; otherwise the fallback itself is BLOCKED.
+Existing tests use only explicit synthetic rights fixtures. Neither CI nor the
+source-only merge supplies a legal rights record or authorizes live YouTube fetch.
