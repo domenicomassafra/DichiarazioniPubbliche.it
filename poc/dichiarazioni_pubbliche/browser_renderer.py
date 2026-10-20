@@ -160,11 +160,12 @@ class PlaywrightBrowserRenderer:
                     requested, timeout=timeout, max_response_bytes=remaining,
                     resolver=self.resolver,
                 )
-                # A redirect is checked inside the pinned-DNS transport. Also
-                # fence its final destination to the reviewed hosts.
+                # route.fulfill serves bytes under request.url and cannot
+                # represent a followed HTTP redirect. Refuse all redirects,
+                # including same-host ones, to preserve source identity.
                 final = validate_discovery_url(fetched.final_url, resolver=self.resolver)
-                if urlsplit(final).hostname not in permitted_hosts:
-                    raise BrowserRenderBlocked("BROWSER_REDIRECT_HOST_REFUSED")
+                if final != requested:
+                    raise BrowserRenderBlocked("BROWSER_HTTP_REDIRECT_REFUSED")
                 if (fetched.status_code < 200 or fetched.status_code >= 300
                         or len(fetched.body) != fetched.content_length
                         or len(fetched.body) > remaining):

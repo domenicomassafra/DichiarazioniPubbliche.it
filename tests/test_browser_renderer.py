@@ -210,6 +210,34 @@ class BrowserRendererTests(unittest.TestCase):
         self.assertFalse(factory.playwright.browser.context_options["accept_downloads"])
         self.assertEqual(factory.playwright.launch_options["env"]["HOME"], "/tmp")
 
+    def test_http_redirected_resources_are_refused_even_with_allowed_hosts(self):
+        # route.fulfill serves bytes under the requested URL; HTTP redirect
+        # destinations would otherwise be lost from provenance and rights.
+        for requested, final in (
+            (URL, "https://assets.example.test/other-document"),
+            (URL, "https://fixture.example.test/other-document"),
+            (SCRIPT, "https://assets.example.test/other-script"),
+            (SCRIPT, "https://fixture.example.test/other-script"),
+        ):
+            with self.subTest(requested=requested, final=final):
+                is_document = requested == URL
+                fetcher = FixtureFetcher({
+                    requested: response(
+                        HTML if is_document else JS,
+                        final_url=final,
+                        content_type="text/html" if is_document else "application/javascript",
+                    ),
+                })
+                renderer, _ = self.renderer(
+                    fetcher=fetcher,
+                    allowed_subresource_hosts=("assets.example.test",),
+                )
+                with self.mock_preflight(), self.assertRaisesRegex(
+                    BrowserRenderBlocked, "BROWSER_RESOURCE_REFUSED"
+                ):
+                    renderer.render(URL, max_response_bytes=2048)
+                self.assertIsNone(renderer.last_receipt)
+
     def test_blocks_private_redirect_for_subresource(self):
         fetcher = FixtureFetcher({SCRIPT: response(
             b"<script>unsafe</script>", final_url="https://127.0.0.1/private",

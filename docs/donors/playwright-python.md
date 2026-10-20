@@ -13,7 +13,10 @@ The browser runs without access to the user's home or host network. An isolated
 fresh context has no persistent cookie/login profile. The parent Python transport
 fulfills every HTTPS request with `source_watcher.fetch_bytes`, which validates
 all DNS answers and pins the connected socket through redirects. WebSockets are
-blocked. Deployment remains blocked until a real target has reviewed capture
+blocked. HTTP redirects for both documents and subresources are refused,
+including same-host redirects: Playwright route.fulfill would otherwise hide
+the actual fetched URL and undermine rights/provenance validation.
+Deployment remains blocked until a real target has reviewed capture
 rights, explicit allowlisted resource hosts, accepted network limits and a
 recorded browser binary/version. Installing the optional extra does not enable
 rendering. No real source was fetched for #170.
