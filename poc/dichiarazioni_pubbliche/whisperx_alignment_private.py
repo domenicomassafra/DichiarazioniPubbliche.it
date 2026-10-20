@@ -306,6 +306,12 @@ def propose_whisperx_alignment(
             blockers.append("OVERLAPPING_SPEECH_REQUIRES_REVIEW")
         if fallback.status == "UNRESOLVED":
             blockers.extend(fallback.blockers)
+        # Bind candidate replay identity to the actual accepted word alignment.
+        # Inputs and model can be identical while word boundaries or scores differ.
+        alignment_output_sha256 = hashlib.sha256(json.dumps(
+            [(word.word, word.start_ms, word.end_ms, word.score) for word in words],
+            ensure_ascii=False, separators=(",", ":"),
+        ).encode("utf-8")).hexdigest()
         provenance = {
             "adapter_version": VERSION, "donor_version": DONOR_VERSION,
             "donor_commit": DONOR_COMMIT, "model_id": model["model_id"],
@@ -319,6 +325,7 @@ def propose_whisperx_alignment(
             "source_segment_sha256": source_segment_sha256,
             "rights_receipt_id": rights_receipt_id, "rights_basis": rights_basis,
             "score_kind": "upstream_ctc_heuristic_unvalidated",
+            "alignment_output_sha256": alignment_output_sha256,
         }
         digest = hashlib.sha256(json.dumps(provenance, sort_keys=True).encode()).hexdigest()
         candidate = TranscriptCandidate(
