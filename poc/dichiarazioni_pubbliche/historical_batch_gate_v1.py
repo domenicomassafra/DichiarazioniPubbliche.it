@@ -359,8 +359,7 @@ def plan_historical_batch(
             except Exception:
                 holds.add("CHECKPOINT_EXTERNAL_TRUST_FAILED")
 
-    # Every completed item must match the exact same person/source/capture. An
-    # arbitrary checksum never permits reusing another person's old checkpoint.
+    # Reject checkpoint items from a different person/source/capture.
     by_content = {e.content_id: (m.person_id, e) for m in manifests for e in m.entries}
     eligible_keys: dict[str, tuple[str, str, str, str]] = {
         _work_key(person, e.source_family, e.content_id, e.source_version_sha256): (
@@ -383,7 +382,10 @@ def plan_historical_batch(
         costs, watches = (), ()
     if len(costs) > MAX_BATCH_ITEMS or len(watches) > MAX_BATCH_ITEMS:
         holds.add("BATCH_ITEM_CAP")
-    # Reject oversized inputs; inspect only first eight records, otherwise a held plan would still probe a caller-controlled tuple.
+        return HistoricalBatchDecision(
+            "HELD", tuple(sorted(holds)), batch_id, corpus.manifest_fingerprint,
+            (), tuple(sorted(completed)), checkpoint_fingerprint, None,
+        )
     cost_map: dict[str, BatchCost] = {}
     watch_map: dict[str, BatchWatch] = {}
     for row in costs[:MAX_BATCH_ITEMS]:
