@@ -7,6 +7,10 @@ Code: `poc/dichiarazioni_pubbliche/policy/intake_policy.py`,
 `poc/dichiarazioni_pubbliche/right_of_reply_intake.py`
 Tests: `tests/test_policy_intake.py`, `tests/test_right_of_reply_intake.py`
 
+Owner-delegated legal research (2026-10-20): [Q-306-03/04/05/14](legal-research-decisions-2026-10-20.md)
+confirms that public reply and optional account activation need purpose-specific
+GDPR grounds, notice, retention and actual role/DSA analysis.
+
 ## Trust boundary
 
 ```
