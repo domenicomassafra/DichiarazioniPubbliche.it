@@ -20,26 +20,26 @@ workload GitHub had already recorded.
 
 ## Measurement
 
-`tools/ci_matrix_capacity.py report --export <dir>` over 111 recorded `ci` runs
-(20/10/2026, 02:15–14:06 UTC, 440 macOS jobs, 1100 Ubuntu jobs):
+`tools/ci_matrix_capacity.py report --export <dir>` over 117 recorded `ci` runs
+(20/10/2026, 02:15–14:4x UTC, 464 macOS jobs, 1160 Ubuntu jobs):
 
-| metric | value |
-| --- | --- |
-| macOS queue | median 0.8 min, mean 2.0, p90 5.2, max 21.4 (48 jobs ≥ 5 min, 12 ≥ 10 min) |
-| Ubuntu queue | median 0.1, max 1.7 min — not contended |
-| run wall clock | median 5.1 min, p90 10.7, max 28.2 |
-| macOS execution | median 3.9 min |
-| macOS pool | 1501 minutes used, 41.9% of the available 5 slots, **19.4% spent on runs that ended without a verdict** (cancelled or failed) |
+| metric | whole window | 13:30 onward, 15 pull requests open |
+| --- | --- | --- |
+| macOS queue | median 0.7 min, mean 1.9, p90 5.1, max 21.4 (48 jobs ≥ 5 min, 12 ≥ 10 min) | median 0.0, mean 1.7, p90 6.1, max 19.1 (15 of 100 jobs ≥ 5 min) |
+| Ubuntu queue | median 0.1, max 1.7 min — not contended | median 0.1, max 1.1 |
+| run wall clock | median 5.5 min, p90 10.7, max 28.2 | median 10.0 min, p90 15.9 |
+| macOS execution | median 3.9 min | median 4.0 min |
+| macOS pool | 1525 minutes, 41.9% of the 5 slots, **20.7% spent on runs that ended without a verdict** | 63.3% utilisation, **45.2% without a verdict** |
 
 `replay` re-dispatches that same recorded workload under each proposed policy
 (FIFO, macOS pool 5, Ubuntu pool 20):
 
 | policy | run completion median | p90 | max | macOS queue p90 |
 | --- | --- | --- | --- | --- |
-| today, no per-run cap | 5.3 | 15.0 | 42.9 | 10.0 |
-| `max-parallel: 2` on the whole matrix | 16.4 | 27.3 | 48.7 | 5.0 |
-| 2 macOS jobs per run | 8.6 | 22.0 | 48.3 | 6.6 |
-| 2 macOS jobs per run + macOS after Linux | 11.3 | 24.9 | 51.1 | 6.6 |
+| today, no per-run cap | 5.2 | 15.0 | 42.9 | 9.7 |
+| `max-parallel: 2` on the whole matrix | 16.2 | 26.6 | 48.7 | 5.0 |
+| 2 macOS jobs per run | 8.4 | 21.7 | 48.3 | 6.6 |
+| 2 macOS jobs per run + macOS after Linux | 11.3 | 24.6 | 51.1 | 6.5 |
 
 Every cap halves the queue and lengthens the run more than it shortens the wait,
 including the worst case: the wait moves from the queue into the run, because
@@ -50,7 +50,9 @@ at a time, even if there are runners available to run all six jobs at once"
 Gating macOS behind the Linux verdict does not pay either: of the 25 cancelled
 runs that had already started macOS, only 3 would have avoided macOS entirely
 (cancellation arrives at median 4.9 min, the Linux half finishes at median
-2.9 min), saving 16 of 319 wasted minutes while delaying every macOS job.
+2.9 min), saving 16 of 319 wasted minutes while delaying every macOS job. The
+burst window makes the point sharper: with fifteen pull requests open the pool
+runs at 63.3% and still no per-run cap reduces the time an author waits.
 
 ## Decision
 

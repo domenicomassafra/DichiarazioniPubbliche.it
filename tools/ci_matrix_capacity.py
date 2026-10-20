@@ -119,9 +119,12 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
             window_start = created
         if finished and (window_end is None or finished > window_end):
             window_end = finished
-        run_wall = _minutes(finished, created)
-        if run_wall is not None:
-            wall.append(run_wall)
+        # A run still in flight has no wall clock yet: counting created->updated
+        # would report the partial elapsed time as if the run had finished.
+        if run.get("status") == "completed":
+            run_wall = _minutes(finished, created)
+            if run_wall is not None:
+                wall.append(run_wall)
         for job in run_jobs:
             kind = job_runner_kind(job.get("labels"))
             started = _timestamp(job.get("started_at"))
