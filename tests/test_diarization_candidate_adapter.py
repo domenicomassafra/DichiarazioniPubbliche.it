@@ -400,9 +400,16 @@ class CandidateAdapterTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "linux", "Linux namespace required")
     def test_real_engine_sandbox_mounts_only_needed_paths(self):
+        import shutil
         import subprocess
-        from dichiarazioni_pubbliche.diarization_candidate_process import _real_sandbox_prefix
+        from dichiarazioni_pubbliche.diarization_candidate_process import (
+            RunnerIsolationError, _real_sandbox_prefix,
+        )
 
+        if not shutil.which("bwrap") or not Path("/usr/bin/python3").exists():
+            with self.assertRaisesRegex(RunnerIsolationError, "ENGINE_NETNS_REQUIRED"):
+                _real_sandbox_prefix(self.audio, self.model_dir)
+            return
         command = _real_sandbox_prefix(self.audio, self.model_dir)
         probe = subprocess.run(
             [*command, "--", sys.executable, "-c",
