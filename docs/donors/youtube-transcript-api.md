@@ -90,5 +90,8 @@ handling: this gate attests authorization **at insert commit**, not perpetual
 permission to retain prior content.
 Platform access refusal during probe produces `ACCESS_RESTRICTED` and stops;
 it cannot dispatch ASR as an alternate way around an IP/429/consent block.
+The metadata probe now classifies access-denied markers across the **entire**
+`yt-dlp` diagnostic (stderr and stdout), even when a later line says
+`no subtitles`; this records ACCESS_RESTRICTED/HOLD without scheduled retries.
 Existing tests use only explicit synthetic rights fixtures. Neither CI nor the
 source-only merge supplies a legal rights record or authorizes live YouTube fetch.

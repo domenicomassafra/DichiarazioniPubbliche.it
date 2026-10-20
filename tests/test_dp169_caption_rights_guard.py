@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.platform_transcript import (  # noqa: E402
-    CaptionCapture, CaptionProbe, PlatformAccessRestricted, VideoCandidate,
+    CaptionCapture, CaptionProbe, PlatformAccessRestricted, VideoCandidate, YouTubeResolver,
 )
 from dichiarazioni_pubbliche.queue_runtime import QueueRuntimeStore  # noqa: E402
 from dichiarazioni_pubbliche.rights_registry import (  # noqa: E402
@@ -101,6 +101,24 @@ class CaptionRightsGateTests(unittest.TestCase):
         with patch.object(PrivateRightsRegistryStore, "read_current", return_value=rights()):
             with self.assertRaisesRegex(BlockedJob, "YOUTUBE_CAPTION_ACCESS_RESTRICTED"):
                 self.handler._probe_and_enqueue_caption(self.job, self.content, candidate)
+        self.handler._enqueue_asr.assert_not_called()
+        self.store.enqueue_followup.assert_not_called()
+        self.assertEqual(self.store.record_receipt.call_args.kwargs["status"], "ACCESS_RESTRICTED")
+
+    def test_metadata_429_then_no_subtitles_never_retries_or_dispatches_asr(self):
+        self.handler.resolver = YouTubeResolver()
+        self.handler._enqueue_asr = Mock()
+        diagnostic = "ERROR: HTTP Error 429 Too Many Requests\nWARNING: no subtitles available"
+        blocked = SimpleNamespace(returncode=1, stderr=diagnostic, stdout="")
+        with patch.object(PrivateRightsRegistryStore, "read_current", return_value=rights()):
+            with patch("dichiarazioni_pubbliche.platform_transcript.subprocess.run",
+                       return_value=blocked) as executor:
+                with self.assertRaisesRegex(BlockedJob, "YOUTUBE_CAPTION_ACCESS_RESTRICTED"):
+                    self.handler._probe_and_enqueue_caption(
+                        self.job, self.content,
+                        VideoCandidate("QaE00l6JZ8w", "Synthetic", URL),
+                    )
+        executor.assert_called_once()
         self.handler._enqueue_asr.assert_not_called()
         self.store.enqueue_followup.assert_not_called()
         self.assertEqual(self.store.record_receipt.call_args.kwargs["status"], "ACCESS_RESTRICTED")
