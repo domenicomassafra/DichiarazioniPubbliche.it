@@ -19,19 +19,19 @@ SHA = frozenset("0123456789abcdef")
 
 
 def _present(value: object, field: str) -> str:
-    if not isinstance(value, str) or not value.strip() or len(value) > 300:
+    if type(value) is not str or not value.strip() or len(value) > 300:
         raise ValueError("COVERAGE_" + field + "_INVALID")
     return value
 
 
 def _sha(value: object) -> str:
-    if not isinstance(value, str) or len(value) != 64 or not set(value) <= SHA:
+    if type(value) is not str or len(value) != 64 or not set(value) <= SHA:
         raise ValueError("COVERAGE_HASH_INVALID")
     return value
 
 
 def _aware(value: datetime) -> datetime:
-    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
+    if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("COVERAGE_AWARE_TIME_REQUIRED")
     return value.astimezone(timezone.utc)
 
@@ -59,7 +59,9 @@ class CoverageUnit:
     def __post_init__(self) -> None:
         for field in ("unit_id", "source_family", "source_id", "collection_id", "language", "source_format", "expected_content_class", "policy_version"):
             _present(getattr(self, field), field.upper())
-        if self.mode not in {"HISTORICAL_BACKFILL", "INCREMENTAL_SUBSCRIPTION"} or self.version != VERSION:
+        if (type(self.mode) is not str or type(self.version) is not str
+                or self.mode not in {"HISTORICAL_BACKFILL", "INCREMENTAL_SUBSCRIPTION"}
+                or self.version != VERSION):
             raise ValueError("COVERAGE_MODE_INVALID")
         if _aware(self.interval_end) <= _aware(self.interval_start):
             raise ValueError("COVERAGE_INTERVAL_INVALID")
@@ -97,12 +99,17 @@ class CoverageObservation:
             _present(getattr(self, key), key.upper())
         _sha(self.scope_fingerprint)
         _aware(self.attempted_at)
-        if self.status not in RESULTS or self.rights_status not in {"CLEARED", "UNKNOWN", "EXPIRED", "REVOKED", "DENIED"}:
+        if (type(self.status) is not str or type(self.rights_status) is not str
+                or self.status not in RESULTS
+                or self.rights_status not in {"CLEARED", "UNKNOWN", "EXPIRED", "REVOKED", "DENIED"}):
             raise ValueError("COVERAGE_OBSERVATION_STATUS_INVALID")
         if type(self.enumeration_complete_within_scope) is not bool:
             raise ValueError("COVERAGE_ENUMERATION_INVALID")
         if self.content_sha256 is not None:
             _sha(self.content_sha256)
+        for key in ("source_version", "observation_receipt_id", "enumerated_scope_review_id"):
+            if getattr(self, key) is not None:
+                _present(getattr(self, key), key.upper())
         if self.status in {"UNCHANGED", "CHANGED"}:
             _present(self.source_version, "VERSION")
             _sha(self.content_sha256)
@@ -144,8 +151,9 @@ def build_source_coverage(
     capability_ready: bool = False,
 ) -> SourceCoverageDecision:
     """Read-only reconciliation; proposals never schedule fetch/work."""
-    if type(unit) is not CoverageUnit or not isinstance(observations, tuple) or len(observations) > 128:
+    if type(unit) is not CoverageUnit or type(observations) is not tuple or len(observations) > 128:
         raise ValueError("COVERAGE_INPUT_UNBOUNDED")
+    CoverageUnit.__post_init__(unit)
     stamp = _aware(now)
     if baseline_sha256 is not None:
         _sha(baseline_sha256)
@@ -154,6 +162,7 @@ def build_source_coverage(
     for record in observations:
         if type(record) is not CoverageObservation:
             raise ValueError("COVERAGE_OBSERVATION_INVALID")
+        CoverageObservation.__post_init__(record)
         if (record.source_id != unit.source_id or record.policy_version != unit.policy_version
                 or record.scope_fingerprint != unit.scope_fingerprint()):
             raise ValueError("COVERAGE_MIXED_SCOPE")
