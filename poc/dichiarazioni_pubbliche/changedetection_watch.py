@@ -143,7 +143,9 @@ def read_changedetection_snapshot(binding: ChangedetectionBinding, *, api_key: s
         raise ChangedetectionError("WATCH_UUID_NOT_CANONICAL")
     base = binding.api_base.rstrip("/")
     route = f"{base}/api/v1/watch/{watch_id}"
-    opener = request.build_opener(_NoRedirect())
+    # This API is strictly loopback. Ignore ambient HTTP_PROXY/HTTPS_PROXY so
+    # the private x-api-key can never be forwarded to a host-level proxy.
+    opener = request.build_opener(request.ProxyHandler({}), _NoRedirect())
     watch = _json_object(_get(opener, route, api_key, _MAX_METADATA))
     history = _json_object(_get(opener, route + "/history", api_key, _MAX_METADATA))
     if not history:

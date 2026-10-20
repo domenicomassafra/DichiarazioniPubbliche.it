@@ -239,11 +239,15 @@ class ChangedetectionWatchTests(unittest.TestCase):
         worker.start()
         try:
             binding = replace(self.binding, api_base=f"http://127.0.0.1:{server.server_port}")
-            _, receipt = poll_changedetection_watch(
-                self.store, self.policy, binding,
-                attempt_id="loopback", attempted_at=T0,
-                observed_at=T0 + timedelta(seconds=2), api_key="synthetic-token",
-            )
+            # A host-level HTTP proxy must not receive the loopback API token,
+            # even when system NO_PROXY settings have been overridden.
+            with patch("urllib.request.getproxies", return_value={"http": "http://127.0.0.1:9"}), \
+                 patch("urllib.request.proxy_bypass", return_value=False):
+                _, receipt = poll_changedetection_watch(
+                    self.store, self.policy, binding,
+                    attempt_id="loopback", attempted_at=T0,
+                    observed_at=T0 + timedelta(seconds=2), api_key="synthetic-token",
+                )
             self.assertEqual(receipt.disposition, "CHANGED")
             self.assertEqual(paths, [
                 "/api/v1/watch/" + UUID,
