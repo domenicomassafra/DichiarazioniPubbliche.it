@@ -6,6 +6,7 @@ No view produced here grants translation review or public quotation rights.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -60,9 +61,12 @@ def read_private_multilingual_view(
     def blocked(code: str) -> PrivateMultilingualView:
         return PrivateMultilingualView("BLOCKED", (code,))
 
-    if not isinstance(originals_by_passage, Mapping) or not isinstance(
-        current_versions_by_content, Mapping
-    ) or not isinstance(rights_guard, SourceFamilyUseGuard):
+    if (
+        not isinstance(passage_id, str) or not passage_id
+        or not isinstance(originals_by_passage, Mapping)
+        or not isinstance(current_versions_by_content, Mapping)
+        or not isinstance(rights_guard, SourceFamilyUseGuard)
+    ):
         return blocked("DP239_PRIVATE_SOURCE_RIGHTS_REQUIRED")
     row = originals_by_passage.get(passage_id)
     if (not isinstance(row, ImmutableOriginalReadback)
@@ -77,13 +81,23 @@ def read_private_multilingual_view(
         ("https://", "http://")
     ) or capture.content_id != locator.content_id):
         return blocked("DP239_SOURCE_URL_INVALID")
-    try:
-        rights_guard.bind_capture(content_id=locator.content_id, url=capture.final_url)
-        rights_guard.bind_fetched(final_url=capture.final_url)
-        parse_use = (
-            "PARSE_OCR" if capture.parser_method == "SCANNED_PDF_OCR_CANDIDATE"
-            else "PARSE_TEXT"
-        )
+    if (not isinstance(capture.media_type, str) or not re.fullmatch(
+        r"[a-z0-9.+-]+/[a-z0-9.+-]+",
+        capture.media_type.split(";", 1)[0].strip().lower(),
+    )):
+        return blocked("DP239_CAPTURE_MEDIA_TYPE_INVALID")
+    # The reviewed URL/content scope does not itself pin one immutable
+    # rendition. Require the caller's independently established Capture SHA.
+    if rights_guard.expected_sha256 != capture.content_sha256:
+        return blocked("DP239_CAPTURE_RIGHTS_HASH_PIN_REQUIRED")
+    parse_use = (
+        "PARSE_OCR" if capture.parser_method == "SCANNED_PDF_OCR_CANDIDATE"
+        else "PARSE_TEXT"
+    )
+
+    def require_current_rights() -> None:
+        # A rights record may expire or be superseded while parsing/replaying.
+        # Both checks must complete before any private words are returned.
         for use in ("FETCH", "STORE_BODY", parse_use):
             rights_guard.require(
                 use, content_sha256=capture.content_sha256,
@@ -94,6 +108,11 @@ def read_private_multilingual_view(
                 "TRANSLATE", content_sha256=capture.content_sha256,
                 media_type=capture.media_type,
             )
+
+    try:
+        rights_guard.bind_capture(content_id=locator.content_id, url=capture.final_url)
+        rights_guard.bind_fetched(final_url=capture.final_url)
+        require_current_rights()
     except SourceUseBlocked as exc:
         return blocked(exc.code)
     original = read_immutable_original_consumer(
@@ -116,8 +135,16 @@ def read_private_multilingual_view(
         original_selector=locator.selector_type,
     )
     if original.status == "STALE":
+        try:
+            require_current_rights()
+        except SourceUseBlocked as exc:
+            return blocked(exc.code)
         return PrivateMultilingualView("STALE", original.reason_codes, **base)
     if translation is None:
+        try:
+            require_current_rights()
+        except SourceUseBlocked as exc:
+            return blocked(exc.code)
         return PrivateMultilingualView("CURRENT_ORIGINAL", (), **base)
     if (not isinstance(translation, PrivateTranslationDerivation)
             or not isinstance(translation.target_language, str)
@@ -131,6 +158,10 @@ def read_private_multilingual_view(
         return blocked(derivative.reason_codes[0] if derivative.reason_codes else "DP239_DERIVATIVE_UNAVAILABLE")
     if derivative.original_sha256 != original.quote_sha256 or derivative.original_text != original.original_text:
         return blocked("DP239_DERIVATIVE_ORIGINAL_BINDING_CHANGED")
+    try:
+        require_current_rights()
+    except SourceUseBlocked as exc:
+        return blocked(exc.code)
     return PrivateMultilingualView(
         "CURRENT_HELD", (), **base,
         translated_text=derivative.translation_text,

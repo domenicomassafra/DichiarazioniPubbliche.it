@@ -189,6 +189,95 @@ class PrivateMultilingualViewTests(unittest.TestCase):
         self.assertEqual(correct_right.status, "CURRENT_ORIGINAL")
         self.assertFalse(correct_right.public_quote_eligible)
 
+    def test_source_version_must_be_pinned_by_rights_guard(self):
+        row = written_fixture()
+        guard = source_rights(row)
+        guard.expected_sha256 = None
+        view = read_private_multilingual_view(
+            row["passage"].id, originals_by_passage=private_records(row),
+            current_versions_by_content={row["capture"].content_id: row["capture"].content_sha256},
+            rights_guard=guard,
+        )
+        self.assertEqual(view.status, "BLOCKED")
+        self.assertIsNone(view.original_text)
+
+    def test_revocation_during_original_or_derivative_replay_cannot_release_text(self):
+        row = written_fixture()
+        draft = build_private_translation(**row)
+        originals = private_records(row)
+        versions = {row["capture"].content_id: row["capture"].content_sha256}
+        for derivative, initial_checks in ((None, 3), (draft, 4)):
+            with self.subTest(derivative=derivative is not None):
+                guard = source_rights(row)
+                approved = guard.read_current(guard.subject)
+                checks = 0
+
+                def updated_rights(subject):
+                    nonlocal checks
+                    checks += 1
+                    return approved if checks <= initial_checks else replace(
+                        approved, rights_status="REVOKED"
+                    )
+
+                guard.read_current = updated_rights
+                result = read_private_multilingual_view(
+                    row["passage"].id, originals_by_passage=originals,
+                    current_versions_by_content=versions,
+                    rights_guard=guard, translation=derivative,
+                )
+                self.assertGreater(checks, initial_checks)
+                self.assertEqual(result.status, "BLOCKED")
+                self.assertIsNone(result.original_text)
+                self.assertIsNone(result.translated_text)
+
+    def test_expiry_crossed_during_readback_cannot_release_original(self):
+        row = written_fixture()
+        guard = source_rights(row)
+        approved = guard.read_current(guard.subject)
+        guard.read_current = lambda _: replace(
+            approved, expires_at="2026-10-20T00:00:01+00:00"
+        )
+        checked = 0
+
+        def advancing_clock():
+            nonlocal checked
+            checked += 1
+            return datetime(2026, 10, 20, 0, 0, min(checked // 4, 1), tzinfo=timezone.utc)
+
+        guard.clock = advancing_clock
+        result = read_private_multilingual_view(
+            row["passage"].id, originals_by_passage=private_records(row),
+            current_versions_by_content={row["capture"].content_id: row["capture"].content_sha256},
+            rights_guard=guard,
+        )
+        self.assertGreaterEqual(checked, 4)
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertIsNone(result.original_text)
+
+    def test_invalid_passage_id_or_media_type_blocks_without_exception(self):
+        row = written_fixture()
+        originals = private_records(row)
+        versions = {row["capture"].content_id: row["capture"].content_sha256}
+        for passage_id in ([], {"id": row["passage"].id}):
+            with self.subTest(passage_id=passage_id):
+                result = read_private_multilingual_view(
+                    passage_id, originals_by_passage=originals,
+                    current_versions_by_content=versions,
+                    rights_guard=source_rights(row),
+                )
+                self.assertEqual(result.status, "BLOCKED")
+                self.assertIsNone(result.original_text)
+        missing_media = replace(originals[row["passage"].id],
+                                capture=replace(row["capture"], media_type=None))
+        result = read_private_multilingual_view(
+            row["passage"].id,
+            originals_by_passage={row["passage"].id: missing_media},
+            current_versions_by_content=versions,
+            rights_guard=source_rights(row),
+        )
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertIsNone(result.original_text)
+
 
 class TranslationGoldTests(unittest.TestCase):
     def test_synthetic_de_and_it_controls_need_external_adjudication(self):
