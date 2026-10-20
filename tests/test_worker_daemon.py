@@ -359,6 +359,7 @@ class WorkerDaemonTests(unittest.TestCase):
             evidence_fetcher=evidence_fetcher,
         )
         worker._caption_rights_guard = lambda *_: cleared_caption_rights()
+        worker._insert_caption_variant = lambda *, guard, **kw: store.insert_transcript_variant(**kw)
         return worker
 
     def test_podcast_resolution_enqueues_caption_without_media(self):
@@ -1047,20 +1048,15 @@ class WorkerDaemonTests(unittest.TestCase):
             "ENQUEUED",
         )
 
-    def test_members_only_youtube_holds_without_asr_bypass(self):
+    def test_members_only_holds(self):
         candidate = VideoCandidate(
             "members-only",
             "RISPONDIAMO a SHY | Pulp Special #20",
             "https://www.youtube.com/watch?v=members-only",
         )
-        store = FakeStore(
-            [
-                job(
-                    "TRANSCRIPT_RESOLVE_PLATFORM",
-                    {"platform": "podcast_rss", "estimated_cost_usd": 0},
-                )
-            ]
-        )
+        store = FakeStore([job(
+            "TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "podcast_rss", "estimated_cost_usd": 0},
+        )])
         worker = self.make_worker(
             store,
             FakeResolver(
@@ -1069,10 +1065,10 @@ class WorkerDaemonTests(unittest.TestCase):
             ),
         )
         summary = worker.run(1)
-        self.assertEqual(summary.blocked, 1)
-        self.assertEqual(summary.retried, 0)
-        self.assertEqual(store.followups, [])
-        self.assertEqual(store.receipts[0]["status"], "ACCESS_RESTRICTED")
+        self.assertEqual(
+            (summary.blocked, summary.retried, store.followups, store.receipts[0]["status"]),
+            (1, 0, [], "ACCESS_RESTRICTED"),
+        )
 
     def test_budget_cap_defers_before_dispatch(self):
         store = FakeStore(

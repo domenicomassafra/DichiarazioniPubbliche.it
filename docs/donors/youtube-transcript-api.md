@@ -77,6 +77,17 @@ the chosen YouTube video URL and the source `content_id`. A current private
 missing, expired, revoked, superseded, wrong-content/URL, or unavailable records
 block before any caption network request. The worker re-reads both uses after
 fetch and before storing raw bytes, recording source-rights fingerprints.
+The `transcript_variant.raw_text` and `transcript_segment.text` writes
+are additionally fenced together inside a
+single PostgreSQL transaction: `SELECT ... FOR UPDATE` locks the current rights
+parent, then a fresh statement checks it has not been superseded and inserts
+the variant **and its segments** only from a permitted rights row. The
+`supersedes_id` foreign key
+prevents concurrent revocation from committing while the parent lock is held.
+An ephemeral PostgreSQL regression confirms no caption/segment row if revocation wins
+the lock. Later owner revocations still require downstream retention/retraction
+handling: this gate attests authorization **at insert commit**, not perpetual
+permission to retain prior content.
 Platform access refusal during probe produces `ACCESS_RESTRICTED` and stops;
 it cannot dispatch ASR as an alternate way around an IP/429/consent block.
 Existing tests use only explicit synthetic rights fixtures. Neither CI nor the

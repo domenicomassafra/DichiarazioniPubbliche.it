@@ -6,6 +6,7 @@ from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob
 from dichiarazioni_pubbliche.worker_errors import BlockedJob, RetryableJob
 from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
 from dichiarazioni_pubbliche.youtube_caption_rights import caption_source_guard
+from dichiarazioni_pubbliche.youtube_caption_variant_store import insert_rights_bound_caption_variant
 from dichiarazioni_pubbliche.youtube_caption_receipts import (
     caption_source_kind as _caption_source_kind,
     record_caption_receipt as _record_caption_receipt,
@@ -14,6 +15,12 @@ from dichiarazioni_pubbliche.youtube_caption_receipts import (
 
 
 class CaptionAcquisitionHandler:
+    def _insert_caption_variant(self, *, guard, **kwargs):
+        try:
+            return insert_rights_bound_caption_variant(self.store, guard, **kwargs)
+        except SourceUseBlocked as exc:
+            raise BlockedJob(exc.code) from None
+
     def _caption_rights_guard(self, content: ContentRecord, url: str):
         try:
             return caption_source_guard(self.store, content_id=content.content_id, url=url)
@@ -203,7 +210,8 @@ class CaptionAcquisitionHandler:
         self._require_current_ingestion_relevance(content)
         rights_receipt = self._caption_rights_receipt(rights)
         source_kind = _caption_source_kind(probe)
-        variant_id, inserted = self.store.insert_transcript_variant(
+        variant_id, inserted = self._insert_caption_variant(
+            guard=rights,
             content_id=content.content_id,
             provider_id="youtube",
             source_kind=source_kind,
@@ -212,6 +220,7 @@ class CaptionAcquisitionHandler:
             raw_text_sha256=capture.raw_text_sha256,
             is_platform_caption=True,
             is_manual_caption=probe.kind == "manual_caption",
+            segments=_segment_rows(capture),
             metadata={
                 "raw_caption_sha256": capture.raw_sha256,
                 "video_id": job.payload.get("external_id"),
@@ -220,13 +229,6 @@ class CaptionAcquisitionHandler:
                 **rights_receipt,
             },
         )
-        if inserted:
-            rights_receipt = self._caption_rights_receipt(rights)
-            self.store.insert_transcript_segments(
-                variant_id=variant_id,
-                segments=_segment_rows(capture),
-            )
-
         receipt = {
             "raw_caption_sha256": capture.raw_sha256,
             "raw_text_sha256": capture.raw_text_sha256,

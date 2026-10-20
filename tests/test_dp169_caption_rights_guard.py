@@ -49,6 +49,7 @@ class CaptionRightsGateTests(unittest.TestCase):
         self.store.renew = Mock(return_value=True)
         self.store.require_current_ingestion_relevance = Mock()
         self.store.insert_transcript_variant = Mock(return_value=("variant:test", True))
+        self.store.run_literal = Mock(return_value="private-rights:test-youtube\n1|t|1")
         self.store.insert_transcript_segments = Mock()
         self.store.record_receipt = Mock(return_value="receipt:test")
         self.store.enqueue_followup = Mock()
@@ -120,13 +121,17 @@ class CaptionRightsGateTests(unittest.TestCase):
 
     def test_revoked_before_private_body_persist_cannot_write_raw_bytes(self):
         current = [rights()]
-        def revoke_after_variant(**_kwargs):
+        def revoke_inside_atomic_insert(sql):
+            self.assertIn("FOR UPDATE", sql)
+            self.assertIn("NOT EXISTS", sql)
             current[0] = rights(rights_status="REVOKED")
-            return "variant:test", True
-        self.store.insert_transcript_variant.side_effect = revoke_after_variant
+            return "private-rights:test-youtube\n0|f|0"
+        self.store.run_literal.side_effect = revoke_inside_atomic_insert
         with patch.object(PrivateRightsRegistryStore, "read_current", side_effect=lambda _: current[0]):
             with self.assertRaises(BlockedJob):
                 self.handler.acquire_caption(self.job, self.content)
+        self.store.insert_transcript_variant.assert_not_called()
+        self.store.insert_transcript_segments.assert_not_called()
         self.handler.private_store.persist_caption.assert_not_called()
         self.store.enqueue_followup.assert_not_called()
 
@@ -145,7 +150,12 @@ class CaptionRightsGateTests(unittest.TestCase):
         with patch.object(PrivateRightsRegistryStore, "read_current", return_value=rights()):
             self.handler.acquire_caption(self.job, self.content)
         self.handler.resolver.capture_caption.assert_called_once()
-        self.store.insert_transcript_variant.assert_called_once()
+        self.store.insert_transcript_variant.assert_not_called()
+        self.store.insert_transcript_segments.assert_not_called()
+        sql = self.store.run_literal.call_args.args[0]
+        self.assertIn("FOR UPDATE", sql)
+        self.assertIn("STORE_BODY", sql)
+        self.assertIn("JOIN inserted ON inserted.id=x.variant_id", sql)
         self.handler.private_store.persist_caption.assert_called_once()
         receipt = self.handler.private_store.persist_caption.call_args.kwargs["receipt"]
         self.assertEqual(receipt["source_rights_record_id"], "private-rights:test-youtube")
