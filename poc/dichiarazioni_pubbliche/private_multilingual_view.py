@@ -77,6 +77,16 @@ def read_private_multilingual_view(
         # a sufficient visible source reference. Add that binding before use.
         return blocked("DP239_SOURCE_CAPTURE_REFERENCE_UNAVAILABLE")
     locator, capture = row.locator, row.capture
+    # An independently supplied stale text buffer must never resurrect a
+    # purged/quarantined Capture or bypass a corpus rights/privacy hold.
+    if (
+        capture.status != "CAPTURED"
+        or capture.hold_status != "NONE"
+        or capture.rights_status != "CLEARED"
+        or not isinstance(capture.body_ref, str) or not capture.body_ref.strip()
+        or capture.body_purged_at is not None
+    ):
+        return blocked("DP239_CAPTURE_LIFECYCLE_BLOCKED")
     if (not isinstance(capture.final_url, str) or not capture.final_url.startswith(
         ("https://", "http://")
     ) or capture.content_id != locator.content_id):

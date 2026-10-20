@@ -279,6 +279,39 @@ class PrivateMultilingualViewTests(unittest.TestCase):
         self.assertIsNone(result.original_text)
 
 
+    def test_capture_purge_hold_or_uncleared_lifecycle_never_releases_private_text(self):
+        row = written_fixture()
+        original = row["capture"]
+        purged = replace(
+            original, status="PURGED_BODY", body_ref=None,
+            body_purged_at="2026-10-20T09:00:00+00:00",
+            purge_reason="RIGHTS_REVOKED",
+            purge_receipt={"operation": "synthetic-retention-test"},
+        )
+        cases = (
+            ("purged", purged),
+            ("purge-pending", replace(original, status="PURGE_PENDING")),
+            ("quarantined", replace(original, status="QUARANTINED")),
+            ("rights-hold", replace(original, hold_status="RIGHTS_HOLD")),
+            ("uncleared", replace(original, rights_status="UNKNOWN")),
+            ("missing-body-ref", replace(original, body_ref=None)),
+        )
+        for label, capture in cases:
+            with self.subTest(label=label):
+                # Independently supplied text can outlive a purge or hold.
+                # Rights receipts may not yet have caught up with that capture.
+                changed = {**row, "capture": capture}
+                view = read_private_multilingual_view(
+                    row["passage"].id,
+                    originals_by_passage=private_records(changed),
+                    current_versions_by_content={capture.content_id: capture.content_sha256},
+                    rights_guard=source_rights(row),
+                )
+                self.assertEqual(view.status, "BLOCKED")
+                self.assertIsNone(view.original_text)
+                self.assertIsNone(view.source_url)
+
+
 class TranslationGoldTests(unittest.TestCase):
     def test_synthetic_de_and_it_controls_need_external_adjudication(self):
         rows = []
