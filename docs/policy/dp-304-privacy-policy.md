@@ -161,6 +161,13 @@ the activation flag is enabled. An all-green mechanical check only reaches
 `PENDING-OWNER`; it does not publish content. Source-backed field inventory,
 actual operator access, account flags, log/backup retention and external processor
 receipts must be separately reconciled before the owner changes any status.
+The account-activation boolean is generated from source policy; it **does not
+attest the running MiniPC command-line flags, OIDC routes, SQLite/WAL files,
+provider logs or backup contents**. Before treating the `EXCLUDED` account
+family as verified for a real release, the operator must record a fresh,
+deployment-specific, dated readback of these surfaces and confirm that accounts
+are disabled there. Activating OIDC requires a separate account lawful-basis,
+notice, retention and access decision even if this source boolean still reads false.
 
 The implementation uses the existing stdlib `json` and release preflight
 (no new dependency, copied code, or licence obligations). Real processing,
