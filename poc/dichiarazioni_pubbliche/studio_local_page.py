@@ -1687,9 +1687,8 @@ _PAGE = """<!doctype html>
             return;
           }
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
-          results.textContent = [compareForm, capturePassageForm, mediaForm, collectionCaptureForm].includes(form)
-            ? 'Solo coordinate e hash verificati nel pannello Catture.'
-            : JSON.stringify(receipt, null, 2);
+          // Private replies belong in validated panels. Never dump raw receipts.
+          results.textContent = 'Solo metadati verificati nei pannelli dedicati; nessuna ricevuta grezza.';
           if (response.ok && form === mediaForm) {
             const segment = safeMediaSegment(receipt, data);
             if (segment) mediaLocator.textContent = 'Segmento ' + segment.id + ' · '

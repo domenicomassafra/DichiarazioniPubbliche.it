@@ -144,7 +144,7 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
   assert.doesNotMatch(results.textContent,
     /PRIVATE_BODY_REF_NEVER_SHOW|PRIVATE_NEVER_SHOW|PRIVATE_TRANSCRIPT_NEVER_SHOW|PRIVATE_HEADER_NEVER_SHOW|PRIVATE_PURGE_NEVER_SHOW/,
     'capture inspector must never render unreviewed response JSON');
-  assert.match(results.textContent, /Solo coordinate e hash verificati/);
+  assert.match(results.textContent, /Solo metadati verificati nei pannelli dedicati/);
   const mediaForm = forms['/v1/media/segment'];
   mediaForm.fields.content_id = 'content:one';
   mediaForm.fields.statement_candidate_id = 'statement:one';

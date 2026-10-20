@@ -22,3 +22,8 @@ class StudioCaptureRoutePrivacyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0,
                          result.stdout.decode() + result.stderr.decode())
         self.assertIn(b"DP419 private Capture route allowlist", result.stdout)
+
+    def test_studio_source_has_no_raw_private_receipt_fallback(self):
+        rendered = render_studio_login_page("a" * 32).decode()
+        self.assertFalse("JSON.stringify(receipt" in rendered, "Studio cannot dump private receipts")
+        self.assertIn("safeCollectionCaptures(receipt, data)", rendered)

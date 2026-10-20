@@ -84,6 +84,19 @@ async function check(reply, {ok=true,links=0,expected=null}={}) {
   assert.equal(ids.get('collection-capture-links').children.length,links,out);
   if (expected) assert.match(out,expected);
 }
+async function checkAdjacentCaptureNavigation(endpoint, data) {
+  const form = forms[endpoint];
+  assert.ok(form, endpoint);
+  const pending = form.fire('submit');
+  const request = requests.at(-1);
+  assert.equal(request.path, endpoint);
+  request.resolve({ok:true,json:async()=>({contract_version:'studio-local-readonly-api-v1',
+    data:{...data,body_ref:markers[0],headers:{Authorization:markers[1]},
+      purge_receipt:markers[2]}})});
+  await pending;
+  const result = ids.get('results').textContent;
+  markers.forEach(marker=>assert.ok(!result.includes(marker), endpoint + ' leaked ' + marker));
+}
 async function main() {
   const receipt = data => ({contract_version:'studio-local-readonly-api-v1',data});
   await check(receipt(base),{links:1,expected:/Cattura capture:one/});
@@ -99,6 +112,10 @@ async function main() {
   await check(receipt({...base,captures:null,body_ref:markers[0]}));
   await check({contract_version:'error',message:markers[0],errors:[markers[1]]},
     {ok:false,expected:/non verificabili|nessun riferimento/i});
+  await checkAdjacentCaptureNavigation('/v1/collections/members',
+    {collection_id:'collection:one',results:[],next_after_id:null});
+  await checkAdjacentCaptureNavigation('/v1/collections/member',
+    {collection_id:'collection:one',content_id:'content:one',source_exists:false,claims:[]});
   console.log('DP419 private Capture route allowlist and error privacy PASS');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
