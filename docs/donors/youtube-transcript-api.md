@@ -47,13 +47,15 @@
   `youtube-transcript-api -> yt-dlp` first path. Set instead
   `DP_YOUTUBE_TRANSCRIPT_API_SECONDARY=1` for `yt-dlp JSON3 ->
   youtube-transcript-api`, with exactly one API attempt after a verified missing
-  or malformed caption (or absent yt-dlp executable); both flags enabled fail
+  or empty JSON3 caption (or absent yt-dlp executable); both flags enabled fail
   at construction. Both unset keeps the original yt-dlp-only behavior.
 - **Safety boundary:** API secondary is attempted only for an unavailable selected
   subtitle or a parseable but empty JSON3, never on unknown errors, malformed
-  non-JSON server bodies, 401/403/429/451,
+  non-JSON server bodies, ambiguous server failures (even when a later diagnostic
+  says "no subtitles"), 401/403/429/451,
   IP-block, consent, login, challenge, CAPTCHA, private, region or video denial.
-  Those fail to `PlatformAccessRestricted` and remain `HELD` in the worker;
+  Access denials fail to `PlatformAccessRestricted` and remain `HELD` in the
+  worker; ambiguous failures stop acquisition without a second request;
   donor rejects redirect/foreign caption hosts before an outbound request. Valid
   YouTube video URL is required *before* yt-dlp in secondary mode. No cookies,
   login, proxy, bypass, live fetch or extra aggressive retries introduced.
