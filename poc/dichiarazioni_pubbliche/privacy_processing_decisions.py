@@ -103,6 +103,7 @@ def evaluate_processing_decisions(
             or row["independent_review_outcome"] != "APPROVE"
             or not isinstance(row["independent_review_receipt"], str)
             or _RECEIPT_URL.fullmatch(row["independent_review_receipt"]) is None
+            or row["independent_review_receipt"] == row["owner_decision_url"]
             or not isinstance(row["independent_review_sha"], str)
             or _REVIEWED_SHA.fullmatch(row["independent_review_sha"]) is None
         ):

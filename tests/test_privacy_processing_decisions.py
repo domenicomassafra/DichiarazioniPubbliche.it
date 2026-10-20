@@ -85,7 +85,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 retention_receipt=receipt, access_receipt=receipt,
                 owner_decision_url=receipt, owner_decision_date="2026-10-20",
                 independent_review_model="SOL_6_1_HIGH_PI_AGENT",
-                independent_review_receipt=receipt, independent_review_sha="a"*40,
+                independent_review_receipt=receipt.replace("123456", "123457"), independent_review_sha="a"*40,
                 independent_review_outcome="APPROVE",
             )
         self.assertEqual(evaluate_processing_decisions(self.register), ())
@@ -120,6 +120,8 @@ class ProcessingDecisionsTests(unittest.TestCase):
             independent_review_sha="a"*40,
             independent_review_outcome="APPROVE",
         )
+        self.assertIn(expected, evaluate_processing_decisions(self.register))
+        row["independent_review_receipt"] = receipt.replace("123456", "123457")
         self.assertNotIn(expected, evaluate_processing_decisions(self.register))
         for field, invalid in (
             ("independent_review_model", "GPT_6"),
@@ -132,7 +134,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 self.assertIn(expected, evaluate_processing_decisions(self.register))
                 row.update(
                     independent_review_model="SOL_6_1_HIGH_PI_AGENT",
-                    independent_review_receipt=receipt,
+                    independent_review_receipt=receipt.replace("123456", "123457"),
                     independent_review_sha="a"*40,
                     independent_review_outcome="APPROVE",
                 )
