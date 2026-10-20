@@ -8,6 +8,7 @@ import socket
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -88,12 +89,15 @@ class CaptionAtomicPostgresTests(unittest.TestCase):
         self.store.run("INSERT INTO content_item(id, canonical_url) VALUES (:'id', :'url')",
                        id=self.content_id, url=URL)
         now = datetime.now(timezone.utc)
+        self.expires_at = now + (timedelta(seconds=7) if
+                                 self._testMethodName == "test_expired_while_waiting_for_rights_lock"
+                                 else timedelta(days=1))
         self.record = self.registry.record_rights(
             subject=self.subject, policy_version=POLICY, rights_status="CLEARED",
             rights_receipt_ref="fixture:authorized-for-synthetic-only",
             permitted_uses=("FETCH", "STORE_BODY"),
             reviewed_at=(now - timedelta(days=1)).isoformat(),
-            expires_at=(now + timedelta(days=1)).isoformat(),
+            expires_at=self.expires_at.isoformat(),
             reviewer_ref="fixture:qualified-reviewer",
         )
         self.guard = SourceFamilyUseGuard(
@@ -156,6 +160,53 @@ class CaptionAtomicPostgresTests(unittest.TestCase):
             self.insert("revoked-before-insert")
         self.assertEqual(self.count(), 0)
         self.assertEqual(self.segment_count(), 0)
+
+    def test_expired_while_waiting_for_rights_lock(self):
+        # A SQL transaction may begin while a permit is valid and then wait
+        # on FOR UPDATE past expires_at. Transaction-start time is no longer
+        # an acceptable timestamp for the eventual raw-text INSERT.
+        self.assertGreater((self.expires_at - datetime.now(timezone.utc)).total_seconds(), 3)
+        locker = subprocess.Popen(
+            [self.psql, "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "--dbname", self.dsn],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, bufsize=1,
+        )
+        try:
+            locker.stdin.write(
+                "BEGIN;\n"
+                f"SELECT id FROM private_source_rights_record WHERE id='{self.record.id}' FOR UPDATE;\n"
+            )
+            locker.stdin.flush()
+            ready, _, _ = select.select([locker.stdout], [], [], 8)
+            self.assertTrue(ready, "locker did not acquire the rights row")
+            self.assertEqual(locker.stdout.readline().strip(), self.record.id)
+            entered_sql = threading.Event()
+            original_run = self.store.run_literal
+
+            def observed_sql(statement):
+                entered_sql.set()
+                return original_run(statement)
+
+            self.store.run_literal = observed_sql
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(self.insert, "must-not-persist-after-expiry")
+                self.assertTrue(entered_sql.wait(8), "caption SQL did not start")
+                self.assertFalse(future.done(), "caption bypassed the rights row lock")
+                time.sleep(max(0, (self.expires_at - datetime.now(timezone.utc)).total_seconds() + 0.5))
+                locker.stdin.write("COMMIT;\n")
+                locker.stdin.flush()
+                locker.stdin.close()
+                self.assertEqual(locker.wait(timeout=12), 0)
+                with self.assertRaises(SourceUseBlocked):
+                    future.result(timeout=12)
+            self.assertEqual(self.count(), 0)
+            self.assertEqual(self.segment_count(), 0)
+        finally:
+            if locker.poll() is None:
+                locker.kill()
+                locker.wait(timeout=5)
+            locker.stdout.close()
+            locker.stderr.close()
 
     def test_concurrent_revocation_with_parent_row_lock_prevents_raw_text_insert(self):
         # The revoker locks the reviewed parent, then an authorized capture
