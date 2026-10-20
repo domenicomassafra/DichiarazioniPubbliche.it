@@ -63,7 +63,7 @@
   "poc/dichiarazioni_pubbliche/claim_extraction_benchmark.py": 20478,
   "poc/dichiarazioni_pubbliche/claim_promotion.py": 54961,
   "poc/dichiarazioni_pubbliche/collection_readiness.py": 20696,
-  "poc/dichiarazioni_pubbliche/context_integrity.py": 35967,
+  "poc/dichiarazioni_pubbliche/context_integrity.py": 35943,
   "poc/dichiarazioni_pubbliche/corpus_repository.py": 26900,
   "poc/dichiarazioni_pubbliche/corpus_retention.py": 21139,
   "poc/dichiarazioni_pubbliche/correction_propagation.py": 30111,
