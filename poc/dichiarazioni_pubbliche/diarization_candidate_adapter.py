@@ -84,6 +84,14 @@ def _block(code: str) -> AnonymousDiarizationReceipt:
     return AnonymousDiarizationReceipt(CONTRACT, "BLOCKED", (code,))
 
 
+def _audio_hash(media: Path) -> str:
+    digest = hashlib.sha256()
+    with media.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _tree_hash(model_dir: Path, *, max_bytes: int) -> tuple[str, int]:
     """Hash only an already present local model tree; refuse links and oversize."""
     if not model_dir.is_dir() or model_dir.is_symlink():
@@ -240,11 +248,7 @@ def run_offline_candidate(
             or not media_path.is_file()):
         return _block("AUDIO_NOT_LOCAL")
     try:
-        digest = hashlib.sha256()
-        with media_path.open("rb") as handle:
-            while chunk := handle.read(1024 * 1024):
-                digest.update(chunk)
-        if digest.hexdigest() != permit.input_sha256:
+        if _audio_hash(media_path) != permit.input_sha256:
             return _block("AUDIO_HASH_DRIFT")
         model_sha, cache_bytes = _tree_hash(model_dir, max_bytes=permit.max_cache_bytes)
     except (OSError, ValueError):
@@ -263,6 +267,27 @@ def run_offline_candidate(
         return AnonymousDiarizationReceipt(CONTRACT, "ERROR_HELD", ("ENGINE_FAILED_OR_UNSAFE_OUTPUT",))
     # A source-use record may be revoked while an isolated inference runs.
     # Re-read both grants before returning any CURRENT private artifact.
+    try:
+        source_use_guard.require("STORE_BODY", content_sha256=permit.input_sha256)
+        source_use_guard.require("ASR_MEDIA", content_sha256=permit.input_sha256)
+    except SourceUseBlocked as exc:
+        return _block(exc.code)
+    # The files can be replaced after the initial hash, while inference runs.
+    # Never attach the old digest/rights receipt to turns from changed inputs.
+    try:
+        if any(part.is_symlink() for path in (media_path, model_dir)
+               for part in (path, *path.parents)):
+            return _block("LOCAL_INPUT_CHANGED_DURING_INFERENCE")
+        if _audio_hash(media_path) != permit.input_sha256:
+            return _block("AUDIO_HASH_DRIFT")
+        current_model_sha, current_cache_bytes = _tree_hash(
+            model_dir, max_bytes=permit.max_cache_bytes,
+        )
+    except (OSError, ValueError):
+        return _block("LOCAL_INPUT_CHANGED_DURING_INFERENCE")
+    if current_model_sha != model_sha or current_cache_bytes != cache_bytes:
+        return _block("MODEL_HASH_DRIFT")
+    # Rights can also be revoked while the post-run hashes are being read.
     try:
         source_use_guard.require("STORE_BODY", content_sha256=permit.input_sha256)
         source_use_guard.require("ASR_MEDIA", content_sha256=permit.input_sha256)
