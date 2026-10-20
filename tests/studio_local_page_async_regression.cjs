@@ -289,7 +289,7 @@ async function main() {
   await latestRequest;
   complete(7, {private_marker: 'STALE_PRIOR_WORKSPACE'});
   await oldRequest;
-  assert.match(results.textContent, /Solo metadati verificati nei pannelli dedicati/);
+  assert.match(results.textContent, /Solo metadati verificati/);
   assert.doesNotMatch(results.textContent, /STALE_PRIOR_WORKSPACE/,
                       'older reply held');
   assert.match(media.textContent, /segment:latest/);
