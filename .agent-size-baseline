@@ -57,7 +57,7 @@
   "docs/ux/prototypes-v3/generated-style-02/index.html": 31449,
   "poc/dichiarazioni_pubbliche/candidate_extraction.py": 106349,
   "poc/dichiarazioni_pubbliche/candidate_matching.py": 25062,
-  "poc/dichiarazioni_pubbliche/capture_pipeline.py": 74773,
+  "poc/dichiarazioni_pubbliche/capture_pipeline.py": 74221,
   "poc/dichiarazioni_pubbliche/challenge_intake.py": 23027,
   "poc/dichiarazioni_pubbliche/challenge_persistence.py": 40993,
   "poc/dichiarazioni_pubbliche/claim_extraction_benchmark.py": 20478,

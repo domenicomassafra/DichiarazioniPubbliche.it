@@ -18,6 +18,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
     PassageRecord,
     deterministic_corpus_id,
 )
+# Re-export the bounded HTTP validators for existing capture callers.
 from dichiarazioni_pubbliche.capture_http_validation import (
     CapturePipelineError, _capture_response_limit,
     _validate_capture_target, _validate_fetched_resource,
