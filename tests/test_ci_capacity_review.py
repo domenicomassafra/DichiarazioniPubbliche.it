@@ -48,6 +48,12 @@ class CapacityReviewTests(unittest.TestCase):
         self.assertEqual(report["macos"]["queue_mean"], 1)
         self.assertEqual(report["run_wall"]["median"], 7)
 
+    def test_unmatched_job_export_is_reported_not_counted_as_a_run(self):
+        _, jobs = self.cancelled_before_assignment()
+        report = capacity.summarize({}, jobs)
+        self.assertEqual(report["runs"], 0)
+        self.assertEqual(report["unmatched_job_exports"], ["1"])
+
     def test_cancelled_run_cuts_off_pending_and_busy_jobs(self):
         work = [{"run": "cancelled", "arrival": 0, "cancelled_at": 2, "jobs": [
             {"kind": "macos", "name": "backend macos-latest / py3.11", "seconds": 4},

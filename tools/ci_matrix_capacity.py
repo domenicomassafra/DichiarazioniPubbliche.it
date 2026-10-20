@@ -145,7 +145,8 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
                     wasted_minutes[kind] += sample["execution"]
 
     report: dict = {
-        "runs": len(jobs),
+        "runs": sum(run_id in runs for run_id in jobs),
+        "unmatched_job_exports": sorted(set(jobs) - set(runs)),
         "window_minutes": _minutes(window_end, window_start),
     }
     for kind in (MACOS, UBUNTU, OTHER):
@@ -230,6 +231,8 @@ def build_workload(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> list[d
 
 def _print_report(report: dict) -> None:
     print(f"recorded window: {report['runs']} runs / {_fmt(report['window_minutes'])} minutes")
+    if report["unmatched_job_exports"]:
+        print(f"  WARNING: missing run metadata for {report['unmatched_job_exports']}")
     for kind in (MACOS, UBUNTU):
         section = report[kind]
         if not section["jobs"]:

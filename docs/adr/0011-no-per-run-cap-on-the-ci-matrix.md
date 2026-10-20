@@ -1,6 +1,6 @@
 # ADR 0011 — Reduce macOS service time, not required coverage
 
-Status: Proposed (pending hosted measurement and integration)
+Status: Accepted (operational acceptance remains gated by controlcenter#418)
 Date: 2026-10-20
 Supersedes: the original unvalidated no-change decision in PR #235
 Tracker: https://github.com/domenicomassafra/controlcenter/issues/418
@@ -39,7 +39,8 @@ nonexistent workload; a matrix cap throttled independent workflow jobs.
 Accounting now requires evidence of runner assignment (`runner_id`, runner name
 or nonempty steps) as well as a non-queued start. Queue is **job**
 `started_at - created_at`, never run creation; missing timestamps are unknown,
-not zero. Completed run duration is last job `completed_at - run.created_at`,
+not zero. Job exports missing run metadata are listed explicitly and excluded
+from the matched-run count. Completed run duration is last job `completed_at - run.created_at`,
 never `run.updated_at`. In-flight runs do not supply final duration. Pool minutes
 exclude never-executed jobs; "without verdict" means measured executions in a
 run whose conclusion is cancelled/failure/timed_out/startup_failure, including
