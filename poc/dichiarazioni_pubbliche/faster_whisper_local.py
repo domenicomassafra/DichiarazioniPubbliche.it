@@ -38,13 +38,15 @@ MAX_MODEL_FILES = 96
 MAX_CPU_SECONDS = 100
 MAX_WALL_SECONDS = 120
 MAX_ADDRESS_SPACE_BYTES = 6 * 1024**3
+MAX_OUTPUT_BYTES = 256_000
 _COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 _LICENSES = frozenset({"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause"})
 _FILE_EXT = frozenset({".bin", ".json", ".txt", ".model", ".vocab", ".md"})
 
 
 def _verified_model_receipt(receipt_path: Path) -> tuple[dict, str]:
-    if (not receipt_path.is_absolute() or receipt_path.is_symlink()
+    if (not receipt_path.is_absolute() or ".." in receipt_path.parts
+            or any(part.is_symlink() for part in (receipt_path, *receipt_path.parents))
             or not receipt_path.is_file() or receipt_path.stat().st_size > 16_384):
         raise AsrRequestRejected("FASTER_WHISPER_RECEIPT_INVALID")
     raw = receipt_path.read_bytes()
@@ -64,7 +66,9 @@ def _verified_model_receipt(receipt_path: Path) -> tuple[dict, str]:
         raise AsrRequestRejected("FASTER_WHISPER_MODEL_RIGHTS_UNVERIFIED")
     root = Path(receipt["model_dir"])
     files = receipt.get("files")
-    if (not root.is_absolute() or root.is_symlink() or not root.is_dir()
+    if (not root.is_absolute() or ".." in root.parts
+            or any(part.is_symlink() for part in (root, *root.parents))
+            or not root.is_dir()
             or not isinstance(files, dict) or not 2 <= len(files) <= MAX_MODEL_FILES
             or "model.bin" not in files or "LICENSE" not in files
             or "config.json" not in files):
@@ -96,6 +100,7 @@ def _verified_model_receipt(receipt_path: Path) -> tuple[dict, str]:
 def _limits() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (MAX_ADDRESS_SPACE_BYTES, MAX_ADDRESS_SPACE_BYTES))
     resource.setrlimit(resource.RLIMIT_CPU, (MAX_CPU_SECONDS, MAX_CPU_SECONDS))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_OUTPUT_BYTES, MAX_OUTPUT_BYTES))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
@@ -223,24 +228,29 @@ class FasterWhisperLocalTranscriber:
                 child_env.update({"DICHIARAZIONI_PUBBLICHE_FASTER_WHISPER_ENABLED": "1",
                                   "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1",
                                   "HF_HUB_DISABLE_TELEMETRY": "1", "OMP_NUM_THREADS": "4"})
-                try:
-                    with local_inference_slot():
-                        result = subprocess.run(
-                            [sys.executable, "-m", "dichiarazioni_pubbliche.faster_whisper_local", "--worker"],
-                            input=json.dumps({"audio": str(staged),
-                                              "receipt": str(self.model_receipt_path),
-                                              "language": language}),
-                            capture_output=True, text=True, check=False,
-                            env=child_env, preexec_fn=_limits,
-                            timeout=self.timeout_seconds,
-                        )
-                except LocalInferenceBusy as exc:
-                    raise AsrTransientError("LOCAL_INFERENCE_BUSY") from exc
-                except subprocess.TimeoutExpired as exc:
-                    raise AsrRequestRejected("FASTER_WHISPER_TIMEOUT") from exc
-                if result.returncode != 0 or len(result.stdout) > 256_000:
-                    raise AsrRequestRejected("FASTER_WHISPER_ENGINE_FAILED")
-                payload = json.loads(result.stdout)
+                # The subprocess may emit untrusted transcript/error bytes.
+                # Avoid capture_output pipes: they allocate unbounded memory
+                # in the parent before any post-hoc size check can run.
+                with tempfile.TemporaryFile(mode="w+b") as output:
+                    try:
+                        with local_inference_slot():
+                            result = subprocess.run(
+                                [sys.executable, "-m", "dichiarazioni_pubbliche.faster_whisper_local", "--worker"],
+                                input=json.dumps({"audio": str(staged),
+                                                  "receipt": str(self.model_receipt_path),
+                                                  "language": language}),
+                                stdout=output, stderr=subprocess.DEVNULL,
+                                text=True, check=False, env=child_env,
+                                preexec_fn=_limits, timeout=self.timeout_seconds,
+                            )
+                    except LocalInferenceBusy as exc:
+                        raise AsrTransientError("LOCAL_INFERENCE_BUSY") from exc
+                    except subprocess.TimeoutExpired as exc:
+                        raise AsrRequestRejected("FASTER_WHISPER_TIMEOUT") from exc
+                    if result.returncode != 0 or output.tell() > MAX_OUTPUT_BYTES:
+                        raise AsrRequestRejected("FASTER_WHISPER_ENGINE_FAILED")
+                    output.seek(0)
+                    payload = json.loads(output.read(MAX_OUTPUT_BYTES + 1))
             if not isinstance(payload, dict):
                 raise AsrRequestRejected("FASTER_WHISPER_OUTPUT_INVALID")
             return _parse_result(payload, duration=duration, language=language,
