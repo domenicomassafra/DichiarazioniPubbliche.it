@@ -120,8 +120,12 @@ def _validate_rate_store_request(request: RateStoreRequest) -> None:
     """Shared boundary: invalid requests must not mutate either rate store."""
     if not isinstance(request, RateStoreRequest):
         raise ValueError("INTAKE_RATE_REQUEST_INVALID")
-    if _valid_bucket_key(request.bucket_key) is None or not _SHA256_HEX.fullmatch(
-        str(request.fingerprint)
+    canonical_bucket = _valid_bucket_key(request.bucket_key)
+    if (
+        canonical_bucket is None
+        or canonical_bucket != request.bucket_key
+        or type(request.fingerprint) is not str
+        or not _SHA256_HEX.fullmatch(request.fingerprint)
     ):
         raise ValueError("INTAKE_RATE_IDENTITY_INVALID")
     ceilings = (
@@ -338,7 +342,7 @@ def guard_validated_intake(
 
     if profile is None or not profile.valid():
         return _receipt(IntakeGuardState.BLOCKED, IntakeSpamReason.PROFILE_MISSING, "")
-    if not launch_profile_enabled:
+    if launch_profile_enabled is not True:
         return _receipt(
             IntakeGuardState.BLOCKED,
             IntakeSpamReason.PUBLIC_INTAKE_DISABLED,

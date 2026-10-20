@@ -127,6 +127,80 @@ class StrictStoreValidationTests(unittest.TestCase):
                     )
 
 
+    def test_only_literal_true_can_enable_the_private_guard(self):
+        for flag in ("false", "0", 1, None, [], False):
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as folder:
+                for store in (
+                    InMemoryIntakeRateStore(),
+                    SQLiteIntakeRateStore(Path(folder) / "quota.sqlite3"),
+                ):
+                    receipt = guard_validated_intake(
+                        _validation(body="Valid intake"),
+                        pseudonymous_bucket_key=_bucket(),
+                        profile=_profile(),
+                        rate_store=store,
+                        clock=MutableClock(),
+                        launch_profile_enabled=flag,
+                    )
+                    self.assertEqual(receipt.state, IntakeGuardState.BLOCKED)
+                    self.assertEqual(receipt.reason, IntakeSpamReason.PUBLIC_INTAKE_DISABLED)
+                    self.assertEqual(
+                        store.reserve(_request(window_seconds=30)).status,
+                        RateStoreStatus.RESERVED,
+                    )
+        enabled = guard_validated_intake(
+            _validation(body="Valid intake"),
+            pseudonymous_bucket_key=_bucket(),
+            profile=_profile(),
+            rate_store=InMemoryIntakeRateStore(),
+            clock=MutableClock(),
+            launch_profile_enabled=True,
+        )
+        self.assertEqual(enabled.state, IntakeGuardState.ALLOWED_PRIVATE)
+
+    def test_bucket_alias_is_rejected_without_consuming_quota(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for store in (
+                InMemoryIntakeRateStore(),
+                SQLiteIntakeRateStore(Path(folder) / "quota.sqlite3"),
+            ):
+                with self.subTest(store=type(store).__name__):
+                    alias = _request(bucket_key=" " + _bucket() + " ")
+                    with self.assertRaisesRegex(ValueError, "INTAKE_RATE_IDENTITY_INVALID"):
+                        store.reserve(alias)
+                    self.assertEqual(
+                        store.reserve(_request(window_seconds=30)).status,
+                        RateStoreStatus.RESERVED,
+                    )
+                    with self.assertRaisesRegex(ValueError, "INTAKE_RATE_IDENTITY_INVALID"):
+                        store.reserve(replace(alias, window_seconds=30, fingerprint="b" * 64))
+                    self.assertEqual(
+                        store.reserve(_request(window_seconds=30, fingerprint="b" * 64)).status,
+                        RateStoreStatus.GLOBAL_QUOTA,
+                    )
+
+    def test_string_like_fingerprint_is_rejected_without_checkpoint(self):
+        class FakeDigest:
+            def __str__(self):
+                return "a" * 64
+
+        with tempfile.TemporaryDirectory() as folder:
+            for store in (
+                InMemoryIntakeRateStore(),
+                SQLiteIntakeRateStore(Path(folder) / "quota.sqlite3"),
+            ):
+                with self.subTest(store=type(store).__name__):
+                    with self.assertRaisesRegex(ValueError, "INTAKE_RATE_IDENTITY_INVALID"):
+                        store.reserve(_request(fingerprint=FakeDigest()))
+                    self.assertEqual(
+                        store.reserve(_request(window_seconds=30)).status,
+                        RateStoreStatus.RESERVED,
+                    )
+                    self.assertEqual(
+                        store.reserve(_request(window_seconds=30, fingerprint="b" * 64)).status,
+                        RateStoreStatus.GLOBAL_QUOTA,
+                    )
+
     def test_six_hundred_valid_requests_match_sqlite_with_restarts(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "quota.sqlite3"
