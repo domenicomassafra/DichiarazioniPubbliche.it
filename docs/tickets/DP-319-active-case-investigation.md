@@ -279,10 +279,8 @@ downstream MiniPC acceptance.
 
 ### 2026-10-21 — PR #233 and remaining acceptance
 
-PR #233 (`aa1fe195`) fences SQLite cost replay for the same
-need/source/candidate/SHA after metadata relabel; rebased by merge onto
-21/10 `origin/main`. This is a private opt-in reference without dispatch,
-actual D billing or rights authority.
+PR #233 (`aa1fe195`) fences duplicate SQLite cost on unchanged source
+SHA after relabel. No real dispatch, D billing or rights grant.
 
 - **AC-319.1 OPEN:** planner has typed question, assignment, cap and stop;
   full HOLD-code mapping and source-specific permit remain unproved.
@@ -295,8 +293,7 @@ actual D billing or rights authority.
 - **AC-319.5 PARTIAL:** synthetic rights revocation, outage and budget fences;
   no exact real provider/D spend reconciliation.
 
-Owner 20/10 decision: Camera seduta 607 stays **HOLD** (issue comment
-6300423664). Alternative source candidate: European Parliament Open Data
-Portal `/speeches`, open-data reuse decision EU 2025/341 (CC BY 4.0).
-Specific record/version/SHA, exceptions and valid operations must be vetted
-before dispatch. No paid calls, production writes or deploy; AC still open.
+Owner 20/10: Camera 607 **HOLD** (#63 comment 6300423664).
+Candidate: EU Parliament Open Data `/speeches` (2025/341, CC BY 4.0).
+Pin record/SHA, exceptions and permitted use before any dispatch.
+No paid calls or deploy; AC remain open.
