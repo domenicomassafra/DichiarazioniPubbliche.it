@@ -47,7 +47,7 @@ def _describe_runner(runner: object) -> tuple[str, str, dict]:
         raise RunnerIsolationError("ENGINE_RUNNER_NOT_IMPORTABLE")
     module, name = runner.__module__, runner.__qualname__
     fixture = module == "tests.test_diarization_candidate_adapter" and name in {
-        "fixture_runner", "hung_runner", "memory_hog_runner",
+        "fixture_runner", "hung_runner", "memory_hog_runner", "oversized_stdout_runner",
     }
     approved = module == "dichiarazioni_pubbliche.diarization_candidate_adapter" and name == "pyannote_local_runner"
     if not (fixture or approved):

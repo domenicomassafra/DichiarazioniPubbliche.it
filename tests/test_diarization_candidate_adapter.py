@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import functools
-import os
+import resource
 import sys
 import tempfile
 import time
@@ -78,6 +78,12 @@ def memory_hog_runner(_media, _model):
     blocks = []
     while True:
         blocks.append(bytearray(8 * 1024 * 1024))
+
+
+def oversized_stdout_runner(_media, _model):
+    sys.stdout.write("x" * (256 * 1024))
+    sys.stdout.flush()
+    return FakePyannote(*DEFAULT_ROWS)
 
 
 def permission_guard(*, hash_source, allowed=("STORE_BODY", "ASR_MEDIA"), status="CLEARED"):
@@ -264,14 +270,23 @@ class CandidateAdapterTests(unittest.TestCase):
 
     def test_memory_hog_is_bounded_in_child_only(self):
         start = time.monotonic()
+        parent_as = resource.getrlimit(resource.RLIMIT_AS)
         result = self.call(runner=memory_hog_runner, permit=replace(
             self.permit, max_peak_rss_bytes=128 * 1024 * 1024, max_elapsed_ms=800,
         ))
         self.assertLess(time.monotonic() - start, 3.0)
         self.assertEqual(result.status, "ERROR_HELD")
         self.assertEqual(result.turns, ())
-        # The Python interpreter running unittest remains alive and unrestricted.
-        self.assertGreater(os.getpid(), 0)
+        if sys.platform == "linux":
+            self.assertEqual(result.codes, ("ENGINE_FAILED_OR_LIMIT",))
+        self.assertEqual(resource.getrlimit(resource.RLIMIT_AS), parent_as)
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_FSIZE required")
+    def test_stdout_flood_cannot_escape_result_size_cap(self):
+        result = self.call(runner=oversized_stdout_runner)
+        self.assertEqual(result.status, "ERROR_HELD")
+        self.assertEqual(result.turns, ())
+        self.assertEqual(result.codes, ("ENGINE_FAILED_OR_LIMIT",))
 
     def test_local_closure_never_executes_inline(self):
         called = []
