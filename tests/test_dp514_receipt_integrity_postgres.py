@@ -12,7 +12,8 @@ from dichiarazioni_pubbliche.psql_command import execute_psql
 class ReceiptIntegrityPgTests(fixture.WorkerBudgetReservationPgTests):
     """Exercise the real queue store against the inherited disposable PG cluster."""
 
-    def receipt(self, *, content_id="content:test", request_key="first"):
+    def receipt(self, *, content_id="content:test", request_key="first",
+                ledger_scope=None):
         return self.store.record_receipt(
             job_id="job:1",
             content_id=content_id,
@@ -27,6 +28,7 @@ class ReceiptIntegrityPgTests(fixture.WorkerBudgetReservationPgTests):
             receipt={"synthetic": True},
             request_key=request_key,
             billing_basis="ESTIMATED_ONLY",
+            ledger_scope=ledger_scope,
         )
 
     def test_foreign_content_cannot_release_original_source_hold(self):
@@ -49,7 +51,16 @@ class ReceiptIntegrityPgTests(fixture.WorkerBudgetReservationPgTests):
 
     def test_different_request_keys_cannot_bill_one_reserved_attempt_twice(self):
         self.assertEqual(self.reserve(1, global_cap="1"), "RESERVED")
+        self.assertEqual(self.scalar(
+            "SELECT attempt FROM worker_budget_reservation WHERE job_id='job:1'"
+        ), "0")
         original_id = self.receipt(request_key="original")
+        self.assertEqual(self.scalar(
+            "SELECT attempt FROM provider_receipt WHERE id='" + original_id + "'"
+        ), "1")
+        self.assertEqual(self.scalar(
+            "SELECT state FROM worker_budget_reservation WHERE job_id='job:1'"
+        ), "RECEIPTED")
         with self.assertRaisesRegex(ValueError, "RECEIPT_ATTEMPT_ALREADY_CHARGED"):
             self.receipt(request_key="different")
         self.assertTrue(original_id.startswith("receipt:"))
@@ -59,6 +70,16 @@ class ReceiptIntegrityPgTests(fixture.WorkerBudgetReservationPgTests):
         self.assertEqual(self.scalar(
             "SELECT cost_usd FROM processing_job WHERE id='job:1'"
         ), "0.200000")
+
+    def test_caller_scope_cannot_change_job_charge_identity(self):
+        self.assertEqual(self.reserve(1, global_cap="1"), "RESERVED")
+        self.receipt(request_key="scope", ledger_scope={"job_id": "job:other"})
+        self.assertEqual(self.scalar(
+            "SELECT ledger_scope->>'job_id' FROM provider_receipt"
+        ), "job:1")
+        with self.assertRaisesRegex(ValueError, "RECEIPT_ATTEMPT_ALREADY_CHARGED"):
+            self.receipt(request_key="different")
+        self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "1")
 
     def test_parallel_different_request_keys_share_only_one_charge(self):
         self.assertEqual(self.reserve(1), "RESERVED")

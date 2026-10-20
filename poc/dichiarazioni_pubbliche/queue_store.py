@@ -453,7 +453,7 @@ class QueueExecutionCostStore(PsqlRuntime):
             provider_id=provider_id,
             model_id=model_id,
         )
-        scope = {"job_id": job_id, **(ledger_scope or {})}
+        scope = {**(ledger_scope or {}), "job_id": job_id}
         encoded = json.dumps(
             {**receipt, "job_id": job_id},
             ensure_ascii=False,
