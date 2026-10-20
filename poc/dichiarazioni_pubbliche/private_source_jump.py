@@ -184,7 +184,11 @@ def private_written_source_jump(
             or source.get("source_sha256") != capture.content_sha256
             or type(source.get("page_count")) is not int
             or not isinstance(verified_document_pages, list)
-            or source.get("page_selectors") != verified_document_pages
+            # JSON serialization also distinguishes 1, 1.0 and true. Plain
+            # Python equality would accept a tampered saved page index typed
+            # as a boolean, weakening the exact provenance readback.
+            or json.dumps(source.get("page_selectors"), sort_keys=True)
+            != json.dumps(verified_document_pages, sort_keys=True)
             or len(verified_document_pages) != source["page_count"]
             or not isinstance(quote_text, str)
             or hashlib.sha256(quote_text.encode("utf-8")).hexdigest()

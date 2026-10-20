@@ -108,6 +108,15 @@ class OCRSourcePageJumpTests(unittest.TestCase):
         self.assertEqual(result["reason"], "PDF_TEXT_PAGE_NOT_VERIFIED")
         self.assertIsNone(result["url"])
 
+    def test_page_map_json_type_drift_remains_held(self):
+        source = self.record["capture"]["metadata"]["source_metadata"]
+        source["page_selectors"] = [dict(page) for page in source["page_selectors"]]
+        # In Python True == 1, but a JSON boolean is not an integer page ID.
+        source["page_selectors"][0]["page_number"] = True
+        result = self.jump()
+        self.assertEqual(result["status"], "UNAVAILABLE")
+        self.assertEqual(result["reason"], "PDF_TEXT_PAGE_NOT_VERIFIED")
+
     def test_wrong_role_or_rights_cannot_mint_pdf_source_navigation(self):
         for field, changed in (
             ("rights_ready", False),
