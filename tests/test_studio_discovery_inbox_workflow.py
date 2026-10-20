@@ -5,7 +5,8 @@ import unittest
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 
 from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import (
-    DiscoveryInboxWorkflow, plan_bulk_annotation, render_private_inbox_fragment,
+    DiscoveryInboxWorkflow, _SCOPED_SQL, plan_bulk_annotation,
+    render_private_inbox_fragment,
 )
 
 
@@ -115,6 +116,19 @@ class InboxWorkflowTests(unittest.TestCase):
         self.assertIn("DISCOVERY_LINEAGE_MISMATCH", result["blockers"])
         self.assertIsNone(result["latest_annotation"])
         self.assertIsNone(result["annotation_revision"])
+
+    def test_manifest_digest_drift_hides_historical_triage_from_inbox_and_bulk(self):
+        stale = row(revision=1, latest="REJECTED")
+        stale["manifest_digest_ok"] = False
+        queue = DiscoveryInboxWorkflow(FakeRuntime([stale]))
+        record = queue.list_rows(collection_id="collection:01")["rows"][0]
+        self.assertFalse(record["current"])
+        self.assertIn("DISCOVERY_MANIFEST_DIGEST_MISMATCH", record["blockers"])
+        self.assertIsNone(record["annotation_revision"])
+        self.assertIsNone(record["latest_annotation"])
+        with self.assertRaisesRegex(ValueError, "BULK_ROW_NOT_CURRENT"):
+            queue.preview_bulk(collection_id="collection:01", hit_ids=["hit:01"],
+                               decision="DEFERRED")
 
     def test_tampered_or_gapped_ledger_refused(self):
         for bad in (row(revision=2, count=1, latest="NEEDS_REVIEW"),
@@ -245,6 +259,33 @@ class InboxWorkflowTests(unittest.TestCase):
             self.assertEqual(with_history["annotation_revision"], 1)
             self.assertEqual(with_history["latest_annotation"], "NEEDS_REVIEW")
             self.assertEqual(queue.list_rows(collection_id="collection:unrelated")["rows"], [])
+            # A digest drift invalidates the Run->Manifest provenance, even
+            # when the Hit->Attempt->Query IDs still appear consistent.
+            pg.require_sql(
+                f"UPDATE research_discovery_run SET manifest_sha256=repeat('b',64) "
+                f"WHERE id='{prefix}:run';", database=pg.fresh_url,
+            )
+            raw_drifted = json.loads(PsqlRuntime(database_url=pg.fresh_url).run(
+                _SCOPED_SQL, collection_id=scope, after_id="", limit=1,
+            ))
+            self.assertEqual(raw_drifted["head_revision"], 0)
+            self.assertEqual(raw_drifted["ledger_count"], 0)
+            self.assertIsNone(raw_drifted["latest_decision"])
+            drifted = queue.list_rows(collection_id=scope)["rows"][0]
+            self.assertFalse(drifted["current"])
+            self.assertIn("DISCOVERY_MANIFEST_DIGEST_MISMATCH", drifted["blockers"])
+            self.assertIsNone(drifted["annotation_revision"])
+            self.assertIsNone(drifted["latest_annotation"])
+            with self.assertRaisesRegex(ValueError, "BULK_ROW_NOT_CURRENT"):
+                queue.preview_bulk(collection_id=scope, hit_ids=[f"{prefix}:hit"],
+                                   decision="DEFERRED")
+            pg.require_sql(
+                f"UPDATE research_discovery_run SET manifest_sha256='{digest}' "
+                f"WHERE id='{prefix}:run';", database=pg.fresh_url,
+            )
+            recovered = queue.list_rows(collection_id=scope)["rows"][0]
+            self.assertEqual(recovered["annotation_revision"], 1)
+            self.assertEqual(recovered["latest_annotation"], "NEEDS_REVIEW")
             pg.require_sql(
                 f"UPDATE research_discovery_manifest SET status='SUPERSEDED' "
                 f"WHERE id='{prefix}:manifest';", database=pg.fresh_url,

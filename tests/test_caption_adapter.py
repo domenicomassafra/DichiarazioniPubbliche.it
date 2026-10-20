@@ -9,11 +9,40 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.caption_adapter import (
     caption_stats,
     parse_chapters,
+    parse_transcript_api_snippets,
     parse_youtube_json3,
 )
 
 
 class CaptionAdapterTests(unittest.TestCase):
+    def test_transcript_api_manual_and_automatic_seconds_to_milliseconds(self):
+        # Purely synthetic donor-shaped fixtures; no platform words or traffic.
+        fixtures = (
+            ([{"text": "Città &amp; scuola", "start": 0.125, "duration": 1.250},
+              {"text": "Seconda frase", "start": 1.375, "duration": 2.0}],
+             [(125, 1375, "Città & scuola"), (1375, 3375, "Seconda frase")]),
+            ([{"text": "Primo auto", "start": 0.0025, "duration": 0.998}],
+             [(3, 1001, "Primo auto")]),
+        )
+        for payload, expected in fixtures:
+            with self.subTest(payload=payload):
+                observed = parse_transcript_api_snippets(payload)
+                self.assertEqual(
+                    [(s.start_ms, s.end_ms, s.text) for s in observed], expected
+                )
+
+    def test_transcript_api_invalid_timing_fails_closed(self):
+        valid = {"text": "frase", "start": 1, "duration": 1}
+        for rows in (
+            [], [{**valid, "start": -1}], [{**valid, "duration": 0}],
+            [{**valid, "start": "NaN"}],
+            [valid, {**valid, "start": 1.5}],
+            [{**valid, "start": 2}, valid],
+            [{**valid, "text": "  "}],
+        ):
+            with self.subTest(rows=rows), self.assertRaises(ValueError):
+                parse_transcript_api_snippets(rows)
+
     def test_parse_youtube_json3_and_drop_exact_rolling_duplicate(self):
         payload = {
             "events": [

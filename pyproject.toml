@@ -36,6 +36,7 @@ account = ["Authlib==1.9.1", "cryptography>=45.0,<50.0"]
 # Explicit opt-in private PDF text extraction. Default/contributor installs
 # remain stdlib-only, and absence of this backend always yields a HOLD.
 document-pdf = ["pypdf>=6.0,<7.0"]
+youtube-captions = ["youtube-transcript-api==1.2.4"]
 # Synthetic in-memory PDF fixtures only; never necessary for runtime capture.
 document-pdf-test = ["pypdf>=6.0,<7.0", "reportlab>=4.0,<6.0", "Pillow>=10.0,<13.0"]
 # Opt-in feed backend; default contributor/discovery installation stays stdlib-only.
@@ -47,6 +48,9 @@ wikidata-proposal = ["WikibaseIntegrator==0.12.15"]
 # Private, explicit HTML extraction adapter. No automatic fetch or publication.
 # The default contributor profile remains stdlib-only.
 capture-html = ["trafilatura==2.3.1"]
+# Private MiniPC-only candidate hints. Installing this extra never enables it;
+# the separately licensed model weights require a verified local receipt.
+semantic-candidates = ["sentence-transformers==6.1.0"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [

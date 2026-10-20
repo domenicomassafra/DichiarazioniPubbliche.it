@@ -38,11 +38,20 @@ def record_caption_receipt(store: Any, **kwargs: Any) -> str:
     receipt = kwargs.get("receipt")
     if not isinstance(receipt, dict):
         raise ValueError("YOUTUBE_CAPTION_RECEIPT_INVALID")
+    access_path = receipt.get("access_path", "YT_DLP_PUBLIC_CAPTION")
+    if access_path not in {
+        "YT_DLP_PUBLIC_CAPTION", "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION",
+    }:
+        raise ValueError("YOUTUBE_CAPTION_ACCESS_PATH_UNRECOGNIZED")
     kwargs["billing_basis"] = "ZERO_COST"
     kwargs["receipt"] = {
         **receipt,
-        "access_path": "YT_DLP_PUBLIC_CAPTION",
-        "billing_evidence_version": "youtube-caption-yt-dlp-v1",
+        "access_path": access_path,
+        "billing_evidence_version": (
+            "youtube-caption-transcript-api-v1"
+            if access_path == "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION"
+            else "youtube-caption-yt-dlp-v1"
+        ),
         "youtube_data_api_v3_quota_units": 0,
         "provider_marginal_cost_usd": "0.000000",
         "local_energy_basis": "UNKNOWN",

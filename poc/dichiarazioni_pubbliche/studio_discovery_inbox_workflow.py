@@ -9,11 +9,13 @@ reversible, and a preview is never a sufficient basis for a later DB mutation.
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 import re
 from typing import Any, Sequence
 
+from dichiarazioni_pubbliche.studio_discovery_inbox_fragment import (
+    render_private_inbox_fragment as _render_private_inbox_fragment,
+)
 from dichiarazioni_pubbliche.studio_discovery_triage_contract import (
     TRIAGE_DECISIONS, _validated_ref, _validated_revision,
 )
@@ -55,7 +57,8 @@ SELECT json_build_object(
     'ledger_count', COALESCE(history.ledger_count, 0),
     'latest_decision', CASE WHEN COALESCE(
        attempt.run_id=run.id AND attempt.query_id=hit.query_id
-       AND query.manifest_id=manifest.id, false)
+       AND query.manifest_id=manifest.id
+       AND run.manifest_sha256=manifest.manifest_sha256, false)
        THEN latest.decision ELSE NULL END
 )::text
 FROM research_discovery_hit hit
@@ -71,10 +74,16 @@ LEFT JOIN LATERAL (
     SELECT COALESCE(MAX(revision),0) AS head_revision, COUNT(*) AS ledger_count
     FROM research_discovery_triage_decision decision
     WHERE decision.hit_id=hit.id AND decision.collection_id=manifest.collection_id
+      AND COALESCE(attempt.run_id=run.id AND attempt.query_id=hit.query_id
+        AND query.manifest_id=manifest.id
+        AND run.manifest_sha256=manifest.manifest_sha256, false)
 ) history ON TRUE
 LEFT JOIN LATERAL (
     SELECT decision FROM research_discovery_triage_decision
     WHERE hit_id=hit.id AND collection_id=manifest.collection_id
+      AND COALESCE(attempt.run_id=run.id AND attempt.query_id=hit.query_id
+        AND query.manifest_id=manifest.id
+        AND run.manifest_sha256=manifest.manifest_sha256, false)
     ORDER BY revision DESC LIMIT 1
 ) latest ON TRUE
 WHERE manifest.collection_id=:'collection_id'
@@ -149,10 +158,10 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
     count = _validated_revision(row.get("ledger_count"))
     latest = row.get("latest_decision")
     if head != count or (head == 0 and latest is not None) or (
-        head > 0 and lineage and latest not in TRIAGE_DECISIONS
+        head > 0 and lineage and digest and latest not in TRIAGE_DECISIONS
     ):
         raise ValueError("STUDIO_INBOX_LEDGER_INCOMPLETE")
-    if not lineage:
+    if not (lineage and digest):
         latest = None  # No historical review information under broken lineage.
     elif latest is not None:
         latest = _state(latest, TRIAGE_DECISIONS)
@@ -199,7 +208,7 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
     snapshot = json.dumps({"path": path, "disposition": disposition, "content_id": content_id,
                            "source_family": source_family, "adapter_id": adapter_id,
                            "reason_code": reason, "blockers": [code for code, _ in blockers],
-                           "current": current, "head": head if lineage else None,
+                           "current": current, "head": head if lineage and digest else None,
                            "latest": latest, "statuses": [collection_state, manifest_state,
                                                            run_state, attempt_state]},
                           sort_keys=True, separators=(",", ":"))
@@ -210,7 +219,7 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
         "collection_state": collection_state, "manifest_state": manifest_state,
         "run_state": run_state, "attempt_state": attempt_state,
         "current": current,
-        "annotation_revision": head if lineage else None,
+        "annotation_revision": head if lineage and digest else None,
         "latest_annotation": latest,
         "snapshot_sha256": hashlib.sha256(snapshot.encode()).hexdigest(),
         "blockers": [code for code, _ in blockers],
@@ -369,63 +378,10 @@ def plan_bulk_annotation(rows: Sequence[dict[str, object]], *, decision: str,
 
 
 def render_private_inbox_fragment(page: dict[str, object]) -> str:
-    """Bounded accessible *read-only* HTML for the private Studio owner to embed.
-
-    This is not wired to the public frontend or to the Studio HTTP endpoint.
-    Only accepted output from list_rows is rendered; every value is escaped.
-    No buttons, mutation links, human decisions or sensitive source bodies.
-    """
-    if not isinstance(page, dict) or page.get("contract_version") != INBOX_VERSION:
-        raise ValueError("STUDIO_INBOX_FRAGMENT_CONTRACT_INVALID")
-    collection = _validated_ref(page.get("collection_id"))
-    rows = page.get("rows")
-    if not isinstance(rows, list) or len(rows) > 30:
-        raise ValueError("STUDIO_INBOX_FRAGMENT_ROWS_INVALID")
-
-    def safe(value: object) -> str:
-        if not isinstance(value, str):
-            raise ValueError("STUDIO_INBOX_FRAGMENT_FIELD_INVALID")
-        return html.escape(value, quote=True)
-
-    result = [
-        '<section class="studio-discovery-inbox" aria-labelledby="dp417-inbox-heading">',
-        '<h2 id="dp417-inbox-heading">Discovery Inbox · sola lettura</h2>',
-        f'<p>Raccolta: <code>{safe(collection)}</code>. '
-        'Le annotazioni non autorizzano acquisizione, verifica o pubblicazione.</p>',
-        '<ol class="studio-discovery-inbox__rows">',
-    ]
-    for row in rows:
-        if not isinstance(row, dict) or row.get("collection_id") != collection:
-            raise ValueError("STUDIO_INBOX_FRAGMENT_SCOPE_INVALID")
-        hit_id = _validated_ref(row.get("hit_id"))
-        queue = _state(row.get("queue"), _DISPOSITIONS)
-        path = row.get("provenance_path")
-        if not isinstance(path, dict) or path.get("hit_id") != hit_id or path.get("collection_id") != collection:
-            raise ValueError("STUDIO_INBOX_FRAGMENT_PATH_INVALID")
-        blocks = row.get("unblock_conditions")
-        if not isinstance(blocks, list) or len(blocks) > 24:
-            raise ValueError("STUDIO_INBOX_FRAGMENT_BLOCKERS_INVALID")
-        result.append('<li class="studio-discovery-inbox__row">')
-        result.append(f'<h3><code>{safe(hit_id)}</code> · {safe(queue)}</h3>')
-        result.append('<details><summary>Provenienza e motivi del blocco</summary>')
-        result.append('<dl>')
-        for key, label in (("run_id", "Run"), ("attempt_id", "Tentativo"),
-                           ("query_id", "Query ID"), ("manifest_id", "Manifest")):
-            value = path.get(key)
-            value = _id(value, optional=(key == "attempt_id"))
-            result.append(f'<dt>{label}</dt><dd><code>{safe(value or "non disponibile")}</code></dd>')
-        result.append('</dl><ul>')
-        for block in blocks:
-            if not isinstance(block, dict):
-                raise ValueError("STUDIO_INBOX_FRAGMENT_BLOCKERS_INVALID")
-            code = _reason(block.get("blocker"))
-            condition = _reason(block.get("unblock_condition"))
-            if code is None or condition is None:
-                raise ValueError("STUDIO_INBOX_FRAGMENT_BLOCKERS_INVALID")
-            result.append(f'<li><code>{safe(code)}</code> · {safe(condition)}</li>')
-        result.append('</ul></details></li>')
-    result.extend(['</ol>', '</section>'])
-    return "".join(result)
+    """Render the strictly read-only private Inbox without changing its public import."""
+    return _render_private_inbox_fragment(
+        page, version=INBOX_VERSION, dispositions=_DISPOSITIONS,
+    )
 
 
 __all__ = ["DiscoveryInboxWorkflow", "plan_bulk_annotation",
