@@ -72,11 +72,11 @@ class ExactJumpPostgresTests(unittest.TestCase):
               INSERT INTO private_source_rights_record(
                 id, subject_fingerprint, source_family, locator_kind,
                 locator_value, content_id, rights_status, rights_receipt_ref,
-                permitted_uses, reviewed_at, reviewer_ref, policy_version)
+                permitted_uses, reviewed_at, reviewer_ref, expires_at, policy_version)
               VALUES ('rights:one', repeat('1', 64), 'NASA NTRS', 'URL', '{URL}',
                 'content:one', 'CLEARED', 'fixture:receipt',
-                ARRAY['FETCH','PARSE_TEXT'], '2026-10-19T00:00:00Z',
-                'fixture:reviewer', 'v1');
+                ARRAY['FETCH','STORE_BODY','PARSE_TEXT'], '2026-10-19T00:00:00Z',
+                'fixture:reviewer', '2027-10-19T00:00:00Z', 'v1');
             """)
         except Exception:
             cls.tearDownClass()
@@ -144,6 +144,64 @@ class ExactJumpPostgresTests(unittest.TestCase):
         )
         self.assertEqual(revoked["reason"], "SOURCE_BINDING_OR_RIGHTS_INVALID")
         self.assertIsNone(revoked["url"])
+
+    def test_rights_must_bind_exact_capture_url_and_expire(self):
+        # The registry is append-only: create independent real SQL fixtures,
+        # instead of mutating reviewed source rights in place.
+        readers = _StudioCaptureReader(self.dsn)
+        for suffix, allowed_url, expiry in (
+            ("foreign", "https://different.example/other", "2027-10-19T00:00:00Z"),
+            ("no-expiry", URL, None),
+            ("no-store", URL, "2027-10-19T00:00:00Z"),
+        ):
+            expires = f"'{expiry}'" if expiry else "NULL"
+            fingerprint_char = {"foreign": "2", "no-expiry": "3", "no-store": "4"}[suffix]
+            permitted = ("ARRAY['FETCH','PARSE_TEXT']" if suffix == "no-store"
+                         else "ARRAY['FETCH','STORE_BODY','PARSE_TEXT']")
+            self.sql(f"""
+              INSERT INTO content_item(id, source_id, canonical_url, rights_status)
+              VALUES ('content:{suffix}', 'source:one', '{URL}', 'CLEARED');
+              INSERT INTO research_collection_content
+                (collection_id, content_id, inclusion_method, inclusion_version)
+              VALUES ('collection:one', 'content:{suffix}', 'MANUAL_REVIEW', 'v1');
+              INSERT INTO content_capture
+                (id, content_id, observed_at, final_url, media_type, content_sha256,
+                 body_ref, retrieval_method, retrieval_version, parser_method,
+                 parser_version, rights_status, metadata)
+              SELECT 'capture:{suffix}', 'content:{suffix}', observed_at,
+                final_url, media_type, content_sha256, body_ref,
+                retrieval_method, retrieval_version, parser_method,
+                parser_version, rights_status, metadata
+              FROM content_capture WHERE id='capture:one';
+              INSERT INTO passage
+                (id, content_id, capture_id, selector_type, start_char, end_char,
+                 text_sha256, private_text, extraction_method, extraction_version)
+              SELECT 'passage:{suffix}', 'content:{suffix}', 'capture:{suffix}',
+                selector_type, start_char, end_char, text_sha256, private_text,
+                extraction_method, extraction_version
+              FROM passage WHERE id='passage:one';
+              INSERT INTO content_derivation_family(id, root_content_id, status)
+              VALUES ('family:{suffix}', 'content:{suffix}', 'APPROVED');
+              INSERT INTO private_source_rights_record(
+                id, subject_fingerprint, source_family, locator_kind,
+                locator_value, content_id, rights_status, rights_receipt_ref,
+                permitted_uses, reviewed_at, reviewer_ref, expires_at, policy_version)
+              VALUES ('rights:{suffix}', repeat('{fingerprint_char}', 64), 'NASA NTRS', 'URL',
+                '{allowed_url}', 'content:{suffix}', 'CLEARED', 'fixture:receipt',
+                {permitted}, '2026-10-19T00:00:00Z',
+                'fixture:reviewer', {expires}, 'v1');
+            """)
+            result = read_studio_exact_source_jump(
+                readers, self.store, collection_id="collection:one",
+                content_id=f"content:{suffix}", capture_id=f"capture:{suffix}",
+                passage_id=f"passage:{suffix}", quote_text=QUOTE,
+                fetch=lambda *_a, **_k: FetchedBytes(
+                    TEXT, URL, 200, "text/plain", "utf-8", len(TEXT)
+                ),
+            )
+            with self.subTest(suffix=suffix):
+                self.assertEqual(result["reason"], "SOURCE_BINDING_OR_RIGHTS_INVALID")
+                self.assertIsNone(result["url"])
 
 
 if __name__ == "__main__":

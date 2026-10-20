@@ -8,8 +8,8 @@ the page, not an exact pixel box or an independently reviewed quotation.
 
 from __future__ import annotations
 
-import ipaddress
 import hashlib
+import ipaddress
 import json
 import re
 from dataclasses import asdict, dataclass
@@ -23,9 +23,8 @@ from dichiarazioni_pubbliche.original_source_resolver import (
     OriginalSourceResolution,
 )
 
-
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
-_HOST = re.compile(r"(?=.{4,253}\Z)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\Z", re.I)
+_HOST = re.compile(r"(?=.{4,253}\Z)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\Z", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -89,6 +88,7 @@ def private_written_source_jump(
     observed_live_url: str | None,
     original_source: OriginalSourceResolution,
     quote_text: str,
+    verified_document_pages: list[dict[str, object]] | None = None,
 ) -> PrivateSourceJump:
     """Propose a navigable page or browser text fragment, never an authority grant.
 
@@ -169,6 +169,50 @@ def private_written_source_jump(
             "PDF_PAGE_ONLY",
             f"{origin}#page={locator.page_number}",
             "PAGE",
+            capture.content_sha256,
+        )
+    if locator.selector_type == "TEXT_POSITION" and capture.media_type == "application/pdf":
+        # DP-238 stores exact extracted-character offsets and original PDF page
+        # selectors in one private Passage. A PDF page is navigable only after
+        # the source bytes and independently replayed page map have matched.
+        source = capture.metadata.get("source_metadata")
+        if (
+            capture.parser_method not in {
+                "NATIVE_PDF_TEXT_CANDIDATE", "SCANNED_PDF_OCR_CANDIDATE"
+            }
+            or not isinstance(source, dict)
+            or source.get("source_sha256") != capture.content_sha256
+            or type(source.get("page_count")) is not int
+            or not isinstance(verified_document_pages, list)
+            # JSON serialization also distinguishes 1, 1.0 and true. Plain
+            # Python equality would accept a tampered saved page index typed
+            # as a boolean, weakening the exact provenance readback.
+            or json.dumps(source.get("page_selectors"), sort_keys=True)
+            != json.dumps(verified_document_pages, sort_keys=True)
+            or len(verified_document_pages) != source["page_count"]
+            or not isinstance(quote_text, str)
+            or hashlib.sha256(quote_text.encode("utf-8")).hexdigest()
+            != locator.quote_sha256
+        ):
+            return unavailable("PDF_TEXT_PAGE_NOT_VERIFIED")
+        matches = [
+            page for page in verified_document_pages
+            if isinstance(page, dict)
+            and type(page.get("page_number")) is int
+            and type(page.get("start_char")) is int
+            and type(page.get("end_char")) is int
+            and page["page_number"] >= 1
+            and page["page_number"] <= source["page_count"]
+            and isinstance(page.get("page_text_sha256"), str)
+            and _SHA.fullmatch(page["page_text_sha256"])
+            and page["start_char"] <= locator.quote_start
+            < locator.quote_end <= page["end_char"]
+        ]
+        if len(matches) != 1:
+            return unavailable("PDF_TEXT_PAGE_NOT_VERIFIED")
+        return PrivateSourceJump(
+            "READY_PAGE", "PDF_PAGE_ONLY",
+            f"{origin}#page={matches[0]['page_number']}", "PAGE",
             capture.content_sha256,
         )
     if locator.selector_type == "TEXT_POSITION":
