@@ -120,6 +120,11 @@ class CaptionAcquisitionHandler:
             request_key=f"{candidate.video_id}:attempt:{job.attempt}",
         )
         if probe is None:
+            # Caption read/storage clearance does not grant audio transcription.
+            try:
+                rights.require("ASR_MEDIA")
+            except SourceUseBlocked as exc:
+                raise BlockedJob(exc.code) from None
             self._enqueue_asr(content, reason="NO_ITALIAN_PLATFORM_CAPTION")
             return
 

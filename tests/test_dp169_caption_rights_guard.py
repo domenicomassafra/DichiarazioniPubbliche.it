@@ -105,6 +105,23 @@ class CaptionRightsGateTests(unittest.TestCase):
         self.store.enqueue_followup.assert_not_called()
         self.assertEqual(self.store.record_receipt.call_args.kwargs["status"], "ACCESS_RESTRICTED")
 
+    def test_missing_caption_requires_distinct_asr_media_permission(self):
+        candidate = VideoCandidate("QaE00l6JZ8w", "Synthetic", URL)
+        self.handler.resolver.probe_caption.return_value = None
+        self.handler._enqueue_asr = Mock()
+        with patch.object(PrivateRightsRegistryStore, "read_current", return_value=rights()):
+            with self.assertRaises(BlockedJob):
+                self.handler._probe_and_enqueue_caption(self.job, self.content, candidate)
+        self.handler._enqueue_asr.assert_not_called()
+        self.store.enqueue_followup.assert_not_called()
+        with patch.object(PrivateRightsRegistryStore, "read_current", return_value=rights(
+            permitted_uses=("FETCH", "STORE_BODY", "ASR_MEDIA")
+        )):
+            self.handler._probe_and_enqueue_caption(self.job, self.content, candidate)
+        self.handler._enqueue_asr.assert_called_once_with(
+            self.content, reason="NO_ITALIAN_PLATFORM_CAPTION",
+        )
+
     def test_metadata_429_then_no_subtitles_never_retries_or_dispatches_asr(self):
         self.handler.resolver = YouTubeResolver()
         self.handler._enqueue_asr = Mock()

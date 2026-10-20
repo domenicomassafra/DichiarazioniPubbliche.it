@@ -93,5 +93,8 @@ it cannot dispatch ASR as an alternate way around an IP/429/consent block.
 The metadata probe now classifies access-denied markers across the **entire**
 `yt-dlp` diagnostic (stderr and stdout), even when a later line says
 `no subtitles`; this records ACCESS_RESTRICTED/HOLD without scheduled retries.
+Only when no captions genuinely exist may the worker enqueue audio ASR, and
+that separate operation requires a current `ASR_MEDIA` permission in addition
+to `FETCH`/`STORE_BODY`; otherwise the fallback itself is BLOCKED.
 Existing tests use only explicit synthetic rights fixtures. Neither CI nor the
 source-only merge supplies a legal rights record or authorizes live YouTube fetch.
