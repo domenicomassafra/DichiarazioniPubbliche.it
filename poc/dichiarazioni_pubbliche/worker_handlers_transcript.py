@@ -6,6 +6,7 @@ from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ROUTE
 from dichiarazioni_pubbliche.faster_whisper_local import PROVIDER_ID as FASTER_PROVIDER_ID
 from dichiarazioni_pubbliche.faster_whisper_local import ROUTE as FASTER_ROUTE
+from dichiarazioni_pubbliche.faster_whisper_rights import require_faster_whisper_media_rights
 from dichiarazioni_pubbliche.platform_transcript import (
     CaptionProbe,
     PlatformAccessRestricted,
@@ -300,6 +301,8 @@ class TranscriptAsrJobHandlers:
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_LOCAL_ASR", 0)
         self._require_current_ingestion_relevance(content)
+        if provider_id == FASTER_PROVIDER_ID:
+            self._require_faster_whisper_rights(content, payload)
         try:
             result = transcriber.transcribe(
                 audio_path=payload.get("local_audio_path"),
@@ -320,6 +323,8 @@ class TranscriptAsrJobHandlers:
             )
             raise BlockedJob(str(exc)) from exc
         self._require_current_ingestion_relevance(content)
+        if provider_id == FASTER_PROVIDER_ID:
+            self._require_faster_whisper_rights(content, payload)
         audio_sha = str(payload["audio_sha256"])
         self._persist_asr_result(
             job, content, result, provider_id=provider_id,
@@ -329,6 +334,15 @@ class TranscriptAsrJobHandlers:
             rights_receipt_id=str(payload["rights_receipt_id"]),
             input_bytes=None,
         )
+
+    def _require_faster_whisper_rights(self, content: ContentRecord, payload) -> None:
+        try:
+            require_faster_whisper_media_rights(
+                store=self.store, content_id=content.content_id,
+                canonical_url=content.canonical_url, payload=payload,
+            )
+        except AsrRequestRejected as exc:
+            raise BlockedJob(str(exc)) from exc
 
     def _persist_asr_result(
         self, job: ProcessingJob, content: ContentRecord, result,
