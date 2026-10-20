@@ -10,7 +10,9 @@
 
 The adapter is opt-in and requires Linux bubblewrap for browser process isolation.
 The browser runs without access to the user's home or host network. An isolated
-fresh context has no persistent cookie/login profile. The parent Python transport
+fresh context has no persistent cookie/login profile. The Linux sandbox
+masks /run and its /var/run symlink, hiding host user-session AF_UNIX sockets
+such as D-Bus. The parent Python transport
 fulfills every HTTPS request with `source_watcher.fetch_bytes`, which validates
 all DNS answers and pins the connected socket through redirects. WebSockets are
 blocked. HTTP redirects for both documents and subresources are refused,

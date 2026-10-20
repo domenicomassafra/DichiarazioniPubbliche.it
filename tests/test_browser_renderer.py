@@ -300,6 +300,34 @@ class BrowserRendererTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
 
     @unittest.skipUnless(
+        sys.platform == "linux" and shutil.which("bwrap") is not None
+        and Path("/usr/bin/sh").is_file(),
+        "real bwrap smoke requires supported Linux user namespaces",
+    )
+    def test_actual_bwrap_wrapper_hides_host_session_bus(self):
+        import subprocess
+        host_bus = Path(f"/run/user/{os.getuid()}/bus")
+        if not host_bus.is_socket():
+            self.skipTest("host user session bus absent")
+        parent_ns = os.readlink("/proc/self/ns/net")
+        script = (
+            "test -d /run && test -d /var/run && "
+            "test ! -S /run/user/$(id -u)/bus && "
+            "test ! -S /var/run/user/$(id -u)/bus && "
+            "test ! -d /home/$(id -un) && "
+            "readlink /proc/self/ns/net"
+        )
+        wrapper = ROOT / "poc/dichiarazioni_pubbliche/browser_renderer_netns.sh"
+        process = subprocess.run(
+            [str(wrapper), "-c", script],
+            env={**os.environ, "DICHIARAZIONI_PLAYWRIGHT_CHROMIUM_BIN": "/usr/bin/sh"},
+            capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertNotEqual(process.stdout.strip(), parent_ns)
+        self.assertEqual(os.readlink("/proc/self/ns/net"), parent_ns)
+
+    @unittest.skipUnless(
         importlib.util.find_spec("playwright") is not None
         and shutil.which("bwrap") is not None
         and Path("/usr/bin/google-chrome").exists(),
