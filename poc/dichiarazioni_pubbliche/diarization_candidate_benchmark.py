@@ -55,7 +55,9 @@ def compare_private_candidate(
             or not resource_budget_ok):
         return DiarizationCandidateComparison("BLOCKED", ("CANDIDATE_HELD_OR_RESOURCE_UNVERIFIED",))
     if (not 0 <= inserted_clip_start_ms < inserted_clip_end_ms
-            or len(reference) > 512 or len(baseline) > 512):
+            or len(reference) > 512 or len(baseline) > 512
+            or any(len({t.speaker_label for t in turns}) > 6 for turns in (
+                reference, baseline, candidate.turns))):
         return DiarizationCandidateComparison("BLOCKED", ("REFERENCE_BOUNDS_INVALID",))
     try:
         baseline_250 = compute_metrics(reference, baseline, collar_ms=BOUNDARY_COLLAR_MS)

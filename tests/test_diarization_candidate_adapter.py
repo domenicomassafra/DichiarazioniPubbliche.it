@@ -207,6 +207,10 @@ class CandidateAdapterTests(unittest.TestCase):
                 self.assertEqual(self.call(runner=lambda *_: result).status, "ERROR_HELD")
         self.assertEqual(self.call(runner=lambda *_: FakePyannote()).status, "ABSTAIN_HELD")
         self.assertEqual(self.call(runner=lambda *_: FakePyannote()).abstention_intervals_ms, ((0, 10000),))
+        seven_speakers = FakePyannote(*(
+            (float(i), float(i + 1), f"anonymous-{i}") for i in range(7)
+        ))
+        self.assertEqual(self.call(runner=lambda *_: seven_speakers).status, "ERROR_HELD")
 
     def test_cpu_memory_overrun_suppresses_turns_even_with_favorable_output(self):
         with patch("dichiarazioni_pubbliche.diarization_candidate_adapter._peak_rss_bytes", return_value=2048):
@@ -279,6 +283,13 @@ class CandidateAdapterTests(unittest.TestCase):
             resource_budget_ok=False,
         )
         self.assertEqual(blocked.status, "BLOCKED")
+        too_many = tuple(Turn(i * 1000, (i + 1) * 1000, f"TURN_{i:02d}", self.source_sha)
+                         for i in range(7))
+        self.assertEqual(compare_private_candidate(
+            reference=too_many, baseline=too_many, candidate=perfect,
+            inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
+            resource_budget_ok=True,
+        ).status, "BLOCKED")
 
 
 if __name__ == "__main__":

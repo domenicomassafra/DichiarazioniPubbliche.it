@@ -25,7 +25,9 @@ from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard,
 CONTRACT = "dp166-anonymous-diarization-v1"
 SUPPORTED = {"PYANNOTE_AUDIO": "4.0.7", "DIARIZE_CPU": "0.1.2"}
 MAX_TURNS = 512
-MAX_SPEAKERS = 12
+# The reused benchmark enumerates speaker-label permutations (factorial).
+# Keep a small bound to prevent CPU exhaustion on malicious/many-speaker input.
+MAX_SPEAKERS = 6
 MAX_MODEL_FILES = 128
 
 
