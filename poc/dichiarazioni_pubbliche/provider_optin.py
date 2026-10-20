@@ -13,6 +13,7 @@ from typing import Mapping
 
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient
 from dichiarazioni_pubbliche.local_asr import WhisperCppLocalTranscriber
+from dichiarazioni_pubbliche.faster_whisper_local import FasterWhisperLocalTranscriber
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient
 
 
@@ -25,6 +26,7 @@ class ProviderClients:
     local_asr: WhisperCppLocalTranscriber | None
     groq_api_key: str | None
     claim_rate: float | None
+    faster_whisper_asr: FasterWhisperLocalTranscriber | None = None
 
 
 def _flag(env: Mapping[str, str], name: str) -> bool:
@@ -79,6 +81,15 @@ def configure_provider_clients(env: Mapping[str, str]) -> ProviderClients:
             model_path=Path(env[PREFIX + names[2]]),
             model_sha256=env[PREFIX + names[3]],
         )
+    faster_whisper_asr = None
+    if _flag(env, "FASTER_WHISPER_ENABLED"):
+        names = ("FASTER_WHISPER_AUDIO_ROOT", "FASTER_WHISPER_MODEL_RECEIPT")
+        if not all(env.get(PREFIX + name) for name in names):
+            raise ValueError("FASTER_WHISPER_RUNTIME_NOT_CONFIGURED")
+        faster_whisper_asr = FasterWhisperLocalTranscriber(
+            audio_root=Path(env[PREFIX + names[0]]),
+            model_receipt_path=Path(env[PREFIX + names[1]]),
+        )
 
     groq_api_key = None
     if _flag(env, "GROQ_REMOTE_ASR_ENABLED"):
@@ -92,4 +103,4 @@ def configure_provider_clients(env: Mapping[str, str]) -> ProviderClients:
         groq_api_key = env.get("GROQ_API_KEY", "").strip() or None
         if not groq_api_key:
             raise ValueError("GROQ_REMOTE_ASR_DEDICATED_CREDENTIAL_REQUIRED")
-    return ProviderClients(claim_client, local_asr, groq_api_key, claim_rate)
+    return ProviderClients(claim_client, local_asr, groq_api_key, claim_rate, faster_whisper_asr)
