@@ -380,8 +380,14 @@ def plan_historical_batch(
     if not isinstance(costs, tuple) or not isinstance(watches, tuple):
         holds.add("BATCH_INPUT_INVALID")
         costs, watches = (), ()
-    if len(costs) > MAX_BATCH_ITEMS or len(watches) > MAX_BATCH_ITEMS:
+    if (
+        tuple.__len__(costs) > MAX_BATCH_ITEMS
+        or tuple.__len__(watches) > MAX_BATCH_ITEMS
+    ):
         holds.add("BATCH_ITEM_CAP")
+    if type(costs) is not tuple or type(watches) is not tuple:
+        holds.add("BATCH_INPUT_INVALID")
+    if "BATCH_ITEM_CAP" in holds or "BATCH_INPUT_INVALID" in holds:
         return HistoricalBatchDecision(
             "HELD", tuple(sorted(holds)), batch_id, corpus.manifest_fingerprint,
             (), tuple(sorted(completed)), checkpoint_fingerprint, None,
@@ -415,9 +421,7 @@ def plan_historical_batch(
         key = _work_key(
             person_id, item.source_family, item.content_id, item.source_version_sha256
         )
-        # Same immutable Capture within one person/source family is one cost unit,
-        # even when archived under another Content ID or collection. Preserve
-        # original Content membership in DP-243, not as repeated expensive work.
+        # Deduplicate immutable captures, including archive copies; keep DP-243 membership.
         dedupe_key = (
             person_id,
             item.source_family,
@@ -425,11 +429,7 @@ def plan_historical_batch(
             item.origin_content_id or item.content_id,
         )
         if key in completed or dedupe_key in dedupe:
-            # Completion and cost deduplication avoid repeat paid work, not
-            # future rights/version review. A completed source or a duplicate
-            # archive copy may be revoked after the original preflight. Check
-            # each skipped source's current DP-515 state before continuing,
-            # without requiring a new budget or source-poll reservation.
+            # Recheck rights/version on skipped captures without polling or charging.
             hold_prefix = "WATCH_COMPLETED" if key in completed else "WATCH_SKIPPED"
             watch = watch_map.get(item.content_id)
             if watch is None:
