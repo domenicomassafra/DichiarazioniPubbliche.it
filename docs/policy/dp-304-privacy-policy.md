@@ -7,6 +7,11 @@ Owner: product owner + privacy reviewer
 Code: `poc/dichiarazioni_pubbliche/policy/privacy_policy.py`
 Tests: `tests/test_policy_privacy.py`
 
+Owner-delegated legal research (2026-10-20): [Q-306-08/09/10/15/16](legal-research-decisions-2026-10-20.md)
+cites GDPR, Italian Privacy Code Arts. 136–139 and Garante deontology.
+The journalistic route is purpose- and essentiality-dependent: no lawful
+basis, retention term or sensitive-data release is automatically approved.
+
 ## Scope of this document
 
 This implements the **machine-checkable** part of DP-304. It does **not** decide a

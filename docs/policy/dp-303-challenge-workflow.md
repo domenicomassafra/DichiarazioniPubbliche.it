@@ -8,6 +8,11 @@ Code: `poc/dichiarazioni_pubbliche/policy/challenge_workflow.py`,
 `poc/dichiarazioni_pubbliche/challenge_intake.py`
 Tests: `tests/test_policy_challenge.py`, `tests/test_challenge_intake.py`
 
+Owner-delegated legal research (2026-10-20): [Q-306-06/07](legal-research-decisions-2026-10-20.md)
+distinguishes GDPR correction/erasure, qualifying press rectification under
+Law 47/1948 Art. 8 and ECtHR expression/reputation balancing. Private,
+reversible, reasoned human review remains mandatory.
+
 ## Relationship to `correction_runtime.py`
 
 The ticket says *extend, do not fork*. This module therefore does **not** reimplement
