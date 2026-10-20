@@ -30,6 +30,7 @@ class Guard:
     def __init__(self, revoked_at=0):
         self.calls = []
         self.revoked_at = revoked_at
+        self.blocked_uses = set()
 
     def bind_capture(self, *, content_id, url):
         if content_id != "content:archivebox" or url != URL:
@@ -41,6 +42,8 @@ class Guard:
 
     def require(self, use, **kwargs):
         self.calls.append(use)
+        if use in self.blocked_uses:
+            raise SourceUseBlocked("SOURCE_USE_REVOKED")
         if use == "ARCHIVE" and self.revoked_at and self.calls.count("ARCHIVE") >= self.revoked_at:
             raise SourceUseBlocked("SOURCE_USE_REVOKED")
         return SimpleNamespace(decision_fingerprint="a" * 64)
@@ -193,6 +196,36 @@ class ArchiveBoxTests(unittest.TestCase):
                     self.assertEqual(result.archive_status, "FAILED")
                     self.assertEqual(store.receipts[-1][1]["error_category"], expected)
                     self.assertFalse(calls.exists())
+
+    def test_revocation_of_fetch_store_or_parse_blocks_donor_refetch(self):
+        # ArchiveBox fetches the URL again; rights must be current at the
+        # process boundary and when the process returns.
+        for phase in ("before", "after"):
+            for revoked_use in ("FETCH", "STORE_BODY", "PARSE_TEXT"):
+                with self.subTest(phase=phase, use=revoked_use):
+                    with tempfile.TemporaryDirectory() as temp:
+                        capture, store, guard, _, calls, _, adapter = self.prepare(temp)
+                        if phase == "before":
+                            previous_archive = adapter.archive
+
+                            def revoke_before_process(*, capture, body_path):
+                                guard.blocked_uses.add(revoked_use)
+                                return previous_archive(capture=capture, body_path=body_path)
+
+                            adapter.archive = revoke_before_process
+                        else:
+                            previous_require = guard.require
+
+                            def revoke_after_process(use, **kwargs):
+                                if calls.exists() and use == revoked_use:
+                                    raise SourceUseBlocked("SOURCE_USE_REVOKED")
+                                return previous_require(use, **kwargs)
+
+                            guard.require = revoke_after_process
+                        result = capture()
+                        self.assertEqual(result.archive_status, "FAILED")
+                        self.assertEqual(store.receipts[-1][1]["error_category"], "SOURCE_USE_REVOKED")
+                        self.assertEqual(calls.exists(), phase == "after")
 
     def test_process_timeout_private_collection_and_invalid_outcome(self):
         for outcome, private, expected in (

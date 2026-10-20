@@ -119,6 +119,15 @@ class ArchiveBoxArchiveAdapter:
             "error_category": code, "adapter_version": ARCHIVEBOX_ADAPTER_VERSION,
         })
 
+    def _require_current_source_uses(self, capture: ContentCaptureRecord) -> None:
+        # ArchiveBox re-fetches and extracts the source in its own process.
+        # A current ARCHIVE permit alone cannot authorize a revoked FETCH.
+        for use in ("FETCH", "STORE_BODY", "PARSE_TEXT", "ARCHIVE"):
+            self.source_use_guard.require(
+                use, content_sha256=capture.content_sha256,
+                media_type=capture.media_type,
+            )
+
     def archive(self, *, capture: ContentCaptureRecord, body_path: Path | None) -> ArchiveResult:
         if not self.network_fetch_permitted:
             return self._failure("ARCHIVEBOX_SOURCE_FETCH_NOT_APPROVED")
@@ -131,10 +140,7 @@ class ArchiveBoxArchiveAdapter:
                 content_id=capture.content_id, url=capture.final_url,
             )
             self.source_use_guard.bind_fetched(final_url=capture.final_url)
-            self.source_use_guard.require(
-                "ARCHIVE", content_sha256=capture.content_sha256,
-                media_type=capture.media_type,
-            )
+            self._require_current_source_uses(capture)
         except CapturePipelineError:
             return self._failure("ARCHIVEBOX_CAPTURE_URL_INVALID")
         # SourceUseBlocked is allowed to propagate: the pipeline persists its
@@ -186,10 +192,8 @@ class ArchiveBoxArchiveAdapter:
                 return self._failure("ARCHIVEBOX_RESULT_INVALID")
         except (ValueError, TypeError):
             return self._failure("ARCHIVEBOX_RESULT_INVALID")
-        # Recheck rights after ArchiveBox performed network access.
-        self.source_use_guard.require(
-            "ARCHIVE", content_sha256=capture.content_sha256, media_type=capture.media_type,
-        )
+        # Recheck every source use after the independent network fetch.
+        self._require_current_source_uses(capture)
         receipt = {
             "adapter_version": ARCHIVEBOX_ADAPTER_VERSION,
             "archivebox_release": ARCHIVEBOX_RELEASE,
