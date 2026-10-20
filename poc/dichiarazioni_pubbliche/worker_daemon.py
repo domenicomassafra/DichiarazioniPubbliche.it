@@ -14,6 +14,8 @@ from typing import Any
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient
 from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_ASR_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ASR_ROUTE
+from dichiarazioni_pubbliche.faster_whisper_local import PROVIDER_ID as FASTER_ASR_PROVIDER_ID
+from dichiarazioni_pubbliche.faster_whisper_local import ROUTE as FASTER_ASR_ROUTE
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient
 from dichiarazioni_pubbliche.provider_optin import configure_provider_clients
 from dichiarazioni_pubbliche.evidence_runtime import (
@@ -138,6 +140,7 @@ class ProcessingWorker(
         max_attempts: int = 5,
         groq_api_key: str | None = None,
         local_asr=None,
+        faster_whisper_asr=None,
         claim_client: OmniRouteClaimClient | None = None,
         claim_max_usd_per_1k_total_tokens: float | None = None,
         evidence_fetcher: SafeEvidenceFetcher | None = None,
@@ -153,6 +156,7 @@ class ProcessingWorker(
         self.max_attempts = max(max_attempts, 1)
         self.groq_api_key = groq_api_key or ""
         self.local_asr = local_asr
+        self.faster_whisper_asr = faster_whisper_asr
         self.claim_client = claim_client
         self.claim_max_usd_per_1k_total_tokens = (
             claim_max_usd_per_1k_total_tokens
@@ -170,10 +174,11 @@ class ProcessingWorker(
             raise BlockedJob(f"SOURCE_NOT_IN_REGISTRY:{source_id}") from exc
 
     def _ensure_budget(self, job: ProcessingJob, content: ContentRecord) -> None:
-        remote_asr = job.job_type == "TRANSCRIPT_ACQUIRE_ASR" and not (
-            job.payload.get("provider_id") == LOCAL_ASR_PROVIDER_ID
-            and job.payload.get("route") == LOCAL_ASR_ROUTE
-        )
+        local_routes = {(LOCAL_ASR_PROVIDER_ID, LOCAL_ASR_ROUTE),
+                        (FASTER_ASR_PROVIDER_ID, FASTER_ASR_ROUTE)}
+        remote_asr = (job.job_type == "TRANSCRIPT_ACQUIRE_ASR"
+                      and (job.payload.get("provider_id"), job.payload.get("route"))
+                      not in local_routes)
         remote_claim = (
             job.job_type in {"CLAIM_PREPARE", "CLAIM_EXTRACT", "CLAIM_EXTRACT_WINDOW"}
             and self.claim_client is not None
@@ -458,6 +463,7 @@ def main() -> None:
             max_attempts=args.max_attempts,
             groq_api_key=provider_clients.groq_api_key,
             local_asr=provider_clients.local_asr,
+            faster_whisper_asr=provider_clients.faster_whisper_asr,
             claim_client=provider_clients.claim_client,
             claim_max_usd_per_1k_total_tokens=provider_clients.claim_rate,
             evidence_fetcher=SafeEvidenceFetcher(),

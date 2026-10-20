@@ -23,19 +23,15 @@ class AsrRouterTests(unittest.TestCase):
         self.assertNotEqual(plan.primary.provider_id, plan.secondary.provider_id)
         self.assertTrue(plan.publication_requires_agreement)
 
-    def test_quota_exhaustion_falls_back_to_local_proven_model(self):
+    def test_quota_exhaustion_does_not_enqueue_unverified_private_local_audio(self):
         states = {
             "groq-whisper-large-v3-turbo": ProviderState(
                 "groq-whisper-large-v3-turbo",
                 quota_audio_seconds_remaining=0,
             )
         }
-        plan = plan_asr(
-            duration_seconds=60,
-            risk_class="NORMAL",
-            states=states,
-        )
-        self.assertEqual(plan.primary.provider_id, "faster-whisper-small-local")
+        with self.assertRaisesRegex(RuntimeError, "NO_ELIGIBLE_PRIMARY_ASR"):
+            plan_asr(duration_seconds=60, risk_class="NORMAL", states=states)
 
     def test_unproven_large_local_model_is_not_selected(self):
         states = {

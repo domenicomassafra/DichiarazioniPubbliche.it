@@ -4,6 +4,8 @@ from dichiarazioni_pubbliche.asr_router import plan_asr
 from dichiarazioni_pubbliche.youtube_caption_acquisition import CaptionAcquisitionHandler
 from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ROUTE
+from dichiarazioni_pubbliche.faster_whisper_local import PROVIDER_ID as FASTER_PROVIDER_ID
+from dichiarazioni_pubbliche.faster_whisper_local import ROUTE as FASTER_ROUTE
 from dichiarazioni_pubbliche.platform_transcript import (
     CaptionProbe,
     PlatformAccessRestricted,
@@ -197,7 +199,10 @@ class TranscriptAsrJobHandlers:
         provider_id = str(job.payload.get("provider_id") or "").strip()
         route = str(job.payload.get("route") or "").strip()
         if provider_id == LOCAL_PROVIDER_ID and route == LOCAL_ROUTE:
-            self._acquire_local_asr(job, content)
+            self._acquire_local_asr(job, content, transcriber=self.local_asr, provider_id=provider_id)
+            return
+        if provider_id == FASTER_PROVIDER_ID and route == FASTER_ROUTE:
+            self._acquire_local_asr(job, content, transcriber=self.faster_whisper_asr, provider_id=provider_id)
             return
         audio_url = str(job.payload.get("canonical_url") or content.canonical_url).strip()
         if provider_id != "groq-whisper-large-v3-turbo":
@@ -263,11 +268,12 @@ class TranscriptAsrJobHandlers:
             input_bytes=None,
         )
 
-    def _acquire_local_asr(self, job: ProcessingJob, content: ContentRecord) -> None:
+    def _acquire_local_asr(self, job: ProcessingJob, content: ContentRecord,
+                           *, transcriber, provider_id: str) -> None:
         payload = job.payload
         # An operator explicitly enqueues a bounded, rights-cleared local WAV;
         # discovery and generic fallback routing never create this job.
-        if self.local_asr is None:
+        if transcriber is None:
             raise BlockedJob("LOCAL_ASR_RUNTIME_NOT_CONFIGURED")
         try:
             requested_duration = float(payload.get("duration_seconds"))
@@ -286,7 +292,7 @@ class TranscriptAsrJobHandlers:
             raise RetryableJob("LEASE_LOST_BEFORE_LOCAL_ASR", 0)
         self._require_current_ingestion_relevance(content)
         try:
-            result = self.local_asr.transcribe(
+            result = transcriber.transcribe(
                 audio_path=payload.get("local_audio_path"),
                 input_sha256=payload.get("audio_sha256"),
                 rights_basis=payload.get("rights_basis"),
@@ -307,10 +313,10 @@ class TranscriptAsrJobHandlers:
         self._require_current_ingestion_relevance(content)
         audio_sha = str(payload["audio_sha256"])
         self._persist_asr_result(
-            job, content, result, provider_id=LOCAL_PROVIDER_ID,
+            job, content, result, provider_id=provider_id,
             source_kind="LOCAL_ASR", audio_transport="PRIVATE_WAV",
             input_sha256=audio_sha,
-            model_sha256=self.local_asr.model_sha256,
+            model_sha256=transcriber.model_sha256,
             rights_receipt_id=str(payload["rights_receipt_id"]),
             input_bytes=None,
         )
