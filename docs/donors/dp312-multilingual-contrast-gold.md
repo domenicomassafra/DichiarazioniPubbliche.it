@@ -5,8 +5,10 @@ Date: 2026-10-20. Scope: private source-only evaluation, no editorial approval.
 `tests/fixtures/dp312_multilingual_gold_v1.json` has 22 **original fictional**
 IT/EN/DE/FR utterances and 5 distinct translation-risk contrasts. No third-party
 text, audio, video, likeness, private personal data, historical quote, or actual
-source claim was copied. This repository's **Apache-2.0** applies to these
-project-authored test materials. Original annotations were fixed in the JSON
+source claim was copied. The repository's
+**DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0** covers the test materials under
+Apache-2.0 (see `docs/licensing/README.md#synthetic-fixture-policy` and
+`tools/generate_fixture_inventory.py`). Original annotations were fixed in the JSON
 *before* executing tests against the classifier. The comparison is independent
 of the classifier's return values, but **no external independent human reviewer
 has adjudicated it**. It does not establish a publishable real-source gold set.

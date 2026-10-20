@@ -2,7 +2,7 @@
   "version": "dp312-independent-contrast-gold-v1",
   "rights": {
     "provenance": "Original, deliberately fictional sentences written for this project; no source-body extraction or real-person attribution",
-    "reuse_licence": "Apache-2.0 (repository original test material)",
+    "reuse_licence": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0 (project Apache-2.0 synthetic fixture policy)",
     "third_party_content": false,
     "human_independent_review": false,
     "annotator": "technical contrast author, labels fixed before executing the classifier",
