@@ -155,6 +155,11 @@ class PlatformTranscriptTests(unittest.TestCase):
                         resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
                 self.assertEqual(ctx.exception.access_path, "YT_DLP_PUBLIC_CAPTION")
                 process.assert_called_once()
+        with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                   return_value=SimpleNamespace(returncode=1, stderr="no subtitles",
+                                                stdout="HTTP Error 403 Forbidden")):
+            with self.assertRaises(PlatformAccessRestricted):
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
         for failure in (RuntimeError("unclassified provider failure"),
                         RuntimeError("remote server unavailable")):
             with patch.object(resolver, "_capture_yt_dlp_caption", side_effect=failure):

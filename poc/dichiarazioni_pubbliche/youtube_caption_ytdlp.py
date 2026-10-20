@@ -24,8 +24,8 @@ def download_youtube_json3(yt_dlp: str, video_url: str, language: str, kind: str
             check=False, capture_output=True, text=True,
         )
         if proc.returncode != 0:
-            diagnostic = (proc.stderr or proc.stdout).strip()
-            lines = diagnostic.splitlines()
+            diagnostic = f"{proc.stderr or ''}\n{proc.stdout or ''}"
+            lines = (proc.stderr or proc.stdout).strip().splitlines()
             detail = (lines[-1] if lines else "yt-dlp caption capture failed")[:800]
             if yt_dlp_access_denied(diagnostic):
                 raise YtDlpAccessDenied("YT_DLP_CAPTION_ACCESS_RESTRICTED")
