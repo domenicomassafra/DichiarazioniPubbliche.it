@@ -98,6 +98,16 @@ class BudgetDecision:
         return not self.allowed
 
 
+def _ceil_paid_estimate_usd(amount: Decimal) -> float | None:
+    """Never turn a positive paid estimate into a zero-dollar quote."""
+    if not amount.is_finite() or amount < 0:
+        return None
+    try:
+        return float(amount.quantize(Decimal("0.000001"), rounding=ROUND_CEILING))
+    except (InvalidOperation, OverflowError):
+        return None
+
+
 def estimate_cost_usd(
     operation: str,
     *,
@@ -119,16 +129,28 @@ def estimate_cost_usd(
         return 0.0
 
     if op == "AUDIO_TRANSCRIPTION":
-        if input_seconds is None or input_seconds < 0:
+        if input_seconds is None or isinstance(input_seconds, bool):
             return None
-        return round((float(input_seconds) / 3600.0) * USD_PER_AUDIO_HOUR, 6)
+        try:
+            seconds = Decimal(str(input_seconds))
+            return _ceil_paid_estimate_usd(
+                (seconds / Decimal("3600")) * Decimal(str(USD_PER_AUDIO_HOUR))
+            )
+        except (InvalidOperation, ValueError, TypeError):
+            return None
 
     if op == "CLAIM_EXTRACT":
-        if max_usd_per_1k_total_tokens is None or max_usd_per_1k_total_tokens < 0:
+        if (max_usd_per_1k_total_tokens is None or total_tokens is None
+                or isinstance(max_usd_per_1k_total_tokens, bool)
+                or isinstance(total_tokens, bool)):
             return None
-        if total_tokens is None or total_tokens < 0:
+        try:
+            return _ceil_paid_estimate_usd(
+                Decimal(str(total_tokens)) *
+                Decimal(str(max_usd_per_1k_total_tokens)) / Decimal("1000")
+            )
+        except (InvalidOperation, ValueError, TypeError):
             return None
-        return round((float(total_tokens) / 1000.0) * float(max_usd_per_1k_total_tokens), 6)
 
     if op in PAID_OPERATIONS:
         return None
@@ -151,16 +173,18 @@ def preflight(
     (unpriced/missing cost model: needs an operator decision). Conflating those
     two is a real operational bug: a budget cap should not page anyone.
     """
-    if estimate_usd is None or str(operation or "") == "":
+    if estimate_usd is None or isinstance(estimate_usd, bool) or str(operation or "") == "":
         return BudgetDecision(False, "COST_MODEL_MISSING", None, policy, snapshot)
 
     try:
         estimate = float(estimate_usd)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return BudgetDecision(False, "COST_MODEL_MISSING", None, policy, snapshot)
 
     if not math.isfinite(estimate) or estimate < 0:
         return BudgetDecision(False, "COST_ESTIMATE_INVALID", None, policy, snapshot)
+    if operation not in (*PAID_OPERATIONS, *ZERO_COST_OPERATIONS):
+        return BudgetDecision(False, "COST_OPERATION_UNKNOWN", estimate, policy, snapshot)
 
     # The USD guard is a separate mandatory gate for every monthly EUR hold.
     # NaN comparisons are always false; without explicit validation a damaged
@@ -190,6 +214,10 @@ def preflight(
         )
 
     if estimate == 0:
+        if operation not in ZERO_COST_OPERATIONS:
+            # Zero without an independently verified included-plan entitlement
+            # is not evidence that a normally paid provider request is free.
+            return BudgetDecision(False, "PAID_COST_UNATTESTED", 0.0, policy, snapshot)
         return BudgetDecision(True, "ALLOWED_ZERO_COST", 0.0, policy, snapshot)
 
     if snapshot.global_day_usd + estimate > policy.max_cost_usd_per_day:
