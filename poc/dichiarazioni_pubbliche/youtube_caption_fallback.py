@@ -23,7 +23,7 @@ _MISSING_CAPTIONS = (
     "no subtitles", "no subtitle", "no captions", "no caption",
     "subtitle not available", "subtitles not available",
     "caption not available", "captions not available",
-    "requested subtitle format", "expected one json3 caption",
+    "requested subtitle format", "expected one json3 caption, found 0",
     "json3 caption contains no usable segments",
 )
 

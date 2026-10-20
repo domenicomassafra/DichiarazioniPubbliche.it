@@ -171,6 +171,15 @@ class PlatformTranscriptTests(unittest.TestCase):
                                                 stdout="HTTP Error 403 Forbidden")):
             with self.assertRaises(PlatformAccessRestricted):
                 resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
+        with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                   return_value=SimpleNamespace(returncode=0, stderr="HTTP Error 429 Too Many Requests",
+                                                stdout="no subtitles")):
+            with self.assertRaises(PlatformAccessRestricted):
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
+        with patch.object(resolver, "_capture_yt_dlp_caption",
+                          side_effect=RuntimeError("Expected one JSON3 caption, found 2")):
+            with self.assertRaisesRegex(RuntimeError, "found 2"):
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
         for failure in (RuntimeError("unclassified provider failure"),
                         RuntimeError("remote server unavailable")):
             with patch.object(resolver, "_capture_yt_dlp_caption", side_effect=failure):
