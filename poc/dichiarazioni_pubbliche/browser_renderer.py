@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlsplit
 
+from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.source_watcher import (
     FetchedBytes,
     MAX_DISCOVERY_RESPONSE_BYTES,
@@ -111,7 +112,10 @@ class PlaywrightBrowserRenderer:
         ):
             raise BrowserRenderBlocked("BROWSER_CHROMIUM_BINARY_INVALID")
 
-    def render(self, url: str, *, max_response_bytes: int) -> FetchedBytes:
+    def render(
+        self, url: str, *, max_response_bytes: int,
+        authorization_guard: Callable[[], None] | None = None,
+    ) -> FetchedBytes:
         self.last_receipt = None
         self._preflight()
         if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= MAX_DISCOVERY_RESPONSE_BYTES:
@@ -126,10 +130,11 @@ class PlaywrightBrowserRenderer:
         total_bytes = 0
         request_count = 0
         blocked: str | None = None
+        authorization_error: PrivateCaptureAuthorizationBlocked | None = None
         deadline = time.monotonic() + self.timeout_seconds
 
         def route_request(route) -> None:
-            nonlocal request_count, total_bytes, blocked
+            nonlocal request_count, total_bytes, blocked, authorization_error
             request = route.request
             # Browser is in a network namespace with no egress. No fallback to
             # Chromium's fetch or route.continue_ is ever permitted.
@@ -142,6 +147,9 @@ class PlaywrightBrowserRenderer:
                     return
                 if request.method != "GET":
                     raise BrowserRenderBlocked("BROWSER_REQUEST_METHOD_REFUSED")
+                # Rights may be withdrawn after the previous resource was read.
+                if authorization_guard is not None:
+                    authorization_guard()
                 request_count += 1
                 if request_count > self.max_requests or time.monotonic() >= deadline:
                     raise BrowserRenderBlocked("BROWSER_RESOURCE_BUDGET_EXCEEDED")
@@ -177,6 +185,10 @@ class PlaywrightBrowserRenderer:
                     headers={"content-type": fetched.media_type +
                              ("; charset=" + fetched.charset if fetched.charset else "")},
                 )
+            except PrivateCaptureAuthorizationBlocked as exc:
+                authorization_error = exc
+                blocked = "BROWSER_RIGHTS_REVOKED"
+                route.abort()
             except Exception:
                 # Never permit a failed guard to downgrade to browser networking.
                 blocked = "BROWSER_RESOURCE_REFUSED"
@@ -233,6 +245,8 @@ class PlaywrightBrowserRenderer:
                         page.goto(url, wait_until="domcontentloaded",
                                   timeout=remaining_timeout_ms())
                         if blocked:
+                            if authorization_error is not None:
+                                raise authorization_error
                             raise BrowserRenderBlocked(blocked)
                         remaining_ms = int(max(0, deadline - time.monotonic()) * 1000)
                         if remaining_ms <= 0:
@@ -245,6 +259,8 @@ class PlaywrightBrowserRenderer:
                         if final_url != url:
                             raise BrowserRenderBlocked("BROWSER_FINAL_URL_CHANGED")
                         if blocked:
+                            if authorization_error is not None:
+                                raise authorization_error
                             raise BrowserRenderBlocked(blocked)
                         if len(html) > max_response_bytes:
                             raise BrowserRenderBlocked("BROWSER_RENDERED_BODY_TOO_LARGE")
@@ -256,6 +272,8 @@ class PlaywrightBrowserRenderer:
         except BrowserRenderBlocked:
             raise
         except Exception:
+            if authorization_error is not None:
+                raise authorization_error from None
             raise BrowserRenderBlocked(blocked or "BROWSER_RENDER_FAILED") from None
         result = FetchedBytes(
             body=html, final_url=final_url, status_code=200,
@@ -273,3 +291,21 @@ class PlaywrightBrowserRenderer:
             "egress_policy": "bwrap-unshare-net-pinned-https-v1",
         }
         return result
+
+
+def render_with_current_rights(
+    renderer, url: str, *, max_response_bytes: int, source_use_guard, rights_guard,
+) -> FetchedBytes:
+    """Revalidate rights on every browser resource; preserve legacy adapter calls."""
+    if not getattr(renderer, "requires_render_authorization", False):
+        return renderer.render(url, max_response_bytes=max_response_bytes)
+
+    def recheck() -> None:
+        if source_use_guard is not None:
+            source_use_guard.require("FETCH")
+        if rights_guard is not None:
+            rights_guard()
+
+    return renderer.render(
+        url, max_response_bytes=max_response_bytes, authorization_guard=recheck,
+    )

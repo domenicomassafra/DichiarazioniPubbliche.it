@@ -26,6 +26,7 @@ from dichiarazioni_pubbliche.capture_http_validation import (
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
 from dichiarazioni_pubbliche.capture_archive_flow import archive_capture
+from dichiarazioni_pubbliche.browser_renderer import render_with_current_rights
 from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 from dichiarazioni_pubbliche.corpus_retention import (
     COMPLETE_CAPTURE_ARCHIVE_SQL_V1,
@@ -1595,9 +1596,6 @@ def capture_content(
     selected_passages = passages
     selected_states = passage_states
     browser_status = "NOT_REQUESTED"
-    # Only an explicit current source-rights guard may authorize the concrete
-    # JS renderer. Third-party/test BrowserRenderer implementations retain the
-    # existing compatibility seam; the real backend marks this requirement.
     if (
         parse.status != "SUCCEEDED"
         and browser_renderer is not None
@@ -1628,7 +1626,10 @@ def capture_content(
         except RuntimeError as exc:
             raise CapturePipelineError(str(exc)) from exc
         try:
-            rendered = browser_renderer.render(url, max_response_bytes=max_response_bytes)
+            rendered = render_with_current_rights(
+                browser_renderer, url, max_response_bytes=max_response_bytes,
+                source_use_guard=source_use_guard, rights_guard=rights_guard,
+            )
             _validate_fetched_resource(rendered, max_response_bytes=max_response_bytes)
             render_receipt = None
             if getattr(browser_renderer, "requires_render_authorization", False):
