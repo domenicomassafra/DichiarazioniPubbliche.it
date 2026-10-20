@@ -152,7 +152,7 @@ def execute_candidate(
             overlaps = tuple(tuple(row) for row in raw_overlaps)
             if any(type(t.start_ms) is not int or type(t.end_ms) is not int
                    or not 0 <= t.start_ms < t.end_ms <= duration_ms
-                   or t.source_sha256 != input_sha256 or not t.speaker_label.startswith("TURN_")
+                   or t.input_sha256 != input_sha256 or not t.speaker_label.startswith("TURN_")
                    for t in turns):
                 raise ValueError("worker turns invalid")
             if any(len(row) != 2 or any(type(x) is not int for x in row)
