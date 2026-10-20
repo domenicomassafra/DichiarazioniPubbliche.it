@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, Mapping
@@ -13,6 +12,7 @@ from dichiarazioni_pubbliche.citation_assurance import (
     finding_assertion_id,
 )
 from dichiarazioni_pubbliche.operation_ledger import OperationLedgerSummary
+from dichiarazioni_pubbliche.psql_command import execute_psql
 
 
 @dataclass(frozen=True)
@@ -119,22 +119,14 @@ class PsqlRuntime:
             args.extend(["--dbname", self.database_url])
         return args
 
-    def run(self, sql: str, **variables: object) -> str:
+    def run(
+        self, sql: str, *, execution_timeout_seconds: float | None = None,
+        **variables: object,
+    ) -> str:
         args = self._args()
         for key, value in variables.items():
             args.extend(["-v", f"{key}={_clean(value)}"])
-        proc = subprocess.run(
-            args,
-            input=sql,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            detail = (proc.stderr or proc.stdout).strip().splitlines()
-            message = detail[-1] if detail else f"psql exited {proc.returncode}"
-            raise RuntimeError(message[:1200])
-        return proc.stdout.strip()
+        return execute_psql(args, sql, execution_timeout_seconds)
 
     def run_literal(self, sql: str) -> str:
         return self.run(sql)
