@@ -11,14 +11,14 @@ import hashlib
 import json
 import math
 import os
-import resource
-import sys
-import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from dichiarazioni_pubbliche.diarization_benchmark import Decision, ResourceReceipt, Turn
+from dichiarazioni_pubbliche.diarization_candidate_process import (
+    RunnerIsolationError, execute_candidate,
+)
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard, SourceUseBlocked
 
 
@@ -176,11 +176,6 @@ def normalize_anonymous_turns(
     return turns, tuple(overlap)
 
 
-def _peak_rss_bytes() -> int:
-    raw = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return int(raw if sys.platform == "darwin" else raw * 1024)
-
-
 def run_offline_candidate(
     *, permit: CandidateAuthorization | None,
     approval_check: Callable[[CandidateAuthorization], bool] | None,
@@ -251,17 +246,16 @@ def run_offline_candidate(
         return _block("LOCAL_MODEL_UNAVAILABLE_OR_OVER_BUDGET")
     if model_sha != permit.model_sha256:
         return _block("MODEL_HASH_DRIFT")
-    started = time.monotonic_ns()
     try:
-        output = offline_runner(media_path, model_dir)
-        turns, overlaps = normalize_anonymous_turns(
-            engine_id=permit.engine_id, raw_result=output,
+        turns, overlaps, elapsed, peak = execute_candidate(
+            offline_runner, media_path, model_dir, engine_id=permit.engine_id,
             input_sha256=permit.input_sha256, duration_ms=duration_ms,
+            wall_ms=permit.max_elapsed_ms, address_bytes=permit.max_peak_rss_bytes,
         )
+    except RunnerIsolationError as exc:
+        return AnonymousDiarizationReceipt(CONTRACT, "ERROR_HELD", (exc.code,))
     except Exception:
         return AnonymousDiarizationReceipt(CONTRACT, "ERROR_HELD", ("ENGINE_FAILED_OR_UNSAFE_OUTPUT",))
-    elapsed = max(0, (time.monotonic_ns() - started) // 1_000_000)
-    peak = _peak_rss_bytes()
     resource_receipt = ResourceReceipt(
         engine_id=permit.engine_id, engine_version=permit.engine_version,
         model_id=permit.model_id, model_sha256=model_sha,
@@ -278,13 +272,13 @@ def run_offline_candidate(
     if permit.dp208_decision.decision == "GO_BOUNDED":
         codes.append("DP208_BOUNDED_POLICY_HOLD")
     if elapsed > permit.max_elapsed_ms or peak > permit.max_peak_rss_bytes:
-        codes.append("CPU_MEMORY_BUDGET_EXCEEDED")
+        return AnonymousDiarizationReceipt(CONTRACT, "ERROR_HELD", ("ENGINE_FAILED_OR_LIMIT",))
     normalized_hash = hashlib.sha256(json.dumps(
         [asdict(t) for t in turns], sort_keys=True, separators=(",", ":")
     ).encode()).hexdigest()
     return AnonymousDiarizationReceipt(
         contract=CONTRACT,
-        status="ABSTAIN_HELD" if not turns or "CPU_MEMORY_BUDGET_EXCEEDED" in codes else "CURRENT_HELD",
+        status="ABSTAIN_HELD" if not turns else "CURRENT_HELD",
         codes=tuple(codes), engine_id=permit.engine_id,
         model_sha256=model_sha, input_sha256=permit.input_sha256,
         decision_receipt_sha256=permit.decision_receipt_sha256,
@@ -292,7 +286,7 @@ def run_offline_candidate(
         model_terms_receipt_sha256=permit.model_terms_receipt_sha256,
         config_sha256=permit.config_sha256,
         normalized_sha256=normalized_hash, resource=resource_receipt,
-        turns=turns if "CPU_MEMORY_BUDGET_EXCEEDED" not in codes else (),
+        turns=turns,
         overlap_intervals_ms=overlaps,
         abstention_intervals_ms=overlaps if overlaps else ((0, duration_ms),) if not turns else (),
     )

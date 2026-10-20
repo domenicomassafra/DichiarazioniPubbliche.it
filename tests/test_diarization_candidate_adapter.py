@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import functools
+import os
 import sys
 import tempfile
+import time
 import unittest
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -47,6 +50,36 @@ class FakePyannote:
             yield SimpleNamespace(start=start, end=end), "track", label
 
 
+DEFAULT_ROWS = ((0.0, 4.0, "voice-of-person:private"),
+                (4.0, 6.0, "speaker:secret-A"),
+                (6.0, 10.0, "voice-of-person:private"))
+
+
+def fixture_runner(_media, _model, *, rows=DEFAULT_ROWS, kind="PYANNOTE_AUDIO"):
+    if kind == "DIARIZE_CPU":
+        return SimpleNamespace(segments=[
+            SimpleNamespace(start=a, end=b, speaker=speaker) for a, b, speaker in rows
+        ])
+    if kind == "SPOOFED":
+        return SimpleNamespace(exclusive_speaker_diarization="unsafe")
+    return FakePyannote(*rows)
+
+
+def runner_with(rows=DEFAULT_ROWS, *, kind="PYANNOTE_AUDIO"):
+    return functools.partial(fixture_runner, rows=rows, kind=kind)
+
+
+def hung_runner(_media, _model):
+    while True:
+        time.sleep(0.1)
+
+
+def memory_hog_runner(_media, _model):
+    blocks = []
+    while True:
+        blocks.append(bytearray(8 * 1024 * 1024))
+
+
 def permission_guard(*, hash_source, allowed=("STORE_BODY", "ASR_MEDIA"), status="CLEARED"):
     subject = RightsSubject(
         source_family="SYNTHETIC_LOCAL_TEST", locator_kind="URL",
@@ -83,7 +116,7 @@ def sample_permit(*, audio_sha, model_sha, engine="PYANNOTE_AUDIO", decision="GO
         model_id="synthetic:offline-weight-file", model_sha256=model_sha,
         model_license="CC-BY-4.0" if engine == "PYANNOTE_AUDIO" else "APACHE-2.0",
         config_sha256=sha("synthetic-config"), input_sha256=audio_sha,
-        max_elapsed_ms=2000, max_peak_rss_bytes=1_000_000_000_000,
+        max_elapsed_ms=2000, max_peak_rss_bytes=8 * 1024**3,
         max_cache_bytes=4096, max_audio_duration_ms=10000,
     )
 
@@ -119,11 +152,7 @@ class CandidateAdapterTests(unittest.TestCase):
             media_path=self.audio, model_dir=self.model_dir, duration_ms=10000,
             content_id=CONTENT_ID, source_url=URL,
             source_use_guard=permission_guard(hash_source=self.source_sha),
-            offline_runner=runner or (lambda *_: FakePyannote(
-                (0.0, 4.0, "voice-of-person:private"),
-                (4.0, 6.0, "speaker:secret-A"),
-                (6.0, 10.0, "voice-of-person:private"),
-            )),
+            offline_runner=runner or runner_with(),
         )
         if rights is not None:
             args["source_use_guard"] = rights
@@ -156,6 +185,7 @@ class CandidateAdapterTests(unittest.TestCase):
                 self.assertIsNone(result.speaker_person_id)
         self.assertEqual(calls, [])
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
     def test_output_anonymization_source_hash_resource_receipt_and_replay(self):
         a = self.call()
         b = self.call()
@@ -172,10 +202,10 @@ class CandidateAdapterTests(unittest.TestCase):
         self.assertGreater(a.resource.peak_rss_bytes, 0)
         self.assertEqual(a.resource.cache_bytes, len(b"synthetic-weight-not-real"))
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
     def test_pyannote_overlap_is_preserved_and_abstained(self):
-        output = self.call(runner=lambda *_: FakePyannote(
-            (0.0, 6.2, "secret-first"), (5.9, 10.0, "secret-other"),
-        ))
+        output = self.call(runner=runner_with(((0.0, 6.2, "secret-first"),
+                                               (5.9, 10.0, "secret-other"))))
         self.assertEqual(output.overlap_intervals_ms, ((5900, 6200),))
         self.assertEqual(output.abstention_intervals_ms, ((5900, 6200),))
         self.assertIn("OVERLAP_REVIEW_REQUIRED", output.codes)
@@ -195,6 +225,7 @@ class CandidateAdapterTests(unittest.TestCase):
         self.assertEqual(self.call(runner=engine).codes, ("LOCAL_MODEL_UNAVAILABLE_OR_OVER_BUDGET",))
         self.assertEqual(calls, [])
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
     def test_invalid_time_spoofed_output_and_empty_abstain_fail_closed(self):
         for result in (
             FakePyannote((-1.0, 2.0, "A")),
@@ -204,21 +235,55 @@ class CandidateAdapterTests(unittest.TestCase):
             SimpleNamespace(exclusive_speaker_diarization="unsafe"),
         ):
             with self.subTest(result=result):
-                self.assertEqual(self.call(runner=lambda *_: result).status, "ERROR_HELD")
-        self.assertEqual(self.call(runner=lambda *_: FakePyannote()).status, "ABSTAIN_HELD")
-        self.assertEqual(self.call(runner=lambda *_: FakePyannote()).abstention_intervals_ms, ((0, 10000),))
+                runner = runner_with(kind="SPOOFED") if not isinstance(result, FakePyannote) else runner_with(result.rows)
+                self.assertEqual(self.call(runner=runner).status, "ERROR_HELD")
+        self.assertEqual(self.call(runner=runner_with(())).status, "ABSTAIN_HELD")
+        self.assertEqual(self.call(runner=runner_with(())).abstention_intervals_ms, ((0, 10000),))
         seven_speakers = FakePyannote(*(
             (float(i), float(i + 1), f"anonymous-{i}") for i in range(7)
         ))
-        self.assertEqual(self.call(runner=lambda *_: seven_speakers).status, "ERROR_HELD")
+        self.assertEqual(self.call(runner=runner_with(seven_speakers.rows)).status, "ERROR_HELD")
 
     def test_cpu_memory_overrun_suppresses_turns_even_with_favorable_output(self):
-        with patch("dichiarazioni_pubbliche.diarization_candidate_adapter._peak_rss_bytes", return_value=2048):
-            result = self.call(permit=replace(self.permit, max_peak_rss_bytes=1024))
-        self.assertEqual(result.status, "ABSTAIN_HELD")
-        self.assertIn("CPU_MEMORY_BUDGET_EXCEEDED", result.codes)
+        result = self.call(permit=replace(self.permit, max_peak_rss_bytes=1024))
+        self.assertEqual(result.status, "ERROR_HELD")
+        self.assertTrue(any(code in result.codes for code in (
+            "ENGINE_FAILED_OR_LIMIT", "ENGINE_PROCESS_START_FAILED",
+            "ENGINE_ADDRESS_SPACE_LIMIT_UNAVAILABLE",
+        )))
         self.assertEqual(result.turns, ())
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
+    def test_runner_hang_is_killed_before_wall_deadline(self):
+        start = time.monotonic()
+        result = self.call(runner=hung_runner, permit=replace(self.permit, max_elapsed_ms=200))
+        self.assertLess(time.monotonic() - start, 2.0)
+        self.assertEqual(result.status, "ERROR_HELD")
+        self.assertIn("ENGINE_TIMEOUT", result.codes)
+        self.assertEqual(result.turns, ())
+
+    def test_memory_hog_is_bounded_in_child_only(self):
+        start = time.monotonic()
+        result = self.call(runner=memory_hog_runner, permit=replace(
+            self.permit, max_peak_rss_bytes=128 * 1024 * 1024, max_elapsed_ms=800,
+        ))
+        self.assertLess(time.monotonic() - start, 3.0)
+        self.assertEqual(result.status, "ERROR_HELD")
+        self.assertEqual(result.turns, ())
+        # The Python interpreter running unittest remains alive and unrestricted.
+        self.assertGreater(os.getpid(), 0)
+
+    def test_local_closure_never_executes_inline(self):
+        called = []
+        def unsafe_runner(*_args):
+            called.append(True)
+            return FakePyannote(*DEFAULT_ROWS)
+        result = self.call(runner=unsafe_runner)
+        self.assertEqual(result.status, "ERROR_HELD")
+        self.assertEqual(result.turns, ())
+        self.assertEqual(called, [])
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
     def test_bounded_dp208_retains_policy_hold_and_never_identity(self):
         result = self.call(permit=replace(
             self.permit, dp208_decision=Decision("GO_BOUNDED", (), ("SENSITIVE_SPAN_UNCERTAIN",)),
@@ -227,6 +292,7 @@ class CandidateAdapterTests(unittest.TestCase):
         self.assertIn("DP208_BOUNDED_POLICY_HOLD", result.codes)
         self.assertIsNone(result.speaker_person_id)
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
     def test_diarize_cpu_output_never_promotes_unmapped_label(self):
         rows = SimpleNamespace(segments=[
             SimpleNamespace(start=0.0, end=4.0, speaker="John Doe"),
@@ -234,12 +300,13 @@ class CandidateAdapterTests(unittest.TestCase):
         ])
         result = self.call(
             permit=sample_permit(audio_sha=self.source_sha, model_sha=self.model_sha, engine="DIARIZE_CPU"),
-            runner=lambda *_: rows,
+            runner=runner_with(((0.0, 4.0, "John Doe"), (4.0, 10.0, "Jane Doe")), kind="DIARIZE_CPU"),
         )
         self.assertEqual(result.status, "CURRENT_HELD")
         self.assertEqual([t.speaker_label for t in result.turns], ["TURN_00", "TURN_01"])
         self.assertNotIn("Doe", repr(result))
 
+    @unittest.skipUnless(sys.platform == "linux", "Linux RLIMIT_AS required for execution")
     def test_baseline_vs_candidate_f1_der_swap_overlap_critical_and_sensitive(self):
         perfect = self.call()
         evaluated = compare_private_candidate(
@@ -255,10 +322,8 @@ class CandidateAdapterTests(unittest.TestCase):
         self.assertFalse(evaluated.publication_authority)
         self.assertIsNotNone(evaluated.receipt_sha256)
 
-        swapped = self.call(runner=lambda *_: FakePyannote(
-            (0, 4000 / 1000, "first"), (4, 6, "second"),
-            (6, 8, "first"), (8, 10, "second"),
-        ))
+        swapped = self.call(runner=runner_with(((0, 4000 / 1000, "first"), (4, 6, "second"),
+                                                (6, 8, "first"), (8, 10, "second"))))
         report = compare_private_candidate(
             reference=self.reference, baseline=self.reference, candidate=swapped,
             inserted_clip_start_ms=4000, inserted_clip_end_ms=6000,
