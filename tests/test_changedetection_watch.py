@@ -167,6 +167,26 @@ class ChangedetectionWatchTests(unittest.TestCase):
                 )
             self.assertEqual(store.committed_attempt_count(legacy.source_id), 0)
 
+    def test_new_url_scoped_policy_requires_new_durable_rights_admission(self):
+        # A caller cannot make a second policy READY using receipts from the
+        # existing source merely by rehashing the updated binding.
+        target = "https://another.example.org/unapproved.html"
+        rotated = replace(
+            self.binding, canonical_url=target,
+            locator_id=changedetection_locator_id(UUID, target),
+        )
+        changed_policy = replace(self.policy, locator_id=rotated.locator_id)
+        with patch("dichiarazioni_pubbliche.changedetection_watch.read_changedetection_snapshot",
+                   side_effect=AssertionError("Provider must remain untouched")) as api:
+            with self.assertRaisesRegex(ChangedetectionError, "STORED_PROFILE_MISMATCH"):
+                poll_changedetection_watch(
+                    self.store, changed_policy, rotated,
+                    attempt_id="new-policy", attempted_at=T0,
+                    observed_at=T0 + timedelta(seconds=2), api_key="fixture-only",
+                )
+        api.assert_not_called()
+        self.assertEqual(self.store.private_proposals(self.policy.source_id), ())
+
     def test_cached_provider_result_does_not_invent_new_freshness(self):
         self.poll(provider())
         _, stale = self.poll(provider(seconds=0), 30, "tick-cached")
