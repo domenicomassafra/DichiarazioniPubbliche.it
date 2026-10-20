@@ -66,3 +66,18 @@
   and `CAPTION_CAPTURE` receipts. Zero provider fee and **zero YouTube Data API
   v3 units** remain in the existing canonical receipt writer. Availability
   depends on upstream; all new acceptance fixtures are offline.
+
+## #169 — acquisition rights security fix (20/10/2026)
+
+The actual `ProcessingWorker` caption probe/capture seam now constructs a
+`SourceFamilyUseGuard` from `PrivateRightsRegistryStore` (same configured DB).
+The required exact rights subject is `source_family=YOUTUBE`, `locator_kind=URL`,
+the chosen YouTube video URL and the source `content_id`. A current private
+`CLEARED` receipt must explicitly permit **both `FETCH` and `STORE_BODY`**;
+missing, expired, revoked, superseded, wrong-content/URL, or unavailable records
+block before any caption network request. The worker re-reads both uses after
+fetch and before storing raw bytes, recording source-rights fingerprints.
+Platform access refusal during probe produces `ACCESS_RESTRICTED` and stops;
+it cannot dispatch ASR as an alternate way around an IP/429/consent block.
+Existing tests use only explicit synthetic rights fixtures. Neither CI nor the
+source-only merge supplies a legal rights record or authorizes live YouTube fetch.

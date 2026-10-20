@@ -38,6 +38,7 @@ from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
 from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
+from tests.dp169_caption_fixture_rights import cleared_caption_rights
 
 
 class FakePrivateStore:
@@ -346,7 +347,7 @@ class WorkerDaemonTests(unittest.TestCase):
         claim_rate=None,
         evidence_fetcher=None,
     ):
-        return ProcessingWorker(
+        worker = ProcessingWorker(
             store=store,
             registry=REGISTRY,
             resolver=resolver or FakeResolver(),
@@ -357,6 +358,8 @@ class WorkerDaemonTests(unittest.TestCase):
             claim_max_usd_per_1k_total_tokens=claim_rate,
             evidence_fetcher=evidence_fetcher,
         )
+        worker._caption_rights_guard = lambda *_: cleared_caption_rights()
+        return worker
 
     def test_podcast_resolution_enqueues_caption_without_media(self):
         candidate = VideoCandidate(
@@ -1044,7 +1047,7 @@ class WorkerDaemonTests(unittest.TestCase):
             "ENQUEUED",
         )
 
-    def test_members_only_youtube_falls_back_to_rss_asr_without_retry(self):
+    def test_members_only_youtube_holds_without_asr_bypass(self):
         candidate = VideoCandidate(
             "members-only",
             "RISPONDIAMO a SHY | Pulp Special #20",
@@ -1066,9 +1069,9 @@ class WorkerDaemonTests(unittest.TestCase):
             ),
         )
         summary = worker.run(1)
-        self.assertEqual(summary.completed, 1)
+        self.assertEqual(summary.blocked, 1)
         self.assertEqual(summary.retried, 0)
-        self.assertEqual(store.followups[0]["job_type"], "TRANSCRIPT_ACQUIRE_ASR")
+        self.assertEqual(store.followups, [])
         self.assertEqual(store.receipts[0]["status"], "ACCESS_RESTRICTED")
 
     def test_budget_cap_defers_before_dispatch(self):
@@ -1167,7 +1170,6 @@ class WorkerDaemonTests(unittest.TestCase):
         client = FakeClaimClient(healthy=False)
         worker = self.make_worker(store, claim_client=client, claim_rate=0.15)
         worker.run(1)
-        # Remote .probe() uses a chat-completions request, not a free GET health.
         self.assertEqual(client.probes, 0)
 
     def test_external_claim_window_has_no_extra_paid_canary(self):
@@ -1180,8 +1182,6 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(client.probes, 0)
 
     def test_real_omniroute_canary_completion_stays_uninvoked_at_zero_budget(self):
-        # The real remote client implements probe() with a metered-capable
-        # _post(/v1/chat/completions); intercept it without any network.
         client = OmniRouteClaimClient(
             api_key="synthetic-nonlive-key", base_url="http://127.0.0.1:20128"
         )
@@ -1241,8 +1241,6 @@ class WorkerDaemonTests(unittest.TestCase):
         local = LocalOllamaClaimClient(expected_model_digest="0" * 64)
         store = FakeStore([])
         worker = self.make_worker(store, claim_client=local, claim_rate=0.0)
-        # No real local inference is invoked; this only verifies classification
-        # of the explicit pinned on-device transport at the budget boundary.
         worker._ensure_budget(
             job("CLAIM_EXTRACT_WINDOW", {"estimated_cost_usd": 0.0}),
             store.content("content:pulp64"),

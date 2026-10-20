@@ -18,9 +18,16 @@ from dichiarazioni_pubbliche.platform_transcript import (  # noqa: E402
 from dichiarazioni_pubbliche.caption_adapter import CaptionSegment  # noqa: E402
 from dichiarazioni_pubbliche.worker_handlers_transcript import TranscriptAsrJobHandlers  # noqa: E402
 from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
+from tests.dp169_caption_fixture_rights import cleared_caption_rights
 
 
 class TranscriptApiAdapterTests(unittest.TestCase):
+    def setUp(self):
+        gate = patch.object(TranscriptAsrJobHandlers, "_caption_rights_guard",
+                            return_value=cleared_caption_rights())
+        gate.start()
+        self.addCleanup(gate.stop)
+
     @staticmethod
     def _api_fixture(rows=None, *, generated=False, language="it", error=None):
         rows = rows if rows is not None else [

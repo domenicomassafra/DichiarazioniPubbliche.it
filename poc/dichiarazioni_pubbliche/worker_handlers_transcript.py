@@ -29,7 +29,7 @@ from dichiarazioni_pubbliche.youtube_caption_receipts import (
 )
 
 
-class TranscriptAsrJobHandlers:
+class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
     def _require_current_ingestion_relevance(self, content: ContentRecord) -> None:
         try:
             self.store.require_current_ingestion_relevance(
