@@ -104,7 +104,21 @@ def parse_feed(xml_text: str, family: str) -> list[FeedEntry]:
             video_id = ((video_ids[0].text if video_ids else "") or "").strip()
             if not video_id:
                 continue
-            title = node.findtext(f"{ATOM}title") or ""
+            titles = node.findall(f"{ATOM}title")
+            if len(titles) != 1:
+                raise ValueError("YOUTUBE_ENTRY_TITLE_AMBIGUOUS")
+            atom_ids = node.findall(f"{ATOM}id")
+            if (len(atom_ids) > 1 or
+                    (atom_ids and (atom_ids[0].text or "").strip() != f"yt:video:{video_id}")):
+                raise ValueError("YOUTUBE_ENTRY_ATOM_ID_CONFLICT")
+            entry_channels = node.findall(f"{YT}channelId")
+            root_channels = root.findall(f"{YT}channelId")
+            if (len(entry_channels) > 1 or
+                    (entry_channels and (len(root_channels) != 1 or
+                     (entry_channels[0].text or "").strip() !=
+                     (root_channels[0].text or "").strip()))):
+                raise ValueError("YOUTUBE_ENTRY_CHANNEL_CONFLICT")
+            title = titles[0].text or ""
             if video_id in titles_by_id and titles_by_id[video_id] != title:
                 raise ValueError("YOUTUBE_ENTRY_TITLE_CONFLICT")
             titles_by_id[video_id] = title

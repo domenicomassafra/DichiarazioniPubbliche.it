@@ -86,8 +86,11 @@ def resolve_associated(
         rows = parse_youtube_feed(payload, association.youtube_source_id)
     except ValueError as exc:
         if str(exc) in {"YOUTUBE_ENTRY_VIDEO_ID_AMBIGUOUS",
-                        "YOUTUBE_ENTRY_TITLE_CONFLICT"}:
+                        "YOUTUBE_ENTRY_TITLE_CONFLICT", "YOUTUBE_ENTRY_TITLE_AMBIGUOUS",
+                        "YOUTUBE_ENTRY_ATOM_ID_CONFLICT"}:
             raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS") from exc
+        if str(exc) == "YOUTUBE_ENTRY_CHANNEL_CONFLICT":
+            raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_CHANNEL_UNVERIFIED") from exc
         raise
     candidates = []
     titles_by_id: dict[str, str] = {}
