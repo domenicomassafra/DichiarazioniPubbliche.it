@@ -21,8 +21,12 @@ on:
 permissions:
   contents: read
 
+# controlcenter#413: cancel the superseded run for the same PR or main ref so an
+# outdated commit stops instead of occupying a hosted runner. The event name is
+# part of the group so a push run never cancels a pull_request run whose required
+# checks still have to report.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
