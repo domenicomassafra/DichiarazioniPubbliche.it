@@ -402,7 +402,7 @@ def curated_context_approval(
 SPEECH_ACT_CONTEXT_VERSION = "speech-act-context-v1"
 _SPEECH_ACT_LANGUAGES = frozenset({"it", "en", "de"})
 _SPEECH_ACT_MAX_TURN_CHARS = 12000
-# The lexer treats the visible U+2018/U+2019 pair as quote delimiters;
+# U+2018/U+2019 delimit quotes;
 # contractions, decade elisions and plausible plural/name possessives are
 # orthographic exceptions. An s-final possessive at the apparent boundary is
 # inherently ambiguous: prefer HOLD to inferring a speaker's endorsement.
@@ -501,7 +501,7 @@ _SPEECH_ACT_CUES = {
         "denial": re.compile(r"\b(?:i\s+(?:do\s+not|don't|never)\s+(?:say|said|support|endorse|believe)|i\s+deny\s+that)\b", re.I),
         "endorse": re.compile(r"\b(?:i\s+(?:support|maintain|affirm|believe)\s+that|i\s+support)\b", re.I),
         "support": re.compile(r"\bi\s+(?:support|endorse)\b", re.I),
-        "negation": re.compile(r"\b(?:not|never|no|none|neither|nobody|without|don't|didn't)\b", re.I),
+        "negation": re.compile(r"\b(?:not|never|no|none|neither|nobody|nothing|without|don't|didn't)\b", re.I),
         "qualification": re.compile(r"\b(?:but|however|except|unless|although)\b", re.I),
         "conditional": re.compile(r"\b(?:if|provided\s+that|only\s+when)\b", re.I),
     },
@@ -513,7 +513,7 @@ _SPEECH_ACT_CUES = {
         "denial": re.compile(r"\b(?:ich\s+habe\s+(?:nie|nicht)\s+gesagt|ich\s+unterstütze\s+nicht)\b", re.I),
         "endorse": re.compile(r"\b(?:ich\s+(?:unterstütze|befürworte|behaupte)|ich\s+sage\s*,?\s+dass)\b", re.I),
         "support": re.compile(r"\bich\s+(?:unterstütze|befürworte)\b", re.I),
-        "negation": re.compile(r"\b(?:nicht|nie|kein\w*|niemals|mitnichten|nimmer|ohne|weder|niemand\w*)\b", re.I),
+        "negation": re.compile(r"\b(?:nicht|nichts|nie|kein\w*|niemals|mitnichten|nimmer|ohne|weder|niemand\w*)\b", re.I),
         "qualification": re.compile(r"\b(?:aber|jedoch|außer|obwohl|es\s+sei\s+denn)\b", re.I),
         "conditional": re.compile(r"\b(?:wenn|falls|sofern|vorausgesetzt)\b", re.I),
     },
