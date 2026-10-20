@@ -122,6 +122,7 @@ class PlatformTranscriptTests(unittest.TestCase):
                                               CaptionProbe("manual_caption", "it"))
         primary.assert_called_once()
         self.assertIn("--ignore-config", primary.call_args.args[0])
+        self.assertEqual(primary.call_args.args[0][primary.call_args.args[0].index("--proxy") + 1], "")
         self.assertEqual(result.provenance["fallback_reason"], "YT_DLP_CAPTION_UNAVAILABLE")
         api.list.assert_called_once()
 

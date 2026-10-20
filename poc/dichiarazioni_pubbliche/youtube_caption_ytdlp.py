@@ -18,7 +18,7 @@ def download_youtube_json3(yt_dlp: str, video_url: str, language: str, kind: str
     with tempfile.TemporaryDirectory(prefix="dichiarazioni-pubbliche-caption-") as tmp:
         template = str(Path(tmp) / "caption.%(ext)s")
         proc = subprocess.run(
-            [yt_dlp, "--ignore-config", "--no-cache-dir", "--skip-download",
+            [yt_dlp, "--ignore-config", "--no-cache-dir", "--proxy", "", "--skip-download",
              flag, "--sub-langs", language, "--sub-format", "json3",
              "-o", template, video_url],
             check=False, capture_output=True, text=True,
