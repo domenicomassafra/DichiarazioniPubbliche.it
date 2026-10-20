@@ -25,7 +25,7 @@ class CaptionAcquisitionHandler:
         self._require_current_ingestion_relevance(content)
         try:
             probe = self.resolver.probe_caption(candidate.canonical_url)
-        except PlatformAccessRestricted as exc:
+        except PlatformAccessRestricted:
             _record_caption_receipt(self.store,
                 job_id=job.job_id,
                 content_id=content.content_id,
@@ -129,7 +129,7 @@ class CaptionAcquisitionHandler:
         self._require_current_ingestion_relevance(content)
         try:
             capture = self.resolver.capture_caption(url, probe)
-        except PlatformAccessRestricted:
+        except PlatformAccessRestricted as exc:
             _record_caption_receipt(self.store,
                 job_id=job.job_id,
                 content_id=content.content_id,
