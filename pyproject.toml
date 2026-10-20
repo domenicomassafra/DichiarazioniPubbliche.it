@@ -57,6 +57,8 @@ private-spacy = ["spacy==3.8.16"]
 # Private MiniPC-only candidate hints. Installing this extra never enables it;
 # the separately licensed model weights require a verified local receipt.
 semantic-candidates = ["sentence-transformers==6.1.0"]
+# Optional MiniPC-only CPU ASR. Model bytes require an independent local receipt.
+faster-whisper-local = ["faster-whisper==1.2.1"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [
