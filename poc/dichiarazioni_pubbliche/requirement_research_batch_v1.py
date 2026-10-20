@@ -10,8 +10,10 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
+from .requirement_metadata_boundary_v1 import canonical_requirement_metadata as _snap
+
 from .verification_requirements_v1 import (
-    RequirementClaim, RequirementEvidence, _canonical_requirement_metadata,
+    RequirementClaim, RequirementEvidence,
     preflight_verification_requirements, select_requirement_profile,
 )
 
@@ -133,12 +135,12 @@ def build_research_batch(
     # can change rights, identity or dates while deepcopy executes its hooks.
     # Build a fresh container and dataclasses from exact inert strings only.
     claims = tuple(
-        _canonical_requirement_metadata(claim, RequirementClaim, "BATCH_INVALID_CLAIM")
+        _snap(claim, RequirementClaim, "BATCH_INVALID_CLAIM")
         for claim in claims
     )
     evidence_by_claim = {
         key: tuple(
-            _canonical_requirement_metadata(row, RequirementEvidence, "BATCH_INVALID_EVIDENCE")
+            _snap(row, RequirementEvidence, "BATCH_INVALID_EVIDENCE")
             for row in rows
         )
         for key, rows in tuple(evidence_by_claim.items())

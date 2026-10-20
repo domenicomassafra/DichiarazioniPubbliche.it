@@ -10,7 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass
+
+from .requirement_metadata_boundary_v1 import canonical_requirement_metadata as _snap
 from datetime import date
 
 
@@ -144,24 +146,6 @@ class PrivateEventSequenceComparison:
     publication_authority: bool = False
 
 
-
-def _canonical_requirement_metadata(record: object, expected_type: type, error: str):
-    """Copy only exact immutable field values before any deepcopy/asdict or check.
-
-    Frozen dataclasses do not constrain the types of their fields: a str subclass
-    can execute __deepcopy__ and replace REVOKED with APPROVED during asdict.
-    """
-    if type(record) is not expected_type:
-        raise ValueError(error)
-    values = {}
-    for field in fields(expected_type):
-        value = getattr(record, field.name)
-        if not (type(value) is str or (field.name == "jurisdiction_ref" and value is None)):
-            raise ValueError(error)
-        values[field.name] = value
-    return expected_type(**values)
-
-
 def select_requirement_profile(
     claim_kind: str,
 ) -> VerificationRequirementProfile | None:
@@ -211,24 +195,12 @@ def preflight_verification_requirements(
     Eligible means *operator-declared* review/rights status is consistent with
     a source-bound candidate. Only persisted authority can substantiate it.
     """
-    if (
-        type(claim) is not RequirementClaim
-        or type(observations) is not tuple
-        or len(observations) > 128
-    ):
+    if type(observations) is not tuple or len(observations) > 128:
         raise ValueError("REQUIREMENT_INPUT_INVALID")
-    # Bind eligibility and audit hash to the same detached typed records.
-    if any(type(row) is not RequirementEvidence for row in observations):
-        raise ValueError("REQUIREMENT_EVIDENCE_INPUT_INVALID")
-    claim = _canonical_requirement_metadata(
-        claim, RequirementClaim, "REQUIREMENT_INPUT_INVALID"
-    )
-    observations = tuple(
-        _canonical_requirement_metadata(
-            row, RequirementEvidence, "REQUIREMENT_EVIDENCE_INPUT_INVALID"
-        )
-        for row in observations
-    )
+    claim = _snap(claim, RequirementClaim, "REQUIREMENT_INPUT_INVALID")
+    observations = tuple(_snap(
+        row, RequirementEvidence, "REQUIREMENT_EVIDENCE_INPUT_INVALID"
+    ) for row in observations)
     _ref(claim.claim_id, "CLAIM")
     _ref(claim.policy_version, "POLICY_VERSION")
     if claim.jurisdiction_ref is not None:
@@ -408,28 +380,14 @@ def compare_private_event_sequence(
     if type(evidence) is not tuple or type(observations) is not tuple or len(observations) > 128:
         raise ValueError("SEQUENCE_OBSERVATIONS_INVALID")
 
-    # Preflight, dates, source roles and hash consume identical snapshots.
-    if type(claim) is not RequirementClaim or any(
-        type(row) is not RequirementEvidence for row in evidence
-    ):
-        raise ValueError("REQUIREMENT_INPUT_INVALID")
-    if any(type(row) is not SequenceEventObservation for row in observations):
-        raise ValueError("SEQUENCE_OBSERVATION_INPUT_INVALID")
-    claim = _canonical_requirement_metadata(
-        claim, RequirementClaim, "REQUIREMENT_INPUT_INVALID"
-    )
-    evidence = tuple(
-        _canonical_requirement_metadata(
-            row, RequirementEvidence, "REQUIREMENT_EVIDENCE_INPUT_INVALID"
-        )
-        for row in evidence
-    )
-    observations = tuple(
-        _canonical_requirement_metadata(
-            row, SequenceEventObservation, "SEQUENCE_OBSERVATION_INPUT_INVALID"
-        )
-        for row in observations
-    )
+    # Canonical records protect date, evidence and audit reads from copy hooks.
+    claim = _snap(claim, RequirementClaim, "REQUIREMENT_INPUT_INVALID")
+    evidence = tuple(_snap(
+        row, RequirementEvidence, "REQUIREMENT_INPUT_INVALID"
+    ) for row in evidence)
+    observations = tuple(_snap(
+        row, SequenceEventObservation, "SEQUENCE_OBSERVATION_INPUT_INVALID"
+    ) for row in observations)
 
     preliminary = preflight_verification_requirements(claim, evidence)
     by_id = {row.evidence_id: row for row in evidence}
