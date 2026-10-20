@@ -151,6 +151,8 @@ def _limits() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (6 * 1024**3, 6 * 1024**3))
     resource.setrlimit(resource.RLIMIT_CPU, (100, 100))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    # Child stdout is a private regular file: the OS enforces the output cap.
+    resource.setrlimit(resource.RLIMIT_FSIZE, (256_000, 256_000))
 
 
 def _worker() -> None:
@@ -272,20 +274,26 @@ def propose_whisperx_alignment(
                                              "LANG", "TMPDIR") if k in os.environ}
             env.update({ENABLE: "1", "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1",
                         "HF_HUB_DISABLE_TELEMETRY": "1", "OMP_NUM_THREADS": "4"})
-            with local_inference_slot():
-                child = subprocess.run(
-                    [sys.executable, "-m", "dichiarazioni_pubbliche.whisperx_alignment_private",
-                     "--worker"],
-                    input=json.dumps({"receipt": str(model_receipt_path),
-                                      "audio": str(staged), "duration": observed,
-                                      "text": intervention.transcript_text, "language": language}),
-                    capture_output=True, text=True, env=env, check=False,
-                    preexec_fn=_limits, timeout=timeout_seconds,
-                )
-            require_current_rights()  # no proposal if rights revoked mid-inference
-            if child.returncode or len(child.stdout) > 256_000:
-                raise AlignmentHold("WHISPERX_ENGINE_FAILED")
-            payload = json.loads(child.stdout)
+            # Pipes with capture_output=True collect unlimited child output in
+            # the parent before any size check. Use a private, capped file and
+            # discard stderr, which can contain private transcript/model data.
+            with (Path(temp) / "worker.stdout").open("w+b") as out:
+                with local_inference_slot():
+                    child = subprocess.run(
+                        [sys.executable, "-m", "dichiarazioni_pubbliche.whisperx_alignment_private",
+                         "--worker"],
+                        input=json.dumps({"receipt": str(model_receipt_path),
+                                          "audio": str(staged), "duration": observed,
+                                          "text": intervention.transcript_text, "language": language}),
+                        stdout=out, stderr=subprocess.DEVNULL,
+                        text=True, env=env, check=False,
+                        preexec_fn=_limits, timeout=timeout_seconds,
+                    )
+                require_current_rights()  # no proposal if rights revoked mid-inference
+                if child.returncode or os.fstat(out.fileno()).st_size > 256_000:
+                    raise AlignmentHold("WHISPERX_ENGINE_FAILED")
+                out.seek(0)
+                payload = json.loads(out.read(256_001).decode("utf-8"))
         if not isinstance(payload, dict):
             raise AlignmentHold("WHISPERX_OUTPUT_INVALID")
         words = _parse_words(payload, text=intervention.transcript_text,
@@ -326,7 +334,8 @@ def propose_whisperx_alignment(
     except subprocess.TimeoutExpired as exc:
         raise AlignmentHold("WHISPERX_TIMEOUT") from exc
     except (OSError, EOFError, ZeroDivisionError, wave.Error,
-            importlib.metadata.PackageNotFoundError, json.JSONDecodeError) as exc:
+            importlib.metadata.PackageNotFoundError, json.JSONDecodeError,
+            UnicodeError) as exc:
         raise AlignmentHold("WHISPERX_INPUT_OR_RUNTIME_INVALID") from exc
 
 

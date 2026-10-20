@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import resource
 import tempfile
 import unittest
 import wave
@@ -14,7 +15,7 @@ from dichiarazioni_pubbliche.parliamentary_alignment import (
 )
 from dichiarazioni_pubbliche.transcript_contract import TranscriptCandidate
 from dichiarazioni_pubbliche.whisperx_alignment_private import (
-    AlignmentHold, _parse_words, _receipt, propose_whisperx_alignment,
+    AlignmentHold, _limits, _parse_words, _receipt, propose_whisperx_alignment,
 )
 
 TEXT = "Non aumenteremo 7 tasse."
@@ -75,15 +76,18 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
             source_variant_sha256="a" * 64, source_segment_sha256="b" * 64)
 
     def _run(self, *, output=None, overlap=False, rows=()):
-        result = SimpleNamespace(returncode=0, stdout=json.dumps({
-            "word_segments": WORDS if output is None else output}))
+        def synthetic_worker(*_args, **kwargs):
+            kwargs["stdout"].write(json.dumps({
+                "word_segments": WORDS if output is None else output
+            }).encode("utf-8"))
+            return SimpleNamespace(returncode=0)
         with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}):
             with patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system",
                        return_value="Linux"):
                 with patch("dichiarazioni_pubbliche.whisperx_alignment_private.importlib.metadata.version",
                            return_value="3.8.6"):
                     with patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run",
-                               return_value=result) as command:
+                               side_effect=synthetic_worker) as command:
                         proposal = propose_whisperx_alignment(
                             intervention(), segments=rows,
                             overlap_observed=overlap, **self.kwargs)
@@ -103,6 +107,30 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
         self.assertEqual(proposal.provenance["audio_sha256"], self.audio_hash)
         self.assertEqual(proposal.provenance["source_segment_sha256"], "b" * 64)
         self.assertEqual(command.call_args.kwargs["env"]["HF_HUB_OFFLINE"], "1")
+
+    def test_worker_stdout_and_stderr_are_bounded_without_parent_pipe_capture(self):
+        _, command = self._run()
+        opts = command.call_args.kwargs
+        self.assertNotIn("capture_output", opts)
+        self.assertTrue(hasattr(opts["stdout"], "write"))
+        self.assertEqual(opts["stderr"], __import__("subprocess").DEVNULL)
+        with patch("dichiarazioni_pubbliche.whisperx_alignment_private.resource.setrlimit") as limit:
+            _limits()
+        self.assertIn(
+            (resource.RLIMIT_FSIZE, (256_000, 256_000)),
+            [call.args for call in limit.call_args_list],
+        )
+
+    def test_oversized_worker_output_is_held_before_json_read(self):
+        def overflow(*_args, **opts):
+            opts["stdout"].write(b"X" * 256_001)
+            return SimpleNamespace(returncode=0)
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.importlib.metadata.version", return_value="3.8.6"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run", side_effect=overflow):
+            with self.assertRaisesRegex(AlignmentHold, "WHISPERX_ENGINE_FAILED"):
+                propose_whisperx_alignment(intervention(), **self.kwargs)
 
     def test_official_locator_wins_without_model_or_rights(self):
         self.kwargs.update(authorization=False, model_receipt_path=Path("/absent"))

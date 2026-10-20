@@ -102,6 +102,12 @@ The runtime refuses the example (false attestations); no model
 weights, real media, NLTK asset or inference dependency have been
 downloaded/installed. The isolated child runs CPU-only with four
 threads, 6 GiB address-space, 100 CPU seconds, 120 wall seconds.
+The child writes stdout to a mode-restricted ephemeral file under the private
+work directory with a 256,000-byte kernel `RLIMIT_FSIZE`; stderr is discarded,
+never buffered in parent memory or returned to an operator. Parent checks the
+file size before reading at most 256,001 bytes and parsing JSON. Oversize,
+timeout or nonzero child exit remain HOLD; this avoids the unbounded parent
+pipe capture of the previous subprocess implementation.
 Output must contain every expected word in order, with monotonic
 finite timestamps, within the WAV and CTC score >=0.70.
 Missing/ambiguous words, mismatched numerals/negations, overlap,
