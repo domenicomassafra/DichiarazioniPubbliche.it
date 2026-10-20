@@ -19,6 +19,19 @@ class CiWorkflowNode24Tests(unittest.TestCase):
         self.assertNotIn('    if:', repo_job)
         self.assertIn('os: [ubuntu-latest, macos-latest]', source)
 
+    def test_static_acceptance_runs_once_off_the_scarce_backend_pool(self):
+        source = WORKFLOW.read_text()
+        backend = source.split('  backend-minimal:', 1)[1].split('  openapi-contract:', 1)[0]
+        repository = source.split('  repository-contract:', 1)[1].split('  clean-clone:', 1)[0]
+        # Static tree checks have no OS/Python input. Keep the full contributor
+        # gate required, but do not spend eight runner allocations repeating it.
+        self.assertIn('python3 tools/check_contributor_acceptance.py', repository)
+        self.assertNotIn('python3 tools/check_contributor_acceptance.py', backend)
+        self.assertIn('PYTHONPATH=poc python -m unittest discover -s tests -v', backend)
+        self.assertIn('python -m build --outdir dist-ci', backend)
+        self.assertNotIn('continue-on-error:', backend)
+        self.assertNotIn('max-parallel:', backend)
+
     def test_every_first_party_action_uses_supported_node24_runtime_major(self):
         source = WORKFLOW.read_text()
         actions = re.findall(r'^\s+- uses: (actions/(checkout|setup-python|setup-node)@v\d+)\s*$',
