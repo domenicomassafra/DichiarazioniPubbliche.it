@@ -1,10 +1,8 @@
 """DP-516 source-only, bounded historical backfill *review plan*.
 
-The pilot acceptance, rights, metadata, watch gates and cost snapshots are
-caller-supplied. Authenticating external receipts, durable atomic budget CAS,
-actual source acquisition and downstream B/C publishing are outside this seam.
-Even successful synthetic tests never establish DP-443 acceptance; there is no
-fetch, job creation, reservation, storage, or dispatch in this module.
+Pilot, rights, watch and budget receipts are caller-supplied claims.
+This seam cannot authenticate external receipts, reserve funds, fetch, dispatch,
+or publish. Synthetic checks never establish DP-443 acceptance.
 """
 
 from __future__ import annotations
@@ -385,14 +383,15 @@ def plan_historical_batch(
         costs, watches = (), ()
     if len(costs) > MAX_BATCH_ITEMS or len(watches) > MAX_BATCH_ITEMS:
         holds.add("BATCH_ITEM_CAP")
+    # Reject oversized inputs; inspect only first eight records, otherwise a held plan would still probe a caller-controlled tuple.
     cost_map: dict[str, BatchCost] = {}
     watch_map: dict[str, BatchWatch] = {}
-    for row in costs:
+    for row in costs[:MAX_BATCH_ITEMS]:
         if not isinstance(row, BatchCost) or row.content_id in cost_map:
             holds.add("BATCH_COST_DUPLICATE_OR_INVALID")
         else:
             cost_map[row.content_id] = row
-    for row in watches:
+    for row in watches[:MAX_BATCH_ITEMS]:
         if not isinstance(row, BatchWatch) or row.content_id in watch_map:
             holds.add("BATCH_WATCH_DUPLICATE_OR_INVALID")
         else:
