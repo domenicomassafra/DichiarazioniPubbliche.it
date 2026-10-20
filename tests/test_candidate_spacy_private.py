@@ -141,7 +141,7 @@ class SpaCyPrivateCandidateTests(unittest.TestCase):
         )
         self.assertEqual(receipt.status, "COMPLETED")
         batch = store.committed_batches[0]
-        self.assertEqual(len(batch.mentions), 11)  # six known-alias + five spaCy
+        self.assertEqual(len(batch.mentions), 8)  # three alias spans + five spaCy
         self.assertEqual(len(batch.resolutions), 6)
         self.assertEqual(
             {candidate.target_id for candidate in batch.resolutions},
@@ -171,7 +171,7 @@ class SpaCyPrivateCandidateTests(unittest.TestCase):
             passage_id=context.passage_id, store=store, provider=provider
         )
         self.assertEqual(receipt.status, "COMPLETED")
-        self.assertEqual(len(store.committed_batches[0].mentions), 6)
+        self.assertEqual(len(store.committed_batches[0].mentions), 3)
         self.assertEqual(len(store.committed_batches[0].resolutions), 6)
         self.assertEqual(store.committed_batches[0].claims, ())
 

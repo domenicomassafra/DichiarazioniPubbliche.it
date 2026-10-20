@@ -166,7 +166,8 @@ class _VersionedProvider:
         self.provider_version = original.provider_version + "+spacy:" + fingerprint
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(self._original, name)
+        # copy/deepcopy may probe attributes before reconstructing _original.
+        return getattr(object.__getattribute__(self, "_original"), name)
 
     def cost_upper_bound_usd(self, request: Any) -> Decimal:
         return self._original.cost_upper_bound_usd(request)
