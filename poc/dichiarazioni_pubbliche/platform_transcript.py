@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlparse
 from dichiarazioni_pubbliche.caption_adapter import (
     CaptionSegment, parse_transcript_api_snippets, parse_youtube_json3,
 )
+from dichiarazioni_pubbliche.podcast_youtube_resolution import PodcastYouTubeResolutionMixin
 from dichiarazioni_pubbliche.youtube_caption_fallback import (
     yt_dlp_access_denied, yt_dlp_caption_unavailable,
 )
@@ -24,7 +25,6 @@ from dichiarazioni_pubbliche.youtube_caption_ytdlp import (
 )
 from dichiarazioni_pubbliche.source_watcher import (
     DiscoveredContent,
-    fetch_bytes,
     fetch_text,
     parse_youtube_feed,
     select_italian_caption,
@@ -134,7 +134,7 @@ def choose_video_candidate(
     return None
 
 
-class YouTubeResolver:
+class YouTubeResolver(PodcastYouTubeResolutionMixin):
     def __init__(
         self, yt_dlp: str = "yt-dlp", playlist_limit: int = 250,
         *, use_transcript_api: bool | None = None,
@@ -213,73 +213,6 @@ class YouTubeResolver:
             )
         self._catalog_cache[source_id] = candidates
         return candidates
-
-    def resolve(self, title: str, source: dict[str, Any]) -> VideoCandidate | None:
-        # Never interpret arbitrary RSS podcast XML as a YouTube Atom catalog.
-        if source.get("kind") != "youtube_channel":
-            raise ValueError("YOUTUBE_SOURCE_KIND_REQUIRED")
-        combined: dict[str, VideoCandidate] = {}
-        for candidate in self._atom_candidates(source):
-            combined[candidate.video_id] = candidate
-        match = choose_video_candidate(title, list(combined.values()))
-        if match is not None:
-            return match
-        for candidate in self._flat_candidates(source):
-            combined.setdefault(candidate.video_id, candidate)
-        return choose_video_candidate(title, list(combined.values()))
-
-    def resolve_associated(
-        self, title: str, source: dict[str, Any], *, association,
-        check_fetch: Callable[[str], None],
-    ) -> VideoCandidate | None:
-        """Only the approved channel Atom, with rights rechecked around network I/O.
-
-        The podcast RSS is not a YouTube catalog; unapproved flat-playlist
-        searches can cross source boundaries and cannot establish channel identity.
-        """
-        import xml.etree.ElementTree as ET
-
-        from dichiarazioni_pubbliche.feed_parsing import ATOM, YT
-        from dichiarazioni_pubbliche.source_associations import SourceAssociationBlocked
-
-        if (source.get("id") != association.youtube_source_id
-                or source.get("channel_id") != association.youtube_channel_id):
-            raise SourceAssociationBlocked("SOURCE_ASSOCIATION_CHANNEL_MISMATCH")
-        catalog_url = str(source["discovery_url"])
-        check_fetch(catalog_url)
-        fetched = fetch_bytes(catalog_url, allow_redirects=False)
-        # Cross-URL redirects have their own rights subjects, never inherited.
-        if fetched.final_url != catalog_url:
-            raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_REDIRECT_UNAUTHORIZED")
-        check_fetch(fetched.final_url)
-        payload = fetched.body.decode(fetched.charset or "utf-8")
-        catalog_sha256 = hashlib.sha256(fetched.body).hexdigest()
-        # Atom feed identity is authoritative for this lookup, including empty
-        # catalogs. A mismatched channel must never cause ASR or a locator.
-        try:
-            root = ET.fromstring(payload)
-        except ET.ParseError as exc:
-            raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_FEED_INVALID") from exc
-        if (root.tag != f"{ATOM}feed"
-                or (root.findtext(f"{YT}channelId") or "").strip()
-                != association.youtube_channel_id):
-            raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_CHANNEL_UNVERIFIED")
-        expected = _series_episode(title)
-        if expected is None:
-            return None
-        candidates = []
-        for row in parse_youtube_feed(payload, association.youtube_source_id):
-            # Never accept alternate/feed links or an invalid ID as a locator.
-            if not re.fullmatch(r"[A-Za-z0-9_-]{11}", row.external_id):
-                continue
-            if _series_episode(row.title) != expected:
-                continue
-            candidates.append(VideoCandidate(
-                video_id=row.external_id, title=row.title,
-                canonical_url=f"https://www.youtube.com/watch?v={row.external_id}",
-                catalog_sha256=catalog_sha256,
-            ))
-        return choose_video_candidate(title, candidates)
 
     def metadata(self, video_url: str) -> dict[str, Any]:
         proc = subprocess.run(

@@ -77,7 +77,7 @@ class AssociationOfflineTests(unittest.TestCase):
         self.assertEqual(assoc.youtube_channel_id, CHANNEL)
         checks = []
         resolver = YouTubeResolver()
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom(
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom(
             ("Vid00000065", "Pulp Podcast #65 | intervista"),
             (VIDEO, "Pulp Podcast #64 | ospite"),
         ))) as fetch, patch.object(resolver, "_flat_candidates", side_effect=AssertionError("flat")):
@@ -104,17 +104,17 @@ class AssociationOfflineTests(unittest.TestCase):
     def test_mismatched_channel_or_episode_cannot_make_a_locator(self):
         assoc, source = select_podcast_youtube_association(registry(), "podcast-pulp-podcast")
         resolver = YouTubeResolver()
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom(
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom(
             ("Vid00000065", "Pulp Podcast #65 | intervista"),
         ))):
             self.assertIsNone(resolver.resolve_associated("Pulp Podcast #64", source,
                         association=assoc, check_fetch=lambda _: None))
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom(
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom(
             (VIDEO, "Pulp Special #64"),
         ))):
             self.assertIsNone(resolver.resolve_associated("Pulp Podcast #64", source,
                         association=assoc, check_fetch=lambda _: None))
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom(
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom(
             (VIDEO, "Pulp Podcast #64"), channel="UC_not_the_expected_one"))):
             with self.assertRaises(SourceAssociationBlocked):
                 resolver.resolve_associated("Pulp Podcast #64", source,
@@ -151,7 +151,7 @@ class AssociationOfflineTests(unittest.TestCase):
     def test_redirect_to_an_unreviewed_feed_blocks_even_when_body_matches(self):
         assoc, source = select_podcast_youtube_association(registry(), "podcast-pulp-podcast")
         checks = []
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes",
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
                    return_value=fetched(atom((VIDEO, "Pulp Podcast #64")),
                                         url="https://other.example.test/feed.xml")):
             with self.assertRaisesRegex(SourceAssociationBlocked,
@@ -180,7 +180,7 @@ class AssociationOfflineTests(unittest.TestCase):
 
     def test_worker_rechecks_feed_and_video_rights_and_provenance_before_locator(self):
         handler, job, content = self._worker()
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom(
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom(
             (VIDEO, "Pulp Podcast #64"),
         ))) as fetch:
             handler.resolve_platform(job, content)
@@ -206,7 +206,7 @@ class AssociationOfflineTests(unittest.TestCase):
     def test_missing_relevance_or_association_never_fetches_or_dispatches_asr(self):
         handler, job, content = self._worker()
         handler._require_current_ingestion_relevance.side_effect = BlockedJob("INGESTION_RELEVANCE_MISSING")
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes") as fetch:
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes") as fetch:
             with self.assertRaisesRegex(BlockedJob, "INGESTION_RELEVANCE_MISSING"):
                 handler.resolve_platform(job, content)
         fetch.assert_not_called()
@@ -214,7 +214,7 @@ class AssociationOfflineTests(unittest.TestCase):
         handler._enqueue_asr.assert_not_called()
         handler._require_current_ingestion_relevance.side_effect = None
         handler.registry["source_associations"] = []
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes") as fetch:
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes") as fetch:
             with self.assertRaises(BlockedJob):
                 handler.resolve_platform(job, content)
         fetch.assert_not_called()
@@ -230,7 +230,7 @@ class AssociationOfflineTests(unittest.TestCase):
             return SimpleNamespace(rights_record_id="rights:synthetic", require=Mock(
                 return_value=SimpleNamespace(decision_fingerprint="sha256:synth")))
         handler._caption_rights_guard.side_effect = rights
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom(
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom(
             (VIDEO, "Pulp Podcast #64"),
         ))) as fetch:
             with self.assertRaisesRegex(BlockedJob, "SOURCE_USE_REVOKED"):
@@ -242,7 +242,7 @@ class AssociationOfflineTests(unittest.TestCase):
 
     def test_bounded_catalog_without_absence_review_cannot_dispatch_asr(self):
         handler, job, content = self._worker()
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes",
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
                    return_value=fetched(atom())):
             with self.assertRaisesRegex(BlockedJob, "YOUTUBE_COPY_ABSENCE_UNREVIEWED"):
                 handler.resolve_platform(job, content)
@@ -257,12 +257,12 @@ class AssociationOfflineTests(unittest.TestCase):
             "reviewer_ref": "reviewer:synthetic",
         }]
         handler._require_podcast_asr_clearance.side_effect = BlockedJob("SOURCE_USE_NOT_PERMITTED")
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom())):
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom())):
             with self.assertRaisesRegex(BlockedJob, "SOURCE_USE_NOT_PERMITTED"):
                 handler.resolve_platform(job, content)
         handler._enqueue_asr.assert_not_called()
         handler._require_podcast_asr_clearance.side_effect = None
-        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_bytes", return_value=fetched(atom())):
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes", return_value=fetched(atom())):
             handler.resolve_platform(job, content)
         handler._require_podcast_asr_clearance.assert_called_with(content)
         handler._enqueue_asr.assert_called_once_with(content, reason="PLATFORM_COPY_NOT_FOUND")
