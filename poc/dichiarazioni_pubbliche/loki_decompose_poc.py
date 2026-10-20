@@ -22,9 +22,22 @@ class LokiSpan:
 def _json_object(payload: str, *, maximum: int = 16384) -> dict:
     if not isinstance(payload, str) or len(payload) > maximum:
         raise ValueError("LOKI_OUTPUT_SIZE_INVALID")
+    def unique_keys(pairs: list[tuple[str, object]]) -> dict:
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("LOKI_OUTPUT_DUPLICATE_KEY")
+            result[key] = value
+        return result
+
     try:
-        value = json.loads(payload, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+        value = json.loads(
+            payload, object_pairs_hook=unique_keys,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+        )
     except (ValueError, TypeError) as exc:
+        if str(exc) == "LOKI_OUTPUT_DUPLICATE_KEY":
+            raise
         raise ValueError("LOKI_OUTPUT_JSON_INVALID") from exc
     if not isinstance(value, dict):
         raise ValueError("LOKI_OUTPUT_OBJECT_REQUIRED")

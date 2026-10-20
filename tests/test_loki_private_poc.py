@@ -150,6 +150,7 @@ class LokiPrivatePOCTests(unittest.TestCase):
         base = self._italian()
         mutations = [
             ("decomposition", "__import__('os').system('echo unsafe')", "LOKI_OUTPUT_JSON_INVALID"),
+            ("decomposition", '{"claims":[],"claims":["one"]}', "LOKI_OUTPUT_DUPLICATE_KEY"),
             ("restoration", "{}", "LOKI_RESTORATION_INCOMPLETE"),
             ("checkworthiness", "{}", "LOKI_CHECKWORTHY_INCOMPLETE"),
             ("queries", "{}", "LOKI_QUERY_MAPPING_INVALID"),

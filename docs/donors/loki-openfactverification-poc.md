@@ -26,6 +26,7 @@ check-worthy, `Decompose.py` falls back to sentence splitting, and
 Those behaviors are **not accepted** for this product.
 
 The selected phases instead accept explicitly passed offline JSON fixtures,
+rejecting duplicate object keys (even in nested responses),
 validate source-span uniqueness and literal time/quantity references,
 reject malformed/partial or policy-incompatible outputs, cap queries, and
 fail closed without retries, providers, NLTK, Playwright, models or network.
