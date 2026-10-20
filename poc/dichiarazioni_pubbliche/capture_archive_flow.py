@@ -28,6 +28,12 @@ def _valid_snapshot(body_store: CaptureBodyStore, receipt: Mapping[str, Any]) ->
     ):
         return False
     try:
+        raw = body_store.root / ref
+        # _path resolves symlinks, so inspect the original entries first.
+        if any(node.is_symlink() for node in (
+            body_store.root / "archives", raw.parent, raw,
+        )):
+            return False
         path = body_store._path(ref)
         return (
             path.is_file() and not path.is_symlink()

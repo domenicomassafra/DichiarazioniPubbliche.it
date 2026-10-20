@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.capture_monolith_adapter import (
     MONOLITH_LINUX_X86_64_SHA256, MonolithArchiveAdapter,
 )
+from dichiarazioni_pubbliche.capture_archive_flow import _valid_snapshot
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore, capture_content
 from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
 from test_capture_pipeline import FakeCaptureStore, fetched
@@ -78,6 +79,33 @@ def make_binary(root, *, behavior="ok"):
 
 
 class MonolithArchiveTests(unittest.TestCase):
+    def test_snapshot_receipt_rejects_symlinked_private_locator(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            body_store = CaptureBodyStore(Path(tmp) / "private")
+            digest = hashlib.sha256(HTML).hexdigest()
+            receipt = {
+                "snapshot_kind": "PRIVATE_HTML",
+                "snapshot_sha256": digest,
+                "snapshot_bytes": len(HTML),
+                "snapshot_ref": f"archives/{digest[:2]}/{digest}.html",
+            }
+            target = body_store.root / receipt["snapshot_ref"]
+            target.parent.mkdir(parents=True)
+            target.write_bytes(HTML)
+            self.assertTrue(_valid_snapshot(body_store, receipt))
+            target.unlink()
+            actual = body_store.root / "actual.html"
+            actual.write_bytes(HTML)
+            target.symlink_to(actual)
+            self.assertFalse(_valid_snapshot(body_store, receipt))
+            target.unlink()
+            target.parent.rmdir()
+            actual_dir = body_store.root / "actual-dir"
+            actual_dir.mkdir()
+            (actual_dir / target.name).write_bytes(HTML)
+            target.parent.symlink_to(actual_dir, target_is_directory=True)
+            self.assertFalse(_valid_snapshot(body_store, receipt))
+
     class ReceiptStore(FakeCaptureStore):
         def __init__(self):
             super().__init__()
