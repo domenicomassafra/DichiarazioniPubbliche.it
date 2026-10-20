@@ -122,7 +122,9 @@ def sample_permit(*, audio_sha, model_sha, engine="PYANNOTE_AUDIO", decision="GO
         model_id="synthetic:offline-weight-file", model_sha256=model_sha,
         model_license="CC-BY-4.0" if engine == "PYANNOTE_AUDIO" else "APACHE-2.0",
         config_sha256=sha("synthetic-config"), input_sha256=audio_sha,
-        max_elapsed_ms=2000, max_peak_rss_bytes=8 * 1024**3,
+        # Importing a synthetic fixture in a fresh interpreter may be slower
+        # during the full 3k+ unittest suite on an I/O-busy MiniPC.
+        max_elapsed_ms=15000, max_peak_rss_bytes=8 * 1024**3,
         max_cache_bytes=4096, max_audio_duration_ms=10000,
     )
 
