@@ -84,8 +84,11 @@ def insert_rights_bound_caption_variant(
                   AND rights.permitted_uses @> ARRAY['FETCH','STORE_BODY']::text[]
                   AND rights.rights_receipt_ref IS NOT NULL
                   AND rights.reviewer_ref IS NOT NULL
-                  AND rights.reviewed_at <= now()
-                  AND rights.expires_at > now()
+                  -- `now()` is pinned to BEGIN; this statement can execute
+                  -- only after waiting on the rights row's FOR UPDATE lock.
+                  -- Check real time when admitting the raw-text INSERT.
+                  AND rights.reviewed_at <= clock_timestamp()
+                  AND rights.expires_at > clock_timestamp()
                   AND NOT EXISTS (
                       SELECT 1 FROM private_source_rights_record successor
                       WHERE successor.supersedes_id=rights.id
