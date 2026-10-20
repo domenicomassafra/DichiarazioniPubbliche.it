@@ -162,6 +162,33 @@ class PrivateMultilingualViewTests(unittest.TestCase):
         self.assertEqual(corrupted.status, "BLOCKED")
         self.assertIsNone(corrupted.original_text)
 
+    def test_ocr_capture_requires_parse_ocr_not_native_parse_text(self):
+        row = written_fixture()
+        row["capture"] = replace(
+            row["capture"], parser_method="SCANNED_PDF_OCR_CANDIDATE",
+            media_type="application/pdf",
+        )
+        row["passage"] = replace(
+            row["passage"], extraction_method="SCANNED_PDF_OCR_CANDIDATE",
+        )
+        original = private_records(row)
+        versions = {row["capture"].content_id: row["capture"].content_sha256}
+
+        def read(permitted):
+            return read_private_multilingual_view(
+                row["passage"].id, originals_by_passage=original,
+                current_versions_by_content=versions,
+                rights_guard=source_rights(row, permitted=permitted),
+            )
+
+        wrong_right = read(("FETCH", "STORE_BODY", "PARSE_TEXT"))
+        self.assertEqual(wrong_right.status, "BLOCKED")
+        self.assertEqual(wrong_right.reason_codes, ("SOURCE_USE_NOT_PERMITTED",))
+        self.assertIsNone(wrong_right.original_text)
+        correct_right = read(("FETCH", "STORE_BODY", "PARSE_OCR"))
+        self.assertEqual(correct_right.status, "CURRENT_ORIGINAL")
+        self.assertFalse(correct_right.public_quote_eligible)
+
 
 class TranslationGoldTests(unittest.TestCase):
     def test_synthetic_de_and_it_controls_need_external_adjudication(self):

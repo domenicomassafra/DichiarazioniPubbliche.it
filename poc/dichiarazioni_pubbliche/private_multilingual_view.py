@@ -80,10 +80,20 @@ def read_private_multilingual_view(
     try:
         rights_guard.bind_capture(content_id=locator.content_id, url=capture.final_url)
         rights_guard.bind_fetched(final_url=capture.final_url)
-        for use in ("FETCH", "STORE_BODY", "PARSE_TEXT"):
-            rights_guard.require(use, content_sha256=capture.content_sha256)
+        parse_use = (
+            "PARSE_OCR" if capture.parser_method == "SCANNED_PDF_OCR_CANDIDATE"
+            else "PARSE_TEXT"
+        )
+        for use in ("FETCH", "STORE_BODY", parse_use):
+            rights_guard.require(
+                use, content_sha256=capture.content_sha256,
+                media_type=capture.media_type,
+            )
         if translation is not None:
-            rights_guard.require("TRANSLATE", content_sha256=capture.content_sha256)
+            rights_guard.require(
+                "TRANSLATE", content_sha256=capture.content_sha256,
+                media_type=capture.media_type,
+            )
     except SourceUseBlocked as exc:
         return blocked(exc.code)
     original = read_immutable_original_consumer(
