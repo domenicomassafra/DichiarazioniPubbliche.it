@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
@@ -128,6 +129,35 @@ class ArchiveBoxMultiformatAuditTests(unittest.TestCase):
             record["artifacts"][0]["sha256"] = hashlib.sha256(packed).hexdigest()
             store(path, record)
             self.assertEqual(validate(root, path)["artifacts"], 3)
+
+    def test_compressed_warc_truncated_crc_or_expansion_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            record, manifest_path = fixture(root)
+            warc_path = root / "archivebox/capture.warc"
+            original = warc_path.read_bytes()
+
+            def replace_warc(contents: bytes) -> None:
+                warc_path.write_bytes(contents)
+                record["artifacts"][0]["bytes"] = len(contents)
+                record["artifacts"][0]["sha256"] = hashlib.sha256(contents).hexdigest()
+                store(manifest_path, record)
+
+            packed = gzip.compress(original)
+            replace_warc(packed[:-8])  # missing CRC/ISIZE trailer
+            with self.assertRaisesRegex(CanaryAuditError, "ARTIFACT_FORMAT_MISMATCH"):
+                validate(root, manifest_path)
+
+            replace_warc(packed[:-8] + b"\x00" * 8)  # corrupt trailer
+            with self.assertRaisesRegex(CanaryAuditError, "ARTIFACT_FORMAT_MISMATCH"):
+                validate(root, manifest_path)
+
+            replace_warc(gzip.compress(original + b"x" * 256))
+            with patch(
+                "dichiarazioni_pubbliche.archivebox_multiformat_audit.MAX_WARC_UNCOMPRESSED", 64
+            ):
+                with self.assertRaisesRegex(CanaryAuditError, "WARC_UNCOMPRESSED_TOO_LARGE"):
+                    validate(root, manifest_path)
 
     def test_missing_warc_or_duplicate_artifacts_rejected(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -35,6 +35,9 @@ access, image pull, service launch, archiving, or publication. It checks WARC
 private directory/file permissions and symlink escapes, release and immutable
 image identification, recorded rights decision fingerprint, archive HOLD,
 resource bounds, Monolith baseline numbers, and a hashed rollback log.
+For gzip WARC, the entire compressed stream is checked (CRC/trailer included)
+with a 32 MiB limit on uncompressed data; truncated or over-expanded streams
+fail closed. This still does not parse WARC record semantics.
 
 With an *already approved and completed* canary, run:
 

@@ -13,6 +13,7 @@ import json
 import re
 import stat
 import uuid
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ SHA = re.compile(r"[a-f0-9]{64}\Z")
 IMAGE = re.compile(r"[a-z0-9][a-z0-9/_.-]*:[a-zA-Z0-9_.-]+@sha256:[a-f0-9]{64}\Z")
 MAX_MANIFEST = 16384
 MAX_ARTIFACT = 32 * 1024 * 1024
+MAX_WARC_UNCOMPRESSED = MAX_ARTIFACT
 MAGIC = {"WARC": (b"WARC/1.0", b"WARC/1.1"), "PDF": (b"%PDF-",)}
 
 
@@ -162,7 +164,14 @@ def validate(private_root: Path, manifest: Path) -> dict[str, int]:
             try:
                 with gzip.open(path, "rb") as stream:
                     head = stream.read(32)
-            except (OSError, EOFError):
+                    # Validate the CRC/trailer by consuming the entire stream;
+                    # bound decompression to prevent gzip expansion bombs.
+                    uncompressed = len(head)
+                    while chunk := stream.read(65536):
+                        uncompressed += len(chunk)
+                        if uncompressed > MAX_WARC_UNCOMPRESSED:
+                            raise CanaryAuditError("WARC_UNCOMPRESSED_TOO_LARGE")
+            except (OSError, EOFError, zlib.error):
                 raise CanaryAuditError("ARTIFACT_FORMAT_MISMATCH") from None
         if kind in MAGIC and not any(head.startswith(prefix) for prefix in MAGIC[kind]):
             raise CanaryAuditError("ARTIFACT_FORMAT_MISMATCH")
