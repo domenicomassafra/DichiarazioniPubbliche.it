@@ -146,6 +146,72 @@ class LokiPrivatePOCTests(unittest.TestCase):
         self.assertEqual(result.reason_code, "LOKI_REPORTED_SPEECH_REQUIRES_ATTRIBUTION")
         self.assertEqual(result.proposals, ())
 
+
+    def test_negation_loss_or_insertion_requires_hold_across_languages(self):
+        cases = (
+            ("it", "Il Comune non ha aperto 12 sportelli.", "Il Comune ha aperto 12 sportelli"),
+            ("en", "The city did not open 12 clinics.", "The city opened 12 clinics"),
+            ("de", "Die Stadt hat nicht 12 Kliniken eröffnet.", "Die Stadt hat 12 Kliniken eröffnet"),
+            ("fr", "La ville n'a pas ouvert 12 cliniques.", "La ville a ouvert 12 cliniques"),
+            ("es", "La ciudad no abrió 12 clínicas.", "La ciudad abrió 12 clínicas"),
+        )
+        for language, doc, claim in cases:
+            with self.subTest(language=language):
+                payload = fixture(doc, {claim: doc[:-1]},
+                                  {claim: "NUMERIC_STATISTIC"}, {claim: "Yes"},
+                                  {claim: ["Quale fonte documenta 12 cliniche?"]},
+                                  language=language)
+                result = self.poc.compare(**payload)
+                self.assertEqual(result.reason_code, "LOKI_NEGATION_MISMATCH")
+                self.assertEqual(result.proposals, ())
+                self.assertEqual(result.status, "HOLD")
+
+        inserted = fixture("Il Comune ha aperto 12 sportelli.",
+                           {"Il Comune non ha aperto 12 sportelli": "Il Comune ha aperto 12 sportelli"},
+                           {"Il Comune non ha aperto 12 sportelli": "NUMERIC_STATISTIC"},
+                           {"Il Comune non ha aperto 12 sportelli": "Yes"},
+                           {"Il Comune non ha aperto 12 sportelli": ["Quale fonte documenta 12 sportelli?"]})
+        self.assertEqual(self.poc.compare(**inserted).reason_code,
+                         "LOKI_NEGATION_MISMATCH")
+
+    def test_clipped_negation_context_held_but_preserved_negation_can_be_reviewed(self):
+        doc = "Nel 2025 il Comune non ha aperto 12 sportelli."
+        claim = "ha aperto 12 sportelli"
+        cropped = fixture(doc, {claim: claim},
+                          {claim: "NUMERIC_STATISTIC"}, {claim: "Yes"},
+                          {claim: ["Quale fonte documenta 12 sportelli?"]})
+        result = self.poc.compare(**cropped)
+        self.assertEqual(result.reason_code, "LOKI_NEGATION_OUTSIDE_SOURCE_SPAN")
+        self.assertEqual(result.proposals, ())
+
+        preserved = "Nel 2025 il Comune non ha aperto 12 sportelli"
+        intact = fixture(doc, {preserved: preserved},
+                         {preserved: "NUMERIC_STATISTIC"}, {preserved: "Yes"},
+                         {preserved: ["Quale documento pubblico riguarda i 12 sportelli nel 2025?"]})
+        matching = self.poc.compare(**intact)
+        self.assertEqual(matching.reason_code, "LOKI_PROPOSALS_REQUIRE_REVIEW")
+        self.assertEqual(len(matching.proposals), 1)
+        self.assertEqual(matching.status, "HOLD")
+
+    def test_unflagged_reported_speech_requires_attribution_across_languages(self):
+        examples = (
+            ("it", "Il portavoce ha riferito che nel 2025 sono stati aperti 5 uffici.", "nel 2025 sono stati aperti 5 uffici"),
+            ("en", "The spokesperson said that 5 offices opened in 2025.", "5 offices opened in 2025"),
+            ("de", "Der Sprecher sagte, dass 5 Büros 2025 eröffnet wurden.", "5 Büros 2025 eröffnet wurden"),
+            ("fr", "La porte-parole a déclaré que 5 bureaux ont ouvert en 2025.", "5 bureaux ont ouvert en 2025"),
+            ("es", "La portavoz dijo que se abrieron 5 oficinas en 2025.", "se abrieron 5 oficinas en 2025"),
+        )
+        for lang, doc, claim in examples:
+            with self.subTest(language=lang):
+                payload = fixture(doc, {claim: claim},
+                                  {claim: "NUMERIC_STATISTIC"}, {claim: "Yes"},
+                                  {claim: ["Quale fonte documenta 5 uffici nel 2025?"]},
+                                  language=lang)
+                outcome = self.poc.compare(**payload)
+                self.assertEqual(outcome.reason_code,
+                                 "LOKI_REPORTED_SPEECH_REQUIRES_ATTRIBUTION")
+                self.assertEqual(outcome.proposals, ())
+
     def test_malformed_or_unbound_outputs_hold_without_query_fallback(self):
         base = self._italian()
         mutations = [
