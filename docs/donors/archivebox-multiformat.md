@@ -33,7 +33,7 @@ poc/dichiarazioni_pubbliche/archivebox_multiformat_audit.py only reads existing
 private artifacts and a structured canary manifest. It performs no network
 access, image pull, service launch, archiving, or publication. It checks WARC
 (plain/gzip) and PDF file signatures, SHA-256 and sizes, metadata provenance,
-private directory/file permissions and symlink escapes, release and immutable
+private directory/file permissions, symlink and hardlink escapes, release and immutable
 image identification, recorded rights decision fingerprint, archive HOLD and
 absence of public locators in both receipt and metadata, resource bounds, Monolith baseline numbers, and a hashed rollback log.
 For gzip WARC, the entire compressed stream is checked (CRC/trailer included)
@@ -50,7 +50,8 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc \
 ~~~
 
 The schema is archivebox-multiformat-canary-v1. Manifest JSON must be mode
-0600 beneath the 0700 private root (duplicate keys are rejected).
+0600 beneath the 0700 private root (duplicate keys are rejected); hardlinks
+that could share manifest contents outside this root are rejected.
 Required sections:
 
 1. donor: tag=v0.9.73, exact commit, license=MIT, and a
@@ -64,7 +65,10 @@ Required sections:
 4. artifacts: exactly three entries kind=WARC/PDF/METADATA with relative path,
    sha256, bytes. Files must be 0600, parent folders 0700, each <=32 MiB.
    Metadata JSON repeats crawl_id, snapshot_id, source_capture_sha256 and HOLD,
-   and must contain neither archive_url nor public_locator.
+   and must contain neither archive_url nor public_locator. If metadata supplies
+   original_url_sha256, it must match the source/receipt URL fingerprint.
+   Files with hardlinks outside the private retention boundary are rejected
+   (including the rollback log); one inode must have exactly one link.
 5. metrics: measured positive peak_rss_kib, duration_ms, disk_bytes, and
    explicitly chosen max_rss_kib, max_duration_ms, max_disk_bytes. Exceeding
    any limit, or counting fewer disk bytes than artifacts, fails.

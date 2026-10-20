@@ -76,6 +76,10 @@ def _private_file(root: Path, rel: Any) -> Path:
         raise CanaryAuditError("ARTIFACT_MISSING")
     if not path.resolve().is_relative_to(root.resolve()):
         raise CanaryAuditError("ARTIFACT_OUTSIDE_ROOT")
+    # Hardlinks can share artifact bytes with paths outside the private
+    # retention boundary, which the directory permissions cannot protect.
+    if path.stat().st_nlink != 1:
+        raise CanaryAuditError("ARTIFACT_HARDLINK_REJECTED")
     return path
 
 
@@ -109,6 +113,8 @@ def validate(private_root: Path, manifest: Path) -> dict[str, int]:
         raise CanaryAuditError("MANIFEST_OUTSIDE_ROOT")
     if stat.S_IMODE(manifest.stat().st_mode) & 0o077:
         raise CanaryAuditError("MANIFEST_NOT_PRIVATE")
+    if manifest.stat().st_nlink != 1:
+        raise CanaryAuditError("MANIFEST_HARDLINK_REJECTED")
     data = _read_json(manifest.read_bytes())
     if data.get("schema") != VERSION:
         raise CanaryAuditError("SCHEMA_MISMATCH")
@@ -182,6 +188,8 @@ def validate(private_root: Path, manifest: Path) -> dict[str, int]:
             if (metadata.get("crawl_id") != receipt["crawl_id"]
                     or metadata.get("snapshot_id") != receipt["snapshot_id"]
                     or metadata.get("source_capture_sha256") != source["capture_sha256"]
+                    or (metadata.get("original_url_sha256") is not None
+                        and metadata["original_url_sha256"] != source["original_url_sha256"])
                     or metadata.get("publication_state") != "HOLD"
                     or metadata.get("archive_url") is not None
                     or metadata.get("public_locator") is not None):

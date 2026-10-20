@@ -265,5 +265,40 @@ class ArchiveBoxMultiformatAuditTests(unittest.TestCase):
                 validate(root, path)
 
 
+    def test_hardlink_to_file_outside_private_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "private"
+            root.mkdir(mode=0o700)
+            _, manifest = fixture(root)
+            outside = Path(temp) / "external-retained.warc"
+            os.link(root / "archivebox/capture.warc", outside)
+            with self.assertRaisesRegex(CanaryAuditError, "ARTIFACT_HARDLINK_REJECTED"):
+                validate(root, manifest)
+
+    def test_manifest_hardlink_outside_private_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "private"
+            root.mkdir(mode=0o700)
+            _, manifest = fixture(root)
+            os.link(manifest, Path(temp) / "external-manifest.json")
+            with self.assertRaisesRegex(CanaryAuditError, "MANIFEST_HARDLINK_REJECTED"):
+                validate(root, manifest)
+
+    def test_metadata_original_url_hash_conflict_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            record, manifest = fixture(root)
+            metadata_path = root / "archivebox/metadata.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata["original_url_sha256"] = "f" * 64
+            payload = json.dumps(metadata, sort_keys=True).encode("utf-8")
+            metadata_path.write_bytes(payload)
+            record["artifacts"][2]["bytes"] = len(payload)
+            record["artifacts"][2]["sha256"] = hashlib.sha256(payload).hexdigest()
+            store(manifest, record)
+            with self.assertRaisesRegex(CanaryAuditError, "METADATA_PROVENANCE_MISMATCH"):
+                validate(root, manifest)
+
+
 if __name__ == "__main__":
     unittest.main()
