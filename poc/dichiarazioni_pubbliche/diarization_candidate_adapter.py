@@ -233,8 +233,10 @@ def run_offline_candidate(
     except SourceUseBlocked as exc:
         return _block(exc.code)
     if (not media_path.is_absolute() or not model_dir.is_absolute()
-            or any(part.is_symlink() for path in (media_path, model_dir)
-                   for part in (path, *path.parents))
+            or any(part.is_symlink() and not (
+                os.uname().sysname == "Darwin" and part == Path("/var")
+                and part.resolve() == Path("/private/var")
+            ) for path in (media_path, model_dir) for part in (path, *path.parents))
             or not media_path.is_file()):
         return _block("AUDIO_NOT_LOCAL")
     try:
