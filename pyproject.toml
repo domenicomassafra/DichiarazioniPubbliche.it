@@ -48,6 +48,9 @@ wikidata-proposal = ["WikibaseIntegrator==0.12.15"]
 # Private, explicit HTML extraction adapter. No automatic fetch or publication.
 # The default contributor profile remains stdlib-only.
 capture-html = ["trafilatura==2.3.1"]
+# Explicit MiniPC-only private JS rendition; installation alone does not activate it.
+# Upstream: https://github.com/microsoft/playwright-python, Apache-2.0, v1.64.0.
+browser-render = ["playwright==1.64.0"]
 # Optional, local-only Italian entity proposals. Model weights are separate:
 # an approved licensed model and pinned digest must be supplied explicitly.
 private-spacy = ["spacy==3.8.16"]
@@ -92,6 +95,9 @@ packages = [
   "dichiarazioni_pubbliche.policy",
 ]
 include-package-data = false
+
+[tool.setuptools.package-data]
+dichiarazioni_pubbliche = ["browser_renderer_netns.sh"]
 
 [tool.setuptools.package-dir]
 dichiarazioni_pubbliche = "poc/dichiarazioni_pubbliche"

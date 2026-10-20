@@ -23,6 +23,11 @@ The optional `feeds` extra installs feedparser 6.0.14 (BSD-2-Clause)
 and feedparser-sgmllib (PSF-2.0) for parsed RSS/Atom metadata. Upstream
 license and copyright notices remain in the installed distributions.
 No third-party parser source is vendored. See docs/donors/feedparser.md.
+The optional `browser-render` extra installs Playwright Python 1.64.0
+(Apache-2.0, copyright Microsoft Corporation and contributors) for explicitly
+permitted private JS rendition. Its original license/notice remain in the
+installed distribution; see docs/donors/playwright-python.md. Browser binaries
+have separate distribution notices and are not bundled with this project.
 The optional `wikidata-proposal` extra installs WikibaseIntegrator 0.12.15
 (MIT; LeMyst and WikibaseIntegrator contributors). Its upstream copyright and
 MIT license remain with that separately installed distribution; no upstream
