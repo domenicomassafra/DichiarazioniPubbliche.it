@@ -132,8 +132,7 @@ export function getExploreSuggestions(
   rawQuery: string,
   filters: SearchFilters,
 ): string[] {
-  if (!rawQuery.trim() || [...rawQuery].length > SEARCH_QUERY_MAX_CHARS ||
-      searchPublicIndex(index, rawQuery, filters).records.length > 0) return [];
+  if (!rawQuery.trim() || [...rawQuery].length > SEARCH_QUERY_MAX_CHARS) return [];
 
   const words = new Set<string>();
   // Reserve a bounded share for each public type so a large Content catalog
@@ -266,7 +265,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
   }, [assessment, index, kind, query, sort, personId, topicId]);
 
   const suggestions = useMemo(
-    () => index && response?.status === "OK" && response.records.length === 0
+    () => index && response?.status === "OK"
       ? getExploreSuggestions(index, query, { assessment, kind, personId, topicId })
       : [],
     [assessment, index, kind, personId, query, response, topicId],
@@ -417,8 +416,8 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
       {suggestions.length > 0 && (
         <div className="dp-state" data-state="suggestions" role="region" aria-label="Suggerimenti di ricerca" aria-live="polite">
           <p className="dp-state__body" style={{ overflowWrap: "anywhere" }}>
-            Nessun risultato per «{query}». Puoi scegliere una ricerca simile presente
-            nel catalogo pubblico. La tua ricerca rimane invariata finché non scegli.
+            {records.length ? "Risultati approssimativi" : "Nessun risultato"} per «{query}».
+            Puoi scegliere una ricerca simile nel catalogo pubblico. Il testo resta invariato finché non scegli.
           </p>
           <ul style={{ display: "flex", flexWrap: "wrap", gap: "8px", listStyle: "none", padding: 0 }}>
             {suggestions.map((suggestion) => (
