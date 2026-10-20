@@ -54,5 +54,25 @@ class PrecopyEvidenceLimitTests(unittest.TestCase):
             snapshot.assert_not_called()
 
 
+    def test_sequence_rejects_evidence_overflow_without_capturing_fields(self):
+        from dichiarazioni_pubbliche.verification_requirements_v1 import (
+            compare_private_event_sequence,
+        )
+        requirement = claim()
+        first, _ = sources()
+        poison = replace(first, locator_ref=GuardedField("locator:sequence-excess"))
+        rows = (first,) * 128 + (poison,)
+        with patch(
+            "dichiarazioni_pubbliche.verification_requirements_v1._snap",
+            side_effect=AssertionError("SEQUENCE_EXCESS_EVIDENCE_SNAPSHOT"),
+        ) as snapshot:
+            with self.assertRaisesRegex(ValueError, "^SEQUENCE_OBSERVATIONS_INVALID$"):
+                compare_private_event_sequence(
+                    requirement, rows, (), left_event_ref="event:left",
+                    right_event_ref="event:right", claimed_order="BEFORE",
+                )
+            snapshot.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
