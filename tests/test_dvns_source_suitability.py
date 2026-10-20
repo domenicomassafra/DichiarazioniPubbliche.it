@@ -334,5 +334,24 @@ class DvnsSourceSuitabilityTests(unittest.TestCase):
             self.bridge(claim_requirements={"reference_period": "2026-07"})
 
 
+    def test_revoked_denied_or_expired_rights_cannot_be_ready(self):
+        for field in ("rights_status", "profile_rights_status"):
+            for status in ("REVOKED", "DENIED", "EXPIRED"):
+                with self.subTest(field=field, status=status):
+                    payload = compatible_payload()
+                    kwargs = {}
+                    if field == "rights_status":
+                        payload["rights_status"] = status
+                        expected = "DVNS_RIGHTS_" + status
+                    else:
+                        kwargs["source_profile"] = replace(self.profile, rights_status=status)
+                        expected = "DP215_PROFILE_RIGHTS_" + status
+                    result = self.bridge(payload, **kwargs)
+                    self.assertEqual(result.candidate_state, HELD)
+                    self.assertIn(expected, result.blocking_reasons)
+                    self.assertEqual(result.records[0].candidate_state, HELD)
+                    self.assertIsNone(result.records[0].metric_match)
+
+
 if __name__ == "__main__":
     unittest.main()
