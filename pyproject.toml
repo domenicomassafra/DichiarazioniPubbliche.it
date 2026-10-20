@@ -48,6 +48,9 @@ wikidata-proposal = ["WikibaseIntegrator==0.12.15"]
 # Private, explicit HTML extraction adapter. No automatic fetch or publication.
 # The default contributor profile remains stdlib-only.
 capture-html = ["trafilatura==2.3.1"]
+# Optional, local-only Italian entity proposals. Model weights are separate:
+# an approved licensed model and pinned digest must be supplied explicitly.
+private-spacy = ["spacy==3.8.16"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [
