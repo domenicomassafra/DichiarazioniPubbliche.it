@@ -131,6 +131,11 @@ def build_research_batch(
     if any(type(rows) is not tuple or any(type(row) is not RequirementEvidence for row in rows)
            for rows in evidence_by_claim.values()):
         raise ValueError("BATCH_INVALID_EVIDENCE")
+    # Reject excess rows before inspecting claim/evidence field values.
+    # The preflight has its own fixed cap of 128 observations per claim.
+    if (any(len(rows) > 128 for rows in evidence_by_claim.values())
+            or sum(len(rows) for rows in evidence_by_claim.values()) > max_evidence):
+        raise ValueError("BATCH_TOO_LARGE")
     # Check field values as well as record/container types. A str subclass
     # can change rights, identity or dates while deepcopy executes its hooks.
     # Build a fresh container and dataclasses from exact inert strings only.
@@ -150,8 +155,6 @@ def build_research_batch(
         raise ValueError("BATCH_DUPLICATE_CLAIM")
     if set(evidence_by_claim) != set(identifiers):
         raise ValueError("BATCH_UNEXPECTED_CLAIM")
-    if sum(len(rows) for rows in evidence_by_claim.values()) > max_evidence:
-        raise ValueError("BATCH_TOO_LARGE")
 
     items: list[ResearchGapItem] = []
     for claim in sorted(claims, key=lambda item: item.claim_id):
