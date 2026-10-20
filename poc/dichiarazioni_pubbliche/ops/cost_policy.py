@@ -28,42 +28,16 @@ from pathlib import Path
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
+from dichiarazioni_pubbliche.ops.cost_estimates import (
+    PAID_OPERATIONS, RATE_PROVENANCE, USD_PER_AUDIO_HOUR,
+    USD_PER_EVIDENCE_REQUEST, ZERO_COST_OPERATIONS, estimate_cost_usd,
+)
 
-# --- Unit economics --------------------------------------------------------
-#
-# These are *policy inputs*, not market facts. The documented ASR price
-# (USD 0.04/audio-hour) was verified upstream on 2026-09-22; claim extraction
-# is priced from the operator-configured ceiling, because the actual route
-# cost is an operator decision, not a constant. Changing a number here changes
-# an operational expectation, so each rate carries the provenance of its value.
-
-USD_PER_AUDIO_HOUR = 0.04
-USD_PER_EVIDENCE_REQUEST = 0.0  # evidence retrieval is free, metered by rate limit
-
-RATE_PROVENANCE: Mapping[str, str] = {
-    "USD_PER_AUDIO_HOUR": (
-        "https://console.groq.com/docs/speech-to-text, verified 2026-09-22; "
-        "policy input, not a permanent guarantee"
-    ),
-    "USD_PER_EVIDENCE_REQUEST": "official evidence retrieval is free; rate-limited instead",
-}
 
 # Hard ceilings. These are circuit breakers, not spending targets.
 DEFAULT_MAX_COST_USD_PER_JOB = 0.25
 DEFAULT_MAX_COST_USD_PER_SOURCE_DAY = 1.0
 DEFAULT_MAX_COST_USD_PER_DAY = 5.0
-
-# A lane is only allowed to spend if its unit rate is known. Unknown rate ==
-# blocked, not free.
-PAID_OPERATIONS = ("AUDIO_TRANSCRIPTION", "CLAIM_EXTRACT")
-
-ZERO_COST_OPERATIONS = (
-    "TRANSCRIPT_CAPTION",
-    "EVIDENCE_FETCH_URL",
-    "EVIDENCE_QUERY_OFFICIAL",
-    "PUBLIC_PROJECTION_BUILD",
-)
-
 
 @dataclass(frozen=True)
 class CostSnapshot:
@@ -98,45 +72,6 @@ class BudgetDecision:
         return not self.allowed
 
 
-def estimate_cost_usd(
-    operation: str,
-    *,
-    input_seconds: float | None = None,
-    input_bytes: int | None = None,
-    request_count: int = 1,
-    max_usd_per_1k_total_tokens: float | None = None,
-    total_tokens: int | None = None,
-) -> float | None:
-    """Best-effort pre-execution cost estimate.
-
-    Returns ``None`` -- meaning *unpriced*, i.e. the caller must block -- when
-    the operation has a real marginal cost and the inputs needed to price it
-    are missing. It never guesses.
-    """
-    op = str(operation or "").strip()
-
-    if op in ZERO_COST_OPERATIONS:
-        return 0.0
-
-    if op == "AUDIO_TRANSCRIPTION":
-        if input_seconds is None or input_seconds < 0:
-            return None
-        return round((float(input_seconds) / 3600.0) * USD_PER_AUDIO_HOUR, 6)
-
-    if op == "CLAIM_EXTRACT":
-        if max_usd_per_1k_total_tokens is None or max_usd_per_1k_total_tokens < 0:
-            return None
-        if total_tokens is None or total_tokens < 0:
-            return None
-        return round((float(total_tokens) / 1000.0) * float(max_usd_per_1k_total_tokens), 6)
-
-    if op in PAID_OPERATIONS:
-        return None
-
-    # An unknown operation is not free. This is the fail-closed default.
-    return None
-
-
 def preflight(
     policy: BudgetPolicy,
     snapshot: CostSnapshot,
@@ -151,16 +86,18 @@ def preflight(
     (unpriced/missing cost model: needs an operator decision). Conflating those
     two is a real operational bug: a budget cap should not page anyone.
     """
-    if estimate_usd is None or str(operation or "") == "":
+    if estimate_usd is None or isinstance(estimate_usd, bool) or str(operation or "") == "":
         return BudgetDecision(False, "COST_MODEL_MISSING", None, policy, snapshot)
 
     try:
         estimate = float(estimate_usd)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return BudgetDecision(False, "COST_MODEL_MISSING", None, policy, snapshot)
 
     if not math.isfinite(estimate) or estimate < 0:
         return BudgetDecision(False, "COST_ESTIMATE_INVALID", None, policy, snapshot)
+    if operation not in (*PAID_OPERATIONS, *ZERO_COST_OPERATIONS):
+        return BudgetDecision(False, "COST_OPERATION_UNKNOWN", estimate, policy, snapshot)
 
     # The USD guard is a separate mandatory gate for every monthly EUR hold.
     # NaN comparisons are always false; without explicit validation a damaged
@@ -190,6 +127,10 @@ def preflight(
         )
 
     if estimate == 0:
+        if operation not in ZERO_COST_OPERATIONS:
+            # Zero without an independently verified included-plan entitlement
+            # is not evidence that a normally paid provider request is free.
+            return BudgetDecision(False, "PAID_COST_UNATTESTED", 0.0, policy, snapshot)
         return BudgetDecision(True, "ALLOWED_ZERO_COST", 0.0, policy, snapshot)
 
     if snapshot.global_day_usd + estimate > policy.max_cost_usd_per_day:
