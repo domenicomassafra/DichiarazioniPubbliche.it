@@ -157,6 +157,37 @@ class ChallengerAiAuditTests(unittest.TestCase):
         data["reviews"] = data["reviews"][:1]
         self.assertIn("CHALLENGER_AI_ROLE_COVERAGE_INCOMPLETE", audit_ai_challenger(**data).blockers)
 
+    def test_forged_ready_request_cannot_inflate_native_caps(self):
+        data = _input()
+        data["research_request"] = replace(data["research_request"],
+                                           max_queries=1000000, max_results=1000000,
+                                           cost_cap_usd=Decimal("1000000"))
+        data["execution"] = replace(data["execution"], query_count=100,
+                                    result_count=100, cost_usd=Decimal("100"))
+        self.assertIn("CHALLENGER_REQUEST_NATIVE_BUDGET_EXCEEDED",
+                      audit_ai_challenger(**data).blockers)
+
+    def test_every_reviewer_must_examine_entire_material_packet(self):
+        data = _input()
+        data["reviews"] = (replace(data["reviews"][0],
+                                   examined_evidence_ids=("official-1",)), data["reviews"][1])
+        self.assertIn("CHALLENGER_AI_MATERIAL_NOT_FULLY_EXAMINED",
+                      audit_ai_challenger(**data).blockers)
+
+    def test_reviewer_receipt_reuse_is_blocked(self):
+        data = _input()
+        data["reviews"] = (data["reviews"][0],
+                           replace(data["reviews"][1], receipt_id=data["reviews"][0].receipt_id))
+        self.assertIn("CHALLENGER_AI_REVIEW_RECEIPT_REUSED",
+                      audit_ai_challenger(**data).blockers)
+
+    def test_case_variation_cannot_hide_same_model_family(self):
+        data = _input()
+        same = replace(data["reviews"][1].identity, model_family=" CLAUDE ")
+        data["reviews"] = (data["reviews"][0], replace(data["reviews"][1], identity=same))
+        self.assertIn("CHALLENGER_AI_EXECUTION_NOT_INDEPENDENT",
+                      audit_ai_challenger(**data).blockers)
+
 
 if __name__ == "__main__":
     unittest.main()

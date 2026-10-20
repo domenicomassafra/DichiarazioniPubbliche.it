@@ -14,7 +14,13 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 
 from dichiarazioni_pubbliche.challenger_material_inventory import ChallengerMaterialInventory
-from dichiarazioni_pubbliche.challenger_research import ChallengerResearchRequest
+from dichiarazioni_pubbliche.challenger_research import (
+    ChallengerResearchRequest,
+    DEFAULT_MAX_CHALLENGER_ASSIGNMENTS,
+    DEFAULT_MAX_CHALLENGER_COST_USD,
+    DEFAULT_MAX_CHALLENGER_QUERIES,
+    DEFAULT_MAX_CHALLENGER_RESULTS,
+)
 from dichiarazioni_pubbliche.countercase import CounterCasePacket
 
 
@@ -138,7 +144,7 @@ def audit_ai_challenger(
     block(len(reviews) != len(_ROLES) or {r.role for r in reviews} != _ROLES,
           "CHALLENGER_AI_ROLE_COVERAGE_INCOMPLETE")
     for key in ("actor_ref", "run_id", "session_id", "credential_fingerprint", "model_family"):
-        block(len({getattr(i, key) for i in identities}) != len(identities),
+        block(len({str(getattr(i, key)).strip().casefold() for i in identities}) != len(identities),
               "CHALLENGER_AI_EXECUTION_NOT_INDEPENDENT")
     block(len({i.prompt_sha256 for i in identities}) != len(identities),
           "CHALLENGER_AI_PROMPT_NOT_SEPARATE")
@@ -161,6 +167,19 @@ def audit_ai_challenger(
           "CHALLENGER_MATERIAL_PENDING_OR_UNVERIFIED")
     block(packet.status != "READY" or research_request.status != "READY",
           "CHALLENGER_RESEARCH_OR_PACKET_INCOMPLETE")
+    block(
+        type(research_request.max_queries) is not int
+        or not 1 <= research_request.max_queries <= DEFAULT_MAX_CHALLENGER_QUERIES
+        or type(research_request.max_results) is not int
+        or not 1 <= research_request.max_results <= DEFAULT_MAX_CHALLENGER_RESULTS
+        or len(research_request.assignment_ids) > DEFAULT_MAX_CHALLENGER_ASSIGNMENTS
+        or not isinstance(research_request.cost_cap_usd, Decimal)
+        or not research_request.cost_cap_usd.is_finite()
+        or not 0 <= research_request.cost_cap_usd <= DEFAULT_MAX_CHALLENGER_COST_USD,
+        "CHALLENGER_REQUEST_NATIVE_BUDGET_EXCEEDED",
+    )
+    block(not research_request.stop_conditions or not research_request.adapter_ids,
+          "CHALLENGER_REQUEST_PERMISSIONS_INCOMPLETE")
     block(set(packet.evidence_ids) != approved,
           "CHALLENGER_PACKET_MATERIAL_MISMATCH")
 
@@ -186,6 +205,9 @@ def audit_ai_challenger(
         valid_cost = False
     block(not valid_cost, "CHALLENGER_EXECUTED_COST_BUDGET_INVALID")
 
+    block(len({review.receipt_id for review in reviews}) != len(reviews)
+          or execution.receipt_id in {review.receipt_id for review in reviews},
+          "CHALLENGER_AI_REVIEW_RECEIPT_REUSED")
     for review in reviews:
         block(review.role not in _ROLES or review.review_action not in {"EXAMINED", "NEEDS_MORE"},
               "CHALLENGER_REVIEW_ACTION_INVALID")
@@ -199,6 +221,8 @@ def audit_ai_challenger(
               or not set(review.examined_evidence_ids) <= set(execution.examined_evidence_ids)
               or not primary.intersection(review.examined_evidence_ids),
               "CHALLENGER_AI_PRIMARY_SOURCE_NOT_EXAMINED")
+        block(not set(packet.evidence_ids) <= set(review.examined_evidence_ids),
+              "CHALLENGER_AI_MATERIAL_NOT_FULLY_EXAMINED")
         block(not _unique_refs(review.counterexample_evidence_ids)
               or not set(review.counterexample_evidence_ids) <= set(packet.contradicting_evidence_ids),
               "CHALLENGER_AI_COUNTEREXAMPLE_NOT_APPROVED")
