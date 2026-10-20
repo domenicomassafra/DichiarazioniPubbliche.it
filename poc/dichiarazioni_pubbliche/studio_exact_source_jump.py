@@ -50,7 +50,10 @@ SELECT json_build_object(
    SELECT coalesce(rr.rights_status='CLEARED'
      AND rr.rights_receipt_ref IS NOT NULL
      AND rr.reviewed_at IS NOT NULL AND rr.reviewer_ref IS NOT NULL
-     AND (rr.expires_at IS NULL OR rr.expires_at>current_timestamp)
+     AND rr.expires_at>current_timestamp
+     AND rr.locator_kind='URL' AND rr.locator_value=capture.final_url
+     AND rr.evidence_id IS NULL AND rr.passage_id IS NULL
+     AND rr.transcript_segment_id IS NULL AND rr.canonical_segment_id IS NULL
      AND rr.permitted_uses @> (CASE
        WHEN capture.parser_method='SCANNED_PDF_OCR_CANDIDATE'
          THEN ARRAY['FETCH','PARSE_OCR']::text[]
