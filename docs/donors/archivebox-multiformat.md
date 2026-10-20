@@ -4,9 +4,10 @@
 
 Use the whole upstream ArchiveBox as a **separate private MiniPC service**, via its
 documented CLI/API and existing ArchiveAdapter seam; do not vendor Django or
-the upstream application. HTML/readability only lives in **draft PR #198,
-issue #171**, and is absent from main. This ticket evaluates additional
-WARC/PDF/metadata preservation, process limits, rollback and comparison with
+the upstream application. The HTML/readability opt-in adapter from **PR #198
+(issue #171)** was merged into main on 2026-10-20 (`dae5ea1`), but its real
+MiniPC donor canary and source-use approval remain on HOLD. This ticket
+assesses WARC/PDF/metadata preservation, process limits, rollback and comparison with
 the existing Monolith path; it must not activate or modify #171.
 
 - Upstream: https://github.com/ArchiveBox/ArchiveBox ; release v0.9.73
@@ -33,8 +34,8 @@ private artifacts and a structured canary manifest. It performs no network
 access, image pull, service launch, archiving, or publication. It checks WARC
 (plain/gzip) and PDF file signatures, SHA-256 and sizes, metadata provenance,
 private directory/file permissions and symlink escapes, release and immutable
-image identification, recorded rights decision fingerprint, archive HOLD,
-resource bounds, Monolith baseline numbers, and a hashed rollback log.
+image identification, recorded rights decision fingerprint, archive HOLD and
+absence of public locators in both receipt and metadata, resource bounds, Monolith baseline numbers, and a hashed rollback log.
 For gzip WARC, the entire compressed stream is checked (CRC/trailer included)
 with a 32 MiB limit on uncompressed data; truncated or over-expanded streams
 fail closed. This still does not parse WARC record semantics.
@@ -62,7 +63,8 @@ Required sections:
    no archive_url or public_locator.
 4. artifacts: exactly three entries kind=WARC/PDF/METADATA with relative path,
    sha256, bytes. Files must be 0600, parent folders 0700, each <=32 MiB.
-   Metadata JSON repeats crawl_id, snapshot_id, source_capture_sha256 and HOLD.
+   Metadata JSON repeats crawl_id, snapshot_id, source_capture_sha256 and HOLD,
+   and must contain neither archive_url nor public_locator.
 5. metrics: measured positive peak_rss_kib, duration_ms, disk_bytes, and
    explicitly chosen max_rss_kib, max_duration_ms, max_disk_bytes. Exceeding
    any limit, or counting fewer disk bytes than artifacts, fails.
@@ -80,9 +82,10 @@ cannot prove a service was stopped without an operator's independent readback.
 
 ## Owner-controlled real canary — HOLD
 
-No ArchiveBox binary/container is installed on the MiniPC at inspection. #171
-remains a draft with runtime source-use HOLD. **Before activation**, the owner
-must approve an exact *owner-controlled synthetic HTTPS origin*, an operative
+No ArchiveBox binary/container was installed on the MiniPC at the previous
+inspection. #171 remains OPEN / needs-owner with runtime source-use HOLD even
+though its HTML/readability source PR #198 is MERGED. **Before activation**,
+the owner must approve an exact *owner-controlled synthetic HTTPS origin*, an operative
 source-family permit for FETCH, STORE_BODY, PARSE_TEXT, ARCHIVE on that capture,
 private retention and network policy, and a one-time isolated ArchiveBox
 service/canary. Do not archive third-party sources, invoke paid inference,
@@ -114,5 +117,6 @@ After that approval, the operator should:
    and assess whether the additional preservation is worth its overhead.
    Missing output, rights or proof remains HOLD rather than a fake success.
 
-Integrating the donor adapter into production capture depends on resolving
-the draft #171 contract and this authorized end-to-end runtime evidence.
+Enabling the already merged HTML/readability adapter and adding multiformat
+capture in production both depend on independently authorized runtime evidence;
+#171 still requires its live source-use canary and #162 requires WARC/PDF proof.

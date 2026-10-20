@@ -249,6 +249,21 @@ class ArchiveBoxMultiformatAuditTests(unittest.TestCase):
             with self.assertRaisesRegex(CanaryAuditError, "DUPLICATE_JSON_KEY"):
                 validate(root, path)
 
+    def test_metadata_public_locator_must_not_bypass_private_receipt(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            record, path = fixture(root)
+            metadata_path = root / "archivebox/metadata.json"
+            metadata = json.loads(metadata_path.read_text())
+            metadata["public_locator"] = "https://example.test/public-snapshot"
+            payload = json.dumps(metadata, sort_keys=True).encode()
+            metadata_path.write_bytes(payload)
+            record["artifacts"][2]["bytes"] = len(payload)
+            record["artifacts"][2]["sha256"] = hashlib.sha256(payload).hexdigest()
+            store(path, record)
+            with self.assertRaisesRegex(CanaryAuditError, "METADATA_PROVENANCE_MISMATCH"):
+                validate(root, path)
+
 
 if __name__ == "__main__":
     unittest.main()

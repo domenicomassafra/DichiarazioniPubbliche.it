@@ -183,7 +183,8 @@ def validate(private_root: Path, manifest: Path) -> dict[str, int]:
                     or metadata.get("snapshot_id") != receipt["snapshot_id"]
                     or metadata.get("source_capture_sha256") != source["capture_sha256"]
                     or metadata.get("publication_state") != "HOLD"
-                    or metadata.get("archive_url") is not None):
+                    or metadata.get("archive_url") is not None
+                    or metadata.get("public_locator") is not None):
                 raise CanaryAuditError("METADATA_PROVENANCE_MISMATCH")
         total_bytes += size
     if observed_kinds != KINDS:
