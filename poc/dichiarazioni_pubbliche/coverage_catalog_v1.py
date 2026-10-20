@@ -154,6 +154,7 @@ def build_source_coverage(
     if type(unit) is not CoverageUnit or type(observations) is not tuple or len(observations) > 128:
         raise ValueError("COVERAGE_INPUT_UNBOUNDED")
     CoverageUnit.__post_init__(unit)
+    expected_scope = CoverageUnit.scope_fingerprint(unit)
     stamp = _aware(now)
     if baseline_sha256 is not None:
         _sha(baseline_sha256)
@@ -164,7 +165,7 @@ def build_source_coverage(
             raise ValueError("COVERAGE_OBSERVATION_INVALID")
         CoverageObservation.__post_init__(record)
         if (record.source_id != unit.source_id or record.policy_version != unit.policy_version
-                or record.scope_fingerprint != unit.scope_fingerprint()):
+                or record.scope_fingerprint != expected_scope):
             raise ValueError("COVERAGE_MIXED_SCOPE")
         if _aware(record.attempted_at) > stamp:
             raise ValueError("COVERAGE_FUTURE_OBSERVATION")

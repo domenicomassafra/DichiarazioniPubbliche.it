@@ -105,6 +105,19 @@ class CoverageInputBoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "COVERAGE_OBSERVATION_STATUS_INVALID"):
             decide((record,))
 
+    def test_exact_unit_instance_cannot_override_scope_fingerprint_method(self):
+        original = unit()
+        widened = unit(
+            interval_start=datetime(1920, 1, 1, tzinfo=timezone.utc),
+            interval_end=datetime(1950, 1, 1, tzinfo=timezone.utc),
+        )
+        object.__setattr__(widened, "scope_fingerprint", original.scope_fingerprint)
+        with self.assertRaisesRegex(ValueError, "COVERAGE_MIXED_SCOPE"):
+            build_source_coverage(
+                widened, (observation(),), now=NOW, baseline_sha256=SHA,
+                rights_ready=True, budget_ready=True, capability_ready=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
