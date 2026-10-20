@@ -197,7 +197,8 @@ class _MentionStore:
             raise CandidateExtractionError("SPACY_PASSAGE_CHANGED")
         batch = kwargs["batch"]
         existing = {
-            (m.start_char, m.end_char, m.proposed_entity_type) for m in batch.mentions
+            (m.start_char, m.end_char, m.proposed_entity_type)
+            for m in batch.mentions if m.extraction_method == "MODEL"
         }
         additions: list[PreparedEntityMention] = []
         for span in self._spans:
