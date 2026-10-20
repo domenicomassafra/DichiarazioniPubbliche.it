@@ -120,6 +120,19 @@ class AssociationOfflineTests(unittest.TestCase):
                 resolver.resolve_associated("Pulp Podcast #64", source,
                         association=assoc, check_fetch=lambda _: None)
 
+    def test_same_episode_distinct_video_ids_hold_without_locator_or_dispatch(self):
+        # Reviewed channel and episode are insufficient to choose between two videos.
+        handler, job, content = self._worker()
+        xml = atom((VIDEO, "Pulp Podcast #64"),
+                   ("Alt00000064", "Pulp Podcast #64"))
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
+                   return_value=fetched(xml)):
+            with self.assertRaisesRegex(BlockedJob, "YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS"):
+                handler.resolve_platform(job, content)
+        handler.store.upsert_locator.assert_not_called()
+        handler._probe_and_enqueue_caption.assert_not_called()
+        handler._enqueue_asr.assert_not_called()
+
     def test_http_redirect_is_refused_before_second_network_request(self):
         import socket
         from email.message import Message

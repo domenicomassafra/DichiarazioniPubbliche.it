@@ -92,4 +92,8 @@ def resolve_associated(
             canonical_url=f"https://www.youtube.com/watch?v={row.external_id}",
             catalog_sha256=catalog_sha256,
         ))
+    # Equal series/episode markers can describe clips, reuploads, or separate
+    # editions. Never attach one of multiple distinct video IDs by title rank.
+    if len({candidate.video_id for candidate in candidates}) > 1:
+        raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS")
     return choose_video_candidate(title, candidates)
