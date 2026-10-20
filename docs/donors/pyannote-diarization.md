@@ -1,0 +1,25 @@
+# DP-166 — riuso diarizzazione anonima (20 ottobre 2026)
+
+## Candidati verificati
+
+| Progetto | Versione, commit e licenza del **codice** | Motivo e limite |
+| --- | --- | --- |
+| [pyannote.audio](https://github.com/pyannote/pyannote-audio) | `4.0.7` (2026-06-30), tag `b749285c5cdd4636b2edc7f766f1352c8dde9369`, **MIT** | Candidato principale: pipeline locale con `speaker_diarization` multitraccia, conserva overlap. Richiede libreria, pesi e runtime approvati; CPU/VRAM da misurare sul MiniPC. |
+| [notch-up/diarize](https://github.com/notch-up/diarize) | `v0.1.2` (2026-05-06), tag `4f25d27dee54f7e8264a914e705f7cee182151e2`, **Apache-2.0** | Confronto CPU; API `diarize(...).segments` con `start`, `end`, `speaker`; pesi/dependency e manutenzione da verificare prima di esecuzione. |
+| `diarization_benchmark.py` | interno, **Apache-2.0** del repository | Riutilizzato integralmente per DER, missed, false alarm, confusion, F1, collar 250 ms, safety e GO/NO_GO. Non produce speaker turn. |
+
+Ultimo aggiornamento osservato per pyannote su GitHub: 19/10/2026; per `notch-up/diarize`: 11/10/2026. Numeri upstream pubblicati sul dataset *VoxConverse* non dimostrano accuratezza su TV/podcast italiani, sulla clip 414–434 s o sulle risorse del MiniPC. Non sono un confronto sperimentale di questo progetto. La segnalazione [pyannote #1963](https://github.com/pyannote/pyannote-audio/issues/1963) riporta un picco VRAM elevato con 4.0.3: è un rischio da testare localmente, non un risultato misurato di 4.0.7.
+
+## Separazione del contratto software da pesi e sorgenti
+
+La pipeline [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) ha licenza di **modello CC-BY-4.0** e accesso soggetto ad accettazione delle condizioni Hugging Face (inclusa condivisione dei dati account). MIT **non** si estende ai pesi. Non è stata effettuata accettazione di termini, autenticazione Hugging Face, download o installazione. La versione del modello, hash dell'intero albero locale, receipt di licenza/termini e attribuzione vanno verificati prima dell'uso. Nessun inferenza tramite servizio `precision-2` a pagamento. L'eventuale libreria `diarize` va autorizzata anche per gli asset/modelli transitivi.
+
+Un adapter opzionale in `diarization_candidate_adapter.py` verifica **prima di chiamare la funzione modello**: decisione DP-208 `GO`/`GO_BOUNDED` con attestazione indipendente, hash/receipt di pesi e termini, input WAV locale immutato, diritti `STORE_BODY` e `ASR_MEDIA` sulla fonte specifica, durata/costo/memoria, modello localmente già disponibile, divieto di rete. `pyannote_local_runner` importa pyannote soltanto se espressamente passato al chiamante dopo questa verifica; forza configurazione Hugging Face offline e disattiva telemetry del wrapper nel processo isolato. La disabilitazione via variabili di ambiente è un vincolo contrattuale, non un firewall di sistema: in produzione il runner richiede isolamento di rete e timeout in un worker distinto. Il POC attuale non è attivato nel worker prodotto.
+
+Il normalizzatore produce solo `TURN_00`, `TURN_01` ecc. locali alla singola cattura. Preserva tutti gli intervalli in sovrapposizione e registra abstention nei relativi intervalli; non esporta nomi arbitrari del modello, embedding, audio, voiceprint o `Person`. `diarization_candidate_benchmark.py` confronta baseline, candidato e riferimento su collar 0/250 ms con le metriche DP-208. Ogni output e score resta privato in `POLICY_HOLD` e il verdetto calcolato è solo indicativo. Errori, incoerenze, budget e `NO_GO` bloccano. Nessuna produzione, pubblicazione o attribuzione biometrica.
+
+## Accettazione mancante
+
+[#37 — DP-208](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/37) e [#36 — DP-204](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/36) restano **OPEN**. Al 20/10 il MiniPC non dispone di pyannote/diarize installati e il registro `private_source_rights_record` contiene `0` record (`0` `CLEARED`). Mancano almeno 10 minuti di media con annotazioni indipendenti autorizzate e clip 414–434 s, decisione del reviewer DP-208, termini dei pesi, confronto reale DER/F1/safety e budget CPU/RSS. I test sintetici del POC provano solo il contratto fail-closed, non autorizzano modelli o file reali.
+
+Non è stato copiato né modificato codice di terze parti; l'adapter usa le interfacce pubbliche documentate e moduli interni sotto licenza Apache-2.0.
