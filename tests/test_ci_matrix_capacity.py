@@ -23,6 +23,8 @@ def job(name: str, labels: list[str], started: str | None, completed: str | None
     return {
         "name": name,
         "labels": labels,
+        "created_at": "2026-10-20T10:00:00Z",
+        "runner_id": 1 if completed else 0,
         "started_at": started,
         "completed_at": completed,
         "conclusion": conclusion,
@@ -85,7 +87,7 @@ class SummarizeTests(unittest.TestCase):
         self.assertEqual(report["macos"]["queue_median"], 3.0)
         self.assertEqual(report["macos"]["execution_median"], 3.0)
         self.assertEqual(report["ubuntu"]["queue_median"], 0.5)
-        self.assertEqual(report["run_wall"]["median"], 8.0)
+        self.assertEqual(report["run_wall"]["median"], 6.0)
 
     def test_queued_job_without_start_is_counted_but_not_timed(self):
         runs = [run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:10:00Z")]
@@ -102,7 +104,7 @@ class SummarizeTests(unittest.TestCase):
 
     def test_pool_minutes_separate_runs_without_a_verdict(self):
         runs = [
-            run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:10:00Z"),
+            dict(run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:10:00Z"), conclusion="cancelled"),
             run(2, "2026-10-20T10:00:00Z", "2026-10-20T10:20:00Z"),
         ]
         jobs = {
@@ -144,8 +146,8 @@ class SummarizeTests(unittest.TestCase):
         jobs = {1: [job("backend macos-latest / py3.11", MACOS,
                         "2026-10-20T10:00:00Z", "2026-10-20T10:05:00Z")]}
         report = capacity.summarize({str(r["id"]): r for r in runs}, {str(k): v for k, v in jobs.items()})
-        # 5 macOS minutes used over a 10 minute window with 5 slots.
-        self.assertAlmostEqual(report["pool"]["macos_utilisation"], 5.0 / (10.0 * capacity.MACOS_SLOTS))
+        # The recorded window ends at the last job, not a later run.updated_at.
+        self.assertAlmostEqual(report["pool"]["macos_utilisation"], 5.0 / (5.0 * capacity.MACOS_SLOTS))
 
 
 class ReplayTests(unittest.TestCase):

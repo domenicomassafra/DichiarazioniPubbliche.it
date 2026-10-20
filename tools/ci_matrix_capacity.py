@@ -10,12 +10,9 @@ the whole account, against 20 jobs in total ("Job concurrency limits for
 GitHub-hosted runners", GitHub Docs, read 20/10/2026). Fourteen open pull
 requests therefore ask for 56 simultaneous macOS jobs against a pool of 5.
 
-`jobs.<job_id>.strategy.max-parallel` looks like the fix and is not: it caps the
-jobs of one matrix "even if there are runners available to run all six jobs at
-once" (GitHub Docs, *Running variations of jobs in a workflow*, read 20/10/2026).
-A per-run cap moves the wait from the queue into the run; it never adds pool
-capacity. `replay` here measures that trade on data already recorded by GitHub,
-so the decision is taken on numbers instead of on a recipe.
+A per-matrix cap never adds capacity. The replay is exploratory, not a causal
+measurement: unknown unexecuted work, cross-repository interference and scheduler
+ordering cannot be reconstructed from these REST payloads.
 
 Usage
 -----
@@ -32,8 +29,8 @@ the network:
     runs.json          # GET /repos/{owner}/{repo}/actions/runs  (or bare list)
     jobs-<run_id>.json # GET /repos/{owner}/{repo}/actions/runs/{id}/jobs
 
-`docs/ops/ci-matrix-capacity-20261020.md` records how to rebuild the export and
-what the recorded measurement says.
+`docs/adr/0011-no-per-run-cap-on-the-ci-matrix.md` documents the export contract,
+policy and limitations. The original ADR's numbers were invalidated by review.
 """
 
 from __future__ import annotations
@@ -41,9 +38,11 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import math
 import sys
 from pathlib import Path
+
+# Re-export the public tool API; keep scheduling separate from REST accounting.
+from ci_matrix_replay import percentile, replay
 
 UBUNTU_SLOTS = 20
 MACOS_SLOTS = 5
@@ -70,15 +69,15 @@ def job_runner_kind(labels: list[str] | None) -> str:
     return OTHER
 
 
-def percentile(values: list[float], fraction: float) -> float | None:
-    """Nearest-rank percentile; deterministic for a given input list."""
-    if not values:
-        return None
-    ordered = sorted(values)
-    if fraction <= 0:
-        return ordered[0]
-    rank = max(1, math.ceil(fraction * len(ordered)))
-    return ordered[min(rank, len(ordered)) - 1]
+def job_executed(job: dict) -> bool:
+    """started_at alone also exists on jobs cancelled before runner assignment."""
+    return (job.get("status") != "queued" and bool(job.get("started_at"))
+            and bool(job.get("runner_id") or job.get("runner_name") or job.get("steps")))
+
+
+def run_finished(run_jobs: list[dict]) -> dt.datetime | None:
+    return max((_timestamp(j.get("completed_at")) for j in run_jobs
+                if j.get("completed_at")), default=None)
 
 
 def _minutes(later: dt.datetime | None, earlier: dt.datetime | None) -> float | None:
@@ -114,14 +113,14 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
         if run is None:
             continue
         created = _timestamp(run.get("created_at"))
-        finished = _timestamp(run.get("updated_at"))
+        finished = run_finished(run_jobs)
         if created and (window_start is None or created < window_start):
             window_start = created
         if finished and (window_end is None or finished > window_end):
             window_end = finished
         # A run still in flight has no wall clock yet: counting created->updated
         # would report the partial elapsed time as if the run had finished.
-        if run.get("status") == "completed":
+        if run.get("status") == "completed" and all(j.get("status") == "completed" for j in run_jobs):
             run_wall = _minutes(finished, created)
             if run_wall is not None:
                 wall.append(run_wall)
@@ -129,22 +128,20 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
             kind = job_runner_kind(job.get("labels"))
             started = _timestamp(job.get("started_at"))
             completed = _timestamp(job.get("completed_at"))
-            # A queued job already carries `started_at` (the moment it was
-            # enqueued), so counting it would report a zero wait that never
-            # happened. Only a job a runner actually picked up measures a queue.
-            began = job.get("status") != "queued" and started is not None
+            began = job_executed(job)
             sample = {
                 "run": run_id,
                 "name": job.get("name"),
                 "conclusion": job.get("conclusion"),
-                "queue": _minutes(started, created) if began else None,
-                "execution": _minutes(completed, started),
+                "queue": _minutes(started, _timestamp(job.get("created_at"))) if began else None,
+                "execution": _minutes(completed, started) if began else None,
                 "queued": job.get("status") == "queued",
+                "not_executed": not began,
             }
             samples[kind].append(sample)
             if kind in pool_minutes and sample["execution"] is not None:
                 pool_minutes[kind] += sample["execution"]
-                if job.get("conclusion") in {"cancelled", "failure"}:
+                if run.get("conclusion") in {"cancelled", "failure", "timed_out", "startup_failure"}:
                     wasted_minutes[kind] += sample["execution"]
 
     report: dict = {
@@ -164,9 +161,14 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
             "queue_over_10m": sum(1 for value in queued if value >= 10),
             "execution_median": percentile(executed, 0.50),
             "queued_now": sum(1 for s in samples[kind] if s["queued"]),
-            "started": len(queued),
+            "started": sum(not s["not_executed"] for s in samples[kind]),
+            "not_executed": sum(s["not_executed"] for s in samples[kind]),
+            "queue_samples": len(queued),
+            "execution_mean": sum(executed) / len(executed) if executed else None,
         }
     report["run_wall"] = {
+        "samples": len(wall),
+        "mean": sum(wall) / len(wall) if wall else None,
         "median": percentile(wall, 0.50),
         "p90": percentile(wall, 0.90),
         "max": percentile(wall, 1.0),
@@ -208,129 +210,26 @@ def build_workload(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> list[d
             started = _timestamp(job.get("started_at"))
             completed = _timestamp(job.get("completed_at"))
             duration = _minutes(completed, started)
-            if duration is None:
+            if not job_executed(job) or duration is None or duration < 0:
                 continue
-            measured.append(
-                {"kind": job_runner_kind(job.get("labels")), "name": job.get("name"), "seconds": duration}
-            )
+            measured.append({
+                "kind": job_runner_kind(job.get("labels")), "name": job.get("name"),
+                "minutes": duration,
+                "ready_at": (_timestamp(job.get("created_at")) or created).timestamp() / 60,
+                "job_id": "backend-minimal" if str(job.get("name", "")).startswith("backend ") else job.get("name"),
+            })
         if not measured:
             continue
-        workload.append(
-            {"run": run_id, "arrival": created.timestamp() / 60.0, "jobs": measured}
-        )
+        entry = {"run": run_id, "arrival": created.timestamp() / 60.0, "jobs": measured}
+        if run.get("conclusion") == "cancelled" and run_finished(run_jobs):
+            entry["cancelled_at"] = run_finished(run_jobs).timestamp() / 60
+        workload.append(entry)
     workload.sort(key=lambda entry: (entry["arrival"], entry["run"]))
     return workload
 
 
-def replay(
-    workload: list[dict],
-    macos_slots: int = MACOS_SLOTS,
-    ubuntu_slots: int = UBUNTU_SLOTS,
-    max_parallel: int | None = None,
-    macos_per_run: int | None = None,
-    needs_linux: bool = False,
-) -> dict:
-    """Re-dispatch the recorded workload under a different per-run policy.
-
-    `max_parallel` mirrors `strategy.max-parallel`; `macos_per_run` is the same
-    idea restricted to macOS jobs of one run; `needs_linux` delays a run's macOS
-    jobs until its Linux jobs finished. FIFO on both pools, no retries, no
-    speculative speed-ups.
-    """
-    state = []
-    for entry in workload:
-        state.append(
-            {
-                "run": entry["run"],
-                "arrival": entry["arrival"],
-                "pending": list(entry["jobs"]),
-                "running": 0,
-                "macos_running": 0,
-                "linux_pending": sum(1 for job in entry["jobs"] if job["kind"] == UBUNTU),
-                "done_at": None,
-                "macos_queue": [],
-            }
-        )
-    state.sort(key=lambda run: (run["arrival"], run["run"]))
-    pending = list(state)
-    macos_ready: list[tuple[dict, dict, float]] = []
-    ubuntu_ready: list[tuple[dict, dict, float]] = []
-    macos_busy: list[tuple[float, dict, dict]] = []
-    ubuntu_busy: list[tuple[float, dict, dict]] = []
-
-    def release(run: dict, now: float) -> None:
-        index = 0
-        while index < len(run["pending"]):
-            if max_parallel is not None and run["running"] >= max_parallel:
-                return
-            job = run["pending"][index]
-            if job["kind"] == MACOS:
-                # A blocked macOS job never blocks the Linux jobs behind it.
-                if needs_linux and run["linux_pending"] > 0:
-                    index += 1
-                    continue
-                if macos_per_run is not None and run["macos_running"] >= macos_per_run:
-                    index += 1
-                    continue
-            run["pending"].pop(index)
-            run["running"] += 1
-            if job["kind"] == MACOS:
-                run["macos_running"] += 1
-                macos_ready.append((run, job, now))
-            else:
-                ubuntu_ready.append((run, job, now))
-
-    clock = min((run["arrival"] for run in state), default=0.0)
-    while True:
-        for run in list(pending):
-            if run["arrival"] <= clock:
-                pending.remove(run)
-                release(run, clock)
-        while len(macos_busy) < macos_slots and macos_ready:
-            run, job, released_at = macos_ready.pop(0)
-            run["macos_queue"].append(clock - released_at)
-            macos_busy.append((clock + job["seconds"], run, job))
-        while len(ubuntu_busy) < ubuntu_slots and ubuntu_ready:
-            run, job, _released_at = ubuntu_ready.pop(0)
-            ubuntu_busy.append((clock + job["seconds"], run, job))
-        if not macos_busy and not ubuntu_busy and not macos_ready and not ubuntu_ready and not pending:
-            break
-        next_times = [entry[0] for entry in macos_busy] + [entry[0] for entry in ubuntu_busy]
-        next_times += [run["arrival"] for run in pending]
-        clock = min(next_times)
-        finished_macos = [entry for entry in macos_busy if entry[0] <= clock]
-        finished_ubuntu = [entry for entry in ubuntu_busy if entry[0] <= clock]
-        macos_busy = [entry for entry in macos_busy if entry[0] > clock]
-        ubuntu_busy = [entry for entry in ubuntu_busy if entry[0] > clock]
-        for finish, run, _job in finished_macos:
-            run["running"] -= 1
-            run["macos_running"] -= 1
-            run["done_at"] = finish if run["done_at"] is None else max(run["done_at"], finish)
-            release(run, finish)
-        for finish, run, job in finished_ubuntu:
-            run["running"] -= 1
-            if job["kind"] == UBUNTU:
-                run["linux_pending"] -= 1
-            run["done_at"] = finish if run["done_at"] is None else max(run["done_at"], finish)
-            release(run, finish)
-
-    completion = sorted(
-        run["done_at"] - run["arrival"] for run in state if run["done_at"] is not None
-    )
-    macos_queue = sorted(q for run in state for q in run["macos_queue"])
-    return {
-        "runs": len(completion),
-        "run_completion_median": percentile(completion, 0.50),
-        "run_completion_p90": percentile(completion, 0.90),
-        "run_completion_max": percentile(completion, 1.0),
-        "macos_queue_median": percentile(macos_queue, 0.50),
-        "macos_queue_p90": percentile(macos_queue, 0.90),
-        "macos_queue_mean": (sum(macos_queue) / len(macos_queue)) if macos_queue else None,
-    }
-
-
 def _print_report(report: dict) -> None:
-    print(f"recorded window: {report['runs']} runs / {report['window_minutes']:.0f} minutes")
+    print(f"recorded window: {report['runs']} runs / {_fmt(report['window_minutes'])} minutes")
     for kind in (MACOS, UBUNTU):
         section = report[kind]
         if not section["jobs"]:
@@ -377,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=("report", "replay"))
     parser.add_argument("--export", required=True, type=Path, help="directory with the REST export")
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
-    parser.add_argument("--max-parallel", type=int, default=None, help="cap all jobs of one run")
+    parser.add_argument("--max-parallel", type=int, default=None, help="cap only backend-minimal matrix legs")
     parser.add_argument("--macos-per-run", type=int, default=None, help="cap macOS jobs of one run")
     parser.add_argument("--needs-linux", action="store_true", help="start macOS after the Linux jobs")
     parser.add_argument("--macos-slots", type=int, default=MACOS_SLOTS)
