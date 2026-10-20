@@ -374,5 +374,47 @@ class CandidateAdapterTests(unittest.TestCase):
         ).status, "BLOCKED")
 
 
+    def test_symlinked_parent_of_media_or_model_is_refused(self):
+        link = self.audio.parent / "external-parent"
+        link.symlink_to(self.audio.parent, target_is_directory=True)
+        self.assertEqual(self.call(media_path=link / self.audio.name).codes, ("AUDIO_NOT_LOCAL",))
+        self.assertEqual(self.call(model_dir=link / "model").codes, ("AUDIO_NOT_LOCAL",))
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux isolation required")
+    def test_current_rights_revoked_during_runner_never_return_current(self):
+        guard = permission_guard(hash_source=self.source_sha)
+        original_reader = guard.read_current
+        seen = 0
+
+        def mutable_record(subject):
+            nonlocal seen
+            seen += 1
+            record = original_reader(subject)
+            return replace(record, rights_status="REVOKED") if seen >= 3 else record
+
+        guard.read_current = mutable_record
+        result = self.call(rights=guard)
+        self.assertEqual(result.status, "BLOCKED")
+        self.assertEqual(result.codes, ("SOURCE_USE_REVOKED",))
+        self.assertEqual(result.turns, ())
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux namespace required")
+    def test_real_engine_sandbox_mounts_only_needed_paths(self):
+        import subprocess
+        from dichiarazioni_pubbliche.diarization_candidate_process import _real_sandbox_prefix
+
+        command = _real_sandbox_prefix(self.audio, self.model_dir)
+        probe = subprocess.run(
+            [*command, "--", sys.executable, "-c",
+             "from pathlib import Path; import json; print(json.dumps({"
+             "'host_etc': Path('/etc/passwd').exists(), "
+             "'audio': Path(" + repr(str(self.audio)) + ").is_file(), "
+             "'model': Path(" + repr(str(self.model_dir)) + ").is_dir()}))"],
+            check=True, capture_output=True, text=True, timeout=5,
+        )
+        observed = __import__("json").loads(probe.stdout)
+        self.assertEqual(observed, {"host_etc": False, "audio": True, "model": True})
+
+
 if __name__ == "__main__":
     unittest.main()

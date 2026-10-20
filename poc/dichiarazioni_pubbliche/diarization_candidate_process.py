@@ -75,6 +75,42 @@ def _kill_group(proc: subprocess.Popen) -> None:
     proc.wait()
 
 
+def _real_sandbox_prefix(media: Path, model: Path) -> list[str]:
+    """Expose only Python, the adapter, and the two approved local inputs.
+
+    No host /etc, home, arbitrary /var, or writable source/model mount.  The
+    isolated runtime may still need separately approved dependency provisioning.
+    """
+    bwrap = shutil.which("bwrap")
+    if not bwrap or not Path("/usr/bin/python3").exists():
+        raise RunnerIsolationError("ENGINE_NETNS_REQUIRED")
+    code_root = Path(__file__).resolve().parents[1]
+    python_prefix = Path(sys.prefix).absolute()
+    paths = (media, model, code_root, python_prefix)
+    if (any(not item.is_absolute() or any(p.is_symlink() for p in (item, *item.parents))
+            for item in paths) or python_prefix == Path("/")):
+        raise RunnerIsolationError("ENGINE_LOCAL_PATH_UNSAFE")
+    mounts = [code_root, model, media]
+    if not python_prefix.is_relative_to(Path("/usr")):
+        mounts.append(python_prefix)
+    command = [bwrap, "--die-with-parent", "--unshare-net", "--unshare-pid",
+               "--unshare-ipc", "--ro-bind", "/usr", "/usr",
+               "--symlink", "usr/bin", "/bin", "--symlink", "usr/lib", "/lib",
+               "--symlink", "usr/lib64", "/lib64", "--proc", "/proc",
+               "--dev", "/dev", "--tmpfs", "/tmp", "--tmpfs", "/run"]
+    created: set[Path] = set()
+    for target in mounts:
+        for parent in reversed(target.parents):
+            if (parent == Path("/") or parent.is_relative_to(Path("/usr"))
+                    or parent in {Path("/tmp"), Path("/run"), Path("/dev"), Path("/proc")}
+                    or parent in created):
+                continue
+            command.extend(("--dir", str(parent)))
+            created.add(parent)
+        command.extend(("--ro-bind", str(target), str(target)))
+    return [*command, "--chdir", "/tmp"]
+
+
 def execute_candidate(
     runner: object, media: Path, model: Path, *, engine_id: str,
     input_sha256: str, duration_ms: int, wall_ms: int, address_bytes: int,
@@ -96,11 +132,7 @@ def execute_candidate(
     # Real engines require a Linux namespace without network interfaces. CI's
     # synthetic runners never import or execute actual models/providers.
     if not fixture:
-        if not shutil.which("bwrap") or Path("/var/run").resolve() != Path("/run"):
-            raise RunnerIsolationError("ENGINE_NETNS_REQUIRED")
-        command = [shutil.which("bwrap"), "--die-with-parent", "--unshare-net",
-                   "--unshare-pid", "--unshare-ipc", "--ro-bind", "/", "/",
-                   "--tmpfs", "/run", "--", *command]
+        command = [*_real_sandbox_prefix(media, model), "--", *command]
     # util-linux prlimit applies resource ceilings *before* execing Python;
     # unlike preexec_fn, this avoids running Python after fork in a threaded
     # parent server. The launcher itself belongs to the bounded child group.
@@ -118,7 +150,8 @@ def execute_candidate(
     env["PYTHONPATH"] = os.pathsep.join((str(package_root), str(package_root.parent)))
     env.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
                HF_HUB_DISABLE_TELEMETRY="1", PYANNOTE_METRICS_ENABLED="0",
-               HF_DATASETS_OFFLINE="1", OMP_NUM_THREADS="2")
+               HF_DATASETS_OFFLINE="1", OMP_NUM_THREADS="2", HOME="/tmp",
+               HF_HOME="/tmp/hf", XDG_CACHE_HOME="/tmp")
     started = time.monotonic_ns()
     with tempfile.TemporaryFile() as result_file:
         try:

@@ -232,7 +232,10 @@ def run_offline_candidate(
         source_use_guard.require("ASR_MEDIA", content_sha256=permit.input_sha256)
     except SourceUseBlocked as exc:
         return _block(exc.code)
-    if not media_path.is_file() or media_path.is_symlink():
+    if (not media_path.is_absolute() or not model_dir.is_absolute()
+            or any(part.is_symlink() for path in (media_path, model_dir)
+                   for part in (path, *path.parents))
+            or not media_path.is_file()):
         return _block("AUDIO_NOT_LOCAL")
     try:
         digest = hashlib.sha256()
@@ -256,6 +259,13 @@ def run_offline_candidate(
         return AnonymousDiarizationReceipt(CONTRACT, "ERROR_HELD", (exc.code,))
     except Exception:
         return AnonymousDiarizationReceipt(CONTRACT, "ERROR_HELD", ("ENGINE_FAILED_OR_UNSAFE_OUTPUT",))
+    # A source-use record may be revoked while an isolated inference runs.
+    # Re-read both grants before returning any CURRENT private artifact.
+    try:
+        source_use_guard.require("STORE_BODY", content_sha256=permit.input_sha256)
+        source_use_guard.require("ASR_MEDIA", content_sha256=permit.input_sha256)
+    except SourceUseBlocked as exc:
+        return _block(exc.code)
     resource_receipt = ResourceReceipt(
         engine_id=permit.engine_id, engine_version=permit.engine_version,
         model_id=permit.model_id, model_sha256=model_sha,
