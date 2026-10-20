@@ -44,7 +44,10 @@ SELECT json_build_object(
      AND rr.rights_receipt_ref IS NOT NULL
      AND rr.reviewed_at IS NOT NULL AND rr.reviewer_ref IS NOT NULL
      AND (rr.expires_at IS NULL OR rr.expires_at>current_timestamp)
-     AND rr.permitted_uses @> ARRAY['FETCH','PARSE_TEXT']::text[],false)
+     AND rr.permitted_uses @> (CASE
+       WHEN capture.parser_method='SCANNED_PDF_OCR_CANDIDATE'
+         THEN ARRAY['FETCH','PARSE_OCR']::text[]
+       ELSE ARRAY['FETCH','PARSE_TEXT']::text[] END),false)
    FROM private_source_rights_record rr
    WHERE rr.content_id=item.id
      AND NOT EXISTS (SELECT 1 FROM private_source_rights_record next
@@ -200,7 +203,10 @@ def read_studio_exact_source_jump(
 
     if capture.parser_method == DocumentTextParser.parser_method:
         parser = DocumentTextParser()
-    elif capture.media_type == "application/pdf":
+    elif capture.parser_method == "SCANNED_PDF_OCR_CANDIDATE" and capture.media_type == "application/pdf":
+        from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
+        parser = ScannedPDFOCRParser()
+    elif capture.parser_method == "NATIVE_PDF_TEXT_CANDIDATE" and capture.media_type == "application/pdf":
         from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
         parser = BornDigitalPDFTextParser()
     else:
@@ -270,6 +276,8 @@ def read_studio_exact_source_jump(
         observed_live_sha256=hashlib.sha256(live.body).hexdigest(),
         observed_live_url=live.final_url, original_source=origin,
         quote_text=quote_text,
+        verified_document_pages=(parsed.metadata.get("page_selectors")
+                                 if capture.media_type == "application/pdf" else None),
     )
     return {
         "contract_version": STUDIO_EXACT_JUMP_VERSION,
