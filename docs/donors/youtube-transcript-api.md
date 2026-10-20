@@ -35,3 +35,34 @@
 - **Issue overlap:** #169 independently requests the same donor as a *second*
   acquisition path. This #163 integration selects it as first caption attempt;
   #169 must be reviewed against its own AC and must remain open until accepted.
+
+## #169 — independent secondary-order opt-in (2026-10-20)
+
+- **Reuse:** the *same* upstream release `v1.2.4`, commit
+  `505f412a5a691cc1bac6430dd35144222c667598`, MIT (Jonas Depoix and
+  contributors), imported only through the existing `new_transcript_client()`;
+  upstream https://github.com/jdepoix/youtube-transcript-api and MIT notice above.
+  No duplicate donor/HTTP implementation and no copied upstream files.
+- **Distinct configurable order:** `DP_YOUTUBE_TRANSCRIPT_API=1` retains #163's
+  `youtube-transcript-api -> yt-dlp` first path. Set instead
+  `DP_YOUTUBE_TRANSCRIPT_API_SECONDARY=1` for `yt-dlp JSON3 ->
+  youtube-transcript-api`, with exactly one API attempt after a verified missing
+  or empty JSON3 caption (or absent yt-dlp executable); both flags enabled fail
+  at construction. Both unset keeps the original yt-dlp-only behavior.
+- **Safety boundary:** API secondary is attempted only for an unavailable selected
+  subtitle or a parseable but empty JSON3, never on unknown errors, malformed
+  non-JSON server bodies, ambiguous server failures (even when a later diagnostic
+  says "no subtitles"), 401/403/429/451,
+  IP-block, consent, login, challenge, CAPTCHA, private, region or video denial.
+  Access denials fail to `PlatformAccessRestricted` and remain `HELD` in the
+  worker; ambiguous failures stop acquisition without a second request;
+  donor rejects redirect/foreign caption hosts before an outbound request. Valid
+  YouTube video URL is required *before* yt-dlp in secondary mode. No cookies,
+  login, proxy, bypass, live fetch or extra aggressive retries introduced.
+- **One capture:** selected manual/automatic language, `it-orig` normalization,
+  segment timestamps, raw SHA-256, method/version/access_path, prior adapter
+  and stable fallback reason (`YT_DLP_CLIENT_MISSING` versus
+  `YT_DLP_CAPTION_UNAVAILABLE`) flow through the existing variant, private bytes
+  and `CAPTION_CAPTURE` receipts. Zero provider fee and **zero YouTube Data API
+  v3 units** remain in the existing canonical receipt writer. Availability
+  depends on upstream; all new acceptance fixtures are offline.

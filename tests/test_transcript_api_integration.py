@@ -274,3 +274,47 @@ class TranscriptApiAdapterTests(unittest.TestCase):
         self.assertEqual(written["receipt"]["access_path"],
                          "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION")
         handler.store.insert_transcript_variant.assert_not_called()
+
+    def test_secondary_yt_dlp_429_holds_with_correct_provider_receipt(self):
+        handler = TranscriptAsrJobHandlers()
+        handler.store = Mock()
+        handler.store.renew.return_value = True
+        handler.worker_id = "fixture"
+        handler.lease_seconds = 30
+        handler._require_current_ingestion_relevance = Mock()
+        handler.resolver = YouTubeResolver(
+            use_transcript_api=False, use_transcript_api_secondary=True,
+            transcript_api_factory=lambda: self.fail("API must not bypass 429"),
+        )
+        job = SimpleNamespace(
+            job_id="job:429", attempt=1,
+            payload={"canonical_url": "https://youtu.be/AbC123_dEfG",
+                     "external_id": "AbC123_dEfG", "caption_kind": "manual_caption",
+                     "caption_language": "it"},
+        )
+        blocked = SimpleNamespace(returncode=1, stderr="HTTP Error 429 Too Many Requests", stdout="")
+        with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                   return_value=blocked) as process:
+            with self.assertRaisesRegex(BlockedJob, "YOUTUBE_CAPTION_ACCESS_RESTRICTED"):
+                handler.acquire_caption(job, SimpleNamespace(content_id="content:429"))
+        process.assert_called_once()
+        receipt = handler.store.record_receipt.call_args.kwargs
+        self.assertEqual(receipt["status"], "ACCESS_RESTRICTED")
+        self.assertEqual(receipt["receipt"]["access_path"], "YT_DLP_PUBLIC_CAPTION")
+        self.assertEqual(receipt["receipt"]["capture_provenance"]["method"], "yt-dlp")
+        self.assertEqual(receipt["receipt"]["youtube_data_api_v3_quota_units"], 0)
+        handler.store.insert_transcript_variant.assert_not_called()
+
+    def test_secondary_does_not_downgrade_server_failure_to_missing_captions(self):
+        resolver = YouTubeResolver(
+            use_transcript_api=False, use_transcript_api_secondary=True,
+            transcript_api_factory=lambda: self.fail("ambiguous failure must not fall back"),
+        )
+        diagnostic = "ERROR: HTTP Error 500: Internal Server Error\nWARNING: no subtitles available"
+        with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                   return_value=SimpleNamespace(returncode=1, stderr=diagnostic, stdout="")) as process:
+            with self.assertRaisesRegex(RuntimeError, "YT_DLP_CAPTION_CAPTURE_FAILED") as held:
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG",
+                                         CaptionProbe("manual_caption", "it"))
+        self.assertIn("HTTP Error 500", str(held.exception.__cause__))
+        process.assert_called_once()
