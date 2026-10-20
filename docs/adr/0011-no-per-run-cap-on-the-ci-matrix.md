@@ -25,8 +25,8 @@ workload GitHub had already recorded.
 
 | metric | whole window | 13:30 onward, 15 pull requests open |
 | --- | --- | --- |
-| macOS queue | median 0.7 min, mean 1.9, p90 5.1, max 21.4 (48 jobs ≥ 5 min, 12 ≥ 10 min) | median 0.0, mean 1.7, p90 6.1, max 19.1 (15 of 100 jobs ≥ 5 min) |
-| Ubuntu queue | median 0.1, max 1.7 min — not contended | median 0.1, max 1.1 |
+| macOS queue | median 1.1 min, mean 2.1, p90 5.3, max 21.4 (48 jobs ≥ 5 min, 12 ≥ 10 min) | median 2.9, mean 3.5, p90 8.6, max 19.1 (15 of 100 jobs ≥ 5 min) |
+| Ubuntu queue | median 0.1, max 1.7 min — not contended | median 0.2, max 1.1 |
 | run wall clock | median 5.5 min, p90 10.7, max 28.2 | median 10.0 min, p90 15.9 |
 | macOS execution | median 3.9 min | median 4.0 min |
 | macOS pool | 1525 minutes, 41.9% of the 5 slots, **20.7% spent on runs that ended without a verdict** | 63.3% utilisation, **45.2% without a verdict** |
@@ -59,6 +59,10 @@ runs at 63.3% and still no per-run cap reduces the time an author waits.
 Do not add `strategy.max-parallel` and do not serialize macOS behind Linux. The
 matrix keeps its eight parallel jobs; the required check names, the matrix
 entries and every test stay exactly as branch protection expects them.
+
+A job only measures a queue once a runner picked it up: GitHub fills
+`started_at` when the job is enqueued too, so counting queued jobs as zero-wait
+understates the load (the tool counts them separately).
 
 Measure again before changing this: the 5-slot pool, the number of open pull
 requests and the duration of the suite all move. `tools/ci_matrix_capacity.py`

@@ -129,12 +129,17 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
             kind = job_runner_kind(job.get("labels"))
             started = _timestamp(job.get("started_at"))
             completed = _timestamp(job.get("completed_at"))
+            # A queued job already carries `started_at` (the moment it was
+            # enqueued), so counting it would report a zero wait that never
+            # happened. Only a job a runner actually picked up measures a queue.
+            began = job.get("status") != "queued" and started is not None
             sample = {
                 "run": run_id,
                 "name": job.get("name"),
                 "conclusion": job.get("conclusion"),
-                "queue": _minutes(started, created),
+                "queue": _minutes(started, created) if began else None,
                 "execution": _minutes(completed, started),
+                "queued": job.get("status") == "queued",
             }
             samples[kind].append(sample)
             if kind in pool_minutes and sample["execution"] is not None:
@@ -158,6 +163,8 @@ def summarize(runs: dict[str, dict], jobs: dict[str, list[dict]]) -> dict:
             "queue_over_5m": sum(1 for value in queued if value >= 5),
             "queue_over_10m": sum(1 for value in queued if value >= 10),
             "execution_median": percentile(executed, 0.50),
+            "queued_now": sum(1 for s in samples[kind] if s["queued"]),
+            "started": len(queued),
         }
     report["run_wall"] = {
         "median": percentile(wall, 0.50),

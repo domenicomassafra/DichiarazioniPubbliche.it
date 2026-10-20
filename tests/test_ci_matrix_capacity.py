@@ -19,13 +19,14 @@ import ci_matrix_capacity as capacity  # noqa: E402
 
 
 def job(name: str, labels: list[str], started: str | None, completed: str | None,
-        conclusion: str = "success") -> dict:
+        conclusion: str = "success", status: str | None = None) -> dict:
     return {
         "name": name,
         "labels": labels,
         "started_at": started,
         "completed_at": completed,
         "conclusion": conclusion,
+        "status": status or ("completed" if completed else "queued"),
     }
 
 
@@ -115,6 +116,20 @@ class SummarizeTests(unittest.TestCase):
         self.assertAlmostEqual(pool["macos_minutes"], 6.0)
         self.assertAlmostEqual(pool["macos_minutes_without_verdict"], 4.0)
         self.assertAlmostEqual(pool["macos_share_without_verdict"], 4.0 / 6.0)
+
+    def test_a_queued_job_reports_no_queue_it_never_waited(self):
+        # GitHub sets started_at when a job is enqueued, so a job with
+        # status=queued would otherwise report a zero wait.
+        runs = [run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:20:00Z", status="in_progress")]
+        jobs = {1: [
+            job("backend macos-latest / py3.11", MACOS, "2026-10-20T10:12:00Z", None),
+            job("backend macos-latest / py3.12", MACOS, "2026-10-20T10:05:00Z",
+                "2026-10-20T10:09:00Z"),
+        ]}
+        report = capacity.summarize({str(r["id"]): r for r in runs}, {str(k): v for k, v in jobs.items()})
+        self.assertEqual(report["macos"]["started"], 1)
+        self.assertEqual(report["macos"]["queued_now"], 1)
+        self.assertEqual(report["macos"]["queue_median"], 5.0)
 
     def test_a_run_still_in_flight_has_no_wall_clock(self):
         runs = [run(1, "2026-10-20T10:00:00Z", "2026-10-20T10:00:20Z", status="in_progress")]
