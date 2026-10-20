@@ -28,6 +28,10 @@ Those behaviors are **not accepted** for this product.
 The selected phases instead accept explicitly passed offline JSON fixtures,
 rejecting duplicate object keys (even in nested responses),
 validate source-span uniqueness and literal time/quantity references,
+check negation cues in the claim, source span and enclosing sentence across
+Italian, English, German, French and Spanish,
+block obvious reported-speech context even if fixture metadata incorrectly omits
+its flag,
 reject malformed/partial or policy-incompatible outputs, cap queries, and
 fail closed without retries, providers, NLTK, Playwright, models or network.
 `DP_LOKI_OFFLINE_POC=1` opts into **local comparison only**;
@@ -48,7 +52,9 @@ configuration and the incumbent `validate_provider_payload`,
 `validate_atomic_claim`, `compile_claim_research_plan` boundaries.
 Fixtures do **not** assert independent factual correctness, licensed
 live source availability or a measurable quality advantage over the
-current extraction. No upstream component is promoted to production
+current extraction. The negation and reported-speech guards are lexical and may HOLD
+ambiguous clause scopes; they do not establish semantic entailment or speaker identity.
+No upstream component is promoted to production
 without a separate rights-cleared gold benchmark and cost/quality evidence.
 
 The upstream repository's `requirements.txt` includes `openai>=1.0.0`,
