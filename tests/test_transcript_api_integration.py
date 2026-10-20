@@ -304,3 +304,17 @@ class TranscriptApiAdapterTests(unittest.TestCase):
         self.assertEqual(receipt["receipt"]["capture_provenance"]["method"], "yt-dlp")
         self.assertEqual(receipt["receipt"]["youtube_data_api_v3_quota_units"], 0)
         handler.store.insert_transcript_variant.assert_not_called()
+
+    def test_secondary_does_not_downgrade_server_failure_to_missing_captions(self):
+        resolver = YouTubeResolver(
+            use_transcript_api=False, use_transcript_api_secondary=True,
+            transcript_api_factory=lambda: self.fail("ambiguous failure must not fall back"),
+        )
+        diagnostic = "ERROR: HTTP Error 500: Internal Server Error\nWARNING: no subtitles available"
+        with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                   return_value=SimpleNamespace(returncode=1, stderr=diagnostic, stdout="")) as process:
+            with self.assertRaisesRegex(RuntimeError, "YT_DLP_CAPTION_CAPTURE_FAILED") as held:
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG",
+                                         CaptionProbe("manual_caption", "it"))
+        self.assertIn("HTTP Error 500", str(held.exception.__cause__))
+        process.assert_called_once()

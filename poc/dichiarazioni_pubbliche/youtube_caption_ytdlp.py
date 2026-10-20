@@ -6,7 +6,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from dichiarazioni_pubbliche.youtube_caption_fallback import yt_dlp_access_denied
+from dichiarazioni_pubbliche.youtube_caption_fallback import (
+    yt_dlp_access_denied, yt_dlp_caption_unavailable,
+)
 
 
 class YtDlpAccessDenied(RuntimeError):
@@ -27,8 +29,11 @@ def download_youtube_json3(yt_dlp: str, video_url: str, language: str, kind: str
         if yt_dlp_access_denied(diagnostic):
             raise YtDlpAccessDenied("YT_DLP_CAPTION_ACCESS_RESTRICTED")
         if proc.returncode != 0:
-            lines = (proc.stderr or proc.stdout).strip().splitlines()
-            detail = (lines[-1] if lines else "yt-dlp caption capture failed")[:800]
+            # Keep the preceding diagnostic: its HTTP/server failure may be
+            # followed by an incidental "no subtitles" line.
+            detail = (diagnostic.strip() or "yt-dlp caption capture failed")[:800]
+            if yt_dlp_caption_unavailable(RuntimeError(diagnostic)) is None:
+                raise RuntimeError("YT_DLP_CAPTION_CAPTURE_FAILED") from RuntimeError(detail)
             raise RuntimeError(detail)
         paths = sorted(Path(tmp).glob("caption*.json3"))
         if len(paths) != 1:

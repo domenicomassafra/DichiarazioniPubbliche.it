@@ -27,6 +27,12 @@ _MISSING_CAPTIONS = (
     "json3 caption contains no usable segments",
 )
 
+_AMBIGUOUS_FAILURES = (
+    "http error", "http 5", "error 5", "server error", "internal server",
+    "bad gateway", "gateway timeout", "network error", "connection error",
+    "connection reset", "timed out", "timeout", "proxy error",
+)
+
 
 def yt_dlp_access_denied(message: str) -> bool:
     """Conservative detector for access refusals in yt-dlp diagnostics."""
@@ -40,7 +46,9 @@ def yt_dlp_caption_unavailable(exc: Exception) -> str | None:
         return "YT_DLP_CLIENT_MISSING"
     if isinstance(exc, (RuntimeError, ValueError)):
         message = str(exc).casefold()
-        if not yt_dlp_access_denied(message) and any(
+        if not yt_dlp_access_denied(message) and not any(
+            marker in message for marker in _AMBIGUOUS_FAILURES
+        ) and any(
             marker in message for marker in _MISSING_CAPTIONS
         ):
             return "YT_DLP_CAPTION_UNAVAILABLE"
