@@ -6,8 +6,10 @@ commit `65882eee9f5cdbeeb2d877f1131d48cf241b327d`
 (checked by `git ls-remote`), MIT license. Optional Python dependency
 `faster-whisper==1.2.1`; project imports it only in the opted-in private worker
 child. Reuse upstream `WhisperModel`/CTranslate2 directly (no upstream source
-copies). The MIT donor attribution and notices remain upstream; its license is
-**not** an assertion that any model, converted weights, Silero VAD assets,
+copies). The MIT donor attribution and notices remain upstream.
+Copyright (c) 2023 SYSTRAN; retain upstream `LICENSE` and copyright notice
+when redistributing the dependency. No faster-whisper source is vendored.
+The donor's MIT license is **not** an assertion that any model, converted weights, Silero VAD assets,
 audio fixture or transitive native library is licensed identically.
 Before installing the optional extra, review the actual installed wheels
 and bundled FFmpeg/PyAV/CTranslate2 binaries for notices and LGPL/GPL terms;
