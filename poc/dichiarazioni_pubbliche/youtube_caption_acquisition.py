@@ -4,6 +4,9 @@ from __future__ import annotations
 from dichiarazioni_pubbliche.platform_transcript import CaptionProbe, PlatformAccessRestricted, VideoCandidate
 from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob
 from dichiarazioni_pubbliche.worker_errors import BlockedJob, RetryableJob
+from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
+from dichiarazioni_pubbliche.youtube_caption_rights import caption_source_guard
+from dichiarazioni_pubbliche.youtube_caption_variant_store import insert_rights_bound_caption_variant
 from dichiarazioni_pubbliche.youtube_caption_receipts import (
     caption_source_kind as _caption_source_kind,
     record_caption_receipt as _record_caption_receipt,
@@ -12,6 +15,33 @@ from dichiarazioni_pubbliche.youtube_caption_receipts import (
 
 
 class CaptionAcquisitionHandler:
+    def _insert_caption_variant(self, *, guard, **kwargs):
+        try:
+            return insert_rights_bound_caption_variant(self.store, guard, **kwargs)
+        except SourceUseBlocked as exc:
+            raise BlockedJob(exc.code) from None
+
+    def _caption_rights_guard(self, content: ContentRecord, url: str):
+        try:
+            return caption_source_guard(self.store, content_id=content.content_id, url=url)
+        except SourceUseBlocked as exc:
+            raise BlockedJob(exc.code) from None
+
+    @staticmethod
+    def _caption_rights_receipt(guard):
+        try:
+            fetch = guard.require("FETCH")
+            store_body = guard.require("STORE_BODY")
+        except SourceUseBlocked as exc:
+            raise BlockedJob(exc.code) from None
+        return {
+            "source_rights_record_id": guard.rights_record_id,
+            "source_rights_fingerprints": {
+                "FETCH": fetch.decision_fingerprint,
+                "STORE_BODY": store_body.decision_fingerprint,
+            },
+        }
+
     def _probe_and_enqueue_caption(
         self,
         job: ProcessingJob,
@@ -23,6 +53,8 @@ class CaptionAcquisitionHandler:
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_CAPTION_PROBE", 0)
         self._require_current_ingestion_relevance(content)
+        rights = self._caption_rights_guard(content, candidate.canonical_url)
+        rights_receipt = self._caption_rights_receipt(rights)
         try:
             probe = self.resolver.probe_caption(candidate.canonical_url)
         except PlatformAccessRestricted:
@@ -43,8 +75,8 @@ class CaptionAcquisitionHandler:
                 },
                 request_key=f"{candidate.video_id}:attempt:{job.attempt}",
             )
-            self._enqueue_asr(content, reason="YOUTUBE_COPY_ACCESS_RESTRICTED")
-            return
+            # A platform restriction cannot trigger a different transcript route.
+            raise BlockedJob("YOUTUBE_CAPTION_ACCESS_RESTRICTED")
         except Exception as exc:
             _record_caption_receipt(self.store,
                 job_id=job.job_id,
@@ -66,6 +98,7 @@ class CaptionAcquisitionHandler:
             raise RetryableJob(f"CAPTION_PROBE_FAILED:{type(exc).__name__}") from exc
 
         self._require_current_ingestion_relevance(content)
+        rights_receipt = self._caption_rights_receipt(rights)
         _record_caption_receipt(self.store,
             job_id=job.job_id,
             content_id=content.content_id,
@@ -82,10 +115,16 @@ class CaptionAcquisitionHandler:
                 "caption_found": probe is not None,
                 "caption_kind": probe.kind if probe else None,
                 "caption_language": probe.language if probe else None,
+                **rights_receipt,
             },
             request_key=f"{candidate.video_id}:attempt:{job.attempt}",
         )
         if probe is None:
+            # Caption read/storage clearance does not grant audio transcription.
+            try:
+                rights.require("ASR_MEDIA")
+            except SourceUseBlocked as exc:
+                raise BlockedJob(exc.code) from None
             self._enqueue_asr(content, reason="NO_ITALIAN_PLATFORM_CAPTION")
             return
 
@@ -127,6 +166,8 @@ class CaptionAcquisitionHandler:
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_CAPTION_CAPTURE", 0)
         self._require_current_ingestion_relevance(content)
+        rights = self._caption_rights_guard(content, url)
+        rights_receipt = self._caption_rights_receipt(rights)
         try:
             capture = self.resolver.capture_caption(url, probe)
         except PlatformAccessRestricted as exc:
@@ -172,8 +213,10 @@ class CaptionAcquisitionHandler:
             ) from exc
 
         self._require_current_ingestion_relevance(content)
+        rights_receipt = self._caption_rights_receipt(rights)
         source_kind = _caption_source_kind(probe)
-        variant_id, inserted = self.store.insert_transcript_variant(
+        variant_id, inserted = self._insert_caption_variant(
+            guard=rights,
             content_id=content.content_id,
             provider_id="youtube",
             source_kind=source_kind,
@@ -182,19 +225,15 @@ class CaptionAcquisitionHandler:
             raw_text_sha256=capture.raw_text_sha256,
             is_platform_caption=True,
             is_manual_caption=probe.kind == "manual_caption",
+            segments=_segment_rows(capture),
             metadata={
                 "raw_caption_sha256": capture.raw_sha256,
                 "video_id": job.payload.get("external_id"),
                 "caption_kind": probe.kind,
                 "capture_provenance": capture.provenance,
+                **rights_receipt,
             },
         )
-        if inserted:
-            self.store.insert_transcript_segments(
-                variant_id=variant_id,
-                segments=_segment_rows(capture),
-            )
-
         receipt = {
             "raw_caption_sha256": capture.raw_sha256,
             "raw_text_sha256": capture.raw_text_sha256,
@@ -204,7 +243,11 @@ class CaptionAcquisitionHandler:
             "variant_id": variant_id,
             "capture_provenance": capture.provenance,
             "access_path": capture.provenance.get("access_path", "YT_DLP_PUBLIC_CAPTION"),
+            **rights_receipt,
         }
+        # Recheck after database writes, immediately before private raw bytes.
+        rights_receipt = self._caption_rights_receipt(rights)
+        receipt.update(rights_receipt)
         self.private_store.persist_caption(
             content_id=content.content_id,
             variant_id=variant_id,

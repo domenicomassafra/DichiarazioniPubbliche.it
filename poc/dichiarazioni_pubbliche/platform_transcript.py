@@ -17,7 +17,7 @@ from dichiarazioni_pubbliche.caption_adapter import (
     CaptionSegment, parse_transcript_api_snippets, parse_youtube_json3,
 )
 from dichiarazioni_pubbliche.youtube_caption_fallback import (
-    yt_dlp_caption_unavailable,
+    yt_dlp_access_denied, yt_dlp_caption_unavailable,
 )
 from dichiarazioni_pubbliche.youtube_caption_ytdlp import (
     YtDlpAccessDenied, download_youtube_json3,
@@ -238,18 +238,13 @@ class YouTubeResolver:
             text=True,
         )
         if proc.returncode != 0:
-            message = (proc.stderr or proc.stdout).strip().splitlines()
+            diagnostic = f"{proc.stderr or ''}\n{proc.stdout or ''}"
+            message = diagnostic.strip().splitlines()
             detail = (message[-1] if message else "yt-dlp metadata probe failed")[:800]
-            lowered = detail.casefold()
-            if any(
-                marker in lowered
-                for marker in (
-                    "available to this channel's members",
-                    "members-only content",
-                    "private video",
+            if yt_dlp_access_denied(diagnostic):
+                raise PlatformAccessRestricted(
+                    "YT_DLP_METADATA_ACCESS_RESTRICTED", access_path="YT_DLP_PUBLIC_CAPTION",
                 )
-            ):
-                raise PlatformAccessRestricted(detail)
             raise RuntimeError(detail)
         return json.loads(proc.stdout)
 
