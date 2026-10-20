@@ -28,8 +28,9 @@ from tests.test_capture_pipeline import (  # noqa: E402
 ITALIAN_ARTICLE = """<!doctype html><html lang="it"><head>
 <meta charset="utf-8"><title>Notizie della mattina - Giornale esempio</title>
 <meta property="og:title" content="Conferenza sul trasporto pubblico">
+<meta property="article:published_time" content="2026-10-19T09:15:00+02:00">
 <link rel="canonical" href="https://example.test/conferenza">
-<script type="application/ld+json">{"@type":"NewsArticle","headline":"Conferenza sul trasporto pubblico"}</script>
+<script type="application/ld+json">{"@type":"NewsArticle","headline":"Conferenza sul trasporto pubblico","datePublished":"2026-10-19T09:15:00+02:00"}</script>
 </head><body><header><nav>Home Politica Sport Economia Abbonati</nav></header>
 <aside>Accetta tutti i cookie e iscriviti alla newsletter</aside>
 <main><article><h1>Conferenza sul trasporto pubblico</h1>
@@ -99,6 +100,19 @@ class TrafilaturaAdapterTests(unittest.TestCase):
         self.assertNotIn("cookie", result.canonical_text)
         self.assertNotIn("Conferenza sul trasporto pubblico", result.canonical_text)
         self.assertEqual(result.metadata["meta"]["og:title"], "Conferenza sul trasporto pubblico")
+        self.assertEqual(
+            result.metadata["meta"]["article:published_time"],
+            "2026-10-19T09:15:00+02:00",
+        )
+        self.assertEqual(
+            result.metadata["jsonld_identity"][0]["datePublished"],
+            "2026-10-19T09:15:00+02:00",
+        )
+        self.assertEqual(
+            stdlib.metadata["jsonld_identity"][0]["datePublished"],
+            result.metadata["jsonld_identity"][0]["datePublished"],
+        )
+        self.assertNotIn("2026-10-19T09:15", result.canonical_text)
         self.assertEqual(result.metadata["canonical_url_candidates"], ["https://example.test/conferenza"])
         self.assertEqual(result.metadata["html_extraction"]["actual_parser"], TRAFILATURA_PARSER_VERSION)
         self.assertEqual(extraction.call_count, 1)
@@ -246,6 +260,20 @@ class RealTrafilaturaFixtureTests(unittest.TestCase):
                 self.assertNotIn("Cookie policy", donor.canonical_text)
                 self.assertNotIn("Abbonati", donor.canonical_text)
                 self.assertTrue(donor.spans)
+                if html == ITALIAN_ARTICLE:
+                    self.assertEqual(
+                        donor.metadata["jsonld_identity"][0]["datePublished"],
+                        "2026-10-19T09:15:00+02:00",
+                    )
+                    self.assertEqual(
+                        donor.metadata["meta"]["article:published_time"],
+                        baseline.metadata["meta"]["article:published_time"],
+                    )
+                else:
+                    self.assertNotIn("article:published_time", donor.metadata["meta"])
+                    self.assertFalse(any(
+                        "datePublished" in row for row in donor.metadata["jsonld_identity"]
+                    ))
 
 
 if __name__ == "__main__":
