@@ -350,6 +350,11 @@ class DvnsSourceSuitabilityTests(unittest.TestCase):
                     self.assertEqual(result.candidate_state, HELD)
                     self.assertIn(expected, result.blocking_reasons)
                     self.assertEqual(result.records[0].candidate_state, HELD)
+                    self.assertIn(expected, result.records[0].reason_codes)
+                    self.assertEqual(
+                        result.records[0].source_record_id,
+                        "dataset:missioni:2026-q2:it",
+                    )
                     self.assertIsNone(result.records[0].metric_match)
 
 
