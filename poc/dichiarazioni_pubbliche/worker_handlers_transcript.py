@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dichiarazioni_pubbliche.asr_router import plan_asr
+from dichiarazioni_pubbliche.asr_router import ProviderState, plan_asr
 from dichiarazioni_pubbliche.youtube_caption_acquisition import CaptionAcquisitionHandler
 from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ROUTE
@@ -67,7 +67,16 @@ class TranscriptAsrJobHandlers:
             raise BlockedJob("ASR_DURATION_UNKNOWN")
         duration_seconds = max(int(round(content.duration_ms / 1000)), 1)
         try:
-            routing = plan_asr(duration_seconds=duration_seconds)
+            # A URL-only generic dispatch cannot carry the operator-reviewed
+            # local WAV rights/hash/model receipt. Keep those routes manual
+            # even if a later model canary marks the provider proven.
+            routing = plan_asr(
+                duration_seconds=duration_seconds,
+                states={
+                    LOCAL_PROVIDER_ID: ProviderState(LOCAL_PROVIDER_ID, enabled=False),
+                    FASTER_PROVIDER_ID: ProviderState(FASTER_PROVIDER_ID, enabled=False),
+                },
+            )
         except RuntimeError as exc:
             raise BlockedJob(str(exc)) from exc
         payload = {
