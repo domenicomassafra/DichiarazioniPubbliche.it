@@ -46,12 +46,16 @@ def _describe_runner(runner: object) -> tuple[str, str, dict]:
     if not inspect.isfunction(runner) or "<locals>" in runner.__qualname__:
         raise RunnerIsolationError("ENGINE_RUNNER_NOT_IMPORTABLE")
     module, name = runner.__module__, runner.__qualname__
-    fixture = module == "tests.test_diarization_candidate_adapter" and name in {
+    fixture = module in {"tests.test_diarization_candidate_adapter", "test_diarization_candidate_adapter"} and name in {
         "fixture_runner", "hung_runner", "memory_hog_runner", "oversized_stdout_runner",
     }
     approved = module == "dichiarazioni_pubbliche.diarization_candidate_adapter" and name == "pyannote_local_runner"
     if not (fixture or approved):
         raise RunnerIsolationError("ENGINE_RUNNER_NOT_APPROVED")
+    if fixture:
+        # `unittest discover -s tests` imports this file without `tests.`.
+        # Resolve it in the child through the same canonical, pinned fixture.
+        module = "tests.test_diarization_candidate_adapter"
     try:
         encoded = json.dumps(kwargs, allow_nan=False, separators=(",", ":")).encode()
         decoded = json.loads(encoded)
