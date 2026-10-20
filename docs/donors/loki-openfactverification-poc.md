@@ -37,7 +37,9 @@ and `publication_authority=false`. All results stay `HOLD` even
 for positive proposed clauses. There is no storage, verdict, score,
 approval, retrieval, query dispatch, promotion or public projection hook.
 
-The comparison tests cover synthetic Italian compound numbers, English,
+The comparison tests cover an existing offline `poc/fixtures/italian_cases.json`
+claim (its benchmark's `SUPPORTED/PUBLISH` expected label remains inaccessible
+as a POC verdict), synthetic Italian compound numbers, English,
 German and French dates/quantities, reported speech, non-factual statements,
 malformed JSON/code-looking input, missing output, mismatched numbers,
 duplicate/overlapping source spans, fabricated query quantities, disabled

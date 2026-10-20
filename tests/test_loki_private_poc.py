@@ -73,6 +73,27 @@ class LokiPrivatePOCTests(unittest.TestCase):
         self.assertEqual(left.receipt["adapter"], ADAPTER_VERSION)
         self.assertNotIn(payload["doc"], str(left.receipt))
 
+    def test_repository_italian_fixture_never_inherits_expected_verdict(self):
+        repository_cases = json.loads(
+            (Path(__file__).resolve().parents[1] / "poc" / "fixtures"
+             / "italian_cases.json").read_text(encoding="utf-8")
+        )
+        case = next(row for row in repository_cases["cases"]
+                    if row["case_id"] == "rocca-employment-july-2026-supported")
+        claim = case["claim_text"]
+        result = self.poc.compare(**fixture(
+            claim, {claim: claim}, {claim: "NUMERIC_STATISTIC"},
+            {claim: "Yes"},
+            {claim: ["Quale fonte primaria documenta il tasso di occupazione?"]},
+        ))
+        self.assertEqual(case["expected_evaluation_outcome"], "SUPPORTED")
+        self.assertEqual(case["expected_publication"], "PUBLISH")
+        self.assertEqual(result.status, "HOLD")
+        self.assertEqual(len(result.proposals), 1)
+        self.assertFalse(result.receipt["publication_authority"])
+        self.assertNotIn("SUPPORTED", str(result.receipt))
+        self.assertNotIn("PUBLISH", str(result.receipt))
+
     def test_english_german_french_multilingual_private_fixture_parity(self):
         cases = [
             ("In 2024 the city opened 8 clinics.", "en",
