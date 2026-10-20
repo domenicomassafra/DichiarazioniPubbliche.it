@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 
 from dichiarazioni_pubbliche.studio_capture_diff_browser import CAPTURE_DIFF_BROWSER_JS
+from dichiarazioni_pubbliche.studio_capture_route_browser import CAPTURE_ROUTE_BROWSER_JS
 from dichiarazioni_pubbliche.studio_exact_source_jump_browser import (
     EXACT_JUMP_BROWSER_JS, EXACT_JUMP_FORM_HTML,
 )
@@ -505,6 +506,7 @@ _PAGE = """<!doctype html>
     const SAFE_REF = /^[A-Za-z0-9_:/.-]{1,180}$/;
     const SAFE_SHA256 = /^[0-9a-f]{64}$/;
     __CAPTURE_DIFF_BROWSER_HELPERS__
+    __CAPTURE_ROUTE_BROWSER_HELPERS__
     __EXACT_SOURCE_JUMP_BROWSER_HELPERS__
     let selectedCorpusButton = null;
     let selectedCorpusReference = null;
@@ -1685,7 +1687,7 @@ _PAGE = """<!doctype html>
             return;
           }
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
-          results.textContent = [compareForm, capturePassageForm, mediaForm].includes(form)
+          results.textContent = [compareForm, capturePassageForm, mediaForm, collectionCaptureForm].includes(form)
             ? 'Solo coordinate e hash verificati nel pannello Catture.'
             : JSON.stringify(receipt, null, 2);
           if (response.ok && form === mediaForm) {
@@ -1802,25 +1804,12 @@ _PAGE = """<!doctype html>
             }
           }
           if (form === collectionCaptureForm) {
-            const captureData = receipt.data;
-            if (!response.ok || receipt.contract_version !== 'studio-local-readonly-api-v1'
-                || captureData?.contract_version !== 'studio-collection-captures-v1'
-                || captureData.private_only !== true || captureData.publication_authority !== false
-                || captureData.rights_clearance !== false || captureData.capture_authorized !== false
-                || captureData.collection_id !== data.collection_id || captureData.content_id !== data.content_id
-                || !SAFE_REF.test(captureData.source_id) || captureData.source_exists !== true
-                || !Array.isArray(captureData.captures) || captureData.captures.length > 20) {
+            const captureData = response.ok ? safeCollectionCaptures(receipt, data) : null;
+            if (!captureData) {
               collectionCaptureSummary.textContent = 'Versioni non verificabili: nessun riferimento disponibile.';
               return;
             }
             const captures = captureData.captures;
-            const valid = captures.every(item => SAFE_REF.test(item.id)
-              && SAFE_SHA256.test(item.content_sha256)
-              && typeof item.observed_at === 'string' && !Number.isNaN(Date.parse(item.observed_at)));
-            if (!valid) {
-              collectionCaptureSummary.textContent = 'Risposta non conforme: nessun riferimento disponibile.';
-              return;
-            }
             collectionCaptureSummary.textContent = captures.length
               ? 'Content ' + captureData.content_id + ' · fonte ' + captureData.source_id
                 + ' · diritti ' + captureData.rights_status
@@ -1947,6 +1936,7 @@ def render_studio_login_page(nonce: str) -> bytes:
         raise ValueError("STUDIO_LOCAL_PAGE_NONCE_INVALID")
     return (_PAGE.replace("__NONCE__", nonce)
             .replace("__CAPTURE_DIFF_BROWSER_HELPERS__", CAPTURE_DIFF_BROWSER_JS)
+            .replace("__CAPTURE_ROUTE_BROWSER_HELPERS__", CAPTURE_ROUTE_BROWSER_JS)
             .replace("__EXACT_SOURCE_JUMP_FORM__", EXACT_JUMP_FORM_HTML)
             .replace("__EXACT_SOURCE_JUMP_BROWSER_HELPERS__", EXACT_JUMP_BROWSER_JS)).encode("utf-8")
 

@@ -12,9 +12,6 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page  # noqa: E402
 
 
-# The actual nonce-bound browser script executes with a deterministic, local
-# DOM/fetch implementation. Each response is intentionally provided after the
-# preceding UI action, so the test proves links are wired, not only HTML labels.
 _COLLECTION_VERTICAL_JS = r"""
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
@@ -96,6 +93,7 @@ async function main() {
   await drain();
   const memberLink = ids.get('member-links').children[0];
   assert.ok(memberLink, 'Collection must open a Content link');
+  forms['/v1/collections/captures'].fields.limit = '20';
   memberLink.fire('click');
   assert.equal(requests.at(-1).path, '/v1/collections/member');
   reply({...base, collection_id: 'research:pilot', content_id: 'content:one',
@@ -105,9 +103,10 @@ async function main() {
     ids.get('collection-capture-summary').textContent + ' / ' + ids.get('status').textContent);
   reply({...base, capture_authorized: false, contract_version: 'studio-collection-captures-v1',
     collection_id: 'research:pilot', content_id: 'content:one', source_id: 'source:one',
-    source_exists: true, rights_status: 'UNKNOWN', captures: [{id: 'capture:one',
+    source_exists: true, collection_state: 'ACTIVE', processing_status: 'HELD',
+    rights_status: 'UNKNOWN', has_more: false, next_after_id: null, captures: [{id: 'capture:one',
       content_sha256: sha, observed_at: '2026-10-11T18:00:00Z',
-      status: 'CAPTURED', archive_status: 'READY'}]});
+      status: 'CAPTURED', archive_status: 'SUCCEEDED'}]});
   await drain();
   const captureButton = ids.get('collection-capture-links').children[0];
   assert.ok(captureButton, 'Content must open a capture');
