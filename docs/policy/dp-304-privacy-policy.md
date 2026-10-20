@@ -157,7 +157,8 @@ minors/victims retain their exclusion and independent per-item review.
 `repository_launch_preflight()` includes these missing decisions in its
 deterministic NO-GO receipt even if all Q-306 rows were edited to `DECIDED`.
 The register reader rejects missing/extra families, unknown schema, duplicate
-keys, invalid basis/date/receipt formats, and optional-account exclusion if
+keys, invalid basis/date/receipt formats, missing Sol 6.1 High Pi Agent
+independent-review model/receipt/commit SHA/APPROVE outcome, and optional-account exclusion if
 the activation flag is enabled. An all-green mechanical check only reaches
 `PENDING-OWNER`; it does not publish content. Source-backed field inventory,
 actual operator access, account flags, log/backup retention and external processor

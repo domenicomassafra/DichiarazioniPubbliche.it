@@ -56,6 +56,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
         self.assertIn("PRIVACY_LAWFUL_BASIS_MISSING:PUBLIC_STATEMENTS", blockers)
         self.assertIn("PRIVACY_EVIDENCE_MISSING:PUBLIC_STATEMENTS", blockers)
         self.assertIn("PRIVACY_OWNER_DATE_MISSING:PUBLIC_STATEMENTS", blockers)
+        self.assertIn("PRIVACY_INDEPENDENT_REVIEW_MISSING:PUBLIC_STATEMENTS", blockers)
 
     def test_malformed_receipt_and_non_scalar_basis_never_pass(self):
         row = self.register["families"]["PUBLIC_STATEMENTS"]
@@ -83,6 +84,9 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 necessity_receipt=receipt, notice_receipt=receipt,
                 retention_receipt=receipt, access_receipt=receipt,
                 owner_decision_url=receipt, owner_decision_date="2026-10-20",
+                independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+                independent_review_receipt=receipt, independent_review_sha="a"*40,
+                independent_review_outcome="APPROVE",
             )
         self.assertEqual(evaluate_processing_decisions(self.register), ())
         plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
@@ -95,6 +99,43 @@ class ProcessingDecisionsTests(unittest.TestCase):
         )
         self.assertEqual(result.disposition, "PENDING-OWNER")
         self.assertFalse(result.launchable)
+
+    def test_approval_requires_distinct_review_model_receipt_sha_and_outcome(self):
+        row = self.register["families"]["SOURCE_COPIES"]
+        receipt = (
+            "https://github.com/domenicomassafra/"
+            "DichiarazioniPubbliche.it/issues/54#issuecomment-123456"
+        )
+        row.update(
+            status="APPROVED", lawful_basis="GDPR_ART_6_1_F",
+            necessity_receipt=receipt, notice_receipt=receipt,
+            retention_receipt=receipt, access_receipt=receipt,
+            owner_decision_url=receipt, owner_decision_date="2026-10-20",
+        )
+        expected = "PRIVACY_INDEPENDENT_REVIEW_MISSING:SOURCE_COPIES"
+        self.assertIn(expected, evaluate_processing_decisions(self.register))
+        row.update(
+            independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+            independent_review_receipt=receipt,
+            independent_review_sha="a"*40,
+            independent_review_outcome="APPROVE",
+        )
+        self.assertNotIn(expected, evaluate_processing_decisions(self.register))
+        for field, invalid in (
+            ("independent_review_model", "GPT_6"),
+            ("independent_review_receipt", "https://example.com/claim"),
+            ("independent_review_sha", "unreviewed"),
+            ("independent_review_outcome", "REQUEST_CHANGES"),
+        ):
+            with self.subTest(field=field):
+                row[field] = invalid
+                self.assertIn(expected, evaluate_processing_decisions(self.register))
+                row.update(
+                    independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+                    independent_review_receipt=receipt,
+                    independent_review_sha="a"*40,
+                    independent_review_outcome="APPROVE",
+                )
 
     def test_optional_accounts_exclusion_fails_if_activation_switches(self):
         self.assertEqual(

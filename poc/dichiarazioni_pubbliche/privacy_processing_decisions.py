@@ -30,6 +30,8 @@ _DECISION_FIELDS = frozenset({
     "purpose", "status", "lawful_basis", "necessity_receipt",
     "notice_receipt", "retention_receipt", "access_receipt",
     "owner_decision_url", "owner_decision_date",
+    "independent_review_model", "independent_review_receipt",
+    "independent_review_sha", "independent_review_outcome",
 })
 _EVIDENCE_FIELDS = (
     "necessity_receipt", "notice_receipt", "retention_receipt", "access_receipt",
@@ -39,6 +41,8 @@ _RECEIPT_URL = re.compile(
     r"https://github\.com/domenicomassafra/"
     r"DichiarazioniPubbliche\.it/issues/[1-9]\d*#issuecomment-[1-9]\d*\Z"
 )
+_REVIEWED_SHA = re.compile(r"[0-9a-f]{40}\Z")
+_INDEPENDENT_REVIEWER = "SOL_6_1_HIGH_PI_AGENT"
 _SPECIAL_EXCLUSIONS = {
     "special_category": "EXCLUDE_UNLESS_SEPARATELY_REVIEWED",
     "criminal_allegations": "EXCLUDE_UNLESS_SEPARATELY_REVIEWED",
@@ -94,6 +98,15 @@ def evaluate_processing_decisions(
             for key in _EVIDENCE_FIELDS
         ):
             blockers.append(f"PRIVACY_EVIDENCE_MISSING:{family}")
+        if (
+            row["independent_review_model"] != _INDEPENDENT_REVIEWER
+            or row["independent_review_outcome"] != "APPROVE"
+            or not isinstance(row["independent_review_receipt"], str)
+            or _RECEIPT_URL.fullmatch(row["independent_review_receipt"]) is None
+            or not isinstance(row["independent_review_sha"], str)
+            or _REVIEWED_SHA.fullmatch(row["independent_review_sha"]) is None
+        ):
+            blockers.append(f"PRIVACY_INDEPENDENT_REVIEW_MISSING:{family}")
         stamp = row["owner_decision_date"]
         try:
             if not isinstance(stamp, str) or date.fromisoformat(stamp).isoformat() != stamp:
