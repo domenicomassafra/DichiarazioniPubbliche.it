@@ -30,5 +30,29 @@ class PrecopyEvidenceLimitTests(unittest.TestCase):
                 self.assertEqual(str(poison.locator_ref), "locator:overflow")
 
 
+    def test_global_cap_across_valid_per_claim_sizes(self):
+        sample_claim = claim()
+        sample_evidence, _ = sources()
+        requirements = tuple(
+            replace(sample_claim, claim_id=f"claim:overflow:{n}")
+            for n in range(5)
+        )
+        evidence_by_claim = {
+            requirement.claim_id: (sample_evidence,) * 128
+            for requirement in requirements[:-1]
+        }
+        poison = replace(sample_evidence, locator_ref=GuardedField("locator:last"))
+        evidence_by_claim[requirements[-1].claim_id] = (poison,)
+        self.assertEqual(sum(map(len, evidence_by_claim.values())), 513)
+        self.assertTrue(all(len(rows) <= 128 for rows in evidence_by_claim.values()))
+        with patch(
+            "dichiarazioni_pubbliche.requirement_research_batch_v1._snap",
+            side_effect=AssertionError("EXCESS_EVIDENCE_SNAPSHOT"),
+        ) as snapshot:
+            with self.assertRaisesRegex(ValueError, "^BATCH_TOO_LARGE$"):
+                build_research_batch(requirements, evidence_by_claim)
+            snapshot.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
