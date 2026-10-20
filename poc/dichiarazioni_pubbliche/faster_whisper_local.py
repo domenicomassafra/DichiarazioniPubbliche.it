@@ -247,7 +247,10 @@ class FasterWhisperLocalTranscriber:
                         raise AsrTransientError("LOCAL_INFERENCE_BUSY") from exc
                     except subprocess.TimeoutExpired as exc:
                         raise AsrRequestRejected("FASTER_WHISPER_TIMEOUT") from exc
-                    if result.returncode != 0 or output.tell() > MAX_OUTPUT_BYTES:
+                    # An oversized single write can be partially accepted by
+                    # RLIMIT_FSIZE and still return 0. Exactly at the cap is
+                    # therefore an ambiguous, potentially truncated result.
+                    if result.returncode != 0 or output.tell() >= MAX_OUTPUT_BYTES:
                         raise AsrRequestRejected("FASTER_WHISPER_ENGINE_FAILED")
                     output.seek(0)
                     payload = json.loads(output.read(MAX_OUTPUT_BYTES + 1))

@@ -10,7 +10,7 @@ from subprocess import TimeoutExpired
 from unittest.mock import patch
 
 from dichiarazioni_pubbliche.faster_whisper_local import (
-    FasterWhisperLocalTranscriber, _parse_result, _verified_model_receipt,
+    FasterWhisperLocalTranscriber, MAX_OUTPUT_BYTES, _parse_result, _verified_model_receipt,
 )
 from dichiarazioni_pubbliche.local_inference_guard import local_inference_slot
 from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob
@@ -243,6 +243,20 @@ class FasterWhisperTests(unittest.TestCase):
                 self.adapter.transcribe(**self.params())
             spawn.side_effect = TimeoutExpired(cmd="faster", timeout=120)
             with self.assertRaisesRegex(AsrRequestRejected, "^FASTER_WHISPER_TIMEOUT$"):
+                self.adapter.transcribe(**self.params())
+
+    def test_child_output_exactly_at_file_cap_is_rejected_as_truncated(self):
+        with self.optin, self.host, patch(
+            "dichiarazioni_pubbliche.faster_whisper_local.importlib.metadata.version",
+            return_value="1.2.1",
+        ), patch("dichiarazioni_pubbliche.faster_whisper_local.subprocess.run") as spawn:
+            def partial_write(*args, **kwargs):
+                kwargs["stdout"].write(b"x" * MAX_OUTPUT_BYTES)
+                kwargs["stdout"].flush()
+                return type("Result", (), {"returncode": 0})()
+
+            spawn.side_effect = partial_write
+            with self.assertRaisesRegex(AsrRequestRejected, "^FASTER_WHISPER_ENGINE_FAILED$"):
                 self.adapter.transcribe(**self.params())
 
 
