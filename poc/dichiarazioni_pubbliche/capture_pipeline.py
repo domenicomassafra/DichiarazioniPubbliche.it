@@ -22,6 +22,7 @@ from dichiarazioni_pubbliche.corpus_repository import (
 )
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
+from dichiarazioni_pubbliche.capture_archive_flow import archive_capture
 from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 from dichiarazioni_pubbliche.corpus_retention import (
     COMPLETE_CAPTURE_ARCHIVE_SQL_V1,
@@ -1293,78 +1294,6 @@ def _capture_record(
     )
 
 
-def _archive_capture(
-    *,
-    store: CapturePipelineStore,
-    capture: ContentCaptureRecord,
-    body_store: CaptureBodyStore,
-    adapter: ArchiveAdapter,
-    actor_ref: str,
-) -> str:
-    provider = str(adapter.provider or "").strip()
-    if not provider:
-        return "ARCHIVE_PROVIDER_REQUIRED"
-    request_state = store.request_archive(
-        capture_id=capture.id,
-        provider=provider,
-        actor_ref=actor_ref,
-        receipt={"pipeline": CAPTURE_PIPELINE_VERSION},
-    )
-    if request_state not in {"ARCHIVE_REQUESTED"}:
-        return request_state
-    body_path = body_store.path(capture.body_ref) if capture.body_ref else None
-    try:
-        result = adapter.archive(capture=capture, body_path=body_path)
-        receipt = _safe_mapping(result.receipt, "archive_receipt")
-        if not receipt:
-            receipt = {"code": "ARCHIVE_EMPTY_RECEIPT"}
-        status = str(result.status or "").upper()
-        if status == "PENDING":
-            return store.mark_archive_pending(
-                capture_id=capture.id,
-                provider=provider,
-                actor_ref=actor_ref,
-                receipt=receipt,
-            )
-        if status == "SUCCEEDED":
-            archive_url = str(receipt.get("archive_url") or "").strip()
-            parsed_archive_url = urlsplit(archive_url)
-            try:
-                archive_port = parsed_archive_url.port
-            except ValueError:
-                archive_port = -1
-            if (
-                parsed_archive_url.scheme.lower() != "https"
-                or not parsed_archive_url.hostname
-                or parsed_archive_url.username is not None
-                or parsed_archive_url.password is not None
-                or archive_port not in {None, 443}
-            ):
-                status = "FAILED"
-                receipt = {
-                    "error_category": "ARCHIVE_SUCCESS_LOCATOR_INVALID",
-                    "pipeline": CAPTURE_PIPELINE_VERSION,
-                }
-        if status not in {"SUCCEEDED", "FAILED"}:
-            status = "FAILED"
-            receipt = {**receipt, "error_category": "ARCHIVE_STATUS_INVALID"}
-        return store.complete_archive(
-            capture_id=capture.id,
-            provider=provider,
-            actor_ref=actor_ref,
-            outcome=status,
-            receipt=receipt,
-        )
-    except Exception:
-        return store.complete_archive(
-            capture_id=capture.id,
-            provider=provider,
-            actor_ref=actor_ref,
-            outcome="FAILED",
-            receipt={"error_category": "ARCHIVE_ADAPTER_FAILURE", "pipeline": CAPTURE_PIPELINE_VERSION},
-        )
-
-
 def _persist_fetched_capture(
     *,
     content_id: str,
@@ -1630,6 +1559,15 @@ def capture_content(
     _validate_capture_target(url, final=False)
     _capture_response_limit(max_response_bytes)
     enrichment_policy = enrichment_policy or CaptureEnrichmentPolicy()
+    # The private CLI archive adapter carries a current revalidation guard of
+    # its own; require the exact same instance used by the capture pipeline.
+    if archive_adapter is not None and enrichment_policy.archive_enabled:
+        adapter_guard = getattr(archive_adapter, "source_use_guard", source_use_guard)
+        if adapter_guard is not source_use_guard:
+            raise CapturePipelineError("ARCHIVE_SOURCE_USE_GUARD_MISMATCH")
+        adapter_root = getattr(archive_adapter, "private_root", body_store.root)
+        if Path(adapter_root).resolve() != body_store.root:
+            raise CapturePipelineError("ARCHIVE_PRIVATE_ROOT_MISMATCH")
     parser = parser or StdlibVisibleTextParser(
         extract_metadata=enrichment_policy.metadata_enabled
     )
@@ -1787,7 +1725,13 @@ def capture_content(
     archive_status = "NOT_REQUESTED"
     if archive_adapter is not None and not enrichment_policy.archive_enabled:
         archive_status = "DISABLED_POLICY"
-    elif archive_adapter is not None and state == "INSERTED":
+    elif archive_adapter is not None and (
+        state == "INSERTED" or (
+            state == "EXISTING" and (
+                store.find_capture(content_id, primary.content_sha256) or {}
+            ).get("archive_status") == "FAILED"
+        )
+    ):
         if source_use_guard is not None:
             source_use_guard.require(
                 "ARCHIVE", content_sha256=primary.content_sha256, media_type=primary.media_type,
@@ -1804,12 +1748,20 @@ def capture_content(
             )
         except RuntimeError as exc:
             raise CapturePipelineError(str(exc)) from exc
-        archive_status = _archive_capture(
+        archive_status = archive_capture(
             store=store,
             capture=primary,
             body_store=body_store,
             adapter=archive_adapter,
             actor_ref=actor_ref,
+            pipeline_version=CAPTURE_PIPELINE_VERSION,
+            safe_mapping=_safe_mapping,
+        )
+    elif archive_adapter is not None and state == "EXISTING":
+        archive_status = str(
+            (store.find_capture(content_id, primary.content_sha256) or {}).get(
+                "archive_status", "NOT_REQUESTED",
+            )
         )
 
     oembed_status = "NOT_REQUESTED"

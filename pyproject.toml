@@ -51,6 +51,9 @@ capture-html = ["trafilatura==2.3.1"]
 # Optional, local-only Italian entity proposals. Model weights are separate:
 # an approved licensed model and pinned digest must be supplied explicitly.
 private-spacy = ["spacy==3.8.16"]
+# Private MiniPC-only candidate hints. Installing this extra never enables it;
+# the separately licensed model weights require a verified local receipt.
+semantic-candidates = ["sentence-transformers==6.1.0"]
 # Development-only tooling. Every bound is an upper bound so that a future
 # breaking release of a checker cannot silently change a contributor's results.
 dev = [
