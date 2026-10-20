@@ -96,10 +96,18 @@ def parse_feed(xml_text: str, family: str) -> list[FeedEntry]:
     if family == "youtube":
         if root.tag != f"{ATOM}feed":
             raise ValueError("YOUTUBE_ATOM_EXPECTED")
+        titles_by_id: dict[str, str] = {}
         for node in root.findall(f"{ATOM}entry"):
-            video_id = (node.findtext(f"{YT}videoId") or "").strip()
+            video_ids = node.findall(f"{YT}videoId")
+            if len(video_ids) > 1:
+                raise ValueError("YOUTUBE_ENTRY_VIDEO_ID_AMBIGUOUS")
+            video_id = ((video_ids[0].text if video_ids else "") or "").strip()
             if not video_id:
                 continue
+            title = node.findtext(f"{ATOM}title") or ""
+            if video_id in titles_by_id and titles_by_id[video_id] != title:
+                raise ValueError("YOUTUBE_ENTRY_TITLE_CONFLICT")
+            titles_by_id[video_id] = title
             alternate = node.find(f"{ATOM}link[@rel='alternate']")
             href = alternate.attrib.get("href") if alternate is not None else None
             rows.append(FeedEntry(

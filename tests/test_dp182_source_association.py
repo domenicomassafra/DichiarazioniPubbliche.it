@@ -133,6 +133,78 @@ class AssociationOfflineTests(unittest.TestCase):
         handler._probe_and_enqueue_caption.assert_not_called()
         handler._enqueue_asr.assert_not_called()
 
+
+    def test_single_entry_with_two_video_ids_blocks_all_downstream_work(self):
+        handler, job, content = self._worker()
+        xml = atom((VIDEO, "Pulp Podcast #64")).replace(
+            f"<yt:videoId>{VIDEO}</yt:videoId>",
+            f"<yt:videoId>{VIDEO}</yt:videoId>"
+            "<yt:videoId>Alt00000064</yt:videoId>",
+        )
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
+                   return_value=fetched(xml)):
+            with self.assertRaisesRegex(BlockedJob, "YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS"):
+                handler.resolve_platform(job, content)
+        handler.store.upsert_locator.assert_not_called()
+        handler._probe_and_enqueue_caption.assert_not_called()
+        handler._enqueue_asr.assert_not_called()
+
+    def test_duplicate_video_id_with_conflicting_episode_titles_blocks(self):
+        handler, job, content = self._worker()
+        xml = atom((VIDEO, "Pulp Podcast #64"), (VIDEO, "Pulp Podcast #65"))
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
+                   return_value=fetched(xml)):
+            with self.assertRaisesRegex(BlockedJob, "YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS"):
+                handler.resolve_platform(job, content)
+        handler.store.upsert_locator.assert_not_called()
+        handler._probe_and_enqueue_caption.assert_not_called()
+        handler._enqueue_asr.assert_not_called()
+
+    def test_conflicting_duplicate_channel_id_blocks_all_downstream_work(self):
+        handler, job, content = self._worker()
+        xml = atom((VIDEO, "Pulp Podcast #64")).replace(
+            f"<yt:channelId>{CHANNEL}</yt:channelId>",
+            f"<yt:channelId>{CHANNEL}</yt:channelId>"
+            "<yt:channelId>UC_unapproved_other</yt:channelId>",
+        )
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
+                   return_value=fetched(xml)):
+            with self.assertRaisesRegex(BlockedJob, "YOUTUBE_ASSOCIATED_CHANNEL_UNVERIFIED"):
+                handler.resolve_platform(job, content)
+        handler.store.upsert_locator.assert_not_called()
+        handler._probe_and_enqueue_caption.assert_not_called()
+        handler._enqueue_asr.assert_not_called()
+
+    def test_exact_repeated_entry_is_still_one_video_identity(self):
+        handler, job, content = self._worker()
+        xml = atom((VIDEO, "Pulp Podcast #64"), (VIDEO, "Pulp Podcast #64"))
+        with patch("dichiarazioni_pubbliche.podcast_youtube_resolution.fetch_bytes",
+                   return_value=fetched(xml)):
+            handler.resolve_platform(job, content)
+        handler.store.upsert_locator.assert_called_once()
+        handler._probe_and_enqueue_caption.assert_called_once()
+        handler._enqueue_asr.assert_not_called()
+
+    def test_feed_parser_rejects_multiple_video_ids_even_without_association(self):
+        from dichiarazioni_pubbliche.feed_parsing import parse_feed, _feedparser
+
+        xml = atom((VIDEO, "Pulp Podcast #64")).replace(
+            f"<yt:videoId>{VIDEO}</yt:videoId>",
+            f"<yt:videoId>{VIDEO}</yt:videoId>"
+            "<yt:videoId>Alt00000064</yt:videoId>",
+        )
+        conflicts = (
+            (xml, "YOUTUBE_ENTRY_VIDEO_ID_AMBIGUOUS"),
+            (atom((VIDEO, "Pulp Podcast #64"), (VIDEO, "Pulp Podcast #65")),
+             "YOUTUBE_ENTRY_TITLE_CONFLICT"),
+        )
+        for payload, reason in conflicts:
+            for parser in (None, _feedparser):
+                with self.subTest(reason=reason, optional_feedparser=bool(parser)):
+                    with patch("dichiarazioni_pubbliche.feed_parsing._feedparser", parser):
+                        with self.assertRaisesRegex(ValueError, reason):
+                            parse_feed(payload, "youtube")
+
     def test_http_redirect_is_refused_before_second_network_request(self):
         import socket
         from email.message import Message

@@ -52,7 +52,7 @@ def resolve_associated(
         VideoCandidate, _series_episode, choose_video_candidate,
     )
 
-    from dichiarazioni_pubbliche.feed_parsing import ATOM, YT
+    from dichiarazioni_pubbliche.feed_parsing import ATOM, YT, MAX_FEED_BYTES
     from dichiarazioni_pubbliche.source_associations import SourceAssociationBlocked
 
     if (source.get("id") != association.youtube_source_id
@@ -65,6 +65,8 @@ def resolve_associated(
     if fetched.final_url != catalog_url:
         raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_REDIRECT_UNAUTHORIZED")
     check_fetch(fetched.final_url)
+    if len(fetched.body) > MAX_FEED_BYTES:
+        raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_FEED_INVALID")
     payload = fetched.body.decode(fetched.charset or "utf-8")
     catalog_sha256 = hashlib.sha256(fetched.body).hexdigest()
     # Atom feed identity is authoritative for this lookup, including empty
@@ -73,18 +75,29 @@ def resolve_associated(
         root = ET.fromstring(payload)
     except ET.ParseError as exc:
         raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_FEED_INVALID") from exc
-    if (root.tag != f"{ATOM}feed"
-            or (root.findtext(f"{YT}channelId") or "").strip()
-            != association.youtube_channel_id):
+    channel_ids = root.findall(f"{YT}channelId")
+    if (root.tag != f"{ATOM}feed" or len(channel_ids) != 1
+            or (channel_ids[0].text or "").strip() != association.youtube_channel_id):
         raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_CHANNEL_UNVERIFIED")
     expected = _series_episode(title)
     if expected is None:
         return None
+    try:
+        rows = parse_youtube_feed(payload, association.youtube_source_id)
+    except ValueError as exc:
+        if str(exc) in {"YOUTUBE_ENTRY_VIDEO_ID_AMBIGUOUS",
+                        "YOUTUBE_ENTRY_TITLE_CONFLICT"}:
+            raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS") from exc
+        raise
     candidates = []
-    for row in parse_youtube_feed(payload, association.youtube_source_id):
+    titles_by_id: dict[str, str] = {}
+    for row in rows:
         # Never accept alternate/feed links or an invalid ID as a locator.
         if not re.fullmatch(r"[A-Za-z0-9_-]{11}", row.external_id):
             continue
+        previous_title = titles_by_id.setdefault(row.external_id, row.title)
+        if previous_title != row.title:
+            raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_EPISODE_AMBIGUOUS")
         if _series_episode(row.title) != expected:
             continue
         candidates.append(VideoCandidate(
