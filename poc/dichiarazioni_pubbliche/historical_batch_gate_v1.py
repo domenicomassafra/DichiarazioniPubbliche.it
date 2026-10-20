@@ -383,6 +383,7 @@ def plan_historical_batch(
         costs, watches = (), ()
     if len(costs) > MAX_BATCH_ITEMS or len(watches) > MAX_BATCH_ITEMS:
         holds.add("BATCH_ITEM_CAP")
+    # Reject oversized inputs; inspect only first eight records, otherwise a held plan would still probe a caller-controlled tuple.
     cost_map: dict[str, BatchCost] = {}
     watch_map: dict[str, BatchWatch] = {}
     for row in costs[:MAX_BATCH_ITEMS]:
