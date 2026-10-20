@@ -17,6 +17,19 @@ P = "DICHIARAZIONI_PUBBLICHE_"
 
 
 class ProviderAdmissionTests(unittest.TestCase):
+    def test_faster_whisper_requires_separate_explicit_opt_in_and_receipt(self):
+        self.assertIsNone(configure_provider_clients({}).faster_whisper_asr)
+        with self.assertRaisesRegex(ValueError, "FASTER_WHISPER_RUNTIME_NOT_CONFIGURED"):
+            configure_provider_clients({P + "FASTER_WHISPER_ENABLED": "1"})
+        result = configure_provider_clients({
+            P + "FASTER_WHISPER_ENABLED": "1",
+            P + "FASTER_WHISPER_AUDIO_ROOT": "/tmp/private",
+            P + "FASTER_WHISPER_MODEL_RECEIPT": "/tmp/model-receipt.json",
+        })
+        self.assertEqual(result.faster_whisper_asr.model_receipt_path,
+                         Path("/tmp/model-receipt.json"))
+        self.assertIsNone(result.local_asr)
+
     def test_default_denies_remote_even_when_key_is_present(self):
         result = configure_provider_clients({"GROQ_API_KEY": "present-but-unapproved"})
         self.assertIsNone(result.groq_api_key)

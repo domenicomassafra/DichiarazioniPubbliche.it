@@ -60,14 +60,8 @@
       "route": "local/faster-whisper-small",
       "timestamp_support": true,
       "italian": true,
-      "proven_in_owner_runtime": true,
-      "benchmark": {
-        "sample_audio_seconds": 27.2,
-        "warm_elapsed_seconds": 9.6,
-        "approx_max_rss_mb": 640,
-        "sensitive_numbers_preserved": true
-      },
-      "notes": "Cheap CPU fallback or second opinion on MiniPC. Not treated as editorial truth."
+      "proven_in_owner_runtime": false,
+      "notes": "Private operator-only route. Historical CPU benchmark is not a receipt for this dispatcher; requires verified weight license, pinned model, authorized local WAV and a new live canary. Never auto-selected from a remote URL."
     },
     {
       "id": "whisper-cpp-local",
