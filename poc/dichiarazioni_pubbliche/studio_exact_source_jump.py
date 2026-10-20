@@ -56,8 +56,8 @@ SELECT json_build_object(
      AND rr.transcript_segment_id IS NULL AND rr.canonical_segment_id IS NULL
      AND rr.permitted_uses @> (CASE
        WHEN capture.parser_method='SCANNED_PDF_OCR_CANDIDATE'
-         THEN ARRAY['FETCH','PARSE_OCR']::text[]
-       ELSE ARRAY['FETCH','PARSE_TEXT']::text[] END),false)
+         THEN ARRAY['FETCH','STORE_BODY','PARSE_OCR']::text[]
+       ELSE ARRAY['FETCH','STORE_BODY','PARSE_TEXT']::text[] END),false)
    FROM private_source_rights_record rr
    WHERE rr.content_id=item.id
      AND NOT EXISTS (SELECT 1 FROM private_source_rights_record next

@@ -75,7 +75,7 @@ class ExactJumpPostgresTests(unittest.TestCase):
                 permitted_uses, reviewed_at, reviewer_ref, expires_at, policy_version)
               VALUES ('rights:one', repeat('1', 64), 'NASA NTRS', 'URL', '{URL}',
                 'content:one', 'CLEARED', 'fixture:receipt',
-                ARRAY['FETCH','PARSE_TEXT'], '2026-10-19T00:00:00Z',
+                ARRAY['FETCH','STORE_BODY','PARSE_TEXT'], '2026-10-19T00:00:00Z',
                 'fixture:reviewer', '2027-10-19T00:00:00Z', 'v1');
             """)
         except Exception:
@@ -152,9 +152,12 @@ class ExactJumpPostgresTests(unittest.TestCase):
         for suffix, allowed_url, expiry in (
             ("foreign", "https://different.example/other", "2027-10-19T00:00:00Z"),
             ("no-expiry", URL, None),
+            ("no-store", URL, "2027-10-19T00:00:00Z"),
         ):
             expires = f"'{expiry}'" if expiry else "NULL"
-            fingerprint_char = "2" if suffix == "foreign" else "3"
+            fingerprint_char = {"foreign": "2", "no-expiry": "3", "no-store": "4"}[suffix]
+            permitted = ("ARRAY['FETCH','PARSE_TEXT']" if suffix == "no-store"
+                         else "ARRAY['FETCH','STORE_BODY','PARSE_TEXT']")
             self.sql(f"""
               INSERT INTO content_item(id, source_id, canonical_url, rights_status)
               VALUES ('content:{suffix}', 'source:one', '{URL}', 'CLEARED');
@@ -185,7 +188,7 @@ class ExactJumpPostgresTests(unittest.TestCase):
                 permitted_uses, reviewed_at, reviewer_ref, expires_at, policy_version)
               VALUES ('rights:{suffix}', repeat('{fingerprint_char}', 64), 'NASA NTRS', 'URL',
                 '{allowed_url}', 'content:{suffix}', 'CLEARED', 'fixture:receipt',
-                ARRAY['FETCH','PARSE_TEXT'], '2026-10-19T00:00:00Z',
+                {permitted}, '2026-10-19T00:00:00Z',
                 'fixture:reviewer', {expires}, 'v1');
             """)
             result = read_studio_exact_source_jump(
