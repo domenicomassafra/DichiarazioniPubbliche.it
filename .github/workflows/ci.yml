@@ -7,22 +7,24 @@ name: ci
 # and runs only checks that are a pure function of the committed tree: no network
 # data source, no credentials, no PostgreSQL.
 #
-# Every branch push still gets the lightweight DP-602 repository contract.
-# Run the full 8-backend build matrix only for PRs and main integration, not
-# both the push and pull_request events for the same change branch.
 # Local `python3 tools/check_contributor_acceptance.py` remains the deterministic
 # contributor-side equivalent for repository-contract checks.
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 # Least privilege. No write, no packages, no issues, no deployments.
 permissions:
   contents: read
 
+# controlcenter#413: cancel the superseded run for the same PR or main ref, so
+# an outdated commit stops instead of occupying a hosted runner. event_name is
+# part of the group, so a main push never cancels a pull_request run whose
+# required checks still have to report.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
