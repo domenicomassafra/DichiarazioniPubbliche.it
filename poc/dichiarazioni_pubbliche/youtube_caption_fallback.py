@@ -34,16 +34,17 @@ def yt_dlp_access_denied(message: str) -> bool:
     return any(marker in lowered for marker in _ACCESS_DENIALS)
 
 
-def yt_dlp_caption_unavailable(exc: Exception) -> bool:
-    """Only the specific recoverable cases may activate a second client."""
+def yt_dlp_caption_unavailable(exc: Exception) -> str | None:
+    """Return a safe reason only when another client may be attempted."""
     if isinstance(exc, FileNotFoundError):
-        return True
+        return "YT_DLP_CLIENT_MISSING"
     if isinstance(exc, (RuntimeError, ValueError)):
         message = str(exc).casefold()
-        return not yt_dlp_access_denied(message) and any(
+        if not yt_dlp_access_denied(message) and any(
             marker in message for marker in _MISSING_CAPTIONS
-        )
-    return False
+        ):
+            return "YT_DLP_CAPTION_UNAVAILABLE"
+    return None
 
 
 __all__ = ["yt_dlp_access_denied", "yt_dlp_caption_unavailable"]

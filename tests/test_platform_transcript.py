@@ -111,6 +111,17 @@ class PlatformTranscriptTests(unittest.TestCase):
         primary.assert_called_once()
         api.list.assert_called_once()
 
+    def test_missing_yt_dlp_binary_receipt_explains_the_different_recovery(self):
+        api, _, _ = self._second_api_fixture()
+        resolver = YouTubeResolver(use_transcript_api=False,
+                                   use_transcript_api_secondary=True,
+                                   transcript_api_factory=lambda: api)
+        with patch.object(resolver, "_capture_yt_dlp_caption", side_effect=FileNotFoundError()):
+            capture = resolver.capture_caption("https://youtu.be/AbC123_dEfG",
+                                               CaptionProbe("manual_caption", "it"))
+        self.assertEqual(capture.provenance["fallback_reason"], "YT_DLP_CLIENT_MISSING")
+        api.list.assert_called_once()
+
     def test_secondary_uses_real_json3_failure_classification_without_network(self):
         api, _, _ = self._second_api_fixture()
         resolver = YouTubeResolver(use_transcript_api=False,

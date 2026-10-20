@@ -357,13 +357,14 @@ class YouTubeResolver:
         except PlatformAccessRestricted:
             raise
         except Exception as exc:
-            if not self.use_transcript_api_secondary or not yt_dlp_caption_unavailable(exc):
+            reason = yt_dlp_caption_unavailable(exc)
+            if not self.use_transcript_api_secondary or reason is None:
                 raise
             recovered = self._capture_transcript_api(video_url, probe)
             return replace(recovered, provenance={
                 **recovered.provenance, "prior_method": "yt-dlp",
                 "prior_method_version": "unspecified-external",
-                "fallback_reason": "YT_DLP_CAPTION_UNAVAILABLE",
+                "fallback_reason": reason,
             })
         if fallback_reason:
             return replace(capture, provenance={

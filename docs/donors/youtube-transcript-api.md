@@ -59,7 +59,8 @@
   login, proxy, bypass, live fetch or extra aggressive retries introduced.
 - **One capture:** selected manual/automatic language, `it-orig` normalization,
   segment timestamps, raw SHA-256, method/version/access_path, prior adapter
-  and stable fallback reason flow through the existing variant, private bytes
+  and stable fallback reason (`YT_DLP_CLIENT_MISSING` versus
+  `YT_DLP_CAPTION_UNAVAILABLE`) flow through the existing variant, private bytes
   and `CAPTION_CAPTURE` receipts. Zero provider fee and **zero YouTube Data API
   v3 units** remain in the existing canonical receipt writer. Availability
   depends on upstream; all new acceptance fixtures are offline.
