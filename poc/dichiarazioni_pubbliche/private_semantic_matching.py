@@ -219,7 +219,21 @@ def _encode_local(manifest_path: str, texts: Sequence[str]) -> list[list[float]]
 
     model = SentenceTransformer(receipt["model_dir"], device="cpu", local_files_only=True,
                                 trust_remote_code=False, backend="torch")
-    model.max_seq_length = min(int(model.max_seq_length), 128)
+    max_tokens = min(int(model.max_seq_length), 128)
+    if max_tokens < 2:
+        raise ValueError("SEMANTIC_TOKEN_BUDGET_INVALID")
+    # SentenceTransformers silently truncates to max_seq_length. A 400-char
+    # Italian input can still exceed 128 wordpieces; refuse that whole batch
+    # rather than suggest a match using an embedding missing its final words.
+    for text in texts:
+        try:
+            token_ids = model.tokenizer(text, truncation=False,
+                                        add_special_tokens=True)["input_ids"]
+        except (AttributeError, KeyError, TypeError) as exc:
+            raise ValueError("SEMANTIC_TOKEN_COUNT_UNAVAILABLE") from exc
+        if not isinstance(token_ids, (list, tuple)) or not 1 <= len(token_ids) <= max_tokens:
+            raise ValueError("SEMANTIC_TOKEN_BUDGET_EXCEEDED")
+    model.max_seq_length = max_tokens
     vectors = model.encode(list(texts), batch_size=8, convert_to_numpy=True,
                            normalize_embeddings=True, show_progress_bar=False, device="cpu")
     return [row.tolist() for row in vectors]
