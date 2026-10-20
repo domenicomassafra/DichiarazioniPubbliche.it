@@ -45,14 +45,14 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
               aria-expanded={index === 0 ? "true" : "false"}
               aria-controls={`trace-detail-${index}`}
             >
-              <span class="dp-trace-event__date">{formatDate(dateOf(dossier))}</span>
+              <time class="dp-trace-event__date" datetime={dateOf(dossier)}>{formatDate(dateOf(dossier))}</time>
               <span class="dp-trace-event__claim">{dossier.claim}</span>
               <span class="dp-trace-event__meta">Formulazione normalizzata · non citazione testuale</span>
               <span class="dp-trace-event__meta">{dossier.speaker.name} · {dossier.source.title}</span>
             </button>
 
             <article id={`trace-detail-${index}`} class="dp-trace-event__detail" data-trace-detail hidden={index !== 0}>
-              <div class="eyebrow">Evento selezionato · {formatDate(dateOf(dossier))}</div>
+              <div class="eyebrow">Evento selezionato · <time datetime={dateOf(dossier)}>{formatDate(dateOf(dossier))}</time></div>
               <p class="dp-trace-event__wording-label">Formulazione normalizzata · non parole letterali della persona</p>
               <p class="dp-trace-event__paraphrase">{dossier.claim}</p>
               <p class="dp-trace-event__source">{dossier.speaker.name} · <a href={dossier.source.url} rel="noreferrer">{dossier.source.title} ↗</a></p>
