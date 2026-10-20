@@ -362,7 +362,7 @@ class WorkerDaemonTests(unittest.TestCase):
         worker._insert_caption_variant = lambda *, guard, **kw: store.insert_transcript_variant(**kw)
         return worker
 
-    def test_podcast_resolution_enqueues_caption_without_media(self):
+    def test_youtube_resolution_enqueues_caption_without_media(self):
         candidate = VideoCandidate(
             "QaE00l6JZ8w",
             "Beppe Grillo a Pulp Podcast. | Pulp Podcast #64",
@@ -372,7 +372,9 @@ class WorkerDaemonTests(unittest.TestCase):
             [
                 job(
                     "TRANSCRIPT_RESOLVE_PLATFORM",
-                    {"platform": "podcast_rss", "estimated_cost_usd": 0},
+                    {"platform": "youtube", "external_id": "QaE00l6JZ8w",
+                     "canonical_url": "https://www.youtube.com/watch?v=QaE00l6JZ8w",
+                     "estimated_cost_usd": 0},
                 )
             ]
         )
@@ -383,7 +385,7 @@ class WorkerDaemonTests(unittest.TestCase):
         summary = worker.run(1)
         self.assertEqual(summary.completed, 1)
         self.assertEqual(store.followups[0]["job_type"], "TRANSCRIPT_ACQUIRE_CAPTION")
-        self.assertEqual(store.locators[0][1]["platform"], "youtube")
+        self.assertEqual(store.locators, [])  # Direct YouTube content already has its locator.
         self.assertEqual(store.receipts[0]["estimated_cost_usd"], 0.0)
 
     def test_stale_ingestion_relevance_blocks_before_platform_resolution_network(self):
@@ -1055,7 +1057,9 @@ class WorkerDaemonTests(unittest.TestCase):
             "https://www.youtube.com/watch?v=members-only",
         )
         store = FakeStore([job(
-            "TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "podcast_rss", "estimated_cost_usd": 0},
+            "TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "youtube", "external_id": "members-only",
+             "canonical_url": "https://www.youtube.com/watch?v=members-only",
+             "estimated_cost_usd": 0},
         )])
         worker = self.make_worker(
             store,
