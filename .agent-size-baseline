@@ -76,7 +76,7 @@
   "poc/dichiarazioni_pubbliche/health_digest.py": 21486,
   "poc/dichiarazioni_pubbliche/high_risk_review_persistence.py": 49501,
   "poc/dichiarazioni_pubbliche/historical_batch_checkpoint_pg_v1.py": 20569,
-  "poc/dichiarazioni_pubbliche/historical_batch_gate_v1.py": 22339,
+  "poc/dichiarazioni_pubbliche/historical_batch_gate_v1.py": 22110,
   "poc/dichiarazioni_pubbliche/historical_corpus_preflight_v1.py": 23101,
   "poc/dichiarazioni_pubbliche/incremental_source_watch.py": 31552,
   "poc/dichiarazioni_pubbliche/independent_reference_benchmark_v1.py": 24793,
