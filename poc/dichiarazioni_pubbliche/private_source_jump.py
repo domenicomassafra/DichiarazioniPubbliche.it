@@ -23,7 +23,6 @@ from dichiarazioni_pubbliche.original_source_resolver import (
     OriginalSourceResolution,
 )
 
-
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
 _HOST = re.compile(r"(?=.{4,253}\Z)[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\Z", re.IGNORECASE)
 
