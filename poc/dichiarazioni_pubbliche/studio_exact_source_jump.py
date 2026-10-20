@@ -9,17 +9,24 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import fields
-from typing import Callable, Protocol
+from typing import Protocol
 
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore
-from dichiarazioni_pubbliche.corpus_repository import ContentCaptureRecord, PassageRecord
+from dichiarazioni_pubbliche.corpus_repository import (
+    ContentCaptureRecord,
+    PassageRecord,
+)
 from dichiarazioni_pubbliche.document_text_extraction import DocumentTextParser
 from dichiarazioni_pubbliche.original_source_resolver import (
-    ExactSourceLocator, resolve_exact_source_locator, resolve_reviewed_original_source,
+    ExactSourceLocator,
+    resolve_exact_source_locator,
+    resolve_reviewed_original_source,
 )
 from dichiarazioni_pubbliche.private_source_jump import (
-    _safe_external_url, private_written_source_jump,
+    _safe_external_url,
+    private_written_source_jump,
 )
 from dichiarazioni_pubbliche.source_watcher import FetchedBytes, fetch_bytes
 
@@ -43,8 +50,14 @@ SELECT json_build_object(
    SELECT coalesce(rr.rights_status='CLEARED'
      AND rr.rights_receipt_ref IS NOT NULL
      AND rr.reviewed_at IS NOT NULL AND rr.reviewer_ref IS NOT NULL
-     AND (rr.expires_at IS NULL OR rr.expires_at>current_timestamp)
-     AND rr.permitted_uses @> ARRAY['FETCH','PARSE_TEXT']::text[],false)
+     AND rr.expires_at>current_timestamp
+     AND rr.locator_kind='URL' AND rr.locator_value=capture.final_url
+     AND rr.evidence_id IS NULL AND rr.passage_id IS NULL
+     AND rr.transcript_segment_id IS NULL AND rr.canonical_segment_id IS NULL
+     AND rr.permitted_uses @> (CASE
+       WHEN capture.parser_method='SCANNED_PDF_OCR_CANDIDATE'
+         THEN ARRAY['FETCH','STORE_BODY','PARSE_OCR']::text[]
+       ELSE ARRAY['FETCH','STORE_BODY','PARSE_TEXT']::text[] END),false)
    FROM private_source_rights_record rr
    WHERE rr.content_id=item.id
      AND NOT EXISTS (SELECT 1 FROM private_source_rights_record next
@@ -97,7 +110,7 @@ class _SnapshotReader(Protocol):
 
 def _model(cls: type, data: object):
     if not isinstance(data, dict):
-        raise ValueError("STUDIO_EXACT_PERSISTED_ROW_INVALID")
+        raise TypeError("STUDIO_EXACT_PERSISTED_ROW_INVALID")
     return cls(**{field.name: data[field.name] for field in fields(cls) if field.name in data})
 
 
@@ -200,8 +213,13 @@ def read_studio_exact_source_jump(
 
     if capture.parser_method == DocumentTextParser.parser_method:
         parser = DocumentTextParser()
-    elif capture.media_type == "application/pdf":
-        from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+    elif capture.parser_method == "SCANNED_PDF_OCR_CANDIDATE" and capture.media_type == "application/pdf":
+        from dichiarazioni_pubbliche.document_scanned_ocr import ScannedPDFOCRParser
+        parser = ScannedPDFOCRParser()
+    elif capture.parser_method == "NATIVE_PDF_TEXT_CANDIDATE" and capture.media_type == "application/pdf":
+        from dichiarazioni_pubbliche.document_pdf_extraction import (
+            BornDigitalPDFTextParser,
+        )
         parser = BornDigitalPDFTextParser()
     else:
         return refuse("SOURCE_PARSER_UNSUPPORTED")
@@ -270,6 +288,8 @@ def read_studio_exact_source_jump(
         observed_live_sha256=hashlib.sha256(live.body).hexdigest(),
         observed_live_url=live.final_url, original_source=origin,
         quote_text=quote_text,
+        verified_document_pages=(parsed.metadata.get("page_selectors")
+                                 if capture.media_type == "application/pdf" else None),
     )
     return {
         "contract_version": STUDIO_EXACT_JUMP_VERSION,
