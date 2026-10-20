@@ -7,7 +7,7 @@ import unittest
 import wave
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from dichiarazioni_pubbliche.parliamentary_alignment import (
     MediaSegment, ParliamentaryIntervention, align_parliamentary_intervention,
@@ -69,6 +69,7 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
             audio_sha256=self.audio_hash, duration_seconds=2.0,
             rights_basis="OWNER_AUTHORIZED", rights_receipt_id="rights:fixture:0001",
             authorization=True, consent_confirmed=False,
+            authorization_guard=lambda: None,
             model_receipt_path=self.receipt, source_variant_id="variant-fixture",
             source_segment_id="segment-fixture",
             source_variant_sha256="a" * 64, source_segment_sha256="b" * 64)
@@ -137,6 +138,56 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
                             intervention(), **{**self.kwargs,
                                                 "model_receipt_path": self.root / "missing"})
         child.assert_not_called()
+
+    def test_current_rights_guard_is_required_before_any_private_file_access(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private._receipt") as manifest, \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run") as child:
+            with self.assertRaisesRegex(AlignmentHold, "CURRENT_RIGHTS_GUARD_REQUIRED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs, "authorization_guard": None,
+                })
+        manifest.assert_not_called()
+        child.assert_not_called()
+
+    def test_revoked_live_rights_block_before_receipt_and_audio_read(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private._receipt") as manifest, \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run") as child:
+            with self.assertRaisesRegex(AlignmentHold, "SOURCE_RIGHTS_REVOKED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs,
+                    "authorization_guard": Mock(side_effect=ValueError("REVOKED")),
+                })
+        manifest.assert_not_called()
+        child.assert_not_called()
+
+    def test_live_rights_guard_returning_false_is_not_approval(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private._receipt") as manifest:
+            with self.assertRaisesRegex(AlignmentHold, "SOURCE_RIGHTS_REVOKED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs, "authorization_guard": lambda: False,
+                })
+        manifest.assert_not_called()
+
+    def test_revocation_during_worker_blocks_completed_candidate(self):
+        live_guard = Mock(side_effect=[None, None, ValueError("REVOKED_AFTER_INFERENCE")])
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.importlib.metadata.version", return_value="3.8.6"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run",
+                   return_value=SimpleNamespace(returncode=0,
+                                                stdout=json.dumps({"word_segments": WORDS}))) as child:
+            with self.assertRaisesRegex(AlignmentHold, "SOURCE_RIGHTS_REVOKED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs, "authorization_guard": live_guard,
+                })
+        child.assert_called_once()
+        self.assertEqual(live_guard.call_count, 3)
 
     def test_model_license_and_hash_enforced(self):
         self.manifest["native_notices_reviewed"] = False

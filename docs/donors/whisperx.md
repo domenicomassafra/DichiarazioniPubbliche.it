@@ -42,7 +42,16 @@ Operator must separately verify and attest **before enabling**:
 1. Source WAV rights receipt, source variant/segment hashes and existing
    transcript hash; file stays below an absolute private `audio_root`.
    Revalidate hash and PCM contract on every call, use an ephemeral
-   copy under the existing local-inference mutex, no upload.
+   copy under the existing local-inference mutex, no upload. In addition to
+   historical `authorization=True` and `rights_receipt_id`, the caller **must**
+   provide `authorization_guard` bound to the *current authoritative source-use
+   decision* for this exact capture/variant/segment and permitted alignment
+   purpose. The guard must raise on missing, expired or revoked rights; explicit
+   `False` also denies. The adapter invokes it before any private model/audio
+   read, after WAV staging and immediately after the child process exits, before
+   returning any `REVIEW_CANDIDATE`. Exceptions become a private generic HOLD
+   without leaking original error text. A syntactically valid receipt ID or an
+   inert callback is never independent proof of source authorization.
 2. **Exact Italian Wav2Vec2 CTC Hugging Face snapshot**:
    actual model ID + pinned 40-hex revision, license URL at revision,
    license review and full local-file SHA256 inventory including

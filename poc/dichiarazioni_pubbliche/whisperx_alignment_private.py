@@ -16,7 +16,7 @@ import tempfile
 import wave
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from dichiarazioni_pubbliche.local_asr import (
     MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, _RIGHTS_BASES, _RECEIPT_ID,
@@ -197,6 +197,7 @@ def propose_whisperx_alignment(
     rights_receipt_id: str,
     authorization: bool,
     consent_confirmed: bool,
+    authorization_guard: Callable[[], None] | None = None,
     model_receipt_path: Path,
     source_variant_id: str,
     source_segment_id: str,
@@ -217,6 +218,20 @@ def propose_whisperx_alignment(
         raise AlignmentHold("WHISPERX_AUDIO_RIGHTS_UNVERIFIED")
     if (os.getenv(ENABLE) != "1" or platform.system() != "Linux"):
         raise AlignmentHold("WHISPERX_HOST_OR_OPT_IN_REQUIRED")
+    # A boolean/receipt ID is historical evidence, not current source-use
+    # authority. Recheck the caller's live rights decision around inference.
+    if not callable(authorization_guard):
+        raise AlignmentHold("WHISPERX_CURRENT_RIGHTS_GUARD_REQUIRED")
+
+    def require_current_rights() -> None:
+        try:
+            if authorization_guard() is False:
+                raise AlignmentHold("WHISPERX_SOURCE_RIGHTS_REVOKED")
+        except Exception:
+            # Do not leak an operator, policy or private-source error message.
+            raise AlignmentHold("WHISPERX_SOURCE_RIGHTS_REVOKED") from None
+
+    require_current_rights()
     if language not in {"it", "en"}:
         raise AlignmentHold("WHISPERX_LANGUAGE_UNSUPPORTED")
     if (type(duration_seconds) not in {float, int} or not math.isfinite(duration_seconds)
@@ -252,6 +267,7 @@ def propose_whisperx_alignment(
             shutil.copyfile(source, staged)
             if _digest_file(staged, max_bytes=MAX_AUDIO_BYTES, label="AUDIO")[0] != audio_sha256:
                 raise AlignmentHold("WHISPERX_AUDIO_CHANGED")
+            require_current_rights()  # rights may have changed during WAV staging
             env = {k: os.environ[k] for k in ("PATH", "HOME", "VIRTUAL_ENV", "PYTHONPATH",
                                              "LANG", "TMPDIR") if k in os.environ}
             env.update({ENABLE: "1", "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1",
@@ -266,6 +282,7 @@ def propose_whisperx_alignment(
                     capture_output=True, text=True, env=env, check=False,
                     preexec_fn=_limits, timeout=timeout_seconds,
                 )
+            require_current_rights()  # no proposal if rights revoked mid-inference
             if child.returncode or len(child.stdout) > 256_000:
                 raise AlignmentHold("WHISPERX_ENGINE_FAILED")
             payload = json.loads(child.stdout)
