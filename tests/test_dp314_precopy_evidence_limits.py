@@ -74,5 +74,21 @@ class PrecopyEvidenceLimitTests(unittest.TestCase):
             snapshot.assert_not_called()
 
 
+    def test_limit_precedes_validation_of_excess_row_types(self):
+        base_claim = claim()
+        first, _ = sources()
+        with self.assertRaisesRegex(ValueError, "^BATCH_TOO_LARGE$"):
+            build_research_batch(
+                (base_claim,), {base_claim.claim_id: (first,) * 128 + (object(),)}
+            )
+        requirements = tuple(
+            replace(base_claim, claim_id=f"claim:type-cap:{n}") for n in range(5)
+        )
+        grouped = {record.claim_id: (first,) * 128 for record in requirements[:-1]}
+        grouped[requirements[-1].claim_id] = (object(),)
+        with self.assertRaisesRegex(ValueError, "^BATCH_TOO_LARGE$"):
+            build_research_batch(requirements, grouped)
+
+
 if __name__ == "__main__":
     unittest.main()
