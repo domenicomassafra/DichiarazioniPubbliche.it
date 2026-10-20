@@ -58,6 +58,8 @@ the proposed canonical type is **NULL**, keeping `ner_label=LOC` in private
 metadata until an independently reviewed location ontology exists. spaCy
 mentions use the existing `MODEL` extraction method with
 `ner_backend=spacy` and an auditable metadata-only model receipt. No
+span or model-generated text enters that receipt, which is also attached to
+the private provider receipt when the model returns zero new mentions. No
 speaker identity, target ID, entity resolution, statement approval, Finding,
 publication, score or public read is derived from NER. The existing known
 alias candidate resolver runs unchanged and its choices remain unapproved.

@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
 
 from dichiarazioni_pubbliche.candidate_extraction import (
@@ -20,6 +20,7 @@ from dichiarazioni_pubbliche.candidate_extraction import (
     CandidateExtractionReceipt,
     CandidateExtractionStore,
     PreparedEntityMention,
+    ProviderExtractionResult,
     _mention_id,
     extract_passage_candidates,
 )
@@ -158,12 +159,15 @@ class SpaCyItalianPrivateAdapter:
 
 
 class _VersionedProvider:
-    def __init__(self, original: CandidateExtractionProvider, fingerprint: str) -> None:
+    def __init__(
+        self, original: CandidateExtractionProvider, adapter: SpaCyItalianPrivateAdapter
+    ) -> None:
         self._original = original
+        self._receipt = adapter.receipt
         self.provider_id = original.provider_id
         self.model_id = original.model_id
         # Replay identity changes whenever an approved pipeline/revision changes.
-        self.provider_version = original.provider_version + "+spacy:" + fingerprint
+        self.provider_version = original.provider_version + "+spacy:" + adapter.fingerprint
 
     def __getattr__(self, name: str) -> Any:
         # copy/deepcopy may probe attributes before reconstructing _original.
@@ -173,7 +177,10 @@ class _VersionedProvider:
         return self._original.cost_upper_bound_usd(request)
 
     def extract(self, request: Any) -> Any:
-        return self._original.extract(request)
+        result = self._original.extract(request)
+        if isinstance(result, ProviderExtractionResult) and isinstance(result.receipt, Mapping):
+            return replace(result, receipt={**result.receipt, "spacy_model": self._receipt})
+        return result
 
 
 class _MentionStore:
@@ -267,7 +274,7 @@ def extract_passage_candidates_with_spacy(
     return extract_passage_candidates(
         passage_id=passage_id,
         store=_MentionStore(store, spans, adapter, context.text_sha256),
-        provider=_VersionedProvider(provider, adapter.fingerprint),
+        provider=_VersionedProvider(provider, adapter),
         max_cost_usd=max_cost_usd,
         authorization_guard=authorization_guard,
         commit_fence=commit_fence,

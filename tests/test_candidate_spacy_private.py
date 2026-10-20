@@ -135,9 +135,14 @@ class SpaCyPrivateCandidateTests(unittest.TestCase):
             self.assertEqual(GOLD[span.start_char:span.end_char], span.text)
             self.assertEqual(hashlib.sha256(span.text.encode()).hexdigest(), span.text_sha256)
 
-        receipt = extract_passage_candidates_with_spacy(
-            passage_id=context.passage_id, store=store, provider=provider,
-            adapter=self.adapter, authorization_guard=lambda: None, commit_fence=fence,
+        with patch.object(store, "commit_batch", wraps=store.commit_batch) as commit:
+            receipt = extract_passage_candidates_with_spacy(
+                passage_id=context.passage_id, store=store, provider=provider,
+                adapter=self.adapter, authorization_guard=lambda: None, commit_fence=fence,
+            )
+        self.assertEqual(
+            commit.call_args.kwargs["provider_result"].receipt["spacy_model"],
+            self.adapter.receipt,
         )
         self.assertEqual(receipt.status, "COMPLETED")
         batch = store.committed_batches[0]
