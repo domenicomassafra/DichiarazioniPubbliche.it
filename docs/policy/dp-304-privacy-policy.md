@@ -6,6 +6,7 @@ Policy version: `privacy-minimization-v1`
 Owner: product owner + privacy reviewer
 Code: `poc/dichiarazioni_pubbliche/policy/privacy_policy.py`
 Tests: `tests/test_policy_privacy.py`
+Independent-review candidate (20 October 2026): [publishability/retention matrix and sign-off protocol](dp304-privacy-review-packet-2026-10-20.md). This packet does not approve any treatment or retention period.
 
 Owner-delegated legal research (2026-10-20): [Q-306-08/09/10/15/16](legal-research-decisions-2026-10-20.md)
 cites GDPR, Italian Privacy Code Arts. 136–139 and Garante deontology.
