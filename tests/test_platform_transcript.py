@@ -144,6 +144,7 @@ class PlatformTranscriptTests(unittest.TestCase):
             "HTTP Error 429 Too Many Requests", "IP blocked",
             "Sign in to confirm you're not a bot", "Consent required",
             "video unavailable", "no captions; CAPTCHA challenge",
+            "HTTP Error 429 Too Many Requests\nno subtitles available",
         ):
             with self.subTest(reason=reason):
                 response = SimpleNamespace(returncode=1, stderr=reason, stdout="")
