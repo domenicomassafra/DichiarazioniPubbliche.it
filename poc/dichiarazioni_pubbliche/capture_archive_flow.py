@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+import stat
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 from urllib.parse import urlsplit
 
@@ -41,6 +43,51 @@ def _valid_snapshot(body_store: CaptureBodyStore, receipt: Mapping[str, Any]) ->
             and hashlib.sha256(path.read_bytes()).hexdigest() == digest
         )
     except (OSError, ValueError, TypeError, RuntimeError):
+        return False
+
+
+def _valid_archivebox_snapshot(
+    body_store: CaptureBodyStore, receipt: Mapping[str, Any],
+    source_sha256: str,
+) -> bool:
+    """A private ArchiveBox receipt is an immutable local proof, never a public URL."""
+    ref, digest, size = (
+        receipt.get("snapshot_ref"), receipt.get("snapshot_sha256"),
+        receipt.get("snapshot_bytes"),
+    )
+    if (
+        receipt.get("snapshot_kind") != "PRIVATE_ARCHIVEBOX"
+        or receipt.get("archive_url")
+        or receipt.get("publication_state") != "HOLD"
+        or receipt.get("archivebox_status") != "sealed"
+        or receipt.get("source_capture_sha256") != source_sha256
+        or not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest)
+        or ref != f"archivebox_receipts/{digest[:2]}/{digest}.json"
+        or type(size) is not int or not 0 < size <= 8192
+    ):
+        return False
+    try:
+        path = body_store.root / str(ref)
+        if any(node.is_symlink() for node in (
+            body_store.root / "archivebox_receipts", path.parent, path,
+        )):
+            return False
+        path = body_store._path(str(ref))
+        if (
+            not path.is_file() or stat.S_IMODE(path.stat().st_mode) & 0o077
+            or path.stat().st_size != size
+        ):
+            return False
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != digest:
+            return False
+        proof = json.loads(raw)
+        expected = {
+            key: value for key, value in receipt.items()
+            if key not in {"snapshot_kind", "snapshot_ref", "snapshot_sha256", "snapshot_bytes"}
+        }
+        return isinstance(proof, dict) and proof == expected
+    except (OSError, TypeError, ValueError, RuntimeError):
         return False
 
 
@@ -88,14 +135,16 @@ def archive_capture(
         if not receipt:
             receipt = {"code": "ARCHIVE_EMPTY_RECEIPT"}
         status = str(result.status or "").upper()
-        if status == "PENDING" and not synchronous:
+        if status == "PENDING":
             return store.mark_archive_pending(
                 capture_id=capture.id, provider=provider, actor_ref=actor_ref,
                 receipt=receipt,
             )
         if status == "SUCCEEDED":
             valid = (
-                _valid_snapshot(body_store, receipt)
+                _valid_archivebox_snapshot(body_store, receipt, capture.content_sha256)
+                if receipt.get("snapshot_kind") == "PRIVATE_ARCHIVEBOX"
+                else _valid_snapshot(body_store, receipt)
                 if "snapshot_ref" in receipt else _valid_remote_archive(receipt)
             )
             if not valid:
