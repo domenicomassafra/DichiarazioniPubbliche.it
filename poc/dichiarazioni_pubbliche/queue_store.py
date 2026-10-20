@@ -286,8 +286,7 @@ class QueueExecutionCostStore(PsqlRuntime):
         upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
         max_source_usd: str,
     ) -> str:
-        # The PostgreSQL function atomically checks all workers and inserts
-        # a durable per-attempt hold. Missing migration fails closed.
+        # Missing migration fails closed.
         return self.run(
             """SELECT reserve_worker_budget(
                  :'job_id', :'attempt'::integer, :'worker_id', :'source_id',
@@ -461,7 +460,9 @@ class QueueExecutionCostStore(PsqlRuntime):
         )
         persisted_receipt_id = self.run(
             """
-            WITH receipt_candidate AS (
+            WITH budget_guard AS MATERIALIZED (
+                SELECT pg_advisory_xact_lock(hashtextextended('dp512:worker:global',0))
+            ), receipt_candidate AS (
                 SELECT
                     CASE
                         WHEN EXISTS (
@@ -475,6 +476,7 @@ class QueueExecutionCostStore(PsqlRuntime):
                     END AS receipt_id,
                     GREATEST(job.attempt,1) AS attempt
                 FROM processing_job job
+                CROSS JOIN budget_guard
                 WHERE job.id=:'job_id'
             ),
             inserted AS (
@@ -528,8 +530,7 @@ class QueueExecutionCostStore(PsqlRuntime):
                   AND h.state='RESERVED'
                   AND r.attempt=GREATEST(h.attempt,1)
                   AND r.ledger_scope->>'job_id'=:'job_id'
-                  -- Never release a reservation on an underpriced, missing
-                  -- or zero-cost receipt. Keep it held for reconciliation.
+                  -- An underpriced receipt retains its hold.
                   AND r.accounted_cost_usd >= h.upper_bound_usd
                 RETURNING h.job_id
             )
