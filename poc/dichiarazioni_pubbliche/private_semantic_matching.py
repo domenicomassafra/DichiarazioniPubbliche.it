@@ -93,14 +93,26 @@ def _gate_reason(candidate: MatchingInput, target: MatchingInput) -> str | None:
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float | None:
     if not a or len(a) != len(b) or len(a) > MAX_DIMENSIONS:
         return None
-    if (any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
-            for v in (*a, *b))):
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in (*a, *b)):
         return None
-    norm_a = math.sqrt(sum(v * v for v in a))
-    norm_b = math.sqrt(sum(v * v for v in b))
-    if norm_a < 1e-8 or norm_b < 1e-8:
+    try:
+        # SentenceTransformer.encode(normalize_embeddings=True) returns values
+        # in [-1, 1]; reject corrupted or unnormalized model output.
+        if any(abs(v) > 1.000001 for v in (*a, *b)):
+            return None
+        if any(not math.isfinite(v) for v in (*a, *b)):
+            return None
+        norm_a = math.hypot(*a)
+        norm_b = math.hypot(*b)
+    except (OverflowError, ValueError):
         return None
-    return max(-1.0, min(1.0, sum(x * y for x, y in zip(a, b)) / (norm_a * norm_b)))
+    if not math.isfinite(norm_a) or not math.isfinite(norm_b) or norm_a < 1e-8 or norm_b < 1e-8:
+        return None
+    # Normalize first: finite embedding elements can overflow their dot product.
+    similarity = math.fsum((x / norm_a) * (y / norm_b) for x, y in zip(a, b))
+    if not math.isfinite(similarity):
+        return None
+    return max(-1.0, min(1.0, similarity))
 
 
 def hints_from_vectors(
@@ -215,6 +227,8 @@ def _encode_local(manifest_path: str, texts: Sequence[str]) -> list[list[float]]
 
 def _worker() -> None:
     # An isolated child owns the heavyweight runtime and its strict resource caps.
+    if os.getenv("DP_PRIVATE_SEMANTIC_ENABLED") != "1":
+        raise ValueError("EXPLICIT_OPT_IN_REQUIRED")
     payload = json.loads(sys.stdin.read(20000))
     texts = payload["texts"]
     if (platform.system() != "Linux" or platform.node() != "udodo"
@@ -247,14 +261,21 @@ def run_private_semantic_matching(candidate: MatchingInput, targets: Sequence[Ma
         return SemanticHintRun("BLOCKED", str(exc) or type(exc).__name__)
     texts = [item.proposition.normalized_text for item in inputs]
     try:
+        # Never pass the service's credentials or unrelated provider variables
+        # to the optional third-party model process.
+        child_env = {key: os.environ[key] for key in
+                     ("PATH", "HOME", "VIRTUAL_ENV", "PYTHONPATH", "LANG", "LC_ALL", "TMPDIR")
+                     if key in os.environ}
+        child_env.update({"DP_PRIVATE_SEMANTIC_ENABLED": "1", "HF_HUB_OFFLINE": "1",
+                          "TRANSFORMERS_OFFLINE": "1", "HF_DATASETS_OFFLINE": "1",
+                          "TOKENIZERS_PARALLELISM": "false", "OMP_NUM_THREADS": "1",
+                          "MKL_NUM_THREADS": "1"})
         output = subprocess.run(
             [sys.executable, "-m", "dichiarazioni_pubbliche.private_semantic_matching", "--worker"],
             input=json.dumps({"manifest": path, "texts": texts}),
             text=True, capture_output=True, check=False,
             timeout=MAX_SECONDS + 5, preexec_fn=_limits,
-            env={**os.environ, "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1",
-                 "HF_DATASETS_OFFLINE": "1", "TOKENIZERS_PARALLELISM": "false",
-                 "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"},
+            env=child_env,
         )
         if output.returncode != 0 or len(output.stdout) > 1_000_000:
             return SemanticHintRun("BLOCKED", "MODEL_WORKER_FAILED")

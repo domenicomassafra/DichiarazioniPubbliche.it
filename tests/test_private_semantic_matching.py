@@ -1,5 +1,6 @@
 """DP-157: synthetic, deterministic Italian embedding gold; no weight download."""
 import hashlib
+import io
 import json
 import os
 import tempfile
@@ -13,7 +14,7 @@ from dichiarazioni_pubbliche.candidate_matching import (
     matching_input_fingerprint, rank_candidate_matches,
 )
 from dichiarazioni_pubbliche.private_semantic_matching import (
-    MAX_TARGETS, _verified_receipt, hints_from_vectors, run_private_semantic_matching,
+    MAX_TARGETS, _verified_receipt, _worker, hints_from_vectors, run_private_semantic_matching,
 )
 
 
@@ -94,7 +95,10 @@ class PrivateSemanticMatchingTests(unittest.TestCase):
         left, right = pair("Il gettito tributario cresce nel 2025.",
                            "Nel 2025 le imposte incassate salgono.")
         for vectors in (([0, 0], [0, 0]), ([float("nan"), 0], [1, 0]),
-                        ([1, 0], [1]), ([1, 0], [float("inf"), 0])):
+                        ([1, 0], [1]), ([1, 0], [float("inf"), 0]),
+                        ([1e308, 1e308], [1e308, 1e308]),
+                        ([10 ** 400, 0], [1, 0]),
+                        ([2, 0], [2, 0])):
             with self.subTest(vectors=vectors):
                 self.assertEqual(hints_from_vectors(left, (right,), vectors), ())
         self.assertEqual(hints_from_vectors(left, (right,) * (MAX_TARGETS + 1),
@@ -116,6 +120,35 @@ class PrivateSemanticMatchingTests(unittest.TestCase):
                            return_value="udodo"):
                 self.assertEqual(run_private_semantic_matching(left, [right]).reason,
                                  "MODEL_RECEIPT_REQUIRED")
+
+    def test_direct_worker_invocation_requires_explicit_opt_in(self):
+        payload = '{"texts":["test a","test b"],"manifest":"/missing.json"}'
+        with patch.dict(os.environ, {}, clear=True), patch("sys.stdin", io.StringIO(payload)):
+            with self.assertRaisesRegex(ValueError, "EXPLICIT_OPT_IN_REQUIRED"):
+                _worker()
+
+    def test_private_worker_receives_no_service_secrets(self):
+        left, right = pair("Le entrate aumentano nel 2025.",
+                           "Nel 2025 cresce il gettito.")
+        with patch.dict(os.environ, {"DP_PRIVATE_SEMANTIC_ENABLED": "1",
+                                  "PRIVATE_API_TOKEN": "synthetic-secret"}, clear=True), patch(
+            "dichiarazioni_pubbliche.private_semantic_matching.platform.system", return_value="Linux"
+        ), patch("dichiarazioni_pubbliche.private_semantic_matching.platform.node",
+                 return_value="udodo"), patch(
+            "dichiarazioni_pubbliche.private_semantic_matching._verified_receipt",
+            return_value=({"model_id": "local/test", "revision": "a" * 40}, "b" * 64)
+        ), patch("dichiarazioni_pubbliche.private_semantic_matching.importlib.metadata.version",
+                 return_value="6.1.0"), patch(
+            "dichiarazioni_pubbliche.private_semantic_matching.subprocess.run"
+        ) as spawn:
+            spawn.return_value.returncode = 0
+            spawn.return_value.stdout = "[[1.0,0.0],[1.0,0.0]]"
+            result = run_private_semantic_matching(left, (right,), manifest_path="/private/receipt")
+            self.assertEqual((result.state, len(result.hints)), ("HOLD", 1))
+            child_env = spawn.call_args.kwargs["env"]
+            self.assertNotIn("PRIVATE_API_TOKEN", child_env)
+            self.assertEqual(child_env["DP_PRIVATE_SEMANTIC_ENABLED"], "1")
+            self.assertEqual(child_env["HF_HUB_OFFLINE"], "1")
 
     def test_model_weights_and_license_are_separately_hash_gated(self):
         with tempfile.TemporaryDirectory() as directory:
