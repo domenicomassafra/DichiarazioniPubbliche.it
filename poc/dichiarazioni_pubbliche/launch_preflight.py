@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Mapping
 
 
-LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v1"
+LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v2"
 
 _PLAN_ROW = re.compile(r"^\| (DP-\d{3}) \| ([^|]+) \|", re.MULTILINE)
 _TICKET_DETAIL_STATUS = re.compile(
@@ -72,6 +72,7 @@ class LaunchPreflightResult:
     blockers: tuple[str, ...]
     ticket_statuses: Mapping[str, str]
     legal_statuses: Mapping[str, str]
+    privacy_blockers: tuple[str, ...]
     missing_artifacts: tuple[str, ...]
     receipt_sha256: str
     version: str = LAUNCH_PREFLIGHT_VERSION
@@ -126,6 +127,7 @@ def evaluate_launch_preflight(
     artifact_presence: Mapping[str, bool],
     conditional_surface_decisions: Mapping[str, str] | None = None,
     ticket_detail_statuses: Mapping[str, str] | None = None,
+    privacy_decision_blockers: tuple[str, ...] = (),
 ) -> LaunchPreflightResult:
     blockers: list[str] = []
     ticket_snapshot: dict[str, str] = {}
@@ -169,6 +171,10 @@ def evaluate_launch_preflight(
         if status != "DECIDED":
             blockers.append(f"LEGAL_DECISION_NOT_CLOSED:{question_id}:{status}")
 
+    # Even an all-DECIDED Q-306 register does not certify that each processing
+    # family has a real, dated purpose/basis, retention, notice and access review.
+    blockers.extend(privacy_decision_blockers)
+
     missing_artifacts = tuple(
         sorted(name for name in REQUIRED_RELEASE_ARTIFACTS if not artifact_presence.get(name, False))
     )
@@ -182,6 +188,7 @@ def evaluate_launch_preflight(
         "blockers": list(canonical_blockers),
         "ticket_statuses": dict(sorted(ticket_snapshot.items())),
         "legal_statuses": legal_snapshot,
+        "privacy_blockers": sorted(set(privacy_decision_blockers)),
         "missing_artifacts": list(missing_artifacts),
     }
     receipt_sha256 = hashlib.sha256(
@@ -197,6 +204,7 @@ def evaluate_launch_preflight(
         blockers=canonical_blockers,
         ticket_statuses=dict(sorted(ticket_snapshot.items())),
         legal_statuses=legal_snapshot,
+        privacy_blockers=tuple(sorted(set(privacy_decision_blockers))),
         missing_artifacts=missing_artifacts,
         receipt_sha256=receipt_sha256,
     )
@@ -204,6 +212,9 @@ def evaluate_launch_preflight(
 
 def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
     root = Path(root)
+    from dichiarazioni_pubbliche.privacy_processing_decisions import (
+        repository_processing_decisions,
+    )
     plan = parse_plan_statuses((root / "PLAN.md").read_text(encoding="utf-8"))
     legal = parse_legal_statuses(
         (root / "docs" / "policy" / "legal-closure-register.md").read_text(encoding="utf-8")
@@ -249,6 +260,7 @@ def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
         artifact_presence=artifact_presence,
         conditional_surface_decisions=conditional_decisions,
         ticket_detail_statuses=read_ticket_detail_statuses(root),
+        privacy_decision_blockers=repository_processing_decisions(root),
     )
 
 
