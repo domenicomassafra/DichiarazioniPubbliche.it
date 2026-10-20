@@ -255,6 +255,19 @@ class SpaCyPrivateCandidateTests(unittest.TestCase):
                 self.assertEqual(provider.calls, 0)
                 self.assertEqual(store.committed_batches, [])
 
+    def test_wrong_rights_fence_context_holds_before_ner_or_provider(self):
+        context, store, provider, fence = fixture()
+        wrong_fence = replace(fence, content_id="content:other")
+        with patch.object(self.adapter, "propose", wraps=self.adapter.propose) as ner:
+            with self.assertRaisesRegex(CandidateExtractionError, "FENCE_CONTEXT_MISMATCH"):
+                extract_passage_candidates_with_spacy(
+                    passage_id=context.passage_id, store=store, provider=provider,
+                    adapter=self.adapter, authorization_guard=lambda: None,
+                    commit_fence=wrong_fence,
+                )
+            ner.assert_not_called()
+        self.assertEqual(provider.calls, 0)
+
     def test_bad_spans_fail_closed(self):
         invalid = FakeItalianPipeline(invalid=True)
         adapter = SpaCyItalianPrivateAdapter(invalid, approval=approval(invalid))

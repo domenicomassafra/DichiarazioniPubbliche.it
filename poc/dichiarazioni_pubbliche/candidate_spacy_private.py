@@ -256,6 +256,10 @@ def extract_passage_candidates_with_spacy(
         raise CandidateExtractionError("CANDIDATE_PASSAGE_NOT_FOUND")
     if context.passage_id != passage_id:
         raise CandidateExtractionError("SPACY_PASSAGE_ID_MISMATCH")
+    if (context.content_id != commit_fence.content_id
+            or context.capture_id != commit_fence.capture_id
+            or context.text_sha256 != commit_fence.passage_sha256):
+        raise CandidateExtractionError("SPACY_PRIVATE_FENCE_CONTEXT_MISMATCH")
     spans = adapter.propose(
         text=context.text, text_sha256=context.text_sha256, language=context.language
     )
