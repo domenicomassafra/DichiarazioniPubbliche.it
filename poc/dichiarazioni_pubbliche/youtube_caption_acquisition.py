@@ -25,7 +25,7 @@ class CaptionAcquisitionHandler:
         self._require_current_ingestion_relevance(content)
         try:
             probe = self.resolver.probe_caption(candidate.canonical_url)
-        except PlatformAccessRestricted:
+        except PlatformAccessRestricted as exc:
             _record_caption_receipt(self.store,
                 job_id=job.job_id,
                 content_id=content.content_id,
@@ -138,9 +138,14 @@ class CaptionAcquisitionHandler:
                 input_bytes=None, input_seconds=None,
                 estimated_cost_usd=0.0, status="ACCESS_RESTRICTED",
                 receipt={"error_type": "PlatformAccessRestricted",
-                         "access_path": "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION",
+                         "access_path": exc.access_path,
                          "capture_provenance": {
-                             "method": "youtube-transcript-api", "method_version": "1.2.4",
+                             "method": ("youtube-transcript-api" if
+                                        exc.access_path == "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION"
+                                        else "yt-dlp"),
+                             "method_version": ("1.2.4" if
+                                                exc.access_path == "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION"
+                                                else "unspecified-external"),
                          }},
                 request_key=f"{job.payload.get('external_id') or url}:attempt:{job.attempt}",
             )

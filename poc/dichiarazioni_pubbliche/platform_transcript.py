@@ -7,7 +7,7 @@ import re
 import subprocess
 import tempfile
 import unicodedata
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable
@@ -15,6 +15,12 @@ from urllib.parse import parse_qs, urlparse
 
 from dichiarazioni_pubbliche.caption_adapter import (
     CaptionSegment, parse_transcript_api_snippets, parse_youtube_json3,
+)
+from dichiarazioni_pubbliche.youtube_caption_fallback import (
+    yt_dlp_caption_unavailable,
+)
+from dichiarazioni_pubbliche.youtube_caption_ytdlp import (
+    YtDlpAccessDenied, download_youtube_json3,
 )
 from dichiarazioni_pubbliche.source_watcher import (
     DiscoveredContent,
@@ -53,6 +59,10 @@ class CaptionCapture:
 
 class PlatformAccessRestricted(RuntimeError):
     """The public client cannot access the platform copy without extra entitlement."""
+
+    def __init__(self, reason: str, *, access_path: str = "YOUTUBE_TRANSCRIPT_API_PUBLIC_CAPTION") -> None:
+        super().__init__(reason)
+        self.access_path = access_path
 
 
 _SERIES_EPISODE = re.compile(
@@ -126,6 +136,7 @@ class YouTubeResolver:
     def __init__(
         self, yt_dlp: str = "yt-dlp", playlist_limit: int = 250,
         *, use_transcript_api: bool | None = None,
+        use_transcript_api_secondary: bool | None = None,
         transcript_api_factory: Callable[[], Any] | None = None,
     ) -> None:
         self.yt_dlp = yt_dlp
@@ -136,6 +147,12 @@ class YouTubeResolver:
             os.environ.get("DP_YOUTUBE_TRANSCRIPT_API", "").strip() == "1"
             if use_transcript_api is None else use_transcript_api
         )
+        self.use_transcript_api_secondary = (
+            os.environ.get("DP_YOUTUBE_TRANSCRIPT_API_SECONDARY", "").strip() == "1"
+            if use_transcript_api_secondary is None else use_transcript_api_secondary
+        )
+        if self.use_transcript_api and self.use_transcript_api_secondary:
+            raise ValueError("TRANSCRIPT_API_MODES_CONFLICT")
         self._transcript_api_factory = transcript_api_factory
 
     def _atom_candidates(self, source: dict[str, Any]) -> list[VideoCandidate]:
@@ -322,6 +339,9 @@ class YouTubeResolver:
         )
 
     def capture_caption(self, video_url: str, probe: CaptionProbe) -> CaptionCapture:
+        if self.use_transcript_api_secondary:
+            # Validate scope before invoking either client.
+            self._youtube_video_id(video_url)
         fallback_reason = ""
         if self.use_transcript_api:
             try:
@@ -332,56 +352,36 @@ class YouTubeResolver:
                 # Missing dependency, missing selected track, malformed payload and
                 # timeouts all revert to the existing independent JSON3 adapter.
                 fallback_reason = type(exc).__name__
-        capture = self._capture_yt_dlp_caption(video_url, probe)
+        try:
+            capture = self._capture_yt_dlp_caption(video_url, probe)
+        except PlatformAccessRestricted:
+            raise
+        except Exception as exc:
+            if not self.use_transcript_api_secondary or not yt_dlp_caption_unavailable(exc):
+                raise
+            recovered = self._capture_transcript_api(video_url, probe)
+            return replace(recovered, provenance={
+                **recovered.provenance, "prior_method": "yt-dlp",
+                "prior_method_version": "unspecified-external",
+                "fallback_reason": "YT_DLP_CAPTION_UNAVAILABLE",
+            })
         if fallback_reason:
-            return CaptionCapture(
-                raw_bytes=capture.raw_bytes,
-                raw_sha256=capture.raw_sha256,
-                raw_text=capture.raw_text,
-                raw_text_sha256=capture.raw_text_sha256,
-                segments=capture.segments,
-                probe=capture.probe,
-                provenance={**capture.provenance,
-                            "prior_method": "youtube-transcript-api",
-                            "prior_method_version": "1.2.4",
-                            "fallback_reason": fallback_reason},
-            )
+            return replace(capture, provenance={
+                **capture.provenance, "prior_method": "youtube-transcript-api",
+                "prior_method_version": "1.2.4",
+                "fallback_reason": fallback_reason,
+            })
         return capture
 
     def _capture_yt_dlp_caption(self, video_url: str, probe: CaptionProbe) -> CaptionCapture:
-        flag = "--write-subs" if probe.kind == "manual_caption" else "--write-auto-subs"
-        with tempfile.TemporaryDirectory(prefix="dichiarazioni-pubbliche-caption-") as tmp:
-            template = str(Path(tmp) / "caption.%(ext)s")
-            proc = subprocess.run(
-                [
-                    self.yt_dlp,
-                    "--ignore-config",
-                    "--no-cache-dir",
-                    "--skip-download",
-                    flag,
-                    "--sub-langs",
-                    probe.language,
-                    "--sub-format",
-                    "json3",
-                    "-o",
-                    template,
-                    video_url,
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
+        try:
+            raw_bytes = download_youtube_json3(
+                self.yt_dlp, video_url, probe.language, probe.kind,
             )
-            if proc.returncode != 0:
-                message = (proc.stderr or proc.stdout).strip().splitlines()
-                raise RuntimeError(
-                    (message[-1] if message else "yt-dlp caption capture failed")[:800]
-                )
-            paths = sorted(Path(tmp).glob("caption*.json3"))
-            if len(paths) != 1:
-                raise RuntimeError(
-                    f"Expected one JSON3 caption, found {len(paths)}"
-                )
-            raw_bytes = paths[0].read_bytes()
+        except YtDlpAccessDenied as exc:
+            raise PlatformAccessRestricted(
+                "YT_DLP_CAPTION_ACCESS_RESTRICTED", access_path="YT_DLP_PUBLIC_CAPTION",
+            ) from exc
         raw_sha256 = hashlib.sha256(raw_bytes).hexdigest()
         payload = json.loads(raw_bytes)
         segments = tuple(parse_youtube_json3(payload))

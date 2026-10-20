@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sys
@@ -14,6 +15,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.platform_transcript import (  # noqa: E402
     CaptionCapture,
     CaptionProbe,
+    PlatformAccessRestricted,
     PrivateTranscriptStore,
     VideoCandidate,
     YouTubeResolver,
@@ -26,6 +28,142 @@ from dichiarazioni_pubbliche.worker_handlers_transcript import TranscriptAsrJobH
 
 
 class PlatformTranscriptTests(unittest.TestCase):
+    @staticmethod
+    def _second_api_fixture(*, generated=False, error=None):
+        rows = [{"text": "Italiano", "start": 0.25, "duration": 1.5},
+                {"text": "Ancora", "start": 1.75, "duration": 2.0}]
+        fetched = SimpleNamespace(
+            language_code="it", is_generated=generated, to_raw_data=lambda: rows,
+        )
+        track = SimpleNamespace(
+            language_code="it", is_generated=generated,
+            fetch=Mock(return_value=fetched),
+        )
+        available = Mock()
+        available.find_manually_created_transcript.return_value = track
+        available.find_generated_transcript.return_value = track
+        api = Mock()
+        api.list.return_value = available
+        api.list.side_effect = error
+        return api, available, track
+
+    def test_second_path_is_opt_in_and_cannot_duplicate_first_api_attempt(self):
+        with patch.dict(os.environ, {
+            "DP_YOUTUBE_TRANSCRIPT_API": "", "DP_YOUTUBE_TRANSCRIPT_API_SECONDARY": "",
+        }):
+            self.assertFalse(YouTubeResolver().use_transcript_api_secondary)
+        with patch.dict(os.environ, {
+            "DP_YOUTUBE_TRANSCRIPT_API": "", "DP_YOUTUBE_TRANSCRIPT_API_SECONDARY": "1",
+        }):
+            self.assertTrue(YouTubeResolver().use_transcript_api_secondary)
+        with self.assertRaisesRegex(ValueError, "TRANSCRIPT_API_MODES_CONFLICT"):
+            YouTubeResolver(use_transcript_api=True, use_transcript_api_secondary=True)
+
+    def test_second_path_recovers_missing_json3_preserving_selected_track_and_receipt(self):
+        for kind, language, generated in (
+            ("manual_caption", "it", False),
+            ("automatic_caption", "it-orig", True),
+        ):
+            with self.subTest(kind=kind):
+                api, available, track = self._second_api_fixture(generated=generated)
+                resolver = YouTubeResolver(
+                    use_transcript_api=False, use_transcript_api_secondary=True,
+                    transcript_api_factory=lambda: api,
+                )
+                probe = CaptionProbe(kind, language)
+                with patch.object(resolver, "_capture_yt_dlp_caption",
+                                  side_effect=RuntimeError("no subtitles available")) as primary:
+                    capture = resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
+                primary.assert_called_once()
+                api.list.assert_called_once_with("AbC123_dEfG")
+                finder = (available.find_generated_transcript if generated else
+                          available.find_manually_created_transcript)
+                finder.assert_called_once_with(["it"])
+                track.fetch.assert_called_once_with(preserve_formatting=False)
+                self.assertEqual(capture.probe, probe)
+                self.assertEqual(capture.segments[0].start_ms, 250)
+                self.assertEqual(capture.segments[1].end_ms, 3750)
+                self.assertEqual(capture.raw_sha256, hashlib.sha256(capture.raw_bytes).hexdigest())
+                self.assertEqual(capture.raw_text_sha256, hashlib.sha256(capture.raw_text.encode()).hexdigest())
+                self.assertEqual(capture.provenance["method"], "youtube-transcript-api")
+                self.assertEqual(capture.provenance["method_version"], "1.2.4")
+                self.assertEqual(capture.provenance["prior_method"], "yt-dlp")
+                self.assertEqual(capture.provenance["fallback_reason"], "YT_DLP_CAPTION_UNAVAILABLE")
+
+    def test_second_path_does_not_repeat_on_success_or_donor_no_captions(self):
+        api, _, _ = self._second_api_fixture(error=LookupError("no captions"))
+        resolver = YouTubeResolver(use_transcript_api=False,
+                                   use_transcript_api_secondary=True,
+                                   transcript_api_factory=lambda: api)
+        successful = CaptionCapture(
+            b"{}", hashlib.sha256(b"{}").hexdigest(), "ok",
+            hashlib.sha256(b"ok").hexdigest(), (CaptionSegment(0, 0, 100, "ok"),),
+            CaptionProbe("manual_caption", "it"),
+        )
+        with patch.object(resolver, "_capture_yt_dlp_caption", return_value=successful) as primary:
+            self.assertIs(resolver.capture_caption("https://youtu.be/AbC123_dEfG", successful.probe), successful)
+        primary.assert_called_once()
+        api.list.assert_not_called()
+        with patch.object(resolver, "_capture_yt_dlp_caption",
+                          side_effect=RuntimeError("no captions")) as primary:
+            with self.assertRaises(LookupError):
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG", successful.probe)
+        primary.assert_called_once()
+        api.list.assert_called_once()
+
+    def test_secondary_uses_real_json3_failure_classification_without_network(self):
+        api, _, _ = self._second_api_fixture()
+        resolver = YouTubeResolver(use_transcript_api=False,
+                                   use_transcript_api_secondary=True,
+                                   transcript_api_factory=lambda: api)
+        with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                   return_value=SimpleNamespace(returncode=1, stderr="no subtitles available", stdout="")) as primary:
+            result = resolver.capture_caption("https://youtu.be/AbC123_dEfG",
+                                              CaptionProbe("manual_caption", "it"))
+        primary.assert_called_once()
+        self.assertIn("--ignore-config", primary.call_args.args[0])
+        self.assertEqual(result.provenance["fallback_reason"], "YT_DLP_CAPTION_UNAVAILABLE")
+        api.list.assert_called_once()
+
+        # An invalid HTTP body might be a consent/challenge response, not a
+        # missing subtitle; another network client must not be started.
+        with patch.object(resolver, "_capture_yt_dlp_caption",
+                          side_effect=json.JSONDecodeError("bad", "<html>", 0)):
+            with self.assertRaises(json.JSONDecodeError):
+                resolver.capture_caption("https://youtu.be/AbC123_dEfG",
+                                         CaptionProbe("manual_caption", "it"))
+        api.list.assert_called_once()
+
+    def test_second_path_holds_yt_dlp_429_consent_and_ambiguous_failures(self):
+        resolver = YouTubeResolver(use_transcript_api=False,
+                                   use_transcript_api_secondary=True,
+                                   transcript_api_factory=lambda: self.fail("API bypass"))
+        probe = CaptionProbe("manual_caption", "it")
+        for reason in (
+            "HTTP Error 401 Unauthorized", "HTTP Error 403 Forbidden",
+            "HTTP Error 429 Too Many Requests", "IP blocked",
+            "Sign in to confirm you're not a bot", "Consent required",
+            "video unavailable", "no captions; CAPTCHA challenge",
+        ):
+            with self.subTest(reason=reason):
+                response = SimpleNamespace(returncode=1, stderr=reason, stdout="")
+                with patch("dichiarazioni_pubbliche.youtube_caption_ytdlp.subprocess.run",
+                           return_value=response) as process:
+                    with self.assertRaises(PlatformAccessRestricted) as ctx:
+                        resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
+                self.assertEqual(ctx.exception.access_path, "YT_DLP_PUBLIC_CAPTION")
+                process.assert_called_once()
+        for failure in (RuntimeError("unclassified provider failure"),
+                        RuntimeError("remote server unavailable")):
+            with patch.object(resolver, "_capture_yt_dlp_caption", side_effect=failure):
+                with self.assertRaises(RuntimeError):
+                    resolver.capture_caption("https://youtu.be/AbC123_dEfG", probe)
+
+        with patch.object(resolver, "_capture_yt_dlp_caption") as primary:
+            with self.assertRaisesRegex(ValueError, "TRANSCRIPT_API_UNTRUSTED_URL"):
+                resolver.capture_caption("https://foreign.invalid/watch?v=AbC123_dEfG", probe)
+            primary.assert_not_called()
+
     def test_episode_marker_parses_series_number_and_spacing(self):
         cases = {
             "Pulp Podcast #111 - Titolo": ("pulp podcast", 111),
