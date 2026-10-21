@@ -3,6 +3,7 @@
 import socket
 import sys
 import tempfile
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -144,6 +145,60 @@ class WorkerBudgetReservationPgTests(unittest.TestCase):
         self.assertAlmostEqual(scheduler.cost_today("source:test"), 0.2)
         self.assertEqual(self.reserve(2), "GLOBAL_DAILY_BUDGET_REACHED")
         self.assertEqual(self.reserve(3, amount="0.100000"), "RESERVED")
+
+    def test_receipt_commit_between_admission_reads_keeps_daily_cap(self):
+        """A receipt changing RESERVED to RECEIPTED cannot vanish mid-preflight.
+
+        The private fixture exposes the gap between the two SQL reads
+        with a session advisory marker. No runtime migration is changed.
+        """
+        self.assertEqual(self.reserve(1), "RESERVED")
+        migration_path = (
+            ROOT / "db" / "migrations" /
+            "20261016-add-worker-budget-reservations.sql"
+        )
+        migration = migration_path.read_text()
+        marker = "    SELECT COALESCE(sum(h.upper_bound_usd),0),"
+        self.assertEqual(migration.count(marker), 1)
+        instrumented = migration.replace(
+            marker,
+            "    PERFORM pg_advisory_xact_lock(20261020, 514);\n"
+            "    PERFORM pg_sleep(2);\n" + marker,
+        )
+        self.exec_sql(self.dsn, instrumented)
+        try:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                admission = pool.submit(self.reserve, 2)
+                for _ in range(80):
+                    observed = self.scalar("""
+                        SELECT count(*) FROM pg_locks
+                        WHERE locktype='advisory' AND classid=20261020
+                          AND objid=514 AND granted;
+                    """)
+                    if observed == "1":
+                        break
+                    time.sleep(0.025)
+                else:
+                    self.fail("admission did not reach guarded interleaving")
+                self.store.record_receipt(
+                    job_id="job:1", content_id="content:test",
+                    provider_id="provider:test", model_id="model:test",
+                    operation="CLAIM_EXTRACT", request_id="request:test",
+                    input_bytes=10, input_seconds=None,
+                    estimated_cost_usd=0.2, status="SUCCESS",
+                    receipt={"fixture": True}, request_key="race",
+                    billing_basis="ESTIMATED_ONLY",
+                )
+                self.assertEqual(
+                    admission.result(timeout=10), "GLOBAL_DAILY_BUDGET_REACHED"
+                )
+            self.assertEqual(self.scalar("""
+                SELECT count(*) FROM worker_budget_reservation
+                WHERE state='RECEIPTED';
+            """), "1")
+            self.assertEqual(self.store.cost_snapshot("source:test").global_day_usd, 0.2)
+        finally:
+            self.exec_sql(self.dsn, migration)
 
     def test_unreported_cost_and_old_unknown_fail_closed(self):
         self.assertEqual(self.reserve(1), "RESERVED")

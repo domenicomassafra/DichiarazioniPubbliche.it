@@ -276,3 +276,24 @@ billing reconciliation or authority to spend, claim reviewed evidence or
 publish. **DP-319 remains IN PROGRESS; AC-319.1–.5 remain OPEN** pending
 real authorized sources, provider/ledger readback, durable runtime and
 downstream MiniPC acceptance.
+
+### 2026-10-21 — PR #233 and remaining acceptance
+
+PR #233 (`aa1fe195`) fences duplicate SQLite cost on unchanged source
+SHA after relabel. No real dispatch, D billing or rights grant.
+
+- **AC-319.1 OPEN:** planner has typed question, assignment, cap and stop;
+  full HOLD-code mapping and source-specific permit remain unproved.
+- **AC-319.2 PARTIAL:** synthetic SQLite restart, duplicate fence, CAS and
+  changed-source attempt pass; no real cost-bearing replay receipt.
+- **AC-319.3 PARTIAL:** `CHECKED_INSUFFICIENT`/`EXHAUSTED` preserve uncertainty;
+  actual permitted alternative-source coverage absent.
+- **AC-319.4 OPEN:** `RESOLVED_PRIVATE_CANDIDATE` is not certified `RESOLVED`;
+  `CONFLICT`, verified source→hash→decision and queue exit remain absent.
+- **AC-319.5 PARTIAL:** synthetic rights revocation, outage and budget fences;
+  no exact real provider/D spend reconciliation.
+
+Owner 20/10: Camera 607 **HOLD** (#63 comment 6300423664).
+Candidate: EU Parliament Open Data `/speeches` (2025/341, CC BY 4.0).
+Pin record/SHA, exceptions and permitted use before any dispatch.
+No paid calls or deploy; AC remain open.

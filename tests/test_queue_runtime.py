@@ -109,7 +109,7 @@ class QueueRuntimeTests(unittest.TestCase):
             receipt={"ok": True},
         )
         self.assertTrue(receipt_id.endswith(":attempt:1"))
-        self.assertIn("WITH receipt_candidate AS", store.sql)
+        self.assertIn("pg_advisory_xact_lock", store.sql)
         self.assertIn("legacy.id=:'receipt_id_base'", store.sql)
         self.assertIn("ELSE :'receipt_id_base' || ':attempt:'", store.sql)
         self.assertIn("operation_key, attempt", store.sql)
