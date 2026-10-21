@@ -1,0 +1,40 @@
+{
+  "schema": "dp239-ai-review-receipt-v1",
+  "requested_model": "antigravity/gemini-3.8-flash-tiered",
+  "observed_provider": "antigravity",
+  "observed_model": "gemini-3.8-flash-tiered",
+  "raw_events_sha256": "a92a7a13720e4ded23c78317796d0effa36bdf507a751dc5c7627f32deda5703",
+  "response_sha256": "449ad8c81a2976afd6baaf5937e8eaf2fd08d712b823075f9cccbfffb514dbab",
+  "response": {
+    "reviewer_model": "antigravity-pi-reviewer-b",
+    "review_date": "2026-10-21",
+    "source_rights_verdict": "CLEARED_FOR_PRIVATE_CANARY",
+    "translated_meaning_verdict": "FAITHFUL",
+    "meaning_risks": [],
+    "privacy_leak_risk": "LOW",
+    "permitted_operations": [
+      "PRIVATE_LOCAL_STORAGE",
+      "PRIVATE_CANARY_BENCHMARKING",
+      "DERIVATIVE_TRANSLATION_IN_BOUNDED_LOCAL_ENVIRONMENT"
+    ],
+    "conditions": [
+      "Private local storage only; public quotes and public publication remain strictly denied.",
+      "Raw HTML (SHA256: f90604358e232d472752d3305e83921f2a5140d73a3b5d0d8bd93189dd693143) and excerpt must remain immutable, verifiable by digest, and attributed.",
+      "Retention expiry enforced at 2026-11-20 unless a stricter local policy dictates earlier deletion.",
+      "No external fetching, web crawl, or cloud provider uploads of full third-party documents.",
+      "CC BY 4.0 attribution, license link, and change markers must be preserved on any derivative.",
+      "Individual copyright, third-party, personal identity, and trademark/logo exceptions noted in the source legal notice must be respected.",
+      "Unsupported language pairs must fail closed."
+    ],
+    "source_evidence": {
+      "source_url": "https://commission.europa.eu/legal-notice_de",
+      "download_date": "2026-10-21",
+      "html_sha256": "f90604358e232d472752d3305e83921f2a5140d73a3b5d0d8bd93189dd693143",
+      "html_bytes": 155838,
+      "excerpt_de": "Sofern nicht anders (z. B. in individuellen Copyright-Vermerken) angegeben, werden im Eigentum der Kommission befindliche Inhalte auf dieser Website zu den Bedingungen der Lizenz Creative Commons Attribution 4.0 International (CC BY 4.0) zur Verfügung gestellt. Dies bedeutet, dass die Weiterverwendung mit ordnungsgemäßer Nennung der Quelle und unter Hinweis auf Änderungen gestattet ist."
+    },
+    "translation_notes": "The Italian translation closely tracks the German legal syntax, scope, conditions, and modality without omission or distortion. 'Sofern nicht anders... angegeben' is accurately rendered as 'Salvo diversa indicazione...'; the Commission ownership constraint ('im Eigentum der Kommission befindliche Inhalte') matches 'i contenuti di proprietà della Commissione'; and the reuse conditions ('ordnungsgemäßer Nennung der Quelle und unter Hinweis auf Änderungen gestattet') are preserved as 'citando correttamente la fonte e segnalando le modifiche'. Rubric checks (negation, numbers, dates, judicial status, actor order, reported speech, quote markers) revealed zero discrepancies.",
+    "limitations": "This evaluation is performed purely on the provided text, SHA-256 hash, and stated notice conditions without external web retrieval, live cryptographic validation of the upstream origin, or certified legal counsel advice. The clearance applies strictly to internal, private canary processing of Commission-owned excerpts under CC BY 4.0 terms."
+  },
+  "observed_at": "2026-10-21T00:36:00.884000+00:00"
+}

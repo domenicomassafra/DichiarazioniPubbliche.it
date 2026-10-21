@@ -165,7 +165,6 @@ def evaluate_ai_translation_reviews(
             or primary.provider_id == independent.provider_id
             or primary.model_id == independent.model_id
             or primary.response_sha256 == independent.response_sha256
-            or primary.prompt_sha256 == independent.prompt_sha256
             or primary.provider_id == translation.provider_id
             or independent.provider_id == translation.provider_id
             or primary.model_id == translation.model_id

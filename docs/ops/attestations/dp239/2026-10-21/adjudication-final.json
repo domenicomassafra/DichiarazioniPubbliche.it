@@ -1,0 +1,96 @@
+{
+  "schema": "dp239-ai-review-receipt-v1",
+  "requested_model": "antigravity/claude-sonnet-4-6",
+  "observed_provider": "antigravity",
+  "observed_model": "claude-sonnet-4-6",
+  "raw_events_sha256": "98ad5ecff3a47451e370f8addbbad512eda170fc58c36b351d320e15f8efc528",
+  "response_sha256": "de00f5fe88b96d0d8e3ac28a1f813ae2af82ae392b0b71502b4a84a9d099e4a1",
+  "response": {
+    "adjudicator": "antigravity/deepmind-third-adjudicator",
+    "adjudication_date": "2026-10-21",
+    "verdicts": [
+      {
+        "id": "C0",
+        "semantic_state": "UNRESOLVED",
+        "expected_alerts": [
+          "MODALITY_MISMATCH"
+        ],
+        "reason_code": "MODAL_AMBIGUITY_IT"
+      },
+      {
+        "id": "C1",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "NEGATION_MISMATCH",
+          "MODALITY_MISMATCH"
+        ],
+        "reason_code": "NEGATION_DROPPED_OBLIGATION_INVERTED"
+      },
+      {
+        "id": "C2",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "NUMBER_MISMATCH"
+        ],
+        "reason_code": "SIGN_POLARITY_LOST"
+      },
+      {
+        "id": "C3",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "DATE_MISMATCH"
+        ],
+        "reason_code": "DATE_OFF_BY_ONE_DAY"
+      },
+      {
+        "id": "C4",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "ACTOR_ANCHOR_CHANGED",
+          "ACTOR_ORDER_CHANGED"
+        ],
+        "reason_code": "SUBJECT_AGENT_INVERTED"
+      },
+      {
+        "id": "C5",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "MODALITY_MISMATCH"
+        ],
+        "reason_code": "PERMISSION_TO_OBLIGATION"
+      },
+      {
+        "id": "C6",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "NEGATION_MISMATCH",
+          "REPORTED_SPEECH_MISMATCH",
+          "QUOTE_MARKER_MISMATCH",
+          "QUOTED_SPEAKER_ENDORSEMENT_UNVERIFIED"
+        ],
+        "reason_code": "PROPOSITION_INVERTED_QUOTE_COLLAPSED"
+      },
+      {
+        "id": "C7",
+        "semantic_state": "MISMATCH",
+        "expected_alerts": [
+          "JUDICIAL_STATUS_MISMATCH"
+        ],
+        "reason_code": "ACQUITTAL_TO_CONVICTION"
+      }
+    ],
+    "reviewer_conflicts": [
+      "C0: SOL UNRESOLVED+MODALITY_MISMATCH vs GEMINI FAITHFUL+no alerts; third adjudicator sides with SOL: IT non deve is ambiguous between prohibition and absence of obligation, so UNRESOLVED with MODALITY_MISMATCH alert is the fail-closed correct call",
+      "C1: SOL adds MODALITY_MISMATCH alongside NEGATION_MISMATCH; GEMINI lists only NEGATION_MISMATCH; third adjudicator agrees with SOL: negation drop also shifts modal force, both codes warranted"
+    ],
+    "publication_authority": false,
+    "limitations": [
+      "All 8 cases are synthetic and must never be claimed as authentic statements.",
+      "Evaluation is strictly bounded to provided DE->IT pairs without extratextual evidence.",
+      "Heuristic risk codes may overlap or miss pragmatic nuance; not publishable certainty.",
+      "No AI reviewer alone grants translation publication authority.",
+      "Unknown or unsupported language pairs fail closed as UNRESOLVED."
+    ]
+  },
+  "observed_at": "2026-10-21T01:11:07.921000+00:00"
+}
