@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from copy import deepcopy
 from dataclasses import asdict, dataclass
+
+from .requirement_metadata_boundary_v1 import canonical_requirement_metadata as _snap
 
 from .verification_requirements_v1 import (
     RequirementClaim, RequirementEvidence,
@@ -117,8 +118,8 @@ def build_research_batch(
     if type(claims) is not tuple or type(evidence_by_claim) is not dict:
         raise ValueError("BATCH_INPUT_UNSAFE")
     if (
-            not isinstance(max_claims, int) or isinstance(max_claims, bool)
-            or not isinstance(max_evidence, int) or isinstance(max_evidence, bool)
+            type(max_claims) is not int
+            or type(max_evidence) is not int
             or max_claims < 1 or max_claims > _MAX_CLAIMS
             or max_evidence < 1 or max_evidence > _MAX_EVIDENCE
             or len(claims) > max_claims):
@@ -130,10 +131,20 @@ def build_research_batch(
     if any(type(rows) is not tuple or any(type(row) is not RequirementEvidence for row in rows)
            for rows in evidence_by_claim.values()):
         raise ValueError("BATCH_INVALID_EVIDENCE")
-    # Preflight, remediation actions and hash all see this one detached
-    # metadata snapshot; never re-read the caller's mutable dictionary.
-    claims = deepcopy(claims)
-    evidence_by_claim = deepcopy(evidence_by_claim)
+    # Check field values as well as record/container types. A str subclass
+    # can change rights, identity or dates while deepcopy executes its hooks.
+    # Build a fresh container and dataclasses from exact inert strings only.
+    claims = tuple(
+        _snap(claim, RequirementClaim, "BATCH_INVALID_CLAIM")
+        for claim in claims
+    )
+    evidence_by_claim = {
+        key: tuple(
+            _snap(row, RequirementEvidence, "BATCH_INVALID_EVIDENCE")
+            for row in rows
+        )
+        for key, rows in tuple(evidence_by_claim.items())
+    }
     identifiers = [claim.claim_id for claim in claims]
     if len(set(identifiers)) != len(identifiers):
         raise ValueError("BATCH_DUPLICATE_CLAIM")
