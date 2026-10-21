@@ -26,9 +26,19 @@ def candidate(**changes):
         "retrieval_method": "OFFICIAL_INDEX", "statement_cutoff": "2025-01-01",
         "relation_candidate": "CONTRADICT", "status": "APPROVED",
         "content_sha256": "a" * 64, "rights_status": "CLEARED",
+        "canonical_url": "https://official.example/source",
         "record_status": "ACTIVE", "independence_group": "origin:1",
         "publication_date": "2024-12-31", "valid_from": None,
         "valid_until": None, "reference_period": None,
+        "rights_records": [{
+            "id": "private-rights:1", "subject_fingerprint": "b" * 64,
+            "source_family": "OFFICIAL", "locator_kind": "URL",
+            "locator_value": "https://official.example/source", "rights_status": "CLEARED",
+            "rights_receipt_ref": "fixture:license", "permitted_uses": ["CHALLENGER_PRIVATE_RESEARCH"],
+            "reviewed_at": "2026-10-21T00:00:00+00:00", "expires_at": None,
+            "reviewer_ref": "fixture:reviewer", "policy_version": "fixture-v1",
+            "supersedes_id": None, "expired": False, "review_in_future": False,
+        }],
     }
     row.update(changes)
     if "review_events" not in changes:
@@ -82,6 +92,10 @@ class ChallengerMaterialInventoryTests(unittest.TestCase):
             [candidate(valid_until="2025-12-31")],
             [candidate(reference_period="2024-Q4")],
             [candidate(retrieval_method="INDEPENDENT_REPORT")],
+            [candidate(canonical_url="https://different.example/source")],
+            [candidate(rights_records=[])],
+            [candidate(rights_records=[{**candidate()["rights_records"][0],
+                                        "rights_status": "REVOKED"}])],
         ]
         for rows in changes:
             with self.subTest(rows=rows):
@@ -126,6 +140,20 @@ class ChallengerMaterialInventoryTests(unittest.TestCase):
                 self.assertEqual(inventory.pending_or_unverified, 1)
                 self.assertIn("CHALLENGER_MATERIAL_PROVENANCE_INCOMPLETE", inventory.blockers)
                 self.assertFalse(inventory.publication_authority)
+
+    def test_missing_or_revoked_scoped_rights_are_hold_even_with_legacy_cleared_flag(self):
+        for rights_records in ([], [{**candidate()["rights_records"][0],
+                                      "rights_status": "REVOKED"}],
+                               [{**candidate()["rights_records"][0],
+                                 "expired": True}],
+                               [{**candidate()["rights_records"][0],
+                                 "locator_value": "https://unrelated.example/source"}]):
+            with self.subTest(rights_records=rights_records):
+                inventory = load_challenger_material_inventory(
+                    FakeRuntime([candidate(rights_records=rights_records)]), claim_id="c",
+                )
+                self.assertEqual(inventory.pending_or_unverified, 1)
+                self.assertIn("CHALLENGER_SOURCE_RIGHTS_NOT_CURRENT", inventory.blockers)
 
     def test_delimiter_colliding_review_identity_cannot_verify_other_candidate(self):
         first = candidate(evidence_id="ev|part", retrieval_version="v1")
