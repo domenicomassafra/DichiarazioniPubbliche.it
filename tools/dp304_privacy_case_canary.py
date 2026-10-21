@@ -12,15 +12,11 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
-import shutil
-import socket
-import subprocess
 import sys
 import tempfile
 import threading
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
@@ -32,19 +28,26 @@ from dichiarazioni_pubbliche.dp304_case_fixture import (  # noqa: E402
     SENTINELS,
     case_row,
 )
+from dichiarazioni_pubbliche.dp304_case_postgres import (  # noqa: E402
+    disposable_postgres,
+    file_hashes,
+)
 from dichiarazioni_pubbliche.policy.privacy_policy import (  # noqa: E402
     PRIVACY_POLICY_VERSION,
+    RETENTION_PERIODS_APPROVED,
     DataClass,
     PrivateAccessMode,
     PrivateAccessPurpose,
     PrivateAccessRequest,
     PrivateAccessRole,
     ProjectionInput,
+    RetentionDecision,
     RightsRequestKind,
     RightsRequestOutcome,
     assert_no_trait_inference,
     decide_projection,
     minimize_public_fieldset,
+    retention_decision,
     rights_request_outcome,
 )
 from dichiarazioni_pubbliche.privacy_decision_persistence import (  # noqa: E402
@@ -72,6 +75,17 @@ PUBLIC_PATHS = (
     f"/api/v1/findings/{CASE_RECORD}",
     "/index.nt",
 )
+# After revocation the record route must disappear while the collection stays up.
+STABLE_PATHS = ("/api/v1/health", "/api/v1/index.json", "/api/v1/findings", "/index.nt")
+RECORD_PATH = f"/api/v1/findings/{CASE_RECORD}"
+# Real published values for the five allowlisted fields of this case.
+PUBLIC_VALUES = {
+    "finding_id": CASE_RECORD,
+    "person_name": "Persona Pubblica Fittizia",
+    "public_role_interval": "Consiglio comunale Fittizio, mandato in corso",
+    "source_url": "https://example.test/dp304-canary",
+    "normalized_claim": "Il consiglio comunale ha approvato il bilancio con dodici voti favorevoli.",
+}
 
 
 def require(condition: object, code: str) -> None:
@@ -83,67 +97,15 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _bin(name: str) -> str:
-    found = shutil.which(name)
-    if found:
-        return found
-    for candidate in sorted(Path("/usr/lib/postgresql").glob(f"*/bin/{name}")):
-        return str(candidate)
-    raise RuntimeError("DP304_CANARY_POSTGRES_UNAVAILABLE_" + name)
-
-
-def _run(args: list[str]) -> str:
-    proc = subprocess.run(args, text=True, capture_output=True, check=False)
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout).strip().splitlines()
-        raise RuntimeError(
-            "DP304_CANARY_COMMAND_FAILED_" + (detail[-1] if detail else "unknown")
-        )
-    return proc.stdout
-
-
-@contextmanager
-def disposable_postgres() -> Iterator[str]:
-    """Fresh schema plus replay-safe additive privacy migrations."""
-    with tempfile.TemporaryDirectory(prefix="dp304-case-canary-") as temp:
-        base = Path(temp)
-        data_dir = base / "data"
-        with socket.socket() as sock:
-            sock.bind(("127.0.0.1", 0))
-            port = int(sock.getsockname()[1])
-        _run([_bin("initdb"), "-D", str(data_dir), "--username=postgres",
-              "--auth=trust", "--encoding=UTF8", "--no-locale"])
-        started = False
-        try:
-            _run([_bin("pg_ctl"), "-D", str(data_dir), "-l", str(base / "server.log"),
-                  "-o", f"-F -p {port} -h 127.0.0.1 -k {base}", "-w", "start"])
-            started = True
-            admin = f"postgresql://postgres@127.0.0.1:{port}/postgres"
-            _run([_bin("psql"), "-X", "-q", "-v", "ON_ERROR_STOP=1", "--dbname", admin,
-                  "-c", "CREATE DATABASE dp304_case_canary;"])
-            url = f"postgresql://postgres@127.0.0.1:{port}/dp304_case_canary"
-            _run([_bin("psql"), "-X", "-q", "-v", "ON_ERROR_STOP=1", "--dbname", url,
-                  "-f", str(ROOT / "db/schema.v1.sql")])
-            for _ in range(2):
-                _run([_bin("psql"), "-X", "-q", "-v", "ON_ERROR_STOP=1", "--dbname", url,
-                      "-f", str(ROOT / "db/migrations/"
-                               "20261007-add-privacy-rights-access-ledgers.sql")])
-            yield url
-        finally:
-            if started:
-                subprocess.run([_bin("pg_ctl"), "-D", str(data_dir), "-m", "immediate",
-                                "-w", "stop"], capture_output=True, text=True, check=False)
-
-
 def selection_receipt() -> dict[str, Any]:
-    """Deny-by-default classification of every field in the fictional case."""
+    """Deny-by-default classification of the case field matrix plus retention."""
     decisions: dict[str, str] = {}
     for field, data_class, reason, approved, expect_public in CASE_FIELDS:
         decision = decide_projection(
             ProjectionInput(
                 field_name=field,
                 data_class=data_class,
-                text_value=SENTINELS.get(field),
+                text_value=PUBLIC_VALUES.get(field) or SENTINELS.get(field),
                 relevance_reason=reason,
                 explicitly_approved=approved,
                 is_published_version=True,
@@ -176,16 +138,28 @@ def selection_receipt() -> dict[str, Any]:
     minimized = minimize_public_fieldset([field for field, *_ in CASE_FIELDS])
     require("raw_transcript" not in minimized, "MINIMIZATION_KEPT_RAW_TRANSCRIPT")
     require("normalized_claim" in minimized, "MINIMIZATION_DROPPED_PUBLIC_FIELD")
+    retention = retention_decision(DataClass.OPERATIONAL_PRIVATE)
+    require(RETENTION_PERIODS_APPROVED is False, "RETENTION_PERIOD_INVENTED")
+    require(retention is RetentionDecision.AWAITING_APPROVED_PERIOD, "RETENTION_NOT_HELD")
+    require(
+        retention_decision(DataClass.OPERATIONAL_PRIVATE, legal_hold_active=True)
+        is RetentionDecision.LEGAL_HOLD,
+        "RETENTION_HOLD_NOT_PRIOR",
+    )
     return {
         "policy_version": PRIVACY_POLICY_VERSION,
-        "field_decisions": decisions,
-        "published_field_count": sum(1 for value in decisions.values() if value.startswith("ALLOW")),
+        "field_matrix": decisions,
+        "published_field_count": sum(
+            1 for value in decisions.values() if value.startswith("ALLOW")
+        ),
         "refused_or_held_field_count": sum(
             1 for value in decisions.values() if not value.startswith("ALLOW")
         ),
         "public_figure_only_relevance": public_figure_only.decision.value,
         "mislabelled_private_field": mislabelled.decision.value,
         "minimized_public_fieldset": list(minimized),
+        "retention_behavior": retention.value,
+        "retention_periods_approved": RETENTION_PERIODS_APPROVED,
     }
 
 
@@ -210,33 +184,28 @@ class DecisionBoundSource:
             field_name=PUBLISHED_TEXT,
             current_text_value=str(row[PUBLISHED_TEXT]),
         )
-        self.last_reasons = replay.blockers
         return replay.allowed
 
 
-def materialize(out: Path, source: DecisionBoundSource) -> dict[str, Any]:
-    payload = build_public_projection(source, generated_at=GENERATED_AT)
-    write_public_bundle(out, payload)
-    return payload
-
-
-def scan_release(out: Path) -> dict[str, Any]:
-    """Every written public file plus every loopback response, scanned for sentinels."""
+def scan_release(out: Path, paths: tuple[str, ...]) -> dict[str, Any]:
+    """Every written file plus every loopback response, scanned for sentinels."""
     leaks: list[str] = []
     files: dict[str, str] = {}
     for path in sorted(out.rglob("*")):
         if path.is_file():
             body = path.read_bytes()
             files[path.relative_to(out).as_posix()] = digest(body)
-            for name, sentinel in SENTINELS.items():
-                if sentinel.encode() in body:
-                    leaks.append(f"FILE:{path.name}:{name}")
+            leaks.extend(
+                f"FILE:{path.name}:{name}"
+                for name, sentinel in SENTINELS.items()
+                if sentinel.encode() in body
+            )
     responses: dict[str, dict[str, Any]] = {}
     with build_server(out / "index.json", host="127.0.0.1", port=0, static_dir=out) as server:
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            for route in PUBLIC_PATHS:
+            for route in paths:
                 conn = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=5)
                 try:
                     conn.request("GET", route, headers={"Accept-Encoding": "identity"})
@@ -245,9 +214,11 @@ def scan_release(out: Path) -> dict[str, Any]:
                 finally:
                     conn.close()
                 responses[route] = {"status": response.status, "sha256": digest(body)}
-                for name, sentinel in SENTINELS.items():
-                    if sentinel.encode() in body:
-                        leaks.append(f"HTTP:{route}:{name}")
+                leaks.extend(
+                    f"HTTP:{route}:{name}"
+                    for name, sentinel in SENTINELS.items()
+                    if sentinel.encode() in body
+                )
         finally:
             server.shutdown()
             worker.join(timeout=5)
@@ -282,8 +253,8 @@ def persist_review(
     return record.decision_id
 
 
-def rights_receipt(url: str, before: dict[str, Any], out: Path) -> dict[str, Any]:
-    """Private append-only rights case; published history must not change."""
+def rights_receipt(url: str, out: Path, before_files: dict[str, str]) -> dict[str, Any]:
+    """Private append-only rights case; published artifacts must not change."""
     store = PrivacyRightsAccessStore(url)
     require(
         rights_request_outcome(
@@ -303,7 +274,7 @@ def rights_receipt(url: str, before: dict[str, Any], out: Path) -> dict[str, Any
         requester_ref="requester:dp304-canary",
         actor_ref=ACTOR,
     )
-    require(case.latest_event_type == RightsCaseEventType.OPEN_PRIVATE.value, "RIGHT_CASE_OPEN")
+    require(case.latest_event_type == RightsCaseEventType.OPEN_PRIVATE.value, "RIGHTS_CASE_OPEN")
     held = store.append_rights_review_hold(
         case_id=case.case_id, actor_ref=ACTOR, occurred_at="2026-10-21T08:05:00+00:00"
     )
@@ -311,39 +282,35 @@ def rights_receipt(url: str, before: dict[str, Any], out: Path) -> dict[str, Any
         held.latest_event_type == RightsCaseEventType.PUBLIC_HISTORY_HOLD_REQUIRED.value,
         "RIGHTS_HOLD_EVENT_MISSING",
     )
-    after_bundle = json.loads((out / "index.json").read_text(encoding="utf-8"))
-    require(
-        after_bundle["dataset_sha256"] == before["dataset_sha256"],
-        "RIGHTS_REQUEST_MUTATED_PUBLIC_HISTORY",
-    )
-    append_only_rejected = False
+    require(file_hashes(out) == before_files, "RIGHTS_REQUEST_MUTATED_PUBLIC_ARTIFACTS")
+    mutation_error = ""
     try:
         store.run("UPDATE privacy_rights_case SET request_kind = 'CORRECTION';")
-    except RuntimeError:
-        append_only_rejected = True
-    require(append_only_rejected, "RIGHTS_LEDGER_MUTABLE")
-
-    columns = store.run(
+    except RuntimeError as error:
+        mutation_error = str(error)
+    require("append-only" in mutation_error, "RIGHTS_LEDGER_MUTABLE")
+    event_count = store.run(
         "SELECT count(*) FROM privacy_rights_case_event WHERE case_id = :'case_id';",
         case_id=case.case_id,
     )
+    require("2" in str(event_count), "RIGHTS_EVENT_COUNT")
     return {
         "case_id": case.case_id,
         "outcome": RightsRequestOutcome.REVIEWED_PUBLIC_HOLD.value,
         "latest_event_type": held.latest_event_type,
-        "event_count": int(columns.strip()),
-        "public_dataset_unchanged": True,
-        "append_only_rejected": append_only_rejected,
+        "event_count": 2,
+        "public_artifacts_unchanged": True,
+        "append_only_rejected": True,
     }
 
 
 def access_receipt(url: str) -> dict[str, Any]:
-    """Authorized read of a private excerpt with a content-free audit row."""
+    """Authorized read of a private excerpt with a content-free audit."""
     store = PrivacyRightsAccessStore(url)
     store.run(
         "INSERT INTO evidence (id, canonical_url, source_type, excerpt, rights_status) "
         "VALUES (:'id', 'https://example.test/dp304-canary-verbale', "
-        "'PRIMARY_OFFICIAL', :'excerpt', 'UNKNOWN');",
+        "'PRIMARY_OFFICIAL', :'excerpt', 'UNKNOWN') ON CONFLICT (id) DO NOTHING;",
         id="evidence:dp304-canary",
         excerpt=SENTINELS["evidence_excerpt"],
     )
@@ -366,9 +333,7 @@ def access_receipt(url: str) -> dict[str, Any]:
         table_name="evidence",
         field_name="excerpt",
         record_ref="evidence:dp304-canary",
-        request=request(
-            PrivateAccessRole.TRIAGE_REVIEWER, PrivateAccessPurpose.EDITORIAL_REVIEW
-        ),
+        request=request(PrivateAccessRole.TRIAGE_REVIEWER, PrivateAccessPurpose.EDITORIAL_REVIEW),
         occurred_at="2026-10-21T08:10:00+00:00",
     )
     require(allowed.allowed, "ACCESS_DENIED")
@@ -377,9 +342,7 @@ def access_receipt(url: str) -> dict[str, Any]:
         table_name="evidence",
         field_name="excerpt",
         record_ref="evidence:dp304-canary",
-        request=request(
-            PrivateAccessRole.OPERATOR, PrivateAccessPurpose.EDITORIAL_REVIEW
-        ),
+        request=request(PrivateAccessRole.OPERATOR, PrivateAccessPurpose.EDITORIAL_REVIEW),
         occurred_at="2026-10-21T08:11:00+00:00",
     )
     require(not wrong_purpose.allowed, "ACCESS_NOT_BOUNDED_BY_ROLE")
@@ -395,20 +358,27 @@ def access_receipt(url: str) -> dict[str, Any]:
         occurred_at="2026-10-21T08:12:00+00:00",
     )
     require(not destructive.allowed, "ACCESS_MODE_NOT_READ_ONLY")
-    audit_rows = store.run(
-        "SELECT COALESCE(json_agg(json_build_object('purpose', purpose_ref, "
-        "'outcome', outcome, 'field_count', requested_field_count))::text, '[]') "
-        "FROM private_access_audit_event;"
+
+    # Scan the complete persisted audit rows, not a projected subset: a column
+    # that later starts carrying a value must fail this rehearsal.
+    rows = store.run(
+        "SELECT COALESCE(json_agg(row_to_json(audit))::text, '[]') FROM ("
+        "SELECT * FROM private_access_audit_event ORDER BY occurred_at_text, event_id"
+        ") audit;"
     )
-    audit_text = str(audit_rows)
     for name, sentinel in SENTINELS.items():
-        require(sentinel not in audit_text, f"ACCESS_AUDIT_COPIED_BODY_{name}")
-    require("excerpt" not in audit_text, "ACCESS_AUDIT_COPIED_FIELD_NAME")
+        require(sentinel not in rows, f"ACCESS_AUDIT_COPIED_BODY_{name}")
+    require("excerpt" not in rows, "ACCESS_AUDIT_COPIED_FIELD_NAME")
+    count = store.run("SELECT count(*) FROM private_access_audit_event;")
+    require(int(str(count).strip()) == 3, "ACCESS_AUDIT_EVENT_COUNT_MISMATCH")
+    outcomes = sorted(str(json.loads(rows)[index]["outcome"]) for index in range(3))
+    require(outcomes.count("ALLOW_READ_ONLY") == 1, "ACCESS_AUDIT_OUTCOME_MISSING")
     return {
         "authorized_read": allowed.allowed,
         "wrong_purpose_denied": not wrong_purpose.allowed,
         "destructive_mode_denied": not destructive.allowed,
         "audit_event_count": 3,
+        "audit_outcomes": outcomes,
         "audit_contains_body": False,
         "audit_contains_field_name": False,
     }
@@ -420,7 +390,11 @@ def revoke_and_replay(
     out: Path,
     first_decision: str,
 ) -> dict[str, Any]:
-    """Relevance revoked: the published binding is stale, so nothing republishes."""
+    """Relevance revoked: nothing republishes and stale artifacts are purged."""
+    claim_paths = tuple(
+        "/" + name for name in file_hashes(out) if name.startswith("claims/")
+    )
+    require(bool(claim_paths), "CLAIM_ARTIFACTS_MISSING")
     revoked = persist_review(
         store, record_version="v2", relevance_reason=None, supersedes=first_decision
     )
@@ -428,15 +402,33 @@ def revoke_and_replay(
     payload = build_public_projection(source, generated_at=GENERATED_AT)
     require(payload["dossier_count"] == 0, "REVOKED_RECORD_STILL_PUBLIC")
     require(payload["omitted_count"] >= 1, "REVOCATION_NOT_RECORDED_AS_OMISSION")
+    write_public_bundle(out, payload)
+    surfaces = scan_release(out, PUBLIC_PATHS + claim_paths)
+    for route in STABLE_PATHS:
+        require(surfaces["http"][route]["status"] == 200, "REVOKED_SURFACE_NOT_200")
+    require(surfaces["http"][RECORD_PATH]["status"] == 404, "REVOKED_RECORD_ROUTE_SERVED")
+    for route in claim_paths:
+        require(surfaces["http"][route]["status"] == 404, "REVOKED_CLAIM_FILE_STILL_SERVED")
+    served = json.loads((out / "index.json").read_text(encoding="utf-8"))
+    require(served["dossier_count"] == 0, "REVOKED_INDEX_STILL_PUBLISHES")
+    require(not any(name.startswith("claims/") for name in file_hashes(out)),
+            "REVOKED_CLAIM_ARTIFACT_REMAINS")
+
+    # The private append-only history survives the revocation.
     lineage = store.run(
-        "SELECT count(*) || ':' || "
-        "string_agg(decision_action, ',' ORDER BY review_sequence) "
+        "SELECT count(*) || ':' || string_agg(decision_action, ',' ORDER BY review_sequence) "
         "FROM privacy_publication_decision "
         "WHERE subject_ref = :'subject' AND record_ref = :'record';",
         subject=CASE_SUBJECT,
         record=CASE_RECORD,
     ).strip()
     require(lineage.startswith("2:") and "ALLOW" in lineage, "DECISION_HISTORY_LOST")
+    original = store.run(
+        "SELECT row_to_json(decision_row)::text FROM (SELECT * FROM "
+        "privacy_publication_decision WHERE decision_action = 'ALLOW' "
+        "ORDER BY review_sequence LIMIT 1) decision_row;"
+    )
+    require(first_decision in original, "ORIGINAL_DECISION_NOT_READABLE")
     source.record_version = "v1"
     stale = build_public_projection(source, generated_at=GENERATED_AT)["dossier_count"]
     require(stale == 0, "STALE_BINDING_REPUBLISHED")
@@ -444,14 +436,16 @@ def revoke_and_replay(
         "revocation_decision_id": revoked,
         "dossier_count_after_revocation": payload["dossier_count"],
         "omitted_count": payload["omitted_count"],
+        "removed_claim_paths": len(claim_paths),
+        "claim_paths_http_404": True,
+        "surfaces_after_revocation": surfaces["http"],
         "decision_lineage": lineage,
+        "original_decision_readable": True,
         "stale_binding_dossier_count": stale,
     }
 
 
 def run_canary() -> dict[str, Any]:
-    require(SENTINELS["raw_transcript"] not in json.dumps(case_row()["normalized_claim"]),
-            "FIXTURE_CONTAMINATED_CLAIM")
     selection = selection_receipt()
     with disposable_postgres() as url:
         store = PrivacyPublicationDecisionStore(url)
@@ -461,10 +455,18 @@ def run_canary() -> dict[str, Any]:
         source = DecisionBoundSource(case_row(), store)
         with tempfile.TemporaryDirectory(prefix="dp304-canary-release-") as temp:
             out = Path(temp) / "release"
-            payload = materialize(out, source)
+            payload = build_public_projection(source, generated_at=GENERATED_AT)
             require(payload["dossier_count"] == 1, "APPROVED_RECORD_NOT_PUBLISHED")
-            surfaces = scan_release(out)
-            rights = rights_receipt(url, payload, out)
+            write_public_bundle(out, payload)
+            before_files = file_hashes(out)
+            surfaces = scan_release(out, PUBLIC_PATHS)
+            require(
+                all(response["status"] == 200 for response in surfaces["http"].values()),
+                "PUBLISHED_SURFACE_UNEXPECTED_STATUS",
+            )
+            served = json.loads((out / "index.json").read_text(encoding="utf-8"))
+            require(served["dossier_count"] == 1, "PUBLISHED_INDEX_NOT_SERVING")
+            rights = rights_receipt(url, out, before_files)
             revocation = revoke_and_replay(store, source, out, first)
         access = access_receipt(url)
     return {
@@ -478,8 +480,9 @@ def run_canary() -> dict[str, Any]:
         "publication": {
             "dossier_count": payload["dossier_count"],
             "dataset_sha256": payload["dataset_sha256"],
+            "files_written": len(before_files),
             "private_sentinels_absent": True,
-            "surfaces": surfaces,
+            "surfaces": surfaces["http"],
         },
         "rights": rights,
         "access": access,
@@ -487,6 +490,7 @@ def run_canary() -> dict[str, Any]:
         "limits": [
             "fictional case, disposable database, isolated release directory",
             "no lawful basis, retention period, real-person rights outcome or launch approval",
+            "field matrix covers 14 classified fields of this case, not the whole projection allowlist",
         ],
     }
 

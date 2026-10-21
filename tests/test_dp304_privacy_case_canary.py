@@ -16,6 +16,8 @@ from dichiarazioni_pubbliche.dp304_case_fixture import (  # noqa: E402
     SENTINELS,
     case_row,
 )
+from dichiarazioni_pubbliche.dp304_case_postgres import disposable_postgres  # noqa: E402
+from dichiarazioni_pubbliche.privacy_runtime import PrivacyRightsAccessStore  # noqa: E402
 from dichiarazioni_pubbliche.policy.privacy_policy import (  # noqa: E402
     DataClass,
     ProjectionInput,
@@ -95,13 +97,13 @@ class ReleaseLeakScanTests(unittest.TestCase):
             payload = build_public_projection(Source(), generated_at=canary.GENERATED_AT)
             self.assertEqual(payload["dossier_count"], 1)
             write_public_bundle(out, payload)
-            self.assertEqual(canary.scan_release(out)["files"] != {}, True)
+            self.assertEqual(canary.scan_release(out, canary.PUBLIC_PATHS)["files"] != {}, True)
             (out / "claims").mkdir(exist_ok=True)
             (out / "claims" / "leak.txt").write_text(
                 SENTINELS["raw_transcript"], encoding="utf-8"
             )
             with self.assertRaises(RuntimeError) as raised:
-                canary.scan_release(out)
+                canary.scan_release(out, canary.PUBLIC_PATHS)
             self.assertIn("PRIVATE_SENTINEL_PUBLISHED", str(raised.exception))
 
 
@@ -117,10 +119,37 @@ class CaseCanaryTests(unittest.TestCase):
         self.assertTrue(receipt["publication"]["private_sentinels_absent"])
         self.assertEqual(receipt["rights"]["outcome"], "REVIEWED_PUBLIC_HOLD")
         self.assertEqual(receipt["rights"]["event_count"], 2)
-        self.assertTrue(receipt["rights"]["append_only_rejected"])
+        self.assertTrue(receipt["rights"]["public_artifacts_unchanged"])
         self.assertEqual(receipt["revocation"]["dossier_count_after_revocation"], 0)
+        self.assertTrue(receipt["revocation"]["claim_paths_http_404"])
+        self.assertTrue(receipt["revocation"]["original_decision_readable"])
         self.assertEqual(receipt["revocation"]["stale_binding_dossier_count"], 0)
+        self.assertEqual(receipt["selection"]["retention_behavior"], "AWAITING_APPROVED_PERIOD")
         self.assertFalse(receipt["access"]["audit_contains_body"])
+
+    def test_audit_receipt_detects_a_body_copied_into_an_audit_column(self) -> None:
+        try:
+            with disposable_postgres() as url:
+                canary.access_receipt(url)
+                PrivacyRightsAccessStore(url).run(
+                    "INSERT INTO private_access_audit_event (event_id, "
+                    "privacy_policy_version, actor_ref, record_ref, purpose_ref, "
+                    "outcome, occurred_at_text, requested_field_count, "
+                    "event_integrity_sha256) VALUES (:'event_id', "
+                    "'privacy-minimization-v1', :'actor', 'evidence:dp304-canary', "
+                    "'EDITORIAL_REVIEW', 'ALLOW_READ_ONLY', "
+                    "'2026-10-21T08:13:00+00:00', 1, :'sha');",
+                    actor=SENTINELS["evidence_excerpt"],
+                    event_id="private-access-audit:" + "b" * 64,
+                    sha="b" * 64,
+                )
+                with self.assertRaises(RuntimeError) as raised:
+                    canary.access_receipt(url)
+                self.assertIn("ACCESS_AUDIT_COPIED_BODY", str(raised.exception))
+        except RuntimeError as error:
+            if "POSTGRES_UNAVAILABLE" in str(error):
+                self.skipTest(str(error))
+            raise
 
 
 if __name__ == "__main__":
