@@ -123,4 +123,42 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
   assert.doesNotMatch(diff.textContent, /999/);
   assert.match(diff.textContent, /Nessun confronto/);
   token.value = 'a'.repeat(64);
+  // Even an accidentally extended private response must never render raw
+  // excerpts, media locations, archive receipts or headers in the inspector.
+  const passageForm = forms['/v1/capture/passages'];
+  passageForm.fields.content_id = 'content:one';
+  passageForm.fields.capture_hash = earlier.content_sha256;
+  passageForm.fields.limit = '20';
+  const passageRequest = passageForm.fire('submit');
+  const passageIndex = requests.length - 1;
+  assert.equal(requests[passageIndex].path, '/v1/capture/passages');
+  complete(passageIndex, {contract_version: 'studio-capture-inspection-v1',
+    private_only: true, content_id: 'content:one', capture: earlier,
+    selectors: [], body_ref: 'PRIVATE_BODY_REF_NEVER_SHOW',
+    archived_url: 'https://media.invalid/PRIVATE_NEVER_SHOW',
+    transcript_text: 'PRIVATE_TRANSCRIPT_NEVER_SHOW',
+    headers: {Authorization: 'PRIVATE_HEADER_NEVER_SHOW'},
+    purge_receipt: 'PRIVATE_PURGE_NEVER_SHOW',
+    rights_state: 'REVOKED', body_state: 'PURGED'});
+  await passageRequest;
+  assert.doesNotMatch(results.textContent,
+    /PRIVATE_BODY_REF_NEVER_SHOW|PRIVATE_NEVER_SHOW|PRIVATE_TRANSCRIPT_NEVER_SHOW|PRIVATE_HEADER_NEVER_SHOW|PRIVATE_PURGE_NEVER_SHOW/,
+    'capture inspector must never render unreviewed response JSON');
+  assert.match(results.textContent, /Solo metadati verificati nei pannelli dedicati/);
+  const mediaForm = forms['/v1/media/segment'];
+  mediaForm.fields.content_id = 'content:one';
+  mediaForm.fields.statement_candidate_id = 'statement:one';
+  mediaForm.fields.passage_id = 'passage:one';
+  const mediaRequest = mediaForm.fire('submit');
+  const mediaIndex = requests.length - 1;
+  complete(mediaIndex, {contract_version: 'studio-media-selector-inspection-v1',
+    private_only: true, publication_authority: false, rights_clearance: false,
+    content_id: 'content:one', statement_candidate_id: 'statement:one',
+    passage_id: 'passage:one', canonical_segment: {
+      id: 'PRIVATE_URL_IN_SEGMENT_ID', start_ms: 'PRIVATE_RAW_TIME',
+      end_ms: 5000, transcript_status: 'RESOLVED', publication_blocked: true}});
+  await mediaRequest;
+  assert.doesNotMatch(ids.get('media-locator').textContent,
+    /PRIVATE_URL_IN_SEGMENT_ID|PRIVATE_RAW_TIME/,
+    'invalid media selector fields must not be rendered as a verified locator');
 };

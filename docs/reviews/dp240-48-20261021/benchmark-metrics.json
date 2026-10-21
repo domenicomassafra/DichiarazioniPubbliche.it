@@ -1,0 +1,114 @@
+{
+  "scope": "two-item observational model comparison; no causality/statistical inference",
+  "singles": [
+    {
+      "mode": "single-meloni",
+      "items": 1,
+      "correct_attributions": 1,
+      "false_or_source_mismatched": 0,
+      "per_item": [
+        {
+          "item_id": "meloni-2024-09-17",
+          "speaker_correct": true,
+          "source_content_url_exact": true
+        }
+      ],
+      "tokens": {
+        "input": 963,
+        "output": 915,
+        "reasoning_reported": 695,
+        "total_reported": 1878
+      },
+      "provider_meter_cost_reported": 0,
+      "provider_invoice_cost": null,
+      "end_to_end_ssh_wall_seconds": 132.83,
+      "peak_remote_rss": null
+    },
+    {
+      "mode": "single-mattarella",
+      "items": 1,
+      "correct_attributions": 1,
+      "false_or_source_mismatched": 0,
+      "per_item": [
+        {
+          "item_id": "mattarella-2019-12-03",
+          "speaker_correct": true,
+          "source_content_url_exact": true
+        }
+      ],
+      "tokens": {
+        "input": 909,
+        "output": 937,
+        "reasoning_reported": 735,
+        "total_reported": 1846
+      },
+      "provider_meter_cost_reported": 0,
+      "provider_invoice_cost": null,
+      "end_to_end_ssh_wall_seconds": 51.599,
+      "peak_remote_rss": null
+    }
+  ],
+  "mixed": {
+    "mode": "mixed",
+    "items": 2,
+    "correct_attributions": 2,
+    "false_or_source_mismatched": 0,
+    "per_item": [
+      {
+        "item_id": "mattarella-2019-12-03",
+        "speaker_correct": true,
+        "source_content_url_exact": true
+      },
+      {
+        "item_id": "meloni-2024-09-17",
+        "speaker_correct": true,
+        "source_content_url_exact": true
+      }
+    ],
+    "tokens": {
+      "input": 1183,
+      "output": 1978,
+      "reasoning_reported": 1586,
+      "total_reported": 3161
+    },
+    "provider_meter_cost_reported": 0,
+    "provider_invoice_cost": null,
+    "end_to_end_ssh_wall_seconds": 40.604,
+    "peak_remote_rss": null
+  },
+  "both_modes_correct": true,
+  "mixed_cross_source_mismatch_count": 0,
+  "baseline_total_tokens": 3724,
+  "mixed_total_tokens": 3161,
+  "token_saving_count": 563,
+  "token_saving_fraction": 0.1512,
+  "baseline_sum_wall_seconds": 184.429,
+  "mixed_wall_seconds": 40.604,
+  "earlier_provider_attempt_failures": [
+    {
+      "item_id": "meloni",
+      "provider_attempt_failed": true,
+      "zero_output": true,
+      "elapsed_ssh_seconds": 35.004,
+      "retry_recovered": true
+    },
+    {
+      "item_id": "mattarella",
+      "provider_attempt_failed": true,
+      "zero_output": true,
+      "elapsed_ssh_seconds": 29.909,
+      "retry_recovered": true
+    }
+  ],
+  "limitations": [
+    "two Italian official sources only; expected speakers from source/editorial labels",
+    "pre-review by two AI models, no independent human gold",
+    "shared Gemini family between generator and one reviewer; possible correlated errors",
+    "provider reported cost zero is not independently verified billing",
+    "peak remote memory unavailable; timings include Pi CLI startup and SSH",
+    "normalized bounded excerpts are not immutable first-party raw Passage captures",
+    "no production Studio/PostgreSQL candidate write or publication"
+  ],
+  "larger_batch_approved": false,
+  "publication_approved": false
+}

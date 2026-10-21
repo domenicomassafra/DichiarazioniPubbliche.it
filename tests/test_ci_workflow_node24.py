@@ -10,6 +10,20 @@ WORKFLOW = ROOT / '.github' / 'workflows' / 'ci.yml'
 
 
 class CiWorkflowNode24Tests(unittest.TestCase):
+    def test_hosted_macos_uses_latest_supported_python_only(self):
+        source = WORKFLOW.read_text()
+        matrix = source.split('      matrix:\n', 1)[1].split('\n    steps:', 1)[0]
+        self.assertIn('os: [ubuntu-latest, macos-latest]', matrix)
+        self.assertIn('python-version: ["3.11", "3.12", "3.13", "3.14"]', matrix)
+        for version in ('3.11', '3.12', '3.13'):
+            with self.subTest(version=version):
+                self.assertIn(
+                    f'          - os: macos-latest\n            python-version: "{version}"',
+                    matrix,
+                )
+        self.assertEqual(matrix.count('          - os: macos-latest'), 3)
+        self.assertNotIn('python-version: "3.14"', matrix)
+
     def test_branch_push_keeps_repository_gate_without_duplicate_matrix(self):
         source = WORKFLOW.read_text()
         self.assertIn('on:\n  push:\n  pull_request:', source)
