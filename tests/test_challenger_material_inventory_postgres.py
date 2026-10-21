@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import os
 import socket
 import subprocess
 import sys
@@ -26,6 +27,12 @@ def _bin(name: str) -> str:
     executable = shutil.which(name)
     if executable:
         return executable
+    # Ubuntu packages server binaries under versioned lib directories. GitHub
+    # runners can have PostgreSQL installed while `initdb` is absent from PATH;
+    # skipping this high-risk revocation regression would hide a real failure.
+    for candidate in sorted(Path("/usr/lib/postgresql").glob(f"*/bin/{name}"), reverse=True):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
     raise unittest.SkipTest(f"disposable PostgreSQL unavailable: {name}")
 
 
