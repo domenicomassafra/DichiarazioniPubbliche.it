@@ -49,6 +49,15 @@ function load(text, filename, dependencies) {
 }
 const search = load(indexSource, indexPath, {
   "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
+  "./minisearchAdapter.ts": { publicTextScores: (records, query, fields, normalize) => new Map(
+    records.flatMap((row, i) => {
+      const terms = [...fields(row).primary, ...fields(row).secondary]
+        .flatMap(term => normalize(term).split(" "));
+      // Simulate a fuzzy retrieval hit while the typed spelling is wrong.
+      return terms.some(term => term.startsWith(query) ||
+        (query === "inflazone" && term === "inflazione")) ? [[i, 1]] : [];
+    }),
+  ) },
 });
 
 const sample = (id, title, kind = "finding", overrides = {}) => ({
@@ -152,7 +161,7 @@ assert.equal(
 assert.deepEqual(
   component.getExploreSuggestions(index, raw, {}),
   ["  inflazione  "],
-  "offer only a real approved-index near match with original whitespace retained",
+  "offer a real approved-index correction even when fuzzy retrieval found a hit",
 );
 assert.deepEqual(
   component.getExploreSuggestions(index, raw, { kind: "topic" }),

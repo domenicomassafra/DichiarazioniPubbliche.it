@@ -77,6 +77,12 @@ class _NoRedirect(request.HTTPRedirectHandler):
         return None
 
 
+def changedetection_locator_id(watch_uuid: str, canonical_url: str) -> str:
+    """Bind the policy locator to both the provider watch and approved URL."""
+    digest = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+    return f"cdio:{watch_uuid}:{digest}"
+
+
 def _validate_loopback(api_base: str) -> None:
     api = urlsplit(api_base)
     try:
@@ -104,6 +110,10 @@ def _validate(binding: ChangedetectionBinding, policy: WatchPolicy) -> str:
         raise ChangedetectionError("WATCH_UUID_INVALID") from exc
     if watch_id != binding.watch_uuid:
         raise ChangedetectionError("WATCH_UUID_NOT_CANONICAL")
+    if binding.locator_id != changedetection_locator_id(watch_id, binding.canonical_url):
+        # Rights and cost receipts are scoped to the stored policy fingerprint.
+        # A new URL or watch UUID must obtain a newly admitted source profile.
+        raise ChangedetectionError("SOURCE_URL_SCOPE_MISMATCH")
     _validate_loopback(binding.api_base)
     if (type(binding.max_check_age_seconds) is not int
             or not 1 <= binding.max_check_age_seconds <= 86400):

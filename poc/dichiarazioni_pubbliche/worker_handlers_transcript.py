@@ -6,6 +6,9 @@ from dichiarazioni_pubbliche.local_asr import PROVIDER_ID as LOCAL_PROVIDER_ID
 from dichiarazioni_pubbliche.local_asr import ROUTE as LOCAL_ROUTE
 from dichiarazioni_pubbliche.faster_whisper_local import PROVIDER_ID as FASTER_PROVIDER_ID
 from dichiarazioni_pubbliche.faster_whisper_local import ROUTE as FASTER_ROUTE
+from dichiarazioni_pubbliche.faster_whisper_rights import require_faster_whisper_media_rights
+from dichiarazioni_pubbliche.source_associations import podcast_asr_source_guard
+from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
 from dichiarazioni_pubbliche.platform_transcript import (
     CaptionProbe,
     PlatformAccessRestricted,
@@ -29,7 +32,7 @@ from dichiarazioni_pubbliche.youtube_caption_receipts import (
 )
 
 
-class TranscriptAsrJobHandlers:
+class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
     def _require_current_ingestion_relevance(self, content: ContentRecord) -> None:
         try:
             self.store.require_current_ingestion_relevance(
@@ -104,6 +107,17 @@ class TranscriptAsrJobHandlers:
     ) -> None:
         return CaptionAcquisitionHandler._probe_and_enqueue_caption(self, job, content, candidate)
 
+    def _require_podcast_asr_clearance(self, content: ContentRecord) -> None:
+        # A missing YouTube copy never grants rights to fetch or retain audio.
+        try:
+            guard = podcast_asr_source_guard(
+                self.store, content_id=content.content_id, url=content.canonical_url,
+            )
+            for use in ("FETCH", "STORE_BODY", "ASR_MEDIA"):
+                guard.require(use)
+        except SourceUseBlocked as exc:
+            raise BlockedJob(exc.code) from None
+
     def resolve_platform(self, job: ProcessingJob, content: ContentRecord) -> None:
         source = self._source(content.source_id)
         platform = str(job.payload.get("platform") or "")
@@ -114,25 +128,9 @@ class TranscriptAsrJobHandlers:
                 raise BlockedJob("YOUTUBE_JOB_MISSING_ID_OR_URL")
             candidate = VideoCandidate(video_id, content.title, url)
         elif platform == "podcast_rss":
-            self._require_current_ingestion_relevance(content)
-            try:
-                candidate = self.resolver.resolve(content.title, source)
-            except Exception as exc:
-                raise RetryableJob(
-                    f"YOUTUBE_RESOLUTION_FAILED:{type(exc).__name__}",
-                    300,
-                ) from exc
-            if candidate is None:
-                self._enqueue_asr(content, reason="PLATFORM_COPY_NOT_FOUND")
-                return
-            self._require_current_ingestion_relevance(content)
-            self.store.upsert_locator(
-                content.content_id,
-                platform="youtube",
-                external_id=candidate.video_id,
-                canonical_url=candidate.canonical_url,
-                metadata={"resolved_from": "podcast_rss"},
-            )
+            from dichiarazioni_pubbliche.podcast_youtube_worker import resolve_podcast_platform
+
+            return resolve_podcast_platform(self, job, content)
         else:
             raise BlockedJob(f"UNSUPPORTED_PLATFORM:{platform or 'missing'}")
         self._probe_and_enqueue_caption(job, content, candidate)
@@ -300,6 +298,8 @@ class TranscriptAsrJobHandlers:
         ):
             raise RetryableJob("LEASE_LOST_BEFORE_LOCAL_ASR", 0)
         self._require_current_ingestion_relevance(content)
+        if provider_id == FASTER_PROVIDER_ID:
+            self._require_faster_whisper_rights(content, payload)
         try:
             result = transcriber.transcribe(
                 audio_path=payload.get("local_audio_path"),
@@ -320,6 +320,8 @@ class TranscriptAsrJobHandlers:
             )
             raise BlockedJob(str(exc)) from exc
         self._require_current_ingestion_relevance(content)
+        if provider_id == FASTER_PROVIDER_ID:
+            self._require_faster_whisper_rights(content, payload)
         audio_sha = str(payload["audio_sha256"])
         self._persist_asr_result(
             job, content, result, provider_id=provider_id,
@@ -329,6 +331,15 @@ class TranscriptAsrJobHandlers:
             rights_receipt_id=str(payload["rights_receipt_id"]),
             input_bytes=None,
         )
+
+    def _require_faster_whisper_rights(self, content: ContentRecord, payload) -> None:
+        try:
+            require_faster_whisper_media_rights(
+                store=self.store, content_id=content.content_id,
+                canonical_url=content.canonical_url, payload=payload,
+            )
+        except AsrRequestRejected as exc:
+            raise BlockedJob(str(exc)) from exc
 
     def _persist_asr_result(
         self, job: ProcessingJob, content: ContentRecord, result,

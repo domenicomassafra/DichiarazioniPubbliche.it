@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.changedetection_watch import (  # noqa: E402
     ChangedetectionBinding, ChangedetectionError, ChangedetectionSnapshot,
-    poll_changedetection_watch, read_changedetection_snapshot,
+    changedetection_locator_id, poll_changedetection_watch, read_changedetection_snapshot,
 )
 from dichiarazioni_pubbliche.incremental_source_watch import (  # noqa: E402
     WatchPolicy, WatchReadiness, WatchState, policy_fingerprint,
@@ -31,7 +31,7 @@ URL = "https://example.org/official/no-feed.html"
 
 def source():
     return ChangedetectionBinding(
-        source_id="official:web:no-feed", locator_id="cdio:" + UUID,
+        source_id="official:web:no-feed", locator_id=changedetection_locator_id(UUID, URL),
         canonical_url=URL, watch_uuid=UUID,
     )
 
@@ -125,6 +125,67 @@ class ChangedetectionWatchTests(unittest.TestCase):
                 self.assertEqual(receipt.reason, "HTTP_503")
                 self.assertEqual(self.store.private_proposals(self.policy.source_id), ())
                 self.assertGreater(self.store.read_state(self.policy.source_id).retry_not_before, T0)
+
+    def test_retargeted_url_cannot_reuse_other_sources_rights_approval(self):
+        # The stored READY gate is scoped to the approved source/locator.
+        # A caller must not retarget the watch and keep the same locator and gate.
+        unauthorized = "https://another.example.org/unapproved.html"
+        retargeted = replace(self.binding, canonical_url=unauthorized)
+        with self.assertRaisesRegex(ChangedetectionError, "SOURCE_URL_SCOPE_MISMATCH"):
+            poll_changedetection_watch(
+                self.store, self.policy, retargeted,
+                attempt_id="retargeted", attempted_at=T0,
+                observed_at=T0 + timedelta(seconds=2),
+                snapshot=provider(url=unauthorized, link=unauthorized),
+            )
+        self.assertEqual(self.store.committed_attempt_count(self.policy.source_id), 0)
+        self.assertEqual(self.store.private_proposals(self.policy.source_id), ())
+
+    def test_retargeted_uuid_cannot_reuse_locator_rights(self):
+        retargeted = replace(self.binding, watch_uuid="1bd5bc9a-490a-43a4-b953-1ef51b715aa9")
+        with self.assertRaisesRegex(ChangedetectionError, "SOURCE_URL_SCOPE_MISMATCH"):
+            poll_changedetection_watch(
+                self.store, self.policy, retargeted,
+                attempt_id="retargeted-watch", attempted_at=T0,
+                observed_at=T0 + timedelta(seconds=2), snapshot=provider(),
+            )
+        self.assertEqual(self.store.committed_attempt_count(self.policy.source_id), 0)
+
+    def test_legacy_locator_without_url_scope_fails_closed(self):
+        legacy = replace(self.policy, locator_id="cdio:" + UUID)
+        with sqlite3.connect(":memory:") as db:
+            store = LocalSourceWatchStore(db)
+            store.init_isolated_fixture_schema()
+            store.register_fixture_source(
+                legacy, WatchState(source_id=legacy.source_id), gate(legacy),
+            )
+            with self.assertRaisesRegex(ChangedetectionError, "SOURCE_URL_SCOPE_MISMATCH"):
+                poll_changedetection_watch(
+                    store, legacy, replace(self.binding, locator_id=legacy.locator_id),
+                    attempt_id="legacy", attempted_at=T0,
+                    observed_at=T0 + timedelta(seconds=2), snapshot=provider(),
+                )
+            self.assertEqual(store.committed_attempt_count(legacy.source_id), 0)
+
+    def test_new_url_scoped_policy_requires_new_durable_rights_admission(self):
+        # A caller cannot make a second policy READY using receipts from the
+        # existing source merely by rehashing the updated binding.
+        target = "https://another.example.org/unapproved.html"
+        rotated = replace(
+            self.binding, canonical_url=target,
+            locator_id=changedetection_locator_id(UUID, target),
+        )
+        changed_policy = replace(self.policy, locator_id=rotated.locator_id)
+        with patch("dichiarazioni_pubbliche.changedetection_watch.read_changedetection_snapshot",
+                   side_effect=AssertionError("Provider must remain untouched")) as api:
+            with self.assertRaisesRegex(ChangedetectionError, "STORED_PROFILE_MISMATCH"):
+                poll_changedetection_watch(
+                    self.store, changed_policy, rotated,
+                    attempt_id="new-policy", attempted_at=T0,
+                    observed_at=T0 + timedelta(seconds=2), api_key="fixture-only",
+                )
+        api.assert_not_called()
+        self.assertEqual(self.store.private_proposals(self.policy.source_id), ())
 
     def test_cached_provider_result_does_not_invent_new_freshness(self):
         self.poll(provider())

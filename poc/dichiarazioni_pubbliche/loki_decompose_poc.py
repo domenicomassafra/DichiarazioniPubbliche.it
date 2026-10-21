@@ -48,10 +48,48 @@ def _numbers(text: str) -> tuple[str, ...]:
     return tuple(re.findall(r"(?<!\w)\d+(?:[.,]\d+)?(?!\w)", text))
 
 
+_NEGATION_CUES = {
+    "it": re.compile(r"\b(?:non|mai|nessun\w*|niente|né|senza)\b", re.I),
+    "en": re.compile(r"\b(?:not|never|no|none|neither|nobody|nothing|without|\w+n't)\b", re.I),
+    "de": re.compile(r"\b(?:nicht|nichts|nie|kein\w*|niemals|ohne|weder|niemand\w*)\b", re.I),
+    "fr": re.compile(r"\b(?:pas|jamais|aucun\w*|sans|ni)\b", re.I),
+    "es": re.compile(r"\b(?:no|nunca|jamás|ningun\w*|sin|ni)\b", re.I),
+}
+
+
+def _negation_signature(text: str, language: str) -> tuple[str, ...]:
+    """Conservative lexical cues only; semantic negation scope still needs review."""
+    return tuple(match.group(0).casefold() for match in
+                 _NEGATION_CUES[language].finditer(text))
+
+
+def _sentence_context(doc: str, start: int, end: int) -> str:
+    """Include qualifiers outside cropped source spans to avoid false positives."""
+    separators = ".!?\n"
+    before = max(doc.rfind(char, 0, start) for char in separators) + 1
+    after = min((pos for char in separators
+                 if (pos := doc.find(char, end)) >= 0), default=len(doc))
+    return doc[before:after]
+
+
+_REPORTING_CUES = {
+    "it": re.compile(r"\b(?:ha\s+(?:detto|dichiarato|riferito|affermato)\s+che|secondo)\b", re.I),
+    "en": re.compile(r"\b(?:said\s+that|reported\s+that|according\s+to)\b", re.I),
+    "de": re.compile(r"\b(?:sagte\s*,?\s*dass|berichtete\s*,?\s*dass|laut|zufolge)\b", re.I),
+    "fr": re.compile(r"\b(?:a\s+(?:dit|déclaré|rapporté)\s+que|selon)\b", re.I),
+    "es": re.compile(r"\b(?:(?:dijo|declaró|informó)\s+que|según)\b", re.I),
+}
+
+
+def has_reported_speech_context(doc: str, start: int, end: int, language: str) -> bool:
+    """Fail closed on obvious attributions even when fixture metadata omits them."""
+    return bool(_REPORTING_CUES[language].search(_sentence_context(doc, start, end)))
+
+
 class Decompose:
     """Port of Loki's getclaims/restore_claims, with stricter source binding."""
 
-    def getclaims(self, doc: str, output: str, restoration: str) -> tuple[LokiSpan, ...]:
+    def getclaims(self, doc: str, output: str, restoration: str, *, language: str) -> tuple[LokiSpan, ...]:
         if not isinstance(doc, str) or not 1 <= len(doc) <= 16000:
             raise ValueError("LOKI_DOCUMENT_INVALID")
         parsed = _json_object(output)
@@ -75,6 +113,10 @@ class Decompose:
                 raise ValueError("LOKI_QUANTITY_NOT_IN_SOURCE")
             start = doc.index(source)
             end = start + len(source)
+            if _negation_signature(claim, language) != _negation_signature(source, language):
+                raise ValueError("LOKI_NEGATION_MISMATCH")
+            if _negation_signature(_sentence_context(doc, start, end), language) != _negation_signature(source, language):
+                raise ValueError("LOKI_NEGATION_OUTSIDE_SOURCE_SPAN")
             if any(start < earlier.end and end > earlier.start for earlier in spans):
                 raise ValueError("LOKI_SOURCE_SPAN_OVERLAP")
             spans.append(LokiSpan(claim, source, start, end))

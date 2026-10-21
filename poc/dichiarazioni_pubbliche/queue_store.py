@@ -19,6 +19,7 @@ from dichiarazioni_pubbliche.operation_ledger import (
     deterministic_operation_key,
     operation_usage_receipt_from_row,
 )
+from dichiarazioni_pubbliche.queue_cost_receipt_sql import RECEIPT_INSERT_SQL
 from dichiarazioni_pubbliche.queue_runtime import (
     CostSnapshot,
     PsqlRuntime,
@@ -286,8 +287,7 @@ class QueueExecutionCostStore(PsqlRuntime):
         upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
         max_source_usd: str,
     ) -> str:
-        # The PostgreSQL function atomically checks all workers and inserts
-        # a durable per-attempt hold. Missing migration fails closed.
+        # Missing migration fails closed.
         return self.run(
             """SELECT reserve_worker_budget(
                  :'job_id', :'attempt'::integer, :'worker_id', :'source_id',
@@ -453,91 +453,14 @@ class QueueExecutionCostStore(PsqlRuntime):
             provider_id=provider_id,
             model_id=model_id,
         )
-        scope = {"job_id": job_id, **(ledger_scope or {})}
+        scope = {**(ledger_scope or {}), "job_id": job_id}
         encoded = json.dumps(
             {**receipt, "job_id": job_id},
             ensure_ascii=False,
             separators=(",", ":"),
         )
         persisted_receipt_id = self.run(
-            """
-            WITH receipt_candidate AS (
-                SELECT
-                    CASE
-                        WHEN EXISTS (
-                            SELECT 1
-                            FROM provider_receipt legacy
-                            WHERE legacy.id=:'receipt_id_base'
-                              AND legacy.attempt=GREATEST(job.attempt,1)
-                        ) THEN :'receipt_id_base'
-                        ELSE :'receipt_id_base' || ':attempt:' ||
-                            GREATEST(job.attempt,1)::text
-                    END AS receipt_id,
-                    GREATEST(job.attempt,1) AS attempt
-                FROM processing_job job
-                WHERE job.id=:'job_id'
-            ),
-            inserted AS (
-                INSERT INTO provider_receipt (
-                    id, content_id, provider_id, model_id, operation, request_id,
-                    operation_key, attempt,
-                    started_at, completed_at, input_bytes, input_seconds,
-                    estimated_cost_usd, measured_cost_usd, billing_basis,
-                    total_tokens, request_count, ledger_scope, status, receipt
-                )
-                SELECT
-                    candidate.receipt_id, :'content_id', :'provider_id',
-                    NULLIF(:'model_id',''), :'operation', NULLIF(:'request_id',''),
-                    :'operation_key', candidate.attempt,
-                    now(), now(), NULLIF(:'input_bytes','')::bigint,
-                    NULLIF(:'input_seconds','')::numeric,
-                    :'estimated_cost_usd'::numeric,
-                    NULLIF(:'measured_cost_usd','')::numeric,
-                    :'billing_basis',
-                    NULLIF(:'total_tokens','')::bigint,
-                    :'request_count'::integer,
-                    :'ledger_scope'::jsonb,
-                    :'status', :'receipt'::jsonb
-                FROM receipt_candidate candidate
-                ON CONFLICT (id) DO NOTHING
-                RETURNING
-                    id,
-                    attempt,
-                    ledger_scope,
-                    CASE
-                        WHEN billing_basis='MEASURED_PROVIDER_COST'
-                            THEN measured_cost_usd
-                        ELSE estimated_cost_usd
-                    END AS accounted_cost_usd
-            ),
-            updated_job AS (
-            UPDATE processing_job
-            SET cost_usd = cost_usd + COALESCE(
-                (SELECT accounted_cost_usd FROM inserted), 0
-            )
-            WHERE id = :'job_id'
-            RETURNING id
-            )
-            , settled_reservation AS (
-                UPDATE worker_budget_reservation h
-                SET state='RECEIPTED', receipt_id=r.id, receipted_at=now()
-                FROM inserted r
-                WHERE h.job_id=:'job_id'
-                  AND h.attempt=(SELECT attempt FROM processing_job
-                                 WHERE id=:'job_id')
-                  AND h.state='RESERVED'
-                  AND r.attempt=GREATEST(h.attempt,1)
-                  AND r.ledger_scope->>'job_id'=:'job_id'
-                  -- Never release a reservation on an underpriced, missing
-                  -- or zero-cost receipt. Keep it held for reconciliation.
-                  AND r.accounted_cost_usd >= h.upper_bound_usd
-                RETURNING h.job_id
-            )
-            SELECT COALESCE(
-                (SELECT id FROM inserted),
-                (SELECT receipt_id FROM receipt_candidate)
-            )::text;
-            """,
+            RECEIPT_INSERT_SQL,
             receipt_id_base=receipt_id_base,
             content_id=content_id,
             provider_id=provider_id,
@@ -560,8 +483,13 @@ class QueueExecutionCostStore(PsqlRuntime):
             status=status,
             receipt=encoded,
             job_id=job_id,
+            execution_timeout_seconds=5.0,
         )
-        return persisted_receipt_id or receipt_id_base
+        if not persisted_receipt_id:
+            raise ValueError("RECEIPT_JOB_CONTENT_MISMATCH_OR_MISSING")
+        if persisted_receipt_id == "RECEIPT_ATTEMPT_ALREADY_CHARGED":
+            raise ValueError(persisted_receipt_id)
+        return persisted_receipt_id
 
 
 class TranscriptCanonicalStore(PsqlRuntime):
