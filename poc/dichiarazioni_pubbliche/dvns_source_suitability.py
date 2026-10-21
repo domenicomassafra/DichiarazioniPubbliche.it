@@ -22,6 +22,7 @@ READY_FOR_DP215_ASSESSMENT = "READY_FOR_DP215_ASSESSMENT"
 HELD = "HELD"
 
 _DOMINANT_SOURCE_STATES = frozenset({"BLOCKED", "FAILED", "DEGRADED"})
+_DENIED_RIGHTS_STATES = BLOCKING_RIGHTS | frozenset({"REVOKED", "DENIED", "EXPIRED"})
 _AUTHORITY_FIELDS = ("jurisdiction", "organization", "record_type", "dataset_class")
 _RECORD_FIELDS = frozenset({"metric", "unit", "reference_period"})
 _TEMPORAL_FIELDS = frozenset({"reference_period", "effective_at"})
@@ -157,7 +158,7 @@ def _blocking_reasons(
         reasons.add(f"DVNS_FETCH_{fetch_state}")
 
     imported_rights = _normalized_state(imported.rights_status)
-    if imported_rights in BLOCKING_RIGHTS or imported_rights in _DOMINANT_SOURCE_STATES:
+    if imported_rights in _DENIED_RIGHTS_STATES or imported_rights in _DOMINANT_SOURCE_STATES:
         reasons.add(f"DVNS_RIGHTS_{imported_rights}")
 
     availability = _normalized_state(imported.availability_status)
@@ -165,7 +166,7 @@ def _blocking_reasons(
         reasons.add(f"DVNS_AVAILABILITY_{availability}")
 
     profile_rights = _normalized_state(source_profile.rights_status)
-    if profile_rights in BLOCKING_RIGHTS or profile_rights in _DOMINANT_SOURCE_STATES:
+    if profile_rights in _DENIED_RIGHTS_STATES or profile_rights in _DOMINANT_SOURCE_STATES:
         reasons.add(f"DP215_PROFILE_RIGHTS_{profile_rights}")
 
     profile_access = _normalized_state(source_profile.access_status)

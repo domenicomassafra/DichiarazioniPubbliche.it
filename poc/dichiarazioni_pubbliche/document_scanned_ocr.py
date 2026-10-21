@@ -32,7 +32,7 @@ from dichiarazioni_pubbliche.document_text_extraction import (
 from dichiarazioni_pubbliche.source_watcher import FetchedBytes
 
 
-OCR_VERSION = "poppler-tesseract-private-ocr-candidate-v1"
+OCR_VERSION = "poppler-tesseract-private-ocr-candidate-v2"
 OCR_PROFILE = "ita+eng/psm3/120dpi/scale2500"
 MAX_OCR_PAGES = 4
 MAX_OCR_WORDS = 10_000
@@ -320,7 +320,10 @@ def _extract_ocr_pages(body: bytes) -> dict[str, object]:
                 input_bytes=raster,
                 timeout=12,
             ).decode("utf-8", "strict")
-            rows = csv.DictReader(io.StringIO(tsv), delimiter="\t")
+            # Tesseract TSV emits literal quotation marks in OCR tokens, not
+            # CSV-escaped fields. The default CSV quoting can swallow following
+            # word rows after a stray quote and misclassify a valid scan.
+            rows = csv.DictReader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE)
             lines: dict[tuple[int, int, int], list[tuple[str, list[int]]]] = {}
             for row in rows:
                 if row.get("level") != "5":

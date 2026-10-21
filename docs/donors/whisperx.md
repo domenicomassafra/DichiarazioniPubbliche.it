@@ -61,6 +61,27 @@ Operator must separately verify and attest **before enabling**:
    `VOXPOPULI_ASR_BASE_10K_IT` resolves through torchaudio
    downloads; this adapter **never selects that default**. It forces
    a local HF model directory + `model_cache_only=True`.
+
+   **Read-only Italian weight audit (2026-10-20; no model downloaded):**
+   [torchaudio's Italian VoxPopuli model documentation](https://docs.pytorch.org/audio/stable/generated/torchaudio.pipelines.VOXPOPULI_ASR_BASE_10K_IT.html)
+   explicitly states **CC BY-NC 4.0** for its weights. This upstream
+   default cannot be treated as BSD-licensed with WhisperX.
+   [Meta's Italian XLSR-53 CTC model](https://huggingface.co/facebook/wav2vec2-large-xlsr-53-italian/tree/e2760fe9ade861421db16f4548f6c0d48568ae0c)
+   declares Apache-2.0, revision `e2760fe9ade861421db16f4548f6c0d48568ae0c`,
+   LFS `pytorch_model.bin` SHA-256
+   `4269323aa508e549f42ea661bf946c5340d1b3e85d4fe20461d8808f4928e0ad`
+   (1,262,104,215 bytes). The independent
+   [Jonatas Grosman Italian model](https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-italian/tree/dab04a3e00d8326052f3fb22a6ff276b822f6131)
+   declares Apache-2.0, revision `dab04a3e00d8326052f3fb22a6ff276b822f6131`,
+   LFS SHA-256 `14040a54d1e0caecd8b2271fdd2d96653be45702c7bc8765354140d864fb445a`
+   (1,262,114,199 bytes). Both card inventories were read via the official
+   Hugging Face metadata API; their main snapshots include large PyTorch
+   pickle weights, not the required safe-tensors model+LICENSE files. Both
+   exceed this adapter's 1 GiB total inventory bound. Their cards refer
+   to Common Voice; the [Mozilla terms](https://commonvoice.allizom.org/en/terms)
+   describe CC0 for Common Voice data, but the exact historical training
+   release, all upstream pretraining rights and artifact conversion require
+   independent owner sign-off. Neither candidate has been adopted or benchmarked.
 3. Separate installed dependency/wheel notices and licensing approval,
    including `torch`, `torchaudio`, `torchcodec`, `transformers`,
    `nltk`, and WhisperX's transitive `pyannote-audio`/FFmpeg stack.
@@ -74,6 +95,13 @@ Operator must separately verify and attest **before enabling**:
    `nltk.download('punkt_tab')` if absent: the adapter replaces
    that download with a raising function; missing asset causes HOLD.
    Local model Hugging Face/transformer loads run with offline flags.
+   The [NLTK data license inventory](https://github.com/nltk/nltk_data/blob/550b6625bcef1f2abff2ff770a5a0d272c9c6b2a/DATASET-LICENSES.md)
+   explicitly lists `punkt_tab` among **unknown/ambiguous** dataset licenses;
+   the NLTK data repository's Apache-2.0 license is **not** the individual
+   trained asset's license. Its [official index](https://github.com/nltk/nltk_data/blob/550b6625bcef1f2abff2ff770a5a0d272c9c6b2a/index.xml)
+   records `punkt_tab.zip` SHA-256
+   `e57f64187974277726a3417ca6f181ec5403676c717672eef6a748a7b20e0106`.
+   Asset provisioning stays on HOLD pending explicit rights clearance.
 5. CPU/RSS/wall and accuracy benchmark on a rights-cleared, long-form
    Italian fixture including digits, negations, speaker overlap,
    and drift against timestamped human audio. Until that fixture
@@ -110,10 +138,18 @@ timeout or nonzero child exit remain HOLD; this avoids the unbounded parent
 pipe capture of the previous subprocess implementation.
 Output must contain every expected word in order, with monotonic
 finite timestamps, within the WAV and CTC score >=0.70.
+The private candidate identity also includes SHA-256 of its accepted word
+strings, millisecond boundaries and heuristic scores. Repeated identical
+output replays under the same ID; changed timings cannot reuse that ID.
 Missing/ambiguous words, mismatched numerals/negations, overlap,
 untrusted native/model rights or missing assets keep the result on
 human review/HOLD. No true precision/recall or resource numbers
 are claimed from mocked parser outputs.
+The upstream [WhisperX #1449](https://github.com/m-bain/whisperX/issues/1449)
+(opened 2026-07-11; still open at this audit) reports wildcard CTC behavior
+for digits and punctuation in versions 3.8.3–3.8.6; this reinforces the
+need for independently timed gold on Italian numbers and punctuation before
+any attribution or publication. No upstream patch was copied or made.
 
 **Dependency state:** #164 faster-whisper ASR adapter merged but
 the licensed weights and real-audio canary are HOLD (#36);

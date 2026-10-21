@@ -1,6 +1,22 @@
 """Private, DOM-only helpers for the bounded Capture Passage comparison."""
 
 CAPTURE_DIFF_BROWSER_JS = r"""
+    function safeMediaSegment(receipt, request) {
+      const data = receipt?.data, segment = data?.canonical_segment;
+      if (receipt?.contract_version !== 'studio-local-readonly-api-v1'
+          || data?.contract_version !== 'studio-media-selector-inspection-v1'
+          || data.private_only !== true || data.publication_authority !== false
+          || data.rights_clearance !== false || data.attribution_authority !== false
+          || data.content_id !== request.content_id
+          || data.statement_candidate_id !== request.statement_candidate_id
+          || data.passage_id !== request.passage_id
+          || !SAFE_REF.test(segment?.id) || !Number.isSafeInteger(segment.start_ms)
+          || !Number.isSafeInteger(segment.end_ms) || segment.start_ms < 0
+          || segment.end_ms <= segment.start_ms
+          || !['RESOLVED', 'CANDIDATE_DISAGREEMENT', 'TRANSCRIPT_UNCERTAIN'].includes(segment.transcript_status)
+          || typeof segment.publication_blocked !== 'boolean') return null;
+      return segment;
+    }
     function validCaptureComparisonScope(receipt, request) {
       const scope = receipt?.data;
       return receipt?.contract_version === 'studio-local-readonly-api-v1'
