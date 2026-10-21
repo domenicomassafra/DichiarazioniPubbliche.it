@@ -25,6 +25,7 @@ from dichiarazioni_pubbliche.platform_transcript import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.caption_adapter import CaptionSegment  # noqa: E402
 from dichiarazioni_pubbliche.worker_handlers_transcript import TranscriptAsrJobHandlers  # noqa: E402
+from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 
 
 class PlatformTranscriptTests(unittest.TestCase):
@@ -241,48 +242,27 @@ class PlatformTranscriptTests(unittest.TestCase):
         )
         self.assertIsNone(choose_video_candidate("Pulp Podcast intervista speciale", [far]))
 
-    def test_worker_podcast_resolution_does_not_persist_discordant_episode(self):
+    def test_worker_podcast_without_approved_association_never_falls_back_to_asr(self):
         handler = TranscriptAsrJobHandlers()
         handler.store = Mock()
-        handler._source = Mock(return_value={"id": "podcast", "channel_url": "unused"})
+        handler.registry = {"schema_version": 1, "sources": []}
+        handler._source = Mock(return_value={"id": "podcast", "kind": "podcast_rss"})
         handler._require_current_ingestion_relevance = Mock()
         handler._enqueue_asr = Mock()
         handler._probe_and_enqueue_caption = Mock()
         handler.resolver = YouTubeResolver()
         content = SimpleNamespace(
-            source_id="podcast",
-            content_id="content:111",
+            source_id="podcast", content_id="content:111",
             title="Pulp Podcast #111 - Titolo",
             canonical_url="https://example.test/audio.mp3",
         )
         job = SimpleNamespace(payload={"platform": "podcast_rss"})
-        wrong = VideoCandidate("wrong", "Pulp Podcast #112 - Titolo", "https://example.test/wrong")
-        with patch.object(handler.resolver, "_atom_candidates", return_value=[wrong]), patch.object(
-            handler.resolver, "_flat_candidates", return_value=[]
-        ):
-            handler.resolve_platform(job, content)
+        with patch("dichiarazioni_pubbliche.platform_transcript.fetch_text") as fetch:
+            with self.assertRaisesRegex(BlockedJob, "SOURCE_ASSOCIATION_POLICY_MISSING"):
+                handler.resolve_platform(job, content)
+        fetch.assert_not_called()
         handler.store.upsert_locator.assert_not_called()
         handler._probe_and_enqueue_caption.assert_not_called()
-        handler._enqueue_asr.assert_called_once_with(content, reason="PLATFORM_COPY_NOT_FOUND")
-
-        handler.store.reset_mock()
-        handler._enqueue_asr.reset_mock()
-        handler._probe_and_enqueue_caption.reset_mock()
-        right = VideoCandidate(
-            "right", "Pulp Podcast #111 - Extra", "https://example.test/right"
-        )
-        with patch.object(
-            handler.resolver, "_atom_candidates", return_value=[wrong, right]
-        ):
-            handler.resolve_platform(job, content)
-        handler.store.upsert_locator.assert_called_once_with(
-            content.content_id,
-            platform="youtube",
-            external_id="right",
-            canonical_url=right.canonical_url,
-            metadata={"resolved_from": "podcast_rss"},
-        )
-        handler._probe_and_enqueue_caption.assert_called_once_with(job, content, right)
         handler._enqueue_asr.assert_not_called()
 
     def test_episode_marker_beats_translated_title(self):

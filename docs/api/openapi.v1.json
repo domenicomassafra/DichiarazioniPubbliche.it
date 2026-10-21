@@ -866,6 +866,9 @@
               "provenance"
             ],
             "type": "object"
+          },
+          "wording": {
+            "$ref": "#/components/schemas/WordingMetadata"
           }
         },
         "required": [
@@ -1161,6 +1164,12 @@
       "PublicBundle": {
         "description": "The fail-closed public projection bundle, exactly as the static build consumes it.",
         "properties": {
+          "contents": {
+            "items": {
+              "$ref": "#/components/schemas/PublicContent"
+            },
+            "type": "array"
+          },
           "dataset_sha256": {
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
@@ -1209,6 +1218,12 @@
           },
           "schema_version": {
             "const": "dichiarazioni-pubbliche-public-v2"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/Topic"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -1219,6 +1234,88 @@
           "dossier_count",
           "omitted_count",
           "dossiers"
+        ],
+        "type": "object"
+      },
+      "PublicContent": {
+        "description": "Reviewed public Content metadata from the projection. It contains no capture bytes, transcript body, provider receipt, archive path, or evidence body.",
+        "properties": {
+          "content_id": {
+            "type": "string"
+          },
+          "content_kind": {
+            "enum": [
+              "VIDEO",
+              "AUDIO",
+              "WRITTEN",
+              "OTHER"
+            ],
+            "type": "string"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "finding_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "media_policy_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "public_media_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publication_version": {
+            "const": "public-content-v1"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "review_event_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id",
+          "slug",
+          "url",
+          "title",
+          "published_at",
+          "content_kind",
+          "duration_ms",
+          "public_media_url",
+          "media_policy_version",
+          "publication_version",
+          "review_event_ids",
+          "finding_ids"
         ],
         "type": "object"
       },
@@ -1264,7 +1361,31 @@
         "type": "object"
       },
       "Record": {
+        "description": "A first-class reviewed public Content resource and the published findings currently attached to it. Pre-DP-434 bundles may expose null Content metadata while preserving the same endpoint.",
         "properties": {
+          "content_id": {
+            "type": "string"
+          },
+          "content_kind": {
+            "enum": [
+              "VIDEO",
+              "AUDIO",
+              "WRITTEN",
+              "OTHER",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "finding_count": {
             "minimum": 0,
             "type": "integer"
@@ -1275,6 +1396,24 @@
             },
             "type": "array"
           },
+          "media_policy_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "public_media_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publication_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "published_at": {
             "type": [
               "string",
@@ -1284,9 +1423,11 @@
           "record_id": {
             "type": "string"
           },
-          "segment_count": {
-            "minimum": 0,
-            "type": "integer"
+          "review_event_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "slug": {
             "type": "string"
@@ -1306,8 +1447,11 @@
         },
         "required": [
           "record_id",
+          "content_id",
           "slug",
-          "findings"
+          "finding_count",
+          "findings",
+          "review_event_ids"
         ],
         "type": "object"
       },
@@ -1399,13 +1543,235 @@
           "people"
         ],
         "type": "object"
+      },
+      "WordingMetadata": {
+        "additionalProperties": false,
+        "description": "Bounded wording/derivation metadata. Source bodies, summary text, translation text, capture paths and private provenance are never included.",
+        "properties": {
+          "normalized_claim": {
+            "additionalProperties": false,
+            "properties": {
+              "derivation_method": {
+                "type": "string"
+              },
+              "derivation_version": {
+                "type": "string"
+              },
+              "direct_quote_eligible": {
+                "const": false
+              },
+              "language": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "representation_role": {
+                "const": "DERIVED_REPRESENTATION"
+              },
+              "source_occurrence_id": {
+                "type": "string"
+              },
+              "source_wording_type": {
+                "enum": [
+                  "VERBATIM_ORIGINAL",
+                  "REPORTED_QUOTE"
+                ],
+                "type": "string"
+              },
+              "text_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "wording_type": {
+                "const": "PARAPHRASE"
+              }
+            },
+            "required": [
+              "wording_type",
+              "text_sha256",
+              "source_occurrence_id",
+              "source_wording_type",
+              "language",
+              "derivation_method",
+              "derivation_version",
+              "direct_quote_eligible",
+              "representation_role"
+            ],
+            "type": "object"
+          },
+          "public_provenance": {
+            "additionalProperties": false,
+            "properties": {
+              "segment_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              "text_provenance_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              }
+            },
+            "required": [
+              "segment_ids",
+              "text_provenance_ids"
+            ],
+            "type": "object"
+          },
+          "representations": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "derivation_method": {
+                  "type": "string"
+                },
+                "derivation_version": {
+                  "type": "string"
+                },
+                "direct_quote_eligible": {
+                  "const": false
+                },
+                "language": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "representation_role": {
+                  "const": "DERIVED_REPRESENTATION"
+                },
+                "review_state": {
+                  "enum": [
+                    "NEEDS_REVIEW",
+                    "HUMAN_REVIEWED",
+                    "REJECTED",
+                    null
+                  ],
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "signal_codes": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 32,
+                  "type": "array"
+                },
+                "source_language": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_occurrence_id": {
+                  "type": "string"
+                },
+                "source_wording_type": {
+                  "enum": [
+                    "VERBATIM_ORIGINAL",
+                    "REPORTED_QUOTE"
+                  ],
+                  "type": "string"
+                },
+                "text_sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "wording_type": {
+                  "enum": [
+                    "PARAPHRASE",
+                    "SUMMARY",
+                    "TRANSLATION"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "wording_type",
+                "text_sha256",
+                "source_occurrence_id",
+                "source_wording_type",
+                "language",
+                "source_language",
+                "derivation_method",
+                "derivation_version",
+                "review_state",
+                "signal_codes",
+                "direct_quote_eligible",
+                "representation_role"
+              ],
+              "type": "object"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "source_occurrence": {
+            "additionalProperties": false,
+            "properties": {
+              "direct_quote_eligible": {
+                "type": "boolean"
+              },
+              "language": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "occurrence_id": {
+                "type": "string"
+              },
+              "representation_role": {
+                "const": "SOURCE_OCCURRENCE"
+              },
+              "text_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "wording_type": {
+                "enum": [
+                  "VERBATIM_ORIGINAL",
+                  "REPORTED_QUOTE"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "occurrence_id",
+              "wording_type",
+              "text_sha256",
+              "language",
+              "direct_quote_eligible",
+              "representation_role"
+            ],
+            "type": "object"
+          },
+          "version": {
+            "const": "wording-contract-v1"
+          }
+        },
+        "required": [
+          "version",
+          "source_occurrence",
+          "normalized_claim",
+          "representations",
+          "public_provenance"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {}
   },
   "info": {
     "description": "Dichiarazioni Pubbliche is an open public-record system for verifiable public statements. This API serves only what the publication gate already approved, with provenance identifiers, assessment, and correction/right-of-reply history.\n\nIt is a pure reader over a pre-built projection bundle: no database, no provider, and no LLM is used in the request path, and the product remains fully readable while every model provider is offline. The API is read-only (GET/HEAD only), unauthenticated, and designed to be deployed next to a static host.\n\nSemantics that a consumer must not flatten: retrieved evidence is not approved evidence; approved evidence is not a verified claim; a verified claim is not a published finding; a false claim is not a deliberate falsehood; a position change is not a lie; a contradiction is not proof of intent. There is no person score, no ranking, and no political recommendation, and the API will never return one.",
-    "summary": "Stable, read-only, cacheable access to the fail-closed public projection of published finding versions.",
+    "summary": "Read-only, no-store access to the fail-closed public projection of published finding versions.",
     "title": "Dichiarazioni Pubbliche public read-only API",
     "version": "v1",
     "x-deprecation-policy": {
@@ -1423,7 +1789,7 @@
         "changing an assessment, relation, or publication-status meaning"
       ],
       "contract_gate": "This document describes the v1 HTTP contract over the dichiarazioni-pubbliche-public-v2 public projection. The URL major version and the projection schema version are independent axes; a future projection schema that is not backward compatible requires a new URL major version.",
-      "current_contract_status": "DRAFT: served and cacheable, but not yet announced as stable. The same-origin MiniPC read path has been runtime-proved; the remaining gate is contract/release ratification, not transport reachability.",
+      "current_contract_status": "DRAFT: served with no-store; not yet announced as stable. The same-origin MiniPC read path has been runtime-proved; the remaining gate is contract/release ratification, not transport reachability.",
       "enum_values": "New assessment, publication-status, relation, and claim-type values are owned by the public schema contract, not by this document, and are never added silently where an existing consumer could read them as a safety or policy decision.",
       "sunset": "A deprecation announces the replacement endpoint, a first deprecation date, and a sunset date no earlier than 90 days later. Deprecated endpoints emit the Deprecation and Sunset headers and stay readable until sunset. No endpoint is ever removed silently.",
       "version_boundary": "The URL major version (/api/v1) is the compatibility boundary. A breaking change is served under a new major version."
@@ -1535,12 +1901,10 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": {
-                            "items": {
-                              "$ref": "#/components/schemas/FindingSummary"
-                            },
-                            "type": "array"
-                          }
+                          "items": {
+                            "$ref": "#/components/schemas/FindingSummary"
+                          },
+                          "type": "array"
                         },
                         "meta": {
                           "$ref": "#/components/schemas/Meta"
@@ -1559,7 +1923,7 @@
             "description": "Bounded, deterministic collection of published finding versions.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -1624,7 +1988,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -1805,6 +2169,50 @@
                           "start_date": "2025-01-01"
                         }
                       ]
+                    },
+                    "wording": {
+                      "normalized_claim": {
+                        "derivation_method": "CLAIM_NORMALIZATION",
+                        "derivation_version": "fictional-v1",
+                        "direct_quote_eligible": false,
+                        "language": "it",
+                        "representation_role": "DERIVED_REPRESENTATION",
+                        "source_occurrence_id": "statement:fictional:source:1",
+                        "source_wording_type": "VERBATIM_ORIGINAL",
+                        "text_sha256": "15b2137513497605132b8c3b76041c92d5a36d073918798a1c0fd2aa500f7c8a",
+                        "wording_type": "PARAPHRASE"
+                      },
+                      "public_provenance": {
+                        "segment_ids": [
+                          "segment:fictional:1"
+                        ],
+                        "text_provenance_ids": []
+                      },
+                      "representations": [
+                        {
+                          "derivation_method": "TRANSLATION_HUMAN",
+                          "derivation_version": "fictional-v1",
+                          "direct_quote_eligible": false,
+                          "language": "en",
+                          "representation_role": "DERIVED_REPRESENTATION",
+                          "review_state": "HUMAN_REVIEWED",
+                          "signal_codes": [],
+                          "source_language": "it",
+                          "source_occurrence_id": "statement:fictional:source:1",
+                          "source_wording_type": "VERBATIM_ORIGINAL",
+                          "text_sha256": "4b0e371330c2e7486fe725a3688df410428d7daceeb2523bc2476e6c0acfb518",
+                          "wording_type": "TRANSLATION"
+                        }
+                      ],
+                      "source_occurrence": {
+                        "direct_quote_eligible": true,
+                        "language": "it",
+                        "occurrence_id": "statement:fictional:source:1",
+                        "representation_role": "SOURCE_OCCURRENCE",
+                        "text_sha256": "7ef10095835eef298939037a44d2b87a1e7546323c8e3552b46e8c8480465496",
+                        "wording_type": "VERBATIM_ORIGINAL"
+                      },
+                      "version": "wording-contract-v1"
                     }
                   },
                   "meta": {
@@ -1840,7 +2248,7 @@
             "description": "Published finding version with approved provenance identifiers.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -1918,7 +2326,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2010,7 +2418,7 @@
             "description": "Liveness plus the served projection fingerprint and vocabulary versions.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2075,7 +2483,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2140,6 +2548,26 @@
             "content": {
               "application/json": {
                 "example": {
+                  "contents": [
+                    {
+                      "content_id": "content-fictional-1",
+                      "content_kind": "VIDEO",
+                      "duration_ms": 125000,
+                      "finding_ids": [
+                        "finding:fictional:1"
+                      ],
+                      "media_policy_version": null,
+                      "public_media_url": null,
+                      "publication_version": "public-content-v1",
+                      "published_at": "2026-01-15T12:00:00+00:00",
+                      "review_event_ids": [
+                        "review:content:fictional:1"
+                      ],
+                      "slug": "content-fictional-1",
+                      "title": "Fictional public statement",
+                      "url": "https://example.test/fictional-source"
+                    }
+                  ],
                   "dataset_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
                   "dossier_count": 1,
                   "dossiers": [
@@ -2248,6 +2676,50 @@
                             "start_date": "2025-01-01"
                           }
                         ]
+                      },
+                      "wording": {
+                        "normalized_claim": {
+                          "derivation_method": "CLAIM_NORMALIZATION",
+                          "derivation_version": "fictional-v1",
+                          "direct_quote_eligible": false,
+                          "language": "it",
+                          "representation_role": "DERIVED_REPRESENTATION",
+                          "source_occurrence_id": "statement:fictional:source:1",
+                          "source_wording_type": "VERBATIM_ORIGINAL",
+                          "text_sha256": "15b2137513497605132b8c3b76041c92d5a36d073918798a1c0fd2aa500f7c8a",
+                          "wording_type": "PARAPHRASE"
+                        },
+                        "public_provenance": {
+                          "segment_ids": [
+                            "segment:fictional:1"
+                          ],
+                          "text_provenance_ids": []
+                        },
+                        "representations": [
+                          {
+                            "derivation_method": "TRANSLATION_HUMAN",
+                            "derivation_version": "fictional-v1",
+                            "direct_quote_eligible": false,
+                            "language": "en",
+                            "representation_role": "DERIVED_REPRESENTATION",
+                            "review_state": "HUMAN_REVIEWED",
+                            "signal_codes": [],
+                            "source_language": "it",
+                            "source_occurrence_id": "statement:fictional:source:1",
+                            "source_wording_type": "VERBATIM_ORIGINAL",
+                            "text_sha256": "4b0e371330c2e7486fe725a3688df410428d7daceeb2523bc2476e6c0acfb518",
+                            "wording_type": "TRANSLATION"
+                          }
+                        ],
+                        "source_occurrence": {
+                          "direct_quote_eligible": true,
+                          "language": "it",
+                          "occurrence_id": "statement:fictional:source:1",
+                          "representation_role": "SOURCE_OCCURRENCE",
+                          "text_sha256": "7ef10095835eef298939037a44d2b87a1e7546323c8e3552b46e8c8480465496",
+                          "wording_type": "VERBATIM_ORIGINAL"
+                        },
+                        "version": "wording-contract-v1"
                       }
                     }
                   ],
@@ -2270,7 +2742,7 @@
             "description": "The fail-closed public projection bundle.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2326,7 +2798,7 @@
           }
         },
         "security": [],
-        "summary": "The whole public projection bundle, byte-stable and CDN-cacheable."
+        "summary": "The whole public projection bundle, byte-stable and non-cacheable."
       },
       "head": {
         "operationId": "get_index_head",
@@ -2335,7 +2807,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2399,7 +2871,7 @@
             "description": "The served OpenAPI document.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2461,7 +2933,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2529,12 +3001,10 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": {
-                            "items": {
-                              "$ref": "#/components/schemas/PersonSummary"
-                            },
-                            "type": "array"
-                          }
+                          "items": {
+                            "$ref": "#/components/schemas/PersonSummary"
+                          },
+                          "type": "array"
                         },
                         "meta": {
                           "$ref": "#/components/schemas/Meta"
@@ -2553,7 +3023,7 @@
             "description": "Public figures actually present in the projection, with counts.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2618,7 +3088,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2674,6 +3144,211 @@
         "summary": "HEAD /api/v1/people: same status, headers, and validators as GET, without a body."
       }
     },
+    "/api/v1/records": {
+      "get": {
+        "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate.",
+        "operationId": "records",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "content_id": "content-fictional-1",
+                      "content_kind": "VIDEO",
+                      "duration_ms": 125000,
+                      "finding_count": 1,
+                      "findings": [
+                        {
+                          "assessment": "SUPPORTED",
+                          "claim": "Fictional example: the published register records a figure close to the stated one.",
+                          "claim_id": "claim:fictional:1",
+                          "claim_type": "NUMERIC_STATISTIC",
+                          "content_id": "content:fictional:1",
+                          "content_url": "https://example.test/fictional-source",
+                          "correction_count": 0,
+                          "finding_id": "finding:fictional:1",
+                          "link": "/api/v1/findings/finding:fictional:1",
+                          "person_id": "person:fictional:1",
+                          "person_name": "Fictional public figure",
+                          "publication_status": "PUBLISH",
+                          "published_at": "2026-01-20T08:00:00+00:00",
+                          "published_right_of_reply_count": 0
+                        }
+                      ],
+                      "media_policy_version": null,
+                      "public_media_url": null,
+                      "publication_version": "public-content-v1",
+                      "published_at": "2026-01-15T12:00:00+00:00",
+                      "record_id": "content-fictional-1",
+                      "review_event_ids": [
+                        "review:content:fictional:1"
+                      ],
+                      "slug": "content-fictional-1",
+                      "title": "Fictional public statement",
+                      "url": "https://example.test/fictional-source"
+                    }
+                  ],
+                  "meta": {
+                    "api_version": "v1",
+                    "contract_status": "DRAFT",
+                    "count": 1,
+                    "dataset_fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "link": "/api/v1/records",
+                    "projection_generated_at": "2026-01-01T00:00:00+00:00",
+                    "public_schema_version": "dichiarazioni-pubbliche-public-v2"
+                  }
+                },
+                "schema": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "data": {
+                          "items": {
+                            "$ref": "#/components/schemas/Record"
+                          },
+                          "type": "array"
+                        },
+                        "meta": {
+                          "$ref": "#/components/schemas/Meta"
+                        }
+                      },
+                      "required": [
+                        "data",
+                        "meta"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Reviewed public Content resources, including zero-finding Content when approved.",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "Reviewed public Content resources, including zero-finding Content when approved."
+      },
+      "head": {
+        "operationId": "records_head",
+        "responses": {
+          "200": {
+            "description": "Same headers and validators as GET; no body.",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Content validator derived from the canonical response bytes, which in turn derive from the projection fingerprint. It changes whenever a served finding version, correction, or published right of reply changes.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Last-Modified": {
+                "description": "Bundle modification time.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Points at the machine-readable service description: <{API_BASE_PATH}/openapi.json>; rel=\"service-desc\"",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Always `Accept`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "const": "nosniff"
+                }
+              },
+              "X-Dichiarazioni-Pubbliche-Api-Version": {
+                "description": "Contract major version served.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "503": {
+            "$ref": "#/components/responses/ProjectionUnavailable"
+          }
+        },
+        "security": [],
+        "summary": "HEAD /api/v1/records: same status, headers, and validators as GET, without a body."
+      }
+    },
     "/api/v1/records/{slug}": {
       "get": {
         "description": "Read-only over the fail-closed public projection. No PostgreSQL, no provider, no filesystem walk, and no LLM call occurs in the request path. A finding is served only because it is already PUBLISH/DISPUTED/CORRECTED/RETRACTED in the projection; this API never re-implements or relaxes the publication gate. The slug is derived from the projection's own stable content_id, not from a display title.",
@@ -2696,6 +3371,9 @@
               "application/json": {
                 "example": {
                   "data": {
+                    "content_id": "content-fictional-1",
+                    "content_kind": "VIDEO",
+                    "duration_ms": 125000,
                     "finding_count": 1,
                     "findings": [
                       {
@@ -2715,9 +3393,14 @@
                         "published_right_of_reply_count": 0
                       }
                     ],
+                    "media_policy_version": null,
+                    "public_media_url": null,
+                    "publication_version": "public-content-v1",
                     "published_at": "2026-01-15T12:00:00+00:00",
                     "record_id": "content-fictional-1",
-                    "segment_count": 1,
+                    "review_event_ids": [
+                      "review:content:fictional:1"
+                    ],
                     "slug": "content-fictional-1",
                     "title": "Fictional public statement",
                     "url": "https://example.test/fictional-source"
@@ -2755,7 +3438,7 @@
             "description": "One public record with its published finding versions.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2833,7 +3516,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -2932,10 +3615,8 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": {
-                            "additionalProperties": true,
-                            "type": "object"
-                          }
+                          "additionalProperties": true,
+                          "type": "object"
                         },
                         "meta": {
                           "$ref": "#/components/schemas/Meta"
@@ -2954,7 +3635,7 @@
             "description": "The public contract descriptor: vocabularies, bounds, facets, and guarantees.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -3019,7 +3700,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -3129,12 +3810,10 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": {
-                            "items": {
-                              "$ref": "#/components/schemas/Topic"
-                            },
-                            "type": "array"
-                          }
+                          "items": {
+                            "$ref": "#/components/schemas/Topic"
+                          },
+                          "type": "array"
                         },
                         "meta": {
                           "$ref": "#/components/schemas/Meta"
@@ -3153,7 +3832,7 @@
             "description": "First-class reviewed public subject Topics present in the projection.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }
@@ -3218,7 +3897,7 @@
             "description": "Same headers and validators as GET; no body.",
             "headers": {
               "Cache-Control": {
-                "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+                "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
                 "schema": {
                   "type": "string"
                 }

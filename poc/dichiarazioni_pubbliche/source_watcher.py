@@ -204,11 +204,14 @@ class _DiscoveryHTTPSHandler(urllib.request.HTTPSHandler):
 
 
 class _DiscoveryRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def __init__(self, resolver=socket.getaddrinfo) -> None:
+    def __init__(self, resolver=socket.getaddrinfo, *, allow_redirects: bool = True) -> None:
         super().__init__()
         self.resolver = resolver
+        self.allow_redirects = allow_redirects
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not self.allow_redirects:
+            raise ValueError("DISCOVERY_REDIRECT_FORBIDDEN")
         validate_discovery_url(newurl, resolver=self.resolver)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -219,6 +222,7 @@ def fetch_bytes(
     *,
     max_response_bytes: int = MAX_DISCOVERY_RESPONSE_BYTES,
     resolver=socket.getaddrinfo,
+    allow_redirects: bool = True,
 ) -> FetchedBytes:
     """Fetch one bounded public HTTPS representation with the discovery SSRF policy."""
     url = validate_discovery_url(url, resolver=resolver)
@@ -229,7 +233,7 @@ def fetch_bytes(
     opener = urllib.request.build_opener(
         urllib.request.ProxyHandler({}),  # Never route validated URLs through environment proxies.
         _DiscoveryHTTPSHandler(resolver),
-        _DiscoveryRedirectHandler(resolver=resolver),
+        _DiscoveryRedirectHandler(resolver=resolver, allow_redirects=allow_redirects),
     )
     with opener.open(request, timeout=timeout) as response:
         final_url = validate_discovery_url(response.geturl(), resolver=resolver)
