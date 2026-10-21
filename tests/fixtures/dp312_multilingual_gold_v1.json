@@ -1,0 +1,42 @@
+{
+  "version": "dp312-independent-contrast-gold-v1",
+  "rights": {
+    "provenance": "Original, deliberately fictional sentences written for this project; no source-body extraction or real-person attribution",
+    "reuse_licence": "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0 (project Apache-2.0 synthetic fixture policy)",
+    "third_party_content": false,
+    "human_independent_review": false,
+    "annotator": "technical contrast author, labels fixed before executing the classifier",
+    "scope": "Lexical regression gold only; not an independently adjudicated licensed real-source gold corpus"
+  },
+  "cases": [
+    {"id": "it-direct", "language": "it", "text": "Io sostengo il piano.", "speech_act": "ASSERTION", "stance": "ENDORSE", "state": "CANDIDATE_PRIVATE"},
+    {"id": "it-nessun", "language": "it", "text": "Io sostengo nessun piano.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "NEGATION_SCOPE_UNRESOLVED"},
+    {"id": "it-niente", "language": "it", "text": "Io sostengo niente.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "NEGATION_SCOPE_UNRESOLVED"},
+    {"id": "it-nulla", "language": "it", "text": "Io sostengo nulla.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "NEGATION_SCOPE_UNRESOLVED"},
+    {"id": "it-assert-negative-proposition", "language": "it", "text": "Io sostengo che nessun piano funzioni.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "NEGATION_SCOPE_UNRESOLVED"},
+    {"id": "it-quote", "language": "it", "text": "«Io sostengo il piano.»", "speech_act": "QUOTE", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE", "quoted_author_id": "person:quoted"},
+    {"id": "it-report", "language": "it", "text": "Secondo Ada, «Io sostengo il piano.»", "speech_act": "REPORT", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE", "quoted_author_id": "person:quoted"},
+    {"id": "it-critique", "language": "it", "text": "Critico questo piano.", "speech_act": "CRITIQUE", "stance": "DISTANCE", "state": "CANDIDATE_PRIVATE"},
+    {"id": "it-question", "language": "it", "text": "Il piano funziona?", "speech_act": "QUESTION", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE"},
+    {"id": "en-direct", "language": "en", "text": "I support the plan.", "speech_act": "ASSERTION", "stance": "ENDORSE", "state": "CANDIDATE_PRIVATE"},
+    {"id": "en-negative", "language": "en", "text": "I support nobody.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "NEGATION_SCOPE_UNRESOLVED"},
+    {"id": "en-quote", "language": "en", "text": "\"I support the plan.\"", "speech_act": "QUOTE", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE", "quoted_author_id": "person:quoted"},
+    {"id": "en-report", "language": "en", "text": "According to Ada, \"I support the plan.\"", "speech_act": "REPORT", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE", "quoted_author_id": "person:quoted"},
+    {"id": "en-critique", "language": "en", "text": "I criticize this plan.", "speech_act": "CRITIQUE", "stance": "DISTANCE", "state": "CANDIDATE_PRIVATE"},
+    {"id": "en-question", "language": "en", "text": "Does the plan work?", "speech_act": "QUESTION", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE"},
+    {"id": "de-direct", "language": "de", "text": "Ich unterstütze den Plan.", "speech_act": "ASSERTION", "stance": "ENDORSE", "state": "CANDIDATE_PRIVATE"},
+    {"id": "de-negative", "language": "de", "text": "Ich unterstütze niemanden.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "NEGATION_SCOPE_UNRESOLVED"},
+    {"id": "de-quote", "language": "de", "text": "„Ich unterstütze den Plan.“", "speech_act": "QUOTE", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE", "quoted_author_id": "person:quoted"},
+    {"id": "de-report", "language": "de", "text": "Er sagte „Ich unterstütze den Plan.“", "speech_act": "REPORT", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE", "quoted_author_id": "person:quoted"},
+    {"id": "de-critique", "language": "de", "text": "Ich kritisiere diesen Plan.", "speech_act": "CRITIQUE", "stance": "DISTANCE", "state": "CANDIDATE_PRIVATE"},
+    {"id": "de-question", "language": "de", "text": "Funktioniert dieser Plan?", "speech_act": "QUESTION", "stance": "NON_COMMITTAL", "state": "CANDIDATE_PRIVATE"},
+    {"id": "fr-unsupported", "language": "fr", "text": "Je soutiens ce projet.", "speech_act": "UNKNOWN", "stance": "UNKNOWN", "state": "HOLD_FOR_CONTEXT", "risk": "LANGUAGE_SEMANTICS_UNSUPPORTED"}
+  ],
+  "translation_contrasts": [
+    {"id": "it-nessun-to-en-positive", "source_language": "it", "source": "Io sostengo nessun piano.", "target_language": "en", "translation": "I support the plan.", "risk": "NEGATION_CHANGED"},
+    {"id": "it-niente-to-en-positive", "source_language": "it", "source": "Io sostengo niente.", "target_language": "en", "translation": "I support the plan.", "risk": "NEGATION_CHANGED"},
+    {"id": "it-nulla-to-en-positive", "source_language": "it", "source": "Io sostengo nulla.", "target_language": "en", "translation": "I support the plan.", "risk": "NEGATION_CHANGED"},
+    {"id": "en-nobody-to-it-positive", "source_language": "en", "source": "I support nobody.", "target_language": "it", "translation": "Io sostengo il piano.", "risk": "NEGATION_CHANGED"},
+    {"id": "de-niemand-to-it-positive", "source_language": "de", "source": "Ich unterstütze niemanden.", "target_language": "it", "translation": "Io sostengo il piano.", "risk": "NEGATION_CHANGED"}
+  ]
+}
