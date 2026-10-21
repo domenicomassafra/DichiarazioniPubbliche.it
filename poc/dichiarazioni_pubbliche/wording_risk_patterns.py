@@ -14,8 +14,8 @@ _DATE_RE = re.compile(
 _CAPITALIZED_RE = re.compile(r"\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]{2,}\b")
 
 _NEGATIONS = {
-    "it": re.compile(r"\b(?:non|mai|nessun[oa]?|senza)\b", re.I),
-    "en": re.compile(r"\b(?:not|never|no|without|n't)\b", re.I),
+    "it": re.compile(r"\b(?:non|mai|nessun\w*|niente|nulla|senza)\b", re.I),
+    "en": re.compile(r"\b(?:not|never|no|none|neither|nobody|nothing|without|n't)\b", re.I),
     "de": re.compile(r"\b(?:nicht|nie|niemals|mitnichten|nimmer|kein\w*|ohne|weder|niemand\w*)\b", re.I),
     "fr": re.compile(r"\b(?:ne|pas|jamais|aucun|sans)\b", re.I),
     "es": re.compile(r"\b(?:no|nunca|ning[uú]n|sin)\b", re.I),

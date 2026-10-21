@@ -10,7 +10,7 @@ from typing import Mapping, Sequence
 CONTEXT_INTEGRITY_VERSION = "context-integrity-v1"
 CLEAR_STATES = frozenset({"CLEAR_AUTOMATIC", "APPROVED_CURATED"})
 
-_NEGATION_RE = re.compile(r"\b(?:non|mai|nessun[oa]?|senza)\b", re.I)
+_NEGATION_RE = re.compile(r"\b(?:non|mai|nessun\w*|niente|nulla|senza)\b", re.I)
 _CONDITIONAL_RE = re.compile(
     r"\b(?:se|qualora|ipoteticamente|supponendo|supponiamo|nel caso|a condizione che)\b",
     re.I,
@@ -489,7 +489,7 @@ _SPEECH_ACT_CUES = {
         "denial": re.compile(r"\b(?:non\s+(?:ho\s+)?(?:mai\s+)?(?:detto|sostengo|affermo|condivido|ritengo)|nego\s+che)\b", re.I),
         "endorse": re.compile(r"\b(?:io\s+)?(?:sostengo|affermo|ritengo)\s+che\b", re.I),
         "support": re.compile(r"\b(?:io\s+)?(?:sostengo|appoggio|condivido)\b", re.I),
-        "negation": re.compile(r"\b(?:non|mai|nessuno|nessuna|senza)\b", re.I),
+        "negation": re.compile(r"\b(?:non|mai|nessun\w*|niente|nulla|senza)\b", re.I),
         "qualification": re.compile(r"\b(?:ma|però|tuttavia|salvo|tranne|in\s+realtà)\b", re.I),
         "conditional": re.compile(r"\b(?:se|qualora|purché|a\s+condizione\s+che)\b", re.I),
     },
@@ -662,8 +662,7 @@ def assess_speech_act_context(
             for i in range(0, len(angle_marks), 2)
         ):
             signals.append("UNBALANCED_QUOTATION")
-    # Corner/book/title quotation marks can enclose otherwise English text;
-    # the source language tag does not convert reported speech to endorsement.
+    # Paired CJK quotation marks do not imply endorsement.
     for opener, closer in (("\u300c", "\u300d"), ("\u300e", "\u300f"), ("\u300a", "\u300b"), ("\u3010", "\u3011")):
         cjk_marks = "".join(char for char in turn if char in (opener, closer))
         if len(cjk_marks) % 2 or any(
