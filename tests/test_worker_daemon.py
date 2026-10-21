@@ -362,29 +362,13 @@ class WorkerDaemonTests(unittest.TestCase):
         worker._insert_caption_variant = lambda *, guard, **kw: store.insert_transcript_variant(**kw)
         return worker
 
-    def test_podcast_resolution_enqueues_caption_without_media(self):
-        candidate = VideoCandidate(
-            "QaE00l6JZ8w",
-            "Beppe Grillo a Pulp Podcast. | Pulp Podcast #64",
-            "https://www.youtube.com/watch?v=QaE00l6JZ8w",
-        )
-        store = FakeStore(
-            [
-                job(
-                    "TRANSCRIPT_RESOLVE_PLATFORM",
-                    {"platform": "podcast_rss", "estimated_cost_usd": 0},
-                )
-            ]
-        )
-        worker = self.make_worker(
-            store,
-            FakeResolver(candidate, CaptionProbe("automatic_caption", "it-orig")),
-        )
-        summary = worker.run(1)
-        self.assertEqual(summary.completed, 1)
-        self.assertEqual(store.followups[0]["job_type"], "TRANSCRIPT_ACQUIRE_CAPTION")
-        self.assertEqual(store.locators[0][1]["platform"], "youtube")
-        self.assertEqual(store.receipts[0]["estimated_cost_usd"], 0.0)
+    def test_unassociated_podcast_is_held_without_locator_or_asr(self):
+        store = FakeStore([job("TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "podcast_rss"})])
+        resolver = FakeResolver()
+        summary = self.make_worker(store, resolver).run(1)
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual((store.locators, store.followups), ([], []))
+        self.assertEqual(resolver.resolve_calls, 0)
 
     def test_stale_ingestion_relevance_blocks_before_platform_resolution_network(self):
         resolver = FakeResolver(
@@ -1055,7 +1039,9 @@ class WorkerDaemonTests(unittest.TestCase):
             "https://www.youtube.com/watch?v=members-only",
         )
         store = FakeStore([job(
-            "TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "podcast_rss", "estimated_cost_usd": 0},
+            "TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "youtube", "external_id": "members-only",
+             "canonical_url": "https://www.youtube.com/watch?v=members-only",
+             "estimated_cost_usd": 0},
         )])
         worker = self.make_worker(
             store,
