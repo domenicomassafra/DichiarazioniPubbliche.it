@@ -11,6 +11,8 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass
+
+from .requirement_metadata_boundary_v1 import canonical_requirement_metadata as _snap
 from datetime import date
 
 
@@ -193,17 +195,12 @@ def preflight_verification_requirements(
     Eligible means *operator-declared* review/rights status is consistent with
     a source-bound candidate. Only persisted authority can substantiate it.
     """
-    if (
-        type(claim) is not RequirementClaim
-        or not isinstance(observations, tuple)
-        or len(observations) > 128
-    ):
+    if type(observations) is not tuple or len(observations) > 128:
         raise ValueError("REQUIREMENT_INPUT_INVALID")
-    # Bind eligibility and audit hash to the same detached typed records.
-    if any(type(row) is not RequirementEvidence for row in observations):
-        raise ValueError("REQUIREMENT_EVIDENCE_INPUT_INVALID")
-    claim = RequirementClaim(**asdict(claim))
-    observations = tuple(RequirementEvidence(**asdict(row)) for row in observations)
+    claim = _snap(claim, RequirementClaim, "REQUIREMENT_INPUT_INVALID")
+    observations = tuple(_snap(
+        row, RequirementEvidence, "REQUIREMENT_EVIDENCE_INPUT_INVALID"
+    ) for row in observations)
     _ref(claim.claim_id, "CLAIM")
     _ref(claim.policy_version, "POLICY_VERSION")
     if claim.jurisdiction_ref is not None:
@@ -372,23 +369,25 @@ def compare_private_event_sequence(
     attestation. A matching observation pair is not a factual verdict and has
     no publication/machine-signoff authority. No remote fetch or model call.
     """
+    if any(type(value) is not str for value in (
+        left_event_ref, right_event_ref, claimed_order
+    )):
+        raise ValueError("SEQUENCE_QUESTION_INVALID")
     _ref(left_event_ref, "LEFT_EVENT")
     _ref(right_event_ref, "RIGHT_EVENT")
     if left_event_ref == right_event_ref or claimed_order not in {"BEFORE", "AFTER"}:
         raise ValueError("SEQUENCE_QUESTION_INVALID")
-    if not isinstance(observations, tuple) or len(observations) > 128:
+    if type(evidence) is not tuple or type(observations) is not tuple or len(observations) > 128:
         raise ValueError("SEQUENCE_OBSERVATIONS_INVALID")
 
-    # Preflight, dates, source roles and hash consume identical snapshots.
-    if type(claim) is not RequirementClaim or any(
-        type(row) is not RequirementEvidence for row in evidence
-    ):
-        raise ValueError("REQUIREMENT_INPUT_INVALID")
-    if any(type(row) is not SequenceEventObservation for row in observations):
-        raise ValueError("SEQUENCE_OBSERVATION_INPUT_INVALID")
-    claim = RequirementClaim(**asdict(claim))
-    evidence = tuple(RequirementEvidence(**asdict(row)) for row in evidence)
-    observations = tuple(SequenceEventObservation(**asdict(row)) for row in observations)
+    # Canonical records protect date, evidence and audit reads from copy hooks.
+    claim = _snap(claim, RequirementClaim, "REQUIREMENT_INPUT_INVALID")
+    evidence = tuple(_snap(
+        row, RequirementEvidence, "REQUIREMENT_INPUT_INVALID"
+    ) for row in evidence)
+    observations = tuple(_snap(
+        row, SequenceEventObservation, "SEQUENCE_OBSERVATION_INPUT_INVALID"
+    ) for row in observations)
 
     preliminary = preflight_verification_requirements(claim, evidence)
     by_id = {row.evidence_id: row for row in evidence}
