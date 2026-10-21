@@ -272,7 +272,22 @@ class CandidateTargetPgTests(unittest.TestCase):
             self.reader.run(
                 "UPDATE content_item SET rights_status='CLEARED' WHERE id='content:one'",
             )
+        # A valid positive comparison now also needs independently persisted
+        # Candidate→Statement→Passage→Capture lineage for the source candidate.
+        self.fixture._sql("""
+            INSERT INTO claim_candidate (
+                id, statement_candidate_id, content_id, normalized_claim,
+                proposed_claim_type, extraction_version, metadata
+            ) VALUES ('candidate:1', 'statement:one', 'content:one',
+                'Il primo evento fu registrato.', 'HISTORICAL_CLAIM', 'fixture',
+                '{"parent_passage_id":"passage:01"}')
+            ON CONFLICT (id) DO NOTHING;
+        """)
         fake_match = MatchStore()
+        fake_match.candidate = item(
+            "CLAIM_CANDIDATE", "candidate:1", "Il primo evento fu registrato.",
+            content_id="content:one", provenance_key="passage:01",
+        )
         fake_match.targets = (
             item(
                 "CLAIM_CANDIDATE",
@@ -316,9 +331,19 @@ class CandidateTargetPgTests(unittest.TestCase):
                 "contradicting_features": list(result.contradicting_features),
             },
         )
+        promotion_context = PromotionContext()
+        promotion_context.data.update({
+            "content_id": "content:one",
+            "passages": [{
+                **promotion_context.data["passages"][0],
+                "passage_id": "passage:01",
+                "capture_id": "capture:aaaaaa",
+                "capture_sha256": "a" * 64,
+            }],
+        })
         packet = build_candidate_comparison_read_model(
             fake_match,
-            PromotionContext(),
+            promotion_context,
             self.reader,
             run_id=fake_match.run_id,
             claim_candidate_id="candidate:1",
@@ -326,7 +351,8 @@ class CandidateTargetPgTests(unittest.TestCase):
         self.assertEqual(len(packet["comparisons"]), 1)
         target = packet["comparisons"][0]
         self.assertEqual(target["source"]["capture_id"], "capture:aaaaaa")
-        self.assertEqual(target["operator_status"], "BLOCKED_TARGET_SOURCE_RIGHTS")
+        self.assertEqual(target["operator_status"], "BLOCKED_CANDIDATE_SOURCE_RIGHTS")
+        self.assertIn("DP418_CANDIDATE_SOURCE_RIGHTS", packet["promotion_blockers"])
         self.assertFalse(target["comparison_usable"])
         self.assertFalse(packet["review_authority"])
         self.assertFalse(packet["promotion_authority"])
@@ -337,7 +363,7 @@ class CandidateTargetPgTests(unittest.TestCase):
         """)
         reviewable = build_candidate_comparison_read_model(
             fake_match,
-            PromotionContext(),
+            promotion_context,
             self.reader,
             run_id=fake_match.run_id,
             claim_candidate_id="candidate:1",
@@ -354,7 +380,7 @@ class CandidateTargetPgTests(unittest.TestCase):
 
             def source_context(self, member_type, member_id):
                 self.reads += 1
-                if self.reads == 2:
+                if self.reads == 3:
                     CandidateTargetPgTests.fixture._sql("""
                         UPDATE content_capture SET rights_status='REVOKED'
                         WHERE id='capture:aaaaaa';
@@ -364,7 +390,7 @@ class CandidateTargetPgTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "DP418_COMPARISON_CHANGED_DURING_READ"):
             build_candidate_comparison_read_model(
                 fake_match,
-                PromotionContext(),
+                promotion_context,
                 RevokedOnSecondRead(self.reader.database_url),
                 run_id=fake_match.run_id,
                 claim_candidate_id="candidate:1",

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,7 +8,9 @@ import { fileURLToPath } from "node:url";
 // local fixture and must remain noindex; no public release or provider is used.
 const web = fileURLToPath(new URL("../web/", import.meta.url));
 const fixture = JSON.parse(await readFile(path.join(web, "src/data/demo-projection.json"), "utf8"));
-const temporary = await mkdtemp(path.join(tmpdir(), "dp410-source-dates-"));
+// Astro moves prerendered assets with rename(), which requires the output to
+// share a filesystem with web/.astro on the MiniPC.
+const temporary = await mkdtemp(path.join(web, ".dp410-source-dates-"));
 const dist = path.join(temporary, "dist");
 const {
   DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: _publicProjection,
@@ -48,7 +49,37 @@ try {
     }
   }
 
-  console.log("DP410_SOURCE_DATES_PASS rendered public evidence links expose original machine-readable dates");
+  // Trace pages expose dates inside interactive timeline controls. Their
+  // visible Italian label must retain the original machine-readable instant.
+  const byClaim = new Map(fixture.dossiers.map((dossier) => [dossier.claim_id, dossier]));
+  let checkedTraceEvents = 0;
+  for (const dossier of fixture.dossiers) {
+    for (const relation of dossier.relations ?? []) {
+      if (relation.status !== "APPROVED" || !relation.review_event_id) continue;
+      const related = byClaim.get(relation.related_claim_id);
+      if (!related) continue;
+      const slug = relation.id.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const html = await readFile(path.join(dist, "tracce", slug, "index.html"), "utf8");
+      assert.match(html, /<meta\s+name="robots"\s+content="noindex,nofollow"/, "trace fixture must stay non-indexable");
+      const events = [...html.matchAll(/<button\b[^>]*\bdata-trace-select[^>]*>[\s\S]*?<\/button>/g)]
+        .map(([match]) => match);
+      assert.equal(events.length, 2, `unexpected timeline event count in ${slug}`);
+      for (const participant of [dossier, related]) {
+        const instant = participant.source.published_at ?? participant.finding.published_at;
+        assert.ok(instant, `missing approved publication instant in ${slug}`);
+        const displayed = new Intl.DateTimeFormat("it-IT", {
+          day: "2-digit", month: "short", year: "numeric",
+        }).format(new Date(instant));
+        assert(events.some((event) =>
+          event.includes(`<time class="dp-trace-event__date" datetime="${instant}">${displayed}</time>`)),
+        `timeline date must be machine-readable and match visible text in ${slug}: ${instant}`);
+        checkedTraceEvents += 1;
+      }
+    }
+  }
+  assert(checkedTraceEvents > 0, "demo fixture must exercise a populated trace timeline");
+
+  console.log(`DP410_SOURCE_DATES_PASS rendered evidence links and ${checkedTraceEvents} trace dates expose original machine-readable instants`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }

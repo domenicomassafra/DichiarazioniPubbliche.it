@@ -38,6 +38,7 @@ from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
 from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
 from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
+from tests.dp169_caption_fixture_rights import cleared_caption_rights
 
 
 class FakePrivateStore:
@@ -346,7 +347,7 @@ class WorkerDaemonTests(unittest.TestCase):
         claim_rate=None,
         evidence_fetcher=None,
     ):
-        return ProcessingWorker(
+        worker = ProcessingWorker(
             store=store,
             registry=REGISTRY,
             resolver=resolver or FakeResolver(),
@@ -357,30 +358,17 @@ class WorkerDaemonTests(unittest.TestCase):
             claim_max_usd_per_1k_total_tokens=claim_rate,
             evidence_fetcher=evidence_fetcher,
         )
+        worker._caption_rights_guard = lambda *_: cleared_caption_rights()
+        worker._insert_caption_variant = lambda *, guard, **kw: store.insert_transcript_variant(**kw)
+        return worker
 
-    def test_podcast_resolution_enqueues_caption_without_media(self):
-        candidate = VideoCandidate(
-            "QaE00l6JZ8w",
-            "Beppe Grillo a Pulp Podcast. | Pulp Podcast #64",
-            "https://www.youtube.com/watch?v=QaE00l6JZ8w",
-        )
-        store = FakeStore(
-            [
-                job(
-                    "TRANSCRIPT_RESOLVE_PLATFORM",
-                    {"platform": "podcast_rss", "estimated_cost_usd": 0},
-                )
-            ]
-        )
-        worker = self.make_worker(
-            store,
-            FakeResolver(candidate, CaptionProbe("automatic_caption", "it-orig")),
-        )
-        summary = worker.run(1)
-        self.assertEqual(summary.completed, 1)
-        self.assertEqual(store.followups[0]["job_type"], "TRANSCRIPT_ACQUIRE_CAPTION")
-        self.assertEqual(store.locators[0][1]["platform"], "youtube")
-        self.assertEqual(store.receipts[0]["estimated_cost_usd"], 0.0)
+    def test_unassociated_podcast_is_held_without_locator_or_asr(self):
+        store = FakeStore([job("TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "podcast_rss"})])
+        resolver = FakeResolver()
+        summary = self.make_worker(store, resolver).run(1)
+        self.assertEqual(summary.blocked, 1)
+        self.assertEqual((store.locators, store.followups), ([], []))
+        self.assertEqual(resolver.resolve_calls, 0)
 
     def test_stale_ingestion_relevance_blocks_before_platform_resolution_network(self):
         resolver = FakeResolver(
@@ -1044,20 +1032,17 @@ class WorkerDaemonTests(unittest.TestCase):
             "ENQUEUED",
         )
 
-    def test_members_only_youtube_falls_back_to_rss_asr_without_retry(self):
+    def test_members_only_holds(self):
         candidate = VideoCandidate(
             "members-only",
             "RISPONDIAMO a SHY | Pulp Special #20",
             "https://www.youtube.com/watch?v=members-only",
         )
-        store = FakeStore(
-            [
-                job(
-                    "TRANSCRIPT_RESOLVE_PLATFORM",
-                    {"platform": "podcast_rss", "estimated_cost_usd": 0},
-                )
-            ]
-        )
+        store = FakeStore([job(
+            "TRANSCRIPT_RESOLVE_PLATFORM", {"platform": "youtube", "external_id": "members-only",
+             "canonical_url": "https://www.youtube.com/watch?v=members-only",
+             "estimated_cost_usd": 0},
+        )])
         worker = self.make_worker(
             store,
             FakeResolver(
@@ -1066,10 +1051,10 @@ class WorkerDaemonTests(unittest.TestCase):
             ),
         )
         summary = worker.run(1)
-        self.assertEqual(summary.completed, 1)
-        self.assertEqual(summary.retried, 0)
-        self.assertEqual(store.followups[0]["job_type"], "TRANSCRIPT_ACQUIRE_ASR")
-        self.assertEqual(store.receipts[0]["status"], "ACCESS_RESTRICTED")
+        self.assertEqual(
+            (summary.blocked, summary.retried, store.followups, store.receipts[0]["status"]),
+            (1, 0, [], "ACCESS_RESTRICTED"),
+        )
 
     def test_budget_cap_defers_before_dispatch(self):
         store = FakeStore(
@@ -1167,7 +1152,6 @@ class WorkerDaemonTests(unittest.TestCase):
         client = FakeClaimClient(healthy=False)
         worker = self.make_worker(store, claim_client=client, claim_rate=0.15)
         worker.run(1)
-        # Remote .probe() uses a chat-completions request, not a free GET health.
         self.assertEqual(client.probes, 0)
 
     def test_external_claim_window_has_no_extra_paid_canary(self):
@@ -1180,8 +1164,6 @@ class WorkerDaemonTests(unittest.TestCase):
         self.assertEqual(client.probes, 0)
 
     def test_real_omniroute_canary_completion_stays_uninvoked_at_zero_budget(self):
-        # The real remote client implements probe() with a metered-capable
-        # _post(/v1/chat/completions); intercept it without any network.
         client = OmniRouteClaimClient(
             api_key="synthetic-nonlive-key", base_url="http://127.0.0.1:20128"
         )
@@ -1241,8 +1223,6 @@ class WorkerDaemonTests(unittest.TestCase):
         local = LocalOllamaClaimClient(expected_model_digest="0" * 64)
         store = FakeStore([])
         worker = self.make_worker(store, claim_client=local, claim_rate=0.0)
-        # No real local inference is invoked; this only verifies classification
-        # of the explicit pinned on-device transport at the budget boundary.
         worker._ensure_budget(
             job("CLAIM_EXTRACT_WINDOW", {"estimated_cost_usd": 0.0}),
             store.content("content:pulp64"),

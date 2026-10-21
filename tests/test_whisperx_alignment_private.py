@@ -2,19 +2,20 @@
 import hashlib
 import json
 import os
+import resource
 import tempfile
 import unittest
 import wave
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from dichiarazioni_pubbliche.parliamentary_alignment import (
     MediaSegment, ParliamentaryIntervention, align_parliamentary_intervention,
 )
 from dichiarazioni_pubbliche.transcript_contract import TranscriptCandidate
 from dichiarazioni_pubbliche.whisperx_alignment_private import (
-    AlignmentHold, _parse_words, _receipt, propose_whisperx_alignment,
+    AlignmentHold, _limits, _parse_words, _receipt, propose_whisperx_alignment,
 )
 
 TEXT = "Non aumenteremo 7 tasse."
@@ -69,20 +70,24 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
             audio_sha256=self.audio_hash, duration_seconds=2.0,
             rights_basis="OWNER_AUTHORIZED", rights_receipt_id="rights:fixture:0001",
             authorization=True, consent_confirmed=False,
+            authorization_guard=lambda: None,
             model_receipt_path=self.receipt, source_variant_id="variant-fixture",
             source_segment_id="segment-fixture",
             source_variant_sha256="a" * 64, source_segment_sha256="b" * 64)
 
     def _run(self, *, output=None, overlap=False, rows=()):
-        result = SimpleNamespace(returncode=0, stdout=json.dumps({
-            "word_segments": WORDS if output is None else output}))
+        def synthetic_worker(*_args, **kwargs):
+            kwargs["stdout"].write(json.dumps({
+                "word_segments": WORDS if output is None else output
+            }).encode("utf-8"))
+            return SimpleNamespace(returncode=0)
         with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}):
             with patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system",
                        return_value="Linux"):
                 with patch("dichiarazioni_pubbliche.whisperx_alignment_private.importlib.metadata.version",
                            return_value="3.8.6"):
                     with patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run",
-                               return_value=result) as command:
+                               side_effect=synthetic_worker) as command:
                         proposal = propose_whisperx_alignment(
                             intervention(), segments=rows,
                             overlap_observed=overlap, **self.kwargs)
@@ -102,6 +107,50 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
         self.assertEqual(proposal.provenance["audio_sha256"], self.audio_hash)
         self.assertEqual(proposal.provenance["source_segment_sha256"], "b" * 64)
         self.assertEqual(command.call_args.kwargs["env"]["HF_HUB_OFFLINE"], "1")
+
+    def test_candidate_identity_tracks_actual_word_alignment(self):
+        first, _ = self._run()
+        shifted = [dict(word) for word in WORDS]
+        shifted[1]["end"] = .75
+        shifted[2]["start"] = .90
+        second, _ = self._run(output=shifted)
+        repeated, _ = self._run()
+
+        # Both runs have the same input/model/rights and the same outer time range.
+        # Different accepted inner word boundaries must not silently share an ID.
+        self.assertEqual(
+            (first.candidate.start_ms, first.candidate.end_ms),
+            (second.candidate.start_ms, second.candidate.end_ms),
+        )
+        self.assertNotEqual(first.words, second.words)
+        self.assertNotEqual(first.candidate.candidate_id, second.candidate.candidate_id)
+        self.assertNotEqual(first.provenance["alignment_output_sha256"],
+                            second.provenance["alignment_output_sha256"])
+        self.assertEqual(first.candidate.candidate_id, repeated.candidate.candidate_id)
+
+    def test_worker_stdout_and_stderr_are_bounded_without_parent_pipe_capture(self):
+        _, command = self._run()
+        opts = command.call_args.kwargs
+        self.assertNotIn("capture_output", opts)
+        self.assertTrue(hasattr(opts["stdout"], "write"))
+        self.assertEqual(opts["stderr"], __import__("subprocess").DEVNULL)
+        with patch("dichiarazioni_pubbliche.whisperx_alignment_private.resource.setrlimit") as limit:
+            _limits()
+        self.assertIn(
+            (resource.RLIMIT_FSIZE, (256_000, 256_000)),
+            [call.args for call in limit.call_args_list],
+        )
+
+    def test_oversized_worker_output_is_held_before_json_read(self):
+        def overflow(*_args, **opts):
+            opts["stdout"].write(b"X" * 256_001)
+            return SimpleNamespace(returncode=0)
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.importlib.metadata.version", return_value="3.8.6"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run", side_effect=overflow):
+            with self.assertRaisesRegex(AlignmentHold, "WHISPERX_ENGINE_FAILED"):
+                propose_whisperx_alignment(intervention(), **self.kwargs)
 
     def test_official_locator_wins_without_model_or_rights(self):
         self.kwargs.update(authorization=False, model_receipt_path=Path("/absent"))
@@ -137,6 +186,56 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
                             intervention(), **{**self.kwargs,
                                                 "model_receipt_path": self.root / "missing"})
         child.assert_not_called()
+
+    def test_current_rights_guard_is_required_before_any_private_file_access(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private._receipt") as manifest, \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run") as child:
+            with self.assertRaisesRegex(AlignmentHold, "CURRENT_RIGHTS_GUARD_REQUIRED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs, "authorization_guard": None,
+                })
+        manifest.assert_not_called()
+        child.assert_not_called()
+
+    def test_revoked_live_rights_block_before_receipt_and_audio_read(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private._receipt") as manifest, \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run") as child:
+            with self.assertRaisesRegex(AlignmentHold, "SOURCE_RIGHTS_REVOKED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs,
+                    "authorization_guard": Mock(side_effect=ValueError("REVOKED")),
+                })
+        manifest.assert_not_called()
+        child.assert_not_called()
+
+    def test_live_rights_guard_returning_false_is_not_approval(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private._receipt") as manifest:
+            with self.assertRaisesRegex(AlignmentHold, "SOURCE_RIGHTS_REVOKED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs, "authorization_guard": lambda: False,
+                })
+        manifest.assert_not_called()
+
+    def test_revocation_during_worker_blocks_completed_candidate(self):
+        live_guard = Mock(side_effect=[None, None, ValueError("REVOKED_AFTER_INFERENCE")])
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_WHISPERX_ENABLED": "1"}), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system", return_value="Linux"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.importlib.metadata.version", return_value="3.8.6"), \
+             patch("dichiarazioni_pubbliche.whisperx_alignment_private.subprocess.run",
+                   return_value=SimpleNamespace(returncode=0,
+                                                stdout=json.dumps({"word_segments": WORDS}))) as child:
+            with self.assertRaisesRegex(AlignmentHold, "SOURCE_RIGHTS_REVOKED"):
+                propose_whisperx_alignment(intervention(), **{
+                    **self.kwargs, "authorization_guard": live_guard,
+                })
+        child.assert_called_once()
+        self.assertEqual(live_guard.call_count, 3)
 
     def test_model_license_and_hash_enforced(self):
         self.manifest["native_notices_reviewed"] = False

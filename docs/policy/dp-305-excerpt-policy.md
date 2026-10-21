@@ -3,9 +3,14 @@
 Status: **IMPLEMENTED as a fail-closed gate; NO public excerpt may ship (profile not
 approved)**
 Policy version: `excerpt-rights-v1`
-Owner: product owner + IP/media counsel
+Owner: product owner (source-specific rights clearance required)
 Code: `poc/dichiarazioni_pubbliche/policy/excerpt_policy.py`
 Tests: `tests/test_policy_excerpt.py`
+
+Owner-delegated legal research (2026-10-20): [Q-306-11/12/13](legal-research-decisions-2026-10-20.md)
+applies Italian Copyright Law 633/1941 Arts. 65/70 and InfoSoc Art. 5(3)(d)
+to bounded quotation. CDSM Arts. 3/4 address mining, not republication.
+No universal safe excerpt length or platform-wide clearance is inferred.
 
 ## The fail-closed spine
 
