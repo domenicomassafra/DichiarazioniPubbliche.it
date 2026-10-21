@@ -22,6 +22,23 @@ the existing Monolith path; it must not activate or modify #171.
   source tarball: sha256 bb9c7b72565ff27a1f4da4ed67731db3124faceaf975e22a67b7f13e4a22ea98.
   A Docker tag alone is insufficient: pin and report the *verified local image
   digest* at provisioning time, plus the effective CLI/API version and plugins.
+- Transitive inventory checkpoint (MiniPC, 2026-10-22):
+  `printf 'archivebox==0.9.73\n' | uv pip compile --python-version 3.13 --no-header --no-annotate --no-emit-index-url -o /tmp/dp162-license-resolve-20261022.txt -`
+  resolved **102** Python distributions without installation. Exact PyPI release
+  metadata identifies
+  [psycopg 3.3.6](https://pypi.org/pypi/psycopg/3.3.6/json) and
+  [psycopg-binary 3.3.6](https://pypi.org/pypi/psycopg-binary/3.3.6/json)
+  as `LGPL-3.0-only`,
+  [browser-cookie3 0.20.1](https://pypi.org/pypi/browser-cookie3/0.20.1/json)
+  as LGPL, and
+  [certifi 2026.10.19](https://pypi.org/pypi/certifi/2026.10.19/json)
+  as MPL-2.0. The ArchiveBox [wget WARC plugin](https://plugins.archivebox.io/)
+  requires GNU Wget (MiniPC: v1.25.0), licensed under the
+  [GNU GPL](https://www.gnu.org/software/wget/manual/html_node/Overview.html).
+  Flagged to the owner in [#162](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/162#issuecomment-6327815867)
+  before adoption. Preserve actual installed notices and inspect any
+  image-layer/extractor changes before activating the runtime. No ArchiveBox
+  distribution, image or extractor was installed by this inventory.
 - Alternative: https://github.com/Y2Z/monolith (CC0-1.0), already integrated
   privately as capture_monolith_adapter.py. It processes an approved HTML body
   through stdin, but does not provide WARC/PDF/multiformat preservation. Real
@@ -84,18 +101,37 @@ The rights decision fingerprint is not itself a signed permit: the current
 source-use record must be checked by the real pipeline. Likewise, a manifest
 cannot prove a service was stopped without an operator's independent readback.
 
-## Owner-controlled real canary — HOLD
+## Controlled HTTPS fixture and real canary — HOLD
 
 No ArchiveBox binary/container was installed on the MiniPC at the previous
-inspection. #171 remains OPEN / needs-owner with runtime source-use HOLD even
-though its HTML/readability source PR #198 is MERGED. **Before activation**,
-the owner must approve an exact *owner-controlled synthetic HTTPS origin*, an operative
-source-family permit for FETCH, STORE_BODY, PARSE_TEXT, ARCHIVE on that capture,
-private retention and network policy, and a one-time isolated ArchiveBox
-service/canary. Do not archive third-party sources, invoke paid inference,
-run bulk collection, change production, or publish any archive.
+inspection. #171 is CLOSED as of 2026-10-21 and its HTML/readability PR #198
+is MERGED, but this does not prove a WARC/PDF runtime. The owner approved
+a controlled test URL, permitted uses, and short retention on 2026-10-20:
+[decision](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/162#issuecomment-6300421019).
+The agent selected exactly **`https://dp162-canary.test/fixture.html`**, to be
+resolved only inside a disposable, isolated HTTPS test network. The complete
+synthetic, self-authored, link-free v1 HTML is
+[`docs/donors/archivebox-canary-v1.html`](archivebox-canary-v1.html)
+(188 bytes; SHA-256
+`a45de00f327e7894c00fb95f0ef54cc68b664d0879a04834487388c390be9235`);
+the URL SHA-256 is
+`bba0d4576f1a9332eb89bb7f7291fa2e69ee2c2a9dd2e65499f84af7a25a56cc`.
+Restrict `FETCH`, `STORE_BODY`, `PARSE_TEXT`, and `ARCHIVE` to this URL and
+exact fixture version, private retention at most **24 hours** and publication
+`HOLD`. The fixture and choice are **not** a live source-use authorization;
+verify an operative decision bound to the served bytes and current URL before
+any fetch or donor launch. Predeclare canary limits of 2 GiB peak RSS,
+180 seconds, 64 MiB disk, one URL and depth zero; apply real OS/container
+resource limits, count all children, and reject redirects or external media.
+No `.test` hostname may resolve to a third-party endpoint. Freeze the effective
+TLS trust chain, DNS answers and allowlist before the run, and stop if these
+cannot be verified. Preserve the runtime package/extractor license decision,
+notices, and immutable digest before installing. Do not archive third-party
+sources, invoke paid inference, run bulk collection, change production, or
+publish any archive.
 
-After that approval, the operator should:
+After the license, live source-use and runtime controls have been verified,
+the operator should:
 
 1. Resolve the v0.9.73 upstream release SHA and third-party license inventory;
    inspect immutable image digest, ArchiveBox CLI version and available WARC/PDF
@@ -121,6 +157,6 @@ After that approval, the operator should:
    and assess whether the additional preservation is worth its overhead.
    Missing output, rights or proof remains HOLD rather than a fake success.
 
-Enabling the already merged HTML/readability adapter and adding multiformat
-capture in production both depend on independently authorized runtime evidence;
-#171 still requires its live source-use canary and #162 requires WARC/PDF proof.
+The already merged HTML/readability seam is separate from the real WARC/PDF
+acceptance of #162. A source-only audit or closed #171 ticket cannot substitute
+for the observed private multiformat canary, rights/readback and rollback.
