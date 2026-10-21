@@ -31,10 +31,12 @@ def candidate(**changes):
         "publication_date": "2024-12-31", "valid_from": None,
         "valid_until": None, "reference_period": None,
         "rights_records": [{
-            "id": "private-rights:1", "subject_fingerprint": "b" * 64,
+            "id": "private-rights:1", "record_version": "private-rights-record-v1",
+            "subject_fingerprint": "b" * 64,
             "source_family": "OFFICIAL", "locator_kind": "URL",
             "locator_value": "https://official.example/source", "rights_status": "CLEARED",
             "rights_receipt_ref": "fixture:license", "permitted_uses": ["CHALLENGER_PRIVATE_RESEARCH"],
+            "attribution_requirements": ["ATTRIBUTION_REQUIRED"],
             "reviewed_at": "2026-10-21T00:00:00+00:00", "expires_at": None,
             "reviewer_ref": "fixture:reviewer", "policy_version": "fixture-v1",
             "supersedes_id": None, "expired": False, "review_in_future": False,

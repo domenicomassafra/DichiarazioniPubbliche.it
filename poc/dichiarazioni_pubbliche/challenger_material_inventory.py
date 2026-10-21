@@ -63,20 +63,22 @@ def _validate_row(value: object) -> dict[str, object]:
     if not isinstance(value["rights_records"], list):
         raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
     rights_keys = {
-        "id", "subject_fingerprint", "source_family", "locator_kind", "locator_value",
+        "id", "record_version", "subject_fingerprint", "source_family", "locator_kind", "locator_value",
         "rights_status", "rights_receipt_ref", "permitted_uses", "reviewed_at",
-        "expires_at", "reviewer_ref", "policy_version", "supersedes_id",
+        "attribution_requirements", "expires_at", "reviewer_ref", "policy_version", "supersedes_id",
         "expired", "review_in_future",
     }
     for rights in value["rights_records"]:
         if not isinstance(rights, dict) or set(rights) != rights_keys:
             raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
         if not all(isinstance(rights[k], str) and rights[k] for k in (
-            "id", "subject_fingerprint", "source_family", "locator_kind", "locator_value",
+            "id", "record_version", "subject_fingerprint", "source_family", "locator_kind", "locator_value",
             "rights_status", "policy_version",
         )) or not isinstance(rights["permitted_uses"], list):
             raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
-        if not all(isinstance(code, str) for code in rights["permitted_uses"]):
+        if not isinstance(rights["attribution_requirements"], list) or not all(
+            isinstance(code, str) for code in (*rights["permitted_uses"], *rights["attribution_requirements"])
+        ):
             raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
         if any(rights[k] is not None and not isinstance(rights[k], str) for k in (
             "rights_receipt_ref", "reviewed_at", "expires_at", "reviewer_ref", "supersedes_id",
@@ -166,6 +168,7 @@ def load_challenger_material_inventory(
             'rights_records', COALESCE((
                 SELECT jsonb_agg(jsonb_build_object(
                     'id', rights.id,
+                    'record_version', rights.record_version,
                     'subject_fingerprint', rights.subject_fingerprint,
                     'source_family', rights.source_family,
                     'locator_kind', rights.locator_kind,
@@ -173,6 +176,7 @@ def load_challenger_material_inventory(
                     'rights_status', rights.rights_status,
                     'rights_receipt_ref', rights.rights_receipt_ref,
                     'permitted_uses', to_jsonb(rights.permitted_uses),
+                    'attribution_requirements', to_jsonb(rights.attribution_requirements),
                     'reviewed_at', rights.reviewed_at,
                     'expires_at', rights.expires_at,
                     'reviewer_ref', rights.reviewer_ref,
