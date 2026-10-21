@@ -82,36 +82,9 @@ class SQLiteIntakeRateStore:
 
     @staticmethod
     def _validate_request(request: RateStoreRequest) -> None:
-        from .public_intake_abuse import (
-            MAX_DUPLICATE_CAPACITY,
-            MAX_DUPLICATE_LIMIT,
-            MAX_RATE_COUNT,
-            MAX_RATE_WINDOW_SECONDS,
-            RateStoreRequest,
-            _SHA256_HEX,
-            _valid_bucket_key,
-        )
+        from .public_intake_abuse import _validate_rate_store_request
 
-        if not isinstance(request, RateStoreRequest):
-            raise ValueError("INTAKE_RATE_REQUEST_INVALID")
-        if _valid_bucket_key(request.bucket_key) is None or not _SHA256_HEX.fullmatch(
-            str(request.fingerprint)
-        ):
-            raise ValueError("INTAKE_RATE_IDENTITY_INVALID")
-        ceilings = (
-            (request.now_epoch, 253402300799),
-            (request.window_seconds, MAX_RATE_WINDOW_SECONDS),
-            (request.bucket_limit, MAX_RATE_COUNT),
-            (request.global_quota, MAX_RATE_COUNT),
-            (request.duplicate_window_seconds, MAX_RATE_WINDOW_SECONDS),
-            (request.duplicate_limit, MAX_DUPLICATE_LIMIT),
-            (request.duplicate_capacity, MAX_DUPLICATE_CAPACITY),
-        )
-        if any(
-            type(value) is not int or not 0 < value <= limit
-            for value, limit in ceilings
-        ):
-            raise ValueError("INTAKE_RATE_LIMITS_INVALID")
+        _validate_rate_store_request(request)
 
     def reserve(self, request: RateStoreRequest) -> RateStoreResult:
         from .public_intake_abuse import RateStoreResult, RateStoreStatus

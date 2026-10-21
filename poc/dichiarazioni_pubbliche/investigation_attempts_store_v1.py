@@ -425,9 +425,9 @@ class InvestigationSQLiteStore:
         prior_scopes = conn.execute(
             "SELECT plan_fingerprint FROM dp319_scopes ORDER BY plan_fingerprint"
         )
+        # A new metadata fingerprint/version is not new source bytes.
         source_key = (
             current.need_id, current.source_id, current.candidate_id,
-            current.material_fingerprint, current.source_version,
             current.source_sha256,
         )
         for (earlier_fingerprint,) in prior_scopes:
@@ -481,8 +481,7 @@ class InvestigationSQLiteStore:
                 continue
             prior_key = (
                 earlier_source.need_id, earlier_source.source_id,
-                earlier_source.candidate_id, earlier_source.material_fingerprint,
-                earlier_source.source_version, earlier_source.source_sha256,
+                earlier_source.candidate_id, earlier_source.source_sha256,
             )
             if prior_key != source_key:
                 continue

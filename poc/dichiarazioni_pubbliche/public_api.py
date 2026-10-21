@@ -93,12 +93,8 @@ CURSOR_VERSION = 1
 
 PROJECTION_PATH_ENV = "DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH"
 
-# Cache policy. Collection/detail responses revalidate quickly because a
-# correction or a right of reply can change a served finding; contract documents
-# change only with a release.
-DATA_MAX_AGE = 300
-DOCUMENT_MAX_AGE = 3600
-STALE_WHILE_REVALIDATE = 86400
+# DP-518: no-store until trusted withdrawal and cache-purge authority exists.
+WITHDRAWAL_CACHE_CONTROL = "no-store"
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 _ID_TOKEN_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -1277,12 +1273,11 @@ class Route:
     handler: Handler | None = None
     # (path parameter name, pure resolver, canonical link template)
     detail: tuple[str, Callable[[PublicIndex, str], Any], str] | None = None
-    document_cache: bool = False
 
 
 ROUTES: tuple[Route, ...] = (
     Route("health", ("GET", "HEAD"), f"{API_BASE_PATH}/health", _h_health),
-    Route("schema", ("GET", "HEAD"), f"{API_BASE_PATH}/schema", _h_schema, document_cache=True),
+    Route("schema", ("GET", "HEAD"), f"{API_BASE_PATH}/schema", _h_schema),
     Route("findings", ("GET", "HEAD"), f"{API_BASE_PATH}/findings", _h_findings),
     Route("records", ("GET", "HEAD"), f"{API_BASE_PATH}/records", _h_records),
     Route(
@@ -1299,8 +1294,8 @@ ROUTES: tuple[Route, ...] = (
     ),
     Route("topics", ("GET", "HEAD"), f"{API_BASE_PATH}/topics", _h_topics),
     Route("people", ("GET", "HEAD"), f"{API_BASE_PATH}/people", _h_people),
-    Route("openapi", ("GET", "HEAD"), f"{API_BASE_PATH}/openapi.json", _h_openapi, document_cache=True),
-    Route("index", ("GET", "HEAD"), f"{API_BASE_PATH}/index.json", _h_index_json, document_cache=True),
+    Route("openapi", ("GET", "HEAD"), f"{API_BASE_PATH}/openapi.json", _h_openapi),
+    Route("index", ("GET", "HEAD"), f"{API_BASE_PATH}/index.json", _h_index_json),
 )
 
 JSON_CONTENT_TYPE = "application/json; charset=utf-8"
@@ -1378,13 +1373,11 @@ def build_response(
     body = canonical_json_bytes(payload)
     etag = '"' + hashlib.sha256(body).hexdigest()[:32] + '"'
     last_modified = _http_date(index.mtime)
-    max_age = DOCUMENT_MAX_AGE if route.document_cache else DATA_MAX_AGE
     headers = {
         "ETag": etag,
         "Last-Modified": last_modified,
-        "Cache-Control": (
-            f"public, max-age={max_age}, stale-while-revalidate={STALE_WHILE_REVALIDATE}"
-        ),
+        "Cache-Control": WITHDRAWAL_CACHE_CONTROL,
+        "Surrogate-Control": "no-store",
         API_VERSION_HEADER: API_CONTRACT_VERSION,
         "X-Content-Type-Options": "nosniff",
         "Vary": "Accept",
@@ -1467,10 +1460,8 @@ def llms_response(
     headers = {
         "ETag": etag,
         "Last-Modified": last_modified,
-        "Cache-Control": (
-            f"public, max-age={DOCUMENT_MAX_AGE}, "
-            f"stale-while-revalidate={STALE_WHILE_REVALIDATE}"
-        ),
+        "Cache-Control": WITHDRAWAL_CACHE_CONTROL,
+        "Surrogate-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Link": _discovery_link_header(),
     }
@@ -1502,10 +1493,8 @@ def linked_data_response(
     headers = {
         "ETag": etag,
         "Last-Modified": last_modified,
-        "Cache-Control": (
-            f"public, max-age={DOCUMENT_MAX_AGE}, "
-            f"stale-while-revalidate={STALE_WHILE_REVALIDATE}"
-        ),
+        "Cache-Control": WITHDRAWAL_CACHE_CONTROL,
+        "Surrogate-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Vary": "Accept",
         "Link": (
@@ -1866,6 +1855,8 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                             location += "?" + request_url.query
                         self.send_response(301)
                         self.send_header("Location", location)
+                        self.send_header("Cache-Control", WITHDRAWAL_CACHE_CONTROL)
+                        self.send_header("Surrogate-Control", "no-store")
                         self.send_header("Content-Length", "0")
                         self.end_headers()
                         return
@@ -1924,6 +1915,8 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                     self.send_header("Content-type", self.guess_type(leaf))
                     self.send_header("Content-Length", str(info.st_size))
                     self.send_header("Last-Modified", self.date_time_string(info.st_mtime))
+                    self.send_header("Cache-Control", WITHDRAWAL_CACHE_CONTROL)
+                    self.send_header("Surrogate-Control", "no-store")
                     self.end_headers()
                     if method == "GET":
                         self.copyfile(opened, self.wfile)
