@@ -31,7 +31,7 @@ JOB_STATES = (
     "DEAD_LETTER",
 )
 
-SOURCE_HEALTH_STATES = ("HEALTHY", "DEGRADED", "FAILED", "UNKNOWN")
+SOURCE_HEALTH_STATES = ("HEALTHY", "POLICY_BLOCKED", "DEGRADED", "FAILED", "UNKNOWN")
 
 SEVERITIES = ("INFO", "NOTICE", "WARNING", "CRITICAL", "OUTAGE")
 
@@ -210,6 +210,19 @@ ENTRIES: tuple[TaxonomyEntry, ...] = (
         "None.",
         (),
         (),
+        False,
+    ),
+    _entry(
+        "POLICY_BLOCKED",
+        "WARNING",
+        "The source was attempted, but acquisition or relevance policy denied it.",
+        (
+            "Review the source-specific rights and relevance approval before "
+            "resuming acquisition. Keep downstream jobs held while the policy "
+            "denial remains in force."
+        ),
+        ("Never bypass a source rights or relevance gate to clear the warning.",),
+        ("Policy denial never proves an observed new source version.",),
         False,
     ),
     _entry(

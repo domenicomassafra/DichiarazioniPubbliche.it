@@ -29,6 +29,9 @@ from dichiarazioni_pubbliche.source_adapters import (
 )
 from dichiarazioni_pubbliche.source_watcher import discover_source, load_registry
 from dichiarazioni_pubbliche.source_poll_receipt_store import ReceiptReadStoreMixin, receipts_verified
+from dichiarazioni_pubbliche.source_poll_health_sql import (
+    POLICY_BLOCK_HEALTH_SQL, TECHNICAL_FAILURE_HEALTH_SQL,
+)
 
 
 FULL_SOURCE_MODE = "full-source"
@@ -532,23 +535,14 @@ class PsqlStore(ReceiptReadStoreMixin):
 
     def mark_failure(self, source_id: str, error: str) -> None:
         self._run(
-            """
-            INSERT INTO source_health (
-                source_id, status, consecutive_failures, last_error, checked_at
-            ) VALUES (
-                :'source_id', 'DEGRADED', 1, :'error', now()
-            )
-            ON CONFLICT (source_id) DO UPDATE SET
-                consecutive_failures = source_health.consecutive_failures + 1,
-                status = CASE
-                    WHEN source_health.consecutive_failures + 1 >= 3 THEN 'FAILED'
-                    ELSE 'DEGRADED'
-                END,
-                last_error = EXCLUDED.last_error,
-                checked_at = now();
-            """,
-            source_id=source_id,
-            error=error[:1000],
+            TECHNICAL_FAILURE_HEALTH_SQL,
+            source_id=source_id, error=error[:1000],
+        )
+
+    def mark_policy_block(self, source_id: str, error: str) -> None:
+        self._run(
+            POLICY_BLOCK_HEALTH_SQL,
+            source_id=source_id, error=error[:1000],
         )
 
     def start_source_poll_run(
@@ -954,23 +948,10 @@ class PsqlStore(ReceiptReadStoreMixin):
             ensure_ascii=False,
             separators=(",", ":"),
         )
-        failure_sql = ""
-        if failure_category:
-            failure_sql = """
-            INSERT INTO source_health (
-                source_id, status, consecutive_failures, last_error, checked_at
-            ) VALUES (
-                :'source_id', 'DEGRADED', 1, :'failure_category', now()
-            )
-            ON CONFLICT (source_id) DO UPDATE SET
-                consecutive_failures = source_health.consecutive_failures + 1,
-                status = CASE
-                    WHEN source_health.consecutive_failures + 1 >= 3 THEN 'FAILED'
-                    ELSE 'DEGRADED'
-                END,
-                last_error = EXCLUDED.last_error,
-                checked_at = now();
-            """
+        failure_sql = (
+            POLICY_BLOCK_HEALTH_SQL if outcome.status == "BLOCKED"
+            else TECHNICAL_FAILURE_HEALTH_SQL
+        ) if failure_category else ""
         self._run(
             f"""
             BEGIN;
@@ -1034,6 +1015,7 @@ class PsqlStore(ReceiptReadStoreMixin):
             started_at=_utc_datetime(started_at).isoformat(),
             completed_at=_utc_datetime(completed_at).isoformat(),
             failure_category=failure_category,
+            error=failure_category,
         )
 
     def complete_source_poll_run(
@@ -1393,9 +1375,12 @@ def poll_source(
                 )
             except Exception as write_exc:
                 raise RuntimeError("SOURCE_POLL_RECEIPT_WRITE_FAILED") from write_exc
-        elif status == "FAILED":
+        elif status in {"FAILED", "BLOCKED"}:
             try:
-                store.mark_failure(source_id, category)
+                if status == "BLOCKED":
+                    store.mark_policy_block(source_id, category)
+                else:
+                    store.mark_failure(source_id, category)
             except Exception:
                 pass
         return outcome
