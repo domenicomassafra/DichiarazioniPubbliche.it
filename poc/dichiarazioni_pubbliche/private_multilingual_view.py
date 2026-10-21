@@ -7,10 +7,14 @@ No view produced here grants translation review or public quotation rights.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 
 from dichiarazioni_pubbliche.corpus_repository import ContentCaptureRecord, PassageRecord
+from dichiarazioni_pubbliche.multilingual_ai_review import (
+    AITranslationReview, evaluate_ai_translation_reviews,
+)
 from dichiarazioni_pubbliche.multilingual_derivation import (
     ImmutableOriginalReadback,
     PrivateTranslationDerivation,
@@ -42,6 +46,9 @@ class PrivateMultilingualView:
     translation_method: str | None = None
     translation_reviewed: bool = False
     public_quote_eligible: bool = False
+    ai_meaning_assurance_status: str = "NOT_ATTESTED"
+    ai_meaning_risks: tuple[str, ...] = ()
+    ai_review_receipt_sha256: str | None = None
 
 
 def read_private_multilingual_view(
@@ -51,6 +58,10 @@ def read_private_multilingual_view(
     current_versions_by_content: Mapping[str, str],
     rights_guard: SourceFamilyUseGuard,
     translation: PrivateTranslationDerivation | None = None,
+    ai_reviews: tuple[AITranslationReview, ...] | None = None,
+    ai_review_clock: datetime | None = None,
+    independent_receipt_check: Callable[[AITranslationReview], bool] | None = None,
+    rights_receipt_check: Callable[[AITranslationReview], bool] | None = None,
 ) -> PrivateMultilingualView:
     """Read original independently, display its source, optionally show held IT.
 
@@ -172,12 +183,34 @@ def read_private_multilingual_view(
         require_current_rights()
     except SourceUseBlocked as exc:
         return blocked(exc.code)
+    meaning = {}
+    if ai_reviews is not None:
+        if not isinstance(ai_review_clock, datetime):
+            meaning["ai_meaning_assurance_status"] = "BLOCKED_REVIEW_CLOCK_REQUIRED"
+        else:
+            assessment = evaluate_ai_translation_reviews(
+                translation, ai_reviews, now=ai_review_clock,
+                independent_receipt_check=independent_receipt_check,
+                rights_receipt_check=rights_receipt_check,
+            )
+            meaning = dict(
+                ai_meaning_assurance_status=assessment.status,
+                ai_meaning_risks=assessment.meaning_risks,
+                ai_review_receipt_sha256=assessment.review_receipt_sha256,
+            )
+        # External review/receipt callbacks can revoke the original while
+        # running: recheck current source rights before returning any bytes.
+        try:
+            require_current_rights()
+        except SourceUseBlocked as exc:
+            return blocked(exc.code)
     return PrivateMultilingualView(
         "CURRENT_HELD", (), **base,
         translated_text=derivative.translation_text,
         translated_language=translation.target_language,
         translation_id=derivative.translation_id,
         translation_method=derivative.method,
+        **meaning,
     )
 
 

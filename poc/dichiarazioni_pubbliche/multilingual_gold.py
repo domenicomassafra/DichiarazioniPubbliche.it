@@ -27,6 +27,9 @@ _RISKS = frozenset({
 })
 
 
+TRANSLATION_MEANING_RISKS = _RISKS
+
+
 @dataclass(frozen=True)
 class TranslationGoldCase:
     case_id: str
