@@ -45,7 +45,8 @@ def _validate_row(value: object) -> dict[str, object]:
         "evidence_id", "retrieval_version", "retrieval_method", "relation_candidate", "status",
         "content_sha256", "rights_status", "record_status",
         "independence_group", "review_events", "statement_cutoff",
-        "publication_date", "valid_from", "valid_until", "reference_period",
+        "publication_date", "valid_from", "valid_until", "reference_period", "rights_records",
+        "canonical_url",
     }
     if set(value) != required:
         raise ValueError("CHALLENGER_MATERIAL_ROW_SCHEMA_INVALID")
@@ -55,8 +56,34 @@ def _validate_row(value: object) -> dict[str, object]:
     for key in ("statement_cutoff", "publication_date", "valid_from", "valid_until", "reference_period"):
         if value[key] is not None and not isinstance(value[key], str):
             raise ValueError("CHALLENGER_MATERIAL_TEMPORAL_SCOPE_INVALID")
+    if value["canonical_url"] is not None and not isinstance(value["canonical_url"], str):
+        raise ValueError("CHALLENGER_MATERIAL_SOURCE_URL_INVALID")
     if not isinstance(value["review_events"], list):
         raise ValueError("CHALLENGER_MATERIAL_EVENTS_INVALID")
+    if not isinstance(value["rights_records"], list):
+        raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
+    rights_keys = {
+        "id", "record_version", "subject_fingerprint", "source_family", "locator_kind", "locator_value",
+        "rights_status", "rights_receipt_ref", "permitted_uses", "reviewed_at",
+        "attribution_requirements", "expires_at", "reviewer_ref", "policy_version", "supersedes_id",
+        "expired", "review_in_future",
+    }
+    for rights in value["rights_records"]:
+        if not isinstance(rights, dict) or set(rights) != rights_keys:
+            raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
+        if not all(isinstance(rights[k], str) and rights[k] for k in (
+            "id", "record_version", "subject_fingerprint", "source_family", "locator_kind", "locator_value",
+            "rights_status", "policy_version",
+        )) or not isinstance(rights["permitted_uses"], list):
+            raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
+        if not isinstance(rights["attribution_requirements"], list) or not all(
+            isinstance(code, str) for code in (*rights["permitted_uses"], *rights["attribution_requirements"])
+        ):
+            raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
+        if any(rights[k] is not None and not isinstance(rights[k], str) for k in (
+            "rights_receipt_ref", "reviewed_at", "expires_at", "reviewer_ref", "supersedes_id",
+        )) or type(rights["expired"]) is not bool or type(rights["review_in_future"]) is not bool:
+            raise ValueError("CHALLENGER_SOURCE_RIGHTS_SNAPSHOT_INVALID")
     for event in value["review_events"]:
         if not isinstance(event, dict) or set(event) != {
             "id", "action", "actor_ref", "reason", "metadata",
@@ -86,6 +113,31 @@ def _review_matches_candidate(
     }
 
 
+def _current_source_rights(row: dict[str, object]) -> bool:
+    """A scoped private-use receipt is required even for legacy CLEARED evidence.
+
+    The rights registry is a source-use *record*, not an external authority.
+    Caller-supplied license names and legacy evidence flags never make this a
+    publication authorization. The exact current registry leaf is hashed.
+    """
+    records = row["rights_records"]
+    assert isinstance(records, list)
+    if len(records) != 1:
+        return False
+    rights = records[0]
+    return (
+        rights["rights_status"] == "CLEARED"
+        and rights["locator_kind"] == "URL"
+        and rights["locator_value"] == row["canonical_url"]
+        and bool(rights["rights_receipt_ref"])
+        and bool(rights["reviewer_ref"])
+        and bool(rights["reviewed_at"])
+        and not rights["expired"]
+        and not rights["review_in_future"]
+        and "CHALLENGER_PRIVATE_RESEARCH" in rights["permitted_uses"]
+    )
+
+
 def load_challenger_material_inventory(
     runtime: QueryRuntime, *, claim_id: str,
 ) -> ChallengerMaterialInventory:
@@ -105,6 +157,7 @@ def load_challenger_material_inventory(
             'status', link.status,
             'statement_cutoff', link.statement_cutoff,
             'content_sha256', evidence.content_sha256,
+            'canonical_url', evidence.canonical_url,
             'publication_date', evidence.publication_date,
             'valid_from', evidence.valid_from,
             'valid_until', evidence.valid_until,
@@ -112,6 +165,35 @@ def load_challenger_material_inventory(
             'rights_status', evidence.rights_status,
             'record_status', evidence.record_status,
             'independence_group', evidence.independence_group,
+            'rights_records', COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                    'id', rights.id,
+                    'record_version', rights.record_version,
+                    'subject_fingerprint', rights.subject_fingerprint,
+                    'source_family', rights.source_family,
+                    'locator_kind', rights.locator_kind,
+                    'locator_value', rights.locator_value,
+                    'rights_status', rights.rights_status,
+                    'rights_receipt_ref', rights.rights_receipt_ref,
+                    'permitted_uses', to_jsonb(rights.permitted_uses),
+                    'attribution_requirements', to_jsonb(rights.attribution_requirements),
+                    'reviewed_at', rights.reviewed_at,
+                    'expires_at', rights.expires_at,
+                    'reviewer_ref', rights.reviewer_ref,
+                    'policy_version', rights.policy_version,
+                    'supersedes_id', rights.supersedes_id,
+                    'expired', rights.expires_at IS NOT NULL
+                        AND rights.expires_at <= statement_timestamp(),
+                    'review_in_future', rights.reviewed_at IS NOT NULL
+                        AND rights.reviewed_at > statement_timestamp()
+                ) ORDER BY rights.subject_fingerprint, rights.id)
+                FROM private_source_rights_record rights
+                WHERE rights.evidence_id = link.evidence_id
+                  AND NOT EXISTS (
+                      SELECT 1 FROM private_source_rights_record successor
+                      WHERE successor.supersedes_id = rights.id
+                  )
+            ), '[]'::jsonb),
             'review_events', COALESCE((
                 SELECT jsonb_agg(jsonb_build_object(
                     'id', event.id, 'action', event.action,
@@ -163,6 +245,7 @@ def load_challenger_material_inventory(
         or row["review_events"][-1]["action"] != "APPROVED"
         or row["record_status"] != "ACTIVE"
         or row["rights_status"] not in {"CLEARED", "PUBLIC_DOMAIN", "OPEN_LICENSE"}
+        or not _current_source_rights(row)
         or not isinstance(row["content_sha256"], str)
         or re.fullmatch(r"[0-9a-f]{64}", row["content_sha256"]) is None
         or any(
@@ -180,6 +263,8 @@ def load_challenger_material_inventory(
         blockers.append("CHALLENGER_MATERIAL_EMPTY")
     if pending:
         blockers.append("CHALLENGER_MATERIAL_PENDING_OR_UNVERIFIED")
+    if any(not _current_source_rights(row) for row in canonical):
+        blockers.append("CHALLENGER_SOURCE_RIGHTS_NOT_CURRENT")
     if missing_provenance:
         blockers.append("CHALLENGER_MATERIAL_PROVENANCE_INCOMPLETE")
     if misbound_review:
