@@ -72,6 +72,15 @@ class DoubleAIReviewTests(unittest.TestCase):
         self.assertEqual(result.review_receipt_sha256,
                          assess(self.translation, self.evidence).review_receipt_sha256)
 
+    def test_same_blind_prompt_can_be_shared_by_independent_models(self):
+        primary, independent = self.evidence
+        with_identical_prompt = replace(
+            independent, prompt_sha256=primary.prompt_sha256,
+        )
+        result = assess(self.translation, (primary, with_identical_prompt))
+        self.assertEqual(result.status, "CONTRACT_ONLY_PRIVATE_HOLD")
+        self.assertTrue(result.double_review_complete)
+
     def test_external_attestation_and_rights_required(self):
         without_attestor = evaluate_ai_translation_reviews(
             self.translation, self.evidence, now=NOW(),

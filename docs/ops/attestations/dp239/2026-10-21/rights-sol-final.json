@@ -1,0 +1,64 @@
+{
+  "schema": "dp239-ai-review-receipt-v1",
+  "requested_model": "codex/gpt-6.1-sol",
+  "observed_provider": "codex",
+  "observed_model": "gpt-6.1-sol",
+  "raw_events_sha256": "7bc3ceceac7913530fa04fc86c353f035b420cf07100a38e7b50d564894b52ca",
+  "response_sha256": "167d89bd4b95fd6ca7dbf07883776cec77a6ccde86216021da9f7eddbfbda083",
+  "response": {
+    "reviewer_model": "ChatGPT; identificativo esatto del modello e autenticazione del revisore non disponibili nel contesto.",
+    "review_date": "2026-10-21",
+    "source_rights_verdict": "CLEARED_FOR_PRIVATE_CANARY",
+    "translated_meaning_verdict": "FAITHFUL",
+    "meaning_risks": [],
+    "privacy_leak_risk": "LOW",
+    "permitted_operations": [
+      "Conservare localmente e privatamente l'HTML già acquisito come evidenza, subordinatamente ai vincoli di integrità, accesso e scadenza indicati.",
+      "Estrarre e conservare privatamente il solo paragrafo fornito, collegandolo all'HTML mediante hash e metadati di provenienza dichiarata.",
+      "Conservare e confrontare localmente l'estratto tedesco e la traduzione italiana fornita, registrando quest'ultima come derivato automatico.",
+      "Eseguire una canary privata, locale e circoscritta di traduzione e verifica, senza pubblicazione né trasmissione dei documenti integrali a provider esterni."
+    ],
+    "conditions": [
+      "L'esito riguarda esclusivamente l'estratto fornito e il suo derivato, non una licenza generale per tutto l'HTML o per altri contenuti del sito. La pubblicazione di citazioni o traduzioni nel prodotto pubblico resta negata.",
+      "Prima dell'uso, verificare localmente che l'HTML corrisponda allo SHA256 dichiarato; calcolare e registrare separatamente gli SHA256 dell'estratto e della traduzione, senza inventare valori mancanti.",
+      "Conservare gli artefatti come snapshot immutabili e collegati: HTML originale, estratto con delimitazione riproducibile e derivato italiano. Registrare eventuali modifiche come nuove versioni, senza sovrascrivere gli originali.",
+      "Accompagnare estratto e derivato con attribuzione alla Commissione europea, URL della fonte, data di acquisizione dichiarata, riferimento a CC BY 4.0 e collegamento alla licenza. Indicare esplicitamente estrazione, traduzione automatica e ogni altra modifica.",
+      "Non applicare questa autorizzazione a contenuti soggetti a indicazioni individuali incompatibili, diritti di terzi, diritti di persone identificabili o eccezioni per marchi, loghi e brevetti. Se emergono dubbi sulla titolarità dell'estratto, sospendere l'operazione.",
+      "Limitare accesso e trattamento all'ambiente privato locale autorizzato. Non caricare documenti integrali di terzi presso provider e non acquisire ulteriori fonti nell'ambito di questa revisione.",
+      "Registrare una scadenza esplicita non successiva al 2026-11-20, oppure anteriore se richiesta da altra policy applicabile. L'immutabilità non autorizza conservazione oltre la scadenza; applicare allora la procedura autorizzata di eliminazione o rinnovo.",
+      "Le coppie linguistiche non supportate devono fallire in modalità chiusa: nessuna approvazione implicita, pubblicazione o prosecuzione automatica."
+    ],
+    "source_evidence": {
+      "source_url": "https://commission.europa.eu/legal-notice_de",
+      "license_reference_url": "https://creativecommons.org/licenses/by/4.0/deed.de",
+      "reported_capture_date": "2026-10-21",
+      "reported_capture_location": "MiniPC locale",
+      "reported_html_sha256": "f90604358e232d472752d3305e83921f2a5140d73a3b5d0d8bd93189dd693143",
+      "reported_html_bytes": 155838,
+      "excerpt_sha256": null,
+      "verification_status": "Dati e testo forniti nella richiesta; nessun accesso al file, ricalcolo dell'hash o riscontro esterno effettuato.",
+      "rights_basis": "Il paragrafo dichiara CC BY 4.0 per i contenuti di proprietà della Commissione, salvo indicazioni diverse. Per l'estratto della stessa informativa della Commissione, il materiale fornito sostiene una canary privata condizionata, senza dimostrare autonomamente la titolarità o l'assenza di deroghe.",
+      "scope_exclusions": "Nessuna concessione di diritti di terzi, nessuna autorizzazione alla pubblicazione e nessuna attestazione estesa all'intero documento."
+    },
+    "translation_notes": {
+      "assessment": "La bozza italiana conserva il significato del paragrafo tedesco senza necessità di modificarla ai fini di questa valutazione.",
+      "preserved_elements": [
+        "La riserva iniziale per indicazioni diverse e l'esempio delle note individuali sul copyright.",
+        "Il limite ai contenuti di proprietà della Commissione presenti sul sito.",
+        "Il riferimento alla licenza CC BY 4.0.",
+        "La possibilità di riutilizzo subordinata alla corretta citazione della fonte e all'indicazione delle modifiche."
+      ],
+      "rubric_result": "Non emergono NEGATION_MISMATCH, NUMBER_MISMATCH, MODALITY_MISMATCH, ACTOR_ANCHOR_CHANGED o ACTOR_ORDER_CHANGED. DATE_MISMATCH e JUDICIAL_STATUS_MISMATCH non trovano elementi pertinenti nel paragrafo. Non emergono REPORTED_SPEECH_MISMATCH o QUOTE_MARKER_MISMATCH; QUOTED_SPEAKER_ENDORSEMENT_UNVERIFIED non è applicabile, perché non si valuta l'adesione di un parlante a una dichiarazione citata.",
+      "license_link_distinction": "Il collegamento alla licenza è un requisito operativo fornito nel contesto; la sua mancata esplicitazione testuale nella traduzione non costituisce omissione rispetto al paragrafo tedesco riportato."
+    },
+    "limitations": [
+      "Revisione indipendente svolta sul solo materiale fornito, senza assumere un precedente verdetto né consultare quello dell'altro revisore.",
+      "Non sono state consultate fonti esterne e non è stata verificata la completezza dell'HTML o l'eventuale presenza di deroghe specifiche.",
+      "Non dispongo di qualificazione legale: questo esito è una valutazione circoscritta, non un parere legale.",
+      "Il rischio privacy LOW riguarda l'estratto istituzionale fornito e il trattamento locale previsto; non certifica il contenuto integrale dell'HTML, i suoi metadati o la sicurezza dell'ambiente.",
+      "Non attesto autenticazione del modello, ricevute di database, avvenuta memorizzazione, immutabilità effettiva, esecuzione della canary o provenienza verificata indipendentemente.",
+      "L'esito favorevole resta subordinato alle condizioni: non dimostra che siano già state implementate."
+    ]
+  },
+  "observed_at": "2026-10-21T01:08:20.712000+00:00"
+}
