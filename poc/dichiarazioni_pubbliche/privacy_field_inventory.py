@@ -375,7 +375,7 @@ def compare_host_surface_metadata(inventory: Mapping[str, Any], observed: Mappin
 
 def make_inventory(schema: str) -> dict[str, Any]:
     tables = parse_schema_fields(schema)
-    # Include migration-owned private columns alongside canonical schema.
+    # Include private migration columns alongside schema.
     registry = parse_schema_fields(_PUBLIC_SCHEMA_MIGRATION.read_text(encoding="utf-8"))
     if set(registry) != {"public_schema_contract"} or "public_schema_contract" in tables:
         raise FieldInventoryError("PRIVACY_LEGACY_SCHEMA_REGISTRY_DRIFT")
@@ -390,7 +390,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
     tables["public_schema_contract"] = registry["public_schema_contract"]
     tables["claim_relation_candidate"] = (*tables["claim_relation_candidate"], "policy_version")
     monthly = parse_schema_fields(
-        (_MIGRATIONS_ROOT / "20261022-add-atomic-monthly-dispatch.sql").read_text(encoding="utf-8")
+        (ROOT / "db/migrations/20261022-add-atomic-monthly-dispatch.sql").read_text(encoding="utf-8")
     )
     if set(monthly) != {"dp514_monthly_dispatch_policy", "dp514_monthly_dispatch_reservation"} or (set(monthly) & set(tables)):
         raise FieldInventoryError("PRIVACY_DP514_MONTHLY_TABLE_DRIFT")

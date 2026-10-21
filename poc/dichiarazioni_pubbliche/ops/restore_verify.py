@@ -126,6 +126,8 @@ LOAD_BEARING_TABLES = (
     "provider_receipt",
     "processing_job",
     "worker_budget_reservation",
+    "dp514_monthly_dispatch_policy",
+    "dp514_monthly_dispatch_reservation",
     "source_health",
     "source_poll_run",
     "source_poll_run_source",
