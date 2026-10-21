@@ -10,6 +10,15 @@ Independent-review candidate (20 October 2026; updated for the AI-review delegat
 
 Owner-delegated legal research (2026-10-20): [Q-306-08/09/10/15/16](legal-research-decisions-2026-10-20.md)
 cites GDPR, Italian Privacy Code Arts. 136–139 and Garante deontology.
+
+Real-case rehearsal (2026-10-21): [`tools/dp304_privacy_case_canary.py`](../../tools/dp304_privacy_case_canary.py)
+executes one fictional public-role case end to end — field selection, published
+projection and loopback surfaces, a private append-only rights case, bounded private
+access with a content-free audit, and a revocation that republishes nothing. Receipt
+and limits: [privacy case rehearsal](../ops/dp304-privacy-case-canary-20261021.md).
+It found and closed one deny-list gap: `raw_transcript`, `transcript_body`,
+`reviewer_note`, `asr_text` and `ocr_text` were publishable when mislabelled
+`PUBLIC_CORE`. The rehearsal is engineering evidence only; it approves no treatment.
 The journalistic route is purpose- and essentiality-dependent: no lawful
 basis, retention term or sensitive-data release is automatically approved.
 

@@ -6,12 +6,11 @@ deny-by-default classification of the ticket.
 
 What is deliberately NOT decided here
 -------------------------------------
-* No lawful basis, no Art. 6/Art. 9 GDPR conclusion, no retention period, no
-  rights-request outcome. Those are Q-304-* and Q-306-08..10 and stay
-  BLOCKING (see ``docs/policy/legal-closure-register.md``).
-* No inference of a sensitive trait. A sensitive *candidate* is a hold; the
-  module never turns an unflagged field into a "safe" one by guessing, and it
-  never turns a flagged field into a published label.
+* No lawful basis, Art. 6/9 GDPR conclusion, retention period or rights
+  outcome: those are Q-304-*/Q-306-08..10, still BLOCKING
+  (see ``docs/policy/legal-closure-register.md``).
+* No sensitive-trait inference: a candidate is a hold, and no guess turns an
+  unflagged field into "safe" or a flagged field into a published label.
 
 Classification (DP-304 "Data classification contract")
 ----------------------------------------------------
@@ -23,8 +22,8 @@ HIGH_RISK_IDENTITY  never public; do not ingest by default
 EPHEMERAL           never public; TTL + fail-closed purge
 
 Retention interaction: ``retention_decision()`` returns a *class*, never a
-number. A numeric period is an owner/counsel decision (P-304-06); the module
-refuses to invent one and therefore always returns ``AWAITING_APPROVED_PERIOD``.
+number (P-304-06); without an approved period it returns
+``AWAITING_APPROVED_PERIOD``.
 
 Pure, zero-I/O, deterministic, importable without a database.
 """
@@ -56,8 +55,12 @@ _SEPARATORS = re.compile(r"[\s_\-·•.:,;!?/\\'\"()\[\]{}<>|]+")
 OPERATIONAL_PRIVATE_FIELDS: frozenset[str] = frozenset(
     {
         "raw_text",
-        "canonical_text",
+        "raw_transcript",
         "transcript_text",
+        "transcript_body",
+        "canonical_text",
+        "asr_text",
+        "ocr_text",
         "excerpt",
         "evidence_excerpt",
         "evidence_body",
@@ -65,6 +68,7 @@ OPERATIONAL_PRIVATE_FIELDS: frozenset[str] = frozenset(
         "correction_reason_private",
         "operator_note",
         "internal_note",
+        "reviewer_note",
         "prompt",
         "system_prompt",
         "provider_request",
