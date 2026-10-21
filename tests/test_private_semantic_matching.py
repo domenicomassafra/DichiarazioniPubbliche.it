@@ -105,6 +105,59 @@ class PrivateSemanticMatchingTests(unittest.TestCase):
                                             ([1, 0],) * (MAX_TARGETS + 2)), ())
         self.assertEqual(hints_from_vectors(left, (right,), ([1, 0],)), ())
 
+    def test_token_budget_blocks_silent_truncation_before_encode(self):
+        # 150 short words fit within MAX_CHARS=400 but exceed 128 model tokens.
+        # SentenceTransformers otherwise silently embeds only the shared prefix.
+        from types import ModuleType
+        import sys
+        from dichiarazioni_pubbliche.private_semantic_matching import _encode_local
+
+        calls = []
+        class FakeModel:
+            def __init__(self, *args, **kwargs):
+                self.max_seq_length = 256
+
+            def tokenizer(self, text, *, truncation=False, **kwargs):
+                assert truncation is False
+                assert kwargs.get("add_special_tokens") is True
+                return {"input_ids": [101] + list(range(len(text.split()))) + [102]}
+
+            def encode(self, texts, **kwargs):
+                calls.append(texts)
+                class FakeVector:
+                    def tolist(self):
+                        return [1.0, 0.0]
+                return [FakeVector() for _ in texts]
+
+        stub = ModuleType("sentence_transformers")
+        stub.SentenceTransformer = FakeModel
+        with patch.dict(sys.modules, {"sentence_transformers": stub}), patch(
+            "dichiarazioni_pubbliche.private_semantic_matching._verified_receipt",
+            return_value=({"model_dir": "/private/model"}, "a" * 64)
+        ), patch("dichiarazioni_pubbliche.private_semantic_matching.importlib.metadata.version",
+                 return_value="6.1.0"), patch.dict(os.environ, {}, clear=False):
+            long_text = "e " * 150
+            self.assertLessEqual(len(long_text), 400)
+            with self.assertRaisesRegex(ValueError, "SEMANTIC_TOKEN_BUDGET_EXCEEDED"):
+                _encode_local("/private/receipt", ("La giunta approva il piano.", long_text))
+            self.assertEqual(calls, [])
+            self.assertEqual(_encode_local("/private/receipt",
+                                          ("La giunta approva il piano.",
+                                           "Il piano è stato approvato.")),
+                             [[1.0, 0.0], [1.0, 0.0]])
+            self.assertEqual(len(calls), 1)
+            # Exactly 128 tokens including special tokens is admitted.
+            exact_fit = "e " * 126
+            self.assertEqual(_encode_local("/private/receipt",
+                                          (exact_fit, "La giunta approva il piano.")),
+                             [[1.0, 0.0], [1.0, 0.0]])
+            self.assertEqual(len(calls), 2)
+            # One additional wordpiece makes the batch ineligible.
+            with self.assertRaisesRegex(ValueError, "SEMANTIC_TOKEN_BUDGET_EXCEEDED"):
+                _encode_local("/private/receipt", ("e " * 127,
+                                                   "La giunta approva il piano."))
+            self.assertEqual(len(calls), 2)
+
     def test_disabled_non_minipc_and_missing_receipt_never_spawn(self):
         left, right = pair("La somma è aumentata nel 2025.",
                            "Nel 2025 crescono i totali.")

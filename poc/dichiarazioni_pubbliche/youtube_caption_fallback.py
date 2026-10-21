@@ -13,7 +13,7 @@ _ACCESS_DENIALS = (
     "access denied", "forbidden", "unauthorized", "too many requests",
     "rate limit", "request blocked", "ip block", "blocked your ip", "sign in", "sign-in",
     "log in", "login", "cookies", "private video", "members-only",
-    "members only", "age-restrict", "consent", "captcha", "challenge",
+    "members only", "available to this channel's members", "age-restrict", "consent", "captcha", "challenge",
     "bot detection", "confirm you're not a bot", "po token", "po_token",
     "unavailable in your country", "geo-restrict", "video unavailable",
     "this video is unavailable", "requested format is not available due to restrictions",

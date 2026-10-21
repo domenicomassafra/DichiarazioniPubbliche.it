@@ -554,14 +554,13 @@ class CacheContractTest(unittest.TestCase):
             )
             self.assertEqual(last_modified_only.status, 200)
 
-    def test_data_responses_are_cdn_cacheable(self):
+    def test_data_responses_never_allow_stale_public_quote_cache(self):
         response = dispatch("GET", f"{API_BASE_PATH}/findings", projection_path=self.path)
         self.assertEqual(response.status, 200)
         self.assertTrue(response.headers["ETag"].startswith('"'))
         self.assertIn("Last-Modified", response.headers)
-        self.assertIn("public", response.headers["Cache-Control"])
-        self.assertIn("max-age=", response.headers["Cache-Control"])
-        self.assertIn("stale-while-revalidate=", response.headers["Cache-Control"])
+        self.assertEqual(response.headers["Cache-Control"], "no-store")
+        self.assertEqual(response.headers["Surrogate-Control"], "no-store")
 
     def test_matching_etag_yields_304_with_same_validators(self):
         first = dispatch("GET", f"{API_BASE_PATH}/findings", projection_path=self.path)

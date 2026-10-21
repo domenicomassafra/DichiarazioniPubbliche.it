@@ -4,9 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+# Native concurrency (controlcenter#413): cancel the superseded run for this
+# ref/PR. event_name keeps the push and pull_request runs of one head separate.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   size:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:

@@ -57,7 +57,8 @@ These are placeholders. Verify actual model/converted weight provenance
 and notices independently; if licensing is missing, **do not set reviewed**.
 Inventory includes every file (tokenizer, vocab, preprocessor, licenses)
 and must match disk exactly. Files and symlinks are checked and SHA-256
-hashed on every attempt. No media/model download is implemented.
+hashed on every attempt. Model receipt and model directory ancestors must not
+traverse symlinks or `..` components. No media/model download is implemented.
 Native shared `local_inference_slot` prevents concurrent local model work;
 the caller checks authorization, rights receipt, duration, input hash, WAV
 contract and re-hashes a transient copy before dispatch. Only up to
@@ -67,10 +68,22 @@ threads, one model worker, 6GiB virtual address cap, 100 CPU seconds,
 120 wall seconds. Missing dependency/model rights/weight digest blocks the
 attempt; busy local inference retries. The optional child inherits no
 provider secrets, uses explicit offline flags and local-files-only loading.
+The child writes its JSON response into a transient private file with an
+RLIMIT_FSIZE cap of 256,000 bytes; native stderr is discarded instead of
+captured in unbounded parent-memory pipes. This is an output bound and a 6GiB
+virtual-address limit, not a measured real-world RSS acceptance receipt.
 
 The worker takes only manually enqueued `TRANSCRIPT_ACQUIRE_ASR` jobs with
 exact provider `faster-whisper-small-local` and route
 `local/faster-whisper-small`, private local path, SHA256 and rights fields.
+In addition to `local_audio_authorized`, `rights_basis`, and the opaque
+`rights_receipt_id`, a local job must carry `rights_record_id` and
+`rights_policy_version` for a *current* DP-305 `private_source_rights_record`.
+The source-use guard verifies exact `content_id`/canonical URL, policy,
+reviewer, current CLEARED receipt, expiry and `ASR_MEDIA` permission **before
+inference and again before private persistence**. These job fields are pointers
+to existing independent review, never substitutes for that review. A missing,
+revoked or superseded record blocks and releases no transcript candidate.
 The existing `_acquire_local_asr` persists the private transcript candidate,
 segments and source/model hashes, full private response and provider receipt,
 with `UNRECONCILED_ASR_CANDIDATE` and no publication approval. The existing
