@@ -10,6 +10,20 @@ WORKFLOW = ROOT / '.github' / 'workflows' / 'ci.yml'
 
 
 class CiWorkflowNode24Tests(unittest.TestCase):
+    def test_hosted_macos_uses_latest_supported_python_only(self):
+        source = WORKFLOW.read_text()
+        matrix = source.split('      matrix:\n', 1)[1].split('\n    steps:', 1)[0]
+        self.assertIn('os: [ubuntu-latest, macos-latest]', matrix)
+        self.assertIn('python-version: ["3.11", "3.12", "3.13", "3.14"]', matrix)
+        for version in ('3.11', '3.12', '3.13'):
+            with self.subTest(version=version):
+                self.assertIn(
+                    f'          - os: macos-latest\n            python-version: "{version}"',
+                    matrix,
+                )
+        self.assertEqual(matrix.count('          - os: macos-latest'), 3)
+        self.assertNotIn('python-version: "3.14"', matrix)
+
     def test_branch_push_keeps_repository_gate_without_duplicate_matrix(self):
         source = WORKFLOW.read_text()
         self.assertIn('on:\n  push:\n  pull_request:', source)
@@ -18,6 +32,19 @@ class CiWorkflowNode24Tests(unittest.TestCase):
         repo_job = source.split('  repository-contract:', 1)[1].split('\n  clean-clone:', 1)[0]
         self.assertNotIn('    if:', repo_job)
         self.assertIn('os: [ubuntu-latest, macos-latest]', source)
+
+    def test_static_acceptance_runs_once_off_the_scarce_backend_pool(self):
+        source = WORKFLOW.read_text()
+        backend = source.split('  backend-minimal:', 1)[1].split('  openapi-contract:', 1)[0]
+        repository = source.split('  repository-contract:', 1)[1].split('  clean-clone:', 1)[0]
+        # Static tree checks have no OS/Python input. Keep the full contributor
+        # gate required, but do not spend eight runner allocations repeating it.
+        self.assertIn('python3 tools/check_contributor_acceptance.py', repository)
+        self.assertNotIn('python3 tools/check_contributor_acceptance.py', backend)
+        self.assertIn('PYTHONPATH=poc python -m unittest discover -s tests -v', backend)
+        self.assertIn('python -m build --outdir dist-ci', backend)
+        self.assertNotIn('continue-on-error:', backend)
+        self.assertNotIn('max-parallel:', backend)
 
     def test_every_first_party_action_uses_supported_node24_runtime_major(self):
         source = WORKFLOW.read_text()

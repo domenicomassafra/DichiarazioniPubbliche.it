@@ -23,7 +23,7 @@ from tests.test_studio_candidate_review_handoff import MatchStore, PromotionCont
 class TargetSourceReader:
     """Independent persisted target-Context read fixture (not match output)."""
 
-    def __init__(self, targets):
+    def __init__(self, targets, *, candidate=None):
         self.snapshots = {
             (target.proposition.member_type, target.proposition.member_id): {
                 "member_type": target.proposition.member_type,
@@ -38,6 +38,19 @@ class TargetSourceReader:
             }
             for i, target in enumerate(targets)
         }
+        if candidate is not None:
+            proposition = candidate.proposition
+            self.snapshots[(proposition.member_type, proposition.member_id)] = {
+                "member_type": proposition.member_type,
+                "member_id": proposition.member_id,
+                "content_id": proposition.content_id,
+                "passage_id": proposition.provenance_key,
+                "capture_id": "capture:1",
+                "capture_sha256": "c" * 64,
+                "rights_status": "CLEARED",
+                "capture_status": "CAPTURED",
+                "capture_hold_status": "NONE",
+            }
         self.calls = []
 
     def source_context(self, target_type, target_id):
@@ -105,7 +118,9 @@ def persisted_comparison(*, duplicate=False):
         }
         for row in computed
     )
-    return source, PromotionContext(), TargetSourceReader(source.targets)
+    return source, PromotionContext(), TargetSourceReader(
+        source.targets, candidate=source.candidate,
+    )
 
 
 class PersistedOperatorComparisonTests(unittest.TestCase):
@@ -129,6 +144,7 @@ class PersistedOperatorComparisonTests(unittest.TestCase):
         self.assertEqual(read["candidate"]["passage_id"], "passage:1")
         self.assertEqual(read["candidate"]["capture_id"], "capture:1")
         self.assertEqual(read["candidate"]["capture_sha256"], "c" * 64)
+        self.assertEqual(read["candidate"]["rights_status"], "CLEARED")
         self.assertEqual(len(read["comparisons"]), 3)
         self.assertEqual(
             {row["target_id"]: row["relation"] for row in read["comparisons"]},
@@ -167,7 +183,8 @@ class PersistedOperatorComparisonTests(unittest.TestCase):
         self.assertFalse(read["review_authority"])
         self.assertFalse(read["publication_authority"])
         self.assertEqual(
-            len(target_reader.calls), 6, "each target must be independently re-read"
+            len(target_reader.calls), 8,
+            "candidate and each target must be independently re-read",
         )
         self.assertEqual(read, self.preview(match, promotion, target_reader))
         html = render_candidate_comparison_workspace(read).decode()
@@ -177,6 +194,7 @@ class PersistedOperatorComparisonTests(unittest.TestCase):
             "claim:uncertain",
             "Capture",
             "Passage",
+            "Diritti fonte CLEARED",
             "Proposta non approvata",
         ):
             self.assertIn(expected, html)
@@ -229,6 +247,47 @@ class PersistedOperatorComparisonTests(unittest.TestCase):
         self.assertTrue(
             all(not row["comparison_usable"] for row in held["comparisons"])
         )
+
+    def test_candidate_rights_must_be_independently_rechecked(self):
+        for status in ("REVOKED", "UNKNOWN", "EXPIRED", "DENIED"):
+            match, promotion, targets = persisted_comparison()
+            candidate_key = ("CLAIM_CANDIDATE", "candidate:1")
+            targets.snapshots[candidate_key]["rights_status"] = status
+            preview = self.preview(match, promotion, targets)
+            with self.subTest(rights_status=status):
+                self.assertIn(
+                    "DP418_CANDIDATE_SOURCE_RIGHTS",
+                    preview["promotion_blockers"],
+                )
+                self.assertTrue(all(
+                    not row["comparison_usable"] for row in preview["comparisons"]
+                ))
+        match, promotion, targets = persisted_comparison()
+        targets.snapshots.pop(("CLAIM_CANDIDATE", "candidate:1"))
+        preview = self.preview(match, promotion, targets)
+        self.assertIn("DP418_CANDIDATE_SOURCE_UNAVAILABLE", preview["promotion_blockers"])
+        self.assertTrue(all(not row["comparison_usable"] for row in preview["comparisons"]))
+
+    def test_candidate_capture_version_mismatch_or_revocation_race_is_refused(self):
+        match, promotion, targets = persisted_comparison()
+        targets.snapshots[("CLAIM_CANDIDATE", "candidate:1")]["capture_sha256"] = "a" * 64
+        with self.assertRaisesRegex(ValueError, "CANDIDATE_SOURCE_BINDING_INVALID"):
+            self.preview(match, promotion, targets)
+
+        match, promotion, targets = persisted_comparison()
+
+        class RevokedCandidateDuringRead(TargetSourceReader):
+            def source_context(self, kind, identifier):
+                row = super().source_context(kind, identifier)
+                if (kind, identifier) == ("CLAIM_CANDIDATE", "candidate:1") and (
+                    self.calls.count((kind, identifier)) == 2
+                ):
+                    row["rights_status"] = "REVOKED"
+                return row
+
+        volatile = RevokedCandidateDuringRead(match.targets, candidate=match.candidate)
+        with self.assertRaisesRegex(ValueError, "CHANGED_DURING_READ"):
+            self.preview(match, promotion, volatile)
 
     def test_missing_or_stale_target_readback_does_not_forge_equal_source(self):
         match, promotion, targets = persisted_comparison()
@@ -296,7 +355,7 @@ class PersistedOperatorComparisonTests(unittest.TestCase):
                     row["rights_status"] = "REVOKED"
                 return row
 
-        volatile = RevokedMidPreview(match.targets)
+        volatile = RevokedMidPreview(match.targets, candidate=match.candidate)
         with self.assertRaisesRegex(ValueError, "DP418_COMPARISON_CHANGED_DURING_READ"):
             self.preview(match, promotion, volatile)
 

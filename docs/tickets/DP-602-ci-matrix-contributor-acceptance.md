@@ -311,3 +311,15 @@ projection safeguards. The preexisting historical version receipt above is
 retained as historical, not rewritten. New RED→GREEN source tests cover all
 seven references and the fail-closed/no-deployment workflow contract. This
 maintenance does not grant production release authority or change DP-602 DONE.
+
+Follow-up 2026-10-20 (run hygiene, domenicomassafra/controlcenter#413): the
+workflow-level concurrency group was `ci-${{ github.ref }}`; it is now
+`${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}`
+with `cancel-in-progress: true` unchanged in behaviour, so a superseded run of the
+same pull request or main ref is cancelled instead of holding a hosted runner.
+The event name is part of the group on purpose: a branch push run and the
+`pull_request` run of the same head must never cancel each other, or a required
+check would never report. The documented trigger contract is untouched — every
+branch push still gets the light repository-contract gate, the full matrix still
+runs only for pull requests and main, and `tests/test_ci_workflow_node24.py` still
+pins both. No job, matrix entry, action, test or permission changed.
