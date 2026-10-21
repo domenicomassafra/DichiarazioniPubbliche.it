@@ -88,7 +88,9 @@
       "poll_minutes": 720,
       "max_items_per_poll": 8,
       "rights_status": "RIGHTS_HOLD",
-      "content_policy": { "metadata_only": true },
+      "content_policy": {
+        "metadata_only": true
+      },
       "endpoint_proof": {
         "checked_at": "2026-10-10",
         "official_directory": "https://documenti.camera.it/apps/rssFeeds/index.asp"
@@ -103,11 +105,15 @@
       "poll_minutes": 1440,
       "max_items_per_poll": 12,
       "rights_status": "RIGHTS_HOLD",
-      "content_policy": { "metadata_only": true },
+      "content_policy": {
+        "metadata_only": true
+      },
       "endpoint_proof": {
         "checked_at": "2026-10-10",
         "official_directory": "https://www.consilium.europa.eu/it/about-site/rss/"
       }
     }
-  ]
+  ],
+  "source_associations_version": 1,
+  "source_associations": []
 }

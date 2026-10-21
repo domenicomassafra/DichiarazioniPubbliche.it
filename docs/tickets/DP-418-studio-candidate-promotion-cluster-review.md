@@ -186,9 +186,9 @@ older than it is.
 
 ## Completion receipt
 
-Pending implementation. Record changed surfaces, commands/results, MiniPC proof when
-required, migration/rollback state, residual blockers and the resulting commit before
-marking DONE.
+2026-10-21: UI privata, due citazioni e Passage; TDD GREEN, zero merge.
+AC-418.1–4 OPEN: diritti/reviewer reali, replay e MiniPC tastiera/zoom 200%.
+Prove e SHA: issue #72.
 
 ### Persisted match-run read-only inspection — 2026-10-08
 
