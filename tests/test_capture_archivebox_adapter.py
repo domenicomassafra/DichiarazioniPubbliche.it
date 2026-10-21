@@ -1,20 +1,24 @@
 """Offline process-contract and lifecycle acceptance for ArchiveBox issue #171."""
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import stat
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 from dichiarazioni_pubbliche.capture_archive_flow import _valid_archivebox_snapshot
-from dichiarazioni_pubbliche.capture_archivebox_adapter import ArchiveBoxArchiveAdapter
+from dichiarazioni_pubbliche.capture_archivebox_adapter import ArchiveBoxArchiveAdapter, _BRIDGE
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore, capture_content
 from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
 from tests.test_capture_pipeline import FakeCaptureStore, fetched
@@ -98,6 +102,76 @@ def fake_archivebox(root, *, outcome="sealed"):
 
 
 class ArchiveBoxTests(unittest.TestCase):
+    def test_real_bridge_accepts_upstream_succeeded_readability_result(self):
+        # ArchiveBox v0.9.73: Snapshot/Crawl success is "sealed" while
+        # ArchiveResult success is "succeeded". Execute the real bridge
+        # against the upstream model contract with entirely synthetic data.
+        # https://github.com/ArchiveBox/ArchiveBox/blob/v0.9.73/archivebox/core/models.py
+        class Query:
+            def __init__(self, row):
+                self.row = row
+
+            def filter(self, **kwargs):
+                if "status" in kwargs and kwargs["status"] != "succeeded":
+                    return Query(None)
+                return self
+
+            def order_by(self, *_):
+                return self
+
+            def first(self):
+                return self.row
+
+            def __iter__(self):
+                return iter([self.row] if self.row is not None else [])
+
+        def fake_module(name, **values):
+            module = types.ModuleType(name)
+            module.__dict__.update(values)
+            if name in {
+                "archivebox", "archivebox.config", "archivebox.cli",
+                "archivebox.crawls", "archivebox.core",
+            }:
+                module.__path__ = []
+            return module
+
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "readability"
+            output.mkdir()
+            (output / "synthetic.html").write_text("<p>Owned fixture</p>")
+            crawl = SimpleNamespace(id=CRAWL, status="sealed")
+            snapshot = SimpleNamespace(
+                id=SNAPSHOT, url=URL, status="sealed",
+                archiveresult_set=Query(SimpleNamespace(output_dir=output)),
+            )
+            modules = {
+                name: fake_module(name) for name in (
+                    "archivebox", "archivebox.config", "archivebox.cli",
+                    "archivebox.crawls", "archivebox.core",
+                )
+            }
+            modules.update({
+                "archivebox.config.django": fake_module(
+                    "archivebox.config.django", setup_django=lambda **_: None,
+                ),
+                "archivebox.cli.archivebox_add": fake_module(
+                    "archivebox.cli.archivebox_add", add=lambda **_: (crawl, None),
+                ),
+                "archivebox.crawls.models": fake_module(
+                    "archivebox.crawls.models", Crawl=SimpleNamespace(objects=Query(crawl)),
+                ),
+                "archivebox.core.models": fake_module(
+                    "archivebox.core.models", Snapshot=SimpleNamespace(objects=Query(snapshot)),
+                ),
+            })
+            stdout = io.StringIO()
+            with mock.patch.dict(sys.modules, modules), \
+                    mock.patch("importlib.metadata.version", return_value="0.9.73"), \
+                    mock.patch.object(sys, "argv", ["archivebox", URL, "dp-test"]), \
+                    contextlib.redirect_stdout(stdout):
+                exec(_BRIDGE, {"__name__": "__main__"})
+            self.assertEqual(json.loads(stdout.getvalue())["snapshot_status"], "sealed")
+
     def prepare(self, temp, *, outcome="sealed", permission=True, revoke_at=0,
                 timeout=5, collection_private=True):
         private = Path(temp) / "private"
