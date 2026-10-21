@@ -1,9 +1,4 @@
-"""DP-516 source-only, bounded historical backfill *review plan*.
-
-Pilot, rights, watch and budget receipts are caller-supplied claims.
-This seam cannot authenticate external receipts, reserve funds, fetch, dispatch,
-or publish. Synthetic checks never establish DP-443 acceptance.
-"""
+"""DP-516 private review plan; never grants rights or publication."""
 
 from __future__ import annotations
 
@@ -15,6 +10,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Callable, Mapping
 
+from dichiarazioni_pubbliche.historical_batch_metadata_v1 import exact_private_metadata
 from dichiarazioni_pubbliche.historical_corpus_preflight_v1 import (
     HistoricalManifest,
     preflight_historical_corpus,
@@ -34,7 +30,6 @@ from dichiarazioni_pubbliche.ops.cost_policy import (
     monthly_budget_preflight,
 )
 
-
 VERSION = "historical-batch-private-plan-v1"
 MAX_BATCH_ITEMS = 8
 MAX_CHECKPOINT_RECEIPTS = 8
@@ -52,23 +47,19 @@ def _hash(material: object) -> str:
 
 
 def _id(value: object, label: str) -> str:
-    if not isinstance(value, str) or _CODE.fullmatch(value) is None:
+    if type(value) is not str or _CODE.fullmatch(value) is None:
         raise ValueError(f"DP516_{label}_INVALID")
     return value
 
 
 def _sha(value: object, label: str) -> str:
-    if not isinstance(value, str) or _SHA.fullmatch(value) is None:
+    if type(value) is not str or _SHA.fullmatch(value) is None:
         raise ValueError(f"DP516_{label}_INVALID")
     return value
 
 
 def _at(value: object) -> datetime:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
-    ):
+    if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("DP516_AWARE_TIME_REQUIRED")
     return value.astimezone(timezone.utc)
 
@@ -198,7 +189,8 @@ def create_checkpoint(
     _id(batch_id, "BATCH_ID")
     _sha(manifest_fingerprint, "MANIFEST_HASH")
     if (
-        not isinstance(completed, tuple)
+        type(completed) is not tuple
+        or not exact_private_metadata(completed, (CompletedCapture,))
         or len(completed) > MAX_CHECKPOINT_RECEIPTS
         or type(revision) is not int
         or revision < 0
@@ -207,7 +199,7 @@ def create_checkpoint(
         raise ValueError("DP516_CHECKPOINT_SHAPE_INVALID")
     seen: dict[str, CompletedCapture] = {}
     for receipt in completed:
-        if not isinstance(receipt, CompletedCapture):
+        if type(receipt) is not CompletedCapture:
             raise ValueError("DP516_CHECKPOINT_RECEIPT_INVALID")
         for name in ("item_key", "person_id", "content_id", "source_family"):
             _id(getattr(receipt, name), "CHECKPOINT_" + name.upper())
@@ -232,7 +224,9 @@ def create_checkpoint(
 
 
 def _pilot_shape(pilot: BatchPilotAcceptance | None, scope_id: str) -> bool:
-    if not isinstance(pilot, BatchPilotAcceptance):
+    if type(pilot) is not BatchPilotAcceptance or not exact_private_metadata(
+        pilot, (BatchPilotAcceptance,)
+    ):
         return False
     try:
         if (
@@ -281,13 +275,7 @@ def plan_historical_batch(
     checkpoint: BatchCheckpoint | None = None,
     verify_checkpoint: Callable[[BatchCheckpoint, str], bool] | None = None,
 ) -> HistoricalBatchDecision:
-    """Deterministic private planning. Input receipts are never self-authenticating.
-
-    verify_pilot and verify_checkpoint MUST live outside this module with
-    independent trusted key/ledger access. A fake verifier can only demonstrate
-    source-only consistency, not real pilot acceptance or durable authorization.
-    All produced budget states are hypothetical and must NOT be committed here.
-    """
+    """Private plans; callbacks require independent trusted ledger verification."""
     now = _at(at)
     _id(scope_id, "SCOPE")
     try:
@@ -327,7 +315,9 @@ def plan_historical_batch(
             holds.add("DP443_PILOT_TRUST_NOT_VERIFIED")
 
     if checkpoint is not None:
-        if not isinstance(checkpoint, BatchCheckpoint):
+        if type(checkpoint) is not BatchCheckpoint or not exact_private_metadata(
+            checkpoint, (BatchCheckpoint, CompletedCapture)
+        ):
             holds.add("CHECKPOINT_INVALID")
         else:
             try:
@@ -359,7 +349,7 @@ def plan_historical_batch(
             except Exception:
                 holds.add("CHECKPOINT_EXTERNAL_TRUST_FAILED")
 
-    # Reject checkpoint items from a different person/source/capture.
+    # Fence foreign checkpoint items.
     by_content = {e.content_id: (m.person_id, e) for m in manifests for e in m.entries}
     eligible_keys: dict[str, tuple[str, str, str, str]] = {
         _work_key(person, e.source_family, e.content_id, e.source_version_sha256): (
@@ -389,18 +379,34 @@ def plan_historical_batch(
         holds.add("BATCH_INPUT_INVALID")
     if "BATCH_ITEM_CAP" in holds or "BATCH_INPUT_INVALID" in holds:
         return HistoricalBatchDecision(
-            "HELD", tuple(sorted(holds)), batch_id, corpus.manifest_fingerprint,
-            (), tuple(sorted(completed)), checkpoint_fingerprint, None,
+            "HELD",
+            tuple(sorted(holds)),
+            batch_id,
+            corpus.manifest_fingerprint,
+            (),
+            tuple(sorted(completed)),
+            checkpoint_fingerprint,
+            None,
         )
     cost_map: dict[str, BatchCost] = {}
     watch_map: dict[str, BatchWatch] = {}
     for row in costs[:MAX_BATCH_ITEMS]:
-        if not isinstance(row, BatchCost) or row.content_id in cost_map:
+        if (
+            type(row) is not BatchCost
+            or not exact_private_metadata(row, (BatchCost,))
+            or row.content_id in cost_map
+        ):
             holds.add("BATCH_COST_DUPLICATE_OR_INVALID")
         else:
             cost_map[row.content_id] = row
     for row in watches[:MAX_BATCH_ITEMS]:
-        if not isinstance(row, BatchWatch) or row.content_id in watch_map:
+        if (
+            type(row) is not BatchWatch
+            or not exact_private_metadata(
+                row, (BatchWatch, WatchPolicy, WatchState, WatchReadiness)
+            )
+            or row.content_id in watch_map
+        ):
             holds.add("BATCH_WATCH_DUPLICATE_OR_INVALID")
         else:
             watch_map[row.content_id] = row
@@ -421,7 +427,7 @@ def plan_historical_batch(
         key = _work_key(
             person_id, item.source_family, item.content_id, item.source_version_sha256
         )
-        # Deduplicate immutable captures, including archive copies; keep DP-243 membership.
+        # Deduplicate archive captures by origin.
         dedupe_key = (
             person_id,
             item.source_family,
@@ -429,7 +435,7 @@ def plan_historical_batch(
             item.origin_content_id or item.content_id,
         )
         if key in completed or dedupe_key in dedupe:
-            # Recheck rights/version on skipped captures without polling or charging.
+            # Recheck skipped-source rights/version.
             hold_prefix = "WATCH_COMPLETED" if key in completed else "WATCH_SKIPPED"
             watch = watch_map.get(item.content_id)
             if watch is None:
