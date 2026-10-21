@@ -377,7 +377,8 @@ def compare_private_event_sequence(
     _ref(right_event_ref, "RIGHT_EVENT")
     if left_event_ref == right_event_ref or claimed_order not in {"BEFORE", "AFTER"}:
         raise ValueError("SEQUENCE_QUESTION_INVALID")
-    if type(evidence) is not tuple or type(observations) is not tuple or len(observations) > 128:
+    if (type(evidence) is not tuple or len(evidence) > 128
+            or type(observations) is not tuple or len(observations) > 128):
         raise ValueError("SEQUENCE_OBSERVATIONS_INVALID")
 
     # Canonical records protect date, evidence and audit reads from copy hooks.

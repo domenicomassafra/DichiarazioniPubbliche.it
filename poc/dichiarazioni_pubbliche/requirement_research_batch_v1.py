@@ -128,8 +128,15 @@ def build_research_batch(
         raise ValueError("BATCH_INVALID_CLAIM")
     if not all(type(key) is str for key in evidence_by_claim):
         raise ValueError("BATCH_UNEXPECTED_CLAIM")
-    if any(type(rows) is not tuple or any(type(row) is not RequirementEvidence for row in rows)
-           for rows in evidence_by_claim.values()):
+    if any(type(rows) is not tuple for rows in evidence_by_claim.values()):
+        raise ValueError("BATCH_INVALID_EVIDENCE")
+    # Cap the inert input shape before visiting any individual row; the
+    # preflight has a fixed 128-row limit independently of the batch cap.
+    if (any(len(rows) > 128 for rows in evidence_by_claim.values())
+            or sum(len(rows) for rows in evidence_by_claim.values()) > max_evidence):
+        raise ValueError("BATCH_TOO_LARGE")
+    if any(type(row) is not RequirementEvidence
+           for rows in evidence_by_claim.values() for row in rows):
         raise ValueError("BATCH_INVALID_EVIDENCE")
     # Check field values as well as record/container types. A str subclass
     # can change rights, identity or dates while deepcopy executes its hooks.
@@ -150,8 +157,6 @@ def build_research_batch(
         raise ValueError("BATCH_DUPLICATE_CLAIM")
     if set(evidence_by_claim) != set(identifiers):
         raise ValueError("BATCH_UNEXPECTED_CLAIM")
-    if sum(len(rows) for rows in evidence_by_claim.values()) > max_evidence:
-        raise ValueError("BATCH_TOO_LARGE")
 
     items: list[ResearchGapItem] = []
     for claim in sorted(claims, key=lambda item: item.claim_id):
