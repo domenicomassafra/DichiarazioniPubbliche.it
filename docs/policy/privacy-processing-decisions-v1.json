@@ -10,7 +10,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     },
     "SOURCE_COPIES": {
       "purpose": "PRIVATE_SOURCE_CAPTURE_AND_EVIDENCE_PROVENANCE",
@@ -21,7 +25,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     },
     "PERSON_IDENTITIES": {
       "purpose": "BOUNDED_PUBLIC_ROLE_ATTRIBUTION",
@@ -32,7 +40,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     },
     "RIGHTS_REQUESTS": {
       "purpose": "PRIVATE_ACCESS_CORRECTION_RESTRICTION_AND_DELETION_CASES",
@@ -43,7 +55,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     },
     "OPERATIONAL_LOGS": {
       "purpose": "PRIVATE_SECURITY_AND_SERVICE_DIAGNOSTICS",
@@ -54,7 +70,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     },
     "BACKUPS": {
       "purpose": "PRIVATE_INTEGRITY_AND_DISASTER_RECOVERY",
@@ -65,7 +85,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     },
     "OPTIONAL_ACCOUNTS": {
       "purpose": "OPTIONAL_PRIVATE_READER_OIDC_MEMBERSHIP",
@@ -76,7 +100,11 @@
       "retention_receipt": null,
       "access_receipt": null,
       "owner_decision_url": null,
-      "owner_decision_date": null
+      "owner_decision_date": null,
+      "independent_review_model": null,
+      "independent_review_receipt": null,
+      "independent_review_sha": null,
+      "independent_review_outcome": null
     }
   },
   "special_handling": {

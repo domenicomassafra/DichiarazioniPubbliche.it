@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from copy import deepcopy
 from dataclasses import asdict, dataclass
-from typing import Mapping
 
 from .verification_requirements_v1 import (
     RequirementClaim, RequirementEvidence,
@@ -108,29 +108,37 @@ def _actions(claim: RequirementClaim, evidence: tuple[RequirementEvidence, ...],
 
 def build_research_batch(
     claims: tuple[RequirementClaim, ...],
-    evidence_by_claim: Mapping[str, tuple[RequirementEvidence, ...]],
+    evidence_by_claim: dict[str, tuple[RequirementEvidence, ...]],
     *, max_claims: int = _MAX_CLAIMS,
     max_evidence: int = _MAX_EVIDENCE,
 ) -> PrivateResearchBatch:
-    if (not isinstance(claims, tuple) or not isinstance(evidence_by_claim, Mapping)
-            or not isinstance(max_claims, int) or isinstance(max_claims, bool)
+    # Accept only inert built-in containers. An arbitrary Mapping can show
+    # revoked rows during validation and switch to approved rows at lookup.
+    if type(claims) is not tuple or type(evidence_by_claim) is not dict:
+        raise ValueError("BATCH_INPUT_UNSAFE")
+    if (
+            not isinstance(max_claims, int) or isinstance(max_claims, bool)
             or not isinstance(max_evidence, int) or isinstance(max_evidence, bool)
             or max_claims < 1 or max_claims > _MAX_CLAIMS
             or max_evidence < 1 or max_evidence > _MAX_EVIDENCE
             or len(claims) > max_claims):
         raise ValueError("BATCH_TOO_LARGE")
-    if any(not isinstance(claim, RequirementClaim) for claim in claims):
+    if any(type(claim) is not RequirementClaim for claim in claims):
         raise ValueError("BATCH_INVALID_CLAIM")
+    if not all(type(key) is str for key in evidence_by_claim):
+        raise ValueError("BATCH_UNEXPECTED_CLAIM")
+    if any(type(rows) is not tuple or any(type(row) is not RequirementEvidence for row in rows)
+           for rows in evidence_by_claim.values()):
+        raise ValueError("BATCH_INVALID_EVIDENCE")
+    # Preflight, remediation actions and hash all see this one detached
+    # metadata snapshot; never re-read the caller's mutable dictionary.
+    claims = deepcopy(claims)
+    evidence_by_claim = deepcopy(evidence_by_claim)
     identifiers = [claim.claim_id for claim in claims]
     if len(set(identifiers)) != len(identifiers):
         raise ValueError("BATCH_DUPLICATE_CLAIM")
-    if (not all(isinstance(key, str) for key in evidence_by_claim)
-            or set(evidence_by_claim) != set(identifiers)):
+    if set(evidence_by_claim) != set(identifiers):
         raise ValueError("BATCH_UNEXPECTED_CLAIM")
-    if any(not isinstance(rows, tuple) or
-           any(not isinstance(row, RequirementEvidence) for row in rows)
-           for rows in evidence_by_claim.values()):
-        raise ValueError("BATCH_INVALID_EVIDENCE")
     if sum(len(rows) for rows in evidence_by_claim.values()) > max_evidence:
         raise ValueError("BATCH_TOO_LARGE")
 
