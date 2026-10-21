@@ -60,7 +60,7 @@ with open(os.devnull, "w", encoding="utf-8") as sink, contextlib.redirect_stdout
     snapshot = snapshots[0] if len(snapshots) == 1 else None
     snapshot_state = str(snapshot.status).lower() if snapshot else "missing"
     if snapshot and snapshot_state == "sealed":
-        result = snapshot.archiveresult_set.filter(plugin="readability", status="sealed").first()
+        result = snapshot.archiveresult_set.filter(plugin="readability", status="succeeded").first()
         output = Path(result.output_dir) if result else None
         if not output or not output.is_dir() or not any(
             path.is_file() for path in output.rglob("*")
