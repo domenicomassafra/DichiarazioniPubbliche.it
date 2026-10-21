@@ -13,10 +13,12 @@ from decimal import Decimal
 from typing import Any, Mapping
 
 from dichiarazioni_pubbliche.claim_research_plan import ClaimResearchPlan
+from dichiarazioni_pubbliche.research_discovery import MAX_QUERIES
 
 
 CHALLENGER_RESEARCH_VERSION = "challenger-research-v1"
 DEFAULT_MAX_CHALLENGER_ASSIGNMENTS = 8
+DEFAULT_MAX_CHALLENGER_QUERIES = MAX_QUERIES
 DEFAULT_MAX_CHALLENGER_RESULTS = 40
 DEFAULT_MAX_CHALLENGER_COST_USD = Decimal("1.00")
 
@@ -64,6 +66,7 @@ def compile_challenger_research_request(
     plan: ClaimResearchPlan,
     *,
     max_assignments: int = DEFAULT_MAX_CHALLENGER_ASSIGNMENTS,
+    max_total_queries: int = DEFAULT_MAX_CHALLENGER_QUERIES,
     max_total_results: int = DEFAULT_MAX_CHALLENGER_RESULTS,
     max_total_cost_usd: Decimal | str | float = DEFAULT_MAX_CHALLENGER_COST_USD,
 ) -> ChallengerResearchRequest:
@@ -79,6 +82,8 @@ def compile_challenger_research_request(
         raise ValueError("CHALLENGER_RESEARCH_CLAIM_ID_REQUIRED")
     if not 1 <= int(max_assignments) <= 32:
         raise ValueError("CHALLENGER_RESEARCH_ASSIGNMENT_CAP_INVALID")
+    if type(max_total_queries) is not int or not 1 <= max_total_queries <= MAX_QUERIES:
+        raise ValueError("CHALLENGER_RESEARCH_QUERY_CAP_INVALID")
     if not 1 <= int(max_total_results) <= 500:
         raise ValueError("CHALLENGER_RESEARCH_RESULT_CAP_INVALID")
     cost_limit = Decimal(str(max_total_cost_usd))
@@ -96,10 +101,13 @@ def compile_challenger_research_request(
     if any(row.status != "READY" for row in challenger_rows):
         blockers.append("CHALLENGER_ASSIGNMENT_BLOCKED")
 
+    total_queries = sum(row.max_queries for row in challenger_rows)
     total_results = sum(row.max_results for row in challenger_rows)
     total_cost = sum((row.cost_cap_usd for row in challenger_rows), Decimal("0"))
     if len(challenger_rows) > int(max_assignments):
         blockers.append("CHALLENGER_ASSIGNMENT_CAP_EXCEEDED")
+    if total_queries > max_total_queries:
+        blockers.append("CHALLENGER_QUERY_BUDGET_EXCEEDED")
     if total_results > int(max_total_results):
         blockers.append("CHALLENGER_RESULT_BUDGET_EXCEEDED")
     if total_cost > cost_limit:
@@ -110,7 +118,7 @@ def compile_challenger_research_request(
     adapter_ids = tuple(
         dict.fromkeys(adapter for row in challenger_rows for adapter in row.adapter_ids)
     )
-    max_queries = sum(row.max_queries for row in challenger_rows)
+    max_queries = total_queries
     max_per_host = min(
         (row.max_results_per_host for row in challenger_rows),
         default=0,
@@ -154,6 +162,7 @@ def compile_challenger_research_request(
 __all__ = [
     "CHALLENGER_RESEARCH_VERSION",
     "DEFAULT_MAX_CHALLENGER_ASSIGNMENTS",
+    "DEFAULT_MAX_CHALLENGER_QUERIES",
     "DEFAULT_MAX_CHALLENGER_COST_USD",
     "DEFAULT_MAX_CHALLENGER_RESULTS",
     "ChallengerResearchRequest",

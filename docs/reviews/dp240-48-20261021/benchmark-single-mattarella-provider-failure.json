@@ -1,0 +1,111 @@
+{
+  "date_utc": "2026-10-21T00:37:24.931130+00:00",
+  "host": "matebooklinux",
+  "model_requested": "antigravity/gemini-3.8-flash-tiered",
+  "command": "pi -p --model <model> --thinking high --no-tools --no-mcp --no-session --no-context-files --mode json",
+  "prompt": "Esperimento DP-240 #48, record pubblico, analisi esclusivamente privata. Per OGNI item indica il parlante del SOLO passaggio virgolettato, il ruolo, la fonte originale e l'ID. Non confondere narratore, altra persona citata e parlante. Se l'attribuzione non e' sostenuta scrivi speaker=null e HELD. Rispondi SOLO con JSON object, campo items array: {id,content_id,speaker,role,attribution_status,source_url,reason}. Non attribuire un passaggio a un'altra fonte. Non inventare verifiche, costs, o authority. Input:\n[{\"content_id\": \"content:dp240:mattarella:2019-12-03\", \"context\": \"Alla presenza del Presidente della Repubblica, Sergio Mattarella, e dopo una dichiarazione attribuita a Giuseppe Conte, il testo introduce le parole del Capo dello Stato. Altri interventi appartengono a Carlo Blangiardo (ISTAT) e Franco Bettoni (INAIL).\", \"date\": \"2019-12-03\", \"id\": \"mattarella-2019-12-03\", \"passage\": \"Aiutare i disabili non è un problema solo di assistenza. E' anche e naturalmente di assistenza, ma soprattutto di sostegno e di interventi per consentire opportunità e la realizzazione delle persone con disabilità.\", \"url\": \"https://disabilita.governo.it/it/notizie/giornata-internazionale-delle-persone-con-disabilita-conte-annuncia-istituzione-ufficio-permanente/\"}]",
+  "prompt_sha256": "ded2959ae5b617252a91aaff8966011af68b6ca784b52305d11a1e6b53058a67",
+  "exit_code": 0,
+  "agent_settled": true,
+  "elapsed_ssh_seconds": 29.909,
+  "remote_peak_rss_kb": null,
+  "remote_elapsed_seconds": null,
+  "usage_events": [
+    {
+      "model": "gemini-3.8-flash-tiered",
+      "provider": "antigravity",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "stopReason": "error",
+      "responseModel": null
+    },
+    {
+      "model": "gemini-3.8-flash-tiered",
+      "provider": "antigravity",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "stopReason": "error",
+      "responseModel": null
+    },
+    {
+      "model": "gemini-3.8-flash-tiered",
+      "provider": "antigravity",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "stopReason": "error",
+      "responseModel": null
+    },
+    {
+      "model": "gemini-3.8-flash-tiered",
+      "provider": "antigravity",
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 0,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0
+        }
+      },
+      "stopReason": "error",
+      "responseModel": null
+    }
+  ],
+  "answer": "",
+  "stderr_tail": "",
+  "event_kinds": [
+    "agent_end",
+    "agent_settled",
+    "agent_start",
+    "auto_retry_end",
+    "auto_retry_start",
+    "entry_appended",
+    "message_end",
+    "message_start",
+    "session",
+    "turn_end",
+    "turn_start"
+  ],
+  "scope": "private model observation only; no public attribution or publication"
+}

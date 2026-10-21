@@ -1,0 +1,12 @@
+DP-239 independent adversarial DE->IT meaning-risk annotation (2026-10-21). You are independently annotating a frozen candidate matrix for a private source-only test. Do not consult or assume the other model's responses. These 8 cases are SYNTHETIC, not real-world claims, and must never be claimed as authentic statements. Original/translation pairs follow; compare exact meaning and return JSON with reviewer, date, cases (array of {id, verdict:FAITHFUL|MISMATCH|UNRESOLVED, expected_alerts:[codes], speaker_relation, endorsement_status, explanation}), uncertainty, conflicts_of_interest, limitations. Allowed risk codes only: NEGATION_MISMATCH, NUMBER_MISMATCH, DATE_MISMATCH, MODALITY_MISMATCH, JUDICIAL_STATUS_MISMATCH, ACTOR_ANCHOR_CHANGED, ACTOR_ORDER_CHANGED, REPORTED_SPEECH_MISMATCH, QUOTE_MARKER_MISMATCH, QUOTED_SPEAKER_ENDORSEMENT_UNVERIFIED. Mark meaning risk conservatively. Do not infer external evidence or legal rights. Output JSON only.
+
+C0 faithful: DE "Anna muss Bruno nicht am 10.11.2026 vor Gericht sehen." IT "Anna non deve vedere Bruno in tribunale il 10/11/2026."
+C1 negation: DE "Anna muss Bruno nicht sehen." IT "Anna deve vedere Bruno."
+C2 number: DE "Anna bezahlte −12 Euro." IT "Anna ha pagato 12 euro."
+C3 date: DE "Anna kam am 10.11.2026." IT "Anna è arrivata il 11/11/2026."
+C4 subject: DE "Anna traf Bruno." IT "Bruno ha incontrato Anna."
+C5 modality: DE "Anna darf gehen." IT "Anna deve andare."
+C6 reported-vs-endorsed and quotation: DE "Der Minister sagte: „Der Impfstoff wirkt nicht.“" IT "Il ministro afferma che il vaccino funziona."
+C7 judicial status: DE "Das Gericht hat Anna freigesprochen." IT "Il tribunale ha condannato Anna."
+
+Each model should independently label risks from the text. Some code lexemes are only heuristic and may miss a semantic error: state uncertainty and do not upgrade to published certainty. This set tests DE->IT only; unknown/mixed/unsupported pairs fail closed. No AI reviewer alone grants translation publication.

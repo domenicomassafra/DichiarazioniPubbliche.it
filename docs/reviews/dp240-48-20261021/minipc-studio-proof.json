@@ -1,0 +1,51 @@
+{
+  "date_utc": "2026-10-21T00:55:58.795236+00:00",
+  "scope": "private disposable SQLite; no production corpus, Studio DB or publication changes",
+  "collection": "collection:dp240:48:20261021",
+  "plan_sha256": "a38f6de5de5d534f21027689c34dd7a213649a8d043f257907550ee7dfd213b2",
+  "manifest_sha256": "634380c267d4c2fc1af20a12a51448c81ca169de127836daa97a7bab69062a37",
+  "batch_receipt_sha256": "c60bcb6aaf62045d93a657c29ba1188aa63709131d9c579fbed935d7f412d0a5",
+  "wrong_cross_source_refused": true,
+  "plan_items": 2,
+  "isolated_partitions": 2,
+  "store_revision": 0,
+  "replay_idempotent": true,
+  "studio_operator_status": "HELD_PRIVATE_OPERATOR_PREVIEW",
+  "studio_items": [
+    {
+      "passage_id": "passage:dp240:mattarella-2019-12-03",
+      "content_id": "content:dp240:mattarella:2019-12-03",
+      "speaker_candidate_id": "person-candidate:mattarella",
+      "operator_status": "HELD_SOURCE_OR_ATTRIBUTION",
+      "reason_code": "MULTIPERSON_QUOTATION_NOT_ENDORSEMENT"
+    },
+    {
+      "passage_id": "passage:dp240:meloni-2024-09-17",
+      "content_id": "content:dp240:meloni:2024-09-17",
+      "speaker_candidate_id": "person-candidate:meloni",
+      "operator_status": "HELD_SOURCE_OR_ATTRIBUTION",
+      "reason_code": "MULTIPERSON_QUOTATION_NOT_ENDORSEMENT"
+    }
+  ],
+  "source_span_matches": {
+    "meloni-2024-09-17": {
+      "exact_after_whitespace_normalization": true,
+      "prefix_50_found": true,
+      "model_text_is_source_exact": true,
+      "original_passage_sha256": "5f6233609fdd630c2ba316e340e136f02b19e93d3c799bbe9b0980b7cd044537",
+      "model_passage_sha256": "5f6233609fdd630c2ba316e340e136f02b19e93d3c799bbe9b0980b7cd044537"
+    },
+    "mattarella-2019-12-03": {
+      "exact_after_whitespace_normalization": true,
+      "prefix_50_found": true,
+      "model_text_is_source_exact": false,
+      "original_passage_sha256": "0b4519877778721d0abb08529fdfcdd6103f39aa2a9b47efbfd62aabab5b1860",
+      "model_passage_sha256": "4f3e5123ec2daf661c8cb786fa28c8616e818ad93348f113261a350518f93746"
+    }
+  },
+  "rights_html_sha256_by_id": {
+    "meloni-2024-09-17": "7ab52d00939cb87563529980935d2f1f291308f5182375e0808bfe3e4a55a546",
+    "mattarella-2019-12-03": "55b30faf0963b9ddb5602a2c9e40909729c9fdfc990c79ec18b48ac23f80c6ea"
+  },
+  "publication_authority": false
+}

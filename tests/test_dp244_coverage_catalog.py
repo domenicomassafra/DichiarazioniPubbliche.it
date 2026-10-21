@@ -352,6 +352,17 @@ class CoverageCatalogTests(unittest.TestCase):
             observation(status="OUTAGE", source_version=None, content_sha256=None,
                         observation_receipt_id=None, rights_status="UNKNOWN")
 
+    def test_readiness_gates_reject_truthy_nonbooleans(self):
+        for key, wrong in (("rights_ready", "DENIED"), ("budget_ready", "false"),
+                           ("capability_ready", 1)):
+            with self.subTest(gate=key):
+                gates = {"rights_ready": True, "budget_ready": True, "capability_ready": True}
+                gates[key] = wrong
+                with self.assertRaisesRegex(ValueError, "COVERAGE_READINESS_INVALID"):
+                    build_source_coverage(
+                        unit(), (observation(),), now=NOW, baseline_sha256=SHA, **gates,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

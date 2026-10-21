@@ -2,8 +2,15 @@
 
 Status: **OPEN — BLOCKING for public launch**
 Register version: `legal-closure-v1`
-Last evidence collection: 2026-09-26
+Evidence snapshot: 2026-09-26; research update: 2026-10-20
 Owner of this register: product owner (technical register only)
+
+**Owner research decision, 2026-10-20:** the [outside-counsel requirement was
+withdrawn](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/55#issuecomment-6287288216).
+The [16 primary-source answers](legal-research-decisions-2026-10-20.md)
+and [ADR 0010](../adr/0010-conservative-owner-legal-research.md) govern
+conservative design. The original tables remain a 26 September snapshot;
+OPEN/BLOCKED launch statuses continue until real case/source clearance.
 
 ## What this document is, and is not
 
@@ -15,11 +22,10 @@ DP-306 ticket. It records:
 - the status of each question;
 - the safe default that applies while it is open.
 
-It is **not** legal advice, a legal opinion, or an assurance of compliance. No row
-in this register is `DECIDED`. A row may only become `DECIDED` when the named
-qualified reviewer and the product owner accept a dated disposition (P-306-02).
-An agent or maintainer can organise evidence but **cannot** supply the legal
-conclusion (P-306-02, B-306-04).
+This register is **not** professional legal advice or assurance of compliance.
+No row is yet `DECIDED`: owner acceptance of a specific deployment decision,
+its conditions and evidence is required. The owner delegated primary-source
+research and cautious product choices, not unconditional public authorization.
 
 Per P-306-01 (no implicit closure): the absence of an answer is never permission.
 Every question below is currently `OPEN` or `BLOCKING`.
@@ -30,9 +36,9 @@ Every question below is currently `OPEN` or `BLOCKING`.
 |---|---|
 | `OPEN` | Question is unanswered; safe default applies. |
 | `EVIDENCE_COLLECTED` | Official primary sources retrieved and read; no decision yet. |
-| `DECIDED` | Qualified reviewer **and** owner accepted a dated decision. **None today.** |
+| `DECIDED` | Owner accepted a dated, scoped disposition with evidence. **None yet.** |
 | `DEFERRED` | Deliberately postponed with a recorded rationale. |
-| `BLOCKED` | A prerequisite (qualified reviewer, deployment assumption) is missing. |
+| `BLOCKED` | A deployment assumption or operational prerequisite is missing. |
 
 ## Evidence retrieval method and its limits
 
@@ -41,19 +47,11 @@ requests to official publishers. For each row marked *retrieved*, the exact URL 
 the document identifier from the Official Journal header were confirmed by reading
 the returned document.
 
-**Honest limits of this session, stated up front:**
-
-1. Only English-language consolidated texts on EUR-Lex were retrieved. The
-   authentic Italian consolidated version of each instrument was **not** read.
-2. Italian national portals (`normattiva.it`, `gazzettaufficiale.it`,
-   `garanteprivacy.it`, `agcom.it`) were reachable at HTTP level, but their
-   article-level text is rendered client-side and was **not** obtained in this
-   session. No Italian article number is asserted anywhere below.
-3. No Garante or AGCOM measure was read. They are listed as `UNVERIFIED` targets,
-   not as evidence.
-4. Locating the applicable instrument is **not** deciding whether, when, or how it
-   applies to this product. Applicability depends on the deployment model, which is
-   an owner decision (Q-306-16). Nothing below is a legal conclusion.
+**Historical limits (26 September):** only English EUR-Lex documents were
+read; Italian article text and Garante measures had not been retrieved.
+The 20 October packet adds the Italian Privacy Code Arts. 136–139, Garante
+deontology, Normattiva and relevant case law. Source retrieval still does
+not establish the legality of a particular publication.
 
 ## Verified primary sources (retrieved and read 2026-09-26)
 
@@ -63,7 +61,7 @@ the returned document.
 | S2 | Directive (EU) 2019/790 (CDSM) | `https://www.eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0790` | `L_2019130EN.01009201.xml`, OJ L 130, 17.5.2019 | Art. 3; Art. 4; Recitals 18 and 44 |
 | S3 | Directive 2001/29/EC (InfoSoc) | `https://www.eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX%3A32001L0029` | Directive 2001/29/EC | Art. 5(3)(a); Art. 5(3)(c) |
 | S4 | Regulation (EU) 2022/2065 (DSA) | `https://www.eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX%3A32022R2065` | `L_2022277EN.01000101.xml`, OJ L 277, 27.10.2022 | Art. 3 definitions; Art. 16; Art. 17 |
-| S5 | Regulation (EU) 2024/1689 (AI Act) | `https://www.eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX%3A32024L1689` | `L_202401689EN.000101.fmx.xml`, OJ L series 2024/1689, 12.7.2024 | Art. 4; Art. 50(1); Art. 50(2); Art. 50(4) |
+| S5 | Regulation (EU) 2024/1689 (AI Act) | `https://www.eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX%3A32024R1689` | `L_202401689EN.000101.fmx.xml`, OJ L series 2024/1689, 12.7.2024 | Art. 4; Art. 50(1); Art. 50(2); Art. 50(4) |
 
 ### Verified text of the load-bearing provisions
 
@@ -135,7 +133,7 @@ interpretation.
 > particular situation, at any time to processing of personal data concerning him or
 > her which is based on point (e) or (f) of Article 6(1) …"
 
-**S3 — InfoSoc Art. 5(3)(a)** (the general quotation/illustration exception):
+**S3 — InfoSoc Art. 5(3)(a)** (teaching/scientific illustration, not general quotation):
 > "use for the sole purpose of illustration for teaching or scientific research, as
 > long as the source, including the author's name, is indicated, unless this turns
 > out to be impossible and to the extent justified by the non-commercial purpose to
@@ -286,9 +284,9 @@ assigned, the row must receive a dated review and next-review date before it can
 | Q-306-15 | Italy/EU; public site/intake/operations documents, contacts and incident process | No qualified decision; no launch without owned contacts/runbooks | UNASSIGNED — no qualified review date | DP-304; DP-501/DP-702 | Terms/privacy/contact/complaint/security-process or deployment-owner review | UNSCHEDULED — external reviewer not assigned |
 | Q-306-16 | All affected jurisdictions; every M3/M4/M5 product/data/deployment surface | No closure decision; material change reopens dependent rows | UNASSIGNED — no qualified review date | DP-306/DP-307; all linked M3/M4/M5 policies | Material source, data, product, model, public-copy, hosting or jurisdiction review | UNSCHEDULED — external reviewer not assigned |
 
-No row above records legal advice or a legal conclusion. The qualified disposition,
-assumptions, conditions, review date, accepted policy version, and next-review date are
-external DP-307 inputs. Until they exist, the matching closure-table row remains
+No row above attests legal compliance. Specific publication assumptions,
+evidence, owner acceptance, conditions, review date and policy version remain
+DP-307 deployment inputs. Until they exist, the matching closure-table row remains
 `OPEN`/`BLOCKED` and its safe default continues to apply.
 
 A future `DECIDED` row must replace `UNASSIGNED`/`UNSCHEDULED` with the accepted
@@ -297,8 +295,8 @@ and next-review date. Merely changing the status string is invalid.
 
 ## Explicitly NOT verified
 
-Per the no-fabrication rule, the following are recorded as `UNVERIFIED` and carry no
-article number, no quotation, and no conclusion:
+In the 26 September snapshot, these were `UNVERIFIED`. See the October
+packet for subsequent research:
 
 | Target | URL contacted | Outcome | Why UNVERIFIED |
 |---|---|---|---|
@@ -310,17 +308,16 @@ article number, no quotation, and no conclusion:
 | Garante guidance on journalism/public-interest archiving | — | Not retrieved | No EDPB/Garante document was read |
 | EDPB guidance | — | Not retrieved | No EDPB document was read |
 
-These gaps are **not** closed by this register. They are the first work item for
-DP-307.
+The Italian implementing-law research is updated in the October packet;
+unresolved case-specific facts remain blocked.
 
 ## Handoff to DP-307
 
 Per E-306-06, the counsel-ready packet is: this register; the verified source texts
 S1–S5; the 16 open/blocked questions; the safe default per row; the affected
-surfaces; and the requested decisions. The single most important requested decision
-is **the Italian implementation of GDPR Art. 85** (S1), because it determines whether
-the neutral claim-level assessment model the code enforces is sufficient, and under
-what conditions.
+surfaces; and the requested decisions. The October packet addresses the
+Italian implementation of GDPR Art. 85, but individual publication approval
+still requires actual source/rights/privacy/essentiality evidence.
 
 No privileged advice, personal data, or confidential content is present in this
 repository document (B-306-06).
