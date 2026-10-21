@@ -1685,13 +1685,12 @@ _PAGE = """<!doctype html>
             return;
           }
           status.textContent = response.ok ? 'Dati privati di sola lettura recuperati.' : 'Accesso negato o dati non disponibili.';
-          results.textContent = form === compareForm
-            ? 'Confronto Capture privato: coordinate e hash validati nel pannello Catture.'
+          results.textContent = [compareForm, capturePassageForm, mediaForm].includes(form)
+            ? 'Solo coordinate e hash verificati nel pannello Catture.'
             : JSON.stringify(receipt, null, 2);
-          if (response.ok && form.dataset.endpoint === '/v1/media/segment'
-              && receipt.data?.canonical_segment) {
-            const segment = receipt.data.canonical_segment;
-            mediaLocator.textContent = 'Segmento ' + segment.id + ' · '
+          if (response.ok && form === mediaForm) {
+            const segment = safeMediaSegment(receipt, data);
+            if (segment) mediaLocator.textContent = 'Segmento ' + segment.id + ' · '
               + (segment.start_ms / 1000) + '–' + (segment.end_ms / 1000)
               + ' secondi · stato ' + segment.transcript_status
               + (segment.publication_blocked ? ' · pubblicazione bloccata' : '')

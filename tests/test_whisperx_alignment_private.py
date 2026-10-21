@@ -108,6 +108,26 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
         self.assertEqual(proposal.provenance["source_segment_sha256"], "b" * 64)
         self.assertEqual(command.call_args.kwargs["env"]["HF_HUB_OFFLINE"], "1")
 
+    def test_candidate_identity_tracks_actual_word_alignment(self):
+        first, _ = self._run()
+        shifted = [dict(word) for word in WORDS]
+        shifted[1]["end"] = .75
+        shifted[2]["start"] = .90
+        second, _ = self._run(output=shifted)
+        repeated, _ = self._run()
+
+        # Both runs have the same input/model/rights and the same outer time range.
+        # Different accepted inner word boundaries must not silently share an ID.
+        self.assertEqual(
+            (first.candidate.start_ms, first.candidate.end_ms),
+            (second.candidate.start_ms, second.candidate.end_ms),
+        )
+        self.assertNotEqual(first.words, second.words)
+        self.assertNotEqual(first.candidate.candidate_id, second.candidate.candidate_id)
+        self.assertNotEqual(first.provenance["alignment_output_sha256"],
+                            second.provenance["alignment_output_sha256"])
+        self.assertEqual(first.candidate.candidate_id, repeated.candidate.candidate_id)
+
     def test_worker_stdout_and_stderr_are_bounded_without_parent_pipe_capture(self):
         _, command = self._run()
         opts = command.call_args.kwargs

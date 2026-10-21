@@ -127,6 +127,15 @@ class ClassificationTests(unittest.TestCase):
     def test_unknown_source_status_falls_back(self):
         self.assertEqual(classify_source_status("WEIRD").state, "UNKNOWN")
 
+    def test_policy_denial_has_its_own_source_health_action(self):
+        # DP-515 persists POLICY_BLOCKED on rights/relevance denial; that
+        # receipt must never look like an unreadable source-health probe.
+        self.assertIn("POLICY_BLOCKED", SOURCE_HEALTH_STATES)
+        entry = classify_source_status("POLICY_BLOCKED")
+        self.assertEqual(entry.state, "POLICY_BLOCKED")
+        self.assertFalse(entry.page)
+        self.assertIn("rights", entry.operator_action.lower())
+
 
 class ActionableNoiseTests(unittest.TestCase):
     """DP-505: the digest must be actionable, not noisy."""

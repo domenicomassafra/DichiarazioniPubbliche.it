@@ -149,7 +149,12 @@ const sourceJump = ids.get('corpus-source-jump');
 const jumpStatus = ids.get('corpus-jump-status');
 
 function complete(index, data) {
-  requests[index].resolve({ok: true, json: async () => ({data})});
+  const request = requests[index], media = request.path === '/v1/media/segment';
+  if (media) data = {contract_version:'studio-media-selector-inspection-v1',
+    private_only:true,publication_authority:false,rights_clearance:false,
+    attribution_authority:false,...JSON.parse(request.options.body),...data};
+  request.resolve({ok:true,json:async()=>({
+    ...(media?{contract_version:'studio-local-readonly-api-v1'}:{}),data})});
 }
 function corpusReply(index, rows, overrides = {}) {
   const data = {
@@ -221,16 +226,16 @@ async function main() {
   back.fire('click');
   assert.equal(corpusList.hidden, false);
   assert.equal(inspector.hidden, true);
-  assert.equal(corpusForm.fields.query, 'termine privato', 'return retains query');
-  assert.equal(corpusForm.fields.kind, 'PASSAGE', 'return retains kind');
-  assert.equal(corpusForm.fields.collection_id, 'research:garlasco', 'return retains collection');
-  assert.equal(corpusForm.fields.source_id, 'source:original', 'return retains source');
-  assert.equal(corpusLinks.children[0].focused, true, 'return restores keyboard selection');
+  assert.equal(corpusForm.fields.query, 'termine privato', 'query retained');
+  assert.equal(corpusForm.fields.kind, 'PASSAGE', 'kind retained');
+  assert.equal(corpusForm.fields.collection_id, 'research:garlasco', 'collection retained');
+  assert.equal(corpusForm.fields.source_id, 'source:original', 'source retained');
+  assert.equal(corpusLinks.children[0].focused, true, 'focus restored');
 
   const malformedSearch = corpusForm.fire('submit');
   corpusReply(2, [{...safeResult, private_body: 'DO_NOT_ECHO_PRIVATE'}]);
   await malformedSearch;
-  assert.equal(corpusLinks.children.length, 0, 'unexpected fields fail closed');
+  assert.equal(corpusLinks.children.length, 0, 'unknown fields held');
   assert.doesNotMatch(results.textContent, /DO_NOT_ECHO_PRIVATE/);
 
   const lateSearch = corpusForm.fire('submit');
@@ -238,9 +243,9 @@ async function main() {
   clear.fire('click');
   corpusReply(3, [safeResult]);
   await lateSearch;
-  assert.equal(corpusLinks.children.length, 0, 'late search cannot restore after token clear');
-  assert.equal(corpusForm.fields.query, '', 'disconnect scrubs private query');
-  assert.equal(corpusForm.fields.source_id, '', 'disconnect scrubs source filter');
+  assert.equal(corpusLinks.children.length, 0, 'late search held');
+  assert.equal(corpusForm.fields.query, '', 'query scrubbed');
+  assert.equal(corpusForm.fields.source_id, '', 'filter scrubbed');
 
   token.value = 'a'.repeat(64);
   const membersRequest = forms['/v1/collections/members'].fire('submit');
@@ -248,7 +253,7 @@ async function main() {
     content_id: 'content:secret', rights_status: 'UNKNOWN', processing_status: 'HELD',
   }]});
   await membersRequest;
-  assert.equal(members.children.length, 1, 'fixture must render a private link');
+  assert.equal(members.children.length, 1, 'private link rendered');
 
   const mediaRequest = forms['/v1/media/segment'].fire('submit');
   complete(5, {canonical_segment: {
@@ -256,17 +261,17 @@ async function main() {
     transcript_status: 'RESOLVED', publication_blocked: true,
   }});
   await mediaRequest;
-  assert.match(media.textContent, /segment:secret/, 'fixture must render private location');
+  assert.match(media.textContent, /segment:secret/, 'valid media locator');
 
   const pending = forms['/v1/corpus/search'].fire('submit');
   clear.fire('click');
   assert.equal(token.value, '');
-  assert.equal(members.children.length, 0, 'clear must hide previously fetched private links');
-  assert.doesNotMatch(media.textContent, /segment:secret/, 'clear must hide prior media locator');
+  assert.equal(members.children.length, 0, 'links cleared');
+  assert.doesNotMatch(media.textContent, /segment:secret/, 'locator cleared');
   complete(6, {private_marker: 'STALE_PRIVATE_AFTER_CLEAR'});
   await pending;
   assert.doesNotMatch(results.textContent, /STALE_PRIVATE_AFTER_CLEAR/,
-                      'late response must not restore private output after disconnect');
+                      'stale output blocked');
   assert.match(status.textContent, /disconnesso/i);
 
   token.value = 'b'.repeat(64);
@@ -284,13 +289,10 @@ async function main() {
   await latestRequest;
   complete(7, {private_marker: 'STALE_PRIOR_WORKSPACE'});
   await oldRequest;
-  assert.match(results.textContent, /segment:latest/,
-               'newer workspace result should remain visible');
+  assert.match(results.textContent, /Solo coordinate e hash verificati/);
   assert.doesNotMatch(results.textContent, /STALE_PRIOR_WORKSPACE/,
-                      'older workspace response must not overwrite newer result');
+                      'older reply held');
   assert.match(media.textContent, /segment:latest/);
-  // Capture comparisons are covered by studio_capture_diff_dom.cjs, using
-  // the complete version-bound read contract and explicit late-response races.
   const decisionForm = forms['/v1/candidate/decision-receipt'];
   for (const [field,value] of Object.entries({
     candidate_id:'candidate:one',run_id:'run:one',capture_id:'capture:one',
