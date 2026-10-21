@@ -1,11 +1,4 @@
-"""Operator-local, static, keyboard-native DP-418 review inspection.
-
-This HTML is never part of the public web bundle and cannot make decisions.
-It displays only whitelisted metadata from the validated Studio backend
-receipt; source/candidate words and private evidence bodies stay server-side.
-Review handoff status is supplied by actual queue.read(), not inferred from
-the matching algorithm.
-"""
+"""Private operator-local DP-418 inspection; no publication authority."""
 
 from __future__ import annotations
 
@@ -19,6 +12,12 @@ from dichiarazioni_pubbliche.studio_candidate_review import (
     inspect_candidate_review_readiness,
 )
 from dichiarazioni_pubbliche.candidate_matching import MATCHING_VERSION
+from dichiarazioni_pubbliche.studio_candidate_source_guard import (
+    validate_source_context as _target_source,
+)
+from dichiarazioni_pubbliche.studio_candidate_quote_panel import (
+    QUOTE_REVIEW_SCRIPT, quote_review_panel,
+)
 
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
 _CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
@@ -41,7 +40,6 @@ _CLASS_EXPLANATIONS = {
 _DISPOSITIONS = {"PROPOSE_CLUSTER", "NO_CLUSTER", "HOLD"}
 
 DP418_COMPARISON_VERSION = "studio-candidate-source-comparison-v1"
-_TARGET_RIGHTS = {"CLEARED", "UNKNOWN", "REVOKED", "EXPIRED", "DENIED"}
 
 
 class PersistedTargetSourceReader(Protocol):
@@ -52,59 +50,6 @@ class PersistedTargetSourceReader(Protocol):
     ) -> Mapping[str, object] | None: ...
 
 
-def _target_source(
-    raw: object,
-    *,
-    target_type: str,
-    target_id: str,
-    content_id: str,
-    provenance_key: str,
-) -> dict[str, str] | None:
-    if raw is None:
-        return None
-    if not isinstance(raw, Mapping):
-        raise ValueError("DP418_COMPARISON_TARGET_BINDING_INVALID")
-    if (
-        raw.get("member_type") != target_type
-        or raw.get("member_id") != target_id
-        or raw.get("content_id") != content_id
-        or raw.get("passage_id") != provenance_key
-    ):
-        raise ValueError("DP418_COMPARISON_TARGET_BINDING_INVALID")
-    for key in ("member_id", "member_type", "content_id", "passage_id", "capture_id"):
-        _reference(raw.get(key))
-    _hash(raw.get("capture_sha256"))
-    if (
-        raw.get("rights_status") not in _TARGET_RIGHTS
-        or raw.get("capture_status") not in {"CAPTURED", "PURGED_BODY", "QUARANTINED"}
-        or raw.get("capture_hold_status")
-        not in {
-            "NONE",
-            "RIGHTS",
-            "RIGHTS_HOLD",
-            "PRIVACY_HOLD",
-            "COPYRIGHT_HOLD",
-            "LEGAL_HOLD",
-            "DISPUTE_HOLD",
-        }
-    ):
-        raise ValueError("DP418_COMPARISON_TARGET_SOURCE_STATE_INVALID")
-    return {
-        key: str(raw[key])
-        for key in (
-            "member_id",
-            "member_type",
-            "content_id",
-            "passage_id",
-            "capture_id",
-            "capture_sha256",
-            "rights_status",
-            "capture_status",
-            "capture_hold_status",
-        )
-    }
-
-
 def build_candidate_comparison_read_model(
     match_store: Any,
     promotion_store: Any,
@@ -113,13 +58,7 @@ def build_candidate_comparison_read_model(
     run_id: str,
     claim_candidate_id: str,
 ) -> dict[str, object]:
-    """Compare a persisted DP-212 run with *separate* current source readbacks.
-
-    Reuses canonical DP-418 match/currentness/promotion blocker checks. This
-    model never exposes raw wording, scores or permissions. Per-target source
-    lookup is required; it may return an explicit unavailable exception, not
-    a synthetic positive match. A source read alone does not prove rights.
-    """
+    """Compare persisted matches against independently persisted source states."""
     packet = inspect_candidate_review_readiness(
         match_store,
         promotion_store,
@@ -149,8 +88,6 @@ def build_candidate_comparison_read_model(
     for key in ("passage_id", "capture_id"):
         _reference(source.get(key))
     _hash(source.get("capture_sha256"))
-    # DP-117 context is already exact-bound to the candidate/Content by the
-    # inspector; re-read the private occurrence for the held Capture state.
     candidate_input = match_store.load_candidate(claim_candidate_id)
     candidate = getattr(candidate_input, "proposition", None)
     if (
@@ -177,6 +114,23 @@ def build_candidate_comparison_read_model(
         or original.get("capture_sha256") != source["capture_sha256"]
     ):
         raise ValueError("DP418_COMPARISON_CANDIDATE_SOURCE_BINDING_INVALID")
+    candidate_source = _target_source(
+        target_source_store.source_context("CLAIM_CANDIDATE", claim_candidate_id),
+        target_type="CLAIM_CANDIDATE",
+        target_id=claim_candidate_id,
+        content_id=content_id,
+        provenance_key=source["passage_id"],
+    )
+    if candidate_source is not None and (
+        candidate_source["capture_id"] != source["capture_id"]
+        or candidate_source["capture_sha256"] != source["capture_sha256"]
+    ):
+        raise ValueError("DP418_COMPARISON_CANDIDATE_SOURCE_BINDING_INVALID")
+    candidate_source_rights_blocked = candidate_source is not None and (
+        candidate_source["rights_status"] != "CLEARED"
+        or candidate_source["capture_status"] != "CAPTURED"
+        or candidate_source["capture_hold_status"] != "NONE"
+    )
     candidate_held = (
         original.get("capture_status") != "CAPTURED"
         or original.get("capture_hold_status") != "NONE"
@@ -233,6 +187,16 @@ def build_candidate_comparison_read_model(
                 "BLOCKED_CANDIDATE_SOURCE_HELD",
                 "RECHECK_CANDIDATE_CAPTURE_RIGHTS",
             )
+        elif candidate_source is None:
+            status, action = (
+                "BLOCKED_CANDIDATE_SOURCE_UNAVAILABLE",
+                "RECOVER_CANDIDATE_CAPTURE_PASSAGE",
+            )
+        elif candidate_source_rights_blocked:
+            status, action = (
+                "BLOCKED_CANDIDATE_SOURCE_RIGHTS",
+                "RECHECK_CANDIDATE_RIGHTS",
+            )
         elif source_context is None:
             status, action = (
                 "BLOCKED_TARGET_SOURCE_UNAVAILABLE",
@@ -250,9 +214,6 @@ def build_candidate_comparison_read_model(
             or source_context["capture_id"] != source["capture_id"]
             or source_context["capture_sha256"] != source["capture_sha256"]
         ):
-            # DP-212 lexical/selector duplicate is not sufficient to claim
-            # the same extraction if the independently persisted target now
-            # points to a different Capture version of the original passage.
             status, action = (
                 "BLOCKED_DUPLICATE_CAPTURE_MISMATCH",
                 "COMPARE_EXACT_CAPTURE_VERSIONS",
@@ -297,7 +258,14 @@ def build_candidate_comparison_read_model(
         run_id=run_id,
         claim_candidate_id=claim_candidate_id,
     )
-    if packet != again or any(
+    current_candidate_source = _target_source(
+        target_source_store.source_context("CLAIM_CANDIDATE", claim_candidate_id),
+        target_type="CLAIM_CANDIDATE",
+        target_id=claim_candidate_id,
+        content_id=content_id,
+        provenance_key=source["passage_id"],
+    )
+    if packet != again or candidate_source != current_candidate_source or any(
         _target_source(
             target_source_store.source_context(*key),
             target_type=key[0],
@@ -312,6 +280,10 @@ def build_candidate_comparison_read_model(
     blockers = list(packet["promotion_blockers"])
     if candidate_held:
         blockers.append("DP418_CANDIDATE_SOURCE_HELD")
+    if candidate_source is None:
+        blockers.append("DP418_CANDIDATE_SOURCE_UNAVAILABLE")
+    elif candidate_source_rights_blocked:
+        blockers.append("DP418_CANDIDATE_SOURCE_RIGHTS")
     if any(not row["comparison_usable"] for row in comparisons):
         blockers.append("DP418_MATCH_SOURCE_COMPARISON_INCOMPLETE")
     return {
@@ -330,6 +302,10 @@ def build_candidate_comparison_read_model(
             "capture_sha256": source["capture_sha256"],
             "capture_status": original["capture_status"],
             "capture_hold_status": original["capture_hold_status"],
+            "rights_status": (
+                candidate_source["rights_status"]
+                if candidate_source is not None else "UNAVAILABLE"
+            ),
         },
         "comparisons": tuple(comparisons),
         "promotion_blockers": tuple(dict.fromkeys(blockers)),
@@ -400,6 +376,8 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
         + _reference(original.get("capture_id"))
         + " · SHA "
         + _hash(original.get("capture_sha256"))
+        + " · Diritti fonte "
+        + _codes([original.get("rights_status")])
         + "</p>"
         + "<p role='status'>Attualità: "
         + escape(str(model["currentness"]))
@@ -436,6 +414,10 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
             )
         else:
             raise ValueError("DP418_COMPARISON_VIEW_SOURCE_INVALID")
+        same_source = isinstance(source, Mapping) and all(
+            source.get(field) == original.get(field)
+            for field in ("content_id", "passage_id", "capture_id", "capture_sha256")
+        )
         comparisons.append(
             "<article><h3>"
             + _reference(row.get("target_id"))
@@ -459,7 +441,10 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
             + "</dd>"
             + "<dt>Stato / azione</dt><dd>"
             + _codes([row.get("operator_status"), row.get("action")])
-            + "</dd></dl><p>Proposta non approvata; nessuna equivalenza o promozione autorizzata.</p></article>"
+            + "</dd></dl>"
+            + quote_review_panel(relation=kind, usable=row["comparison_usable"],
+                                 same_source=same_source)
+            + "<p>Proposta non approvata; nessuna equivalenza o promozione autorizzata.</p></article>"
         )
     return (
         "<!doctype html><html lang='it'><head><meta charset='utf-8'>"
@@ -473,7 +458,7 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
         + header
         + "<section aria-label='Confronti fonte e match'>"
         + "".join(comparisons)
-        + "</section></main></body></html>"
+        + "</section>" + QUOTE_REVIEW_SCRIPT + "</main></body></html>"
     ).encode("utf-8")
 
 

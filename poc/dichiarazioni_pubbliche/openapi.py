@@ -81,7 +81,7 @@ DEPRECATION_POLICY = {
         "that is not backward compatible requires a new URL major version."
     ),
     "current_contract_status": (
-        "DRAFT: served and cacheable, but not yet announced as stable. The "
+        "DRAFT: served with no-store; not yet announced as stable. The "
         "same-origin MiniPC read path has been runtime-proved; the remaining "
         "gate is contract/release ratification, not transport reachability."
     ),
@@ -1361,7 +1361,7 @@ _CACHE_HEADERS = {
     },
     "Last-Modified": {"description": "Bundle modification time.", "schema": {"type": "string"}},
     "Cache-Control": {
-        "description": "public, max-age=300, stale-while-revalidate=86400 for data; max-age=3600 for contract documents.",
+        "description": "no-store until independently verified distributed withdrawal and cache purge exist.",
         "schema": {"type": "string"},
     },
     API_VERSION_HEADER: {"description": "Contract major version served.", "schema": {"type": "string"}},
@@ -1662,7 +1662,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
         if route.name == "index":
             path_item = {
                 "get": {
-                    "summary": "The whole public projection bundle, byte-stable and CDN-cacheable.",
+                    "summary": "The whole public projection bundle, byte-stable and non-cacheable.",
                     "description": (
                         READ_ONLY_DESCRIPTION
                         + " This is the same fail-closed artifact the static bundle is built from, re-serialized deterministically (sorted keys, no whitespace drift), so its canonical bytes are stable for a given dataset fingerprint."
@@ -1792,7 +1792,7 @@ def build_openapi_document(index: "PublicIndex | None" = None) -> dict[str, Any]
             "title": "Dichiarazioni Pubbliche public read-only API",
             "version": API_CONTRACT_VERSION,
             "summary": (
-                "Stable, read-only, cacheable access to the fail-closed public "
+                "Read-only, no-store access to the fail-closed public "
                 "projection of published finding versions."
             ),
             "description": (
@@ -2124,12 +2124,12 @@ def build_llms_txt(index: "PublicIndex | None" = None) -> str:
 _API_README = """# Dichiarazioni Pubbliche public API (contract v1, DRAFT)
 
 Status: contract `v1` over the `{schema_version}` public projection.
-Contract status: **DRAFT** — served and cacheable, with same-origin MiniPC
+Contract status: **DRAFT** — served with no-store, with same-origin MiniPC
 runtime proof complete; stable-v1 compatibility/release ratification remains open.
 
 ## What this is
 
-A read-only, cacheable HTTP surface over the Dichiarazioni Pubbliche public projection. The
+A read-only, no-store HTTP surface over the Dichiarazioni Pubbliche public projection. The
 projection is a fail-closed, sanitized, finding-versioned read model produced by
 the publication pipeline. This API reads it and nothing else.
 
@@ -2154,8 +2154,8 @@ Point both at the same bundle and the API and the static site cannot diverge.
   DISPUTED, CORRECTED, or RETRACTED is not in the bundle, so it is not served.
 - **Fail closed.** A missing, stale, tampered, or contract-incompatible
   projection returns `503` on every endpoint: no partial data, no placeholder.
-- **Cacheable.** `ETag`, `Last-Modified`, and `Cache-Control` on every response;
-  a matching `If-None-Match` returns `304`.
+- **No-store.** Public responses forbid caching; old caches still need purging.
+  `ETag` allows an origin `304` only when response bytes match.
 - **No private data.** No raw transcript body, no evidence body, no provider
   receipt, no secret, no private reply, no person score, no ranking.
 
@@ -2237,8 +2237,8 @@ SQL fragment, or any hint that an operational record exists.
 No authentication and no rate-limit enforcement ship in this deployment. The
 contract reserves `429 RATE_LIMITED` with a `Retry-After` header for a future
 release (DP-508); clients should handle it defensively and must not read its
-absence as unlimited throughput. The intended shape is a CDN-cached static read
-served to infrequent, revalidating clients.
+absence as unlimited throughput. Cache reuse requires separate release/purge
+authority before it can safely be enabled.
 
 ## Versioning and deprecation
 

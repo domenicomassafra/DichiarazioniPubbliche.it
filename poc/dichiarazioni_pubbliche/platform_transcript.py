@@ -16,8 +16,9 @@ from urllib.parse import parse_qs, urlparse
 from dichiarazioni_pubbliche.caption_adapter import (
     CaptionSegment, parse_transcript_api_snippets, parse_youtube_json3,
 )
+from dichiarazioni_pubbliche.podcast_youtube_resolution import PodcastYouTubeResolutionMixin
 from dichiarazioni_pubbliche.youtube_caption_fallback import (
-    yt_dlp_caption_unavailable,
+    yt_dlp_access_denied, yt_dlp_caption_unavailable,
 )
 from dichiarazioni_pubbliche.youtube_caption_ytdlp import (
     YtDlpAccessDenied, download_youtube_json3,
@@ -35,6 +36,7 @@ class VideoCandidate:
     video_id: str
     title: str
     canonical_url: str
+    catalog_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -132,7 +134,7 @@ def choose_video_candidate(
     return None
 
 
-class YouTubeResolver:
+class YouTubeResolver(PodcastYouTubeResolutionMixin):
     def __init__(
         self, yt_dlp: str = "yt-dlp", playlist_limit: int = 250,
         *, use_transcript_api: bool | None = None,
@@ -212,17 +214,6 @@ class YouTubeResolver:
         self._catalog_cache[source_id] = candidates
         return candidates
 
-    def resolve(self, title: str, source: dict[str, Any]) -> VideoCandidate | None:
-        combined: dict[str, VideoCandidate] = {}
-        for candidate in self._atom_candidates(source):
-            combined[candidate.video_id] = candidate
-        match = choose_video_candidate(title, list(combined.values()))
-        if match is not None:
-            return match
-        for candidate in self._flat_candidates(source):
-            combined.setdefault(candidate.video_id, candidate)
-        return choose_video_candidate(title, list(combined.values()))
-
     def metadata(self, video_url: str) -> dict[str, Any]:
         proc = subprocess.run(
             [
@@ -238,18 +229,13 @@ class YouTubeResolver:
             text=True,
         )
         if proc.returncode != 0:
-            message = (proc.stderr or proc.stdout).strip().splitlines()
+            diagnostic = f"{proc.stderr or ''}\n{proc.stdout or ''}"
+            message = diagnostic.strip().splitlines()
             detail = (message[-1] if message else "yt-dlp metadata probe failed")[:800]
-            lowered = detail.casefold()
-            if any(
-                marker in lowered
-                for marker in (
-                    "available to this channel's members",
-                    "members-only content",
-                    "private video",
+            if yt_dlp_access_denied(diagnostic):
+                raise PlatformAccessRestricted(
+                    "YT_DLP_METADATA_ACCESS_RESTRICTED", access_path="YT_DLP_PUBLIC_CAPTION",
                 )
-            ):
-                raise PlatformAccessRestricted(detail)
             raise RuntimeError(detail)
         return json.loads(proc.stdout)
 

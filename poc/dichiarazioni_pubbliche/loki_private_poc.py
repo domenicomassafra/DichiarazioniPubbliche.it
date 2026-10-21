@@ -7,7 +7,7 @@ import json
 import os
 from dataclasses import dataclass
 
-from dichiarazioni_pubbliche.loki_decompose_poc import Decompose, LokiSpan
+from dichiarazioni_pubbliche.loki_decompose_poc import Decompose, LokiSpan, has_reported_speech_context
 from dichiarazioni_pubbliche.loki_checkworthy_poc import Checkworthy
 from dichiarazioni_pubbliche.loki_query_generator_poc import QueryGenerator
 
@@ -73,14 +73,14 @@ class LokiPrivatePOC:
             if not isinstance(claim_types, dict) or len(claim_types) > 12:
                 raise ValueError("LOKI_CLAIM_TYPES_INVALID")
             spans: tuple[LokiSpan, ...] = Decompose().getclaims(
-                doc, decomposition, restoration,
+                doc, decomposition, restoration, language=language,
             )
             claims = tuple(span.claim for span in spans)
             worthy = Checkworthy().identify_checkworthiness(
                 claims, claim_types, checkworthiness,
             )
             suggested = QueryGenerator().generate_query(claims, worthy, queries)
-            if reported_speech:
+            if reported_speech or any(has_reported_speech_context(doc, span.start, span.end, language) for span in spans):
                 raise ValueError("LOKI_REPORTED_SPEECH_REQUIRES_ATTRIBUTION")
             proposals = tuple(
                 LokiProposal(span.claim, span.start, span.end,

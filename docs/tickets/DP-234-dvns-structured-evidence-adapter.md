@@ -161,3 +161,34 @@ authorization, reviewer signoff, archival rights, or attribution of speech.
 **Phase / dependencies:** Phase 2 optional structured evidence; hard actual DVNS contract + compatibility decision; soft DP-215/228 B evidence and D license review; adapter owner.
 
 **Related future specifications (separate ownership):** DP-236. These coordination links are not newly asserted hard dependencies on this existing ticket. Hold when rights, attribution, budget or actual MiniPC acceptance is absent.
+
+### 2026-10-21 — rights-denial regression and upstream reuse receipt
+
+The existing offline `dvns-style-readonly-evidence-v1` import and DP-215
+suitability bridge remain provider-neutral, candidate-only, and Apache-2.0
+core-owned: no AGPL runtime or code was imported. The DVNS sibling
+[repository](https://github.com/Italian-Builders-Org/DoveVannoINostriSoldi/tree/569f8e80d6ba05c6a875781f43e53131b39ec58a)
+commit `569f8e80d6ba05c6a875781f43e53131b39ec58a` (2026-10-20) has
+AGPL-3.0-or-later LICENSE blob `1eb486300a202252221471cd61ecb296c147b05b`
+(despite GitHub `NOASSERTION` SPDX). Reference alternatives are the
+[Unlicense Data Package specification](https://github.com/frictionlessdata/datapackage/tree/da3526c4ed19563620d6a5e33ea55db6234cc411)
+(commit `da3526c4ed19563620d6a5e33ea55db6234cc411`, 2026-08-25),
+[MIT frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/c08fa29cb0708427ae65bb689ded8e2691078a82)
+(commit `c08fa29cb0708427ae65bb689ded8e2691078a82`, 2026-10-15), and
+[MIT jsonschema](https://github.com/python-jsonschema/jsonschema/tree/c497561ea0a95f5aac09cd63d15eb1420eb7bbec)
+(commit `c497561ea0a95f5aac09cd63d15eb1420eb7bbec`, 2026-10-07).
+Decisions, licensing and no-vendoring rationale are recorded in
+`docs/donors/dvns-structured-evidence.md` and issue #42's Ricerca riuso.
+
+The six synthetic rights regression cases (imported and profile `REVOKED`,
+`DENIED`, `EXPIRED`) fail on the prior suitability implementation and hold with
+explicit `DVNS_RIGHTS_*` / `DP215_PROFILE_RIGHTS_*` codes after the fix.
+HELD records retain the original external identifier and provenance and do not
+progress through suitability matching, Evidence, approval, verdict or publication.
+This note does not amend historical acceptance checkboxes or authorize source use.
+
+**Still uncovered:** a real approved DVNS partner API/export or separately
+permissive shared contract, trusted partner identity and per-source
+schema/rights/license mapping, owner clearance and a real-source MiniPC canary.
+The existing official Senato probe cannot satisfy those DVNS partner conditions.
+Until then #42 remains open with `needs-owner`/`later`.
