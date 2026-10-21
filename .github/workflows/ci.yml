@@ -21,8 +21,12 @@ on:
 permissions:
   contents: read
 
+# controlcenter#413: cancel the superseded run for the same PR or main ref so an
+# outdated commit stops instead of occupying a hosted runner. The event name is
+# part of the group so a push run never cancels a pull_request run whose required
+# checks still have to report.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,6 +40,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+        # controlcenter#418: one mandatory macOS backend (latest Python), while
+        # every supported Python continues to run the full backend gate on Ubuntu.
+        exclude:
+          - os: macos-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.13"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -94,8 +107,9 @@ jobs:
       - name: Deterministic benchmark
         run: PYTHONPATH=poc python -m dichiarazioni_pubbliche.benchmark
 
-      - name: Deterministic contributor acceptance (repository + licensing + version)
-        run: python3 tools/check_contributor_acceptance.py
+      # controlcenter#418: static acceptance is required once in repository-contract.
+      # Keep the full package, unit/extra and benchmark profile on every OS/Python;
+      # do not occupy each scarce macOS slot repeating OS-independent tree checks.
 
       - name: Reject whitespace errors
         run: |
@@ -233,20 +247,15 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Ticket graph, links, JSON, templates, hygiene, license
-        run: python3 tools/check_repository_contract.py
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Deterministic contributor acceptance (repository + licensing + version)
+        run: python3 tools/check_contributor_acceptance.py
 
       - name: DP-304 versioned field inventory rejects schema/privacy policy drift
         run: python3 tools/check_privacy_field_inventory.py
-
-      - name: Fixture/data licensing inventory (DP-603)
-        run: |
-          python3 tools/check_licensing_inventory.py --check-hashes
-          # The inventory must not be stale relative to the real tree.
-          python3 tools/generate_fixture_inventory.py --check
-
-      - name: Version and changelog consistency (DP-604)
-        run: python3 tools/check_version_consistency.py --allow-no-release
 
   clean-clone:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'

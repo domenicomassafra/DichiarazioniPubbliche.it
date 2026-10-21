@@ -1,11 +1,4 @@
-"""Operator-local, static, keyboard-native DP-418 review inspection.
-
-This HTML is never part of the public web bundle and cannot make decisions.
-It displays only whitelisted metadata from the validated Studio backend
-receipt; source/candidate words and private evidence bodies stay server-side.
-Review handoff status is supplied by actual queue.read(), not inferred from
-the matching algorithm.
-"""
+"""Private operator-local DP-418 inspection; no publication authority."""
 
 from __future__ import annotations
 
@@ -21,6 +14,9 @@ from dichiarazioni_pubbliche.studio_candidate_review import (
 from dichiarazioni_pubbliche.candidate_matching import MATCHING_VERSION
 from dichiarazioni_pubbliche.studio_candidate_source_guard import (
     validate_source_context as _target_source,
+)
+from dichiarazioni_pubbliche.studio_candidate_quote_panel import (
+    QUOTE_REVIEW_SCRIPT, quote_review_panel,
 )
 
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
@@ -92,8 +88,6 @@ def build_candidate_comparison_read_model(
     for key in ("passage_id", "capture_id"):
         _reference(source.get(key))
     _hash(source.get("capture_sha256"))
-    # DP-117 context is already exact-bound to the candidate/Content by the
-    # inspector; re-read the private occurrence for the held Capture state.
     candidate_input = match_store.load_candidate(claim_candidate_id)
     candidate = getattr(candidate_input, "proposition", None)
     if (
@@ -220,7 +214,6 @@ def build_candidate_comparison_read_model(
             or source_context["capture_id"] != source["capture_id"]
             or source_context["capture_sha256"] != source["capture_sha256"]
         ):
-            # Same wording/selector does not establish the same Capture version.
             status, action = (
                 "BLOCKED_DUPLICATE_CAPTURE_MISMATCH",
                 "COMPARE_EXACT_CAPTURE_VERSIONS",
@@ -421,6 +414,10 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
             )
         else:
             raise ValueError("DP418_COMPARISON_VIEW_SOURCE_INVALID")
+        same_source = isinstance(source, Mapping) and all(
+            source.get(field) == original.get(field)
+            for field in ("content_id", "passage_id", "capture_id", "capture_sha256")
+        )
         comparisons.append(
             "<article><h3>"
             + _reference(row.get("target_id"))
@@ -444,7 +441,10 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
             + "</dd>"
             + "<dt>Stato / azione</dt><dd>"
             + _codes([row.get("operator_status"), row.get("action")])
-            + "</dd></dl><p>Proposta non approvata; nessuna equivalenza o promozione autorizzata.</p></article>"
+            + "</dd></dl>"
+            + quote_review_panel(relation=kind, usable=row["comparison_usable"],
+                                 same_source=same_source)
+            + "<p>Proposta non approvata; nessuna equivalenza o promozione autorizzata.</p></article>"
         )
     return (
         "<!doctype html><html lang='it'><head><meta charset='utf-8'>"
@@ -458,7 +458,7 @@ def render_candidate_comparison_workspace(model: Mapping[str, object]) -> bytes:
         + header
         + "<section aria-label='Confronti fonte e match'>"
         + "".join(comparisons)
-        + "</section></main></body></html>"
+        + "</section>" + QUOTE_REVIEW_SCRIPT + "</main></body></html>"
     ).encode("utf-8")
 
 
