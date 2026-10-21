@@ -144,7 +144,7 @@ def build_source_coverage(
     capability_ready: bool = False,
 ) -> SourceCoverageDecision:
     """Read-only reconciliation; proposals never schedule fetch/work."""
-    if not isinstance(unit, CoverageUnit) or not isinstance(observations, tuple) or len(observations) > 128:
+    if type(unit) is not CoverageUnit or not isinstance(observations, tuple) or len(observations) > 128:
         raise ValueError("COVERAGE_INPUT_UNBOUNDED")
     if any(type(gate) is not bool for gate in (rights_ready, budget_ready, capability_ready)):
         raise ValueError("COVERAGE_READINESS_INVALID")
