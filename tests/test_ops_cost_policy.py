@@ -29,6 +29,17 @@ class CostEstimationTests(unittest.TestCase):
             0.04,
         )
 
+    def test_positive_paid_estimate_never_rounds_down_to_free(self):
+        # 0.01s of paid ASR and one tiny-priced claim are chargeable.
+        # Decimal micro-USD accounting must round positive obligations upward.
+        self.assertEqual(
+            estimate_cost_usd("AUDIO_TRANSCRIPTION", input_seconds=0.01), 0.000001
+        )
+        self.assertEqual(
+            estimate_cost_usd("CLAIM_EXTRACT", total_tokens=1,
+                              max_usd_per_1k_total_tokens=0.000001), 0.000001
+        )
+
     def test_claim_cost_requires_explicit_ceiling_and_token_count(self):
         self.assertIsNone(estimate_cost_usd("CLAIM_EXTRACT", total_tokens=1000))
         self.assertEqual(
@@ -90,6 +101,24 @@ class BudgetPreflightTests(unittest.TestCase):
         )
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.reason, "ALLOWED_ZERO_COST")
+
+    def test_unverified_zero_or_boolean_paid_quote_never_bypasses_guards(self):
+        snapshot = CostSnapshot(global_day_usd=0, source_day_usd=0)
+        for unknown in (False, True, 0.0):
+            with self.subTest(value=unknown):
+                decision = preflight(self.policy, snapshot, unknown,
+                                     operation="CLAIM_EXTRACT")
+                self.assertFalse(decision.allowed)
+                self.assertEqual(classify_decision_reason(decision.reason), "BLOCK")
+        # An unknown operation may be a newly chargeable provider route.
+        for estimate in (0.0, 0.1):
+            unknown = preflight(self.policy, snapshot, estimate,
+                                operation="UNREVIEWED_PROVIDER_REQUEST")
+            self.assertFalse(unknown.allowed)
+            self.assertEqual(classify_decision_reason(unknown.reason), "BLOCK")
+        # A truly free operation keeps its existing zero-cost path.
+        self.assertTrue(preflight(self.policy, snapshot, 0.0,
+                                  operation="PUBLIC_PROJECTION_BUILD").allowed)
 
     def test_default_policy_is_structurally_coherent(self):
         self.assertEqual(validate_cost_policy(), ())
