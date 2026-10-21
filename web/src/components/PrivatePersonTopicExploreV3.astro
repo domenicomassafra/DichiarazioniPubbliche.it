@@ -6,6 +6,7 @@
  * cryptographic validation, and could carry forged quotations/private facets.
  * This file is deliberately not attached to src/pages or any public router.
  */
+import "../styles/tokens.css";
 import { readPinnedPersonTopicExploreV3,
   type PublicV3ExplorePreview } from "../lib/publicPersonTopicExploreV3.ts";
 import type { PublicV3CrossReaderPins } from "../lib/publicV3CrossReaderRelease.ts";
@@ -246,23 +247,23 @@ const noMatchFlag = preview.status === "NO_MATCH" ? "data-no-match" :
 </html>
 
 <style is:inline>
-  body { margin:0; color:#182436; background:#fff; font: 1rem/1.6 system-ui, sans-serif; }
-  a { color:#174b8e; overflow-wrap:anywhere; }
-  a:focus-visible { outline:3px solid #204eae; outline-offset:3px; }
+  body { margin:0; color:var(--ink-900); background:var(--paper-raised); font: var(--text-body)/1.6 var(--font-ui); }
+  a { color:var(--cobalt-700); overflow-wrap:anywhere; }
+  a:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring-color); outline-offset:var(--focus-ring-offset); }
   main { max-width:72rem; margin:auto; padding:clamp(1rem,4vw,3rem); }
   .boundary { font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
-  .date-warning { border-left:4px solid #52657c; padding-left:1rem; }
+  .date-warning { border-left:4px solid var(--ink-500); padding-left:1rem; }
   .facets { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap:1rem; }
   .facets ul { list-style:none; padding:0; }
   .facets li { margin-block:.4rem; }
   .facets a, .pagination a { display:inline-block; padding:.6rem .75rem; min-height:2.75rem; box-sizing:border-box; }
   .facets [aria-current="page"] { border:2px solid currentColor; font-weight:700; }
   .records { padding-left:1.5rem; }
-  .records article { padding-block:1.2rem; border-bottom:1px solid #bbc5d1; }
-  blockquote { margin:1rem 0; padding:1rem; border-left:3px solid #68768a; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .records article { padding-block:1.2rem; border-bottom:1px solid var(--rule-hairline); }
+  blockquote { margin:1rem 0; padding:1rem; border-left:3px solid var(--rule-control); white-space:pre-wrap; overflow-wrap:anywhere; }
   .fingerprints { overflow-wrap:anywhere; font-size:.8rem; }
   .pagination { display:flex; flex-wrap:wrap; align-items:center; gap:.8rem; margin-block:1.5rem; }
   .skip-link { position:absolute; left:-9999px; }
-  .skip-link:focus { left:1rem; top:1rem; padding:.5rem; background:white; z-index:2; }
+  .skip-link:focus { left:1rem; top:1rem; padding:.5rem; background:var(--paper-raised); z-index:2; }
   @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } }
 </style>
