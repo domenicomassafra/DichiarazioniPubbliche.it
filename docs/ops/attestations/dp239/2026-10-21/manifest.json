@@ -1,0 +1,113 @@
+{
+  "schema": "dp239-private-ai-attestation-v1",
+  "created_utc": "2026-10-21",
+  "issue": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/47",
+  "inputs": {
+    "source_url": "https://commission.europa.eu/legal-notice_de",
+    "fetched_html_sha256": "f90604358e232d472752d3305e83921f2a5140d73a3b5d0d8bd93189dd693143",
+    "fetched_html_bytes": 155838,
+    "source_paragraph_sha256": "63fc53c200818b7bf66325d8bf3f0b39d66de051e9b15b62338ee549457df3ca",
+    "italian_derivative_sha256": "c7def4f88cef86d9ab753a77dc76839163393d96d8ea70b2ef79db659514683d",
+    "paragraph_representation": "Source document paragraph, HTML tags removed and NBSP normalized to ASCII spaces; original HTML remains MiniPC-private",
+    "prompt_sha256": "8d54c8af1b307ca8dfb4e80fddf6107abc6bec9dfe13672c4389aa77b243c2e1",
+    "gold_prompt_sha256": "87534d4336c1430b884d3ab760df4de56fa453bf4c0c28a9cf66a4625173c395"
+  },
+  "reviewers": [
+    {
+      "role": "rights-sol",
+      "requested_model": "codex/gpt-6.1-sol",
+      "observed_provider": "codex",
+      "observed_model": "gpt-6.1-sol",
+      "observed_at": "2026-10-21T01:08:20.712000+00:00",
+      "final_response_sha256": "167d89bd4b95fd6ca7dbf07883776cec77a6ccde86216021da9f7eddbfbda083",
+      "file": "rights-sol-final.json",
+      "raw_events_sha256": "7bc3ceceac7913530fa04fc86c353f035b420cf07100a38e7b50d564894b52ca"
+    },
+    {
+      "role": "rights-gemini",
+      "requested_model": "antigravity/gemini-3.8-flash-tiered",
+      "observed_provider": "antigravity",
+      "observed_model": "gemini-3.8-flash-tiered",
+      "observed_at": "2026-10-21T00:36:00.884000+00:00",
+      "final_response_sha256": "449ad8c81a2976afd6baaf5937e8eaf2fd08d712b823075f9cccbfffb514dbab",
+      "file": "rights-gemini-final.json",
+      "raw_events_sha256": "a92a7a13720e4ded23c78317796d0effa36bdf507a751dc5c7627f32deda5703"
+    },
+    {
+      "role": "gold-sol",
+      "requested_model": "codex/gpt-6.1-sol",
+      "observed_provider": "codex",
+      "observed_model": "gpt-6.1-sol",
+      "observed_at": "2026-10-21T00:43:24.595000+00:00",
+      "final_response_sha256": "3648f66146755504a0b06002a596c1ac97815a7a46335caa0f8d8d43bcf315ca",
+      "file": "gold-sol-final.json",
+      "raw_events_sha256": "2bbe85f3781e72cb312859718c66bd7ce122fac95e20837ba8f8662eba14e5e6"
+    },
+    {
+      "role": "gold-gemini",
+      "requested_model": "antigravity/gemini-3.8-flash-tiered",
+      "observed_provider": "antigravity",
+      "observed_model": "gemini-3.8-flash-tiered",
+      "observed_at": "2026-10-21T00:43:15.746000+00:00",
+      "final_response_sha256": "61dd32d276d2874c407d75224f3b11568dfa62113b46663ad0b578a4632ed489",
+      "file": "gold-gemini-final.json",
+      "raw_events_sha256": "f0041731cba3ff37afbe97ee77557180b03b444ebaf714181ab908f132858686"
+    },
+    {
+      "role": "adjudication",
+      "requested_model": "antigravity/claude-sonnet-4-6",
+      "observed_provider": "antigravity",
+      "observed_model": "claude-sonnet-4-6",
+      "observed_at": "2026-10-21T01:11:07.921000+00:00",
+      "final_response_sha256": "de00f5fe88b96d0d8e3ac28a1f813ae2af82ae392b0b71502b4a84a9d099e4a1",
+      "file": "adjudication-final.json",
+      "raw_events_sha256": "98ad5ecff3a47451e370f8addbbad512eda170fc58c36b351d320e15f8efc528"
+    }
+  ],
+  "source_rights": {
+    "status": "CLEARED_FOR_PRIVATE_CANARY_CONDITIONAL",
+    "scope": [
+      "PRIVATE_LOCAL_STORAGE",
+      "PRIVATE_CANARY_EVALUATION",
+      "BOUNDED_TRANSLATION"
+    ],
+    "license": "CC BY 4.0, only Commission-owned content, exceptions for third parties/trademarks/logos and specific copyright notices",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/deed.de",
+    "attribution": "European Commission — © European Union, 1995–2026; automated Italian translation (modified text)",
+    "expires_on": "2026-11-20",
+    "public_product_publication": false,
+    "further_rights": false
+  },
+  "gold": {
+    "case_count": 8,
+    "adjudicated_case_ids": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+      "C7"
+    ],
+    "initial_annotator_disagreement_case_ids": [
+      "C0",
+      "C1"
+    ],
+    "independent_model_count": 3,
+    "adjudicated": true,
+    "reference_state": "INDEPENDENT_AI_ADJUDICATED_SYNTHETIC",
+    "certified": false,
+    "public_release_eligible": false,
+    "meaning_gate": "PRIVATE_HELD",
+    "lexical_risk_recall": "MEASURE_SEPARATELY"
+  },
+  "limitations": [
+    "AI review is independent by recorded provider/model/run, but raw provider session logs remain outside Git; receipt hashes and outputs are preserved",
+    "Machine translation model identity is self-declared by the composing assistant; no separate billable-provider receipt",
+    "No third-party entitlement or public publication clearance is implied by the conditional CC BY 4.0 assessment",
+    "Real miniPC canary is isolated private SQLite, not the PostgreSQL live corpus; source/derivative public release remains denied",
+    "No automatic physical purge at expiry is installed; temporary canary retention must be enforced by the existing operator retention procedure",
+    "Adversarial reference is synthetic, not historical authentic speech. Labels are independent model judgements, not infallible ground truth."
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "schema": "dp239-ai-review-receipt-v1",
+  "requested_model": "codex/gpt-6.1-sol",
+  "observed_provider": "codex",
+  "observed_model": "gpt-6.1-sol",
+  "raw_events_sha256": "2bbe85f3781e72cb312859718c66bd7ce122fac95e20837ba8f8662eba14e5e6",
+  "response_sha256": "3648f66146755504a0b06002a596c1ac97815a7a46335caa0f8d8d43bcf315ca",
+  "response": {
+    "reviewer": "ChatGPT, revisore IA indipendente",
+    "date": "2026-10-21",
+    "cases": [
+      {
+        "id": "C0",
+        "verdict": "UNRESOLVED",
+        "expected_alerts": [
+          "MODALITY_MISMATCH"
+        ],
+        "speaker_relation": "Anna resta il soggetto; Bruno resta la persona da vedere.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "Il tedesco «muss ... nicht» esprime assenza di obbligo, non divieto. L'italiano «non deve» può esprimere assenza di obbligo, ma anche divieto o prescrizione negativa. La traduzione ammette quindi una lettura fedele, senza renderla univoca. L'allerta segnala un rischio modale, non un errore certo. Data e riferimento al tribunale sono conservati."
+      },
+      {
+        "id": "C1",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "NEGATION_MISMATCH",
+          "MODALITY_MISMATCH"
+        ],
+        "speaker_relation": "Soggetto Anna e riferimento a Bruno conservati.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "«Muss ... nicht» significa che Anna non è obbligata a vedere Bruno; «deve vedere» introduce invece l'obbligo. La negazione scompare e cambia la forza modale."
+      },
+      {
+        "id": "C2",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "NUMBER_MISMATCH"
+        ],
+        "speaker_relation": "Anna resta il soggetto del pagamento.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "Il valore passa da −12 euro a 12 euro: il segno negativo non è conservato. La particolarità del pagamento negativo non autorizza a normalizzare il dato sintetico."
+      },
+      {
+        "id": "C3",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "DATE_MISMATCH"
+        ],
+        "speaker_relation": "Anna resta il soggetto dell'arrivo.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "La data cambia dal 10 novembre 2026 all'11 novembre 2026. Non è una semplice variazione del separatore."
+      },
+      {
+        "id": "C4",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "ACTOR_ANCHOR_CHANGED",
+          "ACTOR_ORDER_CHANGED"
+        ],
+        "speaker_relation": "Il soggetto passa da Anna a Bruno; l'altro partecipante passa da Bruno ad Anna.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "Sono invertiti l'ancoraggio del soggetto e l'ordine dei partecipanti. Poiché incontrarsi può descrivere un evento reciproco, le frasi possono riferirsi allo stesso incontro: l'allerta riguarda il cambio di prospettiva e ruoli grammaticali, non dimostra un evento diverso."
+      },
+      {
+        "id": "C5",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "MODALITY_MISMATCH"
+        ],
+        "speaker_relation": "Anna resta il soggetto.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "«Darf gehen» esprime permesso; «deve andare» esprime obbligo. La modalità cambia."
+      },
+      {
+        "id": "C6",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "NEGATION_MISMATCH",
+          "REPORTED_SPEECH_MISMATCH",
+          "QUOTE_MARKER_MISMATCH",
+          "QUOTED_SPEAKER_ENDORSEMENT_UNVERIFIED"
+        ],
+        "speaker_relation": "Il ministro resta il parlante attribuito. Il discorso diretto al passato diventa discorso indiretto al presente.",
+        "endorsement_status": "Il contenuto è attribuito al ministro all'interno del caso sintetico. Non è verificata alcuna dichiarazione autentica né alcuna adesione del narratore o del revisore.",
+        "explanation": "«Non funziona» diventa «funziona», invertendo la proposizione attribuita. Sono inoltre rimossi i marcatori di citazione e «disse» diventa «afferma». Il passaggio al discorso indiretto, da solo, non dimostra adesione del narratore: l'ultima allerta segnala questo limite di verifica, non una comprovata approvazione."
+      },
+      {
+        "id": "C7",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "JUDICIAL_STATUS_MISMATCH"
+        ],
+        "speaker_relation": "Il tribunale resta il soggetto della decisione; Anna resta la persona interessata.",
+        "endorsement_status": "Non applicabile: nessun discorso attribuito a un altro parlante.",
+        "explanation": "«Freigesprochen» indica assoluzione; «ha condannato» indica condanna. L'esito giudiziario è invertito. Non si inferiscono definitività, pena o ulteriori conseguenze giuridiche."
+      }
+    ],
+    "uncertainty": {
+      "C0": "L'ambiguità italiana impedisce un giudizio univoco senza contesto; l'etichetta fornita «faithful» non viene assunta come prova.",
+      "C4": "Il cambio di ancoraggio è certo; una differenza nell'evento descritto non è dimostrata, data la possibile reciprocità dell'incontro.",
+      "C6": "L'inversione della polarità è certa. L'allerta sull'endorsement è cautelativa e non prova adesione o autenticità.",
+      "general": "I codici descrivono rischi testuali e possono sovrapporsi. Non costituiscono certezza pubblicabile né verifica esterna."
+    },
+    "conflicts_of_interest": {
+      "declared": [],
+      "independence": "Non sono state consultate risposte di altri modelli."
+    },
+    "limitations": [
+      "Tutti gli otto casi sono sintetici e non costituiscono dichiarazioni autentiche o fatti accertati.",
+      "La valutazione riguarda esclusivamente le coppie DE→IT fornite, senza ricerca di prove esterne.",
+      "Non si inferiscono diritti, responsabilità o conseguenze giuridiche ulteriori.",
+      "Coppie linguistiche sconosciute, miste o non supportate devono restare bloccate come UNRESOLVED.",
+      "La sola revisione IA non autorizza la pubblicazione di una traduzione."
+    ]
+  },
+  "observed_at": "2026-10-21T00:43:24.595000+00:00"
+}
