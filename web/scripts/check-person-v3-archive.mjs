@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readApprovedPersonV3 } from "../src/lib/publicPersonV3.ts";
@@ -52,7 +51,10 @@ console.log("DP-405 opt-in v3 Person backend→TypeScript archive, negative auth
 
 const web = fileURLToPath(new URL("../", import.meta.url));
 const component = fileURLToPath(new URL("../src/components/PublicPersonArchiveV3.astro", import.meta.url));
-const temp = await mkdtemp(join(tmpdir(), "dp405-person-v3-"));
+// Astro moves prerendered assets from web/.astro into this output via rename.
+// Keep both on the same filesystem: /tmp may be a separate tmpfs on MiniPC.
+// The scratch directory is deleted by the finally block below.
+const temp = await mkdtemp(join(web, ".dp405-person-v3-"));
 async function render(collection, identifier, pin, enabled, output) {
   await writeFile(join(temp, "public-person.json"), JSON.stringify(collection));
   const page = [

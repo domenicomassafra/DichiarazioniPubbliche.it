@@ -6,6 +6,7 @@ Policy version: `privacy-minimization-v1`
 Owner: product owner + privacy reviewer
 Code: `poc/dichiarazioni_pubbliche/policy/privacy_policy.py`
 Tests: `tests/test_policy_privacy.py`
+Independent-review candidate (20 October 2026; updated for the AI-review delegation on 21 October): [publishability/retention matrix and sign-off protocol](dp304-privacy-review-packet-2026-10-20.md). Sol 6.1 High AI is the appointed reviewer via Pi Agent under the owner's 20 October decisions. No further owner approval of reviewers/privacy/subjects is required; a real distinct AI review and per-system evidence remain required. This packet does not approve any treatment or retention period.
 
 Owner-delegated legal research (2026-10-20): [Q-306-08/09/10/15/16](legal-research-decisions-2026-10-20.md)
 cites GDPR, Italian Privacy Code Arts. 136–139 and Garante deontology.
@@ -156,7 +157,8 @@ minors/victims retain their exclusion and independent per-item review.
 `repository_launch_preflight()` includes these missing decisions in its
 deterministic NO-GO receipt even if all Q-306 rows were edited to `DECIDED`.
 The register reader rejects missing/extra families, unknown schema, duplicate
-keys, invalid basis/date/receipt formats, and optional-account exclusion if
+keys, invalid basis/date/receipt formats, missing Sol 6.1 High Pi Agent
+independent-review model/receipt/commit SHA/APPROVE outcome, and optional-account exclusion if
 the activation flag is enabled. An all-green mechanical check only reaches
 `PENDING-OWNER`; it does not publish content. Source-backed field inventory,
 actual operator access, account flags, log/backup retention and external processor
