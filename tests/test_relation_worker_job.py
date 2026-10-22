@@ -79,6 +79,44 @@ class RelationWorkerJobTests(unittest.TestCase):
                 self.assertEqual(run_job(store).completed, 1)
                 self.assertEqual(store.relation_candidates[0]["relation_type"], expected)
 
+    def test_same_person_missing_or_invalid_period_cannot_assert_position_change(self):
+        # The legacy worker gets person identity from the store, but a job can
+        # still supply absent or contradictory temporal scopes. Those cannot
+        # substantiate a longitudinal position change.
+        for first_scope, second_scope in (
+            ({"scope_start": None, "scope_end": None},
+             {"scope_start": None, "scope_end": None}),
+            ({"scope_end": None}, {}),
+            ({"scope_start": "2025-12-31", "scope_end": "2025-01-01"}, {}),
+        ):
+            with self.subTest(first_scope=first_scope, second_scope=second_scope):
+                request = payload()
+                request["prior"].update(first_scope)
+                request["later"].update(second_scope)
+                store = RelationStore([fixtures.job("CLASSIFY_CLAIM_RELATION", request)])
+                store.speaker_person_ids = {"claim:a": "person:a", "claim:b": "person:a"}
+                store.statement_dates = {
+                    "claim:a": "2025-01-01", "claim:b": "2025-06-01"
+                }
+                self.assertEqual(run_job(store).completed, 1)
+                relation = store.relation_candidates[0]
+                self.assertEqual(relation["relation_type"], "SAME_PROPOSITION")
+                self.assertIn(
+                    "TEMPORAL_SCOPE_UNVERIFIED_NO_POSITION_CHANGE", relation["rationale_codes"]
+                )
+
+    def test_same_person_with_valid_distinct_periods_keeps_private_candidate(self):
+        request = payload()
+        request["prior"].update(scope_start="2024-01-01", scope_end="2024-12-31")
+        request["later"].update(scope_start="2025-01-01", scope_end="2025-12-31")
+        store = RelationStore([fixtures.job("CLASSIFY_CLAIM_RELATION", request)])
+        store.speaker_person_ids = {"claim:a": "person:a", "claim:b": "person:a"}
+        store.statement_dates = {"claim:a": "2025-01-01", "claim:b": "2025-06-01"}
+        self.assertEqual(run_job(store).completed, 1)
+        self.assertEqual(
+            store.relation_candidates[0]["relation_type"], "POSITION_CHANGE_CANDIDATE"
+        )
+
     def test_rejects_non_boolean_continuity(self):
         for value in ("false", "true", 1, None):
             with self.subTest(value=value):

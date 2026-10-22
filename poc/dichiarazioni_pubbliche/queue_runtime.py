@@ -14,7 +14,6 @@ from dichiarazioni_pubbliche.citation_assurance import (
 from dichiarazioni_pubbliche.operation_ledger import OperationLedgerSummary
 from dichiarazioni_pubbliche.psql_command import execute_psql
 
-
 @dataclass(frozen=True)
 class ProcessingJob:
     job_id: str
@@ -22,7 +21,6 @@ class ProcessingJob:
     job_type: str
     attempt: int
     payload: dict[str, Any]
-
 
 @dataclass(frozen=True)
 class ContentRecord:
@@ -35,12 +33,10 @@ class ContentRecord:
     processing_status: str
     metadata: dict[str, Any]
 
-
 @dataclass(frozen=True)
 class CostSnapshot:
     global_day_usd: float
     source_day_usd: float
-
 
 def deterministic_receipt_id(
     job_id: str,
@@ -58,7 +54,6 @@ def deterministic_receipt_id(
         raise ValueError("PROVIDER_RECEIPT_ATTEMPT_INVALID")
     return f"{legacy_id}:attempt:{parsed_attempt}"
 
-
 def deterministic_followup_job_id(
     job_type: str,
     content_id: str,
@@ -66,7 +61,6 @@ def deterministic_followup_job_id(
 ) -> str:
     material = "\0".join((job_type, content_id, variant)).encode()
     return "job:" + hashlib.sha256(material).hexdigest()
-
 
 def deterministic_variant_id(
     content_id: str,
@@ -79,26 +73,21 @@ def deterministic_variant_id(
     ).encode()
     return "transcript:" + hashlib.sha256(material).hexdigest()
 
-
 def deterministic_segment_id(variant_id: str, segment_index: int) -> str:
     material = f"{variant_id}\0{segment_index}".encode()
     return "segment:" + hashlib.sha256(material).hexdigest()
 
-
 def deterministic_canonical_segment_id(content_id: str, segment_index: int) -> str:
     material = f"{content_id}\0{segment_index}".encode()
     return "canonical-segment:" + hashlib.sha256(material).hexdigest()
-
 
 def _valid_source_ref(source_ref: dict[str, Any]) -> bool:
     url = str(source_ref.get("url") or "").strip()
     parsed = urlsplit(url)
     return bool(parsed.scheme in {"http", "https"} and parsed.hostname)
 
-
 def _clean(value: object) -> str:
     return str(value).replace("\x00", "")
-
 
 def _dollar_quote(value: str) -> str:
     digest = hashlib.sha256(value.encode()).hexdigest()[:16]
@@ -106,7 +95,6 @@ def _dollar_quote(value: str) -> str:
     if tag in value:
         raise ValueError("Unable to construct safe PostgreSQL dollar quote")
     return f"{tag}{value}{tag}"
-
 
 class PsqlRuntime:
     def __init__(self, database_url: str | None = None, psql: str = "psql") -> None:
@@ -188,7 +176,6 @@ class PsqlRuntime:
             operation_kind=operation_kind,
             operation_ref=operation_ref,
         )
-
 
 class QueueRuntimeStore(PsqlRuntime):
     def reap_expired(self, max_attempts: int = 5) -> int:
@@ -1120,15 +1107,14 @@ class QueueRuntimeStore(PsqlRuntime):
     def reserve_worker_budget(
         self, *, job_id: str, attempt: int, worker_id: str, source_id: str,
         upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
-        max_source_usd: str,
+        max_source_usd: str, provider_id: str = "",
     ) -> str:
-        from dichiarazioni_pubbliche.queue_store import QueueExecutionCostStore
+        from .queue_store import QueueExecutionCostStore
 
         return QueueExecutionCostStore.reserve_worker_budget(
             self, job_id=job_id, attempt=attempt, worker_id=worker_id,
             source_id=source_id, upper_bound_usd=upper_bound_usd,
-            max_job_usd=max_job_usd, max_global_usd=max_global_usd,
-            max_source_usd=max_source_usd,
+            max_job_usd=max_job_usd, max_global_usd=max_global_usd, max_source_usd=max_source_usd, provider_id=provider_id,
         )
 
     def operation_ledger_receipts(
