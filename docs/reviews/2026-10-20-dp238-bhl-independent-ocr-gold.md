@@ -139,9 +139,10 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest \
   captured extractions must remain pinned to their original parser/version;
   a new reviewable derivation is required under `...-v2`.
 
-The follow-up #102 remains **OPEN**. Owner choice for the larger #46 matrix:
-**A)** accept this independently supplied, rights-attributed BHL data as an
-experimental technical OCR **HOLD** benchmark and separately commission
-role/redaction gold later; or **B)** commission a qualified independent
-annotator now for a separately cleared official/judicial scan covering the
-remaining six acceptance categories. No public release in either case.
+On 2026-10-20 the owner selected **option A**
+([decision on #102](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/102#issuecomment-6300419786)):
+accept this independently supplied BHL/IMPACT-BHL reference as a technical OCR
+benchmark with **HOLD** and defer the official assessment. That decision does
+not establish a current operational source-use record, successful OCR quality,
+or the installed Capture→Page→Passage acceptance for #46. Both #102 and #46
+remain **OPEN** pending those concrete checks. No public release is authorized.
