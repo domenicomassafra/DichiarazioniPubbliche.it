@@ -25,4 +25,69 @@ Archiviare ogni run in `docs/attestations/dp229/<data>-<fonte>/`: `packet.md` co
 
 Il [canary documentale Senato S.1 del 21/10/2026](../attestations/dp229/2026-10-21-senato-s1/attestation.md) contiene due vere invocazioni Pi (`codex/gpt-6.1-sol` e `antigravity/gemini-3.8-flash-tiered`) su uno stesso prompt, risposte `NEEDS_MORE`, verifica di fonte/CC BY e il limite di indipendenza rispetto al generatore. Rimane `HOLD`: manca ogni attestazione corrente di origine DB, completamento DP-228 e incorporation/review append-only high-risk. Conservare il canary come prova della controrevisione eseguita, mai come prova di publication readiness.
 
-**Stato:** la procedura e il controllo offline non soddisfano da soli l'AC runtime high-risk: manca la catena di attestazioni indipendenti e una prova reale su fonte ammessa. Nessuna esecuzione AI parallela, provider call, costo, pubblicazione o migrazione è autorizzata implicitamente dalla presenza di questo documento.
+
+### Canary DP-228 → DP-209 su feed ufficiale, 22/10/2026
+
+Il feed Camera `official-camera-temi`, già incluso in
+`config/source-registry.v1.json`, viene ora eseguito tramite il parser
+`PublicRssAdapter` esistente. La modifica nativa è solo l'ammissione
+della famiglia `public_rss` in `ConfiguredRegistryDiscoveryAdapter`.
+La regressione `tests.test_research_discovery.ResearchDiscoveryTests.test_configured_registry_adapter_dispatches_authorized_official_rss`
+falliva perché non veniva invocato il parser e ora passa. Non sono
+state adottate nuove dipendenze o licenze.
+
+Sul MiniPC, in un database PostgreSQL **privato e separato** da quello
+del servizio, con socket Unix in una directory 0700, il comando
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/dp229_official_rss_canary.py --state-dir /home/udodo/.local/state/dp229-senato-s1-rss-20261022
+```
+
+crea una Coverage Need e un manifest limitati da
+`compile_challenger_research_request()`, quindi esegue la discovery
+nativa. Budget fissato: **1 query, 2 risultati complessivi, 1/host e
+USD 0**, con ripetizione idempotente e readback della receipt.
+L'esecuzione del 22/10/2026 ha restituito
+`run:dp229:senato-s1:official-camera:20261022` `COMPLETED`,
+un tentativo `HEALTHY`, zero hit, costo osservato USD 0.
+Questo è **un tentativo reale con astensione motivata**; l'assenza di
+hit non verifica né confuta il Senato S.1 e non completa una
+ricerca per ogni fonte. Non accede al database produzione e non
+importa articoli o trascrizioni. La prova locale deve essere ripetuta
+solo sotto workload admission sul MiniPC, come previsto dal contratto
+operativo.
+
+Un replay privato ulteriore su PostgreSQL disposable, con i **byte realmente
+scaricati** del Senato S.1 e la scheda d'iter (SHA256 registrati),
+ha creato una *claim dichiaratamente sintetica e non attribuita* e due
+candidati CONTRADICT/CONTEXT, sempre pending. Il registro diritti nativo
+`PrivateRightsRegistryStore.record_rights()` ha registrato in append-only
+la CC BY 4.0 limitatamente all'XML, poi una **revoca simulata solo in
+sandbox**, senza affermare che il Senato abbia revocato la licenza.
+L'inventory v3 è cambiato da
+`b3a572c702b89ead5cc1ea5cf028952978b968d804b1ccb0a3367608628cc149`
+a `25a843c35d9f2c0b2b0a2e1ff6473abe0a952259c4f33e9921f8a46f91a84d47`.
+Il risultato high-risk `evaluate_challenger_readiness(...,high_risk=True)`
+è `STALE` per `CHALLENGER_PACKET_NOT_READY`,
+`HIGH_RISK_CHALLENGER_REQUIRED` e
+`HIGH_RISK_CHALLENGER_REVIEW_REQUIRED`.
+Non essendoci un editor/reviewer attestato, il countercase rimane
+`INCOMPLETE` e il consumer operativo non ha ricevuto alcuna nuova
+evidenza né autorizzazione. La ricevuta e lo script esatto sono
+conservati in area privata sul MiniPC.
+
+Il documento Senato AkomaNtoso S.1 proviene dal repository
+[SenatoDellaRepubblica/AkomaNtosoBulkData](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData)
+al commit `2da7d887c8125286312e88c6913fa194feb1c6ce`,
+oggetto `Leg19/Atto00055177/ddlpres/01360967-ft.akn.xml`;
+SHA256 dei 13.036 byte `57fcd8ae860d3e4593686567612e251dc0f40a4d1842bddb6eeac68bdb7ad929`.
+Il repository dichiara **CC BY 4.0** per questi dati, con
+attribuzione al Senato: il permesso documentale è limitato al
+testo legislativo/versione indicati, non si trasferisce ad altre
+fonti, immagini, audio né alla scheda di iter. La pagina d'iter
+ufficiale è stata consultata il 22/10; il materiale integrale
+rimane privato sul MiniPC. Non esiste ancora una clearance registrata
+sul DB operativo per una claim high-risk, né una receipt firmata
+dell'autorità AI indipendente: **HOLD**, zero autorità publish.
+
+**Stato:** i canary del 22/10 provano la ricerca realmente eseguita e l'invalidazione nel database privato con fonte autentica, ma **non** soddisfano da soli l'AC runtime high-risk. Mancano rights current in produzione, incorporation del packet nel Finding/Verification Run effettivo e attestazione separata del reviewer AI sulla versione esatta. Restano obbligatori replay del ledger e verifica di staleness sull'evento di review autorevole. Nessuna pubblicazione, waiver o autorizzazione di spesa deriva da questi risultati.

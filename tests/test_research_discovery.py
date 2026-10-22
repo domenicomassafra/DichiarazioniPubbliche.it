@@ -1225,6 +1225,5 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertEqual({hit.source_family for hit in result.hits}, {"public_creator_accounts"})
         self.assertEqual({hit.source_id for hit in result.hits}, {"social-raffagiulians"})
 
-
 if __name__ == "__main__":
     unittest.main()
