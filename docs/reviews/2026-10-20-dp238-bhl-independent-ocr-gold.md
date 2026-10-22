@@ -29,6 +29,9 @@ page from *Birds of Great Britain and Ireland*, volume 2, Arthur G. Butler
   matching scan/PAGE XML. The packaging explicitly maps images and PAGE XML
   to the same page and documents the scan-to-PageID derivation. Access image:
   [BHL WebP rendition](https://huggingface.co/datasets/finebooks/bhl-impact-gt/resolve/f57bb9e58785a3f9266c05880092ec76720450e5/images/birdsofgreatbrit02butl/birdsofgreatbrit02butl_0017_full.webp).
+  Independent local inspection confirms the WebP is `2293 × 3062` pixels,
+  exactly matching PAGE XML's declared `imageWidth`/`imageHeight`. The XML
+  has 81 text regions; this checks geometry, not each transcription line.
 
 These are permissions and sources for this **one isolated test**. They are not
 publication/excerpt clearance for Dichiarazioni Pubbliche; no real source was
@@ -96,6 +99,17 @@ is intentionally order-sensitive and is **not** a layout-aligned per-line CER.
 No post-hoc rearrangement or manual editing of the gold or OCR text was used to
 improve the score. Exact result: **`HOLD_PRIVATE_GOLD_FAILURE`**. Neither OCR
 confidence nor this external reference automatically grants quote authority.
+
+**Repeatability limitation observed after the first success:** the same
+immutable PDF, gold, parser and lock were run again under a MiniPC load
+average of approximately `19.01` (15:19 local). This second run failed
+closed as `DOCUMENT_OCR_PROCESS_FAILED` in 14.351 seconds: Tesseract's bounded
+native subprocess hit its 12-second timeout. It produced **no** word boxes
+or candidate output; the benchmark remained `HOLD_PRIVATE_GOLD_FAILURE`.
+Consequently, the first-run accuracy figures above are authentic but **native
+repeatability is not proven**. This load-related timeout hypothesis has not
+been independently isolated and is not grounds to relax the OCR resource
+guard or certify the original acceptance.
 
 Local Python verification after the fix:
 
