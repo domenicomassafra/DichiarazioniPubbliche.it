@@ -1651,7 +1651,7 @@ def _query_tokens(text: str) -> set[str]:
 class ConfiguredRegistryDiscoveryAdapter:
     adapter_id = "configured_registry"
     adapter_version = "configured-registry-discovery-v1"
-    supported_families = frozenset({"youtube_channel", "podcast_rss", "public_creator_accounts"})
+    supported_families = frozenset({"youtube_channel", "podcast_rss", "public_creator_accounts", "public_rss"})
 
     def __init__(self, registry_path: Path | None = None) -> None:
         self.registry_path = registry_path

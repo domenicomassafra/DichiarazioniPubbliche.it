@@ -1225,6 +1225,46 @@ class ResearchDiscoveryTests(unittest.TestCase):
         self.assertEqual({hit.source_family for hit in result.hits}, {"public_creator_accounts"})
         self.assertEqual({hit.source_id for hit in result.hits}, {"social-raffagiulians"})
 
+    def test_configured_registry_adapter_dispatches_authorized_official_rss(self):
+        """DP-228 must execute a free configured official RSS query, not report empty success."""
+        from unittest.mock import patch
+        from dichiarazioni_pubbliche.source_adapters import DiscoveryResult
+        from dichiarazioni_pubbliche.source_watcher import DiscoveredContent
+
+        payload = manifest_payload()
+        payload["source_families"] = ["public_rss"]
+        payload["seeds"] = [{"kind": "source_id", "value": "official-camera-temi"}]
+        payload["queries"][0].update({
+            "query": "Camera dei deputati",
+            "source_families": ["public_rss"],
+            "adapter_ids": ["configured_registry"],
+            "seeds": [{"kind": "source_id", "value": "official-camera-temi"}],
+        })
+        manifest = load_discovery_manifest(payload)
+        request = DiscoveryAdapterRequest(
+            manifest_id=manifest.id, manifest_sha256=manifest.manifest_sha256,
+            run_id="run:official-rss", query=manifest.queries[0],
+            date_from=None, date_to=None, remaining_cost_usd=Decimal("0"),
+        )
+        discovery = DiscoveryResult((
+            DiscoveredContent(
+                source_id="official-camera-temi", platform="public_rss",
+                external_id="camera:example", title="Camera dei deputati: aggiornamento",
+                canonical_url="https://www.camera.it/leg18/1234", published_at="",
+            ),
+        ))
+        adapter = ConfiguredRegistryDiscoveryAdapter(ROOT / "config" / "source-registry.v1.json")
+        with patch(
+            "dichiarazioni_pubbliche.research_discovery.discover_source_result",
+            return_value=discovery,
+        ) as native_discover:
+            result = adapter.discover(request)
+        native_discover.assert_called_once()
+        self.assertEqual(result.status, "OK")
+        self.assertEqual(len(result.hits), 1)
+        self.assertEqual(result.hits[0].source_family, "public_rss")
+        self.assertEqual(result.hits[0].source_id, "official-camera-temi")
+
 
 if __name__ == "__main__":
     unittest.main()
