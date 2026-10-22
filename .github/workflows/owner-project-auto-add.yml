@@ -4,12 +4,17 @@ on:
   issues:
     types: [opened, reopened, transferred]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   add-to-project:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Add issue to Project #1
         id: add
