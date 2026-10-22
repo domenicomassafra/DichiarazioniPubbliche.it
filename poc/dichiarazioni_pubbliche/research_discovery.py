@@ -20,7 +20,7 @@ from dichiarazioni_pubbliche.ingestion_relevance import (
 from dichiarazioni_pubbliche.policy.privacy_policy import PRIVACY_POLICY_VERSION
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche.scheduler import deterministic_content_id
-from dichiarazioni_pubbliche.source_adapters import SourceAdapterError, discover_source_result
+from dichiarazioni_pubbliche.source_adapters import SUPPORTED_SOURCE_KINDS, SourceAdapterError, discover_source_result
 from dichiarazioni_pubbliche.source_watcher import get_source, load_registry
 
 
@@ -1651,7 +1651,7 @@ def _query_tokens(text: str) -> set[str]:
 class ConfiguredRegistryDiscoveryAdapter:
     adapter_id = "configured_registry"
     adapter_version = "configured-registry-discovery-v1"
-    supported_families = frozenset({"youtube_channel", "podcast_rss", "public_creator_accounts"})
+    supported_families = SUPPORTED_SOURCE_KINDS
 
     def __init__(self, registry_path: Path | None = None) -> None:
         self.registry_path = registry_path
