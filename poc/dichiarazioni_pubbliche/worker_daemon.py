@@ -260,12 +260,18 @@ class ProcessingWorker(
             raise BlockedJob("PAID_DISPATCH_COST_INVALID") from exc
         if Decimal(upper) > Decimal(job_cap):
             raise DeferredJob("JOB_COST_CAP_REACHED", self.budget.budget_defer_seconds)
+        provider_id = (job.payload.get("provider_id")
+                       if job.job_type == "TRANSCRIPT_ACQUIRE_ASR"
+                       else getattr(self.claim_client, "provider_id", None))
+        if not isinstance(provider_id, str) or not provider_id.strip():
+            raise BlockedJob("PAID_DISPATCH_PROVIDER_UNVERIFIED")
         try:
             state = self.store.reserve_worker_budget(
                 job_id=job.job_id, attempt=job.attempt,
                 worker_id=self.worker_id, source_id=content.source_id,
                 upper_bound_usd=upper, max_job_usd=job_cap,
                 max_global_usd=global_cap, max_source_usd=source_cap,
+                provider_id=provider_id,
             )
         except (RuntimeError, AttributeError) as exc:
             # DB error text could expose connection details: do not persist it.
@@ -273,7 +279,7 @@ class ProcessingWorker(
                               self.budget.budget_defer_seconds) from exc
         if state != "RESERVED":
             raise DeferredJob(
-                state if state in {
+                state if state.startswith(("MONTHLY_", "PROVIDER_")) or state in {
                     "BUDGET_RESERVATION_REPLAY_HELD",
                     "UNKNOWN_BILLING_LIABILITY_HELD",
                     "GLOBAL_DAILY_BUDGET_REACHED",

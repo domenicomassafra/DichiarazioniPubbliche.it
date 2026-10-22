@@ -16,6 +16,10 @@ from dichiarazioni_pubbliche.domain_vocabulary import (
     RELATION_VERSION,
     RelationCandidateType,
 )
+from dichiarazioni_pubbliche.relation_temporal_scope import (
+    has_valid_temporal_scope as _has_valid_temporal_scope,
+    scopes_overlap as _scopes_overlap,
+)
 
 
 @dataclass(frozen=True)
@@ -39,26 +43,6 @@ class RelationCandidateResult:
     rationale_codes: tuple[str, ...]
     confidence: float | None
     relation_version: str = RELATION_VERSION
-
-
-def _date_or_none(value: str | None) -> date | None:
-    if not value:
-        return None
-    return date.fromisoformat(value)
-
-
-def _scopes_overlap(
-    left: StructuredClaimRelationInput,
-    right: StructuredClaimRelationInput,
-) -> bool:
-    left_start = _date_or_none(left.scope_start)
-    left_end = _date_or_none(left.scope_end)
-    right_start = _date_or_none(right.scope_start)
-    right_end = _date_or_none(right.scope_end)
-    if None in {left_start, left_end, right_start, right_end}:
-        return False
-    assert left_start and left_end and right_start and right_end
-    return max(left_start, right_start) <= min(left_end, right_end)
 
 
 def classify_relation(
@@ -150,6 +134,18 @@ def classify_relation(
             RelationCandidateType.SAME_PROPOSITION,
             ("SAME_PROPOSITION_SAME_STANCE",),
             1.0,
+        )
+    # An equal Person ID cannot establish chronology without valid periods.
+    if prior.person_id and later.person_id and prior.person_id == later.person_id and (
+        not _has_valid_temporal_scope(prior)
+        or not _has_valid_temporal_scope(later)
+    ):
+        return RelationCandidateResult(
+            prior.claim_id,
+            later.claim_id,
+            RelationCandidateType.SAME_PROPOSITION,
+            ("TEMPORAL_SCOPE_UNVERIFIED_NO_POSITION_CHANGE",),
+            None,
         )
     if _scopes_overlap(prior, later) or later.asserts_past_continuity:
         return RelationCandidateResult(

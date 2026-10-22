@@ -141,13 +141,7 @@ def parse_schema_fields(schema: str) -> dict[str, tuple[str, ...]]:
 
 
 def _check_literal_migration_coverage(tables: Mapping[str, tuple[str, ...]]) -> None:
-    """Refuse direct migration DDL introducing fields missing from the census.
-
-    The canonical schema normally folds migrations in. This independent scan
-    catches the otherwise invisible new migration-only column/table before an
-    operator could mistake an unchanged inventory checksum for complete coverage.
-    Dynamic SQL and JSON payload keys remain outside this bounded static check.
-    """
+    """Reject migration fields absent from the reviewed private census."""
     migrations = sorted(_MIGRATIONS_ROOT.glob("*.sql"))
     if not migrations:
         raise FieldInventoryError("PRIVACY_MIGRATION_SOURCE_MISSING")
@@ -381,9 +375,7 @@ def compare_host_surface_metadata(inventory: Mapping[str, Any], observed: Mappin
 
 def make_inventory(schema: str) -> dict[str, Any]:
     tables = parse_schema_fields(schema)
-    # Production includes two historical migration-only additions not folded
-    # into the canonical DDL. Inventory the *effective* persisted schema rather
-    # than claiming the base DDL alone covers every live PostgreSQL column.
+    # Include private migration columns alongside schema.
     registry = parse_schema_fields(_PUBLIC_SCHEMA_MIGRATION.read_text(encoding="utf-8"))
     if set(registry) != {"public_schema_contract"} or "public_schema_contract" in tables:
         raise FieldInventoryError("PRIVACY_LEGACY_SCHEMA_REGISTRY_DRIFT")
@@ -397,6 +389,12 @@ def make_inventory(schema: str) -> dict[str, Any]:
         raise FieldInventoryError("PRIVACY_LEGACY_RELATION_POLICY_SCOPE_DRIFT")
     tables["public_schema_contract"] = registry["public_schema_contract"]
     tables["claim_relation_candidate"] = (*tables["claim_relation_candidate"], "policy_version")
+    monthly = parse_schema_fields(
+        (ROOT / "db/migrations/20261022-add-atomic-monthly-dispatch.sql").read_text(encoding="utf-8")
+    )
+    if set(monthly) != {"dp514_monthly_dispatch_policy", "dp514_monthly_dispatch_reservation"} or (set(monthly) & set(tables)):
+        raise FieldInventoryError("PRIVACY_DP514_MONTHLY_TABLE_DRIFT")
+    tables.update(monthly)
     _check_literal_migration_coverage(tables)
     records: dict[str, dict[str, dict[str, str]]] = {}
     for table, columns in tables.items():
@@ -408,6 +406,8 @@ def make_inventory(schema: str) -> dict[str, Any]:
                     if table == "public_schema_contract"
                     else "20260926_RELATION_POLICY_MIGRATION"
                     if table == "claim_relation_candidate" and column == "policy_version"
+                    else "20261022_DP514_MONTHLY_MIGRATION"
+                    if table in monthly
                     else "CANONICAL_SCHEMA_V1"
                 ),
                 "data_class": classify_field(table, column),

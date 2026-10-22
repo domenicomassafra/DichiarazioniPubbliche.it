@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
@@ -40,11 +39,9 @@ from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: 
 from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
 from tests.dp169_caption_fixture_rights import cleared_caption_rights
 
-
 class FakePrivateStore:
     def persist_caption(self, **kwargs):
         return Path("/private")
-
 
 class FakeResolver:
     def __init__(self, candidate=None, probe=None):
@@ -63,24 +60,23 @@ class FakeResolver:
             raise self.probe
         return self.probe
 
-
 class FakeClaimClient:
+    provider_id = "omniroute"
     model = "test-model"
     prompt_version = "claim-extract-test"
     max_output_tokens = 100
 
     def __init__(self, *, healthy=True, claims=()):
-        self.healthy = healthy
-        self.claims = tuple(claims)
-        self.probes = 0
-        self.extracts = 0
+        self.healthy=healthy
+        self.claims=tuple(claims)
+        self.probes=self.extracts=0
 
     def probe(self):
         self.probes += 1
         return ClaimRuntimeProbe(
             healthy=self.healthy,
             reason="OK" if self.healthy else "OMNIROUTE_HTTP_400:test",
-            latency_seconds=0.01,
+            latency_seconds=.01,
             http_status=200 if self.healthy else 400,
         )
 
@@ -89,11 +85,10 @@ class FakeClaimClient:
         return ClaimExtractionResult(
             claims=self.claims,
             request_id="request:test",
-            latency_seconds=0.02,
+            latency_seconds=.02,
             usage={"prompt_tokens": 10, "completion_tokens": 5},
             observed_cost_usd=0.0,
         )
-
 
 class FakeEvidenceFetcher:
     def __init__(self, result=None, error=None):
@@ -122,7 +117,6 @@ class FakeEvidenceFetcher:
         if self.error is not None:
             raise self.error
         return self.result
-
 
 class FakeStore:
     def __init__(self, jobs):
@@ -315,7 +309,6 @@ class FakeStore:
             counts[state] = counts.get(state, 0) + 1
         return counts
 
-
 REGISTRY = {
     "sources": [
         {
@@ -326,7 +319,6 @@ REGISTRY = {
     ]
 }
 
-
 def job(job_type, payload=None):
     return ProcessingJob(
         job_id=f"job:{job_type}",
@@ -335,7 +327,6 @@ def job(job_type, payload=None):
         attempt=0,
         payload=payload or {},
     )
-
 
 class WorkerDaemonTests(unittest.TestCase):
     def make_worker(
@@ -1268,7 +1259,6 @@ class WorkerDaemonTests(unittest.TestCase):
                 first.release()
             self.assertTrue(second.acquire())
             second.release()
-
 
 if __name__ == "__main__":
     unittest.main()

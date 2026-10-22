@@ -50,7 +50,7 @@ def _evidence_iso_date(value: str | None, field_name: str) -> str | None:
 
 
 def count_undated_operation_receipts(db: PsqlRuntime) -> int:
-    """Read aggregate unallocated legacy liability at the canonical SQL seam."""
+    """Count unresolved legacy receipts."""
     raw = db.run(
         "SELECT count(*) FROM provider_receipt "
         "WHERE started_at IS NULL AND completed_at IS NULL;"
@@ -59,12 +59,7 @@ def count_undated_operation_receipts(db: PsqlRuntime) -> int:
 
 
 class QueueExecutionCostStore(PsqlRuntime):
-    """Narrow PostgreSQL store for queue execution and provider-cost accounting.
-
-    Queue lifecycle/execution and provider-cost/operation-ledger SQL are owned here while
-    ``QueueRuntimeStore`` keeps same-signature compatibility entry points that delegate to
-    this boundary.
-    """
+    """Private queue and cost store."""
 
     def reap_expired(self, max_attempts: int = 5) -> int:
         raw = self.run(
@@ -285,19 +280,23 @@ class QueueExecutionCostStore(PsqlRuntime):
     def reserve_worker_budget(
         self, *, job_id: str, attempt: int, worker_id: str, source_id: str,
         upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
-        max_source_usd: str,
+        max_source_usd: str, provider_id: str = "",
     ) -> str:
-        # Missing migration fails closed.
+        # EUR ledger required to dispatch.
         return self.run(
-            """SELECT reserve_worker_budget(
+            """SELECT CASE WHEN to_regprocedure(
+                'reserve_worker_budget_usd(text,integer,text,text,numeric,numeric,numeric,numeric)'
+            ) IS NULL THEN 'MONTHLY_POLICY_UNAVAILABLE'
+            ELSE reserve_worker_budget(
                  :'job_id', :'attempt'::integer, :'worker_id', :'source_id',
                  :'upper_bound'::numeric, :'job_cap'::numeric,
-                 :'global_cap'::numeric, :'source_cap'::numeric
-            );""",
+                 :'global_cap'::numeric, :'source_cap'::numeric,
+                 :'provider_id'
+            ) END;""",
             job_id=job_id, attempt=attempt, worker_id=worker_id,
             source_id=source_id, upper_bound=upper_bound_usd,
             job_cap=max_job_usd, global_cap=max_global_usd,
-            source_cap=max_source_usd,
+            source_cap=max_source_usd, provider_id=provider_id,
         )
 
     def operation_ledger_receipts(

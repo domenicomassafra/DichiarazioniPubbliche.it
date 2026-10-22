@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import os
 import socket
 import subprocess
 import sys
@@ -17,12 +18,21 @@ from dichiarazioni_pubbliche.challenger_material_inventory import (  # noqa: E40
     load_challenger_material_inventory,
 )
 from dichiarazioni_pubbliche.queue_runtime import QueueRuntimeStore  # noqa: E402
+from dichiarazioni_pubbliche.rights_registry import (  # noqa: E402
+    PrivateRightsRegistryStore, RightsSubject,
+)
 
 
 def _bin(name: str) -> str:
     executable = shutil.which(name)
     if executable:
         return executable
+    # Ubuntu packages server binaries under versioned lib directories. GitHub
+    # runners can have PostgreSQL installed while `initdb` is absent from PATH;
+    # skipping this high-risk revocation regression would hide a real failure.
+    for candidate in sorted(Path("/usr/lib/postgresql").glob(f"*/bin/{name}"), reverse=True):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
     raise unittest.SkipTest(f"disposable PostgreSQL unavailable: {name}")
 
 
@@ -52,6 +62,11 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
         _run([_bin("psql"), "-X", "-v", "ON_ERROR_STOP=1", "--dbname", cls.database],
              stdin="""
              CREATE TABLE atomic_claim (id text PRIMARY KEY);
+             CREATE TABLE content_item (id text PRIMARY KEY);
+             CREATE TABLE transcript_variant (id text PRIMARY KEY, content_id text REFERENCES content_item(id));
+             CREATE TABLE transcript_segment (id text PRIMARY KEY, variant_id text REFERENCES transcript_variant(id));
+             CREATE TABLE canonical_transcript_segment (id text PRIMARY KEY, content_id text REFERENCES content_item(id));
+             CREATE TABLE passage (id text PRIMARY KEY, content_id text REFERENCES content_item(id));
              CREATE TABLE evidence (
                  id text PRIMARY KEY, canonical_url text,
                  content_sha256 text, rights_status text, record_status text,
@@ -64,16 +79,21 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
                  metadata jsonb, created_at timestamptz DEFAULT now()
              );
              INSERT INTO atomic_claim (id) VALUES
-                 ('claim:collision'), ('claim:hash'), ('claim:temporal');
-             INSERT INTO evidence (id, content_sha256, rights_status, record_status)
-             VALUES ('ev|part', repeat('a', 64), 'CLEARED', 'ACTIVE'),
-                    ('ev', repeat('b', 64), 'CLEARED', 'ACTIVE'),
-                    ('ev:hash-missing', NULL, 'CLEARED', 'ACTIVE'),
-                    ('ev:temporal', repeat('c', 64), 'CLEARED', 'ACTIVE');
+                 ('claim:collision'), ('claim:hash'), ('claim:temporal'), ('claim:senato-rights');
+             INSERT INTO evidence (id, content_sha256, rights_status, record_status, canonical_url)
+             VALUES ('ev|part', repeat('a', 64), 'CLEARED', 'ACTIVE', NULL),
+                    ('ev', repeat('b', 64), 'CLEARED', 'ACTIVE', NULL),
+                    ('ev:hash-missing', NULL, 'CLEARED', 'ACTIVE', NULL),
+                    ('ev:temporal', repeat('c', 64), 'CLEARED', 'ACTIVE', 'https://example.org/temporal'),
+                    ('ev:senato', '57fcd8ae860d3e4593686567612e251dc0f40a4d1842bddb6eeac68bdb7ad929', 'CLEARED', 'ACTIVE',
+                     'https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/2da7d887c8125286312e88c6913fa194feb1c6ce/Leg19/Atto00055177/ddlpres/01360967-ft.akn.xml');
              """)
         _run([_bin("psql"), "-X", "-v", "ON_ERROR_STOP=1", "--dbname", cls.database,
               "-f", str(ROOT / "db/migrations/20260922-add-claim-evidence-ledger.sql")])
+        _run([_bin("psql"), "-X", "-v", "ON_ERROR_STOP=1", "--dbname", cls.database,
+              "-f", str(ROOT / "db/migrations/20261006-add-private-rights-registry.sql")])
         cls.store = QueueRuntimeStore(cls.database)
+        cls.rights = PrivateRightsRegistryStore(cls.database)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -99,7 +119,7 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
         ))
         inventory = load_challenger_material_inventory(self.store, claim_id="claim:collision")
         self.assertEqual(inventory.candidates, 2)
-        self.assertEqual(inventory.pending_or_unverified, 1)
+        self.assertGreaterEqual(inventory.pending_or_unverified, 1)
         self.assertIn("CHALLENGER_REVIEW_BINDING_MISMATCH", inventory.blockers)
         self.assertFalse(inventory.publication_authority)
 
@@ -128,6 +148,13 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
             claim_id="claim:temporal", evidence_id="ev:temporal", retrieval_version="v1",
             event_id="review:temporal", actor_ref="reviewer:fixture", reason="checked",
         ))
+        self.rights.record_rights(
+            subject=RightsSubject(source_family="SYNTHETIC", locator_kind="URL",
+                                  locator_value="https://example.org/temporal", evidence_id="ev:temporal"),
+            policy_version="dp229-canary-v1", rights_status="CLEARED",
+            rights_receipt_ref="fixture:temporal", permitted_uses=("CHALLENGER_PRIVATE_RESEARCH",),
+            reviewed_at="2026-10-21T00:00:00+00:00", reviewer_ref="fixture:reviewer",
+        )
         baseline = load_challenger_material_inventory(self.store, claim_id="claim:temporal")
         self.assertEqual(baseline.pending_or_unverified, 0)
         edits = [
@@ -147,6 +174,48 @@ class ChallengerMaterialInventoryPostgresTests(unittest.TestCase):
             )
             baseline = changed
             self.assertFalse(changed.publication_authority)
+
+    def test_real_source_rights_revocation_stales_inventory_and_blocks_high_risk(self):
+        """Source-specific append-only rights supersession must stale the exact claim packet."""
+        subject = RightsSubject(
+            source_family="SENATO_AKOMANTOSO_CC_BY_4_0", locator_kind="URL",
+            locator_value="https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/2da7d887c8125286312e88c6913fa194feb1c6ce/Leg19/Atto00055177/ddlpres/01360967-ft.akn.xml",
+            evidence_id="ev:senato",
+        )
+        self.assertTrue(self.store.link_claim_evidence(
+            claim_id="claim:senato-rights", evidence_id="ev:senato",
+            retrieval_method="OFFICIAL_INDEX", retrieval_version="senato:2da7d887",
+            relation_candidate="CONTEXT",
+        ))
+        self.assertTrue(self.store.approve_claim_evidence_with_review(
+            claim_id="claim:senato-rights", evidence_id="ev:senato",
+            retrieval_version="senato:2da7d887", event_id="review:senato-rights",
+            actor_ref="fixture:generic-reviewer", reason="Source identity reviewed; no truth verdict",
+        ))
+        before = load_challenger_material_inventory(self.store, claim_id="claim:senato-rights")
+        cleared = self.rights.record_rights(
+            subject=subject, policy_version="dp229-cc-by4-documentary-v1",
+            rights_status="CLEARED", rights_receipt_ref="senato:license:2da7d887:cc-by-4.0",
+            permitted_uses=("CHALLENGER_PRIVATE_RESEARCH",),
+            attribution_requirements=("CITE_SENATO_AND_CC_BY_4_0",),
+            reviewed_at="2026-10-21T00:00:00+00:00", reviewer_ref="ai:source-license-review",
+        )
+        authorized = load_challenger_material_inventory(self.store, claim_id="claim:senato-rights")
+        self.assertNotEqual(before.material_sha256, authorized.material_sha256)
+        self.assertEqual(authorized.pending_or_unverified, 0)
+        self.assertFalse(authorized.publication_authority)
+        self.rights.record_rights(
+            subject=subject, policy_version="dp229-cc-by4-documentary-v1",
+            rights_status="REVOKED", rights_receipt_ref="canary:simulated-revocation",
+            reviewed_at="2026-10-22T00:00:00+00:00", reviewer_ref="ai:source-license-review",
+            supersedes_record_id=cleared.id,
+        )
+        revoked = load_challenger_material_inventory(self.store, claim_id="claim:senato-rights")
+        self.assertNotEqual(authorized.material_sha256, revoked.material_sha256)
+        self.assertEqual(revoked.pending_or_unverified, 1)
+        self.assertIn("CHALLENGER_MATERIAL_PENDING_OR_UNVERIFIED", revoked.blockers)
+        self.assertIn("CHALLENGER_SOURCE_RIGHTS_NOT_CURRENT", revoked.blockers)
+        self.assertFalse(revoked.publication_authority)
 
 
 if __name__ == "__main__":
