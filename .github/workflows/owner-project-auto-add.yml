@@ -1,0 +1,28 @@
+# User-owned Projects require a classic PAT (project + repo scopes).
+name: Add issues to owner Project
+on:
+  issues:
+    types: [opened, reopened, transferred]
+
+permissions:
+  contents: read
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add issue to Project #1
+        id: add
+        uses: actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae24323cc57fd
+        with:
+          project-url: https://github.com/users/domenicomassafra/projects/1
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+      - name: Set Prodotto/Repo
+        env:
+          GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          PROJECT_ITEM_ID: ${{ steps.add.outputs.itemId }}
+        run: |
+          gh project item-edit --id "$PROJECT_ITEM_ID" \
+            --project-id PVT_kwHOBv5HFs4BnMa4 \
+            --field-id PVTSSF_lAHOBv5HFs4BnMa4zhmzvAI \
+            --single-select-option-id dc963fa3
