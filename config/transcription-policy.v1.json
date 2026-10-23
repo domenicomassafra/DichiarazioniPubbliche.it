@@ -60,8 +60,8 @@
       "route": "local/faster-whisper-small",
       "timestamp_support": true,
       "italian": true,
-      "proven_in_owner_runtime": false,
-      "notes": "Private operator-only route. Historical CPU benchmark is not a receipt for this dispatcher; requires verified weight license, pinned model, authorized local WAV and a new live canary. Never auto-selected from a remote URL."
+      "proven_in_owner_runtime": true,
+      "notes": "MiniPC operator-only Small route verified on 2026-10-23 with an authorized synthetic WAV, pinned model receipt, current synthetic ASR_MEDIA right, application dispatcher and private provider receipt. Production opt-in remains subject to native FFmpeg/PyAV license clearance and real source-specific grants. Never auto-selected from a remote URL."
     },
     {
       "id": "whisper-cpp-local",

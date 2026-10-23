@@ -55,6 +55,18 @@ class AsrRouterTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "NO_ELIGIBLE_PRIMARY_ASR"):
             plan_asr(duration_seconds=60, risk_class="NORMAL", states=states)
 
+    def test_proven_small_stays_manual_even_when_enabled_in_router_state(self):
+        states = {
+            "groq-whisper-large-v3-turbo": ProviderState(
+                "groq-whisper-large-v3-turbo", healthy=False,
+            ),
+            "faster-whisper-small-local": ProviderState(
+                "faster-whisper-small-local", enabled=True,
+            ),
+        }
+        with self.assertRaisesRegex(RuntimeError, "NO_ELIGIBLE_PRIMARY_ASR"):
+            plan_asr(duration_seconds=10, states=states)
+
     def test_unproven_large_local_model_is_not_selected(self):
         states = {
             "groq-whisper-large-v3-turbo": ProviderState(
