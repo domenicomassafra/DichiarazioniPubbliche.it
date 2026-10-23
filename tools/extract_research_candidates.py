@@ -31,6 +31,10 @@ from dichiarazioni_pubbliche.private_candidate_batch import (  # noqa: E402
     load_candidate_batch,
     preflight_candidate_batch,
 )
+from dichiarazioni_pubbliche.multi_person_batch_operator_v1 import (  # noqa: E402
+    attempt_key, load_operator_plan, private_observation,
+)
+from dichiarazioni_pubbliche.multi_person_batch_store_v1 import PrivateBatchSQLiteStore  # noqa: E402
 from dichiarazioni_pubbliche.private_candidate_commit_fence import PrivateCandidateCommitFence  # noqa: E402
 from dichiarazioni_pubbliche.provider_optional_route import (  # noqa: E402
     plan_optional_private_candidate, read_sanitized_catalog,
@@ -70,7 +74,13 @@ def main(argv: list[str] | None = None) -> int:
         "--external-model-data-approved", action="store_true",
         help="Explicit permission to send rights-reviewed passages to an external API",
     )
+    parser.add_argument("--dp240-contexts", type=Path,
+                        help="Private per-Passage context JSON (assertion, not authorization)")
+    parser.add_argument("--dp240-ledger", type=Path,
+                        help="DP-240 SQLite receipts in an existing private directory")
     args = parser.parse_args(argv)
+    if (args.dp240_contexts is None) != (args.dp240_ledger is None):
+        parser.error("--dp240-contexts and --dp240-ledger must be supplied together")
     batch = load_candidate_batch(args.manifest)
     try:
         cap = Decimal(args.max_cost_usd)
@@ -128,11 +138,34 @@ def main(argv: list[str] | None = None) -> int:
                     provider_calls=0, blocked=list(optional_plan.blocked),
                     plan_receipt_id=optional_plan.receipt_id)
             return 2
+    dp240_plan = None
+    if args.dp240_contexts is not None:
+        try:
+            dp240_plan = load_operator_plan(
+                batch, args.dp240_contexts, candidate_store,
+                provider_capability_ready=bool(args.model or optional_plan),
+            )
+        except ValueError as exc:
+            _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc), provider_calls=0)
+            return 2
+    dp240_fields = ({
+        "dp240_plan_sha256": dp240_plan.plan_sha256,
+        "dp240_partitions": dp240_plan.proposed_group_count,
+        "dp240_held": sum(item.status == "HELD" for item in dp240_plan.items),
+    } if dp240_plan is not None else {})
     if not args.execute:
         _output("PREFLIGHT_PASS_NO_WRITES", ready_passages=len(guards), manifest_sha256=batch.sha256,
                 selected_optional_model=(optional_plan.selected.model_id if optional_plan else None),
-                plan_receipt_id=(optional_plan.receipt_id if optional_plan else None))
+                plan_receipt_id=(optional_plan.receipt_id if optional_plan else None),
+                **dp240_fields)
         return 0
+
+    if dp240_plan is not None and any(
+        row.status != "PRIVATE_EXTRACTION_PROPOSED" for row in dp240_plan.items
+    ):
+        _output("BLOCKED_NO_MODEL_CALL", reason_code="MULTIPERSON_PLAN_ITEMS_HELD",
+                provider_calls=0, **dp240_fields)
+        return 2
 
     if optional_plan is not None and optional_plan.selected.billing_tier != "ANTIGRAVITY_CLI_QUOTA":
         try:
@@ -178,10 +211,26 @@ def main(argv: list[str] | None = None) -> int:
         _output("BLOCKED_PROVIDER_NOT_CONFIGURED", manifest_sha256=batch.sha256)
         return 2
 
+    dp240_store = None
+    dp240_snapshot = None
+    if dp240_plan is not None:
+        try:
+            dp240_store = PrivateBatchSQLiteStore(args.dp240_ledger)
+            dp240_snapshot = dp240_store.register(dp240_plan)
+        except ValueError as exc:
+            _output("BLOCKED_NO_MODEL_CALL", reason_code=str(exc), provider_calls=0,
+                    **dp240_fields)
+            return 2
+
     before = capture_store.read_private_capture_safety_counts()
     spent = Decimal("0")
     completed = 0
     for item, guard in zip(batch.items, guards):
+        if dp240_snapshot is not None and any(
+            attempt.item.passage_id == item.passage_id for attempt in dp240_snapshot.attempts
+        ):
+            # Immutable failed/successful receipts must never trigger a second call.
+            continue
         try:
             guard()
         except PrivateCaptureAuthorizationBlocked as exc:
@@ -205,26 +254,69 @@ def main(argv: list[str] | None = None) -> int:
                 rights_record_id=item.rights_record_id,
             ),
         )
-        # Cost-bearing failed attempts also consume the remaining batch budget.
+        # Cost-bearing failures consume the budget; check protected counts
+        # before writing the ledger's immutable terminal interpretation.
         spent += receipt.cost_usd
-        if spent > cap:
+        over_cap = spent > cap
+        after = capture_store.read_private_capture_safety_counts()
+        protected_changed = (after["atomic_claim"] != before["atomic_claim"] or
+                             after["publish_finding"] != before["publish_finding"])
+        if dp240_snapshot is not None:
+            scoped_item = next(row for row in dp240_plan.items if row.passage_id == item.passage_id)
+            source_match = (getattr(receipt, "content_id", None) == item.content_id
+                            and getattr(receipt, "passage_id", None) == item.passage_id)
+            accepted = (receipt.status == "COMPLETED" and source_match
+                        and not over_cap and not protected_changed)
+            failure_override = (
+                "MULTIPERSON_RESULT_SOURCE_MISMATCH" if not source_match
+                else "MULTIPERSON_COST_CAP_EXCEEDED" if over_cap
+                else "MULTIPERSON_PROTECTED_COUNTS_CHANGED" if protected_changed
+                else None
+            )
+            observation = private_observation(
+                scoped_item, receipt, accepted=accepted, failure_override=failure_override,
+            )
+            try:
+                dp240_snapshot = dp240_store.observe(
+                    dp240_plan, scoped_item, observation,
+                    attempt_key=attempt_key(dp240_plan.plan_sha256, item.passage_id),
+                    expected_revision=dp240_snapshot.revision,
+                )
+            except ValueError as exc:
+                _output("HALTED_RECEIPT", reason_code=str(exc), completed=completed,
+                        **dp240_fields)
+                return 3
+            if not source_match:
+                _output("HALTED_SOURCE_BINDING", reason_code="MULTIPERSON_RESULT_SOURCE_MISMATCH",
+                        completed=completed, **dp240_fields)
+                return 3
+        if over_cap:
             _output("HALTED_BATCH_COST_EXCEEDED", completed=completed,
                     manifest_sha256=batch.sha256)
             return 3
-        after = capture_store.read_private_capture_safety_counts()
-        if (after["atomic_claim"] != before["atomic_claim"] or
-                after["publish_finding"] != before["publish_finding"]):
+        if protected_changed:
             _output("HALTED_PROTECTED_COUNTS_CHANGED", completed=completed,
                     manifest_sha256=batch.sha256)
             return 3
         if receipt.status != "COMPLETED":
             _output("HALTED_EXTRACTION", reason_code=receipt.reason_code, completed=completed,
-                    provider_calls=receipt.call_count, manifest_sha256=batch.sha256)
+                    provider_calls=receipt.call_count, manifest_sha256=batch.sha256,
+                    **dp240_fields)
             return 2
         completed += 1
-    _output("PRIVATE_CANDIDATES_EXTRACTED", completed=completed,
+    if dp240_snapshot is not None and (
+        dp240_snapshot.index.failed_count or dp240_snapshot.index.pending_count
+    ):
+        _output("PRIVATE_CANDIDATE_BATCH_PARTIAL", completed=completed,
+                failed=dp240_snapshot.index.failed_count,
+                unobserved=dp240_snapshot.index.pending_count,
+                **dp240_fields)
+        return 2
+    _output("PRIVATE_CANDIDATES_EXTRACTED",
+            completed=(dp240_snapshot.index.private_candidate_count
+                       if dp240_snapshot is not None else completed),
             actual_cost_usd=str(spent), manifest_sha256=batch.sha256,
-            claim_promotion=False, publication=False)
+            claim_promotion=False, publication=False, **dp240_fields)
     return 0
 
 
