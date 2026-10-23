@@ -181,12 +181,17 @@ the MiniPC, and what stayed impossible.
   4.32 GB, `archivebox --version` = 0.9.73.
 - **Effective dependency inventory of the pulled image** (not of a
   hypothetical resolve): 103 Python distributions enumerated from their
-  installed metadata; the only restricted licenses are exactly the approved
-  ones — `psycopg 3.3.4` and `psycopg-binary 3.3.4` (LGPL-3.0-only),
-  `browser-cookie3 0.20.1` (LGPL), `certifi 2026.6.17` (MPL-2.0) — plus
-  `pycryptodomex 3.23.0` (BSD/Public Domain). The donor's own
-  `install:wget` step brings GNU Wget 1.25.0 (GPL). No additional component
-  requiring a new owner question was installed.
+  installed metadata. The pinned image has `psycopg 3.3.4` and
+  `psycopg-binary 3.3.4` (LGPL-3.0-only), `browser-cookie3 0.20.1` (LGPL),
+  and `certifi 2026.6.17` (MPL-2.0), rather than the Python resolver's
+  projected `psycopg 3.3.6` / `certifi 2026.10.19`. The donor's `install:wget`
+  step uses GNU Wget 1.25.0 (GPL). A subsequent review of the installed
+  metadata also identified `zope.interface 8.5` (ZPL-2.1), `ujson 5.13.0`
+  (BSD-3-Clause AND TCL) and `regex 2026.7.10` (Apache-2.0 AND CNRI-Python),
+  absent from the owner's enumerated approval. These discrepancies are
+  documented in the [pending owner question](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/162#issuecomment-6363334313).
+  OS-layer and executable notices are still incomplete: do not interpret
+  the WARC run as an approval for another run or for production.
 - **Isolation.** Disposable bridge `172.31.162.0/24`; a fixture container
   served only `/fixture.html` over TLS with a canary-only CA;
   `dp162-canary.test` resolved to `172.31.162.2` **inside the crawler
@@ -232,4 +237,6 @@ the MiniPC, and what stayed impossible.
 Multiformat acceptance is therefore still open: the canary proved a real,
 rights-bound WARC capture with measured cost inside an isolated
 network, and proved that PDF preservation needs an explicit licensing and
-provisioning decision for a headless browser.
+provisioning decision for a headless browser. The additional image licensing
+question above also remains unanswered; repeat neither capture nor provisioning
+until the exact runtime inventory is cleared by the owner.
