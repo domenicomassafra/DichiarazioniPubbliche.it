@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import hashlib
-import ipaddress
 import json
 import os
 import re
-import socket
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -20,9 +18,15 @@ from dichiarazioni_pubbliche.corpus_repository import (
     PassageRecord,
     deterministic_corpus_id,
 )
+# Re-export the bounded HTTP validators for existing capture callers.
+from dichiarazioni_pubbliche.capture_http_validation import (
+    CapturePipelineError, _capture_response_limit,
+    _validate_capture_target, _validate_fetched_resource,
+)
 from dichiarazioni_pubbliche.capture_authorization import PrivateCaptureAuthorizationBlocked
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
 from dichiarazioni_pubbliche.capture_archive_flow import archive_capture
+from dichiarazioni_pubbliche.browser_renderer import render_with_current_rights
 from dichiarazioni_pubbliche.discovery_provenance import valid_discovery_hit_groups_sql
 from dichiarazioni_pubbliche.corpus_retention import (
     COMPLETE_CAPTURE_ARCHIVE_SQL_V1,
@@ -56,12 +60,6 @@ _SECRET_KEY_RE = re.compile(
     r"(?:authorization|cookie|credential|password|secret|api[_-]?key|access[_-]?token|refresh[_-]?token)",
     re.I,
 )
-
-
-class CapturePipelineError(RuntimeError):
-    def __init__(self, code: str) -> None:
-        self.code = str(code or "CAPTURE_PIPELINE_FAILURE").strip().upper()[:120]
-        super().__init__(self.code)
 
 
 @dataclass(frozen=True)
@@ -103,6 +101,7 @@ class CaptureEnrichmentPolicy:
     metadata_enabled: bool = True
     archive_enabled: bool = True
     oembed_lookup_enabled: bool = False
+    browser_render_enabled: bool = False
 
 
 def capture_enrichment_policy_from_source(
@@ -117,8 +116,11 @@ def capture_enrichment_policy_from_source(
         ("metadata_enrichment_enabled", "metadata_enabled"),
         ("archive_enabled", "archive_enabled"),
         ("oembed_lookup_enabled", "oembed_lookup_enabled"),
+        ("browser_render_enabled", "browser_render_enabled"),
     ):
-        value = policy.get(key, False if key == "oembed_lookup_enabled" else True)
+        value = policy.get(key, False if key in {
+            "oembed_lookup_enabled", "browser_render_enabled"
+        } else True)
         if not isinstance(value, bool):
             raise CapturePipelineError(f"SOURCE_{key.upper()}_INVALID")
         values[output_key] = value
@@ -196,65 +198,6 @@ def _now_iso() -> str:
 
 def _normalize_media_type(value: str | None) -> str:
     return str(value or "application/octet-stream").split(";", 1)[0].strip().lower()
-
-
-def _capture_response_limit(value: object) -> int:
-    if type(value) is not int or not 1 <= value <= MAX_DISCOVERY_RESPONSE_BYTES:
-        raise CapturePipelineError("CAPTURE_RESPONSE_LIMIT_INVALID")
-    return value
-
-
-def _validate_capture_target(value: object, *, final: bool) -> None:
-    """No DNS calls: refuse unsafe literal/ambiguous URLs at both pipeline boundaries.
-
-    The transport's own DNS/redirect policy still owns address resolution and
-    connection safety; validation here cannot certify an arbitrary fetcher.
-    """
-    prefix = "CAPTURE_FINAL_URL" if final else "CAPTURE_URL"
-    if (not isinstance(value, str) or not value or len(value) > 4096
-            or any(ord(ch) <= 32 or ord(ch) == 127 for ch in value)):
-        raise CapturePipelineError(f"{prefix}_INVALID")
-    try:
-        parsed = urlsplit(value)
-        hostname = parsed.hostname
-        port = parsed.port
-    except ValueError:
-        raise CapturePipelineError(f"{prefix}_INVALID") from None
-    if parsed.scheme.lower() != "https" or not hostname:
-        raise CapturePipelineError(f"{prefix}_HTTPS_REQUIRED")
-    if parsed.username is not None or parsed.password is not None or port not in {None, 443}:
-        raise CapturePipelineError(f"{prefix}_AUTHORITY_REFUSED")
-    host = hostname.rstrip(".")
-    if (not host or "%" in host or host == "localhost"
-            or host.endswith((".localhost", ".local", ".internal"))):
-        raise CapturePipelineError(f"{prefix}_LOCAL_HOST_REFUSED")
-    try:
-        literal = ipaddress.ip_address(host)
-    except ValueError:
-        # libc accepts IPv4 aliases rejected by ipaddress, e.g. 2130706433,
-        # 0177.0.0.1 and 0x7f000001. Reject all such ambiguous IP spellings;
-        # a resolver might otherwise connect to loopback/link-local targets.
-        try:
-            socket.inet_aton(host)
-        except OSError:
-            pass
-        else:
-            raise CapturePipelineError(f"{prefix}_AMBIGUOUS_IP") from None
-    else:
-        if not literal.is_global:
-            raise CapturePipelineError(f"{prefix}_NONPUBLIC_IP")
-
-
-def _validate_fetched_resource(fetched: FetchedBytes, *, max_response_bytes: int) -> None:
-    if not isinstance(fetched.body, bytes):
-        raise CapturePipelineError("CAPTURE_BODY_INVALID")
-    if len(fetched.body) > _capture_response_limit(max_response_bytes):
-        raise CapturePipelineError("CAPTURE_RESPONSE_TOO_LARGE")
-    if type(fetched.content_length) is not int or fetched.content_length != len(fetched.body):
-        raise CapturePipelineError("CAPTURE_CONTENT_LENGTH_MISMATCH")
-    if type(fetched.status_code) is not int or not 200 <= fetched.status_code < 300:
-        raise CapturePipelineError("CAPTURE_HTTP_STATUS_BLOCKED")
-    _validate_capture_target(fetched.final_url, final=True)
 
 
 def _decode(body: bytes, charset: str | None) -> str:
@@ -1653,6 +1596,19 @@ def capture_content(
     selected_passages = passages
     selected_states = passage_states
     browser_status = "NOT_REQUESTED"
+    if (
+        parse.status != "SUCCEEDED"
+        and browser_renderer is not None
+        and getattr(browser_renderer, "requires_render_authorization", False)
+    ):
+        if not enrichment_policy.browser_render_enabled:
+            browser_renderer = None
+            browser_status = "DISABLED_POLICY"
+        elif rights_status != "CLEARED" or (
+            rights_guard is None and source_use_guard is None
+        ):
+            browser_renderer = None
+            browser_status = "BLOCKED_RIGHTS"
 
     if parse.status != "SUCCEEDED" and browser_renderer is not None and _normalize_media_type(fetched.media_type) in {"text/html", "application/xhtml+xml"}:
         if source_use_guard is not None:
@@ -1670,8 +1626,23 @@ def capture_content(
         except RuntimeError as exc:
             raise CapturePipelineError(str(exc)) from exc
         try:
-            rendered = browser_renderer.render(url, max_response_bytes=max_response_bytes)
+            rendered = render_with_current_rights(
+                browser_renderer, url, max_response_bytes=max_response_bytes,
+                source_use_guard=source_use_guard, rights_guard=rights_guard,
+            )
             _validate_fetched_resource(rendered, max_response_bytes=max_response_bytes)
+            render_receipt = None
+            if getattr(browser_renderer, "requires_render_authorization", False):
+                render_receipt = getattr(browser_renderer, "last_receipt", None)
+                digest = hashlib.sha256(rendered.body).hexdigest()
+                if (
+                    not isinstance(render_receipt, Mapping)
+                    or render_receipt.get("rendered_sha256") != digest
+                    or render_receipt.get("renderer_version") != browser_renderer.renderer_version
+                    or render_receipt.get("renderer_id") != browser_renderer.renderer_id
+                ):
+                    raise CapturePipelineError("BROWSER_RENDITION_RECEIPT_INVALID")
+                render_receipt = _safe_mapping(render_receipt, "browser_render_receipt")
             if source_use_guard is not None:
                 source_use_guard.bind_fetched(final_url=rendered.final_url)
                 source_use_guard.require(
@@ -1702,6 +1673,16 @@ def capture_content(
                 rights_guard=rights_guard,
                 source_use_guard=source_use_guard,
             )
+            if render_receipt is not None:
+                store.append_event(
+                    capture_id=selected.id,
+                    event_type="BROWSER_RENDER_RECEIPT",
+                    operation_key=f"{browser_renderer.renderer_version}:{selected.content_sha256}",
+                    actor_ref=actor_ref,
+                    previous_state={},
+                    new_state={"browser_status": "SUCCEEDED" if selected_parse.status == "SUCCEEDED" else "PARSE_FAILED"},
+                    receipt=render_receipt,
+                )
             browser_status = "SUCCEEDED" if selected_parse.status == "SUCCEEDED" else "PARSE_FAILED"
         except PrivateCaptureAuthorizationBlocked:
             # A revoked/paused authority is not an optional browser-render failure.
