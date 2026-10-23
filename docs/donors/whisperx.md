@@ -156,3 +156,41 @@ the licensed weights and real-audio canary are HOLD (#36);
 #166 pyannote diarization and DP-208 #37 remain independent.
 #61 DP-317 exact-quote rights gate is OPEN. This seam does not
 change any of their requirements.
+
+## Current-rights seam and operator canary (2026-10-23)
+
+`whisperx_alignment_rights.py` is the only supported way to build the
+`authorization_guard` the adapter demands. A job flag, a syntactically valid
+receipt ID, a lambda returning `None` or an inert callback are not rights: the
+guard re-reads the current DP-305 record for the exact URL/Content subject and
+requires the private `ASR_MEDIA` use. Unknown record, receipt or policy
+mismatch, revoked status, expired review, non-current version and a missing
+permitted use all fail closed with a stable `SOURCE_USE_*` or
+`WHISPERX_ALIGNMENT_*` code before any private model or audio read.
+
+- Production caller: `read_alignment_rights_scope(store=<PsqlRuntime>, …)`
+  followed by `registry_alignment_authorization_guard(scope, store=…)`. The
+  registry is re-read before the first private read, after WAV staging and
+  after the child exits; a revocation anywhere in between returns no candidate.
+- Private canary: `tools/dp165_alignment_canary.py --manifest …` performs one
+  rights-bound alignment from a pinned operator attestation and prints a
+  machine receipt only (`manifest_sha256`, `audio_sha256`,
+  `transcript_sha256`, `rights_guard_reads`, status or HOLD code, candidate
+  ID), never transcript text, audio paths or manifest content. Exit 0 = receipt
+  produced, 2 = adapter HOLD, 3 = invalid manifest or rights scope.
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 tools/dp165_alignment_canary.py \
+  --manifest /private/dp165/manifest.json --receipt /private/dp165/receipt.json
+```
+
+`current` is always the real clock, so a manifest cannot pin a past instant
+and revive an expired source review.
+
+The command refuses on a non-Linux work host
+(`WHISPERX_HOST_OR_OPT_IN_REQUIRED`) and without the explicit opt-in; the
+alignment service host is the MiniPC. A pinned attestation is a canary
+convenience, never production authority: production runs resolve the live
+registry through `PsqlRuntime`. Still HOLD for Italian CTC weights and native
+notice clearance, one authorized private WAV and the measured CPU/RSS/precision
+run; nothing here promotes a timestamp or publishes a candidate.
