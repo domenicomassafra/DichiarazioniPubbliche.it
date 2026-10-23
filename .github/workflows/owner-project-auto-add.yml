@@ -5,7 +5,7 @@ on:
     types: [opened, reopened, transferred]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,7 +27,10 @@ jobs:
           GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
           PROJECT_ITEM_ID: ${{ steps.add.outputs.itemId }}
         run: |
-          gh project item-edit --id "$PROJECT_ITEM_ID" \
-            --project-id PVT_kwHOBv5HFs4BnMa4 \
-            --field-id PVTSSF_lAHOBv5HFs4BnMa4zhmzvAI \
-            --single-select-option-id dc963fa3
+          gh api graphql \
+            -f query='mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) { updateProjectV2ItemFieldValue(input: {projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: {singleSelectOptionId: $optionId}}) { projectV2Item { id } } }' \
+            -f projectId=PVT_kwHOBv5HFs4BnMa4 \
+            -f itemId="$PROJECT_ITEM_ID" \
+            -f fieldId=PVTSSF_lAHOBv5HFs4BnMa4zhmzvAI \
+            -f optionId=dc963fa3 \
+            --jq '.data.updateProjectV2ItemFieldValue.projectV2Item.id'
