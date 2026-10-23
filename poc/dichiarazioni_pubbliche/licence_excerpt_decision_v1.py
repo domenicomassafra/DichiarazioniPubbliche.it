@@ -78,7 +78,9 @@ class LicenceGrant:
     attribution_required: bool
     adaptations_allowed: bool
     commercial_allowed: bool
-    required_markers: tuple[str, ...]
+    # Names the licence can be recognised by; any one must be observed in the
+    # hashed terms document (a full legal code and a short notice differ).
+    identifying_markers: tuple[str, ...]
 
 
 LICENCE_GRANTS: dict[str, LicenceGrant] = {
@@ -139,6 +141,49 @@ class AttributionStatement:
     licence_id: str
     licence_url: str
     modified: bool
+
+
+@dataclass(frozen=True)
+class LicenceUseAttestation:
+    """Private reuse attestation derived only from a verified source licence.
+
+    It records what the licence itself grants (reproduction and adaptation with
+    attribution), which is the input a private evidence review needs. It says
+    nothing about the truth of a claim and grants nothing public.
+    """
+
+    status: str
+    reason_code: str
+    licence_id: str | None = None
+    terms_document_sha256: str | None = None
+    attribution_required: bool = True
+    private_only: bool = True
+    publication_authorized: bool = False
+
+
+def attest_licence_use(evidence: object) -> LicenceUseAttestation:
+    """APPROVED only when the hashed terms document carries the licence markers."""
+
+    problem = _evidence_problem(evidence)
+    if problem is not None:
+        return LicenceUseAttestation("HELD", problem)
+    assert isinstance(evidence, SourceTermsEvidence)
+    grant = LICENCE_GRANTS[evidence.licence_id]
+    if not any(marker in evidence.markers for marker in grant.identifying_markers):
+        return LicenceUseAttestation(
+            "HELD",
+            "LICENCE_MARKERS_NOT_OBSERVED",
+            grant.licence_id,
+            evidence.terms_document_sha256,
+            grant.attribution_required,
+        )
+    return LicenceUseAttestation(
+        "APPROVED",
+        "LICENCE_VERIFIED_FOR_PRIVATE_USE",
+        grant.licence_id,
+        evidence.terms_document_sha256,
+        grant.attribution_required,
+    )
 
 
 class LiveRevocationAuthority(ABC):
@@ -396,10 +441,9 @@ def decide_licence_excerpt(
         return _prohibited(problem, fingerprint)
     assert isinstance(terms_evidence, SourceTermsEvidence)
     grant = LICENCE_GRANTS[terms_evidence.licence_id]
-    missing = tuple(
-        marker for marker in grant.required_markers if marker not in terms_evidence.markers
-    )
-    if missing:
+    if not any(
+        marker in terms_evidence.markers for marker in grant.identifying_markers
+    ):
         return _prohibited("LICENCE_MARKERS_NOT_OBSERVED", fingerprint, grant.licence_id)
 
     problem = _terms_binding_problem(terms_evidence, rights_claim)
@@ -463,6 +507,7 @@ def licence_decision_receipt(
 
 __all__ = [
     "AttributionStatement",
+    "LicenceUseAttestation",
     "LICENCE_EXCERPT_DECISION_VERSION",
     "LICENCE_GRANTS",
     "LicenceExcerptDecision",
@@ -470,6 +515,7 @@ __all__ = [
     "LiveRevocationAuthority",
     "MAX_LICENCE_EXCERPT_CHARS",
     "SourceTermsEvidence",
+    "attest_licence_use",
     "decide_licence_excerpt",
     "licence_decision_receipt",
     "render_attribution",
