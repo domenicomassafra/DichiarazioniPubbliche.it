@@ -1,5 +1,6 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -8,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
 import dichiarazioni_pubbliche.local_claim_ollama as local  # noqa: E402
+import dichiarazioni_pubbliche.local_inference_guard as guard  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
 
 DIGEST = "3" * 64
@@ -34,6 +36,11 @@ def response(source_quote, *, indices=None, worthy=True, done=True, speaker=""):
 
 class LocalOllamaClaimClientTests(unittest.TestCase):
     def setUp(self):
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        lock = patch.object(guard, "LOCK_PATH", Path(scratch.name) / "cpu.lock")
+        lock.start()
+        self.addCleanup(lock.stop)
         self.client = LocalOllamaClaimClient(expected_model_digest=DIGEST)
         self.calls = []
 

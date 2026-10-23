@@ -37,7 +37,7 @@ class CanaryRefused(ValueError):
     """Fail-closed canary refusal; the code is stable and never generic."""
 
 
-def _rights_guard(decision: Any, url: str) -> None:
+def _rights_guard(decision: Any, url: str, *, clock: Callable[[], datetime]) -> None:
     """Only a current metadata-only decision for this exact host may fetch."""
     if not isinstance(decision, dict) or decision.get("status") != "APPROVED":
         raise CanaryRefused("CANARY_RIGHTS_DECISION_MISSING")
@@ -50,6 +50,26 @@ def _rights_guard(decision: Any, url: str) -> None:
         value = decision.get(key)
         if not isinstance(value, str) or not value.strip() or value != value.strip():
             raise CanaryRefused("CANARY_RIGHTS_DECISION_INVALID")
+    constraints = decision.get("constraints")
+    expires_at = constraints.get("expires_at") if isinstance(constraints, dict) else None
+    if not isinstance(expires_at, str) or not expires_at.strip():
+        raise CanaryRefused("CANARY_RIGHTS_EXPIRY_MISSING")
+    try:
+        approved = datetime.fromisoformat(decision["approved_at"].replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CanaryRefused("CANARY_RIGHTS_DATE_INVALID") from exc
+    if (approved.tzinfo is None or approved.utcoffset() is None
+            or expires.tzinfo is None or expires.utcoffset() is None
+            or expires <= approved):
+        raise CanaryRefused("CANARY_RIGHTS_DATE_INVALID")
+    now = clock()
+    if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None:
+        raise CanaryRefused("CANARY_CLOCK_INVALID")
+    if approved > now:
+        raise CanaryRefused("CANARY_RIGHTS_REVIEW_IN_FUTURE")
+    if expires <= now:
+        raise CanaryRefused("CANARY_RIGHTS_EXPIRED")
     hosts = decision.get("hosts")
     if not isinstance(hosts, list) or not hosts:
         raise CanaryRefused("CANARY_RIGHTS_HOST_MISSING")
@@ -60,13 +80,14 @@ def _rights_guard(decision: Any, url: str) -> None:
         raise CanaryRefused("CANARY_RIGHTS_HOST_UNAUTHORIZED")
 
 
-def _fetch(url: str, *, rights: Any, fetcher: Callable) -> tuple[bytes, str]:
+def _fetch(url: str, *, rights: Any, fetcher: Callable,
+           clock: Callable[[], datetime]) -> tuple[bytes, str]:
     """One bounded, redirect-free HTTPS representation with its SHA-256."""
-    _rights_guard(rights, url)
+    _rights_guard(rights, url, clock=clock)
     fetched = fetcher(url, allow_redirects=False)
     if fetched.final_url != url:
         raise CanaryRefused("CANARY_REDIRECT_UNAUTHORIZED")
-    _rights_guard(rights, fetched.final_url)
+    _rights_guard(rights, fetched.final_url, clock=clock)
     body = fetched.body
     if not isinstance(body, bytes) or not body or len(body) > MAX_FEED_BYTES:
         raise CanaryRefused("CANARY_FEED_INVALID")
@@ -120,14 +141,14 @@ def resolve_episode(
     rss_url = str(podcast_source.get("discovery_url") or "")
     if not rss_url.startswith("https://"):
         raise CanaryRefused("CANARY_URL_INSECURE")
-    rss_bytes, rss_sha256 = _fetch(rss_url, rights=rights, fetcher=fetcher)
+    rss_bytes, rss_sha256 = _fetch(rss_url, rights=rights, fetcher=fetcher, clock=clock)
     episode = _select_episode(
         registry, podcast_source_id, rss_bytes.decode("utf-8", "strict"),
         guid=guid, title=title,
     )
 
     def check_fetch(url: str) -> None:
-        _rights_guard(rights, url)
+        _rights_guard(rights, url, clock=clock)
 
     try:
         candidate = resolve_associated(

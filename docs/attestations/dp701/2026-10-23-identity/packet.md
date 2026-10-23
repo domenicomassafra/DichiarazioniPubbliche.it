@@ -21,3 +21,7 @@ Documenti ufficiali pubblici e HTML del prodotto sono stati letti, **non incorpo
 
 ## Requisiti di revisione
 Due modelli diversi dal generatore GPT-6, sullo stesso `reviewer-prompt.md`, risposte separate e salvate integralmente con hash/modello/data; se Omarchy non è raggiungibile, le revisioni restano `NOT_RUN`. Nessuna risposta fittizia vale attestazione. Eventuali nuove fonti richiedono un nuovo packet e riesame. Nessuna mutazione di DB, DNS, social, consumer o stato di pubblicazione è autorizzata da questo dossier.
+
+## Riscontro successivo del 23/10 — TMview consultabile
+
+La [ricevuta separata delle query TMview](tmview-readback.md) documenta quattro ricerche testuali senza righe, una ricerca generica con record e un controllo positivo con identificativo di registrazione. È un miglioramento della prova osservazionale rispetto al precedente accesso alla sola homepage; non completa la clearance qualificata, non risolve gli handle, il rollback storico o la disclosure di release e non modifica il `HOLD` sopra.
