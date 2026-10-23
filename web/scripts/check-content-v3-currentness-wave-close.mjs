@@ -3,15 +3,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { makeScratchDir } from "./lib/scratch.mjs";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repository = path.dirname(webRoot);
 const base = JSON.parse(await readFile(path.join(webRoot, "src/data/dp407-content-projection.json"), "utf8"));
-const testDir = await mkdtemp(path.join(tmpdir(), "dp407-currentness-"));
+const testDir = await makeScratchDir("dp407-currentness-");
 const stagedWeb = path.join(testDir, "web");
 const projectionPath = path.join(testDir, "projection.json");
 
