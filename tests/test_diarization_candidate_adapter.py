@@ -122,8 +122,7 @@ def sample_permit(*, audio_sha, model_sha, engine="PYANNOTE_AUDIO", decision="GO
         model_id="synthetic:offline-weight-file", model_sha256=model_sha,
         model_license="CC-BY-4.0" if engine == "PYANNOTE_AUDIO" else "APACHE-2.0",
         config_sha256=sha("synthetic-config"), input_sha256=audio_sha,
-        # Importing a synthetic fixture in a fresh interpreter may be slower
-        # during the full 3k+ unittest suite on an I/O-busy MiniPC.
+        # A fresh interpreter is slow while the full suite runs.
         max_elapsed_ms=15000, max_peak_rss_bytes=8 * 1024**3,
         max_cache_bytes=4096, max_audio_duration_ms=10000,
     )
@@ -273,9 +272,6 @@ class CandidateAdapterTests(unittest.TestCase):
     def test_memory_hog_is_bounded_in_child_only(self):
         start = time.monotonic()
         parent_as = resource.getrlimit(resource.RLIMIT_AS)
-        # The child imports the test module before it allocates, so a deadline
-        # sized for the allocation alone races the import on a slow or loaded
-        # host and reports ENGINE_TIMEOUT instead of the memory containment.
         result = self.call(runner=memory_hog_runner, permit=replace(
             self.permit, max_peak_rss_bytes=128 * 1024 * 1024, max_elapsed_ms=5000,
         ))
