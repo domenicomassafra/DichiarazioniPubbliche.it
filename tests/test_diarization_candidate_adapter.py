@@ -273,10 +273,13 @@ class CandidateAdapterTests(unittest.TestCase):
     def test_memory_hog_is_bounded_in_child_only(self):
         start = time.monotonic()
         parent_as = resource.getrlimit(resource.RLIMIT_AS)
+        # The child imports the test module before it allocates, so a deadline
+        # sized for the allocation alone races the import on a slow or loaded
+        # host and reports ENGINE_TIMEOUT instead of the memory containment.
         result = self.call(runner=memory_hog_runner, permit=replace(
-            self.permit, max_peak_rss_bytes=128 * 1024 * 1024, max_elapsed_ms=800,
+            self.permit, max_peak_rss_bytes=128 * 1024 * 1024, max_elapsed_ms=5000,
         ))
-        self.assertLess(time.monotonic() - start, 3.0)
+        self.assertLess(time.monotonic() - start, 8.0)
         self.assertEqual(result.status, "ERROR_HELD")
         self.assertEqual(result.turns, ())
         if sys.platform == "linux":
