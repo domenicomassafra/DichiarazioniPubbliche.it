@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {mkdtemp,mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
-import {tmpdir} from "node:os";
+import {mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
+import {makeScratchDir} from "./lib/scratch.mjs";
 import {canonicalJson} from "../src/lib/searchIndex.ts";
 import {buildPublicStatementSearchV3} from "../src/lib/publicStatementSearchV3.ts";
 import {readPrivateStatementOpinionV3} from "../src/lib/privateStatementOpinionPreviewV3.ts";
@@ -83,7 +83,7 @@ assert.equal(expiryReads,2);
 
 // The successful original excerpt is still generated into a real isolated
 // Astro SSR page; rejected decisions do not create any Astro/public route.
-const dir=await mkdtemp(join(tmpdir(),"dp437-opinion-current-"));
+const dir=await makeScratchDir("dp437-opinion-current-");
 try {
   await mkdir(join(dir,"src","pages"),{recursive:true});
   await symlink(join(web,"node_modules"),join(dir,"node_modules"));

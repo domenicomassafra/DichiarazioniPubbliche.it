@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { makeScratchDir } from "./lib/scratch.mjs";
 import {
   buildSearchIndexMaterial,
   canonicalJson,
@@ -16,7 +16,7 @@ import {
 } from "../src/lib/searchIndex.ts";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const scratch = await mkdtemp(join(tmpdir(), "dp409-withdrawal-build-"));
+const scratch = await makeScratchDir("dp409-withdrawal-build-");
 const demo = JSON.parse(await readFile(new URL("../src/data/demo-projection.json", import.meta.url), "utf8"));
 const sha = value => createHash("sha256").update(value, "utf8").digest("hex");
 const retiredText = "TEST ONLY withdrawn snippet amber constellation";

@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { makeScratchDir } from "../web/scripts/lib/scratch.mjs";
 
 // Build the approved, deliberately empty public projection in isolation. This
 // checks the real rendered route, not an authored HTML fragment or a demo index.
 const web = fileURLToPath(new URL("../web/", import.meta.url));
-const temp = await mkdtemp(path.join(tmpdir(), "dp429-explore-a11y-"));
+const temp = await makeScratchDir("dp429-explore-a11y-");
 const projectionPath = path.join(temp, "approved-empty.json");
 const dist = path.join(temp, "dist");
 const populatedDist = path.join(temp, "populated-demo");

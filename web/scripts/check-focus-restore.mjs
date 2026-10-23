@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
+import { makeScratchDir } from './lib/scratch.mjs';
 
 // Deterministic hook/animation-frame contract test. No browser, UI input or AT
 // speech is asserted here: those remain part of DP-412.5's real-world matrix.
@@ -21,7 +21,7 @@ export function useEffect(fn, deps) {
   effects[i] = { deps, cleanup };
 }
 `;
-const dir = await mkdtemp(path.join(tmpdir(), 'dp412-focus-'));
+const dir = await makeScratchDir('dp412-focus-');
 try {
   const file = path.join(dir, 'test-bundle.mjs');
   const bundled = await build({

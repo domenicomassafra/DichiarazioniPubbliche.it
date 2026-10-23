@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPinnedPublicSynopsisV3 } from "../src/lib/publicSynopsisV3.ts";
+import { makeScratchDir } from "./lib/scratch.mjs";
 import { canonicalJson } from "../src/lib/searchIndex.ts";
 
 // Read the ACTUAL Python DP-440 synthetic fixture and its withheld decisions.
@@ -121,7 +121,7 @@ assert.deepEqual(snapshot.sentences[0].citations[0].locator, original);
 // It never creates or enables a production project route.
 const web = fileURLToPath(new URL("../", import.meta.url));
 const consumer = fileURLToPath(new URL("../src/lib/publicSynopsisV3.ts", import.meta.url));
-const scratch = await mkdtemp(join(tmpdir(), "dp440-synopsis-ssr-"));
+const scratch = await makeScratchDir("dp440-synopsis-ssr-");
 async function buildSsr(previewPins, output) {
   const page = [
     "---",

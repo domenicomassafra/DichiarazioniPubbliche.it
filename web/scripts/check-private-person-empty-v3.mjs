@@ -2,11 +2,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson } from "../src/lib/searchIndex.ts";
+import { makeScratchDir } from "./lib/scratch.mjs";
 import { buildPublicStatementSearchV3 } from "../src/lib/publicStatementSearchV3.ts";
 import { readPinnedPrivatePublicPersonV3 } from "../src/lib/privatePublicPersonEmptyV3.ts";
 
@@ -229,7 +229,7 @@ assert.equal((await run("person:A",afterAssets,afterPins)).statements.length,1);
 await assert.rejects(run("person:A",afterAssets,pins),/STALE/);
 
 // Real isolated static Astro rendering, no public route created in repo.
-const scratch=await mkdtemp(join(tmpdir(),"dp438-zero-ssr-"));
+const scratch=await makeScratchDir("dp438-zero-ssr-");
 const modulePath=fileURLToPath(new URL("../src/lib/privatePublicPersonEmptyV3.ts",import.meta.url));
 async function render(name,assets,issue,identifier){
   await writeFile(join(scratch,"artifacts.json"),JSON.stringify(assets));
