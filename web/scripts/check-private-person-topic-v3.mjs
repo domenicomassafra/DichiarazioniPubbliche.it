@@ -2,11 +2,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson } from "../src/lib/searchIndex.ts";
+import { makeScratchDir } from "./lib/scratch.mjs";
 import { buildPublicStatementSearchV3 } from "../src/lib/publicStatementSearchV3.ts";
 import {
   parsePrivatePersonTopicUrl, serializePrivatePersonTopicUrl, readPrivatePersonTopicV3,
@@ -141,7 +141,7 @@ late.index.records[0].original.locator.start_char=987;
 assert.notEqual(frozen.records[0].locator.start_char,987);
 
 // Isolated Astro static SSR integration: no project route or publish approval.
-const scratch=await mkdtemp(join(tmpdir(),"dp439-private-ssr-"));
+const scratch=await makeScratchDir("dp439-private-ssr-");
 const modulePath=fileURLToPath(new URL("../src/lib/privatePersonTopicV3.ts",import.meta.url));
 async function build(release,token,out){
   const page=["---",`import {readPrivatePersonTopicV3} from ${JSON.stringify(modulePath)};`,

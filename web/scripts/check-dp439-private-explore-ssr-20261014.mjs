@@ -4,10 +4,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { makeScratchDir } from "./lib/scratch.mjs";
 import { buildPublicStatementSearchV3 } from "../src/lib/publicStatementSearchV3.ts";
 import { readPinnedPersonTopicExploreV3 } from "../src/lib/publicPersonTopicExploreV3.ts";
 
@@ -91,7 +91,7 @@ assert.equal(withdrawn.totalResults,1);
 await assert.rejects(readPinnedPersonTopicExploreV3({people:fixture.people,join:fixture.revoked,index:revokedIndex},
   pins,selected,{pageSize:1}),/PUBLIC_.*(?:STALE|TAMPER|MISMATCH)/);
 
-const scratch = await mkdtemp(join(tmpdir(),"dp439-private-explore-ssr-"));
+const scratch = await makeScratchDir("dp439-private-explore-ssr-");
 const astro = join(web,"node_modules/.bin/astro");
 const configs = [
   {name:"first",input:base,pins,search:selected},

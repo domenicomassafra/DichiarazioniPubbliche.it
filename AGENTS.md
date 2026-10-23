@@ -41,3 +41,6 @@ curl -fsS --max-time 10 -o /dev/null -w 'http=%{http_code}\n' https://dichiarazi
 - Niente proiezione demo in produzione, né modifica di DB live per passare i test.
 - Riusare implementazioni esistenti e upstream compatibili; registrare licenze e provenienza dei donor.
 - Decisioni owner e autorizzazioni specifiche sono nelle issue; non inventare permessi o costi. Il design visivo finale è riservato a un intervento successivo dell'owner.
+
+## Modello LLM unico (decisione owner del 23/10/2026)
+Per ora tutto funziona con **Gemini 3.8 Flash tramite Antigravity**, passando da OmniRoute. Nessuna API esterna: niente OpenRouter, Groq, Cerebras, Cloudflare AI, Cohere, Gemini Developer API o altri provider diretti, né a pagamento né free. Codice, config e documenti che prevedono altre route vanno allineati a questa scelta; un'eccezione richiede una nuova decisione esplicita dell'owner.
