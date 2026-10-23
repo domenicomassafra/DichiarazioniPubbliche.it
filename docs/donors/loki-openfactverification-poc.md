@@ -7,7 +7,7 @@
 - Pinned upstream HEAD: `6e1ee9e5159abe544c342689093afe12b908a419`,
   2024-10-03. Last release `v0.0.2` (2024-04-21); no post-2024
   code push observed as of 2026-10-20. Adapter version
-  `dp160-loki-private-poc-v1`, donor version `v0.0.2+6e1ee9e`.
+  `dp160-loki-private-poc-v2`, donor version `v0.0.2+6e1ee9e`.
 - Only derived components: upstream
   `factcheck/core/Decompose.py` (decomposition, source span restoration),
   `factcheck/core/CheckWorthy.py` (per-claim selection), and
@@ -30,6 +30,10 @@ rejecting duplicate object keys (even in nested responses),
 validate source-span uniqueness and literal time/quantity references,
 check negation cues in the claim, source span and enclosing sentence across
 Italian, English, German, French and Spanish,
+conservatively hold legal *application* versus *entry-into-force* substitutions
+even when dates and source spans otherwise match (real EUR-Lex original OJ
+IT/EN regression in
+[`dp160-eurlex-article113.md`](../reviews/dp160-eurlex-article113.md)),
 block obvious reported-speech context even if fixture metadata incorrectly omits
 its flag,
 reject malformed/partial or policy-incompatible outputs, cap queries, and

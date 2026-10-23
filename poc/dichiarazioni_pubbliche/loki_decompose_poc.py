@@ -80,6 +80,25 @@ _REPORTING_CUES = {
     "es": re.compile(r"\b(?:(?:dijo|declaró|informó)\s+que|según)\b", re.I),
 }
 
+# Application and entry into force are different legal events even when the
+# same date appears in both strings. Keep ambiguous paraphrases on HOLD.
+_LEGAL_EVENT_CUES = {
+    "it": (re.compile(r"\b(?:si\s+applica|applicazione)\b", re.I),
+           re.compile(r"\b(?:entra|entrato|entrata)\s+in\s+vigore\b", re.I)),
+    "en": (re.compile(r"\b(?:apply|applies|application)\b", re.I),
+           re.compile(r"\b(?:enter|enters|entered|entry)\s+into\s+force\b", re.I)),
+    "de": (re.compile(r"\b(?:gilt|gelten|anwendbar|anwendung)\b", re.I),
+           re.compile(r"\b(?:tritt|treten|trat)\s+in\s+kraft\b", re.I)),
+    "fr": (re.compile(r"\b(?:s['’]applique|application)\b", re.I),
+           re.compile(r"\b(?:entre|entrent|entrée)\s+en\s+vigueur\b", re.I)),
+    "es": (re.compile(r"\b(?:se\s+aplica|aplicaci[oó]n)\b", re.I),
+           re.compile(r"\b(?:entra|entran|entrada)\s+en\s+vigor\b", re.I)),
+}
+
+
+def _legal_event_signature(text: str, language: str) -> tuple[bool, bool]:
+    return tuple(bool(cue.search(text)) for cue in _LEGAL_EVENT_CUES[language])
+
 
 def has_reported_speech_context(doc: str, start: int, end: int, language: str) -> bool:
     """Fail closed on obvious attributions even when fixture metadata omits them."""
@@ -117,6 +136,8 @@ class Decompose:
                 raise ValueError("LOKI_NEGATION_MISMATCH")
             if _negation_signature(_sentence_context(doc, start, end), language) != _negation_signature(source, language):
                 raise ValueError("LOKI_NEGATION_OUTSIDE_SOURCE_SPAN")
+            if _legal_event_signature(claim, language) != _legal_event_signature(source, language):
+                raise ValueError("LOKI_LEGAL_EVENT_MISMATCH")
             if any(start < earlier.end and end > earlier.start for earlier in spans):
                 raise ValueError("LOKI_SOURCE_SPAN_OVERLAP")
             spans.append(LokiSpan(claim, source, start, end))
