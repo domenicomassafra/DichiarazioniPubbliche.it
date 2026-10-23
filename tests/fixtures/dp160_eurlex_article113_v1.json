@@ -1,0 +1,28 @@
+{
+  "version": "dp160-eurlex-oj-2024-1689-art113-v1",
+  "source": "Official Journal of the European Union, Regulation (EU) 2024/1689, original 12 July 2024 publication, Article 113",
+  "eli": "http://data.europa.eu/eli/reg/2024/1689/oj",
+  "rights": "EUR-Lex legal documents: reuse allowed unless specifically restricted; attribution required. https://eur-lex.europa.eu/content/legal-notice/legal-notice.html?locale=en",
+  "restrictions": "Short article excerpts for private offline checks only; no personal data or third-party images; original OJ text, not amended consolidation of July 2026",
+  "review": "Literal article statements checked against the official language versions; no independent AI or editorial assessment",
+  "cases": [
+    {
+      "id": "it-application",
+      "language": "it",
+      "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj/ita",
+      "doc": "Si applica a decorrere dal 2 agosto 2026.",
+      "claim": "Si applica a decorrere dal 2 agosto 2026",
+      "invalid_claim": "Entra in vigore il 2 agosto 2026",
+      "question": "Quale articolo stabilisce l'applicazione dal 2 agosto 2026?"
+    },
+    {
+      "id": "en-application",
+      "language": "en",
+      "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng",
+      "doc": "It shall apply from 2 August 2026.",
+      "claim": "It shall apply from 2 August 2026",
+      "invalid_claim": "It shall enter into force on 2 August 2026",
+      "question": "Which article establishes application from 2 August 2026?"
+    }
+  ]
+}
