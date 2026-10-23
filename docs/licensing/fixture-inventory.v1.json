@@ -2,10 +2,10 @@
   "schema_version": "fixture-inventory/v1",
   "policy_version": "DP-603@2026-09-26",
   "generated_by": "tools/generate_fixture_inventory.py",
-  "generated_on": "2026-10-22",
+  "generated_on": "2026-10-23",
   "code_license": "Apache-2.0",
   "note": "Machine-readable fixture/data licensing inventory (DP-603). Rights are curated human decisions, not inferred from the Apache-2.0 code license. UNKNOWN license rows are blocked/pending-review and must NOT be shipped in a release or public projection until owner/legal review. Enforced by tools/check_licensing_inventory.py.",
-  "asset_count": 49,
+  "asset_count": 50,
   "assets": [
     {
       "asset_id": "docs:ux:prototypes-v3:generated-style-02:index.html",
@@ -785,6 +785,29 @@
         "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
         "review_date": "2026-09-26",
+        "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
+      },
+      "blocker": null
+    },
+    {
+      "asset_id": "tests:fixtures:dp160_eurlex_article113_v1.json",
+      "path_or_locator": "tests/fixtures/dp160_eurlex_article113_v1.json",
+      "artifact_kind": "reference",
+      "origin": "European Union; Official Journal, Regulation (EU) 2024/1689, Article 113",
+      "source_reference": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj/ita and https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng",
+      "retrieved_at": "2026-10-23",
+      "content_hash": "18a07855aca46783353c650b3bfb03e8369df2d0b95e3e4b2d8b32a8e1f1dbf0",
+      "license_or_terms": "EUR-Lex legal-document reuse permitted under Decision 2011/833/EU; document-specific exclusions apply",
+      "license_evidence": "https://eur-lex.europa.eu/content/legal-notice/legal-notice.html?locale=en",
+      "attribution": "European Union, OJ L 2024/1689 of 12 July 2024, Article 113, original IT/EN; cited ELI and source URLs; test-only edited contrasts clearly labelled",
+      "modifications": "Two short original-language quotations excerpted; invalid alternatives and research questions authored as adversarial tests, not source quotations",
+      "personal_data": "none; legal clauses only, no private persons, images or third-party media",
+      "redistribution_status": "allowed",
+      "public_projection_status": "private offline regression only; no licensed-source ingestion or publication authority",
+      "owner_and_review": {
+        "owner": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "reviewer": "Dichiarazioni Pubbliche maintainers (owner: repo principal)",
+        "review_date": "2026-10-23",
         "re_review_trigger": "any change to the artifact hash, source reference, or platform terms; and at each release gate"
       },
       "blocker": null
