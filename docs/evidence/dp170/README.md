@@ -18,7 +18,14 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc \
   --out docs/evidence/dp170/canary-omarchy-2026-10-23.json
 ```
 
-Ricevuta `canary-omarchy-2026-10-23.json`:
+Ricevuta `canary-omarchy-2026-10-23.json`, rigenerata con il controllo
+temporale dei diritti alle **12:28:00 UTC**: la decisione source-use è stata
+approvata alle **11:00:00 UTC**, quindi precede il fetch della nuova prova.
+La prima ricevuta (10:51 UTC) precedeva invece l'approvazione e non era
+utilizzabile come prova di autorizzazione corrente; è stata sostituita dopo
+una nuova esecuzione reale, senza modificare retroattivamente `approved_at`.
+
+Risultati della nuova prova:
 
 | Voce | Valore |
 | --- | --- |
@@ -42,7 +49,11 @@ esattamente il caso in cui il fallback selettivo è giustificato dai dati.
 è la demo applicativa pubblicata dal progetto Playwright per i test automatici
 (nessun login, nessun dato personale, nessuna citazione pubblicata). Il canary
 rifiuta decisioni prive di scope, host non elencati, redirect, corpi oltre il
-budget e rendition senza effetto JS (`CANARY_NO_JS_DELTA`).
+budget e rendition senza effetto JS (`CANARY_NO_JS_DELTA`). Verifica anche
+timestamp di approvazione, scadenza e timezone prima di ogni fetch, prima
+delle subrisorse e prima della ricevuta finale. Il riferimento al reviewer
+nel JSON identifica la decisione registrata, non sostituisce il verbale di
+una revisione indipendente.
 
 ## Tre difetti reali trovati eseguendo un browser vero
 
@@ -74,7 +85,10 @@ python3 -m unittest tests.test_browser_renderer tests.test_browser_renderer_netn
   tests.test_dp170_render_canary
 ```
 
-25 test, OK, incluso il test che avvia davvero Chromium con sandbox ON
+La suite mirata sul Mac Studio del 23/10/2026 ha eseguito **71 test, OK,
+5 skipped** (Linux/Playwright non disponibili localmente). La prova Omarchy
+comprende il canary reale Chromium con sandbox ON; le regressioni dedicate
+includono il test che avvia davvero Chromium con sandbox ON
 (`test_actual_chromium_executes_local_synthetic_js`) e i test bwrap sul
 filesystem ed egress negati. Con Playwright assente dal sistema i test reali si
 saltano e la suite resta verde per i contributori.

@@ -39,7 +39,7 @@ class CanaryRefused(ValueError):
     """Fail-closed canary refusal with a stable code."""
 
 
-def _guard(decision: Any, url: str) -> None:
+def _guard(decision: Any, url: str, *, now: datetime) -> None:
     if not isinstance(decision, dict) or decision.get("status") != "APPROVED":
         raise CanaryRefused("CANARY_RIGHTS_DECISION_MISSING")
     scopes = decision.get("scopes")
@@ -51,6 +51,19 @@ def _guard(decision: Any, url: str) -> None:
         value = decision.get(key)
         if not isinstance(value, str) or not value.strip() or value != value.strip():
             raise CanaryRefused("CANARY_RIGHTS_DECISION_INVALID")
+    constraints = decision.get("constraints")
+    expires_at = constraints.get("expires_at") if isinstance(constraints, dict) else None
+    if not isinstance(expires_at, str):
+        raise CanaryRefused("CANARY_RIGHTS_DECISION_INVALID")
+    try:
+        approved = datetime.fromisoformat(decision["approved_at"].replace("Z", "+00:00"))
+        expires = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        if approved.tzinfo is None or expires.tzinfo is None or now.tzinfo is None:
+            raise ValueError("timezone required")
+    except ValueError:
+        raise CanaryRefused("CANARY_RIGHTS_DECISION_INVALID") from None
+    if not approved <= now < expires:
+        raise CanaryRefused("CANARY_RIGHTS_NOT_CURRENT")
     hosts = decision.get("hosts")
     if not isinstance(hosts, list) or not hosts:
         raise CanaryRefused("CANARY_RIGHTS_HOST_MISSING")
@@ -69,21 +82,21 @@ def render_canary(
     clock: Callable = lambda: datetime.now(timezone.utc),
 ) -> dict[str, Any]:
     """Return a receipt for one authorized selective JS rendition."""
-    _guard(decision, url)
+    _guard(decision, url, now=clock())
     if type(max_bytes) is not int or not 1 <= max_bytes <= MAX_DISCOVERY_RESPONSE_BYTES:
         raise CanaryRefused("CANARY_BUDGET_INVALID")
     episode_host = urlsplit(url).hostname
     static = fetcher(url, allow_redirects=False, max_response_bytes=max_bytes)
     if static.final_url != url:
         raise CanaryRefused("CANARY_REDIRECT_UNAUTHORIZED")
-    _guard(decision, static.final_url)
+    _guard(decision, static.final_url, now=clock())
     renderer = renderer_factory(
         enabled=True, chromium_binary=chromium_binary,
         allowed_subresource_hosts=(episode_host,), fetcher=fetcher,
     )
     rendered = renderer.render(
         url, max_response_bytes=max_bytes,
-        authorization_guard=lambda: _guard(decision, url),
+        authorization_guard=lambda: _guard(decision, url, now=clock()),
     )
     fragment_only = (
         rendered.final_url != url and "#" not in url
@@ -91,13 +104,15 @@ def render_canary(
     )
     if rendered.final_url != url and not fragment_only:
         raise CanaryRefused("CANARY_FINAL_URL_CHANGED")
+    finished_at = clock()
+    _guard(decision, url, now=finished_at)
     static_bytes = len(static.body)
     rendered_bytes = len(rendered.body)
     wrapper = Path(renderer.sandbox_executable)
     receipt = {
         "schema": SCHEMA,
         "decision": "RENDERED" if rendered.body != static.body else "NO_JS_DELTA",
-        "generated_at": clock().isoformat().replace("+00:00", "Z"),
+        "generated_at": finished_at.isoformat().replace("+00:00", "Z"),
         "target": {"url": url, "host": episode_host},
         "static": {
             "status_code": static.status_code,

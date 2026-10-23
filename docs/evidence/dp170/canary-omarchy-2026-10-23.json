@@ -1,7 +1,7 @@
 {
  "schema": "browser-render-canary-v1",
  "decision": "RENDERED",
- "generated_at": "2026-10-23T10:51:39.216978Z",
+ "generated_at": "2026-10-23T12:28:00.840903Z",
  "target": {
   "url": "https://demo.playwright.dev/todomvc/",
   "host": "demo.playwright.dev"

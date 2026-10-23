@@ -21,16 +21,14 @@ sandbox to prove host-path denial, namespace separation, environment clearing
 and bounded launch time. The old `--ro-bind / /` implementation failed on the
 same test because `/etc/passwd` was readable.
 
-The pre-existing system Google Chrome 155 executes `--version` inside that
-filesystem allowlist. A synthetic `data:` JS DOM smoke executes only if
-`--no-sandbox` is supplied explicitly during isolated diagnostics; this is
-**not** accepted as a safe Chromium runtime or production validation and is
-**never** configured by the adapter or wrapper. With Chromium's own sandbox
-ON, Chrome currently aborts on its SUID helper; `--disable-setuid-sandbox`
-then aborts with `No usable sandbox` due to nested user-namespace/AppArmor
-restrictions. Do not merge or activate until native Chromium sandboxing works
-inside the filesystem/network wrapper, and only after the owner-authorized
-source-use and bounded live JS canary succeeds.
+On the MiniPC, Chrome sandbox ON was previously blocked by nested
+user-namespace/AppArmor restrictions; `--no-sandbox` is never configured by
+the adapter. On Omarchy, the real Chromium 155 browser successfully rendered
+the Playwright TodoMVC demo with sandbox ON, `bwrap --unshare-net`, an explicit
+source-use approval predating the fetch, and a private hash receipt. See
+`docs/evidence/dp170/` for the dated command and result. This demonstrates
+the isolated renderer on that Linux host; consumer installation on the MiniPC
+remains pending its own host-specific sandbox and source-use checks.
 The browser runs without access to the user's home or host network. An isolated
 fresh context has no persistent cookie/login profile. The Linux sandbox
 masks /run and its /var/run symlink, hiding host user-session AF_UNIX sockets
@@ -44,7 +42,7 @@ The renderer passes allow_redirects=False to source_watcher.fetch_bytes
 before issuing the HTTP request; checking final_url only after a 3xx would
 allow an unapproved second GET before the browser route refuses it.
 An isolated synthetic transport regression asserts no second GET occurs.
-Deployment remains blocked until a real target has reviewed capture
-rights, explicit allowlisted resource hosts, accepted network limits and a
-recorded browser binary/version. Installing the optional extra does not enable
-rendering. No real source was fetched for #170.
+Installing the optional extra does not enable rendering. Runtime activation
+remains blocked until the consumer has a reviewed source-use decision, an
+explicit host allowlist, an approved network limit, and a recorded browser
+binary/version; production never inherits the isolated canary's permission.

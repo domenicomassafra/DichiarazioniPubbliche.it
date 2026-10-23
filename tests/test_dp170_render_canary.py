@@ -2,6 +2,7 @@
 import json
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -25,6 +26,7 @@ def decision(**overrides):
         "reviewer_ref": "ai-review:test", "approved_at": "2026-10-23T11:00:00Z",
         "hosts": ["demo.example.test"],
         "scopes": ["FETCH", "STORE_BODY", "PARSE_TEXT"],
+        "constraints": {"expires_at": "2026-11-23T00:00:00Z"},
     }
     payload.update(overrides)
     return payload
@@ -64,6 +66,7 @@ class CanaryTests(unittest.TestCase):
             chromium_binary="/usr/bin/chromium",
             fetcher=lambda target, **kwargs: response(static),
             renderer_factory=lambda **kwargs: renderer,
+            clock=lambda: datetime(2026, 10, 23, 12, tzinfo=timezone.utc),
         )
         return receipt, renderer
 
@@ -113,6 +116,44 @@ class CanaryTests(unittest.TestCase):
                 fetcher=lambda target, **kwargs: response(STATIC, URL + "?x=1"),
                 renderer_factory=lambda **kwargs: FakeRenderer(),
             )
+
+    def test_future_expired_or_unbounded_rights_are_refused_before_fetch(self):
+        invalid = (
+            decision(approved_at="2026-10-23T12:01:00Z"),
+            decision(constraints={"expires_at": "2026-10-23T11:59:00Z"}),
+            decision(constraints={}),
+            decision(approved_at="not-a-timestamp"),
+        )
+        for rights in invalid:
+            fetch_count = []
+            with self.subTest(rights=rights), self.assertRaises(CanaryRefused):
+                render_canary(
+                    url=URL, decision=rights, chromium_binary="/usr/bin/chromium",
+                    fetcher=lambda *args, **kwargs: fetch_count.append(1),
+                    clock=lambda: datetime(2026, 10, 23, 12, tzinfo=timezone.utc),
+                )
+            self.assertEqual(fetch_count, [], "invalid rights must not cause network access")
+
+    def test_committed_real_receipt_was_authorized_before_capture(self):
+        receipt_path = ROOT / "docs/evidence/dp170/canary-omarchy-2026-10-23.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        generated = datetime.fromisoformat(receipt["generated_at"].replace("Z", "+00:00"))
+        approved = datetime.fromisoformat(
+            receipt["rights"]["approved_at"].replace("Z", "+00:00")
+        )
+        rights = json.loads(
+            (ROOT / "docs/evidence/dp170/rights-canary.v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        expires = datetime.fromisoformat(
+            rights["constraints"]["expires_at"].replace("Z", "+00:00")
+        )
+        self.assertLessEqual(approved, generated)
+        self.assertLess(generated, expires)
+        self.assertEqual(receipt["rights"]["decision_id"], rights["id"])
+        self.assertEqual(receipt["decision"], "RENDERED")
+        self.assertEqual(receipt["publication"], "HOLD")
 
 
 if __name__ == "__main__":
