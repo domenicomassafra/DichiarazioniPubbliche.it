@@ -208,6 +208,27 @@ class PersistedOperatorComparisonTests(unittest.TestCase):
         ):
             self.assertNotIn(leak, html + json.dumps(read))
 
+    def test_semantic_conflicts_survive_private_review_without_link_authority(self):
+        match, promotion, target_reader = persisted_comparison()
+        read = self.preview(match, promotion, target_reader)
+        row = next(row for row in read["comparisons"] if row["target_id"] == "claim:related")
+        self.assertEqual(read["currentness"], "CURRENT")
+        self.assertIn("SEMANTIC_IDENTITY_UNVERIFIED", row["contradicting_feature_codes"])
+        self.assertEqual(row["suggested_disposition"], "HOLD")
+        self.assertIsNone(row["proposition_cluster_id"])
+        self.assertFalse(row["equivalence_approved"])
+        self.assertFalse(read["publication_authority"])
+
+        forged = list(match.rows)
+        forged[1] = forged[1] | {
+            "contradicting_features": [
+                {"code": "SEMANTIC_BOGUS_CONFLICT"},
+            ],
+        }
+        match.rows = tuple(forged)
+        with self.assertRaisesRegex(ValueError, "STUDIO_CANDIDATE_FEATURE_CODE_INVALID"):
+            self.preview(match, promotion, target_reader)
+
     def test_cross_candidate_target_and_source_bindings_fail_closed(self):
         for change in (
             {"content_id": "content:other"},

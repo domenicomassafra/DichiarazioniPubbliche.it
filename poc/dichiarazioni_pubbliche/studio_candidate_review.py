@@ -23,6 +23,12 @@ from dichiarazioni_pubbliche.candidate_matching import (
     matching_input_fingerprint,
     rank_candidate_matches,
 )
+from dichiarazioni_pubbliche.studio_match_feature_contract import (
+    CONTRADICTING_CODES,
+    HOLD_CONFLICT_CODES,
+    SUPPORTING_CODES,
+    validate_feature_semantics,
+)
 
 STUDIO_CANDIDATE_REVIEW_VERSION = "studio-candidate-review-readonly-v1"
 _ID = re.compile(r"^[A-Za-z0-9_:/.-]{1,180}$")
@@ -42,16 +48,6 @@ _METHODS_BY_CLASS = {
     "DIFFERENT": {"LEXICAL_TRIGRAM"},
     "UNCERTAIN": {"LEXICAL_TRIGRAM"},
 }
-_SUPPORTING_CODES = {
-    "SAME_CONTENT_SELECTOR", "EXACT_NORMALIZED_TEXT", "HIGH_LEXICAL_OVERLAP",
-    "SHARED_ENTITIES", "SHARED_TOPICS", "RELATED_LEXICAL_OR_ENTITY_CONTEXT",
-    "AMBIGUOUS_LEXICAL_OVERLAP", "SAME_CLAIM_TYPE", "SAME_TEMPORAL_SCOPE",
-}
-_CONTRADICTING_CODES = {
-    "LOW_LEXICAL_NO_SHARED_CONTEXT", "CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS",
-}
-_SCOPE_CONFLICT_CODES = {"CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS"}
-_SCOPE_SUPPORT_CODES = {"SAME_CLAIM_TYPE", "SAME_TEMPORAL_SCOPE"}
 REVIEW_HANDOFF_VERSION = "studio-candidate-private-review-handoff-v1"
 _HANDOFF_ACTIONS = frozenset({
     "REVIEW_PROMOTION", "REVIEW_LINK", "REVIEW_REJECT",
@@ -65,48 +61,6 @@ _HANDOFF_FIELDS = frozenset({
     "status", "currentness", "publication_authority", "review_authority",
     "promotion_authority", "receipt_sha256",
 })
-
-
-def _validate_feature_semantics(
-    match_class: str, method: str,
-    supporting: tuple[str, ...], contradicting: tuple[str, ...],
-) -> None:
-    """Read the actual classifier's feature contract, not a class label alone."""
-    support, contrary = set(supporting), set(contradicting)
-    if (
-        len(support) != len(supporting) or len(contrary) != len(contradicting)
-        or ("SAME_CLAIM_TYPE" in support and "CLAIM_TYPE_MISMATCH" in contrary)
-        or ("SAME_TEMPORAL_SCOPE" in support and "TEMPORAL_SCOPE_DIFFERS" in contrary)
-    ):
-        raise ValueError("STUDIO_CANDIDATE_FEATURE_SEMANTICS_INVALID")
-    primary_support = support - _SCOPE_SUPPORT_CODES
-    primary_contrary = contrary - _SCOPE_CONFLICT_CODES
-    expected = {
-        ("DUPLICATE_EXTRACTION", "SOURCE_SELECTOR_OVERLAP"):
-            ({"SAME_CONTENT_SELECTOR", "EXACT_NORMALIZED_TEXT"}, set()),
-        ("SAME_PROPOSITION", "EXACT_NORMALIZED"):
-            ({"EXACT_NORMALIZED_TEXT"}, set()),
-        ("RELATED", "LEXICAL_TRIGRAM"):
-            ({"RELATED_LEXICAL_OR_ENTITY_CONTEXT"}, set()),
-        ("DIFFERENT", "LEXICAL_TRIGRAM"):
-            (set(), {"LOW_LEXICAL_NO_SHARED_CONTEXT"}),
-        ("UNCERTAIN", "LEXICAL_TRIGRAM"):
-            ({"AMBIGUOUS_LEXICAL_OVERLAP"}, set()),
-    }
-    if (match_class, method) == ("SAME_PROPOSITION", "LEXICAL_TRIGRAM"):
-        if (
-            "HIGH_LEXICAL_OVERLAP" not in primary_support
-            or not primary_support.intersection({"SHARED_ENTITIES", "SHARED_TOPICS"})
-            or not primary_support <= {
-                "HIGH_LEXICAL_OVERLAP", "SHARED_ENTITIES", "SHARED_TOPICS"
-            }
-            or primary_contrary
-        ):
-            raise ValueError("STUDIO_CANDIDATE_FEATURE_SEMANTICS_INVALID")
-    elif (primary_support, primary_contrary) != expected.get(
-        (match_class, method), (None, None)
-    ):
-        raise ValueError("STUDIO_CANDIDATE_FEATURE_SEMANTICS_INVALID")
 
 
 class CandidateMatchReader(Protocol):
@@ -197,10 +151,10 @@ def inspect_candidate_match_run(
                     result_id != deterministic_match_result_id(run_id, target_type, target_id)):
                 raise ValueError("STUDIO_CANDIDATE_RESULT_BINDING_MISMATCH")
             seen_targets.add(target)
-            supporting_codes = _features(row.get("supporting_features"), _SUPPORTING_CODES)
-            contradicting_codes = _features(row.get("contradicting_features"), _CONTRADICTING_CODES)
+            supporting_codes = _features(row.get("supporting_features"), SUPPORTING_CODES)
+            contradicting_codes = _features(row.get("contradicting_features"), CONTRADICTING_CODES)
             disposition = (
-                "HOLD" if _SCOPE_CONFLICT_CODES.intersection(contradicting_codes)
+                "HOLD" if HOLD_CONFLICT_CODES.intersection(contradicting_codes)
                 else _DISPOSITION.get(match_class)
             )
             if (
@@ -211,7 +165,7 @@ def inspect_candidate_match_run(
                    (disposition == "PROPOSE_CLUSTER")
             ):
                 raise ValueError("STUDIO_CANDIDATE_MATCH_CLASS_INVALID")
-            _validate_feature_semantics(
+            validate_feature_semantics(
                 match_class, row["method"], supporting_codes, contradicting_codes,
             )
             results.append({
