@@ -6,7 +6,7 @@ import os
 import sqlite3
 import unittest
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from tests.test_dp519_visual_operator_capacity import NOW, digest, event, exception, work
@@ -52,6 +52,22 @@ class DurableVisualWorklistTests(unittest.TestCase):
             self.one.append_reported_event(event(self.item), expected_work_revision=2)
         self.assertEqual(self.two.private_report(now=NOW).rows[0].state,
                          "HELD_RIGHTS_NO_IMAGE")
+        self.assertEqual(self.two.event_count(), 0)
+
+    def test_future_work_and_future_operator_minutes_are_rejected(self):
+        future = datetime.now(timezone.utc) + timedelta(days=365)
+        future_item = replace(self.item, created_at=future,
+                              expires_at=future + timedelta(days=1))
+        with self.assertRaisesRegex(ValueError, "DP519_FUTURE_WORK_INVALID"):
+            self.one.upsert_item(future_item, expected_revision=0)
+        self.assertEqual(self.one.private_report(now=NOW).rows, ())
+
+        self.one.upsert_item(self.item, expected_revision=0)
+        with self.assertRaisesRegex(ValueError, "DP519_EVENT_TIME_INVALID"):
+            self.two.append_reported_event(
+                event(self.item, eid="future", completed=future),
+                expected_work_revision=1,
+            )
         self.assertEqual(self.two.event_count(), 0)
 
     def test_conflicting_event_id_and_chain_fail_closed_without_partial_write(self):

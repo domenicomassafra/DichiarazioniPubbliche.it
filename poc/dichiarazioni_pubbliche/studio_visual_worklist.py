@@ -13,7 +13,7 @@ import sqlite3
 import stat
 from dataclasses import asdict
 from contextlib import closing
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dichiarazioni_pubbliche.visual_operator_capacity_v1 import (
@@ -117,7 +117,7 @@ class SQLiteVisualWorklist:
         """
         if type(expected_revision) is not int or expected_revision < 0:
             raise ValueError("DP519_WORK_REVISION_INVALID")
-        _check_work(item, max(datetime.now(timezone.utc), item.created_at))
+        _check_work(item, datetime.now(timezone.utc))
         document = _serialize(item)
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
@@ -184,16 +184,14 @@ class SQLiteVisualWorklist:
                     return self._receipt(event)
                 if event.source_version_sha256 != item.source_version_sha256:
                     raise ValueError("DP519_EVENT_SOURCE_STALE")
-                _check_event(event, item, max(datetime.now(timezone.utc),
-                                              event.completed_at + timedelta(seconds=1)))
+                now = datetime.now(timezone.utc)
+                _check_event(event, item, now)
                 existing = tuple(_unpack_event(x[0]) for x in db.execute(
                     "SELECT document FROM visual_time_event ORDER BY event_id").fetchall())
                 work_items = tuple(_unpack_work(x[0]) for x in db.execute(
                     "SELECT document FROM visual_work ORDER BY work_key").fetchall())
                 try:
-                    reconcile_visual_capacity(work_items, existing + (event,), (),
-                                               now=max(datetime.now(timezone.utc),
-                                                       event.completed_at + timedelta(seconds=1)))
+                    reconcile_visual_capacity(work_items, existing + (event,), (), now=now)
                 except ValueError as exc:
                     raise ValueError("DP519_EVENT_CHAIN_CONFLICT") from exc
                 db.execute("INSERT INTO visual_time_event(event_id,work_key,document) VALUES (?,?,?)",
