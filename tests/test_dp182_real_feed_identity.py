@@ -3,6 +3,7 @@ import hashlib
 import json
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -88,6 +89,7 @@ def rights(**overrides):
         "reviewer_ref": "ai-review:test", "approved_at": "2026-10-23T10:30:00Z",
         "hosts": ["feeds.megaphone.fm", "www.youtube.com"],
         "scopes": ["FETCH", "STORE_METADATA"],
+        "constraints": {"expires_at": "2026-11-23T00:00:00Z"},
     }
     decision.update(overrides)
     return decision
@@ -150,6 +152,39 @@ class YouTubeChannelIdentityTests(unittest.TestCase):
 
 
 class CanaryTests(unittest.TestCase):
+    def test_rights_expiry_and_future_review_block_before_any_fetch(self):
+        now = lambda: datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
+        cases = (
+            (rights(constraints={}), "CANARY_RIGHTS_EXPIRY_MISSING"),
+            (rights(constraints={"expires_at": "invalid"}), "CANARY_RIGHTS_DATE_INVALID"),
+            (rights(constraints={"expires_at": "2026-10-22T00:00:00Z"}), "CANARY_RIGHTS_EXPIRED"),
+            (rights(approved_at="2026-10-24T00:00:00Z"), "CANARY_RIGHTS_REVIEW_IN_FUTURE"),
+        )
+        def no_fetch(*args, **kwargs):
+            self.fail("An invalid rights decision must block before any network access")
+        for decision, reason in cases:
+            with self.subTest(reason=reason), self.assertRaisesRegex(CanaryRefused, reason):
+                resolve_episode(
+                    registry=registry(), podcast_source_id="podcast-pulp-podcast",
+                    rights=decision, guid=GUID, fetcher=no_fetch, clock=now,
+                )
+
+    def test_expiration_is_rechecked_after_fetch_before_using_bytes(self):
+        calls = 0
+        def advancing_fetch(url, allow_redirects=True):
+            nonlocal calls
+            calls += 1
+            return fetched(rss((EPISODE, GUID)), url)
+        def clock():
+            return datetime(2026, 10, 23 if calls == 0 else 24, tzinfo=timezone.utc)
+        decision = rights(constraints={"expires_at": "2026-10-23T23:59:59Z"})
+        with self.assertRaisesRegex(CanaryRefused, "CANARY_RIGHTS_EXPIRED"):
+            resolve_episode(
+                registry=registry(), podcast_source_id="podcast-pulp-podcast",
+                rights=decision, guid=GUID, fetcher=advancing_fetch, clock=clock,
+            )
+        self.assertEqual(calls, 1)
+
     def test_real_episode_resolves_with_hashes_and_no_side_effects(self):
         receipt = resolve_episode(
             registry=registry(), podcast_source_id="podcast-pulp-podcast",
