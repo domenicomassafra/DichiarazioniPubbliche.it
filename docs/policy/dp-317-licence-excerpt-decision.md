@@ -25,8 +25,9 @@ Un `PERMITTED` richiede tutte queste condizioni, altrimenti la decisione resta
    caso-specifica non viene promossa a licenza (`LICENCE_GRANT_NOT_ESTABLISHED`);
 3. il documento dei termini è identificato da SHA-256 e la sua versione coincide
    con quella citata dal claim (`LICENCE_TERMS_BINDING_MISMATCH`);
-4. l'identificatore di licenza è in `LICENCE_GRANTS` e i marker obbligatori sono
-   stati **osservati dentro il documento hashato**, non dichiarati dal chiamante;
+4. l'identificatore di licenza è in `LICENCE_GRANTS` e almeno uno dei nomi che
+   identificano la licenza è stato **osservato dentro il documento hashato**,
+   non dichiarato dal chiamante (`CC BY 4.0`, `Attribution 4.0 International`);
 5. l'attribuzione nomina titolare, locator, licenza e «testo non modificato»;
 6. l'estratto resta dentro il limite di non-sostituzione (400 caratteri,
    valore di prodotto, non quantità legale);

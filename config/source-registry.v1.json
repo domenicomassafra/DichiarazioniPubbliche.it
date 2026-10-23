@@ -115,5 +115,17 @@
     }
   ],
   "source_associations_version": 1,
-  "source_associations": []
+  "source_associations": [
+    {
+      "id": "pulp-podcast-youtube-v1",
+      "version": 1,
+      "podcast_source_id": "podcast-pulp-podcast",
+      "youtube_source_id": "youtube-pulp-podcast",
+      "youtube_channel_id": "UCY99TnBJ8xyat2lpeN_hcEA",
+      "status": "APPROVED",
+      "policy_version": "source-association-v1",
+      "approval_ref": "docs/evidence/dp182/README.md#approval-record",
+      "reviewer_ref": "ai-review:deepseek-v4.1-flash:2026-10-23:dp182"
+    }
+  ]
 }

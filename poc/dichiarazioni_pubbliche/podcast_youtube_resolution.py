@@ -53,6 +53,7 @@ def resolve_associated(
     )
 
     from dichiarazioni_pubbliche.feed_parsing import ATOM, YT, MAX_FEED_BYTES
+    from dichiarazioni_pubbliche.podcast_youtube_channel_identity import same_channel
     from dichiarazioni_pubbliche.source_associations import SourceAssociationBlocked
 
     if (source.get("id") != association.youtube_source_id
@@ -76,8 +77,11 @@ def resolve_associated(
     except ET.ParseError as exc:
         raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_FEED_INVALID") from exc
     channel_ids = root.findall(f"{YT}channelId")
+    # YouTube writes this feed-level value without the "UC" prefix while entries
+    # repeat the canonical ID; identity is compared on the canonical form only.
     if (root.tag != f"{ATOM}feed" or len(channel_ids) != 1
-            or (channel_ids[0].text or "").strip() != association.youtube_channel_id):
+            or not same_channel((channel_ids[0].text or "").strip(),
+                                association.youtube_channel_id)):
         raise SourceAssociationBlocked("YOUTUBE_ASSOCIATED_CHANNEL_UNVERIFIED")
     expected = _series_episode(title)
     if expected is None:

@@ -12,6 +12,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 
+from dichiarazioni_pubbliche.podcast_youtube_channel_identity import same_channel
+
 try:
     import feedparser as _feedparser
 except ImportError:  # The default installation is intentionally stdlib-only.
@@ -113,10 +115,12 @@ def parse_feed(xml_text: str, family: str) -> list[FeedEntry]:
                 raise ValueError("YOUTUBE_ENTRY_ATOM_ID_CONFLICT")
             entry_channels = node.findall(f"{YT}channelId")
             root_channels = root.findall(f"{YT}channelId")
+            # Feed level and entry level spell the same channel differently
+            # ("UC" prefix present or absent); compare canonical identities.
             if (len(entry_channels) > 1 or
                     (entry_channels and (len(root_channels) != 1 or
-                     (entry_channels[0].text or "").strip() !=
-                     (root_channels[0].text or "").strip()))):
+                     not same_channel(entry_channels[0].text,
+                                      root_channels[0].text)))):
                 raise ValueError("YOUTUBE_ENTRY_CHANNEL_CONFLICT")
             title = titles[0].text or ""
             if video_id in titles_by_id and titles_by_id[video_id] != title:

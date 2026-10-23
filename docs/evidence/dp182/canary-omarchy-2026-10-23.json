@@ -1,0 +1,53 @@
+{
+ "schema": "podcast-youtube-canary-v1",
+ "decision": "RESOLVED",
+ "generated_at": "2026-10-23T10:32:36.872702Z",
+ "podcast": {
+  "source_id": "podcast-pulp-podcast",
+  "feed_url": "https://feeds.megaphone.fm/SONY4300078217",
+  "feed_sha256": "68e2ad2db9f9a6c6459e1ecbac091481214965c2d9cc7e09c081bae4b13ee426",
+  "guid": "992be98a-cb99-11f1-90b0-533d180ba42d",
+  "title": "Ignazio Benito La Russa a Pulp Podcast. | Pulp Podcast #68",
+  "published_at": "2026-10-19T11:00:00",
+  "media_url": "https://traffic.megaphone.fm/SONY4289351919.mp3",
+  "series": "pulp podcast",
+  "episode_number": 68
+ },
+ "youtube": {
+  "source_id": "youtube-pulp-podcast",
+  "channel_id": "UCY99TnBJ8xyat2lpeN_hcEA",
+  "catalog_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCY99TnBJ8xyat2lpeN_hcEA",
+  "catalog_sha256": "bc3a5d0389727a48eec38cfd6696518633b0ed4008fd114307f35da15af963f8",
+  "video_id": "TpbFntO68Iw",
+  "video_title": "Ignazio Benito La Russa a Pulp Podcast. | Pulp Podcast #68",
+  "canonical_url": "https://www.youtube.com/watch?v=TpbFntO68Iw"
+ },
+ "association": {
+  "id": "pulp-podcast-youtube-v1",
+  "version": 1,
+  "policy_version": "source-association-v1",
+  "approval_ref": "docs/evidence/dp182/README.md#approval-record",
+  "reviewer_ref": "ai-review:deepseek-v4.1-flash:2026-10-23:dp182"
+ },
+ "rights": {
+  "decision_id": "dp182-rights-metadata-2026-10-23",
+  "reviewer_ref": "ai-review:deepseek-v4.1-flash:2026-10-23:dp182",
+  "approved_at": "2026-10-23T10:30:00Z",
+  "hosts": [
+   "feeds.megaphone.fm",
+   "www.youtube.com"
+  ],
+  "scopes": [
+   "FETCH",
+   "STORE_METADATA"
+  ],
+  "asr_granted": false,
+  "media_downloaded": false
+ },
+ "publication": "HOLD",
+ "side_effects": {
+  "database_writes": 0,
+  "media_fetches": 0,
+  "asr_jobs": 0
+ }
+}
