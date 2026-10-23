@@ -60,6 +60,24 @@ class MonthlyDispatchPgTests(unittest.TestCase):
         self.assertEqual(self.reserve(1), "MONTHLY_POLICY_UNAVAILABLE")
         self.assertEqual(self.scalar("SELECT count(*) FROM worker_budget_reservation"), "0")
 
+    def test_missing_monthly_migration_is_a_bounded_hold(self):
+        # A code-first consumer deploy can briefly retain the old USD-only
+        # function. SQL must not resolve the absent 9-argument function.
+        self.exec_sql(self.dsn, """
+            DROP FUNCTION reserve_worker_budget(
+                text, integer, text, text, numeric, numeric, numeric, numeric, text
+            );
+            ALTER FUNCTION reserve_worker_budget_usd(
+                text, integer, text, text, numeric, numeric, numeric, numeric
+            ) RENAME TO reserve_worker_budget;
+        """)
+        try:
+            self.assertEqual(self.reserve(1), "MONTHLY_POLICY_UNAVAILABLE")
+            self.assertEqual(self.scalar(
+                "SELECT count(*) FROM worker_budget_reservation"), "0")
+        finally:
+            self.exec_sql(self.dsn, MIGRATION.read_text())
+
     def test_disabled_policy_and_missing_provider_quota_fail_closed(self):
         self.approve_fixture(active="false")
         self.assertEqual(self.reserve(1), "MONTHLY_POLICY_UNATTESTED")
