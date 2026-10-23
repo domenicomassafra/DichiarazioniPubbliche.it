@@ -372,7 +372,9 @@ class AlignmentCanaryTests(unittest.TestCase):
             self.assertNotIn(private, printed)
 
     def test_service_host_gate_refuses_alignment_on_a_non_linux_work_host(self):
-        code, printed = self.call("--enabled")
+        with patch("dichiarazioni_pubbliche.whisperx_alignment_private.platform.system",
+                   return_value="Darwin"):
+            code, printed = self.call("--enabled")
         self.assertEqual(code, 2)
         self.assertEqual(json.loads(printed)["hold_code"], "WHISPERX_HOST_OR_OPT_IN_REQUIRED")
         self.assertNotIn(TEXT, printed)
