@@ -2,11 +2,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson } from "../src/lib/searchIndex.ts";
+import { makeScratchDir } from "./lib/scratch.mjs";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const web = fileURLToPath(new URL("../", import.meta.url));
@@ -30,7 +30,7 @@ assert.equal(empty.result_count, 0);
 assert.equal(revoked.result_count, 3);
 assert.equal(economia.canonical_name, economica.canonical_name, "fixture must exercise homonym Topic identity");
 
-const temp = await mkdtemp(join(tmpdir(), "dp406-topic-v3-"));
+const temp = await makeScratchDir("dp406-topic-v3-");
 const pin = {
   expectedCollectionSha256: populated.dataset_sha256,
   expectedSourceDatasetSha256: source_sha,

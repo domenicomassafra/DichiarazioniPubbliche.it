@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {mkdtemp,mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
-import {tmpdir} from "node:os";
+import {mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
+import {makeScratchDir} from "./lib/scratch.mjs";
 import {canonicalJson} from "../src/lib/searchIndex.ts";
 import {buildPublicStatementSearchV3} from "../src/lib/publicStatementSearchV3.ts";
 import {readPrivateV3OperatorSession} from "../src/lib/privateV3OperatorSession.ts";
@@ -170,7 +170,7 @@ const preserved=structuredClone(first);
 source.statements[0].original_text+=" late mutation";
 assert.deepEqual(first,preserved,"session DTO and HTML detached from mutable assets");
 
-const scratch=await mkdtemp(join(tmpdir(),"dp439-operator-session-"));
+const scratch=await makeScratchDir("dp439-operator-session-");
 try{
   await mkdir(join(scratch,"src/pages"),{recursive:true});
   await symlink(join(web,"node_modules"),join(scratch,"node_modules"));
