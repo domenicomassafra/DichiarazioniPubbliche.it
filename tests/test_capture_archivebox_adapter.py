@@ -71,7 +71,7 @@ class ReceiptStore(FakeCaptureStore):
         return super().complete_archive(**kwargs)
 
 
-def fake_archivebox(root, *, outcome="sealed"):
+def fake_archivebox(root, *, outcome="sealed", permissions_private=True):
     executable = Path(root) / "fake-archivebox-python"
     counter = Path(root) / "calls"
     executable.write_text(
@@ -91,6 +91,7 @@ def fake_archivebox(root, *, outcome="sealed"):
                 f"'archivebox_version': '0.9.73', 'crawl_id': {CRAWL!r},"
                 f"'snapshot_id': {SNAPSHOT!r},"
                 f"'snapshot_status': {outcome!r},"
+                f"'permissions_private': {permissions_private!r},"
                 "'crawl_status': 'sealed', 'url_matches': True"
                 "}))\n"
             )
@@ -139,11 +140,14 @@ class ArchiveBoxTests(unittest.TestCase):
             output = Path(temp) / "readability"
             output.mkdir()
             (output / "synthetic.html").write_text("<p>Owned fixture</p>")
-            crawl = SimpleNamespace(id=CRAWL, status="sealed")
+            crawl = SimpleNamespace(id=CRAWL, status="sealed", permissions="private")
             snapshot = SimpleNamespace(
-                id=SNAPSHOT, url=URL, status="sealed",
+                id=SNAPSHOT, url=URL, status="sealed", permissions="private",
                 archiveresult_set=Query(SimpleNamespace(output_dir=output)),
             )
+            def add(**kwargs):
+                self.assertEqual(kwargs["config"]["PERMISSIONS"], "private")
+                return crawl, None
             modules = {
                 name: fake_module(name) for name in (
                     "archivebox", "archivebox.config", "archivebox.cli",
@@ -155,10 +159,10 @@ class ArchiveBoxTests(unittest.TestCase):
                     "archivebox.config.django", setup_django=lambda **_: None,
                 ),
                 "archivebox.cli.archivebox_add": fake_module(
-                    "archivebox.cli.archivebox_add", add=lambda **_: (crawl, None),
+                    "archivebox.cli.archivebox_add", add=add,
                 ),
                 "archivebox.crawls.models": fake_module(
-                    "archivebox.crawls.models", Crawl=SimpleNamespace(objects=Query(crawl)),
+                    "archivebox.crawls.models", Crawl=SimpleNamespace(objects=Query(None)),
                 ),
                 "archivebox.core.models": fake_module(
                     "archivebox.core.models", Snapshot=SimpleNamespace(objects=Query(snapshot)),
@@ -171,6 +175,16 @@ class ArchiveBoxTests(unittest.TestCase):
                     contextlib.redirect_stdout(stdout):
                 exec(_BRIDGE, {"__name__": "__main__"})
             self.assertEqual(json.loads(stdout.getvalue())["snapshot_status"], "sealed")
+
+    def test_public_donor_permissions_cannot_produce_private_receipt(self):
+        with tempfile.TemporaryDirectory() as temp:
+            capture, store, _, _, _, _, adapter = self.prepare(temp)
+            adapter.python_path, _ = fake_archivebox(temp, permissions_private=False)
+            result = capture()
+            self.assertEqual(result.archive_status, "FAILED")
+            self.assertEqual(
+                store.receipts[-1][1]["error_category"], "ARCHIVEBOX_DONOR_NOT_PRIVATE",
+            )
 
     def prepare(self, temp, *, outcome="sealed", permission=True, revoke_at=0,
                 timeout=5, collection_private=True):

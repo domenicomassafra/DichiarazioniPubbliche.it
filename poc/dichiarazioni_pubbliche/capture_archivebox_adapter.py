@@ -53,9 +53,13 @@ with open(os.devnull, "w", encoding="utf-8") as sink, contextlib.redirect_stdout
         crawl, _ = add(
             urls=[url], tag=tag, depth=0, max_urls=1, crawl_timeout=60,
             snapshot_max_size=4194304, plugins="readability",
-            bg=False, config={"ONLY_NEW": False},
+            bg=False, config={"ONLY_NEW": False, "PERMISSIONS": "private"},
         )
     snapshots = list(Snapshot.objects.filter(crawl_id=crawl.id, url=url))
+    permissions_private = (
+        str(crawl.permissions).lower() == "private"
+        and all(str(item.permissions).lower() == "private" for item in snapshots)
+    )
     state = str(crawl.status).lower()
     snapshot = snapshots[0] if len(snapshots) == 1 else None
     snapshot_state = str(snapshot.status).lower() if snapshot else "missing"
@@ -72,6 +76,7 @@ with open(os.devnull, "w", encoding="utf-8") as sink, contextlib.redirect_stdout
         "snapshot_status": snapshot_state,
         "crawl_status": state,
         "url_matches": bool(snapshot and snapshot.url == url),
+        "permissions_private": permissions_private,
         "archivebox_version": version,
     }
 print(json.dumps(record, sort_keys=True, separators=(",", ":")))
@@ -192,6 +197,8 @@ class ArchiveBoxArchiveAdapter:
                 return self._failure("ARCHIVEBOX_RESULT_INVALID")
         except (ValueError, TypeError):
             return self._failure("ARCHIVEBOX_RESULT_INVALID")
+        if data.get("permissions_private") is not True:
+            return self._failure("ARCHIVEBOX_DONOR_NOT_PRIVATE")
         # Recheck every source use after the independent network fetch.
         self._require_current_source_uses(capture)
         receipt = {
