@@ -1,0 +1,55 @@
+{
+ "schema": "browser-render-canary-v1",
+ "decision": "RENDERED",
+ "generated_at": "2026-10-23T12:28:00.840903Z",
+ "target": {
+  "url": "https://demo.playwright.dev/todomvc/",
+  "host": "demo.playwright.dev"
+ },
+ "static": {
+  "status_code": 200,
+  "media_type": "text/html",
+  "bytes": 865,
+  "sha256": "d84724f9a3b5de3a6cf87b79d3efda1156663e964bba4e43f18b3755fee2ff36"
+ },
+ "rendered": {
+  "bytes": 980,
+  "sha256": "23aaf7ee195a99e088c6d562326f6c201bb82da3586ac20fda7bc5d652015b5e",
+  "added_bytes": 115,
+  "fragment_only_url_change": true,
+  "renderer_id": "playwright-python",
+  "renderer_version": "playwright-python-1.64.0-netns-v1",
+  "playwright_version": "1.64.0",
+  "chromium_version": "155.0.8059.84",
+  "rendered_sha256": "23aaf7ee195a99e088c6d562326f6c201bb82da3586ac20fda7bc5d652015b5e",
+  "rendered_bytes": 980,
+  "resource_count": 5,
+  "resource_bytes": 1011865,
+  "egress_policy": "bwrap-unshare-net-pinned-https-v1"
+ },
+ "sandbox": {
+  "wrapper_sha256": "818bd85bde8f4dd77ed1ceceb42c1914ffa4636dc7ddae677d4e97f77a92371c",
+  "chromium_binary": "chromium",
+  "playwright_version": "1.64.0"
+ },
+ "rights": {
+  "decision_id": "dp170-rights-js-demo-2026-10-23",
+  "reviewer_ref": "ai-review:deepseek-v4.1-flash:2026-10-23:dp170",
+  "approved_at": "2026-10-23T11:00:00Z",
+  "hosts": [
+   "demo.playwright.dev"
+  ],
+  "scopes": [
+   "FETCH",
+   "STORE_BODY",
+   "PARSE_TEXT"
+  ],
+  "published": false
+ },
+ "publication": "HOLD",
+ "side_effects": {
+  "downloads": 0,
+  "uploads": 0,
+  "profile_reuse": 0
+ }
+}
