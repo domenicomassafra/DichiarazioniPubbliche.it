@@ -44,6 +44,46 @@ def item(
 
 
 class CandidateMatchingTests(unittest.TestCase):
+    def test_unresolved_identity_with_shared_topic_never_proposes_lexical_cluster(self):
+        from dataclasses import replace
+        sentence = ("Il governo regionale ha approvato un piano strategico per promuovere "
+                    "progetti di edilizia sociale nel 2026.")
+        left = item("CLAIM_CANDIDATE", "identity:unknown", sentence)
+        right = item("ATOMIC_CLAIM", "identity:changed", sentence.replace("regionale", "provinciale"))
+        left = replace(left, proposition=replace(left.proposition, topic_keys=("topic:edilizia",)))
+        right = replace(right, proposition=replace(right.proposition, topic_keys=("topic:edilizia",)))
+        result = rank_candidate_matches(left, (right,))[0]
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertIsNone(result.cluster_id)
+        self.assertIn("SEMANTIC_IDENTITY_UNVERIFIED",
+                      {feature["code"] for feature in result.contradicting_features})
+
+    def test_high_lexical_overlap_with_semantic_conflicts_is_held(self):
+        source = "L'obiettivo delle norme è promuovere un'IA affidabile in Europa."
+        cases = (
+            ("negation", "L'obiettivo delle norme non è promuovere un'IA affidabile in Europa.",
+             {}, "SEMANTIC_NEGATION_CONFLICT"),
+            ("quotation", '"' + source + '"', {}, "SEMANTIC_QUOTATION_CONFLICT"),
+            ("identity", source, {"entities": ("topic:other-act",)}, "SEMANTIC_IDENTITY_CONFLICT"),
+            ("numeric", source.replace("Europa", "Europa nel 2025"), {}, "SEMANTIC_NUMERIC_CONFLICT"),
+            ("written_number", "Nel 2026 sono stati destinati dieci milioni di euro per realizzare nuovi alloggi nella regione.",
+             {}, "SEMANTIC_NUMERIC_CONFLICT"),
+        )
+        for name, text, overrides, reason in cases:
+            with self.subTest(case=name):
+                original = ("Nel 2026 sono stati destinati due milioni di euro per realizzare nuovi alloggi nella regione."
+                            if name == "written_number" else source)
+                candidate_for_case = item("CLAIM_CANDIDATE", "source", original,
+                                          entities=("topic:ai-act",),
+                                          temporal_scope={"reference_period": "2026"})
+                target = item("ATOMIC_CLAIM", name, text,
+                              entities=overrides.get("entities", ("topic:ai-act",)),
+                              temporal_scope={"reference_period": "2026"})
+                result = rank_candidate_matches(candidate_for_case, (target,))[0]
+                self.assertEqual(result.disposition, "HOLD")
+                self.assertIsNone(result.cluster_id)
+                self.assertIn(reason, {f["code"] for f in result.contradicting_features})
+
     def test_duplicate_ranks_ahead_of_related(self):
         candidate = item(
             "CLAIM_CANDIDATE",

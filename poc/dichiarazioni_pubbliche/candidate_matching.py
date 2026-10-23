@@ -5,6 +5,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from dichiarazioni_pubbliche.matching_semantic_guards import conflicting_proposition_features
 from dichiarazioni_pubbliche.proposition_clustering import (
     INSERT_CLUSTER_MEMBER_SQL_V1,
     INSERT_PROPOSITION_CLUSTER_SQL_V1,
@@ -19,9 +20,8 @@ from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 
 
 MATCHING_VERSION = "candidate-matching-v1"
-# A changed disposition rule must create a new run fingerprint so an existing
-# persisted proposal cannot be replayed as if it had passed the stricter gate.
-DISPOSITION_POLICY_VERSION = "structured-scope-conflict-hold-v2"
+# Bump on HOLD policy changes to invalidate persisted match-run fingerprints.
+DISPOSITION_POLICY_VERSION = "structured-scope-conflict-hold-v3"
 DEFAULT_TARGET_LIMIT = 200
 
 
@@ -82,6 +82,7 @@ def _augment_features(
 ) -> tuple[tuple[dict[str, Any], ...], tuple[dict[str, Any], ...]]:
     supporting = list(match.supporting_features)
     contradicting = list(match.contradicting_features)
+    contradicting.extend(conflicting_proposition_features(candidate.proposition, target.proposition))
     if candidate.claim_type and target.claim_type:
         if candidate.claim_type == target.claim_type:
             supporting.append({"code": "SAME_CLAIM_TYPE", "value": candidate.claim_type})
@@ -112,10 +113,8 @@ def _augment_features(
 
 
 def _disposition(match_class: str, contradicting_features: Sequence[Mapping[str, Any]]) -> str:
-    # The lexical classifier does not know ClaimType or the reference period.
-    # An exact string match alone cannot propose semantic equivalence when
-    # those typed inputs explicitly disagree. Preserve the match for review.
     if any(feature.get("code") in {"CLAIM_TYPE_MISMATCH", "TEMPORAL_SCOPE_DIFFERS"}
+           or str(feature.get("code", "")).startswith("SEMANTIC_")
            for feature in contradicting_features):
         return "HOLD"
     if match_class in {"DUPLICATE_EXTRACTION", "SAME_PROPOSITION"}:
