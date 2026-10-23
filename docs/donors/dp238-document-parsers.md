@@ -24,7 +24,11 @@ and URN. A private PDF page link may only be made for an approved *self-original
 Capture whose live source SHA matches that very Capture; it cannot point a crop
 to the parent's different bytes as if they were identical.
 
-An independent human-transcribed gold set for mixed columns, scan defects,
-redactions and role-sensitive excerpts is still required for DP-238 acceptance.
-The existing synthetic reference and official companion `.txt` cannot be
-presented as independently verified OCR ground truth.
+The independent BHL/IMPACT-BHL expert-corrected reference is documented in
+`docs/reviews/2026-10-20-dp238-bhl-independent-ocr-gold.md`. Its critical-number
+and accuracy checks failed, so the extracted OCR remains private and **HOLD**.
+Per the owner's 2026-10-21 acceptance revision, a new human-transcribed gold
+set is no longer a generic closure prerequisite. A real source-use grant,
+source-bound Capture/Page/Passage proof, independent cross-model review, and
+privacy/publication safeguards still apply. The NASA official companion `.txt`
+is a separate source product, not independent OCR ground truth.

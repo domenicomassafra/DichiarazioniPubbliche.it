@@ -160,6 +160,38 @@ A partially completed batch does not roll back earlier private Candidates.
 The existing DP-211 operation identity is replay-safe. No automatic
 Claim promotion, verification, Finding or public projection occurs.
 
+### Optional DP-240 source-isolated operator receipts
+
+When operating a reviewed batch across several Contents/Persons, use the
+existing extraction command with both `--dp240-contexts` and `--dp240-ledger`.
+The context file is a private JSON object keyed by exact Passage ID. Each
+value has exactly the fields of `ReviewedPassageContext` in
+`multi_person_batch_v1.py`: source/Passage SHA-256, Capture/Content IDs,
+source family, selector, language, Person *candidate* and role, review
+context/identity state, rights state and estimated tokens. For persisted
+written Passages the selector fingerprint is
+`TEXT_POSITION:<start_char>:<end_char>` using the actual database offsets.
+The CLI verifies source hash and selector against the current persisted
+Capture/Passage binding after the full rights and privacy preflight.
+
+    python3 tools/extract_research_candidates.py --manifest /private/operator/passage-batch.json --dp240-contexts /private/operator/reviewed-contexts.json --dp240-ledger /private/operator/dp240-receipts.sqlite3
+
+The command above is a **read-only** preflight: it returns `dp240_plan_sha256`,
+the number of partitions and held items; no ledger or provider is created.
+Only if the same existing execution gates are authorized may the operator
+add `--execute` and an approved cost/provider configuration. The opt-in
+ledger then registers the immutable plan and records a source-scoped terminal
+receipt for each actual extraction result. On restart previously observed
+items are skipped, including FAILED items; unobserved items alone are resumed.
+Each resumed execution requires a new explicit `--execute` authorization and
+budget/quota preflight. The reported `actual_cost_usd` counts only calls from
+the current invocation; it is not a cumulative historical cost receipt.
+Failures are never silently rewritten as successful retries. A new authorized
+attempt scope is required for a later retry of the same Passage. The receipt
+remains a local SQLite operator record with private-only status, **not** a
+PostgreSQL/Studio acceptance record or independent identity/rights clearance.
+Never place the manifest, context file, or ledger in Git or a public directory.
+
 ## MiniPC read-only negative-path proof
 
 An isolated copy of the new Python package was staged under
