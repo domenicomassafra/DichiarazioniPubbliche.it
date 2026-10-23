@@ -107,8 +107,9 @@ cannot prove a service was stopped without an operator's independent readback.
 
 ## Controlled HTTPS fixture and real canary — HOLD
 
-No ArchiveBox binary/container was installed on the MiniPC at the previous
-inspection. #171 is CLOSED as of 2026-10-21 and its HTML/readability PR #198
+The canary below was executed on 2026-10-23 after the owner's licensing
+decision; see "Observed canary run" at the end of this document. At the earlier
+inspection no ArchiveBox binary/container was installed on the MiniPC. #171 is CLOSED as of 2026-10-21 and its HTML/readability PR #198
 is MERGED, but this does not prove a WARC/PDF runtime. The owner approved
 a controlled test URL, permitted uses, and short retention on 2026-10-20:
 [decision](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/162#issuecomment-6300421019).
@@ -164,3 +165,71 @@ the operator should:
 The already merged HTML/readability seam is separate from the real WARC/PDF
 acceptance of #162. A source-only audit or closed #171 ticket cannot substitute
 for the observed private multiformat canary, rights/readback and rollback.
+
+## Observed canary run — 2026-10-23 (owner decision A)
+
+The owner approved, on 2026-10-23, adopting ArchiveBox v0.9.73 **only** for one
+internal, private, isolated canary with the dependency list below
+([approval](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/162#issuecomment-6359003313),
+fingerprint `1aeac182dbfd73da053c3d6a97dc34539272f172e37ece7082da35dcadebcbc9`
+= SHA-256 of that comment body). What follows is what was actually observed on
+the MiniPC, and what stayed impossible.
+
+- **Pinned runtime.** `docker pull archivebox/archivebox@sha256:6478ae1e030db1478858a7c8bb5967b2f6c198cd74cea70b9a74e24ee7ee3e4c`
+  (linux/amd64 sub-manifest of the `0.9.73`/`latest` manifest list
+  `sha256:d4720d86c0e91577bccaee59fa238d22a9cfc0674aa594c80f739f0738270af9`),
+  4.32 GB, `archivebox --version` = 0.9.73.
+- **Effective dependency inventory of the pulled image** (not of a
+  hypothetical resolve): 103 Python distributions enumerated from their
+  installed metadata; the only restricted licenses are exactly the approved
+  ones — `psycopg 3.3.4` and `psycopg-binary 3.3.4` (LGPL-3.0-only),
+  `browser-cookie3 0.20.1` (LGPL), `certifi 2026.6.17` (MPL-2.0) — plus
+  `pycryptodomex 3.23.0` (BSD/Public Domain). The donor's own
+  `install:wget` step brings GNU Wget 1.25.0 (GPL). No additional component
+  requiring a new owner question was installed.
+- **Isolation.** Disposable bridge `172.31.162.0/24`; a fixture container
+  served only `/fixture.html` over TLS with a canary-only CA;
+  `dp162-canary.test` resolved to `172.31.162.2` **inside the crawler
+  container only** (`--add-host`), so no host DNS change and no public egress
+  for the crawl. Container limits `--memory 2g --cpus 2 --pids-limit 512`.
+- **Observed run.** `archivebox init` then
+  `archivebox add --depth=0 --max-urls=1 --crawl-max-concurrent-snapshots=1 --crawl-timeout=150 --snapshot-max-size=16mb --plugins wget --tag dp162-canary https://dp162-canary.test/fixture.html`
+  exited 0; crawl `06adb3922bc87cfd800025380d708d06`, snapshot
+  `06adb392def1775680005e8fe0070628`, archiver result
+  `on_Snapshot__35_wget.finite.bg` = `succeeded`. Real outputs:
+  `wget/warc/1792751918.warc.gz` 2988 B
+  `sha256 06c7d19c53004a038b31d270bf80b3049eed67332f4a1786875450c863d69736`
+  (plain stream 4201 B `df5eced112538cd2eb537176d219bab5796134aff9b0b1541c906042212b0918`,
+  6 `WARC/1.0` records) and the saved body
+  `sha256 a45de00f327e7894c00fb95f0ef54cc68b664d0879a04834487388c390be9235`,
+  identical to the approved fixture.
+- **PDF stayed UNSUPPORTED, not simulated.** The pinned image ships no
+  Chrome/Chromium; `plugins/pdf/config.json` requires plugin `chrome`, whose
+  `required_binaries` pull Node >= 22.12 (`apt nodejs`), a `pnpm` `abxbus`
+  package and a `browsers` download, and `pdf` additionally needs
+  `poppler-utils` for `pdftoppm`. Those components are outside the
+  2026-10-23 license decision, so enabling them needs a new owner answer; a
+  `--plugins pdf` probe archived 0 URLs and produced no PDF.
+- **Measured cost.** ArchiveBox: 93.666 s (container `StartedAt`→`FinishedAt`),
+  peak RSS 298 700 KiB (max of 2 s `docker stats` samples; `memory.peak` is
+  not readable once the container exits), 875 058 B stored in the collection
+  (snapshot folder 18 067 B). Monolith 2.11.6 on the same fetched bytes:
+  6 728 KiB peak RSS, 0.63 s, 338 B output. So WARC+metadata cost roughly 44x
+  the RSS and 149x the wall time of HTML-only preservation.
+- **Rollback readback.** Containers removed, bridge network removed, no
+  listener left on the canary network, transient collection deleted
+  (retention <= 24 h), private receipts (`0600`) preserved and re-hashed.
+- **Offline audit of the real artifact set** returned
+  `BLOCKED: REQUIRED_ARTIFACTS_MISSING` because no PDF artifact exists — the
+  fail-closed behaviour this ticket wants. The WARC path itself was verified
+  against the real file (size, SHA-256, gzip magic, full-stream CRC/trailer,
+  WARC records), not only against fixtures.
+- **Donor default visibility.** ArchiveBox stored both the crawl and the
+  snapshot with `permissions = public` (its UI-level default). No server was
+  started and no locator was published, but any future use must force private
+  permissions — another reason to keep publication `HOLD`.
+
+Multiformat acceptance is therefore still open: the canary proved a real,
+rights-bound WARC capture with measured cost inside an isolated
+network, and proved that PDF preservation needs an explicit licensing and
+provisioning decision for a headless browser.
