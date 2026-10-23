@@ -34,7 +34,12 @@ makes no compatibility promise. See
 - role-based onboarding guide with separate contributor, maintainer, and
   operator/integrator paths (DP-605);
 - packaging contract tests that fail if a `.v0`/POC identifier is renamed as a side
-  effect (DP-601).
+  effect (DP-601);
+- a bounded private canary (`podcast_youtube_canary`) that resolves one real and
+  approved podcast episode to its exact YouTube locator with feed hashes, a
+  metadata-only rights decision and no database, media or ASR side effects; the
+  first association (`pulp-podcast-youtube-v1`, episode #68 → `TpbFntO68Iw`) is
+  recorded with evidence in `docs/evidence/dp182/` (DP-182).
 
 ### Changed
 
@@ -70,6 +75,14 @@ makes no compatibility promise. See
   (DP-603);
 - the final public security contact remains an owner decision until one is explicitly
   approved and published through the project security process.
+
+### Fixed
+
+- YouTube's `videos.xml` reports the channel twice (22-character feed form without
+  the `UC` prefix at feed level, canonical `UC`+22 form in each entry); channel
+  identity is now compared on the canonical form only, so real catalogs resolve
+  instead of always failing closed, while unexpected spellings remain refused
+  (DP-182).
 
 ### Security / hardening
 
