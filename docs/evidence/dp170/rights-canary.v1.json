@@ -1,0 +1,18 @@
+{
+  "schema": "canary-rights-decision-v1",
+  "id": "dp170-rights-js-demo-2026-10-23",
+  "status": "APPROVED",
+  "reviewer_ref": "ai-review:deepseek-v4.1-flash:2026-10-23:dp170",
+  "approved_at": "2026-10-23T11:00:00Z",
+  "hosts": ["demo.playwright.dev"],
+  "scopes": ["FETCH", "STORE_BODY", "PARSE_TEXT"],
+  "not_granted": ["PUBLISH", "REDISTRIBUTE", "MEDIA_DOWNLOAD", "ASR_MEDIA"],
+  "basis": "The Playwright project publishes this page as its own demo application for automated browser testing (playwright.dev/mcp/installation). No login, no personal data, no quotation: the canary keeps only hashes and byte counts.",
+  "constraints": {
+    "max_render_bytes": 1048576,
+    "redirects": "refused",
+    "hosts_only": true,
+    "retention": "SHA-256 and byte counts only, no page text",
+    "expires_at": "2026-11-23T00:00:00Z"
+  }
+}

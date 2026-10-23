@@ -17,9 +17,13 @@ case "$resolved" in
     *) exit 86 ;;
 esac
 [ -x "$resolved" ] || exit 86
+# A launcher script only execs host paths that this namespace never mounts.
+[ "$(dd if="$resolved" bs=2 count=1 2>/dev/null)" != '#!' ] || exit 86
 # Bound descriptors and generated files, including the browser's child processes.
+# 64 MiB per file: Chromium's own disk cache writes exceed 4 MiB on a real page
+# and SIGXFSZ killed the renderer before any JavaScript effect could be observed.
 ulimit -n 256
-ulimit -f 4096
+ulimit -f 65536
 
 # Keep caller arguments exactly; bwrap's optional application tree is only the
 # directory containing the executable, never all of /opt or the host root.

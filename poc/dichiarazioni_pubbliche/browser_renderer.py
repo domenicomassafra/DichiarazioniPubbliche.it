@@ -97,20 +97,31 @@ class PlaywrightBrowserRenderer:
         wrapper = self.sandbox_executable
         if not wrapper.is_file() or not os.access(wrapper, os.X_OK):
             raise BrowserRenderBlocked("BROWSER_NETNS_WRAPPER_MISSING")
+        if self.chromium_binary is None or (
+            not Path(self.chromium_binary).is_absolute()
+            or not Path(self.chromium_binary).is_file()
+            or not os.access(self.chromium_binary, os.X_OK)
+        ):
+            raise BrowserRenderBlocked("BROWSER_CHROMIUM_BINARY_INVALID")
+        # Distribution launcher scripts exec an absolute path that the sandbox
+        # deliberately does not mount; Chromium would exit 127 after admission.
+        # Refuse the launcher here instead of failing inside the wrapper.
+        try:
+            with open(self.chromium_binary, "rb") as handle:
+                launcher = handle.read(2) == b"#!"
+        except OSError:
+            raise BrowserRenderBlocked("BROWSER_CHROMIUM_BINARY_INVALID") from None
+        if launcher:
+            raise BrowserRenderBlocked("BROWSER_CHROMIUM_LAUNCHER_SCRIPT")
+        if not (self.chromium_binary.startswith("/usr/bin/")
+                or self.chromium_binary.startswith("/opt/")):
+            raise BrowserRenderBlocked("BROWSER_CHROMIUM_BINARY_INVALID")
         try:
             installed_version = importlib.metadata.version("playwright")
         except importlib.metadata.PackageNotFoundError:
             raise BrowserRenderBlocked("BROWSER_PLAYWRIGHT_NOT_INSTALLED") from None
         if installed_version != PLAYWRIGHT_VERSION:
             raise BrowserRenderBlocked("BROWSER_PLAYWRIGHT_VERSION_MISMATCH")
-        if self.chromium_binary is None or (
-            not Path(self.chromium_binary).is_absolute()
-            or not (self.chromium_binary.startswith("/usr/bin/")
-                    or self.chromium_binary.startswith("/opt/"))
-            or not Path(self.chromium_binary).is_file()
-            or not os.access(self.chromium_binary, os.X_OK)
-        ):
-            raise BrowserRenderBlocked("BROWSER_CHROMIUM_BINARY_INVALID")
 
     def render(
         self, url: str, *, max_response_bytes: int,
@@ -226,6 +237,7 @@ class PlaywrightBrowserRenderer:
                           "--disable-sync", "--disable-gpu", "--no-first-run",
                           "--renderer-process-limit=2",
                           "--js-flags=--max-old-space-size=128",
+                          "--disk-cache-size=8388608",
                           "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
                 )
                 try:
@@ -256,7 +268,15 @@ class PlaywrightBrowserRenderer:
                         html = page.content().encode("utf-8")
                         remaining_timeout_ms()
                         final_url = validate_discovery_url(page.url, resolver=self.resolver)
-                        if final_url != url:
+                        # A client-side document router may only add a fragment:
+                        # fragments never leave the browser, so they cannot change
+                        # the retrieved representation or the source identity.
+                        fragment_only = (
+                            final_url != url and "#" not in url
+                            and final_url.split("#", 1)[0] == url
+                            and "#" in final_url
+                        )
+                        if final_url != url and not fragment_only:
                             raise BrowserRenderBlocked("BROWSER_FINAL_URL_CHANGED")
                         if blocked:
                             if authorization_error is not None:
@@ -286,6 +306,7 @@ class PlaywrightBrowserRenderer:
             "chromium_version": version[:80],
             "rendered_sha256": hashlib.sha256(html).hexdigest(),
             "rendered_bytes": len(html),
+            "fragment_only_url_change": fragment_only,
             "resource_count": request_count,
             "resource_bytes": total_bytes,
             "egress_policy": "bwrap-unshare-net-pinned-https-v1",

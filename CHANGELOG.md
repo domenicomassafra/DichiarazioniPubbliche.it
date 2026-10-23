@@ -34,7 +34,11 @@ makes no compatibility promise. See
 - role-based onboarding guide with separate contributor, maintainer, and
   operator/integrator paths (DP-605);
 - packaging contract tests that fail if a `.v0`/POC identifier is renamed as a side
-  effect (DP-601).
+  effect (DP-601);
+- an opt-in Playwright 1.64 renderer behind a mandatory `bwrap --unshare-net`
+  sandbox, with pinned-HTTPS subresource serving from the parent process, and a
+  bounded canary (`tools/dp170_render_canary.py`) that proves one authorized
+  selective rendition with hashes and no stored page text (DP-170).
 
 ### Changed
 
@@ -70,6 +74,15 @@ makes no compatibility promise. See
   (DP-603);
 - the final public security contact remains an owner decision until one is explicitly
   approved and published through the project security process.
+
+- the JS renderer crashed on a real page because the sandbox file-size limit
+  (`ulimit -f 4 MiB`) was smaller than Chromium's own disk cache (`SIGXFSZ`, exit
+  153); the limit is now 64 MiB with an explicit 8 MiB cache bound (DP-170).
+- distribution Chromium launcher scripts (`#!/bin/bash` exec of an absolute
+  `/opt` path) are refused during admission with
+  `BROWSER_CHROMIUM_LAUNCHER_SCRIPT` instead of failing with exit 127 inside the
+  sandbox, and a client-side fragment-only route no longer counts as a changed
+  representation (DP-170).
 
 ### Security / hardening
 
