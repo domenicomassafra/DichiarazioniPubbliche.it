@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {mkdtemp,mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
-import {tmpdir} from "node:os";
+import {mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
+import {makeScratchDir} from "./lib/scratch.mjs";
 import {canonicalJson} from "../src/lib/searchIndex.ts";
 import {buildPublicStatementSearchV3} from "../src/lib/publicStatementSearchV3.ts";
 import {readPrivateSynopsisCrossPreviewV3} from "../src/lib/privateSynopsisCrossPreviewV3.ts";
@@ -142,7 +142,7 @@ const approvedAssets=structuredClone(artifacts);
 artifacts.source.statements[0].original_text+=" mutated after read";
 assert.deepEqual(positive,detached,"read output detaches from source mutation");
 
-const temporary=await mkdtemp(join(tmpdir(),"dp440-private-cross-preview-"));
+const temporary=await makeScratchDir("dp440-private-cross-preview-");
 try {
   await mkdir(join(temporary,"src/pages"),{recursive:true});
   await symlink(join(web,"node_modules"),join(temporary,"node_modules"));

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validatePublicStatementV3Detail } from "../src/lib/statementV3Api.ts";
 import { canonicalJson } from "../src/lib/searchIndex.ts";
+import { makeScratchDir } from "./lib/scratch.mjs";
 
 // Backend-owned synthetic fixture, never a real-source publication or a web route.
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -119,7 +119,7 @@ console.log("DP-436 frontend opt-in API exact-quote consumer PASS (synthetic bac
 
 // Render the real Astro component in a disposable, isolated site. A synthetic
 // fixture under /tmp is never copied to web/src/pages, dist or the MiniPC.
-const temp = await mkdtemp(join(tmpdir(), "dp436-astro-opt-in-"));
+const temp = await makeScratchDir("dp436-astro-opt-in-");
 const web = fileURLToPath(new URL("../", import.meta.url));
 const component = fileURLToPath(new URL("../src/components/VerbatimStatementRecord.astro", import.meta.url));
 async function fixtureBuild(apiDetail, enabled, output) {

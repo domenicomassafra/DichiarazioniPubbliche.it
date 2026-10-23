@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {mkdtemp,mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
-import {tmpdir} from "node:os";
+import {mkdir,readFile,rm,symlink,writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
+import {makeScratchDir} from "./lib/scratch.mjs";
 import {canonicalJson} from "../src/lib/searchIndex.ts";
 import {buildPublicStatementSearchV3} from "../src/lib/publicStatementSearchV3.ts";
 import {readPrivateStatementOpinionV3} from "../src/lib/privateStatementOpinionPreviewV3.ts";
@@ -80,7 +80,7 @@ const safe=structuredClone(good);
 assets.source.statements.find(s=>s.statement_id===id).original_text+=" changed after snapshot";
 assert.deepEqual(good,safe,"detached read model cannot be mutated by old source");
 
-const temp=await mkdtemp(join(tmpdir(),"dp437-private-opinion-"));
+const temp=await makeScratchDir("dp437-private-opinion-");
 try {
   await mkdir(join(temp,"src","pages"),{recursive:true});
   await symlink(join(web,"node_modules"),join(temp,"node_modules"));
