@@ -17,6 +17,7 @@ from dichiarazioni_pubbliche.licence_excerpt_decision_v1 import (  # noqa: E402
     LiveRevocationAuthority,
     MAX_LICENCE_EXCERPT_CHARS,
     SourceTermsEvidence,
+    attest_licence_use,
     decide_licence_excerpt,
     licence_decision_receipt,
     render_attribution,
@@ -260,8 +261,10 @@ class LicenceExcerptDecisionTests(unittest.TestCase):
         self.assertNotIn("<script>", result.private_rendered_text)
         self.assertIn("&lt;script&gt;", result.private_rendered_text)
 
-    def test_licence_markers_must_be_observed_in_the_hashed_document(self):
-        result = decide(terms=evidence(markers=("CC BY 4.0",)))
+    def test_either_identifying_marker_is_enough_but_some_marker_is_required(self):
+        short = decide(terms=evidence(markers=("CC BY 4.0",)))
+        self.assertEqual(short.status, "PERMITTED")
+        result = decide(terms=evidence(markers=("Some other licence notice",)))
         self.assertEqual(result.status, "PROHIBITED")
         self.assertEqual(result.reason_code, "LICENCE_MARKERS_NOT_OBSERVED")
         self.assertIsNone(result.private_rendered_text)
@@ -388,6 +391,38 @@ class LicenceExcerptDecisionTests(unittest.TestCase):
         self.assertEqual(fields["publication_authorized"].default, False)
         self.assertEqual(fields["web_projection_enabled"].default, False)
         self.assertEqual(fields["private_only"].default, True)
+
+
+class LicenceUseAttestationTests(unittest.TestCase):
+    def test_verified_licence_attests_private_use_only(self):
+        result = attest_licence_use(evidence())
+        self.assertEqual(result.status, "APPROVED")
+        self.assertEqual(result.reason_code, "LICENCE_VERIFIED_FOR_PRIVATE_USE")
+        self.assertEqual(result.licence_id, "CC-BY-4.0")
+        self.assertTrue(result.attribution_required)
+        self.assertTrue(result.private_only)
+        self.assertFalse(result.publication_authorized)
+
+    def test_missing_markers_or_broken_evidence_hold_the_attestation(self):
+        for terms, expected in (
+            (evidence(markers=("Unrelated notice",)), "LICENCE_MARKERS_NOT_OBSERVED"),
+            (evidence(licence_id="UNKNOWN"), "LICENCE_ID_NOT_VERIFIABLE"),
+            (None, "LICENCE_TERMS_EVIDENCE_INVALID"),
+        ):
+            with self.subTest(expected=expected):
+                result = attest_licence_use(terms)
+                self.assertEqual(result.status, "HELD")
+                self.assertEqual(result.reason_code, expected)
+                self.assertFalse(result.publication_authorized)
+
+    def test_cc0_does_not_require_attribution(self):
+        result = attest_licence_use(evidence(
+            licence_id="CC0-1.0",
+            licence_url="https://creativecommons.org/publicdomain/zero/1.0/",
+            markers=("CC0 1.0 Universal", "CC0 1.0"),
+        ))
+        self.assertEqual(result.status, "APPROVED")
+        self.assertFalse(result.attribution_required)
 
 
 if __name__ == "__main__":
