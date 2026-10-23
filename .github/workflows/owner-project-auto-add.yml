@@ -5,7 +5,7 @@ on:
     types: [opened, reopened, transferred]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
