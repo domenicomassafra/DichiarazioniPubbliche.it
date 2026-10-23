@@ -59,6 +59,11 @@ def _eligible(
 ) -> bool:
     if not state.enabled or not state.healthy:
         return False
+    # URL-only routing cannot provide the private audio path, hashes, and
+    # current source-use clearance required by local CPU workers. A successful
+    # operator canary must never turn these into implicit fallback routes.
+    if str(provider.get("route", "")).startswith("local/"):
+        return False
     if not allow_unproven and not provider.get("proven_in_owner_runtime", False):
         return False
     if language == "it" and not provider.get("italian", False):
