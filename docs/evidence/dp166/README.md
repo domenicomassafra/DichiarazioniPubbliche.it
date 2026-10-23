@@ -39,9 +39,9 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest \
 `test_memory_hog_is_bounded_in_child_only` usava `max_elapsed_ms=800`: il figlio
 importa il modulo di test prima di allocare, quindi su un host carico scadeva il
 wall deadline (`ENGINE_TIMEOUT`) invece del limite di memoria
-(`ENGINE_FAILED_OR_LIMIT`). La conteninzione era corretta, la diagnosi no. La
+(`ENGINE_FAILED_OR_LIMIT`). Il contenimento era corretto, la diagnosi no. La
 scadenza è ora 5000 ms: il limite di memoria vince, e il test verifica la
-proprietà giusta (conteninzione nel figlio, RLIMIT del padre invariati).
+proprietà giusta (contenimento nel figlio, RLIMIT del padre invariati).
 
 ## Cosa non è provato e perché (non dipende dagli agenti)
 
