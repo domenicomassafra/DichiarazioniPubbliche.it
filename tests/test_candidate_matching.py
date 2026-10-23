@@ -44,6 +44,28 @@ def item(
 
 
 class CandidateMatchingTests(unittest.TestCase):
+    def test_high_lexical_overlap_with_semantic_conflicts_is_held(self):
+        source = "L'obiettivo delle norme è promuovere un'IA affidabile in Europa."
+        candidate = item("CLAIM_CANDIDATE", "source", source,
+                         entities=("topic:ai-act",),
+                         temporal_scope={"reference_period": "2026"})
+        cases = (
+            ("negation", "L'obiettivo delle norme non è promuovere un'IA affidabile in Europa.",
+             {}, "SEMANTIC_NEGATION_CONFLICT"),
+            ("quotation", '"' + source + '"', {}, "SEMANTIC_QUOTATION_CONFLICT"),
+            ("identity", source, {"entities": ("topic:other-act",)}, "SEMANTIC_IDENTITY_CONFLICT"),
+            ("numeric", source.replace("Europa", "Europa nel 2025"), {}, "SEMANTIC_NUMERIC_CONFLICT"),
+        )
+        for name, text, overrides, reason in cases:
+            with self.subTest(case=name):
+                target = item("ATOMIC_CLAIM", name, text,
+                              entities=overrides.get("entities", ("topic:ai-act",)),
+                              temporal_scope={"reference_period": "2026"})
+                result = rank_candidate_matches(candidate, (target,))[0]
+                self.assertEqual(result.disposition, "HOLD")
+                self.assertIsNone(result.cluster_id)
+                self.assertIn(reason, {f["code"] for f in result.contradicting_features})
+
     def test_duplicate_ranks_ahead_of_related(self):
         candidate = item(
             "CLAIM_CANDIDATE",

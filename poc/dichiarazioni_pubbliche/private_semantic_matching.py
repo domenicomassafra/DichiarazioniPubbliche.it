@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from dichiarazioni_pubbliche.candidate_matching import MatchingInput, rank_candidate_matches
+from dichiarazioni_pubbliche.matching_semantic_guards import conflicting_proposition_features
 from dichiarazioni_pubbliche.proposition_clustering import normalize_proposition
 
 
@@ -35,8 +36,6 @@ MAX_SECONDS = 40
 MAX_ADDRESS_SPACE_BYTES = 4 * 1024 * 1024 * 1024
 _HASH = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
-_NEGATION = frozenset({"non", "no", "mai", "nessuno", "nessuna", "nessun", "senza", "ne"})
-_NUMBER = re.compile(r"\b\d+(?:[,.]\d+)?\b")
 _LICENSES = frozenset({"Apache-2.0", "MIT", "BSD-3-Clause", "BSD-2-Clause"})
 _ALLOWED_FILE_EXTENSIONS = frozenset({".json", ".txt", ".model", ".vocab", ".safetensors", ".md"})
 
@@ -73,20 +72,9 @@ def _gate_reason(candidate: MatchingInput, target: MatchingInput) -> str | None:
     if (not candidate.temporal_scope or not target.temporal_scope
             or candidate.temporal_scope != target.temporal_scope):
         return "TEMPORAL_SCOPE_MISSING_OR_DIFFERENT"
-    if left.entity_keys and right.entity_keys and set(left.entity_keys) != set(right.entity_keys):
-        return "IDENTITY_DIFFERENT"
-    if (bool(left.entity_keys) != bool(right.entity_keys)):
-        return "IDENTITY_UNVERIFIED"
-    if (_NUMBER.findall(left.normalized_text) != _NUMBER.findall(right.normalized_text)):
-        return "NUMERIC_SCOPE_DIFFERENT"
-    left_tokens = normalize_proposition(left.normalized_text).split()
-    right_tokens = normalize_proposition(right.normalized_text).split()
-    if ([token for token in left_tokens if token in _NEGATION]
-            != [token for token in right_tokens if token in _NEGATION]):
-        return "NEGATION_DIFFERENT"
-    if (any(c in left.normalized_text for c in ('"', "«", "»", "“", "”"))
-            != any(c in right.normalized_text for c in ('"', "«", "»", "“", "”"))):
-        return "QUOTATION_DIFFERENT"
+    conflicts = conflicting_proposition_features(left, right)
+    if conflicts:
+        return conflicts[0]["code"]
     return None
 
 
