@@ -23,8 +23,11 @@ https://feedparser.readthedocs.io/en/stable/bozo.html . Channel catalog gaps
 have been observed with yt-dlp, e.g. https://github.com/yt-dlp/yt-dlp/issues/8096
 (2023-09-12), so an Atom miss is **not** an exhaustive absence receipt.
 
-The `source_associations_version=1` registry is deliberately empty until
-reviewed podcast↔YouTube identity, channel, policy and source-use records exist.
+The `source_associations_version=1` registry holds only associations with a
+reviewed podcast↔YouTube identity, channel, policy and source-use record. One
+association (`pulp-podcast-youtube-v1`) is approved for locator identity only,
+with its evidence in `docs/evidence/dp182/`; source-use rights stay checked at
+the fetch seam.
 An approved association selects only that YouTube Atom feed, checks the embedded
 `yt:channelId`, refuses redirects, revalidates `FETCH` and `STORE_BODY` both
 before/after feed access and before a video locator, and records cross-source
