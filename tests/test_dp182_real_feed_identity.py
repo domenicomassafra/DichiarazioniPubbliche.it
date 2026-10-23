@@ -157,7 +157,7 @@ class CanaryTests(unittest.TestCase):
         cases = (
             (rights(constraints={}), "CANARY_RIGHTS_EXPIRY_MISSING"),
             (rights(constraints={"expires_at": "invalid"}), "CANARY_RIGHTS_DATE_INVALID"),
-            (rights(constraints={"expires_at": "2026-10-22T00:00:00Z"}), "CANARY_RIGHTS_EXPIRED"),
+            (rights(constraints={"expires_at": "2026-10-23T11:00:00Z"}), "CANARY_RIGHTS_EXPIRED"),
             (rights(approved_at="2026-10-24T00:00:00Z"), "CANARY_RIGHTS_REVIEW_IN_FUTURE"),
         )
         def no_fetch(*args, **kwargs):
