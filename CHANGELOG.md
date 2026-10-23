@@ -39,7 +39,11 @@ makes no compatibility promise. See
   approved podcast episode to its exact YouTube locator with feed hashes, a
   metadata-only rights decision and no database, media or ASR side effects; the
   first association (`pulp-podcast-youtube-v1`, episode #68 → `TpbFntO68Iw`) is
-  recorded with evidence in `docs/evidence/dp182/` (DP-182).
+  recorded with evidence in `docs/evidence/dp182/` (DP-182);
+- an opt-in Playwright 1.64 renderer behind a mandatory `bwrap --unshare-net`
+  sandbox, with pinned-HTTPS subresource serving from the parent process, and a
+  bounded canary (`tools/dp170_render_canary.py`) that proves one authorized
+  selective rendition with hashes and no stored page text (DP-170).
 
 ### Changed
 
@@ -83,6 +87,14 @@ makes no compatibility promise. See
   identity is now compared on the canonical form only, so real catalogs resolve
   instead of always failing closed, while unexpected spellings remain refused
   (DP-182).
+- the JS renderer crashed on a real page because the sandbox file-size limit
+  (`ulimit -f 4 MiB`) was smaller than Chromium's own disk cache (`SIGXFSZ`, exit
+  153); the limit is now 64 MiB with an explicit 8 MiB cache bound (DP-170).
+- distribution Chromium launcher scripts (`#!/bin/bash` exec of an absolute
+  `/opt` path) are refused during admission with
+  `BROWSER_CHROMIUM_LAUNCHER_SCRIPT` instead of failing with exit 127 inside the
+  sandbox, and a client-side fragment-only route no longer counts as a changed
+  representation (DP-170).
 
 ### Security / hardening
 
