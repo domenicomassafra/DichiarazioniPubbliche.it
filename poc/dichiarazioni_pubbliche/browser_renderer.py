@@ -166,7 +166,7 @@ class PlaywrightBrowserRenderer:
                     raise BrowserRenderBlocked("BROWSER_TIMEOUT")
                 fetched = self.fetcher(
                     requested, timeout=timeout, max_response_bytes=remaining,
-                    resolver=self.resolver,
+                    resolver=self.resolver, allow_redirects=False,
                 )
                 # route.fulfill serves bytes under request.url and cannot
                 # represent a followed HTTP redirect. Refuse all redirects,

@@ -26,10 +26,11 @@ class BrowserResourceRightsRaceTests(unittest.TestCase):
                 raise PrivateCaptureAuthorizationBlocked("PRIVATE_CAPTURE_RIGHTS_REVOKED")
 
         class RevokingFetcher(FixtureFetcher):
-            def __call__(self, url, *, timeout, max_response_bytes, resolver):
+            def __call__(self, url, *, timeout, max_response_bytes, resolver,
+                         allow_redirects=True):
                 fetched = super().__call__(
                     url, timeout=timeout, max_response_bytes=max_response_bytes,
-                    resolver=resolver,
+                    resolver=resolver, allow_redirects=allow_redirects,
                 )
                 if url == URL:
                     approval["current"] = False

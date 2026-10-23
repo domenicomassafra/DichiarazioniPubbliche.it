@@ -40,6 +40,10 @@ all DNS answers and pins the connected socket through redirects. WebSockets are
 blocked. HTTP redirects for both documents and subresources are refused,
 including same-host redirects: Playwright route.fulfill would otherwise hide
 the actual fetched URL and undermine rights/provenance validation.
+The renderer passes allow_redirects=False to source_watcher.fetch_bytes
+before issuing the HTTP request; checking final_url only after a 3xx would
+allow an unapproved second GET before the browser route refuses it.
+An isolated synthetic transport regression asserts no second GET occurs.
 Deployment remains blocked until a real target has reviewed capture
 rights, explicit allowlisted resource hosts, accepted network limits and a
 recorded browser binary/version. Installing the optional extra does not enable

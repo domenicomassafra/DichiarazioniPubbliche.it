@@ -51,7 +51,7 @@ class FixtureFetcher:
         self.responses.update(overrides or {})
         self.calls = []
 
-    def __call__(self, url, *, timeout, max_response_bytes, resolver):
+    def __call__(self, url, *, timeout, max_response_bytes, resolver, allow_redirects=True):
         self.calls.append((url, timeout, max_response_bytes))
         return self.responses[url]
 
