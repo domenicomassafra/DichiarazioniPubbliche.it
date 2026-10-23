@@ -191,7 +191,8 @@ class OfficialShadowPreflightTests(unittest.TestCase):
         expected_extraction = gate.build_intended_request(extraction=True)
         called = []
 
-        def local_reply(_self, prompt, *, max_tokens):
+        def local_reply(_self, prompt, *, max_tokens, allowed_segment_indices):
+            self.assertEqual(allowed_segment_indices, (0,))
             called.append((prompt, max_tokens))
             return self.fixture["response"], 0.0
 
