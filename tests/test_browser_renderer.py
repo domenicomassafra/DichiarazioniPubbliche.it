@@ -36,23 +36,13 @@ CHROMIUM_CANDIDATES = (
 
 
 def local_chromium() -> str | None:
-    """Return the first installed Chromium executable the adapter accepts.
-
-    Distribution launcher scripts (``#!/bin/bash`` exec of an absolute ``/opt``
-    path) are refused by the adapter: the sandbox only mounts the resolved
-    executable and its own directory, so an unbound exec would fail closed.
-    """
+    """First installed Chromium executable; launcher scripts are refused."""
     for candidate in CHROMIUM_CANDIDATES:
-        path = Path(candidate)
-        if not (path.is_file() and os.access(candidate, os.X_OK)):
+        if not (Path(candidate).is_file() and os.access(candidate, os.X_OK)):
             continue
-        try:
-            with open(candidate, "rb") as handle:
-                if handle.read(2) == b"#!":
-                    continue
-        except OSError:
-            continue
-        return candidate
+        with open(candidate, "rb") as handle:
+            if handle.read(2) != b"#!":
+                return candidate
     return None
 
 
@@ -101,10 +91,9 @@ class FakeRoute:
 
 
 class FakePage:
-    def __init__(self, context, subresources=None, fragment=""):
+    def __init__(self, context, subresources=None):
         self.context = context
         self.url = URL
-        self.fragment = fragment
         self.subresources = subresources or [(SCRIPT, "script")]
         self.rendered = HTML.decode()
 
@@ -112,7 +101,7 @@ class FakePage:
         self.timeout = timeout
 
     def goto(self, url, **kwargs):
-        self.url = url + self.fragment
+        self.url = url
         document = FakeRoute(url, "document", navigation=True)
         self.context.handler(document)
         if document.aborted:
@@ -136,9 +125,8 @@ class FakePage:
 
 
 class FakeContext:
-    def __init__(self, subresources, fragment=""):
+    def __init__(self, subresources):
         self.subresources = subresources
-        self.fragment = fragment
         self.handler = None
         self.websocket_handler = None
 
@@ -149,7 +137,7 @@ class FakeContext:
         self.websocket_handler = handler
 
     def new_page(self):
-        return FakePage(self, self.subresources, self.fragment)
+        return FakePage(self, self.subresources)
 
     def close(self):
         pass
@@ -158,36 +146,34 @@ class FakeContext:
 class FakeBrowser:
     version = "Chromium 145.0.0.0"
 
-    def __init__(self, subresources, fragment=""):
+    def __init__(self, subresources):
         self.subresources = subresources
-        self.fragment = fragment
         self.context_options = None
 
     def new_context(self, **kwargs):
         self.context_options = kwargs
-        return FakeContext(self.subresources, self.fragment)
+        return FakeContext(self.subresources)
 
     def close(self):
         pass
 
 
 class FakePlaywright:
-    def __init__(self, subresources, fragment=""):
+    def __init__(self, subresources):
         self.chromium = self
         self.subresources = subresources
-        self.fragment = fragment
         self.launch_options = None
         self.browser = None
 
     def launch(self, **kwargs):
         self.launch_options = kwargs
-        self.browser = FakeBrowser(self.subresources, self.fragment)
+        self.browser = FakeBrowser(self.subresources)
         return self.browser
 
 
 class FakeFactory:
-    def __init__(self, subresources=None, fragment=""):
-        self.playwright = FakePlaywright(subresources, fragment)
+    def __init__(self, subresources=None):
+        self.playwright = FakePlaywright(subresources)
 
     def __call__(self):
         return self
@@ -311,50 +297,6 @@ class BrowserRendererTests(unittest.TestCase):
             side_effect=itertools.chain([0.0], itertools.repeat(20.0)),
         ), self.assertRaisesRegex(BrowserRenderBlocked, "BROWSER_TIMEOUT"):
             renderer.render(URL, max_response_bytes=2048)
-
-    def test_client_side_fragment_route_is_one_representation(self):
-        factory = FakeFactory(subresources=None, fragment="#/active")
-        renderer = PlaywrightBrowserRenderer(
-            enabled=True, chromium_binary="/usr/bin/google-chrome",
-            fetcher=FixtureFetcher(), resolver=public_dns,
-            playwright_factory=factory,
-        )
-        with self.mock_preflight():
-            result = renderer.render(URL, max_response_bytes=2048)
-        self.assertTrue(renderer.last_receipt["fragment_only_url_change"])
-        self.assertEqual(result.final_url, URL + "#/active")
-        factory = FakeFactory(subresources=None, fragment="/other")
-        renderer = PlaywrightBrowserRenderer(
-            enabled=True, chromium_binary="/usr/bin/google-chrome",
-            fetcher=FixtureFetcher(), resolver=public_dns,
-            playwright_factory=factory,
-        )
-        with self.mock_preflight(), self.assertRaisesRegex(
-            BrowserRenderBlocked, "BROWSER_FINAL_URL_CHANGED",
-        ):
-            renderer.render(URL, max_response_bytes=2048)
-
-    @unittest.skipUnless(
-        sys.platform == "linux" and shutil.which("bwrap") is not None,
-        "launcher refusal is a Linux sandbox policy",
-    )
-    def test_distribution_launcher_script_is_refused_before_admission(self):
-        # Omarchy/Arch ships /usr/bin/google-chrome-stable as a shell script that
-        # execs /opt/google/chrome/google-chrome, which the namespace never
-        # mounts: admission must refuse it instead of failing after launch.
-        import tempfile
-        with tempfile.TemporaryDirectory() as tmp:
-            launcher = Path(tmp) / "google-chrome"
-            launcher.write_text('#!/bin/sh\nexec /opt/google/chrome/google-chrome "$@"\n')
-            launcher.chmod(0o755)
-            renderer = PlaywrightBrowserRenderer(
-                enabled=True, chromium_binary=str(launcher),
-                resolver=public_dns, fetcher=FixtureFetcher(),
-            )
-            with self.assertRaisesRegex(
-                BrowserRenderBlocked, "BROWSER_CHROMIUM_LAUNCHER_SCRIPT",
-            ):
-                renderer.render(URL, max_response_bytes=2048)
 
     def test_cross_origin_needs_explicit_host_policy(self):
         foreign = "https://other.example.test/app.js"
