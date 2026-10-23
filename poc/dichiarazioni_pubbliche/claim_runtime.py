@@ -45,6 +45,7 @@ class ClaimExtractionResult:
     latency_seconds: float
     usage: dict[str, Any] | None
     observed_cost_usd: float | None
+    returned_model: str | None = None
 
 
 def load_claim_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
@@ -183,16 +184,67 @@ class OmniRouteClaimClient:
     def max_output_tokens(self) -> int:
         return int(self.config["max_output_tokens"])
 
-    def _post(self, prompt: str, *, max_tokens: int) -> tuple[dict[str, Any], float]:
-        if not self.api_key:
-            raise RuntimeError("OMNIROUTE_API_KEY_MISSING")
-        payload = {
+    def build_request_payload(
+        self, *, prompt: str, max_tokens: int, allowed_segment_indices: tuple[int, ...]
+    ) -> dict[str, Any]:
+        indices = sorted(set(allowed_segment_indices))
+        if not indices or any(type(index) is not int or index < 0 for index in indices):
+            raise ValueError("CLAIM_SCHEMA_EMPTY_WINDOW_OR_INVALID_SEGMENTS")
+        types = list(self.config["allowed_claim_types"])
+        if set(types) != {kind.value for kind in ClaimType}:
+            raise RuntimeError("CLAIM_CONFIG_TAXONOMY_DRIFT")
+        properties: dict[str, Any] = {
+            "source_timestamp": {"type": "string"},
+            "source_segment_indices": {
+                "type": "array", "minItems": 1,
+                "items": {"type": "integer", "enum": indices},
+            },
+            "speaker": {"type": "string"},
+            "claim_type": {"type": "string", "enum": types},
+            "claim_text": {"type": "string"},
+            "check_worthy": {"type": "boolean"},
+            "numeric_sensitive": {"type": "boolean"},
+        }
+        return {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
             "max_tokens": max(int(max_tokens), 1),
             "stream": False,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "atomic_claims",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["claims"],
+                        "properties": {
+                            "claims": {
+                                "type": "array",
+                                "maxItems": int(self.config["max_claims_per_window"]),
+                                "items": {
+                                    "type": "object", "additionalProperties": False,
+                                    "properties": properties,
+                                    "required": list(properties),
+                                },
+                            }
+                        },
+                    },
+                },
+            },
         }
+
+    def _post(
+        self, prompt: str, *, max_tokens: int, allowed_segment_indices: tuple[int, ...]
+    ) -> tuple[dict[str, Any], float]:
+        if not self.api_key:
+            raise RuntimeError("OMNIROUTE_API_KEY_MISSING")
+        payload = self.build_request_payload(
+            prompt=prompt, max_tokens=max_tokens,
+            allowed_segment_indices=allowed_segment_indices,
+        )
         request = urllib.request.Request(
             self.base_url + "/v1/chat/completions",
             data=json.dumps(payload, ensure_ascii=False).encode(),
@@ -231,6 +283,8 @@ class OmniRouteClaimClient:
             raise RuntimeError(f"OMNIROUTE_HTTP_{status}:{code[:80]}")
         if not isinstance(decoded, dict):
             raise RuntimeError("OMNIROUTE_RESPONSE_NOT_OBJECT")
+        if decoded.get("model") != self.model:
+            raise RuntimeError("OMNIROUTE_MODEL_SUBSTITUTED")
         return decoded, elapsed
 
     def _parse_claims(
@@ -346,7 +400,9 @@ TRANSCRIPT WINDOW:
         )
         started = time.monotonic()
         try:
-            response, elapsed = self._post(prompt, max_tokens=256)
+            response, elapsed = self._post(
+                prompt, max_tokens=256, allowed_segment_indices=(0,)
+            )
             claims = self._parse_claims(response, allowed_segment_indices={0})
             if not claims:
                 return ClaimRuntimeProbe(
@@ -376,7 +432,10 @@ TRANSCRIPT WINDOW:
             window_text=window_text,
             allowed_segment_indices=allowed_segment_indices,
         )
-        response, elapsed = self._post(prompt, max_tokens=self.max_output_tokens)
+        response, elapsed = self._post(
+            prompt, max_tokens=self.max_output_tokens,
+            allowed_segment_indices=allowed_segment_indices,
+        )
         claims = self._parse_claims(
             response,
             allowed_segment_indices=set(allowed_segment_indices),
@@ -388,4 +447,5 @@ TRANSCRIPT WINDOW:
             latency_seconds=elapsed,
             usage=usage if isinstance(usage, dict) else None,
             observed_cost_usd=_extract_cost(response),
+            returned_model=str(response.get("model") or "") or None,
         )

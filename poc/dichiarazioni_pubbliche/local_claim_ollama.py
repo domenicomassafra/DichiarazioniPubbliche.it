@@ -160,7 +160,11 @@ class LocalOllamaClaimClient(OmniRouteClaimClient):
             reason = str(exc).splitlines()[0][:120]
             return ClaimRuntimeProbe(False, reason, time.monotonic() - started, None)
 
-    def _post(self, prompt: str, *, max_tokens: int) -> tuple[dict[str, Any], float]:
+    def _post(
+        self, prompt: str, *, max_tokens: int, allowed_segment_indices: tuple[int, ...]
+    ) -> tuple[dict[str, Any], float]:
+        # The inherited extract() supplies the segment constraint. The local
+        # transport validates quoted segments against the source itself.
         # Never submit private transcript bytes until the exact operator-pinned
         # model is present locally. An updated/mismatched tag refuses processing.
         start_marker, end_marker = "TRANSCRIPT WINDOW:\n---BEGIN---\n", "\n---END---"

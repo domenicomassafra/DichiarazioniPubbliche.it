@@ -187,33 +187,21 @@ def build_intended_request(*, extraction: bool = False) -> dict[str, Any]:
     if config.get("max_output_tokens") != 2048:
         raise PreflightBlocked("CANONICAL_CLAIM_CONFIG_DRIFT")
     prompt = client.build_prompt(window_text=SAMPLE, allowed_segment_indices=(0,))
-    return {
-        "model": client.model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0,
-        "max_tokens": client.max_output_tokens if extraction else PROBE_MAX_OUTPUT_TOKENS,
-        "stream": False,
-    }
+    return client.build_request_payload(
+        prompt=prompt,
+        max_tokens=client.max_output_tokens if extraction else PROBE_MAX_OUTPUT_TOKENS,
+        allowed_segment_indices=(0,),
+    )
 
 
 def validate_intended_request(request: dict[str, Any], *, extraction: bool = False) -> None:
-    """Enforce exactly the existing chat contract; no tools or hidden fallback."""
-    if (not isinstance(request, dict)
-            or set(request) != {"model", "messages", "temperature", "max_tokens", "stream"}
-            or request.get("model") != REQUIRED_MODEL
-            or request.get("temperature") != 0
-            or type(request.get("max_tokens")) is not int
-            or request["max_tokens"] != (2048 if extraction else PROBE_MAX_OUTPUT_TOKENS)
-            or request.get("stream") is not False
-            or not isinstance(request.get("messages"), list)
-            or len(request["messages"]) != 1):
-        raise PreflightBlocked("INTENDED_REQUEST_SCHEMA_INVALID")
-    message = request["messages"][0]
-    if (not isinstance(message, dict) or set(message) != {"role", "content"}
-            or message["role"] != "user" or not isinstance(message["content"], str)
-            or SAMPLE not in message["content"]
-            or "source_segment_indices" not in message["content"]
-            or len(message["content"].encode("utf-8")) > 32000):
+    """Require the exact canonical schema-constrained request."""
+    expected = build_intended_request(extraction=extraction)
+    if (
+        not isinstance(request, dict)
+        or request != expected
+        or len(expected["messages"][0]["content"].encode("utf-8")) > 32000
+    ):
         raise PreflightBlocked("INTENDED_REQUEST_SCHEMA_INVALID")
 
 
