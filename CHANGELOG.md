@@ -84,6 +84,10 @@ makes no compatibility promise. See
   instead of always failing closed, while unexpected spellings remain refused
   (DP-182).
 
+- a diarization test raced the wall deadline on a slow host (child import time
+  counted against an 800 ms budget) and reported `ENGINE_TIMEOUT` instead of the
+  memory-limit code; the budget is now sized for the allocation (DP-166).
+
 ### Security / hardening
 
 - strict claim-extraction type validation for segment indices and boolean fields;
