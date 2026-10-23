@@ -96,6 +96,10 @@ makes no compatibility promise. See
   sandbox, and a client-side fragment-only route no longer counts as a changed
   representation (DP-170).
 
+- a diarization test raced the wall deadline on a slow host (child import time
+  counted against an 800 ms budget) and reported `ENGINE_TIMEOUT` instead of the
+  memory-limit code; the budget is now sized for the allocation (DP-166).
+
 ### Security / hardening
 
 - strict claim-extraction type validation for segment indices and boolean fields;
