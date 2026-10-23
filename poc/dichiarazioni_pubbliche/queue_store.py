@@ -282,17 +282,17 @@ class QueueExecutionCostStore(PsqlRuntime):
         upper_bound_usd: str, max_job_usd: str, max_global_usd: str,
         max_source_usd: str, provider_id: str = "",
     ) -> str:
-        # EUR ledger required to dispatch.
+        if self.run("SELECT to_regprocedure("
+                    "'reserve_worker_budget_usd(text,integer,text,text,numeric,numeric,numeric,numeric)'"
+                    ") IS NOT NULL;") != "t":
+            return "MONTHLY_POLICY_UNAVAILABLE"
         return self.run(
-            """SELECT CASE WHEN to_regprocedure(
-                'reserve_worker_budget_usd(text,integer,text,text,numeric,numeric,numeric,numeric)'
-            ) IS NULL THEN 'MONTHLY_POLICY_UNAVAILABLE'
-            ELSE reserve_worker_budget(
+            """SELECT reserve_worker_budget(
                  :'job_id', :'attempt'::integer, :'worker_id', :'source_id',
                  :'upper_bound'::numeric, :'job_cap'::numeric,
                  :'global_cap'::numeric, :'source_cap'::numeric,
                  :'provider_id'
-            ) END;""",
+            );""",
             job_id=job_id, attempt=attempt, worker_id=worker_id,
             source_id=source_id, upper_bound=upper_bound_usd,
             job_cap=max_job_usd, global_cap=max_global_usd,
