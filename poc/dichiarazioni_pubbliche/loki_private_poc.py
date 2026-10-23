@@ -13,7 +13,7 @@ from dichiarazioni_pubbliche.loki_query_generator_poc import QueryGenerator
 
 DONOR_COMMIT = "6e1ee9e5159abe544c342689093afe12b908a419"
 DONOR_VERSION = "v0.0.2+6e1ee9e"
-ADAPTER_VERSION = "dp160-loki-private-poc-v1"
+ADAPTER_VERSION = "dp160-loki-private-poc-v2"
 
 
 @dataclass(frozen=True)
