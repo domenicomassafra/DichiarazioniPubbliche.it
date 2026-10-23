@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
@@ -27,6 +28,7 @@ from dichiarazioni_pubbliche.platform_transcript import (  # noqa: E402
     CaptionProbe,
     VideoCandidate,
 )
+from tests.dp169_caption_fixture_rights import cleared_caption_rights, synthetic_caption_variant
 
 
 def youtube_row(n, operation="CAPTION_PROBE", basis="ESTIMATED_ONLY", **changes):
@@ -49,6 +51,16 @@ def youtube_row(n, operation="CAPTION_PROBE", basis="ESTIMATED_ONLY", **changes)
 
 
 class YouTubeCaptionBillingTests(unittest.TestCase):
+    def setUp(self):
+        gate = patch.object(TranscriptAsrJobHandlers, "_caption_rights_guard",
+                            return_value=cleared_caption_rights())
+        gate.start()
+        self.addCleanup(gate.stop)
+        insert = patch.object(TranscriptAsrJobHandlers, "_insert_caption_variant",
+                              synthetic_caption_variant)
+        insert.start()
+        self.addCleanup(insert.stop)
+
     def test_63_legacy_receipts_reconcile_without_rewriting_canonical_rows(self):
         originals = tuple(
             youtube_row(n, "CAPTION_PROBE" if n < 46 else "CAPTION_CAPTURE")

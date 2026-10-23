@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""DP-603 — generate `docs/licensing/fixture-inventory.v1.json` from the real tree.
+"""DP-603: generate the tracked fixture inventory from curated ROW_DECISIONS.
 
-The row *judgements* (rights, attribution, redistribution) are curated human
-decisions recorded in ROW_DECISIONS below; the *hashes and existence* are computed
-from the actual tracked files. Re-running this after adding a file that has no
-decision fails loudly instead of inventing rights.
-
-Usage:
-    python3 tools/generate_fixture_inventory.py            # write inventory
-    python3 tools/generate_fixture_inventory.py --check    # fail if stale
+Hashes come from real files; unknown assets fail closed. Use --check for CI.
 """
 
 from __future__ import annotations
@@ -20,6 +13,9 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+
+from dp312_gold_fixture_rights import dp312_gold_row
+from dp238_bhl_gold_fixture_rights import dp238_bhl_gold_row
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "licensing" / "fixture-inventory.v1.json"
@@ -56,8 +52,7 @@ def is_candidate(path: str) -> bool:
         return path.startswith(CANDIDATE_PREFIXES) or path.startswith("docs/ux/") or path.startswith("web/")
     return path.startswith(CANDIDATE_PREFIXES)
 
-# Curated rights decisions. Keyed by repo path. Every value is a human decision,
-# not an inference from the Apache-2.0 code license.
+# Curated per-path rights decisions; the code license does not grant data rights.
 ROW_DECISIONS: dict[str, dict] = {
     # ---- synthetic fixtures authored for this project ----
     "poc/fixtures/italian_cases.json": dict(
@@ -442,8 +437,9 @@ ROW_DECISIONS: dict[str, dict] = {
         blocker=None,
     ),
 }
+ROW_DECISIONS.update(dp312_gold_row(FIXTURE_POLICY) | dp238_bhl_gold_row())
 
-# Visual/reference assets: a curated group generated per-path so hashes are real.
+# Curated visual references with computed hashes.
 VISUAL_GENERATED_STYLE3 = "docs/ux/prototypes-v3/generated/style3"
 VISUAL_GENERATED_STYLE02 = "docs/ux/prototypes-v3/generated-style-02/png"
 VISUAL_REFERENCE = "docs/ux/reference/p6.2"

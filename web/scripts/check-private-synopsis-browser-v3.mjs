@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {mkdir, mkdtemp, readFile, rm, symlink, writeFile} from "node:fs/promises";
-import {tmpdir} from "node:os";
+import {mkdir, readFile, rm, symlink, writeFile} from "node:fs/promises";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
+import {makeScratchDir} from "./lib/scratch.mjs";
 import {canonicalJson} from "../src/lib/searchIndex.ts";
 import {buildPublicStatementSearchV3} from "../src/lib/publicStatementSearchV3.ts";
 import {readPrivateSynopsisBrowserV3} from "../src/lib/privateSynopsisBrowserV3.ts";
@@ -143,7 +143,7 @@ const snapshot=structuredClone(view);
 source.statements[0].original_text+=" late mutation";
 assert.deepEqual(view,snapshot,"rendered HTML is detached from mutable fixtures");
 
-const scratch=await mkdtemp(join(tmpdir(),"dp440-private-browser-"));
+const scratch=await makeScratchDir("dp440-private-browser-");
 try {
   await mkdir(join(scratch,"src/pages"),{recursive:true});
   await symlink(join(web,"node_modules"),join(scratch,"node_modules"));

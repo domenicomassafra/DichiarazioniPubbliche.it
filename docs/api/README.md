@@ -1,12 +1,12 @@
 # Dichiarazioni Pubbliche public API (contract v1, DRAFT)
 
 Status: contract `v1` over the `dichiarazioni-pubbliche-public-v2` public projection.
-Contract status: **DRAFT** — served and cacheable, with same-origin MiniPC
+Contract status: **DRAFT** — served with no-store, with same-origin MiniPC
 runtime proof complete; stable-v1 compatibility/release ratification remains open.
 
 ## What this is
 
-A read-only, cacheable HTTP surface over the Dichiarazioni Pubbliche public projection. The
+A read-only, no-store HTTP surface over the Dichiarazioni Pubbliche public projection. The
 projection is a fail-closed, sanitized, finding-versioned read model produced by
 the publication pipeline. This API reads it and nothing else.
 
@@ -31,8 +31,8 @@ Point both at the same bundle and the API and the static site cannot diverge.
   DISPUTED, CORRECTED, or RETRACTED is not in the bundle, so it is not served.
 - **Fail closed.** A missing, stale, tampered, or contract-incompatible
   projection returns `503` on every endpoint: no partial data, no placeholder.
-- **Cacheable.** `ETag`, `Last-Modified`, and `Cache-Control` on every response;
-  a matching `If-None-Match` returns `304`.
+- **No-store.** Public responses forbid caching; old caches still need purging.
+  `ETag` allows an origin `304` only when response bytes match.
 - **No private data.** No raw transcript body, no evidence body, no provider
   receipt, no secret, no private reply, no person score, no ranking.
 
@@ -114,8 +114,8 @@ SQL fragment, or any hint that an operational record exists.
 No authentication and no rate-limit enforcement ship in this deployment. The
 contract reserves `429 RATE_LIMITED` with a `Retry-After` header for a future
 release (DP-508); clients should handle it defensively and must not read its
-absence as unlimited throughput. The intended shape is a CDN-cached static read
-served to infrequent, revalidating clients.
+absence as unlimited throughput. Cache reuse requires separate release/purge
+authority before it can safely be enabled.
 
 ## Versioning and deprecation
 

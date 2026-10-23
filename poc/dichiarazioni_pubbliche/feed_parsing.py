@@ -12,6 +12,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 
+from dichiarazioni_pubbliche.podcast_youtube_channel_identity import same_channel
+
 try:
     import feedparser as _feedparser
 except ImportError:  # The default installation is intentionally stdlib-only.
@@ -96,10 +98,34 @@ def parse_feed(xml_text: str, family: str) -> list[FeedEntry]:
     if family == "youtube":
         if root.tag != f"{ATOM}feed":
             raise ValueError("YOUTUBE_ATOM_EXPECTED")
+        titles_by_id: dict[str, str] = {}
         for node in root.findall(f"{ATOM}entry"):
-            video_id = (node.findtext(f"{YT}videoId") or "").strip()
+            video_ids = node.findall(f"{YT}videoId")
+            if len(video_ids) > 1:
+                raise ValueError("YOUTUBE_ENTRY_VIDEO_ID_AMBIGUOUS")
+            video_id = ((video_ids[0].text if video_ids else "") or "").strip()
             if not video_id:
                 continue
+            titles = node.findall(f"{ATOM}title")
+            if len(titles) != 1:
+                raise ValueError("YOUTUBE_ENTRY_TITLE_AMBIGUOUS")
+            atom_ids = node.findall(f"{ATOM}id")
+            if (len(atom_ids) > 1 or
+                    (atom_ids and (atom_ids[0].text or "").strip() != f"yt:video:{video_id}")):
+                raise ValueError("YOUTUBE_ENTRY_ATOM_ID_CONFLICT")
+            entry_channels = node.findall(f"{YT}channelId")
+            root_channels = root.findall(f"{YT}channelId")
+            # Feed level and entry level spell the same channel differently
+            # ("UC" prefix present or absent); compare canonical identities.
+            if (len(entry_channels) > 1 or
+                    (entry_channels and (len(root_channels) != 1 or
+                     not same_channel(entry_channels[0].text,
+                                      root_channels[0].text)))):
+                raise ValueError("YOUTUBE_ENTRY_CHANNEL_CONFLICT")
+            title = titles[0].text or ""
+            if video_id in titles_by_id and titles_by_id[video_id] != title:
+                raise ValueError("YOUTUBE_ENTRY_TITLE_CONFLICT")
+            titles_by_id[video_id] = title
             alternate = node.find(f"{ATOM}link[@rel='alternate']")
             href = alternate.attrib.get("href") if alternate is not None else None
             rows.append(FeedEntry(

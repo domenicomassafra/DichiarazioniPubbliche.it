@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTER = ROOT / "docs" / "policy" / "legal-closure-register.md"
+RESEARCH = ROOT / "docs" / "policy" / "legal-research-decisions-2026-10-20.md"
 SOURCE_TICKETS = tuple(
     ROOT / "docs" / "tickets" / name
     for name in (
@@ -123,7 +124,22 @@ class LegalClosureRegisterTests(unittest.TestCase):
         self.assertEqual(statuses.count("OPEN"), 14)
         self.assertNotIn("DECIDED", statuses)
         self.assertIn("0 `DECIDED`", self.register)
-        self.assertIn("external DP-307 inputs", self.register)
+        self.assertIn("owner acceptance", self.register)
+        self.assertIn("legal-research-decisions-2026-10-20.md", self.register)
+
+    def test_owner_research_has_all_16_bounded_source_based_dispositions(self):
+        research = RESEARCH.read_text(encoding="utf-8")
+        sections = re.split(r"^### (Q-306-\d{2}) — ", research, flags=re.MULTILINE)
+        ids = sections[1::2]
+        details = sections[2::2]
+        self.assertEqual(ids, [f"Q-306-{index:02d}" for index in range(1, 17)])
+        for question_id, detail in zip(ids, details, strict=True):
+            with self.subTest(question=question_id):
+                for required in ("**Rule:**", "**Application:**", "**Condition:**", "**Residual risk:**"):
+                    self.assertIn(required, detail)
+                self.assertRegex(detail, r"R(?:[1-9]|10|11)")
+        self.assertIn("not", research.lower())
+        self.assertIn("NO-GO", research)
 
     def test_every_closure_row_names_surface_safe_default_and_launch_impact(self):
         closure = _section(

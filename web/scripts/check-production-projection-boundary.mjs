@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFile, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const directory = await mkdtemp(join(tmpdir(), "dp-projection-boundary-"));
+// Astro moves prerendered assets from web/.astro using rename(). Keep the
+// disposable output on the same filesystem (MiniPC /tmp is a separate mount).
+const directory = await mkdtemp(join(root, ".dp-projection-boundary-"));
 const sourceFixture = fileURLToPath(new URL("../src/data/demo-projection.json", import.meta.url));
 const {
   DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH: _configuredPath,

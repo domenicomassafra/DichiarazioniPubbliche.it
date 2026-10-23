@@ -1,0 +1,29 @@
+{
+  "schema": "canary-rights-decision-v1",
+  "id": "dp182-rights-metadata-2026-10-23",
+  "status": "APPROVED",
+  "reviewer_ref": "ai-review:deepseek-v4.1-flash:2026-10-23:dp182",
+  "approved_at": "2026-10-23T10:30:00Z",
+  "hosts": [
+    "feeds.megaphone.fm",
+    "www.youtube.com"
+  ],
+  "scopes": [
+    "FETCH",
+    "STORE_METADATA"
+  ],
+  "not_granted": [
+    "MEDIA_DOWNLOAD",
+    "ASR_MEDIA",
+    "REDISTRIBUTE",
+    "PUBLISH"
+  ],
+  "basis": "Public syndication metadata only: the publisher's own podcast RSS feed and the publisher's own YouTube channel Atom feed. No audio/video bytes, no transcript, no republication.",
+  "constraints": {
+    "max_feed_bytes": 4194304,
+    "redirects": "refused",
+    "hosts_only": true,
+    "retention": "metadata fields and SHA-256 of the two feeds; no body copy",
+    "expires_at": "2026-11-23T00:00:00Z"
+  }
+}

@@ -10,7 +10,7 @@ from subprocess import TimeoutExpired
 from unittest.mock import patch
 
 from dichiarazioni_pubbliche.faster_whisper_local import (
-    FasterWhisperLocalTranscriber, _parse_result, _verified_model_receipt,
+    FasterWhisperLocalTranscriber, MAX_OUTPUT_BYTES, _parse_result, _verified_model_receipt,
 )
 from dichiarazioni_pubbliche.local_inference_guard import local_inference_slot
 from dichiarazioni_pubbliche.queue_runtime import ContentRecord, ProcessingJob
@@ -23,7 +23,7 @@ class FasterWhisperTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        root = Path(self.tmp.name)
+        root = Path(self.tmp.name).resolve(strict=True)
         self.audio_root = root / "authorized"
         self.audio_root.mkdir()
         self.audio = self.audio_root / "sample.wav"
@@ -83,6 +83,23 @@ class FasterWhisperTests(unittest.TestCase):
         self.receipt_path.write_text(json.dumps(self.receipt))
         with self.assertRaisesRegex(AsrRequestRejected, "RIGHTS_UNVERIFIED"):
             _verified_model_receipt(self.receipt_path)
+
+    def test_model_parent_directory_symlink_must_not_escape_reviewed_path(self):
+        nested = self.model_dir / "snapshot"
+        nested.mkdir()
+        for name in self.model_files:
+            (nested / name).write_bytes((self.model_dir / name).read_bytes())
+        alias = Path(self.tmp.name) / "model_alias"
+        alias.symlink_to(self.model_dir, target_is_directory=True)
+        self.receipt["model_dir"] = str(alias / "snapshot")
+        self.receipt_path.write_text(json.dumps(self.receipt))
+        with self.assertRaisesRegex(AsrRequestRejected, "MODEL_INVENTORY_INVALID"):
+            _verified_model_receipt(self.receipt_path)
+
+    def test_worker_must_require_current_source_use_not_job_bool_alone(self):
+        from dichiarazioni_pubbliche.worker_handlers_transcript import TranscriptAsrJobHandlers
+
+        self.assertTrue(hasattr(TranscriptAsrJobHandlers, "_require_faster_whisper_rights"))
 
     def test_invalid_timestamps_and_sensitive_numbers_are_held(self):
         receipt, digest = _verified_model_receipt(self.receipt_path)
@@ -164,13 +181,20 @@ class FasterWhisperTests(unittest.TestCase):
         with self.optin, self.host, patch(
             "dichiarazioni_pubbliche.faster_whisper_local.importlib.metadata.version",
             return_value="1.2.1"
-        ), patch("dichiarazioni_pubbliche.faster_whisper_local.subprocess.run") as spawn:
-            spawn.return_value.returncode = 0
-            spawn.return_value.stdout = json.dumps({
+        ), patch("dichiarazioni_pubbliche.faster_whisper_local.subprocess.run") as spawn, patch(
+            "dichiarazioni_pubbliche.worker_handlers_transcript.require_faster_whisper_media_rights"
+        ) as current_rights:
+            output = json.dumps({
                 "segments": [{"start": 0, "end": 0.9, "text": "Il numero è 7,5."}],
-                "language": "it"})
+                "language": "it"}).encode()
+            def successful_inference(*args, **kwargs):
+                kwargs["stdout"].write(output)
+                kwargs["stdout"].flush()
+                return type("Result", (), {"returncode": 0})()
+            spawn.side_effect = successful_inference
             outcome, store, private = invoke({})
             self.assertEqual(outcome.completed, 1)
+            self.assertEqual(current_rights.call_count, 2)
             self.assertEqual(store.variant["source_kind"], "LOCAL_ASR")
             self.assertEqual(store.variant["provider_id"], "faster-whisper-small-local")
             self.assertEqual(store.variant["metadata"]["model_sha256"],
@@ -183,6 +207,8 @@ class FasterWhisperTests(unittest.TestCase):
             self.assertEqual(spawn.call_args.kwargs["env"]["HF_HUB_OFFLINE"], "1")
             self.assertEqual(spawn.call_args.kwargs["timeout"], 120)
             self.assertEqual(spawn.call_args.kwargs["preexec_fn"].__name__, "_limits")
+            self.assertIs(spawn.call_args.kwargs["stderr"], __import__("subprocess").DEVNULL)
+            self.assertNotIn("capture_output", spawn.call_args.kwargs)
             for update, reason in (({"local_audio_authorized": False}, "RIGHTS_NOT_AUTHORIZED"),
                                    ({"audio_sha256": "0" * 64}, "INPUT_HASH_MISMATCH"),
                                    ({"duration_seconds": 40}, "CONTENT_DURATION_MISMATCH")):
@@ -195,6 +221,16 @@ class FasterWhisperTests(unittest.TestCase):
                 retried, store, _ = invoke({})
             self.assertEqual(retried.retried, 1)
             self.assertFalse(store.followups)
+            current_rights.side_effect = AsrRequestRejected("SOURCE_USE_RECORD_MISSING")
+            unverified, store, _ = invoke({})
+            self.assertEqual(unverified.blocked, 1)
+            self.assertFalse(store.followups)
+            self.assertFalse(hasattr(store, "variant"))
+            current_rights.side_effect = [None, AsrRequestRejected("SOURCE_USE_REVOKED")]
+            revoked, store, private = invoke({})
+            self.assertEqual(revoked.blocked, 1)
+            self.assertFalse(store.followups)
+            self.assertFalse(hasattr(store, "variant"))
 
     def test_worker_failure_and_timeout_never_expose_native_stderr(self):
         with self.optin, self.host, patch(
@@ -207,6 +243,20 @@ class FasterWhisperTests(unittest.TestCase):
                 self.adapter.transcribe(**self.params())
             spawn.side_effect = TimeoutExpired(cmd="faster", timeout=120)
             with self.assertRaisesRegex(AsrRequestRejected, "^FASTER_WHISPER_TIMEOUT$"):
+                self.adapter.transcribe(**self.params())
+
+    def test_child_output_exactly_at_file_cap_is_rejected_as_truncated(self):
+        with self.optin, self.host, patch(
+            "dichiarazioni_pubbliche.faster_whisper_local.importlib.metadata.version",
+            return_value="1.2.1",
+        ), patch("dichiarazioni_pubbliche.faster_whisper_local.subprocess.run") as spawn:
+            def partial_write(*args, **kwargs):
+                kwargs["stdout"].write(b"x" * MAX_OUTPUT_BYTES)
+                kwargs["stdout"].flush()
+                return type("Result", (), {"returncode": 0})()
+
+            spawn.side_effect = partial_write
+            with self.assertRaisesRegex(AsrRequestRejected, "^FASTER_WHISPER_ENGINE_FAILED$"):
                 self.adapter.transcribe(**self.params())
 
 

@@ -1,0 +1,87 @@
+{
+  "schema": "dp239-adjudicated-de-it-gold-v1",
+  "created_on": "2026-10-21",
+  "source": "SYNTHETIC_ADVERSARIAL_NO_REAL_PERSON",
+  "sol_receipt_sha256": "e837f74115c2078f34535688be09d98a97a420ed392f366107f58ed3a90c485a",
+  "gemini_receipt_sha256": "8e88d4c89d41d9609fb65516bdecf70ace1d86e557c4d9a27baf2ec67d1076e5",
+  "adjudicator_receipt_sha256": "f00ab48daa182bdf2991f3200c723bcb3fc6bac05e245edf9a9f2b61728fb89c",
+  "cases": [
+    {
+      "case_id": "C0",
+      "original_de": "Anna muss Bruno nicht am 10.11.2026 vor Gericht sehen.",
+      "translation_it": "Anna non deve vedere Bruno in tribunale il 10/11/2026.",
+      "semantic_state": "UNRESOLVED",
+      "expected_alerts": [
+        "MODALITY_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "C1",
+      "original_de": "Anna muss Bruno nicht sehen.",
+      "translation_it": "Anna deve vedere Bruno.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "MODALITY_MISMATCH",
+        "NEGATION_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "C2",
+      "original_de": "Anna bezahlte −12 Euro.",
+      "translation_it": "Anna ha pagato 12 euro.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "NUMBER_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "C3",
+      "original_de": "Anna kam am 10.11.2026.",
+      "translation_it": "Anna è arrivata il 11/11/2026.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "DATE_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "C4",
+      "original_de": "Anna traf Bruno.",
+      "translation_it": "Bruno ha incontrato Anna.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "ACTOR_ANCHOR_CHANGED",
+        "ACTOR_ORDER_CHANGED"
+      ]
+    },
+    {
+      "case_id": "C5",
+      "original_de": "Anna darf gehen.",
+      "translation_it": "Anna deve andare.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "MODALITY_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "C6",
+      "original_de": "Der Minister sagte: „Der Impfstoff wirkt nicht.“",
+      "translation_it": "Il ministro afferma che il vaccino funziona.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "NEGATION_MISMATCH",
+        "QUOTED_SPEAKER_ENDORSEMENT_UNVERIFIED",
+        "QUOTE_MARKER_MISMATCH",
+        "REPORTED_SPEECH_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "C7",
+      "original_de": "Das Gericht hat Anna freigesprochen.",
+      "translation_it": "Il tribunale ha condannato Anna.",
+      "semantic_state": "MISMATCH",
+      "expected_alerts": [
+        "JUDICIAL_STATUS_MISMATCH"
+      ]
+    }
+  ]
+}

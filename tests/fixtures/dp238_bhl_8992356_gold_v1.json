@@ -1,0 +1,65 @@
+{
+  "schema_version": "dp238-independent-image-critical-gold-v1",
+  "page_id": 8992356,
+  "provenance": {
+    "publication": "Birds of Great Britain and Ireland, volume 2 (1908)",
+    "bhl_bibliography": "https://www.biodiversitylibrary.org/bibliography/8651",
+    "holding_institution": "American Museum of Natural History Library",
+    "dataset_revision": "f57bb9e58785a3f9266c05880092ec76720450e5",
+    "raster_url": "https://huggingface.co/datasets/finebooks/bhl-impact-gt/resolve/f57bb9e58785a3f9266c05880092ec76720450e5/images/birdsofgreatbrit02butl/birdsofgreatbrit02butl_0017_full.webp",
+    "raster_sha256": "4c4b38f3b29d4946ad8b54d4a15113262aec2a07994bc7f3b8309b55b8a1ef53",
+    "raster_pixels": [2293, 3062],
+    "raster_bytes": 139448,
+    "gold_url": "https://huggingface.co/datasets/finebooks/bhl-impact-gt/resolve/f57bb9e58785a3f9266c05880092ec76720450e5/source/groundtruth-bhl/birdsofgreatbrit02butl_XML/pc-00667817.xml",
+    "gold_sha256": "a6425cf6a88982929157d2f550594abaa8387249e87f312e2838253181521691",
+    "gold_bytes": 28474,
+    "gold_license": "CC-BY-3.0",
+    "gold_attribution": "IMPACT Centre of Competence & Biodiversity Heritage Library (2012)",
+    "image_item_rights": "NOT_IN_COPYRIGHT",
+    "rights_reference": "https://about.biodiversitylibrary.org/help/copyright-and-reuse/"
+  },
+  "verification": {
+    "checked_utc_date": "2026-10-22",
+    "method": "manual original-raster crop read, cross-checked against independent expert-corrected PAGE XML; never transcribed from the candidate Tesseract output",
+    "coordinates": "original raster pixels, top-left origin; approximate manual ROIs, not certified glyph polygons",
+    "text_use": "private technical OCR comparison only",
+    "source_use_current_operational_record": false,
+    "fetch_temporary_private_store_parse_ocr": "SUPPORTED_FOR_THIS_BHL_TEST_ONLY",
+    "public_excerpt": "HOLD_SOURCE_USE_PUBLIC_POLICY_REQUIRED",
+    "editorial_quote_authority": false
+  },
+  "predeclared_experimental_limits": {
+    "character_error_rate_max_percent": 8,
+    "word_error_rate_max_percent": 20,
+    "critical_negation_and_numbers_exact": true,
+    "source": "DP-238 #102 initial 2026-10-20 benchmark receipt (thresholds set before that run)"
+  },
+  "critical_gold": [
+    {
+      "id": "negative_clause",
+      "expected": "not being recognized",
+      "manual_roi_xyxy": [805, 448, 1165, 512],
+      "xml_text_region_xyxy": [405, 451, 1724, 520]
+    },
+    {
+      "id": "toc_number_85",
+      "expected": "85",
+      "manual_roi_xyxy": [952, 554, 1025, 610],
+      "xml_text_region_xyxy": [158, 557, 1025, 604]
+    },
+    {
+      "id": "toc_number_81",
+      "expected": "81",
+      "manual_roi_xyxy": [952, 608, 1025, 662],
+      "xml_text_region_xyxy": [165, 612, 1005, 658],
+      "manual_visual_note": "Final numeral resembles capital I in this typeface; expert XML explicitly reads 81"
+    },
+    {
+      "id": "toc_number_73",
+      "expected": "73",
+      "manual_roi_xyxy": [952, 657, 1025, 711],
+      "xml_text_region_xyxy": [166, 662, 1009, 707]
+    }
+  ],
+  "release_decision": "HOLD_PENDING_INDEPENDENT_QUALITY_PASS_AND_CURRENT_SOURCE_USE"
+}

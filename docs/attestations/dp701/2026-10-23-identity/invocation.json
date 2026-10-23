@@ -1,0 +1,26 @@
+{
+  "initiated_at_utc": "2026-10-23T04:36:43.373559+00:00",
+  "attempts": [
+    {
+      "name": "upload",
+      "utc": "2026-10-23T04:36:43.373776+00:00",
+      "return_code": 255,
+      "model": null,
+      "stderr_excerpt": "ssh: connect to host matebooklinux.garibaldi-atlas.ts.net port 22: Operation timed out\nscp: Connection closed\n"
+    },
+    {
+      "name": "sol",
+      "utc": "2026-10-23T04:36:49.402481+00:00",
+      "return_code": 255,
+      "model": "codex/gpt-6.1-sol",
+      "stderr_excerpt": "ssh: connect to host matebooklinux.garibaldi-atlas.ts.net port 22: Operation timed out\n"
+    },
+    {
+      "name": "gemini",
+      "utc": "2026-10-23T04:36:55.424876+00:00",
+      "return_code": 255,
+      "model": "antigravity/gemini-3.8-flash-tiered",
+      "stderr_excerpt": "ssh: connect to host matebooklinux.garibaldi-atlas.ts.net port 22: Operation timed out\n"
+    }
+  ]
+}

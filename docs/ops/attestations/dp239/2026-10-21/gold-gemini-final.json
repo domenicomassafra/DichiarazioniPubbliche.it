@@ -1,0 +1,104 @@
+{
+  "schema": "dp239-ai-review-receipt-v1",
+  "requested_model": "antigravity/gemini-3.8-flash-tiered",
+  "observed_provider": "antigravity",
+  "observed_model": "gemini-3.8-flash-tiered",
+  "raw_events_sha256": "f0041731cba3ff37afbe97ee77557180b03b444ebaf714181ab908f132858686",
+  "response_sha256": "61dd32d276d2874c407d75224f3b11568dfa62113b46663ad0b578a4632ed489",
+  "response": {
+    "reviewer": "independent-adversarial-annotator-de-it",
+    "date": "2026-10-21",
+    "cases": [
+      {
+        "id": "C0",
+        "verdict": "FAITHFUL",
+        "expected_alerts": [],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Syntactic structure, negation, deontic modality, temporal anchor, judicial setting, and argument order are accurately preserved from source to target."
+      },
+      {
+        "id": "C1",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "NEGATION_MISMATCH"
+        ],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Source expresses a negated obligation ('muss... nicht'), whereas target translates this as an affirmative obligation ('deve'), completely inverting the polarity."
+      },
+      {
+        "id": "C2",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "NUMBER_MISMATCH"
+        ],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Source specifies a negative integer value (−12 Euro), while target converts it into a positive quantity (12 euro), altering the arithmetic polarity of the transaction."
+      },
+      {
+        "id": "C3",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "DATE_MISMATCH"
+        ],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Source calendar date (10.11.2026) is shifted by one day in the target (11/11/2026)."
+      },
+      {
+        "id": "C4",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "ACTOR_ANCHOR_CHANGED",
+          "ACTOR_ORDER_CHANGED"
+        ],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Syntactic subject and thematic actor anchor are inverted; source positions Anna as agent/initiator meeting Bruno, whereas target positions Bruno as the syntactic subject meeting Anna."
+      },
+      {
+        "id": "C5",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "MODALITY_MISMATCH"
+        ],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Source modal verb 'darf' conveys deontic permission (allowed to go), whereas target uses 'deve', shifting the modal force to deontic necessity/obligation (must go)."
+      },
+      {
+        "id": "C6",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "REPORTED_SPEECH_MISMATCH",
+          "QUOTE_MARKER_MISMATCH",
+          "NEGATION_MISMATCH",
+          "QUOTED_SPEAKER_ENDORSEMENT_UNVERIFIED"
+        ],
+        "speaker_relation": "attributed_direct_quotation_vs_indirect_paraphrase",
+        "endorsement_status": "misattributed_propositional_inversion",
+        "explanation": "Direct quotation with explicit quote marks is collapsed into indirect reported speech without quote markers; the quoted proposition's polarity is inverted ('wirkt nicht' becomes 'funziona'); speech act tense shifts from past ('sagte') to present ('afferma')."
+      },
+      {
+        "id": "C7",
+        "verdict": "MISMATCH",
+        "expected_alerts": [
+          "JUDICIAL_STATUS_MISMATCH"
+        ],
+        "speaker_relation": "direct_unattributed_assertion",
+        "endorsement_status": "unattributed_direct_claim",
+        "explanation": "Legal disposition is inverted: source states acquittal ('freigesprochen'), while target states conviction ('condannato')."
+      }
+    ],
+    "uncertainty": "Surface heuristics may fail to detect pragmatically nuanced shifts; all evaluations are strictly bounded by source text semantics without extratextual validation.",
+    "conflicts_of_interest": "None; autonomous automated annotation on isolated frozen candidate set.",
+    "limitations": [
+      "Applies exclusively to German-to-Italian directional pairs.",
+      "Restricted to synthetic test cases without real-world context or external legal evidence.",
+      "Fail-closed evaluation: cannot certify factual correctness or authorization for publication."
+    ]
+  },
+  "observed_at": "2026-10-21T00:43:15.746000+00:00"
+}

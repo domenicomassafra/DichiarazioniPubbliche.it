@@ -6,6 +6,21 @@ Policy version: `privacy-minimization-v1`
 Owner: product owner + privacy reviewer
 Code: `poc/dichiarazioni_pubbliche/policy/privacy_policy.py`
 Tests: `tests/test_policy_privacy.py`
+Independent-review candidate (20 October 2026; updated for the AI-review delegation on 21 October): [publishability/retention matrix and sign-off protocol](dp304-privacy-review-packet-2026-10-20.md). Sol 6.1 High AI is the appointed reviewer via Pi Agent under the owner's 20 October decisions. No further owner approval of reviewers/privacy/subjects is required; a real distinct AI review and per-system evidence remain required. This packet does not approve any treatment or retention period.
+
+Owner-delegated legal research (2026-10-20): [Q-306-08/09/10/15/16](legal-research-decisions-2026-10-20.md)
+cites GDPR, Italian Privacy Code Arts. 136–139 and Garante deontology.
+
+Real-case rehearsal (2026-10-21): [`tools/dp304_privacy_case_canary.py`](../../tools/dp304_privacy_case_canary.py)
+executes one fictional public-role case end to end — field selection, published
+projection and loopback surfaces, a private append-only rights case, bounded private
+access with a content-free audit, and a revocation that republishes nothing. Receipt
+and limits: [privacy case rehearsal](../ops/dp304-privacy-case-canary-20261021.md).
+It found and closed one deny-list gap: `raw_transcript`, `transcript_body`,
+`reviewer_note`, `asr_text` and `ocr_text` were publishable when mislabelled
+`PUBLIC_CORE`. The rehearsal is engineering evidence only; it approves no treatment.
+The journalistic route is purpose- and essentiality-dependent: no lawful
+basis, retention term or sensitive-data release is automatically approved.
 
 ## Scope of this document
 
@@ -126,6 +141,48 @@ The key property: a rights decision never mutates a published historical version
 routes to a reviewed correction/hold.
 
 ## Known limits
+
+### Per-purpose legal and operational release decisions (2026-10-20)
+
+ADR 0010 and Q-306-08/10 require separately documented purposes, legal bases,
+necessity, access, notices and retention for actual processing families. The
+technical field inventory does not establish these decisions. The versioned
+register `privacy-processing-decisions-v1.json` now enumerates:
+
+- reviewed public statements/findings and privately retained source/evidence copies;
+- public-role identity attribution and private requests/corrections;
+- operational/proxy/provider logs and private backup copies;
+- optional OIDC reader accounts, explicitly excluded while account activation
+  remains disabled in `config/privacy-field-inventory.v1.json`.
+
+Six in-scope families currently say `BLOCKED`. Each needs a dated owner decision
+link, a *separate* documented lawful basis, public-interest necessity, actual
+notice, retention/backup schedule, and access-control evidence to become
+`APPROVED`. An Art. 6 code entered in the register does not itself resolve
+Article 9/10 exceptions, Italian journalistic essentiality, source rights, or
+the truth of a receipt. Sensitive categories, criminal allegations and
+minors/victims retain their exclusion and independent per-item review.
+
+`repository_launch_preflight()` includes these missing decisions in its
+deterministic NO-GO receipt even if all Q-306 rows were edited to `DECIDED`.
+The register reader rejects missing/extra families, unknown schema, duplicate
+keys, invalid basis/date/receipt formats, missing Sol 6.1 High Pi Agent
+independent-review model/receipt/commit SHA/APPROVE outcome, and optional-account exclusion if
+the activation flag is enabled. An all-green mechanical check only reaches
+`PENDING-OWNER`; it does not publish content. Source-backed field inventory,
+actual operator access, account flags, log/backup retention and external processor
+receipts must be separately reconciled before the owner changes any status.
+The account-activation boolean is generated from source policy; it **does not
+attest the running MiniPC command-line flags, OIDC routes, SQLite/WAL files,
+provider logs or backup contents**. Before treating the `EXCLUDED` account
+family as verified for a real release, the operator must record a fresh,
+deployment-specific, dated readback of these surfaces and confirm that accounts
+are disabled there. Activating OIDC requires a separate account lawful-basis,
+notice, retention and access decision even if this source boolean still reads false.
+
+The implementation uses the existing stdlib `json` and release preflight
+(no new dependency, copied code, or licence obligations). Real processing,
+data-subject rights operations, and live service/data are unaffected.
 
 - Field classification in this module is a **name-based** deny list plus marker
   heuristics. It cannot detect a sensitive value inside arbitrary free text beyond

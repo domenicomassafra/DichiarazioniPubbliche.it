@@ -6,6 +6,11 @@ Owner: product owner
 Code: `poc/dichiarazioni_pubbliche/policy/intent_policy.py`
 Tests: `tests/test_policy_intent.py`
 
+Owner-delegated legal research (2026-10-20): [Q-306-01/02](legal-research-decisions-2026-10-20.md)
+applies GDPR Art. 85, Italian Privacy Code Arts. 136–139 and Garante
+essentiality safeguards. No intent inference, person score or automatic public
+finding is authorized; each finding still needs editorial/publication review.
+
 ## The invariant this file protects
 
 `PRODUCT.md`, non-negotiable:

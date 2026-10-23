@@ -1,0 +1,23 @@
+# DP-701 #95 — Dossier congelato per revisione AI (23/10/2026)
+
+**Origine:** repository `domenicomassafra/DichiarazioniPubbliche.it`, base remota `adb2bbdaf5dd9b17ca473bc5973ea369554b4a79` (23/10/2026); [issue #95](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/95) e [packet KEEP/ALIAS](../../../decisions/DP-701-identity-2026-10-20.md). Questa è una verifica documentale del brand; non è una ricerca marchi con risultati, una ricevuta notarile o un via libera al lancio.
+
+## Identità e perimetro
+- Nome pubblico approvato il 20/10/2026: **Dichiarazioni Pubbliche**; package, database, env, API e repository: **KEEP**; `www` → apex: **ALIAS**. Nessun nuovo logo figurativo approvato e nessun rename richiesto.
+- Uso previsto: sito italiano/UE di documentazione delle dichiarazioni pubbliche, senza ranking, inferenza di intenzioni né promesse di verità. Candidati Nizza 9/38/41/42 da verificare rispetto all'uso effettivo; 35 solo se applicabile.
+- L'owner ha attestato che il dominio è suo nella [issue #95](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/95#issuecomment-6302327522). Non si copia alcun dato dell'account registrar in Git.
+
+## Osservazioni indipendentemente ripetibili, 23/10/2026
+- `curl https://dichiarazionipubbliche.it/`: HTTP **200**, TLS `ssl_verify_result=0`; HTML con `<title>Dichiarazioni Pubbliche</title>` e `brand-mark`. `curl -I https://www.dichiarazionipubbliche.it/`: HTTP **308**, `Location: https://dichiarazionipubbliche.it/`.
+- MiniPC: `dichiarazioni-pubbliche-web.service=active`; `http://127.0.0.1:18090/api/v1/health` status `ok`, schema `dichiarazioni-pubbliche-public-v2`, `contract_status=DRAFT`, `dossier_count=0`. L'uso reale osservato è il sito esistente vuoto, non una release di contenuti.
+- Registro .it, `whois -h whois.nic.it dichiarazionipubbliche.it`: status `ok`, creazione 2026-10-06, scadenza pubblica **2027-10-06**, registrar **Dynadot LLC**, registrante nascosto. WHOIS non prova pagamento/rinnovo o controllo dell'account.
+- [UIBM ricerca testuale](https://www.uibm.gov.it/bancadati/single_search/text_search/index/): pagina ufficiale «Sito in manutenzione», senza query e risultati. [EUIPO disponibilità](https://www.euipo.europa.eu/it/trade-marks/before-applying/availability): canale CLI HTTP **403**. [TMview](https://www.tmdn.org/tmview/) HTTP **200**, ma nessun elenco risultati/query con numero fascicolo, classe, status o titolare è stato verificato. [FAQ EUIPO](https://www.euipo.europa.eu/it/help-centre/tm/faq-search-availability): anche un risultato nullo non esclude contestazioni. Nessuna clearance di marchio inferibile.
+- MiniPC worktree da `origin/main` con guardia risorse e `flock`: `tests.test_public_web_boundary` **4/4 OK**, `tests.test_repository_contract` **8/8 OK**, `tools/check_repository_contract.py` **OK**. `tools/check_launch_preflight.py --expect-no-go`: exit 0, `NO-GO`, **55** blocker, receipt SHA256 `3ddbf8ebe7bf8fb2accf51c44a4cbc902f37146e394940822c82de2b9a811905`.
+- Registrazione di handle esterni o prove di controllo di account social non presenti; GitHub e Bluesky erano stati controllati solo per risoluzione esatta nel [precedente addendum](../../../decisions/DP-701-identity-2026-10-20.md). Nessuna prenotazione o disponibilità esclusiva attestata.
+- Storico: [ricevuta rebrand 03/10](../../../reviews/rebrand-cutover-2026-10-03.md); manca un autentico preimage pre-cutover e un drill `old→new→rollback`. Nessun falso backup viene generato. La copy/disclosure di una specifica release pubblica non è stata approvata.
+
+## Fonte, diritti, confini
+Documenti ufficiali pubblici e HTML del prodotto sono stati letti, **non incorporati come dataset né ripubblicati**. Codice repository Apache-2.0; la licenza del codice non concede diritti su marchio, dominio o database dei registri. Privacy: nessun dato registrante occultato, credenziale, testo personale o corpus di terzi incluso. Decisione AI istruttoria corrente: **KEEP_CON_RIESAME** per l'identità operativa, **HOLD** per clearance del marchio/handle, rollback storico e lancio. Reviewer indipendenti devono distinguere prove osservate dai soli fatti dichiarati nel prompt.
+
+## Requisiti di revisione
+Due modelli diversi dal generatore GPT-6, sullo stesso `reviewer-prompt.md`, risposte separate e salvate integralmente con hash/modello/data; se Omarchy non è raggiungibile, le revisioni restano `NOT_RUN`. Nessuna risposta fittizia vale attestazione. Eventuali nuove fonti richiedono un nuovo packet e riesame. Nessuna mutazione di DB, DNS, social, consumer o stato di pubblicazione è autorizzata da questo dossier.
