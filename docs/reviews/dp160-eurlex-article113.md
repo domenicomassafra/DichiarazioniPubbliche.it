@@ -53,5 +53,10 @@ soltanto Gemini 3.8 Flash tramite Antigravity.
 
 ## Esito
 
-Da integrare esclusivamente con output effettivamente eseguiti, SHA di
-`origin/main` riletto e readback della macchina di consumo.
+Eseguire `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest
+tests.test_loki_eurlex_case tests.test_loki_private_poc -v` tramite
+resource guard. La prova dell'esecuzione effettiva, il commit remoto e
+il readback del MiniPC sono registrati nella
+[issue originale #160](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/160).
+La differenza con il validator incumbent è soltanto la nuova guardia
+lessicale del POC: entrambi richiedono ancora verifica semantica e fonti.
