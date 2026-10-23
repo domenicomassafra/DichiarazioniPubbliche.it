@@ -176,7 +176,7 @@ class CanaryTests(unittest.TestCase):
             calls += 1
             return fetched(rss((EPISODE, GUID)), url)
         def clock():
-            return datetime(2026, 10, 23 if calls == 0 else 24, tzinfo=timezone.utc)
+            return datetime(2026, 10, 23 if calls == 0 else 24, 12, tzinfo=timezone.utc)
         decision = rights(constraints={"expires_at": "2026-10-23T23:59:59Z"})
         with self.assertRaisesRegex(CanaryRefused, "CANARY_RIGHTS_EXPIRED"):
             resolve_episode(
