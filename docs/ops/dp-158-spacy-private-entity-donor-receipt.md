@@ -85,3 +85,36 @@ An Italian model with independently verified compatible weights/data license,
 source/revision and approved pipeline digest is still required for real use.
 Until this is resolved, the default path remains the existing extractor and
 there is **no** spaCy production activation or source processing permission.
+
+## Owner option A: upstream model due diligence (2026-10-23)
+
+The owner chose to investigate `nickprock/it_spacy_ner_trf` on 2026-10-20.
+Read-only upstream verification (no model weights acquired, installed or run):
+
+- [Model card](https://huggingface.co/nickprock/it_spacy_ner_trf) identifies
+  version `0.1`, model license `MIT`, required spaCy `>=3.5.1,<3.6.0`,
+  and sole component `token_classification_transformer`. Revision
+  [`1ded0d637d19ad528a76232efb75643273f976ac`](https://huggingface.co/nickprock/it_spacy_ner_trf/tree/1ded0d637d19ad528a76232efb75643273f976ac)
+  offers a 406 MB wheel with SHA-256
+  `6b77193b6f61d80f6bc25dc78aea06936c21322f6d541fd1d8261e14baf30363`.
+  The current optional extra instead pins spaCy `3.8.16`, and this adapter
+  requires `ner` or `entity_ruler`; loading the wheel unmodified would not
+  satisfy either interface contract. No third-party source patch is authorized.
+- [Underlying fine-tune](https://huggingface.co/nickprock/bert-italian-finetuned-ner)
+  identifies base `dbmdz/bert-base-italian-cased` and training data
+  `tner/wikiann`. The [WikiANN dataset card](https://huggingface.co/datasets/unimelb-nlp/wikiann)
+  explicitly reports `license: unknown`: the model's `MIT` badge alone does
+  not establish rights to reuse the training data and derived weights.
+- [WikiNEuRal](https://huggingface.co/datasets/Babelscape/wikineural) is
+  explicitly `CC-BY-NC-SA-4.0`; the [KIND authors' repository](https://github.com/dhfbk/KIND)
+  marks its NER annotations `CC-BY-NC-4.0` / `CC-BY-NC-SA-4.0`.
+  These are not unrestricted drop-in training-data replacements.
+
+**Decision:** option A remains `HOLD` at the upstream rights and binary/API
+compatibility gates. A blank Italian spaCy pipeline with an `EntityRuler`
+can exercise the existing adapter and synthetic fixture without third-party
+weights, but its hand-authored patterns are not a general-purpose pretrained
+Italian NER model or an independent accuracy evaluation. Runtime use with a
+real authorized Passage needs a separately documented model/data clearance,
+model digest, rights fence, and independent review. No production/default
+activation or public attribution follows from this investigation.
