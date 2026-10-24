@@ -16,6 +16,9 @@ from typing import Any, Sequence
 from dichiarazioni_pubbliche.studio_discovery_inbox_fragment import (
     render_private_inbox_fragment as _render_private_inbox_fragment,
 )
+from dichiarazioni_pubbliche.studio_discovery_rights_sql import (
+    SOURCE_METADATA_RIGHTS_CURRENT_SQL,
+)
 from dichiarazioni_pubbliche.studio_discovery_triage_contract import (
     TRIAGE_DECISIONS, _validated_ref, _validated_revision,
 )
@@ -34,7 +37,7 @@ _ATTEMPT_STATES = frozenset({"RUNNING", "HEALTHY", "BLOCKED", "BUDGET_BLOCKED", 
 _MEMBERSHIP_STATES = frozenset({"INCLUDED", "REJECTED", "REMOVED"})
 _FAMILY = re.compile(r"[A-Za-z0-9_:-]{1,128}\Z")
 
-_SCOPED_SQL = """
+_SCOPED_SQL = f"""
 SELECT json_build_object(
     'hit_id', hit.id, 'run_id', run.id, 'attempt_id', attempt.id,
     'query_id', hit.query_id, 'manifest_id', manifest.id,
@@ -44,6 +47,7 @@ SELECT json_build_object(
     'collection_state', collection.status, 'manifest_state', manifest.status,
     'run_state', run.status, 'attempt_state', attempt.status,
     'rights_state', content.rights_status, 'membership_state', member.status,
+    'source_metadata_rights_current', {SOURCE_METADATA_RIGHTS_CURRENT_SQL},
     'lineage_ok', COALESCE(
        attempt.run_id=run.id AND attempt.query_id=hit.query_id
        AND query.manifest_id=manifest.id, false),
@@ -154,6 +158,7 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
     family = _bool(row.get("family_scope_ok"))
     adapter = _bool(row.get("adapter_scope_ok"))
     url_ok = _bool(row.get("content_url_ok"))
+    metadata_rights_current = _bool(row.get("source_metadata_rights_current", False))
     head = _validated_revision(row.get("head_revision"))
     count = _validated_revision(row.get("ledger_count"))
     latest = row.get("latest_decision")
@@ -195,12 +200,11 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
     block(not url_ok, "DISCOVERY_URL_BINDING_MISMATCH", "REVIEW_CONTENT_IDENTITY")
     block(member_state != "INCLUDED", "DISCOVERY_MEMBERSHIP_NOT_INCLUDED", "REVIEW_COLLECTION_MEMBERSHIP")
     block(rights_state != "CLEARED", "DISCOVERY_CONTENT_RIGHTS_UNCLEARED", "REVIEW_CONTENT_RIGHTS")
-    # The local metadata never supplies proof of CURRENT private source rights
-    # or signed review authorization. No ready row may imply either.
-    blockers.extend([
-        ("PRIVATE_SOURCE_RIGHTS_REVIEW_NOT_EVALUATED", "VERIFY_CURRENT_PRIVATE_SOURCE_RIGHTS_RECORD"),
-        ("DISCOVERY_TRIAGE_REVIEW_AUTHORITY_UNAVAILABLE", "VERIFY_REVIEWER_AUTHORITY_AND_CURRENT_POLICY"),
-    ])
+    block(not metadata_rights_current, "PRIVATE_SOURCE_RIGHTS_REVIEW_NOT_EVALUATED",
+          "VERIFY_CURRENT_PRIVATE_SOURCE_RIGHTS_RECORD")
+    # Exact CURRENT metadata rights do not authorize a reviewer action.
+    blockers.append(("DISCOVERY_TRIAGE_REVIEW_AUTHORITY_UNAVAILABLE",
+                     "VERIFY_REVIEWER_AUTHORITY_AND_CURRENT_POLICY"))
     current = (collection_state == "ACTIVE" and manifest_state == "ACTIVE" and
                run_state in {"COMPLETED", "PARTIAL"} and attempt_state == "HEALTHY" and
                lineage and digest and family and adapter)
@@ -208,7 +212,8 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
     snapshot = json.dumps({"path": path, "disposition": disposition, "content_id": content_id,
                            "source_family": source_family, "adapter_id": adapter_id,
                            "reason_code": reason, "blockers": [code for code, _ in blockers],
-                           "current": current, "head": head if lineage and digest else None,
+                           "current": current, "source_metadata_rights_current": metadata_rights_current,
+                           "head": head if lineage and digest else None,
                            "latest": latest, "statuses": [collection_state, manifest_state,
                                                            run_state, attempt_state]},
                           sort_keys=True, separators=(",", ":"))
@@ -219,6 +224,7 @@ def _present(row: dict[str, Any], *, collection_id: str) -> dict[str, object]:
         "collection_state": collection_state, "manifest_state": manifest_state,
         "run_state": run_state, "attempt_state": attempt_state,
         "current": current,
+        "source_metadata_rights_current": metadata_rights_current,
         "annotation_revision": head if lineage and digest else None,
         "latest_annotation": latest,
         "snapshot_sha256": hashlib.sha256(snapshot.encode()).hexdigest(),
