@@ -7,12 +7,13 @@ ticket asks for, and refuses everything else:
 
 * ``VERIFIABLE`` — a requirement profile applies, every required role is covered
   by eligible evidence on independent original roots and source families, and
-  the counter-case (the hypothesis that the claim is false) was tested against
-  the same eligible set and refuted by the sources.
+  the counter-case (the hypothesis that the claim is false) cites a separately
+  sufficient, independent subset of eligible sources that refutes the alternative.
 * ``NOT_VERIFIABLE`` — no profile applies (unknown claim kind) or the claim is
   not a factual proposition. Nothing could make it checkable.
 * ``FALSE`` — same eligibility as ``VERIFIABLE``, every eligible observation
-  refutes the proposition, and the counter-case is supported by those sources.
+  refutes the proposition, and the counter-case cites its own independently
+  sufficient source set that supports the alternative.
 * ``HELD`` — everything else: insufficient evidence, conflict, unknown stance,
   missing or ineligible counter-case, non-boolean/shape violations.
 
@@ -43,7 +44,7 @@ from dichiarazioni_pubbliche.verification_requirements_v1 import (
 )
 
 
-VERIFIER_VERSION = "dp314-general-verifier-v1"
+VERIFIER_VERSION = "dp314-general-verifier-v2"
 CLASSIFICATIONS = ("VERIFIABLE", "NOT_VERIFIABLE", "FALSE", "HELD")
 COUNTER_OUTCOMES = (
     "SOURCE_SUPPORTS_COUNTER",
@@ -111,7 +112,12 @@ def _result(
     )
 
 
-def _counter_problem(counter: object, eligible: frozenset[str]) -> str | None:
+def _counter_problem(
+    counter: object,
+    eligible: frozenset[str],
+    claim: RequirementClaim,
+    eligible_rows: tuple[RequirementEvidence, ...],
+) -> str | None:
     if type(counter) is not CounterCase:
         return "COUNTER_CASE_REQUIRED"
     if type(counter.counter_ref) is not str or not _REF.fullmatch(counter.counter_ref):
@@ -135,6 +141,18 @@ def _counter_problem(counter: object, eligible: frozenset[str]) -> str | None:
         return "COUNTER_CASE_EVIDENCE_NOT_ELIGIBLE"
     if counter.outcome == "NOT_OBSERVED":
         return "COUNTER_CASE_NOT_OBSERVED"
+    # Independence established for the claim does not transfer to a counter-case
+    # that names only a subset of its sources. Reuse the versioned requirement
+    # profile on precisely the cited set, including role, root and family checks.
+    cited = frozenset(counter.evidence_ids)
+    counter_rows = tuple(row for row in eligible_rows if row.evidence_id in cited)
+    if any(row.stance == "UNKNOWN" for row in counter_rows):
+        return "COUNTER_CASE_STANCE_UNKNOWN"
+    if (
+        preflight_verification_requirements(claim, counter_rows).state
+        != "CHECKABLE_PENDING"
+    ):
+        return "COUNTER_CASE_INDEPENDENT_EVIDENCE_MISSING"
     return None
 
 
@@ -213,7 +231,7 @@ def classify_claim(
     stances = {row.stance for row in eligible_rows}
     if not eligible_rows or stances == {"UNKNOWN"}:
         return _result("HELD", "EVIDENCE_STANCE_UNKNOWN", claim, **common)
-    problem = _counter_problem(counter_case, eligible)
+    problem = _counter_problem(counter_case, eligible, claim, eligible_rows)
     if problem is not None:
         return _result("HELD", problem, claim, **common)
     assert isinstance(counter_case, CounterCase)
