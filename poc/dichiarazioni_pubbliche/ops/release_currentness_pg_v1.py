@@ -364,6 +364,17 @@ class DisposableReleaseCurrentnessPg:
         reason = received.get("reason")
         if status not in {"HELD", "COHERENT_PRIVATE_REFERENCE"} or not isinstance(reason, str):
             raise RuntimeError("DP518_RESPONSE_UNSAFE")
+        # A claimed coherent readback must bind to the exact request, not
+        # merely contain plausible "private" status and authority flags.
+        if status == "COHERENT_PRIVATE_REFERENCE" and (
+            reason != "PRIVATE_ONLY_NOT_DEPLOYED"
+            or received.get("pointer_release") != release_id
+            or type(received.get("pointer_revision")) is not int
+            or received["pointer_revision"] != expected_revision
+            or received.get("index_hash") != index_sha256
+            or received.get("projection_hash") != projection_sha256
+        ):
+            raise RuntimeError("DP518_RESPONSE_UNSAFE")
         # Opaque source/version token, private only and NOT an attestation,
         # signature, CDN ETag or credential. Changes on epoch/outbox/ACK/pin.
         fingerprint = hashlib.sha256(

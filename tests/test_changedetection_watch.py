@@ -111,6 +111,27 @@ class ChangedetectionWatchTests(unittest.TestCase):
         self.assertEqual(self.store.read_state(self.policy.source_id).last_successful_observed_at,
                          T0 + timedelta(seconds=62))
 
+    def test_history_provenance_uses_latest_timestamp_regardless_of_json_order(self):
+        # Provider JSON object member order is not a chronological guarantee.
+        # The same synthetic latest snapshot must carry identical provenance
+        # even if earlier history keys are serialized last.
+        latest, earlier = "1792490460", "1792490400"
+        receipts = []
+        for keys in ((earlier, latest), (latest, earlier)):
+            with self.subTest(history_order=keys):
+                self.setUp_for_case()
+                snapshot = provider(seconds=60)
+                snapshot = ChangedetectionSnapshot(
+                    watch=snapshot.watch,
+                    history={key: "synthetic-revision" for key in keys},
+                    content=snapshot.content,
+                )
+                _, receipt = self.poll(snapshot, n=60, attempt="history-order")
+                self.assertEqual(receipt.disposition, "CHANGED")
+                receipts.append(receipt.receipt_sha256)
+                self.assertEqual(receipt.provider_history_key, latest)
+        self.assertEqual(receipts[0], receipts[1])
+
     def test_source_mismatch_and_old_or_failed_check_fail_closed(self):
         for invalid in (
             provider(url="https://other.invalid/"),

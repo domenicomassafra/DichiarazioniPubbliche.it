@@ -14,14 +14,29 @@ export interface PublicTrace {
 export function collectPublicTraces(projection: PublicProjection): PublicTrace[] {
   const byClaim = new Map(projection.dossiers.map((dossier) => [dossier.claim_id, dossier]));
   const traces = new Map<string, PublicTrace>();
+  const conflictingIds = new Set<string>();
 
   for (const dossier of projection.dossiers) {
     for (const relation of dossier.relations ?? []) {
       if (relation.status !== "APPROVED" || !relation.review_event_id) continue;
       const related = byClaim.get(relation.related_claim_id);
-      if (!related) continue;
+      if (!related || conflictingIds.has(relation.id)) continue;
 
-      const current = traces.get(relation.id) ?? {
+      const previous = traces.get(relation.id);
+      // A shared ID cannot combine different approved review receipts, policy
+      // versions, relation types or rationale. Drop the entire disputed Trace
+      // rather than assigning later participants the first edge's authority.
+      if (previous && (previous.relationType !== relation.relation_type ||
+          previous.relationVersion !== relation.relation_version ||
+          previous.reviewEventId !== relation.review_event_id ||
+          JSON.stringify([...previous.rationaleCodes].sort()) !==
+            JSON.stringify([...(relation.rationale_codes ?? [])].sort()))) {
+        traces.delete(relation.id);
+        conflictingIds.add(relation.id);
+        continue;
+      }
+
+      const current = previous ?? {
         id: relation.id,
         slug: relationSlug(relation.id),
         relationType: relation.relation_type,
