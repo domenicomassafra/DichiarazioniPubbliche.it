@@ -48,11 +48,17 @@ for (const path of htmlFiles) {
   assert(["noindex,nofollow", "index,follow"].includes(robots), `${name}: invalid robots policy ${robots}`);
   const canonical = html.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i)?.[1];
   assert(canonical, `${name}: missing canonical`);
-  canonicalRoutes.add(canonical);
-  if (privateAccountRoutes.has(canonical)) {
+  const url = new URL(canonical);
+  assert.equal(url.origin, "https://dichiarazionipubbliche.it");
+  assert.equal(canonical, url.origin + url.pathname);
+  const ogUrl = html.match(/<meta\s+property="og:url"\s+content="([^"]+)"/i)?.[1];
+  assert.equal(ogUrl, canonical, name + ": og:url differs from canonical");
+  const canonicalRoute = url.pathname;
+  canonicalRoutes.add(canonicalRoute);
+  if (privateAccountRoutes.has(canonicalRoute)) {
     assert.equal(robots, "noindex,nofollow", `${name}: account sign-in/profile routes must stay noindex`);
   } else {
-    publicCanonicalRoutes.add(canonical);
+    publicCanonicalRoutes.add(canonicalRoute);
   }
   assert.match(html, /<main\s+id="main"/i, `${name}: missing main landmark`);
   const mainCount = (html.match(/<main\b/gi) ?? []).length;
