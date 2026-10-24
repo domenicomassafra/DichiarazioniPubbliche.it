@@ -1,4 +1,5 @@
 import sys
+from types import SimpleNamespace
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from dp326_senato_private_discovery import (
     CONTENT_BLOB_SHA1, DOCUMENT_PATH, LICENSE_SHA256, NOTICE_SHA256,
     SOURCE_URL, SenatoMetadataAdapter, verified_metadata_hit,
     verified_terms_evidence, senato_discovery_manifest,
+    _record_exact_metadata_rights, DP330_PRIVATE_CAPTURE_POLICY,
+    DP330_PRIVATE_CAPTURE_USES, RIGHTS_RECEIPT, REVIEWER_REF,
 )
 
 
@@ -70,6 +73,32 @@ class SenatoPrivateMetadataTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "DP326_ADAPTER_SOURCE_UNVERIFIED"):
                 SenatoMetadataAdapter(candidate)
+
+    def test_metadata_replay_survives_exact_dp244_private_capture_upgrade(self):
+        record = SimpleNamespace(
+            id="private-rights:dp330",
+            rights_status="CLEARED",
+            rights_receipt_ref=RIGHTS_RECEIPT,
+            permitted_uses=DP330_PRIVATE_CAPTURE_USES,
+            policy_version=DP330_PRIVATE_CAPTURE_POLICY,
+            reviewer_ref=REVIEWER_REF,
+            version_state="CURRENT",
+        )
+
+        class FakeStore:
+            def read_current(self, subject):
+                return record
+
+            def record_rights(self, **kwargs):
+                raise AssertionError("must reuse current persisted licence record")
+
+        self.assertEqual(
+            _record_exact_metadata_rights(FakeStore(), "content:senato", None),
+            record.id,
+        )
+        record.permitted_uses += ("EXCERPT_PUBLIC",)
+        with self.assertRaisesRegex(RuntimeError, "DP326_CURRENT_RIGHTS_CONFLICT"):
+            _record_exact_metadata_rights(FakeStore(), "content:senato", None)
 
     def test_machine_license_attestation_is_scoped_to_metadata(self):
         evidence = verified_terms_evidence(self.license)
