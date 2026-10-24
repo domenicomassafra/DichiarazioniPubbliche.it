@@ -87,7 +87,9 @@ def fake_archivebox(root, *, outcome="sealed", permissions_private=True):
             "import time; time.sleep(3)\n" if outcome == "timeout"
             else "sys.exit(3)\n" if outcome == "error"
             else (
-                "print(json.dumps({"
+                # Make the normal snapshot outcome reliably outlast a 1s timeout.
+                ("import time; time.sleep(1.2)\n" if outcome == "incomplete" else "")
+                + "print(json.dumps({"
                 f"'archivebox_version': '0.9.73', 'crawl_id': {CRAWL!r},"
                 f"'snapshot_id': {SNAPSHOT!r},"
                 f"'snapshot_status': {outcome!r},"
@@ -325,7 +327,7 @@ class ArchiveBoxTests(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as temp:
                     capture, store, _, _, _, _, _ = self.prepare(
                         temp, outcome=outcome, collection_private=private,
-                        timeout=1,
+                        timeout=1 if outcome == "timeout" else 5,
                     )
                     self.assertEqual(capture().archive_status, "FAILED")
                     self.assertEqual(store.receipts[-1][1]["error_category"], expected)
