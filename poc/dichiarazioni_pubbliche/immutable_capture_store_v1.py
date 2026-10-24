@@ -140,6 +140,15 @@ def store_capture(
     existing = body_path.read_bytes()
     if _digest(existing) != digest:
         raise CaptureStoreError("CAPTURE_STORE_CORRUPTED")
+    if not written:
+        record = verify_capture(root, f"capture:sha256:{digest}")
+        if (
+            record.source_id != source_id
+            or record.locator_id != locator_id
+            or record.media_type != media_type
+        ):
+            raise CaptureStoreError("CAPTURE_PROVENANCE_MISMATCH")
+        return record, False
     record = CaptureRecord(
         capture_id=f"capture:sha256:{digest}",
         source_id=source_id,
