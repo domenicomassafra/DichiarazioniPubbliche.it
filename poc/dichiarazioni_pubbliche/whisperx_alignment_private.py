@@ -139,7 +139,10 @@ def _parse_words(payload: dict[str, Any], *, text: str, duration_ms: int) -> tup
                 or not all(math.isfinite(v) for v in (begin, end, score))):
             raise AlignmentHold("WHISPERX_WORD_UNTIMED_OR_UNSCORED")
         start_ms, end_ms = round(begin * 1000), round(end * 1000)
-        if (start_ms < last_end or end_ms <= start_ms or end_ms > duration_ms + 100
+        # Check the original seconds as well: sub-ms negative/out-of-bounds
+        # samples can otherwise round to a seemingly valid 0/duration_ms.
+        if (begin < 0 or end > duration_ms / 1000
+                or start_ms < last_end or end_ms <= start_ms or end_ms > duration_ms
                 or score < MIN_SCORE or score > 1):
             raise AlignmentHold("WHISPERX_WORD_DRIFT_OR_LOW_SCORE")
         words.append(WordTime(source["word"], start_ms, end_ms, float(score)))
