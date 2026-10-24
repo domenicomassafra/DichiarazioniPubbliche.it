@@ -177,7 +177,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--store", default=None)
     options = parser.parse_args(argv)
     root = Path(options.store or tempfile.mkdtemp(prefix="dp244-captures-"))
-    root.mkdir(parents=True, exist_ok=True)
+    if root.is_symlink():
+        raise SystemExit("DP244_CAPTURE_ROOT_SYMLINK_REFUSED")
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root.chmod(0o700)
     now = datetime.now(UTC)
 
     readme = fetch(README_URL)
