@@ -6,6 +6,7 @@ import hashlib
 import contextlib
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -72,7 +73,7 @@ class InformationalPreviewPreflightTests(unittest.TestCase):
             filename.parent.mkdir(parents=True, exist_ok=True)
             policy = "noindex,nofollow" if route in ("/accedi/", "/account/") else "index,follow"
             filename.write_text(
-                f'<html lang="it"><head><link rel="canonical" href="{route}">'
+                f'<html lang="it"><head><link rel="canonical" href="https://dichiarazionipubbliche.it{route}">'
                 f'<meta name="robots" content="{policy}"></head>'
                 '<body><main id="main"><h1>Progetto pubblico</h1></main></body></html>',
                 encoding="utf-8",
@@ -93,6 +94,38 @@ class InformationalPreviewPreflightTests(unittest.TestCase):
         self.assertEqual(result["outcome"], "BUNDLE-PASS-NO-LAUNCH-AUTHORITY")
         self.assertEqual(result["public_routes"], 6)
         self.assertTrue(result["source_projection_checked"])
+
+    def test_absolute_canonical_rejects_origin_path_query_and_fragment_drift(self):
+        # The preview checker pins the exact public origin and path. URL
+        # normalization must not conceal a different authority or parameters.
+        base = "https://dichiarazionipubbliche.it"
+        for route, bad in (
+            ("/", "http://dichiarazionipubbliche.it/"),
+            ("/", "https://other.example/"),
+            ("/", "https://dichiarazionipubbliche.it.evil.example/"),
+            ("/", "https://user@dichiarazionipubbliche.it/"),
+            ("/", "https://dichiarazionipubbliche.it:443/"),
+            ("/", "https://dichiarazionipubbliche.it/?source=private"),
+            ("/", "https://dichiarazionipubbliche.it/#storia"),
+            ("/", "/"),
+            ("/esplora/", "https://dichiarazionipubbliche.it/"),
+            ("/esplora/", "https://dichiarazionipubbliche.it/esplora"),
+            ("/esplora/", "https://dichiarazionipubbliche.it/esplora/?q=a"),
+            ("/esplora/", "https://dichiarazionipubbliche.it/esplora/#main"),
+        ):
+            with self.subTest(route=route, canonical=bad):
+                self.create_site()
+                path = self.dist / route.lstrip("/") / "index.html"
+                text = path.read_text(encoding="utf-8")
+                approved = f'href="{base}{route}"'
+                self.assertIn(approved, text)
+                path.write_text(
+                    text.replace(approved, f'href="{bad}"', 1), encoding="utf-8"
+                )
+                with self.assertRaisesRegex(
+                    PreviewPreflightError, "CANONICAL_DRIFT:" + re.escape(route)
+                ):
+                    self.check()
 
     def test_missing_source_is_explicitly_less_complete(self):
         result = self.check()

@@ -224,7 +224,7 @@ def check_preview_bundle(
             continue
         html = (dist / rel).read_text(encoding="utf-8")
         canonical_match = re.search(r'<link\s+rel="canonical"\s+href="([^"]+)"', html, re.I)
-        require(canonical_match is not None and canonical_match.group(1) == route,
+        require(canonical_match is not None and canonical_match.group(1) == PUBLIC_BASE + route,
                 f"CANONICAL_DRIFT:{route}")
         robots_match = re.search(r'<meta\s+name="robots"\s+content="([^"]+)"', html, re.I)
         expected = "index,follow" if route in PUBLIC_ROUTES else "noindex,nofollow"
