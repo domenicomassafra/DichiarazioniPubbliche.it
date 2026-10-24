@@ -50,3 +50,38 @@ consumer. A permitted real Run/Hit and production acceptance must stay HOLD;
 any qualified source decision belongs to [issue #300](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300).
 No provider execution, paid usage, production write or public release is
 authorized by this slice.
+
+## Owner decision for this exact official metadata source (24 October 2026)
+
+The Senato AkomaNtosoBulkData repository at commit
+`bfac144eb5c54820971bc1020fece11aae56ec90` declares **CC BY 4.0**
+in its pinned `README.MD` (SHA256
+`cd01c53874c63df20d18ea151b3e5528af329dbc64ee573be4d480368f5a34dc`)
+and `LICENSE.MD` (SHA256
+`9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411`).
+These are source-specific licence evidence, distinct from the CC BY 3.0
+notice on the separate dati.senato.it portal. The owner accepts the
+automatically verified official grant to DISCOVER_METADATA for one exact
+pinned document without inventing a qualified human reviewer or an
+additional personal source-use attestation.
+
+`tools/dp326_senato_private_discovery.py` reuses the native
+`verify_pinned_official_license`, `attest_licence_use`,
+`PrivateRightsRegistryStore`, relevance authority and the standard
+Discovery Run/Hit + Studio Inbox readers. It verifies the official
+commit/tree/blob through GitHub metadata; no XML body, model, paid provider,
+publication or bulk ingestion is involved. The scoped rights record has
+`DISCOVER_METADATA` as its **only** permitted use, CC BY 4.0 source and
+attribution evidence, a machine-labelled licence-verification provenance,
+an expiry and the existing append-only revocation/supersession checks.
+The machine label identifies the software check, never a human signature.
+This narrow decision does not authorize FETCH, STORE_BODY, a review
+decision, candidate extraction or GO-PUBLIC.
+
+The only preexisting consumer Research Collection, `research:garlasco`,
+is PAUSED and concerns a different investigation; do not activate or
+modify it to perform this source canary. A dedicated, clearly scoped
+`research:senato-akn-dp326` Collection holds one pinned metadata Hit.
+Replay keeps the original Run/Hit identifiers and private provenance.
+The existing private rights and publication gates still refuse
+unverified, expired, superseded and unrelated sources.
