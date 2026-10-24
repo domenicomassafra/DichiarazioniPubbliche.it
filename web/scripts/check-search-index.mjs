@@ -233,6 +233,54 @@ for (const [field, malformed] of [
   );
 }
 
+// A valid digest does not make malformed display metadata safe. Without
+// validation a signed subtitle object crashes the React Explore list;
+// truthy non-booleans can also invent correction or reply links.
+for (const [field, malformed] of [
+  ["id", ["not-an-id"]],
+  ["title", { private: "unapproved source text" }],
+  ["subtitle", { private: "unapproved source text" }],
+  ["published_at", { date: "2026-10-05" }],
+  ["published_at", "not-a-date"],
+  ["assessment", { code: "SUPPORTED" }],
+  ["has_corrections", "true"],
+  ["has_rights_of_reply", 1],
+  ["source_wording_type", { value: "VERBATIM_ORIGINAL" }],
+]) {
+  const invalid = structuredClone(material);
+  invalid.records[0][field] = malformed;
+  const signed = await finalizeSearchIndex(invalid);
+  await assert.rejects(
+    () => validateSearchIndex(signed, projection.dataset_sha256),
+    /SEARCH_INDEX_RECORD_INVALID/,
+    `signed malformed display field ${field} must fail closed`,
+  );
+}
+
+for (const malformed of [null, [], "not-a-record"]) {
+  const invalid = structuredClone(material);
+  invalid.records[0] = malformed;
+  const signed = await finalizeSearchIndex(invalid);
+  await assert.rejects(
+    () => validateSearchIndex(signed, projection.dataset_sha256),
+    /SEARCH_INDEX_RECORD_INVALID/,
+    "non-object records must fail closed without uncaught TypeError",
+  );
+}
+
+for (const extra of ["private_source_body", "__proto__"]) {
+  const invalid = structuredClone(material);
+  Object.defineProperty(invalid.records[0], extra, {
+    value: "unapproved data", enumerable: true, configurable: true,
+  });
+  const signed = await finalizeSearchIndex(invalid);
+  await assert.rejects(
+    () => validateSearchIndex(signed, projection.dataset_sha256),
+    /SEARCH_INDEX_RECORD_INVALID/,
+    `unknown ${extra} field must not enter a public client`,
+  );
+}
+
 const duplicateRouteMaterial = structuredClone(material);
 duplicateRouteMaterial.records[1].route = duplicateRouteMaterial.records[0].route;
 const duplicateRouteIndex = await finalizeSearchIndex(duplicateRouteMaterial);

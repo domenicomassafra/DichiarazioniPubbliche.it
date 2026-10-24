@@ -16,6 +16,10 @@ from dichiarazioni_pubbliche.high_risk_assertion import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.publication_eligibility import (  # noqa: E402
     _evaluate_publication_eligibility_from_events,
+    evaluate_publication_eligibility,
+)
+from dichiarazioni_pubbliche.publication_review_persistence import (  # noqa: E402
+    DurableReviewReplay,
 )
 from dichiarazioni_pubbliche.publication_review_control import (  # noqa: E402
     ReviewRole,
@@ -187,6 +191,69 @@ def compose(safety_result, risk_result, events, **kwargs):
 
 
 class PublicationEligibilityTests(unittest.TestCase):
+    def test_runtime_hold_binding_changes_with_authority_denial(self):
+        # The actual durable store emits an empty replay when an attestation
+        # fails. Its distinct denial causes must not share a binding digest.
+        class ReplayStore:
+            def __init__(self, blockers):
+                self.blockers = blockers
+
+            def replay_attested_chain(self, record_id, *, authority):
+                return DurableReviewReplay((), self.blockers)
+
+        def decide(blockers):
+            return evaluate_publication_eligibility(
+                record_id="finding:1",
+                record_version="finding:v1",
+                publication_safety=safety(),
+                high_risk=risk("STANDARD"),
+                high_risk_input_binding_sha256="b" * 64,
+                review_store=ReplayStore(blockers),
+                review_authority=None,
+            )
+
+        missing = decide(("REVIEW_IDENTITY_AUTHORITY_UNAVAILABLE",))
+        tampered = decide(("REVIEW_IDENTITY_AUTHORITY_RECEIPT_UNKNOWN",))
+        self.assertEqual(missing.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertEqual(tampered.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertEqual(missing.counted_review_event_ids, ())
+        self.assertEqual(tampered.counted_review_event_ids, ())
+        self.assertNotEqual(missing.blockers, tampered.blockers)
+        self.assertNotEqual(missing.binding_sha256, tampered.binding_sha256)
+        self.assertEqual(missing.binding_sha256, decide(missing.blockers).binding_sha256)
+
+    def test_runtime_hold_cannot_reuse_eligible_review_binding(self):
+        # An unattested readiness proposal must not inherit the fingerprint of
+        # a synthetically authority-replayed legacy review.
+        proof = safety()
+        result = risk("STANDARD")
+        approved = review_event(safety_result=proof, risk_result=result)
+
+        class ReplayStore:
+            def replay_attested_chain(self, record_id, *, authority):
+                return DurableReviewReplay((approved,), ())
+
+        def decide(**kwargs):
+            return evaluate_publication_eligibility(
+                record_id="finding:1",
+                record_version="finding:v1",
+                publication_safety=proof,
+                high_risk=result,
+                high_risk_input_binding_sha256="b" * 64,
+                review_store=ReplayStore(),
+                review_authority=object(),
+                **kwargs,
+            )
+
+        eligible = decide()
+        held = decide(challenger_readiness=challenger_ready(result))
+        self.assertEqual(eligible.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
+        self.assertEqual(eligible.counted_review_event_ids, (approved.event_id,))
+        self.assertEqual(held.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertIn("CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE", held.blockers)
+        self.assertEqual(held.counted_review_event_ids, ())
+        self.assertNotEqual(held.binding_sha256, eligible.binding_sha256)
+
     def test_standard_candidate_requires_primary_review(self):
         safety_result = safety()
         risk_result = risk("STANDARD")

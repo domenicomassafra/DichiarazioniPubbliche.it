@@ -84,7 +84,7 @@ def main() -> int:
     try:
         commit = run(["git", "rev-parse", "HEAD"], cwd=source)
         epoch = int(run(["git", "show", "-s", "--format=%ct", commit], cwd=source))
-        version = (source / "VERSION").read_text(encoding="utf-8").strip()
+        version = run(["git", "show", f"{commit}:VERSION"], cwd=source).strip()
         with tempfile.TemporaryDirectory(prefix="dp604-repro-") as scratch:
             scratch_path = Path(scratch)
             first = build_once(source, commit, epoch, scratch_path / "first")

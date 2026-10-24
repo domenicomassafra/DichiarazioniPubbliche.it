@@ -228,10 +228,12 @@ class IsolatedPublicationEpochStore:
         self.conn.execute("BEGIN IMMEDIATE")
         try:
             previous = self.conn.execute(
-                "SELECT source_id,epoch,reason FROM epoch_revocation WHERE event_id=?", (event_id,),
+                "SELECT source_id,epoch,reason,occurred_at FROM epoch_revocation WHERE event_id=?",
+                (event_id,),
             ).fetchone()
             if previous:
-                if previous[0] != source_id or previous[2] != reason:
+                if (previous[0] != source_id or previous[2] != reason
+                        or previous[3] != stamp):
                     raise RevocationFenceHeld("FENCE_REPLAY_CONFLICT")
                 self.conn.commit()
                 return previous[1]

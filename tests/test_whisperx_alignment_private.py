@@ -248,6 +248,26 @@ class WhisperxPrivateAlignmentTests(unittest.TestCase):
         with self.assertRaisesRegex(AlignmentHold, "HASH_MISMATCH"):
             _receipt(self.receipt)
 
+    def test_word_boundaries_must_stay_within_actual_wav_duration(self):
+        # Two seconds of synthetic PCM. WhisperX may return a word ending
+        # within its 100ms overrun tolerance, but that time has no audio.
+        exact_end = [*WORDS[:-1], {**WORDS[-1], "end": 2.0}]
+        accepted, _ = self._run(output=exact_end)
+        self.assertEqual(accepted.words[-1].end_ms, 2000)
+        for overrun in (2.0001, 2.001, 2.05, 2.1):
+            with self.subTest(overrun=overrun):
+                beyond_audio = [*WORDS[:-1], {**WORDS[-1], "end": overrun}]
+                with self.assertRaisesRegex(
+                    AlignmentHold, "WHISPERX_WORD_DRIFT_OR_LOW_SCORE",
+                ):
+                    self._run(output=beyond_audio)
+        # A tiny negative onset must not become 0 ms by rounding.
+        before_audio = [{**WORDS[0], "start": -.0001}, *WORDS[1:]]
+        with self.assertRaisesRegex(
+            AlignmentHold, "WHISPERX_WORD_DRIFT_OR_LOW_SCORE",
+        ):
+            self._run(output=before_audio)
+
     def test_unscored_unaligned_and_low_confidence_words_held(self):
         for bad in ({**WORDS[2], "score": None}, {**WORDS[2], "end": None},
                     {**WORDS[2], "score": .15}):

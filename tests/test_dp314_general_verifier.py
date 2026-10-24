@@ -124,6 +124,58 @@ class ClaimClassificationTests(unittest.TestCase):
         self.assertEqual(result.status, "HELD")
         self.assertEqual(result.reason_code, "COUNTER_CASE_NOT_OBSERVED")
 
+    def test_counter_case_requires_its_own_independent_evidence_for_verifiable(self):
+        # Claim sources are independent, but the counter-case cites only one.
+        # The other claim source must not silently count for the counter-case.
+        result = classify_claim(
+            claim(), pair(), counter(ids=("evidence:alpha",))
+        )
+        self.assertEqual(result.status, "HELD")
+        self.assertEqual(
+            result.reason_code, "COUNTER_CASE_INDEPENDENT_EVIDENCE_MISSING"
+        )
+        self.assertFalse(result.finding_authority)
+        self.assertFalse(result.publication_authority)
+
+    def test_counter_case_requires_its_own_independent_evidence_for_false(self):
+        rows = (
+            row("alpha", "PRIMARY_RECORD", "root:a", stance="REFUTE"),
+            row("beta", "INDEPENDENT_RECORD", "root:b", stance="REFUTE"),
+        )
+        result = classify_claim(
+            claim(), rows,
+            counter("SOURCE_SUPPORTS_COUNTER", ids=("evidence:beta",)),
+        )
+        self.assertEqual(result.status, "HELD")
+        self.assertEqual(
+            result.reason_code, "COUNTER_CASE_INDEPENDENT_EVIDENCE_MISSING"
+        )
+        self.assertFalse(result.publication_authority)
+
+    def test_counter_case_does_not_borrow_source_family_independence(self):
+        # These counter-case rows have two roots, but the same source family.
+        # A third row makes the *claim* independent, not this counter-case.
+        rows = pair() + (
+            row(
+                "gamma", "INDEPENDENT_RECORD", "root:c",
+                source_family_ref="source:root:a",
+            ),
+        )
+        result = classify_claim(
+            claim(), rows,
+            counter(ids=("evidence:alpha", "evidence:gamma")),
+        )
+        self.assertEqual(result.status, "HELD")
+        self.assertEqual(
+            result.reason_code, "COUNTER_CASE_INDEPENDENT_EVIDENCE_MISSING"
+        )
+
+    def test_unknown_counter_case_stance_never_confers_classification(self):
+        rows = (pair()[0], replace(pair()[1], stance="UNKNOWN"))
+        result = classify_claim(claim(), rows, counter())
+        self.assertEqual(result.status, "HELD")
+        self.assertEqual(result.reason_code, "COUNTER_CASE_STANCE_UNKNOWN")
+
     def test_counter_case_cannot_cite_excluded_evidence(self):
         rows = pair() + (row("gamma", "PRIMARY_RECORD", "root:c",
                              source_use_status="REVOKED"),)

@@ -24,7 +24,12 @@ function routeFor(path) {
 }
 
 function canonicalOf(html) {
-  return html.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i)?.[1] ?? null;
+  const absolute = html.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i)?.[1];
+  if (!absolute) return null;
+  const url = new URL(absolute);
+  assert.equal(url.origin, "https://dichiarazionipubbliche.it");
+  assert.equal(absolute, url.origin + url.pathname);
+  return url.pathname;
 }
 
 const htmlFiles = (await walk(dist)).filter((path) => path.endsWith(".html"));

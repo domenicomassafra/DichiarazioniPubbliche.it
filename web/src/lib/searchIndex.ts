@@ -1,6 +1,7 @@
 import type { PublicDossier, PublicProjection } from "./types";
 import { publicIdSlug } from "./format.ts";
 import { publicTextScores } from "./minisearchAdapter.ts";
+import { assertSearchIndexShape } from "./searchIndexShape.ts";
 
 export const SEARCH_INDEX_SCHEMA = "dichiarazioni-pubbliche-search-index-v1" as const;
 export const SEARCH_QUERY_MAX_CHARS = 200;
@@ -341,6 +342,8 @@ export async function validateSearchIndex(
   ) {
     throw new Error("SEARCH_INDEX_INCOMPATIBLE");
   }
+  assertSearchIndexShape(index);
+
   const { index_sha256: claimed, ...material } = index;
   const actual = await sha256Hex(canonicalJson(material));
   if (claimed !== actual) throw new Error("SEARCH_INDEX_TAMPERED");
@@ -353,17 +356,8 @@ export async function validateSearchIndex(
     if (
       identities.has(identity) ||
       routes.has(record.route) ||
-      !record.id ||
-      !record.title ||
       !hasCanonicalSearchRoute(record) ||
-      record.direct_quote_eligible !== false ||
-      (record.kind === "finding" && record.wording_type !== "PARAPHRASE") ||
-      (record.kind !== "finding" && record.wording_type !== null) ||
-      !Array.isArray(record.primary_terms) ||
-      !record.primary_terms.every((term) => typeof term === "string") ||
-      !Array.isArray(record.secondary_terms) ||
-      !record.secondary_terms.every((term) => typeof term === "string")
-      || (record.kind === "finding" && (
+      (record.kind === "finding" && (
         (record.person_id !== undefined && (
           typeof record.person_id !== "string" ||
           !PUBLIC_FACET_ID.test(record.person_id) ||

@@ -191,7 +191,7 @@ _VALID_KINDS = frozenset({"FACTUAL", "OPINION"})
 _VALID_POSITIONS = frozenset({"SUPPORT", "OPPOSE"})
 _VALID_MODALITIES = frozenset({"ASSERTED"})
 _VALID_POLARITIES = frozenset({"POSITIVE", "NEGATED"})
-_UNVERIFIED_REFS = frozenset({"UNKNOWN", "UNSPECIFIED", "UNRESOLVED"})
+_UNVERIFIED_REFS = frozenset({"NONE", "UNKNOWN", "UNSPECIFIED", "UNRESOLVED"})
 
 
 def _person_id_resolved(value: object) -> bool:

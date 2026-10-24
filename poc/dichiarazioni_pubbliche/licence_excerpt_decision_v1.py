@@ -465,6 +465,15 @@ def decide_licence_excerpt(
         return _held("LICENCE_EXCERPT_BOUNDARY_EXCEEDED", fingerprint)
     if type(private_quote_text) is not str or not private_quote_text:
         return _held("LICENCE_EXCERPT_TEXT_MISSING", fingerprint)
+    # The preflight authenticates the QuoteBindingResult's *claimed* digest.
+    # Rendering uses another caller argument: bind those exact bytes to the
+    # permitted quote rather than trusting a valid binding for different text.
+    if (
+        len(private_quote_text) != quote_chars
+        or hashlib.sha256(private_quote_text.encode("utf-8")).hexdigest()
+        != request.quotation_sha256
+    ):
+        return _held("LICENCE_EXCERPT_TEXT_BINDING_MISMATCH", fingerprint)
 
     problem = _expiry_problem(rights_claim, now)
     if problem is not None:

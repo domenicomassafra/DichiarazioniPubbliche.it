@@ -299,7 +299,13 @@ class AlignmentCanaryTests(unittest.TestCase):
             model_dir=str(model), license_spdx="Apache-2.0",
             license_source_url="https://example.org/license/fixture",
             license_reviewed=True, native_notices_reviewed=True, files=files)))
-        reviewed = record()
+        # The operator canary reads the real wall clock; keep its synthetic
+        # grant valid independently of the fixed 2026-10-23 unit-test clock.
+        now = datetime.now(timezone.utc)
+        reviewed = record(
+            reviewed_at=(now - timedelta(days=1)).isoformat(),
+            expires_at=(now + timedelta(days=1)).isoformat(),
+        )
         self.manifest = {
             "manifest_version": "dp165-alignment-canary-v1",
             "intervention": {

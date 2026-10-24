@@ -219,6 +219,8 @@ def evaluate_publication_eligibility(
     runtime, so caller-supplied challenger values are rejected and never forwarded into the pure
     eligibility composer. A future runtime integration must resolve challenger state through a
     real durable/authority mechanism before this boundary may consume it.
+    For an authority-related HOLD, the output fingerprint binds the final
+    blockers and the empty counted-review set, not the provisional review.
     """
 
     runtime_blockers: list[str] = []
@@ -248,6 +250,23 @@ def evaluate_publication_eligibility(
     blockers = tuple(
         dict.fromkeys((*replay.blockers, *runtime_blockers, *result.blockers))
     )
+    # The pure composer's binding describes its provisional review result.
+    # Runtime authority failures can remove counted reviews and add blockers;
+    # retaining that digest would bind different decisions to the same hash.
+    runtime_binding = hashlib.sha256(
+        json.dumps(
+            {
+                "contract_version": "publication-eligibility-runtime-hold-v1",
+                "provisional_binding_sha256": result.binding_sha256,
+                "disposition": "HOLD_FOR_PUBLICATION_REVIEW",
+                "blockers": list(blockers),
+                "counted_review_event_ids": [],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
     return PublicationEligibilityResult(
         disposition="HOLD_FOR_PUBLICATION_REVIEW",
         blockers=blockers,
@@ -256,7 +275,7 @@ def evaluate_publication_eligibility(
         review_policy_version=result.review_policy_version,
         review_risk_class=result.review_risk_class,
         counted_review_event_ids=(),
-        binding_sha256=result.binding_sha256,
+        binding_sha256=runtime_binding,
         challenger_packet_id=None,
         challenger_version=None,
         challenger_waiver_policy_decision_ref=None,

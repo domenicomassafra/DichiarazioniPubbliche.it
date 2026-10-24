@@ -252,6 +252,23 @@ class LicenceExcerptDecisionTests(unittest.TestCase):
         self.assertNotEqual(receipt, licence_decision_receipt(first, request(
             quotation_sha256=SHA("other"))))
 
+    def test_private_rendering_requires_the_exact_text_used_by_verified_binding(self):
+        # The metadata-only binding proves TEXT, not a different caller-supplied
+        # body. Keeping the same length defeats a superficial length check.
+        original_binding = binding()
+        unlicensed_wording = "X" * len(TEXT)
+        authority = FakeAuthority()
+        result = decide(
+            quoted=original_binding,
+            text=unlicensed_wording,
+            authority=authority,
+        )
+        self.assertEqual(result.status, "HELD")
+        self.assertEqual(result.reason_code, "LICENCE_EXCERPT_TEXT_BINDING_MISMATCH")
+        self.assertIsNone(result.private_rendered_text)
+        self.assertFalse(result.permitted)
+        self.assertEqual(authority.reads, 0)
+
     def test_quote_text_is_escaped_in_the_private_rendering(self):
         hostile = '<script>alert("x")</script>'
         req = request(quotation_sha256=SHA(hostile),

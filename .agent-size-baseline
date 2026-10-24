@@ -146,7 +146,7 @@
   "tests/studio_local_page_async_regression.cjs": 27417,
   "tests/studio_local_page_chrome_regression.mjs": 21276,
   "tests/test_candidate_extraction.py": 66454,
-  "tests/test_capture_pipeline.py": 36051,
+  "tests/test_capture_pipeline.py": 35876,
   "tests/test_challenge_persistence_postgres.py": 20838,
   "tests/test_citation_passage_postgres.py": 22346,
   "tests/test_claim_promotion.py": 33624,
@@ -205,7 +205,7 @@
   "web/scripts/dp431_rebuild.py": 21719,
   "web/src/components/ExploreClient.tsx": 27937,
   "web/src/lib/publicStatementSearchV3.ts": 21162,
-  "web/src/lib/searchIndex.ts": 21615,
+  "web/src/lib/searchIndex.ts": 21234,
   "web/src/styles/legacy.css": 66483,
   "web/src/styles/primitives.css": 47409
 }
