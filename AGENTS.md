@@ -44,3 +44,14 @@ curl -fsS --max-time 10 -o /dev/null -w 'http=%{http_code}\n' https://dichiarazi
 
 ## Modello LLM unico (decisione owner del 23/10/2026)
 Per ora tutto funziona con **Gemini 3.8 Flash tramite Antigravity**, passando da OmniRoute. Nessuna API esterna: niente OpenRouter, Groq, Cerebras, Cloudflare AI, Cohere, Gemini Developer API o altri provider diretti, né a pagamento né free. Codice, config e documenti che prevedono altre route vanno allineati a questa scelta; un'eccezione richiede una nuova decisione esplicita dell'owner.
+
+## Senato Akoma Ntoso: fonte aperta, sola Discovery privata (owner 24/10/2026)
+
+Per il solo commit `bfac144eb5c54820971bc1020fece11aae56ec90`
+di `SenatoDellaRepubblica/AkomaNtosoBulkData`, README/Licenza ufficiali
+CC BY 4.0 e blob esatto verificati automaticamente bastano per registrare
+`DISCOVER_METADATA` privato e attribuzione; non inventare un attestatore
+umano o una nuova firma personale. Usare il registro versionato/revocabile,
+le evidenze hash e il perimetro di `docs/ops/dp326-studio-discovery-metadata-rights-20261024.md`.
+Questa decisione non concede capture del body, modelli, review o pubblicazione;
+fonti differenti continuano a seguire i loro controlli specifici.
