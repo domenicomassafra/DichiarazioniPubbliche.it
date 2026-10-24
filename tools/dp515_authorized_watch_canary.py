@@ -10,11 +10,14 @@ This has no PostgreSQL/queue/publication authority and meters no paid cost.
 from __future__ import annotations
 
 import json
+import sys
 import sqlite3
 import tempfile
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dichiarazioni_pubbliche.incremental_source_watch import (
     WatchObservation,
