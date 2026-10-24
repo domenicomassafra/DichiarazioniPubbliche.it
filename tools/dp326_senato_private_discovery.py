@@ -49,6 +49,8 @@ COLLECTION_ID = "research:senato-akn-dp326"
 MANIFEST_ID = "discovery-manifest:senato-akn-dp326"
 RUN_ID = "discovery-run:senato-akn-dp326"
 POLICY_VERSION = "dp326-official-ccby4-metadata-v1"
+DP330_PRIVATE_CAPTURE_POLICY = "dp330-senato-ccby4-private-capture-20261024"
+DP330_PRIVATE_CAPTURE_USES = ("DISCOVER_METADATA", "FETCH", "RESEARCH_CAPTURE_PRIVATE", "STORE_BODY")
 ATTRIBUTION = "Senato della Repubblica"
 REVIEWER_REF = "machine:licence-attestation-v1"
 RELEVANCE_REVIEWER = "machine:official-record-source-v1"
@@ -290,10 +292,17 @@ def _record_exact_metadata_rights(
     )
     current = store.read_current(subject)
     if current:
+        # DP244 may upgrade this exact licensed Content from metadata discovery
+        # to a bounded private Capture. Keep the original Run/Hit replay stable.
+        scope_allowed = (
+            (current.policy_version == POLICY_VERSION
+             and current.permitted_uses == ("DISCOVER_METADATA",))
+            or (current.policy_version == DP330_PRIVATE_CAPTURE_POLICY
+                and current.permitted_uses == DP330_PRIVATE_CAPTURE_USES)
+        )
         if (current.rights_status != "CLEARED"
             or current.rights_receipt_ref != RIGHTS_RECEIPT
-            or current.permitted_uses != ("DISCOVER_METADATA",)
-            or current.policy_version != POLICY_VERSION
+            or not scope_allowed
             or current.reviewer_ref != REVIEWER_REF
             or current.version_state != "CURRENT"):
             raise RuntimeError("DP326_CURRENT_RIGHTS_CONFLICT")

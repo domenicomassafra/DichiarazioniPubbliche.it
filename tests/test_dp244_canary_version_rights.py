@@ -14,7 +14,7 @@ from tools import dp244_refresh_cycle_canary as canary
 
 
 class CanaryVersionRightsTests(unittest.TestCase):
-    def run_with_historical_terms(self, historical_terms: bytes):
+    def run_with_historical_terms(self, historical_terms: bytes, *, repeat=False):
         calls: list[str] = []
 
         def fake_http(url: str, headers: tuple[tuple[str, str], ...]):
@@ -34,6 +34,7 @@ class CanaryVersionRightsTests(unittest.TestCase):
             raise AssertionError(f"unexpected source URL {url}")
 
         output = io.StringIO()
+        first_output = None
         with tempfile.TemporaryDirectory() as scratch:
             with patch.object(canary, "bounded_http_get", side_effect=fake_http):
                 with contextlib.redirect_stdout(output):
@@ -41,18 +42,41 @@ class CanaryVersionRightsTests(unittest.TestCase):
                         outcome = canary.main(["--store", str(Path(scratch) / "captures")])
                     except SystemExit as error:
                         outcome = str(error)
-        return outcome, output.getvalue(), calls
+                if repeat and outcome == 0:
+                    first_output = output.getvalue()
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
+                        outcome = canary.main(["--store", str(Path(scratch) / "captures")])
+                    self.assertEqual((Path(scratch) / "captures").stat().st_mode & 0o777, 0o700)
+        return outcome, output.getvalue(), calls, first_output
 
     def test_historical_version_with_wrong_license_is_held_before_body_fetch(self):
-        outcome, _, calls = self.run_with_historical_terms(
+        outcome, _, calls, _ = self.run_with_historical_terms(
             b"Licenza priva di concessione corrente"
         )
         self.assertIn("DP244_CANARY_RIGHTS_", str(outcome))
         self.assertNotIn(canary.PREVIOUS_URL, calls)
         self.assertIn(canary.PREVIOUS_README_URL, calls)
 
+    def test_persistent_store_replay_reads_existing_versions_without_rewrite(self):
+        outcome, output, _, initial = self.run_with_historical_terms(
+            b"Licenza: CC BY 3.0", repeat=True,
+        )
+        self.assertEqual(outcome, 0)
+        self.assertIsNotNone(initial)
+        first = json.loads(initial)
+        repeated = json.loads(output)
+        self.assertTrue(all(item["written"] for item in first["captures"]))
+        self.assertTrue(all(not item["written"] for item in repeated["captures"]))
+        self.assertEqual(
+            [item["capture_id"] for item in first["captures"]],
+            [item["capture_id"] for item in repeated["captures"]],
+        )
+        self.assertTrue(all(item["verified"] for item in repeated["captures"]))
+        self.assertFalse(repeated["replay"]["rewritten"])
+
     def test_historical_version_attests_own_license_and_keeps_public_hold(self):
-        outcome, output, calls = self.run_with_historical_terms(b"Licenza: CC BY 3.0")
+        outcome, output, calls, _ = self.run_with_historical_terms(b"Licenza: CC BY 3.0")
         self.assertEqual(outcome, 0)
         result = json.loads(output)
         self.assertEqual(result["verdict"], "PASS")
