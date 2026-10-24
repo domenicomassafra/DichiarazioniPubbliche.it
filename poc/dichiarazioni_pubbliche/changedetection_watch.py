@@ -204,7 +204,8 @@ def snapshot_to_observation(
         raise ChangedetectionError("PROVIDER_HISTORY_INVALID")
     if not isinstance(snapshot.content, bytes) or not 0 < len(snapshot.content) <= _MAX_SNAPSHOT:
         raise ChangedetectionError("PROVIDER_SNAPSHOT_INVALID")
-    history_key = next(reversed(snapshot.history))
+    # Provider JSON insertion order is not chronological provenance.
+    history_key = max(snapshot.history, key=lambda key: (int(key), key))
     digest = hashlib.sha256(snapshot.content).hexdigest()
     # Source version follows the verified text digest; an upstream history
     # timestamp alone cannot cause duplicate child proposals for equal bytes.
