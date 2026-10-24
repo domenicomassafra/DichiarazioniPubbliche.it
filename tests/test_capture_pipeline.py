@@ -366,10 +366,6 @@ class CapturePipelineTests(unittest.TestCase):
     def test_direct_fetch_validation_checks_complete_public_2xx_bytes(self):
         safe = fetched(b"<p>Public representation.</p>")
         _validate_fetched_resource(safe, max_response_bytes=len(safe.body))
-        _validate_fetched_resource(
-            replace(safe, final_url="https://1.1.1.1/verified", status_code=206),
-            max_response_bytes=len(safe.body),
-        )
         cases = (
             (replace(safe, status_code=304), "CAPTURE_HTTP_STATUS_BLOCKED"),
             (replace(safe, body=bytearray(safe.body)), "CAPTURE_BODY_INVALID"),

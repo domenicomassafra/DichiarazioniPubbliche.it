@@ -185,7 +185,9 @@ class PlaywrightBrowserRenderer:
                 final = validate_discovery_url(fetched.final_url, resolver=self.resolver)
                 if final != requested:
                     raise BrowserRenderBlocked("BROWSER_HTTP_REDIRECT_REFUSED")
-                if (fetched.status_code < 200 or fetched.status_code >= 300
+                # A non-Range GET must return the complete representation.
+                # 206/other 2xx can have internally consistent partial bodies.
+                if (fetched.status_code != 200
                         or len(fetched.body) != fetched.content_length
                         or len(fetched.body) > remaining):
                     raise BrowserRenderBlocked("BROWSER_RESPONSE_REFUSED")

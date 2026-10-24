@@ -74,6 +74,10 @@ def _validate_fetched_resource(fetched: FetchedBytes, *, max_response_bytes: int
         raise CapturePipelineError("CAPTURE_RESPONSE_TOO_LARGE")
     if type(fetched.content_length) is not int or fetched.content_length != len(fetched.body):
         raise CapturePipelineError("CAPTURE_CONTENT_LENGTH_MISMATCH")
+    # 206 carries a byte range, not a complete representation of the source.
+    # A normal capture GET never asks for a Range, even if lengths agree.
+    if fetched.status_code == 206:
+        raise CapturePipelineError("CAPTURE_HTTP_PARTIAL_CONTENT_REFUSED")
     if type(fetched.status_code) is not int or not 200 <= fetched.status_code < 300:
         raise CapturePipelineError("CAPTURE_HTTP_STATUS_BLOCKED")
     _validate_capture_target(fetched.final_url, final=True)
