@@ -231,9 +231,32 @@ fi
 
 if [ "$KEEP" -eq 0 ]; then
     echo "DRILL cleanup: reset the throwaway restored database schema"
-    psql --dbname="$RESTORE_URL" --no-align --tuples-only \
+    if ! psql --dbname="$RESTORE_URL" --set=ON_ERROR_STOP=1 --no-align --tuples-only \
         --command='DROP SCHEMA public CASCADE; CREATE SCHEMA public;' \
-        >/dev/null 2>&1 || true
+        >/dev/null 2>&1; then
+        echo "DRILL FAILED: cleanup could not reset the disposable schema" >&2
+        exit 1
+    fi
+    if ! CLEANUP_OBJECTS=$(psql --dbname="$RESTORE_URL" --set=ON_ERROR_STOP=1 \
+        --no-align --tuples-only --command="SELECT count(*) FROM pg_catalog.pg_class c \
+        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace \
+        WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_' \
+        AND c.relkind IN ('r','p','v','m','f','S')" 2>/dev/null); then
+        echo "DRILL FAILED: cleanup read-back could not inspect the disposable database" >&2
+        exit 1
+    fi
+    CLEANUP_OBJECTS=$(printf '%s' "$CLEANUP_OBJECTS" | tr -d '[:space:]')
+    case "$CLEANUP_OBJECTS" in
+        ''|*[!0-9]*)
+            echo "DRILL FAILED: cleanup read-back returned an invalid count" >&2
+            exit 1
+            ;;
+    esac
+    if [ "$CLEANUP_OBJECTS" -ne 0 ]; then
+        echo "DRILL FAILED: cleanup left $CLEANUP_OBJECTS user objects" >&2
+        exit 1
+    fi
+    echo "DRILL cleanup: read-back verified empty"
 fi
 
 echo "DRILL PASS set=$BACKUP_SET"

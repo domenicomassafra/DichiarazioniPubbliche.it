@@ -4,6 +4,11 @@
 2. Produce a fresh backup with `deploy/ops/backup.sh`, using the same database and projection inputs as the candidate runtime.
 3. Run `deploy/ops/restore_drill.sh --backup-root <private-root> --restore-url <throwaway-libpq-url>`.
 4. Treat exit code `0` as a pass, `1` as a real mismatch/failure, and `2` as blocked because required input/tooling is unavailable.
+   Without `--keep`, a pass also requires the disposable schema cleanup
+   command to succeed and a fresh catalog read-back to show zero remaining user
+   objects. A cleanup failure or nonzero residue returns exit `1`. With
+   `--keep`, the restored state is retained for explicit operator inspection
+   and cleanup; the retained state is not a rollback receipt.
 5. Preserve a sanitized receipt with the target database name/disposable check, backup set name, table results, dataset fingerprint result, and exit code. Do not record credentials or raw transcript/evidence content.
 6. If any load-bearing table or public-bundle fingerprint is missing or mismatched, do not publish and do not repair the restored copy merely to obtain green output.
 

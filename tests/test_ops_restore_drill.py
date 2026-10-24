@@ -194,6 +194,68 @@ class RestoreVerificationTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("is not empty", proc.stderr)
 
+    def test_restore_driver_verifies_cleanup_before_reporting_pass(self):
+        # Exercise the operator CLI with simulated PostgreSQL responses.
+        # No server or production data is accessed.
+        cases = (
+            ("drop-fails", "1", "0", 1, "cleanup could not reset"),
+            ("residue-remains", "0", "1", 1, "cleanup left 1 user objects"),
+            ("readback-fails", "0", "ERROR", 1, "cleanup read-back could not inspect"),
+            ("empty-after-drop", "0", "0", 0, "DRILL PASS"),
+        )
+        for name, drop_error, residue, expected_exit, message in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                set_dir = root / "backups" / "20261024T120000Z"
+                set_dir.mkdir(parents=True)
+                (set_dir / "dichiarazioni_pubbliche.dump").write_bytes(b"fixture-dump")
+                (set_dir / "manifest.json").write_text(
+                    json.dumps({"tables": {"source": 0}})
+                )
+                fakebin = root / "bin"
+                fakebin.mkdir()
+                self._write_fake_tool(fakebin, "pg_restore", "exit 0\n")
+                self._write_fake_tool(
+                    fakebin,
+                    "psql",
+                    'case "$*" in\n'
+                    '  *current_database*) echo dp_restore_test ;;\n'
+                    '  *"DROP SCHEMA public CASCADE"*)\n'
+                    '    if [ "$DP_TEST_DROP_ERROR" = 1 ]; then exit 1; fi\n'
+                    '    : > "$DP_TEST_DROPPED" ;;\n'
+                    '  *"nspname <> "*)\n'
+                    '    if [ -f "$DP_TEST_DROPPED" ]; then\n'
+                    '      if [ "$DP_TEST_RESIDUE" = ERROR ]; then exit 1; fi\n'
+                    '      echo "$DP_TEST_RESIDUE";\n'
+                    '    else echo 0; fi ;;\n'
+                    '  *"nspname = "*) echo source ;;\n'
+                    '  *"count(*)"*) echo 0 ;;\n'
+                    '  *) exit 90 ;;\n'
+                    'esac\n',
+                )
+                self._write_fake_tool(
+                    fakebin,
+                    "python3",
+                    'case "$*" in\n'
+                    '  *"-m dichiarazioni_pubbliche.ops.restore_drill"*) exit 0 ;;\n'
+                    'esac\n'
+                    + 'exec "' + sys.executable + '" "$@"\n',
+                )
+                env = os.environ.copy()
+                env["PATH"] = str(fakebin) + os.pathsep + env.get("PATH", "")
+                env["DP_TEST_DROP_ERROR"] = drop_error
+                env["DP_TEST_RESIDUE"] = residue
+                env["DP_TEST_DROPPED"] = str(root / "drop-done")
+                proc = subprocess.run(
+                    [str(RESTORE_SCRIPT), "--backup-root", str(root / "backups"),
+                     "--restore-url", "postgresql:///restore-target"],
+                    capture_output=True, text=True, check=False, env=env,
+                )
+                self.assertEqual(proc.returncode, expected_exit, proc.stdout + proc.stderr)
+                self.assertIn(message, proc.stdout + proc.stderr)
+                if expected_exit:
+                    self.assertNotIn("DRILL PASS", proc.stdout)
+
     def test_cli_passes_only_when_all_required_counts_match(self):
         from dichiarazioni_pubbliche.ops.restore_verify import LOAD_BEARING_TABLES
 
