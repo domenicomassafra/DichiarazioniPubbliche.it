@@ -8,7 +8,7 @@ import tempfile
 import threading
 import unittest
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
@@ -83,6 +83,33 @@ class RevocationEpochFenceTests(unittest.TestCase):
             with self.subTest(source=source, reason=reason), self.assertRaisesRegex(RevocationFenceHeld, "REPLAY_CONFLICT"):
                 self.store.revoke(source_id=source, event_id="event:1", reason=reason, now=NOW)
         self.assertEqual(self.store.revoke(source_id="source:1", event_id="event:2", reason="SOURCE_SUPERSEDED", now=NOW), 2)
+
+    def test_same_revocation_event_with_changed_occurrence_time_is_rejected(self):
+        """An event ID cannot silently authenticate two different revocation times."""
+        first = self.store.revoke(
+            source_id="source:1", event_id="event:stable", reason="CORRECTION",
+            now=NOW,
+        )
+        self.assertEqual(first, 1)
+        # A different timestamp for the same event ID must conflict instead
+        # of being silently treated as successful replay.
+        with self.assertRaisesRegex(RevocationFenceHeld, "FENCE_REPLAY_CONFLICT"):
+            self.store.revoke(
+                source_id="source:1", event_id="event:stable", reason="CORRECTION",
+                now=NOW + timedelta(minutes=1),
+            )
+        self.assertEqual(
+            self.store.pending_invalidations(), (("event:stable", "source:1", 1),)
+        )
+        # Representation differences for the same instant should replay.
+        same_instant = NOW.astimezone(timezone(timedelta(hours=2)))
+        self.assertEqual(
+            self.store.revoke(
+                source_id="source:1", event_id="event:stable",
+                reason="CORRECTION", now=same_instant,
+            ),
+            1,
+        )
 
     def test_forged_token_epoch_or_material_hash_is_denied(self):
         ticket = self.ticket("source:1")
