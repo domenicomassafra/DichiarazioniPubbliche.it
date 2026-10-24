@@ -7,12 +7,12 @@ Leggere prima `~/.dstack/contracts/shared-root/AGENTS.md` e la issue GitHub asse
 - Backend Python: `poc/dichiarazioni_pubbliche/`; test: `tests/`; contratti/API: `docs/api/`; configurazione fonti: `config/`.
 - Flusso: fonte → acquisizione/trascrizione → statement/claim → evidenze → verifica → revisione → proiezione pubblica.
 - PostgreSQL conserva stato operativo e code quando previsto; il web Astro in `web/` legge solo una proiezione esplicitamente approvata.
-- Git autorevole: `domenicomassafra/DichiarazioniPubbliche.it`, branch `main`. Lavorare in `/home/udodo/Code/.worktrees/DichiarazioniPubbliche.it-<issue>` da `origin/main` sul MiniPC; il checkout condiviso potrebbe contenere WIP di altri.
+- Git autorevole: `domenicomassafra/DichiarazioniPubbliche.it`, branch `main`. Lavorare sul Mac Studio in `~/Code/.worktrees/DichiarazioniPubbliche.it-<issue>` da `origin/main`; il checkout condiviso potrebbe contenere WIP di altri.
 - Consumer MiniPC: mirror non-Git `/home/udodo/src/DichiarazioniPubbliche.it`; servizio `dichiarazioni-pubbliche-web.service` su `127.0.0.1:18090`. GitHub CI non installa il consumer.
 
 ## Comandi di verifica
 
-Toolchain: Python 3.11–3.14 e Node 24. Eseguire test/build sul MiniPC passando per `python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -- <comando>`; sullo Studio solo letture e attività che richiedono macOS.
+Toolchain: Python 3.11–3.14 e Node 24. Eseguire `npm ci`, test e build solo sul Mac Studio, sempre tramite `python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -- <comando>`; il MiniPC è riservato a runtime Linux, servizi e verifiche di readback.
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 -m unittest tests.test_repository_contract -v
