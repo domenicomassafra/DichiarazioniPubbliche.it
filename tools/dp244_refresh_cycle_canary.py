@@ -412,9 +412,11 @@ def main(argv: list[str] | None = None) -> int:
     assert all(row["cost"] is None for row in attempts)
     assert len({row["state_sha256"] for row in attempts}) == 2
     assert attempts[1]["state_sha256"] == attempts[0]["content_sha256"]
-    assert captures[0]["written"] is True and captures[1]["written"] is True
-    assert replay.capture_id == captures[1]["capture_id"] and rewritten is False
+    # Persistent operator stores may already contain both immutable versions.
+    # File integrity and the replay receipt, not "newly created", establish PASS.
+    assert len({row["capture_id"] for row in captures}) == 2
     assert all(row["verified"] for row in captures)
+    assert replay.capture_id == captures[1]["capture_id"] and rewritten is False
     assert missing.committed_attempt.decision.disposition == "UNAVAILABLE"
     assert missing.committed_attempt.observation.status_code == 404
     assert coverage.delta_proposal == "REVIEW_CHANGED_SOURCE"
