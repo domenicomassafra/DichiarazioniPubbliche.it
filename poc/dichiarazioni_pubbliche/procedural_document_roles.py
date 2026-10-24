@@ -427,10 +427,7 @@ def evaluate_procedural_document(
                 len(set(span.subject_person_refs)) != 1
                 or len(set(span.procedural_party_refs)) != 1
             ):
-                # A participant list can include victims, claimants and
-                # accused persons. It is not a reviewed per-status target
-                # binding; when more than one person is involved, never
-                # infer which person's legal status the words establish.
+                # Multiple parties cannot establish a unique status target.
                 codes.append("STATUS_PARTY_IDENTITY_AMBIGUOUS")
             # A status mentioned in testimony, a reporter's quotation or a
             # party allegation does not attest that procedural state, even
@@ -555,6 +552,7 @@ def assess_procedural_independence(
     if not isinstance(sources, (tuple, list)) or len(sources) > 128:
         raise ValueError("PROCEDURAL_FAMILY_INPUT_INVALID")
     families: dict[str, set[str]] = {}
+    capture_to_family: dict[str, str] = {}
     origin_to_family: dict[str, str] = {}
     digest_to_family: dict[str, str] = {}
     codes: list[str] = []
@@ -565,6 +563,7 @@ def assess_procedural_independence(
             continue
         families.setdefault(source.family_ref, set()).add(source.capture_ref)
         for index, mapping, code in (
+            (source.capture_ref, capture_to_family, "CROSS_FAMILY_CAPTURE_CONFLICT"),
             (source.original_record_ref, origin_to_family, "CROSS_FAMILY_ORIGIN_CONFLICT"),
             (source.source_sha256, digest_to_family, "CROSS_FAMILY_IDENTICAL_BYTES"),
         ):

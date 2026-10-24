@@ -104,7 +104,7 @@
   "poc/dichiarazioni_pubbliche/privacy_field_inventory.py": 31020,
   "poc/dichiarazioni_pubbliche/privacy_runtime.py": 21438,
   "poc/dichiarazioni_pubbliche/private_synopsis_refresh_cohort_v1.py": 23599,
-  "poc/dichiarazioni_pubbliche/procedural_document_roles.py": 25282,
+  "poc/dichiarazioni_pubbliche/procedural_document_roles.py": 25196,
   "poc/dichiarazioni_pubbliche/production_projection_revalidation.py": 21297,
   "poc/dichiarazioni_pubbliche/proposition_clustering.py": 21212,
   "poc/dichiarazioni_pubbliche/provenance_quarantine.py": 28902,
