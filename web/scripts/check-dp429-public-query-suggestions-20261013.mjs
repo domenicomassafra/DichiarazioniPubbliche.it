@@ -16,6 +16,7 @@ const ts = require("typescript");
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const componentPath = path.join(webRoot, "src/components/ExploreClient.tsx");
 const indexPath = path.join(webRoot, "src/lib/searchIndex.ts");
+const shapePath = path.join(webRoot, "src/lib/searchIndexShape.ts");
 const source = await readFile(componentPath, "utf8");
 const indexSource = await readFile(indexPath, "utf8");
 
@@ -47,7 +48,9 @@ function load(text, filename, dependencies) {
   );
   return out.exports;
 }
+const shape = load(await readFile(shapePath, "utf8"), shapePath, {});
 const search = load(indexSource, indexPath, {
+  "./searchIndexShape.ts": shape,
   "./format.ts": { publicIdSlug: (id) => id.replaceAll(":", "-") },
   "./minisearchAdapter.ts": { publicTextScores: (records, query, fields, normalize) => new Map(
     records.flatMap((row, i) => {

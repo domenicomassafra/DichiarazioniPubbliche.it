@@ -205,7 +205,7 @@
   "web/scripts/dp431_rebuild.py": 21719,
   "web/src/components/ExploreClient.tsx": 27937,
   "web/src/lib/publicStatementSearchV3.ts": 21162,
-  "web/src/lib/searchIndex.ts": 21615,
+  "web/src/lib/searchIndex.ts": 21234,
   "web/src/styles/legacy.css": 66483,
   "web/src/styles/primitives.css": 47409
 }
