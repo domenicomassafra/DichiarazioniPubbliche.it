@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 """DP-244 real-case cycle: baseline, unchanged, changed and outage in one run.
 
-Against a real HTTPS source (official Senate open-data AKN XML, CC BY 4.0,
-pinned commits) this canary performs:
+Against a real HTTPS source (official Senate open-data AKN XML, CC BY 4.0
+in 2026 and CC BY 3.0 in 2025) this canary performs:
 
 * baseline — a real 200 with byte-length, SHA-256 and ETag, stored as an
   immutable content-addressed capture;
 * unchanged — a real conditional repeat that returns 304, with no new capture;
-* changed — a real second version of the same document (older pinned commit)
-  admitted through the same locator, producing a review proposal and a second
-  immutable capture;
+* changed — authentic older pinned bytes replayed as a simulated 200 response
+  to the current watch locator, producing a held review proposal and a second
+  immutable capture; this is not evidence of a live locator change in this run;
 * outage — a real HTTP 404 on the same source family, no capture, backoff state;
 * coverage — catalog decisions for the observed versions and for the missing
   document, with the data absence marked explicitly and no public freshness
   descriptor.
 
-Rights are not asserted by hand: the repository licence is read from the hashed
-`README.MD` and attested by the DP-317 licence module. Nothing is published, no
+For both pinned versions the licence is separately read from the hashed
+`README.MD`, attested by DP-317, and checked against the exact FETCH and
+STORE_BODY locator. All Captures remain private and the public gate stays HOLD. Nothing is published, no
 database is touched, and measured cost stays UNKNOWN.
 
 Usage:
@@ -80,6 +81,7 @@ CURRENT_URL = f"{BASE}/{CURRENT_COMMIT}/{DOCUMENT}"
 PREVIOUS_URL = f"{BASE}/{PREVIOUS_COMMIT}/{DOCUMENT}"
 MISSING_URL = f"{BASE}/{CURRENT_COMMIT}/Leg19/assente-2026.xml"
 README_URL = f"{BASE}/{CURRENT_COMMIT}/README.MD"
+PREVIOUS_README_URL = f"{BASE}/{PREVIOUS_COMMIT}/README.MD"
 SOURCE_ID = "source:senato-akn-leg19-01457617"
 SOURCE_FAMILY = "senato_open_data_akn"
 POLICY_VERSION = "dp244-cycle-canary-v1"
@@ -118,7 +120,7 @@ def rights_record(subject: RightsSubject, terms: SourceTermsEvidence, now: datet
     if attestation.status != "APPROVED":
         raise SystemExit(f"DP244_CANARY_RIGHTS_{attestation.reason_code}")
     return PrivateRightsRecord(
-        id="rights:senato-akn-cycle",
+        id=f"rights:senato-akn-cycle:{rights_subject_fingerprint(subject)[:16]}",
         subject_fingerprint=rights_subject_fingerprint(subject),
         source_family=subject.source_family,
         locator_kind=subject.locator_kind,
@@ -193,6 +195,21 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
 
+    previous_readme = fetch(PREVIOUS_README_URL)
+    previous_terms = SourceTermsEvidence(
+        terms_url=PREVIOUS_README_URL,
+        terms_document_sha256=sha(previous_readme),
+        terms_version=f"senato-open-data-readme-{sha(previous_readme)[:16]}",
+        licence_id="CC-BY-3.0",
+        licence_url="https://creativecommons.org/licenses/by/3.0/",
+        rightsholder="Senato della Repubblica",
+        markers=tuple(
+            marker
+            for marker in ("CC BY 3.0", "Attribution 3.0 Unported")
+            if marker in previous_readme.decode("utf-8", "replace")
+        ),
+    )
+
     current_policy, missing_policy = policy_for(CURRENT_URL), policy_for(MISSING_URL)
 
     def subject_for(url):
@@ -209,19 +226,33 @@ def main(argv: list[str] | None = None) -> int:
     missing_guard = guard_for(
         MISSING_URL, rights_record(subject_for(MISSING_URL), terms, now)
     )
+    previous_guard = guard_for(
+        PREVIOUS_URL, rights_record(subject_for(PREVIOUS_URL), previous_terms, now)
+    )
     gates = readiness(current_policy)
 
-    # --- real second version, fetched explicitly for the changed step --------
+    # The historical locator and licence require their own current permit.
+    previous_guard.require("FETCH")
     previous = bounded_http_get(PREVIOUS_URL, ())
+    previous_guard.bind_fetched(final_url=previous.final_url)
+    previous_guard.require("FETCH")
     if previous.status_code != 200 or not previous.body:
         raise SystemExit("DP244_CANARY_PREVIOUS_VERSION_UNAVAILABLE")
 
     state = WatchState(source_id=SOURCE_ID)
     attempts = []
     captures = []
+    observed_bodies = {}
 
     def run(attempt_id, *, fetch_impl=bounded_http_get):
         nonlocal state
+
+        def observe_bytes(url, headers):
+            response = fetch_impl(url, headers)
+            if response.status_code == 200:
+                observed_bodies[attempt_id] = response.body
+            return response
+
         receipt = probe_permitted_source(
             policy=current_policy,
             state=state,
@@ -232,7 +263,7 @@ def main(argv: list[str] | None = None) -> int:
             url=CURRENT_URL,
             attempt_id=attempt_id,
             attempted_at=now + timedelta(seconds=len(attempts) * 30),
-            fetch=fetch_impl,
+            fetch=observe_bytes,
             clock=lambda: now + timedelta(seconds=len(attempts) * 30, microseconds=1),
         )
         state = receipt.committed_attempt.decision.next_state
@@ -264,10 +295,11 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
 
-    for label, body in (
-        ("current", fetch(CURRENT_URL)),
-        ("previous", previous.body),
+    for label, body, guard in (
+        ("current", observed_bodies["attempt:dp244:baseline"], current_guard),
+        ("previous", previous.body, previous_guard),
     ):
+        guard.require("STORE_BODY", content_sha256=sha(body), media_type=MEDIA_TYPE)
         record, written = store_capture(
             root,
             body=body,
@@ -396,6 +428,12 @@ def main(argv: list[str] | None = None) -> int:
                 "missing_url": MISSING_URL,
                 "readme_url": README_URL,
                 "readme_sha256": sha(readme),
+                "previous_readme_url": PREVIOUS_README_URL,
+                "previous_readme_sha256": sha(previous_readme),
+                "current_licence_id": terms.licence_id,
+                "previous_licence_id": previous_terms.licence_id,
+                "changed_step": "REPLAY_AUTHENTIC_PINNED_BYTES",
+                "rights_record_scope": "IN_MEMORY_CANARY_ONLY",
                 "licence_markers": list(terms.markers),
                 "rights": "LICENCE_VERIFIED_FOR_PRIVATE_USE",
                 "permitted_uses": ["FETCH", "STORE_BODY"],
