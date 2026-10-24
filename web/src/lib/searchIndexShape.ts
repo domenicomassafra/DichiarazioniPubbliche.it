@@ -36,7 +36,7 @@ function isDisplaySafeRecord(value: unknown): value is PublicSearchRecord {
       : record.wording_type === null) &&
     (record.assessment === null
       ? record.kind !== "finding"
-      : record.kind === "finding" && ASSESSMENTS.has(record.assessment)) &&
+      : record.kind === "finding" && typeof record.assessment === "string" && ASSESSMENTS.has(record.assessment)) &&
     (record.source_wording_type === null ||
       record.source_wording_type === "VERBATIM_ORIGINAL" ||
       record.source_wording_type === "REPORTED_QUOTE") &&
