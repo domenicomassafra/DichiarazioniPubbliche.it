@@ -151,11 +151,10 @@ def classify_decision_reason(reason: str) -> str:
 
     ``DEFER`` reasons are temporary and self-healing (budget exhaustion, rate
     limit). ``BLOCK`` reasons need an operator decision. ``ALLOW`` is the
-    success path. Anything unrecognised is treated as BLOCK, because an
-    unknown reason must not be silently treated as permission to spend.
+    success path. Unknown reasons BLOCK, never grant permission to spend.
     """
     value = str(reason or "")
-    if value.startswith("ALLOWED"):
+    if value in {"ALLOWED", "ALLOWED_ZERO_COST"}:
         return "ALLOW"
     if value in {"GLOBAL_DAILY_BUDGET_REACHED", "SOURCE_DAILY_BUDGET_REACHED", "JOB_COST_CAP_REACHED"}:
         return "DEFER"

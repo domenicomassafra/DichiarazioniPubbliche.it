@@ -120,6 +120,19 @@ class BudgetPreflightTests(unittest.TestCase):
         self.assertTrue(preflight(self.policy, snapshot, 0.0,
                                   operation="PUBLIC_PROJECTION_BUILD").allowed)
 
+    def test_unrecognized_allowed_prefix_classifies_as_block(self):
+        # A new reason must not be classified as permission merely because
+        # it begins with the marker for a recognized success.
+        self.assertEqual(classify_decision_reason("ALLOWED"), "ALLOW")
+        self.assertEqual(classify_decision_reason("ALLOWED_ZERO_COST"), "ALLOW")
+        for unrecognized in (
+            "ALLOWED_UNATTESTED_PROVIDER_COST",
+            "ALLOWED_ZERO_COST_UNVERIFIED",
+            "ALLOWED ",
+        ):
+            with self.subTest(reason=unrecognized):
+                self.assertEqual(classify_decision_reason(unrecognized), "BLOCK")
+
     def test_default_policy_is_structurally_coherent(self):
         self.assertEqual(validate_cost_policy(), ())
 
