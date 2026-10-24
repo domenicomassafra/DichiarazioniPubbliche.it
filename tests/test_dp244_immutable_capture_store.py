@@ -68,6 +68,51 @@ class ImmutableCaptureStoreTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(len(list(self.root.iterdir())), 2)
 
+    def test_replay_returns_original_receipt_despite_new_observation_metadata(self):
+        first, _ = store(self.root, measured_cost_micro_eur=12)
+        replay, written = store(
+            self.root,
+            observed_at=datetime(2026, 10, 24, 13, tzinfo=timezone.utc),
+            measured_cost_micro_eur=34,
+        )
+        self.assertFalse(written)
+        self.assertEqual(replay, first)
+        self.assertEqual(replay, verify_capture(self.root, first.capture_id))
+
+    def test_replay_rejects_conflicting_source_provenance(self):
+        first, _ = store(self.root)
+        for changes in (
+            {"source_id": "source:other"},
+            {"locator_id": "locator:other"},
+            {"media_type": "text/plain"},
+        ):
+            with self.subTest(changes=changes):
+                with self.assertRaises(CaptureStoreError) as raised:
+                    store(self.root, **changes)
+                self.assertEqual(str(raised.exception), "CAPTURE_PROVENANCE_MISMATCH")
+        self.assertEqual(verify_capture(self.root, first.capture_id), first)
+
+    def test_replay_rejects_a_corrupted_receipt(self):
+        first, _ = store(self.root)
+        path = self.root / f"{first.content_sha256}.receipt.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["byte_length"] += 1
+        corrupted = json.dumps(payload)
+        path.write_text(corrupted, encoding="utf-8")
+        with self.assertRaises(CaptureStoreError) as raised:
+            store(self.root)
+        self.assertEqual(str(raised.exception), "CAPTURE_RECEIPT_MISMATCH")
+        self.assertEqual(path.read_text(encoding="utf-8"), corrupted)
+
+    def test_replay_does_not_invent_a_missing_receipt(self):
+        first, _ = store(self.root)
+        path = self.root / f"{first.content_sha256}.receipt.json"
+        path.unlink()
+        with self.assertRaises(CaptureStoreError) as raised:
+            store(self.root)
+        self.assertEqual(str(raised.exception), "CAPTURE_NOT_FOUND")
+        self.assertFalse(path.exists())
+
     def test_distinct_versions_produce_distinct_immutable_captures(self):
         old, _ = store(self.root, body=b"versione 2025")
         new, _ = store(self.root, body=b"versione 2026")
