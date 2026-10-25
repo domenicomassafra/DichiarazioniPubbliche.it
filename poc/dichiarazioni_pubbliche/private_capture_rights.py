@@ -25,7 +25,7 @@ from dichiarazioni_pubbliche.rights_registry import (
 SOURCE_USE_CONTRACT_VERSION = "source-family-use-v1"
 PRIVATE_SOURCE_USES = frozenset({
     "DISCOVER_METADATA", "FETCH", "STORE_BODY", "PARSE_TEXT", "PARSE_OCR",
-    "TRANSLATE", "ASR_MEDIA", "ARCHIVE",
+    "TRANSLATE", "ASR_MEDIA", "ARCHIVE", "EXTRACT_CANDIDATES",
 })
 PUBLIC_SOURCE_USE = "EXCERPT_PUBLIC"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
