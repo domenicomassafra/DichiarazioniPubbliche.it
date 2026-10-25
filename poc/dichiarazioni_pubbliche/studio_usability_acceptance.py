@@ -74,6 +74,83 @@ def read_live_collection_counts(reader: Any) -> dict[str, int]:
     return counts
 
 
+_VERIFY_BINDINGS_SQL = """
+SELECT observation.task_id
+FROM jsonb_to_recordset(:'observations'::jsonb) AS observation(
+    task_id text, source_id text, capture_id text, passage_id text,
+    statement_candidate_id text, rights_record_id text, coverage_need_id text
+)
+WHERE (
+    observation.coverage_need_id IS NOT NULL
+    AND EXISTS (SELECT 1 FROM coverage_need need
+                WHERE need.id=observation.coverage_need_id
+                  AND need.collection_id='research:garlasco')
+) OR (
+    observation.coverage_need_id IS NULL
+    AND EXISTS (
+        SELECT 1 FROM research_collection_content member
+        JOIN content_item item ON item.id=member.content_id
+        JOIN source source ON source.id=item.source_id
+        JOIN content_capture capture ON capture.content_id=item.id
+        JOIN private_source_rights_record rights ON rights.content_id=item.id
+        WHERE member.collection_id='research:garlasco'
+          AND member.status='INCLUDED'
+          AND source.id=observation.source_id
+          AND capture.id=observation.capture_id
+          AND capture.status='CAPTURED'
+          AND rights.id=observation.rights_record_id
+          AND rights.rights_status='CLEARED'
+          AND rights.record_visibility='PRIVATE'
+          AND rights.rights_receipt_ref IS NOT NULL
+          AND rights.reviewed_at IS NOT NULL
+          AND rights.reviewer_ref IS NOT NULL
+          AND (rights.expires_at IS NULL OR rights.expires_at>current_timestamp)
+          AND rights.locator_kind='URL'
+          AND rights.locator_value=capture.final_url
+          AND rights.permitted_uses @> ARRAY['FETCH','STORE_BODY','RESEARCH_CAPTURE_PRIVATE']::text[]
+          AND NOT EXISTS (SELECT 1 FROM private_source_rights_record successor
+                          WHERE successor.supersedes_id=rights.id)
+          AND (observation.passage_id IS NULL OR EXISTS (
+              SELECT 1 FROM passage passage
+              WHERE passage.id=observation.passage_id
+                AND passage.content_id=item.id AND passage.capture_id=capture.id))
+          AND (observation.statement_candidate_id IS NULL OR EXISTS (
+              SELECT 1 FROM statement_candidate candidate
+              JOIN statement_candidate_passage link
+                ON link.statement_candidate_id=candidate.id
+               AND link.content_id=candidate.content_id
+              JOIN passage passage ON passage.id=link.passage_id
+              WHERE candidate.id=observation.statement_candidate_id
+                AND candidate.content_id=item.id
+                AND passage.id=observation.passage_id
+                AND passage.capture_id=capture.id))
+    )
+)
+ORDER BY observation.task_id;
+""".strip()
+
+
+def read_verified_task_bindings(reader: Any, observations: Mapping[str, Any]) -> set[str]:
+    """Verify exact collection, Capture, Passage, Candidate and current rights links."""
+    if not isinstance(observations, dict) or len(observations) > 25:
+        raise ValueError("DP420_OBSERVATIONS_INVALID")
+    records = [dict(task_id=name, **{
+        key: value for key, value in observed.items()
+        if key in {"source_id", "capture_id", "passage_id", "statement_candidate_id",
+                   "rights_record_id", "coverage_need_id"} and isinstance(value, str)
+    }) for name, observed in observations.items() if isinstance(observed, dict)
+        and observed.get("status") == "PASS"]
+    if not records:
+        return set()
+    try:
+        verified = set(reader.run(_VERIFY_BINDINGS_SQL, observations=json.dumps(records)).splitlines())
+    except Exception:
+        raise RuntimeError("DP420_BINDINGS_READBACK_UNAVAILABLE") from None
+    if not verified <= {record["task_id"] for record in records}:
+        raise ValueError("DP420_BINDINGS_INVALID")
+    return verified
+
+
 def _load_tasks() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     fixture = json.loads(TASKS_PATH.read_text(encoding="utf-8"))
     if fixture.get("version") != "studio-garlasco-usability-v1":
@@ -148,6 +225,7 @@ def evaluate_acceptance(
     search: Mapping[str, Any],
     *,
     observations: Mapping[str, Any] | None = None,
+    verified_tasks: set[str] | frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Evaluate the frozen tasks. Missing data and unobserved UI are HOLD, not PASS."""
     fixture, tasks = _load_tasks()
@@ -186,7 +264,7 @@ def evaluate_acceptance(
             state = "FAIL"
         elif any(type(counts.get(key)) is not int or counts[key] < 1 for key in task["requires"]):
             state = "HOLD"
-        elif _observed_pass(observation, task, fixture["max_source_actions"]):
+        elif name in verified_tasks and _observed_pass(observation, task, fixture["max_source_actions"]):
             state = "PASS"
         else:
             state = "HOLD"
@@ -277,7 +355,8 @@ def main(argv: list[str] | None = None) -> int:
         # 30 Garlasco claims; acceptance must also see newer included Content.
         inventory["counts"].update(read_live_collection_counts(reader))
         search = run_benchmark(CorpusSearchStore()).to_dict()
-        receipt = evaluate_acceptance(inventory, search, observations=operator)
+        verified = read_verified_task_bindings(reader, operator.get("tasks", {})) if operator else set()
+        receipt = evaluate_acceptance(inventory, search, observations=operator, verified_tasks=verified)
     except (ValueError, RuntimeError, OSError, KeyError, TypeError, json.JSONDecodeError):
         print(json.dumps({"status": "BLOCKED", "reason_code": "DP420_ACCEPTANCE_UNAVAILABLE"}))
         return 2

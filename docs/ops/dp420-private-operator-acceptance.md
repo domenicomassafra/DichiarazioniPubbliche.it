@@ -101,6 +101,14 @@ without a nonexistent source or source-rights record. For every source-linked
 positive task retain the actual current, source-specific rights record
 alongside its source/capture binding. Confirm rights applicability, timestamps,
 privacy, attribution, version hash and revocation status against PostgreSQL.
+The evaluator also performs a read-only exact PostgreSQL join for every claimed
+PASS: the observed Source and Capture must belong to an INCLUDED Garlasco
+Content, any Passage and Candidate must bind to that Capture, and the named
+rights record must be CLEARED, current, and permit private capture. A
+coverage-gap observation requires a real Collection-scoped Coverage Need.
+Counts or well-formed reference strings alone cannot pass tasks. The reviewer
+still inspects actual browser traces, source fidelity and evidence files:
+syntactically valid evidence hashes cannot prove browser interaction.
 An independent Standards/Spec reviewer must check the underlying screenshot,
 navigation, DB bindings and current rights; the receipt itself proves only
 schema completeness and reported timing. Failures remain explicit, and a
