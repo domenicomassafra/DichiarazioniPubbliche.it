@@ -9,6 +9,20 @@ case "$browser" in
 esac
 [ -x "$browser" ] || exit 86
 command -v bwrap >/dev/null 2>&1 || exit 86
+# Ubuntu's stock bwrap AppArmor profile stacks unpriv_bwrap onto Chrome and
+# denies the capabilities its *own* sandbox needs. A root-installed, dedicated
+# bwrap executable can receive Ubuntu's per-path userns grant instead. Keep
+# the stock binary for distributions where Chromium already works with it.
+bwrap_bin=$(command -v bwrap)
+dedicated_bwrap=/usr/local/libexec/dp-browser-bwrap
+if [ -e "$dedicated_bwrap" ] || [ -L "$dedicated_bwrap" ]; then
+    [ -f "$dedicated_bwrap" ] && [ -x "$dedicated_bwrap" ] || exit 86
+    [ ! -L "$dedicated_bwrap" ] || exit 86
+    [ "$(stat -c %u "$dedicated_bwrap")" = 0 ] || exit 86
+    [ "$(stat -c %g "$dedicated_bwrap")" = "$(id -g)" ] || exit 86
+    [ "$(stat -c %a "$dedicated_bwrap")" = 750 ] || exit 86
+    bwrap_bin=$dedicated_bwrap
+fi
 # Resolve root-owned distribution symlinks (e.g. /usr/bin/google-chrome ->
 # /opt/google/chrome/google-chrome) before discarding /etc/alternatives.
 resolved=$(readlink -f "$browser") || exit 86
@@ -40,7 +54,7 @@ esac
 # libraries, selected read-only public system assets and font configuration.
 # There is deliberately no /etc/passwd, /etc/ssh, /home, /root, /usr/local,
 # /var/log, /sys or host /run, and no general host directory bind.
-exec bwrap --die-with-parent --unshare-net --unshare-pid --unshare-ipc \
+exec "$bwrap_bin" --die-with-parent --unshare-net --unshare-pid --unshare-ipc \
     --unshare-uts --hostname dp-browser --new-session \
     --tmpfs / --dir /usr --dir /usr/share \
     --ro-bind /usr/bin /usr/bin --ro-bind /usr/lib /usr/lib \

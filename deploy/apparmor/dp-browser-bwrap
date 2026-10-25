@@ -1,0 +1,11 @@
+# AppArmor user namespace grant for the root-owned DP-170 bubblewrap copy.
+# Ubuntu official pattern: a path-specific unconfined profile with userns.
+# The application wrapper still creates an isolated network, filesystem and
+# process namespace; this profile does not change the host's global setting.
+abi <abi/5.0>,
+include <tunables/global>
+
+profile dp-browser-bwrap /usr/local/libexec/dp-browser-bwrap flags=(unconfined) {
+  userns,
+  @{exec_path} mr,
+}
