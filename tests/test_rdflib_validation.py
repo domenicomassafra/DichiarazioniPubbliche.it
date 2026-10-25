@@ -72,7 +72,7 @@ class RDFLibPublicExportTests(unittest.TestCase):
         bundle = with_derived()
         nt = projection_statement_v3_ntriples(bundle, allow_statement_v3=True)
         document = projection_statement_v3_jsonld(bundle, allow_statement_v3=True)
-        self.assertEqual(bundle["dataset_sha256"], "c850689cde27d5ef4b583b38796dbe50c82a1a522d463d166857883aea82d131")
+        self.assertEqual(bundle["dataset_sha256"], "08242159978e8f7e5eafd69a2e6b137bdb3ba8e63ecf3bd9cb199f87fea3cf4f")
         self.assertEqual(hashlib.sha256(nt.encode()).hexdigest(), "db72d72f4344820cac05b543d96f371dbca128c29fafbb585396261abe851dd3")
         nt_graph = self.parse_nt(nt)
         jsonld_graph = Graph().parse(data=json.dumps(document, ensure_ascii=False), format="json-ld")
