@@ -46,7 +46,7 @@ Confirms: no duplicate ticket IDs, no duplicate filename IDs, valid status value
 unknown dependency IDs, no dependency cycles, required sections present. The current
 NO-GO check is a non-release regression check; in future authorized release
 reviews run the preflight without the expect-no-go switch, inspect all blockers
-and require a separate release-authority gate. The preflight cross-checks
+and require the separate three-agent release-authority gate. The preflight cross-checks
 canonical ticket headers against PLAN and requires the M1R/M2 source/promotion
 chain, including DP-214 real corpus and DP-229 challenger.
 The **full v1** preflight also requires the complete M4 Public/Studio graph
@@ -133,7 +133,7 @@ if it ships code only and the unresolved rows are not part of it — record whic
 ## 8. Gate 6 — Security / privacy
 
 - [ ] secret/private-content scan clean (part of `tools/check_repository_contract.py`)
-- [ ] `SECURITY.md` reviewed; no public security contact invented before owner approval
+- [ ] `SECURITY.md` reviewed; no public security contact invented before a working and verified contact channel is established
 - [ ] dependency/license review: no incompatible-license code vendored
 - [ ] unresolved legal/privacy decisions are explicit blockers (DP-304..DP-307)
 
