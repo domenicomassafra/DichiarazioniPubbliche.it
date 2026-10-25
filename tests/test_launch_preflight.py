@@ -42,7 +42,7 @@ class LaunchPreflightTests(unittest.TestCase):
         self.assertEqual(result.disposition, "NO-GO")
         self.assertIn("LEGAL_DECISION_NOT_CLOSED:Q-306-01:OPEN", result.blockers)
 
-    def test_all_mechanical_inputs_can_only_reach_pending_owner(self):
+    def test_all_mechanical_inputs_wait_for_delegated_release_authority(self):
         plan = {ticket_id: "DONE" for ticket_id in REQUIRED_TICKETS}
         plan.update({ticket_id: "DONE" for ticket_id in CONDITIONAL_SURFACE_TICKETS})
         result = evaluate_launch_preflight(
@@ -50,7 +50,7 @@ class LaunchPreflightTests(unittest.TestCase):
             legal_statuses={question_id: "DECIDED" for question_id in REQUIRED_LEGAL_QUESTIONS},
             artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
         )
-        self.assertEqual(result.disposition, "PENDING-OWNER")
+        self.assertEqual(result.disposition, "PENDING-RELEASE-AUTHORITY")
         self.assertEqual(result.blockers, ())
         self.assertFalse(result.launchable)
 

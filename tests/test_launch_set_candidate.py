@@ -69,6 +69,23 @@ class LaunchSetCandidateTests(unittest.TestCase):
                 with self.assertRaisesRegex(LaunchSetCandidateError, error):
                     validate_release_launch_set_document(candidate, root=ROOT)
 
+    def test_release_contract_digest_changes_with_real_source_and_rights_evidence(self):
+        original = json.loads(RELEASE.read_text(encoding="utf-8"))
+        expected = validate_release_launch_set_document(original, root=ROOT).manifest_sha256
+        variants = (
+            ("provenance_digest", lambda d: d["sources"][0]["provenance"].update(content_sha256="f" * 64)),
+            ("source_locator", lambda d: d["sources"][1]["provenance"].update(locator="https://commission.europa.eu/another-page")),
+            ("rights_license", lambda d: d["sources"][1]["rights"].update(license="Rights restricted")),
+            ("rights_attribution", lambda d: d["sources"][2]["rights"].update(attribution="Changed attribution notice")),
+            ("processing_path", lambda d: d["sources"][2]["processing"].update(discovery="HOLD_DATASET_REVOKED")),
+        )
+        for label, mutate in variants:
+            with self.subTest(field=label):
+                changed = json.loads(json.dumps(original))
+                mutate(changed)
+                digest = validate_release_launch_set_document(changed, root=ROOT).manifest_sha256
+                self.assertNotEqual(digest, expected)
+
     def test_three_family_candidate_is_mechanically_ready_but_never_launch_authorized(self):
         manifest = validate_launch_set_candidate(fixture()["three_family_candidate"])
 
