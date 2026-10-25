@@ -1,6 +1,6 @@
 # DP-234 — DVNS/read-only structured evidence adapter
 
-Status: DONE (technical private candidate integration, 2026-10-25; public use remains gated)
+Status: IN PROGRESS
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-215, DP-228; external source contract/API availability
 
@@ -44,8 +44,8 @@ importing the sister application's runtime or AGPL source code into this core.
 - [x] The DVNS-style seam is read-only and candidate-only: it has no upstream write/fetch
   client, rejects verdict/publication-authority input fields and cannot confer publication
   authority.
-- [x] Wire an approved DVNS/API/export provider into this contract and DP-228/DP-215.
-- [x] Add source-specific schema/rights mapping under an
+- [ ] Wire an approved DVNS/API/export provider into this contract and DP-228/DP-215.
+- [ ] Add source-specific schema/rights mapping under an
   explicit compatible licensing decision.
 - [x] MiniPC canary is required before any production source family uses the adapter.
 
