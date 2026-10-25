@@ -309,8 +309,8 @@ browser.cdp.on("Network.requestWillBeSent", ({ request }) => {
 async function runBrowserChecks() {
 try {
   const { cdp } = browser;
-  // An approved empty projection has no React search controls to hydrate.
-  // Verify the actual static launch experience in one Chrome process instead.
+  // Approved-empty has no React search controls.
+  // Verify the static launch in Chrome.
   if (searchIndex.records.length === 0) {
     const checked = [];
     const screenshots = {};
@@ -335,7 +335,7 @@ try {
         assert.equal(state.headings, 1, `${route}: expected one primary heading`);
         assert(state.heading.trim().length > 0, `${route}: page h1 missing`);
         assert.equal(state.reducedMotion, true, `${route}: reduced-motion preference was lost`);
-        assert.equal(state.canonical, route, `${route}: canonical URL mismatch`);
+        assert.equal(state.canonical, `https://dichiarazionipubbliche.it${route}`, `${route}: canonical URL mismatch`);
         assert.equal(state.demo, false, `${route}: demo or forbidden topic visible`);
         if (route === "/esplora/") {
           assert.equal(await cdp.evaluate("!!document.querySelector('.launch-empty-state')"), true, "approved empty state missing");
