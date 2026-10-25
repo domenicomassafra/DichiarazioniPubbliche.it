@@ -2934,6 +2934,162 @@
         "schema_origin": "20261022_DP514_MONTHLY_MIGRATION"
       }
     },
+    "dp515_watch_attempt": {
+      "attempt_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "decision_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "lease_expires_at": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "observation_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "plan_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "planning_gate_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "planning_gate_revision": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "prior_state_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "reconciliation_gate_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "source_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "status": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      }
+    },
+    "dp515_watch_source": {
+      "content_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "gate_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "gate_revision": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "policy_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "policy_sha": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "source_id": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "PUBLIC_CORE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "state_json": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      },
+      "state_sha": {
+        "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
+        "data_class": "OPERATIONAL_PRIVATE",
+        "public_allowlist_decision": "DENY_DIRECT_DB_PROJECTION",
+        "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
+        "retention_behavior": "NO_UNAPPROVED_AUTOMATIC_DELETION",
+        "schema_origin": "20261025_DP515_WATCH_MIGRATION"
+      }
+    },
     "entity_identifier": {
       "authority": {
         "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",
