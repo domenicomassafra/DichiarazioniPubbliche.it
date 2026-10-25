@@ -14,9 +14,13 @@ from dichiarazioni_pubbliche.launch_set_candidate import (  # noqa: E402
     build_rollback_receipt_candidate,
     validate_launch_set_candidate,
 )
+from dichiarazioni_pubbliche.launch_set_release import (  # noqa: E402
+    validate_release_launch_set_document,
+)
 
 
 FIXTURE = ROOT / "tests" / "fixtures" / "launch-set-candidate-preflight-v1.json"
+RELEASE = ROOT / "docs" / "release" / "launch-set-v1.json"
 
 
 def fixture():
@@ -36,6 +40,35 @@ def snapshot(manifest, *, config="d" * 64, projection="e" * 64):
 
 
 class LaunchSetCandidateTests(unittest.TestCase):
+    def test_real_release_manifest_is_three_family_inventory_with_no_public_release(self):
+        document = json.loads(RELEASE.read_text(encoding="utf-8"))
+        manifest = validate_release_launch_set_document(document, root=ROOT)
+        self.assertEqual(len({row.source_family for row in manifest.rows}), 3)
+        self.assertEqual(manifest.held_count, 3)
+        self.assertEqual(manifest.included_source_ids, ())
+        self.assertEqual(manifest.candidate_status, "BLOCKED")
+        self.assertFalse(manifest.launch_authorized)
+        self.assertEqual(document["snapshot"]["public_item_ids"], [])
+
+    def test_release_manifest_rejects_rights_version_drift_public_promotion_and_private_body(self):
+        document = json.loads(RELEASE.read_text(encoding="utf-8"))
+        variants = (
+            (lambda d: d["sources"][0]["rights"].update(terms_sha256="0" * 64), "RIGHTS_EVIDENCE"),
+            (lambda d: d["sources"][0].update(state="INCLUDED"), "INCLUDED"),
+            (lambda d: d["snapshot"].update(public_item_ids=["item:a"]), "PUBLIC_ITEMS"),
+            (lambda d: d["sources"][0].update(raw_transcript_body="forbidden"), "PRIVATE_FIELD"),
+            (lambda d: d["sources"][0]["provenance"].update(transcript_body="forbidden"), "PRIVATE_FIELD"),
+            (lambda d: d["source_registry"].update(sha256="0" * 64), "REGISTRY_HASH"),
+            (lambda d: d["sources"].pop(), "FAMILY_INVENTORY"),
+            (lambda d: d["disclosure"].pop("operator_contact"), "DISCLOSURE_INCOMPLETE"),
+        )
+        for mutate, error in variants:
+            with self.subTest(error=error):
+                candidate = json.loads(json.dumps(document))
+                mutate(candidate)
+                with self.assertRaisesRegex(LaunchSetCandidateError, error):
+                    validate_release_launch_set_document(candidate, root=ROOT)
+
     def test_three_family_candidate_is_mechanically_ready_but_never_launch_authorized(self):
         manifest = validate_launch_set_candidate(fixture()["three_family_candidate"])
 
