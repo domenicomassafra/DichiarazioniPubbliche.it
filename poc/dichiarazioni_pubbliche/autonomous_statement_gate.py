@@ -43,7 +43,7 @@ def require_autonomous_publication(
         candidate.record_id != row["statement_id"]
         or candidate.source_url != row["source_url"]
         or candidate.source_kind != row["source_kind"]
-        or candidate.snapshot_sha256 != hashlib.sha256(immutable_text.encode()).hexdigest()
+        or candidate.source_text_sha256 != hashlib.sha256(immutable_text.encode()).hexdigest()
         or candidate.quote != original
         or candidate.transcript_segment != original
         or candidate.speaker_id != row["person_id"]

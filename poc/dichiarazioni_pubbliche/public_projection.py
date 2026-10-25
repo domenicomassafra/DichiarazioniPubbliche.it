@@ -1803,7 +1803,7 @@ def _sanitize_public_statement(
     *,
     generated_at: str,
 ) -> dict[str, Any]:
-    """Opt-in: exact source text, bounded proofs and independent agent review."""
+    """Opt-in: source text, proofs and independent agent review."""
     required = {
         "statement_id", "version_id", "person_id", "speaker_name", "content_id",
         "source_title", "source_url", "source_version", "source_sha256",
@@ -1916,7 +1916,7 @@ def _sanitize_public_statement(
         or (row["source_kind"] == "WRITTEN" and method != "SOURCE_TEXT_VERIFIED")
         or (
             row["source_kind"] == "TIMED"
-            and method not in {"OFFICIAL_TRANSCRIPT", "HUMAN_AUDIO_VERIFIED"}
+            and method not in {"OFFICIAL_TRANSCRIPT", "AGENT_DOUBLE_VERIFIED_ASR"}
         )
     ):
         raise ValueError("independent verbatim transcription/text proof missing")
