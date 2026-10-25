@@ -340,14 +340,18 @@ def daily_metrics(events: object, day: date) -> dict[str, int | str]:
 
 
 def nightly_sample(events: object, day: date) -> tuple[str, ...]:
-    """Deterministic 10% sample (at least one) of still-published daily items.
+    """Deterministic 10% sample (at least one) of the current public corpus.
 
     Source/subject names and other private fields never enter the sample list.
     Its stable hash orders records regardless of query/ledger read order.
     """
     latest: dict[str, RunReceipt] = {}
+    history = (
+        event for event in events if isinstance(event, RunReceipt)
+        and event.at.astimezone(timezone.utc).date() <= day
+    )
     for event in sorted(
-        _events_on_day(events, day),
+        history,
         key=lambda e: (
             e.at, e.record_id,
             {"PUBLISH": 1, "HOLD": 2, "AUDIT_HOLD": 3}.get(e.disposition, 0),

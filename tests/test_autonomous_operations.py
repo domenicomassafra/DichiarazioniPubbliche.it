@@ -1,7 +1,7 @@
 """DP #413: autonomous execution, withdrawal, readback, audit and daily counts."""
 
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 import sys
 import unittest
 from pathlib import Path
@@ -194,6 +194,13 @@ class AutonomousOperationsTests(unittest.TestCase):
         hold.held = True
         ops.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(nightly_sample(journal.events, date(2026, 10, 25)), ())
+
+    def test_nightly_sample_rechecks_old_publications_on_subsequent_days(self):
+        ops, _, _, _, _, _, journal = harness()
+        ops.evaluate_and_apply("finding:413", now=NOW - timedelta(days=3))
+        self.assertEqual(
+            nightly_sample(journal.events, date(2026, 10, 25)), ("finding:413",)
+        )
 
     def test_nightly_sample_executes_auditor_against_saved_current_packet(self):
         ops, capture, _, _, _, surface, journal = harness()
