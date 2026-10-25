@@ -200,9 +200,7 @@ def _statement_v3_snapshot(
 ) -> dict[str, Any]:
     if not allow_statement_v3:
         raise _unavailable()
-    # A self-consistent historical release is not proof it is still current.
-    # This pin must be supplied by the separately authenticated active release,
-    # and must become unavailable as soon as that release is withdrawn.
+    # Compare against the separately authenticated current release.
     if (not isinstance(current_public_dataset_sha256, str)
         or re.fullmatch(r"[0-9a-f]{64}", current_public_dataset_sha256) is None):
         raise _unavailable()
@@ -312,6 +310,7 @@ def list_public_opinions_by_person_content_v3(
         # wording between validation and response assembly.
         snapshot = _statement_v3_snapshot(
             copy.deepcopy(bundle), allow_statement_v3=True,
+            current_public_dataset_sha256=current_public_dataset_sha256,
         )
     except (TypeError, ValueError, RecursionError) as exc:
         raise _unavailable() from exc
