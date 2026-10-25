@@ -94,8 +94,10 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
 
     def test_v3_read_payload_preserves_exact_quote_and_provenance(self):
         bundle = v3_bundle()
-        collection = list_public_statements_v3(bundle, allow_statement_v3=True)
-        detail = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True)
+        collection = list_public_statements_v3(bundle, allow_statement_v3=True,
+            current_public_dataset_sha256=bundle["dataset_sha256"])
+        detail = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True,
+            current_public_dataset_sha256=bundle["dataset_sha256"])
         self.assertEqual(collection["data"], [detail["data"]])
         self.assertEqual(collection["meta"]["dataset_sha256"], bundle["dataset_sha256"])
         self.assertEqual(detail["meta"]["public_schema_version"], PUBLIC_STATEMENT_SCHEMA_VERSION)
@@ -117,7 +119,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
 
     def test_v3_linked_data_and_jsonld_original_only_quote(self):
         bundle = with_derived()
-        detail = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True)
+        detail = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True,
+            current_public_dataset_sha256=bundle["dataset_sha256"])
         serialized = projection_statement_v3_ntriples(bundle, allow_statement_v3=True)
         jsonld = projection_statement_v3_jsonld(bundle, allow_statement_v3=True)
         statement = jsonld["@graph"][1]
@@ -156,7 +159,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
         legacy_claim = bundle["dossiers"][0]["claim"]
         self.assertNotEqual(legacy_claim, QUOTE)
         api_json = json.dumps(
-            list_public_statements_v3(bundle, allow_statement_v3=True), ensure_ascii=False
+            list_public_statements_v3(bundle, allow_statement_v3=True,
+                current_public_dataset_sha256=bundle["dataset_sha256"]), ensure_ascii=False
         )
         rdf = projection_statement_v3_ntriples(bundle, allow_statement_v3=True)
         jsonld = json.dumps(projection_statement_v3_jsonld(bundle, allow_statement_v3=True))
@@ -194,7 +198,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
         bundle = v3_bundle(source)
         self.assertEqual(bundle["dossier_count"], 1)
         self.assertEqual(len(bundle["statements"]), 1)
-        record = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True)["data"]
+        record = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True,
+            current_public_dataset_sha256=bundle["dataset_sha256"])["data"]
         self.assertEqual(record["finding_id"], "finding:a")
         self.assertEqual(record["original"]["text"], QUOTE)
         jsonld = projection_statement_v3_jsonld(bundle, allow_statement_v3=True)["@graph"][1]
@@ -206,7 +211,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
 
     def test_timed_locator_and_source_version_roundtrip(self):
         bundle = v3_bundle(IsolatedStatementSource(source_kind="TIMED"))
-        record = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True)["data"]
+        record = get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True,
+            current_public_dataset_sha256=bundle["dataset_sha256"])["data"]
         self.assertEqual(
             record["original"]["locator"],
             {"start_char": START, "end_char": START + len(QUOTE), "segment_id": "segment:1", "start_ms": 2000, "end_ms": 4000},
@@ -222,13 +228,15 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
                 source.gates[gate]["status"] = value
                 bundle = v3_bundle(source)
                 self.assertEqual(
-                    list_public_statements_v3(bundle, allow_statement_v3=True)["data"], []
+                    list_public_statements_v3(bundle, allow_statement_v3=True,
+                        current_public_dataset_sha256=bundle["dataset_sha256"])["data"], []
                 )
                 self.assertNotIn("statement:1", projection_statement_v3_ntriples(
                     bundle, allow_statement_v3=True
                 ))
                 with self.assertRaises(PublicApiError) as exc:
-                    get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True)
+                    get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True,
+                        current_public_dataset_sha256=bundle["dataset_sha256"])
                 self.assertEqual(exc.exception.status, 404)
         source = IsolatedStatementSource()
         source.source_text += " Addendum"
@@ -254,7 +262,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
                 if area != "bundle":
                     bundle["dataset_sha256"] = projection_dataset_sha256(bundle)
                 for serialize in (
-                    lambda b: list_public_statements_v3(b, allow_statement_v3=True),
+                    lambda b: list_public_statements_v3(b, allow_statement_v3=True,
+                        current_public_dataset_sha256=b["dataset_sha256"]),
                     lambda b: projection_statement_v3_ntriples(b, allow_statement_v3=True),
                     lambda b: projection_statement_v3_jsonld(b, allow_statement_v3=True),
                 ):
@@ -266,7 +275,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
         bundle["statements"][0]["source_url"] = "https://example.test/path>\n<https://evil.test"
         bundle["dataset_sha256"] = projection_dataset_sha256(bundle)
         for serialize in (
-            lambda b: list_public_statements_v3(b, allow_statement_v3=True),
+            lambda b: list_public_statements_v3(b, allow_statement_v3=True,
+                current_public_dataset_sha256=b["dataset_sha256"]),
             lambda b: projection_statement_v3_ntriples(b, allow_statement_v3=True),
             lambda b: projection_statement_v3_jsonld(b, allow_statement_v3=True),
         ):
@@ -289,7 +299,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
         bundle = v3_bundle(source)
         self.assertEqual(len(bundle["statements"]), 1)
         self.assertEqual(
-            get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True)["data"]["original"]["text"],
+            get_public_statement_v3(bundle, "statement:1", allow_statement_v3=True,
+                current_public_dataset_sha256=bundle["dataset_sha256"])["data"]["original"]["text"],
             quoted,
         )
         self.assertEqual(
@@ -306,7 +317,8 @@ class PublicStatementV3ConsumerTests(unittest.TestCase):
         results = []
         for identifier in ("statement:private", "statement:unknown", "finding:legacy"):
             with self.assertRaises(PublicApiError) as err:
-                get_public_statement_v3(bundle, identifier, allow_statement_v3=True)
+                get_public_statement_v3(bundle, identifier, allow_statement_v3=True,
+                    current_public_dataset_sha256=bundle["dataset_sha256"])
             results.append((err.exception.status, err.exception.code, err.exception.message))
         self.assertEqual(len(set(results)), 1)
         self.assertEqual(results[0][0], 404)

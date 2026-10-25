@@ -10,6 +10,19 @@ A read-only, no-store HTTP surface over the Dichiarazioni Pubbliche public proje
 projection is a fail-closed, sanitized, finding-versioned read model produced by
 the publication pipeline. This API reads it and nothing else.
 
+## Opt-in Statement v3 readers (offline only)
+
+`list_public_statements_v3` and `get_public_statement_v3` serialize reviewed
+original words only when `allow_statement_v3=True` **and**
+`current_public_dataset_sha256` matches the immutable projection fingerprint.
+The caller must resolve that current fingerprint from a separately authenticated
+active-release authority at read time; copying it from the bundle being read
+does not prove that the bundle has not been withdrawn. A missing or obsolete pin
+returns `503 PUBLIC_PROJECTION_UNAVAILABLE` for both collection and detail,
+including previously valid snapshots. The v3 writer and public HTTP routes
+remain disabled until the approved release/consumer cutover; the live v1 API
+continues to serve public-v2.
+
 ## Run it
 
 ```bash
