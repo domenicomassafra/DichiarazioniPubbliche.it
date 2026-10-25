@@ -505,14 +505,13 @@ def reconcile_watch_observation(
 
     if digest is None:
         return failed("UNVERIFIED_200")
-    # An upstream representation without an explicit version retains the
-    # previously admitted version when the independently checked bytes match.
+    # Retain admitted version for matching bytes without an explicit version.
     version = version or (
         state.source_version if state.content_sha256 == digest and state.source_version
         else f"sha256:{digest}"
     )
     if state.etag is not None and etag == state.etag and digest != state.content_sha256:
-        return failed("ETAG_CONTENT_CONFLICT")
+        return replace(failed("ETAG_CONTENT_CONFLICT"), needs_source_review=True)
     changed = (
         state.content_sha256 != digest
         or (state.source_version is not None and state.source_version != version)
