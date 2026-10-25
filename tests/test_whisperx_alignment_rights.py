@@ -339,6 +339,12 @@ class AlignmentCanaryTests(unittest.TestCase):
             },
             "options": {"language": "it", "overlap_observed": False,
                         "timeout_seconds": 120},
+            "reference": {
+                "source": "https://example.org/synthetic-gold",
+                "max_boundary_error_ms": 100,
+                "words": [{"word": w["word"], "start_ms": round(w["start"] * 1000),
+                           "end_ms": round(w["end"] * 1000)} for w in WORDS],
+            },
         }
         self.path = self.root / "manifest.json"
         self.write()
