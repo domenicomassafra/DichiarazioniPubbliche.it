@@ -29,11 +29,23 @@ class PinnedStaticHTTPServer(ThreadingHTTPServer):
         self._static_root_lock = threading.Lock()
         self.static_root_fd: int | None = None
         self.static_entry_path: str | None = None
+        self._static_root_withdrawn = False
         super().__init__(*args, **kwargs)
+
+    def static_root_current(self, fd: int | None) -> bool:
+        with self._static_root_lock:
+            if not self._static_root_withdrawn and not static_path_matches_fd(
+                self.static_entry_path, fd
+            ):
+                self._static_root_withdrawn = True
+            return not self._static_root_withdrawn
 
     def dup_static_root(self) -> int | None:
         with self._static_root_lock:
+            if self._static_root_withdrawn:
+                return None
             if not static_path_matches_fd(self.static_entry_path, self.static_root_fd):
+                self._static_root_withdrawn = True
                 return None
             return os.dup(self.static_root_fd)
 

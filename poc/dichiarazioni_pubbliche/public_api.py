@@ -82,7 +82,6 @@ from dichiarazioni_pubbliche.public_schema import (
 from .public_static_root import (
     PinnedStaticHTTPServer as _PinnedStaticHTTPServer,
     open_static_root as _open_static_root,
-    static_path_matches_fd,
 )
 
 API_CONTRACT_VERSION = "v1"
@@ -1886,7 +1885,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                     # A release-pointer rotation can leave this listener's
                     # safe, pinned dirfd pointing at a withdrawn build.
                     # Refuse its old bytes until the listener is restarted.
-                    if not static_path_matches_fd(self.server.static_entry_path, pinned_root_fd):
+                    if not self.server.static_root_current(pinned_root_fd):
                         self._static_not_found()
                         return
                     self.send_response(200)

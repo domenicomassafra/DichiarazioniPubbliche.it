@@ -48,6 +48,15 @@ class WithdrawDuringCachedReadTests(unittest.TestCase):
                     for path in ("/withdrawn.html", "/retained.html"):
                         with self.subTest(path=path):
                             self.assertEqual(get(server, path), (404, b"", "no-store"))
+                    # A rollback to a previously withdrawn inode must not
+                    # resurrect its response in an already-running listener.
+                    back = root / "back"
+                    back.symlink_to(old, target_is_directory=True)
+                    os.replace(back, current)
+                    self.assertEqual(get(server, "/withdrawn.html"), (404, b"", "no-store"))
+                    forward = root / "forward"
+                    forward.symlink_to(new, target_is_directory=True)
+                    os.replace(forward, current)
                 finally:
                     server.shutdown()
                     runner.join(timeout=5)
