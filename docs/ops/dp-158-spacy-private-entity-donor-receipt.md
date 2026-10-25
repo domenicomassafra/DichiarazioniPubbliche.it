@@ -118,3 +118,122 @@ Italian NER model or an independent accuracy evaluation. Runtime use with a
 real authorized Passage needs a separately documented model/data clearance,
 model digest, rights fence, and independent review. No production/default
 activation or public attribution follows from this investigation.
+
+## 25 October 2026 — license review packet: independent Italian model candidate
+
+**Review status: PREPARED, AWAITING A DISTINCT CHECKER AND APPROVER.** The
+owner's 25 October decision in [#300](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300)
+assigns model/source licensing investigation and ultimate approval to agents,
+in three distinct roles: preparer, checker, approver. This section is a proposal,
+not an approval or permission to publish. The earlier `nickprock` option was
+investigated and remains rejected for the `tner/wikiann` unknown data license
+and incompatible spaCy binary/component interface.
+
+### Origin and actual rights chain
+
+1. **Training data, direct publisher**: Joel Nothman, Nicky Ringland, Will
+   Radford, Tara Murphy and James R. Curran, [Learning multilingual named entity
+   recognition from Wikipedia](https://figshare.com/articles/dataset/Learning_multilingual_named_entity_recognition_from_Wikipedia/5462500),
+   Figshare DOI [`10.6084/m9.figshare.5462500.v1`](https://doi.org/10.6084/m9.figshare.5462500.v1),
+   dataset v1, file ID `9446344`, `aij-wikiner-it-wp3.bz2` (6,316,939 bytes).
+   The Figshare API `https://api.figshare.com/v2/articles/5462500` explicitly
+   returns **CC BY 4.0** for the data; download endpoint
+   `https://ndownloader.figshare.com/files/9446344`.
+   Publisher MD5 `2554a867110a72189ac7f1a4de629de9` matches the downloaded
+   archive. Locally computed SHA-256 is
+   `d702670de515508b7b3341e3e088c9efd882c3647be6930b39f26a920dc4df69`.
+   Attribution to all five dataset authors and link to original CC BY 4.0 license
+   must accompany any model release/use. Dataset labels are silver standard.
+2. **Upstream raw text**: the authors explicitly explain Wikipedia extraction.
+   The independent checker must review whether Wikipedia CC BY-SA terms add
+   attribution/share-alike duties for the exact derived weights before they
+   approve commercial reuse; the Figshare CC BY 4.0 tag is evidence, not a
+   substitute for that copyright analysis. No third-party pretrained weights
+   were used by the local builder.
+3. **Engine, trained weights, interface**: `spaCy==3.8.16` from Explosion,
+   [MIT upstream release](https://github.com/explosion/spaCy/tree/26b4d1dc04a812f426e4bef3e8a1b6f159d6f048).
+   `tools/dp158_train_wikiner_ner.py` seeds a fresh `spacy.blank("it")`,
+   trains its native `ner` component exclusively on the SHA-pinned wp3 archive,
+   and exports a standalone local model plus `dp158-manifest.json`.
+   Its **untrained** Italian tokenizer is reconstructed on load via the
+   explicitly approved `tokenizer_policy=blank-it`; the serialized model
+   contains trained `ner` weights but no third-party tokenizer weights. This
+   works around a spaCy 3.8.16 tokenizer deserialization `OverflowError`
+   observed on both Python 3.13 and 3.14 for the original serialized tokenizer.
+   Other pretrained models continue to load their packaged tokenizers.
+   Locally authored script and new weights are intended Apache-2.0 with the
+   underlying corpus CC BY 4.0 attribution; the second and third licensing
+   agents must settle any additional Wikipedia obligations before acceptance.
+   No `nickprock`, `dbmdz` or official `it_core_news_*` weights are incorporated.
+4. **Consumer trial text**: one transcript in
+   [SenatoDellaRepubblica/AkomaNtosoBulkData](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData),
+   commit `bfac144eb5c54820971bc1020fece11aae56ec90`, Git blob
+   `bec30c067a1a79e8b377af483cfc4bfb44d13896`, file
+   `Leg19/Atto00055187/resaula/01457617-ra.akn.xml`, full bytes SHA-256
+   `1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`.
+   The upstream README and LICENSE at that commit declare **CC BY 4.0**.
+   The bounded probe reads a single speech in memory with no database mutation;
+   it logs only source/version hashes, offsets and candidate labels. The #331
+   operational rights record currently permits `STORE_BODY`, **not** automatic
+   `EXTRACT_CANDIDATES`/promotion of its captured passage: the trial must not
+   be portrayed as production source-use clearance.
+
+### Reproducibility and release gates
+
+Run locally on the Studio via the resource guard, from an isolated workspace,
+after placing the exact archive at `/private/tmp/dp158-wikiner-it-wp3.bz2`:
+
+```sh
+python3 /Users/domenico/.local/share/controlcenter/resource-guard/workload_launcher.py --max-wait 300 build -- /private/tmp/dp158-spacy-venv313/bin/python tools/dp158_train_wikiner_ner.py --archive /private/tmp/dp158-wikiner-it-wp3.bz2 --output /private/tmp/dp158-it-wikiner-ner-model-v2 --examples 4000 --epochs 3
+```
+
+The builder fails closed for an archive SHA mismatch and refuses overwriting a
+preexisting model directory; a deterministic sampling seed and disjoint
+same-source holdout are recorded. **The holdout cannot establish accuracy on
+Senato parliamentary language, homonyms, nested quotations or reported speech**;
+it is only a diagnostic. `dp158_senato_private_ner_readback.py` uses the
+existing `ApprovedSpaCyModel` + `SpaCyItalianPrivateAdapter.load()` interface,
+checks the Senato input SHA, then proposes spans without any `commit_batch`.
+Negative rights/review cases continue to HOLD under the existing extraction
+fence. The checker should reproduce archive digest, source text/license chain,
+model binary/manifest digest and terms. A different agent may then sign off in
+the issue; until that happens model rights, operational extraction and
+publication all remain **HOLD**.
+
+### Actual preparation and private inference (Mac Studio, 2026-10-25)
+
+- Training used isolated Python **3.13** + spaCy **3.8.16** on the Studio,
+  admitted by the resource guard. Input Figshare archive was verified before
+  parsing and training. **3,600** randomly sampled training sentences and
+  **400** disjoint holdout sentences, **3** epochs, seed **158**. Exact span
+  counts on this same-source silver holdout: **TP 562 / FP 244 / FN 207**;
+  this is an internal diagnostic, not an independently adjudicated NER gold.
+- Private artifact: `/private/tmp/dp158-it-wikiner-ner-model-v2`.
+  `dp158-manifest.json` states `license_review=PENDING_INDEPENDENT_CHECK_AND_APPROVAL`,
+  `tokenizer_policy=blank-it`; reloaded pipeline SHA-256:
+  `ab6908acc150f1dcbba545df372e446340c12234df1d4635f23f6516dded14b6`.
+  The adapter validates this digest again before every inference. An earlier
+  run with a serialized tokenizer produced weights but failed model reload;
+  it was not accepted as the candidate artifact.
+- Direct private readback:
+  `tools/dp158_senato_private_ner_readback.py --document /private/tmp/dp158-senato-20250529.xml --model /private/tmp/dp158-it-wikiner-ner-model-v2 --speech-ordinal 40`
+  (through resource guard and the isolated Python 3.13): **exit 0**. The exact
+  public Senato XML SHA-256 matches the existing #331 Capture, the ephemeral
+  normalized speech has SHA-256
+  `20945f54e1f69fbe55422db23f3d148526c616e2e2ca784f883da1e1728924ec`;
+  **7 candidates: PER=4, LOC=3, ORG=0**. The tool returns offset/label/hash
+  for each span but no text, named identity, approved speaker or DB write.
+- **Consumer boundary**: MiniPC web service was `active`, `/api/v1/health`
+  returned `ok`, `DRAFT` and `dossier_count=0`; its system Python did not
+  have spaCy installed. Hence there is no claim of MiniPC NER inference or
+  consumer activation from these Studio observations.
+
+**Next-agent review handoff:** an agent distinct from this preparer must
+verify exact Figshare article/file/digests and the Wikipedia-derived rights
+chain, proposed model output obligations, model metadata and pipeline digest,
+source license/attribution, and any repository policy relevant to private
+processing. A third, distinct agent must make and record the final licensing
+decision in [#158](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/158)
+and identify the permitted usage scope; only after those steps may a private
+consumer installation be activated, with an `EXTRACT_CANDIDATES` rights record
+for any persisted passage and an independent review of generated candidates.

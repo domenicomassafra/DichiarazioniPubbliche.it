@@ -38,6 +38,7 @@ class ApprovedSpaCyModel:
     revision: str
     license_id: str
     pipeline_sha256: str
+    tokenizer_policy: str = "included"
 
     def validate(self) -> None:
         url = urlsplit(self.source_url)
@@ -49,6 +50,8 @@ class ApprovedSpaCyModel:
             raise CandidateExtractionError("SPACY_MODEL_LICENSE_NOT_APPROVED")
         if not re.fullmatch(r"[0-9a-f]{64}", self.pipeline_sha256):
             raise CandidateExtractionError("SPACY_MODEL_DIGEST_INVALID")
+        if self.tokenizer_policy not in ("included", "blank-it"):
+            raise CandidateExtractionError("SPACY_MODEL_TOKENIZER_POLICY_INVALID")
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,9 @@ class SpaCyItalianPrivateAdapter:
         metadata = getattr(pipeline, "meta", None)
         if not isinstance(metadata, dict) or metadata.get("license") != approval.license_id:
             raise CandidateExtractionError("SPACY_MODEL_LICENSE_MISMATCH")
+        if (approval.tokenizer_policy == "blank-it"
+                and metadata.get("tokenizer_policy") != "blank-it"):
+            raise CandidateExtractionError("SPACY_MODEL_TOKENIZER_POLICY_MISMATCH")
         component_names = getattr(pipeline, "pipe_names", ())
         if not {"ner", "entity_ruler"}.intersection(component_names):
             raise CandidateExtractionError("SPACY_MODEL_NER_MISSING")
@@ -82,10 +88,11 @@ class SpaCyItalianPrivateAdapter:
         self._pipeline = pipeline
         self._digest = actual_digest
         self.approval = approval
-        self.fingerprint = hashlib.sha256(
-            (ADAPTER_VERSION + "\x1f" + approval.source_url + "\x1f"
-             + approval.revision + "\x1f" + approval.pipeline_sha256).encode("utf-8")
-        ).hexdigest()
+        fingerprint_input = (ADAPTER_VERSION + "\x1f" + approval.source_url + "\x1f"
+                             + approval.revision + "\x1f" + approval.pipeline_sha256)
+        if approval.tokenizer_policy != "included":
+            fingerprint_input += "\x1f" + approval.tokenizer_policy
+        self.fingerprint = hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest()
         # Safe to persist: metadata only, never source text or model predictions.
         self.receipt = {
             "adapter": ADAPTER_VERSION,
@@ -95,6 +102,8 @@ class SpaCyItalianPrivateAdapter:
             "model_pipeline_sha256": approval.pipeline_sha256,
             "adapter_fingerprint": self.fingerprint,
         }
+        if approval.tokenizer_policy != "included":
+            self.receipt["model_tokenizer_policy"] = approval.tokenizer_policy
 
     @classmethod
     def load(
@@ -108,7 +117,11 @@ class SpaCyItalianPrivateAdapter:
         except ImportError as exc:
             raise CandidateExtractionError("SPACY_PACKAGE_UNAVAILABLE") from exc
         try:
-            pipeline = spacy.load(model_directory)
+            # Locally trained blank-it NER can rebuild its unchanged, native
+            # tokenizer rather than deserialize incompatible spaCy rule hashes.
+            # This is opt-in; pretrained models always load their own tokenizer.
+            exclude = ["tokenizer"] if approval.tokenizer_policy == "blank-it" else []
+            pipeline = spacy.load(model_directory, exclude=exclude)
         except (OSError, ValueError, KeyError) as exc:
             raise CandidateExtractionError("SPACY_MODEL_UNAVAILABLE") from exc
         return cls(pipeline, approval=approval)
