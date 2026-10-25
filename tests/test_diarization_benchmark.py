@@ -187,6 +187,23 @@ class DiarizationBenchmarkTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 Turn(**kwargs)
 
+    def test_non_integer_or_nonfinite_millisecond_fields_fail_closed(self):
+        # Public benchmark inputs must be finite, quantized millisecond intervals.
+        invalid = (float("nan"), float("inf"), float("-inf"), 1.5, "5", True)
+        for value in invalid:
+            with self.subTest(field="turn.start_ms", value=repr(value)):
+                with self.assertRaisesRegex(ValueError, "DIARIZATION_TIMESTAMP_INVALID"):
+                    turn(value, 100, "TURN_00")
+            with self.subTest(field="turn.end_ms", value=repr(value)):
+                with self.assertRaisesRegex(ValueError, "DIARIZATION_TIMESTAMP_INVALID"):
+                    turn(0, value, "TURN_00")
+            with self.subTest(field="sensitive_span.start_ms", value=repr(value)):
+                with self.assertRaisesRegex(ValueError, "DIARIZATION_SENSITIVE_SPAN_INVALID"):
+                    SensitiveSpan(value, 100, "NUMBER")
+            with self.subTest(field="resource.elapsed_ms", value=repr(value)):
+                with self.assertRaisesRegex(ValueError, "DIARIZATION_ELAPSED_MS_INVALID"):
+                    self.resource(elapsed_ms=value)
+
     def test_receipt_fingerprint_is_deterministic_and_input_sensitive(self):
         receipt = asdict(self.resource())
         first = receipt_fingerprint(receipt)
