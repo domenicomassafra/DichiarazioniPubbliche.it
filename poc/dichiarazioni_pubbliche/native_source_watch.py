@@ -21,6 +21,7 @@ from dichiarazioni_pubbliche.source_watch_pg_queue_adapter import PostgresSource
 
 
 SENATO_SOURCE = "source:senato-akn-leg19-01457617"
+SENATO_COLLECTION = "research:senato-akn-dp326"
 SENATO_LOCATOR = (
     "https://raw.githubusercontent.com/SenatoDellaRepubblica/AkomaNtosoBulkData/"
     "bfac144eb5c54820971bc1020fece11aae56ec90/"
@@ -37,6 +38,8 @@ def bootstrap_senato(store: PostgresSourceWatchStore) -> dict:
                'source_family',r.source_family,'rights_id',r.id)::text
            FROM content_item c JOIN private_source_rights_record r
              ON r.content_id=c.id AND r.locator_value=c.canonical_url
+           JOIN research_collection_content m ON m.content_id=c.id
+             AND m.collection_id=:'collection_id' AND m.status='INCLUDED'
            WHERE c.source_id=:'source_id' AND c.canonical_url=:'locator'
              AND r.rights_status='CLEARED' AND r.locator_kind='URL'
              AND r.reviewed_at IS NOT NULL AND r.reviewed_at<=now()
@@ -47,13 +50,14 @@ def bootstrap_senato(store: PostgresSourceWatchStore) -> dict:
                  WHERE successor.supersedes_id=r.id)
            ORDER BY r.reviewed_at DESC LIMIT 1""",
         source_id=SENATO_SOURCE, locator=SENATO_LOCATOR,
+        collection_id=SENATO_COLLECTION,
     )
     if not row:
         raise ValueError("WATCH_NATIVE_NO_CURRENT_FETCH_RIGHT")
     right = json.loads(row)
     policy = WatchPolicy(
         source_id=SENATO_SOURCE, locator_id=SENATO_LOCATOR,
-        source_family=right["source_family"], corpus_id="corpus:leg19",
+        source_family=right["source_family"], corpus_id=SENATO_COLLECTION,
         corpus_cutoff="2026-12-31", policy_revision="dp515-native-senato-v1",
         enabled=True, max_children=1, base_backoff_seconds=300,
         max_backoff_seconds=21600,

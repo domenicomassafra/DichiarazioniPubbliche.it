@@ -8,6 +8,8 @@ daily full-source unit belongs to the older ingestion pipeline and is untouched.
 
 The only permitted source is source:senato-akn-leg19-01457617, pinned to the
 Senato BulkData commit bfac144eb5c54820971bc1020fece11aae56ec90.
+The exact Content must already be INCLUDED in the private Collection
+research:senato-akn-dp326, as verified on the MiniPC readback.
 The bootstrap command looks up the existing Content and exact current,
 unexpired, unsuperseded FETCH right from private_source_rights_record.
 It inserts only one dp515_watch_source, and creates no new rights,
