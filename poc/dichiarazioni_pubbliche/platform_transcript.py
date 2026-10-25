@@ -244,7 +244,26 @@ class YouTubeResolver(PodcastYouTubeResolutionMixin):
         return json.loads(proc.stdout)
 
     def probe_caption(self, video_url: str) -> CaptionProbe | None:
-        selected = select_italian_caption(self.metadata(video_url))
+        metadata = self.metadata(video_url)
+        selected = None
+        if dstack_free_captions.eligible_youtube_provider(self.free_caption_catalog_path):
+            # Preserve the spoken language, even when YouTube also lists
+            # translated Italian captions. Only trust a named original track.
+            original = metadata.get("language")
+            if isinstance(original, str) and re.fullmatch(
+                r"[a-z]{2,3}(?:-[A-Za-z]{2,8})?", original,
+            ):
+                for field, kind in (("subtitles", "manual_caption"),
+                                    ("automatic_captions", "automatic_caption")):
+                    tracks = metadata.get(field) or {}
+                    for language in (f"{original}-orig", original):
+                        if tracks.get(language):
+                            selected = {"kind": kind, "language": language}
+                            break
+                    if selected is not None:
+                        break
+        if selected is None:
+            selected = select_italian_caption(metadata)
         if selected is None:
             return None
         return CaptionProbe(
