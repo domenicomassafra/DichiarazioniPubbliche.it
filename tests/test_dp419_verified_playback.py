@@ -140,6 +140,17 @@ class VerifiedPlaybackTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.play()
 
+    def test_candidate_withdrawal_during_rights_probe_blocks_media_reply(self):
+        current_read = self.rights.read_current
+
+        def withdraw_candidate_during_validation(subject):
+            self.reader.material["has_approved_passage"] = False
+            return current_read(subject)
+
+        self.rights.read_current = withdraw_candidate_during_validation
+        with self.assertRaises(ValueError):
+            self.play()
+
 
 if __name__ == "__main__":
     unittest.main()

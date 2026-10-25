@@ -189,8 +189,9 @@ def verified_media_playback(
     if proof["evidence_sha256"] != row["evidence_sha256"]:
         raise ValueError("MEDIA_PLAYBACK_DERIVATION_MISMATCH")
     # Late mutation of binding or CURRENT rights cannot reuse earlier clearance.
-    if _assert_binding(capture_reader, binding_id) != original_state:
-        raise ValueError("MEDIA_PLAYBACK_BINDING_CHANGED")
+    if (_assert_binding(capture_reader, binding_id) != original_state
+            or _decode(capture_reader.run(_MEDIA_SQL, binding_id=binding_id), dict) != row):
+        raise ValueError("MEDIA_PLAYBACK_SOURCE_CHANGED")
     _assert_rights(capture_reader, rights_reader, row)
     return VerifiedMedia(
         body=body, start_ms=row["start_ms"], end_ms=row["end_ms"],
