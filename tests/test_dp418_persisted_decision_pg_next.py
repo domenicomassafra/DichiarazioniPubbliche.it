@@ -35,6 +35,9 @@ from dichiarazioni_pubbliche.reviewer_identity_authority import (  # noqa: E402
     LocalFileReviewerIdentityAuthority,
     provision_reviewer_credential,
 )
+from dichiarazioni_pubbliche.rights_registry import (  # noqa: E402
+    PrivateRightsRegistryStore, RightsSubject,
+)
 
 
 class PersistedDecisionPgTests(unittest.TestCase):
@@ -79,6 +82,19 @@ class PersistedDecisionPgTests(unittest.TestCase):
                     status,result_count) VALUES
                     ('{cls.run_id}','candidate:review',repeat('d',64),'COMPLETED',0);
             """)
+            cls.rights_subject = RightsSubject(
+                source_family="SYNTHETIC_DP418", locator_kind="URL",
+                locator_value="https://fixture.invalid/review",
+                content_id="content:review",
+            )
+            cls.rights = PrivateRightsRegistryStore(cls.pg.dsn)
+            cls.rights.record_rights(
+                subject=cls.rights_subject, policy_version="dp418-fixture-v1",
+                rights_status="CLEARED", rights_receipt_ref="fixture:reviewed",
+                permitted_uses=("RESEARCH_CAPTURE_PRIVATE", "OMNIROUTE_MODEL_EXTRACTION_PRIVATE"),
+                reviewed_at="2026-10-12T00:00:00Z",
+                expires_at="2026-11-23T00:00:00Z", reviewer_ref="fixture:reviewer",
+            )
             cls.store = StudioCandidateDecisionStorePg(cls.pg.dsn)
             cls.store.initialize()
         except Exception:
