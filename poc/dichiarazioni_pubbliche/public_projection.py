@@ -1827,7 +1827,7 @@ def _sanitize_public_statement(
     if not isinstance(locator, dict):
         raise ValueError("statement locator missing")
     # Freeze the approved selector before calling the independent attestation
-    # reader. A provider may mutate its private candidate while the proof is
+    # reader. A provider may mutate its candidate while the proof is
     # read; never return a reference to that mutable private dictionary.
     locator = dict(locator)
     start, end = locator.get("start_char"), locator.get("end_char")
@@ -1956,7 +1956,7 @@ def _sanitize_public_statement(
             "review_event_id": proof["review_event_id"],
         }
 
-    require_autonomous_publication(row, source, text, original, locator)
+    require_autonomous_publication(row, source, text, original, locator, rights)
 
     statement = {
         "statement_id": row["statement_id"], "version_id": row["version_id"],

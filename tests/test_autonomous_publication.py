@@ -19,6 +19,9 @@ from dichiarazioni_pubbliche.autonomous_publication import (  # noqa: E402
 def candidate() -> AutonomousCandidate:
     return AutonomousCandidate(
         record_id="finding:413",
+        record_version_id="finding-version:1",
+        source_version="source-version:1",
+        rights_attestation_sha256="d" * 64,
         source_url="https://example.org/original-video",
         source_kind="TIMED",
         snapshot_url="https://archive.example.org/20261025/original-video",
@@ -176,6 +179,21 @@ class AutonomousPublicationTests(unittest.TestCase):
             evaluate_autonomous_publication(revised, *reviews(revised)).disposition,
             "PUBLISH",
         )
+
+    def test_review_fingerprint_expires_on_version_or_rights_change(self):
+        item = candidate()
+        old_reviews = reviews(item)
+        for changed in (
+            {"record_version_id": "finding-version:2"},
+            {"source_version": "source-version:2"},
+            {"rights_attestation_sha256": "e" * 64},
+        ):
+            with self.subTest(changed=changed):
+                current = replace(item, **changed)
+                self.assertIn(
+                    "INDEPENDENT_REVIEW",
+                    evaluate_autonomous_publication(current, *old_reviews).reason_codes,
+                )
 
 
 if __name__ == "__main__":

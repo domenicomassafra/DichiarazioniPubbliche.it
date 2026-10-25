@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -130,6 +131,12 @@ class IsolatedStatementSource:
         timed = self.row["source_kind"] == "TIMED"
         packet = AutonomousCandidate(
             record_id=statement_id,
+            record_version_id=self.row["version_id"],
+            source_version=self.row["source_version"],
+            rights_attestation_sha256=hashlib.sha256(json.dumps(
+                self.gates["rights"], ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
             source_url=self.row["source_url"],
             source_kind=self.row["source_kind"],
             snapshot_url="https://archive.example.org/original",

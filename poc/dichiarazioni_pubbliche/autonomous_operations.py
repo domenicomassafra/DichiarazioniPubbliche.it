@@ -62,6 +62,15 @@ class RunReceipt:
     at: datetime
 
 
+@dataclass(frozen=True)
+class CorrectionMetricEvent:
+    """Minimal non-public correction lifecycle event from the challenge ledger."""
+
+    request_id: str
+    at: datetime
+    state: str  # OPEN or RESOLVED (verified by the challenge authority)
+
+
 class EventJournal(Protocol):
     def append(self, event: RunReceipt) -> None: ...
 
@@ -327,13 +336,51 @@ def _events_on_day(events: object, day: date) -> tuple[RunReceipt, ...]:
     )
 
 
-def daily_metrics(events: object, day: date) -> dict[str, int | str]:
-    """Privacy-safe UTC counters over an append-only, authority-read journal."""
-    daily = _events_on_day(events, day)
+def daily_metrics(
+    events: object, day: date, *, corrections: object,
+) -> dict[str, int | str]:
+    """Daily event counts and end-of-UTC-day state from trusted ledgers.
+
+    PUBLISH/HOLD are mutually exclusive per record, including old records not
+    touched today. Correction counts use the independent challenge authority's
+    OPEN/RESOLVED events: a takedown is never misreported as a correction.
+    Callers must supply the correction ledger (an empty ledger is explicit).
+    """
+    history = tuple(event for event in events if isinstance(event, RunReceipt)
+                    and _now(event.at).date() <= day)
+    daily = _events_on_day(history, day)
+    latest: dict[str, RunReceipt] = {}
+    # The journal is append-only in commit order. Stable sorting by instant
+    # preserves that order for multiple transitions at the same timestamp.
+    for event in sorted(history, key=lambda e: e.at):
+        if event.disposition in {"PUBLISH", "HOLD", "AUDIT_HOLD"}:
+            latest[event.record_id] = event
+    correction_history = tuple(corrections)
+    if any(not isinstance(e, CorrectionMetricEvent) or e.state not in {"OPEN", "RESOLVED"}
+           or not isinstance(e.request_id, str) or not e.request_id.strip()
+           for e in correction_history):
+        raise ValueError("AUTONOMOUS_CORRECTION_METRICS_INVALID")
+    correction_latest: dict[str, CorrectionMetricEvent] = {}
+    for event in sorted(correction_history, key=lambda e: (
+        _now(e.at), e.request_id, 0 if e.state == "OPEN" else 1,
+    )):
+        if _now(event.at).date() <= day:
+            correction_latest[event.request_id] = event
     return {
         "day": day.isoformat(),
-        "published": sum(e.disposition == "PUBLISH" for e in daily),
-        "held": sum(e.disposition == "HOLD" for e in daily),
+        "published": sum(e.disposition == "PUBLISH" for e in latest.values()),
+        "held": sum(e.disposition in {"HOLD", "AUDIT_HOLD"} for e in latest.values()),
+        "publish_events": sum(e.disposition == "PUBLISH" for e in daily),
+        "hold_events": sum(e.disposition == "HOLD" for e in daily),
+        "corrections": sum(
+            e.state == "OPEN" and _now(e.at).date() == day for e in correction_history
+        ),
+        "corrections_resolved": sum(
+            e.state == "RESOLVED" and _now(e.at).date() == day for e in correction_history
+        ),
+        "corrections_pending": sum(
+            e.state == "OPEN" for e in correction_latest.values()
+        ),
         "audited": sum(e.disposition in {"AUDIT_PASS", "AUDIT_HOLD"} for e in daily),
         "audit_holds": sum(e.disposition == "AUDIT_HOLD" for e in daily),
     }
@@ -374,6 +421,6 @@ def nightly_sample(events: object, day: date) -> tuple[str, ...]:
 
 
 __all__ = [
-    "AutonomousOperations", "PublicationSafetyError", "RunReceipt", "daily_metrics",
+    "AutonomousOperations", "CorrectionMetricEvent", "PublicationSafetyError", "RunReceipt", "daily_metrics",
     "nightly_sample",
 ]

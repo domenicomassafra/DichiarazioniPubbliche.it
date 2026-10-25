@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import Any
 
 from dichiarazioni_pubbliche.autonomous_publication import (
@@ -14,7 +15,7 @@ from dichiarazioni_pubbliche.autonomous_publication import (
 
 def require_autonomous_publication(
     row: dict[str, Any], source: object, immutable_text: str,
-    original: str, locator: dict[str, Any],
+    original: str, locator: dict[str, Any], rights: dict[str, Any],
 ) -> None:
     """Refuse any Statement whose current original, reviewers or holds disagree.
 
@@ -39,8 +40,15 @@ def require_autonomous_publication(
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("Statement autonomous locator invalid") from exc
+    rights_sha256 = hashlib.sha256(json.dumps(
+        rights, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")).hexdigest()
     if (
         candidate.record_id != row["statement_id"]
+        or candidate.record_version_id != row["version_id"]
+        or candidate.source_version != row["source_version"]
+        or candidate.rights_attestation_sha256 != rights_sha256
         or candidate.source_url != row["source_url"]
         or candidate.source_kind != row["source_kind"]
         or candidate.source_text_sha256 != hashlib.sha256(immutable_text.encode()).hexdigest()

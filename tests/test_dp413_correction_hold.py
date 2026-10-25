@@ -56,6 +56,29 @@ class CorrectionHoldTests(unittest.TestCase):
                 ChallengeHoldDisposition.CLEAR,
             )
 
+    def test_completed_correction_survives_new_record_version_but_active_one_does_not(self):
+        store = PrivateChallengeLedgerStore("postgresql://fixture/unused")
+        state = ChallengeState.PUBLIC_VERSIONED
+
+        def replay(_):
+            return SimpleNamespace(
+                blockers=(),
+                request=SimpleNamespace(target_record_version="version:1", request_id="correction:1"),
+                current_state=state,
+                events=(SimpleNamespace(event_id="event:1"),),
+            )
+
+        with (
+            patch.object(store, "_current_record_version", return_value="version:2"),
+            patch.object(store, "run", return_value=json.dumps(["correction:1"])),
+            patch.object(store, "replay_request", side_effect=replay),
+        ):
+            self.assertEqual(store.current_hold_for_finding("finding:1").disposition,
+                             ChallengeHoldDisposition.CLEAR)
+            state = ChallengeState.REANALYSIS_PENDING
+            self.assertEqual(store.current_hold_for_finding("finding:1").disposition,
+                             ChallengeHoldDisposition.UNKNOWN)
+
 
 if __name__ == "__main__":
     unittest.main()

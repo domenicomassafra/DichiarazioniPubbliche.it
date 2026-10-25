@@ -12,7 +12,7 @@ from dichiarazioni_pubbliche.autonomous_publication import (  # noqa: E402
     AgentReview, AutonomousProofPacket, candidate_fingerprint,
 )
 from dichiarazioni_pubbliche.autonomous_operations import (  # noqa: E402
-    AutonomousOperations, PublicationSafetyError, daily_metrics,
+    AutonomousOperations, CorrectionMetricEvent, PublicationSafetyError, daily_metrics,
     nightly_sample,
 )
 from tests.test_autonomous_publication import candidate, reviews  # noqa: E402
@@ -124,7 +124,28 @@ class AutonomousOperationsTests(unittest.TestCase):
         reopened = ops.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(reopened.disposition, "PUBLISH")
         self.assertEqual(surface.current_evidence_sha256("finding:413"), reopened.evidence_sha256)
-        self.assertEqual(daily_metrics(journal.events, date(2026, 10, 25))["published"], 2)
+        self.assertEqual(daily_metrics(journal.events, date(2026, 10, 25), corrections=())["published"], 1)
+        self.assertEqual(daily_metrics(journal.events, date(2026, 10, 25), corrections=())["publish_events"], 2)
+
+    def test_daily_metrics_report_current_holds_and_correction_lifecycle(self):
+        ops, capture, hold, _, _, _, journal = harness()
+        ops.evaluate_and_apply("finding:413", now=NOW - timedelta(days=1))
+        capture.item = replace(candidate(), record_id="finding:other")
+        ops.evaluate_and_apply("finding:other", now=NOW - timedelta(days=1))
+        hold.held = True
+        ops.evaluate_and_apply("finding:other", now=NOW)
+        correction_events = (
+            CorrectionMetricEvent("correction:1", NOW, "OPEN"),
+            CorrectionMetricEvent("correction:1", NOW + timedelta(hours=1), "RESOLVED"),
+            CorrectionMetricEvent("correction:2", NOW, "OPEN"),
+        )
+        metrics = daily_metrics(journal.events, NOW.date(), corrections=correction_events)
+        self.assertEqual(metrics["published"], 1)
+        self.assertEqual(metrics["held"], 1)
+        self.assertEqual(metrics["corrections"], 2)
+        self.assertEqual(metrics["corrections_resolved"], 1)
+        self.assertEqual(metrics["corrections_pending"], 1)
+        self.assertEqual(metrics["publish_events"], 0)
 
     def test_mismatch_in_current_capture_after_review_withholds(self):
         ops, capture, _, first, _, surface, _ = harness()
@@ -167,7 +188,7 @@ class AutonomousOperationsTests(unittest.TestCase):
         self.assertEqual(outcome.disposition, "AUDIT_HOLD")
         self.assertIn("THIRD_REVIEW_FAILED", outcome.reason_codes)
         self.assertIsNone(surface.current_evidence_sha256("finding:413"))
-        self.assertEqual(daily_metrics(journal.events, date(2026, 10, 25))["audit_holds"], 1)
+        self.assertEqual(daily_metrics(journal.events, date(2026, 10, 25), corrections=())["audit_holds"], 1)
 
     def test_nightly_auditor_cannot_reuse_an_original_model(self):
         ops, capture, _, _, _, surface, _ = harness()

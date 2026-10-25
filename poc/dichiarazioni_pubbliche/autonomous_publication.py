@@ -41,6 +41,9 @@ class SpeakerSignal:
 @dataclass(frozen=True)
 class AutonomousCandidate:
     record_id: str
+    record_version_id: str
+    source_version: str
+    rights_attestation_sha256: str
     source_url: str
     source_kind: str
     snapshot_url: str
@@ -147,6 +150,9 @@ def _provenance(candidate: AutonomousCandidate) -> bool:
         end = float(candidate.segment_end)
         return (
             bool(candidate.record_id.strip())
+            and bool(candidate.record_version_id.strip())
+            and bool(candidate.source_version.strip())
+            and _sha256(candidate.rights_attestation_sha256)
             and candidate.source_kind in {"TIMED", "WRITTEN"}
             and _public_https(candidate.source_url)
             and _public_https(candidate.snapshot_url)

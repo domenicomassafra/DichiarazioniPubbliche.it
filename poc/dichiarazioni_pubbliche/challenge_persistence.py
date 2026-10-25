@@ -794,9 +794,7 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
             and previous.target_record_version == request.target_record_version
             and previous.transition_context == context_payload
         ):
-            # Exact retry of the last durable transition. Returning the already
-            # replay-verified event makes request retries idempotent without
-            # granting a caller control over the derived next state.
+            # Reuse the replay-verified last event for safe, idempotent retries.
             return ChallengeAppendResult(request, previous, False)
         context = ChallengeContext(
             kind=request.kind,
@@ -941,7 +939,8 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
             if replay.blockers or replay.request is None:
                 blockers.extend(replay.blockers or ("CHALLENGE_HOLD_LEDGER_INVALID",))
                 continue
-            if replay.request.target_record_version != current_version:
+            if (replay.current_state not in (ChallengeState.REJECTED, ChallengeState.PUBLIC_VERSIONED)
+                    and replay.request.target_record_version != current_version):
                 blockers.append("CHALLENGE_HOLD_RECORD_VERSION_STALE")
                 continue
             valid.append(replay)
