@@ -109,7 +109,7 @@
   "poc/dichiarazioni_pubbliche/proposition_clustering.py": 21212,
   "poc/dichiarazioni_pubbliche/provenance_quarantine.py": 28902,
   "poc/dichiarazioni_pubbliche/provenance_quarantine_persistence.py": 25811,
-  "poc/dichiarazioni_pubbliche/public_api.py": 85676,
+  "poc/dichiarazioni_pubbliche/public_api.py": 84977,
   "poc/dichiarazioni_pubbliche/public_http_client.py": 22915,
   "poc/dichiarazioni_pubbliche/public_projection.py": 149411,
   "poc/dichiarazioni_pubbliche/public_schema.py": 59465,

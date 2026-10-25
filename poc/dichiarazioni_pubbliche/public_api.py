@@ -79,6 +79,11 @@ from dichiarazioni_pubbliche.public_schema import (
     PublicSchemaValidationError,
     validate_public_bundle,
 )
+from .public_static_root import (
+    PinnedStaticHTTPServer as _PinnedStaticHTTPServer,
+    open_static_root as _open_static_root,
+    static_path_matches_fd,
+)
 
 API_CONTRACT_VERSION = "v1"
 API_BASE_PATH = "/api/v1"
@@ -1799,6 +1804,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                 if current_fd is None:
                     self._static_not_found()
                     return
+                pinned_root_fd = current_fd
                 stack.callback(os.close, current_fd)
                 parts = relative.parts
                 for component in parts[:-1]:
@@ -1877,6 +1883,12 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                             ):
                                 self._static_not_found()
                                 return
+                    # A release-pointer rotation can leave this listener's
+                    # safe, pinned dirfd pointing at a withdrawn build.
+                    # Refuse its old bytes until the listener is restarted.
+                    if not static_path_matches_fd(self.server.static_entry_path, pinned_root_fd):
+                        self._static_not_found()
+                        return
                     self.send_response(200)
                     self.send_header("Content-type", self.guess_type(leaf))
                     self.send_header("Content-Length", str(info.st_size))
@@ -1938,45 +1950,6 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
     do_OPTIONS = _reject  # noqa: N815
 
 
-class _PinnedStaticHTTPServer(ThreadingHTTPServer):
-    """Own one document-root dirfd for the entire listener lifetime."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        # TCPServer.__init__ may call server_close() on bind failure, so the
-        # synchronization primitive must exist before parent construction.
-        self._static_root_lock = threading.Lock()
-        self.static_root_fd: int | None = None
-        super().__init__(*args, **kwargs)
-
-    def dup_static_root(self) -> int | None:
-        with self._static_root_lock:
-            return os.dup(self.static_root_fd) if self.static_root_fd is not None else None
-
-    def server_close(self) -> None:
-        with self._static_root_lock:
-            try:
-                super().server_close()
-            finally:
-                if self.static_root_fd is not None:
-                    os.close(self.static_root_fd)
-                    self.static_root_fd = None
-
-
-def _open_static_root(directory: Path) -> int:
-    """Open every path component beneath '/' without following any symlink."""
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
-    opened = os.open("/", flags)
-    try:
-        for component in directory.parts[1:]:
-            next_fd = os.open(component, flags, dir_fd=opened)
-            os.close(opened)
-            opened = next_fd
-        return opened
-    except BaseException:
-        os.close(opened)
-        raise
-
-
 def build_server(
     projection_path: str | os.PathLike[str] | None,
     *,
@@ -1988,7 +1961,8 @@ def build_server(
 ) -> ThreadingHTTPServer:
     if account_service is not None and host not in ("127.0.0.1", "::1"):
         raise ValueError("ACCOUNT_LOOPBACK_BIND_REQUIRED")
-    resolved_static = str(Path(static_dir).resolve()) if static_dir is not None else None
+    static_entry = os.path.abspath(os.fspath(static_dir)) if static_dir is not None else None
+    resolved_static = str(Path(static_entry).resolve()) if static_entry is not None else None
     if account_service is not None and resolved_static is not None:
         private_paths = [account_service.store.path]
         if account_private_secret_path is not None:
@@ -2017,6 +1991,7 @@ def build_server(
             os.close(root_fd)
         raise
     server.static_root_fd = root_fd
+    server.static_entry_path = static_entry
     return server
 
 
