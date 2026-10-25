@@ -25,6 +25,8 @@ TASKS_PATH = ROOT / "tests" / "fixtures" / "studio-garlasco-usability-v1.json"
 _EVIDENCE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _IDENTITY = re.compile(r"^(source|capture|passage):[a-z0-9:_.-]{1,180}$")
 _RIGHTS = re.compile(r"^private-rights:[a-z0-9:_.-]{1,180}$")
+_CANDIDATE = re.compile(r"^statement-candidate:[a-z0-9:_.-]{1,180}$")
+_COVERAGE_NEED = re.compile(r"^coverage-need:[a-z0-9:_.-]{1,180}$")
 _REQUIRED_MODES = frozenset({
     "wide-desktop", "keyboard-only", "zoom-200", "narrow-viewport",
     "reduced-motion", "screen-reader",
@@ -116,7 +118,13 @@ def _observed_pass(observed: object, task: Mapping[str, Any], max_actions: int) 
         or type(errors) is not int or errors != 0
         or not isinstance(observed.get("evidence_ref"), str)
         or not _EVIDENCE.fullmatch(observed["evidence_ref"])
-        or not isinstance(observed.get("source_id"), str)
+    ):
+        return False
+    if "collection_coverage_needs" in task["requires"]:
+        need_id = observed.get("coverage_need_id")
+        return isinstance(need_id, str) and bool(_COVERAGE_NEED.fullmatch(need_id))
+    if (
+        not isinstance(observed.get("source_id"), str)
         or not _IDENTITY.fullmatch(observed["source_id"])
         or not observed["source_id"].startswith("source:")
         or not isinstance(observed.get("rights_record_id"), str)
@@ -128,6 +136,10 @@ def _observed_pass(observed: object, task: Mapping[str, Any], max_actions: int) 
             value = observed.get(need.removesuffix("s") + "_id")
             if not isinstance(value, str) or not _IDENTITY.fullmatch(value) or not value.startswith(prefix):
                 return False
+    if "statement_candidates" in task["requires"]:
+        candidate_id = observed.get("statement_candidate_id")
+        if not isinstance(candidate_id, str) or not _CANDIDATE.fullmatch(candidate_id):
+            return False
     return True
 
 

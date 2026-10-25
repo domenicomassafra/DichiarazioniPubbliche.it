@@ -119,6 +119,38 @@ class GarlascoUsabilityAcceptanceTests(unittest.TestCase):
         self.assertGreater(result["operator_failed"], 0)
         self.assertEqual(result["search_cases_passed"], 12)
 
+    def test_candidate_task_cannot_pass_without_candidate_identity(self):
+        record = {
+            "status": "PASS", "actions": 3, "navigation_errors": 0,
+            "time_to_source_ms": 1500, "evidence_ref": "sha256:" + "c" * 64,
+            "source_id": "source:real", "capture_id": "capture:real",
+            "passage_id": "passage:real", "rights_record_id": "private-rights:real",
+        }
+        data = snapshot(captures=1, passages=1, candidates=1)
+        result = evaluate_acceptance(data, search_results(),
+                                     observations={"tasks": {"candidate-source": record}})
+        self.assertEqual(result["task_status"]["candidate-source"], "HOLD")
+        record["statement_candidate_id"] = "statement-candidate:real"
+        result = evaluate_acceptance(data, search_results(),
+                                     observations={"tasks": {"candidate-source": record}})
+        self.assertEqual(result["task_status"]["candidate-source"], "PASS")
+
+    def test_coverage_gap_can_be_documented_without_nonexistent_source(self):
+        data = snapshot()
+        data["counts"]["collection_coverage_needs"] = 1
+        record = {
+            "status": "PASS", "actions": 2, "navigation_errors": 0,
+            "time_to_source_ms": 900, "evidence_ref": "sha256:" + "d" * 64,
+            "coverage_need_id": "coverage-need:real",
+        }
+        result = evaluate_acceptance(data, search_results(),
+                                     observations={"tasks": {"coverage-gap": record}})
+        self.assertEqual(result["task_status"]["coverage-gap"], "PASS")
+        del record["coverage_need_id"]
+        result = evaluate_acceptance(data, search_results(),
+                                     observations={"tasks": {"coverage-gap": record}})
+        self.assertEqual(result["task_status"]["coverage-gap"], "HOLD")
+
 
 if __name__ == "__main__":
     unittest.main()

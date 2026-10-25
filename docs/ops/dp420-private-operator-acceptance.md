@@ -21,6 +21,9 @@ modalities are wide desktop, keyboard-only navigation, 200% zoom, narrow
 viewport, reduced motion, and a screen reader. The visual pass assesses task
 clarity and critical runtime defects; visual redesign is deferred under the
 owner's 25 October decision (#84, #324, #349). Each private UI observation
+is performed by an automated agent/browser workflow; no human operator or
+owner acceptance step is required (owner decision 25 October, issue #300).
+Each observation
 records its elapsed **time to the original source** in milliseconds, the number
 of UI actions, navigation errors and evidence SHA-256. Six actions is the
 maximum accepted for source retrieval. Unsupported paths are HOLD, and a
@@ -92,6 +95,9 @@ operator's authorized private receipt directory. Example **schema only**:
 
 These placeholder values are *not evidence* and must never be submitted as a
 real observation. For tasks requiring Passage, add `passage_id`; for every
+task requiring Statement Candidate, add `statement_candidate_id`. The
+`coverage-gap` task instead requires a real `coverage_need_id` and can succeed
+without a nonexistent source or source-rights record. For every source-linked
 positive task retain the actual current, source-specific rights record
 alongside its source/capture binding. Confirm rights applicability, timestamps,
 privacy, attribution, version hash and revocation status against PostgreSQL.
