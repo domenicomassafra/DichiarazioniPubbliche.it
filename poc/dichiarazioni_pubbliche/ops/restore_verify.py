@@ -128,6 +128,8 @@ LOAD_BEARING_TABLES = (
     "worker_budget_reservation",
     "dp514_monthly_dispatch_policy",
     "dp514_monthly_dispatch_reservation",
+    "dp515_watch_source",
+    "dp515_watch_attempt",
     "source_health",
     "source_poll_run",
     "source_poll_run_source",
