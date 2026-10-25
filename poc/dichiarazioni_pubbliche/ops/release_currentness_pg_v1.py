@@ -176,6 +176,9 @@ END $$;
 
 -- Protected readback of a *private* exact release reference. It never returns
 -- public current=true. DP320 row locks linearize dependency checks with revoke.
+-- A changed argument list creates an overload: remove the legacy readback
+-- without a generation pin when reinstalling an existing disposable fixture.
+DROP FUNCTION IF EXISTS dp518_pg_probe(text,text,text,bigint);
 CREATE OR REPLACE FUNCTION dp518_pg_probe(
   p_release text, p_index text, p_projection text, p_generation text,
   p_expected bigint

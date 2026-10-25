@@ -112,6 +112,18 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
         self.assertEqual(stale.reason, "RELEASE_VERSION_MISMATCH")
         self.assertFalse(stale.publication_authorized)
 
+    def test_reinstall_removes_old_unpinned_probe_signature(self):
+        # PostgreSQL CREATE OR REPLACE with extra arguments creates an overload;
+        # it does not remove the unpinned legacy readback function.
+        self.sql("""CREATE FUNCTION dp518_pg_probe(text,text,text,bigint)
+            RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;""")
+        self.reader.install_disposable_schema()
+        self.assertEqual(
+            self.sql("SELECT to_regprocedure("
+                     "'dp518_pg_probe(text,text,text,bigint)') IS NULL;"),
+            "t",
+        )
+
     def test_revocation_precedes_currentness_even_after_synthetic_ack(self):
         ticket = self._ticket()
         self._select(ticket)
