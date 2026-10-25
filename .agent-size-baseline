@@ -79,7 +79,7 @@
   "poc/dichiarazioni_pubbliche/historical_batch_gate_v1.py": 22066,
   "poc/dichiarazioni_pubbliche/historical_corpus_preflight_v1.py": 23101,
   "poc/dichiarazioni_pubbliche/incremental_source_watch.py": 31514,
-  "poc/dichiarazioni_pubbliche/independent_reference_benchmark_v1.py": 24793,
+  "poc/dichiarazioni_pubbliche/independent_reference_benchmark_v1.py": 24690,
   "poc/dichiarazioni_pubbliche/ingestion_relevance.py": 28429,
   "poc/dichiarazioni_pubbliche/investigation_attempts_store_v1.py": 38954,
   "poc/dichiarazioni_pubbliche/knowledge_repository.py": 27258,
