@@ -13,8 +13,7 @@ CAPTURE_DIFF_BROWSER_JS = r"""
         && request.capture_hash === reference.capture_sha256
         && SAFE_REF.test(reference.collection_id)
         && scope.rights_clearance === false && scope.publication_authority === false;
-      if (valid) showSingleCaptureInspection(receipt, request, reference, summary);
-      return valid;
+      return valid && showSingleCaptureInspection(receipt, request, reference, summary);
     }
     function showSingleCaptureInspection(receipt, request, reference, summary) {
       const scope = receipt?.data, capture = scope?.capture;
