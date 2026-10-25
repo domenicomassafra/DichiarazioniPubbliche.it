@@ -16,11 +16,11 @@
 | SHA-256 | `7486fba805c20bde4d43750bd9c34aee86ab7acfd3854a1d0f3d64f62ae68b27` |
 | File length | 17,193,282 bytes |
 | Duration (ffprobe) | 1060.249977 seconds |
-| Example canonical media interval | 520,000–525,000 ms |
-| Decoded excerpt PCM SHA-256 (ffmpeg 16 kHz mono s16le) | `8ea748a877c6181a92a60dddc38ff97cb492280fef7079a9ead06135e190fc00` |
-| Exact derivation evidence SHA-256 | `6982e7770cbf7f1738923f1900261ee22662f9e775b8598cce99798b71e1319e` |
+| Example canonical media interval | 522,000–534,000 ms |
+| Decoded excerpt PCM SHA-256 (ffmpeg 16 kHz mono s16le) | `f074540597d87144fcd312cb8e11c15aa0ce6dbcac569f8a0becdd5fb68a98f0` |
+| Exact derivation evidence SHA-256 | `d870dce3dfd22e055993e1a21b64aa5fd56c140b45e1d232268c5c857d9125b0` |
 
-The derivation includes immutable Capture SHA, canonical Segment ID, start/end milliseconds, canonical-text SHA and decoded PCM SHA; it proves that audio bytes are decodable at that interval. The fixture's Candidate/Passage status and canonical-text phrase are **synthetic approval assertions**, not a transcript-alignment or speaker-authentication attestation. The published archive provides only an approximate location for the quotation. Do not reuse this fixture as an editorially approved quotation or real published statement.
+The derivation includes immutable Capture SHA, canonical Segment ID, start/end milliseconds, canonical-text SHA and decoded PCM SHA; it proves that audio bytes are decodable at that interval. For the 522–534 s interval, a private local pass of `openai/whisper-tiny.en` over the original 515–545 s audio transcribed the corresponding JFK "We choose to go to the moon ... and do the other things, not because they are easy" passage, with some misrecognized words. This corroborates approximate passage placement, but **does not certify word-level boundaries, transcription accuracy, or speaker identity**. The fixture's Candidate/Passage status remains a synthetic approval assertion. Do not reuse it as an editorially approved quotation or real published statement.
 
 ## Boundary and acceptance
 
@@ -37,4 +37,4 @@ LC_ALL=C PYTHONPATH=poc DP419_REAL_MEDIA_PATH=/absolute/private/path/jfk-origina
 
 This fixture boots its own PostgreSQL, applies `schema.v1.sql` and migration `031`, inserts a private source-rights record with a 30-day test expiry, stores the exact Ogg bytes in a temporary CaptureBodyStore, and records a derived Capture→Segment evidence digest. It then verifies correct original-byte playback under the bearer, the persisted interval, and a denied read after Capture rights revocation. The companion `tests.test_dp419_media_playback_http` verifies HTTP 401/no token and malformed requests. All disposable rows and body files are removed when the test finishes.
 
-**Operational boundary:** The MiniPC production `content_capture` relation has one *unrelated*, `text/plain` Capture; it is not this Ogg. This tranche does not write to the MiniPC, install source media there, change production rights or close the source-bound acceptance. Native browser decoding and assistive-technology verification depend on the operator runtime; a headless Chromium decoder may not provide `loadedmetadata`, which is reported as **seek unverified**. Under that condition the UI hides/revokes the Blob and never reports a successful seek. Independent review, deploy, real-use proof and issue closure remain with the root orchestrator.
+**Operational boundary:** The MiniPC production `content_capture` relation has an *unrelated*, `text/plain` Capture; it is not this Ogg. The isolated MiniPC browser test (Chrome headless, real original Ogg loaded from a temporary loopback fixture) confirms keyboard initiation and actual media `currentTime` seek, without autoplay. The Mac Studio headless decoder cannot confirm `loadedmetadata`, so its native seek is **unverified** and the player fails closed. Neither browser fixture proves a production PostgreSQL Capture with a source-approved Candidate, exact transcript alignment or a persistent production rights grant. Keep the source-bound acceptance and issue open until a current independently verified production binding and complete operator proof are observed.

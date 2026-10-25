@@ -29,12 +29,12 @@ from tests import test_dp419_media_capture_binding_pg_next as binding_fixture
 
 ORIGINAL_SHA = "7486fba805c20bde4d43750bd9c34aee86ab7acfd3854a1d0f3d64f62ae68b27"
 SOURCE = "https://upload.wikimedia.org/wikipedia/commons/5/50/Jfk_rice_university_we_choose_to_go_to_the_moon.ogg"
-SEGMENT_TEXT = "We choose to go to the Moon in this decade and do the other things"
+SEGMENT_TEXT = "We choose to go to the Moon in this decade and do the other things, not because they are easy"
 CONTENT = "content:jfk-rice-1962"
 CAPTURE = "capture:jfk-rice-1962-wikimedia"
-SEGMENT = "segment:jfk-rice-1962-520000"
-BINDING = "binding:jfk-rice-1962-520000"
-BEGIN, END = 520000, 525000
+SEGMENT = "segment:jfk-rice-1962-522000"
+BINDING = "binding:jfk-rice-1962-522000"
+BEGIN, END = 522000, 534000
 
 
 class OriginalMediaRealPgAcceptance(unittest.TestCase):
@@ -97,7 +97,7 @@ class OriginalMediaRealPgAcceptance(unittest.TestCase):
             """)
             cls.binding = PgMediaCaptureBindingStore(cls.pg.dsn)
             cls.binding.record(
-                binding_id=BINDING, event_id="event:jfk-520000-attest",
+                binding_id=BINDING, event_id="event:jfk-522000-attest",
                 expected_revision=0, action="ATTEST",
                 content_id=CONTENT, capture_id=CAPTURE,
                 capture_sha256=ORIGINAL_SHA,

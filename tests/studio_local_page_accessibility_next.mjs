@@ -22,6 +22,11 @@ playableWav.writeUInt16LE(1,20); playableWav.writeUInt16LE(1,22);
 playableWav.writeUInt32LE(16000,24); playableWav.writeUInt32LE(32000,28);
 playableWav.writeUInt16LE(2,32); playableWav.writeUInt16LE(16,34);
 playableWav.write('data',36); playableWav.writeUInt32LE(playableWav.length-44,40);
+const realMediaPath=process.env.DP419_REAL_MEDIA_PATH;
+const playbackBytes=realMediaPath ? await readFile(realMediaPath) : playableWav;
+const playbackType=realMediaPath ? 'audio/ogg' : 'audio/wav';
+const playbackStart=realMediaPath ? 522000 : 1200;
+const playbackEnd=realMediaPath ? 534000 : 2200;
 const server = createServer(async (req,res) => {
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, {'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store'});
@@ -39,7 +44,7 @@ const server = createServer(async (req,res) => {
       capture_segment_binding:'OPERATOR_ATTESTED_METADATA_ONLY',
       binding_id:data.binding_id,content_id:'content:mobile',capture_id:'capture:mobile',
       capture_sha256:'b'.repeat(64),canonical_segment_id:'segment:mobile',
-      segment_index:0,start_ms:1200,end_ms:2200,revision:1,
+      segment_index:0,start_ms:playbackStart,end_ms:playbackEnd,revision:1,
       binding_state:'HELD',hold_reasons:['CAPTURE_RIGHTS_UNKNOWN','RIGHTS_NOT_INDEPENDENTLY_APPROVED'],
       sensitive_url:'https://private.invalid/NEVER_SHOW',private_transcript:'SECRET_NEVER_SHOW',
     }})); return;
@@ -52,10 +57,11 @@ const server = createServer(async (req,res) => {
       res.writeHead(422, {'Content-Type':'application/json'});
       res.end('{"error":"STUDIO_LOCAL_REQUEST_OR_DATA_INVALID"}'); return;
     }
-    res.writeHead(200, {'Content-Type':'audio/wav',
-      'Content-Length':playableWav.length,
-      'X-Seek-Start-Ms':'1200','X-Seek-End-Ms':'2200','Cache-Control':'no-store, private'});
-    res.end(playableWav); return;
+    res.writeHead(200, {'Content-Type':playbackType,
+      'Content-Length':playbackBytes.length,
+      'X-Seek-Start-Ms':String(playbackStart),'X-Seek-End-Ms':String(playbackEnd),
+      'Cache-Control':'no-store, private'});
+    res.end(playbackBytes); return;
   }
   res.writeHead(404, {'Content-Type':'application/json'}).end('{}');
 });
@@ -226,8 +232,9 @@ try {
       source:audio.hasAttribute('src'),paused:audio.paused};
   })()`);
   const seekConfirmed=await evaluate("document.getElementById('media-play-status').textContent.includes('Seek reale')");
+  if (realMediaPath) assert.equal(seekConfirmed,true,'original Ogg must prove native currentTime seek');
   if (seekConfirmed) {
-    assert.ok(Math.abs(mediaState.seek-1.2)<=0.1,JSON.stringify(mediaState));
+    assert.ok(Math.abs(mediaState.seek-playbackStart/1000)<=0.1,JSON.stringify(mediaState));
     assert.equal(mediaState.hidden,false);
     assert.equal(mediaState.source,true);
     assert.equal(mediaState.paused,true);
