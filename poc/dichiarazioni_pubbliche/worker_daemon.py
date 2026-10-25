@@ -40,6 +40,7 @@ from dichiarazioni_pubbliche.worker_dispatch import (
     dispatch_processing_worker_job,
 )
 from dichiarazioni_pubbliche.worker_errors import BlockedJob, DeferredJob, RetryableJob
+from dichiarazioni_pubbliche.claim_fanout import enqueue_next_claim_batch
 from dichiarazioni_pubbliche.worker_handlers_claim_evidence import ClaimEvidenceJobHandlers
 from dichiarazioni_pubbliche.worker_handlers_transcript import TranscriptAsrJobHandlers
 from dichiarazioni_pubbliche.worker_handlers_verification import (
@@ -143,6 +144,8 @@ class ProcessingWorker(
         faster_whisper_asr=None,
         claim_client: OmniRouteClaimClient | None = None,
         claim_max_usd_per_1k_total_tokens: float | None = None,
+        claim_fanout_verified: bool = False,
+        claim_window_batch_size: int = 2,
         evidence_fetcher: SafeEvidenceFetcher | None = None,
         source_intelligence_contract: SourceIntelligenceContract | None = None,
     ) -> None:
@@ -161,6 +164,10 @@ class ProcessingWorker(
         self.claim_max_usd_per_1k_total_tokens = (
             claim_max_usd_per_1k_total_tokens
         )
+        if not 1 <= claim_window_batch_size <= 3:
+            raise ValueError("CLAIM_WINDOW_BATCH_SIZE_INVALID")
+        self.claim_fanout_verified = claim_fanout_verified
+        self.claim_window_batch_size = claim_window_batch_size
         self._claim_probe = None
         self.evidence_fetcher = evidence_fetcher
         self.source_intelligence_contract = (
@@ -318,6 +325,8 @@ class ProcessingWorker(
         )
         if remaining != 0:
             return
+        if enqueue_next_claim_batch(self, job):
+            return
         self.store.update_content_status(
             job.content_id,
             "CLAIMS_EXTRACTED",
@@ -430,6 +439,11 @@ def main() -> None:
     parser.add_argument("--max-jobs", type=int, default=5)
     parser.add_argument("--lease-seconds", type=int, default=300)
     parser.add_argument("--max-attempts", type=int, default=5)
+    parser.add_argument(
+        "--claim-fanout-gates-verified", action="store_true",
+        help="Opt in only after DP-201 and DP-202 live acceptance and source-rights review",
+    )
+    parser.add_argument("--claim-window-batch-size", type=int, choices=(1, 2, 3), default=2)
     parser.add_argument("--max-cost-usd-day", type=float, default=5.0)
     parser.add_argument("--max-cost-usd-source-day", type=float, default=1.0)
     parser.add_argument("--max-cost-usd-job", type=float, default=0.25)
@@ -472,6 +486,8 @@ def main() -> None:
             faster_whisper_asr=provider_clients.faster_whisper_asr,
             claim_client=provider_clients.claim_client,
             claim_max_usd_per_1k_total_tokens=provider_clients.claim_rate,
+            claim_fanout_verified=args.claim_fanout_gates_verified,
+            claim_window_batch_size=args.claim_window_batch_size,
             evidence_fetcher=SafeEvidenceFetcher(),
         )
         print(json.dumps(asdict(worker.run(args.max_jobs)), ensure_ascii=False, indent=2))
