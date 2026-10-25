@@ -2,7 +2,7 @@
 """Fail-closed M7 preflight.
 
 This checker validates the engineering state only. It can report NO-GO or, once
-mechanical blockers disappear, PENDING-OWNER. It never returns a launch authorization.
+mechanical blockers disappear, PENDING-RELEASE-AUTHORITY. It never returns a launch authorization.
 """
 
 from __future__ import annotations
