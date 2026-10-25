@@ -23,7 +23,10 @@ def write_page(dist: Path, route: str, *, canonical: str | None = None, body: st
     )
 
 
-def check_routes(*, published: bool, alias_slug: str | None = None) -> subprocess.CompletedProcess:
+def check_routes(
+    *, published: bool, alias_slug: str | None = None,
+    person_alias_slugs: tuple[str, str] | None = None,
+) -> subprocess.CompletedProcess:
     with tempfile.TemporaryDirectory(prefix="dp422-routes-") as tmp:
         dist = Path(tmp)
         for route in STATIC_ROUTES:
@@ -42,6 +45,16 @@ def check_routes(*, published: bool, alias_slug: str | None = None) -> subproces
                      "<p>senza attribuire intenzioni</p>",
             )
             write_page(dist, f"/compare/{alias_slug}/", canonical="/tracce/trace-a/")
+        if person_alias_slugs is not None:
+            records.append({"kind": "person", "route": "/persone/alfa/"})
+            write_page(
+                dist, "/persone/alfa/",
+                body='<section class="person-chronology">Cronologia</section>'
+                     '<p>non esiste un punteggio della persona</p>',
+            )
+            flat_slug, nested_slug = person_alias_slugs
+            write_page(dist, f"/record/{flat_slug}/", canonical="/persone/alfa/")
+            write_page(dist, f"/record/person/{nested_slug}/", canonical="/persone/alfa/")
         (dist / "search-index.v1.json").write_text(
             json.dumps({"records": records, "projection_sha256": "a" * 64}),
             encoding="utf-8",
@@ -70,6 +83,18 @@ class DP422RouteContractBoundaryTest(unittest.TestCase):
         result = check_routes(published=True, alias_slug="trace-other")
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("legacy alias identifier", result.stderr)
+
+    def test_populated_person_accepts_flat_and_nested_legacy_aliases_once_each(self):
+        result = check_routes(published=True, person_alias_slugs=("alfa", "alfa"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("2 compatibility aliases", result.stdout)
+
+    def test_person_alias_cannot_rebind_unrelated_identifier(self):
+        for aliases in (("alfa", "altro"), ("altro", "alfa")):
+            with self.subTest(aliases=aliases):
+                result = check_routes(published=True, person_alias_slugs=aliases)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("legacy alias identifier", result.stderr)
 
 
 if __name__ == "__main__":

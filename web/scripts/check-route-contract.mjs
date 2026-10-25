@@ -136,6 +136,8 @@ for (const [route, html] of pages) {
       canonical.slice(canonicalPrefix.length),
       `${route}: legacy alias identifier differs from canonical target ${canonical}`,
     );
+    // The nested /record/person/ prefix precedes /record/: count and validate once.
+    break;
   }
 }
 assert.equal(compareAliasCount, traceRoutes.size, "Trace compatibility aliases must match canonical Trace routes one-for-one");
