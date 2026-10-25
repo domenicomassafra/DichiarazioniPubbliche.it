@@ -57,3 +57,7 @@ umano o una nuova firma personale. Usare il registro versionato/revocabile,
 le evidenze hash e il perimetro di `docs/ops/dp326-studio-discovery-metadata-rights-20261024.md`.
 Questa decisione non concede capture del body, modelli, review o pubblicazione;
 fonti differenti continuano a seguire i loro controlli specifici.
+
+## Fonti (decisione owner del 25/10/2026)
+
+Niente «fonti di prova»: ogni fonte è reale. DichiarazioniPubbliche deve raccogliere tutte le dichiarazioni pubbliche reperibili di persone note (politici, attori, cantanti, produttori, influencer, YouTuber, TikToker e simili), senza un limite: più sono, meglio è. Restano fuori le persone comuni, salvo quando parlano in televisione o in un contesto pubblico. Gli agenti scelgono le fonti in autonomia e non chiedono lautorizzazione
