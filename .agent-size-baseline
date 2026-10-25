@@ -129,7 +129,7 @@
   "poc/dichiarazioni_pubbliche/studio_candidate_review.py": 31939,
   "poc/dichiarazioni_pubbliche/studio_candidate_review_ui.py": 26617,
   "poc/dichiarazioni_pubbliche/studio_local_api.py": 54162,
-  "poc/dichiarazioni_pubbliche/studio_local_page.py": 129308,
+  "poc/dichiarazioni_pubbliche/studio_local_page.py": 128592,
   "poc/dichiarazioni_pubbliche/studio_machine_candidate_handoff_v1.py": 39991,
   "poc/dichiarazioni_pubbliche/studio_operator_queues.py": 41042,
   "poc/dichiarazioni_pubbliche/timestamp_acceptance.py": 20432,
