@@ -17,6 +17,8 @@ from dichiarazioni_pubbliche.claim_runtime import (  # noqa: E402
     ClaimExtractionResult,
     ClaimRuntimeProbe,
     ExtractedAtomicClaim,
+    OmniRouteClaimClient,
+    estimate_claim_request_cost,
 )
 from dichiarazioni_pubbliche.evidence_runtime import (  # noqa: E402
     EvidenceFetchReceipt,
@@ -35,8 +37,6 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
-from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
-from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
 from tests.dp169_caption_fixture_rights import cleared_caption_rights
 
 class FakePrivateStore:
@@ -347,6 +347,7 @@ class WorkerDaemonTests(unittest.TestCase):
             budget=budget or WorkerBudget(),
             claim_client=claim_client,
             claim_max_usd_per_1k_total_tokens=claim_rate,
+            claim_fanout_verified=claim_client is not None,
             evidence_fetcher=evidence_fetcher,
         )
         worker._caption_rights_guard = lambda *_: cleared_caption_rights()
