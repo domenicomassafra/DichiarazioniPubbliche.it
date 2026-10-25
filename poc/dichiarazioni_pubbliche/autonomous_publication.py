@@ -160,6 +160,8 @@ def _provenance(candidate: AutonomousCandidate) -> bool:
 
 def _wording(candidate: AutonomousCandidate) -> bool:
     try:
+        if type(candidate.alignment_confidence) not in (int, float):
+            return False
         confidence = float(candidate.alignment_confidence)
         return (
             bool(candidate.quote.strip())
@@ -180,7 +182,12 @@ def _speaker(candidate: AutonomousCandidate) -> bool:
         if family and signal.evidence_ref and signal.evidence_ref.strip():
             families.add(family)
             references.add(signal.evidence_ref)
-    return len(families) >= 2 and len(references) >= 2
+    # A caption and channel title can describe the same upload. Require an
+    # independent audio analysis or external public identity record as well.
+    return (
+        len(families) >= 2 and len(references) >= 2
+        and bool(families & {"audio_analysis", "external_record"})
+    )
 
 
 def _person(candidate: AutonomousCandidate) -> bool:
@@ -204,7 +211,7 @@ def _rights_privacy(candidate: AutonomousCandidate) -> bool:
             and _public_https(candidate.rights_citation_url)
             and candidate.contains_editorial_judgment is False
             and 0 < length <= MAX_EXCERPT_CHARS
-            and isinstance(candidate.source_length_chars, int)
+            and type(candidate.source_length_chars) is int
             and candidate.source_length_chars > 0
         )
     except (TypeError, AttributeError):
@@ -239,12 +246,12 @@ def evaluate_autonomous_publication(
         or independent is None
         or not isinstance(primary, AgentReview)
         or not isinstance(independent, AgentReview)
-        or not primary.agent_id
-        or not independent.agent_id
-        or primary.agent_id == independent.agent_id
-        or not primary.model_id
-        or not independent.model_id
-        or primary.model_id == independent.model_id
+        or not primary.agent_id.strip()
+        or not independent.agent_id.strip()
+        or primary.agent_id.strip().casefold() == independent.agent_id.strip().casefold()
+        or not primary.model_id.strip()
+        or not independent.model_id.strip()
+        or primary.model_id.strip().casefold() == independent.model_id.strip().casefold()
         or primary.evidence_sha256 != binding
         or independent.evidence_sha256 != binding
         or primary.checked_stages != CHECKS
