@@ -32,6 +32,17 @@ _LICENSES = frozenset({"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "CC0
 _LABEL_TYPES = {"PER": "PERSON", "ORG": "ORGANIZATION", "LOC": None}
 
 
+def _runtime_digest(pipeline: Any, tokenizer_policy: str) -> str:
+    if tokenizer_policy == "blank-it":
+        # spaCy expands its string store on inference; those transient strings
+        # change to_bytes() even when the loaded NER and vocabulary stay intact.
+        stable = pipeline.to_bytes(exclude=["vocab"])
+        stable += pipeline.vocab.to_bytes(exclude=["strings"])
+    else:
+        stable = pipeline.to_bytes()
+    return hashlib.sha256(stable).hexdigest()
+
+
 @dataclass(frozen=True)
 class ApprovedSpaCyModel:
     source_url: str
@@ -85,8 +96,12 @@ class SpaCyItalianPrivateAdapter:
             raise CandidateExtractionError("SPACY_MODEL_DIGEST_UNAVAILABLE") from exc
         if actual_digest != approval.pipeline_sha256:
             raise CandidateExtractionError("SPACY_MODEL_DIGEST_MISMATCH")
+        try:
+            runtime_digest = _runtime_digest(pipeline, approval.tokenizer_policy)
+        except Exception as exc:
+            raise CandidateExtractionError("SPACY_MODEL_DIGEST_UNAVAILABLE") from exc
         self._pipeline = pipeline
-        self._digest = actual_digest
+        self._runtime_digest = runtime_digest
         self.approval = approval
         fingerprint_input = (ADAPTER_VERSION + "\x1f" + approval.source_url + "\x1f"
                              + approval.revision + "\x1f" + approval.pipeline_sha256)
@@ -136,10 +151,10 @@ class SpaCyItalianPrivateAdapter:
         if hashlib.sha256(text.encode("utf-8")).hexdigest() != text_sha256:
             raise CandidateExtractionError("SPACY_PASSAGE_HASH_MISMATCH")
         try:
-            current_digest = hashlib.sha256(self._pipeline.to_bytes()).hexdigest()
+            current_digest = _runtime_digest(self._pipeline, self.approval.tokenizer_policy)
         except Exception as exc:
             raise CandidateExtractionError("SPACY_MODEL_DIGEST_UNAVAILABLE") from exc
-        if current_digest != self._digest:
+        if current_digest != self._runtime_digest:
             raise CandidateExtractionError("SPACY_MODEL_CHANGED")
         try:
             document = self._pipeline(text)

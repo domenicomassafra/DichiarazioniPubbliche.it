@@ -1,8 +1,8 @@
 # DP-158 — spaCy Italian private entity proposals
 
-Status: **adapter available, opt-in; no pretrained Italian model approved or activated**.
-This receipt covers the library and the synthetic in-memory gold, not deployment
-against real Content, a production rights grant or automatic person attribution.
+Status: **opt-in adapter and hash-pinned locally trained Italian NER candidate;
+approved only for transient, offline, private evaluation**. No production rights
+grant, durable candidate extraction, redistribution or person attribution.
 
 ## Donor and license evidence (verified 2026-10-20)
 
@@ -237,3 +237,48 @@ decision in [#158](https://github.com/domenicomassafra/DichiarazioniPubbliche.it
 and identify the permitted usage scope; only after those steps may a private
 consumer installation be activated, with an `EXTRACT_CANDIDATES` rights record
 for any persisted passage and an independent review of generated candidates.
+
+### Distinct third-agent rights decision (2026-10-25)
+
+**APPROVED only for private, offline, transient, human-reviewed NER trials** of
+the exact local model identified by pipeline SHA-256
+`ab6908acc150f1dcbba545df372e446340c12234df1d4635f23f6516dded14b6`.
+The approval includes a private copy on the owner's MiniPC for a bounded
+in-memory Senato readback, with no external model endpoint or output disclosure.
+The prepared model's `Apache-2.0` metadata describes locally authored material;
+**it does not establish an Apache-only redistribution license for weights**.
+
+The approver independently checked the publisher's [Figshare article and
+license](https://figshare.com/articles/dataset/5462500), its
+[API record](https://api.figshare.com/v2/articles/5462500) (file 9446344,
+6,316,939 bytes, MD5 `2554a867110a72189ac7f1a4de629de9`, CC BY 4.0),
+and the local corpus SHA-256 `d702670de515508b7b3341e3e088c9efd882c3647be6930b39f26a920dc4df69`.
+The underlying text came from Wikipedia before its
+[2023 BY-SA 3.0 to 4.0 transition](https://diff.wikimedia.org/2023/06/29/stepping-into-the-future-wikimedia-projects-transition-to-creative-commons-4-0-license/).
+[Creative Commons' 2025 AI training guidance](https://creativecommons.org/using-cc-licensed-works-for-ai-training-2/)
+explains that attribution and ShareAlike requirements are triggered on public
+sharing of protected works/adaptations, while copyright and training rights are
+fact dependent. The [CC BY 4.0 legal code](https://creativecommons.org/licenses/by/4.0/legalcode.en)
+does not grant privacy/personality rights or override third-party rights.
+
+**HOLD for public or commercial distribution of model weights or training
+corpus**, including an Apache-only release, until historical Wikipedia
+BY-SA obligations and complete notices are resolved for that distribution.
+HOLD for automatic identity/speaker attribution, quality certification,
+production activation, candidate DB commits, and any public projection.
+Persisted `EXTRACT_CANDIDATES` needs a source-use record CURRENT for the
+exact passage and retention/revocation before the existing commit fence permits
+it. The bounded Senato XML has an independently verified exact SHA-256 and
+CC BY 4.0 upstream license, but its `PARSE_TEXT`/`STORE_BODY` receipt is not a
+blanket extract permission. This approval does not modify the pinned manifest
+or bypass its deliberately provisional status checks.
+
+**MiniPC readback for this precise private scope (2026-10-25):** installed
+`spacy==3.8.16` in a dedicated non-default Python 3.14 virtual environment,
+with model/source files in private, owner-only directories. The unmodified
+in-memory probe on Senato speech ordinal 40 exited 0: XML SHA-256
+`1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476`,
+passage SHA-256 `20945f54e1f69fbe55422db23f3d148526c616e2e2ca784f883da1e1728924ec`,
+7 candidates (4 PER, 3 LOC, 0 ORG), only labels/offsets/hashes. The probe
+reported `NO_DB_COMMIT_NO_IDENTITY_APPROVAL_NO_PUBLICATION`; the default
+web service stayed separate from the opt-in runtime.
