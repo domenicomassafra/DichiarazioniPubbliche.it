@@ -52,6 +52,17 @@ The new `attempt_started_at_utc` field is read from the durable attempt row;
 `new_healthy_attempt_this_invocation` distinguishes a newly persisted healthy
 attempt from a replay of the same private state directory.
 
+**Post-fix readback of an independent private cluster:** with fresh state
+`/tmp/dp229-328-canary-fresh-20261025`, the first run reported
+`attempt_started_at_utc=2026-10-25T15:36:58.962912Z` and
+`new_healthy_attempt_this_invocation=true`. Repeating the command on that
+same state directory at `2026-10-25T15:39:01.029201+00:00` reported the
+**same attempt start**, `new_healthy_attempt_this_invocation=false`, and
+one durable `HEALTHY` attempt, zero results, replay equality and `HOLD`.
+SHA256 of the final local `receipt.json`:
+`00b86c32aee3def30ca041280e62e243da74e4df5e419c8841ac5bff2076e9f6`.
+The local private state is temporary; this record preserves only metadata.
+
 ## Consumer and unresolved acceptance
 
 Read-only MiniPC check on 2026-10-25: `dichiarazioni-pubbliche-web.service`
