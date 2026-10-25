@@ -122,8 +122,8 @@ class PostgresWatchQueueTests(unittest.TestCase):
             source_id=self.p.source_id, policy_fingerprint=policy_fingerprint(self.p),
             corpus_id=self.p.corpus_id, rights_status="READY",
             rights_receipt="rights:test", capability_status="READY",
-            capability_receipt="fixture:capability:source:test",
-            budget_status="READY", budget_receipt="TEST_APPROVAL",
+            capability_receipt="native:https-bounded-no-provider",
+            budget_status="READY", budget_receipt="subscription:no-paid-provider",
             remaining_children=1,
         )
         return WatchReadiness(**(values | changes))
@@ -152,6 +152,39 @@ class PostgresWatchQueueTests(unittest.TestCase):
             "SELECT count(*) FROM processing_job "
             "WHERE job_type='SOURCE_REVALIDATION_REVIEW'"
         )
+
+    def test_subscription_only_budget_admits_without_eur_policy(self):
+        self.store.update_readiness(
+            self.gates(budget_receipt="subscription:no-paid-provider"),
+            expected_gate_revision=0,
+        )
+        self.exec_sql(self.dsn, "TRUNCATE dp514_monthly_dispatch_reservation, dp514_monthly_dispatch_policy;")
+        self.assertTrue(self.begin().allowed)
+        self.assertEqual(self.commit().disposition, "CHANGED")
+        self.assertEqual(self.jobs(), "1")
+
+    def test_native_watcher_200_then_304_produces_one_blocked_job(self):
+        from dichiarazioni_pubbliche.dp244_conditional_probe import HttpResult
+        from dichiarazioni_pubbliche.native_source_watch import watch_once
+
+        checks = []
+
+        def fetch(url, headers):
+            checks.append((url, headers))
+            if len(checks) == 1:
+                return HttpResult(200, url, b"authentic-representation", '"current"')
+            return HttpResult(304, url)
+
+        initial = watch_once(self.store, self.p.source_id, fetch=fetch)
+        again = watch_once(self.store, self.p.source_id, fetch=fetch)
+        self.assertEqual((initial["disposition"], again["disposition"]),
+                         ("CHANGED", "UNCHANGED"))
+        self.assertEqual(self.jobs(), "1")
+        self.assertEqual(self.scalar(
+            "SELECT state FROM processing_job WHERE job_type='SOURCE_REVALIDATION_REVIEW'"
+        ), "BLOCKED")
+        self.assertEqual(checks[0][0], self.p.locator_id)
+        self.assertIn(("If-None-Match", '"current"'), checks[1][1])
 
     def test_changed_enqueues_one_held_canonical_job_and_replay_is_exact(self):
         self.assertTrue(self.begin().allowed)
@@ -214,10 +247,29 @@ class PostgresWatchQueueTests(unittest.TestCase):
         self.store.update_readiness(
             self.gates(rights_status="REVOKED"), expected_gate_revision=0
         )
-        result = self.commit()
-        self.assertEqual(result.disposition, "BLOCKED")
+        with self.assertRaisesRegex(ValueError, "RIGHTS_NOT_READY"):
+            self.commit()
         self.assertEqual(self.jobs(), "0")
-        self.assertEqual(self.store.read_state(self.p.source_id).content_sha256, "a"*64)
+        self.assertEqual(self.store.read_state(self.p.source_id), self.state)
+
+    def test_right_revoked_during_304_refuses_freshness_advance(self):
+        self.begin()
+        self.exec_sql(self.dsn, """
+            INSERT INTO private_source_rights_record (
+                id,subject_fingerprint,source_family,locator_kind,locator_value,
+                content_id,rights_status,rights_receipt_ref,permitted_uses,
+                policy_version,reviewed_at,reviewer_ref,supersedes_id)
+            VALUES ('rights:revoke-304',repeat('a',64),'OFFICIAL_RSS','URL',
+                    'https://example.test/test','content:test','REVOKED',
+                    'fixture:revoked',ARRAY[]::text[],'fixture',now(),
+                    'fixture:reviewer','rights:test');
+        """)
+        with self.assertRaisesRegex(ValueError, "RIGHTS_NOT_READY|GATE_CHANGED"):
+            self.commit(obs=WatchObservation(
+                observed_at=self.now+timedelta(seconds=2), status_code=304
+            ))
+        self.assertEqual(self.store.read_state(self.p.source_id), self.state)
+        self.assertEqual(self.jobs(), "0")
 
     def test_cas_lost_on_ready_gate_epoch_change_preserves_prior_state(self):
         self.begin()
@@ -237,19 +289,21 @@ class PostgresWatchQueueTests(unittest.TestCase):
         self.assertEqual(self.begin().reason, "RIGHTS_NOT_READY")
         self.assertEqual(self.jobs(), "0")
 
-    def test_authoritative_rights_unknown_or_budget_cap_holds_without_state_change(self):
+    def test_authoritative_rights_unknown_or_unapproved_budget_holds_without_state_change(self):
         self.store.update_readiness(
             self.gates(rights_status="UNKNOWN"), expected_gate_revision=0
         )
         self.assertFalse(self.begin().allowed)
         self.assertEqual(self.jobs(), "0")
         self.assertEqual(self.store.read_state(self.p.source_id), self.state)
-        self.store.update_readiness(self.gates(), expected_gate_revision=1)
-        self.exec_sql(self.dsn, "TRUNCATE dp514_monthly_dispatch_reservation, dp514_monthly_dispatch_policy;")
+        self.store.update_readiness(
+            self.gates(budget_receipt="unapproved:metered-provider"),
+            expected_gate_revision=1,
+        )
         self.assertFalse(self.begin().allowed)
         self.assertEqual(self.jobs(), "0")
 
-    def test_exhausted_monthly_eur_cap_holds_even_with_ready_label(self):
+    def test_metered_provider_cap_cannot_override_subscription_only_gate(self):
         self.exec_sql(self.dsn, """
             INSERT INTO worker_budget_reservation
                 (job_id,attempt,content_id,source_id,upper_bound_usd)
@@ -260,11 +314,15 @@ class PostgresWatchQueueTests(unittest.TestCase):
             VALUES ('job:1',0,to_char(now() AT TIME ZONE 'Europe/Rome','YYYY-MM'),
                     'dp512-fixture-v1','provider:test',10,1);
         """)
+        self.store.update_readiness(
+            self.gates(budget_receipt="TEST_APPROVAL"),
+            expected_gate_revision=0,
+        )
         self.assertEqual(self.begin().reason, "BUDGET_NOT_READY")
         self.assertEqual(self.jobs(), "0")
         self.assertEqual(self.store.read_state(self.p.source_id), self.state)
 
-    def test_unknown_provider_liability_holds_without_watch_job(self):
+    def test_unrelated_provider_liability_does_not_block_provider_free_watch(self):
         self.exec_sql(self.dsn, """
             INSERT INTO provider_receipt(
                 id,provider_id,operation,billing_basis,status,
@@ -272,9 +330,11 @@ class PostgresWatchQueueTests(unittest.TestCase):
             VALUES('receipt:outside','provider:test','ASR',
                    'ESTIMATED_ONLY','SUCCESS',0.1);
         """)
-        self.assertEqual(self.begin().reason, "BUDGET_NOT_READY")
-        self.assertEqual(self.jobs(), "0")
-        self.assertEqual(self.store.read_state(self.p.source_id), self.state)
+        self.assertTrue(self.begin().allowed)
+        self.assertEqual(self.commit().disposition, "CHANGED")
+        self.assertEqual(self.jobs(), "1")
+        self.assertEqual(self.store.read_state(self.p.source_id).revision,
+                         self.state.revision + 1)
 
     def test_cas_lost_and_out_of_band_revoke_cannot_create_job(self):
         self.begin()
