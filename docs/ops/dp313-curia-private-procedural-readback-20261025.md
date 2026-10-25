@@ -35,34 +35,54 @@ full body); the receipt is generated completely offline:
 curl -fsSL --max-time 15 --max-filesize 500000 \
   -o /tmp/dp313-curia-312911-20261025.html \
   'https://juris.curia.europa.eu/juris/document/document.jsf?docid=312911&doclang=IT'
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 \
+python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py \
+  build -- env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python3 \
   tools/dp313_curia_private_readback.py \
   --html /tmp/dp313-curia-312911-20261025.html
 ```
 
 2026-10-25 observed receipt: **exit 0**, `PRIVATE_HOLD`,
 `source_sha256=1bcb37cfb1d9f6c949dbe0b57fdb391ad9f5ba89102ba48271c53a25f40a72ae`;
-three spans held; `extraction_authorized=false`,
+three spans held in the initial implementation; `extraction_authorized=false`,
 `publication_authorized=false`, `NOT_EVALUATED` for all underlying facts.
 Two HTTPS downloads had *different raw HTML hashes* because of volatile
 session markup, but identical normalized judgment hashes. The tool pins the
 latter and rejects changes. Character offsets are in the normalized official
 HTML body, not physical page numbers or independently verified OCR.
 
-Distinct exact-offset observations:
+Independent review of PR #416 identified that the initial third observation
+misclassified part of the Court's own operative order as a verbatim EPSO
+quotation and used the Court's 2026 date for that purported prior statement.
+The corrected tool locates **four distinct** official-text spans in document
+order, preserving the dates and speakers separately:
 
 1. VT's application seeking annulment: party's procedural request, not
    the Court's own factual endorsement.
-2. The operative order annulling the earlier General Court judgment:
-   Court disposition, **not** acquittal or guilt finding.
-3. The description of the earlier decision *not* to register VT:
-   prior decision quoted by the Court; negative polarity, attribution to
-   the EPSO board still unverified.
+2. Paragraph 8 (normalized HTML offsets **3615:3805**): the Court *reports*
+   that the EPSO/AD/380/19 selection board rejected the review request on
+   **15 July 2022**. The reporter is the Court; no verbatim EPSO text or
+   independently confirmed EPSO document is supplied. This is held as
+   `ALLEGATION`/`REPORTER` (reported event, no factual endorsement).
+3. Operative item 1 (**23357:23482**): the Court annuls the prior General
+   Court judgment in its **25 June 2026** judgment, `FINDING_ORDER`/
+   `COURT_DECISION`; this is neither an acquittal nor a guilt finding.
+4. Operative item 2 (**23483:23835**): the Court annuls the reported
+   **15 July 2022** EPSO board decision. This is another Court order, not
+   an EPSO direct quotation, nor a second independent confirmation.
 
-The third span is explicitly held for institutional quoted-author verification
-and negative-phrase review. Anonymous-person privacy and unreviewed source
-currentness hold the first two. The tool does not infer finality, real-person
-identity, factual guilt, or evidence independence. It does not connect this
+The corrected official source readback is `PRIVATE_HOLD`, **4/4 spans `HOLD`**,
+**4/4 underlying facts `NOT_EVALUATED`**, with `quoted_authors=[null,null,null,null]`.
+The `reported_prior_decision` receipt explicitly identifies the Court as the
+reporter and the EPSO body only *as reported*, with no original record pinned,
+verified verbatim original, original author, or effective date. The date
+anchors on the span annotations (`2022-07-15` for the prior report;
+`2026-06-25` for the judicial dispositions) are **not verified procedural
+status effective dates**; `status=UNKNOWN` and
+`status_effective_dates_verified=false` remain in effect.
+
+Anonymous-person privacy, unreviewed negation and source currentness hold
+the observations. The tool does not infer finality, real-person identity,
+factual guilt, or evidence independence. It does not connect this
 document to a persistent Capture/Passage/Statement/claim or a MiniPC consumer
 database. Rights, privacy, OCR alternatives, version/appeal invalidation,
 cross-source independence, and conditional revalidation remain necessary for

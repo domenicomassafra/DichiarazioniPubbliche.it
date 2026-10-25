@@ -31,6 +31,7 @@ SOURCE_COPYRIGHT = "https://curia.europa.eu/site/jcms/qua1_6625/"
 SOURCE_ECLI = "ECLI:EU:C:2026:519"
 SOURCE_SHA256 = "1bcb37cfb1d9f6c949dbe0b57fdb391ad9f5ba89102ba48271c53a25f40a72ae"
 JUDGMENT_DATE = "2026-06-25"
+REPORTED_PRIOR_DECISION_DATE = "2022-07-15"
 
 
 class _DocumentText(HTMLParser):
@@ -116,22 +117,34 @@ def evaluate_curia_private(
 
     disposition_start = text.index("Per questi motivi")
     allegation = _fragment(text, r"Con la sua impugnazione, VT chiede l’annullamento")
+    # Paragraph 8 reports an earlier board decision; it is not that decision's
+    # verbatim text, nor evidence of its original author or effective date.
+    prior_report = _fragment(
+        text,
+        r"Con decisione del 15 luglio 2022 inviata al ricorrente, la commissione "
+        r"giudicatrice ha respinto.{0,300}?nell’elenco di riserva\.",
+        after=allegation[1],
+    )
     disposition = _fragment(
         text, r"1\) La sentenza del Tribunale.{0,270}?è annullata\.",
         after=disposition_start,
     )
-    prior_decision = _fragment(
-        text, r"di non iscrivere il nome di VT",
+    prior_annulment = _fragment(
+        text,
+        r"2\) La decisione del 15 luglio 2022, con la quale.{0,450}?"
+        r"di non iscrivere il nome di VT.{0,450}?è annullata\.",
         after=disposition[1],
     )
     annotations = []
-    for (start, end), kind, role, by, quoted, polarity in (
+    for (start, end), kind, role, by, quoted, polarity, date_anchor in (
         (allegation, AssertionKind.ALLEGATION, DocumentaryRole.ALLEGATION,
-         "person:vt-anonymized", None, "AFFIRMED"),
+         "person:vt-anonymized", None, "AFFIRMED", JUDGMENT_DATE),
+        (prior_report, AssertionKind.ALLEGATION, DocumentaryRole.REPORTER,
+         "body:cjeu", None, "NEGATED", REPORTED_PRIOR_DECISION_DATE),
         (disposition, AssertionKind.FINDING_ORDER, DocumentaryRole.COURT_DECISION,
-         "body:cjeu", None, "AFFIRMED"),
-        (prior_decision, AssertionKind.QUOTED_TEXT, DocumentaryRole.REPORTER,
-         "body:cjeu", "body:epso-board", "NEGATED"),
+         "body:cjeu", None, "AFFIRMED", JUDGMENT_DATE),
+        (prior_annulment, AssertionKind.FINDING_ORDER, DocumentaryRole.COURT_DECISION,
+         "body:cjeu", None, "NEGATED", JUDGMENT_DATE),
     ):
         annotations.append(ProceduralSpanAnnotation(
             start_char=start,
@@ -146,7 +159,8 @@ def evaluate_curia_private(
             procedural_party_refs=("person:vt-anonymized",),
             status=ProceduralStatus.UNKNOWN,
             status_jurisdiction_ref="jurisdiction:eu-cjeu",
-            status_effective_date=JUDGMENT_DATE,
+            # Unreviewed date anchor; UNKNOWN status never proves legal effect.
+            status_effective_date=date_anchor,
             negation_polarity=polarity,
             negation_review_ref=None,
             quoted_author_ref=quoted,
@@ -195,10 +209,27 @@ def evaluate_curia_private(
         "extraction_authorized": False,
         "publication_authorized": False,
         "span_roles": [
-            "PARTY_ALLEGATION", "COURT_DISPOSITION", "PRIOR_DECISION_QUOTATION",
+            "PARTY_ALLEGATION", "PRIOR_DECISION_REPORTED_BY_COURT",
+            "COURT_DISPOSITION", "COURT_ANNULMENT_OF_REPORTED_DECISION",
         ],
+        "assertion_kinds": [row.assertion_kind.value for row in decision.spans],
         "speakers": [row.asserted_by_ref for row in decision.spans],
         "quoted_authors": [row.quoted_author_ref for row in decision.spans],
+        "span_status_effective_dates": [
+            row.status_effective_date for row in decision.spans
+        ],
+        "status_effective_dates_verified": False,
+        "reported_prior_decision": {
+            "date_as_reported": REPORTED_PRIOR_DECISION_DATE,
+            "institution_as_reported": "commissione giudicatrice EPSO/AD/380/19",
+            "reported_by_ref": "body:cjeu",
+            "original_record_ref": None,
+            "verbatim_original_quote_verified": False,
+            "original_author_verified": False,
+            "effective_date_verified": False,
+            "source_span_index": 1,
+            "annulment_span_index": 3,
+        },
         "span_states": [row.state for row in decision.spans],
         "span_reason_codes": [list(row.reason_codes) for row in decision.spans],
         "span_locators": [
