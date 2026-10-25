@@ -23,14 +23,11 @@ from typing import Any, Callable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.claim_runtime import (  # noqa: E402
-    OmniRouteClaimClient, load_claim_config, matches_returned_model,
+    LOCAL_GATEWAY_URLS, OmniRouteClaimClient, load_claim_config, matches_returned_model,
 )
 
 
 SUBSCRIPTION_MODEL = "antigravity/gemini-3.8-flash-tiered"
-LOCAL_GATEWAY_URLS = frozenset({
-    "http://127.0.0.1:19128", "http://127.0.0.1:20128",
-})
 SYNTHETIC_WINDOW = "[seg=0 0:00.000-0:03.000] Il prezzo dichiarato è 10 euro."
 CANARY_MODEL = load_claim_config()["model"]
 
