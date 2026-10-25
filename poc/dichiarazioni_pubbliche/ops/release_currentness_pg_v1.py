@@ -198,9 +198,9 @@ BEGIN
   SELECT * INTO manifest FROM dp518_pg_release WHERE release_id=p_release;
   IF NOT FOUND THEN
     reason_code := 'NO_REFERENCE';
-  ELSIF manifest.index_sha256<>p_index
-    OR manifest.projection_sha256<>p_projection
-    OR manifest.generation_sha256<>p_generation THEN
+  ELSIF manifest.index_sha256 IS DISTINCT FROM p_index
+    OR manifest.projection_sha256 IS DISTINCT FROM p_projection
+    OR manifest.generation_sha256 IS DISTINCT FROM p_generation THEN
     reason_code := 'RELEASE_VERSION_MISMATCH';
   ELSE
     -- This PostgreSQL check does NOT fence any later HTTP/edge response.

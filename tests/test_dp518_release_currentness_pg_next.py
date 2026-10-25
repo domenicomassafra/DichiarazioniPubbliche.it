@@ -112,6 +112,20 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
         self.assertEqual(stale.reason, "RELEASE_VERSION_MISMATCH")
         self.assertFalse(stale.publication_authorized)
 
+    def test_sql_null_digest_cannot_claim_private_coherence(self):
+        self._select(self._ticket())
+        for missing in range(3):
+            with self.subTest(missing_digest=missing):
+                digests = [f"'"+INDEX+"'", f"'"+PROJECTION+"'", f"'"+GENERATION+"'"]
+                digests[missing] = "NULL"
+                raw = self.sql(
+                    "SELECT dp518_pg_probe('release:one',"
+                    + ",".join(digests) + ",1)::text;"
+                )
+                response = json.loads(raw)
+                self.assertEqual(response["status"], "HELD")
+                self.assertEqual(response["reason"], "RELEASE_VERSION_MISMATCH")
+
     def test_reinstall_removes_old_unpinned_probe_signature(self):
         # PostgreSQL CREATE OR REPLACE with extra arguments creates an overload;
         # it does not remove the unpinned legacy readback function.
