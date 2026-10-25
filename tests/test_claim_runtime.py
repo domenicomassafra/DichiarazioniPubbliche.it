@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -227,6 +228,31 @@ class ClaimRuntimeTests(unittest.TestCase):
                 client._post(
                     "prompt", max_tokens=256, allowed_segment_indices=(0,)
                 )
+
+    def test_tiered_antigravity_response_uses_official_wire_model_identity(self):
+        client = OmniRouteClaimClient(api_key="x", config=load_claim_config())
+
+        class Reply:
+            status = 200
+
+            def read(self, _limit):
+                return json.dumps({
+                    "id": "req-tiered",
+                    "model": "gemini-3.8-flash-tiered",
+                    "choices": [{"message": {"content": '{"claims":[]}'}}],
+                }).encode()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+        with patch("urllib.request.urlopen", return_value=Reply()):
+            response, _ = client._post(
+                "prompt", max_tokens=256, allowed_segment_indices=(0,)
+            )
+        self.assertEqual(response["model"], "gemini-3.8-flash-tiered")
 
     def test_extract_records_returned_model_usage_and_request_id(self):
         client = OmniRouteClaimClient(api_key="x", config=load_claim_config())

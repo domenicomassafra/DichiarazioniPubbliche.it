@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -22,7 +23,7 @@ from typing import Any, Callable
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.claim_runtime import (  # noqa: E402
-    OmniRouteClaimClient, load_claim_config,
+    OmniRouteClaimClient, load_claim_config, matches_returned_model,
 )
 
 
@@ -178,7 +179,7 @@ def run_canary(
             raise GateBlocked("CANARY_MODEL_CALL_FAILED") from None
 
         receipt["model_returned"] = result.returned_model
-        if result.returned_model != model:
+        if not matches_returned_model(model, result.returned_model):
             raise GateBlocked("MODEL_SUBSTITUTED")
         receipt["model_identity_exact"] = True
         receipt["schema_constrained"] = True
@@ -204,8 +205,21 @@ def run_canary(
         if _amount(result.observed_cost_usd) != 0:
             raise GateBlocked("UNEXPECTED_PROVIDER_COST")
         receipt["claims_count"] = len(result.claims)
+        receipt["latency_seconds"] = result.latency_seconds
         if not result.claims:
             raise GateBlocked("CANARY_NO_CLAIMS")
+        # This tiny approved fixture tests numeric extraction tied to segment 0,
+        # not merely a valid but irrelevant sentence.
+        if not any(
+            claim.check_worthy
+            and claim.numeric_sensitive
+            and claim.source_segment_indices == (0,)
+            and re.search(r"\b10\b", claim.normalized_claim)
+            and ("euro" in claim.normalized_claim.casefold()
+                 or "€" in claim.normalized_claim)
+            for claim in result.claims
+        ):
+            raise GateBlocked("CANARY_NO_MEANINGFUL_CLAIMS")
         receipt["status"] = "CANARY_PASSED"
         receipt["reason_code"] = "OK"
     except GateBlocked as exc:
