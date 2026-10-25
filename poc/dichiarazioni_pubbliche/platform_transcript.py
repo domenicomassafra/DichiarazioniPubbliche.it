@@ -7,19 +7,18 @@ import re
 import subprocess
 import tempfile
 import unicodedata
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
+from dichiarazioni_pubbliche import dstack_free_captions
 from dichiarazioni_pubbliche.caption_adapter import (
     CaptionSegment, parse_transcript_api_snippets, parse_youtube_json3,
 )
 from dichiarazioni_pubbliche.podcast_youtube_resolution import PodcastYouTubeResolutionMixin
-from dichiarazioni_pubbliche.youtube_caption_fallback import (
-    yt_dlp_access_denied, yt_dlp_caption_unavailable,
-)
+from dichiarazioni_pubbliche.youtube_caption_fallback import yt_dlp_access_denied
 from dichiarazioni_pubbliche.youtube_caption_ytdlp import (
     YtDlpAccessDenied, download_youtube_json3,
 )
@@ -140,6 +139,7 @@ class YouTubeResolver(PodcastYouTubeResolutionMixin):
         *, use_transcript_api: bool | None = None,
         use_transcript_api_secondary: bool | None = None,
         transcript_api_factory: Callable[[], Any] | None = None,
+        free_caption_catalog_path: Path | None = None,
     ) -> None:
         self.yt_dlp = yt_dlp
         self.playlist_limit = max(playlist_limit, 1)
@@ -156,6 +156,10 @@ class YouTubeResolver(PodcastYouTubeResolutionMixin):
         if self.use_transcript_api and self.use_transcript_api_secondary:
             raise ValueError("TRANSCRIPT_API_MODES_CONFLICT")
         self._transcript_api_factory = transcript_api_factory
+        self.free_caption_catalog_path = (
+            free_caption_catalog_path if free_caption_catalog_path is not None
+            else dstack_free_captions.CATALOG_PATH
+        )
 
     def _atom_candidates(self, source: dict[str, Any]) -> list[VideoCandidate]:
         url = source.get("discovery_url")
@@ -325,40 +329,9 @@ class YouTubeResolver(PodcastYouTubeResolutionMixin):
         )
 
     def capture_caption(self, video_url: str, probe: CaptionProbe) -> CaptionCapture:
-        if self.use_transcript_api_secondary:
-            # Validate scope before invoking either client.
-            self._youtube_video_id(video_url)
-        fallback_reason = ""
-        if self.use_transcript_api:
-            try:
-                return self._capture_transcript_api(video_url, probe)
-            except PlatformAccessRestricted:
-                raise
-            except Exception as exc:
-                # Missing dependency, missing selected track, malformed payload and
-                # timeouts all revert to the existing independent JSON3 adapter.
-                fallback_reason = type(exc).__name__
-        try:
-            capture = self._capture_yt_dlp_caption(video_url, probe)
-        except PlatformAccessRestricted:
-            raise
-        except Exception as exc:
-            reason = yt_dlp_caption_unavailable(exc)
-            if not self.use_transcript_api_secondary or reason is None:
-                raise
-            recovered = self._capture_transcript_api(video_url, probe)
-            return replace(recovered, provenance={
-                **recovered.provenance, "prior_method": "yt-dlp",
-                "prior_method_version": "unspecified-external",
-                "fallback_reason": reason,
-            })
-        if fallback_reason:
-            return replace(capture, provenance={
-                **capture.provenance, "prior_method": "youtube-transcript-api",
-                "prior_method_version": "1.2.4",
-                "fallback_reason": fallback_reason,
-            })
-        return capture
+        from dichiarazioni_pubbliche.youtube_caption_selection import capture_caption
+
+        return capture_caption(self, video_url, probe)
 
     def _capture_yt_dlp_caption(self, video_url: str, probe: CaptionProbe) -> CaptionCapture:
         try:
@@ -436,6 +409,8 @@ class PrivateTranscriptStore:
             self._ensure_private_directory(path)
         filename = (
             "caption.raw.json3" if capture.provenance.get("raw_format", "json3") == "json3"
+            else "caption.raw.yttranscript-dev.json"
+            if capture.provenance.get("raw_format") == "yttranscript.dev-json-v1"
             else "caption.raw.youtube-transcript-api.json"
         )
         self._atomic_private_write(directory / filename, capture.raw_bytes)

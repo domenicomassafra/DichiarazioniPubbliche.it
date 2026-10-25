@@ -214,22 +214,28 @@ class CaptionAcquisitionHandler:
 
         self._require_current_ingestion_relevance(content)
         rights_receipt = self._caption_rights_receipt(rights)
-        source_kind = _caption_source_kind(probe)
+        from_free_provider = capture.provenance.get("access_path") == "DSTACK_FREE_PUBLIC_CAPTION"
+        captured_probe = capture.probe if from_free_provider else probe
+        source_kind = (
+            "YOUTUBE_FREE_PROVIDER_CAPTION"
+            if from_free_provider else _caption_source_kind(probe)
+        )
         variant_id, inserted = self._insert_caption_variant(
             guard=rights,
             content_id=content.content_id,
             provider_id="youtube",
             source_kind=source_kind,
-            language=probe.language,
+            language=captured_probe.language,
             raw_text=capture.raw_text,
             raw_text_sha256=capture.raw_text_sha256,
             is_platform_caption=True,
-            is_manual_caption=probe.kind == "manual_caption",
+            is_manual_caption=not from_free_provider and probe.kind == "manual_caption",
             segments=_segment_rows(capture),
             metadata={
                 "raw_caption_sha256": capture.raw_sha256,
                 "video_id": job.payload.get("external_id"),
-                "caption_kind": probe.kind,
+                "caption_kind": captured_probe.kind,
+                "caption_language": captured_probe.language,
                 "capture_provenance": capture.provenance,
                 **rights_receipt,
             },
@@ -238,8 +244,8 @@ class CaptionAcquisitionHandler:
             "raw_caption_sha256": capture.raw_sha256,
             "raw_text_sha256": capture.raw_text_sha256,
             "segment_count": len(capture.segments),
-            "caption_kind": probe.kind,
-            "caption_language": probe.language,
+            "caption_kind": captured_probe.kind,
+            "caption_language": captured_probe.language,
             "variant_id": variant_id,
             "capture_provenance": capture.provenance,
             "access_path": capture.provenance.get("access_path", "YT_DLP_PUBLIC_CAPTION"),
