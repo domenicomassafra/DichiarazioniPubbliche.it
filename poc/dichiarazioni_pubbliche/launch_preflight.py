@@ -77,6 +77,46 @@ REHEARSAL_PROOF_NAMES = (
     "rollback",
 )
 
+AUTOMATED_REVIEW_CHECKS = (
+    "provenance",
+    "verbatim",
+    "speaker",
+    "public_person",
+    "rights_quote",
+)
+
+
+def _verified_automatic_review(review: object) -> bool:
+    if not isinstance(review, dict):
+        return False
+    primary = review.get("primary")
+    independent = review.get("independent")
+    if not isinstance(primary, dict) or not isinstance(independent, dict):
+        return False
+    for receipt in (primary, independent):
+        if any(
+            not isinstance(receipt.get(field), str) or not receipt[field].strip()
+            for field in ("agent_id", "model")
+        ):
+            return False
+        for field in ("input_sha256", "receipt_sha256"):
+            value = receipt.get(field)
+            if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                return False
+        checks = receipt.get("checks")
+        if not isinstance(checks, dict) or any(
+            checks.get(name) != "PASS" for name in AUTOMATED_REVIEW_CHECKS
+        ):
+            return False
+    # #413: same input, a distinct model and agent, independently agreeing
+    # on all checks, each with its own receipt. No human approval in the loop.
+    return (
+        primary["agent_id"] != independent["agent_id"]
+        and primary["model"] != independent["model"]
+        and primary["input_sha256"] == independent["input_sha256"]
+        and primary["receipt_sha256"] != independent["receipt_sha256"]
+    )
+
 
 def rehearsal_packet_blockers(document: object) -> tuple[str, ...]:
     if not isinstance(document, dict) or document.get("version") != "launch-rehearsal-v1":
@@ -112,15 +152,7 @@ def rehearsal_packet_blockers(document: object) -> tuple[str, ...]:
                 blockers.append("RELEASE_REHEARSAL_PROOF_DUPLICATE")
             seen_receipt_ids.add(receipt_id)
 
-    # The owner's #300 decision delegates preparation, independent review and
-    # final release disposition to three different agents.
-    reviewers = document.get("review_agents")
-    if (
-        not isinstance(reviewers, list)
-        or len(reviewers) != 3
-        or any(not isinstance(value, str) or not value.strip() for value in reviewers)
-        or len(set(reviewers)) != 3
-    ):
+    if not _verified_automatic_review(document.get("automated_review")):
         blockers.append("RELEASE_REHEARSAL_REVIEW_INCOMPLETE")
     return tuple(blockers)
 
@@ -139,8 +171,8 @@ class LaunchPreflightResult:
     @property
     def launchable(self) -> bool:
         # Engineering preflight never has authority to launch. If all mechanical
-        # blockers disappear it can only hand off to the release decider delegated
-        # by the owner in issue #300, with a release-specific authority receipt.
+        # blockers disappear it still needs the automated release mechanism
+        # authorized in issue #413 and a candidate-specific authority receipt.
         return False
 
 
@@ -338,6 +370,7 @@ def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
 
 
 __all__ = [
+    "AUTOMATED_REVIEW_CHECKS",
     "CONDITIONAL_SURFACE_TICKETS",
     "LAUNCH_PREFLIGHT_VERSION",
     "LaunchPreflightResult",

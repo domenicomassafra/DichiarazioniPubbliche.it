@@ -58,10 +58,41 @@ class LaunchPreflightTests(unittest.TestCase):
             "execution_status": "COMPLETE",
             "source_public_use_authorized": True,
             "proofs": proofs,
-            "review_agents": ["preparer", "reviewer", "decider"],
+            "automated_review": {
+                "primary": {
+                    "agent_id": "agent-primary",
+                    "model": "model-a",
+                    "input_sha256": "a" * 64,
+                    "receipt_sha256": "b" * 64,
+                    "checks": {
+                        name: "PASS" for name in launch_preflight.AUTOMATED_REVIEW_CHECKS
+                    },
+                },
+                "independent": {
+                    "agent_id": "agent-independent",
+                    "model": "model-b",
+                    "input_sha256": "a" * 64,
+                    "receipt_sha256": "c" * 64,
+                    "checks": {
+                        name: "PASS" for name in launch_preflight.AUTOMATED_REVIEW_CHECKS
+                    },
+                },
+            },
             "disposition": "NO-GO",
         }
         self.assertEqual(launch_preflight.rehearsal_packet_blockers(packet), ())
+        packet["automated_review"]["independent"]["model"] = "model-a"
+        self.assertIn(
+            "RELEASE_REHEARSAL_REVIEW_INCOMPLETE",
+            launch_preflight.rehearsal_packet_blockers(packet),
+        )
+        packet["automated_review"]["independent"]["model"] = "model-b"
+        packet["automated_review"]["independent"]["input_sha256"] = "d" * 64
+        self.assertIn(
+            "RELEASE_REHEARSAL_REVIEW_INCOMPLETE",
+            launch_preflight.rehearsal_packet_blockers(packet),
+        )
+        packet["automated_review"]["independent"]["input_sha256"] = "a" * 64
         packet["proofs"]["rollback"] = dict(packet["proofs"]["correction"])
         self.assertIn(
             "RELEASE_REHEARSAL_PROOF_DUPLICATE",
