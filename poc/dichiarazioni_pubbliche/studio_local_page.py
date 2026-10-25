@@ -1702,17 +1702,8 @@ _PAGE = """<!doctype html>
           }
           if (form === capturePassageForm && response.ok && Array.isArray(receipt.data?.selectors)) {
             const dataForPassages = receipt.data;
-            if (scopedCaptureReference && scopedCaptureReference.content_id === data.content_id
-                && dataForPassages.contract_version === 'studio-capture-inspection-v1'
-                && receipt.contract_version === 'studio-local-readonly-api-v1'
-                && dataForPassages.private_only === true
-                && dataForPassages.content_id === scopedCaptureReference.content_id
-                && dataForPassages.capture?.id === scopedCaptureReference.capture_id
-                && dataForPassages.capture?.content_sha256 === scopedCaptureReference.capture_sha256
-                && data.capture_hash === scopedCaptureReference.capture_sha256
-                && SAFE_REF.test(scopedCaptureReference.collection_id)
-                && dataForPassages.rights_clearance === false
-                && dataForPassages.publication_authority === false) {
+            if (showSingleCaptureInspection(receipt, data, scopedCaptureReference,
+                                            passageCandidateSummary)) {
               for (const passage of dataForPassages.selectors) {
                 if (!SAFE_REF.test(passage.id) || !SAFE_SHA256.test(passage.text_sha256)
                     || !['TEXT_POSITION', 'PAGE_RANGE'].includes(passage.selector_type)
