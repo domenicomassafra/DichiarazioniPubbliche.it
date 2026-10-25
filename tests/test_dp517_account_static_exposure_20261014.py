@@ -228,7 +228,7 @@ class AccountStaticExposureTests(unittest.TestCase):
         self.assertNotEqual(status, 200)
         self.assertNotIn(b"SAFE STATIC INDEX", body)
 
-    def test_pinned_static_root_survives_ancestor_swap_without_private_bytes(self):
+    def test_pinned_static_root_refuses_ancestor_swap_without_private_bytes(self):
         parent = self.base / "configured"
         public = parent / "public"
         public.mkdir(parents=True)
@@ -243,8 +243,10 @@ class AccountStaticExposureTests(unittest.TestCase):
             parent.rename(self.base / "original-relocated")
             parent.symlink_to(foreign_parent, target_is_directory=True)
             status, body = self.get(server, "/")
-        self.assertEqual(status, 200)
-        self.assertEqual(body, b"ORIGINAL APPROVED STATIC ROOT")
+        # The pinned descriptor still protects against redirected private
+        # bytes, but a rotated release must also withdraw the old response.
+        self.assertEqual(status, 404)
+        self.assertEqual(body, b"")
         self.assertNotIn(b"PRIVATE SYNTHETIC FILE CONTENT", body)
 
     def test_shutdown_cannot_reuse_root_descriptor_during_inflight_http_get(self):
