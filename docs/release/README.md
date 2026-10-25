@@ -10,6 +10,7 @@ the release gate in [`checklist.md`](checklist.md).
 | [`changelog-policy.md`](changelog-policy.md) | DP-604 | changelog structure, required content, drift rules |
 | [`checklist.md`](checklist.md) | DP-604 | the runnable, fail-closed release checklist |
 | [`development-environment.md`](development-environment.md) | DP-601 | profiles, supported versions, install/dev path, `.v0` compatibility surface |
+| [`launch-set-v1.json`](launch-set-v1.json) | DP-703 / #97 | Three-family candidate, real source provenance, scoped rights, HOLD and draft disclosure; validated by `tools/check_launch_set_manifest.py` |
 
 ## Current release state
 
