@@ -151,11 +151,21 @@ class DvnsMcpPrivateEvidenceTests(unittest.TestCase):
         self.assertFalse(receipt.publication_authorized)
         self.assertEqual(store.evidence[0]["rights_status"], "CLEARED")
         self.assertEqual(store.evidence[0]["record_status"], "SUPERSEDED")
+        self.assertEqual(store.evidence[0]["content_sha256"], OFFICIAL.source_version[7:])
+        self.assertEqual(store.evidence[0]["metadata"]["source_version"], receipt.source_version)
         self.assertTrue(store.evidence[0]["metadata"]["dvns_snapshot_superseded"])
         self.assertEqual(store.evidence[0]["metadata"]["official_current_projects"], 46437)
         self.assertIsNone(store.evidence[0].get("excerpt"))
         self.assertEqual(store.observations[0]["status"], "CANDIDATE")
         self.assertEqual(store.observations[0]["value_numeric"], 46402.0)
+        second_store = MemoryEvidenceStore()
+        second_receipt = persist_private_candidate(
+            imported, store=second_store, rights=RightsReader(permission_record()),
+            licence_receipt=RECEIPT, observed_at=observed_at,
+            official_reference=replace(OFFICIAL, source_version="sha256:" + "c" * 64),
+        )
+        self.assertNotEqual(receipt.evidence_id, second_receipt.evidence_id)
+        self.assertEqual(second_store.evidence[0]["content_sha256"], "c" * 64)
 
     def test_primary_source_revision_and_value_mismatch_hold_before_writes(self):
         imported = import_opencoesione_snapshot(official_response(), observed_at="2026-10-25T10:00:00Z")

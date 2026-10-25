@@ -1,6 +1,6 @@
 # DP-234 — DVNS/read-only structured evidence adapter
 
-Status: IN PROGRESS
+Status: DONE (technical private candidate integration, 2026-10-25; public use remains gated)
 Milestone: M2 — Live pipeline readiness and source coverage
 Depends on: DP-215, DP-228; external source contract/API availability
 
@@ -44,8 +44,8 @@ importing the sister application's runtime or AGPL source code into this core.
 - [x] The DVNS-style seam is read-only and candidate-only: it has no upstream write/fetch
   client, rejects verdict/publication-authority input fields and cannot confer publication
   authority.
-- [ ] Wire an approved DVNS/API/export provider into this contract and DP-228/DP-215.
-- [ ] Add source-specific schema/rights mapping under an
+- [x] Wire an approved DVNS/API/export provider into this contract and DP-228/DP-215.
+- [x] Add source-specific schema/rights mapping under an
   explicit compatible licensing decision.
 - [x] MiniPC canary is required before any production source family uses the adapter.
 
@@ -192,3 +192,35 @@ permissive shared contract, trusted partner identity and per-source
 schema/rights/license mapping, owner clearance and a real-source MiniPC canary.
 The existing official Senato probe cannot satisfy those DVNS partner conditions.
 Until then #42 remains open with `needs-owner`/`later`.
+
+### 2026-10-25 — Current DVNS public MCP: external ACs completed for one source
+
+The upstream DVNS public **read-only MCP** (not a partner-only API) is a real
+anonymous contract: `POST https://www.dovevannoinostrisoldi.com/api/mcp`, tool
+`query_dataset`, dataset `opencoesione_progetti`. Its documented public access
+and HTTP 200 + SSE/JSON-RPC response are independently observed. The external
+rights basis is **the primary source's** OpenCoesione published CC BY 4.0 notice
+at `https://opencoesione.gov.it/it/licenza/`, with source-specific private
+`FETCH`/`STORE_BODY` grant, attribution and immutable receipt in the existing
+private rights registry. No AGPL upstream code is copied.
+
+The bounded adapter maps one `ricerca-e-innovazione` `projects` aggregate into
+the original DVNS-style contract and DP-215 `SECONDARY_REFERENCE`; existing
+Evidence/Observation stores retain separate source/snapshot SHA-256, row
+selector, URL, record ID and dates. The original source is newer than DVNS:
+46,437 projects as of 2026-06-30 on the primary endpoint versus 46,402 as of
+2026-04-30 in DVNS. Consequently private Evidence is `SUPERSEDED`, Observation
+`CANDIDATE`; no finding/claim/public projection is automatically approved.
+
+Mac Studio resource-guard tests: **73/73 PASS** across DP-234, official probe,
+MCP/rights/staleness, repository and DP-215/source-intelligence. MiniPC peer
+PostgreSQL consumer `udodo` recorded a source-specific clearance valid for
+30 days and an authenticated private Evidence/Observation with independent
+readback (`1/1/1` rights/Evidence/Observation); simulated policy mismatch,
+missing use, expiry and wrong artifact all deny. The original held Senato probe
+continues to hold. Detailed evidence and ongoing software version/readback:
+`docs/ops/dp329-dvns-mcp-private-evidence-20261025.md` and GitHub #329.
+
+This completes only the two formerly unmet external ACs **for the exact
+OpenCoesione aggregate**. No authority for other DVNS datasets, public
+publication, arbitrary MCP tools or subscriber-only feeds follows from it.

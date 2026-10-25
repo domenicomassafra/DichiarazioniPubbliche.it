@@ -270,7 +270,13 @@ def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
     )
     if suitability.candidate_state != READY_FOR_DP215_ASSESSMENT:
         raise DvnsMcpError("DVNS_MCP_DP215_HELD:" + ",".join(suitability.records[0].reason_codes))
-    evidence_id = "evidence:" + _digest([PROVIDER, row.source_record_id, row.source_version])
+    # Evidence's canonical URL points to the primary official endpoint. Its
+    # content hash must therefore identify those *actual response bytes*, not
+    # the secondary DVNS JSON normalization. Version both snapshots in the ID.
+    evidence_id = "evidence:" + _digest([
+        PROVIDER, row.source_record_id, row.source_version,
+        official_reference.source_version,
+    ])
     observation_id = "observation:" + _digest([evidence_id, row.record_id, METRIC])
     # Rights are read again at the write boundary: revocations supersede old receipts.
     if rights.read_current(subject) != current:
@@ -280,7 +286,8 @@ def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
         source_type="SECONDARY_OFFICIAL_DATA_AGGREGATE", fetched_at=observed_at,
         publication_date=row.publication_date,
         record_status="SUPERSEDED" if superseded else "ACTIVE",
-        content_sha256=row.source_version[7:], reference_period=row.reference_period,
+        content_sha256=official_reference.source_version[7:],
+        reference_period=row.reference_period,
         rights_status="CLEARED", metadata={
             "provider": PROVIDER, "dataset": DATASET, "source_version": row.source_version,
             "external_id": row.source_record_id, "adapter_version": ADAPTER_VERSION,

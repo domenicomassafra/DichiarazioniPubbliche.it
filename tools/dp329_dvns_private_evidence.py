@@ -72,6 +72,7 @@ def run(*, database_url: str, apply: bool) -> dict[str, object]:
         """SELECT json_build_object(
            'id', e.id, 'url', e.canonical_url, 'rights_status', e.rights_status,
            'record_status', e.record_status,
+           'content_sha256', e.content_sha256,
            'source_version', e.metadata->>'source_version',
            'official_current_source_version', e.metadata->>'official_current_source_version',
            'official_current_reference_period', e.metadata->>'official_current_reference_period',
@@ -91,15 +92,20 @@ def run(*, database_url: str, apply: bool) -> dict[str, object]:
     readback = json.loads(record)
     if (readback["id"] != receipt.evidence_id or readback["status"] != "CANDIDATE"
             or readback["rights_status"] != "CLEARED"
+            or readback["content_sha256"] != official_reference.source_version[7:]
             or readback["source_version"] != receipt.source_version
             or readback["rights_record_id"] != receipt.rights_record_id
             or readback["url"] != SOURCE_URL
             or readback["metric"] != METRIC
+            or readback["numeric_value"] != int(imported.normalized_batch.values[0].value_numeric)
+            or readback["reference_period"] != imported.normalized_batch.values[0].reference_period
             or readback["source_record_id"] != receipt.source_record_id
             or readback["official_current_source_version"] != official_reference.source_version
             or readback["official_current_reference_period"] != official_reference.reference_period
             or readback["record_status"] != (
                 "SUPERSEDED" if readback["dvns_snapshot_superseded"] else "ACTIVE")
+            or readback["dvns_snapshot_superseded"] != (
+                official_reference.reference_period > imported.normalized_batch.values[0].reference_period)
             or readback["selector"] != dict(imported.provenance[0].fields)["value_numeric"]):
         raise DvnsMcpError("DVNS_MCP_AUTHENTICATED_CONSUMER_READBACK_MISMATCH")
     return {"status": "PRIVATE_CANDIDATE_PERSISTED", "dataset": DATASET,
