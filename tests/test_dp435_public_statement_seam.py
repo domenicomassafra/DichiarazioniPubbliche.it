@@ -34,10 +34,7 @@ from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
 
 
 STAMP = "2026-10-11T12:00:00+00:00"
-SOURCE = (
-    "Domanda: quanto costa? Risposta: costa 10 euro, non 20. "
-    + "Questo intervento è stato registrato integralmente nel contesto pubblico. " * 7
-)
+SOURCE = "Domanda: quanto costa? Risposta: costa 10 euro, non 20."
 QUOTE = "costa 10 euro, non 20."
 START = SOURCE.index(QUOTE)
 def SHA(text):
@@ -125,7 +122,9 @@ class IsolatedStatementSource:
         return self.gates
 
     def autonomous_publication_evidence(self, statement_id, version_id):
-        if (statement_id, version_id) != ("statement:1", "statement-version:1"):
+        if (statement_id, version_id) != (
+            self.row["statement_id"], self.row["version_id"]
+        ):
             raise ValueError("unrecognized statement version")
         locator = self.row["locator"]
         timed = self.row["source_kind"] == "TIMED"
@@ -166,7 +165,9 @@ class IsolatedStatementSource:
         )
 
     def current_statement_challenge_hold(self, statement_id, version_id):
-        if (statement_id, version_id) != ("statement:1", "statement-version:1"):
+        if (statement_id, version_id) != (
+            self.row["statement_id"], self.row["version_id"]
+        ):
             raise ValueError("unrecognized statement version")
         return False
 

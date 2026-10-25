@@ -18,9 +18,8 @@ from urllib.parse import urlsplit
 
 POLICY_VERSION = "autonomous-publication-413-v1"
 MIN_ALIGNMENT_CONFIDENCE = 0.95
-# Conservative product limits; neither number is a statutory safe harbor.
+# Conservative short-excerpt limit; source-specific clearance decides permitted use.
 MAX_EXCERPT_CHARS = 300
-MAX_EXCERPT_RATIO = 0.10
 CHECKS = ("PROVENANCE", "WORDING", "SPEAKER", "PERSON", "RIGHTS_PRIVACY")
 _SIGNAL_FAMILIES = {
     "official_channel": "source_metadata",
@@ -207,7 +206,6 @@ def _rights_privacy(candidate: AutonomousCandidate) -> bool:
             and 0 < length <= MAX_EXCERPT_CHARS
             and isinstance(candidate.source_length_chars, int)
             and candidate.source_length_chars > 0
-            and length <= MAX_EXCERPT_RATIO * candidate.source_length_chars
         )
     except (TypeError, AttributeError):
         return False

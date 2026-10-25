@@ -103,7 +103,7 @@ class AutonomousPublicationTests(unittest.TestCase):
             ({"sensitive_third_party_data": True}, "RIGHTS_PRIVACY"),
             ({"rights_cleared": False}, "RIGHTS_PRIVACY"),
             ({"contains_editorial_judgment": True}, "RIGHTS_PRIVACY"),
-            ({"source_length_chars": 50}, "RIGHTS_PRIVACY"),
+            ({"source_length_chars": 0}, "RIGHTS_PRIVACY"),
         ):
             item = replace(candidate(), **update)
             self.assertIn(
