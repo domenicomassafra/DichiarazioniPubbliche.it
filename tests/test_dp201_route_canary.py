@@ -1,11 +1,5 @@
-"""DP-201 regression: the live canary is meaningful, schema-bound and cost-gated.
+"""DP-201: a subscription-only route permits one meaningful, receipt-backed canary."""
 
-Every refusal here happens before a model call. A missing, stale or unpinned
-cost/quota attestation, or a catalog without the exact model, must abort with
-zero calls: an unknown quota is NO-GO, never an inferred free call.
-"""
-
-import hashlib
 import json
 import sys
 import tempfile
@@ -27,22 +21,6 @@ from dichiarazioni_pubbliche.claim_runtime import (  # noqa: E402
 
 MODEL = "antigravity/gemini-3.8-flash-tiered"
 NOW = datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
-
-
-def attestation(**overrides):
-    payload = {
-        "schema_version": 1,
-        "model": MODEL,
-        "entitlement": "included_subscription",
-        "marginal_cost_usd_per_request": "0",
-        "hard_cap_usd": "0.25",
-        "quota_total": 1000,
-        "quota_remaining": 900,
-        "observed_at": "2026-10-23T08:30:00Z",
-        "source": "OmniRoute key usage-limits readback, private channel",
-    }
-    payload.update(overrides)
-    return payload
 
 
 def claim_result(**overrides):
@@ -89,14 +67,8 @@ class CanaryGateTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.attestation_path = self.root / "cost-attestation.json"
         self.receipt_path = self.root / "canary-receipt.json"
-        self.write_attestation()
         self.catalog_calls = []
-
-    def write_attestation(self, **overrides):
-        self.attestation_path.write_text(json.dumps(attestation(**overrides)))
-        return hashlib.sha256(self.attestation_path.read_bytes()).hexdigest()
 
     def catalog(self, models):
         def http_get(url, headers, timeout):
@@ -114,15 +86,11 @@ class CanaryGateTests(unittest.TestCase):
     def refuse_client(self, *_args, **_kwargs):
         raise AssertionError("MODEL_CALL_FORBIDDEN")
 
-    def run_canary(self, pin=None, http_get=None, client=None, **overrides):
+    def run_canary(self, http_get=None, client=None, **overrides):
         options = {
             "base_url": "http://127.0.0.1:20128",
             "api_key": "opaque-key",
-            "attestation_path": self.attestation_path,
-            "trusted_attestation_sha256": pin if pin is not None else (
-                hashlib.sha256(self.attestation_path.read_bytes()).hexdigest()
-                if self.attestation_path.exists() else "0" * 64
-            ),
+            "subscription_gateway_verified": True,
             "http_get": http_get or self.refuse_network,
             "client_factory": (lambda *_: client) if client is not None else self.refuse_client,
             "now": NOW,
@@ -137,48 +105,31 @@ class CanaryGateTests(unittest.TestCase):
         self.assertEqual(receipt["live_canary_executed"], executed)
         self.assertEqual(receipt["model_calls"], 1 if executed else 0)
 
-    def test_missing_or_unpinned_attestation_blocks_before_any_network(self):
-        self.attestation_path.unlink()
+    def test_unverified_gateway_or_untrusted_endpoint_blocks_before_network(self):
+        receipt = self.run_canary(subscription_gateway_verified=False)
+        self.assertBlocked("SUBSCRIPTION_GATEWAY_UNVERIFIED", receipt=receipt)
+        receipt = self.run_canary(base_url="https://api.example.com")
+        self.assertBlocked("UNTRUSTED_GATEWAY_ENDPOINT", receipt=receipt)
+        self.assertEqual(self.catalog_calls, [])
+
+    def test_route_is_pinned_to_exact_antigravity_subscription_model(self):
+        current = canary.CANARY_MODEL
+        self.addCleanup(setattr, canary, "CANARY_MODEL", current)
+        canary.CANARY_MODEL = "opencode-go/deepseek-v4-flash"
         receipt = self.run_canary()
-        self.assertBlocked("COST_ATTESTATION_MISSING", receipt=receipt)
-
-        self.write_attestation()
-        receipt = self.run_canary(pin="0" * 64)
-        self.assertBlocked("COST_ATTESTATION_PIN_MISMATCH", receipt=receipt)
-
-        receipt = self.run_canary(pin="not-a-sha256")
-        self.assertBlocked("COST_ATTESTATION_PIN_MISMATCH", receipt=receipt)
+        self.assertBlocked("NON_SUBSCRIPTION_MODEL", receipt=receipt)
         self.assertEqual(self.catalog_calls, [])
 
-    def test_attestation_requires_exact_model_included_zero_cost_and_fresh_quota(self):
-        cases = (
-            ({"model": "antigravity/gemini-3.8-flash"}, "COST_ATTESTATION_MODEL_MISMATCH"),
-            ({"entitlement": "paid_api"}, "COST_ATTESTATION_ENTITLEMENT_INVALID"),
-            ({"marginal_cost_usd_per_request": "0.001"}, "COST_ATTESTATION_COST_NOT_ZERO"),
-            ({"hard_cap_usd": "0"}, "COST_ATTESTATION_CAP_INVALID"),
-            ({"hard_cap_usd": "0.30"}, "COST_ATTESTATION_CAP_EXCEEDS_JOB_LIMIT"),
-            ({"quota_total": None}, "COST_ATTESTATION_QUOTA_UNKNOWN"),
-            ({"quota_total": 10, "quota_remaining": 0}, "COST_ATTESTATION_QUOTA_EXHAUSTED"),
-            ({"quota_total": 10, "quota_remaining": 11}, "COST_ATTESTATION_QUOTA_UNKNOWN"),
-            ({"observed_at": "2026-09-22T20:32:09Z"}, "COST_ATTESTATION_STALE"),
-            ({"observed_at": "yesterday"}, "COST_ATTESTATION_INVALID"),
-            ({"source": ""}, "COST_ATTESTATION_INVALID"),
-            ({"schema_version": 2}, "COST_ATTESTATION_INVALID"),
-        )
-        for overrides, code in cases:
-            with self.subTest(overrides=overrides):
-                self.write_attestation(**overrides)
-                receipt = self.run_canary()
-                self.assertBlocked(code, receipt=receipt)
-        self.assertEqual(self.catalog_calls, [])
-
-    def test_exact_model_must_be_exposed_by_the_key_catalog_or_no_call(self):
+    def test_catalog_does_not_hide_a_working_explicit_route(self):
+        client = FakeClient(result=claim_result())
         receipt = self.run_canary(
             http_get=self.catalog([MODEL + "-high", "opencode-go/deepseek-v4-flash"]),
+            client=client,
         )
-        self.assertBlocked("MODEL_NOT_EXPOSED_FOR_KEY", receipt=receipt)
+        self.assertEqual(receipt["status"], "CANARY_PASSED")
         self.assertFalse(receipt["exact_model_in_catalog"])
         self.assertEqual(receipt["catalog_models_count"], 2)
+        self.assertEqual(client.calls, 1)
 
         def failed(url, headers, timeout):
             return 502, b"upstream unavailable"
@@ -186,7 +137,7 @@ class CanaryGateTests(unittest.TestCase):
         receipt = self.run_canary(http_get=failed)
         self.assertBlocked("CATALOG_READBACK_FAILED", receipt=receipt)
 
-    def test_canary_passes_only_with_exact_model_schema_usage_and_zero_cost(self):
+    def test_canary_passes_only_with_model_schema_usage_and_meaningful_claim(self):
         client = FakeClient(result=claim_result())
         receipt = self.run_canary(http_get=self.catalog([MODEL]), client=client)
         self.assertEqual(receipt["status"], "CANARY_PASSED")
@@ -200,10 +151,8 @@ class CanaryGateTests(unittest.TestCase):
         self.assertEqual(receipt["claims_count"], 1)
         self.assertEqual(receipt["observed_cost_usd"], 0.0)
         self.assertEqual(client.allowed_segment_indices, (0,))
-        self.assertEqual(
-            receipt["attestation_sha256"],
-            hashlib.sha256(self.attestation_path.read_bytes()).hexdigest(),
-        )
+        self.assertTrue(receipt["subscription_gateway_verified"])
+        self.assertEqual(receipt["latency_seconds"], 0.4)
         written = json.loads(self.receipt_path.read_text())
         self.assertEqual(written, receipt)
         serialized = json.dumps(receipt)
@@ -219,6 +168,12 @@ class CanaryGateTests(unittest.TestCase):
         self.assertEqual(receipt["status"], "CANARY_PASSED")
         self.assertTrue(receipt["model_identity_exact"])
         self.assertEqual(receipt["model_returned"], "gemini-3.8-flash-tiered")
+
+    def test_missing_cost_field_is_reported_as_unknown_without_fake_zero(self):
+        client = FakeClient(result=claim_result(observed_cost_usd=None))
+        receipt = self.run_canary(http_get=self.catalog([]), client=client)
+        self.assertEqual(receipt["status"], "CANARY_PASSED")
+        self.assertIsNone(receipt["observed_cost_usd"])
 
     def test_claim_count_alone_cannot_pass_a_meaningful_numeric_canary(self):
         original = claim_result().claims[0]
@@ -259,6 +214,11 @@ class CanaryGateTests(unittest.TestCase):
                 client = FakeClient(result=claim_result(**overrides))
                 receipt = self.run_canary(http_get=self.catalog([MODEL]), client=client)
                 self.assertBlocked(code, receipt=receipt, executed=True)
+
+    def test_subscription_exhaustion_remains_blocked(self):
+        client = FakeClient(error=RuntimeError("OMNIROUTE_HTTP_429:QUOTA_EXHAUSTED"))
+        receipt = self.run_canary(http_get=self.catalog([MODEL]), client=client)
+        self.assertBlocked("SUBSCRIPTION_QUOTA_EXHAUSTED", receipt=receipt, executed=True)
 
     def test_no_api_key_or_api_url_from_arguments_is_required_as_secret(self):
         receipt = self.run_canary(
