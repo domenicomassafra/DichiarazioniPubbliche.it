@@ -713,6 +713,14 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
         with _LOCK:
             cached = _CACHE.get(key)
         if cached is not None and cached[0] == stamp:
+            # A revoker can atomically replace the projection after the first
+            # stat and before this cached read returns. Refuse the raced read
+            # (including conditional 304), rather than reuse the old payload.
+            try:
+                if _projection_file_stamp(resolved.stat()) != stamp:
+                    raise _unavailable()
+            except OSError as exc:
+                raise _unavailable() from exc
             return cached[1]
     try:
         raw = resolved.read_bytes()
@@ -1164,61 +1172,10 @@ def _h_openapi(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
 
 
 def index_full_bundle_payload(index: PublicIndex) -> dict[str, Any]:
-    """The projection bundle, re-served deterministically.
+    """Keep the stable API while delegating public projection serialization."""
+    from .public_projection_serialization import serialize_public_index
 
-    The bundle is itself the fail-closed artifact, so re-serializing the parsed
-    bundle yields byte-identical canonical JSON to the projection writer.
-    """
-    payload = {
-        "schema_version": index.schema_version,
-        "generated_at": index.generated_at,
-        "dataset_sha256": index.dataset_sha256,
-        "methodology": index.methodology,
-        "dossier_count": index.dossier_count,
-        "omitted_count": index.omitted_count,
-        "dossiers": [entry.dossier for entry in index.entries],
-    }
-    if index.topics_present:
-        payload["topics"] = [
-            {
-                "topic_id": topic["topic_id"],
-                "slug": topic["slug"],
-                "canonical_name": topic["canonical_name"],
-                "scope_text": topic["scope_text"],
-                "entity_version": topic["entity_version"],
-                "review_event_ids": topic["review_event_ids"],
-                "memberships": topic["memberships"],
-            }
-            for topic in sorted(
-                index.topics.values(),
-                key=lambda item: (item["canonical_name"].casefold(), item["topic_id"]),
-            )
-        ]
-    first_class_contents = [
-        {
-            key: record.get(key)
-            for key in (
-                "content_id",
-                "slug",
-                "url",
-                "title",
-                "published_at",
-                "content_kind",
-                "duration_ms",
-                "public_media_url",
-                "media_policy_version",
-                "publication_version",
-                "review_event_ids",
-            )
-        }
-        | {"finding_ids": [item["finding_id"] for item in record["findings"]]}
-        for record in index.records.values()
-        if record.get("publication_version") == "public-content-v1"
-    ]
-    if index.contents_present:
-        first_class_contents.sort(key=lambda item: (str(item["title"]).casefold(), str(item["content_id"])))
-        payload["contents"] = first_class_contents
-    return payload
+    return serialize_public_index(index)
 
 
 def _load_linked_data_artifact(index: PublicIndex) -> tuple[bytes, float]:
@@ -1799,6 +1756,15 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
             "/account/api/session", "/account/api/logout", "/account/api/delete",
         }
 
+    def _static_not_found(self) -> None:
+        # Withdrawn routes may be revisited after a corrected release. Never
+        # retain a stale 404 in a browser or edge cache across that change.
+        self.send_response(404)
+        self.send_header("Cache-Control", WITHDRAWAL_CACHE_CONTROL)
+        self.send_header("Surrogate-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _serve_static(self, method: str) -> None:
         # An account rollback does not make its private SQLite DB or secrets
         # public. Verify and serve the *same opened descriptor*: a pathname
@@ -1809,16 +1775,16 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         try:
             relative = raw.relative_to(root)
         except ValueError:
-            self.send_error(404)
+            self._static_not_found()
             return
         if ".." in relative.parts:
-            self.send_error(404)
+            self._static_not_found()
             return
         # A rollback may leave .env.* credentials or repository metadata in a
         # directory later passed as a static root. Refuse hidden path segments
         # at every depth, while preserving the public .well-known convention.
         if any(part.startswith(".") and part != ".well-known" for part in relative.parts):
-            self.send_error(404)
+            self._static_not_found()
             return
         directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
         file_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
@@ -1831,7 +1797,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                 # never close/recycle the integer between lookup and dup().
                 current_fd = self.server.dup_static_root()
                 if current_fd is None:
-                    self.send_error(404)
+                    self._static_not_found()
                     return
                 stack.callback(os.close, current_fd)
                 parts = relative.parts
@@ -1869,11 +1835,11 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                         leaf = index
                         break
                     else:
-                        self.send_error(404)
+                        self._static_not_found()
                         return
                 else:
                     if urlsplit(self.path).path.endswith("/"):
-                        self.send_error(404)
+                        self._static_not_found()
                         return
                     opened_fd = os.open(leaf, file_flags, dir_fd=current_fd)
                 with os.fdopen(opened_fd, "rb") as opened:
@@ -1882,17 +1848,17 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                         # Hardlinks cannot be distinguished from aliases of
                         # private bytes in account-off mode. Static build
                         # assets must be single-link files in this boundary.
-                        self.send_error(404)
+                        self._static_not_found()
                         return
                     name = leaf.lower()
                     if (name.endswith(
                         (".sqlite", ".sqlite3", ".db", ".db3", "-wal", "-shm",
                          ".pem", ".key")
                     ) or name in {".env", ".pgpass"}):
-                        self.send_error(404)
+                        self._static_not_found()
                         return
                     if opened.read(16) == b"SQLite format 3\x00":
-                        self.send_error(404)
+                        self._static_not_found()
                         return
                     opened.seek(0)
                     if type(self).account_service is not None:
@@ -1909,7 +1875,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                             if (info.st_dev, info.st_ino) == (
                                 private_stat.st_dev, private_stat.st_ino
                             ):
-                                self.send_error(404)
+                                self._static_not_found()
                                 return
                     self.send_response(200)
                     self.send_header("Content-type", self.guess_type(leaf))
@@ -1921,7 +1887,7 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                     if method == "GET":
                         self.copyfile(opened, self.wfile)
         except OSError:
-            self.send_error(404)
+            self._static_not_found()
 
 
     def do_GET(self) -> None:  # noqa: N802
