@@ -69,7 +69,7 @@ class CuriaProceduralReadbackTests(unittest.TestCase):
         incomplete = TEXT.split("Per questi motivi", 1)[0]
         with self.assertRaisesRegex(ValueError, "OFFICIAL_DOCUMENT_IDENTITY_UNVERIFIED"):
             evaluate_curia_private(
-                specimen(incomplete), expected_sha256=digest(incomplete),
+                specimen(incomplete), expected_sha256=digest(incomplete.strip()),
             )
 
 
