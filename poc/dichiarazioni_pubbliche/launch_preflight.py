@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Mapping
 
 
-LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v2"
+LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v3"
 
 _PLAN_ROW = re.compile(r"^\| (DP-\d{3}) \| ([^|]+) \|", re.MULTILINE)
 _TICKET_DETAIL_STATUS = re.compile(
@@ -42,7 +42,7 @@ REQUIRED_TICKETS: tuple[str, ...] = tuple(
             # M4's public UI, Studio and usability decisions are all part of
             # the stable-v1 milestone, including the downstream v4 route,
             # search and accessibility gates. Checking only DP-401..410 used
-            # to allow a PENDING-OWNER result while DP-420/421/422/429 and
+            # to allow a pending-authority result while DP-420/421/422/429 and
             # their operator/visual dependencies remained unfinished.
             # The earlier six-page informational preview has a separate
             # launch scope; this gate is for the full v1 release only.
@@ -80,7 +80,8 @@ class LaunchPreflightResult:
     @property
     def launchable(self) -> bool:
         # Engineering preflight never has authority to launch. If all mechanical
-        # blockers disappear it can only hand off to the explicitly authorized owner.
+        # blockers disappear it can only hand off to the release decider delegated
+        # by the owner in issue #300, with a release-specific authority receipt.
         return False
 
 
@@ -181,7 +182,7 @@ def evaluate_launch_preflight(
     blockers.extend(f"RELEASE_ARTIFACT_MISSING:{name}" for name in missing_artifacts)
 
     canonical_blockers = tuple(sorted(set(blockers)))
-    disposition = "NO-GO" if canonical_blockers else "PENDING-OWNER"
+    disposition = "NO-GO" if canonical_blockers else "PENDING-RELEASE-AUTHORITY"
     receipt_payload = {
         "version": LAUNCH_PREFLIGHT_VERSION,
         "disposition": disposition,
