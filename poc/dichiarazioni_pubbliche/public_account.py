@@ -16,12 +16,13 @@ import os
 import re
 import secrets
 import sqlite3
-import stat
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from dichiarazioni_pubbliche.public_account_secret import read_secret_file
 
 
 OIDC_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -178,21 +179,6 @@ class GoogleOidcProvider:
             self._expires = time.monotonic() + 900
             return verify_google_id_token(raw_token, self._jwks, client_id=self.client_id, nonce=nonce, now=now)
 
-
-def read_secret_file(path: Path) -> str:
-    path = Path(path)
-    if path.is_symlink():
-        raise ValueError("ACCOUNT_SECRET_SYMLINK")
-    metadata = path.stat()
-    if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or metadata.st_mode & 0o077:
-        raise ValueError("ACCOUNT_SECRET_PERMISSIONS")
-    raw = path.read_bytes()
-    if not 8 <= len(raw) <= 512:
-        raise ValueError("ACCOUNT_SECRET_INVALID")
-    secret = raw.decode("ascii").strip()
-    if len(secret) < 8 or any(ch.isspace() for ch in secret):
-        raise ValueError("ACCOUNT_SECRET_INVALID")
-    return secret
 
 
 class AccountStore:
