@@ -43,10 +43,7 @@ class ClaimEvidenceJobHandlers:
         if not self.claim_fanout_verified:
             return "CLAIM_FANOUT_UPSTREAM_NOT_VERIFIED"
         if not isinstance(self.claim_client, LocalOllamaClaimClient):
-            # OmniRouteClient.probe() is an authenticated chat completion,
-            # NOT a free health GET. A hidden canary has no distinct cost
-            # reservation or attempt receipt. Do not invoke it before paid
-            # remote work; actual extraction is budget-gated in _ensure_budget.
+            # A remote probe is paid; reserve only during extraction.
             return None
         if self._claim_probe is None:
             self._claim_probe = self.claim_client.probe()
@@ -63,6 +60,9 @@ class ClaimEvidenceJobHandlers:
         blocker = self._claim_runtime_blocker()
         if blocker:
             raise BlockedJob(blocker)
+        if (job.payload.get("model") != self.claim_client.model
+                or job.payload.get("prompt_version") != self.claim_client.prompt_version):
+            raise BlockedJob("CLAIM_WINDOW_CLIENT_DRIFT")
         expected_hash = str(job.payload.get("input_sha256") or "").strip()
         if not expected_hash:
             raise BlockedJob("CLAIM_WINDOW_HASH_MISSING")
