@@ -7,6 +7,7 @@ not an offset into the original HTML bytes.
 from __future__ import annotations
 
 import hashlib
+import re
 
 from dichiarazioni_pubbliche.capture_pipeline import (
     ParseResult, ParsedSpan, _VisibleTextHTMLParser,
@@ -53,7 +54,15 @@ def pinned_excerpt(source: dict[str, str], canonical_text: str) -> str:
         raise ValueError("DP426_ORIGINAL_SPEAKER_UNVERIFIED")
     intervening = canonical_text[speaker_at + len(speaker):position]
     # A new floor speaker before the quote invalidates its attribution.
-    if "PRESIDENTE. Ha chiesto" in intervening or "\n\nPRESIDENTE." in intervening:
+    if (
+        "PRESIDENTE. Ha chiesto" in intervening
+        or "\n\nPRESIDENTE." in intervening
+        or re.search(
+            r"(?:^|\n\n)[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\x27’ -]{2,90}"
+            r"\s+\([A-Z0-9+/\x27’ -]{2,32}\)\.",
+            intervening,
+        )
+    ):
         raise ValueError("DP426_ORIGINAL_SPEAKER_CHANGED")
     return quote
 

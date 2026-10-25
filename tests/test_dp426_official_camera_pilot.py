@@ -43,6 +43,18 @@ class CameraGarlascoPilotTests(unittest.TestCase):
         body = f"<p>{source['speaker']} {source['excerpt']} {source['excerpt']}</p>"
         self.assertEqual(CameraSpeechParser(source).parse(self.fetched(body)).status, "FAILED")
 
+    def test_intervening_different_speaker_is_not_attributed_to_original(self):
+        source = CAMERA_SOURCES[0]
+        speaker = source["speaker"]
+        excerpt = source["excerpt"]
+        body = (
+            f"<p>{speaker} Inizio intervento.</p>"
+            "<p>CARLO ROSSI (PD-IDP). Intervento differente.</p>"
+            f"<p>{excerpt}</p>"
+        )
+        result = CameraSpeechParser(source).parse(self.fetched(body))
+        self.assertEqual(result.status, "FAILED")
+
     def test_pinned_excerpt_requires_exact_single_source_occurrence(self):
         source = CAMERA_SOURCES[1]
         self.assertEqual(pinned_excerpt(source, source["speaker"] + " " + source["excerpt"]),
