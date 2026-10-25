@@ -226,6 +226,18 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
     'a false purge receipt cannot present verified purge metadata');
   assert.equal(ids.get('capture-passage-links').children.length, 0,
     'an unverified Capture must not expose navigable Passage links');
+  const badArchiveRequest = passageForm.fire('submit');
+  complete(requests.length - 1, {...inspection, capture: {...inspection.capture,
+    archive_state: 'SUCCEEDED', archive_receipt_recorded: false},
+    selectors: [{id: 'passage:archive-held', text_sha256: '2'.repeat(64),
+      selector_type: 'TEXT_POSITION', capture_locator: {
+        content_id: 'content:senato', capture_id: single.id,
+        capture_sha256: single.content_sha256, passage_id: 'passage:archive-held'}}]});
+  await badArchiveRequest;
+  assert.match(summary.textContent, /non verificabile/,
+    'completed archival state without receipt is unverified');
+  assert.equal(ids.get('capture-passage-links').children.length, 0,
+    'a missing archive receipt must not expose navigable Passage links');
   clear.fire('click');
   assert.doesNotMatch(summary.textContent, /capture:senato|1{64}/,
     'logout must scrub even the single-Capture metadata summary');

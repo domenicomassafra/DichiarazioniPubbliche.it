@@ -39,6 +39,9 @@ CAPTURE_DIFF_BROWSER_JS = r"""
         && ['NOT_REQUESTED', 'REQUESTED', 'PENDING', 'SUCCEEDED', 'FAILED'].includes(capture.archive_state)
         && ['STORED_UNVERIFIED', 'PURGED', 'NOT_STORED'].includes(capture.body_state)
         && typeof capture.archive_receipt_recorded === 'boolean'
+        && (['SUCCEEDED', 'FAILED'].includes(capture.archive_state)
+          ? capture.archive_receipt_recorded === true
+          : capture.archive_receipt_recorded === false)
         && typeof capture.purge_receipt_recorded === 'boolean'
         && (capture.capture_state === 'PURGED_BODY'
           ? capture.body_state === 'PURGED' && capture.purge_receipt_recorded === true

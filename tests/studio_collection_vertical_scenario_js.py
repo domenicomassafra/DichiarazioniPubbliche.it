@@ -50,7 +50,7 @@ _COLLECTION_VERTICAL_SCENARIO_JS = r"""async function main() {
   reply({...base, contract_version: 'studio-capture-inspection-v1', content_id: 'content:one',
     capture: {id: 'capture:one', content_sha256: sha, observed_at: '2026-10-11T18:00:00Z',
       capture_state: 'CAPTURED', hold_state: 'NONE', archive_state: 'SUCCEEDED',
-      body_state: 'STORED_UNVERIFIED', archive_receipt_recorded: false,
+      body_state: 'STORED_UNVERIFIED', archive_receipt_recorded: true,
       purge_receipt_recorded: false, body_purged_at: null}, selectors: [{
       id: 'passage:one', selector_type: 'TEXT_POSITION', text_sha256: passageHash,
       capture_locator: {content_id: 'content:one', capture_id: 'capture:one',
