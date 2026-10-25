@@ -60,7 +60,6 @@
   "poc/dichiarazioni_pubbliche/capture_pipeline.py": 74198,
   "poc/dichiarazioni_pubbliche/challenge_intake.py": 23027,
   "poc/dichiarazioni_pubbliche/challenge_persistence.py": 40993,
-  "poc/dichiarazioni_pubbliche/claim_extraction_benchmark.py": 20478,
   "poc/dichiarazioni_pubbliche/claim_promotion.py": 54961,
   "poc/dichiarazioni_pubbliche/collection_readiness.py": 20696,
   "poc/dichiarazioni_pubbliche/context_integrity.py": 35865,
