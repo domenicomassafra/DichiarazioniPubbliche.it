@@ -16,7 +16,7 @@ _CAPITALIZED_RE = re.compile(r"\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]{2,
 _NEGATIONS = {
     "it": re.compile(r"\b(?:non|mai|nessun\w*|niente|nulla|senza)\b", re.I),
     "en": re.compile(r"\b(?:not|never|no|none|neither|nobody|nothing|without|n't)\b", re.I),
-    "de": re.compile(r"\b(?:nicht|nie|niemals|mitnichten|nimmer|kein\w*|ohne|weder|niemand\w*)\b", re.I),
+    "de": re.compile(r"\b(?:nicht|nichts|nie|niemals|mitnichten|nimmer|kein\w*|ohne|weder|niemand\w*)\b", re.I),
     "fr": re.compile(r"\b(?:ne|pas|jamais|aucun|sans)\b", re.I),
     "es": re.compile(r"\b(?:no|nunca|ning[uú]n|sin)\b", re.I),
 }
