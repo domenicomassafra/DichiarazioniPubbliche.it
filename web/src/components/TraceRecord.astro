@@ -37,19 +37,21 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
       <ol class="dp-trace-chronology">
         {trace.participants.map((dossier, index) => (
           <li class:list={["dp-trace-event", index === 0 && "is-current"]} data-trace-event>
-            <button
-              type="button"
-              class="dp-trace-event__button"
-              data-trace-select
-              aria-current={index === 0 ? "true" : undefined}
-              aria-expanded={index === 0 ? "true" : "false"}
-              aria-controls={`trace-detail-${index}`}
-            >
-              <time class="dp-trace-event__date" datetime={dateOf(dossier)}>{formatDate(dateOf(dossier))}</time>
-              <span class="dp-trace-event__claim">{dossier.claim}</span>
-              <span class="dp-trace-event__meta">Formulazione normalizzata · non citazione testuale</span>
-              <span class="dp-trace-event__meta">{dossier.speaker.name} · {dossier.source.title}</span>
-            </button>
+            <h3 class="dp-trace-event__heading">
+              <button
+                type="button"
+                class="dp-trace-event__button"
+                data-trace-select
+                aria-current={index === 0 ? "true" : undefined}
+                aria-expanded={index === 0 ? "true" : "false"}
+                aria-controls={`trace-detail-${index}`}
+              >
+                <time class="dp-trace-event__date" datetime={dateOf(dossier)}>{formatDate(dateOf(dossier))}</time>
+                <span class="dp-trace-event__claim">{dossier.claim}</span>
+                <span class="dp-trace-event__meta">Formulazione normalizzata · non citazione testuale</span>
+                <span class="dp-trace-event__meta">{dossier.speaker.name} · {dossier.source.title}</span>
+              </button>
+            </h3>
 
             <article id={`trace-detail-${index}`} class="dp-trace-event__detail" data-trace-detail hidden={index !== 0}>
               <div class="eyebrow">Evento selezionato · <time datetime={dateOf(dossier)}>{formatDate(dateOf(dossier))}</time></div>
@@ -103,4 +105,10 @@ const relationTitle = `${relation.label}: dichiarazioni nel tempo`;
       }
     })();
   </script>
+  <style>
+    .dp-trace-event__heading {
+      margin: 0;
+      font: inherit;
+    }
+  </style>
 </BaseLayout>

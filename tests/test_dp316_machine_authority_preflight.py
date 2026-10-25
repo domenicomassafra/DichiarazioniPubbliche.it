@@ -69,31 +69,6 @@ class MachineAuthorityPreflightTests(unittest.TestCase):
         self.risk = HighRiskDecision(
             "STANDARD_REVIEW", (), HighRiskSignals((), (), False), None
         )
-        self.materials = tuple(
-            MaterialBinding(role, f"dep:{role.lower()}", f"{i + 1:064x}", 0)
-            for i, role in enumerate(MACHINE_MATERIAL_ROLES)
-        )
-        profile_digest = fingerprint(asdict(self.profile))
-        risk_digest = high_risk_binding_sha256(
-            self.risk,
-            input_binding_sha256=next(
-                item.sha256 for item in self.materials if item.role == "HIGH_RISK_INPUT"
-            ),
-        )
-        self.materials = tuple(
-            replace(item, sha256=profile_digest)
-            if item.role == "MACHINE_PROFILE"
-            else replace(item, sha256=risk_digest)
-            if item.role == "HIGH_RISK_RESULT"
-            else item
-            for item in self.materials
-        )
-        for item in self.materials:
-            self.store.register_fixture_source(item.ref, item.sha256)
-        self.ticket = self.store.mint(
-            release_id="release:synthetic",
-            dependency_ids=tuple(item.ref for item in self.materials),
-        )
         self.decision = MachineDecisionReference(
             record_id="claim:synthetic",
             record_version="revision:1",
@@ -111,6 +86,34 @@ class MachineAuthorityPreflightTests(unittest.TestCase):
             rights_state="CURRENT",
             correction_state="CLEAR",
             challenger_state="COMPLETED",
+        )
+        self.materials = tuple(
+            MaterialBinding(role, f"dep:{role.lower()}", f"{i + 1:064x}", 0)
+            for i, role in enumerate(MACHINE_MATERIAL_ROLES)
+        )
+        profile_digest = fingerprint(asdict(self.profile))
+        decision_digest = fingerprint(asdict(self.decision))
+        risk_digest = high_risk_binding_sha256(
+            self.risk,
+            input_binding_sha256=next(
+                item.sha256 for item in self.materials if item.role == "HIGH_RISK_INPUT"
+            ),
+        )
+        self.materials = tuple(
+            replace(item, sha256=profile_digest)
+            if item.role == "MACHINE_PROFILE"
+            else replace(item, sha256=decision_digest)
+            if item.role == "MACHINE_DECISION"
+            else replace(item, sha256=risk_digest)
+            if item.role == "HIGH_RISK_RESULT"
+            else item
+            for item in self.materials
+        )
+        for item in self.materials:
+            self.store.register_fixture_source(item.ref, item.sha256)
+        self.ticket = self.store.mint(
+            release_id="release:synthetic",
+            dependency_ids=tuple(item.ref for item in self.materials),
         )
         self.requirement = RequirementPreflight(
             REQUIREMENT_VERSION,
@@ -137,6 +140,8 @@ class MachineAuthorityPreflightTests(unittest.TestCase):
         materials = tuple(
             replace(item, sha256=fingerprint(asdict(profile)))
             if item.role == "MACHINE_PROFILE"
+            else replace(item, sha256=fingerprint(asdict(decision)))
+            if item.role == "MACHINE_DECISION"
             else replace(item, sha256=risk_digest)
             if item.role == "HIGH_RISK_RESULT"
             else item
@@ -202,6 +207,25 @@ class MachineAuthorityPreflightTests(unittest.TestCase):
         with self.assertRaises((AttributeError, FrozenInstanceError)):
             outcome.machine_signoff = True
         self.assertFalse(replace(outcome, disposition="ELIGIBLE").machine_signoff)
+
+    def test_replayed_decision_with_changed_machine_actor_must_hold(self):
+        # An actor change must invalidate the sealed consistency hash.
+        # This checksum is not an independent signature or authority.
+        for change in (
+            {"generator_identity_ref": "model:swapped"},
+            {"challenger_identity_ref": "model:swapped"},
+            {"generator_run_ref": "run:swapped"},
+            {"challenger_source_root_ref": "root:swapped"},
+        ):
+            with self.subTest(change=change):
+                changed = self.snapshot(
+                    decision=replace(self.decision, **change)
+                )
+                outcome = self.evaluate(sealed=changed, current=changed)
+                self.assertEqual(outcome.disposition, "HOLD")
+                self.assertIn(
+                    "MACHINE_DECISION_BINDING_MISMATCH", outcome.reason_codes
+                )
 
     def test_two_answers_from_one_generator_are_not_independent_challengers(self):
         for change in (
