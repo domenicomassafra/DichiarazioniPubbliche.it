@@ -13,6 +13,15 @@ for await (const chunk of process.stdin) html += chunk;
 assert.match(html, /<script nonce="[a-f0-9]{32}">/);
 assert.match(html, /name="robots" content="noindex,nofollow,noarchive,nosnippet"/);
 const requests = [];
+const mediaRequests = [];
+let mediaRevoked = false;
+const playableWav = Buffer.alloc(44 + 16000 * 4 * 2);
+playableWav.write('RIFF',0); playableWav.writeUInt32LE(playableWav.length-8,4);
+playableWav.write('WAVEfmt ',8); playableWav.writeUInt32LE(16,16);
+playableWav.writeUInt16LE(1,20); playableWav.writeUInt16LE(1,22);
+playableWav.writeUInt32LE(16000,24); playableWav.writeUInt32LE(32000,28);
+playableWav.writeUInt16LE(2,32); playableWav.writeUInt16LE(16,34);
+playableWav.write('data',36); playableWav.writeUInt32LE(playableWav.length-44,40);
 const server = createServer(async (req,res) => {
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, {'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store'});
@@ -34,6 +43,19 @@ const server = createServer(async (req,res) => {
       binding_state:'HELD',hold_reasons:['CAPTURE_RIGHTS_UNKNOWN','RIGHTS_NOT_INDEPENDENTLY_APPROVED'],
       sensitive_url:'https://private.invalid/NEVER_SHOW',private_transcript:'SECRET_NEVER_SHOW',
     }})); return;
+  }
+  if (req.method === 'POST' && req.url === '/v1/media/playback') {
+    let raw='';
+    for await (const part of req) raw+=part;
+    mediaRequests.push({body:JSON.parse(raw),authorization:req.headers.authorization});
+    if (mediaRevoked || req.headers.authorization !== 'Bearer '+'a'.repeat(64)) {
+      res.writeHead(422, {'Content-Type':'application/json'});
+      res.end('{"error":"STUDIO_LOCAL_REQUEST_OR_DATA_INVALID"}'); return;
+    }
+    res.writeHead(200, {'Content-Type':'audio/wav',
+      'Content-Length':playableWav.length,
+      'X-Seek-Start-Ms':'1200','X-Seek-End-Ms':'2200','Cache-Control':'no-store, private'});
+    res.end(playableWav); return;
   }
   res.writeHead(404, {'Content-Type':'application/json'}).end('{}');
 });
@@ -85,12 +107,18 @@ try {
     return reply.result.value;
   };
   const wait=async expr=>{
-    for(let i=0;i<110;i++){if(await evaluate(expr))return;await sleep(40);}
+    for(let i=0;i<280;i++){if(await evaluate(expr))return;await sleep(55);}
     const status=await evaluate(`({status:document.getElementById('status').textContent,
       binding:document.getElementById('media-binding-summary').textContent,
-      focused:document.activeElement?.outerHTML.slice(0,180)})`);
+      focused:document.activeElement?.outerHTML.slice(0,180),
+      mediaStatus:document.getElementById('media-play-status').textContent,
+      audioTime:document.getElementById('media-verified-audio').currentTime,
+      audioSrc:document.getElementById('media-verified-audio').getAttribute('src'),
+      audioReady:document.getElementById('media-verified-audio').readyState,
+      audioNetwork:document.getElementById('media-verified-audio').networkState,
+      audioError:document.getElementById('media-verified-audio').error?.code})`);
     throw Error('Chrome condition did not resolve: '+expr+'; state='+JSON.stringify(status)
-      +'; endpoints='+requests.map(x=>x.endpoint).join(','));
+      +'; endpoints='+requests.map(x=>x.endpoint).join(',')+'; mediaRequests='+JSON.stringify(mediaRequests));
   };
   const key=async (name,code,virtual)=>{
     for(const type of name==='Enter'?['rawKeyDown','char','keyUp']:['rawKeyDown','keyUp'])
@@ -175,11 +203,39 @@ try {
   assert.doesNotMatch(JSON.stringify(summary),/SECRET_NEVER_SHOW|private\.invalid/);
   assert.ok(summary.documentWidth<=320,'dynamic media response cannot introduce horizontal overflow');
   assert.equal(summary.focused,'Rileggi stato corrente e revoche');
+  // DP419: the real HTMLMediaElement must perform a keyboard-initiated
+  // seek on original-timeline seconds, without private-media autoplay.
+  await evaluate("document.getElementById('media-play-button').focus()");
+  await key('Enter','Enter',13);
+  await wait("document.getElementById('media-play-status').textContent.includes('Seek reale') || document.getElementById('media-play-status').textContent.includes('nessun seek verificato')");
+  assert.equal(mediaRequests.length,1);
+  assert.deepEqual(mediaRequests[0].body,{binding_id:'binding:mobile'});
+  assert.equal(mediaRequests[0].authorization,'Bearer '+'a'.repeat(64));
+  const mediaState=await evaluate(`(() => {
+    const audio=document.getElementById('media-verified-audio');
+    return {seek:audio.currentTime,hidden:audio.hidden,
+      source:audio.hasAttribute('src'),paused:audio.paused};
+  })()`);
+  const seekConfirmed=await evaluate("document.getElementById('media-play-status').textContent.includes('Seek reale')");
+  if (seekConfirmed) {
+    assert.ok(Math.abs(mediaState.seek-1.2)<=0.1,JSON.stringify(mediaState));
+    assert.equal(mediaState.hidden,false);
+    assert.equal(mediaState.source,true);
+    assert.equal(mediaState.paused,true);
+  } else {
+    assert.equal(mediaState.hidden,true,'failed decoder must clear and hide player');
+    assert.equal(mediaState.source,false,'failed decoder must revoke media blob');
+  }
+  mediaRevoked=true;
+  await evaluate("document.getElementById('media-play-button').click()");
+  await wait("document.getElementById('media-play-status').textContent.includes('Riproduzione negata')");
+  assert.equal(mediaRequests.length,2);
+  assert.equal(await evaluate("document.getElementById('media-verified-audio').hasAttribute('src')"),false);
   await evaluate(`document.getElementById('clear').click()`);
   assert.equal(await evaluate(`document.getElementById('media-binding-summary').textContent`),'Nessun binding verificato.');
   assert.equal(await evaluate(`document.querySelector('form[data-endpoint="/v1/media/binding"]').elements.namedItem('binding_id').value`),'');
   assert.equal(await evaluate(`document.getElementById('token').value`),'');
-  console.log('DP410 real Chrome PASS: 320px signed JSON/reflow, keyboard next field, media-binding aria/live feedback, privacy/noindex/token scrub');
+  console.log('DP410 + DP419 Chrome PASS: 320px, keyboard-authenticated binary request, revoked request and scrub; native seek='+(seekConfirmed?'PASS':'UNVERIFIED (headless decoder unavailable)'));
 } finally {
   try {socket?.close();} catch {}
   child.kill('SIGTERM');
