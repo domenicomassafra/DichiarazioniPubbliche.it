@@ -118,7 +118,14 @@ def validate_release_launch_set_document(
             "provider_path_id": processing.get("provider"),
             "health_owner": processing.get("health_owner"),
             "disclosure_decision_ref": document.get("disclosure_decision_ref"),
-            "config_sha256": _sha(acquisition),
+            # Bind the release contract to observed content, rights and processing
+            # as well as acquisition limits; snapshot ids must change on drift.
+            "config_sha256": _sha({
+                "provenance": provenance,
+                "rights": rights,
+                "acquisition": acquisition,
+                "processing": processing,
+            }),
         })
     manifest = validate_launch_set_candidate(rows)
     if len({row.source_family for row in manifest.rows}) < MIN_INCLUDED_SOURCE_FAMILIES:
