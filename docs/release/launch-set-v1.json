@@ -1,0 +1,209 @@
+{
+  "version": "launch-set-v1",
+  "ticket": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/97",
+  "prepared_at": "2026-10-25",
+  "candidate_base_commit": "26fe7efe2345d675fa57ef29f6896242c34618f0",
+  "launch_state": "HOLD",
+  "publication_authorized": false,
+  "policy_decision_ref": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300#issuecomment-6396036497",
+  "disclosure_decision_ref": "PENDING:#96:prelaunch-phase-2-and-3",
+  "source_registry": {
+    "path": "config/source-registry.v1.json",
+    "sha256": "eb89a56c8ca67d7bf8a2c72b672f86d0374d89938ab85cd17f3c55c582d30a2e",
+    "scope": "Provisional v0 registry, not replaced or activated by this candidate"
+  },
+  "sources": [
+    {
+      "source_id": "source:senato-akn-leg19-01457617",
+      "source_family": "senato_open_data_akn",
+      "state": "HELD",
+      "rights_state": "PENDING",
+      "privacy_state": "PENDING",
+      "provider_state": "BLOCKED",
+      "provenance": {
+        "name": "Senato della Repubblica — Akoma Ntoso resoconto 01457617",
+        "platform": "GitHub ufficiale Senato",
+        "locator": "https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/Leg19/Atto00055187/resaula/01457617-ra.akn.xml",
+        "observed_at": "2026-10-25",
+        "source_version": "bfac144eb5c54820971bc1020fece11aae56ec90",
+        "content_git_blob_sha1": "bec30c067a1a79e8b377af483cfc4bfb44d13896",
+        "content_sha256": "1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476",
+        "content_hash_scope": "Private MiniPC Capture #330, 2026-10-24; no public XML body",
+        "consumer_reference": "capture:a2849fbebd69aa54acc01a259db47379bc9587ec6c67f09720db3dca0768fb4a",
+        "publication_time": null,
+        "statement_time": null
+      },
+      "acquisition": {
+        "mode": "PINNED_METADATA_PRIVATE_ONLY",
+        "language": "it",
+        "content_types": ["akoma_ntoso_xml", "stenographic_record"],
+        "max_items": 1,
+        "max_bytes": 500000,
+        "cadence": "MANUAL",
+        "timezone": "UTC",
+        "public_interest": "Atto e interventi istituzionali, mai vita privata",
+        "fallback": "HOLD on rights, attribution, time or provider uncertainty"
+      },
+      "rights": {
+        "license": "CC BY 4.0, pinned repository version",
+        "terms_url": "https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData/blob/bfac144eb5c54820971bc1020fece11aae56ec90/LICENSE.MD",
+        "terms_sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+        "readme_sha256": "cd01c53874c63df20d18ea151b3e5528af329dbc64ee573be4d480368f5a34dc",
+        "local_evidence": "docs/ops/dp326-studio-discovery-metadata-rights-20261024.md",
+        "attribution": "Senato della Repubblica — Servizio dell'Informatica, CC BY 4.0, URL e indicazione modifiche",
+        "private_use": "DISCOVER_METADATA only under #326, separate one-item private Capture proven by #330",
+        "public_excerpt": "HELD",
+        "privacy_decision_ref": "PENDING:#96",
+        "decision_ref": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/330",
+        "retention": "Existing private operational retention; public retention unapproved",
+        "takedown": "Source/item HOLD, append-only revocation via #93 and #96",
+        "limits": "CC BY does not authorize publication or clear speaker identity, personality rights or unrelated materials"
+      },
+      "processing": {
+        "discovery": "tools/dp326_senato_private_discovery.py",
+        "transcript": "HOLD_NO_PUBLIC_TRANSCRIPT",
+        "speaker": "HOLD_NON_BIOMETRIC_ATTRIBUTION_PENDING",
+        "evidence": "HOLD_NO_VERIFIED_FINDING",
+        "provider": "Gemini 3.8 Flash via Antigravity/OmniRoute subscription quota only; quota exhausted = STOP",
+        "health_owner": "DichiarazioniPubbliche maintainer",
+        "public_projection": false
+      }
+    },
+    {
+      "source_id": "source:eu-commission-president-en",
+      "source_family": "european_commission_official_web",
+      "state": "HELD",
+      "rights_state": "PENDING",
+      "privacy_state": "PENDING",
+      "provider_state": "BLOCKED",
+      "provenance": {
+        "name": "Commissione europea — pagina istituzionale della presidente",
+        "platform": "commission.europa.eu",
+        "locator": "https://commission.europa.eu/about/organisation/president_en",
+        "observed_at": "2026-10-25",
+        "source_version": "HTTP-200-HTML-observed-2026-10-25",
+        "content_sha256": "ad53016776773ad54d376266030833cf9c57f25c387e766eed959faeb89220ff",
+        "content_bytes": 184055,
+        "publication_time": null,
+        "statement_time": null,
+        "limits": "Hash of transient HTML; revalidate at each future capture"
+      },
+      "acquisition": {
+        "mode": "PUBLIC_URL_METADATA_OBSERVATION",
+        "language": "en",
+        "content_types": ["official_web_page"],
+        "max_items": 1,
+        "max_bytes": 300000,
+        "cadence": "MANUAL",
+        "timezone": "UTC",
+        "public_interest": "Ruolo istituzionale, esclude foto, marchi e opere di terzi",
+        "fallback": "HOLD on ownership, per-page notice, license drift or privacy"
+      },
+      "rights": {
+        "license": "CC BY 4.0 conditional for EU-owned content only",
+        "terms_url": "https://commission.europa.eu/legal-notice_en",
+        "terms_sha256": "e3a1ec9d19e6b1208b37f6d7af5c9a850665a86a4fbfef76948718c6f671070a",
+        "attribution": "European Union / Commissione europea, URL, licenza e modifiche",
+        "private_use": "LINK_AND_METADATA_AUDIT_ONLY",
+        "public_excerpt": "HELD",
+        "privacy_decision_ref": "PENDING:#96",
+        "decision_ref": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/61",
+        "retention": "No HTML retained in launch manifest; capture retention unapproved",
+        "takedown": "HOLD, append-only update and #96 re-review",
+        "limits": "Per-item rights, third-party content and live revocations not cleared"
+      },
+      "processing": {
+        "discovery": "MANUAL_OFFICIAL_URL",
+        "transcript": "HOLD_WRITTEN_TEXT_BINDING",
+        "speaker": "HOLD_WRITTEN_ROLE_BINDING",
+        "evidence": "HOLD_NO_VERIFIED_FINDING",
+        "provider": "Gemini 3.8 Flash via Antigravity/OmniRoute subscription quota only; quota exhausted = STOP",
+        "health_owner": "DichiarazioniPubbliche maintainer",
+        "public_projection": false
+      }
+    },
+    {
+      "source_id": "source:europarl-open-data-2026-meetings",
+      "source_family": "european_parliament_open_data",
+      "state": "HELD",
+      "rights_state": "PENDING",
+      "privacy_state": "PENDING",
+      "provider_state": "BLOCKED",
+      "provenance": {
+        "name": "Parlamento europeo — portale open data, incontri 2026 (candidato)",
+        "platform": "data.europarl.europa.eu",
+        "locator": "https://data.europarl.europa.eu/en/datasets",
+        "observed_at": "2026-10-25",
+        "source_version": "PORTAL_HTML_SHELL_2026-10-25",
+        "content_sha256": null,
+        "publication_time": null,
+        "statement_time": null,
+        "limits": "HTTP 200, 2417-byte JS shell; individual dataset/version/licence not observed"
+      },
+      "acquisition": {
+        "mode": "PUBLIC_CATALOG_METADATA_CANDIDATE",
+        "language": "multi",
+        "content_types": ["catalog_metadata"],
+        "max_items": 1,
+        "max_bytes": 100000,
+        "cadence": "MANUAL",
+        "timezone": "UTC",
+        "public_interest": "Atti parlamentari istituzionali; scegliere un dataset identificabile",
+        "fallback": "HOLD until dataset ID, precise licence and immutable data version"
+      },
+      "rights": {
+        "license": "EP open-data policy CC BY 4.0; individual dataset unverified",
+        "terms_url": "https://data.europarl.europa.eu/en/discover/rules-on-the-european-parliaments-open-data",
+        "terms_sha256": null,
+        "attribution": "European Parliament / European Union, individual dataset URL and licence required",
+        "private_use": "PUBLIC_CATALOG_LINK_ONLY",
+        "public_excerpt": "HELD",
+        "privacy_decision_ref": "PENDING:#96",
+        "decision_ref": "PENDING:#97:dataset-specific",
+        "retention": "No dataset captured",
+        "takedown": "HOLD and revalidate source before any follow-up",
+        "limits": "Global portal policy cannot establish terms of a particular dataset"
+      },
+      "processing": {
+        "discovery": "MANUAL_OFFICIAL_CATALOG",
+        "transcript": "HOLD_DATASET_NOT_SELECTED",
+        "speaker": "HOLD_DATASET_NOT_SELECTED",
+        "evidence": "HOLD_NO_VERIFIED_FINDING",
+        "provider": "Gemini 3.8 Flash via Antigravity/OmniRoute subscription quota only; quota exhausted = STOP",
+        "health_owner": "DichiarazioniPubbliche maintainer",
+        "public_projection": false
+      }
+    }
+  ],
+  "snapshot": {
+    "status": "NOT_BUILT",
+    "candidate_commit": "26fe7efe2345d675fa57ef29f6896242c34618f0",
+    "source_registry_sha256": "eb89a56c8ca67d7bf8a2c72b672f86d0374d89938ab85cd17f3c55c582d30a2e",
+    "policy_version": "docs/policy/legal-closure-register.md",
+    "schema_version": "public-v2",
+    "api_version": "v1",
+    "statement_at": null,
+    "published_at": null,
+    "observed_cutoff": "2026-10-25",
+    "public_item_ids": [],
+    "projection_sha256": null,
+    "held_count": 3,
+    "omitted_count": 0,
+    "rollback_receipt": null,
+    "rollback_procedure": "After separate authorization: record before/after hashes, hold source/item, regenerate projection-owned artifacts, read back, and restore prior known-good bundle on failure with append-only receipt. #98 owns rehearsal."
+  },
+  "disclosure": {
+    "status": "DRAFT_PRIVATE_NOT_PUBLISHED",
+    "method": "Fonte, parole esatte, locatori, speaker non biometrico e diritti sono verificati separatamente. Recupero, approvazione delle prove, verifica, revisione e pubblicazione sono fasi indipendenti. I finding riguardano claim, mai punteggi o intenzioni delle persone. Modelli e trascrizioni sono fallibili o indisponibili; nessun risultato AI diventa pubblico da solo.",
+    "statement_time": "Quando parole sono dette o scritte, mai dedotto dal momento della fetch",
+    "source_publication_time": "Data dichiarata dalla fonte, distinta dall'osservazione",
+    "observation_time": "Quando una specifica versione o URL viene letto",
+    "evidence_cutoff": "Fino a quando prove disponibili valgono per una specifica verifica; prove successive dichiarate come tali",
+    "provider": "Gemini 3.8 Flash via Antigravity Pro e OmniRoute; esaurimento quota = stop, nessun LLM nel read path pubblico",
+    "review": "NON_ESEGUITA, #96 possiede prelaunch-closure separata",
+    "correction_and_reply": "Hold, rettifiche, replica e rianalisi append-only, link e workflow esterni ancora da approvare in #96",
+    "operator_contact": "PENDING:#96:verified-public-contact",
+    "source_attribution": "Fonte, URL/versione, autore, licenza e adattamenti per ogni contenuto che superi i gate",
+    "visibility": "Nessun body, excerpt, claim, finding, immagine o dossier reso pubblico da questa candidatura"
+  }
+}
