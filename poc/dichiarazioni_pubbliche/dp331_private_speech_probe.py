@@ -13,7 +13,11 @@ from dichiarazioni_pubbliche.context_integrity import (
     verify_speech_act_context_metadata,
 )
 from dichiarazioni_pubbliche.senato_akoma_stenographic import SenatoAkomaCandidateImport
-from dichiarazioni_pubbliche.wording_contract import assess_translation
+from dichiarazioni_pubbliche.wording_contract import (
+    DERIVED_REPRESENTATION_ROLE,
+    WordingType,
+    assess_translation,
+)
 
 
 def _sha(text: str) -> str:
@@ -25,6 +29,7 @@ def probe_private_speech(
     *,
     ordinal: int,
     german_draft: str | None = None,
+    italian_quote_span: tuple[int, int] | None = None,
 ) -> dict[str, object]:
     """Inspect one source-attested speaker reference without granting a speech act.
 
@@ -40,6 +45,16 @@ def probe_private_speech(
         raise ValueError("DP331_SPEECH_NOT_AVAILABLE")
     if _sha(speech.review_text) != speech.review_text_sha256:
         raise ValueError("DP331_SPEECH_SOURCE_HASH_MISMATCH")
+    if german_draft is None and italian_quote_span is not None:
+        raise ValueError("DP331_ITALIAN_QUOTE_SPAN_REQUIRES_DRAFT")
+    if german_draft is not None and (
+        not isinstance(italian_quote_span, tuple)
+        or len(italian_quote_span) != 2
+        or any(type(offset) is not int for offset in italian_quote_span)
+        or not (0 <= italian_quote_span[0] < italian_quote_span[1] <= len(speech.review_text))
+        or italian_quote_span[1] - italian_quote_span[0] > 500
+    ):
+        raise ValueError("DP331_ITALIAN_QUOTE_SPAN_INVALID")
 
     original = assess_speech_act_context(
         source_text=speech.review_text,
@@ -85,6 +100,19 @@ def probe_private_speech(
     if german_draft is not None:
         if not isinstance(german_draft, str) or not german_draft.strip() or len(german_draft) > 2000:
             raise ValueError("DP331_GERMAN_DRAFT_INVALID")
+        if italian_quote_span is None:
+            raise ValueError("DP331_ITALIAN_QUOTE_SPAN_INVALID")
+        start, end = italian_quote_span
+        italian_quote = speech.review_text[start:end]
+        quote_decision = assess_speech_act_context(
+            source_text=speech.review_text, source_sha256=speech.review_text_sha256,
+            quote_start=start, quote_end=end, turn_start=0,
+            turn_end=len(speech.review_text), utterer_id=speech.official_person_uri,
+            turn_speaker_ids=(speech.official_person_uri,),
+            source_part_ref=speech.speech_id, turn_complete=False, language="it",
+        )
+        if quote_decision.state != "HOLD_FOR_CONTEXT" or quote_decision.publication_authority:
+            raise ValueError("DP331_UNREVIEWED_SOURCE_QUOTE_WAS_PROMOTED")
         german = german_draft.strip()
         derived = assess_speech_act_context(
             source_text=german, source_sha256=_sha(german),
@@ -94,14 +122,24 @@ def probe_private_speech(
             turn_complete=False, language="de",
         )
         translated = assess_translation(
-            source_text=speech.review_text, translated_text=german,
+            source_text=italian_quote, translated_text=german,
             source_language="it", target_language="de",
-            method="HUMAN", human_reviewed=False,
+            method="MACHINE", human_reviewed=False,
         )
         if derived.state != "HOLD_FOR_CONTEXT" or derived.publication_authority:
             raise ValueError("DP331_UNREVIEWED_TRANSLATION_WAS_PROMOTED")
         receipt["german_draft"] = {
             "language": "de", "decision": "HOLD",
+            "wording_type": WordingType.TRANSLATION.value,
+            "representation_role": DERIVED_REPRESENTATION_ROLE,
+            "translation_method": translated.method,
+            "source_quote_start": start, "source_quote_end": end,
+            "source_quote_sha256": _sha(italian_quote),
+            "source_quote_speech_act": quote_decision.speech_act,
+            "source_quote_stance": quote_decision.stance,
+            "source_quote_context_binding": quote_decision.binding_sha256,
+            "source_quote_signals": quote_decision.signal_codes,
+            "translation_sha256": translated.translation_sha256,
             "speech_act": derived.speech_act, "stance": derived.stance,
             "signals": derived.signal_codes,
             "context_binding": derived.binding_sha256,

@@ -30,6 +30,7 @@ def run(
     *,
     ordinals: tuple[int, ...],
     german_draft: str | None = None,
+    italian_quote_span: tuple[int, int] | None = None,
 ) -> dict[str, object]:
     if german_draft is not None and len(ordinals) != 1:
         raise ValueError("DP331_ONE_SPEECH_PER_DERIVED_TRANSLATION")
@@ -69,7 +70,10 @@ def run(
         raise RuntimeError("DP331_CAPTURE_SOURCE_REVISION_MISMATCH")
     # Ordinals are explicit to prevent an accidental bulk extraction.
     observed = [
-        probe_private_speech(imported, ordinal=ordinal, german_draft=german_draft)
+        probe_private_speech(
+            imported, ordinal=ordinal, german_draft=german_draft,
+            italian_quote_span=italian_quote_span,
+        )
         for ordinal in ordinals
     ]
     return {
@@ -104,11 +108,21 @@ def main() -> int:
     parser.add_argument("--storage-root", type=Path, default=Path("~/.local/share/dichiarazioni-pubbliche-captures").expanduser())
     parser.add_argument("--ordinal", type=int, action="append", required=True)
     parser.add_argument("--german-draft-file", type=Path)
+    parser.add_argument("--quote-start", type=int)
+    parser.add_argument("--quote-end", type=int)
     args = parser.parse_args()
     if not args.database_url:
         parser.error("--database-url is required")
     if len(args.ordinal) > 3 or len(set(args.ordinal)) != len(args.ordinal):
         parser.error("only one to three unique speech ordinals are permitted")
+    if args.german_draft_file is not None and (
+        args.quote_start is None or args.quote_end is None
+    ):
+        parser.error("German draft requires exact Italian --quote-start and --quote-end")
+    if args.german_draft_file is None and (
+        args.quote_start is not None or args.quote_end is not None
+    ):
+        parser.error("Italian quote span requires --german-draft-file")
     german_draft = None
     if args.german_draft_file is not None:
         path = args.german_draft_file
@@ -118,6 +132,9 @@ def main() -> int:
     print(json.dumps(run(
         args.database_url, args.storage_root,
         ordinals=tuple(args.ordinal), german_draft=german_draft,
+        italian_quote_span=(
+            (args.quote_start, args.quote_end) if german_draft is not None else None
+        ),
     ), sort_keys=True))
     return 0
 
