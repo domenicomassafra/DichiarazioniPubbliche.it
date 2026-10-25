@@ -12,7 +12,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -76,6 +78,10 @@ class CanaryJob:
     overlap_observed: bool
     timeout_seconds: int
     manifest_sha256: str
+    reference_source: str
+    reference_sha256: str
+    reference_words: tuple[tuple[str, int, int], ...]
+    max_boundary_error_ms: int
 
 
 def _record_and_scope(raw: dict[str, Any], *, content_id: str, url: str,
@@ -115,6 +121,37 @@ def _record_and_scope(raw: dict[str, Any], *, content_id: str, url: str,
     return record, scope
 
 
+_TOKEN = re.compile(r"[^\W_]+(?:['’][^\W_]+)*", re.UNICODE)
+
+
+def _reference(raw: dict[str, Any], *, transcript: str, duration_ms: int
+               ) -> tuple[str, str, tuple[tuple[str, int, int], ...], int]:
+    """Require a separate annotation timeline, bound to the private manifest."""
+    source = _text(raw, "source", "reference_source") or ""
+    tolerance = raw.get("max_boundary_error_ms")
+    words = raw.get("words")
+    expected = _TOKEN.findall(transcript.casefold())
+    if (not source.startswith("https://") or type(tolerance) is not int
+            or not 0 <= tolerance <= 250 or not isinstance(words, list)
+            or not words or len(words) != len(expected) or len(words) > 240):
+        raise CanaryManifestInvalid("MANIFEST_REFERENCE_INVALID")
+    timeline: list[tuple[str, int, int]] = []
+    last_end = 0
+    for row, lexeme in zip(words, expected):
+        if not isinstance(row, dict) or set(row) != {"word", "start_ms", "end_ms"}:
+            raise CanaryManifestInvalid("MANIFEST_REFERENCE_WORD_INVALID")
+        word, start, end = row["word"], row["start_ms"], row["end_ms"]
+        if (not isinstance(word, str) or _TOKEN.findall(word.casefold()) != [lexeme]
+                or type(start) is not int or type(end) is not int
+                or start < last_end or end <= start or end > duration_ms):
+            raise CanaryManifestInvalid("MANIFEST_REFERENCE_WORD_INVALID")
+        timeline.append((word, start, end))
+        last_end = end
+    digest = hashlib.sha256(json.dumps(raw, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":")).encode("utf-8")).hexdigest()
+    return source, digest, tuple(timeline), tolerance
+
+
 def load_job(manifest_path: Path) -> CanaryJob:
     try:
         raw_bytes = manifest_path.read_bytes()
@@ -125,9 +162,13 @@ def load_job(manifest_path: Path) -> CanaryJob:
         raise CanaryManifestInvalid("MANIFEST_ROOT_INVALID")
     if manifest.get("manifest_version") != CANARY_VERSION:
         raise CanaryManifestInvalid("MANIFEST_VERSION_UNSUPPORTED")
-    _section(manifest, "root", (
+    root_keys = (
         "manifest_version", "intervention", "audio", "source", "model",
         "rights", "options",
+    )
+    # Official locators take precedence without requiring any acoustic baseline.
+    _section(manifest, "root", root_keys + (
+        ("reference",) if "reference" in manifest else ()
     ))
     speech = _section(manifest["intervention"], "intervention", (
         "intervention_id", "session_id", "official_speaker_ref",
@@ -148,6 +189,11 @@ def load_job(manifest_path: Path) -> CanaryJob:
     options = _section(manifest["options"], "options", (
         "language", "overlap_observed", "timeout_seconds",
     ))
+    reference = (
+        _section(manifest["reference"], "reference", (
+            "source", "words", "max_boundary_error_ms",
+        )) if "reference" in manifest else None
+    )
     payload = {
         "rights_record_id": _text(rights, "record_id", "rights_record_id") or "",
         "rights_policy_version": _text(rights, "policy_version", "rights_policy") or "",
@@ -168,7 +214,8 @@ def load_job(manifest_path: Path) -> CanaryJob:
     timeout = options.get("timeout_seconds", 120)
     consent = rights.get("consent_confirmed", False)
     overlap = options.get("overlap_observed", False)
-    if (type(duration) not in {int, float} or type(timeout) is not int
+    if (type(duration) not in {int, float} or not math.isfinite(duration)
+            or not 0 < duration <= 30 or type(timeout) is not int
             or type(consent) is not bool or type(overlap) is not bool):
         raise CanaryManifestInvalid("MANIFEST_SCALAR_TYPES_INVALID")
     start, end = speech.get("official_start_ms"), speech.get("official_end_ms")
@@ -187,6 +234,15 @@ def load_job(manifest_path: Path) -> CanaryJob:
         )
     except ValueError as exc:
         raise CanaryManifestInvalid(str(exc)) from exc
+    if reference is None:
+        if intervention.official_start_ms is None:
+            raise CanaryManifestInvalid("MANIFEST_REFERENCE_REQUIRED")
+        reference_source, reference_sha, reference_words, tolerance = "", "", (), 0
+    else:
+        reference_source, reference_sha, reference_words, tolerance = _reference(
+            reference, transcript=intervention.transcript_text,
+            duration_ms=round(float(duration) * 1000),
+        )
     return CanaryJob(
         intervention=intervention, scope=scope, record=record, clock=clock,
         audio_path=_text(audio, "path", "audio_path") or "",
@@ -202,6 +258,8 @@ def load_job(manifest_path: Path) -> CanaryJob:
         source_variant_sha256=_text(source, "variant_sha256", "variant_sha256") or "",
         source_segment_sha256=_text(source, "segment_sha256", "segment_sha256") or "",
         language=_text(options, "language", "language") or "",
+        reference_source=reference_source, reference_sha256=reference_sha,
+        reference_words=reference_words, max_boundary_error_ms=tolerance,
         overlap_observed=overlap, timeout_seconds=timeout,
         manifest_sha256=hashlib.sha256(raw_bytes).hexdigest(),
     )
@@ -265,6 +323,20 @@ def run_canary(job: CanaryJob, *, enabled: bool) -> dict[str, Any]:
     receipt["blockers"] = list(proposal.blockers)
     receipt["publication_blocked"] = proposal.publication_blocked
     if proposal.candidate is not None:
+        if len(proposal.words) != len(job.reference_words):
+            raise AlignmentHold("WHISPERX_REFERENCE_WORD_MISMATCH")
+        largest_error = 0
+        for observed, (word, start_ms, end_ms) in zip(
+                proposal.words, job.reference_words):
+            if _TOKEN.findall(observed.word.casefold()) != _TOKEN.findall(word.casefold()):
+                raise AlignmentHold("WHISPERX_REFERENCE_WORD_MISMATCH")
+            largest_error = max(largest_error, abs(observed.start_ms - start_ms),
+                                abs(observed.end_ms - end_ms))
+        if largest_error > job.max_boundary_error_ms:
+            raise AlignmentHold("WHISPERX_REFERENCE_BOUNDARY_MISMATCH")
+        receipt["reference_sha256"] = job.reference_sha256
+        receipt["boundary_tolerance_ms"] = job.max_boundary_error_ms
+        receipt["max_boundary_error_ms"] = largest_error
         receipt["candidate_id"] = proposal.candidate.candidate_id
         receipt["candidate_source_kind"] = proposal.candidate.source_kind
         receipt["word_count"] = len(proposal.words)
