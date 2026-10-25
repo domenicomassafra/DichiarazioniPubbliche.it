@@ -147,6 +147,20 @@
       ]
     },
     {
+      "registry_source_id": "dvns-opencoesione-mcp",
+      "roles": ["SECONDARY_REFERENCE"],
+      "authority_scopes": [{
+        "role": "SECONDARY_REFERENCE",
+        "jurisdiction": "IT",
+        "record_type": "OPENCOESIONE_NATIONAL_PROJECT_AGGREGATE",
+        "dataset_class": "OPENCOESIONE_PROJECTS",
+        "authenticity_basis": "DVNS_PUBLIC_MCP_WITH_OPENCOESIONE_ORIGINAL_LINK",
+        "canonical_locator": {"registry_source_id": "dvns-opencoesione-mcp"},
+        "supersession_policy": "SOURCE_SNAPSHOT_VERSION_AND_OFFICIAL_CURRENT_RIGHTS",
+        "limitations": "Secondary aggregate; no primary authority, claim verdict, or public quotation. Exact source URL, grant, period and version required."
+      }]
+    },
+    {
       "registry_source_id": "eurlex-cellar",
       "roles": ["PRIMARY_RECORD", "AUTHENTIC_LEGAL_TEXT"],
       "authority_scopes": [
