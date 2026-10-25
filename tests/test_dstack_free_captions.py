@@ -65,6 +65,29 @@ class DstackFreeCaptionTests(unittest.TestCase):
         self.assertEqual(capture.provenance["source_url"], VIDEO)
         self.assertEqual(capture.provenance["original_language"], "en")
 
+    def test_english_original_caption_enters_free_provider_dispatch(self):
+        resolver = YouTubeResolver(free_caption_catalog_path=self.catalog)
+        metadata = {
+            "language": "en",
+            "subtitles": {
+                "en": [{"ext": "json3", "url": "https://example.org/original"}],
+                "it": [{"ext": "json3", "url": "https://example.org/translated"}],
+            },
+            "automatic_captions": {},
+        }
+        response = json.dumps({
+            "videoId": "jNQXAC9IVRw", "language": "en", "segments": ROWS,
+        }).encode()
+        with patch.object(resolver, "metadata", return_value=metadata):
+            probe = resolver.probe_caption(VIDEO)
+        self.assertEqual(probe, CaptionProbe("manual_caption", "en"))
+        with patch("dichiarazioni_pubbliche.dstack_free_captions.fetch_captions_json",
+                   return_value=response) as fetch, patch.object(
+                   resolver, "_capture_yt_dlp_caption", side_effect=AssertionError("native ran")):
+            captured = resolver.capture_caption(VIDEO, probe)
+        fetch.assert_called_once()
+        self.assertEqual(captured.provenance["original_language"], "en")
+
     def test_errors_quota_and_invalid_evidence_fall_back_without_asr(self):
         for response in (
             TimeoutError("remote timeout"),
