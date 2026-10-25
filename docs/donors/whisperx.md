@@ -157,6 +157,51 @@ the licensed weights and real-audio canary are HOLD (#36);
 #61 DP-317 exact-quote rights gate is OPEN. This seam does not
 change any of their requirements.
 
+## DP-359 — independent word-time baseline (2026-10-25)
+
+The private operator canary requires a separately sourced, independently
+annotated **word timeline** whenever the transcript has no authoritative
+official start/end range. The source and each word/start/end millisecond value
+are included in the private manifest and bound to its SHA-256. The operator
+must verify the annotation source and the rights of the actual audio separately;
+a self-authored JSON field is not evidence of an independent acoustic gold.
+Official media ranges still win, even without a reference.
+
+Add the following top-level object to the existing canary manifest for a
+non-official transcript (illustrative values only; not a clearance or gold):
+
+```json
+"reference": {
+  "source": "https://example.org/licensed-independent-word-annotations",
+  "max_boundary_error_ms": 100,
+  "words": [
+    {"word": "Non", "start_ms": 100, "end_ms": 250},
+    {"word": "aumenteremo", "start_ms": 250, "end_ms": 800},
+    {"word": "7", "start_ms": 850, "end_ms": 1000},
+    {"word": "tasse", "start_ms": 1000, "end_ms": 1400}
+  ]
+}
+```
+
+The baseline must have one token for every original transcript word in order,
+integer milliseconds, non-overlapping intervals within the WAV, and a
+per-run tolerance of 0–250 ms. After the already protected local WhisperX
+child completes, the canary compares every word's *start and end* with the
+reference. Missing or changed words return
+`WHISPERX_REFERENCE_WORD_MISMATCH`; a boundary exceeding the tolerance
+returns `WHISPERX_REFERENCE_BOUNDARY_MISMATCH`. Both are private HOLD with
+exit 2; no candidate/word string is exposed. A matching run reports
+`reference_sha256`, `max_boundary_error_ms` and
+`boundary_tolerance_ms`, while remaining `UNVERIFIED` and
+`publication_blocked=true`. The existing source-use guard remains mandatory
+at every inference boundary.
+
+For the real canary an agent must independently establish source provenance,
+current `ASR_MEDIA` rights, media and annotation digests, a licensed Italian
+CTC word model and its complete native dependencies. Deterministic synthetic
+tests verify this comparison only; they are **not** evidence of real acoustic
+accuracy, RSS or inference speed.
+
 ## Current-rights seam and operator canary (2026-10-23)
 
 `whisperx_alignment_rights.py` is the only supported way to build the
