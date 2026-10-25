@@ -23,26 +23,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from fixture_inventory_candidates import is_candidate
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INVENTORY = ROOT / "docs" / "licensing" / "fixture-inventory.v1.json"
-
-# Path prefixes / suffixes that constitute a tracked fixture, data, or visual asset.
-CANDIDATE_PREFIXES = (
-    "data/public/",
-    "poc/content/",
-    "poc/fixtures/",
-    "poc/benchmarks/",
-    "research/results/",
-    "research/content-audits/",
-    "research/source-candidates/",
-    "tests/fixtures/",
-    "web/src/data/",
-    "docs/ux/prototypes-v3/generated/",
-    "docs/ux/prototypes-v3/generated-style-02/",
-    "docs/ux/reference/",
-)
-CANDIDATE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".woff", ".woff2", ".ttf", ".otf")
 
 # Binary/asset extensions that must never be tracked (raw/private boundary).
 FORBIDDEN_TRACKED_SUFFIXES = (
@@ -82,11 +66,6 @@ def tracked_files() -> list[str]:
         return []
     return [p for p in out.split("\0") if p]
 
-
-def is_candidate(path: str) -> bool:
-    if path.endswith(CANDIDATE_SUFFIXES):
-        return path.startswith(CANDIDATE_PREFIXES) or path.startswith("docs/ux/") or path.startswith("web/")
-    return path.startswith(CANDIDATE_PREFIXES)
 
 
 def main(argv: list[str] | None = None) -> int:
