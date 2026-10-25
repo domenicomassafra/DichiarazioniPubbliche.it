@@ -1,0 +1,78 @@
+{
+  "version": "launch-rehearsal-v1",
+  "rehearsal_id": "dp704-20261025-gate-readback",
+  "execution_status": "BLOCKED_PREREQUISITES",
+  "disposition": "NO-GO",
+  "observed_at_utc": "2026-10-25T16:32:53Z",
+  "candidate": {
+    "mac_studio_origin_main": "89887d50deeb0e5cba48352b1e59da4f28580ef2",
+    "launch_set_file_sha256": "45994ae4b938610139029f7a257909d283efa57b388904544213b7b038365d9f",
+    "launch_set_state": "HELD",
+    "included_sources": 0,
+    "held_sources": 3,
+    "snapshot": "NOT_BUILT"
+  },
+  "source_case": {
+    "source_id": "source:senato-akn-leg19-01457617",
+    "upstream": "SenatoDellaRepubblica/AkomaNtosoBulkData",
+    "upstream_commit": "bfac144eb5c54820971bc1020fece11aae56ec90",
+    "capture_id": "capture:a2849fbebd69aa54acc01a259db47379bc9587ec6c67f09720db3dca0768fb4a",
+    "capture_sha256": "1cb2b5fc3cbc96701e52f06c34c3ae3cd494eb622aa3f124fb1a93a223e27476",
+    "private_rights_receipt": "private-rights:8813ad9400a7120d080b5b3564f50049929c9263bb8619663f57f303b6eb258e",
+    "private_discovery_reference": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/330",
+    "observed_scope": "PRIVATE_METADATA_AND_CAPTURE_ONLY",
+    "public_use_authorized": false,
+    "further_stages": "NOT_EXECUTED"
+  },
+  "source_public_use_authorized": false,
+  "consumer": {
+    "host": "minipc",
+    "path": "/home/udodo/src/DichiarazioniPubbliche.it",
+    "service": "dichiarazioni-pubbliche-web.service",
+    "service_state": "active",
+    "health_path": "http://127.0.0.1:18090/api/v1/health",
+    "health_status": "ok",
+    "contract_status": "DRAFT",
+    "dossier_count": 0,
+    "dataset_fingerprint": "501348d9638ee3c4d929205d2e6dca7eb2c8a552ac006dee837ea032a739ae7a",
+    "candidate_installed": false,
+    "production_modified": false
+  },
+  "public_apex": {
+    "url": "https://dichiarazionipubbliche.it/",
+    "http": 200,
+    "tls_verify_result": 0,
+    "public_correction_readback": "NOT_EXECUTED"
+  },
+  "proofs": {
+    "source_to_projection": {
+      "status": "NOT_EXECUTED"
+    },
+    "correction": {
+      "status": "NOT_EXECUTED"
+    },
+    "failure_paths": {
+      "status": "NOT_EXECUTED"
+    },
+    "private_readback": {
+      "status": "PARTIAL_SOURCE_ONLY"
+    },
+    "public_readback": {
+      "status": "APPROVED_EMPTY_ONLY"
+    },
+    "rollback": {
+      "status": "NOT_EXECUTED"
+    }
+  },
+  "review_agents": [],
+  "residual_blockers": [
+    "#97: 0 INCLUDED; public source rights and snapshot absent",
+    "#96: Q-306 legal/privacy and operational notices are not accepted for this candidate",
+    "#86/#268: approved source-to-reader and correction pilot absent",
+    "#353: real distributed correction/revocation and cache readback absent",
+    "#327: provider subscription-account routing not yet proven",
+    "#355: independent release authority and approved consumer canary absent"
+  ],
+  "next_action": "After dependencies are accepted, run isolated MiniPC source-to-correction rehearsal, failure matrix and rollback readback on the exact eligible candidate; supply six immutable consumer receipts and three distinct delegated reviewer identities.",
+  "interpretation": "Read-only preflight evidence; not a completed launch rehearsal, signed review, or rollback receipt."
+}
