@@ -155,6 +155,13 @@ def run_case(state: Path) -> dict[str, object]:
         if (len(manifest.queries), request.max_queries, manifest.max_results,
                 manifest.max_results_per_host, manifest.cost_cap_usd) != (1, 1, 2, 1, Decimal("0")):
             raise RuntimeError("DP229_CANARY_CAP_WIDENED")
+        # Re-running this canary with the same state directory replays a durable
+        # attempt. A new observation timestamp must not be mistaken for a new
+        # live discovery or a fresh source-rights decision.
+        previous_attempts = int(store.run(
+            "SELECT count(*)::text FROM research_discovery_attempt WHERE run_id=:'run_id';",
+            run_id=RUN_ID,
+        ))
         receipt = run_discovery_manifest(
             manifest, store, {"configured_registry": adapter}, run_id=RUN_ID,
         )
@@ -167,6 +174,8 @@ def run_case(state: Path) -> dict[str, object]:
             """
             SELECT COALESCE(json_agg(json_build_object(
                 'adapter_id', adapter_id, 'adapter_version', adapter_version,
+                'started_at_utc', to_char(started_at AT TIME ZONE 'UTC',
+                    'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
                 'status', status, 'error_category', error_category,
                 'cost_usd', cost_usd, 'cost_upper_bound_usd', cost_upper_bound_usd,
                 'raw_hits', raw_hits, 'accepted_hits', accepted_hits
@@ -179,6 +188,10 @@ def run_case(state: Path) -> dict[str, object]:
             raise RuntimeError("DP229_CANARY_ATTEMPT_NOT_PERSISTED")
         return {
             "observed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "attempt_started_at_utc": attempts[0]["started_at_utc"],
+            "new_healthy_attempt_this_invocation": (
+                previous_attempts == 0 and attempts[0]["status"] == "HEALTHY"
+            ),
             "run_id": RUN_ID, "plan_id": plan.plan_id,
             "request_id": request.request_id, "manifest_sha256": manifest.manifest_sha256,
             "source_id": SOURCE_ID, "source_family": "public_rss",
