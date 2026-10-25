@@ -384,51 +384,12 @@ class _StudioDecisionReader(_StudioReadOnlyDb):
         for value in (candidate_id, run_id, passage_id, capture_id, request_key):
             if not isinstance(value, str) or not _STUDIO_REF.fullmatch(value) or ".." in value:
                 raise ValueError("STUDIO_DECISION_REF_INVALID")
-        raw = self.run("""
-            BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
-            SELECT json_build_object(
-                'candidate_id',receipt.candidate_id,
-                'run_id',receipt.run_id,'passage_id',receipt.passage_id,
-                'capture_id',receipt.capture_id,'request_key',receipt.request_key,
-                'decision',receipt.decision,'revision',receipt.revision,
-                'receipt_sha256',receipt.receipt_sha256,
-                'source_current',(
-                   content.rights_status='CLEARED'
-                   AND capture.rights_status='CLEARED'
-                   AND capture.status='CAPTURED' AND capture.hold_status='NONE'
-                   AND NOT EXISTS (
-                     SELECT 1 FROM content_capture newer
-                     WHERE newer.content_id=content.id AND
-                       (newer.observed_at,newer.id)>(capture.observed_at,capture.id)
-                   )
-                )
-            )::text
-            FROM dp418_candidate_decision receipt
-            JOIN claim_candidate candidate ON candidate.id=receipt.candidate_id
-            JOIN statement_candidate statement ON statement.id=candidate.statement_candidate_id
-              AND statement.content_id=candidate.content_id
-            JOIN statement_candidate_passage binding
-              ON binding.statement_candidate_id=statement.id
-              AND binding.content_id=statement.content_id
-              AND binding.passage_id=receipt.passage_id
-            JOIN passage passage ON passage.id=binding.passage_id
-              AND passage.content_id=statement.content_id
-              AND passage.capture_id=receipt.capture_id
-            JOIN content_capture capture ON capture.id=receipt.capture_id
-              AND capture.content_id=passage.content_id
-            JOIN content_item content ON content.id=capture.content_id
-            JOIN candidate_match_run run ON run.id=receipt.run_id
-              AND run.claim_candidate_id=candidate.id
-            WHERE receipt.candidate_id=:'candidate_id'
-              AND receipt.run_id=:'run_id'
-              AND receipt.passage_id=:'passage_id'
-              AND receipt.capture_id=:'capture_id'
-              AND receipt.request_key=:'request_key'
-              AND capture.content_sha256=receipt.capture_sha256
-            LIMIT 1;
-            COMMIT;
-        """, candidate_id=candidate_id, run_id=run_id, passage_id=passage_id,
-            capture_id=capture_id, request_key=request_key)
+        from dichiarazioni_pubbliche.studio_candidate_decision_sql import READBACK_SQL
+
+        raw = self.run(
+            READBACK_SQL, candidate_id=candidate_id, run_id=run_id,
+            passage_id=passage_id, capture_id=capture_id, request_key=request_key,
+        )
         if not raw:
             raise ValueError("STUDIO_DECISION_NOT_FOUND")
         try:
