@@ -167,6 +167,21 @@
       "accepted_content_types": ["text/html", "application/pdf", "application/xml", "text/xml"]
     },
     {
+      "id": "dvns-opencoesione-mcp",
+      "publisher": "DoveVannoINostriSoldi / OpenCoesione",
+      "evidence_class": "SECONDARY_OFFICIAL_DATA_AGGREGATE",
+      "authoritative": false,
+      "allowed_hosts": ["www.dovevannoinostrisoldi.com"],
+      "allowed_path_prefixes": ["/api/mcp"],
+      "allowed_methods": ["POST"],
+      "base_url": "https://www.dovevannoinostrisoldi.com/api/mcp",
+      "rate_limit": {"requests": 1, "window_seconds": 60},
+      "cache_ttl_seconds": 21600,
+      "accepted_content_types": ["text/event-stream", "application/json"],
+      "rights_status": "UNKNOWN",
+      "notes": "One OpenCoesione project aggregate only; external primary locator and explicit current private source-use receipt required. No public authority."
+    },
+    {
       "id": "eurlex-cellar",
       "publisher": "Publications Office of the European Union / EUR-Lex",
       "evidence_class": "PRIMARY_OFFICIAL_EU_LEGAL",
