@@ -52,14 +52,16 @@ def run(
         rights_record_id=current.id, policy_version=DP330_PRIVATE_CAPTURE_POLICY,
         expected_sha256=BODY_SHA256,
     )
-    guard.require("RESEARCH_CAPTURE_PRIVATE", content_sha256=BODY_SHA256)
+    # The exact rights tuple above also requires RESEARCH_CAPTURE_PRIVATE.
+    # The generic source-use guard recognizes STORE_BODY for captured bytes.
+    guard.require("STORE_BODY", content_sha256=BODY_SHA256)
     found = store.find_capture(context["id"], BODY_SHA256)
     if not found or not found.get("body_ref"):
         raise RuntimeError("DP331_PINNED_PRIVATE_CAPTURE_MISSING")
     body = CaptureBodyStore.open_existing_readonly(storage_root).read(
         found["body_ref"], expected_sha256=BODY_SHA256, max_bytes=450000,
     )
-    guard.require("RESEARCH_CAPTURE_PRIVATE", content_sha256=BODY_SHA256)
+    guard.require("STORE_BODY", content_sha256=BODY_SHA256)
     imported = import_senato_akoma_stenographic(
         body, source_raw_url=CURRENT_URL, expected_blob_sha1=CONTENT_BLOB_SHA1,
     )
