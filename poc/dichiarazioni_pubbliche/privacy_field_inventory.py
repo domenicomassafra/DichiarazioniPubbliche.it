@@ -18,6 +18,7 @@ from typing import Any, Mapping
 from dichiarazioni_pubbliche.policy.privacy_policy import PRIVACY_POLICY_VERSION, DataClass
 from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime
 from dichiarazioni_pubbliche import public_schema
+from dichiarazioni_pubbliche.privacy_field_inventory_migrations import register_versioned_privacy_migrations
 
 INVENTORY_VERSION = "privacy-field-inventory-v1"
 _TABLE_START = re.compile(r"\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+([a-z][a-z0-9_]*)\s*\(", re.I)
@@ -389,12 +390,9 @@ def make_inventory(schema: str) -> dict[str, Any]:
         raise FieldInventoryError("PRIVACY_LEGACY_RELATION_POLICY_SCOPE_DRIFT")
     tables["public_schema_contract"] = registry["public_schema_contract"]
     tables["claim_relation_candidate"] = (*tables["claim_relation_candidate"], "policy_version")
-    monthly = parse_schema_fields(
-        (ROOT / "db/migrations/20261022-add-atomic-monthly-dispatch.sql").read_text(encoding="utf-8")
+    monthly, watch = register_versioned_privacy_migrations(
+        ROOT, tables, parse_schema_fields, FieldInventoryError,
     )
-    if set(monthly) != {"dp514_monthly_dispatch_policy", "dp514_monthly_dispatch_reservation"} or (set(monthly) & set(tables)):
-        raise FieldInventoryError("PRIVACY_DP514_MONTHLY_TABLE_DRIFT")
-    tables.update(monthly)
     _check_literal_migration_coverage(tables)
     records: dict[str, dict[str, dict[str, str]]] = {}
     for table, columns in tables.items():
@@ -408,6 +406,8 @@ def make_inventory(schema: str) -> dict[str, Any]:
                     if table == "claim_relation_candidate" and column == "policy_version"
                     else "20261022_DP514_MONTHLY_MIGRATION"
                     if table in monthly
+                    else "20261025_DP515_WATCH_MIGRATION"
+                    if table in watch
                     else "CANONICAL_SCHEMA_V1"
                 ),
                 "data_class": classify_field(table, column),
