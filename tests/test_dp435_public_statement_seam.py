@@ -143,7 +143,7 @@ class IsolatedStatementSource:
             speaker_id=self.row["person_id"],
             speaker_signals=(
                 SpeakerSignal("official_channel", "https://example.org/channel"),
-                SpeakerSignal("source_caption", "https://example.org/caption"),
+                SpeakerSignal("public_record", "https://example.org/record"),
             ),
             public_role_source_url="https://www.wikidata.org/wiki/Q123",
             public_context_source_url=None,

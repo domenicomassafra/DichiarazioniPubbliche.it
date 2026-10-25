@@ -81,6 +81,7 @@ class AutonomousPublicationTests(unittest.TestCase):
         for update in (
             {"quote": "La misura è stata respinta oggi."},
             {"alignment_confidence": 0.91},
+            {"alignment_confidence": True},
         ):
             item = replace(candidate(), **update)
             result = evaluate_autonomous_publication(item, *reviews(item))
@@ -96,6 +97,17 @@ class AutonomousPublicationTests(unittest.TestCase):
         )
         result = evaluate_autonomous_publication(item, *reviews(item))
         self.assertIn("SPEAKER", result.reason_codes)
+        same_upload = replace(
+            item,
+            speaker_signals=(
+                SpeakerSignal("official_channel", "https://example.org/channel"),
+                SpeakerSignal("source_caption", "https://example.org/captions"),
+            ),
+        )
+        self.assertIn(
+            "SPEAKER",
+            evaluate_autonomous_publication(same_upload, *reviews(same_upload)).reason_codes,
+        )
 
     def test_minor_sensitive_data_and_uncleared_rights_hold(self):
         for update, reason in (
@@ -104,6 +116,7 @@ class AutonomousPublicationTests(unittest.TestCase):
             ({"rights_cleared": False}, "RIGHTS_PRIVACY"),
             ({"contains_editorial_judgment": True}, "RIGHTS_PRIVACY"),
             ({"source_length_chars": 0}, "RIGHTS_PRIVACY"),
+            ({"source_length_chars": True}, "RIGHTS_PRIVACY"),
         ):
             item = replace(candidate(), **update)
             self.assertIn(
@@ -134,6 +147,12 @@ class AutonomousPublicationTests(unittest.TestCase):
             "INDEPENDENT_REVIEW",
             evaluate_autonomous_publication(
                 item, first, replace(second, accepted=False)
+            ).reason_codes,
+        )
+        self.assertIn(
+            "INDEPENDENT_REVIEW",
+            evaluate_autonomous_publication(
+                item, first, replace(second, model_id=first.model_id.upper())
             ).reason_codes,
         )
 
