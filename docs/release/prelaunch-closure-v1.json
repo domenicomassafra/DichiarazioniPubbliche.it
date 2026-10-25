@@ -94,7 +94,7 @@
     {"event":"suspected secret/private projection disclosure","safe":"BLOCKED","proof_due":"incident escalation, isolation and Art.33 risk assessment","owner":"incident","detection":"privacy disclosure alert","recovery":"isolate and assess Art.33","receipt":"REQUIRED candidate incident record + consumer readback"}
   ],
   "release_gaps": [
-    "No selected #97 launch set with Content hash, current licence/source-use, FETCH/STORE_BODY/PUBLISH disposition and attribution",
+    "Merged #97 launch-set-v1 has three HELD/zero included; no approved source version, specific FETCH/STORE_BODY/ASR/PUBLISH right, privacy case or attributable public item",
     "No third-agent final release-specific approval; second-agent independent check completed with HOLD, see phase-2 review",
     "No authentic #98 DP-704 source-to-correction rehearsal/rollback",
     "No exact candidate MiniPC deployed source hash and all-surface readback",
