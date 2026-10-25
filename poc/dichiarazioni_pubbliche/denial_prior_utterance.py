@@ -119,6 +119,60 @@ class PriorOccurrence:
 
 
 @dataclass(frozen=True)
+class DenialCoverageAttempt:
+    """One bounded search attempt, with no claim of exhaustive recall."""
+
+    attempt_id: str
+    source_version_id: str
+    source_sha256: str
+    query_sha256: str
+    searched_at: datetime
+    outcome: str
+
+    def __post_init__(self) -> None:
+        _present(self.attempt_id, "COVERAGE_ATTEMPT_ID")
+        _present(self.source_version_id, "COVERAGE_SOURCE_VERSION")
+        _sha(self.source_sha256, "COVERAGE_SOURCE")
+        _sha(self.query_sha256, "COVERAGE_QUERY")
+        _time(self.searched_at)
+        if self.outcome not in {"SEARCHED_PARTIAL", "SEARCHED_BOUNDED", "SOURCE_UNAVAILABLE"}:
+            raise ValueError("DENIAL_COVERAGE_OUTCOME_INVALID")
+
+
+@dataclass(frozen=True)
+class DenialCoverageManifest:
+    """Caller-provided search inventory; its review ref is not source authority."""
+
+    denial_id: str
+    person_id: str
+    scope: str
+    from_at: datetime | None
+    through_at: datetime | None
+    collection_sha256: str
+    review_event_id: str
+    observed_at: datetime
+    attempts: tuple[DenialCoverageAttempt, ...]
+
+    def __post_init__(self) -> None:
+        _present(self.denial_id, "COVERAGE_DENIAL_ID")
+        _present(self.person_id, "COVERAGE_PERSON_ID")
+        _present(self.review_event_id, "COVERAGE_REVIEW_EVENT")
+        _sha(self.collection_sha256, "COVERAGE_COLLECTION")
+        observed_at = _time(self.observed_at)
+        if self.scope not in SCOPES:
+            raise ValueError("DENIAL_COVERAGE_SCOPE_INVALID")
+        if self.from_at is not None:
+            _time(self.from_at)
+        if self.through_at is not None:
+            _time(self.through_at)
+        if (type(self.attempts) is not tuple or not 1 <= len(self.attempts) <= 128
+                or any(type(item) is not DenialCoverageAttempt for item in self.attempts)
+                or len({item.attempt_id for item in self.attempts}) != len(self.attempts)
+                or any(_time(item.searched_at) > observed_at for item in self.attempts)):
+            raise ValueError("DENIAL_COVERAGE_ATTEMPTS_INVALID")
+
+
+@dataclass(frozen=True)
 class DenialReview:
     denial_id: str
     receipt_sha256: str
@@ -131,11 +185,14 @@ class DenialReview:
     prior_proposition_truth: str = "NOT_EVALUATED"
     publication_authority: bool = False
     version: str = VERSION
+    coverage_status: str = "NO_SEARCH_MANIFEST_HOLD"
+    coverage_attempt_ids: tuple[str, ...] = ()
 
 
 def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ...], *,
                     current_source_versions: dict[str, str] | None = None,
-                    prior_source_context: dict[str, tuple[str, Mapping[str, object]]] | None = None) -> DenialReview:
+                    prior_source_context: dict[str, tuple[str, Mapping[str, object]]] | None = None,
+                    coverage_manifest: DenialCoverageManifest | None = None) -> DenialReview:
     """Pure conservative check; missing/unknown source version is never approved."""
     if not isinstance(target, DenialTarget) or not isinstance(occurrences, tuple) or len(occurrences) > 128:
         raise ValueError("DENIAL_INPUT_UNBOUNDED_OR_INVALID")
@@ -151,10 +208,58 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
     occurrences = tuple(PriorOccurrence(**{
         field.name: getattr(row, field.name) for field in fields(PriorOccurrence)
     }) for row in occurrences)
+    coverage_snapshot = None
+    coverage_attempt_ids: tuple[str, ...] = ()
+    if coverage_manifest is not None:
+        if type(coverage_manifest) is not DenialCoverageManifest:
+            raise ValueError("DENIAL_COVERAGE_MANIFEST_INVALID")
+        # Snapshot all fields, including search attempts, before any decision.
+        coverage_data = {
+            field.name: getattr(coverage_manifest, field.name)
+            for field in fields(DenialCoverageManifest)
+        }
+        if type(coverage_data["attempts"]) is not tuple:
+            raise ValueError("DENIAL_COVERAGE_ATTEMPTS_INVALID")
+        coverage_data["attempts"] = tuple(
+            DenialCoverageAttempt(**{
+                field.name: getattr(attempt, field.name)
+                for field in fields(DenialCoverageAttempt)
+            })
+            for attempt in coverage_data["attempts"]
+        )
+        coverage = DenialCoverageManifest(**coverage_data)
+        if (coverage.denial_id != target.denial_id
+                or coverage.person_id != target.person_id
+                or coverage.scope != target.scope
+                or (None if coverage.from_at is None else _time(coverage.from_at))
+                != (None if target.from_at is None else _time(target.from_at))
+                or (None if coverage.through_at is None else _time(coverage.through_at))
+                != (None if target.through_at is None else _time(target.through_at))):
+            raise ValueError("DENIAL_COVERAGE_SCOPE_MISMATCH")
+        coverage_attempt_ids = tuple(sorted(item.attempt_id for item in coverage.attempts))
+        coverage_snapshot = {
+            "denial_id": coverage.denial_id,
+            "person_id": coverage.person_id,
+            "scope": coverage.scope,
+            "from_at": None if coverage.from_at is None else _time(coverage.from_at).isoformat(),
+            "through_at": None if coverage.through_at is None else _time(coverage.through_at).isoformat(),
+            "collection_sha256": coverage.collection_sha256,
+            "review_event_id": coverage.review_event_id,
+            "observed_at": _time(coverage.observed_at).isoformat(),
+            "attempts": sorted(
+                (_receipt_fields(attempt) for attempt in coverage.attempts),
+                key=lambda item: item["attempt_id"],
+            ),
+        }
     if not isinstance(current_source_versions, dict):
         current_source_versions = {}
     else:
         current_source_versions = dict(current_source_versions)
+    coverage_sources_current = (
+        coverage_snapshot is not None
+        and all(current_source_versions.get(item.source_version_id) == item.source_sha256
+                for item in coverage.attempts)
+    )
     # Optional strict source verification. The legacy metadata-only path remains
     # private, but supplied excerpts must bind exact source/quote bytes, speaker,
     # complete turn, speech act and endorsement before forming a counterexample.
@@ -303,8 +408,16 @@ def evaluate_denial(target: DenialTarget, occurrences: tuple[PriorOccurrence, ..
         "known_source_versions": sorted(current_source_versions.items()),
         "version": VERSION,
     }
+    if coverage_snapshot is not None:
+        material["coverage_manifest"] = coverage_snapshot
     if supplied_context is not None:
         material["prior_source_context_bindings"] = sorted(context_bindings)
     receipt_sha256 = hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    return DenialReview(target.denial_id, receipt_sha256, authenticity, endorsement, verdict,
-                        relation, reason, tuple(sorted(set(candidate_ids))))
+    return DenialReview(
+        target.denial_id, receipt_sha256, authenticity, endorsement, verdict,
+        relation, reason, tuple(sorted(set(candidate_ids))),
+        coverage_status=("NO_SEARCH_MANIFEST_HOLD" if coverage_snapshot is None
+                         else "SEARCH_ATTEMPTS_RECORDED_HOLD" if coverage_sources_current
+                         else "SEARCH_ATTEMPTS_STALE_OR_UNKNOWN_HOLD"),
+        coverage_attempt_ids=coverage_attempt_ids,
+    )
