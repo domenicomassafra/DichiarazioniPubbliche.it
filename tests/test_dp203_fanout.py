@@ -142,6 +142,28 @@ class ControlledFanoutTests(unittest.TestCase):
         self.assertEqual(len(store.bulk_jobs), 2)
         self.assertEqual(store.block_reasons["job:CLAIM_PREPARE"], "CLAIM_BATCH_MANIFEST_DRIFT")
 
+    def test_queued_window_holds_before_provider_when_model_or_prompt_drifts(self):
+        for field, changed_value in (("model", "other-model"),
+                                     ("prompt_version", "other-prompt")):
+            with self.subTest(field=field):
+                store = BatchStore([job("CLAIM_PREPARE", {"variant_id": "v1"})])
+                store.canonical_rows = segments(3)
+                client = FakeClaimClient()
+                worker = self.worker(store, enabled=True, client=client)
+                self.assertEqual(worker.run(1).completed, 1)
+                queued = store.bulk_jobs[0]
+                setattr(client, field, changed_value)
+                store.jobs.append(ProcessingJob(
+                    job_id=queued["id"], content_id=queued["content_id"],
+                    job_type=queued["job_type"], attempt=1,
+                    payload=queued["payload"],
+                ))
+                self.assertEqual(worker.run(1).blocked, 1)
+                self.assertEqual(client.extracts, 0)
+                self.assertEqual(store.budget_reservations, [])
+                self.assertEqual(store.block_reasons[queued["id"]],
+                                 "CLAIM_WINDOW_CLIENT_DRIFT")
+
     def test_retryable_provider_outage_never_unlocks_next_batch(self):
         class OutageClient(FakeClaimClient):
             def extract(self, **kwargs):
