@@ -185,14 +185,26 @@ python3 tools/check_version_consistency.py
 
 ## 13. Gate 11 — Release authority (BLOCKED here)
 
-- [ ] owner approval
-- [ ] qualified legal review for the release scope (DP-307 / DP-702)
+The owner delegated the final release decision on 25 October 2026 in
+[Prove personali #300](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300):
+one agent prepares the evidence, a **different** agent reviews it independently,
+and a **third** agent makes the final scoped legal/privacy/security decision.
+After every release gate is green, the agents may deploy a reversible canary,
+verify its public and private readback and rollback path, then publish to all.
+No further owner release approval is needed. The preflight's historical
+`PENDING-OWNER` status is never an authorization to deploy.
+
+- [ ] candidate-specific evidence prepared, with exact SHA, source rights and privacy decisions
+- [ ] independent second-agent review recorded with source citations (DP-307 / DP-702)
+- [ ] final third-agent legal/privacy/security decision and release authority recorded
+- [ ] functioning rights/rectification/revocation contact, tested end to end
+- [ ] launch-set, source-to-correction rehearsal and rollback verified on the consumer
 - [x] confirmed canonical remote URL — `https://github.com/domenicomassafra/DichiarazioniPubbliche.it`
 - [ ] registry/signing/hosting decision
 
 > **Current state: BLOCKED — release authority incomplete.** The canonical `origin` exists,
-> but owner release approval, qualified legal review, signing/registry decisions and the
-> remaining launch gates are not complete. Nothing in this checklist invents them.
+> but candidate-specific three-agent review, working contacts, signing/registry decisions
+> and the remaining launch gates are not complete. Nothing in this checklist invents them.
 
 ## 14. Reproducibility: build twice
 

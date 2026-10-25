@@ -3,7 +3,7 @@ Description=Poll Dichiarazioni Pubbliche sources on a bounded cadence
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=5min
+OnUnitActiveSec=6h
 RandomizedDelaySec=30s
 Persistent=true
 Unit=dichiarazioni-pubbliche-source-poll.service

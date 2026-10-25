@@ -45,7 +45,10 @@ def run(
     if (
         current is None or current.rights_status != "CLEARED"
         or current.policy_version != DP330_PRIVATE_CAPTURE_POLICY
-        or current.permitted_uses != DP330_PRIVATE_CAPTURE_USES
+        or set(current.permitted_uses) not in (
+            set(DP330_PRIVATE_CAPTURE_USES),
+            set(DP330_PRIVATE_CAPTURE_USES) | {"PARSE_TEXT"},
+        )
     ):
         raise RuntimeError("DP331_PRIVATE_RIGHTS_CURRENT_REQUIRED")
     guard = SourceFamilyUseGuard(
@@ -53,7 +56,7 @@ def run(
         rights_record_id=current.id, policy_version=DP330_PRIVATE_CAPTURE_POLICY,
         expected_sha256=BODY_SHA256,
     )
-    # The exact rights tuple above also requires RESEARCH_CAPTURE_PRIVATE.
+    # Both exact private scopes above require RESEARCH_CAPTURE_PRIVATE.
     # The generic source-use guard recognizes STORE_BODY for captured bytes.
     guard.require("STORE_BODY", content_sha256=BODY_SHA256)
     found = store.find_capture(context["id"], BODY_SHA256)
