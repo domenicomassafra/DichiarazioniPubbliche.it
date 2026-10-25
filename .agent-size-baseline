@@ -193,7 +193,6 @@
   "tests/test_studio_capture_inspector.py": 23735,
   "tests/test_studio_discovery_triage_schema.py": 25741,
   "tests/test_studio_local_api.py": 41523,
-  "tests/test_studio_local_page_async.py": 23104,
   "tests/test_studio_operator_queues.py": 36947,
   "tests/test_verification_runtime.py": 22339,
   "tests/test_worker_daemon.py": 45805,
