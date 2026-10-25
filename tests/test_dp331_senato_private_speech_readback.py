@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "poc"))
 
 import dp331_senato_private_speech_readback as consumer
+from dichiarazioni_pubbliche.dp331_private_speech_probe import probe_private_statement_relation
 from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineError
 from dichiarazioni_pubbliche.private_capture_rights import SourceUseBlocked
 from dichiarazioni_pubbliche.rights_registry import (
@@ -54,7 +55,7 @@ class PrivateSpeechReadbackRightsTests(unittest.TestCase):
         self.capture_reads = 0
         self.revoke_during_read = False
 
-    def _readback(self, *, german_draft=None):
+    def _readback(self, *, german_draft=None, ordinals=(1,), compare_relation=False):
         suite = self
 
         class CaptureStore:
@@ -79,10 +80,66 @@ class PrivateSpeechReadbackRightsTests(unittest.TestCase):
              patch.object(consumer, "BODY_SHA256", self.digest), \
              patch.object(consumer, "CONTENT_BLOB_SHA1", blob_sha(self.raw)):
             return consumer.run(
-                "fixture:read-only", self.root, ordinals=(1,),
+                "fixture:read-only", self.root, ordinals=ordinals,
                 german_draft=german_draft,
                 italian_quote_span=(0, 12) if german_draft is not None else None,
+                compare_relation=compare_relation,
             )
+
+    def test_private_same_take_readback_of_distinct_official_speakers_stays_hold(self):
+        self.current = replace(
+            self.original, id="private-rights:dp357",
+            supersedes_id=self.original.id,
+            permitted_uses=tuple(sorted((*self.original.permitted_uses, "PARSE_TEXT"))),
+        )
+        result = self._readback(ordinals=(0, 1), compare_relation=True)
+        relation = result["relation"]
+        self.assertEqual(relation["kind"], "HOLD")
+        self.assertEqual(relation["state"], "HOLD")
+        self.assertEqual(relation["person_cardinality"], 0)
+        self.assertIn("PERSON_ID_UNVERIFIED", relation["rationale_codes"])
+        self.assertIn("PROPOSITION_EQUIVALENCE_UNVERIFIED", relation["rationale_codes"])
+        self.assertIn("NON_ENDORSED_OR_REPORTED_SPEECH", relation["rationale_codes"])
+        self.assertEqual(
+            relation["source_context_bindings"],
+            [item["context_binding"] for item in result["observations"]],
+        )
+        self.assertNotEqual(*relation["source_context_bindings"])
+        self.assertFalse(relation["review_authority"])
+        self.assertFalse(relation["publication_authority"])
+        self.assertFalse(result["extraction_authorized"])
+        self.assertEqual(self.capture_reads, 1)
+
+    def test_private_relation_does_not_parse_without_current_parse_text_right(self):
+        with self.assertRaisesRegex(SourceUseBlocked, "SOURCE_USE_"):
+            self._readback(ordinals=(0, 1), compare_relation=True)
+        self.assertEqual(self.capture_reads, 0)
+
+    def test_private_relation_revoked_during_comparison_cannot_return_receipt(self):
+        self.current = replace(
+            self.original, id="private-rights:dp357",
+            supersedes_id=self.original.id,
+            permitted_uses=tuple(sorted((*self.original.permitted_uses, "PARSE_TEXT"))),
+        )
+
+        def revoke_during_comparison(imported, *, ordinals):
+            result = probe_private_statement_relation(imported, ordinals=ordinals)
+            self.current = replace(self.current, rights_status="REVOKED")
+            return result
+
+        with patch.object(consumer, "probe_private_statement_relation",
+                          side_effect=revoke_during_comparison):
+            with self.assertRaisesRegex(SourceUseBlocked, "SOURCE_USE_REVOKED"):
+                self._readback(ordinals=(0, 1), compare_relation=True)
+        self.assertEqual(self.capture_reads, 1)
+
+    def test_private_relation_requires_two_distinct_speeches(self):
+        for ordinals in ((0,), (1, 1), (0, 1, 2)):
+            with self.subTest(ordinals=ordinals), self.assertRaisesRegex(
+                ValueError, "DP333_TWO_DISTINCT_SPEECHES_REQUIRED"
+            ):
+                self._readback(ordinals=ordinals, compare_relation=True)
+        self.assertEqual(self.capture_reads, 0)
 
     def test_previous_grant_and_parse_text_successor_both_keep_private_hold(self):
         successor = replace(

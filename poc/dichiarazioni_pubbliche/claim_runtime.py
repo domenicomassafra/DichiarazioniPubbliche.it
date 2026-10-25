@@ -17,6 +17,7 @@ from dichiarazioni_pubbliche.claim_contract import ClaimType
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "config" / "claim-extraction.v1.json"
 DEFAULT_BASE_URL = "http://127.0.0.1:20128"
+LOCAL_GATEWAY_URLS = frozenset({"http://127.0.0.1:19128", DEFAULT_BASE_URL})
 
 
 @dataclass(frozen=True)

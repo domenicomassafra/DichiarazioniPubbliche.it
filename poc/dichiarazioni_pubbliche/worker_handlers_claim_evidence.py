@@ -5,6 +5,7 @@ import urllib.error
 from typing import Any
 
 from dichiarazioni_pubbliche.claim_contract import validate_atomic_claim
+from dichiarazioni_pubbliche.claim_fanout import prepare_claim_batch
 from dichiarazioni_pubbliche.claim_runtime import (
     deterministic_claim_id,
     estimate_claim_request_cost,
@@ -24,7 +25,6 @@ from dichiarazioni_pubbliche.evidence_query import compile_official_query
 from dichiarazioni_pubbliche.queue_runtime import (
     ContentRecord,
     ProcessingJob,
-    deterministic_followup_job_id,
 )
 from dichiarazioni_pubbliche.verification_runtime import deterministic_evidence_observation_id
 from dichiarazioni_pubbliche.worker_errors import BlockedJob, DeferredJob, RetryableJob
@@ -34,94 +34,16 @@ class ClaimEvidenceJobHandlers:
     def prepare_claim_windows(
         self, job: ProcessingJob, content: ContentRecord
     ) -> None:
-        variant_id = str(job.payload.get("variant_id") or "").strip()
-        if not variant_id:
-            raise BlockedJob("CLAIM_PREPARE_VARIANT_ID_MISSING")
-        blocker = self._claim_runtime_blocker()
-        if blocker:
-            self.store.update_content_status(
-                content.content_id,
-                "CLAIM_EXTRACTION_BLOCKED",
-                {
-                    "runtime_blocker": blocker,
-                    "claim_variant_id": variant_id,
-                    "claim_window_materialized": False,
-                },
-            )
-            raise BlockedJob(blocker)
-        rows = self.store.canonical_segments(content.content_id)
-        if not rows:
-            raise RetryableJob("CLAIM_PREPARE_CANONICAL_SEGMENTS_MISSING", 60)
-        windows = build_claim_windows(
-            [canonical_segment_from_row(row) for row in rows]
-        )
-        if not windows:
-            raise BlockedJob("CLAIM_PREPARE_NO_WINDOWS")
-        ordered = sorted(
-            windows,
-            key=lambda window: (
-                {"HIGH": 0, "MEDIUM": 1, "LOW": 2}.get(window.priority, 3),
-                window.window_index,
-            ),
-        )
-        jobs = []
-        total_tokens = 0
-        for window in ordered:
-            payload = window.queue_payload(
-                source_id=content.source_id,
-                variant_id=variant_id,
-                model=self.claim_client.model,
-                prompt_version=self.claim_client.prompt_version,
-            )
-            estimated_cost = estimate_claim_request_cost(
-                estimated_input_tokens=window.estimated_input_tokens,
-                max_output_tokens=self.claim_client.max_output_tokens,
-                max_usd_per_1k_total_tokens=(
-                    self.claim_max_usd_per_1k_total_tokens
-                ),
-            )
-            if estimated_cost is None:
-                raise BlockedJob("CLAIM_EXTRACTION_COST_MODEL_MISSING")
-            payload["estimated_cost_usd"] = estimated_cost
-            payload["max_output_tokens"] = self.claim_client.max_output_tokens
-            total_tokens += window.estimated_input_tokens
-            jobs.append(
-                {
-                    "id": deterministic_followup_job_id(
-                        "CLAIM_EXTRACT_WINDOW",
-                        content.content_id,
-                        window.input_sha256,
-                    ),
-                    "content_id": content.content_id,
-                    "job_type": "CLAIM_EXTRACT_WINDOW",
-                    "state": "QUEUED",
-                    "payload": payload,
-                    "last_error": "",
-                }
-            )
-        created = self.store.enqueue_jobs_bulk(jobs)
-        self.store.update_content_status(
-            content.content_id,
-            "CLAIM_EXTRACTION_QUEUED",
-            {
-                "claim_window_count": len(windows),
-                "claim_window_new_jobs": created,
-                "claim_window_blocked_jobs": 0,
-                "claim_window_estimated_input_tokens": total_tokens,
-                "claim_window_schema_version": "claim-window-v2",
-                "claim_prompt_version": self.claim_client.prompt_version,
-            },
-        )
+        prepare_claim_batch(self, job, content)
     def _claim_runtime_blocker(self) -> str | None:
         if self.claim_client is None:
             return "CLAIM_EXTRACTION_CREDENTIAL_MISSING"
         if self.claim_max_usd_per_1k_total_tokens is None:
             return "CLAIM_EXTRACTION_COST_MODEL_MISSING"
+        if not self.claim_fanout_verified:
+            return "CLAIM_FANOUT_UPSTREAM_NOT_VERIFIED"
         if not isinstance(self.claim_client, LocalOllamaClaimClient):
-            # OmniRouteClient.probe() is an authenticated chat completion,
-            # NOT a free health GET. A hidden canary has no distinct cost
-            # reservation or attempt receipt. Do not invoke it before paid
-            # remote work; actual extraction is budget-gated in _ensure_budget.
+            # A remote probe is paid; reserve only during extraction.
             return None
         if self._claim_probe is None:
             self._claim_probe = self.claim_client.probe()
@@ -138,6 +60,9 @@ class ClaimEvidenceJobHandlers:
         blocker = self._claim_runtime_blocker()
         if blocker:
             raise BlockedJob(blocker)
+        if (job.payload.get("model") != self.claim_client.model
+                or job.payload.get("prompt_version") != self.claim_client.prompt_version):
+            raise BlockedJob("CLAIM_WINDOW_CLIENT_DRIFT")
         expected_hash = str(job.payload.get("input_sha256") or "").strip()
         if not expected_hash:
             raise BlockedJob("CLAIM_WINDOW_HASH_MISSING")

@@ -16,6 +16,8 @@ from pathlib import Path
 
 from dp312_gold_fixture_rights import dp312_gold_row
 from dp238_bhl_gold_fixture_rights import dp238_bhl_gold_row
+from dp420_usability_fixture_rights import dp420_usability_fixture_row
+from fixture_inventory_candidates import is_candidate
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "licensing" / "fixture-inventory.v1.json"
@@ -27,30 +29,6 @@ OWNER = "Dichiarazioni Pubbliche maintainers (owner: repo principal)"
 
 CODE_LICENSE = "Apache-2.0"
 FIXTURE_POLICY = "DICHIARAZIONI-PUBBLICHE-FIXTURE-POLICY-1.0"
-
-CANDIDATE_PREFIXES = (
-    "data/public/",
-    "poc/content/",
-    "poc/fixtures/",
-    "poc/benchmarks/",
-    "research/results/",
-    "research/content-audits/",
-    "research/source-candidates/",
-    "tests/fixtures/",
-    "web/src/data/",
-    "docs/ux/prototypes-v3/generated/",
-    "docs/ux/prototypes-v3/generated-style-02/",
-    "docs/ux/reference/",
-)
-CANDIDATE_SUFFIXES = (
-    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".woff", ".woff2", ".ttf", ".otf",
-)
-
-
-def is_candidate(path: str) -> bool:
-    if path.endswith(CANDIDATE_SUFFIXES):
-        return path.startswith(CANDIDATE_PREFIXES) or path.startswith("docs/ux/") or path.startswith("web/")
-    return path.startswith(CANDIDATE_PREFIXES)
 
 # Curated per-path rights decisions; the code license does not grant data rights.
 ROW_DECISIONS: dict[str, dict] = {
@@ -438,6 +416,7 @@ ROW_DECISIONS: dict[str, dict] = {
     ),
 }
 ROW_DECISIONS.update(dp312_gold_row(FIXTURE_POLICY) | dp238_bhl_gold_row())
+ROW_DECISIONS.update(dp420_usability_fixture_row(CODE_LICENSE))
 
 # Curated visual references with computed hashes.
 VISUAL_GENERATED_STYLE3 = "docs/ux/prototypes-v3/generated/style3"
