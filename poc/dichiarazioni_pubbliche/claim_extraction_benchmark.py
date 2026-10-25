@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-import math
 import os
 import re
-import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Iterable
+
+from dichiarazioni_pubbliche.claim_runtime import matches_returned_model
+from dichiarazioni_pubbliche.claim_extraction_transport import (
+    _cost_from_response, _read_env_file, call_omniroute, response_content,
+)
+from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -416,115 +419,57 @@ def evaluate_extraction(
     }
 
 
-def _read_env_file(path: Path | None) -> dict[str, str]:
-    if path is None or not path.exists():
-        return {}
-    values: dict[str, str] = {}
-    for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip('"').strip("'")
-    return values
-
-
-def call_omniroute(
+def require_live_benchmark_preflight(
     *,
-    prompt: str,
     model: str,
-    base_url: str,
-    api_key: str,
-    max_tokens: int = 4096,
-    timeout_seconds: float = 120.0,
-) -> tuple[dict[str, Any], float]:
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "Extract claims faithfully from the supplied transcript. Return JSON only.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0,
-        "max_tokens": max_tokens,
-        "stream": False,
-    }
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-    request = urllib.request.Request(
-        base_url.rstrip("/") + "/v1/chat/completions",
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-    started = time.monotonic()
+    parent_canary_receipt: Path | None,
+    source_use_guard: SourceFamilyUseGuard | None,
+    transcript_path: Path,
+) -> None:
+    """Recheck the DP-201 parent and current source permission before any LLM call."""
+    if model != DEFAULT_MODEL:
+        raise RuntimeError("DP202_MODEL_UNAUTHORIZED")
+    if parent_canary_receipt is None:
+        raise RuntimeError("DP202_PARENT_CANARY_UNVERIFIED")
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-            raw = response.read()
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        raw = exc.read()
-        status = exc.code
-    elapsed = time.monotonic() - started
-    try:
-        decoded = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"OmniRoute returned HTTP {status} with non-JSON body: "
-            f"{raw.decode('utf-8', 'replace')[:500]}"
-        ) from exc
-    if status != 200:
-        error = decoded.get("error", decoded) if isinstance(decoded, dict) else decoded
-        if isinstance(error, dict):
-            message = str(error.get("message") or error.get("code") or error)
-        else:
-            message = str(error)
-        raise RuntimeError(f"OmniRoute HTTP {status}: {message[:1000]}")
-    if not isinstance(decoded, dict):
-        raise RuntimeError("OmniRoute response is not a JSON object")
-    return decoded, elapsed
-
-
-def response_content(response: dict[str, Any]) -> str:
-    choices = response.get("choices") or []
-    if not choices:
-        raise ValueError("OmniRoute response has no choices")
-    message = choices[0].get("message") or {}
-    content = message.get("content")
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        chunks = []
-        for item in content:
-            if isinstance(item, dict) and isinstance(item.get("text"), str):
-                chunks.append(item["text"])
-        if chunks:
-            return "".join(chunks)
-    raise ValueError("OmniRoute response choice has no textual content")
-
-
-def _cost_from_response(response: dict[str, Any]) -> float | None:
-    candidates: list[Any] = []
-    usage = response.get("usage")
-    if isinstance(usage, dict):
-        candidates.extend(
-            usage.get(key)
-            for key in ("cost", "cost_usd", "total_cost", "total_cost_usd")
+        receipt = json.loads(parent_canary_receipt.read_text())
+        usage = receipt["usage"]
+        valid = (
+            receipt["status"] == "CANARY_PASSED"
+            and receipt["model_requested"] == DEFAULT_MODEL
+            and matches_returned_model(DEFAULT_MODEL, receipt["model_returned"])
+            and receipt["subscription_gateway_verified"] is True
+            and receipt["schema_constrained"] is True
+            and receipt["model_identity_exact"] is True
+            and type(receipt["model_calls"]) is int
+            and receipt["model_calls"] == 1
+            and isinstance(receipt["request_id"], str)
+            and bool(receipt["request_id"].strip())
+            and type(usage["prompt_tokens"]) is int
+            and usage["prompt_tokens"] > 0
+            and type(usage["completion_tokens"]) is int
+            and usage["completion_tokens"] >= 0
+            and (
+                receipt.get("observed_cost_usd") is None
+                or receipt["observed_cost_usd"] == 0
+            )
         )
-    candidates.extend(
-        response.get(key)
-        for key in ("cost", "cost_usd", "total_cost", "total_cost_usd")
-    )
-    for value in candidates:
-        if isinstance(value, (int, float)) and math.isfinite(float(value)):
-            return float(value)
-    return None
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        valid = False
+    if not valid:
+        raise RuntimeError("DP202_PARENT_CANARY_UNVERIFIED")
+
+    # The registry guard must read an up-to-date, source-specific rights record.
+    # A CLI flag or an unbound approval JSON is not a source-use permission.
+    if not isinstance(source_use_guard, SourceFamilyUseGuard):
+        raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED")
+    try:
+        digest = hashlib.sha256(transcript_path.read_bytes()).hexdigest()
+        if source_use_guard.expected_sha256 != digest:
+            raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED")
+        source_use_guard.require("PARSE_TEXT", content_sha256=digest)
+    except Exception:
+        raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED") from None
 
 
 def run_live_benchmark(
@@ -537,7 +482,15 @@ def run_live_benchmark(
     threshold: float = 0.49,
     max_tokens: int = 4096,
     timeout_seconds: float = 120.0,
+    parent_canary_receipt: Path | None = None,
+    source_use_guard: SourceFamilyUseGuard | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    require_live_benchmark_preflight(
+        model=model,
+        parent_canary_receipt=parent_canary_receipt,
+        source_use_guard=source_use_guard,
+        transcript_path=transcript_path,
+    )
     references = load_reference_claims(audit_path)
     transcript = load_transcript_text(transcript_path)
     prompt = build_prompt(transcript, taxonomy_from_reference(references))
@@ -573,6 +526,7 @@ def main() -> None:
         default=os.environ.get("OMNIROUTE_BASE_URL", DEFAULT_BASE_URL),
     )
     parser.add_argument("--env-file", type=Path)
+    parser.add_argument("--parent-canary-receipt", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--threshold", type=float, default=0.49)
     parser.add_argument("--max-tokens", type=int, default=4096)
@@ -590,6 +544,7 @@ def main() -> None:
         threshold=args.threshold,
         max_tokens=args.max_tokens,
         timeout_seconds=args.timeout,
+        parent_canary_receipt=args.parent_canary_receipt,
     )
 
     if args.output_dir:

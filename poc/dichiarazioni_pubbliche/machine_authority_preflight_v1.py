@@ -41,7 +41,7 @@ from dichiarazioni_pubbliche.verification_requirements_v1 import (
     select_requirement_profile,
 )
 
-MACHINE_AUTHORITY_PREFLIGHT_VERSION = "machine-authority-preflight-v1"
+MACHINE_AUTHORITY_PREFLIGHT_VERSION = "machine-authority-preflight-v2"
 _REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _RISK_CLASSES = frozenset({"STANDARD", "HIGH", "LEGAL"})
@@ -76,6 +76,7 @@ MACHINE_MATERIAL_ROLES = tuple(
             "QUALIFIED_POLICY",
             "PUBLICATION_POLICY",
             "MACHINE_PROFILE",
+            "MACHINE_DECISION",
             "RELEASE_SCOPE",
             "CORRECTION_HEAD",
         }
@@ -444,6 +445,10 @@ def preflight_machine_authority(
     by_role = {item.role: item for item in sealed.materials}
     if by_role["MACHINE_PROFILE"].sha256 != _digest(asdict(sealed.profile)):
         holds.add("MACHINE_PROFILE_BINDING_MISMATCH")
+    # The material checksum binds every decision field, but cannot authenticate
+    # the actor or grant authority without a separately trusted signer.
+    if by_role["MACHINE_DECISION"].sha256 != _digest(asdict(sealed.decision)):
+        holds.add("MACHINE_DECISION_BINDING_MISMATCH")
     if (
         sealed.profile.risk_class in {"HIGH", "LEGAL"}
         and isinstance(high_risk, HighRiskDecision)

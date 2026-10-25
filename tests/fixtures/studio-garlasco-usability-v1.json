@@ -1,0 +1,28 @@
+{
+  "version": "studio-garlasco-usability-v1",
+  "description": "Private operator tasks based on pinned Garlasco retrieval gold and the real Studio workflow. Each task requires a separate observed operator result.",
+  "max_source_actions": 6,
+  "modes": ["wide-desktop", "keyboard-only", "zoom-200", "narrow-viewport", "reduced-motion", "screen-reader"],
+  "tasks": [
+    {"id": "find-dna", "search_case": "dna-unghie-sempio", "goal": "Find the historical DNA Y statement and navigate to its original source", "requires": ["captures", "passages"]},
+    {"id": "find-tappetini", "search_case": "tappetini-sangue-scarpe", "goal": "Find the claim about the car mats and inspect the original quote", "requires": ["captures", "passages"]},
+    {"id": "find-impronta", "search_case": "impronta-33-sangue", "goal": "Find statements discussing impression 33 and inspect cited context", "requires": ["captures", "passages"]},
+    {"id": "find-impronta-typo", "search_case": "impronta-33-typo", "goal": "Recover the impression 33 statement despite a spelling error", "requires": ["captures", "passages"]},
+    {"id": "find-cromosoma-typo", "search_case": "cromosoma-y-typo", "goal": "Recover the Y-chromosome statement using a misspelled query", "requires": ["captures", "passages"]},
+    {"id": "find-rito", "search_case": "pena-rito-abbreviato", "goal": "Find the abbreviated-trial statement and inspect its source", "requires": ["captures", "passages"]},
+    {"id": "find-computer", "search_case": "pc-poggi-10-agosto", "goal": "Find the computer timeline statement and navigate to the source", "requires": ["captures", "passages"]},
+    {"id": "find-audio", "search_case": "frammenti-audio", "goal": "Find the audio-fragment statement without implying authenticated audio", "requires": ["captures", "passages"]},
+    {"id": "find-crudelta", "search_case": "aggravante-crudelta", "goal": "Find the procedural statement and preserve its status as an allegation", "requires": ["captures", "passages"]},
+    {"id": "find-pasti", "search_case": "pasti-chiara-stasi", "goal": "Retrieve the historical meals statement and original context", "requires": ["captures", "passages"]},
+    {"id": "find-rinvio", "search_case": "rinvio-giudizio-sempio", "goal": "Identify a prediction without presenting it as an established outcome", "requires": ["captures", "passages"]},
+    {"id": "find-bruzzone", "search_case": "person-bruzzone", "goal": "Filter by the public speaker and trace a statement to a Capture", "requires": ["captures", "passages"]},
+    {"id": "find-lucarelli", "search_case": "person-lucarelli", "goal": "Find the speaker and inspect a source-linked quote", "requires": ["captures", "passages"]},
+    {"id": "source-capture", "goal": "Open Garlasco Collection, select a Source and inspect immutable Capture identity, date and rights", "requires": ["captures"]},
+    {"id": "passage-citation", "goal": "Navigate from a real Capture to a version-bound Passage and its original citation locator", "requires": ["captures", "passages"]},
+    {"id": "candidate-source", "goal": "Trace a real Statement Candidate back through Passage, Capture and Source", "requires": ["captures", "passages", "statement_candidates"]},
+    {"id": "near-duplicate", "goal": "Compare two potentially duplicate source quotes without asserting equivalence", "requires": ["captures", "passages", "statement_candidates"]},
+    {"id": "cluster-review", "goal": "Review a proposition cluster with two citations and retain veto and independent sources", "requires": ["captures", "passages", "statement_candidates"]},
+    {"id": "coverage-gap", "goal": "Locate and explain a missing source-family coverage need in the Garlasco Collection", "requires": ["collection_coverage_needs"]},
+    {"id": "promotion-veto", "goal": "Attempt a private promotion of a real Candidate lacking evidence and observe the HOLD/veto state", "requires": ["captures", "passages", "statement_candidates"]}
+  ]
+}

@@ -166,6 +166,29 @@ The already merged HTML/readability seam is separate from the real WARC/PDF
 acceptance of #162. A source-only audit or closed #171 ticket cannot substitute
 for the observed private multiformat canary, rights/readback and rollback.
 
+## Licensing decision — 2026-10-25 (issue #358)
+
+The owner selected **A** for one private isolated ArchiveBox v0.9.73 canary,
+extending the 2026-10-23 approval to the installed versions and license terms
+identified in the pinned image. The authoritative decision and primary sources
+are in [#358](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/358#issuecomment-6395865604).
+
+The observed `psycopg` and `psycopg-binary` versions are **3.3.4**
+(LGPL-3.0-only), `certifi` **2026.6.17** (MPL-2.0), and
+`browser-cookie3` **0.20.1** (LGPL); additional terms are ZPL-2.1
+(`zope.interface 8.5`), BSD-3-Clause AND TCL (`ujson 5.13.0`),
+Apache-2.0 AND CNRI-Python (`regex 2026.7.10`), and GNU Wget GPL.
+ArchiveBox itself is MIT. Those licenses permit the authorized private use
+without software distribution. Redistributing the image or modified components
+requires a separate full-runtime review and compliance with the notices,
+copyright and source obligations applicable to the distributed components.
+
+The 2026-10-23 Python inventory did not cover the image OS layers or PDF
+extractors. The additional runtime and rights checks, artifact verification and
+rollback were performed on 2026-10-25, recorded below. The extension covers
+only the isolated private synthetic canary: no production installation,
+distribution or public publication is authorized.
+
 ## Observed canary run — 2026-10-23 (owner decision A)
 
 The owner approved, on 2026-10-23, adopting ArchiveBox v0.9.73 **only** for one
@@ -234,9 +257,15 @@ the MiniPC, and what stayed impossible.
   started and no locator was published, but any future use must force private
   permissions — another reason to keep publication `HOLD`.
 
-Multiformat acceptance is therefore still open: the canary proved a real,
+As of **2026-10-23**, multiformat acceptance was still open: the run proved a real,
 rights-bound WARC capture with measured cost inside an isolated
 network, and proved that PDF preservation needs an explicit licensing and
-provisioning decision for a headless browser. The additional image licensing
-question above also remains unanswered; repeat neither capture nor provisioning
-until the exact runtime inventory is cleared by the owner.
+provisioning review for a headless browser. The owner extended that approval
+on 2026-10-25 and the further work below closed this specific canary gap.
+
+## Private multiformat acceptance — 2026-10-25
+
+The owner-authorized MiniPC canary produced private authentic WARC, PDF and metadata,
+passed the offline auditor, and completed rollback with raw artifact deletion.
+Read the [2026-10-25 canary receipt, rights review, hashes, measured costs and known
+Chrome cleanup warning](../ops/archivebox-private-canary-20261025.md).
