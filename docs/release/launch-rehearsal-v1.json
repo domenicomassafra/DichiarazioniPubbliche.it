@@ -64,15 +64,21 @@
       "status": "NOT_EXECUTED"
     }
   },
-  "review_agents": [],
   "residual_blockers": [
     "#97: 0 INCLUDED; public source rights and snapshot absent",
     "#96: Q-306 legal/privacy and operational notices are not accepted for this candidate",
     "#86/#268: approved source-to-reader and correction pilot absent",
     "#353: real distributed correction/revocation and cache readback absent",
     "#327: provider subscription-account routing not yet proven",
-    "#355: independent release authority and approved consumer canary absent"
+    "#355: independent release authority and approved consumer canary absent",
+    "#413: automated two-model source/rights review, publishing and nightly audit not implemented"
   ],
-  "next_action": "After dependencies are accepted, run isolated MiniPC source-to-correction rehearsal, failure matrix and rollback readback on the exact eligible candidate; supply six immutable consumer receipts and three distinct delegated reviewer identities.",
-  "interpretation": "Read-only preflight evidence; not a completed launch rehearsal, signed review, or rollback receipt."
+  "next_action": "After automated #413 gates and rights are ready, run the isolated MiniPC source-to-correction rehearsal, failure matrix and restore readback; collect six consumer proof receipts and independent agreements from two different models on identical source inputs.",
+  "interpretation": "Read-only preflight evidence; not a completed launch rehearsal, signed review, or rollback receipt.",
+  "automated_review": {
+    "status": "NOT_EXECUTED",
+    "primary": null,
+    "independent": null,
+    "nightly_audit": "NOT_EXECUTED"
+  }
 }
