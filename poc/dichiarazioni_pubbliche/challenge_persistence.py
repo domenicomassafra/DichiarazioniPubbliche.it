@@ -953,7 +953,7 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
                 blockers=tuple(dict.fromkeys(blockers)),
             )
         for replay in valid:
-            if replay.current_state is ChallengeState.PUBLIC_HOLD_APPROVED:
+            if replay.current_state is not ChallengeState.REJECTED:
                 latest = replay.events[-1]
                 return ChallengeHoldResult(
                     ChallengeHoldDisposition.HOLD,

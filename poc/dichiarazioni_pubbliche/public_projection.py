@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
+from dichiarazioni_pubbliche.autonomous_statement_gate import require_autonomous_publication
 from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256
 from dichiarazioni_pubbliche.context_integrity import (
     verify_structured_context_integrity_metadata,
@@ -1802,11 +1803,7 @@ def _sanitize_public_statement(
     *,
     generated_at: str,
 ) -> dict[str, Any]:
-    """Opt-in only: original bytes from an independent source reader + five gates.
-
-    The caller's candidate row cannot grant itself rights, attribution, review,
-    context or transcript fidelity. No raw source body reaches the read model.
-    """
+    """Opt-in: exact source text, bounded proofs and independent agent review."""
     required = {
         "statement_id", "version_id", "person_id", "speaker_name", "content_id",
         "source_title", "source_url", "source_version", "source_sha256",
@@ -1958,6 +1955,8 @@ def _sanitize_public_statement(
             "source_quote_sha256": quote_hash,
             "review_event_id": proof["review_event_id"],
         }
+
+    require_autonomous_publication(row, source, text, original, locator)
 
     statement = {
         "statement_id": row["statement_id"], "version_id": row["version_id"],
