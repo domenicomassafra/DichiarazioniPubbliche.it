@@ -5,6 +5,26 @@ Date: 2026-10-20
 Scope: Italy/EU; no source-specific release authorization
 Authority: [owner direction, issue #55, 20 October 2026](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/55#issuecomment-6287288216)
 
+## Superseding release-review authority — 2026-10-25
+
+The owner has [delegated legal/privacy/security GO/NO-GO for the launch to three
+distinct agents](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300#issuecomment-6396036497):
+one prepares the packet, another independently checks it, and a third makes the
+final decision **without further owner consent**. Earlier wording in this ADR,
+the historical DP-702 spec and the Q-306 register about requiring the owner's
+personal acceptance or external counsel is superseded **for this delegated
+review sequence**. The 16 question statuses remain OPEN/BLOCKED until evidence
+is accepted for the *specific* release, with separate agents' signed-off
+GitHub comments. The phase-one packet is
+[prelaunch-closure-v1.json](../release/prelaunch-closure-v1.json); its presence
+is not clearance.
+
+This delegation does not manufacture copyright licences, a lawful basis,
+technical readiness, a publication event or permission to use private data.
+The selected source/version, rights/retention, security and incident proof,
+independent review, and real MiniPC consumer must satisfy the original gates.
+Missing substantive proof still produces NO-GO.
+
 ## Context
 
 DP-306/307 previously required an outside qualified legal reviewer. The owner now directs the project to undertake primary-source legal research and select the safest documented product option where the law or deployment facts do not give a determinate answer. The original register has 16 launch-sensitive questions. Public statements, private data, copyright and rights of reply have distinct eligibility requirements. Publishing a researched decision must not silently unlock a surface.
