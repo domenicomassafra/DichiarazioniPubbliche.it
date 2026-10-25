@@ -74,7 +74,9 @@ The real authenticated AI challenger review of an *exact current* material
 inventory, with current source-specific rights in the operational database,
 bounded research completion, append-only incorporation into the correct
 Finding/version and an independently attested review/revocation replay are
-still missing. The prior Sol/Gemini analyses have outcome `NEEDS_MORE`, and
-the dependency #332 remains open. The high-risk runtime must continue to
+still missing. The prior Sol/Gemini analyses have outcome `NEEDS_MORE`.
+Dependency #332 was closed on 2026-10-25 after its distinct private DP-314
+verification canary, which does not attest a DP-229 packet or independent
+high-risk review. The high-risk runtime must continue to
 reject caller-supplied READY/waiver decisions. No production DB mutation,
 publishing, provider purchase, or deployment is authorized by this receipt.
