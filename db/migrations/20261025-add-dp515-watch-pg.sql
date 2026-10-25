@@ -1,5 +1,5 @@
 -- DP-515 / #370: private watcher lease and canonical held-review queue boundary.
--- Apply only after schema.v1.sql, job_queue.v1.sql and DP-514 monthly migration.
+-- Apply after schema.v1.sql, job_queue.v1.sql and private rights registry.
 CREATE TABLE IF NOT EXISTS dp515_watch_source (
     source_id text PRIMARY KEY REFERENCES source(id),
     content_id text NOT NULL REFERENCES content_item(id),
@@ -60,55 +60,17 @@ BEGIN
        )
     THEN RETURN 'RIGHTS_NOT_READY';
     END IF;
+    -- HTTP-only watcher. The source-specific runtime has no paid model call;
+    -- the owner cap is the subscription quota, not a monthly EUR approval.
     IF p_source.gate_json->>'capability_status' IS DISTINCT FROM 'READY'
-       OR COALESCE(p_source.gate_json->>'capability_receipt','')=''
+       OR p_source.gate_json->>'capability_receipt' IS DISTINCT FROM
+          'native:https-bounded-no-provider'
     THEN RETURN 'CAPABILITY_NOT_READY';
     END IF;
     IF p_source.gate_json->>'budget_status' IS DISTINCT FROM 'READY'
-       OR NOT EXISTS (
-           SELECT 1 FROM dp514_monthly_dispatch_policy b
-           WHERE b.approval_ref=p_source.gate_json->>'budget_receipt'
-             AND b.active=true AND b.cap_eur>0
-             AND b.quota_remaining_attempts>0
-             AND b.quota_valid_until>now()
-             AND b.fx_asof>=current_date
-             AND b.period=to_char(now() AT TIME ZONE b.accounting_tz,'YYYY-MM')
-             AND COALESCE((
-                 SELECT sum(m.upper_bound_eur)
-                 FROM dp514_monthly_dispatch_reservation m
-                 WHERE m.period=b.period
-             ),0) < b.cap_eur
-             AND (
-                 SELECT count(*)
-                 FROM dp514_monthly_dispatch_reservation m
-                 WHERE m.period=b.period
-             ) < b.quota_remaining_attempts
-       )
+       OR p_source.gate_json->>'budget_receipt' IS DISTINCT FROM
+          'subscription:no-paid-provider'
     THEN RETURN 'BUDGET_NOT_READY';
-    END IF;
-    -- DP-514's unknown-billing fence: a monthly policy cannot grant
-    -- source-watch admission when provider liabilities are unaccounted for.
-    IF EXISTS (
-        SELECT 1 FROM provider_receipt r
-        WHERE NOT EXISTS (
-            SELECT 1 FROM worker_budget_reservation h
-            JOIN dp514_monthly_dispatch_reservation m
-              ON (m.job_id,m.attempt)=(h.job_id,h.attempt)
-            WHERE h.receipt_id=r.id
-        )
-    ) OR EXISTS (
-        SELECT 1 FROM provider_receipt r
-        JOIN worker_budget_reservation h ON h.receipt_id=r.id
-        JOIN dp514_monthly_dispatch_reservation m
-          ON (m.job_id,m.attempt)=(h.job_id,h.attempt)
-        WHERE r.billing_basis NOT IN
-            ('MEASURED_PROVIDER_COST','ESTIMATED_ONLY')
-          OR COALESCE(
-                CASE WHEN r.billing_basis='MEASURED_PROVIDER_COST'
-                     THEN r.measured_cost_usd
-                     ELSE r.estimated_cost_usd END, -1
-             )>h.upper_bound_usd
-    ) THEN RETURN 'BUDGET_NOT_READY';
     END IF;
     IF COALESCE((p_source.gate_json->>'remaining_children')::integer,0)
        < COALESCE((p_source.policy_json->>'max_children')::integer,1)
@@ -218,10 +180,10 @@ BEGIN
        OR p_decision->'next_state' IS DISTINCT FROM p_next_state
     THEN RAISE EXCEPTION 'WATCH_PG_DECISION_INVALID'; END IF;
     reason := dp515_authority_reason(src);
+    IF reason IS NOT NULL THEN
+        RAISE EXCEPTION 'WATCH_PG_%', reason;
+    END IF;
     IF p_job_id IS NOT NULL THEN
-        IF reason IS NOT NULL THEN
-            RAISE EXCEPTION 'WATCH_PG_%', reason;
-        END IF;
         IF p_decision->>'disposition' <> 'CHANGED'
            OR jsonb_array_length(p_decision->'children')<>1
            OR p_decision->'children'->0->>'work_key' IS DISTINCT FROM p_job_id
