@@ -17,7 +17,6 @@ from dichiarazioni_pubbliche.source_watch_pg_queue_adapter import PostgresSource
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "db/migrations/20261025-add-dp515-watch-pg.sql"
-NOW = datetime.now(timezone.utc).replace(microsecond=0)
 MODIFIED = "Fri, 09 Oct 2026 08:00:00 GMT"
 
 
@@ -79,6 +78,7 @@ class PostgresWatchQueueTests(unittest.TestCase):
         fixture.WorkerBudgetReservationPgTests.tearDownClass.__func__(cls)
 
     def setUp(self):
+        self.now = datetime.now(timezone.utc).replace(microsecond=0)
         # One disposable database per case: rights records are append-only.
         case_database = "dp515_case_" + self._testMethodName[-32:].replace("_", "")[:30]
         self.exec_sql(
@@ -110,8 +110,8 @@ class PostgresWatchQueueTests(unittest.TestCase):
             policy_fingerprint=policy_fingerprint(self.p), revision=3,
             etag='"old"', content_sha256="a"*64,
             source_version="v1", last_modified=MODIFIED,
-            last_attempted_at=NOW-timedelta(days=1),
-            last_successful_observed_at=NOW-timedelta(days=1),
+            last_attempted_at=self.now-timedelta(days=1),
+            last_successful_observed_at=self.now-timedelta(days=1),
             last_attempt_id="previous",
         )
         self.gate = self.gates()
@@ -130,14 +130,14 @@ class PostgresWatchQueueTests(unittest.TestCase):
 
     def observation(self, *, at=None, digest="b"*64, version="v2", etag='"new"'):
         return WatchObservation(
-            observed_at=at or NOW+timedelta(seconds=2), status_code=200,
+            observed_at=at or self.now+timedelta(seconds=2), status_code=200,
             content_sha256=digest, source_version=version,
             last_modified=MODIFIED, etag=etag,
         )
 
     def begin(self, attempt="attempt:1", at=None, lease_seconds=60):
         return self.store.begin_poll(
-            self.p.source_id, attempt_id=attempt, attempted_at=at or NOW,
+            self.p.source_id, attempt_id=attempt, attempted_at=at or self.now,
             lease_seconds=lease_seconds,
         )
 
@@ -176,7 +176,7 @@ class PostgresWatchQueueTests(unittest.TestCase):
                 pool.submit(
                     PostgresSourceWatchStore(self.dsn).begin_poll,
                     self.p.source_id, attempt_id=f"attempt:{n}",
-                    attempted_at=NOW, lease_seconds=120,
+                    attempted_at=self.now, lease_seconds=120,
                 )
                 for n in (1, 2)
             ]
@@ -207,7 +207,7 @@ class PostgresWatchQueueTests(unittest.TestCase):
                 self.p.source_id, attempt_id=winner.attempt_id,
                 observation=self.observation(),
             )
-        self.assertTrue(self.begin("attempt:after-crash", NOW+timedelta(seconds=3)).allowed)
+        self.assertTrue(self.begin("attempt:after-crash", self.now+timedelta(seconds=3)).allowed)
 
     def test_revocation_at_commit_holds_prior_version_and_zero_jobs(self):
         self.begin()
@@ -320,12 +320,12 @@ class PostgresWatchQueueTests(unittest.TestCase):
     def test_unchanged_304_and_etag_collision_never_enqueue(self):
         self.begin()
         unchanged = WatchObservation(
-            observed_at=NOW+timedelta(seconds=2), status_code=304,
+            observed_at=self.now+timedelta(seconds=2), status_code=304,
         )
         self.assertEqual(self.commit(obs=unchanged).disposition, "UNCHANGED")
         self.assertEqual(self.jobs(), "0")
-        self.assertTrue(self.begin("attempt:2", NOW+timedelta(seconds=5)).allowed)
-        collision = self.observation(at=NOW+timedelta(seconds=6), etag='"old"')
+        self.assertTrue(self.begin("attempt:2", self.now+timedelta(seconds=5)).allowed)
+        collision = self.observation(at=self.now+timedelta(seconds=6), etag='"old"')
         result = self.commit("attempt:2", collision)
         self.assertEqual((result.disposition, result.reason),
                          ("UNAVAILABLE", "ETAG_CONTENT_CONFLICT"))
