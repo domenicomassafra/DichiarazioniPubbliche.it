@@ -336,6 +336,20 @@ class SpaCyPrivateCandidateTests(unittest.TestCase):
             )
             self.assertEqual([(s.text, s.label) for s in spans], [("Giulia Riva", "PER")])
             self.assertEqual(adapter.receipt["model_tokenizer_policy"], "blank-it")
+            second = "Giulia Riva ha parlato con Lorenzo Monti a Valleverde."
+            again = adapter.propose(
+                text=second, text_sha256=hashlib.sha256(second.encode()).hexdigest(),
+                language="it",
+            )
+            self.assertEqual([(s.text, s.label) for s in again], [("Giulia Riva", "PER")])
+            adapter._pipeline.get_pipe("entity_ruler").add_patterns([
+                {"label": "ORG", "pattern": "Lorenzo Monti"},
+            ])
+            with self.assertRaisesRegex(CandidateExtractionError, "SPACY_MODEL_CHANGED"):
+                adapter.propose(
+                    text=second, text_sha256=hashlib.sha256(second.encode()).hexdigest(),
+                    language="it",
+                )
 
     def test_pipeline_mutation_after_approval_is_blocked(self):
         self.pipeline.invalid = True
