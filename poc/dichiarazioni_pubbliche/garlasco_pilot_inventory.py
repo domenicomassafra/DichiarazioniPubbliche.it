@@ -45,6 +45,9 @@ WITH claims AS (
     WHERE id LIKE 'claim:garlasco:%'
 ), contents AS (
     SELECT DISTINCT content_id FROM claims
+), included AS (
+    SELECT content_id FROM research_collection_content
+    WHERE collection_id='research:garlasco' AND status='INCLUDED'
 )
 SELECT json_build_object(
     'claims', (SELECT count(*) FROM claims),
@@ -60,19 +63,19 @@ SELECT json_build_object(
     ),
     'captures', (
         SELECT count(*) FROM content_capture capture
-        JOIN contents content ON content.content_id=capture.content_id
+        JOIN included member ON member.content_id=capture.content_id
     ),
     'passages', (
         SELECT count(*) FROM passage passage
-        JOIN contents content ON content.content_id=passage.content_id
+        JOIN included member ON member.content_id=passage.content_id
     ),
     'statement_candidates', (
         SELECT count(*) FROM statement_candidate candidate
-        JOIN contents content ON content.content_id=candidate.content_id
+        JOIN included member ON member.content_id=candidate.content_id
     ),
     'claim_candidates', (
         SELECT count(*) FROM claim_candidate candidate
-        JOIN contents content ON content.content_id=candidate.content_id
+        JOIN included member ON member.content_id=candidate.content_id
     ),
     'collection_rows', (SELECT count(*) FROM research_collection WHERE id='research:garlasco'),
     'collection_members', (
