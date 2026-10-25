@@ -126,7 +126,10 @@ def main() -> int:
     parser.add_argument("--database-url", default="dichiarazioni_pubbliche")
     parser.add_argument("--apply-private-evidence", action="store_true")
     args = parser.parse_args()
-    receipt = run(database_url=args.database_url, apply=args.apply_private_evidence)
+    try:
+        receipt = run(database_url=args.database_url, apply=args.apply_private_evidence)
+    except DvnsMcpError as exc:
+        receipt = {"status": "HOLD", "reason": str(exc)}
     print(json.dumps(receipt, sort_keys=True, ensure_ascii=False))
     return 2 if receipt["status"] == "HOLD" else 0
 

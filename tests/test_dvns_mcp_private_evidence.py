@@ -5,9 +5,12 @@ import io
 import json
 import hashlib
 import tempfile
+import contextlib
+import runpy
 from types import SimpleNamespace
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
@@ -241,6 +244,21 @@ class DvnsMcpPrivateEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(DvnsMcpError, "DVNS_MCP_OFFICIAL_LICENCE_NOT_VERIFIED"):
             official_licence_receipt(opener=FakeOpener(
                 b"<html>Some other rights terms</html>", "text/html"))
+
+    def test_operator_cli_returns_hold_on_invalid_remote_contract(self):
+        script = runpy.run_path(str(Path(__file__).resolve().parents[1] /
+                                     "tools/dp329_dvns_private_evidence.py"), run_name="dp329_test")
+        def reject_contract(**_kwargs):
+            raise DvnsMcpError("DVNS_MCP_PROTOCOL_INVALID")
+
+        output = io.StringIO()
+        with (patch.dict(script["main"].__globals__, {"run": reject_contract}),
+              patch.object(sys, "argv", ["dp329_dvns_private_evidence.py", "--apply-private-evidence"]),
+              contextlib.redirect_stdout(output)):
+            exit_code = script["main"]()
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(json.loads(output.getvalue()), {
+            "status": "HOLD", "reason": "DVNS_MCP_PROTOCOL_INVALID"})
 
 
 if __name__ == "__main__":
