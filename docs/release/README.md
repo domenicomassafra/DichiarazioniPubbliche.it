@@ -10,7 +10,8 @@ the release gate in [`checklist.md`](checklist.md).
 | [`changelog-policy.md`](changelog-policy.md) | DP-604 | changelog structure, required content, drift rules |
 | [`checklist.md`](checklist.md) | DP-604 | the runnable, fail-closed release checklist |
 | [`development-environment.md`](development-environment.md) | DP-601 | profiles, supported versions, install/dev path, `.v0` compatibility surface |
-| [`launch-set-v1.json`](launch-set-v1.json) | DP-703 / #97 | Three-family candidate, real source provenance, scoped rights, HOLD and draft disclosure; validated by `tools/check_launch_set_manifest.py` |
+| [`launch-set-v1.json`](launch-set-v1.json) | DP-703 / #97 | Three-family candidate, real source provenance, scoped rights, HOLD and draft disclosure; the contract hash binds provenance, rights, acquisition and processing per source; validated by `tools/check_launch_set_manifest.py` |
+| [`prelaunch-closure-v1.json`](prelaunch-closure-v1.json) | DP-702 / #96 | Delegated legal, privacy and security closure; [phase-2 review](prelaunch-phase2-review-20261025.md) and [phase-3 NO-GO decision](prelaunch-phase3-decision-20261025.md); release held pending scoped evidence |
 
 ## Current release state
 

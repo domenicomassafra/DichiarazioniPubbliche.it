@@ -67,7 +67,7 @@ try {
   assert.match(html, /aria-labelledby="person-empty-title"/);
   assert.match(html, /href="\/esplora\/"/);
   assert.match(html, /href="\/metodo\/"/);
-  assert.match(html, /<link rel="canonical" href="\/persone\/persona-sintetica\/"/);
+  assert.match(html, /<link rel="canonical" href="https:\/\/dichiarazionipubbliche\.it\/persone\/persona-sintetica\/"/);
   assert.doesNotMatch(html, /data-record-count|data-record-row|data-record-filters|data-record-filter-toggle/);
   assert.doesNotMatch(html, /0 dichiarazioni pubbliche|Nessuna dichiarazione pubblica corrisponde ai filtri/);
   assert.doesNotMatch(html, /omitted_count|private_count|reliability_score|person_score/);
