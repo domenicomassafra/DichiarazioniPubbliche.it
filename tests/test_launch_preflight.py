@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "poc"))
 
+from dichiarazioni_pubbliche import launch_preflight  # noqa: E402
 from dichiarazioni_pubbliche.launch_preflight import (  # noqa: E402
     CONDITIONAL_SURFACE_TICKETS,
     REQUIRED_RELEASE_ARTIFACTS,
@@ -21,6 +22,67 @@ from dichiarazioni_pubbliche.launch_preflight import (  # noqa: E402
 
 
 class LaunchPreflightTests(unittest.TestCase):
+    def test_blocked_rehearsal_packet_cannot_clear_a_release_gate(self):
+        self.assertIn(
+            "RELEASE_REHEARSAL_INCOMPLETE",
+            launch_preflight.rehearsal_packet_blockers({
+                "version": "launch-rehearsal-v1",
+                "execution_status": "BLOCKED_PREREQUISITES",
+                "disposition": "NO-GO",
+            }),
+        )
+
+    def test_complete_claim_without_consumer_and_rollback_evidence_is_rejected(self):
+        blockers = launch_preflight.rehearsal_packet_blockers({
+            "version": "launch-rehearsal-v1",
+            "execution_status": "COMPLETE",
+            "source_public_use_authorized": True,
+            "proofs": {},
+        })
+        self.assertIn("RELEASE_REHEARSAL_PROOF_MISSING:rollback", blockers)
+        self.assertIn("RELEASE_REHEARSAL_PROOF_MISSING:correction", blockers)
+        self.assertIn("RELEASE_REHEARSAL_REVIEW_INCOMPLETE", blockers)
+
+    def test_complete_packet_requires_six_distinct_consumer_receipts_and_review(self):
+        proofs = {
+            name: {
+                "status": "VERIFIED",
+                "receipt_id": "receipt:" + name,
+                "sha256": "%064x" % (index + 1),
+                "consumer": "minipc",
+            }
+            for index, name in enumerate(launch_preflight.REHEARSAL_PROOF_NAMES)
+        }
+        packet = {
+            "version": "launch-rehearsal-v1",
+            "execution_status": "COMPLETE",
+            "source_public_use_authorized": True,
+            "proofs": proofs,
+            "review_agents": ["preparer", "reviewer", "decider"],
+            "disposition": "NO-GO",
+        }
+        self.assertEqual(launch_preflight.rehearsal_packet_blockers(packet), ())
+        packet["proofs"]["rollback"] = dict(packet["proofs"]["correction"])
+        self.assertIn(
+            "RELEASE_REHEARSAL_PROOF_DUPLICATE",
+            launch_preflight.rehearsal_packet_blockers(packet),
+        )
+        packet["proofs"]["rollback"] = {
+            "status": "VERIFIED",
+            "receipt_id": "receipt:rollback",
+            "sha256": "%064x" % 6,
+            "consumer": "minipc",
+        }
+        packet["proofs"]["rollback"]["sha256"] = "invalid"
+        self.assertIn(
+            "RELEASE_REHEARSAL_PROOF_MISSING:rollback",
+            launch_preflight.rehearsal_packet_blockers(packet),
+        )
+
+    def test_incomplete_repository_rehearsal_remains_an_explicit_blocker(self):
+        result = repository_launch_preflight(ROOT)
+        self.assertIn("RELEASE_REHEARSAL_INCOMPLETE", result.blockers)
+
     def test_current_repository_is_explicit_no_go(self):
         result = repository_launch_preflight(ROOT)
         self.assertEqual(result.disposition, "NO-GO")

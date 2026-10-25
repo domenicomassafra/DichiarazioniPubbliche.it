@@ -66,6 +66,65 @@ REQUIRED_RELEASE_ARTIFACTS: Mapping[str, str] = {
 }
 
 
+# A packet can exist while a source or consumer is still held. Only a completed,
+# externally reviewed rehearsal with distinct consumer evidence can satisfy M7.
+REHEARSAL_PROOF_NAMES = (
+    "source_to_projection",
+    "correction",
+    "failure_paths",
+    "private_readback",
+    "public_readback",
+    "rollback",
+)
+
+
+def rehearsal_packet_blockers(document: object) -> tuple[str, ...]:
+    if not isinstance(document, dict) or document.get("version") != "launch-rehearsal-v1":
+        return ("RELEASE_REHEARSAL_INVALID",)
+    if document.get("execution_status") != "COMPLETE":
+        return ("RELEASE_REHEARSAL_INCOMPLETE",)
+
+    blockers: list[str] = []
+    if document.get("source_public_use_authorized") is not True:
+        blockers.append("RELEASE_REHEARSAL_SOURCE_NOT_AUTHORIZED")
+    if document.get("disposition") not in ("GO-CANARY", "GO-WITH-HOLDS", "NO-GO"):
+        blockers.append("RELEASE_REHEARSAL_DISPOSITION_MISSING")
+
+    proofs = document.get("proofs")
+    if not isinstance(proofs, dict):
+        proofs = {}
+    seen_receipt_ids: set[str] = set()
+    for name in REHEARSAL_PROOF_NAMES:
+        receipt = proofs.get(name)
+        if (
+            not isinstance(receipt, dict)
+            or receipt.get("status") != "VERIFIED"
+            or not isinstance(receipt.get("receipt_id"), str)
+            or not receipt["receipt_id"].strip()
+            or receipt.get("consumer") != "minipc"
+            or not isinstance(receipt.get("sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", receipt["sha256"]) is None
+        ):
+            blockers.append(f"RELEASE_REHEARSAL_PROOF_MISSING:{name}")
+        else:
+            receipt_id = receipt["receipt_id"]
+            if receipt_id in seen_receipt_ids:
+                blockers.append("RELEASE_REHEARSAL_PROOF_DUPLICATE")
+            seen_receipt_ids.add(receipt_id)
+
+    # The owner's #300 decision delegates preparation, independent review and
+    # final release disposition to three different agents.
+    reviewers = document.get("review_agents")
+    if (
+        not isinstance(reviewers, list)
+        or len(reviewers) != 3
+        or any(not isinstance(value, str) or not value.strip() for value in reviewers)
+        or len(set(reviewers)) != 3
+    ):
+        blockers.append("RELEASE_REHEARSAL_REVIEW_INCOMPLETE")
+    return tuple(blockers)
+
+
 @dataclass(frozen=True)
 class LaunchPreflightResult:
     disposition: str
@@ -129,6 +188,7 @@ def evaluate_launch_preflight(
     conditional_surface_decisions: Mapping[str, str] | None = None,
     ticket_detail_statuses: Mapping[str, str] | None = None,
     privacy_decision_blockers: tuple[str, ...] = (),
+    rehearsal_evidence_blockers: tuple[str, ...] = (),
 ) -> LaunchPreflightResult:
     blockers: list[str] = []
     ticket_snapshot: dict[str, str] = {}
@@ -180,6 +240,7 @@ def evaluate_launch_preflight(
         sorted(name for name in REQUIRED_RELEASE_ARTIFACTS if not artifact_presence.get(name, False))
     )
     blockers.extend(f"RELEASE_ARTIFACT_MISSING:{name}" for name in missing_artifacts)
+    blockers.extend(rehearsal_evidence_blockers)
 
     canonical_blockers = tuple(sorted(set(blockers)))
     disposition = "NO-GO" if canonical_blockers else "PENDING-RELEASE-AUTHORITY"
@@ -255,6 +316,16 @@ def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
         from dichiarazioni_pubbliche.conditional_surface_absence import verify_surface_absence
         verify_surface_absence(root)
         conditional_decisions = {str(key): str(value) for key, value in raw.items()}
+    rehearsal_blockers: tuple[str, ...] = ()
+    if artifact_presence["launch_rehearsal"]:
+        try:
+            packet = json.loads(
+                (root / REQUIRED_RELEASE_ARTIFACTS["launch_rehearsal"]).read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError, UnicodeError):
+            rehearsal_blockers = ("RELEASE_REHEARSAL_INVALID",)
+        else:
+            rehearsal_blockers = rehearsal_packet_blockers(packet)
     return evaluate_launch_preflight(
         plan_statuses=plan,
         legal_statuses=legal,
@@ -262,6 +333,7 @@ def repository_launch_preflight(root: Path) -> LaunchPreflightResult:
         conditional_surface_decisions=conditional_decisions,
         ticket_detail_statuses=read_ticket_detail_statuses(root),
         privacy_decision_blockers=repository_processing_decisions(root),
+        rehearsal_evidence_blockers=rehearsal_blockers,
     )
 
 
@@ -269,12 +341,14 @@ __all__ = [
     "CONDITIONAL_SURFACE_TICKETS",
     "LAUNCH_PREFLIGHT_VERSION",
     "LaunchPreflightResult",
+    "REHEARSAL_PROOF_NAMES",
     "REQUIRED_RELEASE_ARTIFACTS",
     "REQUIRED_LEGAL_QUESTIONS",
     "REQUIRED_TICKETS",
     "evaluate_launch_preflight",
     "parse_legal_statuses",
     "parse_plan_statuses",
+    "rehearsal_packet_blockers",
     "read_ticket_detail_statuses",
     "repository_launch_preflight",
 ]
