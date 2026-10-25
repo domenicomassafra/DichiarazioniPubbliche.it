@@ -46,3 +46,51 @@ For a real Italian source, the private comparison uses the European Commission's
 **Private real-weight MiniPC probe (2026-10-23, corrected adapter):** `DP_PRIVATE_SEMANTIC_ENABLED=1 PYTHONPATH=/tmp/dp157-verification/poc /home/udodo/.local/share/dichiarazioni-pubbliche/private/semantic-157/venv/bin/python` and `run_private_semantic_matching` with the receipt above produced `HOLD / PRIVATE_REVIEW_ONLY`: semantic hints for paraphrase and explicit republication (2/7 target variants), both `UNCERTAIN`, `HOLD`, with cosine `0.867989`; negative cases (negation, quotation, homonym/identity, different period and claim type) produced no semantic hints (0/5). The deterministic baseline originally proposed clusters for negative negation and quotation; after the regression fix both are `HOLD` (also for conflicting entity, period and claim type). One bounded worker subprocess measured **12.031 s** wall and **854,900 KiB** maximum RSS via `resource.getrusage(RUSAGE_CHILDREN)`, below 45-second and 4-GiB limits; this is a single run, not p95. The 2/7 counts include synthetic controlled mutations and cannot be reported as real-world precision, recall or general model quality. Native benchmark `python3 -m dichiarazioni_pubbliche.benchmark`: 5/5 (100%); Python full unittest discovery: 4,049 tests OK (93 skipped) on the isolated MiniPC checkout. Existing DP-116 PostgreSQL candidate-search baseline reports 13/13 Recall@5 and approximately 51–57 ms p95 (ADR-0008); no claim of benchmark-wide incremental lift is made.
 
 **Independent reviewer follow-up (Gemini 3.8 Flash via OmniRoute, 2026-10-23):** an external-model check of the actual diff identified potential false equivalences for Italian written-out numbers and texts whose entity extraction was empty on both sides. Both were reproduced with RED regressions (`due` versus `dieci` and shared-topic `regionale` versus `provinciale`) and are now held by the shared lexical/model guard; 33 focused tests passed after correction. Only common Italian number words are explicitly covered; compound spelled numerals and unstated entity changes remain a conservative limitation and are not a general semantic-equivalence proof. The review response reached its generation limit before a final PASS verdict; the review is recorded as findings addressed with regression tests, **not** a certified independent PASS. No resulting hint authorizes publication.
+
+## DP-357: persisted Senate Capture canary (2026-10-25)
+
+The existing IBM Granite 107M Multilingual weights and version-pinned Sentence
+Transformers are reused unchanged. IBM's [official model card](https://www.ibm.com/docs/en/watsonx/w-and-w/2.3.x?topic=models-granite-embedding-107m-multilingual-model-card)
+dates the Apache-2.0 model to 2024-12-18; this is separate from the
+library's Apache-2.0 license. No model training or download is required.
+Upstream Sentence Transformers documents local CPU inference and cosine
+similarity; its [2026-09-21 issue #4060](https://github.com/huggingface/sentence-transformers/issues/4060)
+is also relevant to bounded token preprocessing. The pinned weight hashes
+and standalone license file are documented above.
+
+The exact 2026-revision
+[`SenatoDellaRepubblica/AkomaNtosoBulkData`](https://github.com/SenatoDellaRepubblica/AkomaNtosoBulkData)
+Capture from #330 contains a short procedural statement inside the
+`speech by="#p32600"` element; the date 2025-05-29 is the XML's
+`FRBRdate name="presentazione"`, not independently proven event timing.
+`tools/dp357_senato_private_semantic.py` accepts only the pinned
+Content/Capture ID and full body SHA-256, with the official CC BY 4.0 README
+and LICENSE evidence inherited from #330. The utterance and speaker pointer
+are source-bound; invented comparison variants never become independent
+evidence, extracted speaker identity, or real Atomic Claims.
+
+The existing rights record from #330 initially permitted
+`DISCOVER_METADATA/FETCH/RESEARCH_CAPTURE_PRIVATE/STORE_BODY` only.
+`PARSE_TEXT` is **not** implied by storing a Capture. The opt-in
+`--apply-parse-rights` checks the exact official pinned license again
+and uses the native append-only rights registry to add only `PARSE_TEXT`,
+retaining the original expiry and machine attestation. The previous
+Capture permission remains valid; unrelated uses and `EXCERPT_PUBLIC` are
+not granted. The canary re-reads the current right before/after reading
+the captured bytes and after inference; revocation or expiry blocks the
+result. All operations are private; source text, vectors and suggestions
+are processed in memory and not persisted. The result is only
+`UNCERTAIN/HOLD`, never equivalence, identity, factual verification,
+automatic review or publication. The operational MiniPC procedure is:
+
+```sh
+DP_PRIVATE_SEMANTIC_ENABLED=1 \
+DP_SEMANTIC_MODEL_RECEIPT=/home/udodo/.local/share/dichiarazioni-pubbliche/private/semantic-157/receipt.json \
+PYTHONPATH=/home/udodo/src/DichiarazioniPubbliche.it/poc \
+/home/udodo/.local/share/dichiarazioni-pubbliche/private/semantic-157/venv/bin/python \
+tools/dp357_senato_private_semantic.py --database-url dichiarazioni_pubbliche
+```
+
+The first private source-use attestation can be performed using the same
+command with `--apply-parse-rights`, after an operator snapshot of the
+rights/DB state. There is no default enablement in the service or public UI.
