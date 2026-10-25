@@ -110,7 +110,7 @@
   "poc/dichiarazioni_pubbliche/provenance_quarantine_persistence.py": 25811,
   "poc/dichiarazioni_pubbliche/public_api.py": 84927,
   "poc/dichiarazioni_pubbliche/public_http_client.py": 22915,
-  "poc/dichiarazioni_pubbliche/public_projection.py": 149409,
+  "poc/dichiarazioni_pubbliche/public_projection.py": 149400,
   "poc/dichiarazioni_pubbliche/public_schema.py": 59465,
   "poc/dichiarazioni_pubbliche/publication_review_control.py": 29942,
   "poc/dichiarazioni_pubbliche/queue_runtime.py": 71052,

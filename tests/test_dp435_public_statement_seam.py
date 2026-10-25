@@ -134,6 +134,7 @@ class IsolatedStatementSource:
             source_kind=self.row["source_kind"],
             snapshot_url="https://archive.example.org/original",
             snapshot_sha256=SHA(self.source_text),
+            source_text_sha256=SHA(self.source_text),
             captured_at=STAMP,
             segment_start=locator["start_ms"] / 1000 if timed else locator["start_char"],
             segment_end=locator["end_ms"] / 1000 if timed else locator["end_char"],
@@ -325,8 +326,15 @@ class PublicStatementContractTests(unittest.TestCase):
         self.assertEqual(len(self.build_v3(source)["statements"]), 1)
         source.gates["wording"]["method"] = "AUTOMATIC_ASR"
         self.assertEqual(self.build_v3(source)["statements"], [])
-        source.gates["wording"]["method"] = "HUMAN_AUDIO_VERIFIED"
+        source.gates["wording"]["method"] = "AGENT_DOUBLE_VERIFIED_ASR"
         source.gates["attribution"]["segment_id"] = "segment:another"
+        self.assertEqual(self.build_v3(source)["statements"], [])
+
+    def test_timed_agent_double_verified_asr_needs_no_human_signoff(self):
+        source = IsolatedStatementSource(source_kind="TIMED")
+        source.gates["wording"]["method"] = "AGENT_DOUBLE_VERIFIED_ASR"
+        self.assertEqual(len(self.build_v3(source)["statements"]), 1)
+        source.gates["wording"]["method"] = "HUMAN_AUDIO_VERIFIED"
         self.assertEqual(self.build_v3(source)["statements"], [])
 
     def test_summary_and_translation_are_separate_reviewed_representations(self):

@@ -45,6 +45,7 @@ class AutonomousCandidate:
     source_kind: str
     snapshot_url: str
     snapshot_sha256: str
+    source_text_sha256: str
     captured_at: str
     segment_start: float
     segment_end: float
@@ -150,6 +151,7 @@ def _provenance(candidate: AutonomousCandidate) -> bool:
             and _public_https(candidate.source_url)
             and _public_https(candidate.snapshot_url)
             and _sha256(candidate.snapshot_sha256)
+            and _sha256(candidate.source_text_sha256)
             and _timestamp(candidate.captured_at)
             and 0 <= start < end
             and end < 86400 * 365

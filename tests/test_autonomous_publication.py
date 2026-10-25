@@ -23,6 +23,7 @@ def candidate() -> AutonomousCandidate:
         source_kind="TIMED",
         snapshot_url="https://archive.example.org/20261025/original-video",
         snapshot_sha256="a" * 64,
+        source_text_sha256="c" * 64,
         captured_at="2026-10-25T16:00:00+00:00",
         segment_start=21,
         segment_end=25,
@@ -67,6 +68,7 @@ class AutonomousPublicationTests(unittest.TestCase):
         for update in (
             {"source_url": "http://127.0.0.1/private"},
             {"snapshot_sha256": "missing"},
+            {"source_text_sha256": "missing"},
             {"captured_at": "not-a-date"},
             {"segment_end": 21},
         ):
