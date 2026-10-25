@@ -211,6 +211,32 @@ class CanaryGateTests(unittest.TestCase):
         self.assertNotIn("TRANSCRIPT", serialized)
         self.assertNotIn("opaque-key", serialized)
 
+    def test_gateway_wire_model_without_provider_prefix_matches_tiered_route(self):
+        client = FakeClient(
+            result=claim_result(returned_model="gemini-3.8-flash-tiered")
+        )
+        receipt = self.run_canary(http_get=self.catalog([MODEL]), client=client)
+        self.assertEqual(receipt["status"], "CANARY_PASSED")
+        self.assertTrue(receipt["model_identity_exact"])
+        self.assertEqual(receipt["model_returned"], "gemini-3.8-flash-tiered")
+
+    def test_claim_count_alone_cannot_pass_a_meaningful_numeric_canary(self):
+        original = claim_result().claims[0]
+        irrelevant_claim = ExtractedAtomicClaim(
+            normalized_claim="Il cielo è limpido.",
+            claim_type=original.claim_type,
+            check_worthy=True,
+            numeric_sensitive=False,
+            speaker=original.speaker,
+            source_timestamp=original.source_timestamp,
+            source_segment_indices=(0,),
+        )
+        client = FakeClient(result=claim_result(claims=(irrelevant_claim,)))
+        receipt = self.run_canary(http_get=self.catalog([MODEL]), client=client)
+        self.assertBlocked(
+            "CANARY_NO_MEANINGFUL_CLAIMS", receipt=receipt, executed=True
+        )
+
     def test_substitution_and_incomplete_receipts_never_pass(self):
         substituted = FakeClient(
             error=RuntimeError("OMNIROUTE_MODEL_SUBSTITUTED:opencode-go/deepseek-v4-flash")

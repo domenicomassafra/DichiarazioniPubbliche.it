@@ -158,6 +158,20 @@ def _json_object(text: str) -> dict[str, Any]:
     return parsed
 
 
+def matches_returned_model(requested: str, returned: Any) -> bool:
+    """Accept the official Antigravity tiered wire ID without relaxing routing.
+
+    OmniRoute accepts the provider-prefixed route in requests but its successful
+    Antigravity response may report the exact unprefixed upstream model ID.
+    This exception never authorizes an unprefixed request or another tier.
+    """
+    if not isinstance(returned, str):
+        return False
+    if requested == "antigravity/gemini-3.8-flash-tiered":
+        return returned in {requested, "gemini-3.8-flash-tiered"}
+    return returned == requested
+
+
 class OmniRouteClaimClient:
     provider_id = "omniroute"
 
@@ -283,7 +297,7 @@ class OmniRouteClaimClient:
             raise RuntimeError(f"OMNIROUTE_HTTP_{status}:{code[:80]}")
         if not isinstance(decoded, dict):
             raise RuntimeError("OMNIROUTE_RESPONSE_NOT_OBJECT")
-        if decoded.get("model") != self.model:
+        if not matches_returned_model(self.model, decoded.get("model")):
             raise RuntimeError("OMNIROUTE_MODEL_SUBSTITUTED")
         return decoded, elapsed
 
