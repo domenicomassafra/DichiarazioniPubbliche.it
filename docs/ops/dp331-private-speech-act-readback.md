@@ -14,6 +14,10 @@ README/LICENSE ufficiali verificati con hash nella #330, 24/10/2026).
 La #330 ha registrato su MiniPC una **sola Capture privata durevole** e un
 rights record CURRENT con le sole operazioni
 `DISCOVER_METADATA`, `FETCH`, `RESEARCH_CAPTURE_PRIVATE`, `STORE_BODY`.
+La #357 ha poi registrato un successore CURRENT con `PARSE_TEXT` aggiunto
+agli stessi quattro usi, senza revoche. Il readback accetta entrambi gli
+scope privati esatti, richiedendo ancora `STORE_BODY` sul record CURRENT e
+conservando la verifica di policy, review, scadenza, hash e revoca.
 Non vi sono permessi dedotti per `EXTRACT_CANDIDATES`, identificazione
 approvata, traduzione pubblica o pubblicazione.
 
