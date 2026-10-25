@@ -81,8 +81,8 @@ prefix before each Python test/check command:
 | 443.3 | HOLD: no authentic fact-check with evidenced conclusion/abstention paired with a separately eligible public opinion and attribution holds. |
 | 443.4 | HOLD: no publicly approved Person by Topic intersection and dated, source-linked synthesis for an authentic case. |
 | 443.5 | HOLD: tests cover isolated correction paths but no live same-record before/correction/withdrawal fingerprints across HTML, API, search, linked data, cache and rollback. |
-| 443.6 | HOLD: no completed three-role independent agent legal/privacy/editorial chain, accepted gold, live costs/rollback or functioning public privacy/correction contact. |
-| 443.7 | NO-GO proposed by preparer. Independent review and final approval are absent. Historical scaling is not authorized. |
+| 443.6 | HOLD: no completed automated provenance/rights/privacy review with independent agent agreement under #413, accepted gold, live costs/rollback or functioning public privacy/correction contact. |
+| 443.7 | NO-GO proposed by preparer. Independent source and consumer verification are absent. Historical scaling is not authorized. |
 
 ## Completing the pilot
 
@@ -90,15 +90,18 @@ Reuse the existing guarded Capture and rights registry, private candidate
 pipeline, opt-in Statement v3 reader and correction/release mechanisms.
 Resolve authentic public Statement acceptance (#78 and #345), Person
 readback (#346), transactional withdrawal and last-reader cache/readback
-(#64 and #353), privacy/legal authority (#96), and actual rehearsal (#98).
-Capture one source-specific public-use decision and distinct approved
-review outcomes, then observe three live projection fingerprints before
+(#64 and #353), automated provenance/rights/privacy/review controls (#413),
+operational contacts (#96), and actual rehearsal (#98). Verify one
+source-specific public-use basis with cited evidence and an independent
+second-model agent, then observe three live projection fingerprints before
 correction, after correction and after withdrawal on the MiniPC.
-The owner decision recorded in
+The latest owner decision in
 https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300
-requires separate preparer, checker and final approving agent; the same
-agent cannot furnish all three signatures. Only real personal contact
-or credential actions belong in issue #300.
+and the implementation ticket
+https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/413
+require no person in acceptance, review or publication; the independent
+agent review and subsequent sample audit are automatic. Personal contact
+setup or credential actions alone belong in issue #300.
 
 Keep the approved-empty production projection until this entire sequence
 passes. This packet publishes no Statement, performs no provider dispatch
