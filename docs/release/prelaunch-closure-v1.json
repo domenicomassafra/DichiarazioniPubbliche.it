@@ -3,10 +3,10 @@
   "prepared_at": "2026-10-25",
   "ticket": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/96",
   "jurisdiction": "Italy/EU",
-  "phase": "2_INDEPENDENTLY_CHECKED_HOLD",
+  "phase": "3_FINAL_REVIEW_COMPLETE_NO_GO",
   "disposition": "NO-GO",
   "publication_authorized": false,
-  "scope": "Review preparation for a future selected candidate; no licensed launch set, public dossier or release decision is attached",
+  "scope": "Final delegated NO-GO decision for the presently unapproved source set; no licensed public launch set or real-person dossier is attached",
   "mandate": {
     "owner_decision": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300#issuecomment-6396036497",
     "phase_1": "Preparer: research, evidence inventory and risks; no self-approval",
@@ -16,6 +16,9 @@
     "independent_check_complete": true,
     "independent_check_outcome": "HOLD: technical scope checked; the selected release, six privacy purposes, 16 Q-306 legal closure decisions and candidate-bound consumer evidence remain unapproved",
     "independent_check_record": "docs/release/prelaunch-phase2-review-20261025.md",
+    "final_review_complete": true,
+    "final_decision": "NO-GO",
+    "final_review_record": "docs/release/prelaunch-phase3-decision-20261025.md",
     "final_approval_complete": false
   },
   "reuse": {
@@ -95,12 +98,12 @@
   ],
   "release_gaps": [
     "Merged #97 launch-set-v1 has three HELD/zero included; no approved source version, specific FETCH/STORE_BODY/ASR/PUBLISH right, privacy case or attributable public item",
-    "No third-agent final release-specific approval; second-agent independent check completed with HOLD, see phase-2 review",
+    "Third distinct review has decided NO-GO for this unapproved candidate; any later GO needs a new source/rights/privacy/release-specific decision",
     "No authentic #98 DP-704 source-to-correction rehearsal/rollback",
     "No exact candidate MiniPC deployed source hash and all-surface readback",
     "No accepted public terms, privacy/method/security notices and working legal/incident contact path",
     "No scoped retention periods, account/cookie and backup erasure schedule; Q-306 all remain OPEN/BLOCKED",
     "No exact release candidate DP-223/308/309/310 re-evaluation and full failure injection"
   ],
-  "handoff": "Phase-2 review is recorded in docs/release/prelaunch-phase2-review-20261025.md with a HOLD outcome. A third distinct agent owns the final scoped GO/NO-GO decision on the exact future candidate; absent evidence remains NO-GO. This JSON is not permission to publish, deploy, ingest, enable accounts or use paid providers."
+  "handoff": "Phase-2 review is recorded in docs/release/prelaunch-phase2-review-20261025.md; phase-3 final NO-GO for the presently unapproved candidate is recorded in docs/release/prelaunch-phase3-decision-20261025.md. Fresh evidence and a new candidate decision are required for GO. This JSON does not authorize publishing real-person content, deployment, ingest, accounts or provider dispatch."
 }

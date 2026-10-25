@@ -1,7 +1,7 @@
 # Release checklist (DP-604)
 
 Runnable, fail-closed. Every gate below is either **PASS** with evidence or **BLOCKED**
-/ **PENDING-OWNER** with a reason. A missing gate is never an assumed pass.
+/ **PENDING-RELEASE-AUTHORITY** with a reason. A missing gate is never an assumed pass.
 
 **This repository has a canonical Git remote but no release.** Publication remains
 blocked until the release-specific legal, registry, signing, dataset, hosting and
@@ -191,12 +191,13 @@ one agent prepares the evidence, a **different** agent reviews it independently,
 and a **third** agent makes the final scoped legal/privacy/security decision.
 After every release gate is green, the agents may deploy a reversible canary,
 verify its public and private readback and rollback path, then publish to all.
-No further owner release approval is needed. The preflight's historical
-`PENDING-OWNER` status is never an authorization to deploy.
+No further owner release approval is needed. The preflight's
+`PENDING-RELEASE-AUTHORITY` result is never an authorization to deploy.
 
 - [ ] candidate-specific evidence prepared, with exact SHA, source rights and privacy decisions
 - [ ] independent second-agent review recorded with source citations (DP-307 / DP-702)
 - [ ] final third-agent legal/privacy/security decision and release authority recorded
+      for the exact candidate in `release-authority-v1.json`
 - [ ] functioning rights/rectification/revocation contact, tested end to end
 - [ ] launch-set, source-to-correction rehearsal and rollback verified on the consumer
 - [x] confirmed canonical remote URL — `https://github.com/domenicomassafra/DichiarazioniPubbliche.it`
@@ -243,6 +244,6 @@ the final `git status --short` must be empty in the detached candidate clone.
 ## 16. Final receipt
 
 The receipt records: commit, version, tool versions, artifact hashes, each gate's
-PASS/BLOCKED with reason, and every `PENDING-OWNER`/`BLOCKED` item. A local build
+PASS/BLOCKED with reason, and every `PENDING-RELEASE-AUTHORITY`/`BLOCKED` item. A local build
 receipt is **not** a release receipt. Under-publication is the safe response when any
 artifact, rights record, or public contract is uncertain.
