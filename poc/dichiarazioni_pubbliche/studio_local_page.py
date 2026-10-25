@@ -11,6 +11,7 @@ import re
 
 from dichiarazioni_pubbliche.studio_capture_diff_browser import CAPTURE_DIFF_BROWSER_JS
 from dichiarazioni_pubbliche.studio_capture_route_browser import CAPTURE_ROUTE_BROWSER_JS
+from dichiarazioni_pubbliche.studio_collection_capture_links_browser import COLLECTION_CAPTURE_LINKS_JS
 from dichiarazioni_pubbliche.studio_exact_source_jump_browser import (
     EXACT_JUMP_BROWSER_JS, EXACT_JUMP_FORM_HTML,
 )
@@ -1066,38 +1067,7 @@ _PAGE = """<!doctype html>
                 collectionCaptureForm.requestSubmit();
               });
               collectionNavigationLinks.append(parent);
-              const capture = item.latest_capture;
-              if (!capture || !item.source_exists) continue;
-              for (const passage of capture.passages) {
-                const next = document.createElement('button');
-                next.type = 'button';
-                next.textContent = 'Capture ' + capture.id + ' → Passage ' + passage.id
-                  + ' · ' + passage.candidate_count + ' Statement Candidate'
-                  + ' · primo ' + (passage.first_candidate_id || 'assente');
-                next.addEventListener('click', () => {
-                  if (!collectionNavigationLinks.contains(next)) return;
-                  scopedCaptureReference = {
-                    collection_id: tree.collection_id, content_id: item.content_id,
-                    capture_id: capture.id, capture_sha256: capture.content_sha256,
-                    source_id: item.source_id,
-                  };
-                  for (const key of ['collection_id','content_id','capture_id','passage_id']) {
-                    document.getElementById('source-exact-form').elements.namedItem(key).value =
-                      key === 'collection_id' ? tree.collection_id :
-                      key === 'content_id' ? item.content_id :
-                      key === 'capture_id' ? capture.id : passage.id;
-                  }
-                  clearExactSourceJump();
-                  lineageForm.elements.namedItem('collection_id').value = tree.collection_id;
-                  lineageForm.elements.namedItem('content_id').value = item.content_id;
-                  lineageForm.elements.namedItem('capture_id').value = capture.id;
-                  lineageForm.elements.namedItem('passage_id').value = passage.id;
-                  lineageForm.elements.namedItem('limit').value = '20';
-                  lineageForm.elements.namedItem('after_statement_id').value = '';
-                  lineageForm.requestSubmit();
-                });
-                collectionNavigationLinks.append(next);
-              }
+              __COLLECTION_CAPTURE_LINKS__
             }
             if (tree.next_after_content_id) {
               const more = document.createElement('button');
@@ -1926,6 +1896,7 @@ def render_studio_login_page(nonce: str) -> bytes:
     return (_PAGE.replace("__NONCE__", nonce)
             .replace("__CAPTURE_DIFF_BROWSER_HELPERS__", CAPTURE_DIFF_BROWSER_JS)
             .replace("__CAPTURE_ROUTE_BROWSER_HELPERS__", CAPTURE_ROUTE_BROWSER_JS)
+            .replace("__COLLECTION_CAPTURE_LINKS__", COLLECTION_CAPTURE_LINKS_JS)
             .replace("__EXACT_SOURCE_JUMP_FORM__", EXACT_JUMP_FORM_HTML)
             .replace("__EXACT_SOURCE_JUMP_BROWSER_HELPERS__", EXACT_JUMP_BROWSER_JS)).encode("utf-8")
 
