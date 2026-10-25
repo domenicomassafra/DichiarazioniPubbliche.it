@@ -3,17 +3,22 @@
   "prepared_at": "2026-10-25",
   "ticket": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/96",
   "jurisdiction": "Italy/EU",
-  "phase": "1_PREPARED_AWAITING_INDEPENDENT_REVIEW",
+  "phase": "3_FINAL_REVIEW_COMPLETE_NO_GO",
   "disposition": "NO-GO",
   "publication_authorized": false,
-  "scope": "Review preparation for a future selected candidate; no licensed launch set, public dossier or release decision is attached",
+  "scope": "Final delegated NO-GO decision for the presently unapproved source set; no licensed public launch set or real-person dossier is attached",
   "mandate": {
     "owner_decision": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300#issuecomment-6396036497",
     "phase_1": "Preparer: research, evidence inventory and risks; no self-approval",
     "phase_2": "Different agent: independent check of source law, product behavior, original AC and evidence; record outcome in #96",
     "phase_3": "Third distinct agent: final release-specific legal/privacy/security GO/NO-GO decision; record outcome in #96",
     "owner_consent_required_for_delegated_approval": false,
-    "independent_check_complete": false,
+    "independent_check_complete": true,
+    "independent_check_outcome": "HOLD: technical scope checked; the selected release, six privacy purposes, 16 Q-306 legal closure decisions and candidate-bound consumer evidence remain unapproved",
+    "independent_check_record": "docs/release/prelaunch-phase2-review-20261025.md",
+    "final_review_complete": true,
+    "final_decision": "NO-GO",
+    "final_review_record": "docs/release/prelaunch-phase3-decision-20261025.md",
     "final_approval_complete": false
   },
   "reuse": {
@@ -36,7 +41,7 @@
     {"id":"DSA","date":"2022-10-19","url":"https://eur-lex.europa.eu/eli/reg/2022/2065/oj/eng","scope":"Art. 3 intermediary definitions; Arts. 14-17 conditional on actual public hosting/intake"},
     {"id":"AI_ACT","date":"2024-06-13","url":"https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-50","scope":"Art. 50 transparency applicability from 2026-08-02; role-specific and editorial-review qualifications"},
     {"id":"CC_BY_4","date":"2013-11-25","url":"https://creativecommons.org/licenses/by/4.0/legalcode","scope":"Attribution, change notice and licence link; third-party privacy and personality rights are separate"},
-    {"id":"GARANTE_BREACH","date":"2026-10-25","url":"https://www.garanteprivacy.it/data-breach","scope":"Incident risk evaluation and GDPR Art. 33 supervisory notification typically within 72 hours"}
+    {"id":"GARANTE_BREACH","checked_at":"2026-10-25","url":"https://www.garanteprivacy.it/data-breach","scope":"Incident risk evaluation and GDPR Art. 33 supervisory notification typically within 72 hours"}
   ],
   "decision_index": [
     {"id":"Q-306-01","status":"OPEN","surface":"finding / reputation","default":"Neutral claim wording, attribution, no intent","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
@@ -92,13 +97,13 @@
     {"event":"suspected secret/private projection disclosure","safe":"BLOCKED","proof_due":"incident escalation, isolation and Art.33 risk assessment","owner":"incident","detection":"privacy disclosure alert","recovery":"isolate and assess Art.33","receipt":"REQUIRED candidate incident record + consumer readback"}
   ],
   "release_gaps": [
-    "No selected #97 launch set with Content hash, current licence/source-use, FETCH/STORE_BODY/PUBLISH disposition and attribution",
-    "No third-agent final approval or independent second-agent check",
+    "Merged #97 launch-set-v1 has three HELD/zero included; no approved source version, specific FETCH/STORE_BODY/ASR/PUBLISH right, privacy case or attributable public item",
+    "Third distinct review has decided NO-GO for this unapproved candidate; any later GO needs a new source/rights/privacy/release-specific decision",
     "No authentic #98 DP-704 source-to-correction rehearsal/rollback",
     "No exact candidate MiniPC deployed source hash and all-surface readback",
     "No accepted public terms, privacy/method/security notices and working legal/incident contact path",
     "No scoped retention periods, account/cookie and backup erasure schedule; Q-306 all remain OPEN/BLOCKED",
     "No exact release candidate DP-223/308/309/310 re-evaluation and full failure injection"
   ],
-  "handoff": "Independent checker must read this draft against original AC-702.1-.14, live official sources and on-device tests, comment independently on #96, and leave the final scoped GO/NO-GO to a third distinct agent. Never infer permission from existence of this JSON artifact."
+  "handoff": "Phase-2 review is recorded in docs/release/prelaunch-phase2-review-20261025.md; phase-3 final NO-GO for the presently unapproved candidate is recorded in docs/release/prelaunch-phase3-decision-20261025.md. Fresh evidence and a new candidate decision are required for GO. This JSON does not authorize publishing real-person content, deployment, ingest, accounts or provider dispatch."
 }
