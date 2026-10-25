@@ -69,7 +69,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
         self.assertIn("PRIVACY_LAWFUL_BASIS_MISSING:PUBLIC_STATEMENTS", blockers)
         self.assertIn("PRIVACY_EVIDENCE_MISSING:PUBLIC_STATEMENTS", blockers)
 
-    def test_all_dated_mechanical_receipts_can_only_reach_pending_owner(self):
+    def test_all_dated_mechanical_receipts_wait_for_delegated_release_authority(self):
         # Fake issue URLs are syntactically possible: neither these fixtures nor
         # the mechanical checker attest legal truth or grant publication.
         receipt = (
@@ -97,7 +97,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
             artifact_presence={artifact: True for artifact in REQUIRED_RELEASE_ARTIFACTS},
             privacy_decision_blockers=evaluate_processing_decisions(self.register),
         )
-        self.assertEqual(result.disposition, "PENDING-OWNER")
+        self.assertEqual(result.disposition, "PENDING-RELEASE-AUTHORITY")
         self.assertFalse(result.launchable)
 
     def test_approval_requires_distinct_review_model_receipt_sha_and_outcome(self):
