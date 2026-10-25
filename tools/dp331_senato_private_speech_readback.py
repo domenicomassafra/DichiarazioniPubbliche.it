@@ -13,7 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
 from dichiarazioni_pubbliche.capture_pipeline import CaptureBodyStore, CapturePipelineStore
-from dichiarazioni_pubbliche.dp331_private_speech_probe import probe_private_speech
+from dichiarazioni_pubbliche.dp331_private_speech_probe import (
+    probe_private_speech, probe_private_statement_relation,
+)
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
 from dichiarazioni_pubbliche.rights_registry import PrivateRightsRegistryStore, RightsSubject
 from dichiarazioni_pubbliche.senato_akoma_stenographic import import_senato_akoma_stenographic
@@ -31,7 +33,13 @@ def run(
     ordinals: tuple[int, ...],
     german_draft: str | None = None,
     italian_quote_span: tuple[int, int] | None = None,
+    compare_relation: bool = False,
 ) -> dict[str, object]:
+    if compare_relation and (
+        len(ordinals) != 2 or ordinals[0] == ordinals[1]
+        or german_draft is not None
+    ):
+        raise ValueError("DP333_TWO_DISTINCT_SPEECHES_REQUIRED")
     if german_draft is not None and len(ordinals) != 1:
         raise ValueError("DP331_ONE_SPEECH_PER_DERIVED_TRANSLATION")
     store = CapturePipelineStore(database_url=database_url)
@@ -59,6 +67,8 @@ def run(
     # Both exact private scopes above require RESEARCH_CAPTURE_PRIVATE.
     # The generic source-use guard recognizes STORE_BODY for captured bytes.
     guard.require("STORE_BODY", content_sha256=BODY_SHA256)
+    if compare_relation:
+        guard.require("PARSE_TEXT", content_sha256=BODY_SHA256)
     found = store.find_capture(context["id"], BODY_SHA256)
     if not found or not found.get("body_ref"):
         raise RuntimeError("DP331_PINNED_PRIVATE_CAPTURE_MISSING")
@@ -66,6 +76,8 @@ def run(
         found["body_ref"], expected_sha256=BODY_SHA256, max_bytes=450000,
     )
     guard.require("STORE_BODY", content_sha256=BODY_SHA256)
+    if compare_relation:
+        guard.require("PARSE_TEXT", content_sha256=BODY_SHA256)
     imported = import_senato_akoma_stenographic(
         body, source_raw_url=CURRENT_URL, expected_blob_sha1=CONTENT_BLOB_SHA1,
     )
@@ -79,7 +91,7 @@ def run(
         )
         for ordinal in ordinals
     ]
-    return {
+    result = {
         "source": "SenatoDellaRepubblica/AkomaNtosoBulkData",
         "capture_id": found["id"], "rights_record_id": current.id,
         "capture_observed_at": found["observed_at"],
@@ -103,6 +115,13 @@ def run(
         "extraction_authorized": False,
         "publication_authorized": False,
     }
+    if compare_relation:
+        result["relation"] = probe_private_statement_relation(
+            imported, ordinals=ordinals,
+        )
+        # A grant may be revoked while a private relation is being evaluated.
+        guard.require("PARSE_TEXT", content_sha256=BODY_SHA256)
+    return result
 
 
 def main() -> int:
@@ -110,6 +129,7 @@ def main() -> int:
     parser.add_argument("--database-url", default=os.getenv("DICHIARAZIONI_PUBBLICHE_DATABASE_URL"))
     parser.add_argument("--storage-root", type=Path, default=Path("~/.local/share/dichiarazioni-pubbliche-captures").expanduser())
     parser.add_argument("--ordinal", type=int, action="append", required=True)
+    parser.add_argument("--compare-relation", action="store_true")
     parser.add_argument("--german-draft-file", type=Path)
     parser.add_argument("--quote-start", type=int)
     parser.add_argument("--quote-end", type=int)
@@ -118,6 +138,8 @@ def main() -> int:
         parser.error("--database-url is required")
     if len(args.ordinal) > 3 or len(set(args.ordinal)) != len(args.ordinal):
         parser.error("only one to three unique speech ordinals are permitted")
+    if args.compare_relation and (len(args.ordinal) != 2 or args.german_draft_file is not None):
+        parser.error("--compare-relation requires exactly two ordinals and no translation")
     if args.german_draft_file is not None and (
         args.quote_start is None or args.quote_end is None
     ):
@@ -135,6 +157,7 @@ def main() -> int:
     print(json.dumps(run(
         args.database_url, args.storage_root,
         ordinals=tuple(args.ordinal), german_draft=german_draft,
+        compare_relation=args.compare_relation,
         italian_quote_span=(
             (args.quote_start, args.quote_end) if german_draft is not None else None
         ),
