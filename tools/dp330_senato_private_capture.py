@@ -102,7 +102,11 @@ def run(database_url: str, storage_root: Path, *, apply: bool) -> dict[str, obje
         current.policy_version not in (DISCOVERY_POLICY, POLICY)
     ):
         raise RuntimeError("DP330_PREEXISTING_RIGHTS_CONFLICT")
-    if current.policy_version == POLICY and current.permitted_uses != RIGHTS_USE:
+    # A later private text-use attestation may add PARSE_TEXT without revoking
+    # the original, separately verified capture grant.
+    if current.policy_version == POLICY and set(current.permitted_uses) not in (
+        set(RIGHTS_USE), set(RIGHTS_USE) | {"PARSE_TEXT"}
+    ):
         raise RuntimeError("DP330_PREEXISTING_RIGHTS_CONFLICT")
     if current.policy_version == DISCOVERY_POLICY and current.permitted_uses != ("DISCOVER_METADATA",):
         raise RuntimeError("DP330_METADATA_RIGHTS_SCOPE_CONFLICT")

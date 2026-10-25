@@ -2,6 +2,7 @@
 
 import hashlib
 import sys
+import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -302,6 +303,39 @@ class SpaCyPrivateCandidateTests(unittest.TestCase):
             SpaCyItalianPrivateAdapter.load(
                 Path("/nonexistent/dp-spacy-italian-model"), approval=approval()
             )
+
+    def test_untrained_italian_tokenizer_policy_requires_explicit_approval(self):
+        with self.assertRaisesRegex(CandidateExtractionError, "TOKENIZER_POLICY_MISMATCH"):
+            SpaCyItalianPrivateAdapter(
+                self.pipeline,
+                approval=approval(self.pipeline, tokenizer_policy="blank-it"),
+            )
+
+    def test_locally_trained_ner_loads_with_approved_blank_italian_tokenizer(self):
+        try:
+            import spacy
+        except ImportError:
+            self.skipTest("optional spaCy not installed in stdlib contributor profile")
+        nlp = spacy.blank("it")
+        nlp.meta["license"] = "Apache-2.0"
+        nlp.meta["tokenizer_policy"] = "blank-it"
+        nlp.add_pipe("entity_ruler").add_patterns([
+            {"label": "PER", "pattern": "Giulia Riva"},
+        ])
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "local-model"
+            nlp.to_disk(path, exclude=["tokenizer"])
+            approved = approval(nlp, license_id="Apache-2.0", tokenizer_policy="blank-it")
+            # Fingerprint serializes the reconstructed untrained Italian tokenizer.
+            loaded = spacy.load(path, exclude=["tokenizer"])
+            approved = replace(approved, pipeline_sha256=hashlib.sha256(loaded.to_bytes()).hexdigest())
+            adapter = SpaCyItalianPrivateAdapter.load(path, approval=approved)
+            text = "Giulia Riva è intervenuta."
+            spans = adapter.propose(
+                text=text, text_sha256=hashlib.sha256(text.encode()).hexdigest(), language="it"
+            )
+            self.assertEqual([(s.text, s.label) for s in spans], [("Giulia Riva", "PER")])
+            self.assertEqual(adapter.receipt["model_tokenizer_policy"], "blank-it")
 
     def test_pipeline_mutation_after_approval_is_blocked(self):
         self.pipeline.invalid = True
