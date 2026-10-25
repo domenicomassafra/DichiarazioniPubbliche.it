@@ -61,7 +61,7 @@ class CuriaProceduralReadbackTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(ValueError, "DOCUMENT_CONTENT_MISSING"):
             evaluate_curia_private(
-                b'<span>ECLI:EU:C:2026:519</span><div>unrelated</div>',
+                specimen().replace(b'id="document_content"', b'id="unrelated_content"'),
                 expected_sha256=digest(TEXT),
             )
 
