@@ -1702,8 +1702,7 @@ _PAGE = """<!doctype html>
           }
           if (form === capturePassageForm && response.ok && Array.isArray(receipt.data?.selectors)) {
             const dataForPassages = receipt.data;
-            if (showSingleCaptureInspection(receipt, data, scopedCaptureReference,
-                                            passageCandidateSummary)) {
+            if (validCapturePassageScope(receipt, data, scopedCaptureReference, passageCandidateSummary)) {
               for (const passage of dataForPassages.selectors) {
                 if (!SAFE_REF.test(passage.id) || !SAFE_SHA256.test(passage.text_sha256)
                     || !['TEXT_POSITION', 'PAGE_RANGE'].includes(passage.selector_type)

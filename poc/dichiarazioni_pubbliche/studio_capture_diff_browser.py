@@ -1,6 +1,21 @@
 """Private, DOM-only helpers for the bounded Capture Passage comparison."""
 
 CAPTURE_DIFF_BROWSER_JS = r"""
+    function validCapturePassageScope(receipt, request, reference, summary) {
+      const scope = receipt?.data;
+      const valid = reference && reference.content_id === request.content_id
+        && scope?.contract_version === 'studio-capture-inspection-v1'
+        && receipt?.contract_version === 'studio-local-readonly-api-v1'
+        && scope.private_only === true
+        && scope.content_id === reference.content_id
+        && scope.capture?.id === reference.capture_id
+        && scope.capture?.content_sha256 === reference.capture_sha256
+        && request.capture_hash === reference.capture_sha256
+        && SAFE_REF.test(reference.collection_id)
+        && scope.rights_clearance === false && scope.publication_authority === false;
+      if (valid) showSingleCaptureInspection(receipt, request, reference, summary);
+      return valid;
+    }
     function showSingleCaptureInspection(receipt, request, reference, summary) {
       const scope = receipt?.data, capture = scope?.capture;
       const observed = capture?.observed_at;
