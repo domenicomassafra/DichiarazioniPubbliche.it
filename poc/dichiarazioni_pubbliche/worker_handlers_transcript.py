@@ -43,13 +43,7 @@ class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
             raise BlockedJob(str(exc)) from exc
 
     def triage_content(self, job: ProcessingJob, content: ContentRecord) -> None:
-        """Complete metadata-only discovery without inventing downstream work.
-
-        ``DISCOVERY_ONLY`` sources are intentionally not transcript/claim inputs.
-        The scheduler still emits a durable CONTENT_TRIAGE job so discovery has a
-        replayable queue receipt; this handler closes that receipt while keeping
-        the content in DISCOVERED state and performing zero network/provider work.
-        """
+        """Close DISCOVERY_ONLY queue receipts without starting other work."""
         action = str(job.payload.get("ingest_action") or "").strip()
         if action != "DISCOVERY_ONLY":
             raise BlockedJob(
@@ -76,6 +70,11 @@ class TranscriptAsrJobHandlers(CaptionAcquisitionHandler):
             routing = plan_asr(
                 duration_seconds=duration_seconds,
                 states={
+                    # Owner's current provider policy forbids direct Groq
+                    # requests. URL dispatch has no approved paid ASR lane.
+                    "groq-whisper-large-v3-turbo": ProviderState(
+                        "groq-whisper-large-v3-turbo", enabled=False,
+                    ),
                     LOCAL_PROVIDER_ID: ProviderState(LOCAL_PROVIDER_ID, enabled=False),
                     FASTER_PROVIDER_ID: ProviderState(FASTER_PROVIDER_ID, enabled=False),
                 },
