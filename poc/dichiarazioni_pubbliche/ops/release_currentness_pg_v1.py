@@ -177,7 +177,8 @@ END $$;
 -- Protected readback of a *private* exact release reference. It never returns
 -- public current=true. DP320 row locks linearize dependency checks with revoke.
 CREATE OR REPLACE FUNCTION dp518_pg_probe(
-  p_release text, p_index text, p_projection text, p_expected bigint
+  p_release text, p_index text, p_projection text, p_generation text,
+  p_expected bigint
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE AS $$
 DECLARE
   manifest dp518_pg_release%ROWTYPE;
@@ -195,7 +196,8 @@ BEGIN
   IF NOT FOUND THEN
     reason_code := 'NO_REFERENCE';
   ELSIF manifest.index_sha256<>p_index
-    OR manifest.projection_sha256<>p_projection THEN
+    OR manifest.projection_sha256<>p_projection
+    OR manifest.generation_sha256<>p_generation THEN
     reason_code := 'RELEASE_VERSION_MISMATCH';
   ELSE
     -- This PostgreSQL check does NOT fence any later HTTP/edge response.
@@ -342,18 +344,20 @@ class DisposableReleaseCurrentnessPg:
 
     def read_private_reference(
         self, *, release_id: str, index_sha256: str,
-        projection_sha256: str, expected_revision: int,
+        projection_sha256: str, generation_sha256: str, expected_revision: int,
     ) -> PrivateReleaseCurrentness:
         _id(release_id)
         _sha(index_sha256)
         _sha(projection_sha256)
+        _sha(generation_sha256)
         if type(expected_revision) is not int or not 0 <= expected_revision < 2**31:
             raise RevocationFenceHeld("DP518_REVISION_INVALID")
         received = self._run(
             "BEGIN; SELECT dp518_pg_probe(:'release',:'index',:'projection',"
-            " :'revision'::bigint)::text; COMMIT;",
+            " :'generation',:'revision'::bigint)::text; COMMIT;",
             release=release_id, index=index_sha256,
-            projection=projection_sha256, revision=str(expected_revision),
+            projection=projection_sha256, generation=generation_sha256,
+            revision=str(expected_revision),
         )
         if not isinstance(received, dict) or any(
             received.get(key) is not False
@@ -373,6 +377,7 @@ class DisposableReleaseCurrentnessPg:
             or received["pointer_revision"] != expected_revision
             or received.get("index_hash") != index_sha256
             or received.get("projection_hash") != projection_sha256
+            or received.get("generation_hash") != generation_sha256
         ):
             raise RuntimeError("DP518_RESPONSE_UNSAFE")
         # Opaque source/version token, private only and NOT an attestation,

@@ -67,10 +67,12 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
             expected_revision=expected,
         )
 
-    def _read(self, *, release="release:one", index=INDEX, epoch=1):
+    def _read(self, *, release="release:one", index=INDEX,
+              generation=GENERATION, epoch=1):
         return self.reader.read_private_reference(
             release_id=release, index_sha256=index,
-            projection_sha256=PROJECTION, expected_revision=epoch,
+            projection_sha256=PROJECTION, generation_sha256=generation,
+            expected_revision=epoch,
         )
 
     def test_no_reference_never_promotes_empty_source_to_public_current(self):
@@ -89,7 +91,8 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
         restarted = DisposableReleaseCurrentnessPg(self.dsn)
         current = restarted.read_private_reference(
             release_id=ticket.release_id, index_sha256=INDEX,
-            projection_sha256=PROJECTION, expected_revision=1,
+            projection_sha256=PROJECTION, generation_sha256=GENERATION,
+            expected_revision=1,
         )
         self.assertEqual(current.status, "COHERENT_PRIVATE_REFERENCE")
         self.assertEqual(current.reason, "PRIVATE_ONLY_NOT_DEPLOYED")
@@ -99,6 +102,15 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
         self.assertNotIn("rights:1", repr(current))
         self.assertNotIn("source:1", repr(current))
         self.assertEqual(self.sql("SELECT count(*) FROM dp518_pg_selection"), "1")
+
+    def test_generation_drift_held_after_pointer_selection(self):
+        self._select(self._ticket())
+        current = self._read()
+        self.assertEqual(current.status, "COHERENT_PRIVATE_REFERENCE")
+        stale = self._read(generation="f" * 64)
+        self.assertEqual(stale.status, "HELD")
+        self.assertEqual(stale.reason, "RELEASE_VERSION_MISMATCH")
+        self.assertFalse(stale.publication_authorized)
 
     def test_revocation_precedes_currentness_even_after_synthetic_ack(self):
         ticket = self._ticket()
