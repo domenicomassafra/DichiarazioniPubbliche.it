@@ -1,5 +1,6 @@
 """DP-420: operator acceptance must never be certified by search fixtures alone."""
 
+import json
 import unittest
 
 from dichiarazioni_pubbliche.studio_usability_acceptance import (
