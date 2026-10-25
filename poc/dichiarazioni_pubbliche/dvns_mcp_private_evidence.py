@@ -62,6 +62,8 @@ def _datetime(value: str) -> datetime:
 
 
 def _open_fixed(url: str, *, body: bytes | None = None, opener=None) -> bytes:
+    if url not in {MCP_URL, LICENSE_URL, SOURCE_URL} or (body is not None and url != MCP_URL):
+        raise DvnsMcpError("DVNS_MCP_NETWORK_TARGET_INVALID")
     transport = opener or urllib.request.build_opener(_NoRedirect())
     headers = {"User-Agent": "DichiarazioniPubbliche-DVNS-private-read/1"}
     if body is not None:
@@ -73,8 +75,9 @@ def _open_fixed(url: str, *, body: bytes | None = None, opener=None) -> bytes:
             if response.status != 200 or response.geturl() != url:
                 raise DvnsMcpError("DVNS_MCP_HTTP_RESPONSE_INVALID")
             media = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-            if media not in ({"text/event-stream", "application/json"} if body is not None
-                             else {"text/html"}):
+            expected_media = ({"text/event-stream", "application/json"} if body is not None
+                              else {"application/json"} if url == SOURCE_URL else {"text/html"})
+            if media not in expected_media:
                 raise DvnsMcpError("DVNS_MCP_MEDIA_TYPE_INVALID")
             data = response.read(MAX_RESPONSE + 1)
             if not data or len(data) > MAX_RESPONSE:
@@ -94,6 +97,31 @@ def official_licence_receipt(*, opener=None) -> str:
             or "indicata la fonte" not in text):
         raise DvnsMcpError("DVNS_MCP_OFFICIAL_LICENCE_NOT_VERIFIED")
     return "sha256:" + hashlib.sha256(body).hexdigest()
+
+
+@dataclass(frozen=True)
+class OfficialReferenceReceipt:
+    """Current primary endpoint receipt, independent of the DVNS snapshot."""
+    source_version: str
+    reference_period: str
+    projects: int
+
+
+def observe_official_reference(*, opener=None) -> OfficialReferenceReceipt:
+    raw = _open_fixed(SOURCE_URL, opener=opener)
+    try:
+        payload = json.loads(raw)
+        raw_date = payload["data_aggiornamento"]
+        raw_projects = payload["aggregati"]["totali"]["progetti"]
+        if (not isinstance(raw_date, str) or not re.fullmatch(r"[0-9]{8}", raw_date)
+                or not isinstance(raw_projects, str) or not re.fullmatch(r"[0-9]+", raw_projects)):
+            raise DvnsMcpError("DVNS_MCP_OFFICIAL_SOURCE_SHAPE_INVALID")
+        period = datetime.strptime(raw_date, "%Y%m%d").date().isoformat()
+        projects = int(raw_projects)
+    except (KeyError, TypeError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
+        raise DvnsMcpError("DVNS_MCP_OFFICIAL_SOURCE_SHAPE_INVALID") from exc
+    return OfficialReferenceReceipt("sha256:" + hashlib.sha256(raw).hexdigest(),
+                                    period, projects)
 
 
 def fetch_public_mcp_snapshot(*, opener=None) -> dict[str, Any]:
@@ -198,7 +226,8 @@ class PrivateEvidenceReceipt:
 
 
 def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
-                              observed_at: str) -> PrivateEvidenceReceipt:
+                              observed_at: str,
+                              official_reference: OfficialReferenceReceipt) -> PrivateEvidenceReceipt:
     """Enforce a current source-specific grant; persist only typed candidate rows."""
     subject = rights_subject()
     current = rights.read_current(subject)
@@ -214,6 +243,20 @@ def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
             or len(imported.normalized_batch.values) != 1):
         raise DvnsMcpError("DVNS_MCP_IMPORT_CONTRACT_INVALID")
     row = imported.normalized_batch.values[0]
+    if (not isinstance(official_reference, OfficialReferenceReceipt)
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", official_reference.source_version)
+            or official_reference.projects < 0):
+        raise DvnsMcpError("DVNS_MCP_OFFICIAL_RECEIPT_REQUIRED")
+    try:
+        official_date = date.fromisoformat(official_reference.reference_period)
+        historical_date = date.fromisoformat(row.reference_period)
+    except (TypeError, ValueError) as exc:
+        raise DvnsMcpError("DVNS_MCP_REFERENCE_PERIOD_INVALID") from exc
+    if official_date < historical_date:
+        raise DvnsMcpError("DVNS_MCP_OFFICIAL_SOURCE_REGRESSED")
+    if official_date == historical_date and official_reference.projects != int(row.value_numeric):
+        raise DvnsMcpError("DVNS_MCP_OFFICIAL_VALUE_CONFLICT")
+    superseded = official_date > historical_date
     profile = load_source_intelligence_contract().evidence_profiles_by_registry_id[PROVIDER]
     profile = replace(profile, rights_status="CLEARED")
     scope = profile.authority_scopes[0]
@@ -236,6 +279,7 @@ def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
         evidence_id=evidence_id, canonical_url=SOURCE_URL, publisher=source_owner(),
         source_type="SECONDARY_OFFICIAL_DATA_AGGREGATE", fetched_at=observed_at,
         publication_date=row.publication_date,
+        record_status="SUPERSEDED" if superseded else "ACTIVE",
         content_sha256=row.source_version[7:], reference_period=row.reference_period,
         rights_status="CLEARED", metadata={
             "provider": PROVIDER, "dataset": DATASET, "source_version": row.source_version,
@@ -246,6 +290,10 @@ def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
             "licence": "CC-BY-4.0", "attribution": source_owner(),
             "publication_date_is_downstream_snapshot_generation": True,
             "candidate_only": True,
+            "official_current_source_version": official_reference.source_version,
+            "official_current_reference_period": official_reference.reference_period,
+            "official_current_projects": official_reference.projects,
+            "dvns_snapshot_superseded": superseded,
         })
     # The two store operations are separate existing PostgreSQL calls. Recheck
     # the append-only current head before writing the typed observation too.
@@ -258,9 +306,12 @@ def persist_private_candidate(imported, *, store, rights, licence_receipt: str,
         extraction_method="DVNS_MCP_QUERY_DATASET", extraction_version=ADAPTER_VERSION,
         source_pointer={"canonical_url": SOURCE_URL, "source_version": row.source_version,
                         "external_id": row.source_record_id,
+                        "official_current_source_version": official_reference.source_version,
+                        "official_current_reference_period": official_reference.reference_period,
                         "field_provenance": dict(imported.provenance[0].fields)},
         status="CANDIDATE", metadata={"rights_record_id": current.id,
                                       "dp215_fingerprint": suitability.input_fingerprint,
+                                      "dvns_snapshot_superseded": superseded,
                                       "candidate_only": True},
     )
     return PrivateEvidenceReceipt(evidence_id, observation_id, row.source_version,

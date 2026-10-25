@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 from dichiarazioni_pubbliche.dvns_mcp_private_evidence import (
     SOURCE_URL, POLICY_VERSION, DvnsMcpError, import_opencoesione_snapshot,
     persist_private_candidate, rights_subject, fetch_public_mcp_snapshot,
-    official_licence_receipt,
+    official_licence_receipt, observe_official_reference, OfficialReferenceReceipt,
 )
 from dichiarazioni_pubbliche.rights_registry import (
     PRIVATE_RIGHTS_RECORD_VERSION, PrivateRightsRecord, rights_subject_fingerprint,
@@ -19,6 +19,7 @@ from dichiarazioni_pubbliche.rights_registry import (
 
 
 RECEIPT = "sha256:" + "a" * 64
+OFFICIAL = OfficialReferenceReceipt("sha256:" + "b" * 64, "2026-06-30", 46437)
 
 
 def permission_record():
@@ -137,19 +138,46 @@ class DvnsMcpPrivateEvidenceTests(unittest.TestCase):
                 store = MemoryEvidenceStore()
                 with self.assertRaisesRegex(DvnsMcpError, reason):
                     persist_private_candidate(imported, store=store, rights=RightsReader(record),
-                                              licence_receipt=RECEIPT, observed_at=observed_at)
+                                              licence_receipt=RECEIPT, observed_at=observed_at,
+                                              official_reference=OFFICIAL)
                 self.assertEqual(store.evidence, [])
                 self.assertEqual(store.observations, [])
         store = MemoryEvidenceStore()
         receipt = persist_private_candidate(imported, store=store,
                                             rights=RightsReader(permission_record()),
-                                            licence_receipt=RECEIPT, observed_at=observed_at)
+                                            licence_receipt=RECEIPT, observed_at=observed_at,
+                                            official_reference=OFFICIAL)
         self.assertEqual(receipt.suitability_state, "READY_FOR_DP215_ASSESSMENT")
         self.assertFalse(receipt.publication_authorized)
         self.assertEqual(store.evidence[0]["rights_status"], "CLEARED")
+        self.assertEqual(store.evidence[0]["record_status"], "SUPERSEDED")
+        self.assertTrue(store.evidence[0]["metadata"]["dvns_snapshot_superseded"])
+        self.assertEqual(store.evidence[0]["metadata"]["official_current_projects"], 46437)
         self.assertIsNone(store.evidence[0].get("excerpt"))
         self.assertEqual(store.observations[0]["status"], "CANDIDATE")
         self.assertEqual(store.observations[0]["value_numeric"], 46402.0)
+
+    def test_primary_source_revision_and_value_mismatch_hold_before_writes(self):
+        imported = import_opencoesione_snapshot(official_response(), observed_at="2026-10-25T10:00:00Z")
+        for official, reason in (
+            (replace(OFFICIAL, reference_period="2026-04-30"), "DVNS_MCP_OFFICIAL_VALUE_CONFLICT"),
+            (replace(OFFICIAL, reference_period="2026-02-28"), "DVNS_MCP_OFFICIAL_SOURCE_REGRESSED"),
+        ):
+            store = MemoryEvidenceStore()
+            with self.subTest(reason=reason), self.assertRaisesRegex(DvnsMcpError, reason):
+                persist_private_candidate(imported, store=store, rights=RightsReader(permission_record()),
+                                          licence_receipt=RECEIPT, observed_at="2026-10-25T10:00:00Z",
+                                          official_reference=official)
+            self.assertFalse(store.evidence)
+            self.assertFalse(store.observations)
+
+    def test_official_primary_response_version_receipt(self):
+        body = json.dumps({"data_aggiornamento": "20260630",
+                           "aggregati": {"totali": {"progetti": "46437"}}}).encode()
+        receipt = observe_official_reference(opener=FakeOpener(body, "application/json"))
+        self.assertEqual(receipt.reference_period, "2026-06-30")
+        self.assertEqual(receipt.projects, 46437)
+        self.assertTrue(receipt.source_version.startswith("sha256:"))
 
     def test_real_sse_transport_shape_and_fail_closed_on_rpc_error(self):
         valid = {"jsonrpc": "2.0", "id": 1, "result": {

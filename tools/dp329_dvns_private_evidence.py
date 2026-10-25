@@ -18,7 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 from dichiarazioni_pubbliche.dvns_mcp_private_evidence import (
     LICENSE_URL, METRIC, POLICY_VERSION, SOURCE_URL, DATASET, SOURCE_FAMILY,
     DvnsMcpError, fetch_public_mcp_snapshot, import_opencoesione_snapshot,
-    official_licence_receipt, persist_private_candidate, rights_subject,
+    official_licence_receipt, observe_official_reference,
+    persist_private_candidate, rights_subject,
 )
 from dichiarazioni_pubbliche.private_capture_rights import evaluate_source_use
 from dichiarazioni_pubbliche.queue_runtime import QueueRuntimeStore
@@ -59,16 +60,22 @@ def run(*, database_url: str, apply: bool) -> dict[str, object]:
         return {"status": "READY_FOR_ONE_PRIVATE_CANDIDATE", "source_url": SOURCE_URL,
                 "rights_record_id": current.id, "written": False}
     payload = fetch_public_mcp_snapshot()
+    official_reference = observe_official_reference()
     # The source receipt is timed after the network read, not at preflight.
     observed = datetime.now(timezone.utc).isoformat(timespec="seconds")
     imported = import_opencoesione_snapshot(payload, observed_at=observed)
     store = QueueRuntimeStore(database_url=database_url)
     receipt = persist_private_candidate(imported, store=store, rights=rights,
-                                        licence_receipt=notice_receipt, observed_at=observed)
+                                        licence_receipt=notice_receipt, observed_at=observed,
+                                        official_reference=official_reference)
     record = store.run(
         """SELECT json_build_object(
            'id', e.id, 'url', e.canonical_url, 'rights_status', e.rights_status,
+           'record_status', e.record_status,
            'source_version', e.metadata->>'source_version',
+           'official_current_source_version', e.metadata->>'official_current_source_version',
+           'official_current_reference_period', e.metadata->>'official_current_reference_period',
+           'dvns_snapshot_superseded', e.metadata->'dvns_snapshot_superseded',
            'source_record_id', e.metadata->>'external_id',
            'observation_id', o.id, 'metric', o.metric,
            'numeric_value', o.value_numeric, 'unit', o.unit,
@@ -89,6 +96,10 @@ def run(*, database_url: str, apply: bool) -> dict[str, object]:
             or readback["url"] != SOURCE_URL
             or readback["metric"] != METRIC
             or readback["source_record_id"] != receipt.source_record_id
+            or readback["official_current_source_version"] != official_reference.source_version
+            or readback["official_current_reference_period"] != official_reference.reference_period
+            or readback["record_status"] != (
+                "SUPERSEDED" if readback["dvns_snapshot_superseded"] else "ACTIVE")
             or readback["selector"] != dict(imported.provenance[0].fields)["value_numeric"]):
         raise DvnsMcpError("DVNS_MCP_AUTHENTICATED_CONSUMER_READBACK_MISMATCH")
     return {"status": "PRIVATE_CANDIDATE_PERSISTED", "dataset": DATASET,
@@ -96,6 +107,7 @@ def run(*, database_url: str, apply: bool) -> dict[str, object]:
             "licence_url": LICENSE_URL, "licence_sha256": notice_receipt,
             "attribution": "Dipartimento per le Politiche di Coesione / OpenCoesione",
             "rights_record_id": current.id, "policy_version": POLICY_VERSION,
+            "official_current_projects": official_reference.projects,
             "rights_expires_at": current.expires_at, "provider": imported.provider_id,
             "schema_version": imported.source_schema_version,
             "adapter_version": imported.adapter_version,
