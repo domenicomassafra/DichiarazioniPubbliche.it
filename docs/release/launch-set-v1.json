@@ -123,14 +123,14 @@
       }
     },
     {
-      "source_id": "source:europarl-open-data-2026-meetings",
+      "source_id": "source:europarl-open-data-catalogue",
       "source_family": "european_parliament_open_data",
       "state": "HELD",
       "rights_state": "PENDING",
       "privacy_state": "PENDING",
       "provider_state": "BLOCKED",
       "provenance": {
-        "name": "Parlamento europeo — portale open data, incontri 2026 (candidato)",
+        "name": "Parlamento europeo — catalogo open data (candidato)",
         "platform": "data.europarl.europa.eu",
         "locator": "https://data.europarl.europa.eu/en/datasets",
         "observed_at": "2026-10-25",
