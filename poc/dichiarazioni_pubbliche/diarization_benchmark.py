@@ -22,7 +22,7 @@ class Turn:
     timebase: str = "MEDIA_MS"
 
     def __post_init__(self) -> None:
-        if isinstance(self.start_ms, bool) or isinstance(self.end_ms, bool):
+        if type(self.start_ms) is not int or type(self.end_ms) is not int:
             raise ValueError("DIARIZATION_TIMESTAMP_INVALID")
         if self.start_ms < 0 or self.end_ms <= self.start_ms:
             raise ValueError("DIARIZATION_TIMESTAMP_INVALID")
@@ -43,7 +43,8 @@ class SensitiveSpan:
     kind: str
 
     def __post_init__(self) -> None:
-        if self.start_ms < 0 or self.end_ms <= self.start_ms:
+        if (type(self.start_ms) is not int or type(self.end_ms) is not int
+                or self.start_ms < 0 or self.end_ms <= self.start_ms):
             raise ValueError("DIARIZATION_SENSITIVE_SPAN_INVALID")
         if self.kind not in {"NUMBER", "NEGATION", "DATE", "NAME", "DIRECT_QUOTE"}:
             raise ValueError("DIARIZATION_SENSITIVE_KIND_INVALID")
@@ -95,7 +96,7 @@ class ResourceReceipt:
             (self.cache_bytes, "cache_bytes"),
             (self.network_calls, "network_calls"),
         ):
-            if isinstance(value, bool) or value < 0:
+            if type(value) is not int or value < 0:
                 raise ValueError(f"DIARIZATION_{name.upper()}_INVALID")
         for value, name in (
             (self.model_sha256, "model_sha256"),
