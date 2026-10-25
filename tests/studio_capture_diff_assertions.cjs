@@ -161,4 +161,66 @@ module.exports = async function checkCaptureDiff({forms, requests, complete, ids
   assert.doesNotMatch(ids.get('media-locator').textContent,
     /PRIVATE_URL_IN_SEGMENT_ID|PRIVATE_RAW_TIME/,
     'invalid media selector fields must not be rendered as a verified locator');
+
+  // An actual collection may have exactly one persisted Capture and no Passage.
+  // Inspecting it must still expose a bounded, useful provenance/HOLD summary.
+  const captureCollection = forms['/v1/collections/captures'];
+  captureCollection.fields.collection_id = 'research:senato';
+  captureCollection.fields.content_id = 'content:senato';
+  captureCollection.fields.limit = '20';
+  const collectionRequest = captureCollection.fire('submit');
+  const collectionIndex = requests.length - 1;
+  const single = {id: 'capture:senato', content_sha256: '1'.repeat(64),
+    observed_at: '2026-10-24T23:53:44+02:00', status: 'CAPTURED',
+    archive_status: 'NOT_REQUESTED'};
+  complete(collectionIndex, {contract_version: 'studio-collection-captures-v1',
+    private_only: true, publication_authority: false, rights_clearance: false,
+    capture_authorized: false, collection_id: 'research:senato',
+    content_id: 'content:senato', source_id: 'source:senato', source_exists: true,
+    collection_state: 'ACTIVE', rights_status: 'CLEARED',
+    processing_status: 'READY', captures: [single], has_more: false,
+    next_after_id: null});
+  await collectionRequest;
+  const captureLinks = ids.get('collection-capture-links');
+  assert.equal(captureLinks.children.length, 1);
+  const selected = captureLinks.children[0].fire('click');
+  const selectedIndex = requests.length - 1;
+  assert.equal(requests[selectedIndex].path, '/v1/capture/passages');
+  const inspection = {contract_version: 'studio-capture-inspection-v1',
+    private_only: true, publication_authority: false, rights_clearance: false,
+    content_id: 'content:senato', capture: {
+      id: single.id, observed_at: single.observed_at,
+      content_sha256: single.content_sha256, capture_state: 'CAPTURED',
+      hold_state: 'NONE', archive_state: 'NOT_REQUESTED',
+      body_state: 'STORED_UNVERIFIED', archive_receipt_recorded: false,
+      purge_receipt_recorded: false, body_purged_at: null},
+    selectors: [], has_more: false, next_after_id: null,
+    body_ref: 'PRIVATE_BODY_NEVER_RENDER', headers: {Authorization: 'SECRET_NEVER_RENDER'}};
+  complete(selectedIndex, inspection);
+  await selected;
+  await new Promise(resolve => setImmediate(resolve));
+  const summary = ids.get('passage-candidate-summary');
+  assert.match(summary.textContent, /capture:senato/);
+  assert.match(summary.textContent, /1{64}/, 'exact immutable Capture hash');
+  assert.match(summary.textContent, /nessun Passage/i);
+  assert.match(summary.textContent, /nessun permesso di riprodurre/i);
+  assert.doesNotMatch(summary.textContent, /PRIVATE_BODY|SECRET_NEVER_RENDER/);
+  assert.equal(ids.get('capture-passage-links').children.length, 0);
+  const purgeRequest = passageForm.fire('submit');
+  const purgeIndex = requests.length - 1;
+  complete(purgeIndex, {...inspection, capture: {...inspection.capture,
+    capture_state: 'PURGED_BODY', body_state: 'PURGED',
+    purge_receipt_recorded: true, body_purged_at: '2026-10-25T08:00:00Z'}});
+  await purgeRequest;
+  assert.match(summary.textContent, /PURGED_BODY/);
+  assert.match(summary.textContent, /purge 2026-10-25T08:00:00Z/);
+  const badPurgeRequest = passageForm.fire('submit');
+  complete(requests.length - 1, {...inspection, capture: {...inspection.capture,
+    capture_state: 'PURGED_BODY', body_state: 'PURGED', purge_receipt_recorded: false}});
+  await badPurgeRequest;
+  assert.match(summary.textContent, /non verificabile/,
+    'a false purge receipt cannot present verified purge metadata');
+  clear.fire('click');
+  assert.doesNotMatch(summary.textContent, /capture:senato|1{64}/,
+    'logout must scrub even the single-Capture metadata summary');
 };
