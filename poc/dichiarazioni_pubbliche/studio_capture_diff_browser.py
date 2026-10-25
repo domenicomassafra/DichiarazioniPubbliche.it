@@ -1,6 +1,71 @@
 """Private, DOM-only helpers for the bounded Capture Passage comparison."""
 
 CAPTURE_DIFF_BROWSER_JS = r"""
+    function validCapturePassageScope(receipt, request, reference, summary) {
+      const scope = receipt?.data;
+      const valid = reference && reference.content_id === request.content_id
+        && scope?.contract_version === 'studio-capture-inspection-v1'
+        && receipt?.contract_version === 'studio-local-readonly-api-v1'
+        && scope.private_only === true
+        && scope.content_id === reference.content_id
+        && scope.capture?.id === reference.capture_id
+        && scope.capture?.content_sha256 === reference.capture_sha256
+        && request.capture_hash === reference.capture_sha256
+        && SAFE_REF.test(reference.collection_id)
+        && scope.rights_clearance === false && scope.publication_authority === false;
+      if (valid) showSingleCaptureInspection(receipt, request, reference, summary);
+      return valid;
+    }
+    function showSingleCaptureInspection(receipt, request, reference, summary) {
+      const scope = receipt?.data, capture = scope?.capture;
+      const observed = capture?.observed_at;
+      const validTime = value => typeof value === 'string' && value.length <= 40
+        && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+        && Number.isFinite(Date.parse(value));
+      const valid = receipt?.contract_version === 'studio-local-readonly-api-v1'
+        && scope?.contract_version === 'studio-capture-inspection-v1'
+        && scope.private_only === true && scope.publication_authority === false
+        && scope.rights_clearance === false && scope.content_id === request.content_id
+        && reference && SAFE_REF.test(reference.collection_id)
+        && SAFE_REF.test(reference.source_id)
+        && reference.content_id === request.content_id
+        && SAFE_REF.test(capture?.id) && capture.id === reference.capture_id
+        && SAFE_SHA256.test(capture?.content_sha256)
+        && capture.content_sha256 === request.capture_hash
+        && capture.content_sha256 === reference.capture_sha256
+        && validTime(observed)
+        && ['CAPTURED', 'QUARANTINED', 'PURGE_PENDING', 'PURGED_BODY'].includes(capture.capture_state)
+        && ['NONE', 'RIGHTS_HOLD', 'LEGAL_HOLD', 'PRIVACY_HOLD',
+          'COPYRIGHT_HOLD', 'DISPUTE_HOLD'].includes(capture.hold_state)
+        && ['NOT_REQUESTED', 'REQUESTED', 'PENDING', 'SUCCEEDED', 'FAILED'].includes(capture.archive_state)
+        && ['STORED_UNVERIFIED', 'PURGED', 'NOT_STORED'].includes(capture.body_state)
+        && typeof capture.archive_receipt_recorded === 'boolean'
+        && typeof capture.purge_receipt_recorded === 'boolean'
+        && (capture.capture_state === 'PURGED_BODY'
+          ? capture.body_state === 'PURGED' && capture.purge_receipt_recorded === true
+            && validTime(capture.body_purged_at)
+          : capture.body_state !== 'PURGED' && capture.body_purged_at === null
+            && capture.purge_receipt_recorded === false)
+        && Array.isArray(scope.selectors) && scope.selectors.length <= request.limit
+        && typeof scope.has_more === 'boolean'
+        && (scope.has_more ? scope.selectors.length === request.limit
+          && SAFE_REF.test(scope.next_after_id) : scope.next_after_id === null);
+      if (!valid) {
+        summary.textContent = 'Capture non verificabile: nessun riferimento disponibile.';
+        return false;
+      }
+      summary.textContent = 'Fonte ' + reference.source_id + ' · Capture ' + capture.id
+        + ' · SHA256 ' + capture.content_sha256 + ' · osservata ' + observed
+        + ' · stato ' + capture.capture_state + '/' + capture.hold_state
+        + ' · archivio ' + capture.archive_state + ' · body ' + capture.body_state
+        + ' · ricevute archivio/purge ' + capture.archive_receipt_recorded
+        + '/' + capture.purge_receipt_recorded
+        + (capture.body_purged_at ? ' · purge ' + capture.body_purged_at : '')
+        + (scope.selectors.length ? ' · ' + scope.selectors.length + ' Passage nella pagina'
+          : ' · nessun Passage persistito')
+        + '. Nessun permesso di riprodurre.';
+      return true;
+    }
     function safeMediaSegment(receipt, request) {
       const data = receipt?.data, segment = data?.canonical_segment;
       if (receipt?.contract_version !== 'studio-local-readonly-api-v1'
