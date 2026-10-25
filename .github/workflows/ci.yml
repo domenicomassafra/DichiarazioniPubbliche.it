@@ -111,6 +111,16 @@ jobs:
           DP514_CI_PG_WAIT_WITNESS: "1"
         run: PYTHONPATH=poc python -m unittest discover -s tests -v
 
+      - name: Real JFK Ogg to disposable PostgreSQL and private HTTP acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          media="$RUNNER_TEMP/dp419-jfk-original.ogg"
+          curl --fail --location --silent --show-error --retry 2 --max-time 120 \
+            'https://upload.wikimedia.org/wikipedia/commons/5/50/Jfk_rice_university_we_choose_to_go_to_the_moon.ogg' \
+            --output "$media"
+          DP419_REAL_MEDIA_PATH="$media" PYTHONPATH=poc python -m unittest tests.test_dp419_real_media_pg_acceptance -v
+
       - name: Optional Google OIDC account extra security tests
         # The contributor profile above stays dependency-free. Validate the
         # explicitly optional Authlib account feature separately on every
@@ -315,6 +325,11 @@ jobs:
           test -z "$(git status --porcelain)" || { echo "clean-clone tree is dirty"; exit 1; }
           python3 -m compileall -q poc tests
           PYTHONPATH=poc python3 -m unittest discover -s tests
+          media="$RUNNER_TEMP/dp419-jfk-original.ogg"
+          curl --fail --location --silent --show-error --retry 2 --max-time 120 \
+            'https://upload.wikimedia.org/wikipedia/commons/5/50/Jfk_rice_university_we_choose_to_go_to_the_moon.ogg' \
+            --output "$media"
+          DP419_REAL_MEDIA_PATH="$media" PYTHONPATH=poc python3 -m unittest tests.test_dp419_real_media_pg_acceptance -v
           PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.benchmark
           python3 tools/check_contributor_acceptance.py
           python -m build --no-isolation --outdir "$SCRATCH/dist" .
