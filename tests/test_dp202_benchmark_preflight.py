@@ -68,6 +68,29 @@ class GiulianiLivePreflightTests(unittest.TestCase):
                 call_omniroute(prompt="synthetic", model="antigravity/gemini-3.8-flash-tiered",
                                base_url="http://127.0.0.1:20128", api_key="test")
 
+    def test_transport_refuses_untrusted_gateway_before_post(self):
+        with patch("urllib.request.urlopen") as post:
+            with self.assertRaisesRegex(RuntimeError, "DP202_GATEWAY_UNAUTHORIZED"):
+                call_omniroute(
+                    prompt="synthetic", model="antigravity/gemini-3.8-flash-tiered",
+                    base_url="https://untrusted.example", api_key="test",
+                )
+            post.assert_not_called()
+
+    def test_transport_rejects_positive_charge_even_if_another_field_says_zero(self):
+        response = {
+            "id": "req-conflict", "model": "gemini-3.8-flash-tiered",
+            "usage": {"prompt_tokens": 25, "completion_tokens": 12, "cost_usd": 0},
+            "total_cost_usd": "0.03",
+            "choices": [{"message": {"content": '{"claims":[]}'}}],
+        }
+        with patch("urllib.request.urlopen", return_value=self._reply(response)):
+            with self.assertRaisesRegex(RuntimeError, "DP202_UNEXPECTED_PROVIDER_COST"):
+                call_omniroute(
+                    prompt="synthetic", model="antigravity/gemini-3.8-flash-tiered",
+                    base_url="http://127.0.0.1:20128", api_key="test",
+                )
+
     @staticmethod
     def _reply(value):
         body = json.dumps(value).encode("utf-8")

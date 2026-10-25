@@ -10,7 +10,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from dichiarazioni_pubbliche.claim_runtime import matches_returned_model
+from dichiarazioni_pubbliche.claim_runtime import LOCAL_GATEWAY_URLS, matches_returned_model
 
 
 def _read_env_file(path: Path | None) -> dict[str, str]:
@@ -35,6 +35,8 @@ def call_omniroute(
     max_tokens: int = 4096,
     timeout_seconds: float = 120.0,
 ) -> tuple[dict[str, Any], float]:
+    if base_url.rstrip("/") not in LOCAL_GATEWAY_URLS:
+        raise RuntimeError("DP202_GATEWAY_UNAUTHORIZED")
     payload = {
         "model": model,
         "messages": [
@@ -135,7 +137,17 @@ def _cost_from_response(response: dict[str, Any]) -> float | None:
         response.get(key)
         for key in ("cost", "cost_usd", "total_cost", "total_cost_usd")
     )
+    observed: list[float] = []
     for value in candidates:
-        if isinstance(value, (int, float)) and math.isfinite(float(value)):
-            return float(value)
-    return None
+        if value is None:
+            continue
+        if type(value) not in (int, float, str):
+            raise RuntimeError("DP202_COST_UNVERIFIABLE")
+        try:
+            amount = float(value)
+        except ValueError:
+            raise RuntimeError("DP202_COST_UNVERIFIABLE") from None
+        if not math.isfinite(amount):
+            raise RuntimeError("DP202_COST_UNVERIFIABLE")
+        observed.append(amount)
+    return next((amount for amount in observed if amount != 0), observed[0] if observed else None)
