@@ -207,6 +207,15 @@ try {
   // seek on original-timeline seconds, without private-media autoplay.
   await evaluate("document.getElementById('media-play-button').focus()");
   await key('Enter','Enter',13);
+  await wait("document.getElementById('media-verified-audio').hasAttribute('src')");
+  const pendingSeek = await evaluate(`({
+    confirmed: document.getElementById('media-play-status').textContent.includes('Seek reale'),
+    hidden: document.getElementById('media-verified-audio').hidden
+  })`);
+  if (!pendingSeek.confirmed) {
+    assert.equal(pendingSeek.hidden,true,
+      'audio controls must remain hidden until native seek has been verified');
+  }
   await wait("document.getElementById('media-play-status').textContent.includes('Seek reale') || document.getElementById('media-play-status').textContent.includes('nessun seek verificato')");
   assert.equal(mediaRequests.length,1);
   assert.deepEqual(mediaRequests[0].body,{binding_id:'binding:mobile'});

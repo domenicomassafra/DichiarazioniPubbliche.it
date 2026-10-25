@@ -90,7 +90,6 @@ MEDIA_PLAYBACK_HANDLER = """    mediaAudio?.addEventListener?.('timeupdate', () 
         activeRequest = null;
         if (bytes.byteLength !== size) throw new Error('invalid');
         mediaObjectUrl = URL.createObjectURL(new Blob([bytes], {type: contentType}));
-        mediaAudio.hidden = false;
         mediaAudio.dataset.segmentEnd = String(end / 1000);
         mediaAudio.addEventListener('loadedmetadata', function verifiedMetadata() {
           mediaAudio.removeEventListener('loadedmetadata', verifiedMetadata);
@@ -112,6 +111,7 @@ MEDIA_PLAYBACK_HANDLER = """    mediaAudio?.addEventListener?.('timeupdate', () 
             clearMediaPlayback();
             return;
           }
+          mediaAudio.hidden = false;
           mediaPlayStatus.textContent = 'Seek reale: ' + actual.toFixed(3)
             + ' s · intervallo ' + (start / 1000).toFixed(3)
             + '–' + (end / 1000).toFixed(3) + ' s.';
