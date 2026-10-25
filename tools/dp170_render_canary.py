@@ -89,6 +89,10 @@ def render_canary(
     static = fetcher(url, allow_redirects=False, max_response_bytes=max_bytes)
     if static.final_url != url:
         raise CanaryRefused("CANARY_REDIRECT_UNAUTHORIZED")
+    if (static.status_code != 200
+            or len(static.body) != static.content_length
+            or len(static.body) > max_bytes):
+        raise CanaryRefused("CANARY_STATIC_RESPONSE_REFUSED")
     _guard(decision, static.final_url, now=clock())
     renderer = renderer_factory(
         enabled=True, chromium_binary=chromium_binary,
