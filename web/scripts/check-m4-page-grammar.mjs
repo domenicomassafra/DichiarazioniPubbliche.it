@@ -48,12 +48,14 @@ assert(position(topic, 'class="topic-primary"') < position(topic, 'class="topic-
 // each owning a neighboring detail panel, with full relation provenance behind
 // secondary disclosure rather than an unsourced side-by-side comparison.
 assert(hasClass(relation, "dp-trace-workspace"), "Trace workspace absent");
-assert.match(relation, /<h2[^>]*id="trace-chronology-heading">Cronologia revisionata<\/h2>/,
+assert.match(relation, /<h2[^>]*id="trace-chronology-heading"[^>]*>Cronologia revisionata<\/h2>/,
   "Trace lacks explicit chronology heading");
-assert.match(relation, /<ol class="dp-trace-chronology">/,
+assert.match(relation, /<ol[^>]*class="dp-trace-chronology"[^>]*>/,
   "Trace must use an ordered timeline");
 assert.equal((relation.match(/data-trace-event(?:\s|>)/g) ?? []).length, 2,
   "Test fixture requires two timeline participants");
+assert.equal((relation.match(/<h3[^>]*class="dp-trace-event__heading"[^>]*>\s*<button\b/g) ?? []).length, 2,
+  "Each Trace participant needs a heading containing its keyboard-operable button");
 assert.equal((relation.match(/data-trace-detail(?:\s|>)/g) ?? []).length, 2,
   "Every timeline participant needs its own detail");
 assert(position(relation, 'class="dp-trace-chronology"') < position(relation, 'class="comparison-review'),
