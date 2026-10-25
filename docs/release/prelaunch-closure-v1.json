@@ -1,0 +1,104 @@
+{
+  "version": "prelaunch-closure-v1",
+  "prepared_at": "2026-10-25",
+  "ticket": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/96",
+  "jurisdiction": "Italy/EU",
+  "phase": "1_PREPARED_AWAITING_INDEPENDENT_REVIEW",
+  "disposition": "NO-GO",
+  "publication_authorized": false,
+  "scope": "Review preparation for a future selected candidate; no licensed launch set, public dossier or release decision is attached",
+  "mandate": {
+    "owner_decision": "https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/300#issuecomment-6396036497",
+    "phase_1": "Preparer: research, evidence inventory and risks; no self-approval",
+    "phase_2": "Different agent: independent check of source law, product behavior, original AC and evidence; record outcome in #96",
+    "phase_3": "Third distinct agent: final release-specific legal/privacy/security GO/NO-GO decision; record outcome in #96",
+    "owner_consent_required_for_delegated_approval": false,
+    "independent_check_complete": false,
+    "final_approval_complete": false
+  },
+  "reuse": {
+    "legal_register": "docs/policy/legal-closure-register.md",
+    "legal_analysis": "docs/policy/legal-research-decisions-2026-10-20.md",
+    "legal_adr": "docs/adr/0010-conservative-owner-legal-research.md",
+    "original_spec": "docs/tickets/DP-702-prelaunch-legal-security-privacy-review.md",
+    "existing_gate": "tools/check_launch_preflight.py --expect-no-go",
+    "conditional_surfaces": "docs/release/conditional-surfaces-v1.json",
+    "retention": "docs/ops/retention-matrix.md",
+    "threats": "docs/ops/threat-model.md"
+  },
+  "primary_sources": [
+    {"id":"GDPR","date":"2016-04-27","url":"https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng","scope":"Art. 5, 6, 9, 10, 17, 25, 32-35, 85, 89: purpose, basis, minimisation, retention, security, journalistic exceptions"},
+    {"id":"IT_PRIVACY","date":"2018-08-10","url":"https://www.gpdp.it/web/guest/codice","scope":"D.Lgs. 196/2003 as amended, Arts. 136-139 and Annex A.1; confirm applicability of exceptional journalistic route"},
+    {"id":"GARANTE_2026","date":"2026-09-23","url":"https://www.garanteprivacy.it/web/guest/home/docweb/-/docweb-display/docweb/10307852","scope":"Recent Garante decision on journalistic purpose, relevance and essentiality; no automatic general exemption"},
+    {"id":"COPYRIGHT_EU","date":"2001-05-22","url":"https://eur-lex.europa.eu/eli/dir/2001/29/oj?locale=en","scope":"Art. 5(3)(c),(d), country-specific quotation conditions; source attribution is not automatic republishing permission"},
+    {"id":"COPYRIGHT_IT","date":"1941-04-22","url":"https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:1941-04-22;633","scope":"L. 633/1941, Arts. 65 and 70; check current consolidated text and source-specific excerpts"},
+    {"id":"DEFAMATION_IT","date":"1930-10-19","url":"https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:regio.decreto:1930-10-19;1398","scope":"Criminal Code Art. 595; source factuality does not alone eliminate reputational risk"},
+    {"id":"DSA","date":"2022-10-19","url":"https://eur-lex.europa.eu/eli/reg/2022/2065/oj/eng","scope":"Art. 3 intermediary definitions; Arts. 14-17 conditional on actual public hosting/intake"},
+    {"id":"AI_ACT","date":"2024-06-13","url":"https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-50","scope":"Art. 50 transparency applicability from 2026-08-02; role-specific and editorial-review qualifications"},
+    {"id":"CC_BY_4","date":"2013-11-25","url":"https://creativecommons.org/licenses/by/4.0/legalcode","scope":"Attribution, change notice and licence link; third-party privacy and personality rights are separate"},
+    {"id":"GARANTE_BREACH","date":"2026-10-25","url":"https://www.garanteprivacy.it/data-breach","scope":"Incident risk evaluation and GDPR Art. 33 supervisory notification typically within 72 hours"}
+  ],
+  "decision_index": [
+    {"id":"Q-306-01","status":"OPEN","surface":"finding / reputation","default":"Neutral claim wording, attribution, no intent","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-02","status":"OPEN","surface":"intent/deception","default":"No inference about intentions","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-03","status":"OPEN","surface":"right-of-reply intake","default":"Disabled; no personal submission","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-04","status":"BLOCKED","surface":"DSA hosting of replies","default":"No public UGC hosting","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-05","status":"OPEN","surface":"logs, cookies, anti-abuse","default":"No optional tracking or intake without scoped basis","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-06","status":"OPEN","surface":"correction/retraction","default":"Private review; hold affected public item","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-07","status":"OPEN","surface":"appeal/review authority","default":"No self-approval or fabricated resolution","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-08","status":"OPEN","surface":"people/accounts/legal bases","default":"Minimise; private by default","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-09","status":"OPEN","surface":"sensitive data, minors, allegations","default":"Quarantine; do not infer traits","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-10","status":"OPEN","surface":"retention, backups, incidents","default":"No approved general periods; hold unsafe deletion","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-11","status":"OPEN","surface":"quotations and excerpts","default":"No public excerpt absent exact source/use rights","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-12","status":"OPEN","surface":"platform terms and extraction","default":"No unlicensed body fetch or circumvention","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-13","status":"OPEN","surface":"ASR, AI disclosures","default":"No unreviewed transcript as literal quote","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-14","status":"BLOCKED","surface":"AI Act, DSA, ePrivacy roles","default":"No public AI / hosting / tracking expansion","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-15","status":"OPEN","surface":"terms, contact, complaints","default":"No real-person launch without owned notices and channel","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"},
+    {"id":"Q-306-16","status":"OPEN","surface":"material-change invalidation","default":"Reopen affected source, model, right, data or hosting decision","owner":"phase-2 reviewer; phase-3 decider","evidence":"docs/policy/legal-closure-register.md","decision_needed":"dated scoped disposition and rights/test evidence","re_review_trigger":"source, data, licence, model, law or hosting change"}
+  ],
+  "decision_index_policy": "All 16 rows link to the unchanged detailed Q-306 register and 2026-10-20 primary-source analysis; each still requires scoped evidence, effective policy/version, date, reviewer and invalidation trigger. These rows are not deemed DECIDED by this draft.",
+  "surface_matrix": [
+    {"id":"public-static","observed":"Approved-empty only","boundary":"Sanitised projection; no raw transcripts/private data"},
+    {"id":"public-api","observed":"GET /api/v1; DRAFT public-v2, zero dossiers in 2026-10-25 consumer readback","boundary":"Projection-only; no LLM/DB provider call on public request"},
+    {"id":"private-studio","observed":"Operator-only local service","boundary":"Private access and source/rights decisions"},
+    {"id":"public-admin","observed":"NOT_APPLICABLE under existing conditional-surfaces-v1","boundary":"No remotely reachable mutations; revisit DP-507 if exposed"},
+    {"id":"public-intake","observed":"NOT_APPLICABLE under existing conditional-surfaces-v1","boundary":"No public editorial submission; revisit DP-508 if exposed"},
+    {"id":"member-account","observed":"Optional distinct account feature; activation NOT ATTESTED","boundary":"Separate purposes, notice, SQLite/WAL/cookies and logs require proof"},
+    {"id":"source-ingestion","observed":"Source-specific rights; Senato metadata-only permission is narrow","boundary":"DISCOVER_METADATA does not grant FETCH/STORE_BODY/ASR/PUBLISH"},
+    {"id":"public-UGC-or-AI-chat","observed":"Not selected for this launch scope","boundary":"DSA/AI Act role and notice review upon activation"}
+  ],
+  "retention": [
+    {"class":"media, transcripts, evidence and rights proofs","location":"private","policy":"docs/ops/retention-matrix.md","gap":"source-specific purposes, expiry, holds and deletion approvals"},
+    {"class":"personal records, challenges, accounts, cookies and logs","location":"private","policy":"docs/ops/retention-matrix.md","gap":"Art. 5 storage limit, legal bases, WAL/backups, data-subject requests and breach contacts"},
+    {"class":"public projection and caches","location":"approved public copy only","policy":"docs/ops/retention-matrix.md","gap":"correction/revocation through all public readers, caches and rollback"}
+  ],
+  "technical_controls": [
+    {"ids":"DP-501, DP-510/511","evidence":"docs/ops/threat-model.md; docs/tickets/DP-702-prelaunch-legal-security-privacy-review.md","gap":"Refresh SSRF/projection tamper/quarantine/drift tests on actual candidate"},
+    {"ids":"DP-502/503","evidence":"docs/ops/retention-matrix.md; docs/tickets/DP-702-prelaunch-legal-security-privacy-review.md","gap":"Candidate-bound restore checksum + readback, scoped legal retention periods"},
+    {"ids":"DP-504/505","evidence":"docs/tickets/DP-702-prelaunch-legal-security-privacy-review.md","gap":"Candidate runtime health, SLO, alerts and named incident/rights-response channel"},
+    {"ids":"DP-506","evidence":"docs/tickets/DP-702-prelaunch-legal-security-privacy-review.md","gap":"Owner 2026-10-25 chose subscribed Antigravity via OmniRoute, stop at quota; prove no paid fallback"},
+    {"ids":"DP-507/508","evidence":"docs/release/conditional-surfaces-v1.json","gap":"Verify no public admin/intake on exact live routes; reopen if enabled"},
+    {"ids":"DP-223/308/309/310","evidence":"docs/tickets/DP-702-prelaunch-legal-security-privacy-review.md","gap":"Exact-release attribution zero false/fabricated quote, high-risk and independent review evidence"}
+  ],
+  "failure_matrix": [
+    {"event":"provider unavailable/quota/schema change","safe":"BLOCKED","proof_due":"bounded queue, no fallback/charge, 0 findings","owner":"provider","detection":"quota/timeout","recovery":"stop job","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"stale or tampered transcript, source, reviewer, rights","safe":"POLICY_HOLD","proof_due":"integrity/reviewer checks and public omission","owner":"provenance","detection":"integrity hash","recovery":"quarantine","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"incomplete or contradictory evidence","safe":"OMITTED","proof_due":"source-drift and evidence sufficiency cases","owner":"evidence","detection":"source conflict","recovery":"hold evidence","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"projection mismatch, partial bundle, stale cache, public-host outage","safe":"OMITTED","proof_due":"MiniPC rollback plus public reader readback","owner":"MiniPC","detection":"schema/cache mismatch","recovery":"restore projection","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"queue pressure or budget exhaustion","safe":"BLOCKED","proof_due":"subscription-quota stop and monitoring","owner":"queue","detection":"queue-age/quota","recovery":"throttle","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"rights withdrawal, correction, appeal, erasure","safe":"POLICY_HOLD","proof_due":"private receipt, invalidation of public/API/cache","owner":"rights","detection":"rights/appeal request","recovery":"remove and invalidate","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"malicious URL, spam/identity misuse if exposed","safe":"REJECTED","proof_due":"SSRF and denied public POST; re-review when enabled","owner":"security","detection":"rejected URL/POST","recovery":"reject request","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"restore failure or storage high-water","safe":"BLOCKED","proof_due":"isolated restore, checksum and alert","owner":"backup","detection":"restore checksum","recovery":"restore verified backup","receipt":"REQUIRED candidate incident record + consumer readback"},
+    {"event":"suspected secret/private projection disclosure","safe":"BLOCKED","proof_due":"incident escalation, isolation and Art.33 risk assessment","owner":"incident","detection":"privacy disclosure alert","recovery":"isolate and assess Art.33","receipt":"REQUIRED candidate incident record + consumer readback"}
+  ],
+  "release_gaps": [
+    "No selected #97 launch set with Content hash, current licence/source-use, FETCH/STORE_BODY/PUBLISH disposition and attribution",
+    "No third-agent final approval or independent second-agent check",
+    "No authentic #98 DP-704 source-to-correction rehearsal/rollback",
+    "No exact candidate MiniPC deployed source hash and all-surface readback",
+    "No accepted public terms, privacy/method/security notices and working legal/incident contact path",
+    "No scoped retention periods, account/cookie and backup erasure schedule; Q-306 all remain OPEN/BLOCKED",
+    "No exact release candidate DP-223/308/309/310 re-evaluation and full failure injection"
+  ],
+  "handoff": "Independent checker must read this draft against original AC-702.1-.14, live official sources and on-device tests, comment independently on #96, and leave the final scoped GO/NO-GO to a third distinct agent. Never infer permission from existence of this JSON artifact."
+}
