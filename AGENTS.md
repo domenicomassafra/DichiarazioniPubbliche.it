@@ -57,3 +57,22 @@ umano o una nuova firma personale. Usare il registro versionato/revocabile,
 le evidenze hash e il perimetro di `docs/ops/dp326-studio-discovery-metadata-rights-20261024.md`.
 Questa decisione non concede capture del body, modelli, review o pubblicazione;
 fonti differenti continuano a seguire i loro controlli specifici.
+
+## Real sources, rights and usability — owner decision 2026-10-25
+
+- Agents independently select as many **real**, attributable public statements by
+  well-known public figures as the task needs. Do not create synthetic source
+  material as a substitute for acceptance and do not request a source-by-source
+  owner choice or approval. Preserve source-specific identity and timestamps.
+- Agents conduct and cite source-specific legal, licensing, copyright and privacy
+  reviews, register the permitted uses and current rights evidence, and enforce
+  revocation and all existing publication gates. A verified origin alone is not
+  a license. Record only physical actions, secrets/password setup, or genuinely
+  personal decisions in this repository's "Prove personali" issue (#300) with
+  precise instructions; complete the remaining technical work autonomously.
+- Reuse existing native acquisition and review tools. For media transcripts,
+  prioritize the free instantaneous services ordered by DStack issue #166 when
+  that canonical inventory is available, before local transcription; respect
+  the approved provider routes and stop conditions.
+- Measure operator usability against actual source-linked data. Defer visual
+  redesign from issues #84, #324 and #349 until all other issues are finished.
