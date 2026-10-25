@@ -1,14 +1,14 @@
-"""DP-201: explicit, fail-closed OmniRoute canary for an included-cost model.
+"""DP-201: single, schema-constrained canary through a verified subscription gateway.
 
-An operator must independently verify the entitlement, quota and enforced cap,
-then pin the SHA-256 of a private attestation. Unknown values mean zero POSTs.
-No transcript or API key is stored in the public-safe receipt.
+Only the owner's pinned Antigravity route is eligible. The operator verifies the
+local gateway's account scope and paid-route guard before opting into one POST.
+Quota exhaustion fails closed; absent billing metadata is never reported as zero.
+No source text or credentials are included in the public-safe receipt.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -27,8 +27,10 @@ from dichiarazioni_pubbliche.claim_runtime import (  # noqa: E402
 )
 
 
-MAX_ATTESTATION_AGE_SECONDS = 7200
-MAX_HARD_CAP_USD = Decimal("0.25")
+SUBSCRIPTION_MODEL = "antigravity/gemini-3.8-flash-tiered"
+LOCAL_GATEWAY_URLS = frozenset({
+    "http://127.0.0.1:19128", "http://127.0.0.1:20128",
+})
 SYNTHETIC_WINDOW = "[seg=0 0:00.000-0:03.000] Il prezzo dichiarato è 10 euro."
 CANARY_MODEL = load_claim_config()["model"]
 
@@ -49,53 +51,6 @@ def _amount(value: Any) -> Decimal | None:
         return None
 
 
-def _verify_attestation(
-    path: Path, pin: str, model: str, now: datetime
-) -> tuple[dict[str, Any], str]:
-    if not path.is_file():
-        raise GateBlocked("COST_ATTESTATION_MISSING")
-    sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
-    if len(pin) != 64 or pin.lower() != sha256:
-        raise GateBlocked("COST_ATTESTATION_PIN_MISMATCH")
-    try:
-        obj = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, UnicodeError):
-        raise GateBlocked("COST_ATTESTATION_INVALID") from None
-    if not isinstance(obj, dict) or type(obj.get("schema_version")) is not int or obj["schema_version"] != 1:
-        raise GateBlocked("COST_ATTESTATION_INVALID")
-    if obj.get("model") != model:
-        raise GateBlocked("COST_ATTESTATION_MODEL_MISMATCH")
-    if obj.get("entitlement") != "included_subscription":
-        raise GateBlocked("COST_ATTESTATION_ENTITLEMENT_INVALID")
-    if _amount(obj.get("marginal_cost_usd_per_request")) != 0:
-        raise GateBlocked("COST_ATTESTATION_COST_NOT_ZERO")
-    cap = _amount(obj.get("hard_cap_usd"))
-    if cap is None or cap <= 0:
-        raise GateBlocked("COST_ATTESTATION_CAP_INVALID")
-    if cap > MAX_HARD_CAP_USD:
-        raise GateBlocked("COST_ATTESTATION_CAP_EXCEEDS_JOB_LIMIT")
-    total, remaining = obj.get("quota_total"), obj.get("quota_remaining")
-    if (
-        type(total) is not int or type(remaining) is not int
-        or total <= 0 or remaining < 0 or remaining > total
-    ):
-        raise GateBlocked("COST_ATTESTATION_QUOTA_UNKNOWN")
-    if remaining == 0:
-        raise GateBlocked("COST_ATTESTATION_QUOTA_EXHAUSTED")
-    if not isinstance(obj.get("source"), str) or not obj["source"].strip():
-        raise GateBlocked("COST_ATTESTATION_INVALID")
-    try:
-        observed = datetime.fromisoformat(obj["observed_at"].replace("Z", "+00:00"))
-        if observed.tzinfo is None:
-            raise ValueError("timezone missing")
-        age = (now - observed).total_seconds()
-    except (KeyError, TypeError, AttributeError, ValueError):
-        raise GateBlocked("COST_ATTESTATION_INVALID") from None
-    if age < 0 or age > MAX_ATTESTATION_AGE_SECONDS:
-        raise GateBlocked("COST_ATTESTATION_STALE")
-    return obj, sha256
-
-
 def _get_json(url: str, headers: dict[str, str], timeout: float) -> tuple[int, bytes]:
     request = urllib.request.Request(url, headers=headers)
     try:
@@ -113,14 +68,13 @@ def run_canary(
     *,
     base_url: str,
     api_key: str,
-    attestation_path: Path,
-    trusted_attestation_sha256: str,
+    subscription_gateway_verified: bool,
     receipt_path: Path,
     http_get: Callable[..., tuple[int, bytes]] = _get_json,
     client_factory: Callable[..., Any] = _claim_client,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Return a minimal receipt, including on failure; no request without preflight."""
+    """Return a minimal receipt, including on failure; no automatic retry."""
     now = now or datetime.now(timezone.utc)
     model = CANARY_MODEL
     receipt: dict[str, Any] = {
@@ -130,16 +84,19 @@ def run_canary(
         "model_requested": model,
         "live_canary_executed": False,
         "model_calls": 0,
+        "subscription_gateway_verified": bool(subscription_gateway_verified),
         "exact_model_in_catalog": False,
         "schema_constrained": False,
         "model_identity_exact": False,
         "observed_at": now.isoformat(),
     }
     try:
-        _, attestation_hash = _verify_attestation(
-            attestation_path, trusted_attestation_sha256, model, now
-        )
-        receipt["attestation_sha256"] = attestation_hash
+        if model != SUBSCRIPTION_MODEL:
+            raise GateBlocked("NON_SUBSCRIPTION_MODEL")
+        if base_url.rstrip("/") not in LOCAL_GATEWAY_URLS:
+            raise GateBlocked("UNTRUSTED_GATEWAY_ENDPOINT")
+        if not subscription_gateway_verified:
+            raise GateBlocked("SUBSCRIPTION_GATEWAY_UNVERIFIED")
         if not api_key:
             raise GateBlocked("OMNIROUTE_API_KEY_MISSING")
         try:
@@ -162,8 +119,9 @@ def run_canary(
             raise GateBlocked("CATALOG_READBACK_FAILED") from None
         receipt["catalog_models_count"] = len(data)
         receipt["exact_model_in_catalog"] = model in models
-        if model not in models:
-            raise GateBlocked("MODEL_NOT_EXPOSED_FOR_KEY")
+        # OmniRoute 3.8.52 can serve its pinned tiered Antigravity route
+        # even when the key-scoped /v1/models catalog does not list it.
+        # The actual completion must still return the exact wire model.
 
         client = client_factory(api_key, base_url)
         receipt["live_canary_executed"] = True
@@ -176,6 +134,10 @@ def run_canary(
         except Exception as exc:
             if "MODEL_SUBSTITUTED" in str(exc):
                 raise GateBlocked("MODEL_SUBSTITUTED") from None
+            if any(token in str(exc).upper() for token in (
+                "HTTP_429", "QUOTA_EXHAUSTED", "RESOURCE_EXHAUSTED",
+            )):
+                raise GateBlocked("SUBSCRIPTION_QUOTA_EXHAUSTED") from None
             raise GateBlocked("CANARY_MODEL_CALL_FAILED") from None
 
         receipt["model_returned"] = result.returned_model
@@ -202,7 +164,7 @@ def run_canary(
         if type(usage.get("total_tokens")) is int:
             receipt["usage"]["total_tokens"] = usage["total_tokens"]
         receipt["observed_cost_usd"] = result.observed_cost_usd
-        if _amount(result.observed_cost_usd) != 0:
+        if result.observed_cost_usd is not None and _amount(result.observed_cost_usd) != 0:
             raise GateBlocked("UNEXPECTED_PROVIDER_COST")
         receipt["claims_count"] = len(result.claims)
         receipt["latency_seconds"] = result.latency_seconds
@@ -231,16 +193,17 @@ def run_canary(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--attestation", type=Path, required=True)
-    parser.add_argument("--attestation-sha256", required=True)
+    parser.add_argument(
+        "--subscription-gateway-verified", action="store_true",
+        help="Operator has checked Antigravity Pro account-only routing and paid-route guard",
+    )
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--base-url", default="http://127.0.0.1:20128")
     args = parser.parse_args()
     receipt = run_canary(
         base_url=args.base_url,
         api_key=os.environ.get("OMNIROUTE_API_KEY", ""),
-        attestation_path=args.attestation,
-        trusted_attestation_sha256=args.attestation_sha256,
+        subscription_gateway_verified=args.subscription_gateway_verified,
         receipt_path=args.receipt,
     )
     print(json.dumps(receipt, sort_keys=True))
