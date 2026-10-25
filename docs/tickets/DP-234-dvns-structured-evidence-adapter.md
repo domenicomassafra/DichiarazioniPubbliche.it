@@ -212,7 +212,7 @@ selector, URL, record ID and dates. The original source is newer than DVNS:
 2026-04-30 in DVNS. Consequently private Evidence is `SUPERSEDED`, Observation
 `CANDIDATE`; no finding/claim/public projection is automatically approved.
 
-Mac Studio resource-guard tests: **73/73 PASS** across DP-234, official probe,
+Mac Studio resource-guard tests: **74/74 PASS** across DP-234, official probe,
 MCP/rights/staleness, repository and DP-215/source-intelligence. MiniPC peer
 PostgreSQL consumer `udodo` recorded a source-specific clearance valid for
 30 days and an authenticated private Evidence/Observation with independent

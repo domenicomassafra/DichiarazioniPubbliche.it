@@ -175,8 +175,11 @@
       "allowed_path_prefixes": ["/api/mcp"],
       "allowed_methods": ["POST"],
       "base_url": "https://www.dovevannoinostrisoldi.com/api/mcp",
-      "rate_limit": {"requests": 1, "window_seconds": 60},
-      "cache_ttl_seconds": 21600,
+      "rate_limit": {"requests": 4, "window_seconds": 60},
+      "cache_ttl_seconds": 0,
+      "max_response_bytes": 150000,
+      "read_timeout_seconds": 15,
+      "redirect_limit": 0,
       "accepted_content_types": ["text/event-stream", "application/json"],
       "rights_status": "UNKNOWN",
       "notes": "One OpenCoesione project aggregate only; external primary locator and explicit current private source-use receipt required. No public authority."

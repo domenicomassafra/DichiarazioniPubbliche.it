@@ -22,6 +22,7 @@ from dichiarazioni_pubbliche.dvns_structured_evidence import (
     DVNS_SOURCE_SCHEMA_VERSION,
 )
 from dichiarazioni_pubbliche.private_capture_rights import evaluate_source_use
+from dichiarazioni_pubbliche.evidence_runtime import SafeEvidenceFetcher
 from dichiarazioni_pubbliche.rights_registry import RightsSubject
 from dichiarazioni_pubbliche.source_intelligence import load_source_intelligence_contract
 
@@ -124,11 +125,32 @@ def observe_official_reference(*, opener=None) -> OfficialReferenceReceipt:
                                     period, projects)
 
 
-def fetch_public_mcp_snapshot(*, opener=None) -> dict[str, Any]:
-    """One fixed query, no credentials, user URLs, pagination or bulk fetch."""
+def fetch_public_mcp_snapshot(*, opener=None, fetcher=None) -> dict[str, Any]:
+    """One fixed query through DP-228's bounded evidence transport.
+
+    ``opener`` is only used by isolated protocol tests. Production calls use
+    DP-228 host/method validation, redirect policy, limits and rate guard.
+    """
     envelope = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                 "params": {"name": "query_dataset", "arguments": {"dataset": DATASET}}}
-    raw = _open_fixed(MCP_URL, body=json.dumps(envelope).encode(), opener=opener)
+    body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
+    if opener is not None:
+        raw = _open_fixed(MCP_URL, body=body, opener=opener)
+    else:
+        result = (fetcher or SafeEvidenceFetcher()).request(
+            PROVIDER, MCP_URL, method="POST", body=body,
+            content_type="application/json",
+        )
+        receipt = result.receipt
+        if (receipt.canonical_url != MCP_URL or receipt.final_url != MCP_URL
+                or receipt.http_status != 200
+                or receipt.content_type not in {"text/event-stream", "application/json"}
+                or receipt.response_bytes <= 0 or receipt.response_bytes > MAX_RESPONSE):
+            raise DvnsMcpError("DVNS_MCP_DP228_RECEIPT_INVALID")
+        raw = result.body_path.read_bytes()
+        if (len(raw) != receipt.response_bytes or len(raw) > MAX_RESPONSE
+                or hashlib.sha256(raw).hexdigest() != receipt.content_sha256):
+            raise DvnsMcpError("DVNS_MCP_DP228_BODY_MISMATCH")
     try:
         message = raw.decode("utf-8")
         if message.startswith("event:") or message.startswith("data:"):

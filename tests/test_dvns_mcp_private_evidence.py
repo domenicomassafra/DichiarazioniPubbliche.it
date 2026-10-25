@@ -3,6 +3,9 @@ import sys
 import unittest
 import io
 import json
+import hashlib
+import tempfile
+from types import SimpleNamespace
 from dataclasses import replace
 from pathlib import Path
 
@@ -199,6 +202,40 @@ class DvnsMcpPrivateEvidenceTests(unittest.TestCase):
         blob = ("event: message\ndata: " + json.dumps(valid) + "\n\n").encode()
         with self.assertRaisesRegex(DvnsMcpError, "DVNS_MCP_RPC_FAILED"):
             fetch_public_mcp_snapshot(opener=FakeOpener(blob, "text/event-stream"))
+
+    def test_dp228_post_transport_receipt_is_bound_to_cached_response_bytes(self):
+        from dichiarazioni_pubbliche.dvns_mcp_private_evidence import MCP_URL, PROVIDER
+
+        valid = {"jsonrpc": "2.0", "id": 1, "result": {
+            "content": [{"type": "text", "text": json.dumps(official_response())}]}}
+        body = ("event: message\ndata: " + json.dumps(valid) + "\n\n").encode()
+
+        class FakeDp228:
+            def __init__(self, body_path):
+                self.body_path = body_path
+                self.invalid_digest = False
+
+            def request(self, source_id, url, *, method, body, content_type):
+                self_source = self
+                assert source_id == PROVIDER and url == MCP_URL
+                assert method == "POST" and content_type == "application/json"
+                assert json.loads(body)["params"]["arguments"] == {"dataset": "opencoesione_progetti"}
+                payload = self_source.body_path.read_bytes()
+                return SimpleNamespace(body_path=self_source.body_path, receipt=SimpleNamespace(
+                    canonical_url=url, final_url=url, http_status=200,
+                    content_type="text/event-stream", response_bytes=len(payload),
+                    content_sha256=("a" * 64 if self_source.invalid_digest
+                                    else hashlib.sha256(payload).hexdigest()),
+                ))
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dp228-response"
+            path.write_bytes(body)
+            fetcher = FakeDp228(path)
+            self.assertEqual(fetch_public_mcp_snapshot(fetcher=fetcher), official_response())
+            fetcher.invalid_digest = True
+            with self.assertRaisesRegex(DvnsMcpError, "DVNS_MCP_DP228_BODY_MISMATCH"):
+                fetch_public_mcp_snapshot(fetcher=fetcher)
 
     def test_licence_must_be_observed_on_official_site(self):
         with self.assertRaisesRegex(DvnsMcpError, "DVNS_MCP_OFFICIAL_LICENCE_NOT_VERIFIED"):
