@@ -22,8 +22,9 @@ ISSUER_ACTOR = "agent:private-rights-reviewer:camera"
 ISSUER_ROLE = "PRIVATE_RIGHTS_AGENT"
 POLICY_VERSION = "dp426-camera-article5-private-text-20261025-v1"
 LEGAL_BASIS = (
-    "https://def.finanze.it/DocTribFrontend/getAttoNormativoDetail.do?"
-    "ACTION=getArticolo&id=%7B012E634A-9F52-4452-B7F7-980D83EDE0C6%7D"
+    "https://def.finanze.it/DocTribFrontend/getAttoNormativoDetail.do?ACTION=getArticolo&"
+    "codiceOrdinamento=0000000000000050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&"
+    "id=%7B012E634A-9F52-4452-B7F7-980D83EDE0C6%7D"
 )
 # The historical SHA-256s are from actual archived PostgreSQL Capture bytes.
 SOURCES: dict[str, tuple[str, str]] = {

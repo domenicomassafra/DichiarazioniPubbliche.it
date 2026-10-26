@@ -21,7 +21,7 @@ no authorisation for a public excerpt, user-visible page or candidate promotion.
 - Primary Italian legal rule: Law 22 April 1941 no. 633, article 5,
   <https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:1941-04-22;633~art5>,
   and the Ministry of Finance article text:
-  <https://def.finanze.it/DocTribFrontend/getAttoNormativoDetail.do?ACTION=getArticolo&id=%7B012E634A-9F52-4452-B7F7-980D83EDE0C6%7D>.
+  <https://def.finanze.it/DocTribFrontend/getAttoNormativoDetail.do?ACTION=getArticolo&codiceOrdinamento=0000000000000050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&id=%7B012E634A-9F52-4452-B7F7-980D83EDE0C6%7D>.
   The provision excludes texts of official state acts from copyright
   protection under this law. This documented determination covers only private
   parsing of the official stenographic text that was actually archived;
@@ -30,8 +30,8 @@ no authorisation for a public excerpt, user-visible page or candidate promotion.
 - Privacy treatment: only text of public parliamentary interventions,
   already archived under the existing private source/purpose and retention
   policy. The excerpt is attributable to the named parliamentarian in the
-  original minutes; there is no new processing of sensitive third parties,
-  biometrics, inferred ideology or private personal data. Scope remains
+  original minutes; the private text check does not authorize biometrics,
+  profiling, collection of unrelated personal details or public reuse. Scope remains
   `PRIVATE_OFFICIAL_TEXT_ONLY_NO_PUBLIC_EXCERPT`.
 - Jurisdiction IT, policy
   `dp426-camera-article5-private-text-20261025-v1`, existing rights-review
