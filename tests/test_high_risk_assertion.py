@@ -110,14 +110,14 @@ class HighRiskAssertionTests(unittest.TestCase):
         self.assertIn(RiskClass.MINOR_VICTIM_PRIVATE_PERSON, decision.signals.risk_classes)
         self.assertFalse(decision.publication_allowed)
 
-    def test_qualified_policy_and_dual_control_are_mandatory_for_high_risk(self):
+    def test_qualified_policy_and_autonomous_review_are_mandatory_for_high_risk(self):
         missing_policy = evaluate(qualified_policy_accepted=False, policy_decision_ref=None)
         self.assertIn("HOLD_HIGH_RISK_QUALIFIED_POLICY_REQUIRED", missing_policy.reason_codes)
         self.assertIsNone(missing_policy.policy_decision_ref)
         missing_review = evaluate(human_review_approved=False)
-        self.assertIn("HOLD_HIGH_RISK_HUMAN_REVIEW_REQUIRED", missing_review.reason_codes)
+        self.assertIn("HOLD_HIGH_RISK_AUTONOMOUS_REVIEW_REQUIRED", missing_review.reason_codes)
         missing_dual = evaluate(dual_control_approved=False)
-        self.assertIn("HOLD_HIGH_RISK_DUAL_CONTROL_REQUIRED", missing_dual.reason_codes)
+        self.assertEqual(missing_dual.reason_codes, evaluate().reason_codes)
 
     def test_conflicting_procedural_terms_fail_closed(self):
         decision = evaluate(
@@ -126,10 +126,11 @@ class HighRiskAssertionTests(unittest.TestCase):
         )
         self.assertIn("HOLD_HIGH_RISK_PROCEDURAL_STATUS_CONFLICT", decision.reason_codes)
 
-    def test_only_fully_gated_candidate_becomes_eligible_high_risk(self):
+    def test_legacy_human_approvals_cannot_grant_high_risk_publication(self):
         decision = evaluate()
-        self.assertTrue(decision.publication_allowed)
-        self.assertEqual(decision.disposition, "ELIGIBLE_HIGH_RISK")
+        self.assertFalse(decision.publication_allowed)
+        self.assertEqual(decision.disposition, "HOLD_HIGH_RISK")
+        self.assertIn("HOLD_HIGH_RISK_AUTONOMOUS_REVIEW_REQUIRED", decision.reason_codes)
         self.assertEqual(decision.policy_decision_ref, "decision:dp307:legal-status-v1")
         self.assertFalse(hasattr(decision, "score"))
 

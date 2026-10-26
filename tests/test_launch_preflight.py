@@ -50,7 +50,7 @@ class LaunchPreflightTests(unittest.TestCase):
             legal_statuses={question_id: "DECIDED" for question_id in REQUIRED_LEGAL_QUESTIONS},
             artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
         )
-        self.assertEqual(result.disposition, "PENDING-RELEASE-AUTHORITY")
+        self.assertEqual(result.disposition, "PENDING-AUTONOMOUS-RELEASE-AUDIT")
         self.assertEqual(result.blockers, ())
         self.assertFalse(result.launchable)
 

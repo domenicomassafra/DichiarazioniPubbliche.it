@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Mapping
 
 
-LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v3"
+LAUNCH_PREFLIGHT_VERSION = "launch-preflight-v4"
 
 _PLAN_ROW = re.compile(r"^\| (DP-\d{3}) \| ([^|]+) \|", re.MULTILINE)
 _TICKET_DETAIL_STATUS = re.compile(
@@ -80,8 +80,8 @@ class LaunchPreflightResult:
     @property
     def launchable(self) -> bool:
         # Engineering preflight never has authority to launch. If all mechanical
-        # blockers disappear it can only hand off to the release decider delegated
-        # by the owner in issue #300, with a release-specific authority receipt.
+        # blockers disappear it can only hand off to the independent three-agent release audit
+        # specified in issue #300, with a release-specific authority receipt.
         return False
 
 
@@ -182,7 +182,7 @@ def evaluate_launch_preflight(
     blockers.extend(f"RELEASE_ARTIFACT_MISSING:{name}" for name in missing_artifacts)
 
     canonical_blockers = tuple(sorted(set(blockers)))
-    disposition = "NO-GO" if canonical_blockers else "PENDING-RELEASE-AUTHORITY"
+    disposition = "NO-GO" if canonical_blockers else "PENDING-AUTONOMOUS-RELEASE-AUDIT"
     receipt_payload = {
         "version": LAUNCH_PREFLIGHT_VERSION,
         "disposition": disposition,

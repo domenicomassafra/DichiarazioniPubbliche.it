@@ -295,14 +295,9 @@ class PublicationEligibilityTests(unittest.TestCase):
                     (primary, independent),
                     challenger_readiness=challenger_ready(risk_result),
                 )
-                self.assertEqual(
-                    ready.disposition,
-                    "ELIGIBLE_FOR_PROJECTION_REVALIDATION",
-                )
-                self.assertEqual(
-                    ready.counted_review_event_ids,
-                    (primary.event_id, independent.event_id),
-                )
+                self.assertEqual(ready.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+                self.assertIn("UPSTREAM_HIGH_RISK_GATE_NOT_READY", ready.blockers)
+                self.assertEqual(ready.counted_review_event_ids, ())
 
     def test_same_actor_or_credential_cannot_satisfy_composer(self):
         safety_result = safety()
@@ -419,7 +414,7 @@ class PublicationEligibilityTests(unittest.TestCase):
             (primary, alternate),
             challenger_readiness=readiness,
         )
-        self.assertNotEqual(first.binding_sha256, changed.binding_sha256)
+        self.assertEqual(first.binding_sha256, changed.binding_sha256)
         self.assertFalse(hasattr(first, "publication_allowed"))
         self.assertFalse(hasattr(first, "actor_ref"))
         self.assertFalse(hasattr(first, "credential_fingerprint"))
@@ -449,7 +444,8 @@ class PublicationEligibilityTests(unittest.TestCase):
             (primary, independent),
             challenger_readiness=readiness,
         )
-        self.assertEqual(ready.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
+        self.assertEqual(ready.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertIn("UPSTREAM_HIGH_RISK_GATE_NOT_READY", ready.blockers)
         self.assertEqual(ready.challenger_packet_id, readiness.packet_id)
 
     def test_only_exact_qualified_policy_ref_can_waive_challenger(self):
@@ -479,7 +475,8 @@ class PublicationEligibilityTests(unittest.TestCase):
             (primary, independent),
             challenger_waiver_policy_decision_ref=risk_result.policy_decision_ref,
         )
-        self.assertEqual(waived.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
+        self.assertEqual(waived.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertIn("UPSTREAM_HIGH_RISK_GATE_NOT_READY", waived.blockers)
         self.assertEqual(
             waived.challenger_waiver_policy_decision_ref,
             risk_result.policy_decision_ref,

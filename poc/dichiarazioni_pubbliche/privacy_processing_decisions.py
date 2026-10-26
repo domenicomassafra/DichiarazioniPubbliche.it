@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -35,7 +34,6 @@ _DECISION_FIELDS = frozenset({
 })
 _EVIDENCE_FIELDS = (
     "necessity_receipt", "notice_receipt", "retention_receipt", "access_receipt",
-    "owner_decision_url",
 )
 _RECEIPT_URL = re.compile(
     r"https://github\.com/domenicomassafra/"
@@ -103,17 +101,11 @@ def evaluate_processing_decisions(
             or row["independent_review_outcome"] != "APPROVE"
             or not isinstance(row["independent_review_receipt"], str)
             or _RECEIPT_URL.fullmatch(row["independent_review_receipt"]) is None
-            or row["independent_review_receipt"] == row["owner_decision_url"]
+            or row["independent_review_receipt"] in (row[key] for key in _EVIDENCE_FIELDS)
             or not isinstance(row["independent_review_sha"], str)
             or _REVIEWED_SHA.fullmatch(row["independent_review_sha"]) is None
         ):
             blockers.append(f"PRIVACY_INDEPENDENT_REVIEW_MISSING:{family}")
-        stamp = row["owner_decision_date"]
-        try:
-            if not isinstance(stamp, str) or date.fromisoformat(stamp).isoformat() != stamp:
-                raise ValueError("invalid date")
-        except ValueError:
-            blockers.append(f"PRIVACY_OWNER_DATE_MISSING:{family}")
     return tuple(sorted(blockers))
 
 

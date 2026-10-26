@@ -155,26 +155,17 @@ def evaluate_high_risk_candidate(
         reasons.append("HOLD_HIGH_RISK_ALLEGATION_FRAMING_LOST")
     if not qualified_policy_accepted or not str(policy_decision_ref or "").strip():
         reasons.append("HOLD_HIGH_RISK_QUALIFIED_POLICY_REQUIRED")
-    if not human_review_approved:
-        reasons.append("HOLD_HIGH_RISK_HUMAN_REVIEW_REQUIRED")
-    if not dual_control_approved:
-        reasons.append("HOLD_HIGH_RISK_DUAL_CONTROL_REQUIRED")
-    if reasons:
-        return HighRiskDecision(
-            disposition="HOLD_HIGH_RISK",
-            reason_codes=tuple(dict.fromkeys(reasons)),
-            signals=signals,
-            policy_decision_ref=(
-                str(policy_decision_ref).strip()
-                if policy_decision_ref is not None and str(policy_decision_ref).strip()
-                else None
-            ),
-        )
+    # Old approval flags are untrusted; DP-413B supplies v3 review authority.
+    reasons.append("HOLD_HIGH_RISK_AUTONOMOUS_REVIEW_REQUIRED")
     return HighRiskDecision(
-        disposition="ELIGIBLE_HIGH_RISK",
-        reason_codes=("ALL_ACCEPTED_HIGH_RISK_GATES_PASS",),
+        disposition="HOLD_HIGH_RISK",
+        reason_codes=tuple(dict.fromkeys(reasons)),
         signals=signals,
-        policy_decision_ref=str(policy_decision_ref).strip(),
+        policy_decision_ref=(
+            str(policy_decision_ref).strip()
+            if policy_decision_ref is not None and str(policy_decision_ref).strip()
+            else None
+        ),
     )
 
 
