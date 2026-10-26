@@ -15,6 +15,7 @@ from dichiarazioni_pubbliche.claim_extraction_transport import (
     _cost_from_response, _read_env_file, call_omniroute, response_content,
 )
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
+from dichiarazioni_pubbliche.dp202_cli_rights import registered_source_guard
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -459,8 +460,7 @@ def require_live_benchmark_preflight(
     if not valid:
         raise RuntimeError("DP202_PARENT_CANARY_UNVERIFIED")
 
-    # The registry guard must read an up-to-date, source-specific rights record.
-    # A CLI flag or an unbound approval JSON is not a source-use permission.
+    # Re-read source-specific current rights. CLI flags never grant permission.
     if not isinstance(source_use_guard, SourceFamilyUseGuard):
         raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED")
     try:
@@ -527,6 +527,7 @@ def main() -> None:
     )
     parser.add_argument("--env-file", type=Path)
     parser.add_argument("--parent-canary-receipt", type=Path)
+    parser.add_argument("--rights-context", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--threshold", type=float, default=0.49)
     parser.add_argument("--max-tokens", type=int, default=4096)
@@ -545,6 +546,7 @@ def main() -> None:
         max_tokens=args.max_tokens,
         timeout_seconds=args.timeout,
         parent_canary_receipt=args.parent_canary_receipt,
+        source_use_guard=registered_source_guard(args.rights_context, audit_path=args.audit),
     )
 
     if args.output_dir:
