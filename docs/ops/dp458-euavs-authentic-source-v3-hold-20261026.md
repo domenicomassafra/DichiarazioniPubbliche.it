@@ -80,3 +80,30 @@ ssh minipc 'systemd-run --user --wait --pipe --collect --property=EnvironmentFil
 Exit **0** and JSON: status **REAL_STUDIO_LOOPBACK_MEDIA_HOLD**, GET login HTTP **200**, unauthenticated playback **401**, authenticated playback **503** (no binding row; server deliberately returns generic backend-unavailable message), no binary media returned, Cache-Control **no-store, private**, no original URL/SHA/token in error response, publication_authorized=false. The non-200 response proves *fail-closed*, not a successful seek. The 503 for an absent binding is a diagnostic/status distinction, **not** evidence of outage.
 
 The existing Chrome/Node accessibility harness was executed against a **fixture HTTP server returning the real unmodified I-293056 AAC/MP4 bytes** and the corrected-script change was not yet propagated to that fixture's first run (the first test used 14669–18940 ms). That first real-blob Chrome run exited **1** with "original media bytes must prove native currentTime seek"; a diagnostic run gave **Decoder audio non disponibile: nessun seek verificato**, with media src removed, hidden, paused, currentTime=0. This is a genuine **negative** decoder/capability result and **not** an authenticated database end-to-end test. The Chrome test must be rerun with 74669–78940 ms after decoder support is demonstrated; even if that succeeds, independent acoustic verification and true version-bound binding still remain necessary. Do not equate an isolated browser fixture with private Studio authority.
+
+
+### Real persisted MiniPC Chrome browser loopback — authenticated HOLD (2026-10-26)
+
+A **separate live browser acceptance**, unlike the mock HTTP/Chrome fixture, was run on the actual MiniPC with the authentic PostgreSQL candidate, current rights, the installed StudioLoopbackServer reading original private Capture storage, and the system's genuine /usr/bin/google-chrome via Chrome DevTools Protocol. The standalone executable is tools/dp458_studio_browser_hold.mjs; one temporary browser profile and one private token were destroyed afterwards. The browser was bound to the actual 127.0.0.1:18777 listener, with no reverse proxy or public exposure. An unbound real candidate is deliberately **not** made playable.
+
+Reproduction after the script is available on the MiniPC checkout, with a new private 0600 ephemeral token generated on that same host and never printed:
+
+~~~bash
+# MiniPC: create the private token using mode 0600 in the existing 0700 root.
+python3 - <<'PY'
+import os, secrets
+from pathlib import Path
+p=Path.home()/".local/share/dichiarazioni-pubbliche/dp458/studio-browser-token"
+fd=os.open(p,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+try: os.write(fd,secrets.token_hex(32).encode())
+finally: os.close(fd)
+PY
+systemd-run --user --unit=dp458-browser-hold --collect   --property=EnvironmentFile=/home/udodo/.config/dichiarazioni-pubbliche/runtime.env   --property=WorkingDirectory=/home/udodo/src/DichiarazioniPubbliche.it   /usr/bin/env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc   /usr/bin/python3 -m dichiarazioni_pubbliche.studio_local_api     --port 18777     --token-file /home/udodo/.local/share/dichiarazioni-pubbliche/dp458/studio-browser-token     --capture-body-root /home/udodo/.local/share/dichiarazioni-pubbliche/dp458/capture-bodies
+/home/udodo/.nvm/versions/node/v24.18.0/bin/node tools/dp458_studio_browser_hold.mjs
+systemctl --user stop dp458-browser-hold.service
+rm /home/udodo/.local/share/dichiarazioni-pubbliche/dp458/studio-browser-token
+~~~
+
+Observed **exit 0** with the tested script staged in /tmp: status REAL_PERSISTED_STUDIO_BROWSER_FAIL_CLOSED, keyboard activation **true**, authenticated /v1/media/binding **HTTP 503** and /v1/media/playback **HTTP 503** (the missing persisted binding produces generic backend-unavailable API responses), original media **never returned to the browser**, no media src/blob, audio hidden/paused, native currentTime **0**, no autoplay, no page text or private media URL leak, browser token input cleared, native_seek **NOT_AUTHORIZED**, publication_authorized **false**. The installed browser page reports preload=metadata before activation but has **no media src and makes no media request before user action**; do not misreport preload=none for this installed build. The 503 is a generic service error code rather than a precise rights reason: the independent DB readback binding_count=0 and the real v3 HOLD provide the source-specific explanation. After the test the actual listener was stopped (port 18777 no listener), private ephemeral token deleted, and disposable Chrome profiles cleaned (0 remaining).
+
+This fulfills a **real browser negative HOLD and leakage/autoplay/keyboard proof** on the persisted record, but **does not fulfill positive native currentTime seek acceptance**. A separate independently aligned, genuinely version-bound current Capture→Segment proof and a supported browser decoder are still necessary. No source-use/publication clearance is inferred from the browser having loaded the Studio page.
