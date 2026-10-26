@@ -134,6 +134,7 @@ def _db(path: Path) -> Iterator[sqlite3.Connection]:
             seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL,
             observed_at TEXT NOT NULL, status TEXT NOT NULL, reason TEXT NOT NULL,
             provider_ack TEXT, safe_count INTEGER NOT NULL, commit_to_safe_ms INTEGER,
+            observations_json TEXT NOT NULL,
             FOREIGN KEY(event_id) REFERENCES event(event_id))""")
         for command in (
             ("CREATE TRIGGER IF NOT EXISTS event_no_update BEFORE UPDATE ON event "
@@ -190,9 +191,11 @@ class WithdrawalRunner:
                 # A prior success is NOT proof that a later rollback stayed safe.
                 valid = False
                 try:
-                    if self.verify_current_release(event) is True and all(
+                    if (self.verify_current_release(event) is True and all(
+                        _safe(probe, self.read_origin(probe)) for probe in event.probes
+                    ) and all(
                         _safe(probe, self.read_edge(probe)) for probe in event.probes
-                    ) and self.verify_current_release(event) is True:
+                    ) and self.verify_current_release(event) is True):
                         valid = True
                 except Exception:  # noqa: BLE001 - fail closed on any untrusted adapter error
                     valid = False
@@ -202,11 +205,22 @@ class WithdrawalRunner:
         ack = None
         count = 0
         reason = "RELEASE_FENCE_UNVERIFIED"
+        observations: list[dict[str, str | int]] = []
+
+        def observed(location: str, probe: Probe, response: ProbeResult) -> ProbeResult:
+            if (isinstance(response, ProbeResult) and type(response.status) is int
+                    and isinstance(response.body, bytes) and len(response.body) <= _MAX_BODY):
+                observations.append({
+                    "location": location, "path": probe.path, "status": response.status,
+                    "body_sha256": hashlib.sha256(response.body).hexdigest(),
+                })
+            return response
+
         try:
             if self.verify_current_release(event) is not True:
                 raise _Held(reason)
             for probe in event.probes:
-                if not _safe(probe, self.read_origin(probe)):
+                if not _safe(probe, observed("origin", probe, self.read_origin(probe))):
                     raise _Held("ORIGIN_UNSAFE_OR_UNAVAILABLE")
             if self.verify_current_release(event) is not True:
                 raise _Held("RELEASE_FENCE_CHANGED")
@@ -218,7 +232,7 @@ class WithdrawalRunner:
                 ack = None
                 raise _Held("PURGE_ACK_MISSING")
             for probe in event.probes:
-                if not _safe(probe, self.read_edge(probe)):
+                if not _safe(probe, observed("edge", probe, self.read_edge(probe))):
                     raise _Held("EDGE_UNSAFE_OR_UNAVAILABLE")
                 count += 1
             if self.verify_current_release(event) is not True:
@@ -235,11 +249,12 @@ class WithdrawalRunner:
         result = WithdrawalResult(status, reason, ack, count, elapsed)
         with _db(self.ledger) as db:
             db.execute("""INSERT INTO attempt(event_id,observed_at,status,reason,
-                        provider_ack,safe_count,commit_to_safe_ms)
-                        VALUES (?,?,?,?,?,?,?)""", (
+                        provider_ack,safe_count,commit_to_safe_ms,observations_json)
+                        VALUES (?,?,?,?,?,?,?,?)""", (
                 event.event_id, datetime.now(UTC).isoformat(),
                 result.status, result.reason, result.provider_ack,
-                result.safe_count, result.commit_to_safe_ms))
+                result.safe_count, result.commit_to_safe_ms,
+                json.dumps(observations, sort_keys=True, separators=(",", ":"))))
         return result
 
 
@@ -252,12 +267,14 @@ def withdrawal_digest(ledger: Path) -> dict:
     with _db(ledger) as db:
         events = db.execute("SELECT event_id,event_json FROM event").fetchall()
         attempts = db.execute("""SELECT event_id,status,provider_ack,
-                                 commit_to_safe_ms,reason FROM attempt ORDER BY seq""").fetchall()
+                                 commit_to_safe_ms,reason,observations_json
+                                 FROM attempt ORDER BY seq""").fetchall()
     latest = {row[0]: row for row in attempts}
     latencies = sorted(row[3] for row in latest.values()
                        if row[1] == "SAFE_READBACK" and row[3] is not None)
     reasons: dict[str, int] = {}
     holds: dict[str, int] = {}
+    http_statuses: dict[str, int] = {}
     surfaces = 0
     for _, raw in events:
         item = json.loads(raw)
@@ -266,6 +283,10 @@ def withdrawal_digest(ledger: Path) -> dict:
     for row in latest.values():
         if row[1] != "SAFE_READBACK":
             holds[row[4]] = holds.get(row[4], 0) + 1
+    for row in attempts:
+        for item in json.loads(row[5]):
+            status = str(item["status"])
+            http_statuses[status] = http_statuses.get(status, 0) + 1
     return {
         "event_count": len(events), "affected_surface_count": surfaces,
         "attempt_count": len(attempts), "reason_classes": reasons,
@@ -273,6 +294,7 @@ def withdrawal_digest(ledger: Path) -> dict:
         "safe_count": sum(row[1] == "SAFE_READBACK" for row in latest.values()),
         "hold_count": sum(row[1] != "SAFE_READBACK" for row in latest.values()),
         "hold_reasons_requiring_response": holds,
+        "observed_http_status_counts": http_statuses,
         "measured_latency_count": len(latencies),
         "commit_to_last_safe_ms": latencies,
         "observed_median_ms": int(statistics.median(latencies)) if latencies else None,
@@ -293,7 +315,7 @@ def http_probe(base: str, probe: Probe, *, timeout: float = 5) -> ProbeResult:
             or url.path not in ("", "/") or url.query or url.fragment):
         raise ValueError("HTTP_PROBE_BASE_INVALID")
     req = request.Request(base.rstrip("/") + probe.path,
-                          headers={"Cache-Control": "no-cache", "Accept-Encoding": "identity"})
+                          headers={"Accept-Encoding": "identity"})
     opener = request.build_opener(_NoRedirect)
     try:
         with opener.open(req, timeout=timeout) as response:

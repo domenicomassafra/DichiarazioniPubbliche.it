@@ -76,6 +76,31 @@ class CDNWithdrawalTests(unittest.TestCase):
         self.assertEqual(digest["ack_count"], 1)
         self.assertEqual(digest["safe_count"], 1)
 
+    def test_successful_retry_cannot_reuse_ack_if_origin_rolled_back(self):
+        self.assertEqual(self.runner().run(self.event).status, "SAFE_READBACK")
+        cached_edge = dict(self.responses)
+        self.responses["/api/v1/findings"] = ProbeResult(200, b"old withdrawn data", "MISS")
+        attempted = self.runner(edge=lambda probe: cached_edge[probe.path]).run(self.event)
+        self.assertEqual(attempted.status, "HOLD")
+        self.assertEqual(attempted.reason, "ORIGIN_UNSAFE_OR_UNAVAILABLE")
+        self.assertEqual(self.purge_count, 1)
+
+    def test_immutable_attempt_receipt_records_origin_edge_http_status_and_hashes(self):
+        self.runner().run(self.event)
+        with sqlite3.connect(self.ledger) as db:
+            receipt = db.execute("SELECT observations_json FROM attempt").fetchone()[0]
+        observations = json.loads(receipt)
+        self.assertEqual(len(observations), 6)
+        self.assertEqual(observations[0], {
+            "location": "origin", "path": "/", "status": 200, "body_sha256": sha(b"safe"),
+        })
+        self.assertEqual(observations[-1], {
+            "location": "edge", "path": "/old-quote", "status": 404,
+            "body_sha256": sha(b""),
+        })
+        self.assertEqual(withdrawal_digest(self.ledger)["observed_http_status_counts"],
+                         {"200": 4, "404": 2})
+
     def test_timeout_and_missing_ack_keep_hold_and_retry_without_false_success(self):
         runner = self.runner(ack=TimeoutError("private URL/token must not leak"))
         result = runner.run(self.event)
@@ -123,6 +148,12 @@ class CDNWithdrawalTests(unittest.TestCase):
     def test_live_http_probe_observes_status_and_actual_bytes(self):
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path == "/cache-key":
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"normal edge request" if not self.headers.get("Cache-Control")
+                                     else b"forced revalidation")
+                    return
                 if self.path == "/gone":
                     self.send_response(410)
                     self.end_headers()
@@ -149,6 +180,8 @@ class CDNWithdrawalTests(unittest.TestCase):
                                  ProbeResult(200, b"safe", "HIT"))
                 self.assertEqual(http_probe(base, Probe("/gone", None)).status, 410)
                 self.assertEqual(http_probe(base, Probe("/redirect", None)).status, 302)
+                self.assertEqual(http_probe(base, Probe("/cache-key", sha(b"normal edge request"))).body,
+                                 b"normal edge request")
             finally:
                 server.shutdown()
                 thread.join(timeout=5)
