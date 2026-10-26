@@ -78,7 +78,8 @@ _VERIFY_BINDINGS_SQL = """
 SELECT observation.task_id
 FROM jsonb_to_recordset(:'observations'::jsonb) AS observation(
     task_id text, source_id text, capture_id text, passage_id text,
-    statement_candidate_id text, rights_record_id text, coverage_need_id text
+    statement_candidate_id text, rights_record_id text, coverage_need_id text,
+    expected_result_ids text[]
 )
 WHERE (
     observation.task_id='coverage-gap'
@@ -112,6 +113,12 @@ WHERE (
           AND rights.permitted_uses @> ARRAY['FETCH','STORE_BODY','RESEARCH_CAPTURE_PRIVATE']::text[]
           AND NOT EXISTS (SELECT 1 FROM private_source_rights_record successor
                           WHERE successor.supersedes_id=rights.id)
+          AND (observation.expected_result_ids IS NULL OR (
+              cardinality(observation.expected_result_ids)>0
+              AND EXISTS (SELECT 1 FROM atomic_claim claim
+                          WHERE claim.content_id=item.id
+                            AND (claim.id=ANY(observation.expected_result_ids)
+                                 OR claim.speaker_person_id=ANY(observation.expected_result_ids)))))
           AND (observation.passage_id IS NULL OR EXISTS (
               SELECT 1 FROM passage passage
               WHERE passage.id=observation.passage_id
@@ -133,15 +140,30 @@ ORDER BY observation.task_id;
 
 
 def read_verified_task_bindings(reader: Any, observations: Mapping[str, Any]) -> set[str]:
-    """Verify exact collection, Capture, Passage, Candidate and current rights links."""
+    """Verify capture/rights lineage against the observed search result's Content."""
     if not isinstance(observations, dict) or len(observations) > 25:
         raise ValueError("DP420_OBSERVATIONS_INVALID")
-    records = [dict(task_id=name, **{
-        key: value for key, value in observed.items()
-        if key in {"source_id", "capture_id", "passage_id", "statement_candidate_id",
-                   "rights_record_id", "coverage_need_id"} and isinstance(value, str)
-    }) for name, observed in observations.items() if isinstance(observed, dict)
-        and observed.get("status") == "PASS"]
+    _, tasks = _load_tasks()
+    if not set(observations) <= {task["id"] for task in tasks}:
+        raise ValueError("DP420_OBSERVATIONS_INVALID")
+    search_by_task = {task["id"]: task["search_case"] for task in tasks if "search_case" in task}
+    _, _, _, gold = load_fixture()
+    gold_by_id = {case.id: list(case.expected_any_ids) for case in gold}
+    records = []
+    for name, observed in observations.items():
+        if not isinstance(observed, dict) or observed.get("status") != "PASS":
+            continue
+        record = {"task_id": name, **{
+            key: value for key, value in observed.items()
+            if key in {"source_id", "capture_id", "passage_id", "statement_candidate_id",
+                       "rights_record_id", "coverage_need_id"} and isinstance(value, str)
+        }}
+        if name in search_by_task:
+            expected = gold_by_id.get(search_by_task[name])
+            if not expected:
+                raise ValueError("DP420_TASK_SEARCH_GOLD_DRIFT")
+            record["expected_result_ids"] = expected
+        records.append(record)
     if not records:
         return set()
     try:
