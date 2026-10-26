@@ -97,9 +97,10 @@ jobs:
             else
               # Avoid the repeatedly stalled Azure mirror on hosted Ubuntu.
               sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/sources.list.d/ubuntu.sources
-              # Hosted runners can resolve mirrors through this file instead of ubuntu.sources.
+              # The hosted image may resolve ubuntu.sources through this mirrorlist.
+              # Editing ubuntu.sources alone then leaves APT using the Azure mirror.
               if [[ -f /etc/apt/apt-mirrors.txt ]]; then
-                sudo sed -i "s@azure.archive.ubuntu.com@archive.ubuntu.com@g" /etc/apt/apt-mirrors.txt
+                sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/apt-mirrors.txt
               fi
               timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
               timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
@@ -331,10 +332,6 @@ jobs:
         run: |
           if ! command -v ffmpeg || ! command -v ffprobe; then
             sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/sources.list.d/ubuntu.sources
-            # Hosted runners can resolve mirrors through this file instead of ubuntu.sources.
-            if [[ -f /etc/apt/apt-mirrors.txt ]]; then
-              sudo sed -i "s@azure.archive.ubuntu.com@archive.ubuntu.com@g" /etc/apt/apt-mirrors.txt
-            fi
             timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
             timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
           fi
