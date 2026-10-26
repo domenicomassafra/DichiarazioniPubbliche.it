@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-import copy
 import hashlib
 import json
 import os
@@ -192,174 +191,11 @@ def canonical_json_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
-# DP-436: preparatory pure serializers. These are NOT HTTP handlers, routes,
-# loader options or permission grants. The live /api/v1 remains public-v2 only.
-def _statement_v3_snapshot(
-    bundle: dict[str, Any], *, allow_statement_v3: bool,
-    current_public_dataset_sha256: str | None,
-) -> dict[str, Any]:
-    if not allow_statement_v3:
-        raise _unavailable()
-    # Compare against the separately authenticated current release.
-    if (not isinstance(current_public_dataset_sha256, str)
-        or re.fullmatch(r"[0-9a-f]{64}", current_public_dataset_sha256) is None):
-        raise _unavailable()
-    try:
-        if not isinstance(bundle, dict) or bundle.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
-            raise _unavailable()
-        # Validate and serialize one detached public snapshot. The caller may
-        # still mutate the original bundle after validation (e.g. during a
-        # rights withdrawal); never emit its new, unverified quote or identity
-        # under the old dataset fingerprint.
-        validated = validate_public_bundle(
-            copy.deepcopy(bundle), allow_statement_v3=True
-        )
-        if validated["dataset_sha256"] != current_public_dataset_sha256:
-            raise _unavailable()
-        for record in validated["statements"]:
-            _validate_statement_v3_source_url(record["source_url"])
-        return validated
-    except (PublicSchemaValidationError, KeyError, TypeError, ValueError) as exc:
-        raise _unavailable() from exc
-
-
-def list_public_statements_v3(
-    bundle: dict[str, Any], *, allow_statement_v3: bool = False,
-    current_public_dataset_sha256: str | None = None,
-) -> dict[str, Any]:
-    """Build an opt-in read payload pinned to the independently current release."""
-    validated = _statement_v3_snapshot(
-        bundle, allow_statement_v3=allow_statement_v3,
-        current_public_dataset_sha256=current_public_dataset_sha256,
-    )
-    statements = [
-        _statement_v3_record(record)
-        for record in sorted(
-            validated["statements"],
-            key=lambda record: (record["statement_id"], record["version_id"]),
-        )
-    ]
-    return {
-        "meta": {
-            "public_schema_version": validated["schema_version"],
-            "dataset_sha256": validated["dataset_sha256"],
-            "generated_at": validated["generated_at"],
-            "count": len(statements),
-        },
-        "data": statements,
-    }
-
-
-def get_public_statement_v3(
-    bundle: dict[str, Any], statement_id: str, *, allow_statement_v3: bool = False,
-    current_public_dataset_sha256: str | None = None,
-) -> dict[str, Any]:
-    """Read only from the independently current release; no historical fallback."""
-    validated = _statement_v3_snapshot(
-        bundle, allow_statement_v3=allow_statement_v3,
-        current_public_dataset_sha256=current_public_dataset_sha256,
-    )
-    record = next(
-        (item for item in validated["statements"] if item["statement_id"] == statement_id),
-        None,
-    )
-    if record is None:
-        raise _not_found()
-    return {
-        "meta": {
-            "public_schema_version": validated["schema_version"],
-            "dataset_sha256": validated["dataset_sha256"],
-            "generated_at": validated["generated_at"],
-        },
-        "data": _statement_v3_record(record),
-    }
-
-
-def list_public_opinions_by_person_content_v3(
-    bundle: dict[str, Any],
-    *,
-    allow_statement_v3: bool = False,
-    current_public_dataset_sha256: str | None = None,
-    person_id: str | None = None,
-    content_id: str | None = None,
-) -> dict[str, Any]:
-    """Offline opt-in public opinion archive grouped by Person and Content.
-
-    This is a pure read model, NOT an HTTP endpoint or publication authority.
-    Only source/context/attribution/rights-gated v3 original Statements can
-    enter. OPINION alone is not a verdict and an unendorsed/quoted/critical
-    Statement cannot become the recorded person's expressed position.
-
-    The caller MUST obtain current_public_dataset_sha256 separately from
-    the currently authorized release. A historical but internally valid
-    snapshot cannot be admitted after the published set changes. Pinning a
-    hash supplied by the same untrusted bundle is NOT a rights attestation.
-    """
-    if not allow_statement_v3:
-        raise _unavailable()
-    for name, value in (("person_id", person_id), ("content_id", content_id)):
-        if value is not None and (
-            not isinstance(value, str) or _ID_TOKEN_RE.fullmatch(value) is None
-        ):
-            raise _bad_request(f"Invalid {name} identifier")
-    if (not isinstance(current_public_dataset_sha256, str)
-        or re.fullmatch(r"[0-9a-f]{64}", current_public_dataset_sha256) is None):
-        raise _unavailable()
-    try:
-        # No mutable source/proof callback or iterator should modify original
-        # wording between validation and response assembly.
-        snapshot = _statement_v3_snapshot(
-            copy.deepcopy(bundle), allow_statement_v3=True,
-            current_public_dataset_sha256=current_public_dataset_sha256,
-        )
-    except (TypeError, ValueError, RecursionError) as exc:
-        raise _unavailable() from exc
-    if snapshot["dataset_sha256"] != current_public_dataset_sha256:
-        raise _unavailable()
-
-    # The bundle can also contain publicly reportable quoted/critical speech
-    # and factual assertions. None of those are endorsed public opinions.
-    # The source-level gates already determined publishability; do not infer
-    # it from person names, source title, a Finding or a model summary.
-    grouped: dict[str, dict[str, list[dict[str, Any]]]] = {}
-    for row in snapshot["statements"]:
-        if row["speech_act"] != "OPINION" or row["endorsed"] is not True:
-            continue
-        if person_id is not None and row["person_id"] != person_id:
-            continue
-        if content_id is not None and row["content_id"] != content_id:
-            continue
-        grouped.setdefault(row["person_id"], {}).setdefault(
-            row["content_id"], [],
-        ).append(_statement_v3_record(row))
-
-    people: list[dict[str, Any]] = []
-    count = 0
-    content_groups = 0
-    for speaker_id, contents in sorted(grouped.items()):
-        public_contents = []
-        for source_id, statements in sorted(contents.items()):
-            statements.sort(
-                key=lambda item: (
-                    item["statement_date"], item["statement_id"], item["version_id"],
-                ), reverse=True,
-            )
-            public_contents.append({"content_id": source_id, "statements": statements})
-            count += len(statements)
-            content_groups += 1
-        people.append({"person_id": speaker_id, "contents": public_contents})
-    return {
-        "meta": {
-            "public_schema_version": snapshot["schema_version"],
-            "dataset_sha256": snapshot["dataset_sha256"],
-            "generated_at": snapshot["generated_at"],
-            "scope": "ENDORSED_OPINIONS_ONLY",
-            "count": count,
-            "person_count": len(people),
-            "content_group_count": content_groups,
-        },
-        "data": people,
-    }
+# Stable imports for existing DP-435/436/437 callers and external tests.
+from .public_statement_readers_v3 import (
+    _statement_v3_snapshot, get_public_statement_v3,
+    list_public_opinions_by_person_content_v3, list_public_statements_v3,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -1437,6 +1273,8 @@ def dispatch(
     conditional_headers: dict[str, str] | None = None,
     request_id: str = "req",
     accept: str | None = None,
+    statement_projection_path: str | os.PathLike[str] | None = None,
+    statement_current_fingerprint_path: str | os.PathLike[str] | None = None,
 ) -> ApiResponse:
     """Transport-agnostic entry point: method + path + query -> ApiResponse.
 
@@ -1485,6 +1323,13 @@ def dispatch(
                 "This API is read-only.",
                 headers={"Allow": "GET, HEAD"},
             )
+        if split.path == "/api/v3" or split.path.startswith("/api/v3/"):
+            from .public_v3_http import serve_public_v3
+            return serve_public_v3(
+                method, path,
+                statement_projection_path=statement_projection_path,
+                statement_current_fingerprint_path=statement_current_fingerprint_path,
+            )
         if not split.path.startswith(API_BASE_PATH):
             raise _not_found()
         try:
@@ -1520,6 +1365,8 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
     sys_version = ""
     protocol_version = "HTTP/1.1"
     projection_path: str | None = None
+    statement_projection_path: str | None = None
+    statement_current_fingerprint_path: str | None = None
     static_dir: str | None = None
     quiet: bool = True
     account_service: AccountService | None = None
@@ -1576,6 +1423,8 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
             method,
             self.path,
             projection_path=type(self).projection_path,
+            statement_projection_path=type(self).statement_projection_path,
+            statement_current_fingerprint_path=type(self).statement_current_fingerprint_path,
             conditional_headers=self._conditional_headers(),
             request_id=self._request_id(),
             accept=self.headers.get("Accept"),
@@ -1595,7 +1444,8 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
 
     def _is_api_path(self) -> bool:
         path = urlsplit(self.path).path
-        return path == API_BASE_PATH or path.startswith(API_BASE_PATH + "/")
+        return (path == API_BASE_PATH or path.startswith(API_BASE_PATH + "/")
+                or path == "/api/v3" or path.startswith("/api/v3/"))
 
     def _account_cookie(self, name: str) -> str:
         # Duplicate headers/keys are ambiguous and must never select one
@@ -1916,11 +1766,17 @@ def build_server(
     static_dir: str | os.PathLike[str] | None = None,
     account_service: AccountService | None = None,
     account_private_secret_path: str | os.PathLike[str] | None = None,
+    statement_projection_path: str | os.PathLike[str] | None = None,
+    statement_current_fingerprint_path: str | os.PathLike[str] | None = None,
 ) -> ThreadingHTTPServer:
     if account_service is not None and host not in ("127.0.0.1", "::1"):
         raise ValueError("ACCOUNT_LOOPBACK_BIND_REQUIRED")
     static_entry = os.path.abspath(os.fspath(static_dir)) if static_dir is not None else None
     resolved_static = str(Path(static_entry).resolve()) if static_entry is not None else None
+    if resolved_static is not None:
+        for private_v3_path in (statement_projection_path, statement_current_fingerprint_path):
+            if private_v3_path is not None and Path(private_v3_path).resolve().is_relative_to(resolved_static):
+                raise ValueError("PUBLIC_V3_CONTROL_FILE_IN_STATIC_ROOT")
     if account_service is not None and resolved_static is not None:
         private_paths = [account_service.store.path]
         if account_private_secret_path is not None:
@@ -1932,6 +1788,10 @@ def build_server(
         (PublicApiRequestHandler,),
         {
             "projection_path": str(projection_path) if projection_path else None,
+            "statement_projection_path": (str(statement_projection_path)
+                                          if statement_projection_path else None),
+            "statement_current_fingerprint_path": (str(statement_current_fingerprint_path)
+                                                    if statement_current_fingerprint_path else None),
             "static_dir": resolved_static,
             "account_service": account_service,
             "account_private_secret_path": (
@@ -1962,6 +1822,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--projection-path", default=projection_path_from_env())
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument("--v3-projection-path", type=Path)
+    parser.add_argument("--v3-current-fingerprint-path", type=Path)
     parser.add_argument("--account-client-id", default="")
     parser.add_argument("--account-client-secret-file", type=Path)
     parser.add_argument("--account-db", type=Path)
@@ -2005,6 +1867,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         account_private_secret_path=(
             args.account_client_secret_file if account_service is not None else None
         ),
+        statement_projection_path=args.v3_projection_path,
+        statement_current_fingerprint_path=args.v3_current_fingerprint_path,
     )
     host, port = server.server_address[0], server.server_address[1]
     surface = "public host" if args.static_dir else "public API"
