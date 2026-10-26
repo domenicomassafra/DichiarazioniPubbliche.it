@@ -30,7 +30,8 @@ class DP419MediaCaptureBindingPgNext(StudioCaptureSelectorPostgresTests):
     @classmethod
     def tearDownClass(cls):
         try:
-            cls._sql("UPDATE content_item SET duration_ms=NULL WHERE id='content:one';")
+            if getattr(cls, "started", False) and hasattr(cls, "dsn"):
+                cls._sql("UPDATE content_item SET duration_ms=NULL WHERE id='content:one';")
         finally:
             super().tearDownClass()
 

@@ -7,6 +7,10 @@ All server results use textContent; never innerHTML.
 
 from __future__ import annotations
 
+from dichiarazioni_pubbliche.studio_media_playback_ui import (
+    MEDIA_PLAYBACK_HTML, MEDIA_PLAYBACK_SETUP, MEDIA_PLAYBACK_HANDLER,
+)
+
 import re
 
 from dichiarazioni_pubbliche.studio_capture_diff_browser import CAPTURE_DIFF_BROWSER_JS
@@ -413,22 +417,7 @@ _PAGE = """<!doctype html>
       </form>
       <h2>Contesto cattura e durata di un segmento multimediale</h2>
       <p>Seleziona la cattura e il Passage canonico persistiti dello stesso Content: vengono mostrati intervallo, conservazione e blocchi, NON una falsa appartenenza del segmento alla cattura. Nessun seek o riproduzione consentiti senza un legame e diritti attestati.</p>
-      <form data-endpoint="/v1/media/capture-context">
-        <div class="controls"><label>Content ID<input name="content_id" maxlength="180" required></label>
-        <label>Statement Candidate ID<input name="statement_candidate_id" maxlength="180" required></label>
-        <label>Passage ID<input name="passage_id" maxlength="180" required></label>
-        <label>Capture ID<input name="capture_id" maxlength="180" required></label>
-        <label>Capture SHA-256<input name="capture_sha256" minlength="64" maxlength="64" required></label>
-        <button type="submit">Confronta timeline e conservazione</button></div>
-      </form>
-      <p id="media-capture-context-summary" role="status" aria-live="polite">Nessun contesto cattura verificato.</p>
-      <h2>Ricevuta persistita Capture → Segment (metadati soltanto)</h2>
-      <p>L'attestazione locale conserva Capture SHA, segmento e revisioni di revoca. È una dichiarazione di provenienza da verificare indipendentemente: non concede diritti o riproduzione e non espone il media.</p>
-      <form data-endpoint="/v1/media/binding" aria-describedby="media-binding-summary">
-        <div class="controls"><label>Binding ID<input name="binding_id" maxlength="180" required></label>
-        <button type="submit">Rileggi stato corrente e revoche</button></div>
-      </form>
-      <p id="media-binding-summary" role="status" aria-live="polite">Nessun binding verificato.</p>
+      __MEDIA_PLAYBACK_HTML__
       <p id="media-locator" role="status" aria-live="polite">Nessun segmento selezionato.</p>
     </section>
     <section class="pane" aria-labelledby="esito">
@@ -519,6 +508,7 @@ _PAGE = """<!doctype html>
     const mediaContextSummary = document.getElementById('media-capture-context-summary');
     const mediaBindingForm = document.querySelector('form[data-endpoint="/v1/media/binding"]');
     const mediaBindingSummary = document.getElementById('media-binding-summary');
+    __MEDIA_PLAYBACK_SETUP__
     const memberDetailForm = document.querySelector('form[data-endpoint="/v1/collections/member"]');
     const provenanceForm = document.querySelector('form[data-endpoint="/v1/collections/claim-provenance"]');
     const panels = document.querySelectorAll('main > section[id]');
@@ -526,6 +516,7 @@ _PAGE = """<!doctype html>
     let activeRequest = null;
     let scopedCaptureReference = null;
     function invalidateRequest() {
+      clearMediaPlayback();
       requestGeneration += 1;
       if (activeRequest) activeRequest.abort();
       activeRequest = null;
@@ -737,6 +728,7 @@ _PAGE = """<!doctype html>
         hidePrivateLocators();
       });
     }
+    __MEDIA_PLAYBACK_HANDLER__
     for (const form of document.querySelectorAll('form[data-endpoint]')) {
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -1898,7 +1890,10 @@ def render_studio_login_page(nonce: str) -> bytes:
             .replace("__CAPTURE_ROUTE_BROWSER_HELPERS__", CAPTURE_ROUTE_BROWSER_JS)
             .replace("__COLLECTION_CAPTURE_LINKS__", COLLECTION_CAPTURE_LINKS_JS)
             .replace("__EXACT_SOURCE_JUMP_FORM__", EXACT_JUMP_FORM_HTML)
-            .replace("__EXACT_SOURCE_JUMP_BROWSER_HELPERS__", EXACT_JUMP_BROWSER_JS)).encode("utf-8")
+            .replace("__EXACT_SOURCE_JUMP_BROWSER_HELPERS__", EXACT_JUMP_BROWSER_JS)
+            .replace("__MEDIA_PLAYBACK_HTML__", MEDIA_PLAYBACK_HTML)
+            .replace("__MEDIA_PLAYBACK_SETUP__", MEDIA_PLAYBACK_SETUP)
+            .replace("__MEDIA_PLAYBACK_HANDLER__", MEDIA_PLAYBACK_HANDLER)).encode("utf-8")
 
 
 __all__ = ["render_studio_login_page"]
