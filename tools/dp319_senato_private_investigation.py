@@ -325,16 +325,6 @@ def main() -> int:
         parser.error("--database-url is required")
     try:
         result = run(args.database_url, args.ledger, args.storage_root)
-    except (RuntimeError, OSError):
-        result = {
-            "status": "WAIT_EXTERNAL",
-            "reason_code": "DP319_OPERATIONAL_STORE_UNAVAILABLE",
-            "dispatch_authorized": False,
-            "publication_authority": False,
-            "new_child_task_count": 0,
-            "d_usage_reconciled": False,
-            "provider_billing_reconciled": False,
-        }
     except (SourceUseBlocked, ValueError) as exc:
         code = str(exc)
         if not code.startswith(
@@ -349,6 +339,16 @@ def main() -> int:
         result = {
             "status": "WAIT_EXTERNAL",
             "reason_code": code,
+            "dispatch_authorized": False,
+            "publication_authority": False,
+            "new_child_task_count": 0,
+            "d_usage_reconciled": False,
+            "provider_billing_reconciled": False,
+        }
+    except (RuntimeError, OSError):
+        result = {
+            "status": "WAIT_EXTERNAL",
+            "reason_code": "DP319_OPERATIONAL_STORE_UNAVAILABLE",
             "dispatch_authorized": False,
             "publication_authority": False,
             "new_child_task_count": 0,
