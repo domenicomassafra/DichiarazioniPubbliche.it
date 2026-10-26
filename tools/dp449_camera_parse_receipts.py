@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ from dichiarazioni_pubbliche.rights_registry import PrivateRightsRegistryStore
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--authority-root", type=Path, required=True)
-    parser.add_argument("--database-url", default=None)
+    parser.add_argument("--database-url", default=os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL"))
     sub = parser.add_subparsers(dest="action", required=True)
     inspect = sub.add_parser("inspect")
     inspect.add_argument("--content-id", choices=tuple(SOURCES), required=True)
