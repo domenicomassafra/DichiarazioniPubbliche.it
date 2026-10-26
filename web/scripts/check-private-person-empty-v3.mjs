@@ -279,5 +279,5 @@ try{
   assert.notEqual((await render("revoked-stale",revokedAssets,pins,"person:zero")).status,0);
   assert.notEqual((await render("expired",approved,{...pins,validUntil:"2000-01-01T00:00:00Z"},"person:zero")).status,0);
 }finally{await rm(scratch,{recursive:true,force:true});}
-export { data,pins,fixture,routes,web,sha };
+export { data,pins,routes,web,sha };
 console.log("DP-438 Python approved zero/opinion/held→TypeScript pinned Person/source/index/sitemap, isolated Astro SSR positive/negative PASS");

@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { readFile, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { makeScratchDir } from "./lib/scratch.mjs";
-import { data, pins, fixture, routes, web, sha } from "./check-private-person-empty-v3.mjs";
+import { data, pins, routes, web, sha } from "./check-private-person-empty-v3.mjs";
 
 // Public static integration: the same independently pinned release drives
 // Person pages, the search index, the sitemap and the API-facing JSON artifact.
