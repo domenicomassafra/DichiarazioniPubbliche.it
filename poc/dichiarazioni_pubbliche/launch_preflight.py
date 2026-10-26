@@ -129,6 +129,8 @@ def rehearsal_packet_blockers(document: object) -> tuple[str, ...]:
         blockers.append("RELEASE_REHEARSAL_SOURCE_NOT_AUTHORIZED")
     if document.get("disposition") not in ("GO-CANARY", "GO-WITH-HOLDS", "NO-GO"):
         blockers.append("RELEASE_REHEARSAL_DISPOSITION_MISSING")
+    elif document["disposition"] == "NO-GO":
+        blockers.append("RELEASE_REHEARSAL_NO_GO")
 
     proofs = document.get("proofs")
     if not isinstance(proofs, dict):
@@ -154,6 +156,12 @@ def rehearsal_packet_blockers(document: object) -> tuple[str, ...]:
 
     if not _verified_automatic_review(document.get("automated_review")):
         blockers.append("RELEASE_REHEARSAL_REVIEW_INCOMPLETE")
+    # The packet is editable JSON. Receipt IDs, hashes and agent/model names
+    # cannot establish that the MiniPC produced the bytes or that two models
+    # independently reviewed the same authorized candidate. Until the runtime
+    # verifies these receipts against durable consumer evidence, even a
+    # structurally COMPLETE packet cannot clear the release rehearsal gate.
+    blockers.append("RELEASE_REHEARSAL_PROVENANCE_UNVERIFIED")
     return tuple(blockers)
 
 

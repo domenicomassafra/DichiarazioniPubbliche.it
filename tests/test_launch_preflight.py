@@ -80,7 +80,33 @@ class LaunchPreflightTests(unittest.TestCase):
             },
             "disposition": "NO-GO",
         }
-        self.assertEqual(launch_preflight.rehearsal_packet_blockers(packet), ())
+        # A NO-GO outcome must stay on HOLD even with six plausible receipts.
+        self.assertIn(
+            "RELEASE_REHEARSAL_NO_GO",
+            launch_preflight.rehearsal_packet_blockers(packet),
+        )
+        # Hash-looking values and named agents are claims, not verified proofs.
+        self.assertIn(
+            "RELEASE_REHEARSAL_PROVENANCE_UNVERIFIED",
+            launch_preflight.rehearsal_packet_blockers(packet),
+        )
+        for disposition in ("GO-CANARY", "GO-WITH-HOLDS"):
+            packet["disposition"] = disposition
+            self.assertIn(
+                "RELEASE_REHEARSAL_PROVENANCE_UNVERIFIED",
+                launch_preflight.rehearsal_packet_blockers(packet),
+            )
+        plan = {ticket: "DONE" for ticket in REQUIRED_TICKETS}
+        plan.update({ticket: "DONE" for ticket in CONDITIONAL_SURFACE_TICKETS})
+        result = evaluate_launch_preflight(
+            plan_statuses=plan,
+            legal_statuses={question: "DECIDED" for question in REQUIRED_LEGAL_QUESTIONS},
+            artifact_presence={name: True for name in REQUIRED_RELEASE_ARTIFACTS},
+            rehearsal_evidence_blockers=launch_preflight.rehearsal_packet_blockers(packet),
+        )
+        self.assertEqual(result.disposition, "NO-GO")
+        self.assertIn("RELEASE_REHEARSAL_PROVENANCE_UNVERIFIED", result.blockers)
+        self.assertFalse(result.launchable)
         packet["automated_review"]["independent"]["model"] = "model-a"
         self.assertIn(
             "RELEASE_REHEARSAL_REVIEW_INCOMPLETE",
