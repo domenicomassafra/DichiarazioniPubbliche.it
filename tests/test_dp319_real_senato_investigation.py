@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -116,8 +118,34 @@ class RealSenatoInvestigationTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name) / "private-ledger.sqlite"
+        self.d_receipts = {}
+        self.d_outage = False
 
     def execute(self, *, rights=True, valid_receipt=True, body=XML):
+        receipts = self.d_receipts
+        outage = self.d_outage
+
+        class FakeDReceiptLedger:
+            def __init__(self, database_url):
+                pass
+
+            def record_zero_attempt(
+                self, *, attempt, source, content_id, rights_record_id
+            ):
+                if outage:
+                    raise RuntimeError("POSTGRES_UNAVAILABLE")
+                old = receipts.setdefault(
+                    attempt.attempt_id,
+                    (
+                        "receipt:zero:" + attempt.attempt_id,
+                        source.source_sha256,
+                        rights_record_id,
+                    ),
+                )
+                if old[1:] != (source.source_sha256, rights_record_id):
+                    raise ValueError("DP319_D_RECEIPT_CONFLICT")
+                return old[0]
+
         class FakeRightsStore:
             def __init__(self, *, database_url):
                 pass
@@ -147,6 +175,9 @@ class RealSenatoInvestigationTests(unittest.TestCase):
             patch.object(canary, "PrivateRightsRegistryStore", FakeRightsStore),
             patch.object(canary, "CapturePipelineStore", FakeCaptureStore),
             patch.object(canary, "CaptureBodyStore", FakeBodyStore),
+            patch.object(
+                canary, "PrivateDReceiptLedger", FakeDReceiptLedger, create=True
+            ),
         ):
             return canary.run("fixture-db", self.path, Path(self.tmp.name))
 
@@ -168,6 +199,42 @@ class RealSenatoInvestigationTests(unittest.TestCase):
         self.assertEqual(replay["spent_usd"], "0")
         self.assertFalse(replay["publication_authority"])
         self.assertFalse(replay["downstream_queue_closed"])
+        self.assertEqual(replay["d_receipt_id"], initial["d_receipt_id"])
+        self.assertEqual(replay["d_quota_units_consumed"], 0)
+        self.assertEqual(replay["d_request_count"], 0)
+        self.assertEqual(len(self.d_receipts), 1)
+        self.assertTrue(replay["d_usage_reconciled"])
+        self.assertFalse(replay["provider_billing_reconciled"])
+
+    def test_d_outage_preserves_pending_unknown_effects_across_replay(self):
+        self.d_outage = True
+        first = self.execute()
+        self.assertEqual(first["status"], "WAIT_EXTERNAL")
+        self.assertEqual(first["reason_code"], "DP319_D_LEDGER_UNAVAILABLE")
+        self.assertEqual(
+            (first["reservation_count"], first["completion_count"]), (1, 0)
+        )
+        self.assertIsNone(first["d_quota_units_consumed"])
+        self.d_outage = False
+        replay = self.execute()
+        self.assertEqual(replay["status"], "WAIT_EXTERNAL")
+        self.assertEqual(replay["attempt_id"], first["attempt_id"])
+        self.assertEqual(
+            (replay["reservation_count"], replay["completion_count"]), (1, 0)
+        )
+        self.assertEqual(len(self.d_receipts), 0)
+        self.assertFalse(replay["dispatch_authorized"])
+
+    def test_d_outage_after_completion_does_not_claim_reconciled_usage(self):
+        initial = self.execute()
+        self.assertEqual(initial["status"], "PRIVATE_INSUFFICIENT_EVIDENCE")
+        self.d_outage = True
+        replay = self.execute()
+        self.assertEqual(replay["status"], "WAIT_EXTERNAL")
+        self.assertEqual(replay["reason_code"], "DP319_D_LEDGER_UNAVAILABLE")
+        self.assertEqual(replay["attempt_id"], initial["attempt_id"])
+        self.assertFalse(replay["d_usage_reconciled"])
+        self.assertFalse(replay["dispatch_authorized"])
 
     def test_unpermitted_text_use_fails_before_ledger_is_created(self):
         with self.assertRaisesRegex(SourceUseBlocked, "SOURCE_USE_NOT_PERMITTED"):
@@ -185,6 +252,45 @@ class RealSenatoInvestigationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "DP319_PINNED_XML_INVALID"):
             self.execute(body=b"<other/>")
         self.assertFalse(self.path.exists())
+
+    def test_cli_reports_revoked_grant_as_wait_external_without_child_task(self):
+        output = io.StringIO()
+        with (
+            patch.object(
+                canary, "run", side_effect=SourceUseBlocked("SOURCE_USE_REVOKED")
+            ),
+            patch.object(
+                sys,
+                "argv",
+                ["dp319", "--database-url", "fixture", "--ledger", str(self.path)],
+            ),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(canary.main(), 0)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["status"], "WAIT_EXTERNAL")
+        self.assertEqual(result["reason_code"], "SOURCE_USE_REVOKED")
+        self.assertEqual(result["new_child_task_count"], 0)
+        self.assertFalse(result["dispatch_authorized"])
+        self.assertFalse(self.path.exists())
+
+    def test_cli_reports_database_outage_as_wait_external_without_child_task(self):
+        output = io.StringIO()
+        with (
+            patch.object(canary, "run", side_effect=RuntimeError("PSQL_QUERY_TIMEOUT")),
+            patch.object(
+                sys,
+                "argv",
+                ["dp319", "--database-url", "fixture", "--ledger", str(self.path)],
+            ),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(canary.main(), 0)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["status"], "WAIT_EXTERNAL")
+        self.assertEqual(result["reason_code"], "DP319_OPERATIONAL_STORE_UNAVAILABLE")
+        self.assertEqual(result["new_child_task_count"], 0)
+        self.assertFalse(result["dispatch_authorized"])
 
 
 if __name__ == "__main__":
