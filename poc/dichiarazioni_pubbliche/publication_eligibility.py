@@ -223,7 +223,11 @@ def evaluate_publication_eligibility(
     blockers and the empty counted-review set, not the provisional review.
     """
 
-    runtime_blockers: list[str] = []
+    # Legacy reviewer identity attestations prove who signed a historical event,
+    # not that two independent v3 agents verified the live evidence. Keep the
+    # existing event replay for audit but never promote it to public authority.
+    # The authenticated autonomous Statement path has its own separate gate.
+    runtime_blockers: list[str] = ["AUTONOMOUS_V3_REVIEW_REQUIRED"]
     if challenger_readiness is not None:
         runtime_blockers.append("CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE")
     if str(challenger_waiver_policy_decision_ref or "").strip():

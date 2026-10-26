@@ -183,7 +183,7 @@
   "tests/test_public_projection.py": 52426,
   "tests/test_public_projection_postgres_tamper.py": 44931,
   "tests/test_public_schema.py": 24302,
-  "tests/test_publication_review_persistence.py": 36358,
+  "tests/test_publication_review_persistence.py": 36327,
   "tests/test_queue_runtime.py": 22483,
   "tests/test_reply_governance_postgres.py": 22408,
   "tests/test_research_discovery.py": 52451,

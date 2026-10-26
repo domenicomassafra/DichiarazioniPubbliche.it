@@ -222,9 +222,9 @@ class PublicationEligibilityTests(unittest.TestCase):
         self.assertNotEqual(missing.binding_sha256, tampered.binding_sha256)
         self.assertEqual(missing.binding_sha256, decide(missing.blockers).binding_sha256)
 
-    def test_runtime_hold_cannot_reuse_eligible_review_binding(self):
-        # An unattested readiness proposal must not inherit the fingerprint of
-        # a synthetically authority-replayed legacy review.
+    def test_runtime_challenger_denial_has_distinct_hold_binding(self):
+        # A caller-provided readiness proposal changes the HOLD fingerprint,
+        # but an attested legacy review is never autonomous v3 authority.
         proof = safety()
         result = risk("STANDARD")
         approved = review_event(safety_result=proof, risk_result=result)
@@ -245,14 +245,15 @@ class PublicationEligibilityTests(unittest.TestCase):
                 **kwargs,
             )
 
-        eligible = decide()
+        legacy = decide()
         held = decide(challenger_readiness=challenger_ready(result))
-        self.assertEqual(eligible.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
-        self.assertEqual(eligible.counted_review_event_ids, (approved.event_id,))
+        self.assertEqual(legacy.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+        self.assertIn("AUTONOMOUS_V3_REVIEW_REQUIRED", legacy.blockers)
+        self.assertEqual(legacy.counted_review_event_ids, ())
         self.assertEqual(held.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
         self.assertIn("CHALLENGER_READINESS_AUTHORITY_UNAVAILABLE", held.blockers)
         self.assertEqual(held.counted_review_event_ids, ())
-        self.assertNotEqual(held.binding_sha256, eligible.binding_sha256)
+        self.assertNotEqual(held.binding_sha256, legacy.binding_sha256)
 
     def test_standard_candidate_requires_primary_review(self):
         safety_result = safety()
