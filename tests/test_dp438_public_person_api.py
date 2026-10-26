@@ -5,6 +5,10 @@ import http.client
 import os
 import tempfile
 import threading
+import socket
+import subprocess
+import sys
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -205,6 +209,44 @@ class PublicPersonV3ApiTest(unittest.TestCase):
     def test_explicit_zero_opt_out_preserves_v2_api(self):
         with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}):
             self.assertEqual(self.get("/api/v1/people").status, 200)
+            self.assertEqual(self.get("/api/v1/people/persona-zero").status, 404)
+
+    def test_module_cli_disabled_person_detail_returns_generic_404(self):
+        # Reproduce the installed systemd `python -m` CLI entrypoint.
+        with socket.socket() as reserved:
+            reserved.bind(("127.0.0.1", 0))
+            port = reserved.getsockname()[1]
+        environment = {**os.environ,
+            "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "poc"),
+            "DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}
+        command = [sys.executable, "-m", "dichiarazioni_pubbliche.public_api",
+                   "--projection-path", str(self.v2), "--host", "127.0.0.1",
+                   "--port", str(port)]
+        process = subprocess.Popen(command, env=environment,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        try:
+            status = None
+            for _ in range(80):
+                if process.poll() is not None:
+                    break
+                try:
+                    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=1)
+                    connection.request("GET", "/api/v1/people/persona-zero")
+                    response = connection.getresponse()
+                    status = response.status
+                    response.read()
+                    connection.close()
+                    break
+                except OSError:
+                    time.sleep(0.025)
+            self.assertEqual(status, 404)
+        finally:
+            process.terminate() if process.poll() is None else None
+            try:
+                process.communicate(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate()
 
     def test_pin_change_with_same_person_sha_withdraws_previous_release(self):
         self.set_pins({**self.current_pins, "statementSha256": "0" * 64})

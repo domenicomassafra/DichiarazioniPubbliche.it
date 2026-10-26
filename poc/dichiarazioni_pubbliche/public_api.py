@@ -1,33 +1,8 @@
-"""Static-first, read-only HTTP surface over the fail-closed public projection.
+"""Static-first read-only HTTP API over validated public projections.
 
-This module is a pure reader. It never opens a database connection, never calls a
-provider or an LLM, and never re-implements the publication gate. Its only input is
-a public projection bundle that was already produced and validated by
-``dichiarazioni_pubbliche.public_projection`` / ``dichiarazioni_pubbliche.public_schema``.
-
-Everything that decides a response body is expressed as a pure function over the
-loaded bundle, so the HTTP layer stays a thin adapter and the contract is testable
-without binding a socket.
-
-Contract decisions (DP-402 gate 1 and 2)
-----------------------------------------
-
-* The stable public HTTP contract is ``/api/v1`` and it reads the
-  ``dichiarazioni-pubbliche-public-v2`` projection bundle. Per the DP-105 "Resolved Discrepancy"
-  note, ``dichiarazioni-pubbliche-public-v2`` is the authoritative public projection contract;
-  the URL major version and the projection schema version are independent axes and
-  this API pins ``(api=v1, schema=dichiarazioni-pubbliche-public-v2)``. A future
-  ``dichiarazioni-pubbliche-public-v3`` is a new schema version under ``/api/v1`` only if it is
-  backward compatible, otherwise under ``/v2``.
-* The bundle path comes from ``DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH``, the same
-  environment variable the web build already consumes.
-* Stable public identifiers are the opaque strings already in the projection
-  (``finding_id``, ``claim_id``, ``speaker.id``, ``source.content_id``). Nothing
-  resolves a resource by a display name.
-* DP-430 first-class subject Topics come only from the optional, reviewed
-  ``topics`` collection in the projection. ``topic=`` on ``/findings`` is kept
-  temporarily as the draft-contract compatibility alias for ``claim_type=``;
-  the ``/topics`` resource never derives subject identity from claim type.
+DP-402/DP-105 pin API v1 to the independent public-v2 projection schema;
+public identifiers stay opaque and Topic facets come only from reviewed Topics.
+The reader performs no database, provider, LLM or publication-gate operations.
 """
 
 from __future__ import annotations
@@ -2065,4 +2040,8 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # `python -m` executes this file as __main__. Route extensions import the
+    # canonical package module for its PublicApiError class; launch from that
+    # same module so a deliberate 404 never crosses two distinct class objects.
+    from .public_api import main as canonical_main
+    raise SystemExit(canonical_main())
