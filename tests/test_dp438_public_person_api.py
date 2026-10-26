@@ -118,6 +118,8 @@ class PublicPersonV3ApiTest(unittest.TestCase):
     def test_nonempty_legacy_projection_blocks_v3_api_release(self):
         demo = Path(__file__).resolve().parents[1] / "web/src/data/demo-projection.json"
         self.v2.write_bytes(demo.read_bytes())
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}):
+            self.assertEqual(self.get("/api/v1/people").status, 200)
         for endpoint in ("/api/v1/people", "/api/v1/findings", "/api/v1/records"):
             with self.subTest(endpoint=endpoint):
                 self.assertEqual(self.get(endpoint).status, 503)
