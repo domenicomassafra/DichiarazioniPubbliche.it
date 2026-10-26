@@ -79,28 +79,41 @@ def _audit_evidence(packet: AutonomousProofPacket | None,
     }
     if isinstance(packet, AutonomousProofPacket) and isinstance(packet.candidate, AutonomousCandidate):
         candidate = packet.candidate
-        result.update({
-            'record_version_id': candidate.record_version_id,
-            'source_version': candidate.source_version,
-            'source_url': candidate.source_url,
-            'snapshot_sha256': candidate.snapshot_sha256,
-            'source_text_sha256': candidate.source_text_sha256,
-            'rights_attestation_sha256': candidate.rights_attestation_sha256,
-            'rights_citation_url': candidate.rights_citation_url,
-            'original_reviewers': [
-                {'agent_id': review.agent_id, 'model_id': review.model_id,
-                 'evidence_sha256': review.evidence_sha256}
-                for review in (packet.primary, packet.independent)
-                if isinstance(review, AgentReview)
-            ],
-            'packet_matches_outcome': candidate_fingerprint(candidate) == receipt.evidence_sha256,
-        })
+        try:
+            packet_matches = candidate_fingerprint(candidate) == receipt.evidence_sha256
+        except (TypeError, ValueError, OverflowError, AttributeError):
+            packet_matches = False
+        result['packet_matches_outcome'] = packet_matches
+        if packet_matches:
+            result.update({
+                'record_version_id': candidate.record_version_id,
+                'source_version': candidate.source_version,
+                'source_url': candidate.source_url,
+                'snapshot_sha256': candidate.snapshot_sha256,
+                'source_text_sha256': candidate.source_text_sha256,
+                'rights_attestation_sha256': candidate.rights_attestation_sha256,
+                'rights_citation_url': candidate.rights_citation_url,
+                'original_reviewers': [
+                    {'agent_id': review.agent_id, 'model_id': review.model_id,
+                     'evidence_sha256': review.evidence_sha256}
+                    for review in (packet.primary, packet.independent)
+                    if isinstance(review, AgentReview)
+                    and isinstance(review.agent_id, str)
+                    and isinstance(review.model_id, str)
+                    and isinstance(review.evidence_sha256, str)
+                ],
+            })
     if isinstance(third.review_result, AgentReview):
         review = third.review_result
         result['third_review'] = {
-            'agent_id': review.agent_id, 'model_id': review.model_id,
-            'evidence_sha256': review.evidence_sha256,
-            'accepted': review.accepted, 'checked_stages': list(review.checked_stages),
+            'agent_id': review.agent_id if isinstance(review.agent_id, str) else None,
+            'model_id': review.model_id if isinstance(review.model_id, str) else None,
+            'evidence_sha256': review.evidence_sha256 if isinstance(review.evidence_sha256, str) else None,
+            'accepted': review.accepted if type(review.accepted) is bool else False,
+            'checked_stages': list(review.checked_stages)
+            if isinstance(review.checked_stages, tuple)
+            and all(isinstance(stage, str) for stage in review.checked_stages)
+            else [],
         }
         result['verified_third_review'] = (
             isinstance(review.agent_id, str)

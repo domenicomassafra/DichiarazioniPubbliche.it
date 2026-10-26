@@ -335,7 +335,15 @@ class AutonomousOperations:
             return self._record(
                 record_id, "AUDIT_HOLD", None, ("AUDIT_PACKET_UNAVAILABLE",), at,
             )
-        return self.audit_and_apply(packet, third, now=at)
+        try:
+            return self.audit_and_apply(packet, third, now=at)
+        except (TypeError, ValueError, OverflowError, AttributeError):
+            # Malformed version/rights/capture fields cannot leave a previously
+            # eligible public item visible merely because hashing failed.
+            self._withdraw(record_id)
+            return self._record(
+                record_id, "AUDIT_HOLD", None, ("AUDIT_PACKET_INVALID",), at,
+            )
 
 
 def _events_on_day(events: object, day: date) -> tuple[RunReceipt, ...]:

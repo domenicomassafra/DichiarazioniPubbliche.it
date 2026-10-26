@@ -2,6 +2,7 @@
 from datetime import datetime, date, timezone, timedelta
 from dataclasses import replace
 import sys
+import json
 import unittest
 from pathlib import Path
 
@@ -114,6 +115,27 @@ class NightlyAuditIntegrationTests(unittest.TestCase):
         self.assertEqual(store.saved['finding:413'].disposition, 'AUDIT_HOLD')
         self.assertNotIn('finding:413', surface.visible)
         self.assertFalse(store.evidence['finding:413']['verified_third_review'])
+
+    def test_nonserializable_tampered_packet_withdraws_and_records_hold(self):
+        ops, capture, _, first, second, surface, journal = harness()
+        ops.evaluate_and_apply('finding:413', now=NOW)
+        item = capture.item
+        binding = candidate_fingerprint(item)
+        tampered = replace(item, source_text_sha256=object())
+        packet = AutonomousProofPacket(
+            tampered, first.review(item, binding), second.review(item, binding))
+        store = MemoryLedger()
+        NightlyAuditCoordinator(store).run(
+            operations=ops, packet_authority=PacketAuthority({'finding:413': packet}),
+            third=Reviewer('third', 'third:model'),
+            events=tuple(journal.events), corrections=(), day=NOW.date(), now=NOW,
+        )
+        self.assertEqual(store.saved['finding:413'].disposition, 'AUDIT_HOLD')
+        self.assertEqual(store.saved['finding:413'].reason_codes, ('AUDIT_PACKET_INVALID',))
+        self.assertNotIn('finding:413', surface.visible)
+        self.assertFalse(store.evidence['finding:413']['packet_matches_outcome'])
+        json.dumps(store.evidence['finding:413'])  # durable PG JSON must be serializable
+        self.assertNotIn('source_text_sha256', store.evidence['finding:413'])
 
     def test_third_review_with_malformed_identity_stays_a_durable_hold(self):
         ops, capture, _, first, second, surface, journal = harness()
