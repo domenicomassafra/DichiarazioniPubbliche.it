@@ -117,6 +117,16 @@ policy review.
 
 ### Publication and provenance
 
+**Superseding owner decision (25 October 2026, #413):** acceptance,
+independent review, and publication are autonomous, with no human in the loop.
+Publication requires the same source- and version-bound checks performed by
+two independent agents using distinct models. Failed or missing proofs leave
+the record in HOLD; new evidence triggers re-evaluation. A third agent audits
+samples nightly. Corrections or removal requests immediately omit the public
+record before autonomous re-examination. Legal, licence, copyright and privacy
+reviews are agent decisions with cited sources, not owner sign-offs. The
+mechanical safety, provenance and privacy gates below remain mandatory.
+
 - Research-corpus records are private by default. Discovery or capture does not create a
   public claim, finding, or dossier.
 - A Statement Candidate or Claim Candidate is not an Atomic Claim. Promotion is an
@@ -192,9 +202,9 @@ intended as permanent product content; broad collection follows acceptance of
 the acquisition/transcription/catalog/ingestion/frontend/verification path.
 The product must be designed and evaluated for rigorous automated
 fact-checking, preserving uncertainty and stopping unsupported factual conclusions.
-There is no established infallibility guarantee. The autonomous target does not
-silently remove current human-review/runtime gates: implementation must reconcile
-the policy contracts explicitly and prove the replacement gates before cutover.
+There is no established infallibility guarantee. The #413 autonomous target
+supersedes human review: implementation must reconcile historical policy
+contracts and prove the independent automated gates before cutover.
 Investigations may group multiple people and must support other source languages,
 with preserved originals and identified Italian translations; no one-person or
 Italian-only restriction is approved. Approximately EUR10/month is a tentative
@@ -258,8 +268,9 @@ We prefer operational and evidence-quality measures over engagement metrics:
 - public API/read-model stability;
 - maintenance time required per week.
 
-## Non-goal: "automation means no humans"
+## Automation and independent review
 
-Automation means routine operation should not require a newsroom. It does not mean the
-system may bypass review policy. When a required review or legal decision is unavailable,
-the safe result is non-publication.
+No person is an acceptance, review, or publication gate (#413, 25 October
+2026). The automatic mechanism still runs every binding, source-rights,
+identity, privacy and challenge check. Missing rights or independent agent
+evidence means HOLD until it can be proved, with the reason retained for retry.

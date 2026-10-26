@@ -36,9 +36,10 @@ curl -fsS --max-time 10 -o /dev/null -w 'http=%{http_code}\n' https://dichiarazi
 
 ## Confini del prodotto
 
-- Pubblicazione, provenienza, diritti, privacy e review sono gate obbligatori; un output AI è sempre candidato fino all'approvazione.
+- Pubblicazione, provenienza, diritti, privacy e review sono gate obbligatori; un output AI resta candidato finché non supera i controlli automatici ripetuti da un agente indipendente.
 - Niente punteggi delle persone, identificazione biometrica, profili politici inferiti o contenuti privati esposti nel web.
 - Niente proiezione demo in produzione, né modifica di DB live per passare i test.
+- Owner decision 2026-10-25, #413: no human approval, review, or publication step. Agents independently check the original source and hashed capture, exact quote and alignment, two independent non-biometric speaker signals, public relevance and exclusion of minors/sensitive third-party data, source-specific quotation rights with citations, and independent agreement from a different model. Publish automatically only with durable, current proof; otherwise HOLD with a reason and retry after evidence changes. Nightly third-agent audit, daily metrics and correction-first immediate omission are mandatory. Rights, legal and privacy decisions belong to documented, citation-backed agent reviews. Owner-only physical actions, passwords and personal choices belong to #300 (Prove personali).
 - Riusare implementazioni esistenti e upstream compatibili; registrare licenze e provenienza dei donor.
 - Decisioni owner e autorizzazioni specifiche sono nelle issue; non inventare permessi o costi. Il design visivo finale è riservato a un intervento successivo dell'owner.
 
