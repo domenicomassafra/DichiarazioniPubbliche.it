@@ -1445,9 +1445,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                      NULLIF(:'source_intelligence_assessment_id',''),'system',
                      'SOURCE_INTELLIGENCE_REQUIREMENT_MISSING','{}'::jsonb
               FROM inserted
-              -- If an unrelated event already owns this ID, fail the whole
-              -- statement and roll back the just-created need. A swallowed
-              -- collision would leave an unreceipted OPEN research need.
+              -- Event collisions abort creation.
               RETURNING id
             ), observed_event AS (
               INSERT INTO coverage_need_event(
@@ -1458,8 +1456,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
                      NULLIF(:'source_intelligence_assessment_id',''),'system',
                      'SOURCE_INTELLIGENCE_REQUIREMENT_STILL_MISSING','{}'::jsonb
               FROM refreshed
-              -- A refresh and its immutable OBSERVED_AGAIN receipt must
-              -- commit together; duplicate event IDs abort the refresh.
+              -- Refresh and receipt are atomic.
               RETURNING id
             )
             SELECT CASE
@@ -1540,8 +1537,7 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             WITH current AS (
               SELECT * FROM coverage_need WHERE id=:'coverage_need_id' FOR UPDATE
             ), logged AS (
-              -- Claim the immutable event ID before mutating attempt budget.
-              -- Replays/collisions must not consume retries without receipts.
+              -- No attempt without a receipt.
               INSERT INTO coverage_need_event(
                 id,coverage_need_id,event_type,from_status,to_status,attempt_number,
                 actor_ref,reason,metadata
@@ -1843,7 +1839,12 @@ class ClaimEvidenceObservationStore(PsqlRuntime):
             )
             SELECT CASE
               WHEN EXISTS(SELECT 1 FROM changed) THEN 'BLOCKED'
-              WHEN EXISTS(SELECT 1 FROM current WHERE status='BLOCKED' AND blocker_code=:'blocker_code') THEN 'EXISTING'
+              WHEN EXISTS(SELECT 1 FROM current JOIN coverage_need_event receipt
+                ON receipt.id=:'event_id' AND receipt.coverage_need_id=current.id
+                WHERE current.status='BLOCKED' AND current.blocker_code=:'blocker_code'
+                  AND receipt.event_type='BLOCKED' AND receipt.actor_ref=:'actor_ref'
+                  AND receipt.reason IS NOT DISTINCT FROM NULLIF(:'reason','')
+                  AND receipt.metadata=:'metadata'::jsonb) THEN 'EXISTING'
               WHEN EXISTS(SELECT 1 FROM current) THEN 'TERMINAL_CONFLICT'
               ELSE 'NOT_FOUND'
             END;
