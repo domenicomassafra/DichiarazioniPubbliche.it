@@ -247,10 +247,6 @@ def propose_investigation(
         assigned = active_by_id.get(record.assignment_id)
         if assigned is None or record.lane != assigned.lane:
             raise ValueError("INVESTIGATION_OBSERVATION_FOREIGN_ASSIGNMENT")
-        if not _executable(assigned):
-            # A forged receipt for an assignment that could never reserve
-            # cannot turn a missing rights/search capability into coverage.
-            raise ValueError("INVESTIGATION_OBSERVATION_UNAUTHORIZED_ASSIGNMENT")
         if record.spent_usd > assigned.cost_cap_usd:
             # The overall envelope cannot legitimize a receipt that breached
             # the narrower limit of the actual assigned attempt.
@@ -261,6 +257,10 @@ def propose_investigation(
         })
         if record.attempt_id != expected_id:
             raise ValueError("INVESTIGATION_OBSERVATION_UNBOUND_ATTEMPT")
+        if not _executable(assigned):
+            # First preserve the original plan identity error, then refuse
+            # a self-hashed receipt for work which could never be reserved.
+            raise ValueError("INVESTIGATION_OBSERVATION_UNAUTHORIZED_ASSIGNMENT")
         old = completed.get(record.attempt_id)
         if old is not None and old != record:
             raise ValueError("INVESTIGATION_ATTEMPT_REPLAY_CONFLICT")
