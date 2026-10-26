@@ -33,12 +33,15 @@ class StudioUsabilityBindingPostgresTests(unittest.TestCase):
                 VALUES ('research:garlasco', 'content:camera', 'FIXTURE', 'v1'),
                        ('research:garlasco', 'content:historic', 'FIXTURE', 'v1');
                 INSERT INTO person (id, canonical_name)
-                VALUES ('person:roberta-bruzzone', 'Fixture speaker');
+                VALUES ('person:roberta-bruzzone', 'Fixture speaker'),
+                       ('person:unrelated', 'Unrelated fixture speaker');
                 INSERT INTO atomic_claim
                     (id, content_id, speaker_person_id, normalized_claim, claim_type)
                 VALUES ('claim:garlasco:bruzzone:2025-03-13:dna-y-13-loci',
                         'content:historic', 'person:roberta-bruzzone',
-                        'Synthetic claim fixture', 'HISTORICAL_CLAIM');
+                        'Synthetic claim fixture', 'HISTORICAL_CLAIM'),
+                       ('claim:unrelated', 'content:camera', 'person:unrelated',
+                        'Wrong original claim fixture', 'HISTORICAL_CLAIM');
                 INSERT INTO content_capture
                     (id, content_id, observed_at, final_url, content_sha256,
                      retrieval_method, retrieval_version)
@@ -63,7 +66,7 @@ class StudioUsabilityBindingPostgresTests(unittest.TestCase):
                         'https://fixture.invalid/camera', 'content:camera', 'CLEARED',
                         'fixture:receipt', ARRAY['FETCH','STORE_BODY','RESEARCH_CAPTURE_PRIVATE'],
                         '2026-10-25T00:00:00Z', 'fixture:reviewer', 'v1'),
-                       ('private-rights:historic', repeat('f',64), 'FIXTURE', 'URL',
+                       ('private-rights:historic', repeat('9',64), 'FIXTURE', 'URL',
                         'https://fixture.invalid/historic', 'content:historic', 'CLEARED',
                         'fixture:receipt', ARRAY['FETCH','STORE_BODY','RESEARCH_CAPTURE_PRIVATE'],
                         '2026-10-25T00:00:00Z', 'fixture:reviewer', 'v1');
@@ -99,6 +102,15 @@ class StudioUsabilityBindingPostgresTests(unittest.TestCase):
             "rights_record_id": "private-rights:camera",
         }}
         self.assertEqual(read_verified_task_bindings(self.reader, records), set())
+
+    def test_unknown_task_cannot_verify_a_real_capture(self):
+        records = {"invented-task": {
+            "status": "PASS", "source_id": "source:camera",
+            "capture_id": "capture:camera", "passage_id": "passage:camera",
+            "rights_record_id": "private-rights:camera",
+        }}
+        with self.assertRaisesRegex(ValueError, "DP420_OBSERVATIONS_INVALID"):
+            read_verified_task_bindings(self.reader, records)
 
     def test_non_search_source_task_can_use_same_rights_cleared_capture(self):
         records = {"source-capture": {
