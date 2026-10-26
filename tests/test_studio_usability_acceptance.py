@@ -4,7 +4,7 @@ import json
 import unittest
 
 from dichiarazioni_pubbliche.studio_usability_acceptance import (
-    evaluate_acceptance, read_live_collection_counts,
+    evaluate_acceptance, read_live_collection_counts, read_verified_task_bindings,
 )
 
 
@@ -104,12 +104,47 @@ class GarlascoUsabilityAcceptanceTests(unittest.TestCase):
             "source_id": "source:garlasco-source", "capture_id": "capture:garlasco-capture",
             "rights_record_id": "private-rights:current-garlasco",
         }}}
-        result = evaluate_acceptance(snapshot(captures=1), search_results(), observations=observed)
+        result = evaluate_acceptance(snapshot(captures=1), search_results(),
+                                     observations=observed, verified_tasks={"source-capture"})
         self.assertEqual(result["operator_passed"], 1)
         self.assertEqual(result["operator_timed_tasks"], 1)
         self.assertEqual(result["operator_time_to_source_p95_ms"], 1430)
         self.assertEqual(result["operator_navigation_errors"], 0)
         self.assertEqual(result["status"], "HOLD")
+
+    def test_claimed_pass_with_fake_references_is_held_until_database_binding_verified(self):
+        observed = {"tasks": {"source-capture": {
+            "status": "PASS", "actions": 2, "navigation_errors": 0,
+            "time_to_source_ms": 900, "evidence_ref": "sha256:" + "a" * 64,
+            "source_id": "source:invented", "capture_id": "capture:invented",
+            "rights_record_id": "private-rights:invented",
+        }}}
+        result = evaluate_acceptance(snapshot(captures=1), search_results(), observations=observed)
+        self.assertEqual(result["task_status"]["source-capture"], "HOLD")
+
+        class CollectionReader:
+            def run(self, sql, **variables):
+                assert "private_source_rights_record" in sql
+                assert "statement_candidate_passage" in sql
+                assert "research_collection_content" in sql
+                assert "observations" in variables
+                return ""  # No verified linkage for the invented identities.
+
+        verified = read_verified_task_bindings(CollectionReader(), observed["tasks"])
+        self.assertEqual(verified, set())
+
+    def test_source_task_must_reject_coverage_need_as_alternate_proof(self):
+        observed = {"tasks": {"source-capture": {
+            "status": "PASS", "actions": 2, "navigation_errors": 0,
+            "time_to_source_ms": 850, "evidence_ref": "sha256:" + "e" * 64,
+            "source_id": "source:unverified", "capture_id": "capture:unverified",
+            "rights_record_id": "private-rights:unverified",
+            "coverage_need_id": "coverage-need:real",
+        }}}
+        receipt = evaluate_acceptance(snapshot(captures=1), search_results(),
+                                      observations=observed,
+                                      verified_tasks={"source-capture"})
+        self.assertEqual(receipt["task_status"]["source-capture"], "HOLD")
 
     def test_operator_failure_and_benchmark_regression_are_visible(self):
         observations = {"tasks": {"find-dna": {"status": "FAIL", "navigation_errors": 1}}}
@@ -128,11 +163,13 @@ class GarlascoUsabilityAcceptanceTests(unittest.TestCase):
         }
         data = snapshot(captures=1, passages=1, candidates=1)
         result = evaluate_acceptance(data, search_results(),
-                                     observations={"tasks": {"candidate-source": record}})
+                                     observations={"tasks": {"candidate-source": record}},
+                                     verified_tasks={"candidate-source"})
         self.assertEqual(result["task_status"]["candidate-source"], "HOLD")
         record["statement_candidate_id"] = "statement-candidate:real"
         result = evaluate_acceptance(data, search_results(),
-                                     observations={"tasks": {"candidate-source": record}})
+                                     observations={"tasks": {"candidate-source": record}},
+                                     verified_tasks={"candidate-source"})
         self.assertEqual(result["task_status"]["candidate-source"], "PASS")
 
     def test_coverage_gap_can_be_documented_without_nonexistent_source(self):
@@ -144,7 +181,8 @@ class GarlascoUsabilityAcceptanceTests(unittest.TestCase):
             "coverage_need_id": "coverage-need:real",
         }
         result = evaluate_acceptance(data, search_results(),
-                                     observations={"tasks": {"coverage-gap": record}})
+                                     observations={"tasks": {"coverage-gap": record}},
+                                     verified_tasks={"coverage-gap"})
         self.assertEqual(result["task_status"]["coverage-gap"], "PASS")
         del record["coverage_need_id"]
         result = evaluate_acceptance(data, search_results(),
