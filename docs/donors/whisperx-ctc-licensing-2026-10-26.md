@@ -1,0 +1,43 @@
+# DP-359 / #462 — Italian CTC and native-rights audit (26 October 2026)
+
+**Decision: HOLD / no model selected or installed.** This is an agent read-only assessment of weight rights and MiniPC resources, not a license clearance. An HF card's license may omit the rights inherited from pretrained weights. The private adapter requires a LICENSE file, SHA-256 for **all** local files, safetensors and an inventory at most 1,073,741,824 bytes.
+
+## Primary-source candidate inventory
+
+The following immutable snapshots and large-file digests were obtained from the official Hugging Face model API with blobs=true on 26 October 2026. These are **remote metadata** digests, not locally rehashed files.
+
+| Candidate and pinned revision | Model-file evidence | Legal / operational outcome |
+| --- | --- | --- |
+| [Meta VoxPopuli CTC Italian](https://huggingface.co/facebook/wav2vec2-base-10k-voxpopuli-ft-it/tree/653b3c789c7d83134924bda6fabe0c6bb84f579c), 653b3c789c7d83134924bda6fabe0c6bb84f579c | pytorch_model.bin 377,697,132 B, SHA-256 05938db769991dd32783f045b6e5df1d9eb1d20d7e493cee4504f6099d93174f; no safetensors or LICENSE in revision. | [Weight license CC BY-NC 4.0](https://huggingface.co/facebook/wav2vec2-base-10k-voxpopuli-ft-it/blob/653b3c789c7d83134924bda6fabe0c6bb84f579c/README.md), unsuitable for the intended unrestricted/commercial use. HOLD. |
+| [Cnam-LMSSC Italian phonemizer](https://huggingface.co/Cnam-LMSSC/wav2vec2-italian-phonemizer/tree/9373b68cac253d695196049f8df3f2985f3db4ae), 9373b68cac253d695196049f8df3f2985f3db4ae | model.safetensors 377,632,660 B, SHA-256 b2eb50a76a2b59adea41a67945a03d615106a8077653acc68a33086fd4a35e52; additional optional pickle weights; no LICENSE. | Card declares MIT but [explicitly derives](https://huggingface.co/Cnam-LMSSC/wav2vec2-italian-phonemizer/blob/9373b68cac253d695196049f8df3f2985f3db4ae/README.md) from [Meta VoxPopuli v2 (CC BY-NC 4.0)](https://huggingface.co/facebook/wav2vec2-base-it-voxpopuli-v2/tree/ca53d26733f609622fc37999ddfd4c832257d5c4). Inherited weight clearance is missing. It outputs phonemes, requiring a separate grapheme-to-phoneme alignment adapter. HOLD. |
+| [dbdmg XLS-R 300m Italian](https://huggingface.co/dbdmg/wav2vec2-xls-r-300m-italian/tree/48812ebe0176c0b8fe385ecee805bf4bcdc125ad), 48812ebe0176c0b8fe385ecee805bf4bcdc125ad | model.safetensors 1,262,541,332 B, SHA-256 93ef0714b36d6f80917acff3fb2daa3de29f074b09321c36104bdb766ea462e6; no LICENSE. Separate language models also exist. | Card declares Apache-2.0; model alone exceeds 1 GiB private adapter bound. Model license file and all asset rights remain unverified. HOLD. |
+
+A single model LFS digest does **not** satisfy the full required manifest inventory (config, tokenizer, weights and a genuine LICENSE), so no manifest has license_reviewed=true. The older Meta/Jonatas large-model candidates are documented in the parent whisperx.md and also exceed 1 GiB.
+
+## WhisperX and native/transitive notices
+
+| Component | Official source and observed obligation | Audit outcome |
+| --- | --- | --- |
+| [WhisperX v3.8.6](https://github.com/m-bain/whisperX/blob/v3.8.6/LICENSE), commit 3ccc17b8de34f305300f8a3fd3c9f76ba820c0d0 | **BSD-2-Clause code**, distinct from weight rights. Its [pinned project metadata](https://github.com/m-bain/whisperX/blob/v3.8.6/pyproject.toml) requires Python >=3.10,<3.14, torch~=2.8, torchaudio~=2.8, torchvision~=0.23, torchcodec>=0.6,<0.8 on Linux x86_64; pyannote-audio>=4, NLTK, transformers, faster-whisper, triton and other transitives. | Code license known. Complete pinned installed wheel/native NOTICE closure absent: HOLD. |
+| [PyTorch](https://github.com/pytorch/pytorch/blob/v2.8.0/LICENSE), Torchaudio and Torchcodec | PyTorch has bundled license/third-party notices, and PyPI metadata lists Apache, BSD, BSL, MIT and LLVM exceptions; torchaudio declares BSD. Exact CPU-only wheel and linked native artifacts must be pinned and inspected individually. | HOLD pending real artifacts, hashes and notice inventory. |
+| [NLTK assets](https://github.com/nltk/nltk_data/blob/gh-pages/DATASET-LICENSES.md) | Python code is Apache-2.0, but upstream classifies punkt_tab data among **unclarified/ambiguous licenses**; its [license overview](https://github.com/nltk/nltk_data/blob/gh-pages/LICENSE-OVERVIEW.md) warns that the repo license does not cover individual datasets. | HOLD for punkt_tab; existing adapter forbids its auto-download. |
+| [PyAV source](https://github.com/PyAV-Org/PyAV/blob/main/LICENSE.txt) and [binary installation](https://github.com/PyAV-Org/PyAV/blob/master/docs/overview/installation.rst) | Source BSD-3-Clause; binary PyPI wheels bundle native FFmpeg. [Upstream GPL wheel concern](https://github.com/PyAV-Org/PyAV/issues/2270) requires inspection of the actual wheel and embedded native licenses, rather than relying on the BSD header. | HOLD for wheel/native contents. |
+| [FFmpeg license](https://github.com/FFmpeg/FFmpeg/blob/master/LICENSE.md) | Base FFmpeg LGPL-2.1+; --enable-gpl selects GPL-2+ components. On the MiniPC, the distribution ffmpeg 8.0.1-3ubuntu2 binary explicitly has --enable-gpl; Ubuntu copyright metadata is in /usr/share/doc/ffmpeg/copyright and /usr/share/doc/libavcodec62/copyright. | Observed system binary is GPL-configured. Native redistribution/commercial clearance cannot be inferred for another bundle. |
+| pyannote.audio, faster-whisper, ctranslate2, transformers, numpy, other transitives | Their versions and complete dependency closure depend on the final isolated lock and wheels. Their top-level package metadata cannot attest every transitive native library. | HOLD pending pinned closure and copyright/NOTICE review. |
+
+This inventory does not claim GPL-licensed software is forbidden for private execution: compatibility and obligations depend on the exact artifact and use. With no installed complete dependency closure, native_notices_reviewed=true is **unsupported**.
+
+## Measured MiniPC and actual private usage
+
+- Linux x86_64; 16 logical CPUs, 30 GiB RAM (about 4–5 GiB currently available), 15 GiB swap and 138,864,173,056 bytes free on /, observed with nproc, free and df on 26 October 2026.
+- System Python 3.14.4 is outside WhisperX v3.8.6's declared range. A compatible /home/udodo/.local/bin/python3.13 (3.13.9) and uv are already present. The checked Python 3.13 package inventory contained no WhisperX/Torch/Torchaudio/Torchcodec/Transformers/NLTK/PyAV/pyannote stack. HF cache directories seen contained Systran faster-whisper base/small, not cleared Italian CTC weights.
+- The **installed** private canary was invoked with Python 3.13 and an absent manifest (from /home/udodo/src/DichiarazioniPubbliche.it): PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc /home/udodo/.local/bin/python3.13 tools/dp165_alignment_canary.py --manifest /nonexistent. Output: {"status":"INVALID_MANIFEST","code":"MANIFEST_UNREADABLE"}; process exit **3**. This is an actual fail-closed negative proof, not model import/load or inference.
+- Public consumer was already installed and not modified: dichiarazioni-pubbliche-web.service active; GET http://127.0.0.1:18090/api/v1/health returned status=ok, contract_status=DRAFT, dossier_count=0.
+
+## Installation, revocation and future exit condition
+
+**NO_GO for weight download, install and activation today**. None of the three audited snapshots simultaneously provides usable weight rights, required safetensors + explicit LICENSE, complete SHA inventory and the adapter size limit. The private canary must remain opt-in disabled, with model/license/native notice receipt flags false; no model assets or private venv have been provisioned.
+
+A future agent may evaluate an **originally permissive** Italian grapheme-CTC checkpoint with documentary upstream weight provenance, immutable revision, local SHA-256 for every file including the explicit LICENSE, and independently audited exact CPU Python 3.13 wheel/native licenses. Only after all holds clear should it install into a newly created isolated private venv/model directory off the public consumer, run the real import/load and benchmark; activation remains bounded by the existing adapter. Rollback/revocation: disable opt-in, stop any private invocation and remove **only its newly provisioned** isolated model/venv after verifying no consumer references them. Maintain only the selected and preceding release once actual releases exist.
+
+Authentic independently annotated audio and ASR_MEDIA rights belong to [#461](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues/461); acoustic canary accuracy belongs to the downstream scope, not this audit. No owner choice, human acceptance or GO-PUBLIC is needed to record this technical HOLD.
