@@ -105,6 +105,92 @@ class InvestigationDecision:
     spent_usd: Decimal
     independent_reviewed_lineages: int
     publication_authority: bool = False
+    coverage: tuple[InvestigationLaneCoverage, ...] = ()
+
+
+@dataclass(frozen=True)
+class InvestigationLaneCoverage:
+    """Read-only coverage derived from the exact plan and terminal receipts."""
+
+    lane: str
+    status: str
+    reason_code: str
+    assignment_ids: tuple[str, ...]
+    completed_attempt_ids: tuple[str, ...]
+    max_queries: int
+    max_results: int
+    max_results_per_host: int
+    cost_cap_usd: Decimal
+    stop_conditions: tuple[str, ...]
+    source_lineages: tuple[str, ...]
+    independent_lineages: int
+
+
+_COVERAGE_LANES = {
+    "ORIGINAL": frozenset({"PRIMARY_SOURCE", "ORIGINAL_MEDIA"}),
+    "FULL_CONTEXT": frozenset({"ARCHIVE_HISTORY"}),
+    "OFFICIAL": frozenset({"OFFICIAL_STRUCTURED"}),
+    "INDEPENDENT": frozenset({"INDEPENDENT_REPORTING"}),
+}
+
+
+def _executable(assignment: ResearchAssignment) -> bool:
+    return (
+        assignment.status == "READY"
+        and bool(assignment.adapter_ids)
+        and bool(assignment.stop_conditions)
+        and assignment.max_queries >= 1
+        and assignment.max_results >= 1
+        and 1 <= assignment.max_results_per_host <= assignment.max_results
+    )
+
+
+def _coverage(
+    assignments: tuple[ResearchAssignment, ...],
+    observations: tuple[InvestigationObservation, ...],
+) -> tuple[InvestigationLaneCoverage, ...]:
+    """Never treat a missing lane, a refusal or a mirror as completed checking."""
+    completed = {row.assignment_id: row for row in observations}
+    result = []
+    for stage, accepted_lanes in _COVERAGE_LANES.items():
+        planned = tuple(row for row in assignments if row.lane in accepted_lanes)
+        seen = tuple(completed[row.assignment_id] for row in planned if row.assignment_id in completed)
+        candidates = {row.lineage_id for row in seen if row.result == "REVIEWED_SOURCE_CANDIDATE"}
+        # The planner receives opaque lineage strings, hashes and review IDs.
+        # Even distinct values cannot prove an outlet did not copy another:
+        # only independently verified origin/dependency evidence could do so.
+        independent = 0
+        if not planned:
+            status, reason = "NOT_CHECKED", "INVESTIGATION_NO_AUTHORIZED_ASSIGNMENT"
+        elif any(row.status == "BLOCKED" for row in planned):
+            status, reason = "WAIT_EXTERNAL", "INVESTIGATION_LANE_BLOCKED"
+        elif any(row.result in {"OUTAGE", "RIGHTS_BLOCKED", "COST_BLOCKED", "CAPABILITY_BLOCKED"} for row in seen):
+            status, reason = "WAIT_EXTERNAL", "INVESTIGATION_LANE_EXTERNAL_FAILURE"
+        elif candidates:
+            if stage == "INDEPENDENT":
+                status, reason = (
+                    "DEPENDENT_OR_UNCORROBORATED", "INVESTIGATION_ORIGIN_INDEPENDENCE_UNPROVED"
+                )
+            else:
+                status, reason = "SOURCE_CANDIDATE", "INVESTIGATION_SOURCE_ONLY"
+        elif len(seen) == len(planned):
+            status, reason = "CHECKED_INSUFFICIENT", "INVESTIGATION_LANE_CHECKED_NO_CANDIDATE"
+        elif seen:
+            status, reason = "PARTIALLY_CHECKED", "INVESTIGATION_LANE_UNFINISHED"
+        else:
+            status, reason = "NOT_CHECKED", "INVESTIGATION_LANE_NOT_ATTEMPTED"
+        result.append(InvestigationLaneCoverage(
+            stage, status, reason,
+            tuple(row.assignment_id for row in planned),
+            tuple(row.attempt_id for row in seen),
+            sum(row.max_queries for row in planned if row.status == "READY"),
+            sum(row.max_results for row in planned if row.status == "READY"),
+            min((row.max_results_per_host for row in planned if row.status == "READY"), default=0),
+            sum((row.cost_cap_usd for row in planned if row.status == "READY"), Decimal("0")),
+            tuple(dict.fromkeys(stop for row in planned for stop in row.stop_conditions)),
+            tuple(sorted(candidates)), independent,
+        ))
+    return tuple(result)
 
 
 def propose_investigation(
@@ -164,6 +250,10 @@ def propose_investigation(
         })
         if record.attempt_id != expected_id:
             raise ValueError("INVESTIGATION_OBSERVATION_UNBOUND_ATTEMPT")
+        if not _executable(assigned):
+            # First preserve the original plan identity error, then refuse
+            # a self-hashed receipt for work which could never be reserved.
+            raise ValueError("INVESTIGATION_OBSERVATION_UNAUTHORIZED_ASSIGNMENT")
         old = completed.get(record.attempt_id)
         if old is not None and old != record:
             raise ValueError("INVESTIGATION_ATTEMPT_REPLAY_CONFLICT")
@@ -171,11 +261,13 @@ def propose_investigation(
     attempts = tuple(completed.values())
     spent = sum((row.spent_usd for row in attempts), Decimal("0"))
     lineages = {row.lineage_id for row in attempts if row.result == "REVIEWED_SOURCE_CANDIDATE"}
+    coverage = _coverage(tuple(active), attempts)
 
     def decision(status: str, reason: str, attempt: str | None = None, assignment: str | None = None) -> InvestigationDecision:
         return InvestigationDecision(
             status, reason, plan_fp, attempt, assignment, len(attempts),
             max(0, spec.max_attempts - len(attempts)), spent, len(lineages), False,
+            coverage,
         )
 
     if spec.rights_status != "CLEARED":
@@ -196,15 +288,7 @@ def propose_investigation(
         return decision("EXHAUSTED", "INVESTIGATION_ATTEMPT_CAP")
 
     for assignment in sorted(active, key=lambda value: (value.lane, value.assignment_id)):
-        if (
-            assignment.status != "READY"
-            or not assignment.adapter_ids
-            or not assignment.stop_conditions
-            # A nominal READY assignment may carry zero executable capacity.
-            or assignment.max_queries < 1
-            or assignment.max_results < 1
-            or not 1 <= assignment.max_results_per_host <= assignment.max_results
-        ):
+        if not _executable(assignment):
             continue
         attempt_id = "investigation-attempt:" + _hash({
             "plan": plan_fp, "assignment": assignment.assignment_id,

@@ -46,7 +46,8 @@ def bundle(source=None):
 
 def formats(payload):
     return {
-        "api_payload": list_public_statements_v3(payload, allow_statement_v3=True),
+        "api_payload": list_public_statements_v3(payload, allow_statement_v3=True,
+            current_public_dataset_sha256=payload["dataset_sha256"]),
         "jsonld_payload": projection_statement_v3_jsonld(
             payload, allow_statement_v3=True
         ),

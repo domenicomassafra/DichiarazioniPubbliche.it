@@ -83,6 +83,11 @@ for (const [prefix, expectedRoutes] of expectedByPrefix) {
 }
 const traceRoutes = new Set([...pages.keys()].filter((route) => route.startsWith("/tracce/")));
 if (demoSnapshot) assert(traceRoutes.size > 0, "demo fixture must exercise at least one reviewed Trace route");
+// Trace has no standalone search-record kind yet. An empty public index cannot
+// authorize a rendered Trace or its compatibility alias, even with a canonical.
+if (!demoSnapshot && searchIndex.records.length === 0) {
+  assert.equal(traceRoutes.size, 0, "approved-empty route set must not expose Trace pages");
+}
 
 const legacyToCanonical = new Map([
   ["/fact-check/", "/dichiarazioni/"],
@@ -124,6 +129,15 @@ for (const [route, html] of pages) {
     const canonical = canonicalOf(html);
     assert(canonical?.startsWith(canonicalPrefix), `${route}: unsafe/missing legacy canonical ${canonical}`);
     assert(pages.has(canonical), `${route}: canonical target is not built: ${canonical}`);
+    // Current compatibility templates share the slug of their v3 target.
+    // Existence of an unrelated target cannot authorize a legacy alias.
+    assert.equal(
+      route.slice(legacyPrefix.length),
+      canonical.slice(canonicalPrefix.length),
+      `${route}: legacy alias identifier differs from canonical target ${canonical}`,
+    );
+    // The nested /record/person/ prefix precedes /record/: count and validate once.
+    break;
   }
 }
 assert.equal(compareAliasCount, traceRoutes.size, "Trace compatibility aliases must match canonical Trace routes one-for-one");

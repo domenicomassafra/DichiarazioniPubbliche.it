@@ -105,7 +105,8 @@ def run(database_url: str, storage_root: Path, *, apply: bool) -> dict[str, obje
     # A later private text-use attestation may add PARSE_TEXT without revoking
     # the original, separately verified capture grant.
     if current.policy_version == POLICY and set(current.permitted_uses) not in (
-        set(RIGHTS_USE), set(RIGHTS_USE) | {"PARSE_TEXT"}
+        set(RIGHTS_USE), set(RIGHTS_USE) | {"PARSE_TEXT"},
+        set(RIGHTS_USE) | {"PARSE_TEXT", "EXTRACT_CANDIDATES"},
     ):
         raise RuntimeError("DP330_PREEXISTING_RIGHTS_CONFLICT")
     if current.policy_version == DISCOVERY_POLICY and current.permitted_uses != ("DISCOVER_METADATA",):

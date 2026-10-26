@@ -287,7 +287,10 @@ def verify_public_v3_consumer_parity(
         if projection_dataset_sha256(bundle) != bundle["dataset_sha256"]:
             raise PublicV3ConsumerParityError("DP-436 stale dataset fingerprint")
         if api_payload is None:
-            api_payload = list_public_statements_v3(bundle, allow_statement_v3=True)
+            api_payload = list_public_statements_v3(
+                bundle, allow_statement_v3=True,
+                current_public_dataset_sha256=bundle["dataset_sha256"],
+            )
         if jsonld_payload is None:
             jsonld_payload = projection_statement_v3_jsonld(
                 bundle, allow_statement_v3=True

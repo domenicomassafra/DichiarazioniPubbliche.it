@@ -794,9 +794,7 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
             and previous.target_record_version == request.target_record_version
             and previous.transition_context == context_payload
         ):
-            # Exact retry of the last durable transition. Returning the already
-            # replay-verified event makes request retries idempotent without
-            # granting a caller control over the derived next state.
+            # Reuse the replay-verified last event for safe, idempotent retries.
             return ChallengeAppendResult(request, previous, False)
         context = ChallengeContext(
             kind=request.kind,
@@ -895,7 +893,7 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
         )
         try:
             current_version = self._current_record_version(clean_finding)
-        except Exception:  # noqa: BLE001 - read-side gate must fail closed
+        except Exception:  # noqa: BLE001
             return ChallengeHoldResult(
                 ChallengeHoldDisposition.UNKNOWN,
                 clean_finding,
@@ -908,7 +906,7 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
                 SELECT COALESCE(json_agg(request_id ORDER BY created_at, request_id)::text, '[]')
                 FROM private_challenge_request
                 WHERE target_finding_id = :'finding_id'
-                  AND challenge_kind = 'TAKEDOWN';
+                  AND challenge_kind IN ('TAKEDOWN','CORRECTION');
                 """,
                 finding_id=clean_finding,
             )
@@ -941,7 +939,8 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
             if replay.blockers or replay.request is None:
                 blockers.extend(replay.blockers or ("CHALLENGE_HOLD_LEDGER_INVALID",))
                 continue
-            if replay.request.target_record_version != current_version:
+            if (replay.current_state not in (ChallengeState.REJECTED, ChallengeState.PUBLIC_VERSIONED)
+                    and replay.request.target_record_version != current_version):
                 blockers.append("CHALLENGE_HOLD_RECORD_VERSION_STALE")
                 continue
             valid.append(replay)
@@ -953,13 +952,13 @@ class PrivateChallengeLedgerStore(PsqlRuntime):
                 blockers=tuple(dict.fromkeys(blockers)),
             )
         for replay in valid:
-            if replay.current_state is ChallengeState.PUBLIC_HOLD_APPROVED:
+            if replay.current_state not in (ChallengeState.REJECTED, ChallengeState.PUBLIC_VERSIONED):
                 latest = replay.events[-1]
                 return ChallengeHoldResult(
                     ChallengeHoldDisposition.HOLD,
                     clean_finding,
                     current_version,
-                    request_id=replay.request.request_id if replay.request else None,
+                    request_id=replay.request.request_id,
                     event_id=latest.event_id,
                 )
         return ChallengeHoldResult(

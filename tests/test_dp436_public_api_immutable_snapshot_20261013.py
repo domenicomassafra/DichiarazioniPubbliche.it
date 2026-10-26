@@ -59,12 +59,14 @@ class PublicStatementV3ApiSnapshotTests(unittest.TestCase):
                 ):
                     if mode == "list":
                         result = public_api.list_public_statements_v3(
-                            incoming, allow_statement_v3=True
+                            incoming, allow_statement_v3=True,
+                            current_public_dataset_sha256=original_digest,
                         )
                         quote = result["data"][0]
                     else:
                         result = public_api.get_public_statement_v3(
-                            incoming, "statement:1", allow_statement_v3=True
+                            incoming, "statement:1", allow_statement_v3=True,
+                            current_public_dataset_sha256=original_digest,
                         )
                         quote = result["data"]
 

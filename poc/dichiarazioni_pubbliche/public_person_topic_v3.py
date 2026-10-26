@@ -186,7 +186,10 @@ def build_public_person_topic_v3(
     }  # Already schema-validated first-class public Topic identities.
     statement_rows = {
         (row["statement_id"], row["version_id"]): row
-        for row in list_public_statements_v3(snapshot, allow_statement_v3=True)["data"]
+        for row in list_public_statements_v3(
+            snapshot, allow_statement_v3=True,
+            current_public_dataset_sha256=current_public_dataset_sha256,
+        )["data"]
     }
     # Membership needs its own independent review decision. Reusing a
     # previously accepted source/rights/identity/Topic event does not give

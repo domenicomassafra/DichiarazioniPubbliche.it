@@ -106,14 +106,19 @@ def _paragraph_text(element: ET.Element) -> str:
 
 
 def import_senato_akoma_stenographic(
-    xml_bytes: bytes, *, source_raw_url: str, expected_blob_sha1: str
+    xml_bytes: bytes, *, source_raw_url: str, expected_blob_sha1: str,
+    source_license_id: str = LICENSE_ID,
 ) -> SenatoAkomaCandidateImport:
     """Import official Senate sitting speech candidates from an immutable raw blob.
 
     The operator must independently verify that the supplied commit really
     belongs to the official Senate repository.  The Git blob digest is checked
     over the *actual* bytes; a caller-supplied URL alone has no authority.
+    The claimed source_license_id must be checked against the pinned commit
+    and license notice by the caller; it grants no excerpt/public rights.
     """
+    if source_license_id not in {"CC-BY-3.0", "CC-BY-4.0"}:
+        raise SenatoAkomaError("SENATO_AKN_LICENSE_ID_INVALID")
     match = _RAW_URL.fullmatch(source_raw_url) if isinstance(source_raw_url, str) else None
     if match is None:
         raise SenatoAkomaError("SENATO_AKN_PINNED_OFFICIAL_REPOSITORY_URL_REQUIRED")
@@ -205,9 +210,16 @@ def import_senato_akoma_stenographic(
         sitting_date=sitting_date, legislature=int(legislature),
         sitting_number=int(sitting_num), source_raw_url=source_raw_url,
         source_commit_sha=commit.lower(), source_blob_sha1=blob_hash,
-        source_sha256=source_hash, source_license_id=LICENSE_ID,
+        source_sha256=source_hash, source_license_id=source_license_id,
         # Bind the claimed license to this immutable source commit, not
         # today's mutable master branch.  This is provenance, NOT clearance.
-        source_license_url=f"{LICENSE_PATH}/{commit.lower()}/LICENSE.MD",
+        # The historical CC BY 3.0 notice lives in the immutable README;
+        # that commit has no LICENSE.MD. Only the independently verified
+        # licence identifier chooses the reference, never grants rights.
+        source_license_url=(
+            f"{LICENSE_PATH}/{commit.lower()}/README.MD"
+            if source_license_id == "CC-BY-3.0"
+            else f"{LICENSE_PATH}/{commit.lower()}/LICENSE.MD"
+        ),
         speeches=tuple(candidates), held_speeches=tuple(held),
     )

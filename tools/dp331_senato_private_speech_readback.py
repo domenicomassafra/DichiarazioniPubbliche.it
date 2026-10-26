@@ -56,6 +56,7 @@ def run(
         or set(current.permitted_uses) not in (
             set(DP330_PRIVATE_CAPTURE_USES),
             set(DP330_PRIVATE_CAPTURE_USES) | {"PARSE_TEXT"},
+            set(DP330_PRIVATE_CAPTURE_USES) | {"PARSE_TEXT", "EXTRACT_CANDIDATES"},
         )
     ):
         raise RuntimeError("DP331_PRIVATE_RIGHTS_CURRENT_REQUIRED")
