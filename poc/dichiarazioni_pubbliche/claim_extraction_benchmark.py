@@ -206,8 +206,8 @@ def load_reference_claims(path: Path = DEFAULT_AUDIT) -> list[ReferenceClaim]:
     return claims
 
 
-def load_transcript_text(path: Path = DEFAULT_TRANSCRIPT) -> str:
-    raw = json.loads(path.read_text())
+def load_transcript_text(path: Path = DEFAULT_TRANSCRIPT, data: bytes | None = None) -> str:
+    raw = json.loads(path.read_text() if data is None else data)
     text = str(raw.get("timestamped_text") or raw.get("full_text") or "").strip()
     if not text:
         raise ValueError(f"Transcript is empty: {path}")
@@ -426,7 +426,7 @@ def require_live_benchmark_preflight(
     parent_canary_receipt: Path | None,
     source_use_guard: SourceFamilyUseGuard | None,
     transcript_path: Path,
-) -> None:
+) -> bytes:
     """Recheck the DP-201 parent and current source permission before any LLM call."""
     if model != DEFAULT_MODEL:
         raise RuntimeError("DP202_MODEL_UNAUTHORIZED")
@@ -460,16 +460,17 @@ def require_live_benchmark_preflight(
     if not valid:
         raise RuntimeError("DP202_PARENT_CANARY_UNVERIFIED")
 
-    # Re-read source-specific current rights. CLI flags never grant permission.
     if not isinstance(source_use_guard, SourceFamilyUseGuard):
         raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED")
     try:
-        digest = hashlib.sha256(transcript_path.read_bytes()).hexdigest()
+        data = transcript_path.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
         if source_use_guard.expected_sha256 != digest:
             raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED")
         source_use_guard.require("PARSE_TEXT", content_sha256=digest)
     except Exception:
         raise RuntimeError("DP202_SOURCE_RIGHTS_UNVERIFIED") from None
+    return data
 
 
 def run_live_benchmark(
@@ -485,14 +486,14 @@ def run_live_benchmark(
     parent_canary_receipt: Path | None = None,
     source_use_guard: SourceFamilyUseGuard | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    require_live_benchmark_preflight(
+    data = require_live_benchmark_preflight(
         model=model,
         parent_canary_receipt=parent_canary_receipt,
         source_use_guard=source_use_guard,
         transcript_path=transcript_path,
     )
     references = load_reference_claims(audit_path)
-    transcript = load_transcript_text(transcript_path)
+    transcript = load_transcript_text(transcript_path, data=data)
     prompt = build_prompt(transcript, taxonomy_from_reference(references))
     response, elapsed = call_omniroute(
         prompt=prompt,
