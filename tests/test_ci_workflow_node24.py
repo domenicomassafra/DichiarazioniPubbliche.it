@@ -46,6 +46,22 @@ class CiWorkflowNode24Tests(unittest.TestCase):
         self.assertNotIn('continue-on-error:', backend)
         self.assertNotIn('max-parallel:', backend)
 
+    def test_ubuntu_decoder_install_rewrites_the_effective_apt_mirror(self):
+        source = WORKFLOW.read_text()
+        steps = source.split('      - name: Install original-media test decoder\n')[1:]
+        self.assertEqual(len(steps), 2)
+        for index, step in enumerate(steps):
+            with self.subTest(decoder_step=index):
+                body = step.split('\n      - name: ', 1)[0]
+                self.assertIn(
+                    's@mirror+file:/etc/apt/apt-mirrors.txt@http://archive.ubuntu.com/ubuntu@g',
+                    body,
+                )
+                self.assertIn(
+                    's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g',
+                    body,
+                )
+
     def test_every_first_party_action_uses_supported_node24_runtime_major(self):
         source = WORKFLOW.read_text()
         actions = re.findall(r'^\s+- uses: (actions/(checkout|setup-python|setup-node)@v\d+)\s*$',
