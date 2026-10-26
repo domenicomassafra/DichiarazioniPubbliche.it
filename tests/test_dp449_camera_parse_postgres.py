@@ -58,6 +58,10 @@ class CameraParsePostgresTests(unittest.TestCase):
                 content_id=content_id, url=source_url,
                 capture_sha256=digest,
             )
+            cls.store.run(
+                "UPDATE content_capture SET rights_status='CLEARED' WHERE content_id=:'content_id';",
+                content_id=content_id,
+            )
             cls.store.record_rights(
                 subject=RightsSubject(
                     source_family="camera_official_stenographic",
@@ -136,6 +140,44 @@ class CameraParsePostgresTests(unittest.TestCase):
             self.assertEqual(
                 self.store.run("SELECT count(*) FROM private_camera_parse_attestation;"), "2",
             )
+
+    def test_z_capture_hold_and_rights_downgrade_revoke_parse_even_with_valid_hmac(self):
+        now = datetime(2026, 10, 26, 18, tzinfo=timezone.utc)
+        content_id, (_, digest) = next(iter(SOURCES.items()))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "second-private-credential"
+            provision_reviewer_credential(
+                root, credential_id="dp449-hold-check",
+                actor_ref="agent:private-rights-reviewer:camera", key_version="v1",
+            )
+            service = CameraParseAuthority(self.store, LocalFileReviewerIdentityAuthority(root))
+            self.assertTrue(service.issue(
+                content_id=content_id, capture_sha256=digest,
+                credential_id="dp449-hold-check", issued_at=now.isoformat(),
+            )["permitted"])
+            try:
+                for field, value in (("hold_status", "LEGAL_HOLD"), ("rights_status", "UNKNOWN")):
+                    with self.subTest(field=field):
+                        self.store.run(
+                            "UPDATE content_capture SET " + field + "=:'value'"
+                            " WHERE content_id=:'content_id';",
+                            value=value, content_id=content_id,
+                        )
+                        self.assertFalse(service.inspect(
+                            content_id=content_id, capture_sha256=digest,
+                            use="PARSE_TEXT", now=now,
+                        )["permitted"])
+                        self.store.run(
+                            "UPDATE content_capture SET " + field + "=:'value'"
+                            " WHERE content_id=:'content_id';",
+                            value="NONE" if field == "hold_status" else "CLEARED",
+                            content_id=content_id,
+                        )
+            finally:
+                self.store.run(
+                    "UPDATE content_capture SET hold_status='NONE', rights_status='CLEARED'"
+                    " WHERE content_id=:'content_id';", content_id=content_id,
+                )
 
 
 if __name__ == "__main__":

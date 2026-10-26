@@ -96,7 +96,8 @@ class CameraParseAuthority:
         if self.runtime.run(
             """SELECT count(*) FROM content_capture
                WHERE content_id=:'content_id' AND content_sha256=:'capture_sha256'
-                 AND status='CAPTURED' AND body_purged_at IS NULL AND body_ref IS NOT NULL;""",
+                 AND status='CAPTURED' AND hold_status='NONE'
+                 AND rights_status='CLEARED' AND body_purged_at IS NULL AND body_ref IS NOT NULL;""",
             content_id=content_id, capture_sha256=capture_sha256,
         ) != "1":
             raise ValueError("CAMERA_PARSE_CAPTURE_VERSION_NOT_PERSISTED")
