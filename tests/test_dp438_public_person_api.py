@@ -74,7 +74,13 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         self.assertEqual(payload["data"][0]["route"], "/persone/persona-zero/")
         self.assertEqual(payload["data"][0]["statements"], [])
         self.assertEqual(response.headers["Cache-Control"], "no-store")
-        self.assertEqual(self.get("/api/v1/people/persona-zero").status, 200)
+        detail = self.get("/api/v1/people/persona-zero")
+        self.assertEqual(detail.status, 200)
+        detail_payload = json.loads(detail.body)
+        self.assertEqual(detail_payload["data"]["person_id"], "person:zero")
+        self.assertEqual(detail_payload["data"]["statements"], [])
+        self.assertEqual(detail_payload["meta"]["person_dataset_sha256"], self.current_pins["personSha256"])
+        self.assertEqual(detail_payload["meta"]["link"], "/api/v1/people/persona-zero")
         self.assertEqual(self.get("/api/v1/people/persona-zero", method="HEAD").body, b"")
 
     def test_unknown_private_held_and_revoked_share_generic_404(self):

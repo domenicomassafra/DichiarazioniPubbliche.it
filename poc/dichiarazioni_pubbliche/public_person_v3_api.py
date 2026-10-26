@@ -183,17 +183,20 @@ def people_response(index: Any, params: dict[str, str]) -> dict[str, Any]:
     })
 
 
-def person_detail(_index: Any, slug: str) -> dict[str, Any]:
+def person_detail(index: Any, slug: str) -> dict[str, Any]:
     from . import public_api as api
     if os.environ.get(ENABLE) != "1":
         raise api._not_found()
     try:
-        people, _ = load_current_public_people_v3()
+        people, sha = load_current_public_people_v3()
     except PublicPersonReleaseUnavailable:
         raise api._unavailable() from None
     for person in people:
         if person["slug"] == slug:
-            return person
+            return api._envelope(index, person, {
+                "link": f"{api.API_BASE_PATH}/people/{slug}",
+                "person_schema_version": _SCHEMA, "person_dataset_sha256": sha,
+            })
     raise api._not_found()
 
 
@@ -323,10 +326,15 @@ def optional_person_route(path: str) -> Any:
     if match is None:
         return None
     from . import public_api as api
+
+    def detail_handler(index: Any, params: dict[str, str]) -> dict[str, Any]:
+        api.validate_params(params)
+        return person_detail(index, match.group(1))
+
     return (
         api.Route(
             "person-v3", ("GET", "HEAD"), f"{api.API_BASE_PATH}/people/{{slug}}",
-            detail=("slug", person_detail, f"{api.API_BASE_PATH}/people/{{value}}"),
+            handler=detail_handler,
         ),
         {"slug": match.group(1)},
     )

@@ -40,7 +40,11 @@ To have the Python HTTP host serve the same identities, configure
 **generated** `public-people.v3.json` in the installed static root and
 use the **same independently issued** `...PINS_PATH` as the web build.
 `/api/v1/people` then exposes this approved collection and
-`/api/v1/people/<slug>` exposes approved details. The generated JSON
+`/api/v1/people/<slug>` exposes approved details. Both return the
+read-only `{data, meta}` response envelope; detail `data` is one Person
+and `meta.person_dataset_sha256` binds the current independent Person release.
+The detail route is explicitly opt-in and outside the stable v1 OpenAPI table
+until a separately versioned public Person contract is activated. The generated JSON
 also carries `release_pins_sha256`, a canonical SHA-256 of the complete
 independent pin file. Python rejects any changed source, identity, search,
 sitemap, expiry or authorization pin, even if the Person dataset SHA remains
