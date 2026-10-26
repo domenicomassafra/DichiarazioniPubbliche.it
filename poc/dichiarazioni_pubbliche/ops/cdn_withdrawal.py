@@ -46,6 +46,15 @@ class ProbeResult:
 
 
 @dataclass(frozen=True, slots=True)
+class PurgeReceipt:
+    """Exact provider response status/hash; ACK alone does not prove eviction."""
+
+    status: int
+    body_sha256: str | None
+    ack_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class WithdrawalEvent:
     event_id: str
     source_id: str
@@ -166,7 +175,7 @@ class WithdrawalRunner:
                  verify_current_release: Callable[[WithdrawalEvent], bool],
                  read_origin: Callable[[Probe], ProbeResult],
                  read_edge: Callable[[Probe], ProbeResult],
-                 purge_cloudflare: Callable[[], str]):
+                 purge_cloudflare: Callable[[], PurgeReceipt]):
         self.ledger = ledger
         self.verify_current_release = verify_current_release
         self.read_origin = read_origin
@@ -225,12 +234,23 @@ class WithdrawalRunner:
             if self.verify_current_release(event) is not True:
                 raise _Held("RELEASE_FENCE_CHANGED")
             try:
-                ack = self.purge_cloudflare()
+                receipt = self.purge_cloudflare()
             except Exception as exc:
                 raise _Held("PURGE_FAILED_OR_TIMED_OUT") from exc
-            if not isinstance(ack, str) or not _ACK.fullmatch(ack):
-                ack = None
+            if (not isinstance(receipt, PurgeReceipt)
+                    or type(receipt.status) is not int
+                    or not 100 <= receipt.status <= 599
+                    or not isinstance(receipt.body_sha256, str)
+                    or not _SHA.fullmatch(receipt.body_sha256)):
+                raise _Held("PURGE_RECEIPT_INVALID")
+            observations.append({"location": "cloudflare", "path": "purge_cache",
+                                 "status": receipt.status,
+                                 "body_sha256": receipt.body_sha256})
+            if receipt.status != 200:
+                raise _Held("PURGE_FAILED_OR_TIMED_OUT")
+            if not isinstance(receipt.ack_id, str) or not _ACK.fullmatch(receipt.ack_id):
                 raise _Held("PURGE_ACK_MISSING")
+            ack = receipt.ack_id
             for probe in event.probes:
                 if not _safe(probe, observed("edge", probe, self.read_edge(probe))):
                     raise _Held("EDGE_UNSAFE_OR_UNAVAILABLE")
@@ -327,7 +347,7 @@ def http_probe(base: str, probe: Probe, *, timeout: float = 5) -> ProbeResult:
                                exc.headers.get("CF-Cache-Status", ""))
 
 
-def cloudflare_purge(zone_id: str, token: str, *, timeout: float = 8) -> str:
+def cloudflare_purge(zone_id: str, token: str, *, timeout: float = 8) -> PurgeReceipt:
     """Native API adapter. ACK is *acceptance only*, never final edge proof."""
     if not re.fullmatch(r"[0-9a-fA-F]{32}", zone_id):
         raise ValueError("CLOUDFLARE_ZONE_INVALID")
@@ -338,12 +358,23 @@ def cloudflare_purge(zone_id: str, token: str, *, timeout: float = 8) -> str:
         data=b'{"purge_everything":true}', method="POST",
         headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
     )
-    with request.build_opener(_NoRedirect).open(req, timeout=timeout) as response:
-        if response.status != 200:
-            raise RuntimeError("CLOUDFLARE_PURGE_REJECTED")
-        doc = json.loads(response.read(8193))
-    if (doc.get("success") is not True or not isinstance(doc.get("result"), dict)
-            or not isinstance(doc["result"].get("id"), str)
-            or not _ACK.fullmatch(doc["result"]["id"])):
-        raise RuntimeError("CLOUDFLARE_PURGE_ACK_UNVERIFIED")
-    return doc["result"]["id"]
+    try:
+        with request.build_opener(_NoRedirect).open(req, timeout=timeout) as response:
+            status, body = response.status, response.read(8193)
+    except error.HTTPError as exc:
+        with exc:
+            status, body = exc.code, exc.read(8193)
+    if len(body) > 8192:
+        return PurgeReceipt(status, None, None)  # bounded read is not a full response hash
+    response_sha256 = hashlib.sha256(body).hexdigest()
+    try:
+        doc = json.loads(body)
+    except (ValueError, UnicodeError):
+        doc = None
+    ack = None
+    if (status == 200 and isinstance(doc, dict) and doc.get("success") is True
+            and isinstance(doc.get("result"), dict)):
+        candidate = doc["result"].get("id")
+        if isinstance(candidate, str) and _ACK.fullmatch(candidate):
+            ack = candidate
+    return PurgeReceipt(status, response_sha256, ack)

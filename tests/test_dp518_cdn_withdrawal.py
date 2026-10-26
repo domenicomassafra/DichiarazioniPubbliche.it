@@ -14,6 +14,7 @@ from unittest.mock import patch
 from dichiarazioni_pubbliche.ops.cdn_withdrawal import (
     Probe,
     ProbeResult,
+    PurgeReceipt,
     WithdrawalEvent,
     WithdrawalRunner,
     cloudflare_purge,
@@ -50,7 +51,9 @@ class CDNWithdrawalTests(unittest.TestCase):
             self.purge_count += 1
             if isinstance(ack, Exception):
                 raise ack
-            return ack
+            if isinstance(ack, PurgeReceipt):
+                return ack
+            return PurgeReceipt(200, sha(b'{"success":true}'), ack)
 
         return WithdrawalRunner(
             self.ledger,
@@ -90,7 +93,7 @@ class CDNWithdrawalTests(unittest.TestCase):
         with sqlite3.connect(self.ledger) as db:
             receipt = db.execute("SELECT observations_json FROM attempt").fetchone()[0]
         observations = json.loads(receipt)
-        self.assertEqual(len(observations), 6)
+        self.assertEqual(len(observations), 7)
         self.assertEqual(observations[0], {
             "location": "origin", "path": "/", "status": 200, "body_sha256": sha(b"safe"),
         })
@@ -98,8 +101,12 @@ class CDNWithdrawalTests(unittest.TestCase):
             "location": "edge", "path": "/old-quote", "status": 404,
             "body_sha256": sha(b""),
         })
+        self.assertEqual(observations[3], {
+            "location": "cloudflare", "path": "purge_cache", "status": 200,
+            "body_sha256": sha(b'{"success":true}'),
+        })
         self.assertEqual(withdrawal_digest(self.ledger)["observed_http_status_counts"],
-                         {"200": 4, "404": 2})
+                         {"200": 5, "404": 2})
 
     def test_timeout_and_missing_ack_keep_hold_and_retry_without_false_success(self):
         runner = self.runner(ack=TimeoutError("private URL/token must not leak"))
@@ -113,6 +120,19 @@ class CDNWithdrawalTests(unittest.TestCase):
         self.assertEqual(success.status, "SAFE_READBACK")
         self.assertEqual(self.purge_count, 3)
         self.assertEqual(withdrawal_digest(self.ledger)["attempt_count"], 3)
+
+    def test_provider_503_is_journaled_without_accepting_an_ack(self):
+        result = self.runner(ack=PurgeReceipt(503, sha(b"provider unavailable"), None)).run(
+            self.event)
+        self.assertEqual((result.status, result.reason, result.provider_ack),
+                         ("HOLD", "PURGE_FAILED_OR_TIMED_OUT", None))
+        with sqlite3.connect(self.ledger) as db:
+            observations = json.loads(db.execute(
+                "SELECT observations_json FROM attempt").fetchone()[0])
+        self.assertEqual(observations[-1], {
+            "location": "cloudflare", "path": "purge_cache", "status": 503,
+            "body_sha256": sha(b"provider unavailable"),
+        })
 
     def test_unsafe_origin_never_purges_and_stale_edge_cannot_be_safe(self):
         old = ProbeResult(200, b"revoked content", "HIT")
@@ -208,7 +228,11 @@ class CDNWithdrawalTests(unittest.TestCase):
         with patch("dichiarazioni_pubbliche.ops.cdn_withdrawal.request.build_opener",
                    return_value=adapter):
             receipt = cloudflare_purge("c" * 32, "token-private")
-        self.assertEqual(receipt, "a" * 32)
+        self.assertEqual(receipt.ack_id, "a" * 32)
+        self.assertEqual(receipt.status, 200)
+        self.assertEqual(receipt.body_sha256, sha(json.dumps(
+            {"success": True, "result": {"id": "a" * 32}}
+        ).encode()))
         self.assertEqual(adapter.req.get_method(), "POST")
         self.assertEqual(adapter.req.data, b'{"purge_everything":true}')
         self.assertEqual(adapter.req.get_header("Authorization"), "Bearer token-private")
