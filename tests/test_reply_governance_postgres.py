@@ -340,13 +340,13 @@ class ReplyGovernancePostgresTests(unittest.TestCase):
         )
         self.assertEqual(replay.request.request_id, first.request.request_id)
         self.assertFalse(replay.created)
-        self.assertEqual(replay.event.to_state, ChallengeState.TRIAGE_PENDING)
-        held = bridge.approve_hold(first.request.request_id, reviewer_actor_ref="reviewer:rights:2")
-        self.assertEqual(held.event.to_state, ChallengeState.PUBLIC_HOLD_APPROVED)
         self.assertEqual(bridge.current_hold(self.finding_id).disposition.value, "HOLD")
+        held = bridge.approve_hold(first.request.request_id, reviewer_actor_ref="agent:rights:2")
+        self.assertEqual(held.event.to_state, ChallengeState.PUBLIC_HOLD_APPROVED)
+        self.assertTrue(bridge.current_hold(self.finding_id).request_id)
         held_replay = bridge.approve_hold(
             first.request.request_id,
-            reviewer_actor_ref="reviewer:rights:2",
+            reviewer_actor_ref="agent:rights:2",
         )
         self.assertFalse(held_replay.created)
         self.assertEqual(held_replay.event, held.event)

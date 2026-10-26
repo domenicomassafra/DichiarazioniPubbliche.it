@@ -72,7 +72,7 @@ class PublicV3LinkedDataSnapshotTests(unittest.TestCase):
         self.assertEqual(quote["dp:sourceSha256"], SHA(SOURCE))
         self.assertEqual(quote["dp:locator"]["start_char"], SOURCE.index(QUOTE))
         self.assertEqual(quote["isPartOf"]["name"], "Documento dimostrativo")
-        self.assertEqual(quote["isPartOf"]["url"], "https://example.test/documento")
+        self.assertEqual(quote["isPartOf"]["url"], "https://example.org/documento")
         self.assertEqual(
             quote["hasPart"][0]["text"], "Il costo dichiarato è dieci euro."
         )
@@ -105,7 +105,7 @@ class PublicV3LinkedDataSnapshotTests(unittest.TestCase):
         self.assertIn('"Documento dimostrativo"', result)
         self.assertIn('"Il costo dichiarato è dieci euro."', result)
         self.assertIn(
-            "<https://schema.org/url> <https://example.test/documento>", result
+            "<https://schema.org/url> <https://example.org/documento>", result
         )
         for marker in (PRIVATE, PRIVATE_PERSON, PRIVATE_SOURCE, "f" * 64):
             self.assertNotIn(marker, result)
