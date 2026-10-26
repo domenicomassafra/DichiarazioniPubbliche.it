@@ -118,6 +118,20 @@ try {
   }));
 }finally {
   try{socket?.close();}catch{}
-  child.kill('SIGTERM');
-  await rm(profile,{recursive:true,force:true}).catch(()=>{});
+  // Do not silently retain an authenticated private Chrome profile when
+  // the browser is still shutting down and deleting its files.
+  if(child.exitCode===null && child.signalCode===null) {
+    const stopped=new Promise(resolve=>{
+      const deadline=setTimeout(()=>{child.kill('SIGKILL');resolve();},2500);
+      child.once('exit',()=>{clearTimeout(deadline);resolve();});
+    });
+    child.kill('SIGTERM');
+    await stopped;
+  }
+  let cleaned=false;
+  for(let attempt=0;attempt<8;attempt++) {
+    try {await rm(profile,{recursive:true,force:true});cleaned=true;break;}
+    catch {await sleep(125);}
+  }
+  if(!cleaned)throw Error('REAL_STUDIO_PRIVATE_PROFILE_CLEANUP_FAILED');
 }
