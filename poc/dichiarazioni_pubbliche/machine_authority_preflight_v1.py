@@ -1,8 +1,9 @@
 """DP-316: source-only immutable machine-authority *preflight*, never a signoff.
 
-The source checkout has no independent off-DB machine principal, qualified
-policy authority, trusted public-key register, signed receipt ledger, blind
-gold adjudicator, or live DP-320 transaction/read fence. A hash, a local
+The checkout includes an opt-in PRIVATE signed receipt verifier in
+machine_authority_signed_v1; it is not a configured principal, installed trusted
+key registry, qualified source policy, independent gold, signed production
+ledger, or live DP-320 transaction/read fence. A hash, a local
 preflight result, a model status, and the existing DP-311 *human* reviewer
 identity authority cannot substitute for any of these.
 

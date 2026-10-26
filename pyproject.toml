@@ -33,6 +33,9 @@ postgres = []
 # Only explicit Google OIDC account deployments install JWT verification.
 # The default public reader/contributor install remains stdlib-only.
 account = ["Authlib==1.9.1", "cryptography>=45.0,<50.0"]
+# Opt-in private DP-316 Ed25519 receipt verification. Not a release/publication gate.
+# Same existing pyca/cryptography dependency as the account extra (Apache-2.0 OR BSD-3-Clause).
+machine-authority = ["cryptography>=45.0,<50.0"]
 # Explicit opt-in private PDF text extraction. Default/contributor installs
 # remain stdlib-only, and absence of this backend always yields a HOLD.
 document-pdf = ["pypdf>=6.0,<7.0"]
