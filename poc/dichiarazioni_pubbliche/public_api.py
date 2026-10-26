@@ -68,6 +68,9 @@ from dichiarazioni_pubbliche.linked_data import (
     _validate_statement_v3_source_url,
     projection_linked_data_receipt,
 )
+from dichiarazioni_pubbliche.public_statement_v3_wire import (
+    statement_v3_wire_record as _statement_v3_record,
+)
 from dichiarazioni_pubbliche.public_schema import (
     DOSSIER_ALLOWED_KEYS,
     DOSSIER_REQUIRED_KEYS,
@@ -193,8 +196,13 @@ def canonical_json_bytes(value: Any) -> bytes:
 # loader options or permission grants. The live /api/v1 remains public-v2 only.
 def _statement_v3_snapshot(
     bundle: dict[str, Any], *, allow_statement_v3: bool,
+    current_public_dataset_sha256: str | None,
 ) -> dict[str, Any]:
     if not allow_statement_v3:
+        raise _unavailable()
+    # Compare against the separately authenticated current release.
+    if (not isinstance(current_public_dataset_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", current_public_dataset_sha256) is None):
         raise _unavailable()
     try:
         if not isinstance(bundle, dict) or bundle.get("schema_version") != PUBLIC_STATEMENT_SCHEMA_VERSION:
@@ -206,6 +214,8 @@ def _statement_v3_snapshot(
         validated = validate_public_bundle(
             copy.deepcopy(bundle), allow_statement_v3=True
         )
+        if validated["dataset_sha256"] != current_public_dataset_sha256:
+            raise _unavailable()
         for record in validated["statements"]:
             _validate_statement_v3_source_url(record["source_url"])
         return validated
@@ -213,71 +223,15 @@ def _statement_v3_snapshot(
         raise _unavailable() from exc
 
 
-def _statement_v3_record(record: dict[str, Any]) -> dict[str, Any]:
-    """Explicit public allowlist; never return the source or internal review rows."""
-    locator = record["locator"]
-    public_locator = {
-        "start_char": locator["start_char"],
-        "end_char": locator["end_char"],
-    }
-    if record["source_kind"] == "TIMED":
-        public_locator.update({
-            "segment_id": locator["segment_id"],
-            "start_ms": locator["start_ms"],
-            "end_ms": locator["end_ms"],
-        })
-    representations: dict[str, dict[str, Any] | None] = {}
-    for name in ("summary", "translation"):
-        value = record[name]
-        if value is None:
-            representations[name] = None
-            continue
-        # A secondary representation has its own type and cannot occupy the
-        # "original" field, regardless of its content.
-        derived = {
-            "wording_type": value["wording_type"],
-            "text": value["text"],
-            "source_quote_sha256": value["source_quote_sha256"],
-        }
-        if name == "translation":
-            derived["source_language"] = value["source_language"]
-            derived["language"] = value["language"]
-        representations[name] = derived
-    return {
-        "statement_id": record["statement_id"],
-        "version_id": record["version_id"],
-        "statement_date": record["statement_date"],
-        "person": {
-            "id": record["person_id"],
-            "name": record["speaker_name"],
-        },
-        "source": {
-            "content_id": record["content_id"],
-            "title": record["source_title"],
-            "url": record["source_url"],
-            "version_id": record["source_version"],
-            "sha256": record["source_sha256"],
-            "kind": record["source_kind"],
-        },
-        "original": {
-            "wording_type": "VERBATIM_ORIGINAL",
-            "text": record["original_text"],
-            "language": record["language"],
-            "quote_sha256": record["quote_sha256"],
-            "locator": public_locator,
-        },
-        "speech_act": record["speech_act"],
-        "endorsed": record["endorsed"],
-        "finding_id": record["finding_id"],
-        **representations,
-    }
-
-
 def list_public_statements_v3(
     bundle: dict[str, Any], *, allow_statement_v3: bool = False,
+    current_public_dataset_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """Build a deterministic versioned read payload, without opening an endpoint."""
-    validated = _statement_v3_snapshot(bundle, allow_statement_v3=allow_statement_v3)
+    """Build an opt-in read payload pinned to the independently current release."""
+    validated = _statement_v3_snapshot(
+        bundle, allow_statement_v3=allow_statement_v3,
+        current_public_dataset_sha256=current_public_dataset_sha256,
+    )
     statements = [
         _statement_v3_record(record)
         for record in sorted(
@@ -298,9 +252,13 @@ def list_public_statements_v3(
 
 def get_public_statement_v3(
     bundle: dict[str, Any], statement_id: str, *, allow_statement_v3: bool = False,
+    current_public_dataset_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """An unknown or withheld ID gets the same generic absence; never a fallback."""
-    validated = _statement_v3_snapshot(bundle, allow_statement_v3=allow_statement_v3)
+    """Read only from the independently current release; no historical fallback."""
+    validated = _statement_v3_snapshot(
+        bundle, allow_statement_v3=allow_statement_v3,
+        current_public_dataset_sha256=current_public_dataset_sha256,
+    )
     record = next(
         (item for item in validated["statements"] if item["statement_id"] == statement_id),
         None,
@@ -352,6 +310,7 @@ def list_public_opinions_by_person_content_v3(
         # wording between validation and response assembly.
         snapshot = _statement_v3_snapshot(
             copy.deepcopy(bundle), allow_statement_v3=True,
+            current_public_dataset_sha256=current_public_dataset_sha256,
         )
     except (TypeError, ValueError, RecursionError) as exc:
         raise _unavailable() from exc

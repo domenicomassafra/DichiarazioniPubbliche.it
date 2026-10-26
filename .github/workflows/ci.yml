@@ -220,6 +220,10 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
       - name: Record tool versions
         run: |
           node -v
@@ -232,6 +236,10 @@ jobs:
       - name: Type and Astro checks
         working-directory: web
         run: npm run check
+
+      - name: Statement v3 API to frontend contract (synthetic release)
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-statement-v3-api.mjs
 
       - name: Reviewed relation copy cannot infer positions
         working-directory: web

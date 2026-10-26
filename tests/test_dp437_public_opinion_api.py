@@ -141,6 +141,7 @@ class PublicOpinionApiTests(unittest.TestCase):
                     self.assertEqual(
                         row, get_public_statement_v3(
                             self.bundle, row["statement_id"], allow_statement_v3=True,
+                            current_public_dataset_sha256=self.bundle["dataset_sha256"],
                         )["data"],
                     )
         body = json.dumps(result)

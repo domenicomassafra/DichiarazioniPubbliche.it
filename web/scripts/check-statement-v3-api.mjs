@@ -14,21 +14,26 @@ const source = [
   "sys.path.insert(0,'poc');sys.path.insert(0,'tests')",
   "from test_dp436_public_statement_consumers import with_derived,v2_bundle",
   "from dichiarazioni_pubbliche.public_api import get_public_statement_v3",
+  // The synthetic active release is supplied separately from the candidate read.
+  // Production must obtain this pin from an authenticated release authority.
+  "active_release=with_derived()",
   "bundle=with_derived()",
-  "print(json.dumps({'detail':get_public_statement_v3(bundle,'statement:1',allow_statement_v3=True),'v2':v2_bundle()},ensure_ascii=False))",
+  "assert active_release is not bundle",
+  "detail=get_public_statement_v3(bundle,'statement:1',allow_statement_v3=True,current_public_dataset_sha256=active_release['dataset_sha256'])",
+  "print(json.dumps({'detail':detail,'active_release_sha256':active_release['dataset_sha256'],'v2':v2_bundle()},ensure_ascii=False))",
 ].join(";");
 const run = spawnSync("python3", ["-c", source], {
   cwd: root, encoding: "utf8", env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
 });
 assert.equal(run.status, 0, `synthetic API detail fixture failed: ${run.stderr}`);
-const { detail, v2 } = JSON.parse(run.stdout);
+const { detail, active_release_sha256: activeReleaseSha256, v2 } = JSON.parse(run.stdout);
 // The record pin represents a separately verified approved-bundle entry.
 // It must NEVER be recalculated from a candidate API payload in production.
 const recordDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(detail.data)));
 const approvedRecordSha256 = Buffer.from(recordDigest).toString("hex");
 const allowed = {
   allowStatementV3: true,
-  expectedDatasetSha256: detail.meta.dataset_sha256,
+  expectedDatasetSha256: activeReleaseSha256,
   expectedRecordSha256: approvedRecordSha256,
 };
 const read = (payload, options = allowed) => validatePublicStatementV3Detail(payload, options);
@@ -131,7 +136,7 @@ async function fixtureBuild(apiDetail, enabled, output) {
     'import detail from "../../detail.json";',
     "---",
     "<html lang=\"it\"><body>",
-    `<VerbatimStatementRecord apiDetail={detail} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(detail.meta.dataset_sha256)} expectedRecordSha256=${JSON.stringify(approvedRecordSha256)} />`,
+    `<VerbatimStatementRecord apiDetail={detail} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(activeReleaseSha256)} expectedRecordSha256=${JSON.stringify(approvedRecordSha256)} />`,
     "</body></html>",
   ].join("\n");
   await writeFile(join(temp, "src/pages/index.astro"), page);
@@ -209,7 +214,7 @@ try {
       'import direct from "../../direct.json";',
       "---",
       "<html lang=\"it\"><body>",
-      `<VerbatimStatementRecord statement={direct} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(detail.meta.dataset_sha256)} expectedRecordSha256=${JSON.stringify(recordPin)} />`,
+      `<VerbatimStatementRecord statement={direct} allowStatementV3={${enabled}} expectedDatasetSha256=${JSON.stringify(activeReleaseSha256)} expectedRecordSha256=${JSON.stringify(recordPin)} />`,
       "</body></html>",
     ].join("\n");
     await writeFile(join(temp, "src/pages/index.astro"), componentPage);
