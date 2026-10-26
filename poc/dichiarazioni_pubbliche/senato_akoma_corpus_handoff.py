@@ -65,6 +65,7 @@ def verify_senato_handoff_roundtrip(
     rebuilt = prepare_senato_corpus_handoff(
         xml_bytes, source_raw_url=prepared.source.source_raw_url,
         expected_blob_sha1=prepared.source.source_blob_sha1,
+        source_license_id=prepared.source.source_license_id,
         content_id=prepared.capture.content_id,
         observed_at=prepared.capture.observed_at,
     )
@@ -113,9 +114,13 @@ class SenatoAkomaParser:
     parser_method = "OFFICIAL_SENATO_AKOMA_STENOGRAPHIC"
     parser_version = HANDOFF_VERSION
 
-    def __init__(self, *, source_raw_url: str, expected_blob_sha1: str):
+    def __init__(self, *, source_raw_url: str, expected_blob_sha1: str,
+                 source_license_id: str = "CC-BY-4.0"):
+        if source_license_id not in {"CC-BY-3.0", "CC-BY-4.0"}:
+            raise ValueError("SENATO_AKN_LICENSE_ID_INVALID")
         self.source_raw_url = source_raw_url
         self.expected_blob_sha1 = expected_blob_sha1
+        self.source_license_id = source_license_id
 
     def parse(self, fetched: FetchedBytes) -> ParseResult:
         try:
@@ -130,6 +135,7 @@ class SenatoAkomaParser:
                 fetched.body,
                 source_raw_url=self.source_raw_url,
                 expected_blob_sha1=self.expected_blob_sha1,
+                source_license_id=self.source_license_id,
             )
             canonical, spans, held, _ = _canonical_document(source)
             if not spans:
@@ -163,6 +169,7 @@ class SenatoAkomaParser:
 def prepare_senato_corpus_handoff(
     xml_bytes: bytes, *, source_raw_url: str, expected_blob_sha1: str,
     content_id: str, observed_at: str,
+    source_license_id: str = "CC-BY-4.0",
 ) -> SenatoCorpusHandoff:
     """Prepare held canonical records, with replayable actual byte-to-span checks.
 
@@ -174,6 +181,7 @@ def prepare_senato_corpus_handoff(
     source = import_senato_akoma_stenographic(
         xml_bytes, source_raw_url=source_raw_url,
         expected_blob_sha1=expected_blob_sha1,
+        source_license_id=source_license_id,
     )
     if not isinstance(observed_at, str):
         raise ValueError("SENATO_HANDOFF_OBSERVATION_REQUIRED")
@@ -187,7 +195,8 @@ def prepare_senato_corpus_handoff(
     if not spans:
         raise SenatoAkomaError("SENATO_AKN_NO_REVIEWABLE_PASSAGES")
     parsed = SenatoAkomaParser(
-        source_raw_url=source_raw_url, expected_blob_sha1=expected_blob_sha1
+        source_raw_url=source_raw_url, expected_blob_sha1=expected_blob_sha1,
+        source_license_id=source_license_id,
     ).parse(FetchedBytes(
         body=xml_bytes, final_url=source_raw_url, status_code=200,
         media_type="application/akn+xml", charset="utf-8",
