@@ -75,6 +75,29 @@ def with_derived() -> dict:
 
 
 class PublicStatementV3ConsumerTests(unittest.TestCase):
+    def test_api_requires_independent_current_release_after_withdrawal(self):
+        bundle = v3_bundle()
+        for reader in (
+            lambda **kwargs: list_public_statements_v3(bundle, **kwargs),
+            lambda **kwargs: get_public_statement_v3(bundle, "statement:1", **kwargs),
+        ):
+            with self.subTest(reader=reader):
+                # The bundle's self-asserted SHA is not a live release authority.
+                with self.assertRaises(PublicApiError) as missing:
+                    reader(allow_statement_v3=True)
+                self.assertEqual(missing.exception.status, 503)
+                with self.assertRaises(PublicApiError) as withdrawn:
+                    reader(
+                        allow_statement_v3=True,
+                        current_public_dataset_sha256="f" * 64,
+                    )
+                self.assertEqual(withdrawn.exception.status, 503)
+                current = reader(
+                    allow_statement_v3=True,
+                    current_public_dataset_sha256=bundle["dataset_sha256"],
+                )
+                self.assertEqual(current["meta"]["dataset_sha256"], bundle["dataset_sha256"])
+
     def test_opt_in_required_and_v2_contract_not_reinterpreted(self):
         bundle = v3_bundle()
         with self.assertRaises(PublicApiError) as error:
