@@ -1,6 +1,7 @@
 """Public correction intake: request acknowledgment follows an effective HOLD."""
 
 import http.client
+import hashlib
 import json
 import sys
 import tempfile
@@ -15,6 +16,7 @@ sys.path.insert(0, str(ROOT / "poc"))
 from dichiarazioni_pubbliche.challenge_persistence import ChallengeHoldDisposition  # noqa: E402
 from dichiarazioni_pubbliche.openapi import fictional_dossier  # noqa: E402
 from dichiarazioni_pubbliche.live_correction_http import build_live_correction_server  # noqa: E402
+from dichiarazioni_pubbliche.policy.challenge_workflow import ChallengeKind  # noqa: E402
 from tests.test_public_api import published_bundle, write_bundle  # noqa: E402
 
 
@@ -33,6 +35,7 @@ class FakeLedger:
                 ChallengeHoldDisposition.HOLD if self.hold else ChallengeHoldDisposition.CLEAR
             ),
             finding_id=finding_id,
+            request_id="challenge-request:" + "a" * 64 if self.hold else None,
         )
 
     def challenged_findings(self):
@@ -48,9 +51,14 @@ class FakeLedger:
         return SimpleNamespace(request=SimpleNamespace(request_id=self.requests[key]), created=created)
 
     def replay_request(self, request_id):
+        actor, finding, reason = next(iter(self.requests))
+        source_ref = "public-correction:" + hashlib.sha256(
+            json.dumps({"finding_id": finding, "reason": reason}, sort_keys=True).encode()
+        ).hexdigest()
         return SimpleNamespace(
-            request=SimpleNamespace(request_id=request_id, initiated_by_actor_ref=self.actor,
-                                    target_finding_id=next(iter(self.requests))[1]),
+            request=SimpleNamespace(request_id=request_id, initiated_by_actor_ref=actor,
+                                    target_finding_id=finding, source_request_ref=source_ref,
+                                    kind=ChallengeKind.CORRECTION),
             blockers=(),
             current_state="PRIVATE_RECEIVED" if self.hold else "REJECTED",
         )
@@ -74,6 +82,7 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.purges = []
         self.jobs = []
         self.purge_ok = True
+        self.quota_ok = True
 
         def enqueue(finding_id, request_id):
             if not self.ledger.hold:
@@ -88,13 +97,15 @@ class LiveCorrectionHttpTests(unittest.TestCase):
             return self.purge_ok
 
         store = SimpleNamespace(path=root / "account.sqlite", get_session=lambda token, now: (
-            ("oidc-public-subject", "private@example.invalid", "csrf-fixture") if token == "valid-session" else None
+            ("oidc-public-subject", "private@example.invalid", "csrf-fixture") if token == "valid-session" else
+            ("other-subject", "other@example.invalid", "csrf-fixture") if token == "other-session" else None
         ))
         service = SimpleNamespace(site_origin="https://dichiarazionipubbliche.it", store=store)
         self.server = build_live_correction_server(
             projection, host="127.0.0.1", port=0, static_dir=root / "static",
             account_service=service, correction_ledger=self.ledger,
             correction_enqueue=enqueue, correction_purge=purge,
+            correction_reserve=lambda actor: self.quota_ok,
         )
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -140,7 +151,6 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/accedi/")[0], 200)
         self.assertEqual(self.request("GET", "/privacy/")[0], 200)
 
-        self.ledger.actor = next(iter(self.ledger.requests))[0]
         status, _, reply = self.request("GET", "/intake/corrections/challenge-request:" + "a" * 64, headers=self.auth_headers())
         self.assertEqual(status, 200)
         self.assertEqual(reply["state"], "HOLD")
@@ -151,8 +161,14 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(self.request("POST", "/intake/corrections", item, self.auth_headers() | {"Origin": "https://wrong.invalid"})[0], 403)
         self.assertEqual(self.request("POST", "/intake/corrections", item | {"is_approved": True}, self.auth_headers())[0], 400)
         self.assertEqual(self.request("POST", "/intake/corrections", item, self.auth_headers())[0], 202)
-        self.assertEqual(self.request("POST", "/intake/corrections", item, self.auth_headers())[0], 409)
-        self.assertEqual(len(self.purges), 1)
+        status, _, replay = self.request("POST", "/intake/corrections", item, self.auth_headers())
+        self.assertEqual(status, 202)
+        self.assertEqual(replay["request_id"], "challenge-request:" + "a" * 64)
+        self.assertEqual(len(self.purges), 2)
+        self.assertEqual(len(self.ledger.requests), 1)
+        other = self.auth_headers() | {"Cookie": "__Host-dp-session=other-session"}
+        self.assertEqual(self.request("POST", "/intake/corrections", item, other)[0], 409)
+        self.assertEqual(len(self.purges), 2)
 
     def test_purge_failure_keeps_hold_and_refuses_success(self):
         self.purge_ok = False
@@ -160,6 +176,18 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertTrue(self.ledger.hold)
         self.assertEqual(self.request("GET", "/")[0], 503)
+        self.purge_ok = True
+        status, _, receipt = self.request("POST", "/intake/corrections", {"finding_id": self.finding_id, "reason": "Errore"}, self.auth_headers())
+        self.assertEqual(status, 202)
+        self.assertEqual(receipt["state"], "HOLD")
+
+    def test_quota_denial_cannot_create_hold_or_queue_work(self):
+        self.quota_ok = False
+        item = {"finding_id": self.finding_id, "reason": "Richiedo la correzione"}
+        self.assertEqual(self.request("POST", "/intake/corrections", item, self.auth_headers())[0], 429)
+        self.assertEqual(self.ledger.requests, {})
+        self.assertEqual(self.jobs, [])
+        self.assertEqual(self.request("GET", "/")[0], 200)
 
     def test_unavailable_ledger_never_serves_old_projection(self):
         self.ledger.available = False

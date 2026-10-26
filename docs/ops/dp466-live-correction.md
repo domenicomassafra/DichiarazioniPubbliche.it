@@ -11,6 +11,14 @@ same authenticated account; another account receives 404. Requests, reasons and
 OIDC subject hashes remain private. The public `/correzioni/` form remains
 reachable while the public projection is fenced.
 
+Each authenticated account is limited to two attempts per minute, and the
+entire listener to four per minute. `SqliteCorrectionQuota` atomically reserves
+these counters in the existing private account SQLite `throttle` table across
+listener processes; missing storage fails closed. An identical retry from the
+original account reuses the same durable challenge and attempts queue/purge
+completion again after a partial failure. It does not create a second request;
+another account or changed reason cannot resume it.
+
 This is a site-wide emergency fence: all current public projection/HTML reads
 return 503 when any challenge on the public release is active or its ledger is
 unavailable. This trades availability for immediate non-disclosure and has a
@@ -22,6 +30,13 @@ It cannot claim a corrected public version without the subsequent review and
 release gates. If any queue/purge/readback step fails, the HOLD remains active
 and the submitter receives HTTP 503; no success is inferred from a purge API
 response alone.
+
+The persistent runner added by #464 does not by itself resolve these
+public challenges. Its production review depends on distinct actual model
+identities, authentic source/rights evidence, and installed consumer adapters.
+The intake returns `HOLD` as long as those inputs do not justify correction or
+reviewed republishing. No automatic email acknowledgment can be sent until #300
+provides the real contact endpoint.
 
 ## Activation, only after independent review and consumer installation
 
@@ -78,6 +93,6 @@ synthetic fixtures, which do not satisfy the live acceptance criterion.
 Local automated checks:
 
 ```text
-python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -- env PYTHONPATH=poc python3 -m unittest tests.test_dp466_live_correction tests.test_dp466_cloudflare tests.test_public_api tests.test_public_account -q
+python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -- env PYTHONPATH=poc python3 -m unittest tests.test_dp466_live_correction tests.test_dp466_cloudflare tests.test_dp466_quota tests.test_public_api tests.test_public_account -q
 python3 ~/.local/share/controlcenter/resource-guard/workload_launcher.py build -- npm --prefix web run check
 ```

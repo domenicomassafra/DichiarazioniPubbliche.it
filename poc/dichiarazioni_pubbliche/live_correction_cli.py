@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import time
 from pathlib import Path
 from typing import Iterable
 
 from .challenge_persistence import PrivateChallengeLedgerStore
 from .cloudflare_correction_purge import CloudflareCorrectionPurge
+from .correction_intake_quota import SqliteCorrectionQuota
 from .live_correction_http import build_live_correction_server
 from .public_account import (
     AccountService, AccountStore, GoogleOidcProvider, read_secret_file,
@@ -66,6 +68,7 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     ledger = PrivateChallengeLedgerStore()
     queue = QueueRuntimeStore()
+    quota = SqliteCorrectionQuota(args.account_db)
 
     def enqueue(finding_id: str, request_id: str) -> bool:
         context = queue.finding_context(finding_id)
@@ -84,6 +87,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         static_dir=str(args.static_dir), account_service=account_service,
         account_private_secret_path=str(args.account_client_secret_file),
         correction_ledger=ledger, correction_enqueue=enqueue, correction_purge=purge,
+        correction_reserve=lambda actor: quota.reserve(actor, int(time.time())),
     )
     print(f"Correction HOLD HTTP on http://{args.host}:{server.server_port}/intake/corrections")
     try:

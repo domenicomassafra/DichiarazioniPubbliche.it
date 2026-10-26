@@ -33,6 +33,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
     correction_enqueue = None
     correction_purge = None
     correction_lock = None
+    correction_reserve = None
 
     def _correction_response(self, status: int, payload: dict[str, object]) -> None:
         self.close_connection = True
@@ -169,20 +170,33 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 index = load_index(type(self).projection_path)
                 if finding not in index.findings_by_id:
                     return self._correction_response(404, {"error": "NOT_FOUND"})
+                if type(self).correction_reserve(actor) is not True:
+                    return self._correction_response(429, {"error": "CORRECTION_RATE_LIMITED"})
                 current = ledger.current_hold_for_finding(finding)
                 if current.disposition is ChallengeHoldDisposition.UNKNOWN:
                     return self._unavailable()
-                if current.disposition is ChallengeHoldDisposition.HOLD:
-                    return self._correction_response(409, {"error": "ALREADY_UNDER_REVIEW"})
                 source_ref = "public-correction:" + hashlib.sha256(
                     json.dumps({"finding_id": finding, "reason": reason}, sort_keys=True).encode()
                 ).hexdigest()
-                initiated = ledger.initiate_request(
-                    kind=ChallengeKind.CORRECTION, target_finding_id=finding,
-                    source_request_ref=source_ref, actor_ref=actor,
-                    actor_role=ChallengeRole.PUBLIC_SUBMITTER, reason=reason,
-                )
-                if not initiated.created:
+                if current.disposition is ChallengeHoldDisposition.HOLD:
+                    request_id = current.request_id
+                else:
+                    initiated = ledger.initiate_request(
+                        kind=ChallengeKind.CORRECTION, target_finding_id=finding,
+                        source_request_ref=source_ref, actor_ref=actor,
+                        actor_role=ChallengeRole.PUBLIC_SUBMITTER, reason=reason,
+                    )
+                    request_id = initiated.request.request_id
+                # A repeated request may recover from a partial queue/CDN
+                # failure. Only the *same* principal and identical payload
+                # can resume the durable request; unrelated challenges stay
+                # confidential and cannot be advanced by this POST.
+                replay = ledger.replay_request(request_id)
+                request = replay.request
+                if (replay.blockers or request is None or request.kind is not ChallengeKind.CORRECTION
+                        or request.initiated_by_actor_ref != actor
+                        or request.source_request_ref != source_ref
+                        or request.target_finding_id != finding):
                     return self._correction_response(409, {"error": "ALREADY_UNDER_REVIEW"})
                 hold = ledger.current_hold_for_finding(finding)
                 if hold.disposition is not ChallengeHoldDisposition.HOLD:
@@ -191,12 +205,12 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
                 # DP-303 forbids advancing CORRECTION to REANALYSIS_PENDING
                 # without a validated new chain. Keep PRIVATE_RECEIVED/HOLD;
                 # the existing queue builds the reanalysis task first.
-                if type(self).correction_enqueue(finding, initiated.request.request_id) is not True:
+                if type(self).correction_enqueue(finding, request_id) is not True:
                     return self._unavailable()
                 if type(self).correction_purge(finding) is not True:
                     return self._unavailable()
                 return self._correction_response(202, {
-                    "request_id": initiated.request.request_id,
+                    "request_id": request_id,
                     "state": "HOLD", "message": "Rettifica ricevuta; verifica automatica in corso.",
                 })
             except Exception:
@@ -210,14 +224,15 @@ def build_live_correction_server(
     correction_ledger: object,
     correction_enqueue: object,
     correction_purge: object,
+    correction_reserve: object,
     host: str = "127.0.0.1",
     port: int = 0,
     static_dir: str | None = None,
     account_private_secret_path: str | None = None,
 ):
     """Pin the existing HTTP/static server before opting into correction intake."""
-    if any(item is None for item in (account_service, correction_ledger, correction_enqueue, correction_purge)):
-        raise ValueError("CORRECTION_AUTH_LEDGER_QUEUE_PURGE_REQUIRED")
+    if any(item is None for item in (account_service, correction_ledger, correction_enqueue, correction_purge, correction_reserve)):
+        raise ValueError("CORRECTION_AUTH_LEDGER_QUEUE_PURGE_QUOTA_REQUIRED")
     from .public_api import build_server
 
     server = build_server(
@@ -234,6 +249,7 @@ def build_live_correction_server(
         "correction_ledger": correction_ledger,
         "correction_enqueue": correction_enqueue,
         "correction_purge": correction_purge,
+        "correction_reserve": correction_reserve,
         "correction_lock": threading.RLock(),
     })
     server.RequestHandlerClass = type(
