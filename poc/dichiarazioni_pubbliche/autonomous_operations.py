@@ -251,6 +251,8 @@ class AutonomousOperations:
             visible = None
         unchanged = (
             prior is not None and prior.publishable
+            and _review_identity_ok(packet.primary, self.first)
+            and _review_identity_ok(packet.independent, self.second)
             and _matches(self._read_capture(record_id), binding)
             and self._read_challenge(record_id) is False
             and visible == binding

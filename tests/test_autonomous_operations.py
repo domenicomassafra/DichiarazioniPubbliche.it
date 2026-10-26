@@ -199,6 +199,25 @@ class AutonomousOperationsTests(unittest.TestCase):
         self.assertEqual(outcome.disposition, "AUDIT_HOLD")
         self.assertIsNone(surface.current_evidence_sha256("finding:413"))
 
+    def test_nightly_audit_rejects_packet_from_unconfigured_prior_reviewer(self):
+        ops, capture, _, first_issuer, second_issuer, surface, _ = harness()
+        ops.evaluate_and_apply("finding:413", now=NOW)
+        binding = candidate_fingerprint(capture.item)
+        first, second = (
+            first_issuer.review(capture.item, binding),
+            second_issuer.review(capture.item, binding),
+        )
+        forged = AutonomousProofPacket(
+            capture.item,
+            replace(first, agent_id="unconfigured:reviewer"),
+            second,
+        )
+        outcome = ops.audit_and_apply(
+            forged, Reviewer("agent:nightly", "other:model-3"), now=NOW
+        )
+        self.assertEqual(outcome.disposition, "AUDIT_HOLD")
+        self.assertIsNone(surface.current_evidence_sha256("finding:413"))
+
     def test_nightly_sampling_is_deterministic_and_unique(self):
         ops, capture, _, _, _, _, journal = harness()
         for index in range(13):
@@ -236,9 +255,12 @@ class AutonomousOperationsTests(unittest.TestCase):
         )
 
     def test_nightly_sample_executes_auditor_against_saved_current_packet(self):
-        ops, capture, _, _, _, surface, journal = harness()
+        ops, capture, _, first, second, surface, journal = harness()
         ops.evaluate_and_apply("finding:413", now=NOW)
-        packet = AutonomousProofPacket(capture.item, *reviews(capture.item))
+        binding = candidate_fingerprint(capture.item)
+        packet = AutonomousProofPacket(
+            capture.item, first.review(capture.item, binding), second.review(capture.item, binding)
+        )
 
         class Packets:
             def current_packet(self, record_id):
