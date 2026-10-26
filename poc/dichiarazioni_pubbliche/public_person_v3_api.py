@@ -13,8 +13,6 @@ import re
 import stat
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
-from xml.etree import ElementTree
-from urllib.parse import urlsplit
 from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
@@ -200,16 +198,25 @@ def person_detail(_index: Any, slug: str) -> dict[str, Any]:
 
 
 def _read_static(root_fd: int, name: str) -> bytes:
-    file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd)
-    with os.fdopen(file_fd, "rb") as stream:
-        info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd)
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_size > 16 * 1024 * 1024):
             raise PublicPersonReleaseUnavailable
-        return stream.read(16 * 1024 * 1024 + 1)
+        payload = stream.read(16 * 1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+    if (len(payload) > 16 * 1024 * 1024 or
+            (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) !=
+            (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+        raise PublicPersonReleaseUnavailable
+    return payload
 
 
 def _static_catalog_current(root_fd: int, name: str, people: list[dict[str, Any]]) -> bool:
-    """Reject stale search/sitemap after partial identity rotation or withdrawal."""
+    """Require search and sitemap to enumerate exactly the current v3 records."""
+    if name not in {"search-index.v1.json", "sitemap.xml"}:
+        return True
     expected: dict[tuple[str, str], str] = {}
     for person in people:
         expected[("person", person["route"])] = person["display_name"]
@@ -220,11 +227,11 @@ def _static_catalog_current(root_fd: int, name: str, people: list[dict[str, Any]
     try:
         data = _read_static(root_fd, name)
         if name == "search-index.v1.json":
-            records = json.loads(data)
-            if not isinstance(records, dict) or not isinstance(records.get("records"), list):
+            catalog = json.loads(data)
+            if not isinstance(catalog, dict) or not isinstance(catalog.get("records"), list):
                 return False
             found: dict[tuple[str, str], str] = {}
-            for record in records["records"]:
+            for record in catalog["records"]:
                 if not isinstance(record, dict) or record.get("kind") not in {"person", "statement"}:
                     return False
                 key = (record["kind"], record.get("route"))
@@ -232,74 +239,26 @@ def _static_catalog_current(root_fd: int, name: str, people: list[dict[str, Any]
                     return False
                 found[key] = record.get("title")
             return found == expected
-        if name == "sitemap.xml":
-            document = ElementTree.fromstring(data)
-            routes = [urlsplit(element.text or "").path for element in document.iter()
-                      if element.tag.rsplit("}", 1)[-1] == "loc"]
-            relevant = [route for route in routes if route.startswith(("/persone/", "/dichiarazioni/"))]
-            return (len(relevant) == len(set(relevant)) and
-                    set(relevant) == {route for _, route in expected})
-        return True
-    except (OSError, ValueError, TypeError, KeyError, IndexError, UnicodeError, ElementTree.ParseError):
+        document = ElementTree.fromstring(data)
+        if document.tag not in ("urlset", "{http://www.sitemaps.org/schemas/sitemap/0.9}urlset"):
+            return False
+        fixed = {"/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"}
+        paths: list[str] = []
+        for element in document.iter():
+            if element.tag.rsplit("}", 1)[-1] != "loc":
+                continue
+            url = urlsplit((element.text or "").strip())
+            if (url.scheme or url.netloc) and (
+                    url.scheme != "https" or url.netloc != "dichiarazionipubbliche.it"):
+                return False
+            if url.query or url.fragment or url.path not in (fixed | {route for _, route in expected}):
+                return False
+            paths.append(url.path)
+        relevant = [route for route in paths if route not in fixed]
+        return len(paths) == len(set(paths)) and set(relevant) == {route for _, route in expected}
+    except (OSError, ValueError, TypeError, KeyError, IndexError, UnicodeError,
+            ElementTree.ParseError, PublicPersonReleaseUnavailable):
         return False
-
-
-def _static_public_surface_current(parts: tuple[str, ...], root_fd: int,
-                                   people: list[dict[str, Any]]) -> bool:
-    """Deny stale identity URLs embedded in a rotated search index or sitemap."""
-    if parts not in (("search-index.v1.json",), ("sitemap.xml",)):
-        return True
-    name = parts[0]
-    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd)
-    with os.fdopen(fd, "rb") as stream:
-        before = os.fstat(stream.fileno())
-        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > 16 * 1024 * 1024:
-            return False
-        contents = stream.read(16 * 1024 * 1024 + 1)
-        after = os.fstat(stream.fileno())
-        if (len(contents) > 16 * 1024 * 1024 or
-                (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) !=
-                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
-            return False
-    approved = {person["route"]: person for person in people}
-    statements = {statement["statement_route"]
-                  for person in people for statement in person["statements"]}
-    if name == "search-index.v1.json":
-        index = json.loads(contents)
-        rows = index.get("records") if isinstance(index, dict) else None
-        if not isinstance(rows, list):
-            return False
-        seen: set[str] = set()
-        for row in rows:
-            if not isinstance(row, dict) or not isinstance(row.get("route"), str):
-                return False
-            route = row["route"]
-            if route in seen:
-                return False
-            seen.add(route)
-            if row.get("kind") == "person":
-                subject = approved.get(route)
-                if subject is None or row.get("title") != subject["display_name"]:
-                    return False
-            elif row.get("kind") != "statement" or route not in statements:
-                return False
-        return True
-    xml = ElementTree.fromstring(contents)
-    if xml.tag not in ("urlset", "{http://www.sitemaps.org/schemas/sitemap/0.9}urlset"):
-        return False
-    fixed = {"/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"}
-    allowed = fixed | set(approved) | statements
-    for loc in xml.iter():
-        if loc.tag.rsplit("}", 1)[-1] != "loc":
-            continue
-        value = (loc.text or "").strip()
-        target = urlsplit(value)
-        if (target.scheme or target.netloc) and (
-                target.scheme != "https" or target.netloc != "dichiarazionipubbliche.it"):
-            return False
-        if target.query or target.fragment or target.path not in allowed:
-            return False
-    return True
 
 
 _root_marker_cache: dict[tuple[Any, ...], bool] = {}
@@ -332,8 +291,6 @@ def static_person_release_current(parts: tuple[str, ...], root_fd: int) -> bool:
                                for person in people for item in person["statements"]}
             if parts[1] not in approved_routes:
                 return False
-        if not _static_public_surface_current(parts, root_fd, people):
-            return False
         pins = _read(os.environ[PINS])
         root = os.fstat(root_fd)
         key = (root.st_dev, root.st_ino, info.st_dev, info.st_ino,
