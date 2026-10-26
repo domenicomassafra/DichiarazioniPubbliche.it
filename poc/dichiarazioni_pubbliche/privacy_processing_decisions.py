@@ -40,7 +40,7 @@ _RECEIPT_URL = re.compile(
     r"DichiarazioniPubbliche\.it/issues/[1-9]\d*#issuecomment-[1-9]\d*\Z"
 )
 _REVIEWED_SHA = re.compile(r"[0-9a-f]{40}\Z")
-_INDEPENDENT_REVIEWER = "SOL_6_1_HIGH_PI_AGENT"
+_INDEPENDENT_REVIEWER = "antigravity/gemini-3.8-flash-tiered"
 _SPECIAL_EXCLUSIONS = {
     "special_category": "EXCLUDE_UNLESS_SEPARATELY_REVIEWED",
     "criminal_allegations": "EXCLUDE_UNLESS_SEPARATELY_REVIEWED",

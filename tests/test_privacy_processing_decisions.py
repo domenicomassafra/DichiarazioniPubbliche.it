@@ -83,7 +83,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 necessity_receipt=receipt, notice_receipt=receipt,
                 retention_receipt=receipt, access_receipt=receipt,
                 owner_decision_url=receipt, owner_decision_date="2026-10-20",
-                independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+                independent_review_model="antigravity/gemini-3.8-flash-tiered",
                 independent_review_receipt=receipt.replace("123456", "123457"), independent_review_sha="a"*40,
                 independent_review_outcome="APPROVE",
             )
@@ -114,7 +114,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
         expected = "PRIVACY_INDEPENDENT_REVIEW_MISSING:SOURCE_COPIES"
         self.assertIn(expected, evaluate_processing_decisions(self.register))
         row.update(
-            independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+            independent_review_model="antigravity/gemini-3.8-flash-tiered",
             independent_review_receipt=receipt,
             independent_review_sha="a"*40,
             independent_review_outcome="APPROVE",
@@ -123,6 +123,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
         row["independent_review_receipt"] = receipt.replace("123456", "123457")
         self.assertNotIn(expected, evaluate_processing_decisions(self.register))
         for field, invalid in (
+            ("independent_review_model", "SOL_6_1_HIGH_PI_AGENT"),
             ("independent_review_model", "GPT_6"),
             ("independent_review_receipt", "https://example.com/claim"),
             ("independent_review_sha", "unreviewed"),
@@ -132,7 +133,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 row[field] = invalid
                 self.assertIn(expected, evaluate_processing_decisions(self.register))
                 row.update(
-                    independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+                    independent_review_model="antigravity/gemini-3.8-flash-tiered",
                     independent_review_receipt=receipt.replace("123456", "123457"),
                     independent_review_sha="a"*40,
                     independent_review_outcome="APPROVE",
@@ -148,7 +149,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
             status="APPROVED", lawful_basis="GDPR_ART_6_1_F",
             necessity_receipt=receipt, notice_receipt=receipt,
             retention_receipt=receipt, access_receipt=receipt,
-            independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+            independent_review_model="antigravity/gemini-3.8-flash-tiered",
             independent_review_receipt=receipt.replace("123456", "123457"),
             independent_review_sha="a" * 40,
             independent_review_outcome="APPROVE",
