@@ -253,6 +253,12 @@ class SubscriptionDDispatch(PsqlRuntime):
                 SELECT pg_advisory_xact_lock(hashtextextended(:'account_scope' || ':' || :'window', 0));
                 WITH admissible AS (
                     SELECT NOT EXISTS(SELECT 1 FROM provider_receipt WHERE id=:'id')
+                      AND NOT EXISTS(
+                          SELECT 1 FROM provider_receipt
+                          WHERE provider_id='omniroute' AND status='PENDING_UNKNOWN'
+                            AND ledger_scope->>'account_scope'=:'account_scope'
+                            AND ledger_scope->>'quota_window_id'=:'window'
+                      )
                       AND COALESCE((
                         SELECT SUM(GREATEST(
                             (ledger_scope->>'quota_upper_bound')::integer,
@@ -278,6 +284,12 @@ class SubscriptionDDispatch(PsqlRuntime):
                 SELECT CASE WHEN EXISTS(SELECT 1 FROM inserted) THEN 'RESERVED'
                             WHEN EXISTS(SELECT 1 FROM provider_receipt WHERE id=:'id')
                                  THEN 'REPLAY_HELD'
+                            WHEN EXISTS(
+                                SELECT 1 FROM provider_receipt
+                                WHERE provider_id='omniroute' AND status='PENDING_UNKNOWN'
+                                  AND ledger_scope->>'account_scope'=:'account_scope'
+                                  AND ledger_scope->>'quota_window_id'=:'window'
+                            ) THEN 'PREVIOUS_UNKNOWN'
                             ELSE 'QUOTA_REACHED' END;
                 COMMIT;
                 """,
@@ -299,8 +311,10 @@ class SubscriptionDDispatch(PsqlRuntime):
         decisions = [
             line
             for line in reserved
-            if line in ("RESERVED", "REPLAY_HELD", "QUOTA_REACHED")
+            if line in ("RESERVED", "REPLAY_HELD", "PREVIOUS_UNKNOWN", "QUOTA_REACHED")
         ]
+        if decisions == ["PREVIOUS_UNKNOWN"]:
+            return hold("SUBSCRIPTION_PENDING_UNKNOWN_EFFECTS")
         if decisions == ["QUOTA_REACHED"]:
             return hold("SUBSCRIPTION_QUOTA_EXHAUSTED")
         if decisions == ["REPLAY_HELD"]:

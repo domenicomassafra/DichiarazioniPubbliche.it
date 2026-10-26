@@ -260,28 +260,40 @@ class SubscriptionDPgTests(unittest.TestCase):
         )
 
     def test_outage_429_and_pending_unknown_effects_never_retry(self):
-        for suffix, error in (
-            ("a", RuntimeError("OMNIROUTE_HTTP_429:QUOTA_EXHAUSTED")),
-            ("b", OSError("provider outage")),
-        ):
+        def send():
+            raise RuntimeError("OMNIROUTE_HTTP_429:QUOTA_EXHAUSTED")
 
-            def send():
-                raise error
-
-            first = self.dispatch(suffix=suffix, provider=send)
-            self.assertEqual(first.status, "WAIT_EXTERNAL")
-            again = self.dispatch(
-                suffix=suffix, provider=lambda: self.fail("replayed POST")
-            )
-            self.assertEqual(again.status, "WAIT_EXTERNAL")
-            self.assertEqual(first.receipt_id, again.receipt_id)
-        self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "2")
+        first = self.dispatch(provider=send)
+        self.assertEqual(first.status, "WAIT_EXTERNAL")
+        again = self.dispatch(provider=lambda: self.fail("replayed POST"))
+        self.assertEqual(again.status, "WAIT_EXTERNAL")
+        self.assertEqual(first.receipt_id, again.receipt_id)
+        another = self.dispatch(
+            suffix="b", provider=lambda: self.fail("fresh attempt after 429 dispatched")
+        )
+        self.assertEqual(another.status, "WAIT_EXTERNAL")
+        self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "1")
         self.assertEqual(
             self.scalar(
                 "SELECT count(*) FROM provider_receipt WHERE status='PENDING_UNKNOWN'"
             ),
-            "2",
+            "1",
         )
+
+    def test_provider_outage_blocks_fresh_attempt_until_unknown_effects_reconciled(
+        self,
+    ):
+        def outage():
+            raise OSError("provider outage")
+
+        first = self.dispatch(provider=outage)
+        self.assertEqual(first.status, "WAIT_EXTERNAL")
+        another = self.dispatch(
+            suffix="b",
+            provider=lambda: self.fail("fresh attempt after outage dispatched"),
+        )
+        self.assertEqual(another.status, "WAIT_EXTERNAL")
+        self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "1")
 
     def test_new_source_version_requires_distinct_receipt_and_no_false_quota_zero(self):
         first = self.dispatch(provider=lambda: {**self.reply(), "quota": None})
