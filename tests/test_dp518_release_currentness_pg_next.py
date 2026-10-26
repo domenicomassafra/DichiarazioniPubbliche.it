@@ -67,10 +67,12 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
             expected_revision=expected,
         )
 
-    def _read(self, *, release="release:one", index=INDEX, epoch=1):
+    def _read(self, *, release="release:one", index=INDEX,
+              generation=GENERATION, epoch=1):
         return self.reader.read_private_reference(
             release_id=release, index_sha256=index,
-            projection_sha256=PROJECTION, expected_revision=epoch,
+            projection_sha256=PROJECTION, generation_sha256=generation,
+            expected_revision=epoch,
         )
 
     def test_no_reference_never_promotes_empty_source_to_public_current(self):
@@ -89,7 +91,8 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
         restarted = DisposableReleaseCurrentnessPg(self.dsn)
         current = restarted.read_private_reference(
             release_id=ticket.release_id, index_sha256=INDEX,
-            projection_sha256=PROJECTION, expected_revision=1,
+            projection_sha256=PROJECTION, generation_sha256=GENERATION,
+            expected_revision=1,
         )
         self.assertEqual(current.status, "COHERENT_PRIVATE_REFERENCE")
         self.assertEqual(current.reason, "PRIVATE_ONLY_NOT_DEPLOYED")
@@ -99,6 +102,41 @@ class ReleaseCurrentnessPgTests(unittest.TestCase):
         self.assertNotIn("rights:1", repr(current))
         self.assertNotIn("source:1", repr(current))
         self.assertEqual(self.sql("SELECT count(*) FROM dp518_pg_selection"), "1")
+
+    def test_generation_drift_held_after_pointer_selection(self):
+        self._select(self._ticket())
+        current = self._read()
+        self.assertEqual(current.status, "COHERENT_PRIVATE_REFERENCE")
+        stale = self._read(generation="f" * 64)
+        self.assertEqual(stale.status, "HELD")
+        self.assertEqual(stale.reason, "RELEASE_VERSION_MISMATCH")
+        self.assertFalse(stale.publication_authorized)
+
+    def test_sql_null_digest_cannot_claim_private_coherence(self):
+        self._select(self._ticket())
+        for missing in range(3):
+            with self.subTest(missing_digest=missing):
+                digests = [f"'"+INDEX+"'", f"'"+PROJECTION+"'", f"'"+GENERATION+"'"]
+                digests[missing] = "NULL"
+                raw = self.sql(
+                    "SELECT dp518_pg_probe('release:one',"
+                    + ",".join(digests) + ",1)::text;"
+                )
+                response = json.loads(raw)
+                self.assertEqual(response["status"], "HELD")
+                self.assertEqual(response["reason"], "RELEASE_VERSION_MISMATCH")
+
+    def test_reinstall_removes_old_unpinned_probe_signature(self):
+        # PostgreSQL CREATE OR REPLACE with extra arguments creates an overload;
+        # it does not remove the unpinned legacy readback function.
+        self.sql("""CREATE FUNCTION dp518_pg_probe(text,text,text,bigint)
+            RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;""")
+        self.reader.install_disposable_schema()
+        self.assertEqual(
+            self.sql("SELECT to_regprocedure("
+                     "'dp518_pg_probe(text,text,text,bigint)') IS NULL;"),
+            "t",
+        )
 
     def test_revocation_precedes_currentness_even_after_synthetic_ack(self):
         ticket = self._ticket()
