@@ -181,6 +181,58 @@ class CoverageNeedEventCollisionPostgresTests(unittest.TestCase):
             WHERE id='event:real-block' AND event_type='BLOCKED'
         """), "1")
 
+    def test_source_linked_block_exits_queue_with_immutable_rights_trace(self):
+        need_id = "need:dp319b-source-linked"
+        event_id = "event:dp319b-source-block"
+        self.assertEqual(self.upsert(
+            need_id, created_event="event:dp319b-created"
+        ), "CREATED")
+        metadata = {
+            "source_url": "https://example.org/official-record",
+            "content_sha256": "a" * 64,
+            "rights_receipt_id": "private-rights:fixture",
+            "coverage": "NOT_CHECKED",
+            "publication_authorized": False,
+        }
+        params = dict(
+            coverage_need_id=need_id, event_id=event_id,
+            blocker_code="INDEPENDENT_ALTERNATIVES_NOT_CHECKED",
+            reason="Independent source/rights checks remain incomplete",
+            actor_ref="agent:dp319b", metadata=metadata,
+        )
+        self.assertEqual(self.need(need_id)["status"], "OPEN")
+        self.assertEqual(self.store.block_coverage_need(**params), "BLOCKED")
+        first = self.store.run("""
+            SELECT row_to_json(e)::text FROM (
+              SELECT id,coverage_need_id,event_type,reason,metadata
+              FROM coverage_need_event WHERE id=:'event_id'
+            ) e;
+        """, event_id=event_id)
+        self.assertEqual(json.loads(first)["metadata"]["content_sha256"], "a" * 64)
+        self.assertEqual(json.loads(first)["metadata"]["coverage"], "NOT_CHECKED")
+        self.assertEqual(self.store.block_coverage_need(**params), "EXISTING")
+        changed_version = {**params, "metadata": {**metadata, "content_sha256": "b" * 64}}
+        self.assertEqual(self.store.block_coverage_need(**changed_version), "TERMINAL_CONFLICT")
+        self.assertEqual(self.store.block_coverage_need(
+            **{**changed_version, "event_id": "event:dp319b-new-source-version"}
+        ), "TERMINAL_CONFLICT")
+        self.assertEqual(self.store.run("""
+            SELECT count(*)::text FROM coverage_need_event
+            WHERE coverage_need_id=:'need_id' AND event_type='BLOCKED';
+        """, need_id=need_id), "1")
+        self.assertEqual(self.store.run("""
+            SELECT attempt_count::text FROM coverage_need WHERE id=:'need_id';
+        """, need_id=need_id), "0")
+        self.assertEqual(self.store.run("""
+            SELECT row_to_json(e)::text FROM (
+              SELECT id,coverage_need_id,event_type,reason,metadata
+              FROM coverage_need_event WHERE id=:'event_id'
+            ) e;
+        """, event_id=event_id), first)
+        self.assertNotIn(need_id, {
+            need["id"] for need in self.store.searchable_coverage_needs()
+        })
+
     def test_create_event_collision_must_roll_back_new_coverage_need(self):
         with self.assertRaises(RuntimeError):
             self.upsert("need:create-collision", created_event="event:unrelated")

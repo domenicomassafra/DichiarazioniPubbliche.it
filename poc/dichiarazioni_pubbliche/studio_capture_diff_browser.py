@@ -13,8 +13,7 @@ CAPTURE_DIFF_BROWSER_JS = r"""
         && request.capture_hash === reference.capture_sha256
         && SAFE_REF.test(reference.collection_id)
         && scope.rights_clearance === false && scope.publication_authority === false;
-      if (valid) showSingleCaptureInspection(receipt, request, reference, summary);
-      return valid;
+      return valid && showSingleCaptureInspection(receipt, request, reference, summary);
     }
     function showSingleCaptureInspection(receipt, request, reference, summary) {
       const scope = receipt?.data, capture = scope?.capture;
@@ -40,6 +39,9 @@ CAPTURE_DIFF_BROWSER_JS = r"""
         && ['NOT_REQUESTED', 'REQUESTED', 'PENDING', 'SUCCEEDED', 'FAILED'].includes(capture.archive_state)
         && ['STORED_UNVERIFIED', 'PURGED', 'NOT_STORED'].includes(capture.body_state)
         && typeof capture.archive_receipt_recorded === 'boolean'
+        && (['SUCCEEDED', 'FAILED'].includes(capture.archive_state)
+          ? capture.archive_receipt_recorded === true
+          : capture.archive_receipt_recorded === false)
         && typeof capture.purge_receipt_recorded === 'boolean'
         && (capture.capture_state === 'PURGED_BODY'
           ? capture.body_state === 'PURGED' && capture.purge_receipt_recorded === true

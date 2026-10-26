@@ -17,6 +17,8 @@ from dichiarazioni_pubbliche.claim_runtime import (  # noqa: E402
     ClaimExtractionResult,
     ClaimRuntimeProbe,
     ExtractedAtomicClaim,
+    OmniRouteClaimClient,
+    estimate_claim_request_cost,
 )
 from dichiarazioni_pubbliche.evidence_runtime import (  # noqa: E402
     EvidenceFetchReceipt,
@@ -35,8 +37,6 @@ from dichiarazioni_pubbliche.worker_daemon import (  # noqa: E402
 )
 from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 from dichiarazioni_pubbliche.local_claim_ollama import LocalOllamaClaimClient  # noqa: E402
-from dichiarazioni_pubbliche.claim_runtime import OmniRouteClaimClient  # noqa: E402
-from dichiarazioni_pubbliche.claim_runtime import estimate_claim_request_cost  # noqa: E402
 from tests.dp169_caption_fixture_rights import cleared_caption_rights
 
 class FakePrivateStore:
@@ -320,6 +320,9 @@ REGISTRY = {
 }
 
 def job(job_type, payload=None):
+    if job_type == "CLAIM_EXTRACT_WINDOW":
+        payload = {"model": FakeClaimClient.model,
+                   "prompt_version": FakeClaimClient.prompt_version, **(payload or {})}
     return ProcessingJob(
         job_id=f"job:{job_type}",
         content_id="content:pulp64",
@@ -327,6 +330,15 @@ def job(job_type, payload=None):
         attempt=0,
         payload=payload or {},
     )
+
+def claim_segment(text="Il prezzo è 10 euro.", *, uncertain=False):
+    return {
+        "id": "canonical:0", "segment_index": 0,
+        "start_ms": 0, "end_ms": 1000, "canonical_text": text,
+        "transcript_status": "TRANSCRIPT_UNCERTAIN" if uncertain else "RESOLVED",
+        "publication_blocked": uncertain,
+        "sensitive_signature": ["NUMBER:10 euro"] if uncertain else [],
+    }
 
 class WorkerDaemonTests(unittest.TestCase):
     def make_worker(
@@ -347,6 +359,7 @@ class WorkerDaemonTests(unittest.TestCase):
             budget=budget or WorkerBudget(),
             claim_client=claim_client,
             claim_max_usd_per_1k_total_tokens=claim_rate,
+            claim_fanout_verified=claim_client is not None,
             evidence_fetcher=evidence_fetcher,
         )
         worker._caption_rights_guard = lambda *_: cleared_caption_rights()
@@ -540,18 +553,7 @@ class WorkerDaemonTests(unittest.TestCase):
                 )
             ]
         )
-        store.canonical_rows = [
-            {
-                "id": "canonical:0",
-                "segment_index": 0,
-                "start_ms": 0,
-                "end_ms": 1000,
-                "canonical_text": "Il prezzo è 10 euro.",
-                "transcript_status": "TRANSCRIPT_UNCERTAIN",
-                "publication_blocked": True,
-                "sensitive_signature": ["NUMBER:10 euro"],
-            }
-        ]
+        store.canonical_rows = [claim_segment(uncertain=True)]
         from dichiarazioni_pubbliche.claim_windows import build_claim_windows, canonical_segment_from_row
 
         window = build_claim_windows(
@@ -604,13 +606,7 @@ class WorkerDaemonTests(unittest.TestCase):
 
     def test_claim_window_reservation_denial_prevents_provider_call(self):
         store = FakeStore([job("CLAIM_EXTRACT_WINDOW")])
-        store.canonical_rows = [{
-            "id": "canonical:0", "segment_index": 0,
-            "start_ms": 0, "end_ms": 1000,
-            "canonical_text": "Il prezzo è 10 euro.",
-            "transcript_status": "RESOLVED", "publication_blocked": False,
-            "sensitive_signature": [],
-        }]
+        store.canonical_rows = [claim_segment()]
         from dichiarazioni_pubbliche.claim_windows import (
             build_claim_windows, canonical_segment_from_row,
         )
@@ -1174,13 +1170,7 @@ class WorkerDaemonTests(unittest.TestCase):
 
     def test_stale_remote_claim_window_underbound_must_not_invoke_provider(self):
         store = FakeStore([])
-        store.canonical_rows = [{
-            "id": "canonical:0", "segment_index": 0,
-            "start_ms": 0, "end_ms": 1000,
-            "canonical_text": "Il valore pubblico e un numero di prova.",
-            "transcript_status": "RESOLVED", "publication_blocked": False,
-            "sensitive_signature": [],
-        }]
+        store.canonical_rows = [claim_segment("Il valore pubblico e un numero di prova.")]
         from dichiarazioni_pubbliche.claim_windows import (
             build_claim_windows, canonical_segment_from_row,
         )
@@ -1202,6 +1192,8 @@ class WorkerDaemonTests(unittest.TestCase):
             "input_sha256": window.input_sha256,
             "segment_indices": list(window.segment_indices),
             "estimated_cost_usd": 0.05,
+            "model": client.model,
+            "prompt_version": client.prompt_version,
         })]
         with patch.object(client, "_post", side_effect=AssertionError("UNBUDGETED_PROVIDER_CALL")) as sent:
             summary = self.make_worker(

@@ -32,8 +32,9 @@ def _text(value: object, code: str, maximum: int = 512) -> str:
 class RightsComplaintBridge:
     """Durable DP-305 complaint bridge using DP-303's append-only TAKEDOWN ledger.
 
-    Intake creates private triage only. A public hold requires a separate explicit
-    TRIAGE_REVIEWER approval; this class never infers rights or legal authority.
+    An accepted complaint creates a protective public-projection HOLD at intake
+    while private triage and append-only review events proceed independently.
+    Complaint intake itself does not infer rights or legal authority.
     """
 
     def __init__(self, database_url: str, psql: str = "psql") -> None:

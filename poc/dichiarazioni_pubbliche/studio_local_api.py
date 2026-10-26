@@ -44,6 +44,10 @@ from dichiarazioni_pubbliche.studio_discovery_inbox_workflow import DiscoveryInb
 from dichiarazioni_pubbliche.studio_machine_candidate_handoff_v1 import (
     preview_candidate_machine_handoff, preview_discovery_machine_exception,
 )
+from dichiarazioni_pubbliche.studio_media_capture_binding_pg import inspect_studio_media_binding
+from dichiarazioni_pubbliche.studio_media_playback_http import (
+    StudioMediaHttpMixin, StudioMediaRightsReader,
+)
 from dichiarazioni_pubbliche.studio_local_page import render_studio_login_page
 from dichiarazioni_pubbliche.original_source_observation_v1 import LocalObservedRecoveryJournal
 from dichiarazioni_pubbliche.studio_readonly_db import StudioReadOnlyDb as _StudioReadOnlyDb
@@ -60,7 +64,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/corpus/search", "/v1/capture/compare", "/v1/capture/passages",
     "/v1/media/segment", "/v1/candidate/matches",
     "/v1/media/capture-context",
-    "/v1/media/binding",
+    "/v1/media/binding", "/v1/media/playback",
     "/v1/operator/workload",
     "/v1/candidate/review-readiness", "/v1/candidate/handoff-receipt",
     "/v1/candidate/decision-receipt",
@@ -384,51 +388,12 @@ class _StudioDecisionReader(_StudioReadOnlyDb):
         for value in (candidate_id, run_id, passage_id, capture_id, request_key):
             if not isinstance(value, str) or not _STUDIO_REF.fullmatch(value) or ".." in value:
                 raise ValueError("STUDIO_DECISION_REF_INVALID")
-        raw = self.run("""
-            BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
-            SELECT json_build_object(
-                'candidate_id',receipt.candidate_id,
-                'run_id',receipt.run_id,'passage_id',receipt.passage_id,
-                'capture_id',receipt.capture_id,'request_key',receipt.request_key,
-                'decision',receipt.decision,'revision',receipt.revision,
-                'receipt_sha256',receipt.receipt_sha256,
-                'source_current',(
-                   content.rights_status='CLEARED'
-                   AND capture.rights_status='CLEARED'
-                   AND capture.status='CAPTURED' AND capture.hold_status='NONE'
-                   AND NOT EXISTS (
-                     SELECT 1 FROM content_capture newer
-                     WHERE newer.content_id=content.id AND
-                       (newer.observed_at,newer.id)>(capture.observed_at,capture.id)
-                   )
-                )
-            )::text
-            FROM dp418_candidate_decision receipt
-            JOIN claim_candidate candidate ON candidate.id=receipt.candidate_id
-            JOIN statement_candidate statement ON statement.id=candidate.statement_candidate_id
-              AND statement.content_id=candidate.content_id
-            JOIN statement_candidate_passage binding
-              ON binding.statement_candidate_id=statement.id
-              AND binding.content_id=statement.content_id
-              AND binding.passage_id=receipt.passage_id
-            JOIN passage passage ON passage.id=binding.passage_id
-              AND passage.content_id=statement.content_id
-              AND passage.capture_id=receipt.capture_id
-            JOIN content_capture capture ON capture.id=receipt.capture_id
-              AND capture.content_id=passage.content_id
-            JOIN content_item content ON content.id=capture.content_id
-            JOIN candidate_match_run run ON run.id=receipt.run_id
-              AND run.claim_candidate_id=candidate.id
-            WHERE receipt.candidate_id=:'candidate_id'
-              AND receipt.run_id=:'run_id'
-              AND receipt.passage_id=:'passage_id'
-              AND receipt.capture_id=:'capture_id'
-              AND receipt.request_key=:'request_key'
-              AND capture.content_sha256=receipt.capture_sha256
-            LIMIT 1;
-            COMMIT;
-        """, candidate_id=candidate_id, run_id=run_id, passage_id=passage_id,
-            capture_id=capture_id, request_key=request_key)
+        from dichiarazioni_pubbliche.studio_candidate_decision_sql import READBACK_SQL
+
+        raw = self.run(
+            READBACK_SQL, candidate_id=candidate_id, run_id=run_id,
+            passage_id=passage_id, capture_id=capture_id, request_key=request_key,
+        )
         if not raw:
             raise ValueError("STUDIO_DECISION_NOT_FOUND")
         try:
@@ -579,6 +544,7 @@ class StudioLocalReaders:
     workload_reader: Any | None = None
     recovery_observations: LocalObservedRecoveryJournal | None = None
     body_store: Any | None = None
+    rights_reader: Any | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -688,52 +654,7 @@ def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> d
         return inspect_candidate_media_capture_context(readers.captures, **body)
     if path == "/v1/media/binding":
         _fields(body, required={"binding_id"})
-        binding_id = body["binding_id"]
-        if not isinstance(binding_id, str) or not _STUDIO_REF.fullmatch(binding_id):
-            raise ValueError("STUDIO_MEDIA_BINDING_ID_INVALID")
-        # Stable DB read-only inspection; never invoke the attestation writer.
-        raw = readers.captures.run(
-            "SELECT inspect_media_capture_segment_binding(:'binding_id')::text;",
-            binding_id=binding_id,
-        )
-        if not isinstance(raw, str) or not 1 <= len(raw) <= 8192:
-            raise ValueError("STUDIO_MEDIA_BINDING_RESULT_INVALID")
-        try:
-            payload = json.loads(raw)
-        except (ValueError, TypeError):
-            raise ValueError("STUDIO_MEDIA_BINDING_RESULT_INVALID") from None
-        fields = {
-            "contract_version", "private_only", "publication_authority",
-            "rights_clearance", "seek_authorized", "capture_segment_binding",
-            "binding_id", "content_id", "capture_id", "capture_sha256",
-            "canonical_segment_id", "segment_index", "start_ms", "end_ms",
-            "revision", "binding_state", "hold_reasons",
-        }
-        if (not isinstance(payload, dict) or set(payload) != fields
-                or payload["contract_version"] != "studio-capture-segment-binding-pg-v1"
-                or payload["private_only"] is not True
-                or payload["publication_authority"] is not False
-                or payload["rights_clearance"] is not False
-                or payload["seek_authorized"] is not False
-                or payload["capture_segment_binding"] != "OPERATOR_ATTESTED_METADATA_ONLY"
-                or payload["binding_id"] != binding_id
-                or any(not isinstance(payload[name], str)
-                       or not _STUDIO_REF.fullmatch(payload[name])
-                       for name in ("content_id", "capture_id", "canonical_segment_id"))
-                or not isinstance(payload["capture_sha256"], str)
-                or not _CAPTURE_SHA.fullmatch(payload["capture_sha256"])
-                or not all(type(payload[name]) is int for name in
-                           ("segment_index", "start_ms", "end_ms", "revision"))
-                or not 0 <= payload["start_ms"] < payload["end_ms"]
-                or payload["revision"] < 1
-                or payload["binding_state"] not in {"ATTESTED", "HELD", "REVOKED"}
-                or not isinstance(payload["hold_reasons"], list)
-                or not 1 <= len(payload["hold_reasons"]) <= 20
-                or any(not isinstance(code, str) or
-                       not _STUDIO_REF.fullmatch(code)
-                       for code in payload["hold_reasons"])):
-            raise ValueError("STUDIO_MEDIA_BINDING_RESULT_INVALID")
-        return payload
+        return inspect_studio_media_binding(readers.captures, binding_id=body["binding_id"])
     if path == "/v1/candidate/matches":
         _fields(body, required={"run_id", "claim_candidate_id"})
         return inspect_candidate_match_run(readers.candidates, **body)
@@ -873,7 +794,7 @@ class StudioLoopbackServer(HTTPServer):
         super().__init__(("127.0.0.1", port), StudioLocalHandler)
 
 
-class StudioLocalHandler(BaseHTTPRequestHandler):
+class StudioLocalHandler(StudioMediaHttpMixin, BaseHTTPRequestHandler):
     server: StudioLoopbackServer
     protocol_version = "HTTP/1.0"
 
@@ -918,7 +839,7 @@ class StudioLocalHandler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; "
             f"script-src 'nonce-{nonce}'; style-src 'nonce-{nonce}'; "
-            "connect-src 'self'; form-action 'none'",
+            "connect-src 'self'; media-src blob:; form-action 'none'",
         )
         self.end_headers()
         self.wfile.write(encoded)
@@ -979,6 +900,9 @@ class StudioLocalHandler(BaseHTTPRequestHandler):
             )
             if not isinstance(payload, dict):
                 raise ValueError("STUDIO_LOCAL_OBJECT_REQUIRED")
+            if self.path == "/v1/media/playback":
+                self._verified_media_reply(payload)
+                return
             response = _dispatch(self.server.readers, self.path, payload)
             self._reply(200, {"contract_version": STUDIO_LOCAL_API_VERSION, "data": response})
         except (ValueError, TypeError, UnicodeError):
@@ -1024,6 +948,7 @@ def main(argv: list[str] | None = None) -> int:
             decision_reader=_StudioDecisionReader(),
             recovery_observations=recovery,
             body_store=body_store,
+            rights_reader=StudioMediaRightsReader(),
         )
         with StudioLoopbackServer(args.port, readers, token) as server:
             print(f"Studio local API ready on 127.0.0.1:{server.server_port} (read-only)", flush=True)
