@@ -134,10 +134,11 @@ class SignedAuthorityTests(unittest.TestCase):
             now=NOW,
         )
 
-    def test_trusted_signature_allows_private_machine_signoff_but_no_public_read(self):
+    def test_trusted_signature_proves_issuer_without_machine_signoff_or_public_read(self):
         result = self.evaluate()
-        self.assertEqual(result.disposition, "ELIGIBLE", result.reason_codes)
-        self.assertTrue(result.machine_signoff)
+        self.assertEqual(result.disposition, "PRIVATE_SIGNATURE_VERIFIED", result.reason_codes)
+        self.assertTrue(result.private_signature_verified)
+        self.assertFalse(result.machine_signoff)
         self.assertFalse(result.publication_authority)
         self.assertFalse(result.dispatch_authorized)
 
@@ -156,6 +157,7 @@ class SignedAuthorityTests(unittest.TestCase):
                 )
                 self.assertFalse(outcome.machine_signoff)
                 self.assertEqual(outcome.disposition, "HOLD")
+                self.assertFalse(outcome.private_signature_verified)
 
     def test_genuine_signature_still_rejects_changed_root_missing_challenge_rights_or_gold(self):
         for changes in (

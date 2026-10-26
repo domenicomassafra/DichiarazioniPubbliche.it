@@ -49,7 +49,12 @@ _KEY_FIELDS = frozenset({
 class SignedAuthorityVerdict:
     disposition: str
     reason_codes: tuple[str, ...]
-    machine_signoff: bool = False
+    private_signature_verified: bool = False
+
+    @property
+    def machine_signoff(self) -> bool:
+        # An authentic issuer is not independent gold/qualified legal acceptance.
+        return False
 
     @property
     def publication_authority(self) -> bool:
@@ -268,7 +273,7 @@ def _verify(receipt, snapshot, preflight, path, pinned_sha, now):
         )
     except (InvalidSignature, ValueError):
         raise ValueError("DP316_SIGNATURE_INVALID") from None
-    return SignedAuthorityVerdict("ELIGIBLE", (), True)
+    return SignedAuthorityVerdict("PRIVATE_SIGNATURE_VERIFIED", (), True)
 
 
 __all__ = ["VERSION", "REGISTRY_VERSION", "SignedAuthorityVerdict", "verify_signed_authority"]

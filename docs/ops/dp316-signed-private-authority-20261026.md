@@ -23,9 +23,12 @@ missing gold, incomplete challenger, revoked key, wrong file permissions and
 forged/malformed signatures HOLD. Underlying live source and gold adjudication
 must still be independently established before any legitimate receipt issuance.
 
-Successful `machine_signoff=true` means **authenticated private reference
-only**: both `publication_authority` and `dispatch_authorized` remain
-false. Legacy DP-310/311 review is unchanged; this receipt cannot substitute
+A valid signature yields `PRIVATE_SIGNATURE_VERIFIED` and
+`private_signature_verified=true`, which is an **authenticated private
+reference only**. Until source evidence, policy, independent adjudication
+and live epoch have also been proven by a trusted decision service, all
+`machine_signoff`, `publication_authority` and `dispatch_authorized`
+properties remain false. Legacy DP-310/311 review is unchanged; this receipt cannot substitute
 for legacy approval. No model output, digest or self-declared reviewer acquires
 public authority. The default registry mode `LEGACY` holds all machine
 receipts. A specific versioned registry `MACHINE_V1`, pinned via trusted
