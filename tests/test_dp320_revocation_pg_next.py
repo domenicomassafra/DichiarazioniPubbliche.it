@@ -246,6 +246,28 @@ class IsolatedPostgresRevocationTests(unittest.TestCase):
         self.assertEqual(self.sql("SELECT epoch||':'||status FROM dp320_pg_source "
                                   "WHERE source_id='source:1';"), "1:HELD")
 
+    def test_revoked_epoch_cannot_be_reactivated_or_rewritten_without_new_rights(self):
+        old = self.ticket()
+        self.store.publish_reference(ticket=old, artifact_sha256=ARTIFACT)
+        self.store.revoke(source_id="rights:1", event_id="revocation:final",
+                          reason="RIGHTS_WITHDRAWN", occurred_at=NOW)
+        # The fixture has no independent new-rights receipt or reauthorization
+        # operation. Raw writer retries must not restore ACTIVE or rewrite the
+        # revoked material/epoch to mint a fresh publishable ticket.
+        for assignment in ("status='ACTIVE'", "epoch=0", "material_sha256=repeat('c',64)"):
+            with self.subTest(assignment=assignment):
+                proc = subprocess.run(
+                    [_bin("psql"), "-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", self.dsn],
+                    input="UPDATE dp320_pg_source SET " + assignment
+                          + " WHERE source_id='rights:1';",
+                    capture_output=True, text=True,
+                )
+                self.assertNotEqual(proc.returncode, 0, assignment)
+        self.assertEqual(self.sql("SELECT epoch||':'||status FROM dp320_pg_source "
+                                  "WHERE source_id='rights:1';"), "1:HELD")
+        with self.assertRaisesRegex(RevocationFenceHeld, "FENCE_STALE_OR_HELD"):
+            self.store.check_served(ticket=old, artifact_sha256=ARTIFACT)
+
     def test_crashed_transaction_cannot_commit_revocation_without_outbox(self):
         aborted = self._at_barrier("BEGIN; SELECT dp320_pg_revoke("
                                     "'rights:1','revocation:crashed','PRIVACY_HOLD',"
