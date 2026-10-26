@@ -54,7 +54,9 @@ export async function loadPublishedPeopleV3(): Promise<PublishedPeopleV3Release 
   const enabled = process.env[ENABLE];
   const assetsPath = process.env[ASSETS];
   const pinsPath = process.env[PINS];
-  if ((!enabled || enabled === "0") && !assetsPath && !pinsPath) return null;
+  // Explicit opt-out is a rollback switch even when the paths remain configured.
+  // Without an explicit flag, stray pin paths still fail closed.
+  if (enabled === "0" || (!enabled && !assetsPath && !pinsPath)) return null;
   if (enabled !== "1" || !assetsPath || !pinsPath || assetsPath === pinsPath) {
     throw new Error("DP438_PUBLIC_RELEASE_CONFIG_INCOMPLETE");
   }

@@ -81,6 +81,25 @@ class PublicPersonV3ApiTest(unittest.TestCase):
                 self.assertEqual(self.get("/api/v1/people").status, 503)
                 self.assertEqual(self.get("/api/v1/people/persona-zero").status, 503)
 
+    def test_signed_asset_with_malformed_statement_route_fails_closed(self):
+        # Even a digest-matching malformed asset must not become an API 200
+        # or trigger IndexError while checking the static release.
+        invalid = json.loads(self.api.read_text(encoding="utf8"))
+        invalid["people"][0]["statements"] = [{"statement_route": "/broken"}]
+        person_sha = hashlib.sha256(json.dumps(
+            invalid["people"], ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False,
+        ).encode("utf8")).hexdigest()
+        pins = {**self.current_pins, "personSha256": person_sha}
+        self.set_pins(pins)
+        invalid["dataset_sha256"] = person_sha
+        invalid["release_pins_sha256"] = hashlib.sha256(json.dumps(
+            pins, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False,
+        ).encode("utf8")).hexdigest()
+        self.api.write_text(json.dumps(invalid, ensure_ascii=False), encoding="utf8")
+        self.assertEqual(self.get("/api/v1/people").status, 503)
+
     def test_missing_authority_never_downgrades_to_v2(self):
         self.pins.unlink()
         self.assertEqual(self.get("/api/v1/people").status, 503)
@@ -93,6 +112,9 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         (root / "search-index.v1.json").write_text('{"records":["persona-zero"]}', encoding="utf8")
         (root / "sitemap.xml").write_text("<loc>/persone/persona-zero/</loc>", encoding="utf8")
         (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
+        legacy_person = root / "record" / "person" / "persona-private"
+        legacy_person.mkdir(parents=True)
+        (legacy_person / "index.html").write_text("Private Candidate", encoding="utf8")
         server = build_server(self.v2, static_dir=root)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -110,6 +132,8 @@ class PublicPersonV3ApiTest(unittest.TestCase):
             routes = ("/persone/persona-zero/", "/search-index.v1.json", "/sitemap.xml")
             for route in routes:
                 self.assertEqual(request(route)[0], 200)
+            # A legacy identity path must not reveal an unapproved Person.
+            self.assertEqual(request("/record/person/persona-private/")[0], 404)
             self.set_pins({**self.current_pins, "publicationAuthorized": False})
             for route in routes:
                 with self.subTest(route=route):

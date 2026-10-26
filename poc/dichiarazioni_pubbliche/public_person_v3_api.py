@@ -18,6 +18,7 @@ from typing import Any
 
 _HASH = re.compile(r"^[a-f0-9]{64}$")
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_STATEMENT_ROUTE = re.compile(r"^/dichiarazioni/[a-z0-9]+(?:-[a-z0-9]+)*/$")
 _PERSON_KEYS = {
     "person_id", "slug", "route", "display_name", "disambiguator",
     "entity_version", "profile_scope", "status", "roles", "statements",
@@ -96,6 +97,10 @@ def _validated_asset(path: str, signature: tuple[int, int, int, int], expected: 
                 or not isinstance(person["roles"], list)
                 or person["person_id"] in ids or person["slug"] in slugs):
             raise PublicPersonReleaseUnavailable
+        for statement in person["statements"]:
+            route = statement.get("statement_route") if isinstance(statement, dict) else None
+            if not isinstance(route, str) or not _STATEMENT_ROUTE.fullmatch(route):
+                raise PublicPersonReleaseUnavailable
         ids.add(person["person_id"])
         slugs.add(person["slug"])
     return people
@@ -198,6 +203,10 @@ def static_person_release_current(parts: tuple[str, ...], root_fd: int) -> bool:
         return False
     if not enabled:
         return False  # A v3 build cannot silently downgrade to an unguarded v2 runtime.
+    # Legacy Person aliases are intentionally absent from a v3 build. A stale
+    # file at an old path must never reveal a now withheld public identity.
+    if len(parts) >= 2 and parts[:2] == ("record", "person"):
+        return False
     try:
         people, person_sha = load_current_public_people_v3()
         if len(parts) >= 2 and parts[0] == "persone":

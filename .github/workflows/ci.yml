@@ -248,6 +248,10 @@ jobs:
         working-directory: web
         run: node --experimental-strip-types scripts/check-dp438-public-consumer-v3.mjs
 
+      - name: DP438 explicit rollback with retained v3 release paths
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-dp438-optout-v3.mjs
+
       - name: Reviewed relation copy cannot infer positions
         working-directory: web
         run: npm run check:relations
