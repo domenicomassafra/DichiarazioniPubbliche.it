@@ -134,6 +134,17 @@ _COVERAGE_LANES = {
 }
 
 
+def _executable(assignment: ResearchAssignment) -> bool:
+    return (
+        assignment.status == "READY"
+        and bool(assignment.adapter_ids)
+        and bool(assignment.stop_conditions)
+        and assignment.max_queries >= 1
+        and assignment.max_results >= 1
+        and 1 <= assignment.max_results_per_host <= assignment.max_results
+    )
+
+
 def _coverage(
     assignments: tuple[ResearchAssignment, ...],
     observations: tuple[InvestigationObservation, ...],
@@ -236,6 +247,10 @@ def propose_investigation(
         assigned = active_by_id.get(record.assignment_id)
         if assigned is None or record.lane != assigned.lane:
             raise ValueError("INVESTIGATION_OBSERVATION_FOREIGN_ASSIGNMENT")
+        if not _executable(assigned):
+            # A forged receipt for an assignment that could never reserve
+            # cannot turn a missing rights/search capability into coverage.
+            raise ValueError("INVESTIGATION_OBSERVATION_UNAUTHORIZED_ASSIGNMENT")
         if record.spent_usd > assigned.cost_cap_usd:
             # The overall envelope cannot legitimize a receipt that breached
             # the narrower limit of the actual assigned attempt.
@@ -280,15 +295,7 @@ def propose_investigation(
         return decision("EXHAUSTED", "INVESTIGATION_ATTEMPT_CAP")
 
     for assignment in sorted(active, key=lambda value: (value.lane, value.assignment_id)):
-        if (
-            assignment.status != "READY"
-            or not assignment.adapter_ids
-            or not assignment.stop_conditions
-            # A nominal READY assignment may carry zero executable capacity.
-            or assignment.max_queries < 1
-            or assignment.max_results < 1
-            or not 1 <= assignment.max_results_per_host <= assignment.max_results
-        ):
+        if not _executable(assignment):
             continue
         attempt_id = "investigation-attempt:" + _hash({
             "plan": plan_fp, "assignment": assignment.assignment_id,

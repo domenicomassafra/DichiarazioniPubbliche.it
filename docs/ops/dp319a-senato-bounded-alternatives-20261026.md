@@ -57,6 +57,10 @@ outside the original/official baseline for an independently reviewed
 alternative candidate. A separate outlet needs its own real source, bounded
 assignment, current rights and independently verified lineage before it can
 be counted. No synthetic publisher or invented reviewer is used here.
+The pure planner additionally refuses fabricated completion receipts for
+`BLOCKED` assignments and assignments with zero executable query/result/host
+capacity, matching the durable reservation fence; such rows can never
+manufacture a completed check.
 
 The selected plan's `max_attempts=1` was exhausted for **that official lane**;
 it is not a completed four-lane investigation. The machine receipt preserves

@@ -202,6 +202,32 @@ class PrivateInvestigationAttemptTests(unittest.TestCase):
         self.assertEqual(independent.reason_code, "INVESTIGATION_LANE_BLOCKED")
         self.assertEqual(independent.completed_attempt_ids, ())
 
+    def test_forged_receipt_cannot_check_blocked_or_zero_capacity_lane(self):
+        for changes in (
+            {"status": "BLOCKED", "blockers": ("SOURCE_RIGHTS_NOT_CLEARED",)},
+            {"max_queries": 0},
+            {"max_results": 0},
+            {"max_results_per_host": 0},
+        ):
+            with self.subTest(changes=changes):
+                blocked = replace(assignment("INDEPENDENT_REPORTING"), **changes)
+                fingerprint = decision(assignments=(blocked,)).plan_fingerprint
+                attempt_id = "investigation-attempt:" + _hash({
+                    "plan": fingerprint, "assignment": blocked.assignment_id,
+                    "material": spec().material_fingerprint,
+                })
+                forged = InvestigationObservation(
+                    attempt_id=attempt_id,
+                    material_fingerprint=spec().material_fingerprint,
+                    assignment_id=blocked.assignment_id,
+                    lane=blocked.lane, result="NO_MATCH",
+                    lineage_id=None, source_version=None,
+                    source_sha256=None, review_event_id=None,
+                    spent_usd=Decimal("0"),
+                )
+                with self.assertRaisesRegex(ValueError, "INVESTIGATION_OBSERVATION_UNAUTHORIZED_ASSIGNMENT"):
+                    decision((forged,), assignments=(blocked,))
+
     def test_independent_mirrors_are_not_new_evidence_lineages(self):
         rows = (assignment("PRIMARY_SOURCE"), assignment("INDEPENDENT_REPORTING"))
         s = spec(max_attempts=2)
