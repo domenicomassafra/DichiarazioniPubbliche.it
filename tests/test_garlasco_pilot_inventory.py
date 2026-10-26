@@ -141,6 +141,22 @@ class GarlascoPilotInventoryTests(unittest.TestCase):
         structural = evaluate_preflight(result.seed_manifest, observed_baseline_claim_ids=result.seed_manifest.baseline_claim_ids)
         self.assertFalse(structural.ready)
 
+    def test_new_included_official_captures_clear_only_the_capture_gap(self):
+        # The 18 historical Claim-linked Contents still have zero Captures;
+        # the two newly Included official records carry genuine private chains.
+        summary, records, claims = baseline()
+        summary.update({"collection_rows": 1, "collection_members": 20,
+                        "captures": 2, "passages": 2, "statement_candidates": 2,
+                        "collection_coverage_needs": 1})
+        receipt = build_live_inventory(
+            FakeReadOnly(summary=summary, records=records, claims=claims)
+        ).receipt()
+        self.assertEqual(receipt["counts"]["captures"], 2)
+        self.assertEqual(receipt["counts"]["passages"], 2)
+        self.assertNotIn("CAPTURE_PASSAGE_COVERAGE_MISSING", receipt["blockers"])
+        self.assertFalse(receipt["complete_pilot"])
+        self.assertFalse(receipt["publication_authority"])
+
     def test_private_draft_is_exact_real_seed_not_a_fake_discovery_manifest(self):
         result = build_live_inventory(FakeReadOnly())
         with tempfile.TemporaryDirectory() as temp:

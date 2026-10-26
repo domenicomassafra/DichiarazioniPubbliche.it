@@ -133,6 +133,19 @@ class GarlascoUsabilityAcceptanceTests(unittest.TestCase):
         verified = read_verified_task_bindings(CollectionReader(), observed["tasks"])
         self.assertEqual(verified, set())
 
+    def test_source_task_must_reject_coverage_need_as_alternate_proof(self):
+        observed = {"tasks": {"source-capture": {
+            "status": "PASS", "actions": 2, "navigation_errors": 0,
+            "time_to_source_ms": 850, "evidence_ref": "sha256:" + "e" * 64,
+            "source_id": "source:unverified", "capture_id": "capture:unverified",
+            "rights_record_id": "private-rights:unverified",
+            "coverage_need_id": "coverage-need:real",
+        }}}
+        receipt = evaluate_acceptance(snapshot(captures=1), search_results(),
+                                      observations=observed,
+                                      verified_tasks={"source-capture"})
+        self.assertEqual(receipt["task_status"]["source-capture"], "HOLD")
+
     def test_operator_failure_and_benchmark_regression_are_visible(self):
         observations = {"tasks": {"find-dna": {"status": "FAIL", "navigation_errors": 1}}}
         result = evaluate_acceptance(snapshot(), search_results(passed=False),
