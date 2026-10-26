@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""DP-518A: content-addressed MiniPC release, atomic pointer and HTTP readback.
-
-The source mirror and live projection are inputs only. This tool never grants
-publication rights or changes the running service configuration.
-"""
+"""DP-518A: immutable MiniPC release and HTTP readback. No GO-PUBLIC."""
 
 from __future__ import annotations
 
@@ -154,10 +150,12 @@ def stage(root: Path, source: Path, static: Path, projection: Path, *,
         candidate = Path(temp) / "release"
         (candidate / "code").mkdir(parents=True)
         shutil.copytree(source / "poc", candidate / "code" / "poc",
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
-        shutil.copy2(schema_source, candidate / "code" / "schema.v1.sql")
-        shutil.copytree(static, candidate / "static")
-        shutil.copytree(projection, candidate / "projection")
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+                        symlinks=True)
+        shutil.copy2(schema_source, candidate / "code" / "schema.v1.sql",
+                     follow_symlinks=False)
+        shutil.copytree(static, candidate / "static", symlinks=True)
+        shutil.copytree(projection, candidate / "projection", symlinks=True)
         assets = collect(candidate)
         try:
             data = json.loads((candidate / "projection" / "index.json").read_bytes())
@@ -269,7 +267,7 @@ def _http(origin: str, path: str, *, expected_hash: str | None = None) -> bytes:
     except HTTPError as exc:
         exc.close()
         raise ValueError("DP481_HTTP_MISMATCH") from exc
-    except (URLError, TimeoutError, ConnectionError, OSError) as exc:
+    except (URLError, OSError) as exc:
         raise ValueError("DP481_HTTP_MISMATCH") from exc
 
 

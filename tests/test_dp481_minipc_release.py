@@ -8,10 +8,12 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from dichiarazioni_pubbliche.public_api import build_server
 from dichiarazioni_pubbliche.public_schema import projection_dataset_sha256
 from tools.dp481_minipc_release import activate, rehearse, stage, verify
+from tools import dp481_minipc_release as release_tool
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,6 +130,25 @@ class MiniPCImmutableReleaseTests(unittest.TestCase):
         self.assertEqual(result["safe_release_id"], result["rollback_release_id"])
         self.assertEqual(result["withdrawn_old_listener_http"], 404)
         self.assertFalse(result["publication_authorized"])
+
+    def test_symlink_inserted_after_source_preflight_cannot_copy_private_bytes(self):
+        self.make(withdrawn=True)
+        secret = self.base / "private.txt"
+        secret.write_bytes(b"private not public")
+        target = self.static / "search-index.v1.json"
+        original_check = release_tool.safe_files
+
+        def swap_after_preflight(directory):
+            result = original_check(directory)
+            if directory == self.static:
+                target.unlink()
+                target.symlink_to(secret)
+            return result
+
+        with patch.object(release_tool, "safe_files", side_effect=swap_after_preflight):
+            with self.assertRaisesRegex(ValueError, "UNSAFE_ASSET"):
+                stage(self.root, self.source, self.static, self.projection,
+                      git_sha="1" * 40, rights_epoch_ref="PRIVATE_DRAFT_NO_GO")
 
 
 if __name__ == "__main__":
