@@ -56,6 +56,30 @@ try {
   assert.equal(api.dataset_sha256,pins.personSha256);
   assert(api.people.some(person=>person.slug==="persona-zero" && person.statements.length===0));
   assert.doesNotMatch(JSON.stringify(api),/Private Candidate|persona-held|person:held/);
+  // End-to-end bridge: Python must read the exact JSON emitted by Astro, not
+  // an independently reconstructed Python fixture that happens to be valid.
+  const bridge=spawnSync("python3",["-c",`import json, os
+import tempfile
+from pathlib import Path
+from tests.test_dp438_public_person import bundle
+from dichiarazioni_pubbliche.public_api import dispatch
+from dichiarazioni_pubbliche.public_person_v3_api import load_current_public_people_v3
+people, sha = load_current_public_people_v3()
+with tempfile.TemporaryDirectory() as scratch:
+    projection = Path(scratch) / "v2.json"
+    projection.write_text(json.dumps(bundle(v2=True)))
+    response = dispatch("GET", "/api/v1/people", projection_path=projection)
+assert response.status == 200, response.status
+assert json.loads(response.body)["meta"]["person_dataset_sha256"] == sha
+assert len(people) >= 2
+print("Astro generated JSON -> Python API current pin PASS")`],{
+    cwd:join(web,".."),encoding:"utf8",timeout:30000,
+    env:{...process.env,PYTHONPATH:join(web,"..","poc"),DP438_PROJECTION:projectionPath,
+      DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3:"1",
+      DICHIARAZIONI_PUBBLICHE_PUBLIC_PERSON_V3_API_PATH:join(integration,"dist","public-people.v3.json"),
+      DICHIARAZIONI_PUBBLICHE_PUBLIC_PERSON_V3_PINS_PATH:pinsPath},
+  });
+  assert.equal(bridge.status,0,`${bridge.stdout}\n${bridge.stderr}`);
   // Withdraw the pin and ensure a new candidate build is refused.
   await writeFile(pinsPath,JSON.stringify({...pins,publicationAuthorized:false}));
   const denied=spawnSync(join(web,"node_modules/.bin/astro"),["build","--outDir",join(integration,"held")],{

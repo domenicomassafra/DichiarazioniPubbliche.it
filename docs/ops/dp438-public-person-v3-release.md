@@ -32,7 +32,15 @@ To have the Python HTTP host serve the same identities, configure
 **generated** `public-people.v3.json` in the installed static root and
 use the **same independently issued** `...PINS_PATH` as the web build.
 `/api/v1/people` then exposes this approved collection and
-`/api/v1/people/<slug>` exposes approved details. Python compares its
+`/api/v1/people/<slug>` exposes approved details. The generated JSON
+also carries `release_pins_sha256`, a canonical SHA-256 of the complete
+independent pin file. Python rejects any changed source, identity, search,
+sitemap, expiry or authorization pin, even if the Person dataset SHA remains
+unchanged. The static host checks the root artifact against those current pins,
+including requests for previously published paths and pre-redirect requests.
+A v3-built static root fails closed if its runtime has `ENABLE=0` or lacks
+its current authority. Pins prove consistency; the issuing authority,
+rights checks and protected host configuration establish authorization. Python compares its
 SHA against the current pins on every request; 404 is identical for
 unknown/private/held/revoked identities, 503 for missing/expired/mismatched
 publication authority. It does not silently fall back to v2 while enabled.

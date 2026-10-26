@@ -1,5 +1,6 @@
 """DP-438 HTTP seam: a current independently pinned zero-Statement Person."""
 import json
+import hashlib
 import http.client
 import os
 import tempfile
@@ -8,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from test_dp438_public_person import bundle, identity, person, project
+from tests.test_dp438_public_person import bundle, identity, person, project
 from dichiarazioni_pubbliche.public_api import dispatch, build_server
 
 
@@ -32,6 +33,9 @@ class PublicPersonV3ApiTest(unittest.TestCase):
             "validUntil": "2099-01-01T00:00:00Z",
         }
         self.set_pins(self.current_pins)
+        self.api.write_text(json.dumps({**self.people, "release_pins_sha256": hashlib.sha256(
+            json.dumps(self.current_pins, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False).encode("utf8")).hexdigest()}), encoding="utf8")
         self.settings = patch.dict(os.environ, {
             "DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "1",
             "DICHIARAZIONI_PUBBLICHE_PUBLIC_PERSON_V3_API_PATH": str(self.api),
@@ -88,14 +92,15 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         (page / "index.html").write_text("Approved Person original", encoding="utf8")
         (root / "search-index.v1.json").write_text('{"records":["persona-zero"]}', encoding="utf8")
         (root / "sitemap.xml").write_text("<loc>/persone/persona-zero/</loc>", encoding="utf8")
+        (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
         server = build_server(self.v2, static_dir=root)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
 
-        def request(path):
+        def request(path, *, headers=None):
             conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
             try:
-                conn.request("GET", path)
+                conn.request("GET", path, headers=headers or {})
                 response = conn.getresponse()
                 return response.status, response.read(), response.getheader("Cache-Control")
             finally:
@@ -112,10 +117,90 @@ class PublicPersonV3ApiTest(unittest.TestCase):
                     self.assertEqual(status, 404)
                     self.assertEqual(content, b"")
                     self.assertEqual(cache, "no-store")
+                    status, _, cache = request(route, headers={"If-Modified-Since": "Wed, 01 Jan 2099 00:00:00 GMT", "If-None-Match": "*"})
+                    self.assertEqual((status, cache), (404, "no-store"))
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+
+    def test_explicit_zero_opt_out_preserves_v2_api(self):
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}):
+            self.assertEqual(self.get("/api/v1/people").status, 200)
+
+    def test_pin_change_with_same_person_sha_withdraws_previous_release(self):
+        self.set_pins({**self.current_pins, "statementSha256": "0" * 64})
+        self.assertEqual(self.get("/api/v1/people/persona-zero").status, 503)
+
+    def test_authorized_rotation_withdraws_one_person_and_retains_another(self):
+        zero = person("person:zero", slug="persona-zero")
+        other = person("person:other", slug="persona-other", name="Other Person")
+        both = project([zero, other], [identity(zero), identity(other)])
+        current = {**self.current_pins, "personSha256": both["dataset_sha256"]}
+        self.set_pins(current)
+        self.api.write_text(json.dumps({**both, "release_pins_sha256": hashlib.sha256(
+            json.dumps(current, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()}))
+        self.assertEqual(self.get("/api/v1/people/persona-zero").status, 200)
+        self.assertEqual(self.get("/api/v1/people/persona-other").status, 200)
+        retained = project([other], [identity(other)])
+        rotated = {**current, "personSha256": retained["dataset_sha256"]}
+        self.set_pins(rotated)
+        self.api.write_text(json.dumps({**retained, "release_pins_sha256": hashlib.sha256(
+            json.dumps(rotated, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()}))
+        self.assertEqual(self.get("/api/v1/people/persona-zero").status, 404)
+        self.assertEqual(self.get("/api/v1/people/persona-other").status, 200)
+        self.assertEqual(self.get("/api/v1/people/persona-zero").body,
+                         self.get("/api/v1/people/unknown-person").body)
+        root = Path(self.scratch.name) / "rotated-site"
+        for slug in ("persona-zero", "persona-other"):
+            page = root / "persone" / slug
+            page.mkdir(parents=True)
+            (page / "index.html").write_text(slug, encoding="utf8")
+        (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
+        server = build_server(self.v2, static_dir=root)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            for slug, expected in (("persona-zero", 404), ("persona-other", 200)):
+                with self.subTest(slug=slug):
+                    conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+                    try:
+                        conn.request("GET", f"/persone/{slug}/")
+                        response = conn.getresponse()
+                        self.assertEqual(response.status, expected)
+                        response.read()
+                    finally:
+                        conn.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_v3_static_tree_never_serves_with_disabled_runtime_gate(self):
+        root = Path(self.scratch.name) / "disabled-site"
+        route = root / "persone" / "persona-zero"
+        route.mkdir(parents=True)
+        (route / "index.html").write_text("old identity", encoding="utf8")
+        (root / "public-people.v3.json").write_text("{}", encoding="utf8")
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}):
+            server = build_server(self.v2, static_dir=root)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+                try:
+                    conn.request("GET", "/persone/persona-zero/")
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 404)
+                    self.assertEqual(response.getheader("Cache-Control"), "no-store")
+                    response.read()
+                finally:
+                    conn.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ export async function loadPublishedPeopleV3(): Promise<PublishedPeopleV3Release 
   const enabled = process.env[ENABLE];
   const assetsPath = process.env[ASSETS];
   const pinsPath = process.env[PINS];
-  if (!enabled && !assetsPath && !pinsPath) return null;
+  if ((!enabled || enabled === "0") && !assetsPath && !pinsPath) return null;
   if (enabled !== "1" || !assetsPath || !pinsPath || assetsPath === pinsPath) {
     throw new Error("DP438_PUBLIC_RELEASE_CONFIG_INCOMPLETE");
   }

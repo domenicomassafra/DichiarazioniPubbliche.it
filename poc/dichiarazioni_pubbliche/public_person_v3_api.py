@@ -10,6 +10,8 @@ import hashlib
 import json
 import os
 import re
+import stat
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -56,6 +58,49 @@ def _expiry(value: Any) -> datetime:
     return instant
 
 
+def _pin_sha(pins: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(
+        pins, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf8")).hexdigest()
+
+
+@lru_cache(maxsize=8)
+def _validated_asset(path: str, signature: tuple[int, int, int, int], expected: str,
+                     pins_sha: str) -> list[dict[str, Any]]:
+    asset = _read(path)
+    if not isinstance(asset, dict) or set(asset) != {
+        "schema_version", "dataset_sha256", "people", "release_pins_sha256"
+    }:
+        raise PublicPersonReleaseUnavailable
+    people = asset["people"]
+    if (asset["schema_version"] != _SCHEMA or asset["dataset_sha256"] != expected
+            or asset["release_pins_sha256"] != pins_sha
+            or not isinstance(people, list) or len(people) > 10000):
+        raise PublicPersonReleaseUnavailable
+    digest = hashlib.sha256(json.dumps(
+        people, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf8")).hexdigest()
+    if digest != expected:
+        raise PublicPersonReleaseUnavailable
+    ids, slugs = set(), set()
+    for person in people:
+        if (not isinstance(person, dict) or set(person) != _PERSON_KEYS
+                or not isinstance(person["person_id"], str)
+                or not isinstance(person["slug"], str)
+                or not _SLUG.fullmatch(person["slug"])
+                or person["route"] != f'/persone/{person["slug"]}/'
+                or person["status"] != "PUBLISHED"
+                or not isinstance(person["statements"], list)
+                or not isinstance(person["roles"], list)
+                or person["person_id"] in ids or person["slug"] in slugs):
+            raise PublicPersonReleaseUnavailable
+        ids.add(person["person_id"])
+        slugs.add(person["slug"])
+    return people
+
+
 def load_current_public_people_v3() -> tuple[list[dict[str, Any]], str]:
     """Return published identities only when the current release authority agrees."""
     if os.environ.get(ENABLE) != "1":
@@ -65,7 +110,6 @@ def load_current_public_people_v3() -> tuple[list[dict[str, Any]], str]:
         raise PublicPersonReleaseUnavailable
     try:
         pins = _read(pins_path)
-        asset = _read(asset_path)
         if not isinstance(pins, dict) or pins.get("publicationAuthorized") is not True:
             raise PublicPersonReleaseUnavailable
         if pins.get("allowPrivatePersonPreview") is not True:
@@ -74,32 +118,11 @@ def load_current_public_people_v3() -> tuple[list[dict[str, Any]], str]:
         if not isinstance(expected, str) or not _HASH.fullmatch(expected):
             raise PublicPersonReleaseUnavailable
         _expiry(pins.get("validUntil"))
-        if not isinstance(asset, dict) or set(asset) != {"schema_version", "dataset_sha256", "people"}:
+        info = os.stat(asset_path, follow_symlinks=False)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
             raise PublicPersonReleaseUnavailable
-        people = asset["people"]
-        if (asset["schema_version"] != _SCHEMA or asset["dataset_sha256"] != expected
-                or not isinstance(people, list) or len(people) > 10000):
-            raise PublicPersonReleaseUnavailable
-        digest = hashlib.sha256(json.dumps(
-            people, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf8")).hexdigest()
-        if digest != expected:
-            raise PublicPersonReleaseUnavailable
-        ids, slugs = set(), set()
-        for person in people:
-            if (not isinstance(person, dict) or set(person) != _PERSON_KEYS
-                    or not isinstance(person["person_id"], str)
-                    or not isinstance(person["slug"], str)
-                    or not _SLUG.fullmatch(person["slug"])
-                    or person["route"] != f'/persone/{person["slug"]}/'
-                    or person["status"] != "PUBLISHED"
-                    or not isinstance(person["statements"], list)
-                    or not isinstance(person["roles"], list)
-                    or person["person_id"] in ids or person["slug"] in slugs):
-                raise PublicPersonReleaseUnavailable
-            ids.add(person["person_id"])
-            slugs.add(person["slug"])
+        signature = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+        people = _validated_asset(asset_path, signature, expected, _pin_sha(pins))
         # Revocation may rotate the authority while asset validation is in progress.
         _expiry(pins.get("validUntil"))
         if _read(pins_path) != pins:
@@ -130,7 +153,7 @@ def legacy_people(index: Any) -> list[dict[str, Any]]:
 def people_response(index: Any, params: dict[str, str]) -> dict[str, Any]:
     from . import public_api as api
     api.validate_params(params)
-    if os.environ.get(ENABLE):
+    if os.environ.get(ENABLE) == "1":
         try:
             people, sha = load_current_public_people_v3()
         except PublicPersonReleaseUnavailable:
@@ -159,14 +182,54 @@ def person_detail(_index: Any, slug: str) -> dict[str, Any]:
     raise api._not_found()
 
 
-def static_person_release_current(parts: tuple[str, ...]) -> bool:
-    """Deny old static Person paths immediately after independent pin withdrawal."""
-    if os.environ.get(ENABLE) != "1":
-        return True
+_root_marker_cache: dict[tuple[Any, ...], bool] = {}
+
+
+def static_person_release_current(parts: tuple[str, ...], root_fd: int) -> bool:
+    """Bind the pinned static root to current release authority on every request."""
+    enabled = os.environ.get(ENABLE) == "1"
     try:
-        load_current_public_people_v3()
-        return True
-    except PublicPersonReleaseUnavailable:
+        info = os.stat("public-people.v3.json", dir_fd=root_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return not enabled
+    except OSError:
+        return False
+    if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
+        return False
+    if not enabled:
+        return False  # A v3 build cannot silently downgrade to an unguarded v2 runtime.
+    try:
+        people, person_sha = load_current_public_people_v3()
+        if len(parts) >= 2 and parts[0] == "persone":
+            if parts[1] not in {person["slug"] for person in people}:
+                return False
+        if len(parts) >= 2 and parts[0] == "dichiarazioni":
+            approved_routes = {item["statement_route"].split("/")[2]
+                               for person in people for item in person["statements"]}
+            if parts[1] not in approved_routes:
+                return False
+        pins = _read(os.environ[PINS])
+        root = os.fstat(root_fd)
+        key = (root.st_dev, root.st_ino, info.st_dev, info.st_ino,
+               info.st_size, info.st_mtime_ns, _pin_sha(pins), person_sha)
+        cached = _root_marker_cache.get(key)
+        if cached is not None:
+            return cached
+        fd = os.open("public-people.v3.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                     dir_fd=root_fd)
+        with os.fdopen(fd, "rb") as stream:
+            marker = json.load(stream)
+            final = os.fstat(stream.fileno())
+        result = ((final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns) ==
+                  (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+                  and isinstance(marker, dict)
+                  and marker.get("release_pins_sha256") == key[-2]
+                  and marker.get("dataset_sha256") == person_sha)
+        if len(_root_marker_cache) > 16:
+            _root_marker_cache.clear()
+        _root_marker_cache[key] = result
+        return result
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError, PublicPersonReleaseUnavailable):
         return False
 
 

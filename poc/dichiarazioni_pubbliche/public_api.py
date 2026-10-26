@@ -1754,6 +1754,10 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                 pinned_root_fd = current_fd
                 stack.callback(os.close, current_fd)
                 parts = relative.parts
+                from .public_person_v3_api import static_person_release_current
+                if not static_person_release_current(parts, pinned_root_fd):
+                    self._static_not_found()
+                    return
                 for component in parts[:-1]:
                     current_fd = os.open(component, directory_flags, dir_fd=current_fd)
                     stack.callback(os.close, current_fd)
@@ -1834,10 +1838,6 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                     # safe, pinned dirfd pointing at a withdrawn build.
                     # Refuse its old bytes until the listener is restarted.
                     if not self.server.static_root_current(pinned_root_fd):
-                        self._static_not_found()
-                        return
-                    from .public_person_v3_api import static_person_release_current
-                    if not static_person_release_current(relative.parts):
                         self._static_not_found()
                         return
                     self.send_response(200)
