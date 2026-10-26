@@ -45,7 +45,7 @@ function excludePrivateStudioFromPublicBuild() {
         for (let index = routes.length - 1; index >= 0; index--) {
           if (routes[index].entrypoint.includes("/studio/") ||
               (process.env.DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3 !== "1" &&
-                routes[index].entrypoint.includes("/public-people.v3.json.ts"))) {
+                routes[index].entrypoint.includes("public-people.v3.json"))) {
             routes.splice(index, 1);
           }
         }
@@ -55,6 +55,12 @@ function excludePrivateStudioFromPublicBuild() {
           // Astro may emit hydration chunks for a dynamic route even when that
           // route has no prerendered pages. Keep them out of public artifacts.
           await removeUnreferencedPrivateChunks(dir);
+        }
+        // Route removal can leave an emitted static endpoint on some Astro
+        // versions. An opted-out build must never ship the v3 JSON artifact.
+        if (building && process.env.DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3 !== "1") {
+          try { await unlink(join(fileURLToPath(dir), "public-people.v3.json")); }
+          catch (error) { if (error.code !== "ENOENT") throw error; }
         }
       },
     },
