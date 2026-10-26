@@ -31,7 +31,13 @@ from dichiarazioni_pubbliche.investigation_attempts_v1 import (  # noqa: E402
     InvestigationObservation,
     InvestigationSpec,
 )
-from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard  # noqa: E402
+from dichiarazioni_pubbliche.private_capture_rights import (  # noqa: E402
+    SourceFamilyUseGuard,
+    SourceUseBlocked,
+)
+from dichiarazioni_pubbliche.private_investigation_d_receipt import (  # noqa: E402
+    PrivateDReceiptLedger,
+)
 from dichiarazioni_pubbliche.research_plan import ResearchAssignment  # noqa: E402
 from dichiarazioni_pubbliche.rights_registry import (  # noqa: E402
     PrivateRightsRegistryStore,
@@ -198,6 +204,8 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
         # Registration below verifies exact persisted source+rights identity.
     state = store.register(spec, assignments, source)
     replay = state.revision != 0
+    d_receipt_id = None
+    d_blocker = None
     if state.revision == 0:
         use.require("PARSE_TEXT", content_sha256=BODY_SHA256)
         state = store.reserve(
@@ -207,29 +215,54 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
             key=ATTEMPT_KEY,
             expected_revision=state.revision,
         )
+    # Only this script's zero-provider inspection is eligible for this exact D
+    # receipt. A pending prior reservation can have unknown effects and is never
+    # automatically completed or dispatched on process restart.
+    if state.revision in (1, 2) and (not replay or state.revision == 2):
         attempt = state.reservations[0]
-        # No network/provider operation occurs between reserve and complete.
-        # An interrupted reservation stays WAIT_EXTERNAL; never auto-retry it.
-        use.require("PARSE_TEXT", content_sha256=BODY_SHA256)
-        state = store.complete(
-            spec,
-            assignments,
-            source,
-            observation=InvestigationObservation(
-                attempt_id=attempt.attempt_id,
-                material_fingerprint=source.material_fingerprint,
-                assignment_id=attempt.assignment_id,
-                lane=attempt.lane,
-                result="SOURCE_INCONCLUSIVE",
-                lineage_id=None,
-                source_version=None,
-                source_sha256=None,
-                review_event_id=None,
-                spent_usd=Decimal("0"),
-            ),
-            key=ATTEMPT_KEY,
-            expected_revision=state.revision,
-        )
+        try:
+            use.require("PARSE_TEXT", content_sha256=BODY_SHA256)
+            d_receipt_id = PrivateDReceiptLedger(database_url).record_zero_attempt(
+                attempt=attempt,
+                source=source,
+                content_id=content_id,
+                rights_record_id=current.id,
+            )
+        except SourceUseBlocked:
+            d_blocker = "DP319_RIGHTS_REVOKED_DURING_RESERVATION"
+        except ValueError as exc:
+            d_blocker = (
+                str(exc)
+                if str(exc).startswith("DP319_D_")
+                else "DP319_D_LEDGER_UNAVAILABLE"
+            )
+        except (RuntimeError, OSError):
+            d_blocker = "DP319_D_LEDGER_UNAVAILABLE"
+        if not replay and d_receipt_id:
+            try:
+                use.require("PARSE_TEXT", content_sha256=BODY_SHA256)
+            except SourceUseBlocked:
+                d_blocker = "DP319_RIGHTS_REVOKED_DURING_RESERVATION"
+            else:
+                state = store.complete(
+                    spec,
+                    assignments,
+                    source,
+                    observation=InvestigationObservation(
+                        attempt_id=attempt.attempt_id,
+                        material_fingerprint=source.material_fingerprint,
+                        assignment_id=attempt.assignment_id,
+                        lane=attempt.lane,
+                        result="SOURCE_INCONCLUSIVE",
+                        lineage_id=None,
+                        source_version=None,
+                        source_sha256=None,
+                        review_event_id=None,
+                        spent_usd=Decimal("0"),
+                    ),
+                    key=ATTEMPT_KEY,
+                    expected_revision=state.revision,
+                )
     state = store.resume(state.decision.plan_fingerprint, source_revision=1)
     receipt = state.reservations[0] if state.reservations else None
     coverage = [
@@ -255,7 +288,8 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
     ]
     status = (
         ("PRIVATE_PARTIAL_HOLD" if missing_coverage else "PRIVATE_INSUFFICIENT_EVIDENCE")
-        if state.decision.status == "EXHAUSTED"
+        if d_receipt_id is not None
+        and state.decision.status == "EXHAUSTED"
         and len(state.observations) == 1
         and state.observations[0].result == "SOURCE_INCONCLUSIVE"
         else "WAIT_EXTERNAL"
@@ -263,7 +297,7 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
     return {
         "status": status,
         "decision": state.decision.status,
-        "reason_code": state.decision.reason_code,
+        "reason_code": d_blocker or state.decision.reason_code,
         "residual_reason": "HISTORICAL_OFFICIAL_RECORD_DOES_NOT_PROVE_CURRENT_STATUS",
         "coverage": coverage,
         "missing_coverage": missing_coverage,
@@ -286,10 +320,15 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
         "completion_count": len(state.observations),
         "observation": state.observations[0].result if state.observations else None,
         "spent_usd": str(state.decision.spent_usd),
+        "d_receipt_id": d_receipt_id,
+        "d_quota_units_consumed": 0 if d_receipt_id else None,
+        "d_request_count": 0 if d_receipt_id else None,
+        "d_usage_reconciled": d_receipt_id is not None,
         "provider_billing_reconciled": False,
         "replay_same_receipt": replay and state.revision == 2,
         "dispatch_authorized": state.dispatch_authorized,
         "publication_authority": state.publication_authority,
+        "new_child_task_count": 0,
         "downstream_queue_closed": False,
     }
 
@@ -308,11 +347,39 @@ def main() -> int:
     args = parser.parse_args()
     if not args.database_url:
         parser.error("--database-url is required")
-    print(
-        json.dumps(
-            run(args.database_url, args.ledger, args.storage_root), sort_keys=True
-        )
-    )
+    try:
+        result = run(args.database_url, args.ledger, args.storage_root)
+    except (SourceUseBlocked, ValueError) as exc:
+        code = str(exc)
+        if not code.startswith(
+            (
+                "SOURCE_USE_",
+                "DP319_RIGHTS_",
+                "DP319_SOURCE_LICENSE_",
+                "DP319_APPROVED_CAPTURE_",
+            )
+        ):
+            raise
+        result = {
+            "status": "WAIT_EXTERNAL",
+            "reason_code": code,
+            "dispatch_authorized": False,
+            "publication_authority": False,
+            "new_child_task_count": 0,
+            "d_usage_reconciled": False,
+            "provider_billing_reconciled": False,
+        }
+    except (RuntimeError, OSError):
+        result = {
+            "status": "WAIT_EXTERNAL",
+            "reason_code": "DP319_OPERATIONAL_STORE_UNAVAILABLE",
+            "dispatch_authorized": False,
+            "publication_authority": False,
+            "new_child_task_count": 0,
+            "d_usage_reconciled": False,
+            "provider_billing_reconciled": False,
+        }
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 
