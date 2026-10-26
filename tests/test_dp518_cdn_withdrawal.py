@@ -168,6 +168,15 @@ class CDNWithdrawalTests(unittest.TestCase):
     def test_live_http_probe_observes_status_and_actual_bytes(self):
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path == "/waf-safe":
+                    if self.headers.get("User-Agent") != "DichiarazioniPubbliche-Readback/1.0":
+                        self.send_response(403)
+                        self.end_headers()
+                        return
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"safe")
+                    return
                 if self.path == "/cache-key":
                     self.send_response(200)
                     self.end_headers()
@@ -202,6 +211,7 @@ class CDNWithdrawalTests(unittest.TestCase):
                 self.assertEqual(http_probe(base, Probe("/redirect", None)).status, 302)
                 self.assertEqual(http_probe(base, Probe("/cache-key", sha(b"normal edge request"))).body,
                                  b"normal edge request")
+                self.assertEqual(http_probe(base, Probe("/waf-safe", sha(b"safe"))).status, 200)
             finally:
                 server.shutdown()
                 thread.join(timeout=5)

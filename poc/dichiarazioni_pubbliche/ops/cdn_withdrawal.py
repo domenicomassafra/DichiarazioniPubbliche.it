@@ -335,7 +335,8 @@ def http_probe(base: str, probe: Probe, *, timeout: float = 5) -> ProbeResult:
             or url.path not in ("", "/") or url.query or url.fragment):
         raise ValueError("HTTP_PROBE_BASE_INVALID")
     req = request.Request(base.rstrip("/") + probe.path,
-                          headers={"Accept-Encoding": "identity"})
+                          headers={"Accept-Encoding": "identity",
+                                   "User-Agent": "DichiarazioniPubbliche-Readback/1.0"})
     opener = request.build_opener(_NoRedirect)
     try:
         with opener.open(req, timeout=timeout) as response:
