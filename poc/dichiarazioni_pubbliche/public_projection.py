@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
+from dichiarazioni_pubbliche.autonomous_statement_gate import require_autonomous_publication
 from dichiarazioni_pubbliche.citation_assurance import assertion_text_sha256
 from dichiarazioni_pubbliche.context_integrity import (
     verify_structured_context_integrity_metadata,
@@ -1802,11 +1803,7 @@ def _sanitize_public_statement(
     *,
     generated_at: str,
 ) -> dict[str, Any]:
-    """Opt-in only: original bytes from an independent source reader + five gates.
-
-    The caller's candidate row cannot grant itself rights, attribution, review,
-    context or transcript fidelity. No raw source body reaches the read model.
-    """
+    """Opt-in: source text, proofs and independent agent review."""
     required = {
         "statement_id", "version_id", "person_id", "speaker_name", "content_id",
         "source_title", "source_url", "source_version", "source_sha256",
@@ -1830,7 +1827,7 @@ def _sanitize_public_statement(
     if not isinstance(locator, dict):
         raise ValueError("statement locator missing")
     # Freeze the approved selector before calling the independent attestation
-    # reader. A provider may mutate its private candidate while the proof is
+    # reader. A provider may mutate its candidate while the proof is
     # read; never return a reference to that mutable private dictionary.
     locator = dict(locator)
     start, end = locator.get("start_char"), locator.get("end_char")
@@ -1919,7 +1916,7 @@ def _sanitize_public_statement(
         or (row["source_kind"] == "WRITTEN" and method != "SOURCE_TEXT_VERIFIED")
         or (
             row["source_kind"] == "TIMED"
-            and method not in {"OFFICIAL_TRANSCRIPT", "HUMAN_AUDIO_VERIFIED"}
+            and method not in {"OFFICIAL_TRANSCRIPT", "AGENT_DOUBLE_VERIFIED_ASR"}
         )
     ):
         raise ValueError("independent verbatim transcription/text proof missing")
@@ -1958,6 +1955,8 @@ def _sanitize_public_statement(
             "source_quote_sha256": quote_hash,
             "review_event_id": proof["review_event_id"],
         }
+
+    require_autonomous_publication(row, source, text, original, locator, rights)
 
     statement = {
         "statement_id": row["statement_id"], "version_id": row["version_id"],

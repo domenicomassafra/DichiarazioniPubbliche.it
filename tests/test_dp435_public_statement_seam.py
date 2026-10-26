@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
@@ -17,6 +19,13 @@ from dichiarazioni_pubbliche.public_api import (  # noqa: E402
 from dichiarazioni_pubbliche.public_projection import (  # noqa: E402
     build_public_projection,
     write_public_bundle,
+)
+from dichiarazioni_pubbliche.autonomous_publication import (  # noqa: E402
+    AgentReview,
+    AutonomousCandidate,
+    AutonomousProofPacket,
+    SpeakerSignal,
+    candidate_fingerprint,
 )
 from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
     PUBLIC_SCHEMA_VERSION,
@@ -51,7 +60,7 @@ class IsolatedStatementSource:
             "speaker_name": "Persona dimostrativa",
             "content_id": "content:1",
             "source_title": "Documento dimostrativo",
-            "source_url": "https://example.test/documento",
+            "source_url": "https://example.org/documento",
             "source_version": "source-version:1",
             "source_sha256": SHA(SOURCE),
             "original_text": QUOTE,
@@ -79,7 +88,7 @@ class IsolatedStatementSource:
                 "statement_date": "2026-10-10",
                 "span_start": START,
                 "span_end": START + len(QUOTE),
-                "source_url": "https://example.test/documento",
+                "source_url": "https://example.org/documento",
                 "source_title": "Documento dimostrativo",
             }
         self.gates["rights"].update({
@@ -115,6 +124,63 @@ class IsolatedStatementSource:
         if (statement_id, version_id) != ("statement:1", "statement-version:1"):
             raise ValueError("missing independent review")
         return self.gates
+
+    def autonomous_publication_evidence(self, statement_id, version_id):
+        if (statement_id, version_id) != (
+            self.row["statement_id"], self.row["version_id"]
+        ):
+            raise ValueError("unrecognized statement version")
+        locator = self.row["locator"]
+        timed = self.row["source_kind"] == "TIMED"
+        packet = AutonomousCandidate(
+            record_id=statement_id,
+            record_version_id=self.row["version_id"],
+            source_version=self.row["source_version"],
+            rights_attestation_sha256=hashlib.sha256(json.dumps(
+                self.gates["rights"], ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
+            source_url=self.row["source_url"],
+            source_kind=self.row["source_kind"],
+            snapshot_url="https://archive.example.org/original",
+            snapshot_sha256=SHA(self.source_text),
+            source_text_sha256=SHA(self.source_text),
+            captured_at=STAMP,
+            segment_start=locator["start_ms"] / 1000 if timed else locator["start_char"],
+            segment_end=locator["end_ms"] / 1000 if timed else locator["end_char"],
+            quote=self.row["original_text"],
+            transcript_segment=self.row["original_text"],
+            alignment_confidence=0.99,
+            speaker_id=self.row["person_id"],
+            speaker_signals=(
+                SpeakerSignal("official_channel", "https://example.org/channel"),
+                SpeakerSignal("public_record", "https://example.org/record"),
+            ),
+            public_role_source_url="https://www.wikidata.org/wiki/Q123",
+            public_context_source_url=None,
+            person_is_minor=False,
+            sensitive_third_party_data=False,
+            privacy_cleared=True,
+            privacy_citation_url="https://www.garanteprivacy.it/",
+            rights_cleared=True,
+            rights_citation_url="https://www.normattiva.it/",
+            source_length_chars=len(self.source_text),
+            contains_editorial_judgment=False,
+        )
+        fingerprint = candidate_fingerprint(packet)
+        stages = ("PROVENANCE", "WORDING", "SPEAKER", "PERSON", "RIGHTS_PRIVACY")
+        return AutonomousProofPacket(
+            candidate=packet,
+            primary=AgentReview("agent:1", "model:1", fingerprint, stages, True),
+            independent=AgentReview("agent:2", "model:2", fingerprint, stages, True),
+        )
+
+    def current_statement_challenge_hold(self, statement_id, version_id):
+        if (statement_id, version_id) != (
+            self.row["statement_id"], self.row["version_id"]
+        ):
+            raise ValueError("unrecognized statement version")
+        return False
 
 
 class PublicStatementContractTests(unittest.TestCase):
@@ -174,6 +240,25 @@ class PublicStatementContractTests(unittest.TestCase):
         with self.assertRaisesRegex(PublicSchemaValidationError, "explicit opt-in"):
             validate_public_bundle(bundle)
         self.assertIs(validate_public_bundle(bundle, allow_statement_v3=True), bundle)
+
+    def test_opt_in_requires_separate_autonomous_review_receipts(self):
+        source = IsolatedStatementSource()
+        source.autonomous_publication_evidence = None
+        self.assertEqual(
+            self.build_v3(source)["statements"], [],
+            "legacy gate approvals cannot substitute for two agent model reviews",
+        )
+
+    def test_autonomous_reviewer_and_challenge_holds_override_legacy_approvals(self):
+        source = IsolatedStatementSource()
+        original = source.autonomous_publication_evidence
+        source.autonomous_publication_evidence = lambda a, b: replace(
+            original(a, b), independent=replace(original(a, b).independent, model_id="model:1")
+        )
+        self.assertEqual(self.build_v3(source)["statements"], [])
+        source.autonomous_publication_evidence = original
+        source.current_statement_challenge_hold = lambda a, b: True
+        self.assertEqual(self.build_v3(source)["statements"], [])
 
     def test_opt_in_requires_separate_source_and_decision_interfaces(self):
         class CandidateOnly:
@@ -276,8 +361,15 @@ class PublicStatementContractTests(unittest.TestCase):
         self.assertEqual(len(self.build_v3(source)["statements"]), 1)
         source.gates["wording"]["method"] = "AUTOMATIC_ASR"
         self.assertEqual(self.build_v3(source)["statements"], [])
-        source.gates["wording"]["method"] = "HUMAN_AUDIO_VERIFIED"
+        source.gates["wording"]["method"] = "AGENT_DOUBLE_VERIFIED_ASR"
         source.gates["attribution"]["segment_id"] = "segment:another"
+        self.assertEqual(self.build_v3(source)["statements"], [])
+
+    def test_timed_agent_double_verified_asr_needs_no_human_signoff(self):
+        source = IsolatedStatementSource(source_kind="TIMED")
+        source.gates["wording"]["method"] = "AGENT_DOUBLE_VERIFIED_ASR"
+        self.assertEqual(len(self.build_v3(source)["statements"]), 1)
+        source.gates["wording"]["method"] = "HUMAN_AUDIO_VERIFIED"
         self.assertEqual(self.build_v3(source)["statements"], [])
 
     def test_summary_and_translation_are_separate_reviewed_representations(self):

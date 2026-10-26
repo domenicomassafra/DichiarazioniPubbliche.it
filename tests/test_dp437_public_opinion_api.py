@@ -43,7 +43,7 @@ class ReviewedSyntheticOpinions:
                 "speaker_name": f"Persona sintetica {person_id}",
                 "content_id": content_id,
                 "source_version": f"source-version:{number}",
-                "source_url": f"https://example.test/source-{number}",
+                "source_url": f"https://example.org/source-{number}",
                 "statement_date": f"2026-10-{number:02d}",
             })
             for lane, proof in owner.gates.items():
@@ -81,6 +81,18 @@ class ReviewedSyntheticOpinions:
             owner.row["statement_id"], owner.row["version_id"]
         ) == (statement_id, version)), None)
         return match.gates if match else None
+
+    def autonomous_publication_evidence(self, statement_id, version):
+        match = next((owner for owner in self.subjects if (
+            owner.row["statement_id"], owner.row["version_id"]
+        ) == (statement_id, version)), None)
+        return match.autonomous_publication_evidence(statement_id, version) if match else None
+
+    def current_statement_challenge_hold(self, statement_id, version):
+        match = next((owner for owner in self.subjects if (
+            owner.row["statement_id"], owner.row["version_id"]
+        ) == (statement_id, version)), None)
+        return match.current_statement_challenge_hold(statement_id, version) if match else None
 
     def build(self):
         return build_public_projection(
