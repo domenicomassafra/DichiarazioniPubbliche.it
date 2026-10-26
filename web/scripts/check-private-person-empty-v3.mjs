@@ -72,6 +72,15 @@ const pins={
 };
 const data={people:fixture.people,join:fixture.join,index,source:fixture.bundle,
   sitemapPersonRoutes:routes};
+// Public integration seam: a separately pinned, deliberately activated
+// release yields exactly the approved Person set used by the static consumer.
+const {validatePublishedPeopleV3}=await import("../src/lib/publishedPeopleV3.ts");
+const published=await validatePublishedPeopleV3(data,{...pins,publicationAuthorized:true});
+assert.deepEqual(published.people.map(p=>p.route),fixture.people.people.map(p=>p.route));
+assert(published.people.some(p=>p.slug==="persona-zero" && p.statements.length===0));
+assert(!published.people.some(p=>p.person_id==="person:held"));
+await assert.rejects(validatePublishedPeopleV3(data,{...pins,publicationAuthorized:false}),/PUBLICATION_NOT_AUTHORIZED/);
+await assert.rejects(validatePublishedPeopleV3(data,{...pins,publicationAuthorized:true,personSha256:"0".repeat(64)}),/STALE|PIN/);
 const run=(identifier,assets=data,p=pins)=>readPinnedPrivatePublicPersonV3(assets,p,identifier);
 
 const empty=await run("person:zero");
@@ -270,4 +279,5 @@ try{
   assert.notEqual((await render("revoked-stale",revokedAssets,pins,"person:zero")).status,0);
   assert.notEqual((await render("expired",approved,{...pins,validUntil:"2000-01-01T00:00:00Z"},"person:zero")).status,0);
 }finally{await rm(scratch,{recursive:true,force:true});}
+export { data,pins,fixture,routes,web,sha };
 console.log("DP-438 Python approved zero/opinion/held→TypeScript pinned Person/source/index/sitemap, isolated Astro SSR positive/negative PASS");

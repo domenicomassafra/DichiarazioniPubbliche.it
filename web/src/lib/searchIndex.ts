@@ -2,6 +2,8 @@ import type { PublicDossier, PublicProjection } from "./types";
 import { publicIdSlug } from "./format.ts";
 import { publicTextScores } from "./minisearchAdapter.ts";
 import { assertSearchIndexShape } from "./searchIndexShape.ts";
+import type { ApprovedPersonV3 } from "./publicPersonV3.ts";
+import { compactTerms, findingRecord } from "./searchRecordBuilders.ts";
 
 export const SEARCH_INDEX_SCHEMA = "dichiarazioni-pubbliche-search-index-v1" as const;
 export const SEARCH_QUERY_MAX_CHARS = 200;
@@ -135,51 +137,21 @@ export function normalizeSearchText(value: string): string {
     .replace(/\s+/g, " ");
 }
 
-function compactTerms(values: Array<string | null | undefined>): string[] {
-  const seen = new Set<string>();
-  const terms: string[] = [];
-  for (const raw of values) {
-    const value = String(raw ?? "").trim();
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    terms.push(value);
-  }
-  return terms;
-}
-
-function findingRecord(dossier: PublicDossier): PublicSearchRecord {
-  const roles = (dossier.speaker.public_roles ?? []).flatMap((role) => [
-    role.role,
-    role.organization_name ?? null,
-  ]);
-  return {
-    id: dossier.finding_id,
-    kind: "finding",
-    title: dossier.claim,
-    subtitle: [dossier.speaker.name, dossier.source.title].filter(Boolean).join(" · "),
-    published_at: dossier.finding.published_at ?? dossier.source.published_at ?? null,
-    assessment: dossier.finding.assessment,
-    route: `/dichiarazioni/${publicIdSlug(dossier.finding_id)}/`,
-    has_corrections: (dossier.corrections ?? []).length > 0,
-    has_rights_of_reply: (dossier.rights_of_reply ?? []).length > 0,
-    wording_type: "PARAPHRASE",
-    source_wording_type: dossier.wording?.source_occurrence.wording_type ?? null,
-    direct_quote_eligible: false,
-    primary_terms: compactTerms([dossier.claim]),
-    secondary_terms: compactTerms([
-      dossier.speaker.name,
-      dossier.source.title,
-      dossier.claim_type,
-      dossier.finding.assessment,
-      ...roles,
-    ]),
-    person_id: dossier.speaker.id,
-    topic_ids: [],
-  };
-}
-
-export function buildSearchIndexMaterial(projection: PublicProjection): Omit<PublicSearchIndex, "index_sha256"> {
+export function buildSearchIndexMaterial(
+  projection: PublicProjection,
+  publishedPeople?: ApprovedPersonV3[],
+): Omit<PublicSearchIndex, "index_sha256"> {
   const records: PublicSearchRecord[] = projection.dossiers.map(findingRecord);
+  if (publishedPeople) {
+    const byId = new Map(publishedPeople.map(person => [person.person_id, person.slug]));
+    for (const record of records) {
+      if (record.person_id) {
+        const slug = byId.get(record.person_id);
+        if (slug) record.person_id = slug;
+        else delete record.person_id;
+      }
+    }
+  }
 
   // Only approved public Finding IDs may create Topic facets.
   const publishedFindings = new Map(
@@ -200,7 +172,25 @@ export function buildSearchIndexMaterial(projection: PublicProjection): Omit<Pub
   }
 
   const people = new Map<string, PublicSearchRecord>();
-  for (const dossier of projection.dossiers) {
+  for (const person of publishedPeople ?? []) {
+    people.set(person.slug, {
+      id: person.slug,
+      kind: "person",
+      title: person.display_name,
+      subtitle: person.disambiguator ?? "",
+      published_at: null,
+      assessment: null,
+      route: person.route,
+      has_corrections: false,
+      has_rights_of_reply: false,
+      wording_type: null,
+      source_wording_type: null,
+      direct_quote_eligible: false,
+      primary_terms: compactTerms([person.display_name, person.disambiguator]),
+      secondary_terms: compactTerms(person.roles.map(role => role.label)),
+    });
+  }
+  for (const dossier of publishedPeople ? [] : projection.dossiers) {
     if (people.has(dossier.speaker.id)) continue;
     const roles = (dossier.speaker.public_roles ?? []).flatMap((role) => [
       role.role,

@@ -4,13 +4,15 @@ import SearchField from "../components/SearchField.astro";
 import ClaimRow from "../components/ClaimRow.astro";
 import MediaFeature from "../components/MediaFeature.astro";
 import { loadPublicProjection } from "../lib/projection";
+import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
 
 const projection = await loadPublicProjection();
+const peopleRelease = await loadPublishedPeopleV3();
 const recent = [...projection.dossiers]
   .sort((a, b) => new Date(b.finding.published_at ?? 0).getTime() - new Date(a.finding.published_at ?? 0).getTime())
   .slice(0, 4);
 const featuredContent = recent[0];
-const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0;
+const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0 || (peopleRelease?.people.length ?? 0) > 0;
 ---
 
 <BaseLayout title="Dichiarazioni Pubbliche" canonicalPath="/">
