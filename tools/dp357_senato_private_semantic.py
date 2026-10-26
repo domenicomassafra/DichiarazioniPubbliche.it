@@ -97,7 +97,10 @@ def _authorize_parse(rights: PrivateRightsRegistryStore, subject: RightsSubject,
     ):
         raise SourceUseBlocked("DP357_EXISTING_RIGHTS_UNVERIFIED")
     uses = set(current.permitted_uses)
-    if uses == set(DP330_PRIVATE_CAPTURE_USES) | {"PARSE_TEXT"}:
+    if uses in (
+        set(DP330_PRIVATE_CAPTURE_USES) | {"PARSE_TEXT"},
+        set(DP330_PRIVATE_CAPTURE_USES) | {"PARSE_TEXT", "EXTRACT_CANDIDATES"},
+    ):
         return current
     if uses != set(DP330_PRIVATE_CAPTURE_USES):
         raise SourceUseBlocked("DP357_EXISTING_RIGHTS_SCOPE_CONFLICT")

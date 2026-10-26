@@ -70,31 +70,44 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
-class _Paragraphs(HTMLParser):
+class _AttributedQuotes(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.blocks: list[str] = []
-        self._depth = 0
-        self._buffer: list[str] = []
+        self.entries: list[tuple[str, str]] = []
+        self._in_quote = False
+        self._in_citation = False
+        self._in_author = False
+        self._citation: list[str] = []
+        self._author: list[str] = []
 
     def handle_starttag(self, tag, attrs):
-        if tag in {"p", "blockquote", "li"}:
-            self._depth += 1
-            if self._depth == 1:
-                self._buffer = []
+        classes = dict(attrs).get("class", "").split()
+        if tag == "blockquote" and "ecl-blockquote__quote" in classes:
+            self._in_quote = True
+            self._citation, self._author = [], []
+        elif self._in_quote and tag == "p" and "ecl-blockquote__citation" in classes:
+            self._in_citation = True
+        elif self._in_quote and "ecl-blockquote__author" in classes:
+            self._in_author = True
 
     def handle_endtag(self, tag):
-        if tag in {"p", "blockquote", "li"} and self._depth:
-            self._depth -= 1
-            if self._depth == 0:
-                text = re.sub(r"\s+", " ", " ".join(self._buffer)).strip()
-                if text:
-                    self.blocks.append(text)
-                self._buffer = []
+        if tag == "p":
+            self._in_citation = False
+        elif tag == "span":
+            self._in_author = False
+        elif tag == "blockquote" and self._in_quote:
+            citation = re.sub(r"\s+", " ", "".join(self._citation)).strip()
+            author = re.sub(r"\s+", " ", "".join(self._author)).strip()
+            if citation and author:
+                self.entries.append((citation, author))
+            self._in_quote = False
+            self._in_citation = self._in_author = False
 
     def handle_data(self, data):
-        if self._depth:
-            self._buffer.append(data)
+        if self._in_citation:
+            self._citation.append(data)
+        if self._in_author:
+            self._author.append(data)
 
 
 def fetch(url: str) -> bytes:
@@ -120,10 +133,12 @@ def digest(data: bytes) -> str:
 
 
 def pick_quote(profile_html: bytes) -> tuple[str, int, int]:
-    """First self-contained sentence of the profile page, whitespace-normalised."""
-    parser = _Paragraphs()
+    """Select an original sentence explicitly attributed to the profile's subject."""
+    parser = _AttributedQuotes()
     parser.feed(profile_html.decode("utf-8", "replace"))
-    for block in parser.blocks:
+    for block, author in parser.entries:
+        if author != "President von der Leyen":
+            continue
         sentences = re.split(r"(?<=[.!?]) (?=[A-Z“\"'(])", block)
         for sentence in sentences:
             if 80 <= len(sentence) <= 400 and len(sentence.split()) >= 8:

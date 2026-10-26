@@ -1,0 +1,39 @@
+---
+/** Original attributed wording only from the validated current Person release. */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { formatDate } from "../lib/format";
+import type { ApprovedPersonV3, ApprovedPersonV3Statement } from "../lib/publicPersonV3";
+
+interface Props { person: ApprovedPersonV3; statement: ApprovedPersonV3Statement }
+const { person, statement } = Astro.props;
+---
+
+<BaseLayout title="Dichiarazione originale" description={`Dichiarazione originale attribuita a ${person.display_name} e collegata alla fonte pubblica.`} canonicalPath={statement.statement_route}>
+  <header class="record-header">
+    <div class="shell">
+      <p class="eyebrow">Dichiarazione · parole originali</p>
+      <h1>{person.display_name}</h1>
+      {person.disambiguator && <p>{person.disambiguator}</p>}
+      <p><a href={person.route}>Archivio della persona</a></p>
+    </div>
+  </header>
+  <main class="shell page-section-tight">
+    <article class="prose">
+      <time datetime={statement.statement_date}>{formatDate(statement.statement_date)}</time>
+      <blockquote lang={statement.language} cite={statement.source_url}><p>{statement.original_text}</p></blockquote>
+      <p><a href={statement.source_url} rel="noreferrer">Fonte originale: {statement.source_title}</a></p>
+      <p>Versione {statement.source_version}. {statement.source_kind === "TIMED"
+        ? `Segmento ${statement.locator.segment_id}, ${statement.locator.start_ms}–${statement.locator.end_ms} ms`
+        : `Caratteri ${statement.locator.start_char}–${statement.locator.end_char}`}</p>
+      {statement.role_at_statement && (
+        <p>Incarico alla data: {statement.role_at_statement.label} ·
+          <a href={statement.role_at_statement.source_url}>Fonte dell'incarico</a>
+        </p>
+      )}
+      {statement.finding_id === null && (
+        <p>Questa dichiarazione non ha un Finding fattuale pubblicato. Non viene attribuito alcun verdetto alla persona.</p>
+      )}
+      <p><a href="/metodo/">Leggi il metodo</a></p>
+    </article>
+  </main>
+</BaseLayout>

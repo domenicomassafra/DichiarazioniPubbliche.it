@@ -1,238 +1,39 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import Assessment from "../../components/Assessment.astro";
-import SourceRow from "../../components/SourceRow.astro";
-import { dossierSlug, formatDate, relationSlug } from "../../lib/format";
+import DossierStatementV2 from "../../components/DossierStatementV2.astro";
+import PublicPersonStatementV3 from "../../components/PublicPersonStatementV3.astro";
+import { dossierSlug } from "../../lib/format";
 import { loadPublicProjection } from "../../lib/projection";
+import { loadPublishedPeopleV3 } from "../../lib/publishedPeopleV3";
 import type { PublicDossier } from "../../lib/types";
+import type { ApprovedPersonV3, ApprovedPersonV3Statement } from "../../lib/publicPersonV3";
 
 export async function getStaticPaths() {
   const projection = await loadPublicProjection();
-  return projection.dossiers.map((dossier) => ({
+  const routes: Array<{params: {slug: string}; props: Props}> = projection.dossiers.map(dossier => ({
     params: { slug: dossierSlug(dossier) },
-    props: { dossier }
+    props: { dossier },
   }));
+  const seen = new Set(routes.map(item => item.params.slug));
+  const released = await loadPublishedPeopleV3();
+  for (const person of released?.people ?? []) {
+    for (const statement of person.statements) {
+      const slug = statement.statement_route.slice("/dichiarazioni/".length, -1);
+      if (seen.has(slug)) throw new Error("DP438_PUBLIC_STATEMENT_ROUTE_COLLISION");
+      seen.add(slug);
+      routes.push({params:{slug},props:{person,statement}});
+    }
+  }
+  return routes;
 }
 
-interface Props { dossier: PublicDossier }
-const { dossier } = Astro.props;
-const slug = dossierSlug(dossier);
-const published = formatDate(dossier.source.published_at ?? dossier.finding.published_at);
-const sourceMoment = dossier.source.segments?.[0];
-const textProvenance = dossier.source.text_provenance?.[0];
-const seconds = (ms?: number | null) => {
-  if (ms === null || ms === undefined) return null;
-  const total = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-};
-const start = seconds(sourceMoment?.start_ms);
-const end = seconds(sourceMoment?.end_ms);
-const locator = sourceMoment
-  ? `Momento ${start ?? "non disponibile"}${end ? `–${end}` : ""}`
-  : textProvenance?.selector_type === "TEXT_POSITION_HASH" && textProvenance.start_char !== null && textProvenance.start_char !== undefined
-    ? `Passaggio testuale · caratteri ${textProvenance.start_char}–${textProvenance.end_char}`
-    : textProvenance
-      ? "Passaggio testuale verificato"
-      : "Locator non disponibile";
-const relations = [...(dossier.relations ?? [])]
-  .filter((relation) => relation.status === "APPROVED" && relation.review_event_id)
-  .filter((relation, index, list) => list.findIndex((item) => item.id === relation.id) === index);
-const wording = dossier.wording;
-const sourceWordingLabel = wording?.source_occurrence.wording_type === "VERBATIM_ORIGINAL"
-  ? "Occorrenza originale verbatim"
-  : wording?.source_occurrence.wording_type === "REPORTED_QUOTE"
-    ? "Citazione riportata dalla fonte"
-    : "Occorrenza sorgente non esposta in questo snapshot";
-const attributionKinds = [...new Set(
-  (dossier.speaker.provenance ?? [])
-    .map((item) => String(item.provenance_kind ?? "").trim())
-    .filter(Boolean)
-)];
-const translations = wording?.representations.filter((item) => item.wording_type === "TRANSLATION") ?? [];
-const canonicalPath = `/dichiarazioni/${slug}/`;
-const statementStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "CreativeWork",
-  identifier: dossier.finding_id,
-  name: dossier.claim,
-  description: dossier.finding.rationale,
-  url: `https://dichiarazionipubbliche.it${canonicalPath}`,
-  datePublished: dossier.finding.published_at,
-  isBasedOn: dossier.source.url
-};
+interface Props {
+  dossier?: PublicDossier;
+  person?: ApprovedPersonV3;
+  statement?: ApprovedPersonV3Statement;
+}
+const { dossier, person, statement } = Astro.props;
 ---
 
-<BaseLayout
-  title={dossier.claim}
-  description={dossier.finding.rationale}
-  canonicalPath={canonicalPath}
-  structuredData={statementStructuredData}
->
-  <header class="dp-statement-header">
-    <div class="shell">
-      <div class="eyebrow">Dichiarazione</div>
-      <h1>{dossier.claim}</h1>
-      <p class="dp-statement-wording-label">Formulazione normalizzata · paraphrase</p>
-      <div class="dp-statement-meta">
-        <strong>{dossier.speaker.name}</strong>
-        <span aria-hidden="true">·</span>
-        <a href={dossier.source.url} rel="noreferrer">{dossier.source.title}</a>
-        <span aria-hidden="true">·</span>
-        <span>{published}</span>
-        <span aria-hidden="true">·</span>
-        <span>{locator}</span>
-      </div>
-
-      <section class="dp-finding-summary" aria-labelledby="finding-heading">
-        <div>
-          <div class="eyebrow" id="finding-heading">In breve</div>
-          <Assessment code={dossier.finding.assessment} />
-        </div>
-        <p>{dossier.finding.rationale}</p>
-        <div class="dp-finding-summary__version">
-          {dossier.finding.supersedes_id ? "Versione corretta" : "Versione pubblicata"}<br />
-          {formatDate(dossier.finding.published_at)}
-        </div>
-      </section>
-
-      <section class="dp-provenance-disclosure" aria-labelledby="wording-heading">
-        <div class="eyebrow" id="wording-heading">Parole, attribuzione e fonte</div>
-        <h2>Questa formulazione non è una citazione verbatim.</h2>
-        <p>
-          Il titolo della dichiarazione è una <strong>parafrasi normalizzata</strong> usata per
-          rappresentare il claim verificato. La citazione diretta resta un oggetto distinto e
-          può essere mostrata soltanto quando il testo originale è ammesso dal contratto pubblico.
-          Questa pagina non ricostruisce né inventa quel testo quando non è presente nella projection.
-        </p>
-        <dl>
-          <div><dt>Tipo della formulazione</dt><dd>PARAPHRASE · non direct-quote eligible</dd></div>
-          <div><dt>Occorrenza sorgente</dt><dd>{sourceWordingLabel}</dd></div>
-          <div><dt>Locator pubblico</dt><dd>{locator}</dd></div>
-          <div><dt>Attribuzione</dt><dd>{attributionKinds.length ? attributionKinds.join(" · ") : "Provenienza revisionata"}</dd></div>
-          {wording?.source_occurrence.language && (
-            <div><dt>Lingua sorgente</dt><dd>{wording.source_occurrence.language}</dd></div>
-          )}
-        </dl>
-        {wording?.source_occurrence.wording_type === "REPORTED_QUOTE" && (
-          <p><strong>Discorso riportato:</strong> la fonte attribuisce parole a una persona; questa rappresentazione non le promuove automaticamente a dichiarazione diretta della persona riportata.</p>
-        )}
-        {translations.length > 0 && (
-          <div>
-            <h3>Traduzione</h3>
-            {translations.map((translation) => (
-              <p>
-                Rappresentazione tradotta {translation.source_language ? `da ${translation.source_language}` : "dalla lingua sorgente"}{translation.language ? ` a ${translation.language}` : ""} · stato di revisione {translation.review_state ?? "non pubblicato"}. La traduzione non acquisisce autorità di citazione diretta.
-              </p>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  </header>
-
-  <div class="shell dp-statement-body">
-    <article class="prose">
-      <h2>Verifica</h2>
-      <p>{dossier.finding.rationale}</p>
-
-      <h2 id="fonti">Fonti ed evidenze</h2>
-      <div class="source-stack">
-        {dossier.evidence.map((evidence, index) => <SourceRow evidence={evidence} index={index + 1} />)}
-      </div>
-
-      {relations.length > 0 && (
-        <section class="dp-statement-relations" aria-labelledby="tracce-heading">
-          <h2 id="tracce-heading">Tracce nel tempo</h2>
-          <p>Questa dichiarazione compare in relazioni longitudinali revisionate. La relazione descrive testi e sequenza temporale; non attribuisce intenzioni.</p>
-          <ul>
-            {relations.map((relation) => (
-              <li>
-                <a href={`/tracce/${relationSlug(relation.id)}/`}>
-                  {relation.relation_type.replaceAll("_", " ")} · apri la traccia
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <div class="details-list" id="storia">
-        <details>
-          <summary>Correzioni, versioni e repliche</summary>
-          <div>
-            <p>
-              Versione corrente: <code>{dossier.finding_id}</code>
-              {dossier.finding.supersedes_id && <> · sostituisce <code>{dossier.finding.supersedes_id}</code></>}
-            </p>
-            {dossier.corrections.length === 0 && dossier.rights_of_reply.length === 0 ? (
-              <p>Nessuna correzione o replica pubblicata per questa versione.</p>
-            ) : (
-              <>
-                {dossier.corrections.length > 0 && (
-                  <section>
-                    <h3>Correzioni pubblicate</h3>
-                    <ul>
-                      {dossier.corrections.map((correction) => (
-                        <li>
-                          {String(correction.reason ?? "Correzione pubblicata")}
-                          {correction.created_at ? ` · ${formatDate(String(correction.created_at))}` : ""}
-                          {correction.previous_finding_id && <> · da <code>{String(correction.previous_finding_id)}</code></>}
-                          {correction.finding_id && <> a <code>{String(correction.finding_id)}</code></>}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
-                {dossier.rights_of_reply.length > 0 && (
-                  <section>
-                    <h3>Repliche pubblicate</h3>
-                    {dossier.rights_of_reply.map((reply) => (
-                      <article class="dp-public-reply">
-                        <p><strong>{String(reply.submitter_name ?? "Replica pubblicata")}</strong>{reply.submitter_role ? ` · ${String(reply.submitter_role)}` : ""}</p>
-                        {reply.submitted_at && <p>{formatDate(String(reply.submitted_at))}</p>}
-                        {reply.body && <p>{String(reply.body)}</p>}
-                        {Array.isArray(reply.evidence_urls) && reply.evidence_urls.length > 0 && (
-                          <ul>{reply.evidence_urls.map((url) => <li><a href={String(url)} rel="noreferrer">Fonte allegata ↗</a></li>)}</ul>
-                        )}
-                      </article>
-                    ))}
-                  </section>
-                )}
-              </>
-            )}
-          </div>
-        </details>
-
-        <details>
-          <summary>Metodo e provenienza tecnica</summary>
-          <div>
-            <p>Finding: <code>{dossier.finding_id}</code></p>
-            <p>Claim: <code>{dossier.claim_id}</code></p>
-            <p>Policy: <code>{dossier.finding.policy_version ?? "non pubblicata"}</code></p>
-            <p>Wording: <code>PARAPHRASE</code> · direct quote: <code>false</code></p>
-            {wording && <p>Source occurrence: <code>{wording.source_occurrence.wording_type}</code> · hash <code>{wording.source_occurrence.text_sha256}</code></p>}
-            <p>{locator}. La pagina espone soltanto provenienza ed evidenze già ammesse nella projection pubblica.</p>
-            <p><a href="/metodo/">Leggi il metodo completo</a></p>
-          </div>
-        </details>
-      </div>
-    </article>
-
-    <aside class="dp-source-path" aria-labelledby="source-path-heading">
-      <h2 id="source-path-heading">Contesto originale</h2>
-      <p>La fonte rimane parte del percorso di lettura, non una nota tecnica separata.</p>
-      <div class="dp-source-path__current">
-        <div class="eyebrow">Momento selezionato</div>
-        <h3>{dossier.source.title}</h3>
-        <p>{published} · {locator}</p>
-        <a href={dossier.source.url} rel="noreferrer">Apri la fonte originale ↗</a>
-      </div>
-      <div class="dp-source-path__person">
-        <div class="eyebrow">Persona</div>
-        <h3>{dossier.speaker.name}</h3>
-        {dossier.speaker.public_role && <p>{dossier.speaker.public_role}</p>}
-      </div>
-      <a href="/correzioni/">Registro delle correzioni →</a>
-    </aside>
-  </div>
-</BaseLayout>
+{person && statement
+  ? <PublicPersonStatementV3 person={person} statement={statement} />
+  : dossier ? <DossierStatementV2 dossier={dossier} /> : null}
