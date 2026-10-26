@@ -105,6 +105,88 @@ class InvestigationDecision:
     spent_usd: Decimal
     independent_reviewed_lineages: int
     publication_authority: bool = False
+    coverage: tuple[InvestigationLaneCoverage, ...] = ()
+
+
+@dataclass(frozen=True)
+class InvestigationLaneCoverage:
+    """Read-only coverage derived from the exact plan and terminal receipts."""
+
+    lane: str
+    status: str
+    reason_code: str
+    assignment_ids: tuple[str, ...]
+    completed_attempt_ids: tuple[str, ...]
+    max_queries: int
+    max_results: int
+    max_results_per_host: int
+    cost_cap_usd: Decimal
+    stop_conditions: tuple[str, ...]
+    source_lineages: tuple[str, ...]
+    independent_lineages: int
+
+
+_COVERAGE_LANES = {
+    "ORIGINAL": frozenset({"PRIMARY_SOURCE", "ORIGINAL_MEDIA"}),
+    "FULL_CONTEXT": frozenset({"ARCHIVE_HISTORY"}),
+    "OFFICIAL": frozenset({"OFFICIAL_STRUCTURED"}),
+    "INDEPENDENT": frozenset({"INDEPENDENT_REPORTING"}),
+}
+
+
+def _coverage(
+    assignments: tuple[ResearchAssignment, ...],
+    observations: tuple[InvestigationObservation, ...],
+) -> tuple[InvestigationLaneCoverage, ...]:
+    """Never treat a missing lane, a refusal or a mirror as completed checking."""
+    by_id = {row.assignment_id: row for row in assignments}
+    completed = {row.assignment_id: row for row in observations}
+    baseline = {
+        row.lineage_id for row in observations
+        if row.result == "REVIEWED_SOURCE_CANDIDATE"
+        and by_id[row.assignment_id].lane in (
+            _COVERAGE_LANES["ORIGINAL"] | _COVERAGE_LANES["OFFICIAL"]
+        )
+    }
+    result = []
+    for stage, accepted_lanes in _COVERAGE_LANES.items():
+        planned = tuple(row for row in assignments if row.lane in accepted_lanes)
+        seen = tuple(completed[row.assignment_id] for row in planned if row.assignment_id in completed)
+        candidates = {row.lineage_id for row in seen if row.result == "REVIEWED_SOURCE_CANDIDATE"}
+        independent = len(candidates - baseline) if stage == "INDEPENDENT" and baseline else 0
+        if not planned:
+            status, reason = "NOT_CHECKED", "INVESTIGATION_NO_AUTHORIZED_ASSIGNMENT"
+        elif any(row.status == "BLOCKED" for row in planned):
+            status, reason = "WAIT_EXTERNAL", "INVESTIGATION_LANE_BLOCKED"
+        elif any(row.result in {"OUTAGE", "RIGHTS_BLOCKED", "COST_BLOCKED", "CAPABILITY_BLOCKED"} for row in seen):
+            status, reason = "WAIT_EXTERNAL", "INVESTIGATION_LANE_EXTERNAL_FAILURE"
+        elif candidates:
+            if stage == "INDEPENDENT":
+                status, reason = (
+                    ("INDEPENDENT_CANDIDATE", "INVESTIGATION_DISTINCT_LINEAGE")
+                    if independent else
+                    ("DEPENDENT_OR_UNCORROBORATED", "INVESTIGATION_NO_DISTINCT_INDEPENDENT_LINEAGE")
+                )
+            else:
+                status, reason = "SOURCE_CANDIDATE", "INVESTIGATION_SOURCE_ONLY"
+        elif len(seen) == len(planned):
+            status, reason = "CHECKED_INSUFFICIENT", "INVESTIGATION_LANE_CHECKED_NO_CANDIDATE"
+        elif seen:
+            status, reason = "PARTIALLY_CHECKED", "INVESTIGATION_LANE_UNFINISHED"
+        else:
+            status, reason = "NOT_CHECKED", "INVESTIGATION_LANE_NOT_ATTEMPTED"
+        result.append(InvestigationLaneCoverage(
+            stage, status, reason,
+            tuple(row.assignment_id for row in planned),
+            tuple(row.attempt_id for row in seen),
+            sum(row.max_queries for row in planned if row.status == "READY"),
+            sum(row.max_results for row in planned if row.status == "READY"),
+            min((row.max_results_per_host for row in planned if row.status == "READY"), default=0),
+            sum((row.cost_cap_usd for row in planned if row.status == "READY"), Decimal("0")),
+            tuple(dict.fromkeys(stop for row in planned for stop in row.stop_conditions)),
+            tuple(sorted(candidates)), independent,
+        ))
+    return tuple(result)
 
 
 def propose_investigation(
@@ -171,11 +253,13 @@ def propose_investigation(
     attempts = tuple(completed.values())
     spent = sum((row.spent_usd for row in attempts), Decimal("0"))
     lineages = {row.lineage_id for row in attempts if row.result == "REVIEWED_SOURCE_CANDIDATE"}
+    coverage = _coverage(tuple(active), attempts)
 
     def decision(status: str, reason: str, attempt: str | None = None, assignment: str | None = None) -> InvestigationDecision:
         return InvestigationDecision(
             status, reason, plan_fp, attempt, assignment, len(attempts),
             max(0, spec.max_attempts - len(attempts)), spent, len(lineages), False,
+            coverage,
         )
 
     if spec.rights_status != "CLEARED":

@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 from dichiarazioni_pubbliche.investigation_attempts_v1 import (  # noqa: E402
     InvestigationObservation,
     InvestigationSpec,
+    _hash,
     propose_investigation,
 )
 from dichiarazioni_pubbliche.research_plan import ResearchAssignment  # noqa: E402
@@ -157,6 +158,80 @@ class PrivateInvestigationAttemptTests(unittest.TestCase):
         self.assertEqual(final.status, "CHECKED_INSUFFICIENT")
         self.assertEqual(final.remaining_attempts, 1)
         self.assertFalse(final.publication_authority)
+
+    def test_missing_original_context_and_independent_lanes_are_not_checked(self):
+        official = assignment("OFFICIAL_STRUCTURED")
+        s = spec(max_attempts=1)
+        first = decision(s=s, assignments=(official,))
+        finished = decision((receipt(first, lane="OFFICIAL_STRUCTURED", result="SOURCE_INCONCLUSIVE"),), s=s, assignments=(official,))
+        by_lane = {row.lane: row for row in finished.coverage}
+        self.assertEqual(by_lane["OFFICIAL"].status, "CHECKED_INSUFFICIENT")
+        for lane in ("ORIGINAL", "FULL_CONTEXT", "INDEPENDENT"):
+            self.assertEqual(by_lane[lane].status, "NOT_CHECKED")
+            self.assertEqual(by_lane[lane].reason_code, "INVESTIGATION_NO_AUTHORIZED_ASSIGNMENT")
+        self.assertEqual(finished.status, "EXHAUSTED")
+        self.assertFalse(finished.publication_authority)
+
+    def test_four_bounded_lanes_end_as_checked_insufficient_only_after_four_receipts(self):
+        s = spec(max_attempts=4)
+        assignments = tuple(assignment(lane) for lane in (
+            "PRIMARY_SOURCE", "ARCHIVE_HISTORY", "OFFICIAL_STRUCTURED",
+            "INDEPENDENT_REPORTING",
+        ))
+        receipts = ()
+        for count in range(4):
+            proposal = decision(receipts, s=s, assignments=assignments)
+            self.assertEqual(proposal.status, "READY_PRIVATE_PROPOSAL")
+            lane = next(row.lane for row in assignments if row.assignment_id == proposal.assignment_id)
+            receipts += (receipt(proposal, lane=lane),)
+            self.assertEqual(proposal.prior_attempt_count, count)
+        final = decision(receipts, s=s, assignments=assignments)
+        self.assertEqual(final.status, "EXHAUSTED")
+        self.assertEqual(final.prior_attempt_count, 4)
+        self.assertTrue(all(lane.status == "CHECKED_INSUFFICIENT" for lane in final.coverage))
+        self.assertTrue(all(lane.max_queries == 1 for lane in final.coverage))
+        self.assertFalse(final.publication_authority)
+
+    def test_unpermitted_independent_lane_is_reported_as_wait_external(self):
+        no_grant = assignment("INDEPENDENT_REPORTING", status="BLOCKED",
+                              blockers=("SOURCE_RIGHTS_NOT_CLEARED",))
+        result = decision(assignments=(no_grant,))
+        self.assertEqual(result.status, "WAIT_EXTERNAL")
+        independent = next(row for row in result.coverage if row.lane == "INDEPENDENT")
+        self.assertEqual(independent.status, "WAIT_EXTERNAL")
+        self.assertEqual(independent.reason_code, "INVESTIGATION_LANE_BLOCKED")
+        self.assertEqual(independent.completed_attempt_ids, ())
+
+    def test_independent_mirrors_are_not_new_evidence_lineages(self):
+        rows = (assignment("PRIMARY_SOURCE"), assignment("INDEPENDENT_REPORTING"))
+        s = spec(max_attempts=2)
+        first = decision(s=s, assignments=rows)
+        original = receipt(first, lane="INDEPENDENT_REPORTING" if first.assignment_id == rows[1].assignment_id else "PRIMARY_SOURCE",
+                           result="REVIEWED_SOURCE_CANDIDATE", lineage_id="origin:official:123",
+                           source_version="version:1", source_sha256="a" * 64, review_event_id="review:1")
+        # Independently reviewed original is one private candidate, not a finding.
+        mirrored = decision((original,), s=s, assignments=rows)
+        self.assertEqual(mirrored.independent_reviewed_lineages, 1)
+        self.assertEqual(next(x for x in mirrored.coverage if x.lane == "INDEPENDENT").independent_lineages, 0)
+        other = next(row for row in rows if row.assignment_id != original.assignment_id)
+        second_id = "investigation-attempt:" + _hash({
+            "plan": first.plan_fingerprint, "assignment": other.assignment_id,
+            "material": s.material_fingerprint,
+        })
+        mirror = replace(original, attempt_id=second_id,
+                         assignment_id=other.assignment_id, lane=other.lane,
+                         review_event_id="review:2")
+        same_source = decision((original, mirror), s=s, assignments=rows)
+        same_lane = next(x for x in same_source.coverage if x.lane == "INDEPENDENT")
+        self.assertEqual(same_lane.status, "DEPENDENT_OR_UNCORROBORATED")
+        self.assertEqual(same_lane.independent_lineages, 0)
+        self.assertEqual(same_source.independent_reviewed_lineages, 1)
+        truly_distinct = decision((original, replace(mirror, lineage_id="origin:independent:456")),
+                                  s=s, assignments=rows)
+        independent = next(x for x in truly_distinct.coverage if x.lane == "INDEPENDENT")
+        self.assertEqual(independent.status, "INDEPENDENT_CANDIDATE")
+        self.assertEqual(independent.independent_lineages, 1)
+        self.assertEqual(truly_distinct.independent_reviewed_lineages, 2)
 
     def test_reviewed_locator_only_yields_private_candidate_not_truth_or_rights(self):
         first = decision()

@@ -154,6 +154,15 @@ class RealSenatoInvestigationTests(unittest.TestCase):
         initial = self.execute()
         replay = self.execute()
         self.assertEqual(initial["decision"], "EXHAUSTED")
+        self.assertEqual(initial["status"], "PRIVATE_PARTIAL_HOLD")
+        self.assertEqual(initial["missing_coverage"], ["ORIGINAL", "FULL_CONTEXT", "INDEPENDENT"])
+        self.assertEqual(initial["source_permissions_for_other_lanes"], "NOT_EVALUATED")
+        self.assertEqual(
+            {lane["lane"]: lane["status"] for lane in replay["coverage"]},
+            {"ORIGINAL": "NOT_CHECKED", "FULL_CONTEXT": "NOT_CHECKED",
+             "OFFICIAL": "CHECKED_INSUFFICIENT", "INDEPENDENT": "NOT_CHECKED"},
+        )
+        self.assertEqual(replay["coverage"], initial["coverage"])
         self.assertEqual(initial["reason_code"], "INVESTIGATION_ATTEMPT_CAP")
         self.assertEqual(initial["source_document_date"], "2025-05-29")
         self.assertEqual(initial["observation"], "SOURCE_INCONCLUSIVE")

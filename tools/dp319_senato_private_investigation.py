@@ -232,8 +232,29 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
         )
     state = store.resume(state.decision.plan_fingerprint, source_revision=1)
     receipt = state.reservations[0] if state.reservations else None
+    coverage = [
+        {
+            "lane": lane.lane,
+            "status": lane.status,
+            "reason_code": lane.reason_code,
+            "assignment_ids": list(lane.assignment_ids),
+            "completed_attempt_ids": list(lane.completed_attempt_ids),
+            "max_queries": lane.max_queries,
+            "max_results": lane.max_results,
+            "max_results_per_host": lane.max_results_per_host,
+            "cost_cap_usd": str(lane.cost_cap_usd),
+            "stop_conditions": list(lane.stop_conditions),
+            "source_lineages": list(lane.source_lineages),
+            "independent_lineages": lane.independent_lineages,
+        }
+        for lane in state.decision.coverage
+    ]
+    missing_coverage = [
+        lane["lane"] for lane in coverage
+        if lane["status"] not in {"CHECKED_INSUFFICIENT", "SOURCE_CANDIDATE", "INDEPENDENT_CANDIDATE"}
+    ]
     status = (
-        "PRIVATE_INSUFFICIENT_EVIDENCE"
+        ("PRIVATE_PARTIAL_HOLD" if missing_coverage else "PRIVATE_INSUFFICIENT_EVIDENCE")
         if state.decision.status == "EXHAUSTED"
         and len(state.observations) == 1
         and state.observations[0].result == "SOURCE_INCONCLUSIVE"
@@ -244,6 +265,9 @@ def run(database_url: str, ledger_path: Path, storage_root: Path) -> dict[str, o
         "decision": state.decision.status,
         "reason_code": state.decision.reason_code,
         "residual_reason": "HISTORICAL_OFFICIAL_RECORD_DOES_NOT_PROVE_CURRENT_STATUS",
+        "coverage": coverage,
+        "missing_coverage": missing_coverage,
+        "source_permissions_for_other_lanes": "NOT_EVALUATED",
         "collection_id": COLLECTION_ID,
         "content_id": content_id,
         "source_id": SOURCE_ID,
