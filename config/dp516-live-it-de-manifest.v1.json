@@ -1,0 +1,79 @@
+{
+  "manifest_id": "dp516-live-it-de-original-primary-20261026",
+  "version": 1,
+  "observed_at_utc": "2026-10-26T17:38:35Z",
+  "visibility": "PRIVATE_METADATA_ONLY",
+  "capture_authorized": false,
+  "publication_authorized": false,
+  "scaling_pilot_go": false,
+  "independent_second_agent_review": "PENDING",
+  "review_expiry_utc": "2026-11-02T17:38:35Z",
+  "rights_registry_status": "UNKNOWN",
+  "operational_permitted_uses": [],
+  "items": [
+    {
+      "content_id": "content:7cb3cd9222e19b296cdd550449f01d26236ca2e184e211ba504650706cd02108",
+      "person_id": "person:matteo-piantedosi",
+      "person_name": "Matteo Piantedosi",
+      "source_id": "source:ministero-interno-comunicati-dp516",
+      "source_family": "ministero-interno-comunicati",
+      "original_language": "it",
+      "published_on": "2026-09-17",
+      "source_url": "https://www.interno.gov.it/it/stampa-e-comunicazione/comunicati-stampa/piantedosi-esprime-solidarieta-ministro-valditara",
+      "original_selector": "direct statement attributed to the Minister in the official communiqué",
+      "observation_type": "full original HTTP HTML representation (no stored body)",
+      "observed_source_sha256": "4bf12984f4f31a8cecf8a05bbe0be5d241adc264ed80bef01b0812efa3319974",
+      "source_terms_url": "https://www.interno.gov.it/it/note-legali",
+      "observed_terms_sha256": "f072e9778fc8715fcaa203f6ebdfb2f29db9a047016318f4e6c00a5060f8ca09",
+      "rights_basis": "Official textual/documentary site content is CC BY 4.0 unless otherwise stated; attribution with original URL required. The original named minister's own public professional statement is in scope. Page-specific overrides and third-party material must be excluded.",
+      "source_terms_assessment": {
+        "FETCH": "YES_FOR_THIS_OFFICIAL_TEXT",
+        "STORE_BODY": "YES_WITH_CC_BY_ATTRIBUTION",
+        "PARSE_TEXT": "YES_WITH_CC_BY_ATTRIBUTION",
+        "RESEARCH_CAPTURE_PRIVATE": "YES_WITH_CC_BY_ATTRIBUTION",
+        "TRANSLATION": "YES_FOR_DERIVATIVE_WITH_ATTRIBUTION_AND_CHANGE_NOTICE",
+        "QUOTATION": "YES_WITH_CC_BY_ATTRIBUTION",
+        "RETENTION": "ONLY_WHILE_CURRENT_RIGHTS_AND_PRIVACY_GATES_PASS"
+      }
+    },
+    {
+      "content_id": "content:f0198ec69090ee740b386a707fe572505ff15c80334c2c486f9ff3e056446393",
+      "person_id": "person:olaf-scholz",
+      "person_name": "Olaf Scholz",
+      "source_id": "source:bundestag-plenarprotokolle-dp516",
+      "source_family": "bundestag-plenarprotokolle",
+      "original_language": "de",
+      "published_on": "2022-02-27",
+      "source_url": "https://dserver.bundestag.de/btp/20/20019.xml",
+      "original_selector": "dbtplenarprotokoll/rede[@id='ID201900100'] (verified speaker: Olaf Scholz; 26 total speeches)",
+      "observation_type": "full original HTTP XML representation (no stored body)",
+      "observed_source_sha256": "d7730d8fc24570ca5311353bc7dfbad6e6f04f45708561761e8f6cd16bd9265e",
+      "source_terms_url": "https://www.bundestag.de/services/impressum",
+      "observed_terms_sha256": "e3d6b1cd2944010869a949476d9f6c19d22f77157ff90f2cfe6f10a26b341183",
+      "rights_basis": "Official parliamentary plenary transcripts: Bundestag identifies them as official works under German UrhG §5, subject to source attribution (§63), alteration restrictions (§62), and possible third-party rights. This item is limited to the identified original Scholz speech, not the other 25 speakers or media.",
+      "source_terms_assessment": {
+        "FETCH": "YES_OFFICIAL_PARLIAMENTARY_TEXT",
+        "STORE_BODY": "YES_ORIGINAL_UNALTERED_PROVENANCE_ONLY",
+        "PARSE_TEXT": "YES_PRIVATE_WITH_EXACT_SELECTOR",
+        "RESEARCH_CAPTURE_PRIVATE": "YES_ORIGINAL_ONLY_WITH_SOURCE_CREDIT",
+        "TRANSLATION": "HOLD_MODIFICATION_AND_DERIVATIVE_REVIEW",
+        "QUOTATION": "YES_VERBATIM_WITH_SOURCE_CREDIT",
+        "RETENTION": "ONLY_WHILE_CURRENT_RIGHTS_AND_PRIVACY_GATES_PASS"
+      }
+    }
+  ],
+  "automated_reviewers": [
+    {
+      "id": "agent:gpt-6-dp516-primary-source-research-20261026",
+      "role": "source identity, source-specific terms, observed byte hashes and privacy preflight",
+      "status": "COMPLETED"
+    },
+    {
+      "id": "pipeline:private-rights-registry-current-leaf",
+      "role": "deterministic fail-closed permission and expiry/supersession enforcement",
+      "status": "EXISTING_GATE",
+      "independent_legal_opinion": false
+    }
+  ],
+  "hold_reason": "A second independent agent has not checked these per-item legal and privacy decisions; no private body capture, translation, quotation dispatch, scaling batch or publication is authorized by this manifest."
+}
