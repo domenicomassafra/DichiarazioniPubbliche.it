@@ -941,21 +941,8 @@ def list_records(index: PublicIndex) -> list[dict[str, Any]]:
 
 
 def list_people(index: PublicIndex) -> list[dict[str, Any]]:
-    rows = [
-        {
-            "person_id": person_id,
-            "name": person["name"],
-            "finding_count": person["finding_count"],
-            # `topics` is the compatibility alias from the draft pre-DP-430
-            # contract; it means claim-type codes and is explicitly deprecated.
-            "topics": person["claim_types"],
-            "claim_types": person["claim_types"],
-            "subject_topic_ids": person["topic_ids"],
-        }
-        for person_id, person in index.people.items()
-    ]
-    rows.sort(key=lambda row: row["person_id"])
-    return rows
+    from .public_person_v3_api import legacy_people
+    return legacy_people(index)
 
 
 def list_topics(index: PublicIndex) -> list[dict[str, Any]]:
@@ -1107,10 +1094,8 @@ def _h_records(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
 
 
 def _h_people(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
-    validate_params(params)
-    items = list_people(index)
-    return _envelope(index, items, {"count": len(items), "link": f"{API_BASE_PATH}/people"})
-
+    from .public_person_v3_api import people_response
+    return people_response(index, params)
 
 def _h_health(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
     validate_params(params)
@@ -1237,6 +1222,10 @@ def match_route(path: str) -> tuple[Route, dict[str, str]]:
     normalized = path if path.startswith("/") else "/" + path
     if normalized.endswith("/") and len(normalized) > 1:
         normalized = normalized.rstrip("/")
+    from .public_person_v3_api import optional_person_route
+    optional = optional_person_route(normalized)
+    if optional is not None:
+        return optional
     segments = [segment for segment in normalized.split("/") if segment != ""]
     for route in ROUTES:
         route_segments = [s for s in route.pattern.split("/") if s != ""]
@@ -1845,6 +1834,10 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                     # safe, pinned dirfd pointing at a withdrawn build.
                     # Refuse its old bytes until the listener is restarted.
                     if not self.server.static_root_current(pinned_root_fd):
+                        self._static_not_found()
+                        return
+                    from .public_person_v3_api import static_person_release_current
+                    if not static_person_release_current(relative.parts):
                         self._static_not_found()
                         return
                     self.send_response(200)

@@ -2,9 +2,11 @@
 import PersonRecord from "../../../components/PersonRecord.astro";
 import { speakerSlug } from "../../../lib/format";
 import { loadPublicProjection } from "../../../lib/projection";
+import { loadPublishedPeopleV3 } from "../../../lib/publishedPeopleV3";
 import type { PublicDossier } from "../../../lib/types";
 
 export async function getStaticPaths() {
+  if (await loadPublishedPeopleV3()) return [];
   const projection = await loadPublicProjection();
   const groups = new Map<string, PublicDossier[]>();
   for (const dossier of projection.dossiers) {

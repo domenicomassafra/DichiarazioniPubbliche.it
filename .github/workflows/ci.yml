@@ -241,6 +241,10 @@ jobs:
         working-directory: web
         run: node --experimental-strip-types scripts/check-statement-v3-api.mjs
 
+      - name: DP438 first-class Person public route/index/sitemap and withdrawal
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-dp438-public-consumer-v3.mjs
+
       - name: Reviewed relation copy cannot infer positions
         working-directory: web
         run: npm run check:relations

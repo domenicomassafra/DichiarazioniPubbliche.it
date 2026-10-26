@@ -43,7 +43,11 @@ function excludePrivateStudioFromPublicBuild() {
         // Static public builds never serve Studio. Astro still emits its unused
         // hydration chunks, which are separately removed after generation.
         for (let index = routes.length - 1; index >= 0; index--) {
-          if (routes[index].entrypoint.includes("/studio/")) routes.splice(index, 1);
+          if (routes[index].entrypoint.includes("/studio/") ||
+              (process.env.DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3 !== "1" &&
+                routes[index].entrypoint.includes("/public-people.v3.json.ts"))) {
+            routes.splice(index, 1);
+          }
         }
       },
       "astro:build:done": async ({ dir }) => {
