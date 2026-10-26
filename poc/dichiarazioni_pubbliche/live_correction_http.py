@@ -77,10 +77,11 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
 
     def _public_safe(self) -> bool:
         try:
-            index = load_index(type(self).projection_path)
-            finding_ids = {item.finding_id for item in index.entries}
-            finding_ids.update(challenged_findings(type(self).correction_ledger))
-            for finding_id in finding_ids:
+            load_index(type(self).projection_path)
+            # The private inventory query also proves the ledger is online.
+            # Only challenged findings need individual replay/hold checks;
+            # querying every published record would spawn O(N) SQL clients.
+            for finding_id in challenged_findings(type(self).correction_ledger):
                 hold = type(self).correction_ledger.current_hold_for_finding(finding_id)
                 if hold.disposition is not ChallengeHoldDisposition.CLEAR:
                     return False

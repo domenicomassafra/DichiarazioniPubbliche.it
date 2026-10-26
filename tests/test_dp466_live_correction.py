@@ -23,8 +23,10 @@ class FakeLedger:
         self.requests = {}
         self.hold = False
         self.available = True
+        self.checked = []
 
     def current_hold_for_finding(self, finding_id):
+        self.checked.append(finding_id)
         return SimpleNamespace(
             disposition=(
                 ChallengeHoldDisposition.UNKNOWN if not self.available else
@@ -34,6 +36,8 @@ class FakeLedger:
         )
 
     def challenged_findings(self):
+        if not self.available:
+            raise RuntimeError("CHALLENGE_LEDGER_UNAVAILABLE")
         return [item[1] for item in self.requests]
 
     def initiate_request(self, **values):
@@ -161,6 +165,10 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.ledger.available = False
         self.assertEqual(self.request("GET", "/api/v1/findings")[0], 503)
         self.assertEqual(self.request("GET", "/")[0], 503)
+
+    def test_uncontested_read_requires_one_ledger_inventory_not_n_queries(self):
+        self.assertEqual(self.request("GET", "/")[0], 200)
+        self.assertEqual(self.ledger.checked, [])
 
     def test_removed_dossier_cannot_unfence_stale_static_html(self):
         item = {"finding_id": self.finding_id, "reason": "Richiedo una correzione"}
