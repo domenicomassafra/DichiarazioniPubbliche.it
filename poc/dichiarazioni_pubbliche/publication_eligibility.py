@@ -37,6 +37,8 @@ class PublicationEligibilityResult:
     challenger_version: str | None = None
     challenger_waiver_policy_decision_ref: str | None = None
     profile_version: str = PUBLICATION_ELIGIBILITY_VERSION
+    record_id: str = ""
+    record_version: str = ""
 
 
 def _binding_sha256(
@@ -183,6 +185,8 @@ def _evaluate_publication_eligibility_from_events(
         review_risk_class=review.risk_class,
         counted_review_event_ids=review.counted_event_ids,
         binding_sha256=binding,
+        record_id=str(record_id),
+        record_version=str(record_version),
         challenger_packet_id=(
             challenger_readiness.packet_id if challenger_readiness is not None else None
         ),
@@ -276,6 +280,8 @@ def evaluate_publication_eligibility(
         review_risk_class=result.review_risk_class,
         counted_review_event_ids=(),
         binding_sha256=runtime_binding,
+        record_id=str(record_id),
+        record_version=str(record_version),
         challenger_packet_id=None,
         challenger_version=None,
         challenger_waiver_policy_decision_ref=None,

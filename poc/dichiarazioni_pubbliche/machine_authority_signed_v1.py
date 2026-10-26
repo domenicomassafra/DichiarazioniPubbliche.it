@@ -24,19 +24,28 @@ from dichiarazioni_pubbliche.machine_authority_preflight_v1 import (
     _material_errors, _fence_errors, _fence_covers_materials, _profile_ok, _decision_ok,
 )
 
-VERSION = "dp316-signed-authority-v1"
-REGISTRY_VERSION = "dp316-registry-v1"
+VERSION = "dp316-signed-authority-v2"
+REGISTRY_VERSION = "dp316-registry-v2"
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _SIG = re.compile(r"[0-9a-f]{128}\Z")
 _FIELDS = frozenset({
-    "version", "key_id", "issuer_actor", "issuer_run", "adjudicator_actor",
-    "adjudicator_run", "adjudicator_source_root", "record_id",
-    "record_version", "release_ref", "snapshot_sha256", "source_root",
-    "generator_run", "challenger_run", "challenger_source_root",
-    "policy_version", "rights_sha256", "qualified_policy_sha256",
-    "gold_sha256", "privacy_sha256", "fence_sha256", "decision", "scope",
-    "rights_url", "rights_checked_at", "rights_expires_at", "permitted_uses",
-    "issued_at", "expires_at",
+    "version", "key_id", "issuer_actor", "issuer_run", "adjudicator_key_id",
+    "adjudicator_actor", "adjudicator_run", "adjudicator_source_root",
+    "adjudicator_signature_hex", "record_id", "record_version", "release_ref",
+    "snapshot_sha256", "source_root", "generator_run", "challenger_run",
+    "challenger_source_root", "policy_version", "rights_sha256",
+    "qualified_policy_sha256", "gold_sha256", "privacy_sha256", "fence_sha256",
+    "decision", "scope", "rights_url", "rights_checked_at", "rights_expires_at",
+    "permitted_uses", "issued_at", "expires_at",
+})
+_ADJUDICATION_FIELDS = frozenset({
+    "version", "adjudicator_key_id", "adjudicator_actor", "adjudicator_run",
+    "adjudicator_source_root", "record_id", "record_version", "release_ref",
+    "snapshot_sha256", "source_root", "generator_run", "challenger_run",
+    "challenger_source_root", "policy_version", "rights_sha256",
+    "qualified_policy_sha256", "gold_sha256", "privacy_sha256", "fence_sha256",
+    "decision", "scope", "rights_url", "rights_checked_at", "rights_expires_at",
+    "permitted_uses", "issued_at", "expires_at",
 })
 _KEY_FIELDS = frozenset({
     "key_id", "actor_id", "role", "public_key_hex",
@@ -50,6 +59,11 @@ class SignedAuthorityVerdict:
     disposition: str
     reason_codes: tuple[str, ...]
     private_signature_verified: bool = False
+    independent_adjudication_verified: bool = False
+    record_id: str | None = None
+    record_version: str | None = None
+    snapshot_sha256: str | None = None
+    policy_version: str | None = None
 
     @property
     def machine_signoff(self) -> bool:
@@ -117,6 +131,11 @@ def _trusted_registry(path: Path, expected_sha256: str) -> dict[str, object]:
         os.close(fd)
 
 
+def _utcnow() -> datetime:
+    """Use the process clock internally; callers cannot backdate expiry checks."""
+    return datetime.now(timezone.utc)
+
+
 def verify_signed_authority(
     receipt: Mapping[str, object],
     *,
@@ -124,7 +143,6 @@ def verify_signed_authority(
     preflight: MachineAuthorityPreflight,
     trusted_registry_path: Path,
     pinned_registry_sha256: str,
-    now: datetime,
 ) -> SignedAuthorityVerdict:
     """Authenticate a private decision; default and every error fail closed.
 
@@ -136,7 +154,7 @@ def verify_signed_authority(
     try:
         return _verify(
             receipt, snapshot, preflight, trusted_registry_path,
-            pinned_registry_sha256, now,
+            pinned_registry_sha256, _utcnow(),
         )
     except (ValueError, TypeError, OSError, KeyError, AttributeError,
             json.JSONDecodeError, UnicodeError, OverflowError) as exc:
@@ -160,6 +178,8 @@ def _verify(receipt, snapshot, preflight, path, pinned_sha, now):
             or unsigned["version"] != VERSION
             or unsigned["decision"] != "ELIGIBLE"
             or unsigned["scope"] != "PRIVATE_REFERENCE"
+            or not isinstance(unsigned["adjudicator_signature_hex"], str)
+            or _SIG.fullmatch(unsigned["adjudicator_signature_hex"]) is None
             or not isinstance(receipt["signature_hex"], str)
             or _SIG.fullmatch(receipt["signature_hex"]) is None):
         raise ValueError("DP316_RECEIPT_INVALID")
@@ -241,39 +261,78 @@ def _verify(receipt, snapshot, preflight, path, pinned_sha, now):
     ):
         raise ValueError("DP316_RIGHTS_OR_RECEIPT_EXPIRED")
     registry = _trusted_registry(path, pinned_sha)
-    if registry["mode"] != "MACHINE_V1":
+    if registry["mode"] not in {"DUAL_READ", "MACHINE_V1"}:
         raise ValueError("DP316_MACHINE_CUTOVER_DISABLED")
     keys = registry["keys"]
     if (not all(type(item) is dict and set(item) == _KEY_FIELDS for item in keys)
             or len({item["key_id"] for item in keys}) != len(keys)):
         raise ValueError("DP316_KEY_REGISTRY_INVALID")
-    approved = [item for item in keys if item["key_id"] == unsigned["key_id"]]
-    if len(approved) != 1:
+    issuer_keys = [item for item in keys if item["key_id"] == unsigned["key_id"]]
+    adjudicator_keys = [
+        item for item in keys if item["key_id"] == unsigned["adjudicator_key_id"]
+    ]
+    if len(issuer_keys) != 1:
         raise ValueError("DP316_SIGNER_UNKNOWN")
-    key = approved[0]
-    if (key["actor_id"] != unsigned["issuer_actor"]
-            or key["source_root"] != unsigned["source_root"]
-            or key["qualified_policy_sha256"] != unsigned["qualified_policy_sha256"]
-            or key["rights_sha256"] != unsigned["rights_sha256"]
-            or key["role"] != "MACHINE_AUTHORITY"
-            or key["revoked"] is not False
-            or not (_timestamp(key["valid_from"]) <= _timestamp(unsigned["issued_at"])
-                    < _timestamp(key["expires_at"]) and at < _timestamp(key["expires_at"]))
-            or not isinstance(key["public_key_hex"], str)
-            or not _hash(key["public_key_hex"])):
+    if len(adjudicator_keys) != 1:
+        raise ValueError("DP316_ADJUDICATOR_UNKNOWN")
+    issuer_key, adjudicator_key = issuer_keys[0], adjudicator_keys[0]
+    if (issuer_key["key_id"] == adjudicator_key["key_id"]
+            or issuer_key["actor_id"] == adjudicator_key["actor_id"]
+            or issuer_key["public_key_hex"] == adjudicator_key["public_key_hex"]):
+        raise ValueError("DP316_INDEPENDENT_KEYS_REQUIRED")
+    if (issuer_key["actor_id"] != unsigned["issuer_actor"]
+            or issuer_key["source_root"] != unsigned["source_root"]
+            or issuer_key["qualified_policy_sha256"] != unsigned["qualified_policy_sha256"]
+            or issuer_key["rights_sha256"] != unsigned["rights_sha256"]
+            or issuer_key["role"] != "MACHINE_AUTHORITY"
+            or issuer_key["revoked"] is not False
+            or not (_timestamp(issuer_key["valid_from"]) <= _timestamp(unsigned["issued_at"])
+                    < _timestamp(issuer_key["expires_at"]) and at < _timestamp(issuer_key["expires_at"]))
+            or not isinstance(issuer_key["public_key_hex"], str)
+            or not _hash(issuer_key["public_key_hex"])):
         raise ValueError("DP316_SIGNER_UNAUTHORIZED")
+    if (adjudicator_key["actor_id"] != unsigned["adjudicator_actor"]
+            or adjudicator_key["source_root"] != unsigned["adjudicator_source_root"]
+            or adjudicator_key["qualified_policy_sha256"] != unsigned["qualified_policy_sha256"]
+            or adjudicator_key["rights_sha256"] != unsigned["rights_sha256"]
+            or adjudicator_key["role"] != "INDEPENDENT_ADJUDICATOR"
+            or adjudicator_key["revoked"] is not False
+            or not (_timestamp(adjudicator_key["valid_from"]) <= _timestamp(unsigned["issued_at"])
+                    < _timestamp(adjudicator_key["expires_at"])
+                    and at < _timestamp(adjudicator_key["expires_at"]))
+            or not isinstance(adjudicator_key["public_key_hex"], str)
+            or not _hash(adjudicator_key["public_key_hex"])):
+        raise ValueError("DP316_ADJUDICATOR_UNAUTHORIZED")
     try:
         from cryptography.exceptions import InvalidSignature
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     except ImportError:
         raise ValueError("DP316_ED25519_BACKEND_UNAVAILABLE") from None
+    adjudication_payload = {
+        field: unsigned[field] for field in _ADJUDICATION_FIELDS
+    }
     try:
-        Ed25519PublicKey.from_public_bytes(bytes.fromhex(key["public_key_hex"])).verify(
+        Ed25519PublicKey.from_public_bytes(
+            bytes.fromhex(adjudicator_key["public_key_hex"])
+        ).verify(
+            bytes.fromhex(unsigned["adjudicator_signature_hex"]),
+            _canonical(adjudication_payload),
+        )
+    except (InvalidSignature, ValueError):
+        raise ValueError("DP316_ADJUDICATOR_SIGNATURE_INVALID") from None
+    try:
+        Ed25519PublicKey.from_public_bytes(
+            bytes.fromhex(issuer_key["public_key_hex"])
+        ).verify(
             bytes.fromhex(receipt["signature_hex"]), _canonical(unsigned)
         )
     except (InvalidSignature, ValueError):
         raise ValueError("DP316_SIGNATURE_INVALID") from None
-    return SignedAuthorityVerdict("PRIVATE_SIGNATURE_VERIFIED", (), True)
+    return SignedAuthorityVerdict(
+        "PRIVATE_SIGNATURE_VERIFIED", (), True, True,
+        decision.record_id, decision.record_version, snapshot_sha,
+        snapshot.profile.policy_version,
+    )
 
 
 __all__ = ["VERSION", "REGISTRY_VERSION", "SignedAuthorityVerdict", "verify_signed_authority"]

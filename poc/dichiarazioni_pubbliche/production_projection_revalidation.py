@@ -27,6 +27,10 @@ from dichiarazioni_pubbliche.provenance_quarantine import (
 from dichiarazioni_pubbliche.provenance_quarantine_persistence import (
     ProvenanceHoldPersistenceStore,
 )
+from dichiarazioni_pubbliche.machine_authority_projection_gate_v1 import (
+    MachineAuthorityProjectionGate,
+    production_projection_cutover_allows,
+)
 from dichiarazioni_pubbliche.publication_eligibility import evaluate_publication_eligibility
 from dichiarazioni_pubbliche.publication_review_persistence import PublicationReviewPersistenceStore
 from dichiarazioni_pubbliche.publication_safety import (
@@ -61,15 +65,7 @@ def local_provenance_hold_allows_publication(
     registry: InMemoryProvenanceHoldRegistry,
     graph: BoundedDependencyGraph,
 ) -> bool:
-    """Apply the local DP-510 hold ledger to one current DP-308 safety binding.
-
-    The local graph is intentionally explicit: its ``public_id`` for a Finding must be the
-    canonical Finding ID used by the public dossier.  A caller that supplies the local hold
-    seam must also supply a graph row whose publication binding is the exact current DP-308
-    safety binding.  Active/pending holds block.  A released hold counts only when its final
-    REVALIDATED event is bound to that same current safety state.  Chain tamper or incomplete
-    local graph coverage fails closed.
-    """
+    """Fail closed on active holds, chain tamper, or stale DP-308 safety bindings."""
 
     finding = str(finding_id or "").strip()
     binding = str(current_safety_binding_sha256 or "").strip().lower()
@@ -105,14 +101,7 @@ def local_provenance_hold_allows_publication(
 
 
 class ProductionProjectionRevalidator(PsqlRuntime):
-    """DP-308 production boundary over current private proof state.
-
-    The legacy projection query remains useful as a candidate finder.  This class is the
-    publication authority boundary: a candidate reaches the serializer only after current
-    record-version, privacy, rights, challenge, high-risk and authority-attested review state
-    are revalidated.  Missing state is a hold; no legacy status or caller boolean is promoted
-    into permission.
-    """
+    """Fail-closed DP-308 revalidation before public projection serialization."""
 
     def __init__(
         self,
@@ -123,6 +112,7 @@ class ProductionProjectionRevalidator(PsqlRuntime):
         local_hold_graph: BoundedDependencyGraph | None = None,
         provenance_hold_store: ProvenanceHoldPersistenceStore | None = None,
         psql: str = "psql",
+        machine_authority_gate: MachineAuthorityProjectionGate | None = None,
     ) -> None:
         super().__init__(database_url, psql)
         self._authority_root = (
@@ -135,6 +125,8 @@ class ProductionProjectionRevalidator(PsqlRuntime):
         self._provenance_hold_store = provenance_hold_store or ProvenanceHoldPersistenceStore(
             database_url, psql
         )
+        # Explicitly versioned opt-in seam. No live receipt loader is configured by default.
+        self._machine_authority_gate = machine_authority_gate or MachineAuthorityProjectionGate()
 
     def _rights_target_records(
         self,
@@ -516,7 +508,12 @@ class ProductionProjectionRevalidator(PsqlRuntime):
             review_authority=authority,
             upstream_actor_refs=upstream_actor_refs,
         )
-        return result.disposition == "ELIGIBLE_FOR_PROJECTION_REVALIDATION"
+        return production_projection_cutover_allows(
+            self._machine_authority_gate,
+            record_id=finding_id,
+            record_version=current_version,
+            legacy_result=result,
+        )
 
 
 __all__ = [

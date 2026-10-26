@@ -3,13 +3,18 @@
 ## Current scope and trust anchor
 
 `machine_authority_signed_v1.verify_signed_authority` is an **opt-in
-private verifier**. It authenticates a fully bound, canonical JSON Ed25519
-receipt using a trusted, 0600 locally owned key registry **outside the
-database and repository**; the registry's SHA-256 must come from independently
-managed operator deployment configuration. A registry digest supplied by a
-candidate, receipt or database is not a trust anchor. No production issuer,
-private key, trusted live registry or signing credential was generated or
-installed by this change.
+private verifier**. Receipt v2 requires two Ed25519 signatures: an independent
+adjudicator signs the record/evidence/decision payload, then a separate machine
+authority signs the complete receipt including that adjudicator signature. The
+two keys must be separately registered, have distinct public keys, actors and
+roles, and bind the same policy/rights hashes but independent source roots.
+Both signatures use a canonical JSON representation. The verifier reads a
+trusted, 0600 locally owned key registry **outside the database and repository**;
+its SHA-256 must come from independently managed operator deployment
+configuration. A registry digest supplied by a candidate, receipt or database
+is not a trust anchor. The verifier obtains current time internally; callers
+cannot backdate receipt/key/rights expiry. No production issuer, private key,
+trusted live registry or signing credential was generated or installed here.
 
 The pin, registry status, actor/role, signer validity interval and permitted
 source root, rights and qualified-policy digests must agree. The receipt
@@ -23,9 +28,10 @@ missing gold, incomplete challenger, revoked key, wrong file permissions and
 forged/malformed signatures HOLD. Underlying live source and gold adjudication
 must still be independently established before any legitimate receipt issuance.
 
-A valid signature yields `PRIVATE_SIGNATURE_VERIFIED` and
-`private_signature_verified=true`, which is an **authenticated private
-reference only**. Until source evidence, policy, independent adjudication
+Two valid signatures yield `PRIVATE_SIGNATURE_VERIFIED`,
+`private_signature_verified=true` and
+`independent_adjudication_verified=true`, which is an **authenticated private
+reference only**. Until source evidence, qualified policy, independent gold
 and live epoch have also been proven by a trusted decision service, all
 `machine_signoff`, `publication_authority` and `dispatch_authorized`
 properties remain false. Legacy DP-310/311 review is unchanged; this receipt cannot substitute
@@ -41,16 +47,17 @@ The trusted registry format is:
 
 ```json
 {
-  "version": "dp316-registry-v1",
+  "version": "dp316-registry-v2",
   "mode": "LEGACY",
   "keys": []
 }
 ```
 
-Every future key has exactly `key_id`, `actor_id`,
-`role=MACHINE_AUTHORITY`, `public_key_hex`, `valid_from`,
-`expires_at`, `revoked`, `source_root`,
-`qualified_policy_sha256` and `rights_sha256`. No production example key
+Every future key has exactly `key_id`, `actor_id`, `role`,
+`public_key_hex`, `valid_from`, `expires_at`, `revoked`,
+`source_root`, `qualified_policy_sha256` and `rights_sha256`.
+Roles are exactly `MACHINE_AUTHORITY` or `INDEPENDENT_ADJUDICATOR`;
+the two keys and public-key bytes must be distinct. No production example key
 is bundled. The registry is intentionally source-specific. Never place
 private signing material or rights decisions in the public projection.
 
@@ -123,8 +130,29 @@ so no update to third-party code or licence change was made.
 Studio test seam: the private `verify_signed_authority` entry point.
 `uv run --no-project --with cryptography==49.0.0 python -m unittest
 discover -s tests -p 'test_dp316_*.py' -q` inside the resource guard:
-23 tests, exit 0 on 2026-10-26. A missing crypto backend yields HOLD
-in production; the default CI job skips these opt-in cryptographic tests
-unless the extra is installed. Test and CI receipts after the PR are in
+38 tests (16 preflight + 13 dual-signed + 9 cutover), exit 0 on 2026-10-26. A missing crypto backend yields HOLD in production; the CI job explicitly
+installs the existing account extra so opt-in cryptographic tests execute. Test and CI receipts after the PR are in
 the issue comment. There is deliberately no new receipt, canary, telemetry
 window or public release switch.
+
+
+## Versioned cutover and production boundary
+
+The machine_authority_cutover_v1 selector records the policy selection
+contract (LEGACY_ONLY, DUAL_READ, MACHINE_V1) without ever granting public
+authority. LEGACY_ONLY ignores machine receipts; DUAL_READ keeps the DP-310/311
+legacy path selected and treats a missing, stale, mismatched or non-signoff
+machine receipt as a shadow HOLD; MACHINE_V1 never falls back to a legacy
+review event. An explicit rollback from DUAL_READ or MACHINE_V1 requires a
+versioned rollback reference and selects only the current legacy path.
+
+ProductionProjectionRevalidator defaults to LEGACY_ONLY with no machine
+receipt loader. A caller may inject a private verifier callback for shadow
+comparison, but no such callback or host-local receipt store is configured in
+the MiniPC runtime. MACHINE_V1 is deliberately fail-closed in the production
+revalidator: it returns HOLD until the DP-320 transactional persistence and
+final public-read epoch fence are integrated. The cutover result itself always
+has publication_authority=false. No live mode switch, private key or trusted
+registry was installed; the MiniPC consumer remains DRAFT with zero public
+dossiers. These are explicit remaining AC blockers, not claims of completed
+live cutover.

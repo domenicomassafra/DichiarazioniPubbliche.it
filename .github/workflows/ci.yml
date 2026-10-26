@@ -135,7 +135,7 @@ jobs:
           python -m pip install ".[account]"
           # DP-316 uses the same optional crypto dependency: run actual signatures
           # on every supported Python instead of silently skipping absent extras.
-          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_public_account tests.test_authlib_google_oidc tests.test_dp316_signed_authority -v
+          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_public_account tests.test_authlib_google_oidc tests.test_dp316_signed_authority tests.test_dp316_machine_authority_cutover -v
 
       - name: Deterministic benchmark
         run: PYTHONPATH=poc python -m dichiarazioni_pubbliche.benchmark
