@@ -124,17 +124,12 @@ export function buildSearchIndexMaterial(
   projection: PublicProjection,
   publishedPeople?: ApprovedPersonV3[],
 ): Omit<PublicSearchIndex, "index_sha256"> {
-  const records: PublicSearchRecord[] = projection.dossiers.map(findingRecord);
-  if (publishedPeople) {
-    const byId = new Map(publishedPeople.map(person => [person.person_id, person.slug]));
-    for (const record of records) {
-      if (record.person_id) {
-        const slug = byId.get(record.person_id);
-        if (slug) record.person_id = slug;
-        else delete record.person_id;
-      }
-    }
+  // Never silently erase a v2 Person facet when v3 owns public identity.
+  if (publishedPeople && (projection.dossiers.length > 0 ||
+      (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0)) {
+    throw new Error("DP438_LEGACY_PROJECTION_NOT_EMPTY");
   }
+  const records: PublicSearchRecord[] = projection.dossiers.map(findingRecord);
 
   // Only approved public Finding IDs may create Topic facets.
   const publishedFindings = new Map(

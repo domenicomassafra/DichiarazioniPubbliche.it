@@ -62,8 +62,13 @@ search-index/sitemap.
    Person/Statement pages, search, sitemap, JSON SHA and Python API on a
    **private isolated** listener. Ensure no private/HELD IDs are present.
 2. Confirm the independent current release pins and source rights still
-   match immediately before atomic swap of the candidate static tree and
-   API environment/pins. Preserve the previous accepted build for rollback.
+   match before cutover. Stage the API runtime environment, exact generated
+   JSON path and current pin file in the isolated candidate first; switch
+   the served static root and listener to that same verified candidate last.
+   Preserve the previous accepted build for rollback. A partial static/env
+   swap may deliberately return HTTP 404 for **the entire site** while the
+   marker or authority is inconsistent; never allow such a partial swap to
+   continue serving stale v3 identities.
 3. On identity or rights withdrawal, revoke the current pin first so the
    Python API fails closed; rebuild all pages, JSON/index/sitemap from
    the new authorized release, swap the static root and invalidate any

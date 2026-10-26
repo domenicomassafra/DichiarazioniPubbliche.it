@@ -50,11 +50,26 @@ class PublicPersonV3ApiTest(unittest.TestCase):
     def get(self, path, *, method="GET", headers=None):
         return dispatch(method, path, projection_path=self.v2, conditional_headers=headers)
 
+    def test_v3_rejects_legacy_dossier_projection_from_every_api_reader(self):
+        # A v2 publication must not reveal someone withheld by independent v3 pins.
+        legacy = Path(__file__).resolve().parents[1] / "web/src/data/demo-projection.json"
+        candidate = json.loads(legacy.read_text(encoding="utf8"))
+        self.assertGreater(candidate["dossier_count"], 0)
+        for route in ("/api/v1/people", "/api/v1/records",
+                      "/api/v1/health", "/api/v1/index.json"):
+            with self.subTest(route=route):
+                response = dispatch("GET", route, projection_path=legacy)
+                self.assertEqual(response.status, 503)
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+                self.assertNotIn(b"Demo", response.body)
+
     def test_zero_statement_person_visible_in_api_without_finding(self):
         response = self.get("/api/v1/people")
         self.assertEqual(response.status, 200)
         payload = json.loads(response.body)
         self.assertEqual(payload["meta"]["count"], 1)
+        self.assertEqual(payload["meta"]["dataset_fingerprint"], bundle(v2=True)["dataset_sha256"])
+        self.assertEqual(payload["meta"]["person_dataset_sha256"], self.current_pins["personSha256"])
         self.assertEqual(payload["data"][0]["person_id"], "person:zero")
         self.assertEqual(payload["data"][0]["route"], "/persone/persona-zero/")
         self.assertEqual(payload["data"][0]["statements"], [])
@@ -100,6 +115,13 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         self.api.write_text(json.dumps(invalid, ensure_ascii=False), encoding="utf8")
         self.assertEqual(self.get("/api/v1/people").status, 503)
 
+    def test_nonempty_legacy_projection_blocks_v3_api_release(self):
+        demo = Path(__file__).resolve().parents[1] / "web/src/data/demo-projection.json"
+        self.v2.write_bytes(demo.read_bytes())
+        for endpoint in ("/api/v1/people", "/api/v1/findings", "/api/v1/records"):
+            with self.subTest(endpoint=endpoint):
+                self.assertEqual(self.get(endpoint).status, 503)
+
     def test_missing_authority_never_downgrades_to_v2(self):
         self.pins.unlink()
         self.assertEqual(self.get("/api/v1/people").status, 503)
@@ -109,8 +131,12 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         page = root / "persone" / "persona-zero"
         page.mkdir(parents=True)
         (page / "index.html").write_text("Approved Person original", encoding="utf8")
-        (root / "search-index.v1.json").write_text('{"records":["persona-zero"]}', encoding="utf8")
-        (root / "sitemap.xml").write_text("<loc>/persone/persona-zero/</loc>", encoding="utf8")
+        (root / "search-index.v1.json").write_text(json.dumps({"records": [
+            {"kind": "person", "route": "/persone/persona-zero/", "title": "Alex Demo"}
+        ]}), encoding="utf8")
+        (root / "sitemap.xml").write_text(
+            "<urlset><url><loc>https://dichiarazionipubbliche.it/persone/persona-zero/</loc></url></urlset>",
+            encoding="utf8")
         (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
         legacy_person = root / "record" / "person" / "persona-private"
         legacy_person.mkdir(parents=True)
@@ -119,10 +145,10 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
 
-        def request(path, *, headers=None):
+        def request(path, *, method="GET", headers=None):
             conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
             try:
-                conn.request("GET", path, headers=headers or {})
+                conn.request(method, path, headers=headers or {})
                 response = conn.getresponse()
                 return response.status, response.read(), response.getheader("Cache-Control")
             finally:
@@ -135,7 +161,7 @@ class PublicPersonV3ApiTest(unittest.TestCase):
             # A legacy identity path must not reveal an unapproved Person.
             self.assertEqual(request("/record/person/persona-private/")[0], 404)
             self.set_pins({**self.current_pins, "publicationAuthorized": False})
-            for route in routes:
+            for route in (*routes, "/persone/persona-zero"):
                 with self.subTest(route=route):
                     status, content, cache = request(route)
                     self.assertEqual(status, 404)
@@ -143,11 +169,28 @@ class PublicPersonV3ApiTest(unittest.TestCase):
                     self.assertEqual(cache, "no-store")
                     status, _, cache = request(route, headers={"If-Modified-Since": "Wed, 01 Jan 2099 00:00:00 GMT", "If-None-Match": "*"})
                     self.assertEqual((status, cache), (404, "no-store"))
+                    status, body, cache = request(route, method="HEAD")
+                    self.assertEqual((status, body, cache), (404, b"", "no-store"))
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
 
+
+    def test_v3_api_rejects_nonempty_legacy_v2_projection_on_all_surfaces(self):
+        # The same enabled v3 Person release must not expose a v2 dossier
+        # through records, health, index or another v1 API entry point.
+        demo = Path(__file__).resolve().parents[1] / "web/src/data/demo-projection.json"
+        fixture = json.loads(demo.read_text(encoding="utf8"))
+        self.assertGreater(fixture["dossier_count"], 0)
+        self.v2.write_text(json.dumps(fixture), encoding="utf8")
+        for path in ("/api/v1/people", "/api/v1/people/persona-zero",
+                     "/api/v1/records", "/api/v1/findings", "/api/v1/health",
+                     "/api/v1/index.json", "/api/v1/openapi.json"):
+            with self.subTest(path=path):
+                response = self.get(path)
+                self.assertEqual(response.status, 503)
+                self.assertNotIn(b"Alex Demo", response.body)
 
     def test_explicit_zero_opt_out_preserves_v2_api(self):
         with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}):
@@ -182,10 +225,27 @@ class PublicPersonV3ApiTest(unittest.TestCase):
             page.mkdir(parents=True)
             (page / "index.html").write_text(slug, encoding="utf8")
         (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
+        (root / "search-index.v1.json").write_text(json.dumps({"records": [
+            {"kind": "person", "route": "/persone/persona-zero/", "title": "Alex Demo"},
+            {"kind": "person", "route": "/persone/persona-other/", "title": "Other Person"},
+        ]}), encoding="utf8")
+        (root / "sitemap.xml").write_text("<urlset>" + "".join(
+            f"<url><loc>https://dichiarazionipubbliche.it/persone/{slug}/</loc></url>"
+            for slug in ("persona-zero", "persona-other")) + "</urlset>", encoding="utf8")
         server = build_server(self.v2, static_dir=root)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
+            for static_asset in ("/search-index.v1.json", "/sitemap.xml"):
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+                try:
+                    conn.request("GET", static_asset)
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 404, static_asset)
+                    self.assertEqual(response.getheader("Cache-Control"), "no-store")
+                    response.read()
+                finally:
+                    conn.close()
             for slug, expected in (("persona-zero", 404), ("persona-other", 200)):
                 with self.subTest(slug=slug):
                     conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)

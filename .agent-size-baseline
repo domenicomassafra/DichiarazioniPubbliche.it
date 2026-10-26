@@ -108,7 +108,7 @@
   "poc/dichiarazioni_pubbliche/proposition_clustering.py": 21212,
   "poc/dichiarazioni_pubbliche/provenance_quarantine.py": 28902,
   "poc/dichiarazioni_pubbliche/provenance_quarantine_persistence.py": 25811,
-  "poc/dichiarazioni_pubbliche/public_api.py": 83367,
+  "poc/dichiarazioni_pubbliche/public_api.py": 83349,
   "poc/dichiarazioni_pubbliche/public_http_client.py": 22915,
   "poc/dichiarazioni_pubbliche/public_projection.py": 149400,
   "poc/dichiarazioni_pubbliche/public_schema.py": 59465,
@@ -202,7 +202,7 @@
   "web/scripts/dp431_rebuild.py": 21719,
   "web/src/components/ExploreClient.tsx": 27876,
   "web/src/lib/publicStatementSearchV3.ts": 21162,
-  "web/src/lib/searchIndex.ts": 20319,
+  "web/src/lib/searchIndex.ts": 20275,
   "web/src/styles/legacy.css": 66483,
   "web/src/styles/primitives.css": 47409
 }

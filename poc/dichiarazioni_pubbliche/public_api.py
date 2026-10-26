@@ -665,6 +665,7 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
         if not configured:
             raise _unavailable()
         path = configured
+    from .public_person_v3_api import require_v3_compatible_projection
     resolved = Path(path)
     try:
         stat = resolved.stat()
@@ -676,15 +677,13 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
         with _LOCK:
             cached = _CACHE.get(key)
         if cached is not None and cached[0] == stamp:
-            # A revoker can atomically replace the projection after the first
-            # stat and before this cached read returns. Refuse the raced read
-            # (including conditional 304), rather than reuse the old payload.
+            # Reject a replaced projection before reusing a cached snapshot.
             try:
                 if _projection_file_stamp(resolved.stat()) != stamp:
                     raise _unavailable()
             except OSError as exc:
                 raise _unavailable() from exc
-            return cached[1]
+            return require_v3_compatible_projection(cached[1])
     try:
         raw = resolved.read_bytes()
         # A concurrent atomic replacement during the read must not attach
@@ -707,7 +706,7 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
     if use_cache:
         with _LOCK:
             _CACHE[key] = (stamp, index)
-    return index
+    return require_v3_compatible_projection(index)
 
 
 def projection_path_from_env() -> str | None:

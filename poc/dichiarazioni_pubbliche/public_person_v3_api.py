@@ -11,6 +11,10 @@ import json
 import os
 import re
 import stat
+from urllib.parse import urlsplit
+from xml.etree import ElementTree
+from xml.etree import ElementTree
+from urllib.parse import urlsplit
 from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
@@ -137,6 +141,14 @@ def load_current_public_people_v3() -> tuple[list[dict[str, Any]], str]:
         raise PublicPersonReleaseUnavailable from exc
 
 
+def require_v3_compatible_projection(index: Any) -> Any:
+    """A current v3 Person release never coexists with v2 published records."""
+    if os.environ.get(ENABLE) == "1" and (index.entries or index.records or index.topics):
+        from . import public_api as api
+        raise api._unavailable()
+    return index
+
+
 def legacy_people(index: Any) -> list[dict[str, Any]]:
     """Keep the existing v2 API contract while the new release is disabled."""
     rows = [
@@ -187,6 +199,109 @@ def person_detail(_index: Any, slug: str) -> dict[str, Any]:
     raise api._not_found()
 
 
+def _read_static(root_fd: int, name: str) -> bytes:
+    file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd)
+    with os.fdopen(file_fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
+            raise PublicPersonReleaseUnavailable
+        return stream.read(16 * 1024 * 1024 + 1)
+
+
+def _static_catalog_current(root_fd: int, name: str, people: list[dict[str, Any]]) -> bool:
+    """Reject stale search/sitemap after partial identity rotation or withdrawal."""
+    expected: dict[tuple[str, str], str] = {}
+    for person in people:
+        expected[("person", person["route"])] = person["display_name"]
+        for statement in person["statements"]:
+            expected[("statement", statement["statement_route"])] = (
+                f'Dichiarazione di {person["display_name"]}'
+            )
+    try:
+        data = _read_static(root_fd, name)
+        if name == "search-index.v1.json":
+            records = json.loads(data)
+            if not isinstance(records, dict) or not isinstance(records.get("records"), list):
+                return False
+            found: dict[tuple[str, str], str] = {}
+            for record in records["records"]:
+                if not isinstance(record, dict) or record.get("kind") not in {"person", "statement"}:
+                    return False
+                key = (record["kind"], record.get("route"))
+                if key in found or not isinstance(key[1], str):
+                    return False
+                found[key] = record.get("title")
+            return found == expected
+        if name == "sitemap.xml":
+            document = ElementTree.fromstring(data)
+            routes = [urlsplit(element.text or "").path for element in document.iter()
+                      if element.tag.rsplit("}", 1)[-1] == "loc"]
+            relevant = [route for route in routes if route.startswith(("/persone/", "/dichiarazioni/"))]
+            return (len(relevant) == len(set(relevant)) and
+                    set(relevant) == {route for _, route in expected})
+        return True
+    except (OSError, ValueError, TypeError, KeyError, IndexError, UnicodeError, ElementTree.ParseError):
+        return False
+
+
+def _static_public_surface_current(parts: tuple[str, ...], root_fd: int,
+                                   people: list[dict[str, Any]]) -> bool:
+    """Deny stale identity URLs embedded in a rotated search index or sitemap."""
+    if parts not in (("search-index.v1.json",), ("sitemap.xml",)):
+        return True
+    name = parts[0]
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=root_fd)
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > 16 * 1024 * 1024:
+            return False
+        contents = stream.read(16 * 1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+        if (len(contents) > 16 * 1024 * 1024 or
+                (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) !=
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+            return False
+    approved = {person["route"]: person for person in people}
+    statements = {statement["statement_route"]
+                  for person in people for statement in person["statements"]}
+    if name == "search-index.v1.json":
+        index = json.loads(contents)
+        rows = index.get("records") if isinstance(index, dict) else None
+        if not isinstance(rows, list):
+            return False
+        seen: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("route"), str):
+                return False
+            route = row["route"]
+            if route in seen:
+                return False
+            seen.add(route)
+            if row.get("kind") == "person":
+                subject = approved.get(route)
+                if subject is None or row.get("title") != subject["display_name"]:
+                    return False
+            elif row.get("kind") != "statement" or route not in statements:
+                return False
+        return True
+    xml = ElementTree.fromstring(contents)
+    if xml.tag not in ("urlset", "{http://www.sitemaps.org/schemas/sitemap/0.9}urlset"):
+        return False
+    fixed = {"/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/"}
+    allowed = fixed | set(approved) | statements
+    for loc in xml.iter():
+        if loc.tag.rsplit("}", 1)[-1] != "loc":
+            continue
+        value = (loc.text or "").strip()
+        target = urlsplit(value)
+        if (target.scheme or target.netloc) and (
+                target.scheme != "https" or target.netloc != "dichiarazionipubbliche.it"):
+            return False
+        if target.query or target.fragment or target.path not in allowed:
+            return False
+    return True
+
+
 _root_marker_cache: dict[tuple[Any, ...], bool] = {}
 
 
@@ -217,13 +332,16 @@ def static_person_release_current(parts: tuple[str, ...], root_fd: int) -> bool:
                                for person in people for item in person["statements"]}
             if parts[1] not in approved_routes:
                 return False
+        if not _static_public_surface_current(parts, root_fd, people):
+            return False
         pins = _read(os.environ[PINS])
         root = os.fstat(root_fd)
         key = (root.st_dev, root.st_ino, info.st_dev, info.st_ino,
                info.st_size, info.st_mtime_ns, _pin_sha(pins), person_sha)
         cached = _root_marker_cache.get(key)
         if cached is not None:
-            return cached
+            return cached and (len(parts) != 1 or
+                               _static_catalog_current(root_fd, parts[0], people))
         fd = os.open("public-people.v3.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
                      dir_fd=root_fd)
         with os.fdopen(fd, "rb") as stream:
@@ -237,8 +355,8 @@ def static_person_release_current(parts: tuple[str, ...], root_fd: int) -> bool:
         if len(_root_marker_cache) > 16:
             _root_marker_cache.clear()
         _root_marker_cache[key] = result
-        return result
-    except (OSError, ValueError, TypeError, KeyError, UnicodeError, PublicPersonReleaseUnavailable):
+        return result and (len(parts) != 1 or _static_catalog_current(root_fd, parts[0], people))
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError, ElementTree.ParseError, PublicPersonReleaseUnavailable):
         return False
 
 
