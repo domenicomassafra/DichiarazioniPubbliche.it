@@ -94,6 +94,9 @@ jobs:
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             brew install ffmpeg
           else
+            # The Azure apt mirror has repeatedly stalled during the ffmpeg download.
+            # Use Ubuntu's official archive on ephemeral GitHub-hosted runners.
+            sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/sources.list.d/ubuntu.sources
             sudo apt-get update -qq
             sudo apt-get install -y --no-install-recommends ffmpeg
           fi
@@ -322,6 +325,7 @@ jobs:
       - name: Install original-media test decoder
         run: |
           if ! command -v ffmpeg || ! command -v ffprobe; then
+            sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/sources.list.d/ubuntu.sources
             timeout 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
             timeout 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
           fi
