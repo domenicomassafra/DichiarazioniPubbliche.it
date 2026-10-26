@@ -133,7 +133,9 @@ jobs:
         # supported Python and runner without any live Google credentials.
         run: |
           python -m pip install ".[account]"
-          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_public_account tests.test_authlib_google_oidc -v
+          # DP-316 uses the same optional crypto dependency: run actual signatures
+          # on every supported Python instead of silently skipping absent extras.
+          PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=poc python -m unittest tests.test_public_account tests.test_authlib_google_oidc tests.test_dp316_signed_authority -v
 
       - name: Deterministic benchmark
         run: PYTHONPATH=poc python -m dichiarazioni_pubbliche.benchmark
