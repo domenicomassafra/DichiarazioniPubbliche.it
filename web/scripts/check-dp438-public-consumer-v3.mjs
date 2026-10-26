@@ -5,6 +5,7 @@ import { readFile, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { makeScratchDir } from "./lib/scratch.mjs";
 import { data, pins, routes, web, sha } from "./check-private-person-empty-v3.mjs";
+import { validateSearchIndex } from "../src/lib/searchIndex.ts";
 
 // Public static integration: the same independently pinned release drives
 // Person pages, the search index, the sitemap and the API-facing JSON artifact.
@@ -33,6 +34,7 @@ try {
   });
   assert.equal(full.status,0,`DP438 public static build: ${full.stdout}\n${full.stderr}`);
   const built=name=>readFile(join(integration,"dist",name),"utf8");
+  assert.equal(await built("person-v3.mode"),"dichiarazioni-pubbliche-person-v3\n");
   const zeroPage=await built("persone/persona-zero/index.html");
   assert.match(zeroPage,/Nessuna dichiarazione pubblicata per questa persona/);
   assert.match(zeroPage,/Alex Demo/);
@@ -49,6 +51,18 @@ try {
   assert(sitemap.includes("/dichiarazioni/statement-2/"));
   assert.doesNotMatch(sitemap,/persona-held/);
   const search=JSON.parse(await built("search-index.v1.json"));
+  // The validator derives approved Person slugs from the current v3 index,
+  // not from the empty legacy v2 dossier projection.
+  await validateSearchIndex(search,v2.dataset_sha256);
+  const originalRecord=search.records.find(row=>row.kind==="statement" &&
+    row.route==="/dichiarazioni/statement-2/");
+  assert(originalRecord,"approved original Statement must be searchable");
+  assert.equal(originalRecord.assessment,null);
+  assert.equal(originalRecord.direct_quote_eligible,false,
+    "search metadata grants no independent quote licence");
+  assert.equal(originalRecord.source_wording_type,null,
+    "Finding source-occurrence wording does not apply to an original Statement");
+
   assert(search.records.some(row=>row.kind==="statement" && row.route==="/dichiarazioni/statement-2/"),"approved original Statement must be discoverable through public search");
   assert(search.records.some(row=>row.kind==="person" && row.route==="/persone/persona-zero/"));
   assert(search.records.some(row=>row.kind==="person" && row.route==="/persone/persona-a/"));

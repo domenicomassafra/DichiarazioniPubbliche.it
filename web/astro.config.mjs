@@ -1,6 +1,6 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
-import { readdir, readFile, unlink } from "node:fs/promises";
+import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -55,6 +55,13 @@ function excludePrivateStudioFromPublicBuild() {
           // Astro may emit hydration chunks for a dynamic route even when that
           // route has no prerendered pages. Keep them out of public artifacts.
           await removeUnreferencedPrivateChunks(dir);
+        }
+        // Keep the release mode detectable after an interrupted JSON removal.
+        // Clean v2 builds omit this marker; an incomplete v3 cutover fails closed.
+        if (building && process.env.DICHIARAZIONI_PUBBLICHE_STUDIO_FIXTURE_ONLY !== "1" &&
+            process.env.DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3 === "1") {
+          await writeFile(join(fileURLToPath(dir), "person-v3.mode"),
+            "dichiarazioni-pubbliche-person-v3\n");
         }
         // Route removal can leave an emitted static endpoint on some Astro
         // versions. An opted-out build must never ship the v3 JSON artifact.

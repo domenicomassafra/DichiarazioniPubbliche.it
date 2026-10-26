@@ -43,7 +43,11 @@ export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
   };
 }
 
-/** Index original public statements without inventing a factual Finding. */
+/** Index approved original Statements without inventing a factual Finding.
+ * The original text appears on the separately gated Statement page.
+ * Search-index wording metadata is for normalized Finding/source-occurrence
+ * labels, not a separate quote licence; direct_quote_eligible remains false.
+ */
 export function statementRecords(people: ApprovedPersonV3[]): PublicSearchRecord[] {
   const records: PublicSearchRecord[] = [];
   for (const person of people) {

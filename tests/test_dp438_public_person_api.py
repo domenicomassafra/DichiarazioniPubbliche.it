@@ -145,6 +145,8 @@ class PublicPersonV3ApiTest(unittest.TestCase):
         (root / "sitemap.xml").write_text(
             "<urlset><url><loc>https://dichiarazionipubbliche.it/persone/persona-zero/</loc></url></urlset>",
             encoding="utf8")
+        (root / "person-v3.mode").write_text(
+            "dichiarazioni-pubbliche-person-v3\n", encoding="utf8")
         (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
         legacy_person = root / "record" / "person" / "persona-private"
         legacy_person.mkdir(parents=True)
@@ -232,6 +234,8 @@ class PublicPersonV3ApiTest(unittest.TestCase):
             page = root / "persone" / slug
             page.mkdir(parents=True)
             (page / "index.html").write_text(slug, encoding="utf8")
+        (root / "person-v3.mode").write_text(
+            "dichiarazioni-pubbliche-person-v3\n", encoding="utf8")
         (root / "public-people.v3.json").write_bytes(self.api.read_bytes())
         (root / "search-index.v1.json").write_text(json.dumps({"records": [
             {"kind": "person", "route": "/persone/persona-zero/", "title": "Alex Demo"},
@@ -268,6 +272,35 @@ class PublicPersonV3ApiTest(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def test_v3_partial_tree_missing_release_json_cannot_downgrade(self):
+        # A partial opt-out can remove JSON before old v3 pages are replaced.
+        # The build-mode sentinel must prevent legacy fallback in that window.
+        root = Path(self.scratch.name) / "partial-v3-site"
+        route = root / "persone" / "persona-zero"
+        route.mkdir(parents=True)
+        (route / "index.html").write_text("Private Candidate", encoding="utf8")
+        (root / "person-v3.mode").write_text(
+            "dichiarazioni-pubbliche-person-v3\n", encoding="utf8"
+        )
+        with patch.dict(os.environ, {"DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3": "0"}):
+            server = build_server(self.v2, static_dir=root)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+                try:
+                    conn.request("GET", "/persone/persona-zero/")
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 404)
+                    self.assertEqual(response.getheader("Cache-Control"), "no-store")
+                    self.assertNotIn(b"Private Candidate", response.read())
+                finally:
+                    conn.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
 
     def test_v3_static_tree_never_serves_with_disabled_runtime_gate(self):
         root = Path(self.scratch.name) / "disabled-site"

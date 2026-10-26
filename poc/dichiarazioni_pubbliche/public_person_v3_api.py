@@ -270,16 +270,27 @@ _root_marker_cache: dict[tuple[Any, ...], bool] = {}
 def static_person_release_current(parts: tuple[str, ...], root_fd: int) -> bool:
     """Bind the pinned static root to current release authority on every request."""
     enabled = os.environ.get(ENABLE) == "1"
+    # A separate build-mode sentinel survives a partial JSON removal and
+    # prevents stale v3 pages from being served as a legacy v2 static tree.
+    try:
+        mode = _read_static(root_fd, "person-v3.mode")
+    except FileNotFoundError:
+        mode = None  # Pre-existing v2 builds have no mode sentinel.
+    except (OSError, PublicPersonReleaseUnavailable):
+        return False
+    if mode not in (None, b"dichiarazioni-pubbliche-person-v3\n"):
+        return False
+    is_v3_tree = mode is not None
     try:
         info = os.stat("public-people.v3.json", dir_fd=root_fd, follow_symlinks=False)
     except FileNotFoundError:
-        return not enabled
+        return not enabled and not is_v3_tree
     except OSError:
         return False
     if not stat.S_ISREG(info.st_mode) or info.st_size > 16 * 1024 * 1024:
         return False
-    if not enabled:
-        return False  # A v3 build cannot silently downgrade to an unguarded v2 runtime.
+    if not enabled or not is_v3_tree:
+        return False  # A v3 release requires both independent static markers.
     # Legacy Person aliases are intentionally absent from a v3 build. A stale
     # file at an old path must never reveal a now withheld public identity.
     if len(parts) >= 2 and parts[:2] == ("record", "person"):
