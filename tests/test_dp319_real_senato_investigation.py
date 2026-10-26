@@ -5,10 +5,12 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -121,7 +123,10 @@ class RealSenatoInvestigationTests(unittest.TestCase):
         self.d_receipts = {}
         self.d_outage = False
 
-    def execute(self, *, rights=True, valid_receipt=True, body=XML):
+    def execute(
+        self, *, rights=True, valid_receipt=True, body=XML,
+        rights_record_id="private-rights:test", cli=False,
+    ):
         receipts = self.d_receipts
         outage = self.d_outage
 
@@ -151,7 +156,8 @@ class RealSenatoInvestigationTests(unittest.TestCase):
                 pass
 
             def read_current(self, _subject):
-                return rights_record(allowed=rights, valid_receipt=valid_receipt)
+                record = rights_record(allowed=rights, valid_receipt=valid_receipt)
+                return replace(record, id=rights_record_id)
 
         class FakeBodyStore:
             def __init__(self, _path):
@@ -179,7 +185,19 @@ class RealSenatoInvestigationTests(unittest.TestCase):
                 canary, "PrivateDReceiptLedger", FakeDReceiptLedger, create=True
             ),
         ):
-            return canary.run("fixture-db", self.path, Path(self.tmp.name))
+            if not cli:
+                return canary.run("fixture-db", self.path, Path(self.tmp.name))
+            output = io.StringIO()
+            with (
+                patch.object(
+                    sys, "argv",
+                    ["dp319", "--database-url", "fixture-db", "--ledger",
+                     str(self.path), "--storage-root", self.tmp.name],
+                ),
+                redirect_stdout(output),
+            ):
+                self.assertEqual(canary.main(), 0)
+            return json.loads(output.getvalue())
 
     def test_replay_of_one_authentic_shape_never_repeats_attempt(self):
         initial = self.execute()
@@ -214,6 +232,41 @@ class RealSenatoInvestigationTests(unittest.TestCase):
         self.assertEqual(len(self.d_receipts), 1)
         self.assertTrue(replay["d_usage_reconciled"])
         self.assertFalse(replay["provider_billing_reconciled"])
+
+    def test_changed_authority_after_reserved_or_completed_is_structured_cli_hold(self):
+        for pending in (True, False):
+            with self.subTest(pending=pending):
+                self.path.unlink(missing_ok=True)
+                self.d_receipts.clear()
+                self.d_outage = pending
+                initial = self.execute()
+                self.assertEqual(initial["reservation_count"], 1)
+                self.assertEqual(initial["completion_count"], 0 if pending else 1)
+                self.d_outage = False
+                with closing(sqlite3.connect(f"file:{self.path}?mode=ro", uri=True)) as conn:
+                    before = (
+                        conn.execute("SELECT * FROM dp319_scopes").fetchall(),
+                        conn.execute("SELECT * FROM dp319_events").fetchall(),
+                        conn.execute("SELECT * FROM dp319_source_epochs").fetchall(),
+                    )
+                receipts_before = dict(self.d_receipts)
+                for _ in range(2):
+                    blocked = self.execute(
+                        rights_record_id="private-rights:test:renewed", cli=True
+                    )
+                    self.assertEqual(blocked["status"], "WAIT_EXTERNAL")
+                    self.assertEqual(blocked["reason_code"], "SOURCE_SCOPE_ALREADY_RESERVED")
+                    self.assertFalse(blocked["dispatch_authorized"])
+                    self.assertFalse(blocked["publication_authority"])
+                    self.assertEqual(blocked["new_child_task_count"], 0)
+                    with closing(sqlite3.connect(f"file:{self.path}?mode=ro", uri=True)) as conn:
+                        after = (
+                            conn.execute("SELECT * FROM dp319_scopes").fetchall(),
+                            conn.execute("SELECT * FROM dp319_events").fetchall(),
+                            conn.execute("SELECT * FROM dp319_source_epochs").fetchall(),
+                        )
+                    self.assertEqual(after, before)
+                    self.assertEqual(self.d_receipts, receipts_before)
 
     def test_d_outage_preserves_pending_unknown_effects_across_replay(self):
         self.d_outage = True
