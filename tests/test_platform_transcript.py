@@ -29,6 +29,17 @@ from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 
 
 class PlatformTranscriptTests(unittest.TestCase):
+    def setUp(self):
+        # These adapter tests exercise transcript routing, not the live donor
+        # caption provider. Keep host-local catalogs and external quotas out of
+        # the fixture; dstack_free_captions has dedicated provider tests.
+        self._free_caption_lookup_patch = patch(
+            "dichiarazioni_pubbliche.dstack_free_captions.eligible_youtube_provider",
+            return_value=None,
+        )
+        self._free_caption_lookup_patch.start()
+        self.addCleanup(self._free_caption_lookup_patch.stop)
+
     @staticmethod
     def _second_api_fixture(*, generated=False, error=None):
         rows = [{"text": "Italiano", "start": 0.25, "duration": 1.5},

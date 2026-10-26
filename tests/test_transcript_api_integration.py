@@ -23,6 +23,14 @@ from tests.dp169_caption_fixture_rights import cleared_caption_rights, synthetic
 
 class TranscriptApiAdapterTests(unittest.TestCase):
     def setUp(self):
+        # These adapter tests are synthetic; a host-local donor catalog must
+        # not turn them into external requests or alter the expected fallback.
+        free_lookup = patch(
+            "dichiarazioni_pubbliche.dstack_free_captions.eligible_youtube_provider",
+            return_value=None,
+        )
+        free_lookup.start()
+        self.addCleanup(free_lookup.stop)
         gate = patch.object(TranscriptAsrJobHandlers, "_caption_rights_guard",
                             return_value=cleared_caption_rights())
         gate.start()
