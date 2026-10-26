@@ -103,7 +103,7 @@ def _fragment(text: str, pattern: str, *, after: int = 0) -> tuple[int, int]:
 def evaluate_curia_private(
     html: bytes, *, expected_sha256: str = SOURCE_SHA256,
 ) -> dict[str, object]:
-    """Read back three exact source-bound annotations with no automatic review."""
+    """Read back four exact source-bound annotations with no automatic review."""
     text = _official_text(html)
     actual_digest = _digest(text)
     if actual_digest != expected_sha256:
