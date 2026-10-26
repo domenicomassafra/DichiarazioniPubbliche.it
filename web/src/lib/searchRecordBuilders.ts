@@ -1,5 +1,6 @@
 /** Canonical public-only search document construction. */
 import type { PublicDossier } from "./types.ts";
+import type { ApprovedPersonV3 } from "./publicPersonV3.ts";
 import type { PublicSearchRecord } from "./searchIndex.ts";
 import { publicIdSlug } from "./format.ts";
 
@@ -40,4 +41,34 @@ export function findingRecord(dossier: PublicDossier): PublicSearchRecord {
     person_id: dossier.speaker.id,
     topic_ids: [],
   };
+}
+
+/** Index original public statements without inventing a factual Finding. */
+export function statementRecords(people: ApprovedPersonV3[]): PublicSearchRecord[] {
+  const records: PublicSearchRecord[] = [];
+  for (const person of people) {
+    for (const statement of person.statements) {
+      records.push({
+        id: statement.statement_id,
+        kind: "statement",
+        title: `Dichiarazione di ${person.display_name}`,
+        subtitle: `${statement.source_title} · ${statement.statement_date}`,
+        published_at: null, // Statement date is not a publication timestamp.
+        assessment: null,
+        route: statement.statement_route,
+        person_id: person.slug,
+        has_corrections: false,
+        has_rights_of_reply: false,
+        wording_type: null,
+        source_wording_type: null,
+        direct_quote_eligible: false,
+        primary_terms: compactTerms([statement.original_text, person.display_name]),
+        secondary_terms: compactTerms([
+          statement.source_title, statement.statement_date,
+          statement.role_at_statement?.label,
+        ]),
+      });
+    }
+  }
+  return records;
 }

@@ -22,6 +22,14 @@ The release authority supplies two different files:
 
 The web build enables `DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3=1`
 and reads those inputs alongside the existing approved public-v2 projection.
+The public-v2 projection must contain **zero dossiers, Topics and Contents**
+when v3 is enabled. The build rejects a nonempty legacy projection with
+`DP438_LEGACY_PROJECTION_NOT_EMPTY` because those pages, search facets and
+sitemap entries use a separate publication authority and could expose
+identities withheld by the current Person release. Legacy v2 publication
+continues normally when the v3 flag is off. Approved original v3 Statements
+are indexed separately from factual Findings and never acquire verdicts.
+
 The generated static files include `/persone/<slug>/` even for zero
 Statements, independent approved originals at
 `/dichiarazioni/<statement-slug>/`, `search-index.v1.json`,

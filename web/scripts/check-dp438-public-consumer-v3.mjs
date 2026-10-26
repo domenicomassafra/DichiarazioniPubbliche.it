@@ -49,6 +49,7 @@ try {
   assert(sitemap.includes("/dichiarazioni/statement-2/"));
   assert.doesNotMatch(sitemap,/persona-held/);
   const search=JSON.parse(await built("search-index.v1.json"));
+  assert(search.records.some(row=>row.kind==="statement" && row.route==="/dichiarazioni/statement-2/"),"approved original Statement must be discoverable through public search");
   assert(search.records.some(row=>row.kind==="person" && row.route==="/persone/persona-zero/"));
   assert(search.records.some(row=>row.kind==="person" && row.route==="/persone/persona-a/"));
   assert.doesNotMatch(JSON.stringify(search),/Private Candidate|persona-held|person:held/);
@@ -80,6 +81,19 @@ print("Astro generated JSON -> Python API current pin PASS")`],{
       DICHIARAZIONI_PUBBLICHE_PUBLIC_PERSON_V3_PINS_PATH:pinsPath},
   });
   assert.equal(bridge.status,0,`${bridge.stdout}\n${bridge.stderr}`);
+  // A v3 release must never publish an unrelated v2 dossier, its Person
+  // membership or old source pages via the same sitemap/search/home build.
+  const mixed=spawnSync(join(web,"node_modules/.bin/astro"),["build","--outDir",join(integration,"mixed")],{
+    cwd:web,encoding:"utf8",timeout:180000,
+    env:{...process.env,DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH:join(web,"src","data","demo-projection.json"),
+      DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3:"1",
+      DICHIARAZIONI_PUBBLICHE_PUBLIC_PERSON_V3_ASSETS_PATH:assetsPath,
+      DICHIARAZIONI_PUBBLICHE_PUBLIC_PERSON_V3_PINS_PATH:pinsPath,
+      DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION:"1"},
+  });
+  assert.notEqual(mixed.status,0,"nonempty v2 dossier projection was published with independent v3 release");
+  assert.match(mixed.stdout+"\n"+mixed.stderr,/DP438_LEGACY_PROJECTION_NOT_EMPTY/);
+
   // Withdraw the pin and ensure a new candidate build is refused.
   await writeFile(pinsPath,JSON.stringify({...pins,publicationAuthorized:false}));
   const denied=spawnSync(join(web,"node_modules/.bin/astro"),["build","--outDir",join(integration,"held")],{
