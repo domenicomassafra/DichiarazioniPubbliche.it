@@ -151,73 +151,48 @@ def statements(db):
        passage_ids=json.dumps([PASSAGE]))
     require(result in ("INSERTED","EXISTING"),"STATEMENT_INSERT_FAILED")
 def correct_persisted_cue(db):
-    """Guarded 00:14->01:14 repair of HELD rows, with explicit v2 audit metadata.
+    from dp458_cue_correction import correct_persisted_cue as atomic
+    atomic(db, canonical=CANONICAL, segment=SEGMENT, candidate=CANDIDATE,
+           passage=PASSAGE, exact_quote_sha=sha(QUOTE), start=START,
+           end=END, vtt_sha=VTT_SHA, version=VERSION)
 
-    PostgreSQL permits only one canonical (content_id, segment_index). Since
-    neither this segment nor candidate was approved or bound, correct the
-    existing private HOLD revision in place while preserving old/new timecodes
-    in metadata. Never mutate an ATTESTED binding or APPROVED candidate.
-    """
-    state=readjson(db,"""SELECT json_build_object(
-        'start',c.start_ms,'end',c.end_ms,'transcript',c.transcript_status,
-        'blocked',c.publication_blocked,'raw_start',t.start_ms,'raw_end',t.end_ms,
-        'candidate_status',s.status,'hash',s.statement_text_hash,
-        'binding_count',(SELECT count(*) FROM media_capture_segment_binding b
-            WHERE b.canonical_segment_id=c.id))::text
-        FROM canonical_transcript_segment c
-        JOIN canonical_segment_candidate link ON link.canonical_segment_id=c.id
-        JOIN transcript_segment t ON t.id=link.transcript_segment_id
-        JOIN statement_candidate s ON s.content_id=c.content_id
-        WHERE c.id=:'canonical' AND t.id=:'segment' AND s.id=:'candidate';""",
-        canonical=CANONICAL,segment=SEGMENT,candidate=CANDIDATE)
-    require(state and state["hash"]==sha(QUOTE)
-            and state["candidate_status"]=="HELD"
-            and state["transcript"]=="TRANSCRIPT_UNCERTAIN"
-            and state["blocked"] is True and state["binding_count"]==0,
-            "CORRECTION_NOT_PRIVATE_HELD")
-    current=(state["start"],state["end"],state["raw_start"],state["raw_end"])
-    require(current in ((14669,18940,14669,18940),
-                        (START,END,START,END)), "TIMING_STATE_CONFLICT")
-    if current==(14669,18940,14669,18940):
-        # No truth change: original VTT cue #12 is 00:01:14, not 00:00:14.
-        updated=db.run("""UPDATE canonical_transcript_segment
-           SET start_ms=:'start'::bigint,end_ms=:'end'::bigint
-           WHERE id=:'id' AND start_ms=14669 AND end_ms=18940
-             AND transcript_status='TRANSCRIPT_UNCERTAIN'
-             AND publication_blocked=true AND NOT EXISTS (
-               SELECT 1 FROM media_capture_segment_binding b
-               WHERE b.canonical_segment_id=:'id') RETURNING id;""",
-           id=CANONICAL,start=START,end=END)
-        require(updated==CANONICAL,"CANONICAL_TIMING_CAS_FAILED")
-        updated=db.run("""UPDATE transcript_segment SET
-            start_ms=:'start'::bigint,end_ms=:'end'::bigint
-            WHERE id=:'id' AND start_ms=14669 AND end_ms=18940
-            AND segment_index=12 RETURNING id;""",
-            id=SEGMENT,start=START,end=END)
-        require(updated==SEGMENT,"VTT_TIMING_CAS_FAILED")
-    audit=json.dumps({"reason":"DP458_VTT_CUE12_MINUTE_CORRECTION",
-       "original_start_ms":14669,"original_end_ms":18940,
-       "corrected_start_ms":START,"corrected_end_ms":END,
-       "vtt_sha256":VTT_SHA,
-       "independent_acoustic_alignment":"HOLD"})
-    # This updates the versioned metadata, not public approval or status.
-    db.run("""UPDATE statement_candidate SET extraction_version=:'version',
-        metadata=coalesce(metadata,'{}'::jsonb) ||
-          jsonb_build_object('timing_correction_v2',:'audit'::jsonb)
-        WHERE id=:'id' AND status='HELD' AND statement_text_hash=:'sha';""",
-        version=VERSION,audit=audit,id=CANDIDATE,sha=sha(QUOTE))
-    db.run("""UPDATE passage SET extraction_version=:'version',
-        metadata=coalesce(metadata,'{}'::jsonb) ||
-          jsonb_build_object('timing_correction_v2',:'audit'::jsonb)
-        WHERE id=:'id' AND text_sha256=:'sha';""",
-        version=VERSION,audit=audit,id=PASSAGE,sha=sha(QUOTE))
-    db.run("""UPDATE transcript_segment SET
-        metadata=coalesce(metadata,'{}'::jsonb) ||
-          jsonb_build_object('timing_correction_v2',:'audit'::jsonb)
-        WHERE id=:'id' AND start_ms=:'start'::bigint AND end_ms=:'end'::bigint;""",
-        audit=audit,id=SEGMENT,start=START,end=END)
+def ensure_official_caption(root):
+    """Download only the pinned official VTT if the private snapshot is absent."""
+    from dp458_cue_correction import CAPTION_NAME, pinned_caption
+    require(root.is_dir() and not root.is_symlink()
+            and root.stat().st_mode & 0o077 == 0, "UNSAFE_ROOT")
+    target = root / CAPTION_NAME
+    if not target.exists():
+        require(not target.is_symlink(), "VTT_SNAPSHOT_SYMLINK")
+        result = fetch_bytes(VTT, max_response_bytes=100_000)
+        require(result.status_code == 200 and result.final_url == VTT
+                and hashlib.sha256(result.body).hexdigest() == VTT_SHA,
+                "VTT_DOWNLOAD_MISMATCH")
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(result.body)
+    pinned_caption(root, expected_sha=VTT_SHA, expected_start=START,
+                   expected_end=END, exact_quote=QUOTE)
+
+def verify_source_chain(row):
+    require(row and row["quote"]==QUOTE and row["sha"]==sha(QUOTE)
+            and row["start"]==START and row["end"]==END
+            and row["raw_start"]==START and row["raw_end"]==END
+            and row["candidate_version"]==VERSION
+            and row["status"]=="TRANSCRIPT_UNCERTAIN" and row["blocked"] is True
+            and row["candidate_status"]=="HELD"
+            and row["raw_text"]==QUOTE and row["canonical_text"]==QUOTE
+            and row["speaker_id"]==PERSON
+            and row["variant_text"]==QUOTE and row["variant_sha"]==sha(QUOTE)
+            and row["variant_vtt_sha"]==VTT_SHA,
+            "STATEMENT_READBACK_FAILED")
 
 def verify(db,root):
+    from dp458_cue_correction import pinned_caption
+    require(root.is_dir() and not root.is_symlink()
+            and root.stat().st_mode & 0o077 == 0, "UNSAFE_ROOT")
+    pinned_caption(root, expected_sha=VTT_SHA, expected_start=START,
+                   expected_end=END, exact_quote=QUOTE)
     reg,subject,record=rights(db,False)
     captured=db.find_capture(CONTENT,ORIGINAL_SHA)
     require(captured and captured.get("body_ref"),"CAPTURE_READBACK_MISSING")
@@ -226,19 +201,19 @@ def verify(db,root):
     require(hashlib.sha256(body).hexdigest()==ORIGINAL_SHA,"ORIGINAL_BODY_CHANGED")
     row=readjson(db,"""SELECT json_build_object('quote',p.private_text,'sha',p.text_sha256,
        'start',cs.start_ms,'end',cs.end_ms,'status',cs.transcript_status,
-       'blocked',cs.publication_blocked,'candidate',s.id,'candidate_status',s.status,\n       'candidate_version',s.extraction_version,'raw_start',t.start_ms,'raw_end',t.end_ms)::text
+       'blocked',cs.publication_blocked,'candidate',s.id,'candidate_status',s.status,
+       'candidate_version',s.extraction_version,'raw_start',t.start_ms,'raw_end',t.end_ms,
+       'raw_text',t.text,'canonical_text',cs.canonical_text,'speaker_id',cs.speaker_person_id,
+       'variant_text',v.raw_text,'variant_sha',v.raw_text_sha256,
+       'variant_vtt_sha',v.metadata->>'vtt_sha256')::text
        FROM passage p JOIN canonical_transcript_segment cs ON cs.id=p.canonical_segment_id
        JOIN canonical_segment_candidate cc ON cc.canonical_segment_id=cs.id
        JOIN transcript_segment t ON t.id=cc.transcript_segment_id AND t.id=:'segment'
+       JOIN transcript_variant v ON v.id=t.variant_id AND v.id=:'variant'
        JOIN statement_candidate_passage link ON link.passage_id=p.id
        JOIN statement_candidate s ON s.id=link.statement_candidate_id
-       WHERE p.id=:'passage' AND s.id=:'candidate';""",passage=PASSAGE,candidate=CANDIDATE,segment=SEGMENT)
-    require(row and row["quote"]==QUOTE and row["sha"]==sha(QUOTE)
-           and row["start"]==START and row["end"]==END
-           and row["raw_start"]==START and row["raw_end"]==END
-           and row["candidate_version"]==VERSION
-           and row["status"]=="TRANSCRIPT_UNCERTAIN" and row["blocked"]
-           and row["candidate_status"]=="HELD","STATEMENT_READBACK_FAILED")
+       WHERE p.id=:'passage' AND s.id=:'candidate';""",passage=PASSAGE,candidate=CANDIDATE,segment=SEGMENT,variant=VARIANT)
+    verify_source_chain(row)
     count=db.run("""SELECT count(*) FROM media_capture_segment_binding
         WHERE content_id=:'content' AND canonical_segment_id=:'segment';""",
         content=CONTENT,segment=CANONICAL)
@@ -261,6 +236,7 @@ def main():
             a.root.mkdir(mode=0o700,parents=True,exist_ok=True)
             require(not a.root.is_symlink() and a.root.stat().st_mode & 0o077==0,"UNSAFE_ROOT")
             identities(db); reg,subject,record=rights(db,True)
+            ensure_official_caption(a.root)
             capture(db,a.root,reg,subject,record); statements(db)
             correct_persisted_cue(db)
         if a.correct_timing:
@@ -270,6 +246,7 @@ def main():
             require(original and original.get("body_ref"),"ORIGINAL_NOT_PERSISTED")
             CaptureBodyStore.open_existing_readonly(a.root/"capture-bodies").read(
                 original["body_ref"],expected_sha256=ORIGINAL_SHA)
+            ensure_official_caption(a.root)
             correct_persisted_cue(db)
         print(json.dumps(verify(db,a.root),sort_keys=True)); return 0
     except Exception as e:

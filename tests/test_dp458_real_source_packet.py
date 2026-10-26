@@ -43,5 +43,99 @@ class DP458RealSourcePacketTests(unittest.TestCase):
         self.assertNotIn("EXCERPT_PUBLIC", packet.USES)
 
 
+
+    def test_full_persisted_chain_rejects_any_text_or_speaker_drift(self):
+        row = {
+            "quote": packet.QUOTE, "sha": packet.sha(packet.QUOTE),
+            "start": packet.START, "end": packet.END,
+            "raw_start": packet.START, "raw_end": packet.END,
+            "candidate_version": packet.VERSION,
+            "status": "TRANSCRIPT_UNCERTAIN", "blocked": True,
+            "candidate_status": "HELD",
+            "raw_text": packet.QUOTE, "canonical_text": packet.QUOTE,
+            "speaker_id": packet.PERSON, "variant_text": packet.QUOTE,
+            "variant_sha": packet.sha(packet.QUOTE),
+            "variant_vtt_sha": packet.VTT_SHA,
+        }
+        packet.verify_source_chain(row)
+        for field, bad in (
+            ("raw_text", "Not the publisher cue"),
+            ("canonical_text", "Not the publisher cue"),
+            ("speaker_id", "person:wrong-speaker"),
+            ("variant_text", "Tampered source caption"),
+            ("variant_sha", "0" * 64),
+            ("variant_vtt_sha", "0" * 64),
+            ("start", 14669), ("blocked", False),
+        ):
+            with self.subTest(field=field), self.assertRaisesRegex(
+                RuntimeError, "DP458_STATEMENT_READBACK_FAILED"
+            ):
+                packet.verify_source_chain({**row, field: bad})
+
+    def test_real_vtt_bytes_hash_and_cue_must_match(self):
+        import hashlib
+        import tempfile
+        from pathlib import Path
+        from tools.dp458_cue_correction import CAPTION_NAME, pinned_caption
+        raw = (
+            "WEBVTT\\n\\n12\\n00:01:14.669 --> 00:01:18.940\\n"
+            + packet.QUOTE + "\\n"
+        ).replace("\\n", "\n").encode()
+        with tempfile.TemporaryDirectory() as temporary:
+            location = Path(temporary) / CAPTION_NAME
+            location.write_bytes(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            pinned_caption(Path(temporary), expected_sha=digest,
+                           expected_start=packet.START, expected_end=packet.END,
+                           exact_quote=packet.QUOTE)
+            for kwargs in (
+                {"expected_sha": "0" * 64},
+                {"expected_start": 14669},
+                {"exact_quote": "Another transcript"},
+            ):
+                options = dict(expected_sha=digest, expected_start=packet.START,
+                               expected_end=packet.END, exact_quote=packet.QUOTE)
+                options.update(kwargs)
+                with self.assertRaises(RuntimeError):
+                    pinned_caption(Path(temporary), **options)
+            location.write_bytes(raw.replace(b"more", b"less"))
+            with self.assertRaisesRegex(RuntimeError, "DP458_VTT_VERSION_CHANGED"):
+                pinned_caption(Path(temporary), expected_sha=digest,
+                               expected_start=packet.START, expected_end=packet.END,
+                               exact_quote=packet.QUOTE)
+
+    def test_cas_updates_both_timestamps_in_one_postgres_statement(self):
+        import json
+        from tools.dp458_cue_correction import correct_persisted_cue
+        class FakeStore:
+            commands = []
+            def run(self, sql, **params):
+                self.commands.append(sql)
+                if "SELECT json_build_object" in sql:
+                    return json.dumps({
+                        "hash": packet.sha(packet.QUOTE), "candidate_status": "HELD",
+                        "transcript": "TRANSCRIPT_UNCERTAIN", "blocked": True,
+                        "binding_count": 0, "start": 14669, "end": 18940,
+                        "raw_start": 14669, "raw_end": 18940,
+                    })
+                return ""
+        store=FakeStore()
+        correct_persisted_cue(
+            store, canonical=packet.CANONICAL, segment=packet.SEGMENT,
+            candidate=packet.CANDIDATE, passage=packet.PASSAGE,
+            exact_quote_sha=packet.sha(packet.QUOTE),
+            start=packet.START, end=packet.END, vtt_sha=packet.VTT_SHA,
+            version=packet.VERSION,
+        )
+        atomic = [sql for sql in store.commands if "DO $dp458$" in sql]
+        self.assertEqual(len(atomic), 1)
+        self.assertIn("UPDATE canonical_transcript_segment", atomic[0])
+        self.assertIn("UPDATE transcript_segment", atomic[0])
+        self.assertIn("RAISE EXCEPTION 'DP458_VTT_TIMING_CAS_FAILED'", atomic[0])
+        self.assertFalse(any(
+            "UPDATE canonical_transcript_segment" in sql and "DO $dp458$" not in sql
+            for sql in store.commands
+        ))
+
 if __name__ == "__main__":
     unittest.main()
