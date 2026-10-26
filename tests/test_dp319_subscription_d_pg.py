@@ -51,9 +51,14 @@ class SubscriptionDPgTests(unittest.TestCase):
         suffix="a",
         verified=lambda _: True,
         authorized=True,
+        plan_fingerprint=None,
     ):
         source, attempt = self.source_and_attempt(suffix)
-        attempt = dataclasses.replace(attempt, dispatch_authorized=authorized)
+        attempt = dataclasses.replace(
+            attempt,
+            dispatch_authorized=authorized,
+            plan_fingerprint=plan_fingerprint or attempt.plan_fingerprint,
+        )
         return SubscriptionDDispatch(self.dsn).run_once(
             source=source,
             attempt=attempt,
@@ -291,6 +296,16 @@ class SubscriptionDPgTests(unittest.TestCase):
         newer = self.dispatch(suffix="b")
         self.assertNotEqual(first.receipt_id, newer.receipt_id)
         self.assertEqual(self.scalar("SELECT count(*) FROM provider_receipt"), "2")
+
+    def test_replay_of_same_attempt_with_different_plan_is_held(self):
+        first = self.dispatch()
+        self.assertEqual(first.status, "RECONCILED")
+        replay = self.dispatch(
+            plan_fingerprint="c" * 64,
+            provider=lambda: self.fail("different plan replay dispatched POST"),
+        )
+        self.assertEqual(replay.status, "WAIT_EXTERNAL")
+        self.assertEqual(replay.reason_code, "SUBSCRIPTION_RECEIPT_CONFLICT")
 
 
 if __name__ == "__main__":

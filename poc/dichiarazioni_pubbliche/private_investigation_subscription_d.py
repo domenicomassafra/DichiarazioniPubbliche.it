@@ -203,6 +203,7 @@ class SubscriptionDDispatch(PsqlRuntime):
         )
         scope = {
             "attempt_id": attempt.attempt_id,
+            "plan_fingerprint": attempt.plan_fingerprint,
             "source_sha256": source.source_sha256,
             "source_version": source.source_version,
             "rights_record_id": rights_record_id,
@@ -391,6 +392,7 @@ class SubscriptionDDispatch(PsqlRuntime):
             old = rows[0]
             for field in (
                 "attempt_id",
+                "plan_fingerprint",
                 "source_sha256",
                 "source_version",
                 "rights_record_id",
