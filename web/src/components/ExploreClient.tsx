@@ -24,6 +24,7 @@ type SortOrder = "relevance" | "recent" | "old";
 
 const kindLabels: Record<SearchRecordKind, string> = {
   finding: "Dichiarazione",
+  statement: "Dichiarazione originale",
   content: "Contenuto",
   person: "Persona",
   topic: "Tema",
@@ -123,10 +124,7 @@ function nearbyPublicWord(typed: string, candidate: string, limit: number): bool
   return previous[candidate.length] <= limit;
 }
 
-/**
- * Suggestions are optional queries from the verified public search vocabulary.
- * They do not change the query, score people, or extend DP-409's matching rules.
- */
+/** Suggestion terms come only from the current verified public index. */
 export function getExploreSuggestions(
   index: PublicSearchIndex,
   rawQuery: string,
@@ -135,10 +133,9 @@ export function getExploreSuggestions(
   if (!rawQuery.trim() || [...rawQuery].length > SEARCH_QUERY_MAX_CHARS) return [];
 
   const words = new Set<string>();
-  // Reserve a bounded share for each public type so a large Content catalog
-  // cannot crowd out Declaration, Person or Topic suggestions.
+  // Bound candidates per public kind to prevent catalog domination.
   const collected: Record<SearchRecordKind, number> = {
-    finding: 0, content: 0, person: 0, topic: 0,
+    finding: 0, statement: 0, content: 0, person: 0, topic: 0,
   };
   const kind = filters.kind ?? "ALL";
   const assessment = filters.assessment ?? "ALL";
@@ -151,7 +148,7 @@ export function getExploreSuggestions(
     if ((kind !== "ALL" && record.kind !== kind) ||
         (assessment !== "ALL" && record.assessment !== assessment) ||
         (personId !== "ALL" &&
-          (record.kind !== "finding" || record.person_id !== personId)) ||
+          ((record.kind !== "finding" && record.kind !== "statement") || record.person_id !== personId)) ||
         (topicId !== "ALL" &&
           (record.kind !== "finding" || !record.topic_ids?.includes(topicId)))) {
       continue;
@@ -288,6 +285,7 @@ export default function ExploreClient({ expectedProjectionSha256 }: Props) {
     const counts: Record<SearchRecordKind | "ALL", number> = {
       ALL: 0,
       finding: 0,
+      statement: 0,
       person: 0,
       topic: 0,
       content: 0,

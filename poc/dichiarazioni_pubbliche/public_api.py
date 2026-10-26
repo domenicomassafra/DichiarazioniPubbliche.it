@@ -665,6 +665,7 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
         if not configured:
             raise _unavailable()
         path = configured
+    from .public_person_v3_api import require_v3_compatible_projection
     resolved = Path(path)
     try:
         stat = resolved.stat()
@@ -676,15 +677,13 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
         with _LOCK:
             cached = _CACHE.get(key)
         if cached is not None and cached[0] == stamp:
-            # A revoker can atomically replace the projection after the first
-            # stat and before this cached read returns. Refuse the raced read
-            # (including conditional 304), rather than reuse the old payload.
+            # Reject a replaced projection before reusing a cached snapshot.
             try:
                 if _projection_file_stamp(resolved.stat()) != stamp:
                     raise _unavailable()
             except OSError as exc:
                 raise _unavailable() from exc
-            return cached[1]
+            return require_v3_compatible_projection(cached[1])
     try:
         raw = resolved.read_bytes()
         # A concurrent atomic replacement during the read must not attach
@@ -707,7 +706,7 @@ def load_index(path: str | os.PathLike[str] | None, *, use_cache: bool = True) -
     if use_cache:
         with _LOCK:
             _CACHE[key] = (stamp, index)
-    return index
+    return require_v3_compatible_projection(index)
 
 
 def projection_path_from_env() -> str | None:
@@ -941,21 +940,8 @@ def list_records(index: PublicIndex) -> list[dict[str, Any]]:
 
 
 def list_people(index: PublicIndex) -> list[dict[str, Any]]:
-    rows = [
-        {
-            "person_id": person_id,
-            "name": person["name"],
-            "finding_count": person["finding_count"],
-            # `topics` is the compatibility alias from the draft pre-DP-430
-            # contract; it means claim-type codes and is explicitly deprecated.
-            "topics": person["claim_types"],
-            "claim_types": person["claim_types"],
-            "subject_topic_ids": person["topic_ids"],
-        }
-        for person_id, person in index.people.items()
-    ]
-    rows.sort(key=lambda row: row["person_id"])
-    return rows
+    from .public_person_v3_api import legacy_people
+    return legacy_people(index)
 
 
 def list_topics(index: PublicIndex) -> list[dict[str, Any]]:
@@ -1107,10 +1093,8 @@ def _h_records(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
 
 
 def _h_people(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
-    validate_params(params)
-    items = list_people(index)
-    return _envelope(index, items, {"count": len(items), "link": f"{API_BASE_PATH}/people"})
-
+    from .public_person_v3_api import people_response
+    return people_response(index, params)
 
 def _h_health(index: PublicIndex, params: dict[str, str]) -> dict[str, Any]:
     validate_params(params)
@@ -1237,6 +1221,10 @@ def match_route(path: str) -> tuple[Route, dict[str, str]]:
     normalized = path if path.startswith("/") else "/" + path
     if normalized.endswith("/") and len(normalized) > 1:
         normalized = normalized.rstrip("/")
+    from .public_person_v3_api import optional_person_route
+    optional = optional_person_route(normalized)
+    if optional is not None:
+        return optional
     segments = [segment for segment in normalized.split("/") if segment != ""]
     for route in ROUTES:
         route_segments = [s for s in route.pattern.split("/") if s != ""]
@@ -1765,6 +1753,10 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
                 pinned_root_fd = current_fd
                 stack.callback(os.close, current_fd)
                 parts = relative.parts
+                from .public_person_v3_api import static_person_release_current
+                if not static_person_release_current(parts, pinned_root_fd):
+                    self._static_not_found()
+                    return
                 for component in parts[:-1]:
                     current_fd = os.open(component, directory_flags, dir_fd=current_fd)
                     stack.callback(os.close, current_fd)

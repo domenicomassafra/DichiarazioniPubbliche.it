@@ -111,6 +111,9 @@ jobs:
           DP514_CI_PG_WAIT_WITNESS: "1"
         run: PYTHONPATH=poc python -m unittest discover -s tests -v
 
+      - name: DP438 public Person API, rotated rights pins and static withdrawal
+        run: PYTHONPATH=poc python -m unittest tests.test_dp438_public_person_api -v
+
       - name: Real JFK Ogg to disposable PostgreSQL and private HTTP acceptance
         shell: bash
         run: |
@@ -240,6 +243,14 @@ jobs:
       - name: Statement v3 API to frontend contract (synthetic release)
         working-directory: web
         run: node --experimental-strip-types scripts/check-statement-v3-api.mjs
+
+      - name: DP438 first-class Person public route/index/sitemap and withdrawal
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-dp438-public-consumer-v3.mjs
+
+      - name: DP438 explicit rollback with retained v3 release paths
+        working-directory: web
+        run: node --experimental-strip-types scripts/check-dp438-optout-v3.mjs
 
       - name: Reviewed relation copy cannot infer positions
         working-directory: web

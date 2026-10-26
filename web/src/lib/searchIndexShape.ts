@@ -1,4 +1,5 @@
-import type { PublicSearchIndex, PublicSearchRecord } from "./searchIndex.ts";
+import type { PublicSearchIndex, PublicSearchRecord, SearchRecordKind } from "./searchIndex.ts";
+import { publicIdSlug } from "./format.ts";
 
 const INDEX_FIELDS = new Set([
   "schema_version", "projection_schema_version", "projection_sha256",
@@ -10,7 +11,7 @@ const RECORD_FIELDS = new Set([
   "source_wording_type", "direct_quote_eligible", "primary_terms",
   "secondary_terms", "person_id", "topic_ids",
 ]);
-const KINDS = new Set(["finding", "content", "person", "topic"]);
+const KINDS = new Set(["finding", "statement", "content", "person", "topic"]);
 const ASSESSMENTS = new Set([
   "SUPPORTED", "FACTUALLY_FALSE", "OUTDATED_DATA",
   "INSUFFICIENT_EVIDENCE", "UNRESOLVED",
@@ -59,4 +60,22 @@ export function assertSearchIndexShape(index: PublicSearchIndex): void {
   if (!index.records.every(isDisplaySafeRecord)) {
     throw new Error("SEARCH_INDEX_RECORD_INVALID");
   }
+}
+
+const ROUTE_BY_KIND: Record<SearchRecordKind, RegExp> = {
+  finding: /^\/dichiarazioni\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  statement: /^\/dichiarazioni\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  person: /^\/persone\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  topic: /^\/temi\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+  content: /^\/contenuti\/[a-z0-9]+(?:-[a-z0-9]+)*\/$/,
+};
+
+export function hasCanonicalSearchRoute(record: PublicSearchRecord): boolean {
+  if (!KINDS.has(record.kind) || typeof record.route !== "string") return false;
+  if (!ROUTE_BY_KIND[record.kind].test(record.route)) return false;
+  // Stable Person/Finding routes cannot be rebound by a self-hashed asset.
+  return (record.kind !== "person" && record.kind !== "finding" && record.kind !== "statement") ||
+    record.route === (record.kind === "person"
+      ? "/persone/" + publicIdSlug(record.id) + "/"
+      : "/dichiarazioni/" + publicIdSlug(record.id) + "/");
 }

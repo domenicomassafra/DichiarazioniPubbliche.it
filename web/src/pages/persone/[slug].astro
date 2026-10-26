@@ -1,10 +1,24 @@
 ---
 import PersonRecord from "../../components/PersonRecord.astro";
+import PublicPersonArchiveV3 from "../../components/PublicPersonArchiveV3.astro";
 import { speakerSlug } from "../../lib/format";
 import { loadPublicProjection } from "../../lib/projection";
+import { loadPublishedPeopleV3 } from "../../lib/publishedPeopleV3";
 import type { PublicDossier } from "../../lib/types";
+import type { ApprovedPersonV3Collection } from "../../lib/publicPersonV3";
 
 export async function getStaticPaths() {
+  const released = await loadPublishedPeopleV3();
+  if (released) {
+    return released.people.map(person => ({
+      params: { slug: person.slug },
+      props: {
+        collection: released.collection,
+        identifier: person.person_id,
+        expectedCollectionSha256: released.pins.personSha256,
+      },
+    }));
+  }
   const projection = await loadPublicProjection();
   const groups = new Map<string, PublicDossier[]>();
   for (const dossier of projection.dossiers) {
@@ -14,8 +28,15 @@ export async function getStaticPaths() {
   return [...groups.entries()].map(([slug, dossiers]) => ({ params: { slug }, props: { dossiers } }));
 }
 
-interface Props { dossiers: PublicDossier[] }
-const { dossiers } = Astro.props;
+interface Props {
+  dossiers?: PublicDossier[];
+  collection?: ApprovedPersonV3Collection;
+  identifier?: string;
+  expectedCollectionSha256?: string;
+}
+const { dossiers = [], collection, identifier, expectedCollectionSha256 } = Astro.props;
 ---
 
-<PersonRecord dossiers={dossiers} />
+{collection && identifier && expectedCollectionSha256
+  ? <PublicPersonArchiveV3 collection={collection} identifier={identifier} expectedCollectionSha256={expectedCollectionSha256} allowPersonV3 />
+  : <PersonRecord dossiers={dossiers} />}
