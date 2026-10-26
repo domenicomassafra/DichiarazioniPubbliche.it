@@ -52,11 +52,14 @@ remain distinct `NOT_CHECKED` entries in the planner and consumer readback.
 No extra source was queried or counted as negative evidence. The official
 GitHub file page, raw endpoint, repository tree entry and any copy of those
 same bytes all derive from **one Senato origin**; they are **mirrors**, not
-independent corroboration. The planner now counts only distinct lineage IDs
-outside the original/official baseline for an independently reviewed
-alternative candidate. A separate outlet needs its own real source, bounded
-assignment, current rights and independently verified lineage before it can
-be counted. No synthetic publisher or invented reviewer is used here.
+independent corroboration. A different lineage label, review event or body
+hash alone cannot prove independence: a separate publisher could reproduce
+the same underlying reporting. The private planner therefore retains such
+candidates as `DEPENDENT_OR_UNCORROBORATED`, with zero *proven* independent
+lineages. A separate outlet needs its own real source, bounded assignment,
+current rights and an independently verified origin/dependency record before
+it can be counted. This planner has no such proof interface yet. No synthetic
+publisher or invented reviewer is used here.
 The pure planner additionally refuses fabricated completion receipts for
 `BLOCKED` assignments and assignments with zero executable query/result/host
 capacity, matching the durable reservation fence; such rows can never

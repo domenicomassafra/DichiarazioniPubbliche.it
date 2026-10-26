@@ -150,21 +150,16 @@ def _coverage(
     observations: tuple[InvestigationObservation, ...],
 ) -> tuple[InvestigationLaneCoverage, ...]:
     """Never treat a missing lane, a refusal or a mirror as completed checking."""
-    by_id = {row.assignment_id: row for row in assignments}
     completed = {row.assignment_id: row for row in observations}
-    baseline = {
-        row.lineage_id for row in observations
-        if row.result == "REVIEWED_SOURCE_CANDIDATE"
-        and by_id[row.assignment_id].lane in (
-            _COVERAGE_LANES["ORIGINAL"] | _COVERAGE_LANES["OFFICIAL"]
-        )
-    }
     result = []
     for stage, accepted_lanes in _COVERAGE_LANES.items():
         planned = tuple(row for row in assignments if row.lane in accepted_lanes)
         seen = tuple(completed[row.assignment_id] for row in planned if row.assignment_id in completed)
         candidates = {row.lineage_id for row in seen if row.result == "REVIEWED_SOURCE_CANDIDATE"}
-        independent = len(candidates - baseline) if stage == "INDEPENDENT" and baseline else 0
+        # The planner receives opaque lineage strings, hashes and review IDs.
+        # Even distinct values cannot prove an outlet did not copy another:
+        # only independently verified origin/dependency evidence could do so.
+        independent = 0
         if not planned:
             status, reason = "NOT_CHECKED", "INVESTIGATION_NO_AUTHORIZED_ASSIGNMENT"
         elif any(row.status == "BLOCKED" for row in planned):
@@ -174,9 +169,7 @@ def _coverage(
         elif candidates:
             if stage == "INDEPENDENT":
                 status, reason = (
-                    ("INDEPENDENT_CANDIDATE", "INVESTIGATION_DISTINCT_LINEAGE")
-                    if independent else
-                    ("DEPENDENT_OR_UNCORROBORATED", "INVESTIGATION_NO_DISTINCT_INDEPENDENT_LINEAGE")
+                    "DEPENDENT_OR_UNCORROBORATED", "INVESTIGATION_ORIGIN_INDEPENDENCE_UNPROVED"
                 )
             else:
                 status, reason = "SOURCE_CANDIDATE", "INVESTIGATION_SOURCE_ONLY"

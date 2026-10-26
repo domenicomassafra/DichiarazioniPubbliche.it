@@ -255,9 +255,33 @@ class PrivateInvestigationAttemptTests(unittest.TestCase):
         truly_distinct = decision((original, replace(mirror, lineage_id="origin:independent:456")),
                                   s=s, assignments=rows)
         independent = next(x for x in truly_distinct.coverage if x.lane == "INDEPENDENT")
-        self.assertEqual(independent.status, "INDEPENDENT_CANDIDATE")
-        self.assertEqual(independent.independent_lineages, 1)
+        self.assertEqual(independent.status, "DEPENDENT_OR_UNCORROBORATED")
+        self.assertEqual(independent.independent_lineages, 0)
         self.assertEqual(truly_distinct.independent_reviewed_lineages, 2)
+
+    def test_distinct_lineage_label_without_origin_proof_cannot_claim_independence(self):
+        rows = (assignment("PRIMARY_SOURCE"), assignment("INDEPENDENT_REPORTING"))
+        s = spec(max_attempts=2)
+        first = decision(s=s, assignments=rows)
+        alleged_independent = receipt(
+            first, lane=rows[1].lane, result="REVIEWED_SOURCE_CANDIDATE",
+            lineage_id="origin:allegedly-independent:456", source_version="version:2",
+            source_sha256="b" * 64, review_event_id="review:2",
+        )
+        original_id = "investigation-attempt:" + _hash({
+            "plan": first.plan_fingerprint, "assignment": rows[0].assignment_id,
+            "material": s.material_fingerprint,
+        })
+        original = replace(
+            alleged_independent, attempt_id=original_id,
+            assignment_id=rows[0].assignment_id, lane=rows[0].lane,
+            lineage_id="origin:official:123", source_version="version:1",
+            source_sha256="a" * 64, review_event_id="review:1",
+        )
+        finished = decision((original, alleged_independent), s=s, assignments=rows)
+        independent = next(row for row in finished.coverage if row.lane == "INDEPENDENT")
+        self.assertEqual(independent.status, "DEPENDENT_OR_UNCORROBORATED")
+        self.assertEqual(independent.independent_lineages, 0)
 
     def test_reviewed_locator_only_yields_private_candidate_not_truth_or_rights(self):
         first = decision()
