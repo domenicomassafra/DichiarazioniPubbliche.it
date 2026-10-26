@@ -216,6 +216,18 @@ class AutonomousOperationsTests(unittest.TestCase):
         ops.evaluate_and_apply("finding:413", now=NOW)
         self.assertEqual(nightly_sample(journal.events, date(2026, 10, 25)), ())
 
+    def test_nightly_sample_includes_republished_item_at_same_instant(self):
+        ops, _, hold, _, _, _, journal = harness()
+        ops.evaluate_and_apply("finding:413", now=NOW)
+        hold.held = True
+        ops.evaluate_and_apply("finding:413", now=NOW)
+        hold.held = False
+        ops.evaluate_and_apply("finding:413", now=NOW)
+        self.assertEqual(
+            daily_metrics(journal.events, NOW.date(), corrections=())["published"], 1
+        )
+        self.assertEqual(nightly_sample(journal.events, NOW.date()), ("finding:413",))
+
     def test_nightly_sample_rechecks_old_publications_on_subsequent_days(self):
         ops, _, _, _, _, _, journal = harness()
         ops.evaluate_and_apply("finding:413", now=NOW - timedelta(days=3))

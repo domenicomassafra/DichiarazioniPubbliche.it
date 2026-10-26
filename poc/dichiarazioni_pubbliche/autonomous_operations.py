@@ -390,21 +390,15 @@ def nightly_sample(events: object, day: date) -> tuple[str, ...]:
     """Deterministic 10% sample (at least one) of the current public corpus.
 
     Source/subject names and other private fields never enter the sample list.
-    Its stable hash orders records regardless of query/ledger read order.
+    Journal append order breaks ties at identical timestamps, as in daily_metrics.
+    Its stable hash makes selection independent of corpus enumeration order.
     """
     latest: dict[str, RunReceipt] = {}
     history = (
         event for event in events if isinstance(event, RunReceipt)
         and event.at.astimezone(timezone.utc).date() <= day
     )
-    for event in sorted(
-        history,
-        key=lambda e: (
-            e.at, e.record_id,
-            {"PUBLISH": 1, "HOLD": 2, "AUDIT_HOLD": 3}.get(e.disposition, 0),
-            e.evidence_sha256 or "",
-        ),
-    ):
+    for event in sorted(history, key=lambda e: e.at):
         if event.disposition in {"PUBLISH", "HOLD", "AUDIT_HOLD"}:
             latest[event.record_id] = event
     eligible = [
