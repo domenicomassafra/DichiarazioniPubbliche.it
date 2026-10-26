@@ -71,8 +71,8 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         (root / "static").mkdir()
         (root / "static" / "index.html").write_text("published item", encoding="utf-8")
         (root / "static" / "correzioni").mkdir()
-        (root / "static" / "correzioni" / "index.html").write_text("correction form", encoding="utf-8")
-        for path in ("accedi", "privacy"):
+        (root / "static" / "correzioni" / "index.html").write_text("stale contested correction register", encoding="utf-8")
+        for path in ("accedi", "privacy", "segnalazioni"):
             (root / "static" / path).mkdir()
             (root / "static" / path / "index.html").write_text("private contact link", encoding="utf-8")
         dossier = fictional_dossier()
@@ -147,7 +147,8 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(len(self.purges), 1)
         self.assertEqual(self.request("GET", "/api/v1/index.json")[0], 503)
         self.assertEqual(self.request("GET", "/")[0], 503)
-        self.assertEqual(self.request("GET", "/correzioni/")[0], 200)
+        self.assertEqual(self.request("GET", "/correzioni/")[0], 503)
+        self.assertEqual(self.request("GET", "/segnalazioni/")[0], 200)
         self.assertEqual(self.request("GET", "/accedi/")[0], 200)
         self.assertEqual(self.request("GET", "/privacy/")[0], 200)
 

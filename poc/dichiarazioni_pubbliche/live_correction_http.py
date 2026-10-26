@@ -95,7 +95,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
 
     def _serve_public(self, method: str) -> None:
         path = urlsplit(self.path).path
-        contact_routes = {"/correzioni", "/correzioni/", "/privacy", "/privacy/", "/accedi", "/accedi/"}
+        contact_routes = {"/segnalazioni", "/segnalazioni/", "/privacy", "/privacy/", "/accedi", "/accedi/"}
         if self._is_account_path() or path.startswith("/account/") or path in contact_routes:
             return super().do_GET() if method == "GET" else super().do_HEAD()
         with type(self).correction_lock:

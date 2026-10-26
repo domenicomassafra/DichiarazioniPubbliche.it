@@ -16,20 +16,7 @@ const entries = projection.dossiers
 
 <BaseLayout title="Correzioni" description="Registro cronologico delle correzioni pubblicate da Dichiarazioni Pubbliche." canonicalPath="/correzioni/">
   <UtilityDocument eyebrow="Correzioni" title="Gli errori si correggono. La storia resta." lede="Qui raccogliamo le correzioni pubblicate e le colleghiamo alle schede originali, senza cancellare silenziosamente le versioni precedenti.">
-    <section class="dp-utility-section" aria-labelledby="richiedi-rettifica">
-      <h2 id="richiedi-rettifica">Segnala una rettifica o un problema di privacy</h2>
-      <p>Se una dichiarazione pubblicata è inesatta o espone dati che non dovrebbero comparire, puoi segnalarla. La richiesta verificata sospende subito la pubblicazione mentre parte una nuova analisi automatica. Per inviarla devi accedere con un account verificato.</p>
-      <form id="correction-request" method="post" action="/intake/corrections">
-        <p><label for="correction-finding">ID della verifica pubblicata</label></p>
-        <p><input id="correction-finding" name="finding_id" type="text" maxlength="128" required autocomplete="off" placeholder="finding:…" /></p>
-        <p><label for="correction-reason">Cosa va corretto e perché?</label></p>
-        <p><textarea id="correction-reason" name="reason" minlength="3" maxlength="4000" required rows="5" placeholder="Indica la fonte originale o il problema di privacy, evitando di scrivere dati sensibili non necessari."></textarea></p>
-        <p><button type="submit">Invia la segnalazione</button></p>
-        <p id="correction-result" role="status" aria-live="polite"></p>
-        <p><a href="/accedi/">Accedi al sito</a> · <a href="/privacy/">Informazioni sulle segnalazioni privacy</a></p>
-      </form>
-      <p>Conserva l'ID ricevuto: serve per verificare online l'esito della richiesta. Un errore nell'invio significa che la rettifica non è stata confermata. Le segnalazioni non vengono mostrate pubblicamente.</p>
-    </section>
+    <p><a href="/segnalazioni/">Invia una rettifica o una segnalazione privacy</a></p>
     {entries.length === 0 ? (
       <section class="dp-utility-empty" aria-labelledby="correzioni-vuote">
         <h2 id="correzioni-vuote">Nessuna correzione pubblicata.</h2>
@@ -53,49 +40,3 @@ const entries = projection.dossiers
     )}
   </UtilityDocument>
 </BaseLayout>
-
-<script is:inline>
-  const form = document.querySelector("#correction-request");
-  const result = document.querySelector("#correction-result");
-  form?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!result || !form) return;
-    result.replaceChildren(document.createTextNode("Invio in corso…"));
-    const button = form.querySelector("button[type=submit]");
-    if (button) button.disabled = true;
-    try {
-      const session = await fetch("/account/api/session", { credentials: "same-origin", cache: "no-store" });
-      if (!session.ok) {
-        result.textContent = "Per inviare la richiesta devi prima accedere al sito.";
-        return;
-      }
-      const identity = await session.json();
-      if (typeof identity.csrf !== "string") throw new Error("SESSION_UNAVAILABLE");
-      const payload = {
-        finding_id: String(new FormData(form).get("finding_id") || "").trim(),
-        reason: String(new FormData(form).get("reason") || "").trim(),
-      };
-      const response = await fetch("/intake/corrections", {
-        method: "POST", credentials: "same-origin", cache: "no-store",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": identity.csrf },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (response.status === 202 && typeof data.request_id === "string") {
-        result.replaceChildren(document.createTextNode("Rettifica in HOLD. ID: " + data.request_id + " — "));
-        const link = document.createElement("a");
-        link.href = "/intake/corrections/" + encodeURIComponent(data.request_id);
-        link.textContent = "Verifica lo stato";
-        result.append(link);
-      } else {
-        result.textContent = response.status === 409
-          ? "Questa verifica è già sospesa in attesa della revisione."
-          : "Invio non confermato. Verifica l'accesso e riprova.";
-      }
-    } catch {
-      result.textContent = "Servizio momentaneamente non disponibile. La richiesta non è stata confermata.";
-    } finally {
-      if (button) button.disabled = false;
-    }
-  });
-</script>

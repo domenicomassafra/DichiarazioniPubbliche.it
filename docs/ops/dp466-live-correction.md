@@ -8,8 +8,9 @@ readbacks** (`/`, `/api/v1/index.json`, and the finding resource) have HTTP 503
 with `Cache-Control: no-store`. Only then does it return HTTP 202 with a stable
 request ID. The submitter may read `/intake/corrections/<request-id>` with the
 same authenticated account; another account receives 404. Requests, reasons and
-OIDC subject hashes remain private. The public `/correzioni/` form remains
-reachable while the public projection is fenced.
+OIDC subject hashes remain private. The standalone, unindexed
+`/segnalazioni/` form remains reachable while the published correction
+register at `/correzioni/` is fenced with the rest of the projection.
 
 Each authenticated account is limited to two attempts per minute, and the
 entire listener to four per minute. `SqliteCorrectionQuota` atomically reserves

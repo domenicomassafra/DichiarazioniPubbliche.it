@@ -20,7 +20,7 @@ from typing import Mapping
 
 
 PUBLIC_ROUTES = ("/", "/esplora/", "/metodo/", "/correzioni/", "/dati/", "/progetto/")
-PRIVATE_UTILITY_ROUTES = ("/accedi/", "/account/", "/privacy/")
+PRIVATE_UTILITY_ROUTES = ("/accedi/", "/account/", "/privacy/", "/segnalazioni/")
 PUBLIC_BASE = "https://dichiarazionipubbliche.it"
 PUBLIC_SCHEMA = "dichiarazioni-pubbliche-public-v2"
 SEARCH_SCHEMA = "dichiarazioni-pubbliche-search-index-v1"
