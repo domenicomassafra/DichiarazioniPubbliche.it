@@ -44,7 +44,8 @@ class PrivateReleaseReadbackResponseTests(unittest.TestCase):
     def read(self, response: dict[str, object]):
         return FixtureReadback(response).read_private_reference(
             release_id="release:current", index_sha256=INDEX,
-            projection_sha256=PROJECTION, expected_revision=3,
+            projection_sha256=PROJECTION, generation_sha256=GENERATION,
+            expected_revision=3,
         )
 
     def test_coherent_result_is_private_only(self):
@@ -53,6 +54,12 @@ class PrivateReleaseReadbackResponseTests(unittest.TestCase):
         self.assertFalse(receipt.publication_authorized)
         self.assertFalse(receipt.host_ack_verified)
         self.assertFalse(receipt.cdn_ack_verified)
+
+    def test_changed_generation_cannot_claim_same_private_release(self):
+        response = self.response()
+        response["generation_hash"] = "f" * 64
+        with self.assertRaisesRegex(RuntimeError, "DP518_RESPONSE_UNSAFE"):
+            self.read(response)
 
     def test_conflicting_current_pointer_or_digest_cannot_claim_coherence(self):
         for field, wrong_value in (

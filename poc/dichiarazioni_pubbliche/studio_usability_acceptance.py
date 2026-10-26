@@ -81,12 +81,14 @@ FROM jsonb_to_recordset(:'observations'::jsonb) AS observation(
     statement_candidate_id text, rights_record_id text, coverage_need_id text
 )
 WHERE (
-    observation.coverage_need_id IS NOT NULL
+    observation.task_id='coverage-gap'
+    AND observation.coverage_need_id IS NOT NULL
     AND EXISTS (SELECT 1 FROM coverage_need need
                 WHERE need.id=observation.coverage_need_id
                   AND need.collection_id='research:garlasco')
 ) OR (
-    observation.coverage_need_id IS NULL
+    observation.task_id<>'coverage-gap'
+    AND observation.coverage_need_id IS NULL
     AND EXISTS (
         SELECT 1 FROM research_collection_content member
         JOIN content_item item ON item.id=member.content_id
@@ -200,6 +202,8 @@ def _observed_pass(observed: object, task: Mapping[str, Any], max_actions: int) 
     if "collection_coverage_needs" in task["requires"]:
         need_id = observed.get("coverage_need_id")
         return isinstance(need_id, str) and bool(_COVERAGE_NEED.fullmatch(need_id))
+    if "coverage_need_id" in observed:
+        return False
     if (
         not isinstance(observed.get("source_id"), str)
         or not _IDENTITY.fullmatch(observed["source_id"])
