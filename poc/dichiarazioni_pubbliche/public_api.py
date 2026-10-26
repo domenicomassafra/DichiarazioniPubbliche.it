@@ -1495,8 +1495,8 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_message(self, format: str, *args: Any) -> None:
-        # A request line, a rejected path, or an error message may carry a
-        # private OAuth code or query. Redact every verbose HTTP log entry.
+        # Python 3.15 caches the raw request line separately.
+        self._log_request_info = None
         if not self.quiet:
             super().log_message("request [path and query redacted]")
 
