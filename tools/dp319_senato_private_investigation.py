@@ -351,7 +351,9 @@ def main() -> int:
         result = run(args.database_url, args.ledger, args.storage_root)
     except (SourceUseBlocked, ValueError) as exc:
         code = str(exc)
-        if not code.startswith(
+        if code == "INVESTIGATION_STORE_SOURCE_SCOPE_ALREADY_RESERVED":
+            code = "SOURCE_SCOPE_ALREADY_RESERVED"
+        elif not code.startswith(
             (
                 "SOURCE_USE_",
                 "DP319_RIGHTS_",
