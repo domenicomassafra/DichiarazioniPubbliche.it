@@ -35,6 +35,20 @@ class IssueWorkflowTests(unittest.TestCase):
             )),
             (),
         )
+        self.assertEqual(
+            validate_mock_issue(MockIssue(
+                "DP-606: new GitHub issue without archived ticket linkage", "", "safe",
+                ("maintenance", "needs-triage"),
+            )),
+            (),
+        )
+        self.assertEqual(
+            validate_mock_issue(MockIssue(
+                "Native GitHub title with an existing historical spec", "DP-606", "safe",
+                ("maintenance", "needs-triage"),
+            )),
+            (),
+        )
         for template in ("bug_report.yml", "feature_request.yml"):
             text = (ROOT / ".github/ISSUE_TEMPLATE" / template).read_text()
             self.assertNotIn('title: "DP-###:', text)

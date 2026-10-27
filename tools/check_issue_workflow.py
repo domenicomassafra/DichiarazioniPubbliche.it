@@ -157,11 +157,9 @@ def validate_mock_issue(issue: MockIssue) -> tuple[str, ...]:
     problems: list[str] = []
     title_match = DP_TITLE.match(issue.title.strip())
     ticket_id = issue.ticket_id.strip()
-    if ticket_id and not title_match:
-        problems.append("ISSUE_TITLE_TICKET_PREFIX_REQUIRED")
     if ticket_id and (not DP_ID.fullmatch(ticket_id) or not _ticket_exists(ticket_id)):
         problems.append("ISSUE_TICKET_LINK_INVALID")
-    if title_match and title_match.group(1) != ticket_id:
+    if title_match and ticket_id and title_match.group(1) != ticket_id:
         problems.append("ISSUE_TITLE_TICKET_MISMATCH")
     if issue.security_report:
         problems.append("SECURITY_REPORT_MUST_USE_PRIVATE_PATH")
@@ -206,7 +204,6 @@ def self_test() -> list[str]:
     if validate_mock_issue(valid):
         problems.append("mock: valid issue rejected")
     cases: Iterable[tuple[MockIssue, str]] = (
-        (MockIssue("bug: no ticket", "DP-606", "safe", ("bug",)), "ISSUE_TITLE_TICKET_PREFIX_REQUIRED"),
         (MockIssue("DP-999: bad", "DP-999", "safe", ("bug",)), "ISSUE_TICKET_LINK_INVALID"),
         (MockIssue("DP-606: mismatch", "DP-605", "safe", ("bug",)), "ISSUE_TITLE_TICKET_MISMATCH"),
         (MockIssue("DP-606: security", "DP-606", "safe", ("security-private",), True), "SECURITY_REPORT_MUST_USE_PRIVATE_PATH"),
