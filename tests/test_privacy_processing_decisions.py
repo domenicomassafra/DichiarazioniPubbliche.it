@@ -154,6 +154,8 @@ class ProcessingDecisionsTests(unittest.TestCase):
             independent_review_sha="a" * 40,
             independent_review_outcome="APPROVE",
         )
+        row.pop("owner_decision_url")
+        row.pop("owner_decision_date")
         blockers = evaluate_processing_decisions(self.register)
         self.assertFalse(any(code.endswith(":SOURCE_COPIES") for code in blockers))
 

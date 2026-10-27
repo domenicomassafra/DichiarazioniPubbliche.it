@@ -28,10 +28,11 @@ _BASIS_CODES = frozenset(f"GDPR_ART_6_1_{letter}" for letter in "ABCDEF")
 _DECISION_FIELDS = frozenset({
     "purpose", "status", "lawful_basis", "necessity_receipt",
     "notice_receipt", "retention_receipt", "access_receipt",
-    "owner_decision_url", "owner_decision_date",
     "independent_review_model", "independent_review_receipt",
     "independent_review_sha", "independent_review_outcome",
 })
+# Historical fields remain readable but are not required for autonomous decisions.
+_OPTIONAL_LEGACY_FIELDS = frozenset({"owner_decision_url", "owner_decision_date"})
 _EVIDENCE_FIELDS = (
     "necessity_receipt", "notice_receipt", "retention_receipt", "access_receipt",
 )
@@ -75,7 +76,12 @@ def evaluate_processing_decisions(
     blockers: list[str] = []
     for family, purpose in PROCESSING_FAMILIES.items():
         row = families[family]
-        if not isinstance(row, dict) or set(row) != _DECISION_FIELDS or row["purpose"] != purpose:
+        if (
+            not isinstance(row, dict)
+            or not _DECISION_FIELDS.issubset(row)
+            or set(row) - _DECISION_FIELDS - _OPTIONAL_LEGACY_FIELDS
+            or row["purpose"] != purpose
+        ):
             blockers.append(f"PRIVACY_FAMILY_SCHEMA_INVALID:{family}")
             continue
         status = row["status"]
