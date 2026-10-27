@@ -258,11 +258,7 @@ native task/result channels, not separate Prompt2Prompt response files. Produce
 one canonical ordered plan and requirement-to-ticket coverage without lost AC,
 duplicate work, fake DONE or unsupported claims of agents launched.
 
-**Historical pre-execution handoff (2026-10-10):** [one post-grilling master prompt](tasks/prompt2prompt/20261010-231757-backlog-post-grilling/lane-01-backlog-master/001-backlog-master.prompt.md)
-was prepared for owner launch in Chat On Steroids. Subsequent reconciliation
-did run and expanded the actual register to 162; use the live command above and
-the original ticket files for present execution authority. The prompt remains
-dated provenance, not an unexecuted instruction to repeat the expansion.
+**Historical execution context (2026-10-10):** The original post-grilling master prompt is retained in Git history. Its reconciliation expanded the ticket register to 162; the live status command and the original ticket files remain authoritative.
 
 ## Historical frozen checkpoint and explicit FUTURE queue — 2026-10-10 (125-ticket baseline)
 
@@ -307,7 +303,7 @@ accessibility/owner-signoff profile (DP-304/307/410/701/702) and an independentl
 approved projection; a synthetic empty-shape proof is not that approval.
 The existing website is hosted via Cloudflare Tunnel → MiniPC and can be online
 while serving an older build. Do not confuse GitHub CI/push with production rollout.
-See `HANDOFF.md` and `MEGA-HANDOFF-2026-10-10.md` for verified details.
+See AGENTS.md and docs/ops/operator-runbook.md for current verification procedures.
 
 
 ## Status vocabulary
@@ -1202,7 +1198,7 @@ contratto, privacy inventory, licenze, fixture, versioni, Ruff e diffcheck
 PASS. GH branch run solo repository contract, originali blocker invariati.
 
 Fonte operativa: [ricevuta esecutiva DP02](docs/reviews/2026-10-14-dp02-execution-closure.md),
-[handoff post-consolidamento](docs/reviews/2026-10-14-postconsolidation-handoff.md)
+resoconto post-consolidamento del 14 ottobre (disponibile nella cronologia Git)
 e ticket originari. Quattro worker CoS nativi hanno operato su verticali
 disgiunte con lease Git esclusiva per ogni commit; la lista dei commit e
 delle prove fresche è nella ricevuta, senza ledger parallelo. I ticket
