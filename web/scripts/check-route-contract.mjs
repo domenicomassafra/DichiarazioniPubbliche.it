@@ -99,10 +99,10 @@ const legacyToCanonical = new Map([
 
 // AC-422.1 also forbids introducing a public template without its own page
 // job. Canonical/self-linked HTML alone is not evidence that an extra route is
-// approved. Account is an independently authorized, noindex utility surface,
-// not a ninth primary public-record template.
+// approved. Account, privacy and correction intake are noindex utility surfaces,
+// not additional primary public-record templates.
 function assertKnownPublicPageFamilies(routes) {
-  const staticPages = new Set([...requiredStatic, "/accedi/", "/account/"]);
+  const staticPages = new Set([...requiredStatic, "/accedi/", "/account/", "/privacy/", "/segnalazioni/"]);
   const dynamicFamilies = [...kindToPrefix.values(), "/tracce/", ...legacyToCanonical.keys()];
   for (const route of routes) {
     assert(
@@ -136,6 +136,9 @@ for (const [route, html] of pages) {
       canonical.slice(canonicalPrefix.length),
       `${route}: legacy alias identifier differs from canonical target ${canonical}`,
     );
+    if (legacyPrefix === "/compare/" && demoSnapshot) {
+      assert.equal(html, pages.get(canonical), `${route}: demo Trace alias rendered differently from ${canonical}`);
+    }
     // The nested /record/person/ prefix precedes /record/: count and validate once.
     break;
   }
