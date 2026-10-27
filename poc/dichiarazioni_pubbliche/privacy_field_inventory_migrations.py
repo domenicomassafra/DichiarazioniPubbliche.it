@@ -22,6 +22,11 @@ _MIGRATIONS = (
          "autonomous_nightly_audit_complete"},
         "PRIVACY_DP413E_NIGHTLY_TABLE_DRIFT",
     ),
+    (
+        "20261026-add-camera-private-parse-attestation.sql",
+        {"private_camera_parse_attestation"},
+        "PRIVACY_DP449_CAMERA_PARSE_TABLE_DRIFT",
+    ),
 )
 
 
@@ -40,7 +45,7 @@ def register_versioned_privacy_migrations(
     return tuple(loaded)
 
 
-def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, nightly: dict) -> str:
+def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, nightly: dict, camera: dict) -> str:
     """Trace private columns to the reviewed schema or versioned migration."""
     if table == "public_schema_contract":
         return "20260926_PUBLIC_SCHEMA_CONTRACT_MIGRATION"
@@ -52,4 +57,6 @@ def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, n
         return "20261025_DP515_WATCH_MIGRATION"
     if table in nightly:
         return "20261026_DP413E_NIGHTLY_MIGRATION"
+    if table in camera:
+        return "20261026_DP449_CAMERA_PARSE_MIGRATION"
     return "CANONICAL_SCHEMA_V1"

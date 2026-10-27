@@ -37,9 +37,7 @@ _RELATION_POLICY_MIGRATION = ROOT / "db/migrations/20260926-add-relation-approva
 _MIGRATIONS_ROOT = ROOT / "db/migrations"
 _ACCOUNT_SOURCE = ROOT / "poc/dichiarazioni_pubbliche/public_account.py"
 
-# These are the fields emitted by the optional stdlib public HTTP access logger.
-# The entire request line is potentially identifying and can contain OAuth codes.
-# Neither its default-off state nor this inventory authorizes its use in production.
+# Optional HTTP logging remains private; the inventory grants no live approval.
 _RUNTIME_LOG_FIELDS = {
     "public_api_http_access_optional": (
         "client_address", "request_line", "response_code", "response_size", "timestamp"
@@ -171,8 +169,7 @@ def _check_literal_migration_coverage(tables: Mapping[str, tuple[str, ...]]) -> 
 
 
 def classify_field(table: str, column: str) -> str:
-    # Schema-name classifications cannot infer value-level traits. Ambiguous
-    # payloads stay private, never assigned public safety by a name heuristic.
+    # Ambiguous payloads remain private.
     if column in _IDENTITY_FIELDS or column.endswith(("_email", "_phone", "_contact")):
         return DataClass.HIGH_RISK_IDENTITY.value
     if column in _SENSITIVE_FIELDS:
@@ -392,7 +389,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
         raise FieldInventoryError("PRIVACY_LEGACY_RELATION_POLICY_SCOPE_DRIFT")
     tables["public_schema_contract"] = registry["public_schema_contract"]
     tables["claim_relation_candidate"] = (*tables["claim_relation_candidate"], "policy_version")
-    monthly, watch, nightly = register_versioned_privacy_migrations(
+    monthly, watch, nightly, camera = register_versioned_privacy_migrations(
         ROOT, tables, parse_schema_fields, FieldInventoryError,
     )
     _check_literal_migration_coverage(tables)
@@ -401,7 +398,7 @@ def make_inventory(schema: str) -> dict[str, Any]:
         fields = {}
         for column in columns:
             fields[column] = {
-                "schema_origin": privacy_schema_origin(table, column, monthly, watch, nightly),
+                "schema_origin": privacy_schema_origin(table, column, monthly, watch, nightly, camera),
                 "data_class": classify_field(table, column),
                 "purpose": "PERSISTED_PRODUCT_OPERATION_AND_PROVENANCE",
                 "access_role": "AUTHENTICATED_PRIVATE_OPERATOR",

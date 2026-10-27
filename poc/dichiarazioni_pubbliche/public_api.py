@@ -1495,20 +1495,10 @@ class PublicApiRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, **kwargs)
 
     def log_message(self, format: str, *args: Any) -> None:
-        if self.quiet:
-            return
-        # BaseHTTPRequestHandler.log_request interpolates the entire request
-        # line, including OAuth authorization code/state, into its access log.
-        # Never forward the original format/args if an account endpoint or ANY
-        # URL query is present: other public queries may hold PII as well.
-        # Also covers log_error/send_error and rejected/unknown account paths.
-        path = getattr(self, "path", "")
-        if path.startswith("/account/"):
-            super().log_message("account request [path and query redacted]")
-        elif "?" in path:
-            super().log_message("request [query redacted]")
-        else:
-            super().log_message(format, *args)
+        # Python 3.15 caches the raw request line separately.
+        self._log_request_info = None
+        if not self.quiet:
+            super().log_message("request [path and query redacted]")
 
     def _request_id(self) -> str:
         incoming = self.headers.get("X-Request-Id")

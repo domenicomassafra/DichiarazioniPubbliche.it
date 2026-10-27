@@ -12,7 +12,7 @@ import re
 from dichiarazioni_pubbliche.capture_pipeline import (
     ParseResult, ParsedSpan, _VisibleTextHTMLParser,
 )
-from dichiarazioni_pubbliche.source_watcher import FetchedBytes
+from dichiarazioni_pubbliche.source_watcher import FetchedBytes, fetch_bytes
 
 
 CAMERA_SOURCES = (
@@ -100,3 +100,24 @@ class CameraSpeechParser:
     def _hold(self, code: str) -> ParseResult:
         return ParseResult(status="FAILED", parser_method=self.parser_method,
                            parser_version=self.parser_version, error_category=code)
+
+
+def original_versions(authority):
+    """Independent bounded HTTPS acquisition, before any persistence."""
+    observations = []
+    for source in CAMERA_SOURCES:
+        fetched = fetch_bytes(source["url"], max_response_bytes=3_000_000)
+        sha = hashlib.sha256(fetched.body).hexdigest()
+        if ((not source.get("variable_html") and sha != source["sha256"])
+                or fetched.final_url != source["url"] or fetched.status_code != 200):
+            raise ValueError("DP426_ORIGINAL_VERSION_CHANGED")
+        content_id = f"content:garlasco:camera:{source['key']}"
+        if authority.inspect(
+            content_id=content_id, capture_sha256=sha, use="PARSE_TEXT",
+        )["permitted"] is not True:
+            raise ValueError("DP426_SIGNED_CAMERA_PARSE_AUTHORITY_REQUIRED")
+        parsed = CameraSpeechParser(source).parse(fetched)
+        if parsed.status != "SUCCEEDED" or len(parsed.spans) != 1:
+            raise ValueError("DP426_VERBATIM_SPEAKER_CHECK_FAILED")
+        observations.append(({**source, "sha256": sha}, fetched, parsed))
+    return observations

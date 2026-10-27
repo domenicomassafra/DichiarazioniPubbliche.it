@@ -43,6 +43,7 @@ _PRIVATE_STUDIO_READ_PATHS = frozenset({
     "/v1/collections/navigate",
     "/v1/recovery/observed",  # exact private journal readback, no mutation authority
     "/v1/source/exact-jump",
+    "/v1/rights/camera-parse-text",  # private authenticated read-only rights status
 })
 _STUDIO_PENDING_READ_ONLY_ADDITIONS = frozenset({
     "/v1/candidate/review-readiness",

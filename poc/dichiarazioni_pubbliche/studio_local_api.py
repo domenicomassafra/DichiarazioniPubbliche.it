@@ -13,17 +13,17 @@ import os
 import re
 import secrets
 import stat
-import subprocess
+import subprocess  # noqa: F401 - existing tests patch subprocess.run through this module
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Protocol
 
 from dichiarazioni_pubbliche.candidate_matching import CandidateMatchingStore
+from dichiarazioni_pubbliche.studio_candidate_decision_reader import _StudioDecisionReader
 from dichiarazioni_pubbliche.claim_promotion import ClaimPromotionStore
 from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineStore
 from dichiarazioni_pubbliche.corpus_search import CorpusSearchStore
-from dichiarazioni_pubbliche.queue_runtime import PsqlRuntime, _clean
 from dichiarazioni_pubbliche.studio_candidate_review import (
     inspect_candidate_match_run, inspect_candidate_review_readiness,
     inspect_persisted_review_handoff, LocalCandidateReviewHandoffQueue,
@@ -80,7 +80,7 @@ _ALLOWED_PATHS = frozenset({
     "/v1/discovery/coverage-queue",
     "/v1/discovery/inbox", "/v1/discovery/bulk-preview",
     "/v1/discovery/machine-preview", "/v1/candidate/machine-preview",
-    "/v1/recovery/observed",
+    "/v1/recovery/observed", "/v1/rights/camera-parse-text",
 })
 
 class _StudioCorpusReader(_StudioReadOnlyDb, CorpusSearchStore):
@@ -376,60 +376,6 @@ class _StudioCandidateReader(_StudioReadOnlyDb, CandidateMatchingStore):
     pass
 
 
-class _StudioDecisionReader(_StudioReadOnlyDb):
-    """DP418: optional historical PG receipt, never reviewer authorization.
-
-    No schema bootstrap here. Missing additive isolated decision table fails
-    503; actual writes require separate signed DP310 reviewer credentials.
-    """
-
-    def read_decision(self, *, candidate_id: str, run_id: str, passage_id: str,
-                      capture_id: str, request_key: str) -> dict[str, object]:
-        for value in (candidate_id, run_id, passage_id, capture_id, request_key):
-            if not isinstance(value, str) or not _STUDIO_REF.fullmatch(value) or ".." in value:
-                raise ValueError("STUDIO_DECISION_REF_INVALID")
-        from dichiarazioni_pubbliche.studio_candidate_decision_sql import READBACK_SQL
-
-        raw = self.run(
-            READBACK_SQL, candidate_id=candidate_id, run_id=run_id,
-            passage_id=passage_id, capture_id=capture_id, request_key=request_key,
-        )
-        if not raw:
-            raise ValueError("STUDIO_DECISION_NOT_FOUND")
-        try:
-            row = json.loads(raw)
-            expected = {"candidate_id", "run_id", "passage_id", "capture_id",
-                        "request_key", "decision", "revision", "receipt_sha256",
-                        "source_current"}
-            if not isinstance(row, dict) or set(row) != expected:
-                raise ValueError
-            if any(row[key] != value for key, value in {
-                    "candidate_id": candidate_id, "run_id": run_id,
-                    "passage_id": passage_id, "capture_id": capture_id,
-                    "request_key": request_key}.items()):
-                raise ValueError
-            if (row["decision"] not in {"HOLD", "REJECT", "REVIEW_CREATE", "REVIEW_LINK"}
-                    or type(row["revision"]) is not int or row["revision"] < 1
-                    or not isinstance(row["receipt_sha256"], str)
-                    or not _CAPTURE_SHA.fullmatch(row["receipt_sha256"])
-                    or type(row["source_current"]) is not bool):
-                raise ValueError
-        except (TypeError, KeyError, ValueError):
-            raise ValueError("STUDIO_DECISION_ROW_INVALID") from None
-        return {
-            "contract_version": "studio-candidate-decision-receipt-v1",
-            "private_only": True, "historical_only": True,
-            "candidate_id": candidate_id, "run_id": run_id,
-            "passage_id": passage_id, "capture_id": capture_id,
-            "request_key": request_key,
-            "decision": row["decision"], "revision": row["revision"],
-            "receipt_sha256": row["receipt_sha256"],
-            "status": ("HISTORICAL_SOURCE_CURRENT" if row["source_current"]
-                       else "HISTORICAL_SOURCE_WITHDRAWN"),
-            "review_authority": False, "promotion_authority": False,
-            "publication_authority": False, "rights_clearance": False,
-        }
-
 
 class _StudioPromotionContextReader(_StudioReadOnlyDb, ClaimPromotionStore):
     """DP-117 context is read under PG read-only settings, never writable HTTP."""
@@ -545,6 +491,7 @@ class StudioLocalReaders:
     recovery_observations: LocalObservedRecoveryJournal | None = None
     body_store: Any | None = None
     rights_reader: Any | None = None
+    camera_parse_rights: Any | None = None
 
 
 def _fields(body: dict[str, Any], *, required: set[str], optional: set[str] | None = None) -> None:
@@ -564,6 +511,9 @@ def _strict_json_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def _dispatch(readers: StudioLocalReaders, path: str, body: dict[str, Any]) -> dict[str, object]:
+    if path == "/v1/rights/camera-parse-text":
+        from dichiarazioni_pubbliche.studio_camera_parse_endpoint import inspect_camera_parse
+        return inspect_camera_parse(readers.camera_parse_rights, body)
     if path == "/v1/recovery/observed":
         _fields(body, required={"case_id"})
         if type(readers.recovery_observations) is not LocalObservedRecoveryJournal:
@@ -924,6 +874,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--token-file", required=True, type=Path)
     parser.add_argument("--port", type=int, default=18777)
     parser.add_argument("--capture-body-root", type=Path)
+    parser.add_argument("--camera-rights-authority-root", type=Path)
     parser.add_argument(
         "--handoff-root", type=Path,
         help="Optional existing private 0700 candidate handoff spool for read-only receipts",
@@ -941,6 +892,14 @@ def main(argv: list[str] | None = None) -> int:
         handoffs = LocalCandidateReviewHandoffQueue(args.handoff_root) if args.handoff_root else None
         recovery = (LocalObservedRecoveryJournal(args.recovery_observation_root)
                     if args.recovery_observation_root else None)
+        from dichiarazioni_pubbliche.camera_parse_authority import CameraParseAuthority
+        camera_authority = None
+        if args.camera_rights_authority_root:
+            from dichiarazioni_pubbliche.reviewer_identity_authority import LocalFileReviewerIdentityAuthority
+            camera_authority = CameraParseAuthority(
+                StudioMediaRightsReader(),
+                LocalFileReviewerIdentityAuthority(args.camera_rights_authority_root),
+            )
         readers = StudioLocalReaders(
             corpus=_StudioCorpusReader(), captures=_StudioCaptureReader(),
             candidates=_StudioCandidateReader(), queues=_StudioQueueReader(),
@@ -948,7 +907,7 @@ def main(argv: list[str] | None = None) -> int:
             decision_reader=_StudioDecisionReader(),
             recovery_observations=recovery,
             body_store=body_store,
-            rights_reader=StudioMediaRightsReader(),
+            rights_reader=StudioMediaRightsReader(), camera_parse_rights=camera_authority,
         )
         with StudioLoopbackServer(args.port, readers, token) as server:
             print(f"Studio local API ready on 127.0.0.1:{server.server_port} (read-only)", flush=True)
