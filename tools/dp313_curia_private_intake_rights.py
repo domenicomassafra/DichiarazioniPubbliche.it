@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from dichiarazioni_pubbliche.capture_pipeline import CapturePipelineStore
 from dichiarazioni_pubbliche.ingestion_relevance import (
-    append_ingestion_relevance_authority, replay_current_ingestion_relevance,
+    append_ingestion_relevance_authority,
+    replay_current_ingestion_relevance,
 )
-from dichiarazioni_pubbliche.rights_registry import PrivateRightsRegistryStore, RightsSubject
+from dichiarazioni_pubbliche.rights_registry import (
+    PrivateRightsRegistryStore,
+    RightsSubject,
+)
+
 from tools.dp313_curia_private_readback import SOURCE_ECLI, SOURCE_SHA256, SOURCE_URL
 
 COLLECTION = "research:curia-dp313"
@@ -92,7 +97,7 @@ def _rights(store: CapturePipelineStore):
         and set(current.permitted_uses) == set(USES) - {"RESEARCH_CAPTURE_PRIVATE"}
     )
     if current is None or previous_unusable_record:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         current = registry.record_rights(
             subject=subject, policy_version=POLICY, rights_status="CLEARED",
             rights_receipt_ref=RIGHTS_RECEIPT, permitted_uses=USES,
@@ -124,6 +129,6 @@ def _rights(store: CapturePipelineStore):
             store.run, content_ref=CONTENT_ID, canonical_url=SOURCE_URL,
             relevance_reason="OFFICIAL_RECORD", reviewer_ref="machine:dp313-curia-official",
             audit_ref="dp313:" + SOURCE_SHA256,
-            reviewed_at=datetime.now(timezone.utc).isoformat(),
+            reviewed_at=datetime.now(UTC).isoformat(),
         )
     return registry, subject, current

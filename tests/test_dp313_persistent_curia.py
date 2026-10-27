@@ -2,26 +2,46 @@
 
 import hashlib
 import json
+import sys
 import unittest
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
-from dichiarazioni_pubbliche.source_watcher import FetchedBytes
 from dichiarazioni_pubbliche.capture_authorization import require_private_capture_rights
 from dichiarazioni_pubbliche.capture_pipeline import verify_passage_roundtrip
 from dichiarazioni_pubbliche.corpus_repository import PassageRecord
-from tests.test_dp313_curia_private_readback import TEXT, digest, specimen
-from tools.dp313_curia_private_readback import SOURCE_SHA256
+from dichiarazioni_pubbliche.source_watcher import FetchedBytes
+
 from tests.test_capture_authorization import record
-from tools.dp313_curia_private_intake_rights import USES
+from tests.test_dp313_curia_private_readback import TEXT, digest, specimen
 from tools.dp313_curia_persistent_pilot import (
-    CONTENT_ID, FAMILY, SOURCE_URL, CuriaJudgmentParser, _existing_chain,
+    CONTENT_ID,
+    FAMILY,
+    SOURCE_URL,
+    CuriaJudgmentParser,
+    _existing_chain,
     fetch_official_original,
+    main,
 )
+from tools.dp313_curia_private_intake_rights import USES
+from tools.dp313_curia_private_readback import SOURCE_SHA256
 
 
 class CuriaPersistentParserTests(unittest.TestCase):
+    def test_apply_with_revoked_rights_must_not_fetch_official_body(self):
+        with (
+            patch.object(sys, "argv", ["dp313", "--apply-private-intake", "--database-url", "test-db"]),
+            patch("tools.dp313_curia_persistent_pilot.CapturePipelineStore"),
+            patch("tools.dp313_curia_persistent_pilot._identities"),
+            patch("tools.dp313_curia_persistent_pilot._rights",
+                  side_effect=RuntimeError("DP313_RIGHTS_NOT_CURRENT")),
+            patch("tools.dp313_curia_persistent_pilot.fetch_official_original") as fetch,
+            patch("builtins.print"),
+        ):
+            self.assertEqual(main(), 2)
+            fetch.assert_not_called()
+
     def test_private_judicial_capture_requires_specific_capture_grant(self):
         current = replace(record(), content_id=CONTENT_ID, source_family=FAMILY,
                           locator_value=SOURCE_URL, permitted_uses=USES)
@@ -69,9 +89,11 @@ class CuriaPersistentParserTests(unittest.TestCase):
         original = specimen()
         redirected = FetchedBytes(original, "https://unrelated.example/curia.html",
                                   200, "text/html", "utf-8", len(original))
-        with patch("tools.dp313_curia_persistent_pilot.fetch_bytes", return_value=redirected):
-            with self.assertRaisesRegex(ValueError, "DP313_OFFICIAL_FETCH_IDENTITY_MISMATCH"):
-                fetch_official_original()
+        with (
+            patch("tools.dp313_curia_persistent_pilot.fetch_bytes", return_value=redirected),
+            self.assertRaisesRegex(ValueError, "DP313_OFFICIAL_FETCH_IDENTITY_MISMATCH"),
+        ):
+            fetch_official_original()
 
     def test_reused_chain_refuses_corrupted_passage_even_with_valid_capture_hash(self):
         raw = specimen()
@@ -79,15 +101,15 @@ class CuriaPersistentParserTests(unittest.TestCase):
         parsed = CuriaJudgmentParser(expected_sha256=digest(TEXT)).parse(source)
         roles = ["PARTY_ALLEGATION", "PRIOR_DECISION_REPORTED_BY_COURT",
                  "COURT_DISPOSITION", "COURT_ANNULMENT_OF_REPORTED_DECISION"]
-        parts = [dict(id=f"passage:{i}", candidate=f"candidate:{i}", role=roles[i],
-                      start=s.start_char, end=s.end_char, sha=s.text_sha256,
-                      text=s.text, statement=s.text, statement_sha=s.text_sha256,
-                      privacy="HOLD", public="false", speaker=None, state="HELD",
-                      family=FAMILY, version=SOURCE_SHA256)
+        parts = [{"id": f"passage:{i}", "candidate": f"candidate:{i}", "role": roles[i],
+                      "start": s.start_char, "end": s.end_char, "sha": s.text_sha256,
+                      "text": s.text, "statement": s.text, "statement_sha": s.text_sha256,
+                      "privacy": "HOLD", "public": "false", "speaker": None, "state": "HELD",
+                      "family": FAMILY, "version": SOURCE_SHA256}
                  for i, s in enumerate(parsed.spans)]
         parts[1]["text"] = "testo differente dall'originale"
-        row = dict(id="capture:original", sha=hashlib.sha256(raw).hexdigest(),
-                   body="captures/verified.body", parts=parts)
+        row = {"id": "capture:original", "sha": hashlib.sha256(raw).hexdigest(),
+                   "body": "captures/verified.body", "parts": parts}
 
         class Stored:
             def run(self, *_args, **_kwargs):
@@ -97,10 +119,12 @@ class CuriaPersistentParserTests(unittest.TestCase):
             def read(self, *_args, **_kwargs):
                 return raw
 
-        with patch("tools.dp313_curia_persistent_pilot.CaptureBodyStore.open_existing_readonly",
-                   return_value=Body()):
-            with self.assertRaisesRegex(RuntimeError, "DP313_EXISTING_CHAIN_CONFLICT"):
-                _existing_chain(Stored(), Path("/unused"), parsed, roles)
+        with (
+            patch("tools.dp313_curia_persistent_pilot.CaptureBodyStore.open_existing_readonly",
+                  return_value=Body()),
+            self.assertRaisesRegex(RuntimeError, "DP313_EXISTING_CHAIN_CONFLICT"),
+        ):
+            _existing_chain(Stored(), Path("/unused"), parsed, roles)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Bounded official CURIA judgment -> durable private held procedural candidates.
 
 The pinned judgment and its public copyright notice permit a tightly scoped
@@ -18,23 +17,41 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "poc"))
 
-from dichiarazioni_pubbliche.capture_authorization import private_capture_rights_guard  # noqa: E402
-from dichiarazioni_pubbliche.capture_pipeline import (  # noqa: E402
-    CaptureBodyStore, CaptureEnrichmentPolicy, CapturePipelineStore, ParseResult,
-    ParsedSpan, capture_content, verify_passage_roundtrip,
+from dichiarazioni_pubbliche.capture_authorization import private_capture_rights_guard
+from dichiarazioni_pubbliche.capture_pipeline import (
+    CaptureBodyStore,
+    CaptureEnrichmentPolicy,
+    CapturePipelineStore,
+    ParsedSpan,
+    ParseResult,
+    capture_content,
+    verify_passage_roundtrip,
 )
-from dichiarazioni_pubbliche.corpus_repository import (  # noqa: E402
-    INSERT_STATEMENT_CANDIDATE_SQL_V1, PassageRecord, deterministic_corpus_id,
+from dichiarazioni_pubbliche.corpus_repository import (
+    INSERT_STATEMENT_CANDIDATE_SQL_V1,
+    PassageRecord,
+    deterministic_corpus_id,
 )
-from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard  # noqa: E402
-from dichiarazioni_pubbliche.source_watcher import FetchedBytes, fetch_bytes  # noqa: E402
-from tools.dp313_curia_private_intake_rights import (  # noqa: E402
-    CONTENT_ID, FAMILY, PARSER_VERSION, POLICY, _identities, _rights,
+from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
+from dichiarazioni_pubbliche.source_watcher import FetchedBytes, fetch_bytes
+
+from tools.dp313_curia_private_intake_rights import (
+    CONTENT_ID,
+    FAMILY,
+    PARSER_VERSION,
+    POLICY,
+    _identities,
+    _rights,
 )
-from tools.dp313_curia_private_readback import (  # noqa: E402
-    SOURCE_COPYRIGHT, SOURCE_ECLI, SOURCE_SHA256, SOURCE_URL, _official_text,
+from tools.dp313_curia_private_readback import (
+    SOURCE_COPYRIGHT,
+    SOURCE_ECLI,
+    SOURCE_SHA256,
+    SOURCE_URL,
+    _official_text,
     evaluate_curia_private,
 )
+
 
 def fetch_official_original() -> bytes:
     """Refuse redirects, non-HTML responses, or incomplete official downloads."""
@@ -265,6 +282,22 @@ def run(*, html: bytes, database_url: str | None, storage_root: Path,
             "private_stage": "CANDIDATES_HELD", "public_stage": "BLOCKED_PRIVACY_AND_RIGHTS"}
 
 
+def require_live_fetch_authorization(database_url: str | None) -> None:
+    """Check current private rights before the first network request."""
+    store = CapturePipelineStore(database_url=database_url)
+    _identities(store)
+    registry, subject, current = _rights(store)
+    private_capture_rights_guard(
+        read_current=registry.read_current, rights_record_id=current.id,
+        content_id=CONTENT_ID, canonical_url=SOURCE_URL, source_family=FAMILY,
+        read_content_state=store.read_operator_capture_content_state,
+    )()
+    SourceFamilyUseGuard(
+        read_current=registry.read_current, subject=subject,
+        rights_record_id=current.id, policy_version=POLICY,
+    ).require("FETCH")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--html", type=Path, help="Previously pinned CURIA HTML; read-only")
@@ -276,10 +309,12 @@ def main() -> int:
     try:
         if args.apply_private_intake and args.html:
             raise ValueError("DP313_APPLY_REQUIRES_FRESH_OFFICIAL_HTTPS")
+        if args.apply_private_intake:
+            require_live_fetch_authorization(args.database_url)
         html = args.html.read_bytes() if args.html else fetch_official_original()
         outcome = run(html=html, database_url=args.database_url,
                       storage_root=args.storage_root, apply=args.apply_private_intake)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - fail closed for network/DB errors
         code = str(exc)
         if not (code.startswith("DP313_") or code in {
             "SOURCE_DIGEST_CHANGED", "OFFICIAL_HTML_SIZE_INVALID", "ECLI_MISMATCH"}):
