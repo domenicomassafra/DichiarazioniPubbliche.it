@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only canonical backlog status report."""
+"""Read-only historical PLAN/DP-* snapshot; GitHub Issues owns live status."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ _STATUS = re.compile(r"^Status:\s*([^\r\n]+)", re.M)
 
 
 def ticket_snapshot(root: Path = ROOT) -> dict[str, object]:
-    """Return counts only when PLAN and all corresponding ticket headers agree."""
+    """Summarize the frozen archive only when its historical copies agree."""
     plan = (root / "PLAN.md").read_text(encoding="utf-8")
     rows = _ROW.findall(plan)
     ids = [ticket for ticket, _ in rows]
@@ -40,7 +40,9 @@ def ticket_snapshot(root: Path = ROOT) -> dict[str, object]:
     counts = Counter(statuses.values())
     open_tickets = sorted(ticket for ticket, status in statuses.items() if status != "DONE")
     return {
-        "version": "ticket-status-snapshot-v1",
+        "version": "historical-ticket-status-snapshot-v1",
+        "authority": "historical-only",
+        "snapshot_as_of": "2026-10-17",
         "total": len(rows),
         "done": counts["DONE"],
         "in_progress": counts["IN PROGRESS"],
@@ -61,10 +63,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, sort_keys=True))
     else:
-        print(f"{report['not_done']} ticket mancanti su {report['total']}; "
+        print(f"ARCHIVIO STORICO (17/10/2026), non stato live: "
+              f"{report['not_done']} ticket incompleti alla fotografia su {report['total']}; "
               f"{report['done']} DONE, {report['in_progress']} IN PROGRESS, "
               f"{report['blocked']} BLOCKED, {report['future']} FUTURE, "
               f"{report['ready']} READY.")
+        print("Stato live: gh issue list -R domenicomassafra/DichiarazioniPubbliche.it "
+              "--state open --limit 1000 --json number,title")
     return 0
 
 

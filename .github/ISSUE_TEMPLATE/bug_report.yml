@@ -1,6 +1,6 @@
 name: Bug report
 description: Report a reproducible software or data-contract defect
-title: "DP-###: bug: "
+title: ""
 labels: ["bug"]
 body:
   - type: markdown
@@ -11,10 +11,10 @@ body:
     id: ticket
     attributes:
       label: Ticket / spec
-      description: Existing DP-### ticket ID. The public issue title must use the same `DP-###:` prefix.
+      description: Existing DP-### ticket ID only when this issue refers to a historical specification. GitHub owns live status.
       placeholder: DP-###
     validations:
-      required: true
+      required: false
   - type: textarea
     id: problem
     attributes:
