@@ -1,15 +1,9 @@
 ---
 import TraceRecord from "../../components/TraceRecord.astro";
-import { collectPublicTraces, type PublicTrace } from "../../lib/relations";
-import { loadPublicProjection } from "../../lib/projection";
+import type { PublicTrace } from "../../lib/relations";
+import { getTraceStaticPaths } from "../../lib/trace-paths";
 
-export async function getStaticPaths() {
-  const projection = await loadPublicProjection();
-  return collectPublicTraces(projection).map((trace) => ({
-    params: { id: trace.slug },
-    props: { trace }
-  }));
-}
+export const getStaticPaths = getTraceStaticPaths;
 
 interface Props { trace: PublicTrace }
 const { trace } = Astro.props;
