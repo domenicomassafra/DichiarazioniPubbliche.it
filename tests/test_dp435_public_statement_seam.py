@@ -8,6 +8,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from dataclasses import replace
 from pathlib import Path
 
@@ -181,6 +182,16 @@ class IsolatedStatementSource:
 
 
 class PublicStatementContractTests(unittest.TestCase):
+    def setUp(self):
+        # Synthetic distinct-model fixtures exercise the downstream lifecycle.
+        # The production subscription policy is independently tested with no patch.
+        policy = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({'model:1','model:2'}),
+        )
+        policy.start()
+        self.addCleanup(policy.stop)
+
     def build_v3(self, source):
         return build_public_projection(
             source, generated_at=STAMP, include_public_statements=True,

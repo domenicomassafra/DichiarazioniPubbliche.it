@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,6 +103,13 @@ class ReviewedSyntheticOpinions:
 
 class PublicOpinionApiTests(unittest.TestCase):
     def setUp(self):
+        # Synthetic source fixtures exercise downstream API/projection semantics.
+        policy = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"model:1", "model:2"}),
+        )
+        policy.start()
+        self.addCleanup(policy.stop)
         self.source = ReviewedSyntheticOpinions()
         self.bundle = self.source.build()
         self.assertEqual(len(self.bundle["statements"]), 3)

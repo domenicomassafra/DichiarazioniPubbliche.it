@@ -54,7 +54,7 @@ class GatewayReviewTests(TestCase):
             http_post=post or self.fake_post,
         )
 
-    def test_two_distinct_gateway_completions_same_approved_model_keep_public_hold(self):
+    def test_two_configured_reviewers_same_approved_model_hold_without_gateway_calls(self):
         first = self.reviewer("agent:primary")
         second = self.reviewer("agent:independent")
         surface = Surface()
@@ -69,8 +69,8 @@ class GatewayReviewTests(TestCase):
         self.assertEqual(result.disposition, "HOLD")
         self.assertIn("INDEPENDENT_REVIEW", result.reason_codes)
         self.assertFalse(surface.visible)
-        self.assertEqual(len(self.calls), 2)
-        self.assertEqual(len(self.journal.review_executions(self.binding)), 2)
+        self.assertEqual(len(self.calls), 0)
+        self.assertEqual(len(self.journal.review_executions(self.binding)), 0)
         self.assertEqual(
             [event.disposition for event in self.journal.events(self.item.record_id)],
             ["HOLD"],

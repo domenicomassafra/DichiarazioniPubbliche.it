@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import sqlite3
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
 
@@ -21,6 +22,12 @@ NOW = datetime(2026, 10, 26, tzinfo=timezone.utc)
 
 class PersistentRunnerTests(unittest.TestCase):
     def setUp(self):
+        policy = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"model:first", "model:second"}),
+        )
+        policy.start()
+        self.addCleanup(policy.stop)
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.db = Path(self.directory.name) / "autonomous.sqlite3"
@@ -59,6 +66,25 @@ class PersistentRunnerTests(unittest.TestCase):
         self.assertNotEqual(changed.evidence_sha256, original.evidence_sha256)
         self.assertEqual((self.first.calls, self.second.calls), (2, 2))
         self.assertEqual(self.surface.visible["finding:413"], candidate_fingerprint(self.capture.item))
+
+    def test_old_policy_public_checkpoint_must_revalidate_after_policy_upgrade(self):
+        # A previous policy accepted two different synthetic model routes.
+        with patch(
+            "dichiarazioni_pubbliche.autonomous_publication.POLICY_VERSION",
+            "autonomous-publication-413-v1",
+        ):
+            prior = self.make_runner().run("finding:413", now=NOW)
+        self.assertEqual(prior.disposition, "PUBLISH")
+        # Current real subscription policy only approves one actual route.
+        with patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"antigravity/gemini-3.8-flash-tiered"}),
+        ):
+            now = self.make_runner().run("finding:413", now=NOW)
+        self.assertEqual(now.disposition, "HOLD")
+        self.assertIn("INDEPENDENT_REVIEW", now.reason_codes)
+        self.assertFalse(self.surface.visible)
+        self.assertEqual((self.first.calls, self.second.calls), (1, 1))
 
     def test_challenge_withdraws_prior_publish_on_same_evidence(self):
         self.make_runner().run("finding:413", now=NOW)

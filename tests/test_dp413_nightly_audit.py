@@ -4,6 +4,7 @@ from dataclasses import replace
 import sys
 import json
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'poc'))
@@ -49,6 +50,16 @@ class PacketAuthority:
 
 
 class NightlyAuditIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        # Synthetic distinct-model fixtures exercise the downstream lifecycle.
+        # The production subscription policy is independently tested with no patch.
+        policy = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({'gemini:model-1','local:model-2','third:model'}),
+        )
+        policy.start()
+        self.addCleanup(policy.stop)
+
     def test_zero_eligible_is_recorded_with_timestamp_and_no_model_call(self):
         ops, _, _, _, _, _, journal = harness()
         store = MemoryLedger()
