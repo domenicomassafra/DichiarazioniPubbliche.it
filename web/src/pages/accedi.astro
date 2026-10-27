@@ -14,9 +14,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </form>
     <p><a href="/account/">Hai già effettuato l'accesso? Vai al tuo account.</a></p>
   </article>
-  <script>
-    const status = document.querySelector<HTMLElement>("#account-login-state");
-    const form = document.querySelector<HTMLFormElement>("#account-login-form");
+  <script is:inline>
+    const status = document.querySelector("#account-login-state");
+    const form = document.querySelector("#account-login-form");
     fetch("/account/api/session", { credentials: "same-origin", cache: "no-store" })
       .then((response) => {
         if (response.status === 200) {
