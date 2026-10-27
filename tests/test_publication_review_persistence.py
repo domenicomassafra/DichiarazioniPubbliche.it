@@ -301,7 +301,7 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
             high_risk_input_binding_sha256="b" * 64,
             events=replay.events,
         )
-        self.assertTrue(result.dual_control_satisfied)
+        self.assertFalse(result.dual_control_satisfied)
 
     def test_missing_identity_authority_fails_closed(self):
         replay = self.store.replay_attested_chain(
@@ -595,7 +595,7 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
                 (original,),
             )
 
-    def test_local_file_authority_persists_two_distinct_reviewers_across_restart(self):
+    def test_local_reviewers_survive_restart(self):
         with tempfile.TemporaryDirectory(prefix="dp311-local-authority-") as authority_tmp:
             authority_root = Path(authority_tmp) / "authority"
             primary_identity = provision_reviewer_credential(
@@ -666,7 +666,7 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
                 high_risk_input_binding_sha256="b" * 64,
                 events=replay.events,
             )
-            self.assertTrue(result.dual_control_satisfied)
+            self.assertFalse(result.dual_control_satisfied)
 
     def test_runtime_eligibility_consumes_only_authority_attested_durable_replay(self):
         with tempfile.TemporaryDirectory(prefix="dp310-eligibility-authority-") as authority_tmp:
@@ -782,7 +782,7 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
             self.assertIn("REVIEW_IDENTITY_AUTHORITY_UNAVAILABLE", missing_authority.blockers)
             self.assertEqual(missing_authority.counted_review_event_ids, ())
 
-    def test_runtime_standard_eligibility_can_succeed_from_attested_review_without_challenger(self):
+    def test_runtime_standard_legacy_identity_receipt_cannot_replace_v3_review(self):
         with tempfile.TemporaryDirectory(prefix="dp310-standard-authority-") as authority_tmp:
             authority_root = Path(authority_tmp) / "authority"
             identity = provision_reviewer_credential(
@@ -820,8 +820,8 @@ class PublicationReviewPersistencePostgresTests(unittest.TestCase):
                 review_store=self.store,
                 review_authority=LocalFileReviewerIdentityAuthority(authority_root),
             )
-            self.assertEqual(result.disposition, "ELIGIBLE_FOR_PROJECTION_REVALIDATION")
-            self.assertEqual(result.counted_review_event_ids, (primary.event_id,))
+            self.assertEqual(result.disposition, "HOLD_FOR_PUBLICATION_REVIEW")
+            self.assertIn("AUTONOMOUS_V3_REVIEW_REQUIRED", result.blockers)
 
     def test_runtime_eligibility_rejects_hash_valid_database_fabrication_without_receipts(self):
         with tempfile.TemporaryDirectory(prefix="dp310-fabricated-authority-") as authority_tmp:

@@ -273,9 +273,9 @@ class PublicationReviewControlTests(unittest.TestCase):
                     safety_result=self.safety,
                     risk_result=risk,
                 )
-                self.assertTrue(two.review_complete)
-                self.assertTrue(two.dual_control_satisfied)
-                self.assertEqual(two.disposition, "DUAL_CONTROL_COMPLETE")
+                self.assertFalse(two.review_complete)
+                self.assertFalse(two.dual_control_satisfied)
+                self.assertIn("UPSTREAM_HIGH_RISK_GATE_NOT_READY", two.blockers)
 
     def test_same_person_cannot_count_twice_even_with_explicit_exception(self):
         risk = high_risk("LEGAL")
@@ -473,6 +473,27 @@ class PublicationReviewControlTests(unittest.TestCase):
         )
         self.assertFalse(result.review_complete)
         self.assertIn("UPSTREAM_HIGH_RISK_GATE_NOT_READY", result.blockers)
+
+
+    def test_legacy_eligible_flag_and_dual_review_never_bypass_autonomous_gate(self):
+        legacy = replace(
+            high_risk("LEGAL"),
+            disposition="ELIGIBLE_HIGH_RISK",
+            reason_codes=("ALL_ACCEPTED_HIGH_RISK_GATES_PASS",),
+        )
+        primary = event(safety_result=self.safety, risk_result=legacy)
+        second = event(
+            safety_result=self.safety,
+            risk_result=legacy,
+            stage=ReviewStage.INDEPENDENT,
+            role=ReviewRole.INDEPENDENT_PUBLICATION_REVIEWER,
+            actor="reviewer:2",
+            credential="2" * 64,
+            previous=primary,
+        )
+        decision = evaluate([primary, second], safety_result=self.safety, risk_result=legacy)
+        self.assertFalse(decision.review_complete)
+        self.assertIn("UPSTREAM_HIGH_RISK_GATE_NOT_READY", decision.blockers)
 
 
 if __name__ == "__main__":

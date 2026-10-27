@@ -572,13 +572,11 @@ def _validate_chain(events: tuple[PublicationReviewEvent, ...]) -> tuple[str, ..
 
 
 def _upstream_high_risk_ready(decision: HighRiskDecision) -> bool:
-    if not decision.signals.requires_escalation:
-        return decision.disposition == "STANDARD_REVIEW"
-    if decision.disposition == "ELIGIBLE_HIGH_RISK":
-        return True
+    # The legacy high-risk contract cannot attest v3 agent decisions.
+    # Only the non-escalated path can proceed through this reviewer ledger.
     return (
-        decision.disposition == "HOLD_HIGH_RISK"
-        and set(decision.reason_codes) == {"HOLD_HIGH_RISK_DUAL_CONTROL_REQUIRED"}
+        not decision.signals.requires_escalation
+        and decision.disposition == "STANDARD_REVIEW"
     )
 
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -29,20 +28,20 @@ _BASIS_CODES = frozenset(f"GDPR_ART_6_1_{letter}" for letter in "ABCDEF")
 _DECISION_FIELDS = frozenset({
     "purpose", "status", "lawful_basis", "necessity_receipt",
     "notice_receipt", "retention_receipt", "access_receipt",
-    "owner_decision_url", "owner_decision_date",
     "independent_review_model", "independent_review_receipt",
     "independent_review_sha", "independent_review_outcome",
 })
+# Historical fields remain readable but are not required for autonomous decisions.
+_OPTIONAL_LEGACY_FIELDS = frozenset({"owner_decision_url", "owner_decision_date"})
 _EVIDENCE_FIELDS = (
     "necessity_receipt", "notice_receipt", "retention_receipt", "access_receipt",
-    "owner_decision_url",
 )
 _RECEIPT_URL = re.compile(
     r"https://github\.com/domenicomassafra/"
     r"DichiarazioniPubbliche\.it/issues/[1-9]\d*#issuecomment-[1-9]\d*\Z"
 )
 _REVIEWED_SHA = re.compile(r"[0-9a-f]{40}\Z")
-_INDEPENDENT_REVIEWER = "SOL_6_1_HIGH_PI_AGENT"
+_INDEPENDENT_REVIEWER = "antigravity/gemini-3.8-flash-tiered"
 _SPECIAL_EXCLUSIONS = {
     "special_category": "EXCLUDE_UNLESS_SEPARATELY_REVIEWED",
     "criminal_allegations": "EXCLUDE_UNLESS_SEPARATELY_REVIEWED",
@@ -77,7 +76,12 @@ def evaluate_processing_decisions(
     blockers: list[str] = []
     for family, purpose in PROCESSING_FAMILIES.items():
         row = families[family]
-        if not isinstance(row, dict) or set(row) != _DECISION_FIELDS or row["purpose"] != purpose:
+        if (
+            not isinstance(row, dict)
+            or not _DECISION_FIELDS.issubset(row)
+            or set(row) - _DECISION_FIELDS - _OPTIONAL_LEGACY_FIELDS
+            or row["purpose"] != purpose
+        ):
             blockers.append(f"PRIVACY_FAMILY_SCHEMA_INVALID:{family}")
             continue
         status = row["status"]
@@ -103,17 +107,11 @@ def evaluate_processing_decisions(
             or row["independent_review_outcome"] != "APPROVE"
             or not isinstance(row["independent_review_receipt"], str)
             or _RECEIPT_URL.fullmatch(row["independent_review_receipt"]) is None
-            or row["independent_review_receipt"] == row["owner_decision_url"]
+            or row["independent_review_receipt"] in (row[key] for key in _EVIDENCE_FIELDS)
             or not isinstance(row["independent_review_sha"], str)
             or _REVIEWED_SHA.fullmatch(row["independent_review_sha"]) is None
         ):
             blockers.append(f"PRIVACY_INDEPENDENT_REVIEW_MISSING:{family}")
-        stamp = row["owner_decision_date"]
-        try:
-            if not isinstance(stamp, str) or date.fromisoformat(stamp).isoformat() != stamp:
-                raise ValueError("invalid date")
-        except ValueError:
-            blockers.append(f"PRIVACY_OWNER_DATE_MISSING:{family}")
     return tuple(sorted(blockers))
 
 

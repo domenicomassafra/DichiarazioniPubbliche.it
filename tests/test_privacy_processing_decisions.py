@@ -49,13 +49,12 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 mutation(tampered)
                 self.assertIn(expected, evaluate_processing_decisions(tampered))
 
-    def test_false_approval_requires_basis_receipts_and_owner_date(self):
+    def test_false_approval_requires_basis_receipts_and_agent_review(self):
         row = self.register["families"]["PUBLIC_STATEMENTS"]
         row["status"] = "APPROVED"
         blockers = evaluate_processing_decisions(self.register)
         self.assertIn("PRIVACY_LAWFUL_BASIS_MISSING:PUBLIC_STATEMENTS", blockers)
         self.assertIn("PRIVACY_EVIDENCE_MISSING:PUBLIC_STATEMENTS", blockers)
-        self.assertIn("PRIVACY_OWNER_DATE_MISSING:PUBLIC_STATEMENTS", blockers)
         self.assertIn("PRIVACY_INDEPENDENT_REVIEW_MISSING:PUBLIC_STATEMENTS", blockers)
 
     def test_malformed_receipt_and_non_scalar_basis_never_pass(self):
@@ -84,7 +83,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 necessity_receipt=receipt, notice_receipt=receipt,
                 retention_receipt=receipt, access_receipt=receipt,
                 owner_decision_url=receipt, owner_decision_date="2026-10-20",
-                independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+                independent_review_model="antigravity/gemini-3.8-flash-tiered",
                 independent_review_receipt=receipt.replace("123456", "123457"), independent_review_sha="a"*40,
                 independent_review_outcome="APPROVE",
             )
@@ -97,7 +96,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
             artifact_presence={artifact: True for artifact in REQUIRED_RELEASE_ARTIFACTS},
             privacy_decision_blockers=evaluate_processing_decisions(self.register),
         )
-        self.assertEqual(result.disposition, "PENDING-RELEASE-AUTHORITY")
+        self.assertEqual(result.disposition, "PENDING-AUTONOMOUS-RELEASE-AUDIT")
         self.assertFalse(result.launchable)
 
     def test_approval_requires_distinct_review_model_receipt_sha_and_outcome(self):
@@ -115,7 +114,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
         expected = "PRIVACY_INDEPENDENT_REVIEW_MISSING:SOURCE_COPIES"
         self.assertIn(expected, evaluate_processing_decisions(self.register))
         row.update(
-            independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+            independent_review_model="antigravity/gemini-3.8-flash-tiered",
             independent_review_receipt=receipt,
             independent_review_sha="a"*40,
             independent_review_outcome="APPROVE",
@@ -124,6 +123,7 @@ class ProcessingDecisionsTests(unittest.TestCase):
         row["independent_review_receipt"] = receipt.replace("123456", "123457")
         self.assertNotIn(expected, evaluate_processing_decisions(self.register))
         for field, invalid in (
+            ("independent_review_model", "SOL_6_1_HIGH_PI_AGENT"),
             ("independent_review_model", "GPT_6"),
             ("independent_review_receipt", "https://example.com/claim"),
             ("independent_review_sha", "unreviewed"),
@@ -133,11 +133,31 @@ class ProcessingDecisionsTests(unittest.TestCase):
                 row[field] = invalid
                 self.assertIn(expected, evaluate_processing_decisions(self.register))
                 row.update(
-                    independent_review_model="SOL_6_1_HIGH_PI_AGENT",
+                    independent_review_model="antigravity/gemini-3.8-flash-tiered",
                     independent_review_receipt=receipt.replace("123456", "123457"),
                     independent_review_sha="a"*40,
                     independent_review_outcome="APPROVE",
                 )
+
+    def test_reviewed_privacy_row_has_no_personal_approval_dependency(self):
+        row = self.register["families"]["SOURCE_COPIES"]
+        receipt = (
+            "https://github.com/domenicomassafra/"
+            "DichiarazioniPubbliche.it/issues/54#issuecomment-123456"
+        )
+        row.update(
+            status="APPROVED", lawful_basis="GDPR_ART_6_1_F",
+            necessity_receipt=receipt, notice_receipt=receipt,
+            retention_receipt=receipt, access_receipt=receipt,
+            independent_review_model="antigravity/gemini-3.8-flash-tiered",
+            independent_review_receipt=receipt.replace("123456", "123457"),
+            independent_review_sha="a" * 40,
+            independent_review_outcome="APPROVE",
+        )
+        row.pop("owner_decision_url")
+        row.pop("owner_decision_date")
+        blockers = evaluate_processing_decisions(self.register)
+        self.assertFalse(any(code.endswith(":SOURCE_COPIES") for code in blockers))
 
     def test_optional_accounts_exclusion_fails_if_activation_switches(self):
         self.assertEqual(

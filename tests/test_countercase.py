@@ -291,7 +291,7 @@ class CounterCaseTests(unittest.TestCase):
         )
         self.assertTrue(ready.ready)
 
-    def test_dp309_challenger_waiver_must_bind_exact_qualified_policy_decision(self):
+    def test_legacy_waiver_cannot_skip_autonomous_review(self):
         packet = build_countercase_packet(
             claim_id="claim:waiver",
             evidence=[],
@@ -314,7 +314,7 @@ class CounterCaseTests(unittest.TestCase):
             reviewed_packet_id=None,
             challenger_waiver_policy_decision_ref=risk.policy_decision_ref,
         )
-        self.assertTrue(waived.ready)
+        self.assertFalse(waived.ready)
 
 
 if __name__ == "__main__":

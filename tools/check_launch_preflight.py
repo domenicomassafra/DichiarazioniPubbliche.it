@@ -2,7 +2,7 @@
 """Fail-closed M7 preflight.
 
 This checker validates the engineering state only. It can report NO-GO or, once
-mechanical blockers disappear, PENDING-RELEASE-AUTHORITY. It never returns a launch authorization.
+mechanical blockers disappear, PENDING-AUTONOMOUS-RELEASE-AUDIT. It never returns a launch authorization.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def main() -> int:
         return 1
     if args.expect_no_go and result.disposition != "NO-GO":
         print(
-            "FAIL: repository no longer reports NO-GO; review M7 evidence and owner authority explicitly",
+            "FAIL: repository no longer reports NO-GO; review M7 evidence and independent release authority explicitly",
             file=sys.stderr,
         )
         return 1

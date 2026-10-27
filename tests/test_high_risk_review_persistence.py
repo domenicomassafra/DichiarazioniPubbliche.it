@@ -480,7 +480,7 @@ class HighRiskReviewPersistencePostgresTests(unittest.TestCase):
                 ),
             )
 
-    def test_future_qualified_packet_waits_only_for_dp310_dual_control(self):
+    def test_qualified_packet_holds_without_v3_review(self):
         inputs = replace(
             held_input(),
             qualified_policy_accepted=True,
@@ -492,11 +492,11 @@ class HighRiskReviewPersistencePostgresTests(unittest.TestCase):
 
         self.assertEqual(
             record.decision_reason_codes,
-            ("HOLD_HIGH_RISK_DUAL_CONTROL_REQUIRED",),
+            ("HOLD_HIGH_RISK_AUTONOMOUS_REVIEW_REQUIRED",),
         )
         self.assertEqual(
             replay.decision.reason_codes,
-            ("HOLD_HIGH_RISK_DUAL_CONTROL_REQUIRED",),
+            ("HOLD_HIGH_RISK_AUTONOMOUS_REVIEW_REQUIRED",),
         )
         self.assertEqual(replay.blockers, ())
         self.assertFalse(replay.publication_allowed)
