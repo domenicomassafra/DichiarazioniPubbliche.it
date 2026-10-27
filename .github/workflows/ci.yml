@@ -91,14 +91,17 @@ jobs:
       - name: Install original-media test decoder
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            brew install ffmpeg
-          else
-            # The Azure apt mirror has repeatedly stalled during the ffmpeg download.
-            # Use Ubuntu's official archive on ephemeral GitHub-hosted runners.
-            sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/sources.list.d/ubuntu.sources
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends ffmpeg
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            if [[ "$RUNNER_OS" == "macOS" ]]; then
+              brew install ffmpeg
+            else
+              # Avoid the repeatedly stalled Azure mirror on hosted Ubuntu.
+              # Hosted images may use a mirror+file indirection to apt-mirrors.txt.
+              sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
+                -exec sed -i 's@azure.archive.ubuntu.com@archive.ubuntu.com@g' {} +
+              timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+              timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
+            fi
           fi
           command -v ffmpeg
           command -v ffprobe
@@ -324,9 +327,12 @@ jobs:
 
       - name: Install original-media test decoder
         run: |
-          sudo sed -i 's@http://azure.archive.ubuntu.com/ubuntu@http://archive.ubuntu.com/ubuntu@g' /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          if ! command -v ffmpeg || ! command -v ffprobe; then
+            sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
+              -exec sed -i 's@azure.archive.ubuntu.com@archive.ubuntu.com@g' {} +
+            timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update -qq
+            timeout --kill-after=10s 120s sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ffmpeg
+          fi
           command -v ffmpeg
           command -v ffprobe
 
