@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import sys
 import unittest
+from unittest.mock import patch
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,7 +29,12 @@ NOW = datetime(2026, 10, 11, 16, tzinfo=timezone.utc)
 
 def bundle(two_sources=True):
     source = IsolatedStatementSource()
-    value = build_public_projection(source, generated_at=STAMP, include_public_statements=True)
+    # Synthetic model authorizations are scoped to fixture construction only.
+    with patch(
+        "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+        frozenset({"model:1", "model:2"}),
+    ):
+        value = build_public_projection(source, generated_at=STAMP, include_public_statements=True)
     if two_sources:
         second = copy.deepcopy(value["statements"][0])
         second.update({

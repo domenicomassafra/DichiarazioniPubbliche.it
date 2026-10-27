@@ -96,20 +96,19 @@ class ReviewedSyntheticOpinions:
         return match.current_statement_challenge_hold(statement_id, version) if match else None
 
     def build(self):
-        return build_public_projection(
-            self, generated_at=STAMP, include_public_statements=True,
-        )
+        # Used as a direct synthetic source by Python tests and Node fixtures.
+        # The override is limited to the build call, never the live policy.
+        with patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"model:1", "model:2"}),
+        ):
+            return build_public_projection(
+                self, generated_at=STAMP, include_public_statements=True,
+            )
 
 
 class PublicOpinionApiTests(unittest.TestCase):
     def setUp(self):
-        # Synthetic source fixtures exercise downstream API/projection semantics.
-        policy = patch(
-            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
-            frozenset({"model:1", "model:2"}),
-        )
-        policy.start()
-        self.addCleanup(policy.stop)
         self.source = ReviewedSyntheticOpinions()
         self.bundle = self.source.build()
         self.assertEqual(len(self.bundle["statements"]), 3)
