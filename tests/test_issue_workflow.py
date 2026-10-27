@@ -1,4 +1,5 @@
 import sys
+import json
 import unittest
 from pathlib import Path
 
@@ -23,6 +24,21 @@ class IssueWorkflowTests(unittest.TestCase):
         self.assertEqual(validate_policy(), [])
         self.assertEqual(validate_templates(), [])
         self.assertEqual(self_test(), [])
+
+    def test_hosted_issues_are_canonical_and_legacy_ticket_link_is_optional(self):
+        policy = json.loads((ROOT / ".github/triage-policy.v1.json").read_text())
+        self.assertEqual(policy["canonical_backlog"], "github:domenicomassafra/DichiarazioniPubbliche.it/issues")
+        self.assertEqual(
+            validate_mock_issue(MockIssue(
+                "Make GitHub the sole live status authority", "", "safe",
+                ("maintenance", "needs-triage"),
+            )),
+            (),
+        )
+        for template in ("bug_report.yml", "feature_request.yml"):
+            text = (ROOT / ".github/ISSUE_TEMPLATE" / template).read_text()
+            self.assertNotIn('title: "DP-###:', text)
+            self.assertIn("required: false", text.split("id: ticket", 1)[1].split("id: ", 1)[0])
 
     def test_public_security_label_and_report_fail_closed(self):
         problems = validate_mock_issue(

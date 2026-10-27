@@ -33,8 +33,7 @@ Requirements:
 The deterministic suite has no paid-provider requirement:
 
 ```bash
-# No public remote is configured yet; clone from the authoritative checkout.
-git clone --no-hardlinks <path-to-authoritative-checkout> DichiarazioniPubbliche.it
+git clone https://github.com/domenicomassafra/DichiarazioniPubbliche.it.git
 cd DichiarazioniPubbliche.it
 python3 -m compileall -q poc tests
 PYTHONPATH=poc python3 -m unittest discover -s tests -v
@@ -71,9 +70,9 @@ Substantial changes should have a ticket or issue describing:
 - explicit non-goals;
 - data/schema/public-output impact.
 
-The repo-local ticket format is documented in `docs/tickets/README.md`. It exists because
-the project may be worked on before a public GitHub remote is configured; public issues
-can later link to or replace these specs.
+Current work is tracked only in [GitHub Issues](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues).
+`docs/tickets/README.md` describes the frozen historical DP-* specifications.
+Read them for context, but record decisions, acceptance and completion in GitHub.
 
 ## Pull requests
 

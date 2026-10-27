@@ -2,8 +2,7 @@
 """DP-606 local issue/label governance validator.
 
 Pure repository check: no GitHub API, credentials, network, issues, labels or project
-mutations. Repo-local tickets remain authoritative while hosted synchronization is
-unconfigured.
+mutations. GitHub Issues owns live work; DP-* tickets are frozen specifications.
 """
 
 from __future__ import annotations
@@ -104,8 +103,10 @@ def validate_policy() -> list[str]:
     policy = _load(POLICY_PATH)
     if policy.get("schema_version") != "dichiarazioni-pubbliche-triage-v1":
         problems.append("triage: unsupported schema_version")
-    if policy.get("canonical_backlog") != "PLAN.md" or policy.get("ticket_directory") != "docs/tickets":
-        problems.append("triage: repo-local backlog authority changed")
+    if (policy.get("canonical_backlog") != "github:domenicomassafra/DichiarazioniPubbliche.it/issues"
+            or policy.get("historical_ticket_directory") != "docs/tickets"
+            or policy.get("external_sync_policy") != "NONE_GITHUB_NATIVE"):
+        problems.append("triage: GitHub authority or historical archive contract changed")
     if policy.get("security_path") != "SECURITY.md":
         problems.append("triage: private security path must be SECURITY.md")
     if policy.get("remote_mutation_enabled") is not False:
@@ -129,10 +130,10 @@ def validate_templates() -> list[str]:
     problems: list[str] = []
     for name in ("bug_report.yml", "feature_request.yml"):
         text = (ROOT / ".github" / "ISSUE_TEMPLATE" / name).read_text(encoding="utf-8")
-        if 'title: "DP-###:' not in text:
-            problems.append(f"templates: {name} must scaffold the DP-### title prefix")
-        if "id: ticket" not in text or "required: true" not in text:
-            problems.append(f"templates: {name} must require ticket linkage")
+        if 'title: ""' not in text:
+            problems.append(f"templates: {name} must allow native GitHub issue titles")
+        if "id: ticket" not in text or "Existing DP-###" not in text:
+            problems.append(f"templates: {name} must permit historical ticket linkage")
         if "SECURITY.md" not in text:
             problems.append(f"templates: {name} must direct security reports to SECURITY.md")
         if "private/raw" not in text and "private raw" not in text:
@@ -155,12 +156,12 @@ def _label_map() -> tuple[dict[str, dict], dict[str, dict]]:
 def validate_mock_issue(issue: MockIssue) -> tuple[str, ...]:
     problems: list[str] = []
     title_match = DP_TITLE.match(issue.title.strip())
-    if not title_match:
-        problems.append("ISSUE_TITLE_TICKET_PREFIX_REQUIRED")
     ticket_id = issue.ticket_id.strip()
-    if not DP_ID.fullmatch(ticket_id) or not _ticket_exists(ticket_id):
+    if ticket_id and not title_match:
+        problems.append("ISSUE_TITLE_TICKET_PREFIX_REQUIRED")
+    if ticket_id and (not DP_ID.fullmatch(ticket_id) or not _ticket_exists(ticket_id)):
         problems.append("ISSUE_TICKET_LINK_INVALID")
-    elif title_match and title_match.group(1) != ticket_id:
+    if title_match and title_match.group(1) != ticket_id:
         problems.append("ISSUE_TITLE_TICKET_MISMATCH")
     if issue.security_report:
         problems.append("SECURITY_REPORT_MUST_USE_PRIVATE_PATH")
