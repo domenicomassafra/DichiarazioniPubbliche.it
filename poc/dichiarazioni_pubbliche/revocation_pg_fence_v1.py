@@ -65,6 +65,25 @@ CREATE TABLE IF NOT EXISTS dp320_pg_publication (
   fence_sha256 text NOT NULL CHECK (fence_sha256 ~ '^[0-9a-f]{64}$')
 );
 
+-- A revoked material is never directly reactivated or replaced. Only a
+-- subsequent revocation may advance an already-held epoch. A future fresh
+-- clearance must be a separately evidenced version, not an UPDATE retry.
+CREATE OR REPLACE FUNCTION dp320_pg_source_held_guard()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.status = 'HELD' AND (
+      NEW.status IS DISTINCT FROM 'HELD'
+      OR NEW.material_sha256 IS DISTINCT FROM OLD.material_sha256
+      OR NEW.epoch <= OLD.epoch
+  ) THEN
+    RAISE EXCEPTION 'FENCE_REVOKED_VERSION_IMMUTABLE';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS dp320_source_held_guard ON dp320_pg_source;
+CREATE TRIGGER dp320_source_held_guard BEFORE UPDATE ON dp320_pg_source
+  FOR EACH ROW EXECUTE FUNCTION dp320_pg_source_held_guard();
+
 CREATE OR REPLACE FUNCTION dp320_pg_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   RAISE EXCEPTION 'dp320 ledger is append-only';

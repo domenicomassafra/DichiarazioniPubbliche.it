@@ -154,7 +154,8 @@ class PersistedCaptureQueueTests(unittest.TestCase):
     def setUpClass(cls):
         if any(not shutil.which(binname) for binname in ("initdb", "pg_ctl", "psql")):
             raise unittest.SkipTest("PostgreSQL initdb/pg_ctl/psql unavailable")
-        cls.tmp = tempfile.TemporaryDirectory(prefix="dp417-queue-family-next-")
+        # A longer host TMPDIR can exceed macOS's Unix socket path limit (103 bytes).
+        cls.tmp = tempfile.TemporaryDirectory(prefix="dp417-queue-family-next-", dir="/tmp")
         cls.pgdata = Path(cls.tmp.name) / "data"
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
@@ -172,7 +173,9 @@ class PersistedCaptureQueueTests(unittest.TestCase):
                                     f"-F -p {port} -h 127.0.0.1 -k {cls.tmp.name}",
                                     "-w", "start"], capture_output=True, text=True)
             if start.returncode:
-                raise AssertionError(start.stderr)
+                log = Path(cls.tmp.name) / "postgres.log"
+                startup_log = log.read_text(errors="replace")[-1600:] if log.exists() else ""
+                raise AssertionError(f"{start.stderr.strip()}\n{startup_log}")
             cls.started = True
             cls.store = PsqlRuntime(database_url=cls.url)
             cls.store.run((ROOT / "db/schema.v1.sql").read_text())

@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { contentSlug, dossierSlug, speakerSlug } from "../lib/format";
 import { loadPublicProjection } from "../lib/projection";
+import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
 import { collectPublicTraces } from "../lib/relations";
 
 export const prerender = true;
@@ -22,13 +23,18 @@ export const GET: APIRoute = async () => {
   const demoBuild = process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1" ||
     !projectionPath || projectionPath.endsWith("demo-projection.json");
   const projection = await loadPublicProjection();
+  const released = await loadPublishedPeopleV3();
   const routes = new Set<string>();
 
   if (!demoBuild) {
     for (const route of STATIC_ROUTES) routes.add(route);
     for (const dossier of projection.dossiers) {
       routes.add(`/dichiarazioni/${dossierSlug(dossier)}/`);
-      routes.add(`/persone/${speakerSlug(dossier)}/`);
+      if (!released) routes.add(`/persone/${speakerSlug(dossier)}/`);
+    }
+    if (released) for (const person of released.people) {
+      routes.add(person.route);
+      for (const statement of person.statements) routes.add(statement.statement_route);
     }
     for (const topic of projection.topics ?? []) routes.add(`/temi/${topic.slug}/`);
     if (projection.contents !== undefined) {

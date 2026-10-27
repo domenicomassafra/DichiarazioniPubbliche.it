@@ -239,3 +239,12 @@ convenience, never production authority: production runs resolve the live
 registry through `PsqlRuntime`. Still HOLD for Italian CTC weights and native
 notice clearance, one authorized private WAV and the measured CPU/RSS/precision
 run; nothing here promotes a timestamp or publishes a candidate.
+
+## DP-359 / #462 — 26 October 2026 CTC native-rights outcome
+
+The [pinned Italian CTC candidates, inherited weight-rights audit, exact native
+notice gaps, MiniPC resource measurements and tested private HOLD](whisperx-ctc-licensing-2026-10-26.md)
+are documented separately. The recorded decision is **NO_GO for local model
+provisioning** until an actually permissive checkpoint, a full LICENSE and file
+hash inventory, and the installed wheel/native/asset rights have been verified.
+The existing private fail-closed adapter and public consumer are unchanged.

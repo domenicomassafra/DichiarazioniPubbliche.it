@@ -2,9 +2,11 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ExploreClient from "../components/ExploreClient";
 import { loadPublicProjection } from "../lib/projection";
+import { loadPublishedPeopleV3 } from "../lib/publishedPeopleV3";
 
 const projection = await loadPublicProjection();
-const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0;
+const peopleRelease = await loadPublishedPeopleV3();
+const hasPublicRecords = projection.dossiers.length > 0 || (projection.topics?.length ?? 0) > 0 || (projection.contents?.length ?? 0) > 0 || (peopleRelease?.people.length ?? 0) > 0;
 ---
 
 <BaseLayout

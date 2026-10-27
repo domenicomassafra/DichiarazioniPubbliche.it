@@ -79,6 +79,8 @@ try {
   assert.deepEqual(sitemapRoutes, ["/", "/correzioni/", "/dati/", "/esplora/", "/metodo/", "/progetto/"]);
   assert.equal(await readFile(join(directory, "empty/robots.txt"), "utf8"),
     "User-agent: *\nAllow: /\nSitemap: https://dichiarazionipubbliche.it/sitemap.xml\n");
+  await assert.rejects(readFile(join(directory, "empty/public-people.v3.json"), "utf8"),
+    /ENOENT/, "opted-out public build must never emit a Person v3 endpoint");
   const assets = await readdir(join(directory, "empty/_astro"));
   assert.equal(assets.some((name) => /studio|fixture|demo/i.test(name)), false,
     "private Studio or demo client bundle leaked into the public build");

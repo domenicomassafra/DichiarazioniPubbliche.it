@@ -167,11 +167,23 @@ function assertProjection(value: unknown): asserts value is PublicProjection {
   }
 }
 
+function assertV3LegacyProjectionIsolation(projection: PublicProjection): void {
+  // v2 dossiers/contents/topics use their own publication authority. Mixing
+  // them with an independently approved v3 Person set could re-expose a held
+  // identity through statements, home, search, topics, contents or sitemap.
+  if (process.env.DICHIARAZIONI_PUBBLICHE_ENABLE_PUBLIC_PERSON_V3 === "1" &&
+      (projection.dossiers.length > 0 || (projection.contents?.length ?? 0) > 0 ||
+       (projection.topics?.length ?? 0) > 0)) {
+    throw new Error("DP438_LEGACY_PROJECTION_NOT_EMPTY");
+  }
+}
+
 export async function loadPublicProjection(): Promise<PublicProjection> {
   const configuredPath = process.env.DICHIARAZIONI_PUBBLICHE_PUBLIC_PROJECTION_PATH;
   if (!configuredPath) {
     if (process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION === "1") {
       assertProjection(demoProjection);
+      assertV3LegacyProjectionIsolation(demoProjection as PublicProjection);
       return demoProjection as PublicProjection;
     }
     throw new Error(
@@ -187,6 +199,7 @@ export async function loadPublicProjection(): Promise<PublicProjection> {
   if (containsKnownDemoRecords(parsed) && process.env.DICHIARAZIONI_PUBBLICHE_ALLOW_DEMO_PROJECTION !== "1") {
     throw new Error("Demo projection records cannot be used in a public build. Explicit local demo mode is required.");
   }
+  assertV3LegacyProjectionIsolation(parsed);
   return parsed;
 }
 
