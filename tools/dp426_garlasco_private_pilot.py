@@ -26,14 +26,15 @@ from dichiarazioni_pubbliche.corpus_repository import (
     INSERT_STATEMENT_CANDIDATE_SQL_V1, deterministic_corpus_id,
 )
 from dichiarazioni_pubbliche.coverage_needs import coverage_need_event_id
-from dichiarazioni_pubbliche.garlasco_camera_pilot import CAMERA_SOURCES, CameraSpeechParser
+from dichiarazioni_pubbliche.garlasco_camera_pilot import CameraSpeechParser, original_versions
 from dichiarazioni_pubbliche.ingestion_relevance import (
     append_ingestion_relevance_authority, replay_current_ingestion_relevance,
 )
 from dichiarazioni_pubbliche.private_capture_rights import SourceFamilyUseGuard
+from dichiarazioni_pubbliche.camera_parse_authority import CameraParseAuthority
+from dichiarazioni_pubbliche.reviewer_identity_authority import LocalFileReviewerIdentityAuthority
 from dichiarazioni_pubbliche.queue_store import ClaimEvidenceObservationStore
 from dichiarazioni_pubbliche.rights_registry import PrivateRightsRegistryStore, RightsSubject
-from dichiarazioni_pubbliche.source_watcher import fetch_bytes
 
 
 COLLECTION = "research:garlasco"
@@ -42,22 +43,6 @@ POLICY = "dp426-camera-article5-private-text-20261025-v1"
 RIGHTS_RECEIPT = "law:633-1941:art5:official-state-acts:text-only"
 USES = ("DISCOVER_METADATA", "FETCH", "RESEARCH_CAPTURE_PRIVATE",
         "STORE_BODY", "PARSE_TEXT", "EXTRACT_CANDIDATES")
-
-
-def original_versions():
-    """Independent bounded HTTPS acquisition, before any persistence."""
-    observations = []
-    for source in CAMERA_SOURCES:
-        fetched = fetch_bytes(source["url"], max_response_bytes=3_000_000)
-        sha = hashlib.sha256(fetched.body).hexdigest()
-        if ((not source.get("variable_html") and sha != source["sha256"])
-                or fetched.final_url != source["url"] or fetched.status_code != 200):
-            raise ValueError("DP426_ORIGINAL_VERSION_CHANGED")
-        parsed = CameraSpeechParser(source).parse(fetched)
-        if parsed.status != "SUCCEEDED" or len(parsed.spans) != 1:
-            raise ValueError("DP426_VERBATIM_SPEAKER_CHECK_FAILED")
-        observations.append(({**source, "sha256": sha}, fetched, parsed))
-    return observations
 
 
 def _activate_source_scoped_intake(store):
@@ -199,7 +184,7 @@ def _record_rights(store, source, content_id):
     return rights_store, subject, current
 
 
-def _persist(store, body_store, source, fetched, parsed):
+def _persist(store, body_store, source, fetched, parsed, authority):
     content_id, source_id = _identities(store, source)
     rights, subject, current = _record_rights(store, source, content_id)
     guard = private_capture_rights_guard(
@@ -210,6 +195,9 @@ def _persist(store, body_store, source, fetched, parsed):
     use = SourceFamilyUseGuard(
         read_current=rights.read_current, subject=subject, rights_record_id=current.id,
         policy_version=POLICY, expected_sha256=source["sha256"],
+        authenticated_parse_check=lambda content_id, digest: authority.inspect(
+            content_id=content_id, capture_sha256=digest, use="PARSE_TEXT",
+        )["permitted"],
     )
     guard()
     use.require("FETCH")
@@ -318,7 +306,14 @@ def _coverage(store):
 
 
 def run(*, database_url: str | None, storage_root: Path, apply: bool):
-    observations = original_versions()
+    authority_root = os.environ.get("DICHIARAZIONI_PUBBLICHE_REVIEWER_AUTHORITY_ROOT")
+    if not authority_root:
+        raise ValueError("DP426_SIGNED_CAMERA_PARSE_AUTHORITY_REQUIRED")
+    authority = CameraParseAuthority(
+        PrivateRightsRegistryStore(database_url=database_url),
+        LocalFileReviewerIdentityAuthority(authority_root),
+    )
+    observations = original_versions(authority)
     if not apply:
         return {"status": "READY_FOR_PRIVATE_INTAKE",
                 "sources": [{"url": s["url"], "sha256": s["sha256"]}
@@ -327,7 +322,7 @@ def run(*, database_url: str | None, storage_root: Path, apply: bool):
     store = CapturePipelineStore(database_url=database_url)
     _activate_source_scoped_intake(store)
     body_store = CaptureBodyStore(storage_root)
-    sources = [_persist(store, body_store, s, fetched, parsed)
+    sources = [_persist(store, body_store, s, fetched, parsed, authority)
                for s, fetched, parsed in observations]
     coverage = _coverage(store)
     return {"status": "PRIVATE_GARLASCO_CHAIN_PERSISTED", "collection_id": COLLECTION,
