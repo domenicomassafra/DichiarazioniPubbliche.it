@@ -46,11 +46,17 @@ from test_public_projection import FakeSource, valid_row  # noqa: E402
 
 
 def v3_bundle(source: IsolatedStatementSource | None = None) -> dict:
-    return build_public_projection(
-        source or IsolatedStatementSource(),
-        generated_at=STAMP,
-        include_public_statements=True,
-    )
+    # This fixture is imported directly by the frontend's Node/Python checks,
+    # outside unittest setUp. Scope synthetic identities to construction only.
+    with patch(
+        "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+        frozenset({"model:1", "model:2"}),
+    ):
+        return build_public_projection(
+            source or IsolatedStatementSource(),
+            generated_at=STAMP,
+            include_public_statements=True,
+        )
 
 
 def v2_bundle() -> dict:
@@ -76,16 +82,6 @@ def with_derived() -> dict:
 
 
 class PublicStatementV3ConsumerTests(unittest.TestCase):
-    def setUp(self):
-        # Synthetic distinct models exercise v3 export semantics in isolation.
-        # The production subscription authorization remains unchanged.
-        models = patch(
-            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
-            frozenset({"model:1", "model:2"}),
-        )
-        models.start()
-        self.addCleanup(models.stop)
-
     def test_api_requires_independent_current_release_after_withdrawal(self):
         bundle = v3_bundle()
         for reader in (
