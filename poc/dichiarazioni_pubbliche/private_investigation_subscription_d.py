@@ -203,6 +203,7 @@ class SubscriptionDDispatch(PsqlRuntime):
         )
         scope = {
             "attempt_id": attempt.attempt_id,
+            "content_id": content_id,
             "plan_fingerprint": attempt.plan_fingerprint,
             "source_sha256": source.source_sha256,
             "source_version": source.source_version,
@@ -392,7 +393,7 @@ class SubscriptionDDispatch(PsqlRuntime):
         try:
             raw = self.run(
                 "SELECT row_to_json(r)::text FROM (SELECT ledger_scope,status,receipt,"
-                " provider_id,model_id,operation,billing_basis,request_id,"
+                " content_id,provider_id,model_id,operation,billing_basis,request_id,"
                 " request_count,total_tokens "
                 "FROM provider_receipt WHERE id=:'id') r;",
                 id=receipt_id,
@@ -406,6 +407,7 @@ class SubscriptionDDispatch(PsqlRuntime):
             old = rows[0]
             for field in (
                 "attempt_id",
+                "content_id",
                 "plan_fingerprint",
                 "source_sha256",
                 "source_version",
@@ -414,6 +416,8 @@ class SubscriptionDDispatch(PsqlRuntime):
             ):
                 if old["ledger_scope"].get(field) != scope[field]:
                     return hold("SUBSCRIPTION_RECEIPT_CONFLICT", receipt_id)
+            if old["content_id"] != scope["content_id"]:
+                return hold("SUBSCRIPTION_RECEIPT_CONFLICT", receipt_id)
             if old["status"] != "COMPLETED":
                 return hold("SUBSCRIPTION_PENDING_UNKNOWN_EFFECTS", receipt_id)
             proof = old["receipt"]

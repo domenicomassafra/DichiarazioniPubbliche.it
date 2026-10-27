@@ -52,6 +52,7 @@ class SubscriptionDPgTests(unittest.TestCase):
         verified=lambda _: True,
         authorized=True,
         plan_fingerprint=None,
+        content_id="content:test",
     ):
         source, attempt = self.source_and_attempt(suffix)
         attempt = dataclasses.replace(
@@ -62,7 +63,7 @@ class SubscriptionDPgTests(unittest.TestCase):
         return SubscriptionDDispatch(self.dsn).run_once(
             source=source,
             attempt=attempt,
-            content_id="content:test",
+            content_id=content_id,
             rights_record_id="private-rights:pg",
             gate=self.gate() if gate is None else gate,
             current_rights=rights,
@@ -318,6 +319,18 @@ class SubscriptionDPgTests(unittest.TestCase):
         )
         self.assertEqual(replay.status, "WAIT_EXTERNAL")
         self.assertEqual(replay.reason_code, "SUBSCRIPTION_RECEIPT_CONFLICT")
+
+    def test_replay_cannot_claim_receipt_for_different_content(self):
+        first = self.dispatch()
+        self.assertEqual(first.status, "RECONCILED")
+
+        replay = self.dispatch(
+            content_id="content:other",
+            provider=lambda: self.fail("foreign content replay dispatched POST"),
+        )
+        self.assertEqual(replay.status, "WAIT_EXTERNAL")
+        self.assertEqual(replay.reason_code, "SUBSCRIPTION_RECEIPT_CONFLICT")
+        self.assertEqual(replay.new_child_task_count, 0)
 
 
 if __name__ == "__main__":
