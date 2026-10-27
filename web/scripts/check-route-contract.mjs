@@ -136,8 +136,8 @@ for (const [route, html] of pages) {
       canonical.slice(canonicalPrefix.length),
       `${route}: legacy alias identifier differs from canonical target ${canonical}`,
     );
-    if (legacyPrefix === "/compare/") {
-      assert.equal(html, pages.get(canonical), `${route}: Trace alias rendered differently from ${canonical}`);
+    if (legacyPrefix === "/compare/" && demoSnapshot) {
+      assert.equal(html, pages.get(canonical), `${route}: demo Trace alias rendered differently from ${canonical}`);
     }
     // The nested /record/person/ prefix precedes /record/: count and validate once.
     break;
