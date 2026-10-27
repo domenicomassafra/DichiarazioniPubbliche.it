@@ -10,18 +10,40 @@ A read-only, no-store HTTP surface over the Dichiarazioni Pubbliche public proje
 projection is a fail-closed, sanitized, finding-versioned read model produced by
 the publication pipeline. This API reads it and nothing else.
 
-## Opt-in Statement v3 readers (offline only)
+## Opt-in Statement v3 API (DP-437)
 
-`list_public_statements_v3` and `get_public_statement_v3` serialize reviewed
-original words only when `allow_statement_v3=True` **and**
-`current_public_dataset_sha256` matches the immutable projection fingerprint.
-The caller must resolve that current fingerprint from a separately authenticated
-active-release authority at read time; copying it from the bundle being read
-does not prove that the bundle has not been withdrawn. A missing or obsolete pin
-returns `503 PUBLIC_PROJECTION_UNAVAILABLE` for both collection and detail,
-including previously valid snapshots. The v3 writer and public HTTP routes
-remain disabled until the approved release/consumer cutover; the live v1 API
-continues to serve public-v2.
+The existing `list_public_statements_v3`, `get_public_statement_v3` and
+`list_public_opinions_by_person_content_v3` serialize only an already-gated
+public Statement projection. The same read models now have opt-in HTTP routes;
+unconfigured servers return 404 for all `/api/v3` paths and continue to serve v2.
+
+The trusted release process supplies **both** files, outside the public static
+root: the approved v3 projection candidate and an independent, active-release
+pointer containing its 64-character lowercase dataset SHA-256. Do not derive
+that pointer from the candidate during the request, or use a test fixture in
+the public release.
+
+```bash
+PYTHONPATH=poc python3 -m dichiarazioni_pubbliche.public_api \
+  --projection-path /path/to/current-v2/index.json \
+  --v3-projection-path /private/approved-v3/index.json \
+  --v3-current-fingerprint-path /private/current-v3-release-sha256 \
+  --port 8787
+```
+
+`GET/HEAD /api/v3/statements` returns the approved archive;
+`GET/HEAD /api/v3/statements/{statement_id}` returns a single original;
+`GET/HEAD /api/v3/opinions?person_id=...&content_id=...` returns endorsed
+opinions grouped by Person and Content, with intersecting optional filters.
+All responses are `no-store`. A rotated/removed, malformed or mismatched
+independent pointer yields 503; unknown or withdrawn IDs yield the same 404.
+The pointer is reread after response assembly to reject revocation races.
+
+This is the read-only software route, **not** a release authority, static
+HTML/Topic/search cutover, a rights grant, or a GO-PUBLIC. Those require an
+approved current release and the consumer parity/correction checks tracked
+in #345 and the existing publication issues. Existing v1 endpoints, schema
+and OpenAPI remain unchanged.
 
 ## Run it
 
