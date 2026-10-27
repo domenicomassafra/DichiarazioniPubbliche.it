@@ -1,4 +1,4 @@
-"""Canonical backlog counts must agree between the master plan and ticket files."""
+"""The archived PLAN and ticket headers can still be inspected as history."""
 from __future__ import annotations
 
 import sys
@@ -13,13 +13,14 @@ from tools.report_ticket_status import ticket_snapshot
 
 
 class TicketStatusTests(unittest.TestCase):
-    def test_real_backlog_has_one_canonical_status_for_each_ticket(self):
+    def test_archived_ticket_snapshot_is_explicitly_historical(self):
         result = ticket_snapshot()
+        self.assertEqual(result["authority"], "historical-only")
+        self.assertEqual(result["snapshot_as_of"], "2026-10-17")
         # The post-grilling 2026-10-10 implementation roadmap added 37
         # explicitly specced FUTURE tickets (125 -> 162). Future additions or
-        # genuine ticket closures must not fail CI solely for changing counts.
-        # Preserve historical minimums and check the canonical PLAN/files
-        # agreement rather than freezing the open backlog at an obsolete size.
+        # genuine GitHub issue closures must not alter the frozen archive.
+        # Check archival consistency without treating these counts as open work.
         self.assertGreaterEqual(result["total"], 162)
         self.assertGreaterEqual(result["done"], 90)
         self.assertEqual(result["done"] + result["not_done"], result["total"])

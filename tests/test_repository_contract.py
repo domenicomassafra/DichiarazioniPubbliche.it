@@ -73,8 +73,8 @@ class TicketIdentityContractTests(unittest.TestCase):
         )
 
 
-class TicketPlanStatusContractTests(unittest.TestCase):
-    def test_repository_contract_rejects_ticket_status_drift(self) -> None:
+class TicketArchiveContractTests(unittest.TestCase):
+    def test_repository_contract_does_not_enforce_a_live_plan_status_mirror(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             tickets = root / "docs/tickets"
@@ -94,14 +94,21 @@ class TicketPlanStatusContractTests(unittest.TestCase):
                 contextlib.redirect_stdout(output),
             ):
                 result = contract.main()
-            self.assertEqual(result, 1, output.getvalue())
-            self.assertIn("TICKET_STATUS_DRIFT:DP-235", output.getvalue())
+            self.assertEqual(result, 0, output.getvalue())
+            self.assertNotIn("TICKET_STATUS_DRIFT", output.getvalue())
 
 
 class LiveDocumentationAuthorityTests(unittest.TestCase):
-    def test_plan_labels_pre_expansion_125_ticket_checkpoint_as_historical(self) -> None:
+    def test_github_is_the_only_live_status_reader(self) -> None:
         plan = (contract.ROOT / "PLAN.md").read_text(encoding="utf-8")
-        self.assertIn("python3 tools/report_ticket_status.py --json", plan[:1500])
+        readme = (contract.ROOT / "README.md").read_text(encoding="utf-8")
+        tracker = (contract.ROOT / "docs/agents/issue-tracker.md").read_text(encoding="utf-8")
+        self.assertIn("gh issue list", readme[:2500])
+        self.assertNotIn("Read the live backlog with `python3 tools/report_ticket_status.py", readme)
+        self.assertIn("GitHub Issues", plan[:1500])
+        self.assertIn("historical", plan[:1500].lower())
+        self.assertIn("GitHub Issues", tracker)
+        self.assertNotIn("for current", tracker)
         self.assertIn("## Historical frozen checkpoint", plan)
         self.assertNotIn("## Current frozen checkpoint", plan)
         self.assertNotIn("Preserve the canonical 125 statuses", plan)

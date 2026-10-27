@@ -9,7 +9,7 @@ Read these first:
 - `../PRODUCT.md` — product constitution, scope, non-goals, invariants;
 - `../CONTEXT.md` — domain vocabulary;
 - `../ARCHITECTURE.md` — system boundaries and runtime topology;
-- `../PLAN.md` — milestone/ticket graph to stable v1;
+- `../PLAN.md` — frozen historical milestone/ticket graph to stable v1;
 - `../AGENTS.md` — contributor/agent execution rules;
 - `../GOVERNANCE.md` — decision hierarchy;
 - `adr/` — accepted architecture decisions;
@@ -34,6 +34,8 @@ clarifications; a new decision supersedes an older ADR with a new ADR.
 
 ## Ticket policy
 
-Repo-local tickets are executable specifications. They are not a second backlog hidden
-from maintainers: `PLAN.md` is the ordered index, and each ticket has a clear status.
-When a public issue tracker is configured, issues should link to the same ticket ID.
+Repo-local tickets are frozen historical specifications, including unique acceptance,
+rights, legal and implementation context. Their old status fields are archival.
+[GitHub Issues](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues)
+is the sole authority for current status, priorities, ownership and completion.
+The original tickets and plan remain available for source context, not dispatch.

@@ -16,11 +16,14 @@ publication, reply, and correction are separate auditable stages.
 
 Canonical source repository: `domenicomassafra/DichiarazioniPubbliche.it`.
 
-**Operational entry point (2026-10-27):** read [AGENTS.md](AGENTS.md),
-the canonical [PLAN.md](PLAN.md), and [docs/tickets/](docs/tickets/).
-Read the live backlog with `python3 tools/report_ticket_status.py --json`;
-the repository contract checks alignment with PLAN. Historical handoff and
-pre-grilling instructions remain in Git history. [LAUNCH.md](LAUNCH.md)
+**Operational entry point (2026-10-27):** read [AGENTS.md](AGENTS.md) and
+[GitHub Issues](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues)
+for live status, ownership, decisions and acceptance criteria. Query open work with
+`gh issue list -R domenicomassafra/DichiarazioniPubbliche.it --state open --limit 1000 --json number,title`.
+The [PLAN.md](PLAN.md) and [docs/tickets/](docs/tickets/) are frozen historical
+specifications; `tools/report_ticket_status.py` describes their archival snapshot only.
+The offline repository contract checks document structure, not live status.
+Historical handoff and pre-grilling instructions remain in Git history. [LAUNCH.md](LAUNCH.md)
 describes the informational preview.
 Local commits, CI, and live website deployment are different checks and do not
 authorize an editorial release.
@@ -46,7 +49,8 @@ and a stable public JSON/JSON-LD/API surface. The canonical page architecture is
 ## Core guarantees
 
 - **Fail closed.** Missing or stale provenance means hold/omit, not a weaker verdict.
-- **No auto-publication.** Model output is never publication authorization.
+- **Agent-gated publication.** Model output alone is never publication authorization:
+  current independent provenance, rights, legal, privacy and review gates apply.
 - **No person scores.** No global truthfulness, reliability, competence, or political
   ranking.
 - **No biometric identification.** Speaker provenance is non-biometric.
@@ -104,7 +108,8 @@ Already implemented and tested:
 - append-only correction/right-of-reply lifecycle;
 - adversarial replay/provenance/fetch/retention hardening.
 
-Known external live blockers are tracked as tickets rather than hidden by fallbacks:
+Examples of historical blockers in the frozen DP-* register (check GitHub
+for their current disposition):
 
 - `DP-201` — official OmniRoute tiered claim-extraction path;
 - `DP-204` — live remote-ASR receipt requires configured provider credential.
@@ -118,7 +123,10 @@ production website deployment was not implied by the GitHub push. Read
 [`2026-10-03 consolidation`](docs/reviews/consolidation-baseline-2026-10-03.md)
 remains historical evidence, not a current runtime report.
 
-See [`PLAN.md`](PLAN.md) for the complete path to stable v1.
+See [`PLAN.md`](PLAN.md) for the historical stable-v1 plan; open GitHub
+issues #98 (launch, correction and nightly integration), #79 (public text
+parity) and #531 (independent-model authority) own the corresponding
+unfinished outcomes. Closed #467 preserves the nightly-audit software history.
 
 ## Repository map
 
@@ -127,7 +135,7 @@ See [`PLAN.md`](PLAN.md) for the complete path to stable v1.
 ├── PRODUCT.md          product constitution and invariants
 ├── CONTEXT.md          canonical domain vocabulary
 ├── ARCHITECTURE.md     system boundaries and runtime topology
-├── PLAN.md             milestone + ticket graph to v1
+├── PLAN.md             archived milestone + ticket graph to v1
 ├── AGENTS.md           execution rules for humans and coding agents
 ├── CONTRIBUTING.md     contribution workflow
 ├── GOVERNANCE.md       decision hierarchy
@@ -218,7 +226,7 @@ review/publication logic.
 ## Contributing
 
 Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md). Significant
-work should map to a ticket in [`PLAN.md`](PLAN.md) / [`docs/tickets/`](docs/tickets/),
+work should map to an existing [GitHub issue](https://github.com/domenicomassafra/DichiarazioniPubbliche.it/issues),
 with tests and MiniPC runtime proof where required.
 
 Security issues should not be filed publicly; follow [`SECURITY.md`](SECURITY.md).

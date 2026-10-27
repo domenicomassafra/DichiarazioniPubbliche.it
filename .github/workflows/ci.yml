@@ -2,10 +2,11 @@ name: ci
 
 # DP-602 — deterministic contributor acceptance.
 #
-# This workflow never publishes, releases, deploys, or contacts a production
-# database, a paid provider, or a MiniPC host. It is read-only on the repository
-# and runs only checks that are a pure function of the committed tree: no network
-# data source, no credentials, no PostgreSQL.
+# This workflow never publishes, releases, deploys, or contacts production
+# databases, paid providers, or MiniPC hosts. Tests and builds use package
+# registries, a public JFK
+# media URL, and disposable PostgreSQL/localhost services in isolated CI jobs.
+# Static repository-contract checks remain offline and credential-free.
 #
 # Every branch push still gets the lightweight DP-602 repository contract.
 # Run the full 8-backend build matrix only for PRs and main integration, not

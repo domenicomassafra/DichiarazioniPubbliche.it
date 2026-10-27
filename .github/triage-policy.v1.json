@@ -1,9 +1,9 @@
 {
   "schema_version": "dichiarazioni-pubbliche-triage-v1",
-  "canonical_backlog": "PLAN.md",
-  "ticket_directory": "docs/tickets",
+  "canonical_backlog": "github:domenicomassafra/DichiarazioniPubbliche.it/issues",
+  "historical_ticket_directory": "docs/tickets",
   "security_path": "SECURITY.md",
-  "external_sync_policy": "UNCONFIGURED",
+  "external_sync_policy": "NONE_GITHUB_NATIVE",
   "default_new_issue_state": "needs-triage",
   "allowed_automation_actions": [
     "suggest-type-label",

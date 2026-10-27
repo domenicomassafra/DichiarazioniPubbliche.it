@@ -1,15 +1,15 @@
 # Dichiarazioni Pubbliche — Master Plan to Stable v1
 
-Status: canonical  
+Status: historical (frozen 2026-10-17)
 Plan version: 1.3 (post-grilling planning)
-Last updated: 2026-10-12 (documentation authority clarification; ticket statuses unchanged)
+Authority updated: 2026-10-27 (historical rows unchanged)
 
-This is the single ordered execution map for the project. Detailed implementation specs
-live in `docs/tickets/`. Historical roadmap files are evidence, not competing backlogs.
-Run `python3 tools/report_ticket_status.py --json` for the **current** counts and
-PLAN/ticket consistency; dated counts below are checkpoints, not a live dispatch
-queue. The post-grilling expansion introduced 37 ticket specifications, and the
-canonical register at the 2026-10-12 `f92c1c5` checkpoint contained 162 tickets:
+This archived plan and `docs/tickets/` preserve old specifications. **GitHub Issues
+alone owns live status, priority and acceptance**:
+`gh issue list -R domenicomassafra/DichiarazioniPubbliche.it --state open --limit 1000 --json number,title`.
+`python3 tools/report_ticket_status.py --json` checks archival agreement only.
+The post-grilling expansion added 37 specs. At the 2026-10-12 `f92c1c5`
+historical checkpoint there were 162 tickets:
 90 DONE, 52 IN PROGRESS, 6 BLOCKED, 14 FUTURE (72 not DONE).
 
 ## 2026-10-14 — DP02 eighth technical tranche, private HTTP hardlinks
@@ -258,7 +258,8 @@ native task/result channels, not separate Prompt2Prompt response files. Produce
 one canonical ordered plan and requirement-to-ticket coverage without lost AC,
 duplicate work, fake DONE or unsupported claims of agents launched.
 
-**Historical execution context (2026-10-10):** The original post-grilling master prompt is retained in Git history. Its reconciliation expanded the ticket register to 162; the live status command and the original ticket files remain authoritative.
+**Historical context (2026-10-10):** The old prompt is in Git history; its
+reconciliation expanded the archive to 162 specifications (not live status).
 
 ## Historical frozen checkpoint and explicit FUTURE queue — 2026-10-10 (125-ticket baseline)
 
@@ -271,7 +272,7 @@ or editorial launch acceptance.** The canonical check
 20 IN PROGRESS, 6 BLOCKED, 9 FUTURE; 35 not DONE**. The stable-v1 gate
 `python3 tools/check_launch_preflight.py --expect-no-go` yielded **NO-GO / 49**
 (16 unresolved qualified Q-306 dispositions + four missing release artifacts
-+ 29 ticket gates). Acceptance criteria remain authoritative in their own files.
++ 29 ticket gates). Those criteria are historical; current acceptance is on GitHub.
 
 **Sequence for the nine FUTURE tickets (unchanged statuses):**
 
@@ -349,8 +350,8 @@ for these ticket groups:
 - M6: DP-601 through DP-607;
 - M7: DP-701 through DP-705.
 
-The table statuses below remain implementation/readiness statuses; delivering a
-specification packet does not mark its ticket `DONE` or provide runtime proof. The
+The table statuses below were historical implementation/readiness statuses when
+recorded; delivering a specification packet was not runtime proof. The
 original S5 coordination packet for DP-501 through DP-508 was later superseded by the
 implemented M5 control surfaces and receipts recorded in those ticket files. The
 historical I1 claim-contract dispatch produced no result; its work was subsequently
