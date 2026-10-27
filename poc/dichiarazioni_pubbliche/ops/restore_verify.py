@@ -88,6 +88,7 @@ LOAD_BEARING_TABLES = (
     "evidence",
     "claim_evidence_candidate",
     "private_source_rights_record",
+    "private_camera_parse_attestation",
     "evidence_observation",
     "coverage_need",
     "coverage_need_event",

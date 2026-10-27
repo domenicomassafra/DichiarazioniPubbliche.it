@@ -186,6 +186,7 @@ class SourceFamilyUseGuard:
         expected_sha256: str | None = None,
         expected_media_type: str | None = None,
         clock: Callable[[], datetime] | None = None,
+        authenticated_parse_check: Callable[[str, str], bool] | None = None,
     ) -> None:
         if (
             subject.locator_kind != "URL" or not subject.content_id
@@ -210,6 +211,7 @@ class SourceFamilyUseGuard:
         self.expected_sha256 = expected_sha256
         self.expected_media_type = expected_media_type
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.authenticated_parse_check = authenticated_parse_check
 
     def bind_capture(self, *, content_id: str, url: str) -> None:
         if content_id != self.subject.content_id or url != self.subject.locator_value:
@@ -251,6 +253,17 @@ class SourceFamilyUseGuard:
         )
         if not decision.permitted:
             raise SourceUseBlocked(decision.reason_code)
+        if use == "PARSE_TEXT" and self.subject.source_family == "camera_official_stenographic":
+            if self.expected_sha256 is None or self.authenticated_parse_check is None:
+                raise SourceUseBlocked("CAMERA_PARSE_AUTHORITY_REQUIRED")
+            try:
+                authenticated = self.authenticated_parse_check(
+                    self.subject.content_id, self.expected_sha256,
+                )
+            except Exception:
+                raise SourceUseBlocked("CAMERA_PARSE_AUTHORITY_UNAVAILABLE") from None
+            if authenticated is not True:
+                raise SourceUseBlocked("CAMERA_PARSE_AUTHORITY_DENIED")
         return decision
 
 
