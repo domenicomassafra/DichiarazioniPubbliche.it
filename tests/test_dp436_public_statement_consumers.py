@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,6 +76,16 @@ def with_derived() -> dict:
 
 
 class PublicStatementV3ConsumerTests(unittest.TestCase):
+    def setUp(self):
+        # Synthetic distinct models exercise v3 export semantics in isolation.
+        # The production subscription authorization remains unchanged.
+        models = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"model:1", "model:2"}),
+        )
+        models.start()
+        self.addCleanup(models.stop)
+
     def test_api_requires_independent_current_release_after_withdrawal(self):
         bundle = v3_bundle()
         for reader in (

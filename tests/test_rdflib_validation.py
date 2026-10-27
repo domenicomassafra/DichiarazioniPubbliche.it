@@ -11,6 +11,7 @@ import hashlib
 import json
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,6 +40,16 @@ from test_public_projection import FakeSource, valid_row  # noqa: E402
 
 @unittest.skipUnless(Graph is not None, "RDFLib is an optional dev dependency")
 class RDFLibPublicExportTests(unittest.TestCase):
+    def setUp(self):
+        # Synthetic distinct models exercise v3 export semantics in isolation.
+        # The production subscription authorization remains unchanged.
+        models = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"model:1", "model:2"}),
+        )
+        models.start()
+        self.addCleanup(models.stop)
+
     def parse_nt(self, encoded):
         graph = Graph().parse(data=encoded, format="nt")
         self.assertEqual(len(graph), len(encoded.splitlines()), "duplicate RDF triples")
