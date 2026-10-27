@@ -6,21 +6,21 @@ DP tickets before creating anything; a test, report or partial fix is not a new
 feature ticket. Never publish private receipts, source bodies, credentials or
 personal/fleet data in this repository or its issues.
 
-## One status authority per original
+## Sole live authority
 
-- Existing `DP-*` IDs retain their original criteria and authority in
-  `docs/tickets/`; `PLAN.md` remains the ordered execution map. Read the original
-  ticket and use `python3 tools/report_ticket_status.py --json` for current
-  status and PLAN/ticket consistency. Dated counts are historical evidence.
-- Newly approved GitHub issues use their issue body/criteria and remote
-  OPEN/CLOSED state as authority. Local specifications, checkpoints and proof
-  reference the issue URL; they are not a second writable backlog.
-- This file migrates **no** legacy ticket. A link, assignee or Project item is
-  not a cutover. Before migrating a lot, preserve each original ID and all
-  criteria, record its issue mapping in the existing register, read back remote
-  criteria/states and update and verify every affected reader/writer. Until
-  then the original register remains authoritative. After cutover only GitHub
-  writes status for that lot; do not keep two independently writable states.
+- Since the 2026-10-17 migration, GitHub issue bodies, comments and OPEN/CLOSED
+  states own current acceptance, priority, ownership and status, including
+  historical DP-* work mapped to GitHub. New work need not invent a DP-* identifier.
+- `PLAN.md` and `docs/tickets/DP-*.md` preserve unique historical specifications,
+  legal context and older proofs; their Status fields are frozen. The offline
+  `tools/report_ticket_status.py` command counts only that frozen snapshot.
+- For residuals of closed implementation tranches, the open owners are #98
+  (end-to-end source/review/correction and nightly integration after closed
+  #458/#466/#467/#468), #79 (verbatim parity after closed #355), and #531
+  (independent-model authority after closed #464). Closed #467 retains the
+  nightly audit integration instructions; the actual schedule remains HOLD
+  until its prerequisites are proven. #300 owns personal gestures. Check
+  the latest comments of open issues before assigning further work.
 
 ## Native authenticated workflow
 
@@ -32,7 +32,7 @@ another GitHub-to-Codex connection or copy credentials.
 git remote get-url origin
 gh api user --jq .login
 gh repo view domenicomassafra/DichiarazioniPubbliche.it --json nameWithOwner,isPrivate,hasIssuesEnabled
-gh issue list --repo domenicomassafra/DichiarazioniPubbliche.it --state open --limit 100
+gh issue list --repo domenicomassafra/DichiarazioniPubbliche.it --state open --limit 1000 --json number,title
 gh pr list --repo domenicomassafra/DichiarazioniPubbliche.it --state open
 # For the selected issue, read its body and comments before acting:
 # gh issue view NUMBER --repo domenicomassafra/DichiarazioniPubbliche.it --comments

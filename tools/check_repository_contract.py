@@ -26,11 +26,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-if __package__:
-    from .report_ticket_status import ticket_snapshot
-else:
-    from report_ticket_status import ticket_snapshot
-
 ROOT = Path(__file__).resolve().parents[1]
 TICKETS_DIR = ROOT / "docs" / "tickets"
 
@@ -215,16 +210,6 @@ def check_tickets() -> list[str]:
     return problems
 
 
-def check_ticket_contract() -> list[str]:
-    """Validate ticket structure and the PLAN status ledger as one contract."""
-    problems = check_tickets()
-    try:
-        ticket_snapshot(ROOT)
-    except (OSError, ValueError) as exc:
-        problems.append(f"PLAN/ticket status disagreement: {exc}")
-    return problems
-
-
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 # Pre-existing broken relative links in files owned by other lanes, recorded so the
@@ -352,7 +337,7 @@ def check_license() -> list[str]:
 
 
 SECTIONS = {
-    "tickets": check_ticket_contract,
+    "tickets": check_tickets,
     "links": check_links,
     "json": check_json,
     "templates": check_templates,
