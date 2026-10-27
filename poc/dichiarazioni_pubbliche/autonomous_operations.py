@@ -23,6 +23,8 @@ from dichiarazioni_pubbliche.autonomous_publication import (
     CHECKS,
     candidate_fingerprint,
     evaluate_autonomous_publication,
+    independent_review_models_authorized,
+    review_model_authorized,
 )
 
 
@@ -195,6 +197,12 @@ class AutonomousOperations:
         failures = tuple(code for code in preliminary.reason_codes if code != "INDEPENDENT_REVIEW")
         if failures:
             return self._hold(record_id, binding, failures, at)
+        # The approved subscription currently offers only one model identity.
+        # Reject impossible review pairs before spending any provider quota.
+        if not independent_review_models_authorized(
+            getattr(self.first, "model_id", None), getattr(self.second, "model_id", None),
+        ):
+            return self._hold(record_id, binding, ("INDEPENDENT_REVIEW",), at)
         try:
             first = self.first.review(item, binding)
             second = self.second.review(item, binding)
@@ -269,6 +277,7 @@ class AutonomousOperations:
             isinstance(getattr(auditor, "model_id", None), str)
             and isinstance(getattr(auditor, "agent_id", None), str)
             and bool(auditor.model_id.strip()) and bool(auditor.agent_id.strip())
+            and review_model_authorized(auditor.model_id)
             and auditor.model_id.strip().casefold() not in model_ids
             and auditor.agent_id.strip().casefold() not in actor_ids
         )

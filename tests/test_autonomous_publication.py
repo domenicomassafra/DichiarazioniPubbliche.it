@@ -3,6 +3,7 @@
 from dataclasses import replace
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
@@ -61,6 +62,16 @@ def reviews(item: AutonomousCandidate) -> tuple[AgentReview, AgentReview]:
 
 
 class AutonomousPublicationTests(unittest.TestCase):
+    def setUp(self):
+        # These synthetic two-model fixtures exercise the generic review stages.
+        # The live subscription restriction is tested without this override below.
+        policy = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"gemini:flash", "local:reviewer"}),
+        )
+        policy.start()
+        self.addCleanup(policy.stop)
+
     def test_valid_quote_is_eligible_after_two_models_recheck_same_evidence(self):
         item = candidate()
         result = evaluate_autonomous_publication(item, *reviews(item))
@@ -194,6 +205,30 @@ class AutonomousPublicationTests(unittest.TestCase):
                     "INDEPENDENT_REVIEW",
                     evaluate_autonomous_publication(current, *old_reviews).reason_codes,
                 )
+
+
+class SubscriptionReviewPolicyTests(unittest.TestCase):
+    def test_distinct_but_unapproved_model_ids_cannot_publish(self):
+        item = candidate()
+        first, second = reviews(item)
+        first = replace(first, model_id="antigravity/gemini-3.8-flash-tiered")
+        for fake in ("local:reviewer", "openrouter/gpt-6", "antigravity/gemini-3.8-flash-tiered-fake"):
+            with self.subTest(fake=fake):
+                decision = evaluate_autonomous_publication(
+                    item, first, replace(second, model_id=fake),
+                )
+                self.assertEqual(decision.disposition, "HOLD")
+                self.assertIn("INDEPENDENT_REVIEW", decision.reason_codes)
+
+    def test_two_genuine_subscription_agents_still_use_the_same_model(self):
+        item = candidate()
+        first, second = reviews(item)
+        approved = "antigravity/gemini-3.8-flash-tiered"
+        verdict = evaluate_autonomous_publication(
+            item, replace(first, model_id=approved), replace(second, model_id=approved),
+        )
+        self.assertEqual(verdict.disposition, "HOLD")
+        self.assertIn("INDEPENDENT_REVIEW", verdict.reason_codes)
 
 
 if __name__ == "__main__":

@@ -46,6 +46,8 @@ curl -fsS --max-time 10 -o /dev/null -w 'http=%{http_code}\n' https://dichiarazi
 ## Modello LLM unico (decisione owner del 23/10/2026)
 Per ora tutto funziona con **Gemini 3.8 Flash tramite Antigravity**, passando da OmniRoute. Nessuna API esterna: niente OpenRouter, Groq, Cerebras, Cloudflare AI, Cohere, Gemini Developer API o altri provider diretti, né a pagamento né free. Codice, config e documenti che prevedono altre route vanno allineati a questa scelta; un'eccezione richiede una nuova decisione esplicita dell'owner.
 
+La regola di revisione #413 richiede modelli realmente differenti, non solo due agenti o due account. Finché è autorizzato un solo modello, nessuna coppia di review può dare `PUBLISH`: il gate risponde `INDEPENDENT_REVIEW`/`HOLD` senza chiamate al provider. Alias, nomi modello inventati e fallback non conferiscono autorità. Una futura eccezione richiede una nuova decisione esplicita dell’owner e la verifica indipendente dell’identità del modello effettivo.
+
 **Decisione owner 25/10/2026, DP#300:** usare esclusivamente i 12 account **Google Antigravity Pro in abbonamento** attraverso OmniRoute. Alla quota esaurita fermare le estrazioni; non usare fallback verso altri provider o richieste a consumo. Il limite è la quota degli abbonamenti: non richiedere attestazioni di cap in euro. Prima di una POST reale il consumer deve verificare il vincolo sui provider/account effettivamente utilizzabili dalla chiave DP, oltre al modello richiesto e alla guardia delle route pagate.
 
 ## Senato Akoma Ntoso: fonte aperta, sola Discovery privata (owner 24/10/2026)

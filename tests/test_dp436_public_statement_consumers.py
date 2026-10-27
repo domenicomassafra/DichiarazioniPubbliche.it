@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,11 +46,17 @@ from test_public_projection import FakeSource, valid_row  # noqa: E402
 
 
 def v3_bundle(source: IsolatedStatementSource | None = None) -> dict:
-    return build_public_projection(
-        source or IsolatedStatementSource(),
-        generated_at=STAMP,
-        include_public_statements=True,
-    )
+    # This fixture is imported directly by the frontend's Node/Python checks,
+    # outside unittest setUp. Scope synthetic identities to construction only.
+    with patch(
+        "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+        frozenset({"model:1", "model:2"}),
+    ):
+        return build_public_projection(
+            source or IsolatedStatementSource(),
+            generated_at=STAMP,
+            include_public_statements=True,
+        )
 
 
 def v2_bundle() -> dict:

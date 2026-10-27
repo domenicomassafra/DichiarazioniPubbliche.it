@@ -16,7 +16,28 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 
-POLICY_VERSION = "autonomous-publication-413-v1"
+# v2 invalidates cached v1 PUBLISH decisions when model authorization tightens.
+POLICY_VERSION = "autonomous-publication-413-v2"
+# Owner decision 23/25 October 2026: only this subscription route is approved.
+# A second agent using the same model is not a second independent model.
+# Keep review/publication in HOLD until the owner explicitly permits and a
+# trusted consumer independently verifies a different model and subscription.
+SUBSCRIPTION_REVIEW_MODEL = "antigravity/gemini-3.8-flash-tiered"
+APPROVED_REVIEW_MODELS = frozenset({SUBSCRIPTION_REVIEW_MODEL})
+
+
+def review_model_authorized(model_id: object) -> bool:
+    """A model string is eligible only when this policy explicitly permits it."""
+    return isinstance(model_id, str) and model_id.strip().casefold() in APPROVED_REVIEW_MODELS
+
+
+def independent_review_models_authorized(first_model: object, second_model: object) -> bool:
+    """Require two different model identities, both approved by current policy."""
+    if not (review_model_authorized(first_model) and review_model_authorized(second_model)):
+        return False
+    return first_model.strip().casefold() != second_model.strip().casefold()
+
+
 MIN_ALIGNMENT_CONFIDENCE = 0.95
 # Conservative short-excerpt limit; source-specific clearance decides permitted use.
 MAX_EXCERPT_CHARS = 300
@@ -257,9 +278,7 @@ def evaluate_autonomous_publication(
         or not primary.agent_id.strip()
         or not independent.agent_id.strip()
         or primary.agent_id.strip().casefold() == independent.agent_id.strip().casefold()
-        or not primary.model_id.strip()
-        or not independent.model_id.strip()
-        or primary.model_id.strip().casefold() == independent.model_id.strip().casefold()
+        or not independent_review_models_authorized(primary.model_id, independent.model_id)
         or primary.evidence_sha256 != binding
         or independent.evidence_sha256 != binding
         or primary.checked_stages != CHECKS
@@ -282,5 +301,7 @@ __all__ = [
     "AutonomousProofPacket",
     "SpeakerSignal",
     "candidate_fingerprint",
+    "independent_review_models_authorized",
+    "review_model_authorized",
     "evaluate_autonomous_publication",
 ]

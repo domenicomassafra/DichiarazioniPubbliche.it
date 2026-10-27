@@ -14,14 +14,15 @@ from dataclasses import asdict
 from typing import Callable, Any
 
 from dichiarazioni_pubbliche.autonomous_publication import (
-    AgentReview, AutonomousCandidate, CHECKS, POLICY_VERSION, candidate_fingerprint,
+    AgentReview, AutonomousCandidate, CHECKS, POLICY_VERSION, SUBSCRIPTION_REVIEW_MODEL,
+    candidate_fingerprint,
 )
 from dichiarazioni_pubbliche.autonomous_runner_v3 import SQLiteRunJournal, _json
 from dichiarazioni_pubbliche.claim_runtime import (
     DEFAULT_BASE_URL, LOCAL_GATEWAY_URLS, matches_returned_model,
 )
 
-MODEL = "antigravity/gemini-3.8-flash-tiered"
+MODEL = SUBSCRIPTION_REVIEW_MODEL
 PROMPT_VERSION = "dp413b-review-v1"
 MAX_RESPONSE_BYTES = 65536
 

@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date, datetime, timezone, timedelta
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "poc"))
@@ -94,6 +95,16 @@ def harness():
 
 
 class AutonomousOperationsTests(unittest.TestCase):
+    def setUp(self):
+        # Hypothetical model diversity lets lifecycle tests exercise PUBLISH and
+        # rollback. Real active policy is covered by SubscriptionOperationsTests.
+        policy = patch(
+            "dichiarazioni_pubbliche.autonomous_publication.APPROVED_REVIEW_MODELS",
+            frozenset({"gemini:model-1", "local:model-2", "other:model-3"}),
+        )
+        policy.start()
+        self.addCleanup(policy.stop)
+
     def test_verified_publication_is_logged_and_read_back_without_people(self):
         ops, _, _, first, second, surface, journal = harness()
         outcome = ops.evaluate_and_apply("finding:413", now=NOW)
@@ -218,6 +229,21 @@ class AutonomousOperationsTests(unittest.TestCase):
         self.assertEqual(outcome.disposition, "AUDIT_HOLD")
         self.assertIsNone(surface.current_evidence_sha256("finding:413"))
 
+    def test_unapproved_nightly_model_cannot_audit_or_execute(self):
+        ops, capture, _, first, second, surface, _ = harness()
+        self.assertEqual(ops.evaluate_and_apply("finding:413", now=NOW).disposition, "PUBLISH")
+        binding = candidate_fingerprint(capture.item)
+        packet = AutonomousProofPacket(
+            capture.item, first.review(capture.item, binding),
+            second.review(capture.item, binding),
+        )
+        fake = Reviewer("agent:nightly", "unapproved:third-model")
+        result = ops.audit_and_apply(packet, fake, now=NOW)
+        self.assertEqual(result.disposition, "AUDIT_HOLD")
+        self.assertIn("THIRD_REVIEW_FAILED", result.reason_codes)
+        self.assertEqual(fake.calls, 0)
+        self.assertFalse(surface.visible)
+
     def test_nightly_sampling_is_deterministic_and_unique(self):
         ops, capture, _, _, _, _, journal = harness()
         for index in range(13):
@@ -291,6 +317,36 @@ class AutonomousOperationsTests(unittest.TestCase):
         self.assertEqual([outcome.disposition for outcome in outcomes], ["AUDIT_HOLD"])
         self.assertEqual(outcomes[0].reason_codes, ("AUDIT_PACKET_UNAVAILABLE",))
         self.assertNotIn("finding:413", surface.visible)
+
+
+class SubscriptionOperationsTests(unittest.TestCase):
+    def test_single_approved_route_holds_before_any_provider_calls(self):
+        from dichiarazioni_pubbliche.autonomous_publication import APPROVED_REVIEW_MODELS
+        approved = next(iter(APPROVED_REVIEW_MODELS))
+        first = Reviewer("agent:first", approved)
+        second = Reviewer("agent:independent", approved)
+        surface, journal = Surface(), Journal()
+        ops = AutonomousOperations(
+            capture=Capture(), challenge=Challenge(), first=first, second=second,
+            public_surface=surface, journal=journal,
+        )
+        result = ops.evaluate_and_apply("finding:413", now=NOW)
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertIn("INDEPENDENT_REVIEW", result.reason_codes)
+        self.assertEqual((first.calls, second.calls), (0, 0))
+        self.assertFalse(surface.visible)
+
+    def test_fake_second_provider_holds_before_any_provider_calls(self):
+        first = Reviewer("agent:first", "antigravity/gemini-3.8-flash-tiered")
+        second = Reviewer("agent:independent", "local:unapproved-model")
+        ops = AutonomousOperations(
+            capture=Capture(), challenge=Challenge(), first=first, second=second,
+            public_surface=Surface(), journal=Journal(),
+        )
+        result = ops.evaluate_and_apply("finding:413", now=NOW)
+        self.assertEqual(result.disposition, "HOLD")
+        self.assertIn("INDEPENDENT_REVIEW", result.reason_codes)
+        self.assertEqual((first.calls, second.calls), (0, 0))
 
 
 if __name__ == "__main__":
