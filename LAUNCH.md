@@ -92,7 +92,7 @@ workflow tecnico ne presume il superamento. La pubblicazione di contenuto
 reale o una release stabile richiederà una **decisione separata**, con gli
 attuali controlli fail-closed.
 
-**Handoff del checkpoint:** vedere `MEGA-HANDOFF-2026-10-10.md` per lo stato
+**Checkpoint storico (10 ottobre 2026):** consultare la cronologia Git per lo stato
 verificato di tutti i 125 ticket, i rischi, il percorso fonti → candidati →
 verifica → frontend, i test e le domande da sottoporre al prossimo agente.
 Il presente documento descrive **soltanto la preview informativa** e non
