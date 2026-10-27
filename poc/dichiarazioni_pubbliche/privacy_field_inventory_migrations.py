@@ -17,6 +17,12 @@ _MIGRATIONS = (
         "PRIVACY_DP515_WATCH_TABLE_DRIFT",
     ),
     (
+        "20261026-add-autonomous-nightly-audit.sql",
+        {"autonomous_nightly_audit_run", "autonomous_nightly_audit_result",
+         "autonomous_nightly_audit_complete"},
+        "PRIVACY_DP413E_NIGHTLY_TABLE_DRIFT",
+    ),
+    (
         "20261026-add-camera-private-parse-attestation.sql",
         {"private_camera_parse_attestation"},
         "PRIVACY_DP449_CAMERA_PARSE_TABLE_DRIFT",
@@ -26,7 +32,7 @@ _MIGRATIONS = (
 
 def register_versioned_privacy_migrations(
     root: Path, tables: dict, parse_fields, error_type: type[ValueError]
-) -> tuple[dict, dict]:
+) -> tuple[dict, ...]:
     """Add only explicitly reviewed opt-in table sets to the private census."""
     loaded = []
     for filename, expected, error in _MIGRATIONS:
@@ -36,4 +42,21 @@ def register_versioned_privacy_migrations(
             raise error_type(error)
         tables.update(found)
         loaded.append(found)
-    return loaded[0], loaded[1]
+    return tuple(loaded)
+
+
+def privacy_schema_origin(table: str, column: str, monthly: dict, watch: dict, nightly: dict, camera: dict) -> str:
+    """Trace private columns to the reviewed schema or versioned migration."""
+    if table == "public_schema_contract":
+        return "20260926_PUBLIC_SCHEMA_CONTRACT_MIGRATION"
+    if table == "claim_relation_candidate" and column == "policy_version":
+        return "20260926_RELATION_POLICY_MIGRATION"
+    if table in monthly:
+        return "20261022_DP514_MONTHLY_MIGRATION"
+    if table in watch:
+        return "20261025_DP515_WATCH_MIGRATION"
+    if table in nightly:
+        return "20261026_DP413E_NIGHTLY_MIGRATION"
+    if table in camera:
+        return "20261026_DP449_CAMERA_PARSE_MIGRATION"
+    return "CANONICAL_SCHEMA_V1"

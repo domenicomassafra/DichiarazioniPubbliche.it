@@ -312,21 +312,38 @@ class AutonomousOperations:
         at = _now(now)
         outcomes: list[RunReceipt] = []
         for record_id in nightly_sample(journal_events, day):
-            try:
-                packet = packet_authority.current_packet(record_id)
-            except Exception:
-                packet = None
-            if not isinstance(packet, AutonomousProofPacket) or (
-                not isinstance(packet.candidate, AutonomousCandidate)
-                or packet.candidate.record_id != record_id
-            ):
-                self._withdraw(record_id)
-                outcomes.append(self._record(
-                    record_id, "AUDIT_HOLD", None, ("AUDIT_PACKET_UNAVAILABLE",), at,
-                ))
-            else:
-                outcomes.append(self.audit_and_apply(packet, third, now=at))
+            outcomes.append(self.audit_nightly_record(
+                record_id, packet_authority=packet_authority, third=third, now=at,
+            ))
         return tuple(outcomes)
+
+    def audit_nightly_record(
+        self, record_id: str, *, packet_authority: AuditPacketAuthority,
+        third: ReviewAuthority, now: datetime,
+    ) -> RunReceipt:
+        """Audit one persisted sample member, including a missing-packet HOLD."""
+        at = _now(now)
+        try:
+            packet = packet_authority.current_packet(record_id)
+        except Exception:
+            packet = None
+        if not isinstance(packet, AutonomousProofPacket) or (
+            not isinstance(packet.candidate, AutonomousCandidate)
+            or packet.candidate.record_id != record_id
+        ):
+            self._withdraw(record_id)
+            return self._record(
+                record_id, "AUDIT_HOLD", None, ("AUDIT_PACKET_UNAVAILABLE",), at,
+            )
+        try:
+            return self.audit_and_apply(packet, third, now=at)
+        except (TypeError, ValueError, OverflowError, AttributeError):
+            # Malformed version/rights/capture fields cannot leave a previously
+            # eligible public item visible merely because hashing failed.
+            self._withdraw(record_id)
+            return self._record(
+                record_id, "AUDIT_HOLD", None, ("AUDIT_PACKET_INVALID",), at,
+            )
 
 
 def _events_on_day(events: object, day: date) -> tuple[RunReceipt, ...]:
