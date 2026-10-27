@@ -35,9 +35,7 @@ _RELATION_POLICY_MIGRATION = ROOT / "db/migrations/20260926-add-relation-approva
 _MIGRATIONS_ROOT = ROOT / "db/migrations"
 _ACCOUNT_SOURCE = ROOT / "poc/dichiarazioni_pubbliche/public_account.py"
 
-# These are the fields emitted by the optional stdlib public HTTP access logger.
-# The entire request line is potentially identifying and can contain OAuth codes.
-# Neither its default-off state nor this inventory authorizes its use in production.
+# Optional HTTP logging remains private; the inventory grants no live approval.
 _RUNTIME_LOG_FIELDS = {
     "public_api_http_access_optional": (
         "client_address", "request_line", "response_code", "response_size", "timestamp"
@@ -169,8 +167,7 @@ def _check_literal_migration_coverage(tables: Mapping[str, tuple[str, ...]]) -> 
 
 
 def classify_field(table: str, column: str) -> str:
-    # Schema-name classifications cannot infer value-level traits. Ambiguous
-    # payloads stay private, never assigned public safety by a name heuristic.
+    # Ambiguous payloads remain private.
     if column in _IDENTITY_FIELDS or column.endswith(("_email", "_phone", "_contact")):
         return DataClass.HIGH_RISK_IDENTITY.value
     if column in _SENSITIVE_FIELDS:
@@ -408,6 +405,8 @@ def make_inventory(schema: str) -> dict[str, Any]:
                     if table in monthly
                     else "20261025_DP515_WATCH_MIGRATION"
                     if table in watch
+                    else "20261026_DP449_CAMERA_PARSE_MIGRATION"
+                    if table == "private_camera_parse_attestation"
                     else "CANONICAL_SCHEMA_V1"
                 ),
                 "data_class": classify_field(table, column),
