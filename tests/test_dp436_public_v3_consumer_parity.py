@@ -19,7 +19,6 @@ from dichiarazioni_pubbliche.linked_data import (  # noqa: E402
     projection_statement_v3_ntriples,
 )
 from dichiarazioni_pubbliche.public_api import list_public_statements_v3  # noqa: E402
-from dichiarazioni_pubbliche.public_projection import build_public_projection  # noqa: E402
 from dichiarazioni_pubbliche.public_schema import (  # noqa: E402
     projection_dataset_sha256,
 )
@@ -31,17 +30,12 @@ from test_dp435_public_statement_seam import (  # noqa: E402
     IsolatedStatementSource,
     QUOTE,
     SHA,
-    STAMP,
 )
-from test_dp436_public_statement_consumers import with_derived  # noqa: E402
+from test_dp436_public_statement_consumers import v3_bundle, with_derived  # noqa: E402
 
 
 def bundle(source=None):
-    return build_public_projection(
-        source or IsolatedStatementSource(),
-        generated_at=STAMP,
-        include_public_statements=True,
-    )
+    return v3_bundle(source)
 
 
 def formats(payload):
