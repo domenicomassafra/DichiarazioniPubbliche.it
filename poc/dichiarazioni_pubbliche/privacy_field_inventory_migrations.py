@@ -16,6 +16,11 @@ _MIGRATIONS = (
         {"dp515_watch_source", "dp515_watch_attempt"},
         "PRIVACY_DP515_WATCH_TABLE_DRIFT",
     ),
+    (
+        "20261026-add-camera-private-parse-attestation.sql",
+        {"private_camera_parse_attestation"},
+        "PRIVACY_DP449_CAMERA_PARSE_TABLE_DRIFT",
+    ),
 )
 
 
