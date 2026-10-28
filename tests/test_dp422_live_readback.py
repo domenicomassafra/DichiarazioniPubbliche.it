@@ -51,7 +51,7 @@ def valid_response_map():
     for route in CANONICAL_ROUTES:
         responses[route] = (200, (
             '<html lang="it"><head><meta name="robots" content="index,follow">'
-            '<link rel="canonical" href="' + route + '">'
+            '<link rel="canonical" href="https://dichiarazionipubbliche.it' + route + '">'
             '<link rel="stylesheet" href="/_astro/main.css">'
             '</head><body><main id="main"><h1>Archivio pubblico</h1>'
             '<a href="/esplora/">Esplora</a><a href="/metodo/">Metodo</a>'
@@ -94,6 +94,16 @@ class DP422LiveReadbackTests(unittest.TestCase):
                 responses[path] = (200, _body(value))
                 with self.assertRaisesRegex(ReadbackError, reason):
                     check_readback(responses.__getitem__, FINGERPRINT)
+
+    def test_rejects_relative_canonical_in_public_pages(self):
+        responses = valid_response_map()
+        original = responses["/"][1]
+        responses["/"] = (200, original.replace(
+            b'href="https://dichiarazionipubbliche.it/"',
+            b'href="/"',
+        ))
+        with self.assertRaisesRegex(ReadbackError, "CANONICAL_DRIFT:/"):
+            check_readback(responses.__getitem__, FINGERPRINT)
 
     def test_rejects_alias_production_leak_or_broken_static_page(self):
         modifications = (

@@ -98,6 +98,13 @@ try {
   }
   const audited = audit(fingerprint);
   assert.equal(audited.status, 0, `independent informational-preview audit failed: ${output(audited)}`);
+  // Exercise the production robots/sitemap policy on the isolated public build.
+  // The demo-only CI build cannot catch mixed index/noindex utility pages.
+  const quality = spawnSync("node", ["scripts/check-public-quality.mjs"], {
+    cwd: root, encoding: "utf8",
+    env: { ...cleanEnv, DP_QUALITY_DIST: join(directory, "empty") },
+  });
+  assert.equal(quality.status, 0, `empty public build quality failed: ${output(quality)}`);
   const wrongFingerprint = audit("a".repeat(64));
   assert.notEqual(wrongFingerprint.status, 0, "independent preview audit accepted a wrong source fingerprint");
   assert.match(output(wrongFingerprint), /PROJECTION_FINGERPRINT_DRIFT/);
