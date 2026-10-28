@@ -149,6 +149,7 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
             return self._correction_response(401, {"error": "AUTHENTICATION_REQUIRED"})
         lengths = self.headers.get_all("Content-Length", [])
         if (len(lengths) != 1 or not lengths[0].isdecimal()
+                or len(lengths[0]) > len(str(MAX_CORRECTION_BYTES))
                 or int(lengths[0]) > MAX_CORRECTION_BYTES
                 or self.headers.get("Content-Type", "").split(";", 1)[0].strip() != "application/json"):
             return self._correction_response(413, {"error": "INVALID_CONTENT_LENGTH"})

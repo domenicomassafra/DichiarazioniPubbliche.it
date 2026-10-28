@@ -171,6 +171,19 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(self.request("POST", "/intake/corrections", item, other)[0], 409)
         self.assertEqual(len(self.purges), 2)
 
+    def test_absurd_content_length_is_rejected_without_creating_a_correction(self):
+        status, _, response = self.request(
+            "POST", "/intake/corrections",
+            headers=self.auth_headers() | {
+                "Content-Type": "application/json",
+                "Content-Length": "9" * 5000,
+            },
+        )
+        self.assertEqual(status, 413)
+        self.assertEqual(response, {"error": "INVALID_CONTENT_LENGTH"})
+        self.assertEqual(self.ledger.requests, {})
+        self.assertEqual(self.jobs, [])
+
     def test_purge_failure_keeps_hold_and_refuses_success(self):
         self.purge_ok = False
         status, _, _ = self.request("POST", "/intake/corrections", {"finding_id": self.finding_id, "reason": "Errore"}, self.auth_headers())
