@@ -197,7 +197,7 @@
   "tests/test_verification_runtime.py": 22339,
   "tests/test_worker_daemon.py": 45805,
   "tools/evaluate_garlasco_source_governance_wave26.py": 20735,
-  "tools/generate_fixture_inventory.py": 33644,
+  "tools/generate_fixture_inventory.py": 32025,
   "web/scripts/check-browser-qa.mjs": 50893,
   "web/scripts/dp431_rebuild.py": 21719,
   "web/src/components/ExploreClient.tsx": 27876,

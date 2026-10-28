@@ -33,5 +33,7 @@ for (const phrase of [
   assert.ok(method.includes(phrase), `method disclosure missing: ${phrase}`);
 }
 assert.equal(/AI verified|ratingValue/i.test(method), false, "method contains prohibited trust shortcut");
+assert.match(method, /La pubblicazione automatica avviene soltanto dopo controlli indipendenti/,
+  "method must describe the current autonomous publication policy");
 
 console.log(`trust-disclosure checks PASS (${statementFiles.length} statement pages + method${statementFiles.length === 0 ? "; approved empty snapshot" : ""})`);
