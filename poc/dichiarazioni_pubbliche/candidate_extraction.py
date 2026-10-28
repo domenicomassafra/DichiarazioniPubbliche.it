@@ -2351,9 +2351,8 @@ PASSAGE_TEXT_JSON:
                 body = response.read(limit + 1)
         except urllib.error.HTTPError as exc:
             status = int(exc.code)
-            category = "OMNIROUTE_HTTP_" + str(status)
-            if status == 429:
-                category = "OMNIROUTE_RATE_LIMITED"
+            exc.close()
+            category = "OMNIROUTE_RATE_LIMITED" if status == 429 else f"OMNIROUTE_HTTP_{status}"
             raise CandidateExtractionError(category) from exc
         except Exception as exc:
             raise CandidateExtractionError("OMNIROUTE_REQUEST_FAILED") from exc
