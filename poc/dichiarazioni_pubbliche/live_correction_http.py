@@ -148,13 +148,14 @@ class LiveCorrectionRequestHandler(PublicApiRequestHandler):
         if actor is None:
             return self._correction_response(401, {"error": "AUTHENTICATION_REQUIRED"})
         lengths = self.headers.get_all("Content-Length", [])
-        if (len(lengths) != 1 or not lengths[0].isdecimal()
-                or len(lengths[0]) > len(str(MAX_CORRECTION_BYTES))
-                or int(lengths[0]) > MAX_CORRECTION_BYTES
+        normalized_length = (lengths[0].lstrip("0") or "0") if len(lengths) == 1 else ""
+        if (len(lengths) != 1 or not lengths[0].isascii() or not lengths[0].isdecimal()
+                or len(normalized_length) > len(str(MAX_CORRECTION_BYTES))
+                or int(normalized_length) > MAX_CORRECTION_BYTES
                 or self.headers.get("Content-Type", "").split(";", 1)[0].strip() != "application/json"):
             return self._correction_response(413, {"error": "INVALID_CONTENT_LENGTH"})
         try:
-            payload = json.loads(self.rfile.read(int(lengths[0])))
+            payload = json.loads(self.rfile.read(int(normalized_length)))
         except (UnicodeError, ValueError):
             return self._correction_response(400, {"error": "INVALID_JSON"})
         if not isinstance(payload, dict) or set(payload) != {"finding_id", "reason"}:

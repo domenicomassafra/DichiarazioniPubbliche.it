@@ -184,6 +184,18 @@ class LiveCorrectionHttpTests(unittest.TestCase):
         self.assertEqual(self.ledger.requests, {})
         self.assertEqual(self.jobs, [])
 
+    def test_valid_content_length_with_leading_zeros_is_accepted(self):
+        payload = {"finding_id": self.finding_id, "reason": "La frase è inesatta"}
+        length = len(json.dumps(payload).encode())
+        status, _, response = self.request(
+            "POST", "/intake/corrections", payload,
+            self.auth_headers() | {"Content-Length": "0000" + str(length)},
+        )
+        self.assertEqual(status, 202)
+        self.assertEqual(response["state"], "HOLD")
+        self.assertEqual(len(self.ledger.requests), 1)
+        self.assertEqual(len(self.jobs), 1)
+
     def test_purge_failure_keeps_hold_and_refuses_success(self):
         self.purge_ok = False
         status, _, _ = self.request("POST", "/intake/corrections", {"finding_id": self.finding_id, "reason": "Errore"}, self.auth_headers())
