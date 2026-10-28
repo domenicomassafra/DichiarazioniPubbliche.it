@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -27,6 +26,7 @@ from dichiarazioni_pubbliche.source_adapters import (
     SUPPORTED_SOURCE_KINDS,
     SourceAdapterError,
 )
+from dichiarazioni_pubbliche.source_failure_category import classify_source_error as _error_category
 from dichiarazioni_pubbliche.source_watcher import discover_source, load_registry
 from dichiarazioni_pubbliche.source_poll_receipt_store import ReceiptReadStoreMixin, receipts_verified
 from dichiarazioni_pubbliche.source_poll_health_sql import (
@@ -221,28 +221,6 @@ def deterministic_run_id(mode: str, run_date: str, config_hash: str) -> str:
 def deterministic_source_receipt_id(run_id: str, source_id: str) -> str:
     material = f"{run_id}\0{source_id}"
     return "source-poll-source:" + hashlib.sha256(material.encode()).hexdigest()
-
-
-def _error_category(value: object) -> str:
-    if isinstance(value, TimeoutError):
-        return "TIMEOUT"
-    text = str(value or "").upper()
-    relevance = re.search(r"INGESTION_[A-Z0-9_]+", text)
-    if relevance is not None:
-        return relevance.group(0)[:80]
-    if any(marker in text for marker in ("DISCOVERY_URL", "NONPUBLIC_IP", "SSRF", "PRIVATE_IP")):
-        return "SSRF_REJECTED"
-    if any(marker in text for marker in ("PARSE", "XML", "MALFORMED", "FEED")):
-        return "MALFORMED_RESPONSE"
-    if "UNSUPPORTED" in text:
-        return "UNSUPPORTED"
-    if "BUDGET" in text or "COST" in text:
-        return "BUDGET_BLOCKED"
-    name = type(value).__name__ if isinstance(value, BaseException) else ""
-    if "PARSE" in name.upper():
-        return "MALFORMED_RESPONSE"
-    category = re.sub(r"[^A-Z0-9]+", "_", name.upper()).strip("_")
-    return category[:80] or "SOURCE_FAILURE"
 
 
 def _normalized_timestamp(value: str | None) -> str:
