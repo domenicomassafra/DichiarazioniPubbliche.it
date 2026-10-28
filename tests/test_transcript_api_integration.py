@@ -23,6 +23,14 @@ from tests.dp169_caption_fixture_rights import cleared_caption_rights, synthetic
 
 class TranscriptApiAdapterTests(unittest.TestCase):
     def setUp(self):
+        # Keep adapter tests deterministic when the Studio has an optional
+        # free-caption catalog; catalog/provider selection has its own tests.
+        free_catalog = patch(
+            "dichiarazioni_pubbliche.dstack_free_captions.eligible_youtube_provider",
+            return_value=None,
+        )
+        free_catalog.start()
+        self.addCleanup(free_catalog.stop)
         gate = patch.object(TranscriptAsrJobHandlers, "_caption_rights_guard",
                             return_value=cleared_caption_rights())
         gate.start()

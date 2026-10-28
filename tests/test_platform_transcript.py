@@ -29,6 +29,16 @@ from dichiarazioni_pubbliche.worker_errors import BlockedJob  # noqa: E402
 
 
 class PlatformTranscriptTests(unittest.TestCase):
+    def setUp(self):
+        # These cases exercise the native fallback; the host's optional
+        # DStack free-provider catalog must not change the selected route.
+        free_catalog = patch(
+            "dichiarazioni_pubbliche.dstack_free_captions.eligible_youtube_provider",
+            return_value=None,
+        )
+        free_catalog.start()
+        self.addCleanup(free_catalog.stop)
+
     @staticmethod
     def _second_api_fixture(*, generated=False, error=None):
         rows = [{"text": "Italiano", "start": 0.25, "duration": 1.5},
