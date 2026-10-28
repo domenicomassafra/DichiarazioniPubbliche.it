@@ -7,12 +7,16 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
 from unittest.mock import patch
 
-from dichiarazioni_pubbliche.document_pdf_extraction import BornDigitalPDFTextParser
+from dichiarazioni_pubbliche.document_pdf_extraction import (
+    BornDigitalPDFTextParser,
+    _WORKER_PACKAGE_ROOT,
+)
 from dichiarazioni_pubbliche.document_text_extraction import (
     document_passages_from_capture,
 )
@@ -198,7 +202,23 @@ class BornDigitalPdfTests(unittest.TestCase):
         writer.encrypt("test_password")
         buffer = io.BytesIO()
         writer.write(buffer)
-        result = self.parser.parse(fetched(buffer.getvalue(), media="application/pdf"))
+        # Check the real worker's semantic verdict separately from the strict
+        # five-second production deadline: a saturated host can legitimately
+        # fail closed with WORKER_UNAVAILABLE before pypdf finishes importing.
+        worker = subprocess.run(
+            [sys.executable, "-m", "dichiarazioni_pubbliche.document_pdf_extraction", "--extract-worker"],
+            input=buffer.getvalue(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cwd=_WORKER_PACKAGE_ROOT, timeout=30, check=False,
+        )
+        self.assertEqual(worker.returncode, 0, worker.stderr[-300:])
+        self.assertEqual(
+            json.loads(worker.stdout), {"status": "FAILED", "code": "DOCUMENT_PDF_UNSUPPORTED"}
+        )
+        with patch(
+            "dichiarazioni_pubbliche.document_pdf_extraction.subprocess.run",
+            return_value=worker,
+        ):
+            result = self.parser.parse(fetched(buffer.getvalue(), media="application/pdf"))
         self.assertEqual(result.status, "FAILED")
         self.assertEqual(result.error_category, "DOCUMENT_PDF_UNSUPPORTED")
 

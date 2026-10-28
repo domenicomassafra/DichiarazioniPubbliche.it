@@ -89,9 +89,7 @@ class CaptionAtomicPostgresTests(unittest.TestCase):
         self.store.run("INSERT INTO content_item(id, canonical_url) VALUES (:'id', :'url')",
                        id=self.content_id, url=URL)
         now = datetime.now(timezone.utc)
-        self.expires_at = now + (timedelta(seconds=7) if
-                                 self._testMethodName == "test_expired_while_waiting_for_rights_lock"
-                                 else timedelta(days=1))
+        self.expires_at = now + timedelta(days=1)
         self.record = self.registry.record_rights(
             subject=self.subject, policy_version=POLICY, rights_status="CLEARED",
             rights_receipt_ref="fixture:authorized-for-synthetic-only",
@@ -165,6 +163,24 @@ class CaptionAtomicPostgresTests(unittest.TestCase):
         # A SQL transaction may begin while a permit is valid and then wait
         # on FOR UPDATE past expires_at. Transaction-start time is no longer
         # an acceptable timestamp for the eventual raw-text INSERT.
+        # Start the short-lived grant inside the test, after fixture setup.
+        # Whole-suite scheduling can otherwise consume its lifetime before
+        # the test has even acquired the row lock.
+        self.expires_at = datetime.now(timezone.utc) + timedelta(seconds=12)
+        self.record = self.registry.record_rights(
+            subject=self.subject, policy_version=POLICY, rights_status="CLEARED",
+            rights_receipt_ref="fixture:authorized-for-synthetic-only",
+            permitted_uses=("FETCH", "STORE_BODY"),
+            reviewed_at=(datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+            expires_at=self.expires_at.isoformat(),
+            reviewer_ref="fixture:qualified-reviewer",
+            supersedes_record_id=self.record.id,
+        )
+        self.guard = SourceFamilyUseGuard(
+            read_current=self.registry.read_current, subject=self.subject,
+            rights_record_id=self.record.id, policy_version=POLICY,
+        )
+        self.guard.require("STORE_BODY")
         self.assertGreater((self.expires_at - datetime.now(timezone.utc)).total_seconds(), 3)
         locker = subprocess.Popen(
             [self.psql, "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "--dbname", self.dsn],

@@ -1460,16 +1460,14 @@ class CandidateExtractionTests(unittest.TestCase):
             config=load_candidate_extraction_config(),
             cost_rate_usd_per_1k_total_tokens="0",
         )
+        body = io.BytesIO(b"not json")
         error = urllib.error.HTTPError(
-            client.base_url + "/v1/chat/completions",
-            429,
-            "rate limited",
-            hdrs=None,
-            fp=io.BytesIO(b"<html>not json</html>"),
+            client.base_url + "/v1/chat/completions", 429, "rate limited", hdrs=None, fp=body,
         )
         with patch("urllib.request.urlopen", side_effect=error):
             with self.assertRaisesRegex(CandidateExtractionError, "OMNIROUTE_RATE_LIMITED"):
                 client._post("test prompt")
+        self.assertTrue(body.closed)
 
 
 if __name__ == "__main__":

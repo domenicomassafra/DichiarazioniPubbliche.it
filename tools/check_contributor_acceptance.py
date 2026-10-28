@@ -25,21 +25,21 @@ ROOT = Path(__file__).resolve().parents[1]
 
 CHECKS: list[tuple[str, list[str]]] = [
     ("repository contract (tickets/links/json/templates/hygiene/license)",
-     ["python3", "tools/check_repository_contract.py"]),
+     [sys.executable, "tools/check_repository_contract.py"]),
     ("fixture/data licensing inventory (DP-603)",
-     ["python3", "tools/check_licensing_inventory.py", "--check-hashes"]),
+     [sys.executable, "tools/check_licensing_inventory.py", "--check-hashes"]),
     ("licensing inventory freshness (DP-603)",
-     ["python3", "tools/generate_fixture_inventory.py", "--check"]),
+     [sys.executable, "tools/generate_fixture_inventory.py", "--check"]),
     ("version/changelog consistency (DP-604)",
-     ["python3", "tools/check_version_consistency.py", "--allow-no-release"]),
+     [sys.executable, "tools/check_version_consistency.py", "--allow-no-release"]),
     ("local issue/label governance contract (DP-606)",
-     ["python3", "tools/check_issue_workflow.py"]),
+     [sys.executable, "tools/check_issue_workflow.py"]),
     ("draft public HTTP client contract (DP-607)",
-     ["python3", "-m", "unittest", "tests.test_public_http_client", "-v"]),
+     [sys.executable, "-m", "unittest", "tests.test_public_http_client", "-v"]),
     ("M7 no-false-launch preflight (DP-702/DP-705)",
-     ["python3", "tools/check_launch_preflight.py", "--expect-no-go"]),
+     [sys.executable, "tools/check_launch_preflight.py", "--expect-no-go"]),
     ("DP-223 false-attribution/fabricated-quote release gate",
-     ["python3", "-m", "dichiarazioni_pubbliche.false_attribution_benchmark"]),
+     [sys.executable, "-m", "dichiarazioni_pubbliche.false_attribution_benchmark"]),
 ]
 
 
