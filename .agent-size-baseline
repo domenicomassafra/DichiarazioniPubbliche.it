@@ -120,7 +120,7 @@
   "poc/dichiarazioni_pubbliche/research_pilot_readiness.py": 20967,
   "poc/dichiarazioni_pubbliche/review_admin.py": 27627,
   "poc/dichiarazioni_pubbliche/rights_registry.py": 21635,
-  "poc/dichiarazioni_pubbliche/scheduler_daemon.py": 64720,
+  "poc/dichiarazioni_pubbliche/scheduler_daemon.py": 63904,
   "poc/dichiarazioni_pubbliche/source_adapters.py": 31704,
   "poc/dichiarazioni_pubbliche/source_intelligence.py": 52421,
   "poc/dichiarazioni_pubbliche/source_watch_store_v1.py": 25272,
