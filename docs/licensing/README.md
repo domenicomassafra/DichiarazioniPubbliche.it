@@ -38,11 +38,11 @@ the project under Apache-2.0 unless the row says otherwise. A synthetic fixture 
 fictional with respect to any real person, and must never be represented as a real
 public finding.
 
-## Status summary (inventory generated on 2026-10-22)
+## Status summary (inventory generated on 2026-10-28)
 
 | `redistribution_status` | Count | Meaning |
 |---|---|---|
-| `allowed` | 39 | synthetic/derived/reference assets releasable with the code |
+| `allowed` | 42 | synthetic/derived/reference assets releasable with the code |
 | `pending-review` | 3 | owner/legal decision required before distribution |
 | `blocked` | 6 | **not** redistributable; must not ship in a release or public projection |
 | `metadata-only` | 1 | only project-authored metadata is recorded; referenced source content is not cleared for redistribution |
