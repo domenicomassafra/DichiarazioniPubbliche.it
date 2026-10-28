@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { gzipSync } from "node:zlib";
 import { readdir, readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 const root = new URL("../dist/", import.meta.url);
 const jsBudgetBytes = 120 * 1024;
@@ -16,7 +16,7 @@ async function files(dir) {
   return out;
 }
 
-const distPath = root.pathname;
+const distPath = process.env.DP_QUALITY_DIST ? resolve(process.env.DP_QUALITY_DIST) : root.pathname;
 const all = await files(distPath);
 const htmlFiles = all.filter((path) => path.endsWith(".html"));
 const jsFiles = all.filter((path) => path.endsWith(".js"));
@@ -39,7 +39,7 @@ const forbiddenPublicMarkers = [
 ];
 
 const canonicalRoutes = new Set();
-const privateAccountRoutes = new Set(["/accedi/", "/account/"]);
+const privateUtilityRoutes = new Set(["/accedi/", "/account/", "/privacy/", "/segnalazioni/"]);
 const publicCanonicalRoutes = new Set();
 for (const path of htmlFiles) {
   const html = await readFile(path, "utf8");
@@ -59,8 +59,8 @@ for (const path of htmlFiles) {
   assert.equal(ogUrl, canonical, name + ": og:url differs from canonical");
   const canonicalRoute = url.pathname;
   canonicalRoutes.add(canonicalRoute);
-  if (privateAccountRoutes.has(canonicalRoute)) {
-    assert.equal(robots, "noindex,nofollow", `${name}: account sign-in/profile routes must stay noindex`);
+  if (privateUtilityRoutes.has(canonicalRoute)) {
+    assert.equal(robots, "noindex,nofollow", `${name}: account/privacy/intake utility routes must stay noindex`);
   } else {
     publicCanonicalRoutes.add(canonicalRoute);
   }
@@ -105,7 +105,7 @@ const robotsText = await readFile(robotsPath, "utf8");
 const sitemapRoutes = [...sitemap.matchAll(/<loc>https:\/\/dichiarazionipubbliche\.it([^<]*)<\/loc>/g)].map((match) => match[1]);
 for (const route of sitemapRoutes) {
   assert(!route.startsWith("/studio/"), `sitemap leaked private Studio route ${route}`);
-  assert(!privateAccountRoutes.has(route), `sitemap leaked account route ${route}`);
+  assert(!privateUtilityRoutes.has(route), `sitemap leaked private utility route ${route}`);
   for (const legacy of ["/fact-check/", "/record/", "/contents/", "/compare/"]) {
     assert(!route.startsWith(legacy), `sitemap leaked legacy alias ${route}`);
   }
