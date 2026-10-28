@@ -202,17 +202,27 @@ for (const [route, html] of tracePages) {
 }
 
 const runtimePaths = ["/_astro/", "/api/", "/llms.txt", "/openapi", "/search-index.v1.json"];
+const staticAssets = new Set(["/favicon.svg"]);
+const linkedStaticAssets = new Set();
 let internalLinks = 0;
 for (const [route, html] of pages) {
   for (const match of html.matchAll(/href="(\/[^"]*)"/g)) {
     const href = match[1];
     if (href.startsWith("/#") || href === "#") continue;
     const target = href.split("#", 1)[0].split("?", 1)[0];
+    if (staticAssets.has(target)) {
+      linkedStaticAssets.add(target);
+      continue;
+    }
     if (!target || runtimePaths.some((prefix) => target.startsWith(prefix))) continue;
     internalLinks += 1;
     const normalized = target.endsWith("/") || target.includes(".") ? target : `${target}/`;
     assert(pages.has(normalized), `${route}: broken internal link ${href}`);
   }
+}
+for (const asset of linkedStaticAssets) {
+  assert.match(await readFile(join(dist, asset.slice(1)), "utf8"), /<svg\b/,
+    `${asset}: linked favicon must be included in the build`);
 }
 
 assert.equal([...pages.keys()].some((route) => route.startsWith("/studio/")), false, "private Studio route leaked into public build");
