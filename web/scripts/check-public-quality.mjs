@@ -23,8 +23,10 @@ const jsFiles = all.filter((path) => path.endsWith(".js"));
 assert(htmlFiles.length > 0, "static build must contain HTML pages");
 const sitemapPath = join(distPath, "sitemap.xml");
 const robotsPath = join(distPath, "robots.txt");
+const faviconPath = join(distPath, "favicon.svg");
 assert(all.includes(sitemapPath), "static build must contain sitemap.xml");
 assert(all.includes(robotsPath), "static build must contain robots.txt");
+assert(all.includes(faviconPath), "static build must serve the site's favicon");
 
 const forbiddenPublicMarkers = [
   "provider_receipt",
@@ -44,6 +46,8 @@ for (const path of htmlFiles) {
   const name = relative(distPath, path);
   assert.match(html, /<html\s[^>]*lang="it"/i, `${name}: missing lang=it`);
   assert.match(html, /<meta\s+name="description"\s+content="[^"]+"/i, `${name}: missing description`);
+  assert.match(html, /<link\s+rel="icon"\s+type="image\/svg\+xml"\s+href="\/favicon\.svg"/i,
+    `${name}: browser icon must resolve to the published asset`);
   const robots = html.match(/<meta\s+name="robots"\s+content="([^"]+)"/i)?.[1];
   assert(["noindex,nofollow", "index,follow"].includes(robots), `${name}: invalid robots policy ${robots}`);
   const canonical = html.match(/<link\s+rel="canonical"\s+href="([^"]+)"/i)?.[1];

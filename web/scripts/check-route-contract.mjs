@@ -202,13 +202,18 @@ for (const [route, html] of tracePages) {
 }
 
 const runtimePaths = ["/_astro/", "/api/", "/llms.txt", "/openapi", "/search-index.v1.json"];
+const staticAssets = new Set(["/favicon.svg"]);
+for (const asset of staticAssets) {
+  assert.match(await readFile(join(dist, asset.slice(1)), "utf8"), /<svg\b/,
+    `${asset}: linked favicon must be included in the build`);
+}
 let internalLinks = 0;
 for (const [route, html] of pages) {
   for (const match of html.matchAll(/href="(\/[^"]*)"/g)) {
     const href = match[1];
     if (href.startsWith("/#") || href === "#") continue;
     const target = href.split("#", 1)[0].split("?", 1)[0];
-    if (!target || runtimePaths.some((prefix) => target.startsWith(prefix))) continue;
+    if (!target || runtimePaths.some((prefix) => target.startsWith(prefix)) || staticAssets.has(target)) continue;
     internalLinks += 1;
     const normalized = target.endsWith("/") || target.includes(".") ? target : `${target}/`;
     assert(pages.has(normalized), `${route}: broken internal link ${href}`);
