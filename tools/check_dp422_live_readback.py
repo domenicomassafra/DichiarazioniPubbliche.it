@@ -97,7 +97,7 @@ def check_readback(read, fingerprint: str) -> dict:
     assets_checked: set[str] = set()
     for route in CANONICAL_ROUTES:
         html = get(route).decode("utf-8")
-        require(re.search(r'<link rel="canonical" href="' + re.escape(route) + r'"', html) is not None,
+        require(re.search(r'<link rel="canonical" href="' + re.escape("https://dichiarazionipubbliche.it" + route) + r'"', html) is not None,
                 f"DP422_CANONICAL_DRIFT:{route}")
         require('<meta name="robots" content="index,follow">' in html,
                 f"DP422_ROBOTS_META_DRIFT:{route}")
