@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -310,8 +309,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--runs", type=int, default=2)
     args = parser.parse_args(argv)
 
-    if not os.environ.get("DICHIARAZIONI_PUBBLICHE_DATABASE_URL") and not args.database_url:
-        print("PROVIDER OUTAGE DRILL: no database url", file=sys.stderr)
+    if not args.database_url.strip():
+        print("PROVIDER OUTAGE DRILL: nonempty database url required", file=sys.stderr)
         return 2
 
     try:

@@ -49,10 +49,6 @@ export function publicIdSlug(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export function contentSlug(dossier: PublicDossier): string {
-  return publicIdSlug(dossier.source.content_id);
-}
-
 export function relationSlug(relationId: string): string {
   return publicIdSlug(relationId);
 }
